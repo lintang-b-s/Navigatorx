@@ -1,5 +1,18 @@
 package datastructure
 
+import (
+	"bufio"
+	"errors"
+	"fmt"
+	"io"
+	"math"
+	"os"
+	"strconv"
+	"strings"
+
+	"github.com/dsnet/compress/bzip2"
+)
+
 type Index uint32
 
 type Vertex struct {
@@ -68,7 +81,7 @@ func (v *Vertex) GetTurnTablePtr() Index {
 type OutEdge struct {
 	weight     float64 // minute
 	dist       float64 // meter
-	edgeID     Index
+	edgeId     Index
 	head       Index
 	entryPoint uint8
 }
@@ -77,14 +90,14 @@ type OutEdge struct {
 type InEdge struct {
 	weight    float64 // minute
 	dist      float64 // meter
-	edgeID    Index
+	edgeId    Index
 	tail      Index
 	exitPoint uint8
 }
 
-func NewOutEdge(edgeID, head Index, weight, dist float64, entryPoint uint8) OutEdge {
+func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint uint8) OutEdge {
 	return OutEdge{
-		edgeID:     edgeID,
+		edgeId:     edgeId,
 		head:       head,
 		weight:     weight,
 		dist:       dist,
@@ -92,9 +105,9 @@ func NewOutEdge(edgeID, head Index, weight, dist float64, entryPoint uint8) OutE
 	}
 }
 
-func NewInEdge(edgeID, tail Index, weight, dist float64, exitPoint uint8) InEdge {
+func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint uint8) InEdge {
 	return InEdge{
-		edgeID:    edgeID,
+		edgeId:    edgeId,
 		tail:      tail,
 		weight:    weight,
 		dist:      dist,
@@ -288,9 +301,412 @@ func (g *Graph) GetInEdgeCellOffsets() []Index {
 }
 
 func (g *Graph) GetVertices() []Vertex {
-	vertices := make([]Vertex, len(g.vertices))
-	for _, vertex := range g.vertices {
+	vertices := make([]Vertex, 0, g.NumberOfVertices())
+	for _, vertex := range g.vertices[:g.NumberOfVertices()] {
 		vertices = append(vertices, vertex)
 	}
 	return vertices
+}
+
+func (g *Graph) WriteGraph(filename string) error {
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	bz, err := bzip2.NewWriter(f, &bzip2.WriterConfig{})
+	if err != nil {
+		return err
+	}
+	defer bz.Close()
+
+	w := bufio.NewWriter(bz)
+	defer w.Flush()
+
+	fmt.Fprintf(w, "%d %d %d %d\n",
+		g.NumberOfVertices(), g.NumberOfEdges(),
+		g.GetNumberOfCellsNumbers(), g.GetNumberOfOverlayVertexMapping())
+
+	for _, v := range g.GetVertices() {
+		latF := strconv.FormatFloat(v.lat, 'f', -1, 64)
+		lonF := strconv.FormatFloat(v.lon, 'f', -1, 64)
+
+		fmt.Fprintf(w, "%d %d %d %d %s %s\n",
+			v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, latF, lonF)
+	}
+
+	for _, v := range g.outEdges {
+		weightF := strconv.FormatFloat(v.weight, 'f', -1, 64)
+		distF := strconv.FormatFloat(v.dist, 'f', -1, 64)
+
+		fmt.Fprintf(w, "%d %d %s %s %d\n",
+			v.edgeId, v.head, weightF, distF, v.entryPoint)
+	}
+
+	for _, v := range g.inEdges {
+		weightF := strconv.FormatFloat(v.weight, 'f', -1, 64)
+		distF := strconv.FormatFloat(v.dist, 'f', -1, 64)
+
+		fmt.Fprintf(w, "%d %d %s %s %d\n",
+			v.edgeId, v.tail, weightF, distF, v.exitPoint)
+	}
+
+	for _, cellNumber := range g.cellNumbers {
+		fmt.Fprintf(w, "%d\n", cellNumber)
+	}
+
+	for i, turnType := range g.turnTables {
+		fmt.Fprintf(w, "%d", turnType)
+		if i < len(g.turnTables)-1 {
+			fmt.Fprintf(w, " ")
+		}
+	}
+
+	fmt.Fprintf(w, "\n")
+
+	for origVertex, overlayVertex := range g.overlayVertices {
+		fmt.Fprintf(w, "%d %d %t %d\n",
+			origVertex.originalID, origVertex.turnOrder, origVertex.exit, overlayVertex)
+	}
+
+	fmt.Fprintf(w, "%d\n", g.maxEdgesInCell)
+	for i := 0; i < len(g.outEdgeCellOffset); i++ {
+		fmt.Fprintf(w, "%d", g.outEdgeCellOffset[i])
+		if i < len(g.outEdgeCellOffset)-1 {
+			fmt.Fprintf(w, " ")
+		}
+	}
+
+	fmt.Fprintf(w, "\n")
+
+	for i := 0; i < len(g.inEdgeCellOffset); i++ {
+		fmt.Fprintf(w, "%d", g.inEdgeCellOffset[i])
+		if i < len(g.inEdgeCellOffset)-1 {
+			fmt.Fprintf(w, " ")
+		}
+	}
+
+	fmt.Fprintf(w, "\n")
+
+	return w.Flush()
+}
+func fields(s string) []string {
+
+	return strings.Fields(s)
+}
+
+func parseIndex(s string) (Index, error) {
+	u, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0, err
+	}
+	if u > math.MaxUint32 {
+		return 0, fmt.Errorf("value %s overflows uint32", s)
+	}
+	return Index(u), nil
+}
+
+func ReadGraph(filename string) (*Graph, error) {
+	f, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+
+	defer f.Close()
+
+	bz, err := bzip2.NewReader(f, nil)
+
+	if err != nil {
+		return nil, err
+	}
+
+	br := bufio.NewReader(bz)
+
+	readLine := func() (string, error) {
+		line, err := br.ReadString('\n')
+		if err != nil {
+			if errors.Is(err, io.EOF) && len(line) > 0 {
+			} else if err != nil {
+				return "", err
+			}
+		}
+		return strings.TrimRight(line, "\r\n"), nil
+	}
+
+	line, err := readLine()
+	if err != nil {
+		return nil, err
+	}
+
+	tokens := fields(line)
+	if len(tokens) != 4 {
+		return nil, err
+	}
+
+	numVertices, err := parseIndex(tokens[0])
+	if err != nil {
+		return nil, err
+	}
+
+	numEdges, err := parseIndex(tokens[1])
+	if err != nil {
+		return nil, err
+	}
+	numCellNumbers, err := parseIndex(tokens[2])
+	if err != nil {
+		return nil, err
+	}
+	numOverlayMappings, err := parseIndex(tokens[3])
+	if err != nil {
+		return nil, err
+	}
+
+	vertices := make([]Vertex, numVertices+1)
+
+	for i := 0; i < int(numVertices); i++ {
+		vertexLine, err := readLine()
+		if err != nil {
+			return nil, err
+		}
+		vertices[i], err = parseVertex(vertexLine)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	outEdges := make([]OutEdge, numEdges)
+	for i := 0; i < int(numEdges); i++ {
+		outEdgeLine, err := readLine()
+		if err != nil {
+			return nil, err
+		}
+		outEdges[i], err = parseOutEdge(outEdgeLine)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	inEdges := make([]InEdge, numEdges)
+	for i := 0; i < int(numEdges); i++ {
+		inEdgeLine, err := readLine()
+		if err != nil {
+			return nil, err
+		}
+		inEdges[i], err = parseInEdge(inEdgeLine)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	cellNumbers := make([]pv, numCellNumbers)
+	for i := 0; i < int(numCellNumbers); i++ {
+		cnLine, err := readLine()
+		if err != nil {
+			return nil, err
+		}
+		cellNumber, err := strconv.ParseUint(cnLine, 10, 64)
+		if err != nil {
+			return nil, err
+		}
+		cellNumbers[i] = pv(cellNumber)
+	}
+
+	turnTables := make([]TurnType, 0)
+	line, err = readLine()
+	if err != nil {
+		return nil, err
+	}
+	tokens = fields(line)
+	for _, token := range tokens {
+		tt, err := strconv.ParseUint(token, 10, 8)
+		if err != nil {
+			return nil, err
+		}
+		turnTables = append(turnTables, TurnType(tt))
+	}
+
+	overlayVertices := make(map[SubVertex]Index)
+	for i := 0; i < int(numOverlayMappings); i++ {
+		overlayLine, err := readLine()
+		if err != nil {
+			return nil, err
+		}
+		tokens = fields(overlayLine)
+		if len(tokens) != 4 {
+			return nil, fmt.Errorf("expected 4 fields, got %d", len(tokens))
+		}
+		origID, err := parseIndex(tokens[0])
+		if err != nil {
+			return nil, err
+		}
+		turnOrder, err := strconv.ParseUint(tokens[1], 10, 8)
+		if err != nil {
+			return nil, err
+		}
+		exit, err := strconv.ParseBool(tokens[2])
+		if err != nil {
+			return nil, err
+		}
+		overlayId, err := parseIndex(tokens[3])
+		if err != nil {
+			return nil, err
+		}
+		subV := SubVertex{
+			originalID: origID,
+			turnOrder:  uint8(turnOrder),
+			exit:       exit,
+		}
+		overlayVertices[subV] = overlayId
+	}
+
+	line, err = readLine()
+	if err != nil {
+		return nil, err
+	}
+	maxEdgesInCell, err := parseIndex(strings.TrimSpace(line))
+	if err != nil {
+		return nil, err
+	}
+
+	line, err = readLine()
+	if err != nil {
+		return nil, err
+	}
+	tokens = fields(line)
+	if len(tokens) != int(numCellNumbers) {
+		return nil, fmt.Errorf("expected %d out edge cell offsets, got %d", numCellNumbers, len(tokens))
+	}
+	outEdgeCellOffset := make([]Index, numCellNumbers)
+	for i, token := range tokens {
+		offset, err := parseIndex(token)
+		if err != nil {
+			return nil, err
+		}
+		outEdgeCellOffset[i] = offset
+	}
+
+	line, err = readLine()
+	if err != nil {
+		return nil, err
+	}
+	tokens = fields(line)
+	if len(tokens) != int(numCellNumbers) {
+		return nil, fmt.Errorf("expected %d in edge cell offsets, got %d", numCellNumbers, len(tokens))
+	}
+	inEdgeCellOffset := make([]Index, numCellNumbers)
+	for i, token := range tokens {
+		offset, err := parseIndex(token)
+		if err != nil {
+			return nil, err
+		}
+		inEdgeCellOffset[i] = offset
+	}
+
+	graph := NewGraph(vertices, outEdges, inEdges, turnTables)
+	graph.SetCellNumbers(cellNumbers)
+	graph.SetOverlayMapping(overlayVertices)
+	graph.maxEdgesInCell = maxEdgesInCell
+	graph.outEdgeCellOffset = outEdgeCellOffset
+	graph.inEdgeCellOffset = inEdgeCellOffset
+	return graph, nil
+}
+
+func parseVertex(line string) (Vertex, error) {
+	emptyVertex := Vertex{}
+	tokens := fields(line)
+	if len(tokens) != 6 {
+		return emptyVertex, fmt.Errorf("expected 6 fields, got %d", len(tokens))
+	}
+	pvPtr, err := parseIndex(tokens[0])
+	if err != nil {
+		return emptyVertex, err
+	}
+	ttPtr, err := parseIndex(tokens[1])
+	if err != nil {
+		return emptyVertex, err
+	}
+	firstOut, err := parseIndex(tokens[2])
+	if err != nil {
+		return emptyVertex, err
+	}
+	firstIn, err := parseIndex(tokens[3])
+	if err != nil {
+		return emptyVertex, err
+	}
+	lat, err := strconv.ParseFloat(tokens[4], 64)
+	if err != nil {
+		return emptyVertex, fmt.Errorf("lat: %w", err)
+	}
+	lon, err := strconv.ParseFloat(tokens[5], 64)
+	if err != nil {
+		return emptyVertex, fmt.Errorf("lon: %w", err)
+	}
+	return Vertex{
+		pvPtr: pvPtr, turnTablePtr: ttPtr,
+		firstOut: firstOut, firstIn: firstIn,
+		lat: lat, lon: lon,
+	}, nil
+}
+
+func parseOutEdge(line string) (OutEdge, error) {
+	emptyEdge := OutEdge{}
+	tokens := fields(line)
+	if len(tokens) != 5 {
+		return emptyEdge, fmt.Errorf("expected 5 fields, got %d", len(tokens))
+	}
+	edgeId, err := parseIndex(tokens[0])
+	if err != nil {
+		return emptyEdge, err
+	}
+	head, err := parseIndex(tokens[1])
+	if err != nil {
+		return emptyEdge, err
+	}
+	weight, err := strconv.ParseFloat(tokens[2], 64)
+	if err != nil {
+		return emptyEdge, err
+	}
+	dist, err := strconv.ParseFloat(tokens[3], 64)
+	if err != nil {
+		return emptyEdge, err
+	}
+
+	entryPoint, err := strconv.ParseUint(tokens[4], 10, 8)
+	if err != nil {
+		return emptyEdge, err
+	}
+
+	return NewOutEdge(edgeId, head, weight, dist, uint8(entryPoint)), nil
+}
+
+func parseInEdge(line string) (InEdge, error) {
+	emptyEdge := InEdge{}
+	tokens := fields(line)
+	if len(tokens) != 5 {
+		return emptyEdge, fmt.Errorf("expected 5 fields, got %d", len(tokens))
+	}
+	edgeId, err := parseIndex(tokens[0])
+	if err != nil {
+		return emptyEdge, err
+	}
+	tail, err := parseIndex(tokens[1])
+	if err != nil {
+		return emptyEdge, err
+	}
+	weight, err := strconv.ParseFloat(tokens[2], 64)
+	if err != nil {
+		return emptyEdge, err
+	}
+	dist, err := strconv.ParseFloat(tokens[3], 64)
+	if err != nil {
+		return emptyEdge, err
+	}
+
+	exitPoint, err := strconv.ParseUint(tokens[4], 10, 8)
+	if err != nil {
+		return emptyEdge, err
+	}
+
+	return NewInEdge(edgeId, tail, weight, dist, uint8(exitPoint)), nil
 }

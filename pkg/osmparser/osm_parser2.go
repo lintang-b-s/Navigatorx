@@ -46,6 +46,7 @@ type OsmParser struct {
 	nodeTag           map[int64]map[int]int
 	tagStringIdMap    util.IDMap
 	nodeIDMap         map[int64]uint32
+	nodeToOsmId       map[uint32]int64
 	maxNodeID         int64
 	restrictions      map[int64][]restriction // wayId -> list of restrictions
 	ways              map[int64]osmWay
@@ -69,6 +70,7 @@ func NewOSMParserV2() *OsmParser {
 		nodeTag:           make(map[int64]map[int]int),
 		tagStringIdMap:    util.NewIdMap(),
 		nodeIDMap:         make(map[int64]uint32),
+		nodeToOsmId:       make(map[uint32]int64),
 	}
 }
 func (o *OsmParser) GetTagStringIdMap() util.IDMap {
@@ -400,10 +402,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 			u, e.weight, e.distance, uint8(len(outEdges[u])-1)))
 		inDegree[v]++
 
-		uData := p.acceptedNodeMap[int64(u)]
+		uData := p.acceptedNodeMap[p.nodeToOsmId[uint32(u)]]
 		vertices[u] = datastructure.NewVertex(uData.lat, uData.lon, u)
 
-		vData := p.acceptedNodeMap[int64(v)]
+		vData := p.acceptedNodeMap[p.nodeToOsmId[uint32(v)]]
 		vertices[v] = datastructure.NewVertex(vData.lat, vData.lon, v)
 
 		if e.bidirectional {
@@ -992,9 +994,11 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 	if _, ok := p.nodeIDMap[from.id]; !ok {
 		p.nodeIDMap[from.id] = uint32(len(p.nodeIDMap))
+		p.nodeToOsmId[p.nodeIDMap[from.id]] = from.id
 	}
 	if _, ok := p.nodeIDMap[to.id]; !ok {
 		p.nodeIDMap[to.id] = uint32(len(p.nodeIDMap))
+		p.nodeToOsmId[p.nodeIDMap[to.id]] = to.id
 	}
 
 	edgePoints := []datastructure.Coordinate{}
