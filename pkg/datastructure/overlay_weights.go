@@ -37,6 +37,25 @@ func newCustomizerCell(cell Cell, cellNumber Pv) customizerCell {
 	return customizerCell{cell: cell, cellNumber: cellNumber}
 }
 
+/*
+Build. Customizable Route Planning in Road Networks, Daniel Delling, et al. Page 11:
+
+The customization phase has access to the actual cost function that must be optimized during queries.
+Because we have the metric-independent data structures in place, all we need to do is compute the entries
+of the above-mentioned array W , which represents the costs of all shortcuts between entry and exit vertices
+within cells.
+We compute these distances in a bottom-up fashion, one cell at a time. Consider a cell C in H1 (the
+first overlay level). For each entry (overlay) vertex v in C, we run Dijkstra’s algorithm in G (restricted to
+C) until the priority queue is empty. This computes the distances to all reachable exit vertices of C. Since
+we work on the underlying graph, we must use the turn-aware implementation of Dijkstra, as explained in
+Section 4.1.
+A cell C at a higher level Hi (for i > 1) can be processed similarly, with one major difference. Instead of
+working on the original graph, we can work on the subgraph of Hi−1 (the overlay level immediately below)
+corresponding to subcells of C. This subgraph is much smaller than the corresponding subgraph of G. In
+addition, since overlay graphs have no (explicit) turns, we can just apply the standard version of Dijkstra’s
+algorithm, which tends to be faster.
+
+*/
 func (ow *OverlayWeights) Build(graph *Graph, overlayGraph *OverlayGraph,
 	costFunction costfunction.CostFunction) {
 	ow.buildLowestLevel(graph, overlayGraph, costFunction)

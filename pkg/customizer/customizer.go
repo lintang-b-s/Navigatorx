@@ -38,10 +38,11 @@ func (c *Customizer) Customize() error {
 	}
 
 	costFunction := costfunction.NewTimeCostFunction()
+	log.Printf("Building cliques for each cell for each overlay graph level...")
 	overlayWeight := datastructure.NewOverlayWeights(overlayGraph.GetWeightVectorSize())
-
-	log.Printf("Building overlay weights and stalling tables...")
 	overlayWeight.Build(graph, overlayGraph, costFunction)
+
+	log.Printf("Building stalling tables...")
 	metrics := metrics.NewMetric(graph, costFunction, overlayWeight)
 	metrics.BuildStallingTables(overlayGraph, graph)
 	err = metrics.WriteToFile(c.metricOutputFilePath)
