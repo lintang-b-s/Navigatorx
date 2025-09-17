@@ -1,6 +1,10 @@
 package preprocesser
 
-import "github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
+import (
+	"log"
+
+	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
+)
 
 type Preprocessor struct {
 	graph *datastructure.Graph
@@ -15,12 +19,15 @@ func NewPreprocessor(graph *datastructure.Graph, mlp *datastructure.MultilevelPa
 }
 
 func (p *Preprocessor) PreProcessing() error {
+	log.Printf("Starting preprocessing step of Customizable Route Planning...")
+
+	log.Printf("Building Overlay Graph of each levels...")
 	p.BuildCellNumber()
 	p.graph.SortVerticesByCellNumber()
 	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
 	err := overlayGraph.WriteToFile("./data/overlay_graph.graph")
 	if err != nil {
-		return err 
+		return err
 	}
 	return p.graph.WriteGraph("./data/solo_jogja.graph")
 }

@@ -8,7 +8,7 @@ edge extra info related section
 ----
 */
 type GraphStorage struct {
-	GlobalPoints []Coordinate
+	globalPoints []Coordinate
 
 	/*
 		32 bit -> 32 boolean flag for roundabout & trafficlight
@@ -16,43 +16,43 @@ type GraphStorage struct {
 		idx in flag array = floor(edgeID/32)
 		idx in flag = edgeID % 32
 	*/
-	RoundaboutFlag   []uint32
-	NodeTrafficLight []uint32
+	roundaboutFlag   []uint32
+	nodeTrafficLight []uint32
 
-	MapEdgeInfo []EdgeExtraInfo
+	mapEdgeInfo []EdgeExtraInfo
 
-	ReversedEdgeFlag map[uint32]map[uint32]bool // fromNodeID -> toNodeID -> isReversed
+	reversedEdgeFlag map[uint32]map[uint32]bool // fromNodeID -> toNodeID -> isReversed
 }
 
 func NewGraphStorage() *GraphStorage {
 	return &GraphStorage{
-		ReversedEdgeFlag: make(map[uint32]map[uint32]bool),
+		reversedEdgeFlag: make(map[uint32]map[uint32]bool),
 	}
 }
 func (gs *GraphStorage) SetRoundabout(edgeID uint32, isRoundabout bool) {
 	index := int(math.Floor(float64(edgeID) / 32))
-	if len(gs.RoundaboutFlag) <= int(index) {
-		gs.RoundaboutFlag = append(gs.RoundaboutFlag, make([]uint32, edgeID-uint32(len(gs.RoundaboutFlag))+1)...)
+	if len(gs.roundaboutFlag) <= int(index) {
+		gs.roundaboutFlag = append(gs.roundaboutFlag, make([]uint32, edgeID-uint32(len(gs.roundaboutFlag))+1)...)
 	}
 	if isRoundabout {
-		gs.RoundaboutFlag[index] |= 1 << (edgeID % 32)
+		gs.roundaboutFlag[index] |= 1 << (edgeID % 32)
 	}
 }
 
 func (gs *GraphStorage) SetTrafficLight(nodeID uint32) {
 	index := int(math.Floor(float64(nodeID) / 32))
 
-	if len(gs.NodeTrafficLight) <= int(index) {
-		gs.NodeTrafficLight = append(gs.NodeTrafficLight, make([]uint32, nodeID-uint32(len(gs.NodeTrafficLight))+1)...)
+	if len(gs.nodeTrafficLight) <= int(index) {
+		gs.nodeTrafficLight = append(gs.nodeTrafficLight, make([]uint32, nodeID-uint32(len(gs.nodeTrafficLight))+1)...)
 	}
 
-	gs.NodeTrafficLight[index] |= 1 << (nodeID % 32)
+	gs.nodeTrafficLight[index] |= 1 << (nodeID % 32)
 }
 
 func (gs *GraphStorage) GetTrafficLight(nodeID uint32) bool {
 	index := int(math.Floor(float64(nodeID) / 32))
 
-	return (gs.NodeTrafficLight[index] & (1 << (nodeID % 32))) != 0
+	return (gs.nodeTrafficLight[index] & (1 << (nodeID % 32))) != 0
 }
 
 type EdgeExtraInfo struct {
@@ -76,20 +76,20 @@ func NewEdgeExtraInfo(streetName int, roadClass, lanes, roadClassLink uint8, Sta
 }
 
 func (gs *GraphStorage) GetPointsInbetween(edgeID uint32) []Coordinate {
-	edge := gs.MapEdgeInfo[edgeID]
+	edge := gs.mapEdgeInfo[edgeID]
 	var (
 		edgePoints []Coordinate
 	)
 	startIndex := edge.StartPointsIndex
 	endIndex := edge.EndPointsIndex
 	if startIndex <= endIndex {
-		edgePoints = gs.GlobalPoints[startIndex:endIndex]
+		edgePoints = gs.globalPoints[startIndex:endIndex]
 
 		return edgePoints
 	}
 
 	for i := startIndex - 1; i >= endIndex; i-- {
-		edgePoints = append(edgePoints, gs.GlobalPoints[i])
+		edgePoints = append(edgePoints, gs.globalPoints[i])
 	}
 
 	return edgePoints
@@ -99,40 +99,44 @@ func (gs *GraphStorage) GetPointsInbetween(edgeID uint32) []Coordinate {
 func (gs *GraphStorage) GetEdgeExtraInfo(edgeID uint32, reverse bool) (EdgeExtraInfo, bool) {
 
 	index := int(math.Floor(float64(edgeID) / 32))
-	roundabout := (gs.RoundaboutFlag[index] & (1 << (edgeID % 32))) != 0
-	return gs.MapEdgeInfo[edgeID], roundabout
+	roundabout := (gs.roundaboutFlag[index] & (1 << (edgeID % 32))) != 0
+	return gs.mapEdgeInfo[edgeID], roundabout
 
 }
 
 func (gs *GraphStorage) UpdateEdgePoints(edgeID uint32, startIdx, endIdx uint32) {
-	edge := gs.MapEdgeInfo[edgeID]
+	edge := gs.mapEdgeInfo[edgeID]
 	edge.StartPointsIndex = startIdx
 	edge.EndPointsIndex = endIdx
-	gs.MapEdgeInfo[edgeID] = edge
+	gs.mapEdgeInfo[edgeID] = edge
 }
 
 func (gs *GraphStorage) AppendGlobalPoints(edgePoints []Coordinate) {
-	gs.GlobalPoints = append(gs.GlobalPoints, edgePoints...)
+	gs.globalPoints = append(gs.globalPoints, edgePoints...)
 }
 
 func (gs *GraphStorage) AppendMapEdgeInfo(edgeInfo EdgeExtraInfo) {
-	gs.MapEdgeInfo = append(gs.MapEdgeInfo, edgeInfo)
+	gs.mapEdgeInfo = append(gs.mapEdgeInfo, edgeInfo)
 }
 
 func (gs *GraphStorage) SetFlagReversedEdge(fromID, toID uint32) {
-	if _, ok := gs.ReversedEdgeFlag[fromID]; !ok {
-		gs.ReversedEdgeFlag[fromID] = make(map[uint32]bool)
+	if _, ok := gs.reversedEdgeFlag[fromID]; !ok {
+		gs.reversedEdgeFlag[fromID] = make(map[uint32]bool)
 	}
-	gs.ReversedEdgeFlag[fromID][toID] = true
+	gs.reversedEdgeFlag[fromID][toID] = true
+}
+
+func (gs *GraphStorage) GetGlobalPointsCount() int {
+	return len(gs.globalPoints)
 }
 
 func (gs *GraphStorage) IsReversedEdge(fromID, toID uint32) bool {
-	if _, ok := gs.ReversedEdgeFlag[fromID]; !ok {
+	if _, ok := gs.reversedEdgeFlag[fromID]; !ok {
 		return false
 	}
-	if _, ok := gs.ReversedEdgeFlag[fromID][toID]; !ok {
+	if _, ok := gs.reversedEdgeFlag[fromID][toID]; !ok {
 		return false
 	}
 
-	return gs.ReversedEdgeFlag[fromID][toID]
+	return gs.reversedEdgeFlag[fromID][toID]
 }

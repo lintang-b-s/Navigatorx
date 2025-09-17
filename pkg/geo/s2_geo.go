@@ -12,16 +12,16 @@ func ProjectPointToLineCoord(nearestStPoint datastructure.Coordinate, secondNear
 	snap datastructure.Coordinate) datastructure.Coordinate {
 	nearestStPoint = MakeSixDigitsAfterComa2(nearestStPoint, 6)
 	secondNearestStPoint = MakeSixDigitsAfterComa2(secondNearestStPoint, 6)
-	snapLat := snap.Lat
-	snapLon := snap.Lon
+	snapLat := snap.Lat()
+	snapLon := snap.Lon()
 	MakeSixDigitsAfterComaLatLon(&snapLat, &snapLon, 6)
 
-	nearestStS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(nearestStPoint.Lat, nearestStPoint.Lon))
-	secondNearestStS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(secondNearestStPoint.Lat, secondNearestStPoint.Lon))
+	nearestStS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(nearestStPoint.Lat(), nearestStPoint.Lon()))
+	secondNearestStS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(secondNearestStPoint.Lat(), secondNearestStPoint.Lon()))
 	snapS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(snapLat, snapLon))
 	projection := s2.Project(snapS2, nearestStS2, secondNearestStS2)
 	projectLatLng := s2.LatLngFromPoint(projection)
-	return datastructure.Coordinate{projectLatLng.Lat.Degrees(), projectLatLng.Lng.Degrees()}
+	return datastructure.NewCoordinate(projectLatLng.Lat.Degrees(), projectLatLng.Lng.Degrees())
 }
 
 // return in meter
@@ -29,7 +29,7 @@ func PointLinePerpendicularDistance(nearestStPoint datastructure.Coordinate, sec
 	snap datastructure.Coordinate) float64 {
 	projectionPoint := ProjectPointToLineCoord(nearestStPoint, secondNearestStPoint, snap)
 
-	dist := CalculateHaversineDistance(snap.Lat, snap.Lon, projectionPoint.Lat, projectionPoint.Lon)
+	dist := CalculateHaversineDistance(snap.Lat(), snap.Lon(), projectionPoint.Lat(), projectionPoint.Lon())
 
 	return dist * 1000
 }
@@ -46,10 +46,10 @@ func PointPositionBetweenLinePoints(lat, lon float64, linePoints []datastructure
 	var pos int
 	for i := 0; i < len(linePoints)-1; i++ {
 
-		currQueryDist := s2.LatLngFromDegrees(lat, lon).Distance(s2.LatLngFromDegrees(linePoints[i].Lat, linePoints[i].Lon)).Radians()
-		nextQueryDist := s2.LatLngFromDegrees(lat, lon).Distance(s2.LatLngFromDegrees(linePoints[i+1].Lat, linePoints[i+1].Lon)).Radians()
+		currQueryDist := s2.LatLngFromDegrees(lat, lon).Distance(s2.LatLngFromDegrees(linePoints[i].Lat(), linePoints[i].Lon())).Radians()
+		nextQueryDist := s2.LatLngFromDegrees(lat, lon).Distance(s2.LatLngFromDegrees(linePoints[i+1].Lat(), linePoints[i+1].Lon())).Radians()
 
-		currNextDist := s2.LatLngFromDegrees(linePoints[i].Lat, linePoints[i].Lon).Distance(s2.LatLngFromDegrees(linePoints[i+1].Lat, linePoints[i+1].Lon)).Radians()
+		currNextDist := s2.LatLngFromDegrees(linePoints[i].Lat(), linePoints[i].Lon()).Distance(s2.LatLngFromDegrees(linePoints[i+1].Lat(), linePoints[i+1].Lon())).Radians()
 
 		diff := math.Abs(currQueryDist + nextQueryDist - currNextDist)
 		if diff < tolerancePointInLine && diff < minDiff {
@@ -62,13 +62,15 @@ func PointPositionBetweenLinePoints(lat, lon float64, linePoints []datastructure
 
 func MakeSixDigitsAfterComa2(n datastructure.Coordinate, precision int) datastructure.Coordinate {
 
-	if util.CountDecimalPlacesF64(n.Lat) != precision {
-		n.Lat = util.RoundFloat(n.Lat+0.000001, 6)
+	lat := n.Lat()
+	lon := n.Lon()
+	if util.CountDecimalPlacesF64(n.Lat()) != precision {
+		lat = util.RoundFloat(n.Lat()+0.000001, 6)
 	}
-	if util.CountDecimalPlacesF64(n.Lon) != precision {
-		n.Lon = util.RoundFloat(n.Lon+0.000001, 6)
+	if util.CountDecimalPlacesF64(n.Lon()) != precision {
+		lon = util.RoundFloat(n.Lon()+0.000001, 6)
 	}
-	return n
+	return datastructure.NewCoordinate(lat, lon)
 }
 func MakeSixDigitsAfterComaLatLon(lat, lon *float64, precision int) {
 

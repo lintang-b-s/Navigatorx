@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/lintang-b-s/navigatorx-crp/pkg"
 	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
 	"github.com/lintang-b-s/navigatorx-crp/pkg/geo"
 	"github.com/lintang-b-s/navigatorx-crp/pkg/util"
@@ -418,15 +419,15 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		}
 	}
 
-	turnMatrices := make([][]datastructure.TurnType, len(vertices)-1)
+	turnMatrices := make([][]pkg.TurnType, len(vertices)-1)
 	// T_u[i*outDegree[u]+j] = turn type from inEdge i to outEdge j at vertex u
 
 	// init turn matrices
 	for i := 0; i < len(turnMatrices); i++ {
-		turnMatrices[i] = make([]datastructure.TurnType, outDegree[i]*inDegree[i])
+		turnMatrices[i] = make([]pkg.TurnType, outDegree[i]*inDegree[i])
 
 		for j := 0; j < len(turnMatrices[i]); j++ {
-			turnMatrices[i][j] = datastructure.NONE
+			turnMatrices[i][j] = pkg.NONE
 		}
 	}
 
@@ -456,7 +457,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 				if entryId == -1 || exitId == -1 {
 					continue
 				}
-				turnMatrices[via][entryId*int(outDegree[via])+exitId] = datastructure.U_TURN
+				turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
 			}
 
 			// to
@@ -483,7 +484,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 				if entryId == -1 || exitId == -1 {
 					continue
 				}
-				turnMatrices[via][entryId*int(outDegree[via])+exitId] = datastructure.U_TURN
+				turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
 			}
 		}
 
@@ -562,7 +563,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 
 							if restriction.turnRestriction == ONLY_LEFT_TURN || restriction.turnRestriction == ONLY_RIGHT_TURN ||
 								restriction.turnRestriction == ONLY_STRAIGHT_ON {
-								turnMatrices[via][rowOffset+datastructure.Index(k)] = datastructure.NO_ENTRY
+								turnMatrices[via][rowOffset+datastructure.Index(k)] = pkg.NO_ENTRY
 							}
 						}
 
@@ -576,31 +577,31 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 
 						switch restriction.turnRestriction {
 						case NO_LEFT_TURN:
-							turnMatrices[via][rowOffset+exitID] = datastructure.NO_ENTRY
+							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
 							break
 						case NO_RIGHT_TURN:
-							turnMatrices[via][rowOffset+exitID] = datastructure.NO_ENTRY
+							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
 							break
 						case NO_STRAIGHT_ON:
-							turnMatrices[via][rowOffset+exitID] = datastructure.NO_ENTRY
+							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
 							break
 						case NO_U_TURN:
-							turnMatrices[via][rowOffset+exitID] = datastructure.NO_ENTRY
+							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
 							break
 						case NO_ENTRY:
-							turnMatrices[via][rowOffset+exitID] = datastructure.NO_ENTRY
+							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
 							break
 						case ONLY_LEFT_TURN:
-							turnMatrices[via][rowOffset+exitID] = datastructure.LEFT_TURN
+							turnMatrices[via][rowOffset+exitID] = pkg.LEFT_TURN
 							break
 						case ONLY_RIGHT_TURN:
-							turnMatrices[via][rowOffset+exitID] = datastructure.RIGHT_TURN
+							turnMatrices[via][rowOffset+exitID] = pkg.RIGHT_TURN
 							break
 						case ONLY_STRAIGHT_ON:
-							turnMatrices[via][rowOffset+exitID] = datastructure.STRAIGHT_ON
+							turnMatrices[via][rowOffset+exitID] = pkg.STRAIGHT_ON
 							break
 						default:
-							turnMatrices[via][rowOffset+exitID] = datastructure.NONE
+							turnMatrices[via][rowOffset+exitID] = pkg.NONE
 							break
 						}
 
@@ -611,7 +612,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		}
 	}
 
-	matrices := make([]datastructure.TurnType, 0)
+	matrices := make([]pkg.TurnType, 0)
 	matrixOffset := 0
 
 	for v := 0; v < len(vertices)-1; v++ {
@@ -656,7 +657,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 			return i < j
 		})
 
-		sortedMatrix := make([]datastructure.TurnType, inDegree[v]*outDegree[v])
+		sortedMatrix := make([]pkg.TurnType, inDegree[v]*outDegree[v])
 		sortedInEdge := make([]datastructure.InEdge, len(inEdges[v]))
 		// sort by sortOrder for each row
 		for i := uint8(0); i < inDegree[v]; i++ {
@@ -695,7 +696,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 				// loop over rows of column-j
 				offset := i*outDegree[v] + j
 				t := turnMatrices[v][offset]
-				if t != datastructure.NONE {
+				if t != pkg.NONE {
 					// score of this column-j is = number of non-NONE turn types
 					columnScore[j] |= 1 << i
 				}
@@ -727,7 +728,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		})
 
 		sortedOutEdges := make([]datastructure.OutEdge, len(outEdges[v]))
-		finalMatrix := make([]datastructure.TurnType, inDegree[v]*outDegree[v])
+		finalMatrix := make([]pkg.TurnType, inDegree[v]*outDegree[v])
 		for j := uint8(0); j < outDegree[v]; j++ {
 			// for each column of 1-D indexed turnMatrices
 			for i := uint8(0); i < inDegree[v]; i++ {
@@ -750,7 +751,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 
 		turnMatrices[v] = finalMatrix
 		outEdges[v] = sortedOutEdges
-
 
 		// set the turnTablePtr of vertex v to the current matrixOffset
 		// matrix offset is index of the first element of turnMatrices[v] in the flattened matrices array
@@ -1043,10 +1043,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				p.nodeTag[int64(segment[len(segment)-1].id)][p.tagStringIdMap.GetID(TRAFFIC_LIGHT)] = 1
 			}
 		}
-		edgePoints = append(edgePoints, datastructure.Coordinate{
-			Lat: segment[i].coord.lat,
-			Lon: segment[i].coord.lon,
-		})
+		edgePoints = append(edgePoints, datastructure.NewCoordinate(
+			segment[i].coord.lat,
+			segment[i].coord.lon,
+		))
 		if i > 0 {
 			distance += geo.CalculateHaversineDistance(segment[i-1].coord.lat, segment[i-1].coord.lon, segment[i].coord.lat, segment[i].coord.lon)
 		}
@@ -1088,10 +1088,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 			edgeSet[p.nodeIDMap[from.id]][p.nodeIDMap[to.id]] = struct{}{}
 
-			startPointsIndex := len(graphStorage.GlobalPoints)
+			startPointsIndex := graphStorage.GetGlobalPointsCount()
 
 			graphStorage.AppendGlobalPoints(edgePoints)
-			endPointsIndex := len(graphStorage.GlobalPoints)
+			endPointsIndex := graphStorage.GetGlobalPointsCount()
 
 			graphStorage.AppendMapEdgeInfo(datastructure.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
@@ -1123,10 +1123,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 			edgePoints = util.ReverseG(edgePoints)
 
-			startPointsIndex := len(graphStorage.GlobalPoints)
+			startPointsIndex := graphStorage.GetGlobalPointsCount()
 
 			graphStorage.AppendGlobalPoints(edgePoints)
-			endPointsIndex := len(graphStorage.GlobalPoints)
+			endPointsIndex := graphStorage.GetGlobalPointsCount()
 
 			graphStorage.AppendMapEdgeInfo(datastructure.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
@@ -1155,10 +1155,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		edgeSet[p.nodeIDMap[from.id]][p.nodeIDMap[to.id]] = struct{}{}
 		edgeSet[p.nodeIDMap[to.id]][p.nodeIDMap[from.id]] = struct{}{}
 
-		startPointsIndex := len(graphStorage.GlobalPoints)
+		startPointsIndex := graphStorage.GetGlobalPointsCount()
 
 		graphStorage.AppendGlobalPoints(edgePoints)
-		endPointsIndex := len(graphStorage.GlobalPoints)
+		endPointsIndex := graphStorage.GetGlobalPointsCount()
 
 		graphStorage.AppendMapEdgeInfo(datastructure.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),

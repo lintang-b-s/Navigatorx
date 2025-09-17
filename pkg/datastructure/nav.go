@@ -1,16 +1,24 @@
 package datastructure
 
 type Coordinate struct {
-	Lat float64 `json:"lat"`
-	Lon float64 `json:"lon"`
+	lat float64 `json:"lat"`
+	lon float64 `json:"lon"`
+}
+
+func (c Coordinate) Lat() float64 {
+	return c.lat
+}
+
+func (c Coordinate) Lon() float64 {
+	return c.lon
 }
 
 // 16 byte (128bit)
 
 func NewCoordinate(lat, lon float64) Coordinate {
 	return Coordinate{
-		Lat: lat,
-		Lon: lon,
+		lat: lat,
+		lon: lon,
 	}
 }
 

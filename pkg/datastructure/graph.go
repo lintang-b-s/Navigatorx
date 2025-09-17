@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/dsnet/compress/bzip2"
+	"github.com/lintang-b-s/navigatorx-crp/pkg"
 )
 
 type Index uint32
@@ -116,24 +117,48 @@ func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint uint8) InEdge
 	}
 }
 
+func (e *OutEdge) GetWeight() float64 {
+	return e.weight
+}
+
 func (e *OutEdge) GetEdgeSpeed() float64 {
 	return e.dist / e.weight
+}
+
+func (e *OutEdge) GetLength() float64 {
+	return e.dist
 }
 
 func (e *OutEdge) GetHead() Index {
 	return e.head
 }
 
+func (e *OutEdge) GetEntryPoint() uint8 {
+	return e.entryPoint
+}
+
 func (e *OutEdge) SetEntryPoint(p uint8) {
 	e.entryPoint = p
+}
+
+func (e *InEdge) GetWeight() float64 {
+	return e.weight
 }
 
 func (e *InEdge) GetEdgeSpeed() float64 {
 	return e.dist / e.weight
 }
 
+func (e *InEdge) GetLength() float64 {
+	return e.dist
+}
+
 func (e *InEdge) GetTail() Index {
 	return e.tail
+}
+
+func (e *InEdge) GetExitPoint() uint8 {
+	return e.exitPoint
 }
 
 func (e *InEdge) SetExitPoint(p uint8) {
@@ -151,25 +176,13 @@ type VertexIDPair struct {
 	id               Index
 }
 
-// enum of turn_type
-type TurnType uint8
-
-const (
-	LEFT_TURN TurnType = iota
-	RIGHT_TURN
-	STRAIGHT_ON
-	U_TURN
-	NO_ENTRY
-	NONE
-)
-
 type Pv uint64
 
 type Graph struct {
-	vertices   []Vertex
-	outEdges   []OutEdge
-	inEdges    []InEdge
-	turnTables []TurnType // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
+	vertices          []Vertex
+	outEdges          []OutEdge
+	inEdges           []InEdge
+	turnTables        []pkg.TurnType      // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L.
 	maxEdgesInCell    Index               // maximum number of edges in any cell
 	outEdgeCellOffset []Index             // offset of first outEdge for each cell
@@ -177,8 +190,8 @@ type Graph struct {
 	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
 }
 
-func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnMatrices []TurnType) *Graph {
-	return &Graph{vertices: vertices, outEdges: forwardEdges, inEdges: inEdges, turnTables: turnMatrices, maxEdgesInCell: 0}
+func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnTables []pkg.TurnType) *Graph {
+	return &Graph{vertices: vertices, outEdges: forwardEdges, inEdges: inEdges, turnTables: turnTables, maxEdgesInCell: 0}
 }
 
 func (g *Graph) NumberOfVertices() int {
@@ -190,6 +203,7 @@ func (g *Graph) NumberOfEdges() int {
 }
 
 func (g *Graph) GetOutDegree(u Index) Index {
+	// must return index for uint32 (lot usage of outDegree used as big slice size)
 	return g.vertices[u+1].firstOut - g.vertices[u].firstOut
 }
 
@@ -205,12 +219,12 @@ func (g *Graph) GetEntryOffset(u Index) Index {
 	return g.vertices[u].firstIn
 }
 
-func (g *Graph) GetOutEdge(e Index) OutEdge {
-	return g.outEdges[e]
+func (g *Graph) GetOutEdge(e Index) *OutEdge {
+	return &g.outEdges[e]
 }
 
-func (g *Graph) GetInEdge(e Index) InEdge {
-	return g.inEdges[e]
+func (g *Graph) GetInEdge(e Index) *InEdge {
+	return &g.inEdges[e]
 }
 
 func (g *Graph) FindInEdge(u, v Index) (Index, bool) {
@@ -246,7 +260,7 @@ func (g *Graph) GetEntryOrder(v, InEdge Index) Index {
 	return InEdge - g.vertices[v].firstIn
 }
 
-func (g *Graph) GetTurnType(u Index, entryPoint, exitPoint uint8) TurnType {
+func (g *Graph) GetTurnType(u Index, entryPoint, exitPoint Index) pkg.TurnType {
 	turnTableOffset := g.vertices[u].turnTablePtr + Index(entryPoint)*Index(g.GetOutDegree(u)) + Index(exitPoint)
 	return g.turnTables[turnTableOffset]
 }
@@ -269,7 +283,7 @@ func (g *Graph) GetOverlayVertex(u Index, turnOrder uint8, exit bool) (Index, bo
 	return id, exists
 }
 
-func (g *Graph) GetTUrntables() []TurnType {
+func (g *Graph) GetTurntables() []pkg.TurnType {
 	return g.turnTables
 }
 
@@ -316,6 +330,14 @@ func (g *Graph) GetVertices() []Vertex {
 		vertices = append(vertices, vertex)
 	}
 	return vertices
+}
+
+func (g *Graph) GetVertex(u Index) Vertex {
+	return g.vertices[u]
+}
+
+func (g *Graph) GetVertexFirstOut(u Index) Index {
+	return g.vertices[u].GetFirstOut()
 }
 
 func (g *Graph) SortVerticesByCellNumber() {
@@ -435,10 +457,11 @@ func (g *Graph) WriteGraph(filename string) error {
 	defer w.Flush()
 
 	fmt.Fprintf(w, "%d %d %d %d\n",
-		g.NumberOfVertices(), g.NumberOfEdges(),
+		len(g.vertices), g.NumberOfEdges(),
 		g.GetNumberOfCellsNumbers(), g.GetNumberOfOverlayVertexMapping())
 
-	for _, v := range g.GetVertices() {
+	for vId := 0; vId < len(g.vertices); vId++ {
+		v := g.vertices[vId]
 		latF := strconv.FormatFloat(v.lat, 'f', -1, 64)
 		lonF := strconv.FormatFloat(v.lon, 'f', -1, 64)
 
@@ -572,7 +595,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, err
 	}
 
-	vertices := make([]Vertex, numVertices+1)
+	vertices := make([]Vertex, numVertices)
 
 	for i := 0; i < int(numVertices); i++ {
 		vertexLine, err := readLine()
@@ -622,7 +645,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		cellNumbers[i] = Pv(cellNumber)
 	}
 
-	turnTables := make([]TurnType, 0)
+	turnTables := make([]pkg.TurnType, 0)
 	line, err = readLine()
 	if err != nil {
 		return nil, err
@@ -633,7 +656,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, err
 		}
-		turnTables = append(turnTables, TurnType(tt))
+		turnTables = append(turnTables, pkg.TurnType(tt))
 	}
 
 	overlayVertices := make(map[SubVertex]Index)

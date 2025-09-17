@@ -1,6 +1,8 @@
 package main
 
 import (
+	"log"
+
 	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
 	"github.com/lintang-b-s/navigatorx-crp/pkg/osmparser"
 	preprocessor "github.com/lintang-b-s/navigatorx-crp/pkg/preprocessor"
@@ -20,5 +22,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	log.Printf("Preprocessing completed successfully.")
 
 }
