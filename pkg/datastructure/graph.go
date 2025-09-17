@@ -19,10 +19,11 @@ type Vertex struct {
 	lat          float64
 	lon          float64
 	pvPtr        Index // pointer index to cellNumbers slice
-	turnTablePtr Index
-	firstOut     Index
-	firstIn      Index
-	id           Index
+	turnTablePtr Index // index of the first element of turnMatrices[v] in the flattened graph.turnTables array
+	// turnMatrices[v][i][j] = 1-D indexed array index of i-th incoming edge and j-th outgoing edge  = i*outDegree + j
+	firstOut Index // index of the first outEdge of this vertex in the flattened graph.outEdges array
+	firstIn  Index // index of the first inEdge of this vertex in the flattened graph.inEdges array
+	id       Index
 }
 
 func NewVertex(lat, lon float64, id Index) Vertex {
@@ -165,14 +166,14 @@ const (
 type Pv uint64
 
 type Graph struct {
-	vertices          []Vertex
-	outEdges          []OutEdge
-	inEdges           []InEdge
-	turnTables        []TurnType
-	cellNumbers       []Pv
-	maxEdgesInCell    Index
-	outEdgeCellOffset []Index
-	inEdgeCellOffset  []Index
+	vertices   []Vertex
+	outEdges   []OutEdge
+	inEdges    []InEdge
+	turnTables []TurnType // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
+	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L.
+	maxEdgesInCell    Index               // maximum number of edges in any cell
+	outEdgeCellOffset []Index             // offset of first outEdge for each cell
+	inEdgeCellOffset  []Index             // offset of first inEdge for each cell
 	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
 }
 
@@ -329,7 +330,7 @@ func (g *Graph) SortVerticesByCellNumber() {
 	oEdges := make([][]OutEdge, g.NumberOfVertices()) // copy of original outEdges of each vertex
 	iEdges := make([][]InEdge, g.NumberOfVertices())
 
-	maxEdgesInCell := Index(0) // maximum number of edges in any cell
+	g.maxEdgesInCell = Index(0) // maximum number of edges in any cell
 	for i := Index(0); i < Index(g.NumberOfVertices()); i++ {
 		cell := g.vertices[i].pvPtr // cellNumber
 		cellVertices[cell] = append(cellVertices[cell], struct {
@@ -359,12 +360,12 @@ func (g *Graph) SortVerticesByCellNumber() {
 		numOutEdgesInCell[cell] += g.GetOutDegree(i)
 		numInEdgesInCell[cell] += g.GetInDegree(i)
 
-		if maxEdgesInCell < numOutEdgesInCell[cell] {
-			maxEdgesInCell = numOutEdgesInCell[cell]
+		if g.maxEdgesInCell < numOutEdgesInCell[cell] {
+			g.maxEdgesInCell = numOutEdgesInCell[cell]
 		}
 
-		if maxEdgesInCell < numInEdgesInCell[cell] {
-			maxEdgesInCell = numInEdgesInCell[cell]
+		if g.maxEdgesInCell < numInEdgesInCell[cell] {
+			g.maxEdgesInCell = numInEdgesInCell[cell]
 		}
 	}
 
@@ -383,7 +384,7 @@ func (g *Graph) SortVerticesByCellNumber() {
 	outOffset := Index(0)                                   // new offset for outEdges for each vertex for each cell
 	g.outEdgeCellOffset = make([]Index, len(g.cellNumbers)) // offset of first outEdge for each cell
 	inOffset := Index(0)                                    // new offset for inEdges for each vertex for each cell
-	g.inEdgeCellOffset = make([]Index, len(g.cellNumbers))  // offset of first outEdge for each cell
+	g.inEdgeCellOffset = make([]Index, len(g.cellNumbers))  // offset of first inEdge for each cell
 
 	// sort vertices by cell number
 	for i := Index(0); i < Index(len(g.cellNumbers)); i++ {

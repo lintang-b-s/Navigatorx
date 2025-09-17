@@ -38,6 +38,12 @@ type Cell struct {
 }
 
 type OverlayGraph struct {
+	/*
+		(overlayVertices) To improve locality, we assign IDs to overlay vertices such that the boundary
+		vertices of the highest level have the lowest IDs, followed by the boundary vertices of the second highest
+		level (which are not on the highest), and so on. Within a level, we keep the same relative ordering as in the
+		original graph.
+	*/
 	overlayVertices    []OverlayVertex // all overlay vertices in the overlay graph. from the highest level to the lowest level, and sorted by their cell number in each level
 	vertexCountInLevel []Index         // number of overlay vertices in each level (cumulative sum from highest level to lowest level)
 	cellMapping        []map[Pv]Cell   // cellNumber to Cell mapping for each level

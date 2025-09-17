@@ -624,7 +624,9 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		}
 
 		for i := uint8(0); i < inDegree[v]; i++ {
+			// for each row-i [1-D indexed array index from 2D = i*outDegree + j]
 			for j := i * outDegree[v]; j < (i+1)*outDegree[v]; j++ {
+				// loop over columns of row-i
 				if datastructure.Index(turnMatrices[v][j]) != datastructure.Index(NONE) {
 					rowScore[i] += 1
 				}
@@ -656,12 +658,17 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 
 		sortedMatrix := make([]datastructure.TurnType, inDegree[v]*outDegree[v])
 		sortedInEdge := make([]datastructure.InEdge, len(inEdges[v]))
+		// sort by sortOrder for each row
 		for i := uint8(0); i < inDegree[v]; i++ {
 			k := i * outDegree[v]
 			for j := sortOrder[i] * datastructure.Index(outDegree[v]); j < (sortOrder[i]+1)*datastructure.Index(outDegree[v]); j++ {
+				// fill the i-th row of sortedMatrix with the sortOrder[i]-th row of turnMatrices[v]
 				sortedMatrix[k] = turnMatrices[v][j]
 				k += 1
 			}
+
+			// sort inEdges by sortOrder
+			// and update the corresponding outEdge entryPoint
 			sortedInEdge[i] = inEdges[v][sortOrder[i]]
 			for _, outEdge := range outEdges[inEdges[v][sortOrder[i]].GetTail()] {
 				if outEdge.GetHead() == datastructure.Index(v) {
@@ -683,10 +690,13 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		}
 
 		for j := uint8(0); j < outDegree[v]; j++ {
+			// for each column-j [1-D indexed array index from 2D = i*outDegree + j]
 			for i := uint8(0); i < inDegree[v]; i++ {
+				// loop over rows of column-j
 				offset := i*outDegree[v] + j
 				t := turnMatrices[v][offset]
 				if t != datastructure.NONE {
+					// score of this column-j is = number of non-NONE turn types
 					columnScore[j] |= 1 << i
 				}
 
@@ -701,9 +711,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 
 		sort.Slice(sortOrder, func(i, j int) bool {
 			firstDiff := columnScore[i] ^ columnScore[j]
-			for k := uint8(0); k < inDegree[v]; k++ {
-				if firstDiff&(1<<k) != 0 {
-					return columnScore[i]&(1<<k) != 0
+			for i := uint8(0); i < inDegree[v]; i++ {
+				if firstDiff&(1<<i) != 0 {
+					// sort based on the leftmost-i bit that differs
+					return columnScore[i]&(1<<i) != 0
 				}
 			}
 
@@ -718,11 +729,15 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		sortedOutEdges := make([]datastructure.OutEdge, len(outEdges[v]))
 		finalMatrix := make([]datastructure.TurnType, inDegree[v]*outDegree[v])
 		for j := uint8(0); j < outDegree[v]; j++ {
+			// for each column of 1-D indexed turnMatrices
 			for i := uint8(0); i < inDegree[v]; i++ {
-				finalMatrix[j+i*outDegree[v]] = turnMatrices[v][sortOrder[j]+
-					datastructure.Index(i)*datastructure.Index(outDegree[v])]
+				// fill the j-th column of finalMatrix with the sortOrder[j]-th column of turnMatrices[v]
+				finalMatrix[i*outDegree[v]+j] = turnMatrices[v][datastructure.Index(i)*datastructure.Index(outDegree[v])+
+					sortOrder[j]]
 			}
 
+			// sort outEdges by sortOrder
+			// and update the corresponding inEdge exitPoint
 			sortedOutEdges[j] = outEdges[v][sortOrder[j]]
 			for _, inEdge := range inEdges[outEdges[v][sortOrder[j]].GetHead()] {
 				if inEdge.GetTail() == datastructure.Index(v) {
@@ -736,7 +751,11 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		turnMatrices[v] = finalMatrix
 		outEdges[v] = sortedOutEdges
 
+
+		// set the turnTablePtr of vertex v to the current matrixOffset
+		// matrix offset is index of the first element of turnMatrices[v] in the flattened matrices array
 		vertices[v].SetTurnTablePtr(datastructure.Index(matrixOffset))
+		// flatten the turnMatrices
 		for i := 0; i < len(turnMatrices[v]); i++ {
 			matrices = append(matrices, turnMatrices[v][i])
 		}
@@ -749,7 +768,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 
 	for i := 0; i < len(vertices)-1; i++ {
 		vertices[i].SetTurnTablePtr(vertices[i].GetTurnTablePtr())
-		vertices[i].SetFirstOut(outEdgeOffset)
+		vertices[i].SetFirstOut(outEdgeOffset) // index of the first outEdge of vertex i in the flattened outEdges array
 		vertices[i].SetFirstIn(inEdgeOffset)
 		outEdgeOffset += datastructure.Index(len(outEdges[i]))
 		inEdgeOffset += datastructure.Index(len(inEdges[i]))
