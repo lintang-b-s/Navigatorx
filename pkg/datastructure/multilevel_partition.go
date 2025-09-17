@@ -10,8 +10,8 @@ import (
 // MultilevelPartition. store every cell information of each vertex on every level.
 type MultilevelPartition struct {
 	numCells    []uint32
-	pvOffset    []uint8
-	cellNumbers []pv
+	pvOffset    []uint8 // offset of each level in the bitpacked cell numbers
+	cellNumbers []Pv
 }
 
 func NewPlainMLP() *MultilevelPartition {
@@ -23,7 +23,7 @@ func (mp *MultilevelPartition) SetNumberOflevels(numLevels int) {
 }
 
 func (mp *MultilevelPartition) SetNumberOfVertices(numVertices int) {
-	mp.cellNumbers = make([]pv, numVertices)
+	mp.cellNumbers = make([]Pv, numVertices)
 }
 
 func (mp *MultilevelPartition) SetNumberOfCellsInLevel(level int, numCells int) {
@@ -33,16 +33,19 @@ func (mp *MultilevelPartition) SetNumberOfCellsInLevel(level int, numCells int) 
 func (mp *MultilevelPartition) ComputeBitmap() {
 	mp.pvOffset = make([]uint8, len(mp.numCells)+1)
 	for i := 0; i < len(mp.numCells); i++ {
-		mp.pvOffset[i+1] = mp.pvOffset[i] + uint8(math.Ceil(math.Log2(float64(mp.numCells[i]))))
+		mp.pvOffset[i+1] = mp.pvOffset[i] + uint8(math.Ceil(math.Log2(float64(mp.numCells[i])))) // ceil(log2(numCells[i])) = number of bits needed to represent cell id in level-i
 	}
 }
 
+// set cellNumber of vertexId in level=level to cellId
 func (mp *MultilevelPartition) setCell(level int, vertexId int, cellId int) {
-	mp.cellNumbers[vertexId] |= pv(cellId) << mp.pvOffset[level]
+	mp.cellNumbers[vertexId] |= Pv(cellId) << mp.pvOffset[level]
 }
 
-func (mp *MultilevelPartition) getCell(level int, vertexId int) pv {
-	return (mp.cellNumbers[vertexId] >> pv(mp.pvOffset[level])) & ^(^pv(0) << mp.pvOffset[level+1])
+// get cellNumber of vertexId in level=level
+func (mp *MultilevelPartition) getCell(level int, vertexId int) Pv {
+	// off the bits that in above level, then shift right to get the cell id in that level
+	return (mp.cellNumbers[vertexId] & ^(^Pv(0) << mp.pvOffset[level+1])) >> Pv(mp.pvOffset[level])
 }
 
 func (mp *MultilevelPartition) GetNumberOfVertices() int {
@@ -61,7 +64,7 @@ func (mp *MultilevelPartition) GetPVOffsets() []uint8 {
 	return mp.pvOffset
 }
 
-func (mp *MultilevelPartition) GetCellNumber(u Index) pv {
+func (mp *MultilevelPartition) GetCellNumber(u Index) Pv {
 	return mp.cellNumbers[u]
 }
 
@@ -114,18 +117,19 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 		if err != nil {
 			return err
 		}
+		mp.SetNumberOfVertices(numVertices)
 	}
 
 	if err := scanner.Err(); err != nil {
 		return err
 	}
 
-	mp.cellNumbers = make([]pv, len(mp.cellNumbers))
+	mp.cellNumbers = make([]Pv, len(mp.cellNumbers))
 
 	for i := 0; i < mp.GetNumberOfVertices(); i++ {
 		if scanner.Scan() {
 			line := scanner.Text()
-			var cellNumber pv
+			var cellNumber Pv
 			_, err := fmt.Sscanf(line, "%d", &cellNumber)
 			if err != nil {
 				return err

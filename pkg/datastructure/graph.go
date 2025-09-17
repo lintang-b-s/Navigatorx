@@ -18,7 +18,7 @@ type Index uint32
 type Vertex struct {
 	lat          float64
 	lon          float64
-	pvPtr        Index
+	pvPtr        Index // pointer index to cellNumbers slice
 	turnTablePtr Index
 	firstOut     Index
 	firstIn      Index
@@ -162,14 +162,14 @@ const (
 	NONE
 )
 
-type pv uint64
+type Pv uint64
 
 type Graph struct {
 	vertices          []Vertex
 	outEdges          []OutEdge
 	inEdges           []InEdge
 	turnTables        []TurnType
-	cellNumbers       []pv
+	cellNumbers       []Pv
 	maxEdgesInCell    Index
 	outEdgeCellOffset []Index
 	inEdgeCellOffset  []Index
@@ -212,6 +212,15 @@ func (g *Graph) GetInEdge(e Index) InEdge {
 	return g.inEdges[e]
 }
 
+func (g *Graph) FindInEdge(u, v Index) (Index, bool) {
+	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
+		if g.inEdges[e].tail == u {
+			return e, true
+		}
+	}
+	return 0, false
+}
+
 func (g *Graph) GetHeadOfInedge(e Index) Index {
 	inEdge := g.GetInEdge(e)
 	tail := g.vertices[inEdge.tail]
@@ -241,7 +250,7 @@ func (g *Graph) GetTurnType(u Index, entryPoint, exitPoint uint8) TurnType {
 	return g.turnTables[turnTableOffset]
 }
 
-func (g *Graph) SetCellNumbers(cellNumbers []pv) {
+func (g *Graph) SetCellNumbers(cellNumbers []Pv) {
 	g.cellNumbers = cellNumbers
 }
 
@@ -263,7 +272,7 @@ func (g *Graph) GetTUrntables() []TurnType {
 	return g.turnTables
 }
 
-func (g *Graph) GetCellNumber(u Index) pv {
+func (g *Graph) GetCellNumber(u Index) Pv {
 	return g.cellNumbers[g.vertices[u].pvPtr]
 }
 
@@ -306,6 +315,106 @@ func (g *Graph) GetVertices() []Vertex {
 		vertices = append(vertices, vertex)
 	}
 	return vertices
+}
+
+func (g *Graph) SortVerticesByCellNumber() {
+	cellVertices := make([][]struct {
+		vertex        Vertex
+		originalIndex Index
+	}, g.GetNumberOfCellsNumbers()) // slice of slice of vertices in each cell
+
+	numOutEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers()) // number of outEdges in each cell
+	numInEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers())
+
+	oEdges := make([][]OutEdge, g.NumberOfVertices()) // copy of original outEdges of each vertex
+	iEdges := make([][]InEdge, g.NumberOfVertices())
+
+	maxEdgesInCell := Index(0) // maximum number of edges in any cell
+	for i := Index(0); i < Index(g.NumberOfVertices()); i++ {
+		cell := g.vertices[i].pvPtr // cellNumber
+		cellVertices[cell] = append(cellVertices[cell], struct {
+			vertex        Vertex
+			originalIndex Index
+		}{vertex: g.vertices[i], originalIndex: i})
+
+		oEdges[i] = make([]OutEdge, g.GetOutDegree(i))
+		iEdges[i] = make([]InEdge, g.GetInDegree(i))
+
+		k := Index(0)
+		e := g.vertices[i].firstOut
+		for e < g.vertices[i+1].firstOut {
+			oEdges[i][k] = g.outEdges[e]
+			e++
+			k++
+		}
+
+		k = Index(0)
+		e = g.vertices[i].firstIn
+		for e < g.vertices[i+1].firstIn {
+			iEdges[i][k] = g.inEdges[e]
+			e++
+			k++
+		}
+
+		numOutEdgesInCell[cell] += g.GetOutDegree(i)
+		numInEdgesInCell[cell] += g.GetInDegree(i)
+
+		if maxEdgesInCell < numOutEdgesInCell[cell] {
+			maxEdgesInCell = numOutEdgesInCell[cell]
+		}
+
+		if maxEdgesInCell < numInEdgesInCell[cell] {
+			maxEdgesInCell = numInEdgesInCell[cell]
+		}
+	}
+
+	newId := make([]Index, g.NumberOfVertices()) // map from original vertex id to new vertex id
+	newVId := 0                                  // new vertice id
+
+	// create new vertex id
+	for i := Index(0); i < Index(len(cellVertices)); i++ {
+		for v := 0; v < len(cellVertices[i]); v++ {
+			newId[cellVertices[i][v].originalIndex] = Index(newVId)
+			newVId++
+		}
+	}
+
+	vId := Index(0)
+	outOffset := Index(0)                                   // new offset for outEdges for each vertex for each cell
+	g.outEdgeCellOffset = make([]Index, len(g.cellNumbers)) // offset of first outEdge for each cell
+	inOffset := Index(0)                                    // new offset for inEdges for each vertex for each cell
+	g.inEdgeCellOffset = make([]Index, len(g.cellNumbers))  // offset of first outEdge for each cell
+
+	// sort vertices by cell number
+	for i := Index(0); i < Index(len(g.cellNumbers)); i++ {
+		g.outEdgeCellOffset[i] = outOffset
+		g.inEdgeCellOffset[i] = inOffset
+
+		for v := Index(0); v < Index(len(cellVertices[i])); v++ {
+			// update vertex to use new vId
+			// in the end of the outer loop, graph vertices are sorted by cell number
+			g.vertices[vId] = cellVertices[i][v].vertex
+			vOldId := cellVertices[i][v].originalIndex
+			g.vertices[vId].id = Index(vId)
+			g.vertices[vId].firstOut = outOffset
+			g.vertices[vId].firstIn = inOffset
+
+			// update outedges & inedges
+			for k := Index(0); k < Index(len(oEdges[vOldId])); k++ {
+				g.outEdges[outOffset] = oEdges[vOldId][k]
+				g.outEdges[outOffset].head = newId[g.outEdges[outOffset].head]
+				outOffset++
+			}
+			for k := Index(0); k < Index(len(iEdges[vOldId])); k++ {
+				g.inEdges[inOffset] = iEdges[vOldId][k]
+				g.inEdges[inOffset].tail = newId[g.inEdges[inOffset].tail]
+				inOffset++
+			}
+
+			vId++
+		}
+	}
+
 }
 
 func (g *Graph) WriteGraph(filename string) error {
@@ -499,7 +608,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		}
 	}
 
-	cellNumbers := make([]pv, numCellNumbers)
+	cellNumbers := make([]Pv, numCellNumbers)
 	for i := 0; i < int(numCellNumbers); i++ {
 		cnLine, err := readLine()
 		if err != nil {
@@ -509,7 +618,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, err
 		}
-		cellNumbers[i] = pv(cellNumber)
+		cellNumbers[i] = Pv(cellNumber)
 	}
 
 	turnTables := make([]TurnType, 0)

@@ -430,6 +430,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		}
 	}
 
+	// store u_turn restrictions
 	for _, e := range scannedEdges {
 		// dont allow u_turns at (u,v) -> (v,u)
 		if !e.bidirectional {
@@ -488,6 +489,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 
 	}
 
+	// store turn restrictions
 	for wayID, way := range p.ways {
 		fromNodes := way.nodes
 		fromRestrictions := p.restrictions[wayID]
@@ -613,7 +615,8 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 	matrixOffset := 0
 
 	for v := 0; v < len(vertices)-1; v++ {
-		// sort inEdges
+		// sort inEdges & rows of turnMatrices s.t. turn_type != NONE are listed last
+		// if tie, sort by histogram of turn types, the less the better
 		rowScore := make([]datastructure.Index, inDegree[v])
 		rowHist := make([][]uint32, inDegree[v])
 		for k := 0; k < len(rowHist); k++ {
@@ -671,7 +674,8 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		turnMatrices[v] = sortedMatrix
 		inEdges[v] = sortedInEdge
 
-		// sort OutEdges
+		// sort OutEdges & turnMatrices columns s.t. the column with turn_type != NONE are listed last
+		// if tie, sort by histogram of turn types, the less the better
 		columnScore := make([]datastructure.Index, outDegree[v])
 		colHist := make([][]uint32, outDegree[v])
 		for k := 0; k < len(colHist); k++ {
