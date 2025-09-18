@@ -462,12 +462,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	}
 	tokens = fields(line)
 	overlayIdMapping := make([]Index, 0, len(tokens))
-	counter := 0
 	for _, token := range tokens {
-		if counter == len(tokens)-1 {
-			break
-		}
-		counter++
 		overlayIdMapping = append(overlayIdMapping, Index(parseInt(token)))
 	}
 

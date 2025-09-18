@@ -70,8 +70,8 @@ func (ow *OverlayWeights) Build(graph *Graph, overlayGraph *OverlayGraph,
 func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGraph,
 	costFunction costfunction.CostFunction) {
 
-	workers := concurrent.NewWorkerPool[customizerCell, any](workersNum,
-		overlayGraph.numberOfCellsInLevel(1))
+	// workers := concurrent.NewWorkerPool[customizerCell, any](workersNum,
+	// 	overlayGraph.numberOfCellsInLevel(1))
 
 	buildCellClique := func(job customizerCell) any {
 		pq := NewMinHeap[CRPQueryKey]()
@@ -154,12 +154,13 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 
 	cellMapInLevelOne := overlayGraph.GetAllCellsInLevel(1)
 	for pv, cell := range cellMapInLevelOne {
-		workers.AddJob(newCustomizerCell(cell, pv))
+		// workers.AddJob(newCustomizerCell(cell, pv))
+		buildCellClique(newCustomizerCell(cell, pv))
 	}
 
-	workers.Close()
-	workers.Start(buildCellClique)
-	workers.Wait()
+	// workers.Close()
+	// workers.Start(buildCellClique)
+	// workers.Wait()
 }
 
 // buildLevel. build clique of each cell in the level (level > 1)

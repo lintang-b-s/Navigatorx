@@ -465,8 +465,8 @@ func (g *Graph) WriteGraph(filename string) error {
 		latF := strconv.FormatFloat(v.lat, 'f', -1, 64)
 		lonF := strconv.FormatFloat(v.lon, 'f', -1, 64)
 
-		fmt.Fprintf(w, "%d %d %d %d %s %s\n",
-			v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, latF, lonF)
+		fmt.Fprintf(w, "%d %d %d %d %d %s %s\n",
+			v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, v.id, latF, lonF)
 	}
 
 	for _, v := range g.outEdges {
@@ -747,7 +747,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 func parseVertex(line string) (*Vertex, error) {
 	tokens := fields(line)
-	if len(tokens) != 6 {
+	if len(tokens) != 7 {
 		return nil, fmt.Errorf("expected 6 fields, got %d", len(tokens))
 	}
 	pvPtr, err := parseIndex(tokens[0])
@@ -766,6 +766,12 @@ func parseVertex(line string) (*Vertex, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	id, err := parseIndex(tokens[4])
+	if err != nil {
+		return nil, err
+	}
+
 	lat, err := strconv.ParseFloat(tokens[4], 64)
 	if err != nil {
 		return nil, fmt.Errorf("lat: %w", err)
@@ -777,7 +783,7 @@ func parseVertex(line string) (*Vertex, error) {
 	return &Vertex{
 		pvPtr: pvPtr, turnTablePtr: ttPtr,
 		firstOut: firstOut, firstIn: firstIn,
-		lat: lat, lon: lon,
+		lat: lat, lon: lon, id: id,
 	}, nil
 }
 
