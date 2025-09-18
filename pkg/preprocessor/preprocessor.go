@@ -25,10 +25,12 @@ func (p *Preprocessor) PreProcessing() error {
 	p.BuildCellNumber()
 	p.graph.SortVerticesByCellNumber()
 	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
+	log.Printf("Overlay graph built and written to ./data/overlay_graph.graph")
 	err := overlayGraph.WriteToFile("./data/overlay_graph.graph")
 	if err != nil {
 		return err
 	}
+	log.Printf("Writing graph to ./data/solo_jogja.graph")
 	return p.graph.WriteGraph("./data/solo_jogja.graph")
 }
 
@@ -41,7 +43,7 @@ func (p *Preprocessor) BuildCellNumber() {
 		if _, exists := pvMap[cellNumber]; !exists {
 			cellNumbers = append(cellNumbers, cellNumber)
 			pvMap[cellNumber] = datastructure.Index(len(cellNumbers) - 1)
-			v.SetPvPtr(pvMap[cellNumber]) // set pointer to the index in cellNumbers slice
+			v.SetPvPtr(datastructure.Index(len(cellNumbers) - 1)) // set pointer to the index in cellNumbers slice
 		} else {
 			v.SetPvPtr(pvMap[cellNumber])
 		}

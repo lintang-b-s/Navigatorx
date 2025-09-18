@@ -29,11 +29,11 @@ func NewOverlayWeights(weightVectorSize uint32) *OverlayWeights {
 }
 
 type customizerCell struct {
-	cell       Cell
+	cell       *Cell
 	cellNumber Pv
 }
 
-func newCustomizerCell(cell Cell, cellNumber Pv) customizerCell {
+func newCustomizerCell(cell *Cell, cellNumber Pv) customizerCell {
 	return customizerCell{cell: cell, cellNumber: cellNumber}
 }
 
@@ -54,7 +54,6 @@ working on the original graph, we can work on the subgraph of Hi−1 (the overla
 corresponding to subcells of C. This subgraph is much smaller than the corresponding subgraph of G. In
 addition, since overlay graphs have no (explicit) turns, we can just apply the standard version of Dijkstra’s
 algorithm, which tends to be faster.
-
 */
 func (ow *OverlayWeights) Build(graph *Graph, overlayGraph *OverlayGraph,
 	costFunction costfunction.CostFunction) {
@@ -77,7 +76,7 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 	buildCellClique := func(job customizerCell) any {
 		pq := NewMinHeap[CRPQueryKey]()
 		eta := make(map[Index]float64)
-		overlayEta := make([]float64, graph.NumberOfVertices())
+		overlayEta := make(map[Index]float64, graph.NumberOfVertices())
 
 		cell := job.cell
 		cellNumber := job.cellNumber
@@ -102,12 +101,12 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 				u := graph.GetVertex(uId)
 
 				exitPoint := Index(0)
-				for e := u.GetFirstOut(); e < graph.GetVertexFirstOut(start+1); e++ {
+				for e := u.GetFirstOut(); e < graph.GetVertexFirstOut(uId+1); e++ {
 					// traverse all out edges
 					outArc := graph.GetOutEdge(e)
 					v := outArc.GetHead()
 
-					turnType := graph.GetTurnType(u.GetID(), uEntryPoint, exitPoint)
+					turnType := graph.GetTurnType(u.GetID(), graph.GetEntryOrder(uId, uEntryPoint), exitPoint)
 
 					exitPointEta := uEta + costFunction.GetTurnCost(turnType)
 					newETA := exitPointEta + costFunction.GetWeight(outArc)
@@ -135,7 +134,8 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 							panic("overlay vertex not found") // for debugging (dev)
 						}
 
-						if exitPointEta < overlayEta[exitOverlay] {
+						_, exists := overlayEta[exitOverlay]
+						if exitPointEta < overlayEta[exitOverlay] || !exists {
 							overlayEta[exitOverlay] = exitPointEta
 						}
 					}
@@ -178,7 +178,7 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 	buildCellClique := func(job customizerCell) any {
 		pq := NewMinHeap[Index]()
 		eta := make(map[Index]float64)
-		overlayEta := make([]float64, graph.NumberOfVertices())
+		overlayEta := make(map[Index]float64, graph.NumberOfVertices())
 
 		cell := job.cell
 		cellNumber := job.cellNumber
@@ -210,7 +210,8 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 						continue
 					}
 
-					if newEta < overlayEta[exit] {
+					_, exists := overlayEta[exit]
+					if newEta < overlayEta[exit] || !exists {
 						eta[exit] = newEta
 						exitOverlayVertex := overlayGraph.GetVertex(exit)
 						neighborVertex := exitOverlayVertex.neighborOverlayVertex

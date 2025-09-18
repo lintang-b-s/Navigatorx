@@ -385,11 +385,11 @@ func (p *OsmParser) Parse(mapFile string) *datastructure.Graph {
 
 func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 	var (
-		outEdges  [][]datastructure.OutEdge = make([][]datastructure.OutEdge, len(p.nodeIDMap))
-		inEdges   [][]datastructure.InEdge  = make([][]datastructure.InEdge, len(p.nodeIDMap))
+		outEdges  [][]*datastructure.OutEdge = make([][]*datastructure.OutEdge, len(p.nodeIDMap))
+		inEdges   [][]*datastructure.InEdge  = make([][]*datastructure.InEdge, len(p.nodeIDMap))
 		inDegree  []uint8                   = make([]uint8, len(p.nodeIDMap))
 		outDegree []uint8                   = make([]uint8, len(p.nodeIDMap))
-		vertices  []datastructure.Vertex    = make([]datastructure.Vertex, len(p.nodeIDMap)+1)
+		vertices  []*datastructure.Vertex    = make([]*datastructure.Vertex, len(p.nodeIDMap)+1)
 	)
 
 	for _, e := range scannedEdges {
@@ -658,7 +658,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		})
 
 		sortedMatrix := make([]pkg.TurnType, inDegree[v]*outDegree[v])
-		sortedInEdge := make([]datastructure.InEdge, len(inEdges[v]))
+		sortedInEdge := make([]*datastructure.InEdge, len(inEdges[v]))
 		// sort by sortOrder for each row
 		for i := uint8(0); i < inDegree[v]; i++ {
 			k := i * outDegree[v]
@@ -727,7 +727,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 			return i < j
 		})
 
-		sortedOutEdges := make([]datastructure.OutEdge, len(outEdges[v]))
+		sortedOutEdges := make([]*datastructure.OutEdge, len(outEdges[v]))
 		finalMatrix := make([]pkg.TurnType, inDegree[v]*outDegree[v])
 		for j := uint8(0); j < outDegree[v]; j++ {
 			// for each column of 1-D indexed turnMatrices
@@ -785,13 +785,13 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 	return graph
 }
 
-func flatten[T any](container [][]T) []T {
+func flatten[T any](container [][]*T) []*T {
 	finalSize := 0
 	for _, part := range container {
 		finalSize += len(part)
 	}
 
-	result := make([]T, finalSize)
+	result := make([]*T, finalSize)
 	idx := 0
 	for _, part := range container {
 		for _, elem := range part {

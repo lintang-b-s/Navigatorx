@@ -27,8 +27,8 @@ type Vertex struct {
 	id       Index
 }
 
-func NewVertex(lat, lon float64, id Index) Vertex {
-	return Vertex{
+func NewVertex(lat, lon float64, id Index) *Vertex {
+	return &Vertex{
 		lat: lat,
 		lon: lon,
 		id:  id,
@@ -97,8 +97,8 @@ type InEdge struct {
 	exitPoint uint8
 }
 
-func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint uint8) OutEdge {
-	return OutEdge{
+func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint uint8) *OutEdge {
+	return &OutEdge{
 		edgeId:     edgeId,
 		head:       head,
 		weight:     weight,
@@ -107,8 +107,8 @@ func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint uint8) OutE
 	}
 }
 
-func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint uint8) InEdge {
-	return InEdge{
+func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint uint8) *InEdge {
+	return &InEdge{
 		edgeId:    edgeId,
 		tail:      tail,
 		weight:    weight,
@@ -179,18 +179,18 @@ type VertexIDPair struct {
 type Pv uint64
 
 type Graph struct {
-	vertices          []Vertex
-	outEdges          []OutEdge
-	inEdges           []InEdge
+	vertices          []*Vertex
+	outEdges          []*OutEdge
+	inEdges           []*InEdge
 	turnTables        []pkg.TurnType      // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L.
-	maxEdgesInCell    Index               // maximum number of edges in any cell
-	outEdgeCellOffset []Index             // offset of first outEdge for each cell
-	inEdgeCellOffset  []Index             // offset of first inEdge for each cell
+	maxEdgesInCell    Index               // maximum number of inEdges/outEdges in any cell
+	outEdgeCellOffset []Index             // offset of first outEdge for each cellNumber
+	inEdgeCellOffset  []Index             // offset of first inEdge for each cellNumber
 	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
 }
 
-func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnTables []pkg.TurnType) *Graph {
+func NewGraph(vertices []*Vertex, forwardEdges []*OutEdge, inEdges []*InEdge, turnTables []pkg.TurnType) *Graph {
 	return &Graph{vertices: vertices, outEdges: forwardEdges, inEdges: inEdges, turnTables: turnTables, maxEdgesInCell: 0}
 }
 
@@ -220,11 +220,11 @@ func (g *Graph) GetEntryOffset(u Index) Index {
 }
 
 func (g *Graph) GetOutEdge(e Index) *OutEdge {
-	return &g.outEdges[e]
+	return g.outEdges[e]
 }
 
 func (g *Graph) GetInEdge(e Index) *InEdge {
-	return &g.inEdges[e]
+	return g.inEdges[e]
 }
 
 func (g *Graph) FindInEdge(u, v Index) (Index, bool) {
@@ -324,15 +324,15 @@ func (g *Graph) GetInEdgeCellOffsets() []Index {
 	return g.inEdgeCellOffset
 }
 
-func (g *Graph) GetVertices() []Vertex {
-	vertices := make([]Vertex, 0, g.NumberOfVertices())
+func (g *Graph) GetVertices() []*Vertex {
+	vertices := make([]*Vertex, 0, g.NumberOfVertices())
 	for _, vertex := range g.vertices[:g.NumberOfVertices()] {
 		vertices = append(vertices, vertex)
 	}
 	return vertices
 }
 
-func (g *Graph) GetVertex(u Index) Vertex {
+func (g *Graph) GetVertex(u Index) *Vertex {
 	return g.vertices[u]
 }
 
@@ -342,26 +342,26 @@ func (g *Graph) GetVertexFirstOut(u Index) Index {
 
 func (g *Graph) SortVerticesByCellNumber() {
 	cellVertices := make([][]struct {
-		vertex        Vertex
+		vertex        *Vertex
 		originalIndex Index
 	}, g.GetNumberOfCellsNumbers()) // slice of slice of vertices in each cell
 
 	numOutEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers()) // number of outEdges in each cell
 	numInEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers())
 
-	oEdges := make([][]OutEdge, g.NumberOfVertices()) // copy of original outEdges of each vertex
-	iEdges := make([][]InEdge, g.NumberOfVertices())
+	oEdges := make([][]*OutEdge, g.NumberOfVertices()) // copy of original outEdges of each vertex
+	iEdges := make([][]*InEdge, g.NumberOfVertices())
 
 	g.maxEdgesInCell = Index(0) // maximum number of edges in any cell
 	for i := Index(0); i < Index(g.NumberOfVertices()); i++ {
 		cell := g.vertices[i].pvPtr // cellNumber
 		cellVertices[cell] = append(cellVertices[cell], struct {
-			vertex        Vertex
+			vertex        *Vertex
 			originalIndex Index
 		}{vertex: g.vertices[i], originalIndex: i})
 
-		oEdges[i] = make([]OutEdge, g.GetOutDegree(i))
-		iEdges[i] = make([]InEdge, g.GetInDegree(i))
+		oEdges[i] = make([]*OutEdge, g.GetOutDegree(i))
+		iEdges[i] = make([]*InEdge, g.GetInDegree(i))
 
 		k := Index(0)
 		e := g.vertices[i].firstOut
@@ -595,7 +595,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, err
 	}
 
-	vertices := make([]Vertex, numVertices)
+	vertices := make([]*Vertex, numVertices)
 
 	for i := 0; i < int(numVertices); i++ {
 		vertexLine, err := readLine()
@@ -608,7 +608,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		}
 	}
 
-	outEdges := make([]OutEdge, numEdges)
+	outEdges := make([]*OutEdge, numEdges)
 	for i := 0; i < int(numEdges); i++ {
 		outEdgeLine, err := readLine()
 		if err != nil {
@@ -620,7 +620,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		}
 	}
 
-	inEdges := make([]InEdge, numEdges)
+	inEdges := make([]*InEdge, numEdges)
 	for i := 0; i < int(numEdges); i++ {
 		inEdgeLine, err := readLine()
 		if err != nil {
@@ -745,100 +745,97 @@ func ReadGraph(filename string) (*Graph, error) {
 	return graph, nil
 }
 
-func parseVertex(line string) (Vertex, error) {
-	emptyVertex := Vertex{}
+func parseVertex(line string) (*Vertex, error) {
 	tokens := fields(line)
 	if len(tokens) != 6 {
-		return emptyVertex, fmt.Errorf("expected 6 fields, got %d", len(tokens))
+		return nil, fmt.Errorf("expected 6 fields, got %d", len(tokens))
 	}
 	pvPtr, err := parseIndex(tokens[0])
 	if err != nil {
-		return emptyVertex, err
+		return nil, err
 	}
 	ttPtr, err := parseIndex(tokens[1])
 	if err != nil {
-		return emptyVertex, err
+		return nil, err
 	}
 	firstOut, err := parseIndex(tokens[2])
 	if err != nil {
-		return emptyVertex, err
+		return nil, err
 	}
 	firstIn, err := parseIndex(tokens[3])
 	if err != nil {
-		return emptyVertex, err
+		return nil, err
 	}
 	lat, err := strconv.ParseFloat(tokens[4], 64)
 	if err != nil {
-		return emptyVertex, fmt.Errorf("lat: %w", err)
+		return nil, fmt.Errorf("lat: %w", err)
 	}
 	lon, err := strconv.ParseFloat(tokens[5], 64)
 	if err != nil {
-		return emptyVertex, fmt.Errorf("lon: %w", err)
+		return nil, fmt.Errorf("lon: %w", err)
 	}
-	return Vertex{
+	return &Vertex{
 		pvPtr: pvPtr, turnTablePtr: ttPtr,
 		firstOut: firstOut, firstIn: firstIn,
 		lat: lat, lon: lon,
 	}, nil
 }
 
-func parseOutEdge(line string) (OutEdge, error) {
-	emptyEdge := OutEdge{}
+func parseOutEdge(line string) (*OutEdge, error) {
 	tokens := fields(line)
 	if len(tokens) != 5 {
-		return emptyEdge, fmt.Errorf("expected 5 fields, got %d", len(tokens))
+		return nil, fmt.Errorf("expected 5 fields, got %d", len(tokens))
 	}
 	edgeId, err := parseIndex(tokens[0])
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 	head, err := parseIndex(tokens[1])
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 	weight, err := strconv.ParseFloat(tokens[2], 64)
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 	dist, err := strconv.ParseFloat(tokens[3], 64)
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 
 	entryPoint, err := strconv.ParseUint(tokens[4], 10, 8)
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 
 	return NewOutEdge(edgeId, head, weight, dist, uint8(entryPoint)), nil
 }
 
-func parseInEdge(line string) (InEdge, error) {
-	emptyEdge := InEdge{}
+func parseInEdge(line string) (*InEdge, error) {
 	tokens := fields(line)
 	if len(tokens) != 5 {
-		return emptyEdge, fmt.Errorf("expected 5 fields, got %d", len(tokens))
+		return nil, fmt.Errorf("expected 5 fields, got %d", len(tokens))
 	}
 	edgeId, err := parseIndex(tokens[0])
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 	tail, err := parseIndex(tokens[1])
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 	weight, err := strconv.ParseFloat(tokens[2], 64)
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 	dist, err := strconv.ParseFloat(tokens[3], 64)
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 
 	exitPoint, err := strconv.ParseUint(tokens[4], 10, 8)
 	if err != nil {
-		return emptyEdge, err
+		return nil, err
 	}
 
 	return NewInEdge(edgeId, tail, weight, dist, uint8(exitPoint)), nil
