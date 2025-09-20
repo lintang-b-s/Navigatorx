@@ -11,3 +11,7 @@ const (
 	NO_ENTRY
 	NONE
 )
+
+const (
+	INF_WEIGHT = 1e9
+)

@@ -30,8 +30,19 @@ func (p *Preprocessor) PreProcessing() error {
 	if err != nil {
 		return err
 	}
-	log.Printf("Writing graph to ./data/solo_jogja.graph")
-	return p.graph.WriteGraph("./data/solo_jogja.graph")
+	log.Printf("Writing graph to ./data/test.graph")
+	return p.graph.WriteGraph("./data/test.graph")
+}
+
+func (p *Preprocessor) PreProcessing2() *datastructure.OverlayGraph {
+	log.Printf("Starting preprocessing step of Customizable Route Planning...")
+
+	log.Printf("Building Overlay Graph of each levels...")
+	p.BuildCellNumber()
+	p.graph.SortVerticesByCellNumber()
+	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
+
+	return overlayGraph
 }
 
 func (p *Preprocessor) BuildCellNumber() {
@@ -42,8 +53,9 @@ func (p *Preprocessor) BuildCellNumber() {
 		cellNumber := p.mlp.GetCellNumber(v.GetID())
 		if _, exists := pvMap[cellNumber]; !exists {
 			cellNumbers = append(cellNumbers, cellNumber)
-			pvMap[cellNumber] = datastructure.Index(len(cellNumbers) - 1)
-			v.SetPvPtr(datastructure.Index(len(cellNumbers) - 1)) // set pointer to the index in cellNumbers slice
+			cellPvPtr := len(cellNumbers) - 1
+			pvMap[cellNumber] = datastructure.Index(cellPvPtr)
+			v.SetPvPtr(datastructure.Index(cellPvPtr)) // set pointer to the index in cellNumbers slice
 		} else {
 			v.SetPvPtr(pvMap[cellNumber])
 		}

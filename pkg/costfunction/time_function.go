@@ -1,8 +1,6 @@
 package costfunction
 
 import (
-	"math"
-
 	"github.com/lintang-b-s/navigatorx-crp/pkg"
 )
 
@@ -15,15 +13,18 @@ func NewTimeCostFunction() *TimeFunction {
 
 func (tf *TimeFunction) GetWeight(e EdgeAttributes) float64 {
 	speed := e.GetEdgeSpeed()
+	if speed == 0 {
+		return 0
+	}
 	return e.GetLength() / speed
 }
 
 func (tf *TimeFunction) GetTurnCost(turnType pkg.TurnType) float64 {
 	switch turnType {
 	case pkg.U_TURN:
-		return math.MaxFloat64
+		return pkg.INF_WEIGHT
 	case pkg.NO_ENTRY:
-		return math.MaxFloat64
+		return pkg.INF_WEIGHT
 	default:
 		return 0
 	}

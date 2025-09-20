@@ -6,17 +6,33 @@ import (
 )
 
 type CRPQueryKey struct {
-	node       Index
-	entryPoint Index
+	node           Index
+	entryExitPoint Index
 }
 
-func NewCRPQueryKey(node Index, entryPoint Index) CRPQueryKey {
-	return CRPQueryKey{node: node, entryPoint: entryPoint}
+func (qk *CRPQueryKey) GetNode() Index {
+	return qk.node
+}
+
+func (qk *CRPQueryKey) GetEntryExitPoint() Index {
+	return qk.entryExitPoint
+}
+
+func NewCRPQueryKey(node Index, entryExitPoint Index) CRPQueryKey {
+	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint}
 }
 
 type PriorityQueueNode[T comparable] struct {
 	rank float64
 	item T
+}
+
+func (p *PriorityQueueNode[T]) GetItem() T {
+	return p.item
+}
+
+func (p *PriorityQueueNode[T]) GetRank() float64 {
+	return p.rank
 }
 
 func NewPriorityQueueNode[T comparable](rank float64, item T) PriorityQueueNode[T] {
@@ -91,6 +107,11 @@ func (h *MinHeap[T]) isEmpty() bool {
 // size ukuran heap
 func (h *MinHeap[T]) Size() int {
 	return len(h.heap)
+}
+
+func (h *MinHeap[T]) Clear() {
+	h.heap = make([]PriorityQueueNode[T], 0)
+	h.pos = make(map[T]int)
 }
 
 // getMin mendapatkan nilai minimum dari min-heap (index 0)

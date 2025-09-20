@@ -38,12 +38,12 @@ func (mp *MultilevelPartition) ComputeBitmap() {
 }
 
 // set cellNumber of vertexId in level=level to cellId
-func (mp *MultilevelPartition) setCell(level int, vertexId int, cellId int) {
+func (mp *MultilevelPartition) SetCell(level int, vertexId int, cellId int) {
 	mp.cellNumbers[vertexId] |= Pv(cellId) << mp.pvOffset[level]
 }
 
 // get cellNumber of vertexId in level=level
-func (mp *MultilevelPartition) getCell(level int, vertexId int) Pv {
+func (mp *MultilevelPartition) GetCell(level int, vertexId int) Pv {
 	// off the bits that in above level, then shift right to get the cell id in that level
 	return (mp.cellNumbers[vertexId] & ^(^Pv(0) << mp.pvOffset[level+1])) >> Pv(mp.pvOffset[level])
 }

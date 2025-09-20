@@ -16,11 +16,35 @@ import (
 // each overlay vertex corresponds to either an entry point or an exit point of a cell in some level
 type OverlayVertex struct {
 	originalVertex        Index   // original vertex id
-	neighborOverlayVertex Index   // overlay vertex id that on another cell and incident to originalEdge
+	neighborOverlayVertex Index   // overlay vertex id that on another cell and incident to originalEdge. can be a head if this overlay vertex is an exit point, or can be a tail if this overlay vertex is an entry point.
 	cellNumber            Pv      // cell number of this overlay vertex. cellNumber = 64 bit uint with rightmost contain level 0 cellNumber, and to the left contain higher level cellNumber
 	originalEdge          Index   // original index to outEdge(this overlay vertex is an exit point)/inEdge(this overlay vertex is an entry point) that incident to this overlay vertex
 	entryExitPoint        []Index // stores for each level l on which this vertex is an overlay vertex the entry/exit point index in its cell on level l. index = level-l
 	// entryExitPoint used in overlaygraph.overlayIdMapping. to get the overlay vertex id in this map, use key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints)
+}
+
+func (ov *OverlayVertex) GetEntryExitPoint(level int) Index {
+	return ov.entryExitPoint[level-1]
+}
+
+func (ov *OverlayVertex) GetEntryPointSize() int {
+	return len(ov.entryExitPoint)
+}
+
+func (ov *OverlayVertex) GetCellNumber() Pv {
+	return ov.cellNumber
+}
+
+func (ov *OverlayVertex) GetOriginalVertex() Index {
+	return ov.originalVertex
+}
+
+func (ov *OverlayVertex) GetOriginalEdge() Index {
+	return ov.originalEdge
+}
+
+func (ov *OverlayVertex) GetNeighborOverlayVertex() Index {
+	return ov.neighborOverlayVertex
 }
 
 // Cell. cell/partition information
@@ -37,6 +61,22 @@ type Cell struct {
 	numExitPoints   Index // q_c // number of exit points
 	cellOffset      Index // f_c (the position in W where the first entry of C’s matrix is represented)
 	overlayIdOffset Index // maps entry/exit point of cell to overlay vertex id
+}
+
+func (c *Cell) GetNumEntryPoints() Index {
+	return c.numEntryPoints
+}
+
+func (c *Cell) GetNumExitPoints() Index {
+	return c.numExitPoints
+}
+
+func (c *Cell) GetCellOffset() Index {
+	return c.cellOffset
+}
+
+func (c *Cell) GetOverlayIdOffset() Index {
+	return c.overlayIdOffset
 }
 
 type OverlayGraph struct {
@@ -86,6 +126,25 @@ func (og *OverlayGraph) numberOfCellsInLevel(l int) int {
 
 func (og *OverlayGraph) GetAllCellsInLevel(l int) map[Pv]*Cell {
 	return og.cellMapping[l-1]
+}
+
+func (og *OverlayGraph) ForVertices(handle func(v *OverlayVertex)) {
+	for _, v := range og.overlayVertices {
+		handle(v)
+	}
+}
+
+/*
+GetQueryLevel. Customizable Route Planning in Road Networks, Daniel Delling, et al. Page 14
+
+define its query level lst (v) as the highest level such that v is not
+at the same cell as s or t. Equivalently, lst(v) is the maximum i such that ci (v) ∩ {s, t} = ∅.
+To compute lst (v), we first determine the most significant differing bit of pv(s) and pv(v). (Recall that
+pv(v) encodes the cell number of v on each level.) This bit indicates the topmost level ls(v) in which they
+differ. We do the same for pv(t) and pv(v) to determine lt(v). The minimum of ls (v) and lt (v) is lst (v).
+*/
+func (og *OverlayGraph) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
+	return og.levelInfo.GetQueryLevel(sCellNumber, tCellNumber, vCellNumber)
 }
 
 func (og *OverlayGraph) GetWeightVectorSize() uint32 {
@@ -190,7 +249,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 
 		// sort by cell number
 		sort.Slice(newToOldPosition, func(a, b int) bool {
-			return verticesInLevelJ[a].cellNumber < verticesInLevelJ[b].cellNumber
+			return verticesInLevelJ[newToOldPosition[a]].cellNumber < verticesInLevelJ[newToOldPosition[b]].cellNumber
 		})
 
 		oldToNewPosition := make([]Index, len(newToOldPosition))
@@ -314,6 +373,30 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 	}
 
 	og.weightVectorSize = uint32(cellOfset) // size of  one-dimensional weight array W.
+}
+
+// ForOutNeighborsOf. iterates over all ougoing-neighbors of u
+func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Index, wOffset Index)) {
+	uVertex := og.GetVertex(u)
+	entryPoint := uVertex.GetEntryExitPoint(level)
+	cell := og.GetCell(uVertex.GetCellNumber(), level)
+	weightOffset := cell.GetCellOffset() + entryPoint*cell.GetNumExitPoints()
+	overlayIdOffset := cell.GetOverlayIdOffset() + cell.GetNumEntryPoints()
+	for i := Index(0); i < Index(cell.GetNumExitPoints()); i++ {
+		handle(og.overlayIdMapping[overlayIdOffset+i], weightOffset+i)
+	}
+}
+
+// ForInNeighborsOf. iterates over all incoming-neighbors of v
+func (og *OverlayGraph) ForInNeighborsOf(v Index, level int, handle func(v Index, wOffset Index)) {
+	vertex := og.GetVertex(v)
+	exitPoint := vertex.GetEntryExitPoint(level)
+	cell := og.GetCell(vertex.GetCellNumber(), level)
+	weightOffset := cell.GetCellOffset() + exitPoint
+	overlayIdOffset := cell.GetOverlayIdOffset()
+	for i := Index(0); i < Index(cell.GetNumEntryPoints()); i++ {
+		handle(og.overlayIdMapping[overlayIdOffset+i], weightOffset+i*cell.GetNumExitPoints())
+	}
 }
 
 func (og *OverlayGraph) WriteToFile(filename string) error {

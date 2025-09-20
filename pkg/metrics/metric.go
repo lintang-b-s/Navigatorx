@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/lintang-b-s/navigatorx-crp/pkg"
 	"github.com/lintang-b-s/navigatorx-crp/pkg/costfunction"
 	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
 )
@@ -89,6 +90,22 @@ func (met *Metric) BuildStallingTables(overlayGraph *datastructure.OverlayGraph,
 	return
 }
 
+func (met *Metric) GetWeights() *datastructure.OverlayWeights {
+	return met.weights
+}
+
+func (met *Metric) GetWeight(e costfunction.EdgeAttributes) float64 {
+	return met.costFunction.GetWeight(e)
+}
+
+func (met *Metric) GetShortcutWeight(offset datastructure.Index) float64 {
+	return met.weights.GetWeight(offset)
+}
+
+func (met *Metric) GetTurnCost(t pkg.TurnType) float64 {
+	return met.costFunction.GetTurnCost(t)
+}
+
 func (met *Metric) WriteToFile(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {
@@ -99,7 +116,7 @@ func (met *Metric) WriteToFile(filename string) error {
 	w := bufio.NewWriter(f)
 	defer w.Flush()
 
-	fmt.Fprintf(w, "%d %d %d", len(met.weights.GetWeights()), len(met.entryStallingTables), len(met.exitStallingTables))
+	fmt.Fprintf(w, "%d %d %d\n", len(met.weights.GetWeights()), len(met.entryStallingTables), len(met.exitStallingTables))
 	for i, weight := range met.weights.GetWeights() {
 		fmt.Fprintf(w, "%f", weight)
 		if i < len(met.weights.GetWeights())-1 {
@@ -141,7 +158,7 @@ func (met *Metric) WriteToFile(filename string) error {
 	return nil
 }
 
-func ReadFromFile(filename string) (*Metric, error) {
+func ReadFromFile(filename string, costFunction costfunction.CostFunction) (*Metric, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -273,7 +290,7 @@ func ReadFromFile(filename string) (*Metric, error) {
 		exitStallingTables:  exitStallingTables,
 	}
 	metric.weights.SetWeights(weights)
-
+	metric.costFunction = costFunction
 	return metric, nil
 
 }

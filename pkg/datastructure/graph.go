@@ -43,6 +43,9 @@ func (v *Vertex) SetFirstIn(firstIn Index) {
 	v.firstIn = firstIn
 }
 
+func (v *Vertex) SetId(id Index) {
+	v.id = id
+}
 func (v *Vertex) SetPvPtr(pvPtr Index) {
 	v.pvPtr = pvPtr
 }
@@ -122,6 +125,9 @@ func (e *OutEdge) GetWeight() float64 {
 }
 
 func (e *OutEdge) GetEdgeSpeed() float64 {
+	if e.weight == 0 {
+		return 0
+	}
 	return e.dist / e.weight
 }
 
@@ -146,6 +152,9 @@ func (e *InEdge) GetWeight() float64 {
 }
 
 func (e *InEdge) GetEdgeSpeed() float64 {
+	if e.weight == 0 {
+		return 0
+	}
 	return e.dist / e.weight
 }
 
@@ -273,6 +282,34 @@ func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 	g.overlayVertices = overlayVertices
 }
 
+func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turn pkg.TurnType)) {
+	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
+		handle(g.outEdges[e], g.GetExitOrder(u, e), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)))
+	}
+}
+
+func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turn pkg.TurnType)) {
+	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
+		handle(g.inEdges[e], g.GetEntryOrder(v, e), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint))
+	}
+}
+
+func (g *Graph) GetHeadFromInEdge(entryPoint Index) Index {
+	sourceInEdge := g.GetInEdge(entryPoint)
+	tailAtSourceInEdge := g.GetVertex(sourceInEdge.GetTail())
+	outEdgeToSource := g.GetOutEdge(tailAtSourceInEdge.GetFirstOut() + Index(sourceInEdge.GetExitPoint()))
+	head := outEdgeToSource.GetHead()
+	return head
+}
+
+func (g *Graph) GetTailFromOutEdge(exitPoint Index) Index {
+	sourceOutEdge := g.GetOutEdge(exitPoint)
+	headAtSourceOutEdge := g.GetVertex(sourceOutEdge.GetHead())
+	inEdgeFromSource := g.GetInEdge(headAtSourceOutEdge.GetFirstIn() + Index(sourceOutEdge.GetEntryPoint()))
+	return inEdgeFromSource.GetTail()
+}
+
+// GetOverlayVertex. return overlay vertex id
 func (g *Graph) GetOverlayVertex(u Index, turnOrder uint8, exit bool) (Index, bool) {
 	subV := SubVertex{
 		originalID: u,
@@ -338,6 +375,10 @@ func (g *Graph) GetVertex(u Index) *Vertex {
 
 func (g *Graph) GetVertexFirstOut(u Index) Index {
 	return g.vertices[u].GetFirstOut()
+}
+
+func (g *Graph) GetVertexFirstIn(u Index) Index {
+	return g.vertices[u].GetFirstIn()
 }
 
 func (g *Graph) SortVerticesByCellNumber() {
@@ -418,19 +459,19 @@ func (g *Graph) SortVerticesByCellNumber() {
 			// in the end of the outer loop, graph vertices are sorted by cell number
 			g.vertices[vId] = cellVertices[i][v].vertex
 			vOldId := cellVertices[i][v].originalIndex
-			g.vertices[vId].id = Index(vId)
+			g.vertices[vId].SetId(vId)
 			g.vertices[vId].firstOut = outOffset
 			g.vertices[vId].firstIn = inOffset
 
 			// update outedges & inedges
 			for k := Index(0); k < Index(len(oEdges[vOldId])); k++ {
 				g.outEdges[outOffset] = oEdges[vOldId][k]
-				g.outEdges[outOffset].head = newId[g.outEdges[outOffset].head]
+				g.outEdges[outOffset].head = newId[oEdges[vOldId][k].head]
 				outOffset++
 			}
 			for k := Index(0); k < Index(len(iEdges[vOldId])); k++ {
 				g.inEdges[inOffset] = iEdges[vOldId][k]
-				g.inEdges[inOffset].tail = newId[g.inEdges[inOffset].tail]
+				g.inEdges[inOffset].tail = newId[iEdges[vOldId][k].tail]
 				inOffset++
 			}
 

@@ -387,8 +387,8 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 	var (
 		outEdges  [][]*datastructure.OutEdge = make([][]*datastructure.OutEdge, len(p.nodeIDMap))
 		inEdges   [][]*datastructure.InEdge  = make([][]*datastructure.InEdge, len(p.nodeIDMap))
-		inDegree  []uint8                   = make([]uint8, len(p.nodeIDMap))
-		outDegree []uint8                   = make([]uint8, len(p.nodeIDMap))
+		inDegree  []uint8                    = make([]uint8, len(p.nodeIDMap))
+		outDegree []uint8                    = make([]uint8, len(p.nodeIDMap))
 		vertices  []*datastructure.Vertex    = make([]*datastructure.Vertex, len(p.nodeIDMap)+1)
 	)
 
@@ -710,7 +710,9 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 			sortOrder[j] = datastructure.Index(j)
 		}
 
-		sort.Slice(sortOrder, func(i, j int) bool {
+		sort.Slice(sortOrder, func(a, b int) bool {
+			i := sortOrder[a]
+			j := sortOrder[b]
 			firstDiff := columnScore[i] ^ columnScore[j]
 			for i := uint8(0); i < inDegree[v]; i++ {
 				if firstDiff&(1<<i) != 0 {

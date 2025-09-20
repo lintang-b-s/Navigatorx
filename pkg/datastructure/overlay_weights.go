@@ -1,18 +1,22 @@
 package datastructure
 
 import (
-	"math"
+	"sync"
 
-	"github.com/lintang-b-s/navigatorx-crp/pkg/concurrent"
+	"github.com/lintang-b-s/navigatorx-crp/pkg"
 	"github.com/lintang-b-s/navigatorx-crp/pkg/costfunction"
 )
 
 type OverlayWeights struct {
 	weights []float64
+	lock    sync.Mutex
 }
 
-func (ow *OverlayWeights) GetWeight(i uint8) float64 {
-	return ow.weights[i]
+func (ow *OverlayWeights) GetWeight(i Index) float64 {
+
+	shortcutWeight := ow.weights[i]
+
+	return shortcutWeight
 }
 
 func (ow *OverlayWeights) GetWeights() []float64 {
@@ -69,97 +73,83 @@ func (ow *OverlayWeights) Build(graph *Graph, overlayGraph *OverlayGraph,
 // this function is parallelized using goroutines worker pool
 func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGraph,
 	costFunction costfunction.CostFunction) {
+	// salah
 
-	workers := concurrent.NewWorkerPool[customizerCell, any](workersNum,
-		overlayGraph.numberOfCellsInLevel(1))
-
-	buildCellClique := func(job customizerCell) any {
-		pq := NewMinHeap[CRPQueryKey]()
-		eta := make(map[Index]float64)
-		overlayEta := make(map[Index]float64, graph.NumberOfVertices())
-
-		cell := job.cell
-		cellNumber := job.cellNumber
+	cellMapInLevelOne := overlayGraph.GetAllCellsInLevel(1)
+	for cellNumber, cell := range cellMapInLevelOne {
 
 		for i := Index(0); i < cell.numEntryPoints; i++ {
 			startOverlayVertexId := overlayGraph.GetEntryPoint(cell, i)
 			overlayVertex := overlayGraph.GetVertex(startOverlayVertexId)
 			start := overlayVertex.originalVertex
+			pq := NewMinHeap[CRPQueryKey]()
+			eta := make(map[Index]float64)
+			overlayEta := make(map[Index]float64)
+			forwardCellOffset := graph.GetInEdgeCellOffset(start)
+			startInEdgeOffset := overlayVertex.originalEdge - forwardCellOffset
 
-			eta[start] = 0
+			eta[startInEdgeOffset] = 0
 
-			startInEdgeOffset := overlayVertex.originalEdge
 			pq.Insert(NewPriorityQueueNode(0, NewCRPQueryKey(start, startInEdgeOffset)))
 
 			for !pq.isEmpty() {
 				pqNode, _ := pq.ExtractMin()
-				uKey := pqNode.item
-				uId := uKey.node
-				uEntryPoint := uKey.entryPoint
-				uEta := pqNode.rank
+				uKey := pqNode.GetItem()
+				uId := uKey.GetNode()
+				uEntryPoint := uKey.GetEntryExitPoint()
+				uEta := pqNode.GetRank()
 
-				u := graph.GetVertex(uId)
-
-				exitPoint := Index(0)
-				for e := u.GetFirstOut(); e < graph.GetVertexFirstOut(uId+1); e++ {
+				graph.ForOutEdgesOf(uId, graph.GetEntryOrder(uId, uEntryPoint+forwardCellOffset), func(outArc *OutEdge, exitPoint Index, turnType pkg.TurnType) {
 					// traverse all out edges
-					outArc := graph.GetOutEdge(e)
 					v := outArc.GetHead()
 
-					turnType := graph.GetTurnType(u.GetID(), graph.GetEntryOrder(uId, uEntryPoint), exitPoint)
-
 					exitPointEta := uEta + costFunction.GetTurnCost(turnType)
-					newETA := exitPointEta + costFunction.GetWeight(outArc)
+					outArcCost := costFunction.GetWeight(outArc)
 
-					if newETA >= math.MaxFloat64 {
-						continue
+					newETA := exitPointEta + outArcCost
+
+					if newETA >= pkg.INF_WEIGHT {
+						return
 					}
 
 					if graph.GetCellNumber(v) == cellNumber {
-						vEntryPoint := graph.GetEntryOffset(v) + Index(outArc.GetEntryPoint())
+						vEntryPoint := graph.GetEntryOffset(v) + Index(outArc.GetEntryPoint()) - forwardCellOffset
 
-						_, exists := eta[v]
-						if !exists {
-							eta[v] = newETA
-							pq.Insert(NewPriorityQueueNode(newETA, NewCRPQueryKey(v, vEntryPoint)))
-						} else if newETA < eta[v] {
-							eta[v] = newETA
-							pq.DecreaseKey(NewPriorityQueueNode(newETA, NewCRPQueryKey(v, vEntryPoint)))
+						if _, ok := eta[vEntryPoint]; !ok || newETA < eta[vEntryPoint] {
+							eta[vEntryPoint] = newETA
+							if ok {
+								pq.DecreaseKey(NewPriorityQueueNode(newETA, NewCRPQueryKey(v, vEntryPoint)))
+							} else {
+								pq.Insert(NewPriorityQueueNode(newETA, NewCRPQueryKey(v, vEntryPoint)))
+							}
 						}
 					} else {
 						// found an exit point of the cell
 						// save this shortcut eta
-						exitOverlay, ok := graph.GetOverlayVertex(uId, uint8(exitPoint), true)
-						if !ok {
-							panic("overlay vertex not found") // for debugging (dev)
-						}
-
-						_, exists := overlayEta[exitOverlay]
-						if exitPointEta < overlayEta[exitOverlay] || !exists {
+						exitOverlay, _ := graph.GetOverlayVertex(uId, uint8(exitPoint), true)
+						if _, ok := overlayEta[exitOverlay]; !ok || exitPointEta < overlayEta[exitOverlay] {
 							overlayEta[exitOverlay] = exitPointEta
 						}
 					}
-					exitPoint++
-				}
+				})
 			}
 
 			// stores all eta of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 			for j := Index(0); j < cell.numExitPoints; j++ {
 				exitPoint := overlayGraph.GetExitPoint(cell, j)
-				ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = overlayEta[exitPoint]
+				ow.lock.Lock()
+				_, exists := overlayEta[exitPoint]
+				if !exists {
+					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = pkg.INF_WEIGHT
+				} else {
+
+					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = overlayEta[exitPoint]
+				}
+				ow.lock.Unlock()
 			}
 		}
-		return nil
 	}
 
-	cellMapInLevelOne := overlayGraph.GetAllCellsInLevel(1)
-	for pv, cell := range cellMapInLevelOne {
-		workers.AddJob(newCustomizerCell(cell, pv))
-	}
-
-	workers.Close()
-	workers.Start(buildCellClique)
-	workers.Wait()
 }
 
 // buildLevel. build clique of each cell in the level (level > 1)
@@ -172,18 +162,15 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 	costFunction costfunction.CostFunction, level int) {
 
 	levelInfo := overlayGraph.GetLevelInfo()
-	workers := concurrent.NewWorkerPool[customizerCell, any](workersNum,
-		overlayGraph.numberOfCellsInLevel(level))
 
 	buildCellClique := func(job customizerCell) any {
-		pq := NewMinHeap[Index]()
-		eta := make(map[Index]float64)
-		overlayEta := make(map[Index]float64, graph.NumberOfVertices())
 
 		cell := job.cell
 		cellNumber := job.cellNumber
 
 		for i := Index(0); i < cell.numEntryPoints; i++ {
+			pq := NewMinHeap[Index]()
+			eta := make(map[Index]float64)
 			startOverlayVertexId := overlayGraph.GetEntryPoint(cell, i)
 
 			eta[startOverlayVertexId] = 0
@@ -192,26 +179,20 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 
 			for !pq.isEmpty() {
 				pqNode, _ := pq.ExtractMin()
-				uOverlayId := pqNode.item
-				uEta := pqNode.rank
+				uOverlayId := pqNode.GetItem()
+				uEta := pqNode.GetRank()
 
-				uOverlayVertex := overlayGraph.GetVertex(uOverlayId)
-				entryPoint := uOverlayVertex.entryExitPoint[level-2] // -2 because level starts from 1, and slice starts from 0
+				overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit Index, wOffset Index) {
 
-				cell := overlayGraph.GetCell(uOverlayVertex.cellNumber, level-1)
+					shorcutWeight := ow.weights[wOffset]
+					newEta := uEta + shorcutWeight
 
-				weightOffset := cell.cellOffset + entryPoint*cell.numExitPoints
-
-				for j := Index(0); j < cell.numExitPoints; j++ {
-					exit := overlayGraph.GetExitPoint(cell, j)
-					newEta := uEta + ow.weights[weightOffset+j]
-
-					if newEta >= math.MaxFloat64 {
-						continue
+					if newEta >= pkg.INF_WEIGHT {
+						return
 					}
 
-					_, exists := overlayEta[exit]
-					if newEta < overlayEta[exit] || !exists {
+					_, exitAlreadyVisited := eta[exit]
+					if newEta < eta[exit] || !exitAlreadyVisited {
 						eta[exit] = newEta
 						exitOverlayVertex := overlayGraph.GetVertex(exit)
 						neighborVertex := exitOverlayVertex.neighborOverlayVertex
@@ -221,22 +202,26 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 							boundaryArcWeight := costFunction.GetWeight(graph.GetOutEdge(exitOverlayVertex.originalEdge))
 							eta[neighborVertex] = newEta + boundaryArcWeight
 
-							if _, exists := eta[neighborVertex]; !exists {
+							if _, neighborVertexAlreadyVisited := eta[neighborVertex]; !neighborVertexAlreadyVisited {
 								pq.Insert(NewPriorityQueueNode(eta[neighborVertex], neighborVertex))
 							} else {
 								pq.DecreaseKey(NewPriorityQueueNode(eta[neighborVertex], neighborVertex))
 							}
 						}
-
 					}
+				})
 
-				}
 			}
 
 			// stores all eta of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 			for j := Index(0); j < cell.numExitPoints; j++ {
 				exitPoint := overlayGraph.GetExitPoint(cell, j)
-				ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = overlayEta[exitPoint]
+				_, exists := eta[exitPoint]
+				if !exists {
+					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = pkg.INF_WEIGHT
+				} else {
+					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = eta[exitPoint]
+				}
 			}
 		}
 		return nil
@@ -244,10 +229,7 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 
 	cellMapInLevelOne := overlayGraph.GetAllCellsInLevel(level)
 	for pv, cell := range cellMapInLevelOne {
-		workers.AddJob(newCustomizerCell(cell, pv))
+		buildCellClique(newCustomizerCell(cell, pv))
 	}
 
-	workers.Close()
-	workers.Start(buildCellClique)
-	workers.Wait()
 }

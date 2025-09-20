@@ -22,6 +22,8 @@ func RoundFloat(val float64, precision uint) float64 {
 	return math.Round(val*ratio) / ratio
 }
 
+
+
 func CountDecimalPlacesF64(value float64) int {
 	strValue := strconv.FormatFloat(value, 'f', -1, 64)
 

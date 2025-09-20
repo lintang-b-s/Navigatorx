@@ -5,8 +5,8 @@ import (
 )
 
 func main() {
-	customizer := customizer.NewCustomizer("./data/solo_jogja.graph", "./data/overlay_graph.graph", "./data/metrics.txt")
-	err := customizer.Customize()
+	custom := customizer.NewCustomizer("./data/test.graph", "./data/overlay_graph.graph", "./data/metrics.txt")
+	err := custom.Customize()
 	if err != nil {
 		panic(err)
 	}
