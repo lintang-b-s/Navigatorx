@@ -1,6 +1,5 @@
 package routing
 
 const (
-	forwardDifferentFromSCellConst = 1000
-	backwardDifferentFromTCellConst = 1000
+	EDGE_OFFSET = 1000
 )

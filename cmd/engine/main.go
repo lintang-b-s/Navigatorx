@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/lintang-b-s/navigatorx-crp/pkg/engine"
 	"github.com/lintang-b-s/navigatorx-crp/pkg/engine/routing"
@@ -14,8 +15,9 @@ func main() {
 	}
 
 	bidirSearch := routing.NewCRPBidirectionalSearch(routingEngine.GetRoutingEngine())
-	_, _, found := bidirSearch.Search(6715, 43569)
+	eta, _, found := bidirSearch.Search(6715, 43569)
 	if found == false {
 		panic(errors.New("no path found"))
 	}
+	fmt.Printf("eta from vertice %v to %v: %v", 6715, 43569, eta)
 }

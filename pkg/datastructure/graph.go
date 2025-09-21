@@ -284,12 +284,24 @@ func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 
 func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turn pkg.TurnType)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
+		if g.outEdges[e].GetHead() == u {
+			continue
+		}
+		exitOrder := Index(g.GetExitOrder(u, e))
+		turnTableOffset := g.vertices[u].turnTablePtr + Index(entryPoint)*Index(g.GetOutDegree(u)) + exitOrder
+		_ = turnTableOffset
+		if turnTableOffset == 4294967282 {
+			fmt.Println("debug")
+		}
 		handle(g.outEdges[e], g.GetExitOrder(u, e), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)))
 	}
 }
 
 func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turn pkg.TurnType)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
+		if g.inEdges[e].GetTail() == v {
+			continue
+		}
 		handle(g.inEdges[e], g.GetEntryOrder(v, e), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint))
 	}
 }
@@ -381,7 +393,7 @@ func (g *Graph) GetVertexFirstIn(u Index) Index {
 	return g.vertices[u].GetFirstIn()
 }
 
-func (g *Graph) SortVerticesByCellNumber() {
+func (g *Graph) SetOutInEdgeCellOffset() {
 	cellVertices := make([][]struct {
 		vertex        *Vertex
 		originalIndex Index
@@ -432,18 +444,6 @@ func (g *Graph) SortVerticesByCellNumber() {
 		}
 	}
 
-	newId := make([]Index, g.NumberOfVertices()) // map from original vertex id to new vertex id
-	newVId := 0                                  // new vertice id
-
-	// create new vertex id
-	for i := Index(0); i < Index(len(cellVertices)); i++ {
-		for v := 0; v < len(cellVertices[i]); v++ {
-			newId[cellVertices[i][v].originalIndex] = Index(newVId)
-			newVId++
-		}
-	}
-
-	vId := Index(0)
 	outOffset := Index(0)                                   // new offset for outEdges for each vertex for each cell
 	g.outEdgeCellOffset = make([]Index, len(g.cellNumbers)) // offset of first outEdge for each cell
 	inOffset := Index(0)                                    // new offset for inEdges for each vertex for each cell
@@ -457,21 +457,13 @@ func (g *Graph) SortVerticesByCellNumber() {
 		for v := Index(0); v < Index(len(cellVertices[i])); v++ {
 			// update vertex to use new vId
 			// in the end of the outer loop, graph vertices are sorted by cell number
-			g.vertices[vId] = cellVertices[i][v].vertex
-			vOldId := cellVertices[i][v].originalIndex
-			g.vertices[vId].SetId(vId)
-			g.vertices[vId].firstOut = outOffset
-			g.vertices[vId].firstIn = inOffset
+			vId := cellVertices[i][v].originalIndex
 
 			// update outedges & inedges
-			for k := Index(0); k < Index(len(oEdges[vOldId])); k++ {
-				g.outEdges[outOffset] = oEdges[vOldId][k]
-				g.outEdges[outOffset].head = newId[oEdges[vOldId][k].head]
+			for k := Index(0); k < Index(len(oEdges[vId])); k++ {
 				outOffset++
 			}
-			for k := Index(0); k < Index(len(iEdges[vOldId])); k++ {
-				g.inEdges[inOffset] = iEdges[vOldId][k]
-				g.inEdges[inOffset].tail = newId[iEdges[vOldId][k].tail]
+			for k := Index(0); k < Index(len(iEdges[vId])); k++ {
 				inOffset++
 			}
 

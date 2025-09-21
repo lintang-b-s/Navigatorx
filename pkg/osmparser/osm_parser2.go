@@ -392,6 +392,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		vertices  []*datastructure.Vertex    = make([]*datastructure.Vertex, len(p.nodeIDMap)+1)
 	)
 
+	lastEdgeId := uint32(0)
 	for _, e := range scannedEdges {
 		u := datastructure.Index(e.from)
 		v := datastructure.Index(e.to)
@@ -416,6 +417,26 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 			inEdges[u] = append(inEdges[u], datastructure.NewInEdge(edgeID,
 				v, e.weight, e.distance, uint8(len(outEdges[v])-1)))
 			inDegree[u]++
+		}
+		if e.edgeID >= lastEdgeId {
+			lastEdgeId = e.edgeID + 1
+		}
+	}
+
+	for v := 0; v < len(vertices)-1; v++ {
+		// we need to do this because crp query assume all vertex have at least one outEdge (at for target) and one inEdge (as for source)
+		if len(outEdges[v]) == 0 {
+
+			dummyID := datastructure.Index(lastEdgeId)
+			dummyOut := datastructure.NewOutEdge(dummyID, datastructure.Index(v),
+				0, 0, uint8(len(inEdges[v])))
+			outEdges[v] = append(outEdges[v], dummyOut)
+			outDegree[v]++
+			dummyIn := datastructure.NewInEdge(dummyID, datastructure.Index(v),
+				0, 0, uint8(len(outEdges[v])-1))
+			inEdges[v] = append(inEdges[v], dummyIn)
+			inDegree[v]++
+			lastEdgeId++
 		}
 	}
 

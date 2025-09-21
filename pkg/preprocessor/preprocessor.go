@@ -3,6 +3,7 @@ package preprocesser
 import (
 	"log"
 
+	"github.com/lintang-b-s/navigatorx-crp/pkg"
 	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
 )
 
@@ -23,7 +24,13 @@ func (p *Preprocessor) PreProcessing() error {
 
 	log.Printf("Building Overlay Graph of each levels...")
 	p.BuildCellNumber()
-	p.graph.SortVerticesByCellNumber()
+	p.graph.SetOutInEdgeCellOffset()
+	log.Printf("After setting out/in edge cell offset")
+	p.graph.ForOutEdgesOf(0, 0, func(e *datastructure.OutEdge, exitPoint datastructure.Index, turn pkg.TurnType) {
+		vId := e.GetHead()
+		log.Printf("outEdge from 0 to %v with turn type %v\n", vId, turn)
+	})
+
 	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
 	log.Printf("Overlay graph built and written to ./data/overlay_graph.graph")
 	err := overlayGraph.WriteToFile("./data/overlay_graph.graph")
@@ -32,17 +39,6 @@ func (p *Preprocessor) PreProcessing() error {
 	}
 	log.Printf("Writing graph to ./data/test.graph")
 	return p.graph.WriteGraph("./data/test.graph")
-}
-
-func (p *Preprocessor) PreProcessing2() *datastructure.OverlayGraph {
-	log.Printf("Starting preprocessing step of Customizable Route Planning...")
-
-	log.Printf("Building Overlay Graph of each levels...")
-	p.BuildCellNumber()
-	p.graph.SortVerticesByCellNumber()
-	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
-
-	return overlayGraph
 }
 
 func (p *Preprocessor) BuildCellNumber() {
