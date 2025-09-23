@@ -4,8 +4,8 @@ import (
 	"math"
 
 	"github.com/golang/geo/s2"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 func ProjectPointToLineCoord(nearestStPoint datastructure.Coordinate, secondNearestStPoint datastructure.Coordinate,

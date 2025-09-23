@@ -1,12 +1,10 @@
 package routing
 
 import (
-	"errors"
-
-	"github.com/lintang-b-s/navigatorx-crp/pkg"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/metrics"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type PathUnpacker struct {
@@ -37,38 +35,46 @@ func NewPathUnpacker(graph *datastructure.Graph, overlayGraph *datastructure.Ove
 /*
 unpackPath. unpack a level-i shortcut (v, w) by running Dijkstra between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
 */
-func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCellNumber datastructure.Pv) []datastructure.Index {
+func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCellNumber datastructure.Pv) ([]datastructure.Index, float64) {
 	unpackedPath := make([]datastructure.Index, 0)
 	unpackOverlayOffset := datastructure.Index(pu.graph.NumberOfEdges())
+	totalDistance := 0.0
 	for i := 0; i < len(packedPath)-1; {
 		cur := packedPath[i]
 		if cur.getEdge() < unpackOverlayOffset {
 			// original vertex (non-overlay vertex)
 			unpackedPath = append(unpackedPath, cur.getVertex())
+			if cur.isOut() {
+				totalDistance += pu.graph.GetOutEdge(cur.getEdge()).GetLength()
+			} else {
+				totalDistance += pu.graph.GetInEdge(cur.getEdge()).GetLength()
+			}
 			i++
 		} else {
 			// overlay vertex
 			entryVertex := cur.getEdge() - unpackOverlayOffset
+
 			entryCellNumber := pu.overlayGraph.GetVertex(entryVertex).GetCellNumber()
 			queryLevel := pu.overlayGraph.GetQueryLevel(sCellNumber, tCellNumber, entryCellNumber)
 
 			exitVertex := packedPath[i+1].getEdge() - unpackOverlayOffset
 
-			pu.unpackInLevelCell(entryVertex, exitVertex, int(queryLevel), &unpackedPath)
+			pu.unpackInLevelCell(entryVertex, exitVertex, int(queryLevel), &unpackedPath, &totalDistance)
 			i += 2
 		}
 	}
 
-	return unpackedPath
+	return unpackedPath, totalDistance
 }
 
-func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datastructure.Index, level int, unpackedPath *[]datastructure.Index) {
+func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datastructure.Index, level int, unpackedPath *[]datastructure.Index,
+	distance *float64) {
 	pu.info = make(map[datastructure.Index]VertexInfo)
 	if level == 1 {
 		sourceEntryPoint := pu.overlayGraph.GetVertex(sourceOverlayId).GetOriginalEdge()
 		neighborOfTarget := pu.overlayGraph.GetVertex(targetOverlayId).GetNeighborOverlayVertex()
 		targetEntryPoint := pu.overlayGraph.GetVertex(neighborOfTarget).GetOriginalEdge()
-		pu.unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoint, unpackedPath)
+		pu.unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoint, unpackedPath, distance)
 		return
 	}
 	pu.currentRound++
@@ -77,7 +83,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 	sourceCellNumber := pu.overlayGraph.GetVertex(sourceOverlayId).GetCellNumber()
 	truncatedSourceCellNumber := pu.overlayGraph.GetLevelInfo().TruncateToLevel(sourceCellNumber, uint8(level))
 
-	pu.info[sourceOverlayId] = NewVertexInfo(0, newVertexEdgePair(sourceOverlayId, sourceOverlayId))
+	pu.info[sourceOverlayId] = NewVertexInfo(0, newVertexEdgePair(sourceOverlayId, sourceOverlayId, true))
 	pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(0, sourceOverlayId))
 
 	for pu.overlayPq.Size() != 0 {
@@ -96,16 +102,13 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 			newEta := uEta + pu.metrics.GetShortcutWeight(wOffset)
 			_, vAlreadyVisited := pu.info[vOverlayId]
 
-			// if  vAlreadyVisited && newEta >= pu.info[vOverlayId].GetEta() {
-			// 	return
-			// }
 			if pu.round[vOverlayId] == pu.currentRound && newEta >= pu.info[vOverlayId].GetEta() {
 				return
 			}
 
 			uOverlayVertex := pu.overlayGraph.GetVertex(uOverlayId)
 			pu.info[vOverlayId] = NewVertexInfo(newEta, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
-				uOverlayId))
+				uOverlayId, true))
 			pu.round[vOverlayId] = pu.currentRound
 
 			if vOverlayId == targetOverlayId {
@@ -133,7 +136,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 
 			_, wAlreadyVisited := pu.info[wNeighborId]
 			pu.info[wNeighborId] = NewVertexInfo(newEta, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
-				vOverlayId))
+				vOverlayId, true))
 			pu.round[wNeighborId] = pu.currentRound
 			if !wAlreadyVisited {
 				pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(newEta, wNeighborId))
@@ -147,11 +150,15 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 	curOverlayId := targetOverlayId
 	overlayPath = append(overlayPath, curOverlayId)
 	for curOverlayId != sourceOverlayId {
-		_, exists := pu.info[curOverlayId]
-		if !exists {
-			panic(errors.New("no path found when unpacking in level cell"))
-		}
+
 		parent := pu.info[curOverlayId].GetParent()
+		prevEdge := parent.getEdge()
+		isOut := parent.isOut()
+		if isOut {
+			*distance += pu.graph.GetOutEdge(prevEdge).GetLength()
+		} else {
+			*distance += pu.graph.GetInEdge(prevEdge).GetLength()
+		}
 		curOverlayId = parent.edge
 		overlayPath = append(overlayPath, curOverlayId)
 	}
@@ -163,12 +170,12 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 
 	for i := 0; i < len(overlayPath)-1; i += 2 {
 
-		pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedPath)
+		pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedPath, distance)
 	}
 }
 
 func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoint datastructure.Index,
-	unpackedPath *[]datastructure.Index) {
+	unpackedPath *[]datastructure.Index, distance *float64) {
 	// sourceEntryPoint inEdge that point to source vertex
 
 	// get source vertex
@@ -178,7 +185,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoi
 
 	pu.currentRound++
 	pu.round[sourceEntryPoint] = pu.currentRound
-	pu.info[sourceEntryPoint] = NewVertexInfo(0, newVertexEdgePair(sourceVertex.GetID(), sourceEntryPoint))
+	pu.info[sourceEntryPoint] = NewVertexInfo(0, newVertexEdgePair(sourceVertex.GetID(), sourceEntryPoint, true))
 	pu.pq.Insert(datastructure.NewPriorityQueueNode(0, datastructure.NewCRPQueryKey(sourceVertex.GetID(), sourceEntryPoint)))
 
 	for pu.pq.Size() != 0 {
@@ -209,14 +216,12 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoi
 			}
 
 			_, vAlreadyVisited := pu.info[vEntryPoint]
-			// if vAlreadyVisited && newEta >= pu.info[vEntryPoint].GetEta() {
-			// 	return
-			// }
+
 			if pu.round[vEntryPoint] == pu.currentRound && newEta >= pu.info[vEntryPoint].GetEta() {
 				return
 			}
 
-			pu.info[vEntryPoint] = NewVertexInfo(newEta, newVertexEdgePair(uId, uEntryPoint))
+			pu.info[vEntryPoint] = NewVertexInfo(newEta, newVertexEdgePair(uId, uEntryPoint, true))
 			pu.round[vEntryPoint] = pu.currentRound
 			if !vAlreadyVisited {
 				pu.pq.Insert(datastructure.NewPriorityQueueNode(newEta, datastructure.NewCRPQueryKey(vId, vEntryPoint)))
@@ -229,10 +234,14 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoi
 	path := make([]datastructure.Index, 0, 10)
 	uId := targetEntryPoint
 	for pu.info[uId].GetParent().edge != sourceEntryPoint {
-		_, exists := pu.info[uId]
-		if !exists {
-			panic(errors.New("no path found when unpacking in lowest level cell"))
+		prevEdge := pu.info[uId].GetParent().edge
+		isOut := pu.info[uId].GetParent().isOutEdge
+		if isOut {
+			*distance += pu.graph.GetOutEdge(prevEdge).GetLength()
+		} else {
+			*distance += pu.graph.GetInEdge(prevEdge).GetLength()
 		}
+
 		path = append(path, pu.info[uId].GetParent().vertex)
 		uId = pu.info[uId].GetParent().edge
 	}

@@ -9,9 +9,9 @@ import (
 	"os"
 	"strings"
 
-	"github.com/lintang-b-s/navigatorx-crp/pkg"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/costfunction"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 type Metric struct {

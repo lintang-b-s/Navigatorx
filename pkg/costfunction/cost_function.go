@@ -1,6 +1,6 @@
 package costfunction
 
-import "github.com/lintang-b-s/navigatorx-crp/pkg"
+import "github.com/lintang-b-s/Navigatorx/pkg"
 
 type EdgeAttributes interface {
 	GetWeight() float64

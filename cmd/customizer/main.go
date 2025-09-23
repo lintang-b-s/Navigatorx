@@ -1,12 +1,17 @@
 package main
 
 import (
-	"github.com/lintang-b-s/navigatorx-crp/pkg/customizer"
+	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
+	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 )
 
 func main() {
-	custom := customizer.NewCustomizer("./data/test.graph", "./data/overlay_graph.graph", "./data/metrics.txt")
-	err := custom.Customize()
+	logger, err := logger.New()
+	if err != nil {
+		panic(err)
+	}
+	custom := customizer.NewCustomizer("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
+	err = custom.Customize()
 	if err != nil {
 		panic(err)
 	}

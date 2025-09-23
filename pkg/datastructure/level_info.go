@@ -1,6 +1,6 @@
 package datastructure
 
-import "github.com/lintang-b-s/navigatorx-crp/pkg/util"
+import "github.com/lintang-b-s/Navigatorx/pkg/util"
 
 type LevelInfo struct {
 	offset []uint8 // offset of each level in the bitpacked cell numbers

@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/lintang-b-s/navigatorx-crp/pkg"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/customizer"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/engine"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/engine/routing"
-	preprocesser "github.com/lintang-b-s/navigatorx-crp/pkg/preprocessor"
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/logger"
+	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
 type edge struct {
@@ -127,8 +128,12 @@ func main() {
 		mlp.SetCell(1, v, topLevelCell[cells[v]])
 	}
 
-	preprocessor := preprocesser.NewPreprocessor(graph, mlp)
-	err := preprocessor.PreProcessing()
+	logger, err := logger.New()
+	if err != nil {
+		panic(err)
+	}
+	preprocessor := preprocesser.NewPreprocessor(graph, mlp, logger)
+	err = preprocessor.PreProcessing()
 	if err != nil {
 		panic(err)
 	}
@@ -139,13 +144,13 @@ func main() {
 		log.Printf("outEdge from 0 to %v with turn type %v\n", vId, turn)
 	})
 
-	custo := customizer.NewCustomizer("./data/test.graph", "./data/overlay_graph.graph", "./data/metrics.txt")
+	custo := customizer.NewCustomizer("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
 	err = custo.Customize()
 	if err != nil {
 		panic(err)
 	}
 
-	routingEngine, err := engine.NewEngine("./data/test.graph", "./data/overlay_graph.graph", "./data/metrics.txt")
+	routingEngine, err := engine.NewEngine("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
 	if err != nil {
 		panic(err)
 	}
@@ -156,9 +161,17 @@ func main() {
 			if i == j {
 				continue
 			}
-			shortestPath, _, found := bidirSearch.Search(datastructure.Index(i), datastructure.Index(j))
+			shortestPath, _, path, found := bidirSearch.Search(datastructure.Index(i), datastructure.Index(j))
 			if !found {
 				fmt.Printf("no path found from %v to %v\n", i, j)
+			} else {
+				for k := 0; k < len(path); k++ {
+					if k > 0 {
+						fmt.Printf("->")
+					}
+					fmt.Printf("%v", path[k])
+				}
+				fmt.Printf("\n")
 			}
 			fmt.Printf("shortest path from %v to %v: ", i, j)
 			fmt.Printf("%v\n", shortestPath)

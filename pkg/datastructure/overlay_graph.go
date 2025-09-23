@@ -60,7 +60,7 @@ type Cell struct {
 	numEntryPoints  Index // p_c // number of entry points
 	numExitPoints   Index // q_c // number of exit points
 	cellOffset      Index // f_c (the position in W where the first entry of C’s matrix is represented)
-	overlayIdOffset Index // maps entry/exit point of cell to overlay vertex id
+	overlayIdOffset Index //  offset of first entry/exit point (overlay vertex) in og.overlayIdMapping for the each cell for each level
 }
 
 func (c *Cell) GetNumEntryPoints() Index {
@@ -151,7 +151,7 @@ func (og *OverlayGraph) GetWeightVectorSize() uint32 {
 	return og.weightVectorSize
 }
 
-func (og *OverlayGraph) numberOfVertices() int {
+func (og *OverlayGraph) NumberOfVertices() int {
 	return len(og.overlayVertices)
 }
 
@@ -190,7 +190,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			edge := g.GetOutEdge(e)
 			startPv := g.GetCellNumber(Index(start))
 			targetPv := g.GetCellNumber(edge.head)
-			overlayLevel := og.levelInfo.GetHighestDifferingLevel(startPv, targetPv) // check if edge is a boundary edge in any level
+			overlayLevel := og.levelInfo.GetHighestDifferingLevel(startPv, targetPv) // check if edge is a boundary edge in any level, return the highest level in which the edge is a boundary edge
 			if overlayLevel > 0 {
 				// edge is a boundary edge in level=overlayLevel
 				// so save the two overlay vertices that are the endpoints of the edge in overlayVerticesByLevel[overlayLevel-1]
@@ -204,9 +204,9 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 				// neighborOverlayVertex of target vertex is the startVertex in the overlay graph
 				// index start vertex in overlayVerticesByLevel[overlayLevel-1] is len(overlayVerticesByLevel[overlayLevel-1])-1
 				// because we just appended startVertex to overlayVerticesByLevel[overlayLevel-1]
-				inEdge, _ := g.FindInEdge(Index(start), edge.head)
+				inEdgeId, _ := g.FindInEdge(Index(start), edge.head)
 				targetVertex := &OverlayVertex{cellNumber: targetPv, originalVertex: edge.head,
-					originalEdge: inEdge, neighborOverlayVertex: Index(len(overlayVerticesByLevel[overlayLevel-1]) - 1),
+					originalEdge: inEdgeId, neighborOverlayVertex: Index(len(overlayVerticesByLevel[overlayLevel-1]) - 1),
 					entryExitPoint: make([]Index, overlayLevel)}
 				overlayVerticesByLevel[overlayLevel-1] = append(overlayVerticesByLevel[overlayLevel-1], targetVertex)
 			}
@@ -247,9 +247,8 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			newToOldPosition[k] = Index(k)
 		}
 
-		// sort by cell number
-		sort.Slice(newToOldPosition, func(a, b int) bool {
-			return verticesInLevelJ[newToOldPosition[a]].cellNumber < verticesInLevelJ[newToOldPosition[b]].cellNumber
+		sort.Slice(newToOldPosition, func(i, j int) bool {
+			return verticesInLevelJ[newToOldPosition[i]].cellNumber < verticesInLevelJ[newToOldPosition[j]].cellNumber
 		})
 
 		oldToNewPosition := make([]Index, len(newToOldPosition))
@@ -308,8 +307,11 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 	// iterate from highest level to lowest level
 	// for each level, iterate over all overlay vertices in that level
 	// we iterate from the highest level because overlayVertices are sorted by level from highest to lowest level
+	// for each vertex set the entryExitPoint in that level
 	for l := int(numberOfLevels - 1); l >= 0; l-- {
 		cellsInLevel := og.cellMapping[l]
+
+		// og.overlayVertices already sorted by level descending and cell number ascending
 
 		for v := Index(0); v < og.vertexCountInLevel[l]; v++ {
 			vertex := og.overlayVertices[v]
@@ -324,8 +326,10 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 				var cell *Cell // create new cell
 				if isExitPoint {
 					cell = &Cell{numEntryPoints: 0, numExitPoints: 1}
+					vertex.entryExitPoint[l] = 0
 				} else {
 					cell = &Cell{numEntryPoints: 1, numExitPoints: 0}
+					vertex.entryExitPoint[l] = 0
 				}
 				cellsInLevel[cellNumberInLevel] = cell
 
@@ -341,11 +345,14 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 				}
 			}
 		}
+
 		// update cell info
 		for _, cell := range cellsInLevel {
 			cell.overlayIdOffset = Index(overlayIdOffset)
 			cell.cellOffset = Index(cellOfset)
-			overlayIdOffset += int(cell.numEntryPoints + cell.numExitPoints)
+
+			overlayVertexCountInCell := int(cell.numEntryPoints + cell.numExitPoints)
+			overlayIdOffset += overlayVertexCountInCell
 			cellOfset += int(cell.numEntryPoints * cell.numExitPoints)
 		}
 		og.cellMapping[l] = cellsInLevel
@@ -359,10 +366,12 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 		for v := Index(0); v < og.vertexCountInLevel[l]; v++ {
 			vertex := og.overlayVertices[v]
 			isExitVertex := exitFlagsArray[v]
+
 			cellNumberInLevel := og.levelInfo.TruncateToLevel(vertex.cellNumber, uint8(l+1))
 			cell := cellsInLevel[cellNumberInLevel]
 
 			mappingIndex := cell.overlayIdOffset + vertex.entryExitPoint[l]
+
 			if isExitVertex {
 				mappingIndex += cell.numEntryPoints
 			}
@@ -379,9 +388,11 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Index, wOffset Index)) {
 	uVertex := og.GetVertex(u)
 	entryPoint := uVertex.GetEntryExitPoint(level)
+
 	cell := og.GetCell(uVertex.GetCellNumber(), level)
 	weightOffset := cell.GetCellOffset() + entryPoint*cell.GetNumExitPoints()
 	overlayIdOffset := cell.GetOverlayIdOffset() + cell.GetNumEntryPoints()
+
 	for i := Index(0); i < Index(cell.GetNumExitPoints()); i++ {
 		handle(og.overlayIdMapping[overlayIdOffset+i], weightOffset+i)
 	}

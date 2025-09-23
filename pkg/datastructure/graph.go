@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	"github.com/dsnet/compress/bzip2"
-	"github.com/lintang-b-s/navigatorx-crp/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
 type Index uint32
@@ -176,12 +176,12 @@ func (e *InEdge) SetExitPoint(p uint8) {
 
 type SubVertex struct {
 	originalID Index
-	turnOrder  uint8
-	exit       bool
+	turnOrder  uint8 // entry/exit point order (from 0 to outDegree-1/inDegree-1)
+	exit       bool  // is exit point
 }
 
 type VertexIDPair struct {
-	originalVertexID Index
+	originalVertexID Index // original vertex id
 	id               Index
 }
 
@@ -197,6 +197,10 @@ type Graph struct {
 	outEdgeCellOffset []Index             // offset of first outEdge for each cellNumber
 	inEdgeCellOffset  []Index             // offset of first inEdge for each cellNumber
 	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
+
+	// strongly connected components
+	sccs               []Index   // verticeId -> sccId
+	sccCondensationAdj [][]Index // condensation connection of scc of u -> scc of v
 }
 
 func NewGraph(vertices []*Vertex, forwardEdges []*OutEdge, inEdges []*InEdge, turnTables []pkg.TurnType) *Graph {
@@ -261,7 +265,8 @@ func (g *Graph) GetTailOfOutedge(e Index) Index {
 
 // GetExitOrder. return Index of exit point of a out edge (u,v) at vertex u.
 func (g *Graph) GetExitOrder(u, outEdge Index) Index {
-	return outEdge - g.vertices[u].firstOut
+	exitPoint := outEdge - g.vertices[u].firstOut
+	return exitPoint
 }
 
 // GetEntryOrder. return Index of entry point of a in edge (u,v) at vertex v.
@@ -282,22 +287,17 @@ func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 	g.overlayVertices = overlayVertices
 }
 
-func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turn pkg.TurnType)) {
+func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turnType pkg.TurnType)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 		if g.outEdges[e].GetHead() == u {
 			continue
 		}
-		exitOrder := Index(g.GetExitOrder(u, e))
-		turnTableOffset := g.vertices[u].turnTablePtr + Index(entryPoint)*Index(g.GetOutDegree(u)) + exitOrder
-		_ = turnTableOffset
-		if turnTableOffset == 4294967282 {
-			fmt.Println("debug")
-		}
+
 		handle(g.outEdges[e], g.GetExitOrder(u, e), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)))
 	}
 }
 
-func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turn pkg.TurnType)) {
+func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
 		if g.inEdges[e].GetTail() == v {
 			continue
@@ -344,6 +344,17 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 	return len(g.cellNumbers)
 }
 
+func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail, entryOffset Index, percentage float64)) {
+	for idx, e := range g.outEdges {
+		percentage := float64(idx) / float64(len(g.outEdges)) * 100
+		tail := g.GetTailOfOutedge(Index(idx))
+
+		entryOffset := g.GetVertex(e.head).GetFirstIn() + Index(e.GetEntryPoint())
+
+		handle(e, g.GetExitOrder(tail, Index(idx)), e.head, tail, entryOffset, percentage)
+	}
+}
+
 func (g *Graph) GetNumberOfOverlayVertexMapping() int {
 	return len(g.overlayVertices)
 }
@@ -351,6 +362,20 @@ func (g *Graph) GetNumberOfOverlayVertexMapping() int {
 func (g *Graph) GetVertexCoordinates(u Index) (float64, float64) {
 	v := g.vertices[u]
 	return v.lat, v.lon
+}
+
+// for source point in query
+func (g *Graph) GetVertexCoordinatesFromOutEdge(u Index) (float64, float64) {
+	v := g.GetOutEdge(u)
+	vertex := g.GetVertex(v.GetHead())
+	return vertex.lat, vertex.lon
+}
+
+// for target point in query
+func (g *Graph) GetVertexCoordinatesFromInEdge(u Index) (float64, float64) {
+	v := g.GetInEdge(u)
+	vertex := g.GetVertex(v.GetTail())
+	return vertex.lat, vertex.lon
 }
 
 func (g *Graph) GetMaxEdgesInCell() Index {
@@ -391,6 +416,36 @@ func (g *Graph) GetVertexFirstOut(u Index) Index {
 
 func (g *Graph) GetVertexFirstIn(u Index) Index {
 	return g.vertices[u].GetFirstIn()
+}
+
+func (g *Graph) setSCCs(sccs []Index) {
+	g.sccs = sccs
+}
+
+func (g *Graph) setSCCCondensationAdj(adj [][]Index) {
+	g.sccCondensationAdj = adj
+}
+
+func (g *Graph) GetSCCOfAVertex(u Index) Index {
+	return g.sccs[u]
+}
+
+func (g *Graph) CondensationGraphOrigintoDestinationConnected(u, v Index) bool {
+	sccOfU := g.sccs[u]
+	sccOfV := g.sccs[v]
+
+	for _, adjSCC := range g.sccCondensationAdj[sccOfU] {
+		if adjSCC == sccOfV {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *Graph) GetHaversineDistanceFromUtoV(u, v Index) float64 {
+	uvertex := g.GetVertex(u)
+	vvertex := g.GetVertex(v)
+	return HaversineDistance(uvertex.lat, uvertex.lon, vvertex.lat, vvertex.lon)
 }
 
 func (g *Graph) SetOutInEdgeCellOffset() {
@@ -554,6 +609,26 @@ func (g *Graph) WriteGraph(filename string) error {
 	}
 
 	fmt.Fprintf(w, "\n")
+
+	// write sccs
+	for i := 0; i < len(g.sccs); i++ {
+		fmt.Fprintf(w, "%d", g.sccs[i])
+		if i < len(g.sccs)-1 {
+			fmt.Fprintf(w, " ")
+		}
+	}
+
+	fmt.Fprintf(w, "\n")
+
+	for i := 0; i < len(g.sccCondensationAdj); i++ {
+		for j := 0; j < len(g.sccCondensationAdj[i]); j++ {
+			fmt.Fprintf(w, "%d", g.sccCondensationAdj[i][j])
+			if j < len(g.sccCondensationAdj[i])-1 {
+				fmt.Fprintf(w, " ")
+			}
+		}
+		fmt.Fprintf(w, "\n")
+	}
 
 	return w.Flush()
 }
@@ -769,12 +844,56 @@ func ReadGraph(filename string) (*Graph, error) {
 		inEdgeCellOffset[i] = offset
 	}
 
+	// read sccs
+	line, err = readLine()
+	if err != nil {
+		return nil, err
+	}
+	tokens = fields(line)
+	if len(tokens) != int(numEdges) {
+		return nil, fmt.Errorf("expected %d vertices, got %d", numVertices, len(tokens))
+	}
+	sccs := make([]Index, numEdges)
+	for i, token := range tokens {
+		scc, err := parseIndex(token)
+		if err != nil {
+			return nil, err
+		}
+		sccs[i] = scc
+	}
+
+	sccCondensationAdj := make([][]Index, 0)
+	for {
+		line, err = readLine()
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				break
+			}
+			return nil, err
+		}
+		tokens = fields(line)
+		if len(tokens) == 0 {
+			continue
+		}
+		adj := make([]Index, 0)
+		for _, token := range tokens {
+			scc, err := parseIndex(token)
+			if err != nil {
+				return nil, err
+			}
+			adj = append(adj, scc)
+		}
+		sccCondensationAdj = append(sccCondensationAdj, adj)
+	}
+
 	graph := NewGraph(vertices, outEdges, inEdges, turnTables)
 	graph.SetCellNumbers(cellNumbers)
 	graph.SetOverlayMapping(overlayVertices)
 	graph.maxEdgesInCell = maxEdgesInCell
 	graph.outEdgeCellOffset = outEdgeCellOffset
 	graph.inEdgeCellOffset = inEdgeCellOffset
+	graph.setSCCs(sccs)
+	graph.setSCCCondensationAdj(sccCondensationAdj)
 	return graph, nil
 }
 
@@ -805,11 +924,11 @@ func parseVertex(line string) (*Vertex, error) {
 		return nil, err
 	}
 
-	lat, err := strconv.ParseFloat(tokens[4], 64)
+	lat, err := strconv.ParseFloat(tokens[5], 64)
 	if err != nil {
 		return nil, fmt.Errorf("lat: %w", err)
 	}
-	lon, err := strconv.ParseFloat(tokens[5], 64)
+	lon, err := strconv.ParseFloat(tokens[6], 64)
 	if err != nil {
 		return nil, fmt.Errorf("lon: %w", err)
 	}

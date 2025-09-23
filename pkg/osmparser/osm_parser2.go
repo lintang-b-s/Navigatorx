@@ -6,16 +6,16 @@ import (
 	"log"
 	"math"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 
-	"github.com/lintang-b-s/navigatorx-crp/pkg"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/geo"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/paulmach/osm"
 	"github.com/paulmach/osm/osmpbf"
+	"go.uber.org/zap"
 )
 
 type node struct {
@@ -51,15 +51,6 @@ type OsmParser struct {
 	maxNodeID         int64
 	restrictions      map[int64][]restriction // wayId -> list of restrictions
 	ways              map[int64]osmWay
-}
-
-type edge struct {
-	from          uint32
-	to            uint32
-	weight        float64
-	distance      float64
-	edgeID        uint32
-	bidirectional bool
 }
 
 func NewOSMParserV2() *OsmParser {
@@ -154,7 +145,7 @@ var (
 	}
 )
 
-func (p *OsmParser) Parse(mapFile string) *datastructure.Graph {
+func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) *datastructure.Graph {
 
 	f, err := os.Open(mapFile)
 
@@ -188,7 +179,7 @@ func (p *OsmParser) Parse(mapFile string) *datastructure.Graph {
 					continue
 				}
 				if (countWays+1)%50000 == 0 {
-					log.Printf("reading openstreetmap ways: %d...", countWays+1)
+					logger.Sugar().Infof("scanning openstreetmap ways: %d...", countWays+1)
 				}
 				countWays++
 
@@ -265,7 +256,7 @@ func (p *OsmParser) Parse(mapFile string) *datastructure.Graph {
 	//must not be parallel
 	defer scanner.Close()
 
-	scannedEdges := make([]edge, 0)
+	scannedEdges := make([]Edge, 0)
 	p.ways = make(map[int64]osmWay, countWays)
 
 	streetDirection := make(map[string][2]bool)
@@ -288,7 +279,7 @@ func (p *OsmParser) Parse(mapFile string) *datastructure.Graph {
 					continue
 				}
 				if (countWays+1)%50000 == 0 {
-					log.Printf("processing openstreetmap ways: %d...", countWays+1)
+					logger.Sugar().Infof("processing openstreetmap ways: %d...", countWays+1)
 				}
 				countWays++
 
@@ -321,7 +312,7 @@ func (p *OsmParser) Parse(mapFile string) *datastructure.Graph {
 			{
 
 				if (countNodes+1)%50000 == 0 {
-					log.Printf("processing openstreetmap nodes: %d...", countNodes+1)
+					logger.Sugar().Infof("processing openstreetmap nodes: %d...", countNodes+1)
 				}
 				countNodes++
 				node := o.(*osm.Node)
@@ -383,7 +374,7 @@ func (p *OsmParser) Parse(mapFile string) *datastructure.Graph {
 	return graph
 }
 
-func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
+func (p *OsmParser) BuildGraph(scannedEdges []Edge) *datastructure.Graph {
 	var (
 		outEdges  [][]*datastructure.OutEdge = make([][]*datastructure.OutEdge, len(p.nodeIDMap))
 		inEdges   [][]*datastructure.InEdge  = make([][]*datastructure.InEdge, len(p.nodeIDMap))
@@ -392,15 +383,16 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 		vertices  []*datastructure.Vertex    = make([]*datastructure.Vertex, len(p.nodeIDMap)+1)
 	)
 
+	edgeId := datastructure.Index(0)
 	lastEdgeId := uint32(0)
 	for _, e := range scannedEdges {
 		u := datastructure.Index(e.from)
 		v := datastructure.Index(e.to)
-		edgeID := datastructure.Index(e.edgeID)
-		outEdges[u] = append(outEdges[u], datastructure.NewOutEdge(edgeID,
+
+		outEdges[u] = append(outEdges[u], datastructure.NewOutEdge(edgeId,
 			v, e.weight, e.distance, uint8(len(inEdges[v]))))
 		outDegree[u]++
-		inEdges[v] = append(inEdges[v], datastructure.NewInEdge(edgeID,
+		inEdges[v] = append(inEdges[v], datastructure.NewInEdge(edgeId,
 			u, e.weight, e.distance, uint8(len(outEdges[u])-1)))
 		inDegree[v]++
 
@@ -409,14 +401,16 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 
 		vData := p.acceptedNodeMap[p.nodeToOsmId[uint32(v)]]
 		vertices[v] = datastructure.NewVertex(vData.lat, vData.lon, v)
+		edgeId++
 
 		if e.bidirectional {
-			outEdges[v] = append(outEdges[v], datastructure.NewOutEdge(edgeID,
+			outEdges[v] = append(outEdges[v], datastructure.NewOutEdge(edgeId,
 				u, e.weight, e.distance, uint8(len(inEdges[u]))))
 			outDegree[v]++
-			inEdges[u] = append(inEdges[u], datastructure.NewInEdge(edgeID,
+			inEdges[u] = append(inEdges[u], datastructure.NewInEdge(edgeId,
 				v, e.weight, e.distance, uint8(len(outEdges[v])-1)))
 			inDegree[u]++
+			edgeId++
 		}
 		if e.edgeID >= lastEdgeId {
 			lastEdgeId = e.edgeID + 1
@@ -625,7 +619,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 							turnMatrices[via][rowOffset+exitID] = pkg.NONE
 							break
 						}
-
 					}
 					break
 				}
@@ -637,143 +630,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []edge) *datastructure.Graph {
 	matrixOffset := 0
 
 	for v := 0; v < len(vertices)-1; v++ {
-		// sort inEdges & rows of turnMatrices s.t. turn_type != NONE are listed last
-		// if tie, sort by histogram of turn types, the less the better
-		rowScore := make([]datastructure.Index, inDegree[v])
-		rowHist := make([][]uint32, inDegree[v])
-		for k := 0; k < len(rowHist); k++ {
-			rowHist[k] = make([]uint32, NUM_TURN_TYPES)
-		}
-
-		for i := uint8(0); i < inDegree[v]; i++ {
-			// for each row-i [1-D indexed array index from 2D = i*outDegree + j]
-			for j := i * outDegree[v]; j < (i+1)*outDegree[v]; j++ {
-				// loop over columns of row-i
-				if datastructure.Index(turnMatrices[v][j]) != datastructure.Index(NONE) {
-					rowScore[i] += 1
-				}
-
-				t := turnMatrices[v][j]
-				rowHist[i][t]++
-
-			}
-		}
-
-		sortOrder := make([]datastructure.Index, inDegree[v])
-		for i := uint8(0); i < inDegree[v]; i++ {
-			sortOrder[i] = datastructure.Index(i)
-		}
-
-		// sort sortOrder by rowScore descending, then rowHist ascending
-		sort.Slice(sortOrder, func(i, j int) bool {
-			if rowScore[sortOrder[i]] > rowScore[sortOrder[j]] {
-				return true
-			}
-
-			for tt := NUM_TURN_TYPES - 1; tt >= 0; tt -= 1 {
-				if rowHist[i][tt] != rowHist[j][tt] {
-					return rowHist[i][tt] < rowHist[j][tt]
-				}
-			}
-			return i < j
-		})
-
-		sortedMatrix := make([]pkg.TurnType, inDegree[v]*outDegree[v])
-		sortedInEdge := make([]*datastructure.InEdge, len(inEdges[v]))
-		// sort by sortOrder for each row
-		for i := uint8(0); i < inDegree[v]; i++ {
-			k := i * outDegree[v]
-			for j := sortOrder[i] * datastructure.Index(outDegree[v]); j < (sortOrder[i]+1)*datastructure.Index(outDegree[v]); j++ {
-				// fill the i-th row of sortedMatrix with the sortOrder[i]-th row of turnMatrices[v]
-				sortedMatrix[k] = turnMatrices[v][j]
-				k += 1
-			}
-
-			// sort inEdges by sortOrder
-			// and update the corresponding outEdge entryPoint
-			sortedInEdge[i] = inEdges[v][sortOrder[i]]
-			for _, outEdge := range outEdges[inEdges[v][sortOrder[i]].GetTail()] {
-				if outEdge.GetHead() == datastructure.Index(v) {
-					outEdge.SetEntryPoint(i)
-					break
-				}
-			}
-		}
-
-		turnMatrices[v] = sortedMatrix
-		inEdges[v] = sortedInEdge
-
-		// sort OutEdges & turnMatrices columns s.t. the column with turn_type != NONE are listed last
-		// if tie, sort by histogram of turn types, the less the better
-		columnScore := make([]datastructure.Index, outDegree[v])
-		colHist := make([][]uint32, outDegree[v])
-		for k := 0; k < len(colHist); k++ {
-			colHist[k] = make([]uint32, NUM_TURN_TYPES)
-		}
-
-		for j := uint8(0); j < outDegree[v]; j++ {
-			// for each column-j [1-D indexed array index from 2D = i*outDegree + j]
-			for i := uint8(0); i < inDegree[v]; i++ {
-				// loop over rows of column-j
-				offset := i*outDegree[v] + j
-				t := turnMatrices[v][offset]
-				if t != pkg.NONE {
-					// score of this column-j is = number of non-NONE turn types
-					columnScore[j] |= 1 << i
-				}
-
-				colHist[j][t]++
-			}
-		}
-
-		sortOrder = make([]datastructure.Index, outDegree[v])
-		for j := uint8(0); j < outDegree[v]; j++ {
-			sortOrder[j] = datastructure.Index(j)
-		}
-
-		sort.Slice(sortOrder, func(a, b int) bool {
-			i := sortOrder[a]
-			j := sortOrder[b]
-			firstDiff := columnScore[i] ^ columnScore[j]
-			for i := uint8(0); i < inDegree[v]; i++ {
-				if firstDiff&(1<<i) != 0 {
-					// sort based on the leftmost-i bit that differs
-					return columnScore[i]&(1<<i) != 0
-				}
-			}
-
-			for tt := NUM_TURN_TYPES - 1; tt >= 0; tt -= 1 {
-				if colHist[i][tt] != colHist[j][tt] {
-					return colHist[i][tt] < colHist[j][tt]
-				}
-			}
-			return i < j
-		})
-
-		sortedOutEdges := make([]*datastructure.OutEdge, len(outEdges[v]))
-		finalMatrix := make([]pkg.TurnType, inDegree[v]*outDegree[v])
-		for j := uint8(0); j < outDegree[v]; j++ {
-			// for each column of 1-D indexed turnMatrices
-			for i := uint8(0); i < inDegree[v]; i++ {
-				// fill the j-th column of finalMatrix with the sortOrder[j]-th column of turnMatrices[v]
-				finalMatrix[i*outDegree[v]+j] = turnMatrices[v][datastructure.Index(i)*datastructure.Index(outDegree[v])+
-					sortOrder[j]]
-			}
-
-			// sort outEdges by sortOrder
-			// and update the corresponding inEdge exitPoint
-			sortedOutEdges[j] = outEdges[v][sortOrder[j]]
-			for _, inEdge := range inEdges[outEdges[v][sortOrder[j]].GetHead()] {
-				if inEdge.GetTail() == datastructure.Index(v) {
-					inEdge.SetExitPoint(j)
-					break
-				}
-
-			}
-		}
-
-		turnMatrices[v] = finalMatrix
-		outEdges[v] = sortedOutEdges
 
 		// set the turnTablePtr of vertex v to the current matrixOffset
 		// matrix offset is index of the first element of turnMatrices[v] in the flattened matrices array
@@ -831,7 +687,7 @@ type wayExtraInfo struct {
 }
 
 func (p *OsmParser) processWay(way *osm.Way, graphStorage *datastructure.GraphStorage,
-	streetDirection map[string][2]bool, edgeSet map[uint32]map[uint32]struct{}, scannedEdges *[]edge) error {
+	streetDirection map[string][2]bool, edgeSet map[uint32]map[uint32]struct{}, scannedEdges *[]Edge) error {
 	tempMap := make(map[string]string)
 	name := way.Tags.Find("name")
 
@@ -969,7 +825,7 @@ func getReversedOneWay(way *osm.Way) (bool, bool, bool, bool) {
 }
 
 func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *datastructure.GraphStorage,
-	wayExtraInfoData wayExtraInfo, edgeSet map[uint32]map[uint32]struct{}, scannedEdges *[]edge) {
+	wayExtraInfoData wayExtraInfo, edgeSet map[uint32]map[uint32]struct{}, scannedEdges *[]Edge) {
 
 	if len(segment) == 2 && segment[0].id == segment[1].id {
 		// skip
@@ -984,7 +840,7 @@ func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, sp
 }
 
 func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, speed float64, graphStorage *datastructure.GraphStorage,
-	wayExtraInfoData wayExtraInfo, edgeSet map[uint32]map[uint32]struct{}, scannedEdges *[]edge) {
+	wayExtraInfoData wayExtraInfo, edgeSet map[uint32]map[uint32]struct{}, scannedEdges *[]Edge) {
 	waySegment := []node{}
 	for i := 0; i < len(segment); i++ {
 		nodeData := segment[i]
@@ -1029,7 +885,7 @@ func (p *OsmParser) copyNode(nodeData node) node {
 }
 
 func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *datastructure.GraphStorage,
-	wayExtraInfoData wayExtraInfo, edgeSet map[uint32]map[uint32]struct{}, scannedEdges *[]edge) {
+	wayExtraInfoData wayExtraInfo, edgeSet map[uint32]map[uint32]struct{}, scannedEdges *[]Edge) {
 	from := segment[0]
 
 	to := segment[len(segment)-1]
@@ -1126,14 +982,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 			graphStorage.SetRoundabout(uint32(len(*scannedEdges)), isRoundabout)
 
-			*scannedEdges = append(*scannedEdges, edge{
-				from:          uint32(p.nodeIDMap[from.id]),
-				to:            uint32(p.nodeIDMap[to.id]),
-				weight:        etaWeight,
-				distance:      distanceInMeter,
-				edgeID:        uint32(len(*scannedEdges)),
-				bidirectional: false,
-			})
+			*scannedEdges = append(*scannedEdges, NewEdge(
+				uint32(p.nodeIDMap[from.id]),
+				uint32(p.nodeIDMap[to.id]),
+				etaWeight,
+				distanceInMeter,
+				uint32(len(*scannedEdges)),
+				false,
+			))
 
 		} else {
 
@@ -1162,14 +1018,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 			graphStorage.SetRoundabout(uint32(len(*scannedEdges)), isRoundabout)
 
-			*scannedEdges = append(*scannedEdges, edge{
-				from:          uint32(p.nodeIDMap[to.id]),
-				to:            uint32(p.nodeIDMap[from.id]),
-				weight:        etaWeight,
-				distance:      distanceInMeter,
-				edgeID:        uint32(len(*scannedEdges)),
-				bidirectional: false,
-			})
+			*scannedEdges = append(*scannedEdges, NewEdge(
+				uint32(p.nodeIDMap[to.id]),
+				uint32(p.nodeIDMap[from.id]),
+				etaWeight,
+				distanceInMeter,
+				uint32(len(*scannedEdges)),
+				false,
+			))
 		}
 	} else {
 		if _, ok := edgeSet[p.nodeIDMap[from.id]][p.nodeIDMap[to.id]]; ok {
@@ -1194,14 +1050,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 		graphStorage.SetRoundabout(uint32(len(*scannedEdges)), isRoundabout)
 
-		*scannedEdges = append(*scannedEdges, edge{
-			from:          uint32(p.nodeIDMap[from.id]),
-			to:            uint32(p.nodeIDMap[to.id]),
-			weight:        etaWeight,
-			distance:      distanceInMeter,
-			edgeID:        uint32(len(*scannedEdges)),
-			bidirectional: false,
-		})
+		*scannedEdges = append(*scannedEdges, NewEdge(
+			uint32(p.nodeIDMap[from.id]),
+			uint32(p.nodeIDMap[to.id]),
+			etaWeight,
+			distanceInMeter,
+			uint32(len(*scannedEdges)),
+			false,
+		))
 
 		graphStorage.AppendMapEdgeInfo(datastructure.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
@@ -1211,14 +1067,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			uint32(endPointsIndex), uint32(startPointsIndex),
 		))
 
-		*scannedEdges = append(*scannedEdges, edge{
-			from:          uint32(p.nodeIDMap[to.id]),
-			to:            uint32(p.nodeIDMap[from.id]),
-			weight:        etaWeight,
-			distance:      distanceInMeter,
-			edgeID:        uint32(len(*scannedEdges)),
-			bidirectional: false,
-		})
+		*scannedEdges = append(*scannedEdges, NewEdge(
+			uint32(p.nodeIDMap[to.id]),
+			uint32(p.nodeIDMap[from.id]),
+			etaWeight,
+			distanceInMeter,
+			uint32(len(*scannedEdges)),
+			false,
+		))
 
 	}
 }

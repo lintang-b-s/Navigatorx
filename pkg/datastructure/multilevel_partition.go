@@ -93,7 +93,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 		return err
 	}
 
-	mp.numCells = make([]uint32, len(mp.numCells))
+	mp.numCells = make([]uint32, mp.GetNumberOfLevels())
 	for i := 0; i < len(mp.numCells); i++ {
 		if scanner.Scan() {
 			line := scanner.Text()
@@ -109,10 +109,10 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	}
 
 	mp.ComputeBitmap()
-
+	var numVertices int
 	if scanner.Scan() {
 		line := scanner.Text()
-		var numVertices int
+
 		_, err := fmt.Sscanf(line, "%d", &numVertices)
 		if err != nil {
 			return err
@@ -124,7 +124,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 		return err
 	}
 
-	mp.cellNumbers = make([]Pv, len(mp.cellNumbers))
+	mp.cellNumbers = make([]Pv, numVertices)
 
 	for i := 0; i < mp.GetNumberOfVertices(); i++ {
 		if scanner.Scan() {

@@ -2,12 +2,55 @@ package util
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
 
 	"golang.org/x/exp/rand"
 )
+
+// error
+
+type Error struct {
+	orig error
+	msg  string
+	code error
+}
+
+func (e *Error) Error() string {
+	if e.orig != nil {
+		return fmt.Sprintf("%s", e.msg)
+	}
+
+	return e.msg
+}
+
+func (e *Error) Unwrap() error {
+	return e.orig
+}
+
+func WrapErrorf(orig error, code error, format string, a ...interface{}) error {
+	return &Error{
+		code: code,
+		orig: orig,
+		msg:  fmt.Sprintf(format, a...),
+	}
+}
+
+func (e *Error) Code() error {
+	return e.code
+}
+
+var (
+	ErrInternalServerError = errors.New("internal Server Error")
+	ErrNotFound            = errors.New("your requested Item is not found")
+	ErrConflict            = errors.New("your Item already exist")
+	ErrBadParamInput       = errors.New("given Param is not valid")
+)
+
+var MessageInternalServerError string = "internal server error"
 
 func StringToFloat64(str string) (float64, error) {
 	val, err := strconv.ParseFloat(str, 64)
@@ -21,8 +64,6 @@ func RoundFloat(val float64, precision uint) float64 {
 	ratio := math.Pow(10, float64(precision))
 	return math.Round(val*ratio) / ratio
 }
-
-
 
 func CountDecimalPlacesF64(value float64) int {
 	strValue := strconv.FormatFloat(value, 'f', -1, 64)
@@ -49,13 +90,13 @@ func generateRandomInt(min, max int) int {
 	return min + rand.Intn(max-min)
 }
 
-func QuickSortG[T any](arr []T, compare func(a, b T) int) []T {
+func QuickSortG[T any](arr []T, compare func(jVal, pivotVal T) bool) []T {
 	copyArr := make([]T, len(arr)) // should do on the copy )
 	copy(copyArr, arr)
 	return QuickSort(copyArr, 0, len(arr)-1, compare)
 }
 
-func QuickSort[T any](arr []T, low, high int, compare func(a, b T) int) []T {
+func QuickSort[T any](arr []T, low, high int, compare func(ajVal, pivotVal T) bool) []T {
 	if low < high {
 		pivotIndex := generateRandomInt(low, high)
 		pivotValue := arr[pivotIndex]
@@ -65,7 +106,7 @@ func QuickSort[T any](arr []T, low, high int, compare func(a, b T) int) []T {
 		i := low - 1
 
 		for j := low; j < high; j++ {
-			if compare(arr[j], pivotValue) < 0 {
+			if compare(arr[j], pivotValue) == true {
 				i++
 				arr[i], arr[j] = arr[j], arr[i]
 			}
@@ -75,6 +116,36 @@ func QuickSort[T any](arr []T, low, high int, compare func(a, b T) int) []T {
 
 		QuickSort(arr, low, i, compare)
 		QuickSort(arr, i+2, high, compare)
+	}
+	return arr
+}
+
+func QuickSortGIdx[T any](arr []T, compare func(j, pivotIdx int) bool) {
+
+	QuickSortIdx(arr, 0, len(arr)-1, compare)
+}
+
+func QuickSortIdx[T any](arr []T, low, high int, compare func(j, pivotIdx int) bool) []T {
+	if low < high {
+		pivotIndex := generateRandomInt(low, high)
+
+		arr[pivotIndex], arr[high] = arr[high], arr[pivotIndex]
+		pivotIndex = high
+
+		i := low - 1
+
+		for j := low; j < high; j++ {
+			if compare(j, pivotIndex) == true {
+				i++
+				arr[i], arr[j] = arr[j], arr[i]
+			}
+		}
+
+		arr[i+1], arr[high] = arr[high], arr[i+1]
+		pivotFinal := i + 1
+
+		QuickSortIdx(arr, low, pivotFinal-1, compare)
+		QuickSortIdx(arr, pivotFinal+1, high, compare)
 	}
 	return arr
 }
@@ -156,12 +227,9 @@ func AssertPanic(cond bool, msg string) {
 	}
 }
 
-
 func MinInt(a, b int) int {
 	if a < b {
 		return a
 	}
 	return b
 }
-
-

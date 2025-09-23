@@ -3,7 +3,8 @@ package geo
 import (
 	"container/list"
 
-	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/twpayne/go-polyline"
 )
 
 const (
@@ -65,4 +66,15 @@ func RamerDouglasPeucker(coords []datastructure.Coordinate) []datastructure.Coor
 		}
 	}
 	return simplifiedGeometry
+}
+
+func PoylineFromCoords(path []datastructure.Coordinate) string {
+	s := ""
+	coords := make([][]float64, 0)
+	for _, p := range path {
+		pT := p
+		coords = append(coords, []float64{pT.Lat(), pT.Lon()})
+	}
+	s = string(polyline.EncodeCoords(coords))
+	return s
 }

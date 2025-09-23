@@ -1,7 +1,7 @@
 package costfunction
 
 import (
-	"github.com/lintang-b-s/navigatorx-crp/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
 type TimeFunction struct {

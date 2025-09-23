@@ -1,44 +1,51 @@
 package preprocesser
 
 import (
-	"log"
-
-	"github.com/lintang-b-s/navigatorx-crp/pkg"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"go.uber.org/zap"
 )
 
 type Preprocessor struct {
-	graph *datastructure.Graph
-	mlp   *datastructure.MultilevelPartition
+	graph  *datastructure.Graph
+	mlp    *datastructure.MultilevelPartition
+	logger *zap.Logger
 }
 
-func NewPreprocessor(graph *datastructure.Graph, mlp *datastructure.MultilevelPartition) *Preprocessor {
+func NewPreprocessor(graph *datastructure.Graph, mlp *datastructure.MultilevelPartition,
+	logger *zap.Logger) *Preprocessor {
 	return &Preprocessor{
-		graph: graph,
-		mlp:   mlp,
+		graph:  graph,
+		mlp:    mlp,
+		logger: logger,
 	}
 }
 
 func (p *Preprocessor) PreProcessing() error {
-	log.Printf("Starting preprocessing step of Customizable Route Planning...")
+	p.logger.Sugar().Infof("Starting preprocessing step of Customizable Route Planning...")
 
-	log.Printf("Building Overlay Graph of each levels...")
+	p.logger.Sugar().Infof("Building Overlay Graph of each levels...")
 	p.BuildCellNumber()
 	p.graph.SetOutInEdgeCellOffset()
-	log.Printf("After setting out/in edge cell offset")
+	p.logger.Sugar().Infof("After setting out/in edge cell offset")
 	p.graph.ForOutEdgesOf(0, 0, func(e *datastructure.OutEdge, exitPoint datastructure.Index, turn pkg.TurnType) {
 		vId := e.GetHead()
-		log.Printf("outEdge from 0 to %v with turn type %v\n", vId, turn)
+		p.logger.Sugar().Infof("outEdge from 0 to %v with turn type %v\n", vId, turn)
 	})
 
 	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
-	log.Printf("Overlay graph built and written to ./data/overlay_graph.graph")
+	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")
 	err := overlayGraph.WriteToFile("./data/overlay_graph.graph")
 	if err != nil {
 		return err
 	}
-	log.Printf("Writing graph to ./data/test.graph")
-	return p.graph.WriteGraph("./data/test.graph")
+
+	p.logger.Sugar().Infof("Running Kosaraju's algorithm to find strongly connected components (SCCs)...")
+	p.graph.RunKosaraju()
+
+	p.logger.Sugar().Infof("Writing graph to ./data/original.graph")
+
+	return p.graph.WriteGraph("./data/original.graph")
 }
 
 func (p *Preprocessor) BuildCellNumber() {

@@ -1,54 +1,56 @@
 package customizer
 
 import (
-	"log"
-
-	"github.com/lintang-b-s/navigatorx-crp/pkg/costfunction"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/datastructure"
-	"github.com/lintang-b-s/navigatorx-crp/pkg/metrics"
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
+	"go.uber.org/zap"
 )
 
 type Customizer struct {
+	logger               *zap.Logger
 	graphFilePath        string
 	overlayGraphFilePath string
 	metricOutputFilePath string
 }
 
-func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath string) *Customizer {
+func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath string,
+	logger *zap.Logger) *Customizer {
 	return &Customizer{
 		graphFilePath:        graphFilePath,
 		overlayGraphFilePath: overlayGraphFilePath,
 		metricOutputFilePath: metricOutputFilePath,
+		logger:               logger,
 	}
 }
 
 func (c *Customizer) Customize() error {
-	log.Printf("Starting customization step of Customizable Route Planning...")
+	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 
-	log.Printf("Reading graph from %s", c.graphFilePath)
+	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
 	graph, err := datastructure.ReadGraph(c.graphFilePath)
 	if err != nil {
 		return err
 	}
 
-	log.Printf("Reading overlay graph from %s", c.overlayGraphFilePath)
+	c.logger.Sugar().Infof("Reading overlay graph from %s", c.overlayGraphFilePath)
 	overlayGraph, err := datastructure.ReadOverlayGraph(c.overlayGraphFilePath)
 	if err != nil {
 		return err
 	}
 
 	costFunction := costfunction.NewTimeCostFunction()
-	log.Printf("Building cliques for each cell for each overlay graph level...")
+	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	overlayWeight := datastructure.NewOverlayWeights(overlayGraph.GetWeightVectorSize())
 	overlayWeight.Build(graph, overlayGraph, costFunction)
 
-	log.Printf("Building stalling tables...")
+	c.logger.Sugar().Infof("Building stalling tables...")
 	metrics := metrics.NewMetric(graph, costFunction, overlayWeight)
 	metrics.BuildStallingTables(overlayGraph, graph)
 	err = metrics.WriteToFile(c.metricOutputFilePath)
 	if err != nil {
 		return err
 	}
-	log.Printf("Customization step completed successfully.")
+	c.logger.Sugar().Infof("Customization step completed successfully.")
 	return nil
 }
