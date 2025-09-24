@@ -118,7 +118,11 @@ func (met *Metric) WriteToFile(filename string) error {
 
 	fmt.Fprintf(w, "%d %d %d\n", len(met.weights.GetWeights()), len(met.entryStallingTables), len(met.exitStallingTables))
 	for i, weight := range met.weights.GetWeights() {
-		fmt.Fprintf(w, "%f", weight)
+
+		_, err := fmt.Fprintf(w, "%f", weight)
+		if err != nil {
+			return err
+		}
 		if i < len(met.weights.GetWeights())-1 {
 			fmt.Fprintf(w, " ")
 		}

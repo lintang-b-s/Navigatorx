@@ -1,7 +1,6 @@
 package preprocesser
 
 import (
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"go.uber.org/zap"
 )
@@ -28,10 +27,6 @@ func (p *Preprocessor) PreProcessing() error {
 	p.BuildCellNumber()
 	p.graph.SortByCellNumber()
 	p.logger.Sugar().Infof("After setting out/in edge cell offset")
-	p.graph.ForOutEdgesOf(0, 0, func(e *datastructure.OutEdge, exitPoint datastructure.Index, turn pkg.TurnType) {
-		vId := e.GetHead()
-		p.logger.Sugar().Infof("outEdge from 0 to %v with turn type %v\n", vId, turn)
-	})
 
 	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")
@@ -75,10 +70,6 @@ func (p *Preprocessor) PreProcessingNotSorted() error {
 	p.BuildCellNumber()
 	p.graph.SetOutInEdgeCellOffset()
 	p.logger.Sugar().Infof("After setting out/in edge cell offset")
-	p.graph.ForOutEdgesOf(0, 0, func(e *datastructure.OutEdge, exitPoint datastructure.Index, turn pkg.TurnType) {
-		vId := e.GetHead()
-		p.logger.Sugar().Infof("outEdge from 0 to %v with turn type %v\n", vId, turn)
-	})
 
 	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")

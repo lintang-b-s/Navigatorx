@@ -5,6 +5,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type OverlayWeights struct {
@@ -29,7 +30,11 @@ func (ow *OverlayWeights) SetWeights(weights []float64) {
 }
 
 func NewOverlayWeights(weightVectorSize uint32) *OverlayWeights {
-	return &OverlayWeights{weights: make([]float64, weightVectorSize)}
+	weights := make([]float64, weightVectorSize)
+	for i := range weights {
+		weights[i] = pkg.INF_WEIGHT
+	}
+	return &OverlayWeights{weights: weights}
 }
 
 type customizerCell struct {
@@ -137,7 +142,6 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 			// stores all eta of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 			for j := Index(0); j < cell.numExitPoints; j++ {
 				exitPoint := overlayGraph.GetExitPoint(cell, j)
-				ow.lock.Lock()
 				_, exists := overlayEta[exitPoint]
 				if !exists {
 					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = pkg.INF_WEIGHT
@@ -145,7 +149,6 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 
 					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = overlayEta[exitPoint]
 				}
-				ow.lock.Unlock()
 			}
 		}
 	}
@@ -182,6 +185,9 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 				uOverlayId := pqNode.GetItem()
 				uEta := pqNode.GetRank()
 
+				uTruncatedLevel := overlayGraph.levelInfo.TruncateToLevel(overlayGraph.GetVertex(uOverlayId).cellNumber, uint8(level))
+				util.AssertPanic(uTruncatedLevel == cellNumber, "current truncated cell number and boundary vertex truncated cell number must be the same!")
+
 				overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit Index, wOffset Index) {
 
 					shorcutWeight := ow.weights[wOffset]
@@ -191,8 +197,8 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 						return
 					}
 
-					_, exitAlreadyVisited := eta[exit]
-					if newEta < eta[exit] || !exitAlreadyVisited {
+					oldExit, exitAlreadyVisited := eta[exit]
+					if !exitAlreadyVisited || newEta < oldExit {
 						eta[exit] = newEta
 						exitOverlayVertex := overlayGraph.GetVertex(exit)
 						neighborVertex := exitOverlayVertex.neighborOverlayVertex
@@ -200,17 +206,21 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 
 						if levelInfo.TruncateToLevel(neighborOverlayVertex.cellNumber, uint8(level)) == cellNumber {
 							boundaryArcWeight := costFunction.GetWeight(graph.GetOutEdge(exitOverlayVertex.originalEdge))
-							eta[neighborVertex] = newEta + boundaryArcWeight
+							newNeighborEta := newEta + boundaryArcWeight
+							oldNEta, neighborVertexAlreadyVisited := eta[neighborVertex]
 
-							if _, neighborVertexAlreadyVisited := eta[neighborVertex]; !neighborVertexAlreadyVisited {
-								pq.Insert(NewPriorityQueueNode(eta[neighborVertex], neighborVertex))
-							} else {
-								pq.DecreaseKey(NewPriorityQueueNode(eta[neighborVertex], neighborVertex))
+							if !neighborVertexAlreadyVisited || newNeighborEta < oldNEta {
+								eta[neighborVertex] = newEta + boundaryArcWeight
+
+								if !neighborVertexAlreadyVisited {
+									pq.Insert(NewPriorityQueueNode(eta[neighborVertex], neighborVertex))
+								} else {
+									pq.DecreaseKey(NewPriorityQueueNode(eta[neighborVertex], neighborVertex))
+								}
 							}
 						}
 					}
 				})
-
 			}
 
 			// stores all eta of cell shortcut edges (shortest path from this entry point to each exit point of the cell)

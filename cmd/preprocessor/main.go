@@ -16,7 +16,7 @@ func main() {
 	graph := osmParser.Parse("./data/solo_jogja.osm.pbf", logger)
 
 	mlp := datastructure.NewPlainMLP()
-	err = mlp.ReadMlpFile("./data/kaffpa_kaffpa_solo_jogja.mlp")
+	err = mlp.ReadMlpFile("./data/kaffpa_kaffpa_test_5_level.mlp.mlp")
 	if err != nil {
 		panic(err)
 	}

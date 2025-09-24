@@ -69,9 +69,6 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine) *CRPBidirectionalSearch
 	}
 }
 
-
-
-// masih ada yg salah di customizer/prepocessing/query
 func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate, bool) {
 	// Our query algorithm takes as input a source arc as , a target arc at, the original graph G, the overlay graph
 	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
