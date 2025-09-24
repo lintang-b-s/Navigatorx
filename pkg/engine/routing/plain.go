@@ -86,54 +86,6 @@ func (bs *CRPBidirectionalSearch) Search(source, target datastructure.Index) (fl
 		return pkg.INF_WEIGHT, pkg.INF_WEIGHT, []datastructure.Index{}, false
 	}
 
-	// unpackOverlayOffset := bs.engine.graph.NumberOfEdges()
-
-	// idPath := make([]vertexEdgePair, 0)
-	// curId := bs.forwardMid.edge
-	// for curId != asId {
-	// 	curInfo := bs.forwardInfo[curId]
-	// 	parent := curInfo.GetParent()
-	// 	parentCopy := parent
-
-	// 	if parentCopy.getEdge() > overlayOffset {
-	// 		parentCopy.setEdge(parentCopy.getEdge() - overlayOffset + datastructure.Index(unpackOverlayOffset))
-	// 	}
-
-	// 	idPath = append(idPath, parentCopy)
-
-	// 	curId = parent.getEdge()
-	// }
-
-	// idPath = append(idPath, newVertexEdgePair(s, asId, true))
-	// idPath = util.ReverseG[vertexEdgePair](idPath)
-
-	// mid := bs.backwardMid
-	// if mid.getEdge() > overlayOffset {
-	// 	// overlay vertex
-	// 	mid.setEdge(mid.getEdge() - overlayOffset + datastructure.Index(unpackOverlayOffset))
-	// }
-
-	// idPath = append(idPath, mid)
-
-	// curId = bs.backwardMid.edge
-	// for curId != atId {
-	// 	curInfo := bs.backwardInfo[curId]
-	// 	parent := curInfo.GetParent()
-	// 	parentCopy := parent
-
-	// 	if parentCopy.getEdge() > overlayOffset {
-	// 		// overlay vertex
-	// 		parentCopy.setEdge(parentCopy.getEdge() - overlayOffset + datastructure.Index(unpackOverlayOffset))
-	// 	}
-	// 	idPath = append(idPath, parentCopy)
-
-	// 	curId = parent.getEdge()
-	// }
-
-	// idPath = append(idPath, newVertexEdgePair(t, atId, false))
-
-	// unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics)
-	// finalPath, totalDistance := unpacker.unpackPath(idPath, bs.sCellNumber, bs.tCellNumber)
 	return bs.shortestPath, 0, []datastructure.Index{}, true
 }
 

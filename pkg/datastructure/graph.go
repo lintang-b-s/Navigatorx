@@ -448,7 +448,7 @@ func (g *Graph) GetHaversineDistanceFromUtoV(u, v Index) float64 {
 	return HaversineDistance(uvertex.lat, uvertex.lon, vvertex.lat, vvertex.lon)
 }
 
-func (g *Graph) SetOutInEdgeCellOffset() {
+func (g *Graph) SortByCellNumber() {
 	cellVertices := make([][]struct {
 		vertex        *Vertex
 		originalIndex Index
@@ -545,6 +545,87 @@ func (g *Graph) SetOutInEdgeCellOffset() {
 	}
 
 }
+
+func (g *Graph) SetOutInEdgeCellOffset() {
+	cellVertices := make([][]struct {
+		vertex        *Vertex
+		originalIndex Index
+	}, g.GetNumberOfCellsNumbers()) // slice of slice of vertices in each cell
+
+	numOutEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers()) // number of outEdges in each cell
+	numInEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers())
+
+	oEdges := make([][]*OutEdge, g.NumberOfVertices()) // copy of original outEdges of each vertex
+	iEdges := make([][]*InEdge, g.NumberOfVertices())
+
+	g.maxEdgesInCell = Index(0) // maximum number of edges in any cell
+	for i := Index(0); i < Index(g.NumberOfVertices()); i++ {
+		cell := g.vertices[i].pvPtr // cellNumber
+		cellVertices[cell] = append(cellVertices[cell], struct {
+			vertex        *Vertex
+			originalIndex Index
+		}{vertex: g.vertices[i], originalIndex: i})
+
+		oEdges[i] = make([]*OutEdge, g.GetOutDegree(i))
+		iEdges[i] = make([]*InEdge, g.GetInDegree(i))
+
+		k := Index(0)
+		e := g.vertices[i].firstOut
+		for e < g.vertices[i+1].firstOut {
+			oEdges[i][k] = g.outEdges[e]
+			e++
+			k++
+		}
+
+		k = Index(0)
+		e = g.vertices[i].firstIn
+		for e < g.vertices[i+1].firstIn {
+			iEdges[i][k] = g.inEdges[e]
+			e++
+			k++
+		}
+
+		numOutEdgesInCell[cell] += g.GetOutDegree(i)
+		numInEdgesInCell[cell] += g.GetInDegree(i)
+
+		if g.maxEdgesInCell < numOutEdgesInCell[cell] {
+			g.maxEdgesInCell = numOutEdgesInCell[cell]
+		}
+
+		if g.maxEdgesInCell < numInEdgesInCell[cell] {
+			g.maxEdgesInCell = numInEdgesInCell[cell]
+		}
+	}
+
+	outOffset := Index(0)                                   // new offset for outEdges for each vertex for each cell
+	g.outEdgeCellOffset = make([]Index, len(g.cellNumbers)) // offset of first outEdge for each cell
+	inOffset := Index(0)                                    // new offset for inEdges for each vertex for each cell
+	g.inEdgeCellOffset = make([]Index, len(g.cellNumbers))  // offset of first inEdge for each cell
+
+
+	for i := Index(0); i < Index(len(g.cellNumbers)); i++ {
+		g.outEdgeCellOffset[i] = outOffset
+		g.inEdgeCellOffset[i] = inOffset
+
+		for v := Index(0); v < Index(len(cellVertices[i])); v++ {
+
+			
+			
+			vId := cellVertices[i][v].originalIndex
+
+			for k := Index(0); k < Index(len(oEdges[vId])); k++ {
+				outOffset++
+			}
+			for k := Index(0); k < Index(len(iEdges[vId])); k++ {
+				inOffset++
+			}
+
+			vId++
+		}
+	}
+
+}
+
 
 func (g *Graph) WriteGraph(filename string) error {
 	f, err := os.Create(filename)

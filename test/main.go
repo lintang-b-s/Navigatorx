@@ -133,7 +133,7 @@ func main() {
 		panic(err)
 	}
 	preprocessor := preprocesser.NewPreprocessor(graph, mlp, logger)
-	err = preprocessor.PreProcessing()
+	err = preprocessor.PreProcessingNotSorted()
 	if err != nil {
 		panic(err)
 	}
