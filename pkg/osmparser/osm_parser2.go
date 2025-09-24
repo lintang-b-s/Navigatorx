@@ -447,63 +447,63 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge) *datastructure.Graph {
 	}
 
 	// store u_turn restrictions
-	for _, e := range scannedEdges {
-		// dont allow u_turns at (u,v) -> (v,u)
-		if !e.bidirectional {
-			via := datastructure.Index(e.from)
-			if inDegree[via] != 1 || outDegree[via] != 1 {
-				to := datastructure.Index(e.to)
+	// for _, e := range scannedEdges {
+	// 	// dont allow u_turns at (u,v) -> (v,u)
+	// 	if !e.bidirectional {
+	// 		via := datastructure.Index(e.from)
+	// 		if inDegree[via] != 1 || outDegree[via] != 1 {
+	// 			to := datastructure.Index(e.to)
 
-				entryId := -1
-				exitId := -1
-				for k := 0; k < len(outEdges[via]); k++ {
-					if outEdges[via][k].GetHead() == to {
-						exitId = k
-						break
-					}
-				}
+	// 			entryId := -1
+	// 			exitId := -1
+	// 			for k := 0; k < len(outEdges[via]); k++ {
+	// 				if outEdges[via][k].GetHead() == to {
+	// 					exitId = k
+	// 					break
+	// 				}
+	// 			}
 
-				for k := 0; k < len(inEdges[via]); k++ {
-					if inEdges[via][k].GetTail() == to {
-						entryId = k
-						break
-					}
-				}
-				if entryId == -1 || exitId == -1 {
-					continue
-				}
-				turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
-			}
+	// 			for k := 0; k < len(inEdges[via]); k++ {
+	// 				if inEdges[via][k].GetTail() == to {
+	// 					entryId = k
+	// 					break
+	// 				}
+	// 			}
+	// 			if entryId == -1 || exitId == -1 {
+	// 				continue
+	// 			}
+	// 			turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
+	// 		}
 
-			// to
-			via = datastructure.Index(e.to)
-			if inDegree[via] != 1 || outDegree[via] != 1 {
-				to := datastructure.Index(e.from)
+	// 		// to
+	// 		via = datastructure.Index(e.to)
+	// 		if inDegree[via] != 1 || outDegree[via] != 1 {
+	// 			to := datastructure.Index(e.from)
 
-				entryId := -1
-				exitId := -1
-				for k := 0; k < len(outEdges[via]); k++ {
-					if outEdges[via][k].GetHead() == to {
-						exitId = k
-						break
-					}
-				}
+	// 			entryId := -1
+	// 			exitId := -1
+	// 			for k := 0; k < len(outEdges[via]); k++ {
+	// 				if outEdges[via][k].GetHead() == to {
+	// 					exitId = k
+	// 					break
+	// 				}
+	// 			}
 
-				for k := 0; k < len(inEdges[via]); k++ {
-					if inEdges[via][k].GetTail() == to {
-						entryId = k
-						break
-					}
-				}
+	// 			for k := 0; k < len(inEdges[via]); k++ {
+	// 				if inEdges[via][k].GetTail() == to {
+	// 					entryId = k
+	// 					break
+	// 				}
+	// 			}
 
-				if entryId == -1 || exitId == -1 {
-					continue
-				}
-				turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
-			}
-		}
+	// 			if entryId == -1 || exitId == -1 {
+	// 				continue
+	// 			}
+	// 			turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
+	// 		}
+	// 	}
 
-	}
+	// }
 
 	// store turn restrictions
 	for wayID, way := range p.ways {

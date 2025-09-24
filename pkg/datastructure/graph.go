@@ -499,12 +499,22 @@ func (g *Graph) SetOutInEdgeCellOffset() {
 		}
 	}
 
+	newIds := make([]Index, g.NumberOfVertices()) // new vertex id after sorting by cell number
+	newVid := Index(0)                            // new vertex id after sorting by cell number
+	for i := 0; i < len(cellVertices); i++ {
+		for v := 0; v < len(cellVertices[i]); v++ {
+			newIds[cellVertices[i][v].originalIndex] = newVid
+			newVid++
+		}
+	}
+
 	outOffset := Index(0)                                   // new offset for outEdges for each vertex for each cell
 	g.outEdgeCellOffset = make([]Index, len(g.cellNumbers)) // offset of first outEdge for each cell
 	inOffset := Index(0)                                    // new offset for inEdges for each vertex for each cell
 	g.inEdgeCellOffset = make([]Index, len(g.cellNumbers))  // offset of first inEdge for each cell
 
-	// sort vertices by cell number
+	vId := Index(0)
+
 	for i := Index(0); i < Index(len(g.cellNumbers)); i++ {
 		g.outEdgeCellOffset[i] = outOffset
 		g.inEdgeCellOffset[i] = inOffset
@@ -512,13 +522,21 @@ func (g *Graph) SetOutInEdgeCellOffset() {
 		for v := Index(0); v < Index(len(cellVertices[i])); v++ {
 			// update vertex to use new vId
 			// in the end of the outer loop, graph vertices are sorted by cell number
-			vId := cellVertices[i][v].originalIndex
+			g.vertices[vId] = cellVertices[i][v].vertex
+			vOldId := cellVertices[i][v].originalIndex
+			g.vertices[vId].SetFirstOut(outOffset)
+			g.vertices[vId].SetFirstIn(inOffset)
+			g.vertices[vId].SetId(vId)
 
 			// update outedges & inedges
-			for k := Index(0); k < Index(len(oEdges[vId])); k++ {
+			for k := Index(0); k < Index(len(oEdges[vOldId])); k++ {
+				g.outEdges[outOffset] = oEdges[vOldId][k]
+				g.outEdges[outOffset].head = newIds[oEdges[vOldId][k].head]
 				outOffset++
 			}
-			for k := Index(0); k < Index(len(iEdges[vId])); k++ {
+			for k := Index(0); k < Index(len(iEdges[vOldId])); k++ {
+				g.inEdges[inOffset] = iEdges[vOldId][k]
+				g.inEdges[inOffset].tail = newIds[iEdges[vOldId][k].tail]
 				inOffset++
 			}
 

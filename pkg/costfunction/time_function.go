@@ -11,10 +11,14 @@ func NewTimeCostFunction() *TimeFunction {
 	return &TimeFunction{}
 }
 
+const (
+	defaultSpeed = 30.0 // km/h
+)
+
 func (tf *TimeFunction) GetWeight(e EdgeAttributes) float64 {
 	speed := e.GetEdgeSpeed()
 	if speed == 0 {
-		return 0
+		return e.GetLength() / defaultSpeed
 	}
 	return e.GetLength() / speed
 }

@@ -37,7 +37,7 @@ unpackPath. unpack a level-i shortcut (v, w) by running Dijkstra between v and w
 */
 func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCellNumber datastructure.Pv) ([]datastructure.Index, float64) {
 	unpackedPath := make([]datastructure.Index, 0)
-	unpackOverlayOffset := datastructure.Index(pu.graph.NumberOfEdges())
+	unpackOverlayOffset := datastructure.Index(pu.graph.NumberOfEdges()) * 5
 	totalDistance := 0.0
 	for i := 0; i < len(packedPath)-1; {
 		cur := packedPath[i]

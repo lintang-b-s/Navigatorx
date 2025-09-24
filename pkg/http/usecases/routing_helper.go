@@ -6,6 +6,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 )
 
 func (rs *RoutingService) snapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon float64) (datastructure.Index,
@@ -35,13 +36,33 @@ func (rs *RoutingService) snapOrigDestToNearbyEdges(origLat, origLon, dstLat, ds
 		dstDist[i] = geo.CalculateHaversineDistance(dstLat, dstLon, cLat, cLon)
 	}
 
-	sort.Slice(origCandidates, func(i, j int) bool {
-		return origDist[i] < origDist[j]
+	sortedOrigId := make([]int, len(origCandidates))
+	for i := range sortedOrigId {
+		sortedOrigId[i] = i
+	}
+
+	sortedDestId := make([]int, len(dstCandidates))
+	for i := range sortedDestId {
+		sortedDestId[i] = i
+	}
+
+	sort.Slice(sortedOrigId, func(i, j int) bool {
+		return origDist[sortedOrigId[i]] < origDist[sortedOrigId[j]]
 	})
 
-	sort.Slice(dstCandidates, func(i, j int) bool {
-		return dstDist[i] < dstDist[j]
+	sort.Slice(sortedDestId, func(i, j int) bool {
+		return dstDist[sortedDestId[i]] < dstDist[sortedDestId[j]]
 	})
+
+	sortedOrig := make([]spatialindex.ArcEndpoint, len(origCandidates))
+	sortedDest := make([]spatialindex.ArcEndpoint, len(dstCandidates))
+	for i, newId := range sortedOrigId {
+		sortedOrig[i] = origCandidates[newId]
+	}
+
+	for i, newId := range sortedDestId {
+		sortedDest[i] = dstCandidates[newId]
+	}
 
 	// for _, o := range origCandidates {
 	// 	for _, d := range dstCandidates {
@@ -51,6 +72,5 @@ func (rs *RoutingService) snapOrigDestToNearbyEdges(origLat, origLon, dstLat, ds
 	// 	}
 	// }
 
-	return origCandidates[0].GetExitOffset(), dstCandidates[0].GetEntryOffset(), nil
-	// return 0, 0, errors.New("no connected origin and destination candidates found")
+	return sortedOrig[0].GetExitOffset(), sortedDest[0].GetEntryOffset(), nil
 }
