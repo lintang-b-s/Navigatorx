@@ -35,8 +35,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 500.0, 500.0, 0.0001, 7.0, 1.0, 0.0001,
-		0.03, 180.0) // speed in meter/minute
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 500.0, 500.0, 0.001, 10.0, 1.0, 0.0001,
+		0.06, 180.0) // speed in meter/minute
 
 	api := http.NewServer(logger)
 
