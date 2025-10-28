@@ -73,7 +73,7 @@ func PoylineFromCoords(path []datastructure.Coordinate) string {
 	coords := make([][]float64, 0)
 	for _, p := range path {
 		pT := p
-		coords = append(coords, []float64{pT.Lat(), pT.Lon()})
+		coords = append(coords, []float64{pT.GetLat(), pT.GetLon()})
 	}
 	s = string(polyline.EncodeCoords(coords))
 	return s

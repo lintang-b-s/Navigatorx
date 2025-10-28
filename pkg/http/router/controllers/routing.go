@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -16,20 +17,23 @@ import (
 )
 
 type routingAPI struct {
-	routingService RoutingService
-	log            *zap.Logger
+	routingService     RoutingService
+	mapmatchingService MapMatcherService
+	log                *zap.Logger
 }
 
-func New(routingService RoutingService, log *zap.Logger) *routingAPI {
+func New(routingService RoutingService, mapmatchingService MapMatcherService, log *zap.Logger) *routingAPI {
 	return &routingAPI{
-		routingService: routingService,
-		log:            log,
+		routingService:     routingService,
+		log:                log,
+		mapmatchingService: mapmatchingService,
 	}
 
 }
 
 func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
+	group.POST("/onlineMapMatch", api.onlineMapMatch)
 }
 
 func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -88,4 +92,46 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		api.ServerErrorResponse(w, r, err)
 		return
 	}
+}
+
+func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	var (
+		request mapMatchRequest
+		err     error
+	)
+	err = json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		api.BadRequestResponse(w, r, err)
+		return
+	}
+	if err := r.Body.Close(); err != nil {
+		api.ServerErrorResponse(w, r, err)
+		return
+	}
+
+	validate := validator.New()
+
+	if err := validate.Struct(request); err != nil {
+		english := en.New()
+		uni := ut.New(english, english)
+		trans, _ := uni.GetTranslator("en")
+		_ = enTranslations.RegisterDefaultTranslations(validate, trans)
+		vv := translateError(err, trans)
+		vvString := []string{}
+		for _, v := range vv {
+			vvString = append(vvString, v.Error())
+		}
+		api.BadRequestResponse(w, r, fmt.Errorf("validation error: %v", vvString))
+		return
+	}
+
+	mgpsPoint, cands, speedMeanK, speedStdK := api.mapmatchingService.OnlineMapMatch(request.Gps.ToDataGPS(), request.K, ToOnlineCandidates(request.Candidates),
+		request.SpeedMeanK, request.SpeedStdK)
+	headers := make(http.Header)
+
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewMapmatchingResponse(mgpsPoint, cands, speedMeanK, speedStdK)}, headers); err != nil {
+		api.ServerErrorResponse(w, r, err)
+		return
+	}
+
 }

@@ -147,6 +147,10 @@ func (e *OutEdge) SetEntryPoint(p uint8) {
 	e.entryPoint = p
 }
 
+func (e *OutEdge) GetEdgeId() Index {
+	return e.edgeId
+}
+
 func (e *InEdge) GetWeight() float64 {
 	return e.weight
 }
@@ -175,9 +179,9 @@ func (e *InEdge) SetExitPoint(p uint8) {
 }
 
 type SubVertex struct {
-	originalID Index
-	turnOrder  uint8 // entry/exit point order (from 0 to outDegree-1/inDegree-1)
-	exit       bool  // is exit point
+	originalID     Index // original vertex id
+	exitEntryOrder uint8 // entry/exit point order (from 0 to outDegree-1/inDegree-1)
+	exit           bool  // is exit point
 }
 
 type VertexIDPair struct {
@@ -192,7 +196,7 @@ type Graph struct {
 	outEdges          []*OutEdge
 	inEdges           []*InEdge
 	turnTables        []pkg.TurnType      // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
-	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L.
+	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
 	maxEdgesInCell    Index               // maximum number of inEdges/outEdges in any cell
 	outEdgeCellOffset []Index             // offset of first outEdge for each cellNumber
 	inEdgeCellOffset  []Index             // offset of first inEdge for each cellNumber
@@ -297,6 +301,16 @@ func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge,
 	}
 }
 
+func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) {
+	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
+		if g.outEdges[e].GetHead() == u {
+			continue
+		}
+
+		handle(g.outEdges[e], e)
+	}
+}
+
 func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
 		if g.inEdges[e].GetTail() == v {
@@ -322,11 +336,11 @@ func (g *Graph) GetTailFromOutEdge(exitPoint Index) Index {
 }
 
 // GetOverlayVertex. return overlay vertex id
-func (g *Graph) GetOverlayVertex(u Index, turnOrder uint8, exit bool) (Index, bool) {
+func (g *Graph) GetOverlayVertex(u Index, exitEntryOrder uint8, exit bool) (Index, bool) {
 	subV := SubVertex{
-		originalID: u,
-		turnOrder:  turnOrder,
-		exit:       exit,
+		originalID:     u,
+		exitEntryOrder: exitEntryOrder,
+		exit:           exit,
 	}
 	id, exists := g.overlayVertices[subV]
 	return id, exists
@@ -344,14 +358,14 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 	return len(g.cellNumbers)
 }
 
-func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail, entryOffset Index, percentage float64)) {
+func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail, entryOffset Index, percentage float64, idx Index)) {
 	for idx, e := range g.outEdges {
 		percentage := float64(idx) / float64(len(g.outEdges)) * 100
 		tail := g.GetTailOfOutedge(Index(idx))
 
 		entryOffset := g.GetVertex(e.head).GetFirstIn() + Index(e.GetEntryPoint())
 
-		handle(e, g.GetExitOrder(tail, Index(idx)), e.head, tail, entryOffset, percentage)
+		handle(e, g.GetExitOrder(tail, Index(idx)), e.head, tail, entryOffset, percentage, Index(idx))
 	}
 }
 
@@ -531,11 +545,13 @@ func (g *Graph) SortByCellNumber() {
 			// update outedges & inedges
 			for k := Index(0); k < Index(len(oEdges[vOldId])); k++ {
 				g.outEdges[outOffset] = oEdges[vOldId][k]
+				g.outEdges[outOffset].edgeId = outOffset
 				g.outEdges[outOffset].head = newIds[oEdges[vOldId][k].head]
 				outOffset++
 			}
 			for k := Index(0); k < Index(len(iEdges[vOldId])); k++ {
 				g.inEdges[inOffset] = iEdges[vOldId][k]
+				g.inEdges[inOffset].edgeId = inOffset
 				g.inEdges[inOffset].tail = newIds[iEdges[vOldId][k].tail]
 				inOffset++
 			}
@@ -602,15 +618,12 @@ func (g *Graph) SetOutInEdgeCellOffset() {
 	inOffset := Index(0)                                    // new offset for inEdges for each vertex for each cell
 	g.inEdgeCellOffset = make([]Index, len(g.cellNumbers))  // offset of first inEdge for each cell
 
-
 	for i := Index(0); i < Index(len(g.cellNumbers)); i++ {
 		g.outEdgeCellOffset[i] = outOffset
 		g.inEdgeCellOffset[i] = inOffset
 
 		for v := Index(0); v < Index(len(cellVertices[i])); v++ {
 
-			
-			
 			vId := cellVertices[i][v].originalIndex
 
 			for k := Index(0); k < Index(len(oEdges[vId])); k++ {
@@ -625,7 +638,6 @@ func (g *Graph) SetOutInEdgeCellOffset() {
 	}
 
 }
-
 
 func (g *Graph) WriteGraph(filename string) error {
 	f, err := os.Create(filename)
@@ -687,7 +699,7 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	for origVertex, overlayVertex := range g.overlayVertices {
 		fmt.Fprintf(w, "%d %d %t %d\n",
-			origVertex.originalID, origVertex.turnOrder, origVertex.exit, overlayVertex)
+			origVertex.originalID, origVertex.exitEntryOrder, origVertex.exit, overlayVertex)
 	}
 
 	fmt.Fprintf(w, "%d\n", g.maxEdgesInCell)
@@ -880,7 +892,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, err
 		}
-		turnOrder, err := strconv.ParseUint(tokens[1], 10, 8)
+		exitEntryOrder, err := strconv.ParseUint(tokens[1], 10, 8)
 		if err != nil {
 			return nil, err
 		}
@@ -893,9 +905,9 @@ func ReadGraph(filename string) (*Graph, error) {
 			return nil, err
 		}
 		subV := SubVertex{
-			originalID: origID,
-			turnOrder:  uint8(turnOrder),
-			exit:       exit,
+			originalID:     origID,
+			exitEntryOrder: uint8(exitEntryOrder),
+			exit:           exit,
 		}
 		overlayVertices[subV] = overlayId
 	}

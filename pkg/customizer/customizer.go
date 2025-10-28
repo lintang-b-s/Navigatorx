@@ -24,7 +24,7 @@ func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath str
 	}
 }
 
-func (c *Customizer) Customize() error {
+func (c *Customizer) Customize(visualize bool) error {
 	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 
 	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
@@ -42,7 +42,11 @@ func (c *Customizer) Customize() error {
 	costFunction := costfunction.NewTimeCostFunction()
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	overlayWeight := datastructure.NewOverlayWeights(overlayGraph.GetWeightVectorSize())
-	overlayWeight.Build(graph, overlayGraph, costFunction)
+	if !visualize {
+		overlayWeight.Build(graph, overlayGraph, costFunction)
+	} else {
+		overlayWeight.VisualizeBuild(graph, overlayGraph, costFunction)
+	}
 
 	c.logger.Sugar().Infof("Building stalling tables...")
 	metrics := metrics.NewMetric(graph, costFunction, overlayWeight)

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Map Match</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <style>
+      #map {
+        height: 500px;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="controls">
+      <input type="file" id="gpsJson" accept=".json" />
+      <button id="uploadButton">Upload gps data</button>
+    </div>
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="
+https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
+"></script>
+
+    <script>
+      function drawPolyline(encodedPath) {
+        try {
+          var decodedCoords = polyline.decode(encodedPath);
+
+          var latLngs = decodedCoords.map((coord) => [coord[0], coord[1]]);
+
+          var polylineLayer = L.polyline(latLngs, { color: "blue" }).addTo(map);
+
+          map.fitBounds(polylineLayer.getBounds());
+        } catch (error) {
+          console.error("Error decoding polyline:", error);
+          alert("Failed to decode polyline");
+        }
+      }
+
+      var map = L.map("map").setView([47.66755, -122.1065], 15);
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          'Map data © <a href="https://openstreetmap.org">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
+      document
+        .getElementById("uploadButton")
+        .addEventListener("click", function () {
+          var fileInput = document.getElementById("gpsJson");
+          if (fileInput.files.length === 0) {
+            alert("Please select a JSON file");
+            return;
+          }
+          var file = fileInput.files[0];
+          var reader = new FileReader();
+
+          reader.onload = async function (e) {
+            try {
+              var requestData = JSON.parse(e.target.result);
+            } catch (err) {
+              console.error("Invalid JSON file:", err);
+              alert("Invalid JSON file!");
+              return;
+            }
+
+            function haversine(lat1, lon1, lat2, lon2) {
+              const R = 6371000;
+              const toRad = (x) => (x * Math.PI) / 180;
+              const dLat = toRad(lat2 - lat1);
+              const dLon = toRad(lon2 - lon1);
+              const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(toRad(lat1)) *
+                  Math.cos(toRad(lat2)) *
+                  Math.sin(dLon / 2) *
+                  Math.sin(dLon / 2);
+              const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+              return R * c;
+            }
+
+            let candidates = [];
+            let speedMeanK = 0;
+            let speedStdK = 0;
+            let prev = null;
+            let prevTime = null;
+
+            for (let k = 1; k <= requestData.length; k++) {
+              const point = requestData[k];
+              const t = new Date(point.datetime_utc);
+              let speed = 0;
+              if (prev) {
+                const distance = haversine(
+                  prev.Latitude,
+                  prev.Longitude,
+                  point.Latitude,
+                  point.Longitude
+                );
+                const dt = (t - prevTime) / 1000.0;
+                if (dt > 0) {
+                  speed = (distance / dt) * 60; // meter/minute
+                }
+              }
+
+              const mapMatchRequest = {
+                gps_point: {
+                  lat: point.Latitude,
+                  lon: point.Longitude,
+                  time: t.toISOString(),
+                  speed: speed,
+                },
+                k: k,
+                candidates: candidates,
+                speed_mean_k: 500.0,
+                speed_std_k: 500.0,
+              };
+
+              try {
+                const response = await fetch(
+                  "http://localhost:6060/api/onlineMapMatch",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(mapMatchRequest),
+                  }
+                );
+                const apiResponse = await response.json();
+                candidates = apiResponse.data.candidates || [];
+                speedMeanK = apiResponse.data.speed_mean_k;
+                speedStdK = apiResponse.data.speed_std_k;
+
+                L.circleMarker([point.Latitude, point.Longitude], {
+                  color: "red",
+                  radius: 4,
+                  fillOpacity: 1,
+                }).addTo(map);
+
+                if (
+                  apiResponse.data.matched_gps_point &&
+                  apiResponse.data.matched_gps_point.matched_coord
+                ) {
+                  const matched =
+                    apiResponse.data.matched_gps_point.matched_coord;
+                  L.circleMarker([matched.lat, matched.lon], {
+                    color: "green",
+                    radius: 4,
+                    fillOpacity: 1,
+                  }).addTo(map);
+                }
+              } catch (error) {
+                console.error("Error:", error);
+                alert("Error during map matching");
+                return;
+              }
+              prev = point;
+              prevTime = t;
+              await new Promise((resolve) => setTimeout(resolve, 10));
+            }
+          };
+
+          reader.readAsText(file);
+        });
+    </script>
+  </body>
+</html>

@@ -1,57 +1,16 @@
 package datastructure
 
 import (
-	"sync"
+	"encoding/json"
+	"fmt"
+	"os"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-/*
-Customizable Route Planning In Road Networks, Delling et al., Page 11:
-First, for each cell C in the overlay graph, we keep three integers: pC (the number of entry points), qC
-(the number of exit points), and fC (the position in W where the first entry of C’s matrix is represented).
-During customization and queries, the cost of the shortcut between the i-th entry point and the j-th exit
-point of C will be stored in W [fC + iqC + j].
-*/
-type OverlayWeights struct {
-	weights []float64
-	lock    sync.Mutex
-}
-
-func (ow *OverlayWeights) GetWeight(i Index) float64 {
-
-	shortcutWeight := ow.weights[i]
-
-	return shortcutWeight
-}
-
-func (ow *OverlayWeights) GetWeights() []float64 {
-	return ow.weights
-}
-
-func (ow *OverlayWeights) SetWeights(weights []float64) {
-
-	copy(ow.weights, weights)
-}
-
-func NewOverlayWeights(weightVectorSize uint32) *OverlayWeights {
-	weights := make([]float64, weightVectorSize)
-	for i := range weights {
-		weights[i] = pkg.INF_WEIGHT
-	}
-	return &OverlayWeights{weights: weights}
-}
-
-type customizerCell struct {
-	cell       *Cell
-	cellNumber Pv
-}
-
-func newCustomizerCell(cell *Cell, cellNumber Pv) customizerCell {
-	return customizerCell{cell: cell, cellNumber: cellNumber}
-}
+// to produce visualizations of the customization results
 
 /*
 Build. Customizable Route Planning in Road Networks, Daniel Delling, et al. Page 11:
@@ -71,11 +30,13 @@ corresponding to subcells of C. This subgraph is much smaller than the correspon
 addition, since overlay graphs have no (explicit) turns, we can just apply the standard version of Dijkstra’s
 algorithm, which tends to be faster.
 */
-func (ow *OverlayWeights) Build(graph *Graph, overlayGraph *OverlayGraph,
+func (ow *OverlayWeights) VisualizeBuild(graph *Graph, overlayGraph *OverlayGraph,
 	costFunction costfunction.CostFunction) {
-	ow.buildLowestLevel(graph, overlayGraph, costFunction)
+	shortcutsMap := ow.visualizeBuildLowestLevel(graph, overlayGraph, costFunction)
 	for level := 2; level <= overlayGraph.GetLevelInfo().GetLevelCount(); level++ {
-		ow.buildLevel(graph, overlayGraph, costFunction, level)
+		shortcutPaths := make([][]Coordinate, 0) // for each shortcut edges in level=level, save its shortest path
+		shortcutsMap = ow.visualizeBuildLevel(graph, overlayGraph, costFunction, level, &shortcutPaths, shortcutsMap)
+		writeShortcutsToJsonFile(shortcutPaths, level)
 	}
 }
 
@@ -83,9 +44,11 @@ func (ow *OverlayWeights) Build(graph *Graph, overlayGraph *OverlayGraph,
 // using Dijkstra algorithm from each entry point of the cell to all exit points of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
-func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGraph,
-	costFunction costfunction.CostFunction) {
+func (ow *OverlayWeights) visualizeBuildLowestLevel(graph *Graph, overlayGraph *OverlayGraph,
+	costFunction costfunction.CostFunction) map[Index]map[Index][]Coordinate {
 
+	shortcutPaths := make([][]Coordinate, 0) // for each shortcut edges in level 1, save its shortest path
+	shortcutsMap := make(map[Index]map[Index][]Coordinate, 0)
 	cellMapInLevelOne := overlayGraph.GetAllCellsInLevel(1)
 	for cellNumber, cell := range cellMapInLevelOne {
 
@@ -96,12 +59,18 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 			pq := NewMinHeap[CRPQueryKey]()
 			eta := make(map[Index]float64)
 			overlayEta := make(map[Index]float64)
+
+			parentState := make(map[CRPQueryKey]CRPQueryKey)
+			bestExitState := make(map[Index]CRPQueryKey)
+
 			forwardCellOffset := graph.GetInEdgeCellOffset(start)
 			startInEdgeOffset := overlayVertex.originalEdge - forwardCellOffset
 
-			eta[startInEdgeOffset] = 0
+			startKey := NewCRPQueryKey(start, startInEdgeOffset)
+			parentState[startKey] = NewCRPQueryKey(INVALID_VERTEX_ID, 0)
 
-			pq.Insert(NewPriorityQueueNode(0, NewCRPQueryKey(start, startInEdgeOffset)))
+			eta[startInEdgeOffset] = 0
+			pq.Insert(NewPriorityQueueNode(0, startKey))
 
 			for !pq.isEmpty() {
 				pqNode, _ := pq.ExtractMin()
@@ -120,45 +89,72 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 					newETA := exitPointEta + outArcCost
 
 					if newETA >= pkg.INF_WEIGHT {
-						return 
+						return
 					}
 
 					if graph.GetCellNumber(v) == cellNumber {
 						vEntryPoint := graph.GetEntryOffset(v) + Index(outArc.GetEntryPoint()) - forwardCellOffset
+						vKey := NewCRPQueryKey(v, vEntryPoint)
 
-						if _, ok := eta[vEntryPoint]; !ok || newETA < eta[vEntryPoint] {
+						if old, ok := eta[vEntryPoint]; !ok || newETA < old {
 							eta[vEntryPoint] = newETA
+							parentState[vKey] = uKey
 							if ok {
-								pq.DecreaseKey(NewPriorityQueueNode(newETA, NewCRPQueryKey(v, vEntryPoint)))
+								pq.DecreaseKey(NewPriorityQueueNode(newETA, vKey))
 							} else {
-								pq.Insert(NewPriorityQueueNode(newETA, NewCRPQueryKey(v, vEntryPoint)))
+								pq.Insert(NewPriorityQueueNode(newETA, vKey))
 							}
 						}
 					} else {
 						// found an exit point of the cell
-						// save this shortcut eta
-						exitOverlay, _ := graph.GetOverlayVertex(uId, uint8(exitPoint), true) // overlay vetex id of exit vertex c_1(u).
-						if _, ok := overlayEta[exitOverlay]; !ok || exitPointEta < overlayEta[exitOverlay] {
+						exitOverlay, _ := graph.GetOverlayVertex(uId, uint8(exitPoint), true)
+						if best, ok := overlayEta[exitOverlay]; !ok || exitPointEta < best {
 							overlayEta[exitOverlay] = exitPointEta
+							bestExitState[exitOverlay] = uKey
 						}
 					}
 				})
 			}
 
-			// stores all eta of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 			for j := Index(0); j < cell.numExitPoints; j++ {
 				exitPoint := overlayGraph.GetExitPoint(cell, j)
 				_, exists := overlayEta[exitPoint]
 				if !exists {
 					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = pkg.INF_WEIGHT
-				} else {
-
-					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = overlayEta[exitPoint]
+					continue
 				}
+
+				ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = overlayEta[exitPoint]
+
+				curKey, ok := bestExitState[exitPoint]
+				if !ok {
+					continue
+				}
+
+				pathCoords := make([]Coordinate, 0)
+				for curKey.GetNode() != INVALID_VERTEX_ID {
+					curLat, curLon := graph.GetVertexCoordinates(curKey.GetNode())
+					pathCoords = append(pathCoords, NewCoordinate(curLat, curLon))
+
+					nextKey, ok := parentState[curKey]
+					if !ok {
+						break
+					}
+					curKey = nextKey
+				}
+				shortcutPaths = append(shortcutPaths, pathCoords)
+
+				if _, ok := shortcutsMap[start]; !ok {
+					shortcutsMap[start] = make(map[Index][]Coordinate)
+				}
+				exitKey := bestExitState[exitPoint]
+				shortcutsMap[start][exitKey.GetNode()] = pathCoords
 			}
 		}
 	}
 
+	writeShortcutsToJsonFile(shortcutPaths, 1)
+	return shortcutsMap
 }
 
 // buildLevel. build clique of each cell in the level (level > 1)
@@ -167,8 +163,9 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 // this function is parallelized using goroutines worker pool
 // this function uses overlay graph from the previous level to compute the weights
 // basically: use shortcut edges from the previous level as edges in this current level overlay graph
-func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
-	costFunction costfunction.CostFunction, level int) {
+func (ow *OverlayWeights) visualizeBuildLevel(graph *Graph, overlayGraph *OverlayGraph,
+	costFunction costfunction.CostFunction, level int, shortcutPaths *[][]Coordinate,
+	shortcutsMap map[Index]map[Index][]Coordinate) map[Index]map[Index][]Coordinate {
 
 	levelInfo := overlayGraph.GetLevelInfo()
 
@@ -181,8 +178,13 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 			pq := NewMinHeap[Index]()
 			eta := make(map[Index]float64)
 			startOverlayVertexId := overlayGraph.GetEntryPoint(cell, i)
-
 			eta[startOverlayVertexId] = 0
+
+			overlayVertex := overlayGraph.GetVertex(startOverlayVertexId)
+			parentState := make(map[CRPQueryKey]CRPQueryKey)
+
+			startKey := NewCRPQueryKey(overlayVertex.originalVertex, startOverlayVertexId)
+			parentState[startKey] = NewCRPQueryKey(INVALID_VERTEX_ID, 0)
 
 			pq.Insert(NewPriorityQueueNode(0, startOverlayVertexId))
 
@@ -196,8 +198,8 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 
 				overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit Index, wOffset Index) {
 
-					shortcutWeight := ow.weights[wOffset]
-					newEta := uEta + shortcutWeight
+					shorcutWeight := ow.weights[wOffset]
+					newEta := uEta + shorcutWeight
 
 					if newEta >= pkg.INF_WEIGHT {
 						return
@@ -210,6 +212,11 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 						neighborVertex := exitOverlayVertex.neighborOverlayVertex
 						neighborOverlayVertex := overlayGraph.GetVertex(neighborVertex)
 
+						uOverlayVertex := overlayGraph.GetVertex(uOverlayId)
+
+						vKey := NewCRPQueryKey(exitOverlayVertex.originalVertex, exit)
+						parentState[vKey] = NewCRPQueryKey(uOverlayVertex.originalVertex, uOverlayId)
+
 						if levelInfo.TruncateToLevel(neighborOverlayVertex.cellNumber, uint8(level)) == cellNumber {
 							boundaryArcWeight := costFunction.GetWeight(graph.GetOutEdge(exitOverlayVertex.originalEdge))
 							newNeighborEta := newEta + boundaryArcWeight
@@ -217,6 +224,9 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 
 							if !neighborVertexAlreadyVisited || newNeighborEta < oldNEta {
 								eta[neighborVertex] = newEta + boundaryArcWeight
+
+								neighborKey := NewCRPQueryKey(neighborOverlayVertex.originalVertex, neighborVertex)
+								parentState[neighborKey] = vKey
 
 								if !neighborVertexAlreadyVisited {
 									pq.Insert(NewPriorityQueueNode(eta[neighborVertex], neighborVertex))
@@ -233,10 +243,29 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 			for j := Index(0); j < cell.numExitPoints; j++ {
 				exitPoint := overlayGraph.GetExitPoint(cell, j)
 				_, exists := eta[exitPoint]
+				exitOverlayVertex := overlayGraph.GetVertex(exitPoint)
 				if !exists {
 					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = pkg.INF_WEIGHT
 				} else {
 					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = eta[exitPoint]
+
+					currentVertexKey := NewCRPQueryKey(exitOverlayVertex.originalVertex, exitPoint)
+					pathCoords := make([]Coordinate, 0)
+					path := make([]Index, 0)
+					for currentVertexKey.GetNode() != INVALID_VERTEX_ID {
+						// currentVertexLat, currentVertexLon := graph.GetVertexCoordinates(currentVertexKey.GetNode())
+						// pathCoords = append(pathCoords, NewCoordinate(currentVertexLat, currentVertexLon))
+						path = append(path, currentVertexKey.GetNode())
+						currentVertexKey = parentState[currentVertexKey]
+					}
+					for i := 0; i < len(path)-1; i++ {
+						currentPathCoords := shortcutsMap[path[i]][path[i+1]]
+						pathCoords = append(pathCoords, currentPathCoords...)
+					}
+
+					shortcutsMap[startKey.GetNode()][exitOverlayVertex.originalVertex] = pathCoords
+					*shortcutPaths = append(*shortcutPaths, pathCoords)
+
 				}
 			}
 		}
@@ -247,5 +276,22 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 	for pv, cell := range cellMapInLevelOne {
 		buildCellClique(newCustomizerCell(cell, pv))
 	}
+	return shortcutsMap
+}
 
+func writeShortcutsToJsonFile(shortcuts [][]Coordinate, level int) error {
+	// perkecil
+	shortcuts = shortcuts[:int(float64(len(shortcuts))*0.2)]
+
+	filename := fmt.Sprintf("shortcuts_level_%d.json", level-1)
+
+	f, err := os.Create(filename)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	return enc.Encode(shortcuts)
 }

@@ -28,9 +28,9 @@ func NewAPI(log *zap.Logger) *API {
 	return &API{log: log}
 }
 
-//	@title			OSM Search Engine API
+//	@title			Navigatorx API
 //	@version		1.0
-//	@description	This is a openstreetmap search engine server.
+//	@description	This is an traffic aware routing engine for openstreetmap server.
 
 //	@contact.name	Lintang Birda Saputra
 //	@contact.url	_
@@ -48,6 +48,7 @@ func (api *API) Run(
 
 	useRateLimit bool,
 	routingService controllers.RoutingService,
+	mapMatcherService controllers.MapMatcherService,
 ) error {
 	log.Info("Run httprouter API")
 
@@ -69,9 +70,9 @@ func (api *API) Run(
 
 	group := router_helper.NewRouteGroup(router, "/api")
 
-	searcherRoutes := controllers.New(routingService, log)
+	navigatorRoutes := controllers.New(routingService, mapMatcherService, log)
 
-	searcherRoutes.Routes(group)
+	navigatorRoutes.Routes(group)
 
 	var mwChain []alice.Constructor
 	if useRateLimit {

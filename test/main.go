@@ -145,7 +145,7 @@ func main() {
 	})
 
 	custo := customizer.NewCustomizer("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
-	err = custo.Customize()
+	err = custo.Customize(false)
 	if err != nil {
 		panic(err)
 	}

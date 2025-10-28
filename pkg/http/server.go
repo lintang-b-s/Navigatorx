@@ -25,6 +25,7 @@ func (s *Server) Use(
 
 	useRateLimit bool,
 	routingService controllers.RoutingService,
+	mapMatcherService controllers.MapMatcherService,
 
 ) (*Server, error) {
 	viper.SetDefault("API_PORT", 6060)
@@ -43,7 +44,7 @@ func (s *Server) Use(
 	g.Go(func() error {
 		return server.Run(
 			ctx, config, log,
-			useRateLimit, routingService,
+			useRateLimit, routingService, mapMatcherService,
 		)
 	})
 

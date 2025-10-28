@@ -19,8 +19,8 @@ type OverlayVertex struct {
 	neighborOverlayVertex Index   // overlay vertex id that on another cell and incident to originalEdge. can be a head if this overlay vertex is an exit point, or can be a tail if this overlay vertex is an entry point.
 	cellNumber            Pv      // cell number of this overlay vertex. cellNumber = 64 bit uint with rightmost contain level 0 cellNumber, and to the left contain higher level cellNumber
 	originalEdge          Index   // original index to outEdge(this overlay vertex is an exit point)/inEdge(this overlay vertex is an entry point) that incident to this overlay vertex
-	entryExitPoint        []Index // stores for each level l on which this vertex is an overlay vertex the entry/exit point index in its cell on level l. index = level-l
-	// entryExitPoint used in overlaygraph.overlayIdMapping. to get the overlay vertex id in this map, use key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints)
+	entryExitPoint        []Index // stores for each level l on which this vertex is an overlay vertex (entry/exit point index in its cell on level l). index = level-l
+	// entryExitPoint used in overlaygraph.overlayIdMapping. to get the overlay vertex id in overlayGraph.overlayIdMapping, use key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints)
 }
 
 func (ov *OverlayVertex) GetEntryExitPoint(level int) Index {
@@ -89,7 +89,7 @@ type OverlayGraph struct {
 	overlayVertices    []*OverlayVertex // all overlay vertices in the overlay graph. from the highest level to the lowest level, and sorted by their cell number in each level
 	vertexCountInLevel []Index          // number of overlay vertices in each level (cumulative sum from highest level to lowest level)
 	cellMapping        []map[Pv]*Cell   // cellNumber to Cell mapping for each level. index = level, cellNumber = Pv
-	overlayIdMapping   []Index          // maps from key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints) to value = overlay entry/exit point (represented as overlay vertex id)
+	overlayIdMapping   []Index          // maps from key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints) to value = overlay entry/exit vertex of a cell (represented as overlay vertex id)
 	levelInfo          *LevelInfo
 	weightVectorSize   uint32 // size of one-dimensional weight array W.
 }
@@ -280,7 +280,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			}
 
 			// subVertex = (originalVertexId, offset of boundary outedge/inEdge, is vertex a exit point}
-			subVertex := SubVertex{originalID: vertex.originalVertex, turnOrder: order, exit: isExitPoint}
+			subVertex := SubVertex{originalID: vertex.originalVertex, exitEntryOrder: order, exit: isExitPoint}
 			originalToOverlayVertex[subVertex] = Index(i) + Index(vertexOffset)
 		}
 
@@ -384,7 +384,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 	og.weightVectorSize = uint32(cellOfset) // size of  one-dimensional weight array W.
 }
 
-// ForOutNeighborsOf. iterates over all ougoing-neighbors of u
+// ForOutNeighborsOf. iterates over all outgoing-neighbors of u
 func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Index, wOffset Index)) {
 	uVertex := og.GetVertex(u)
 	entryPoint := uVertex.GetEntryExitPoint(level)

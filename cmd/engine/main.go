@@ -4,10 +4,12 @@ import (
 	"context"
 	"flag"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"go.uber.org/zap"
 )
@@ -29,15 +31,23 @@ func main() {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), *leafBoundingBoxRadius, logger)
+	graph, err := datastructure.ReadGraph("./data/original.graph")
+	if err != nil {
+		panic(err)
+	}
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 500.0, 500.0, 0.0001, 7.0, 1.0, 0.0001,
+		0.03, 180.0) // speed in meter/minute
+
 	api := http.NewServer(logger)
 
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04)
+	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {
 		panic(err)
 	}
 	api.Use(ctx,
-		logger, false, routingService)
+		logger, false, routingService, mapmatcherService)
 
 	signal := http.GracefulShutdown()
 

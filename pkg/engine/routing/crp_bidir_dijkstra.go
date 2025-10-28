@@ -244,7 +244,7 @@ func (bs *CRPBidirectionalSearch) adjustBackward(u, uExitOffset datastructure.In
 }
 
 /*
-	graphSearch. turn-aware bidirectional dijkstra search on graph level 1.
+graphSearch. turn-aware bidirectional dijkstra search on graph level 1.
 
 Customizable Route Planning In Road Networks, Daniel Delling, page 7-8:
 
@@ -263,6 +263,12 @@ Whenever we scan a vertex that has been seen from the other side, we evaluate al
 whether we can improve µ. We can stop the search as soon as the sum of the minimum keys in both priority
 queues exceeds µ. Note that this algorithm basically performs a search from the head vertex (s) of an arc to
 the tail (t) of another.
+
+Each iteration of the algorithm takes the minimum-distance entry from the queue, representing either an
+overlay vertex u or a pair (u, i) from the original graph. If the entry is a pair, we scan it using the turn-aware
+version of Dijkstra’s algorithm (and look at its neighbors in G). Otherwise, we use the overlay graph at level
+lst (u), which does not have turns. In either case, the neighbors v of u are added to the priority queue with
+the appropriate distance labels. Note that a level transition occurs when u and v have different query levels;
 */
 func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset datastructure.Index) {
 	minrankForward := bs.forwardPq.GetMinrank()
@@ -339,7 +345,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 				// traverse outEdges of v
 				bs.engine.graph.ForOutEdgesOf(vId, datastructure.Index(outArc.GetEntryPoint()), func(e2 *datastructure.OutEdge,
 					exitPoint datastructure.Index, turnType2 pkg.TurnType) {
-					// Customizable Route Planning In Road Networks, Page 8:  Whenever we scan a vertex that has been seen from
+					// Customizable Route Planning In Road Networks, Page 8: Whenever we scan a vertex that has been seen from
 					// the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
 					// whether we can improve µ.
 					// basically: check if forward and backward search already visited entry and exit point of v. if so, check whether we can improve the shortest path
@@ -360,6 +366,8 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 
 			} else {
 				// v is in another cell on higher level
+				// CRP In Road Networks: Note that a level transition occurs when u and v have different query levels.
+				// i.e. if v not in the same cell as s and t then v query level is different from u query level.
 				// update the forward info of overlay vertex v
 				// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
 				v, _ := bs.engine.graph.GetOverlayVertex(vId, outArc.GetEntryPoint(), false)
@@ -402,7 +410,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 
 		uExitPoint := bs.adjustBackward(uId, uExitId)
 
-		bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *datastructure.InEdge, exitPoint datastructure.Index, turnType pkg.TurnType) {
+		bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *datastructure.InEdge, entryPoint datastructure.Index, turnType pkg.TurnType) {
 			vId := inArc.GetTail()
 
 			vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
@@ -470,22 +478,24 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 
 			} else {
 				// v is in another cell on higher level
+				// Note that a level transition occurs when u and v have different query levels.
+				// i.e. if v not in the same cell as s and t then v query level is different from u query level.
 				v, _ := bs.engine.graph.GetOverlayVertex(vId, inArc.GetExitPoint(), true)
 				overlayVId := v + overlayOffset
 				_, vAlreadyVisited := bs.backwardInfo[overlayVId]
 				if !vAlreadyVisited || newEta < bs.backwardInfo[overlayVId].GetEta() {
-					vertexInfo := NewVertexInfo(bs.backwardInfo[uExitId].GetEta()+edgeWeight,
+					vertexInfo := NewVertexInfo(newEta,
 						newVertexEdgePair(uId, uExitId, false))
 
 					bs.backwardInfo[overlayVId] = vertexInfo
 
 					if !vAlreadyVisited {
 						bs.backwardOverlayPq.Insert(datastructure.NewPriorityQueueNode(
-							bs.backwardInfo[overlayVId].GetEta(), datastructure.NewCRPQueryKey(v, datastructure.Index(vQueryLevel))),
+							newEta, datastructure.NewCRPQueryKey(v, datastructure.Index(vQueryLevel))),
 						)
 					} else {
 						bs.backwardOverlayPq.DecreaseKey(datastructure.NewPriorityQueueNode(
-							bs.backwardInfo[overlayVId].GetEta(), datastructure.NewCRPQueryKey(v, datastructure.Index(vQueryLevel))),
+							newEta, datastructure.NewCRPQueryKey(v, datastructure.Index(vQueryLevel))),
 						)
 					}
 
@@ -496,7 +506,6 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 						bs.forwardMid = newVertexEdgePair(v, overlayVId, true)
 						bs.backwardMid = newVertexEdgePair(v, overlayVId, false)
 					}
-
 				}
 			}
 		})
@@ -556,6 +565,11 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 					return
 				}
 
+				/*
+					We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
+					outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
+					the arc (u, v) immediately and process v.
+				*/
 				// w is in the next cell from v cell
 				w := vVertex.GetNeighborOverlayVertex()
 				wVertex := bs.engine.overlayGraph.GetVertex(w)
@@ -600,7 +614,6 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 						// basically: check if forward and backward search already visited entry and exit point of w. if so, check whether we can improve the shortest path
 						_, wVisitedByBackwardSearch := bs.backwardInfo[wExitId]
 						if wVisitedByBackwardSearch {
-
 							newPathEta := bs.forwardInfo[originalWEntryPoint].GetEta() + bs.engine.metrics.GetTurnCost(turn) +
 								bs.backwardInfo[wExitId].GetEta()
 							if newPathEta < bs.shortestPath {
@@ -703,7 +716,6 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 						newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
 
 					if wAlreadyVisited {
-
 						bs.backwardPq.DecreaseKey(datastructure.NewPriorityQueueNode(
 							newEta, datastructure.NewCRPQueryKey(originalW, originalWExitPoint)),
 						)
