@@ -143,13 +143,13 @@ func (om *OnlineMapMatchMHT) filterLog(gps *datastructure.GPSPoint, candidates [
 	}
 
 	allCandsWeightLSE := logSumExp(logAllCandWeights)
-	sumPosterior := 0.0
+	sumPosterior := 0.0 // should \approx 1
 
 	for i, cand := range candidates {
 		obsLogLikelihood := om.computeObservationLogLikelihood(gps, cand)
 		posterior := (obsLogLikelihood + math.Log(cand.Weight())) - (allCandsWeightLSE)
 		candidates[i] = NewCandidate(cand.EdgeId(), math.Exp(posterior), cand.Length())
-		sumPosterior += math.Exp(posterior) // should ~ 1
+		sumPosterior += math.Exp(posterior)
 	}
 
 	// filter candidate yang memiliki weight < posteriorThreshold
@@ -163,6 +163,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *datastructure.GPSPoint, candidates [
 		}
 	}
 
+	// argmax posterior
 	var matchedSegment *datastructure.MatchedGPSPoint
 	maxWeight := -1.0
 	for _, cand := range filteredCands {
@@ -241,9 +242,9 @@ func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(gps *datastructure.
 		return (1 / (1 + math.Exp(-(math.Pi*(x-distr))/(math.Sqrt(3)*om.gpsStd))))
 	}
 
-	gaussian := -(math.Pow(dist, 2) / (2 * math.Pow(om.gpsStd, 2)))
+	gaussianLog := -(math.Pow(dist, 2) / (2 * math.Pow(om.gpsStd, 2)))
 
-	left := math.Log((1 / cand.Length())) + gaussian
+	left := math.Log((1 / cand.Length())) + gaussianLog
 	right := math.Log(f(cand.Length()) - f(0))
 	return left + right
 }

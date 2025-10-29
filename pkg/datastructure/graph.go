@@ -205,6 +205,8 @@ type Graph struct {
 	// strongly connected components
 	sccs               []Index   // verticeId -> sccId
 	sccCondensationAdj [][]Index // condensation connection of scc of u -> scc of v
+
+	boundingBox *BoundingBox
 }
 
 func NewGraph(vertices []*Vertex, forwardEdges []*OutEdge, inEdges []*InEdge, turnTables []pkg.TurnType) *Graph {
@@ -444,6 +446,14 @@ func (g *Graph) GetSCCOfAVertex(u Index) Index {
 	return g.sccs[u]
 }
 
+func (g *Graph) SetBoundingBox(bb *BoundingBox) {
+	g.boundingBox = bb
+}
+
+func (g *Graph) GetBoundingBox() *BoundingBox {
+	return g.boundingBox
+}
+
 func (g *Graph) CondensationGraphOrigintoDestinationConnected(u, v Index) bool {
 	sccOfU := g.sccs[u]
 	sccOfV := g.sccs[v]
@@ -467,6 +477,9 @@ func (g *Graph) SortByCellNumber() {
 		vertex        *Vertex
 		originalIndex Index
 	}, g.GetNumberOfCellsNumbers()) // slice of slice of vertices in each cell
+
+	minLat, minLon := math.MaxFloat64, math.MaxFloat64
+	maxLat, maxLon := math.Inf(-1), math.Inf(-1)
 
 	numOutEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers()) // number of outEdges in each cell
 	numInEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers())
@@ -511,7 +524,13 @@ func (g *Graph) SortByCellNumber() {
 		if g.maxEdgesInCell < numInEdgesInCell[cell] {
 			g.maxEdgesInCell = numInEdgesInCell[cell]
 		}
+
+		minLat = math.Min(minLat, g.vertices[i].lat)
+		minLon = math.Min(minLon, g.vertices[i].lon)
+		maxLat = math.Max(maxLat, g.vertices[i].lat)
+		maxLon = math.Max(maxLon, g.vertices[i].lon)
 	}
+	g.SetBoundingBox(NewBoundingBox(minLat, minLon, maxLat, maxLon))
 
 	newIds := make([]Index, g.NumberOfVertices()) // new vertex id after sorting by cell number
 	newVid := Index(0)                            // new vertex id after sorting by cell number
@@ -731,6 +750,12 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	fmt.Fprintf(w, "\n")
 
+	minLat := strconv.FormatFloat(g.boundingBox.GetMinLat(), 'f', -1, 64)
+	minLon := strconv.FormatFloat(g.boundingBox.GetMinLon(), 'f', -1, 64)
+	maxLat := strconv.FormatFloat(g.boundingBox.GetMaxLat(), 'f', -1, 64)
+	maxLon := strconv.FormatFloat(g.boundingBox.GetMaxLon(), 'f', -1, 64)
+	fmt.Fprintf(w, "%s %s %s %s\n", minLat, minLon, maxLat, maxLon)
+
 	for i := 0; i < len(g.sccCondensationAdj); i++ {
 		for j := 0; j < len(g.sccCondensationAdj[i]); j++ {
 			fmt.Fprintf(w, "%d", g.sccCondensationAdj[i][j])
@@ -743,6 +768,7 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	return w.Flush()
 }
+
 func fields(s string) []string {
 
 	return strings.Fields(s)
@@ -973,6 +999,31 @@ func ReadGraph(filename string) (*Graph, error) {
 		sccs[i] = scc
 	}
 
+	// read bounding box
+	line, err = readLine()
+	if err != nil {
+		return nil, err
+	}
+	tokens = fields(line)
+
+	minLat, err := strconv.ParseFloat(tokens[0], 64)
+	if err != nil {
+		return nil, fmt.Errorf("lat: %w", err)
+	}
+	minLon, err := strconv.ParseFloat(tokens[1], 64)
+	if err != nil {
+		return nil, fmt.Errorf("lon: %w", err)
+	}
+	maxLat, err := strconv.ParseFloat(tokens[2], 64)
+	if err != nil {
+		return nil, fmt.Errorf("lat: %w", err)
+	}
+	maxLon, err := strconv.ParseFloat(tokens[3], 64)
+	if err != nil {
+		return nil, fmt.Errorf("lon: %w", err)
+	}
+	bb := NewBoundingBox(minLat, minLon, maxLat, maxLon)
+
 	sccCondensationAdj := make([][]Index, 0)
 	for {
 		line, err = readLine()
@@ -1005,6 +1056,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	graph.inEdgeCellOffset = inEdgeCellOffset
 	graph.setSCCs(sccs)
 	graph.setSCCCondensationAdj(sccCondensationAdj)
+	graph.SetBoundingBox(bb)
 	return graph, nil
 }
 

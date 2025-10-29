@@ -11,8 +11,6 @@ type PathUnpacker struct {
 	graph        *datastructure.Graph
 	overlayGraph *datastructure.OverlayGraph
 	metrics      *metrics.Metric
-	currentRound int
-	round        map[datastructure.Index]int
 
 	info      map[datastructure.Index]VertexInfo
 	pq        *datastructure.MinHeap[datastructure.CRPQueryKey]
@@ -28,7 +26,6 @@ func NewPathUnpacker(graph *datastructure.Graph, overlayGraph *datastructure.Ove
 		info:      make(map[datastructure.Index]VertexInfo),
 		pq:        datastructure.NewMinHeap[datastructure.CRPQueryKey](),
 		overlayPq: datastructure.NewMinHeap[datastructure.Index](),
-		round:     make(map[datastructure.Index]int),
 	}
 }
 
@@ -77,8 +74,6 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 		pu.unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoint, unpackedPath, distance)
 		return
 	}
-	pu.currentRound++
-	pu.round[sourceOverlayId] = pu.currentRound
 
 	sourceCellNumber := pu.overlayGraph.GetVertex(sourceOverlayId).GetCellNumber()
 	truncatedSourceCellNumber := pu.overlayGraph.GetLevelInfo().TruncateToLevel(sourceCellNumber, uint8(level))
@@ -102,14 +97,13 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 			newEta := uEta + pu.metrics.GetShortcutWeight(wOffset)
 			_, vAlreadyVisited := pu.info[vOverlayId]
 
-			if pu.round[vOverlayId] == pu.currentRound && newEta >= pu.info[vOverlayId].GetEta() {
+			if vAlreadyVisited && newEta >= pu.info[vOverlayId].GetEta() {
 				return
 			}
 
 			uOverlayVertex := pu.overlayGraph.GetVertex(uOverlayId)
 			pu.info[vOverlayId] = NewVertexInfo(newEta, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
 				uOverlayId, true))
-			pu.round[vOverlayId] = pu.currentRound
 
 			if vOverlayId == targetOverlayId {
 				// if v is the target overlay vertex, update the pq
@@ -137,7 +131,6 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 			_, wAlreadyVisited := pu.info[wNeighborId]
 			pu.info[wNeighborId] = NewVertexInfo(newEta, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
 				vOverlayId, true))
-			pu.round[wNeighborId] = pu.currentRound
 			if !wAlreadyVisited {
 				pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(newEta, wNeighborId))
 			} else {
@@ -177,14 +170,13 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoint datastructure.Index,
 	unpackedPath *[]datastructure.Index, distance *float64) {
 	// sourceEntryPoint inEdge that point to source vertex
+	pu.info = make(map[datastructure.Index]VertexInfo)
 
 	// get source vertex
 	sourceVertex := pu.graph.GetVertex(pu.graph.GetHeadFromInEdge(sourceEntryPoint))
 
 	sourceCellNumber := pu.graph.GetCellNumber(sourceVertex.GetID())
 
-	pu.currentRound++
-	pu.round[sourceEntryPoint] = pu.currentRound
 	pu.info[sourceEntryPoint] = NewVertexInfo(0, newVertexEdgePair(sourceVertex.GetID(), sourceEntryPoint, true))
 	pu.pq.Insert(datastructure.NewPriorityQueueNode(0, datastructure.NewCRPQueryKey(sourceVertex.GetID(), sourceEntryPoint)))
 
@@ -217,12 +209,11 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoi
 
 			_, vAlreadyVisited := pu.info[vEntryPoint]
 
-			if pu.round[vEntryPoint] == pu.currentRound && newEta >= pu.info[vEntryPoint].GetEta() {
+			if vAlreadyVisited && newEta >= pu.info[vEntryPoint].GetEta() {
 				return
 			}
 
 			pu.info[vEntryPoint] = NewVertexInfo(newEta, newVertexEdgePair(uId, uEntryPoint, true))
-			pu.round[vEntryPoint] = pu.currentRound
 			if !vAlreadyVisited {
 				pu.pq.Insert(datastructure.NewPriorityQueueNode(newEta, datastructure.NewCRPQueryKey(vId, vEntryPoint)))
 			} else {

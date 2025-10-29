@@ -21,7 +21,7 @@ func NewWorkerPool[T any, G any](numWorkers, jobQueueSize int) *WorkerPool[T, G]
 	}
 }
 
-func (wp *WorkerPool[any, G]) worker(id int, jobFunc JobFunc[any, G]) {
+func (wp *WorkerPool[T, G]) worker(id int, jobFunc JobFunc[T, G]) {
 	defer wp.wg.Done()
 	for job := range wp.jobQueue {
 		res := jobFunc(job)
@@ -29,26 +29,26 @@ func (wp *WorkerPool[any, G]) worker(id int, jobFunc JobFunc[any, G]) {
 	}
 }
 
-func (wp *WorkerPool[any, G]) Start(jobFunc JobFunc[any, G]) {
+func (wp *WorkerPool[T, G]) Start(jobFunc JobFunc[T, G]) {
 	for i := 1; i <= wp.numWorkers; i++ {
 		wp.wg.Add(1)
 		go wp.worker(i, jobFunc)
 	}
 }
 
-func (wp *WorkerPool[any, G]) Wait() {
+func (wp *WorkerPool[T, G]) Wait() {
 	wp.wg.Wait()
 	close(wp.results)
 }
 
-func (wp *WorkerPool[any, G]) AddJob(job any) {
+func (wp *WorkerPool[T, G]) AddJob(job T) {
 	wp.jobQueue <- job
 }
 
-func (wp *WorkerPool[any, G]) CollectResults() chan G {
+func (wp *WorkerPool[T, G]) CollectResults() chan G {
 	return wp.results
 }
 
-func (wp *WorkerPool[any, G]) Close() {
+func (wp *WorkerPool[T, G]) Close() {
 	close(wp.jobQueue)
 }

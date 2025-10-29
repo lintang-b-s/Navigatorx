@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -17,13 +18,13 @@ point of C will be stored in W [fC + iqC + j].
 */
 type OverlayWeights struct {
 	weights []float64
-	lock    sync.Mutex
+	lock    *sync.RWMutex
 }
 
 func (ow *OverlayWeights) GetWeight(i Index) float64 {
-
+	ow.lock.RLock()
 	shortcutWeight := ow.weights[i]
-
+	ow.lock.RUnlock()
 	return shortcutWeight
 }
 
@@ -41,7 +42,7 @@ func NewOverlayWeights(weightVectorSize uint32) *OverlayWeights {
 	for i := range weights {
 		weights[i] = pkg.INF_WEIGHT
 	}
-	return &OverlayWeights{weights: weights}
+	return &OverlayWeights{weights: weights, lock: &sync.RWMutex{}}
 }
 
 type customizerCell struct {
@@ -87,8 +88,9 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 	costFunction costfunction.CostFunction) {
 
 	cellMapInLevelOne := overlayGraph.GetAllCellsInLevel(1)
-	for cellNumber, cell := range cellMapInLevelOne {
 
+	buildCellClique := func(job customizerCell) any {
+		cellNumber, cell := job.cellNumber, job.cell
 		for i := Index(0); i < cell.numEntryPoints; i++ {
 			startOverlayVertexId := overlayGraph.GetEntryPoint(cell, i)
 			overlayVertex := overlayGraph.GetVertex(startOverlayVertexId)
@@ -120,7 +122,7 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 					newETA := exitPointEta + outArcCost
 
 					if newETA >= pkg.INF_WEIGHT {
-						return 
+						return
 					}
 
 					if graph.GetCellNumber(v) == cellNumber {
@@ -149,16 +151,28 @@ func (ow *OverlayWeights) buildLowestLevel(graph *Graph, overlayGraph *OverlayGr
 			for j := Index(0); j < cell.numExitPoints; j++ {
 				exitPoint := overlayGraph.GetExitPoint(cell, j)
 				_, exists := overlayEta[exitPoint]
+				ow.lock.Lock()
 				if !exists {
 					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = pkg.INF_WEIGHT
 				} else {
 
 					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = overlayEta[exitPoint]
 				}
+				ow.lock.Unlock()
 			}
 		}
+		return nil
 	}
 
+	workers := concurrent.NewWorkerPool[customizerCell, any](20, len(cellMapInLevelOne))
+
+	for cellNumber, cell := range cellMapInLevelOne {
+		workers.AddJob(newCustomizerCell(cell, cellNumber))
+	}
+
+	workers.Close()
+	workers.Start(buildCellClique)
+	workers.Wait()
 }
 
 // buildLevel. build clique of each cell in the level (level > 1)
@@ -196,7 +210,7 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 
 				overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit Index, wOffset Index) {
 
-					shortcutWeight := ow.weights[wOffset]
+					shortcutWeight := ow.GetWeight(wOffset)
 					newEta := uEta + shortcutWeight
 
 					if newEta >= pkg.INF_WEIGHT {
@@ -233,19 +247,26 @@ func (ow *OverlayWeights) buildLevel(graph *Graph, overlayGraph *OverlayGraph,
 			for j := Index(0); j < cell.numExitPoints; j++ {
 				exitPoint := overlayGraph.GetExitPoint(cell, j)
 				_, exists := eta[exitPoint]
+				ow.lock.Lock()
 				if !exists {
 					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = pkg.INF_WEIGHT
 				} else {
 					ow.weights[cell.cellOffset+i*cell.numExitPoints+j] = eta[exitPoint]
 				}
+				ow.lock.Unlock()
 			}
 		}
 		return nil
 	}
 
-	cellMapInLevelOne := overlayGraph.GetAllCellsInLevel(level)
-	for pv, cell := range cellMapInLevelOne {
-		buildCellClique(newCustomizerCell(cell, pv))
+	cellMapInLevel := overlayGraph.GetAllCellsInLevel(level)
+	workers := concurrent.NewWorkerPool[customizerCell, any](20, len(cellMapInLevel))
+
+	for pv, cell := range cellMapInLevel {
+		workers.AddJob(newCustomizerCell(cell, pv))
 	}
 
+	workers.Close()
+	workers.Start(buildCellClique)
+	workers.Wait()
 }

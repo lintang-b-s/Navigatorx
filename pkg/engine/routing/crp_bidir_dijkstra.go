@@ -184,7 +184,6 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		if parentCopy.getEdge() > overlayOffset {
 			// overlay vertex
 			parentCopy.setEdge(parentCopy.getEdge() - overlayOffset + datastructure.Index(unpackOverlayOffset))
-
 		} else {
 			// exitOffsetPlus := bs.engine.graph.GetExitOffset(parentCopy.getEdge())
 			if parentCopy.getEdge() < datastructure.Index(bs.engine.graph.NumberOfEdges()) {
@@ -195,7 +194,6 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		}
 
 		idPath = append(idPath, parentCopy)
-
 		curId = parent.getEdge()
 	}
 
@@ -208,6 +206,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		cLat, cLon := bs.engine.graph.GetVertexCoordinates(c)
 		finalPathCoords = append(finalPathCoords, datastructure.NewCoordinate(cLat, cLon))
 	}
+	
 	return bs.shortestPath, totalDistance, finalPathCoords, true
 }
 
