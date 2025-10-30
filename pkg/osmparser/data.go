@@ -8,7 +8,6 @@ type Edge struct {
 	weight        float64
 	distance      float64
 	edgeID        uint32
-	bidirectional bool
 }
 
 func (e *Edge) GetFrom() datastructure.Index {
@@ -19,13 +18,12 @@ func (e *Edge) GetTo() datastructure.Index {
 	return datastructure.Index(e.to)
 }
 
-func NewEdge(from, to uint32, weight, distance float64, edgeID uint32, bidirectional bool) Edge {
+func NewEdge(from, to uint32, weight, distance float64, edgeID uint32) Edge {
 	return Edge{
 		from:          from,
 		to:            to,
 		weight:        weight,
 		distance:      distance,
 		edgeID:        edgeID,
-		bidirectional: bidirectional,
 	}
 }

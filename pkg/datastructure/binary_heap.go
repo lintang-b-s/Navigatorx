@@ -8,6 +8,7 @@ import (
 type CRPQueryKey struct {
 	node           Index
 	entryExitPoint Index
+	outEdgeId      Index
 }
 
 func (qk *CRPQueryKey) GetNode() Index {
@@ -18,8 +19,16 @@ func (qk *CRPQueryKey) GetEntryExitPoint() Index {
 	return qk.entryExitPoint
 }
 
+func (qk *CRPQueryKey) GetOutEdgeId() Index {
+	return qk.outEdgeId
+}
+
 func NewCRPQueryKey(node Index, entryExitPoint Index) CRPQueryKey {
 	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint}
+}
+
+func NewCRPQueryKeyWithOutEdgeId(node, entryExitPoint, outEdgeId Index) CRPQueryKey {
+	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, outEdgeId:outEdgeId}
 }
 
 type PriorityQueueNode[T comparable] struct {

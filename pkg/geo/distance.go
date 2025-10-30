@@ -1,6 +1,10 @@
 package geo
 
-import "math"
+import (
+	"math"
+
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+)
 
 const (
 	earthRadiusKM = 6371.0
@@ -10,16 +14,12 @@ func havFunction(angleRad float64) float64 {
 	return (1 - math.Cos(angleRad)) / 2.0
 }
 
-func degreeToRadians(angle float64) float64 {
-	return angle * (math.Pi / 180.0)
-}
-
 // CalculateHaversineDistance. calculate haversine distance in km
 func CalculateHaversineDistance(latOne, longOne, latTwo, longTwo float64) float64 {
-	latOne = degreeToRadians(latOne)
-	longOne = degreeToRadians(longOne)
-	latTwo = degreeToRadians(latTwo)
-	longTwo = degreeToRadians(longTwo)
+	latOne = util.DegreeToRadians(latOne)
+	longOne = util.DegreeToRadians(longOne)
+	latTwo = util.DegreeToRadians(latTwo)
+	longTwo = util.DegreeToRadians(longTwo)
 
 	a := havFunction(latOne-latTwo) + math.Cos(latOne)*math.Cos(latTwo)*havFunction(longOne-longTwo)
 	c := 2.0 * math.Asin(math.Sqrt(a))
@@ -27,10 +27,10 @@ func CalculateHaversineDistance(latOne, longOne, latTwo, longTwo float64) float6
 }
 
 func CalculateEuclidianDistanceEquirectangularProj(latOne, longOne, latTwo, longTwo float64) float64 {
-	latOne = degreeToRadians(latOne)
-	longOne = degreeToRadians(longOne)
-	latTwo = degreeToRadians(latTwo)
-	longTwo = degreeToRadians(longTwo)
+	latOne = util.DegreeToRadians(latOne)
+	longOne = util.DegreeToRadians(longOne)
+	latTwo = util.DegreeToRadians(latTwo)
+	longTwo = util.DegreeToRadians(longTwo)
 
 	x := (longTwo - longOne) * math.Cos((latOne+latTwo)/2)
 	y := latTwo - latOne
@@ -47,10 +47,10 @@ func GetDestinationPoint(lat1, lon1 float64, bearing float64, dist float64) (flo
 
 	dr := dist / earthRadiusKM
 
-	bearing = degreeToRadians(bearing)
+	bearing = util.DegreeToRadians(bearing)
 
-	lat1 = degreeToRadians(lat1)
-	lon1 = degreeToRadians(lon1)
+	lat1 = util.DegreeToRadians(lat1)
+	lon1 = util.DegreeToRadians(lon1)
 
 	lat2Part1 := math.Sin(lat1) * math.Cos(dr)
 	lat2Part2 := math.Cos(lat1) * math.Sin(dr) * math.Cos(bearing)
@@ -67,10 +67,10 @@ func GetDestinationPoint(lat1, lon1 float64, bearing float64, dist float64) (flo
 
 // https://www.movable-type.co.uk/scripts/latlong.html
 func MidPoint(latOne, longOne, latTwo, longTwo float64) (float64, float64) {
-	latOne = degreeToRadians(latOne)
-	longOne = degreeToRadians(longOne)
-	latTwo = degreeToRadians(latTwo)
-	longTwo = degreeToRadians(longTwo)
+	latOne = util.DegreeToRadians(latOne)
+	longOne = util.DegreeToRadians(longOne)
+	latTwo = util.DegreeToRadians(latTwo)
+	longTwo = util.DegreeToRadians(longTwo)
 
 	bx := math.Cos(latTwo) * math.Cos(longTwo-longOne)
 	by := math.Cos(latTwo) * math.Sin(longTwo-longOne)

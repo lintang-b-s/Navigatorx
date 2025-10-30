@@ -6,7 +6,7 @@ import (
 )
 
 type RoutingService interface {
-	ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, bool, error)
+	ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []datastructure.DrivingDirection, bool, error)
 }
 
 type MapMatcherService interface {

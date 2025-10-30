@@ -15,16 +15,52 @@ type shortestPathRequest struct {
 }
 
 type shortestPathResponse struct {
-	Eta  float64 `json:"eta"`
-	Path string  `json:"path"`
-	Dist float64 `json:"distance"`
+	TravelTime               float64            `json:"travel_time"`
+	Path              string             `json:"path"`
+	Dist              float64            `json:"distance"`
+	DrivingDirections []drivingDirection `json:"driving_directions"`
 }
 
-func NewShortestPathResponse(eta, dist float64, path string) shortestPathResponse {
+type drivingDirection struct {
+	Instruction string                   `json:"instruction"`
+	Point       datastructure.Coordinate `json:"turn_point"`
+	StreetName  string                   `json:"street_name"`
+	TravelTime  float64                  `json:"travel_time"`
+	Distance    float64                  `json:"distance"`
+	EdgeIds     []datastructure.Index    `json:"edge_ids"`
+	Polyline    string                   `json:"polyline"`
+	TurnBearing float64                  `json:"turn_bearing"`
+	TurnType    string                   `json:"turn_type"`
+}
+
+func NewDrivingDirection(d datastructure.DrivingDirection) drivingDirection {
+	return drivingDirection{
+		Instruction: d.GetInstruction(),
+		Point:       d.GetPoint(),
+		StreetName:  d.GetStreetName(),
+		TravelTime:  d.GetTravelTime(),
+		Distance:    d.GetDistance(),
+		EdgeIds:     d.GetEdgesIds(),
+		Polyline:    d.GetPolyline(),
+		TurnBearing: d.GetTurnBearing(),
+		TurnType:    d.GetTurnType(),
+	}
+}
+
+func NewDrivingDirections(d []datastructure.DrivingDirection) []drivingDirection {
+	drivingDirections := make([]drivingDirection, len(d))
+	for i, dir := range d {
+		drivingDirections[i] = NewDrivingDirection(dir)
+	}
+	return drivingDirections
+}
+
+func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirections []drivingDirection) shortestPathResponse {
 	return shortestPathResponse{
-		Eta:  eta,
-		Path: path,
-		Dist: dist,
+		TravelTime:               travelTime,
+		Path:              path,
+		Dist:              dist,
+		DrivingDirections: drivingDirections,
 	}
 }
 
@@ -69,11 +105,11 @@ func ToOnlineCandidates(cands []*Candidate) []*online.Candidate {
 }
 
 type mapMatchRequest struct {
-	Gps        gps         `json:"gps_point"`
-	K          int         `json:"k"`
+	Gps        gps          `json:"gps_point"`
+	K          int          `json:"k"`
 	Candidates []*Candidate `json:"candidates"`
-	SpeedMeanK float64     `json:"speed_mean_k"`
-	SpeedStdK  float64     `json:"speed_std_k"`
+	SpeedMeanK float64      `json:"speed_mean_k"`
+	SpeedStdK  float64      `json:"speed_std_k"`
 }
 
 type MatchedGPSPoint struct {

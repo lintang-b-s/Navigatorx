@@ -6,6 +6,7 @@ type vertexEdgePair struct {
 	vertex datastructure.Index
 	edge   datastructure.Index
 	isOutEdge bool
+	outEdgeId datastructure.Index
 }
 
 func (ve *vertexEdgePair) getEdge() datastructure.Index {
@@ -24,6 +25,10 @@ func (ve *vertexEdgePair) setVertex(vertex datastructure.Index){
 	ve.vertex = vertex
 }
 
+func (ve *vertexEdgePair) setisOutEdge(is bool) {
+	ve.isOutEdge = is
+} 
+
 func (ve *vertexEdgePair) isOut() bool {
 	return ve.isOutEdge
 }
@@ -35,6 +40,21 @@ func newVertexEdgePair(vertex, edge datastructure.Index, isOutEdge bool) vertexE
 		isOutEdge: isOutEdge,
 	}
 }
+
+func newVertexEdgePairWithOutEdgeId(vertex, edge, outEdgeId datastructure.Index, isOutEdge bool) vertexEdgePair {
+	return vertexEdgePair{
+		vertex: vertex,
+		edge:   edge,
+		isOutEdge: isOutEdge,
+		outEdgeId: outEdgeId,
+	}
+}
+
+
+func (ve *vertexEdgePair) getOutEdgeId() datastructure.Index {
+	return ve.outEdgeId
+} 
+
 
 type VertexInfo struct {
 	eta    float64

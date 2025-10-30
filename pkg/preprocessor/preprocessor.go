@@ -62,26 +62,3 @@ func (p *Preprocessor) BuildCellNumber() {
 	// cellNumbers contains all unique bitpacked cell numbers from level 0->L.
 	p.graph.SetCellNumbers(cellNumbers)
 }
-
-func (p *Preprocessor) PreProcessingNotSorted() error {
-	p.logger.Sugar().Infof("Starting preprocessing step of Customizable Route Planning...")
-
-	p.logger.Sugar().Infof("Building Overlay Graph of each levels...")
-	p.BuildCellNumber()
-	p.graph.SetOutInEdgeCellOffset()
-	p.logger.Sugar().Infof("After setting out/in edge cell offset")
-
-	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
-	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")
-	err := overlayGraph.WriteToFile("./data/overlay_graph.graph")
-	if err != nil {
-		return err
-	}
-
-	p.logger.Sugar().Infof("Running Kosaraju's algorithm to find strongly connected components (SCCs)...")
-	p.graph.RunKosaraju()
-
-	p.logger.Sugar().Infof("Writing graph to ./data/original.graph")
-
-	return p.graph.WriteGraph("./data/original.graph")
-}

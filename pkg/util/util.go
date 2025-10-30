@@ -52,6 +52,24 @@ var (
 
 var MessageInternalServerError string = "internal server error"
 
+func SecondsToMinutes(seconds float64) float64 {
+	return seconds / 60
+}
+func Abs(a int) int {
+	if a < 0 {
+		return -a
+	}
+	return a
+}
+
+func DegreeToRadians(angle float64) float64 {
+	return angle * (math.Pi / 180.0)
+}
+
+func RadiansToDegree(rad float64) float64 {
+	return 180.0 * rad / math.Pi
+}
+
 func StringToFloat64(str string) (float64, error) {
 	val, err := strconv.ParseFloat(str, 64)
 	if err != nil {
