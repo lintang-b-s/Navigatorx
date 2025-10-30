@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -64,12 +65,13 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine) *CRPBidirectionalSearch
 		backwardPq:        datastructure.NewMinHeap[datastructure.CRPQueryKey](),
 		forwardOverlayPq:  datastructure.NewMinHeap[datastructure.CRPQueryKey](),
 		backwardOverlayPq: datastructure.NewMinHeap[datastructure.CRPQueryKey](),
-		forwardMid:        newVertexEdgePair(0, 0, true),
-		backwardMid:       newVertexEdgePair(0, 0, false),
+		forwardMid:        newVertexEdgePair(0, 0, false),
+		backwardMid:       newVertexEdgePair(0, 0, true),
 	}
 }
 
-func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate, bool) {
+func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate,
+	[]datastructure.OutEdge, bool) {
 	// Our query algorithm takes as input a source arc as , a target arc at, the original graph G, the overlay graph
 	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
 	// asId exitPoint of outEdge u->s
@@ -95,18 +97,18 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 	tBackwardId := tExitOffset
 
 	bs.forwardSOffset = bs.engine.graph.GetInEdgeCellOffset(s)
-	bs.forwardTOffset = bs.engine.graph.GetInEdgeCellOffset(t) - bs.engine.graph.GetMaxEdgesInCell()
+	bs.forwardTOffset = bs.engine.graph.GetInEdgeCellOffset(t) + bs.engine.graph.GetMaxEdgesInCell()
 
 	bs.backwardSOffset = bs.engine.graph.GetOutEdgeCellOffset(s)
-	bs.backwardTOffset = bs.engine.graph.GetOutEdgeCellOffset(t) - bs.engine.graph.GetMaxEdgesInCell()
+	bs.backwardTOffset = bs.engine.graph.GetOutEdgeCellOffset(t) + bs.engine.graph.GetMaxEdgesInCell()
 
 	sForwardId = bs.offsetForward(s, sForwardId)
 	tBackwardId = bs.offsetBackward(t, tBackwardId)
 
 	bs.shortestPath = 2 * pkg.INF_WEIGHT
 
-	bs.forwardInfo[sForwardId] = NewVertexInfo(0, newVertexEdgePair(s, asId, true))
-	bs.backwardInfo[tBackwardId] = NewVertexInfo(0, newVertexEdgePair(t, atId, false))
+	bs.forwardInfo[sForwardId] = NewVertexInfo(0, newVertexEdgePair(s, asId, false))
+	bs.backwardInfo[tBackwardId] = NewVertexInfo(0, newVertexEdgePair(t, atId, true))
 
 	bs.forwardPq.Insert(datastructure.NewPriorityQueueNode(0, datastructure.NewCRPQueryKey(s, sForwardId)))
 	bs.backwardPq.Insert(datastructure.NewPriorityQueueNode(0, datastructure.NewCRPQueryKey(t, tBackwardId)))
@@ -136,12 +138,12 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 	}
 
 	if bs.shortestPath == 2*pkg.INF_WEIGHT {
-		return pkg.INF_WEIGHT, pkg.INF_WEIGHT, []datastructure.Coordinate{}, false
+		return pkg.INF_WEIGHT, pkg.INF_WEIGHT, []datastructure.Coordinate{}, []datastructure.OutEdge{}, false
 	}
 
 	unpackOverlayOffset := 5 * bs.engine.graph.NumberOfEdges()
 
-	idPath := make([]vertexEdgePair, 0)
+	idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
 	curId := bs.forwardMid.edge
 	for curId != asId {
 		curInfo := bs.forwardInfo[curId]
@@ -149,13 +151,20 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		parentCopy := parent
 
 		if parentCopy.getEdge() > overlayOffset {
+			// shortcut
 			parentCopy.setEdge(parentCopy.getEdge() - overlayOffset + datastructure.Index(unpackOverlayOffset))
 		} else {
-			// entryOffsetPlus := bs.engine.graph.GetEntryOffset(parentCopy.getEdge())
+
 			if parentCopy.getEdge() < datastructure.Index(bs.engine.graph.NumberOfEdges()) {
-				parentCopy.setEdge(parentCopy.getEdge() + bs.forwardSOffset)
+				parentCopy.setEdge(parentCopy.getEdge() + bs.forwardSOffset) // entryPos / index of g.inedges
 			} else {
-				parentCopy.setEdge(parentCopy.getEdge() + bs.forwardTOffset)
+				parentCopy.setEdge(parentCopy.getEdge() + bs.forwardTOffset) // entryPos / index of g.inedges
+			}
+
+			if !parentCopy.isOut() {
+				inEdge := bs.engine.graph.GetInEdge(parentCopy.getEdge())
+				_, outEdge := bs.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+				parentCopy.setEdge(outEdge.GetEdgeId())
 			}
 		}
 
@@ -164,7 +173,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		curId = parent.getEdge()
 	}
 
-	idPath = append(idPath, newVertexEdgePair(s, asId, true))
+	idPath = append(idPath, newVertexEdgePair(s, asId, false))
 	idPath = util.ReverseG[vertexEdgePair](idPath)
 
 	mid := bs.backwardMid
@@ -197,17 +206,17 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		curId = parent.getEdge()
 	}
 
-	idPath = append(idPath, newVertexEdgePair(t, atId, false))
+	idPath = append(idPath, newVertexEdgePair(t, atId, true))
 
 	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics)
-	finalPath, totalDistance := unpacker.unpackPath(idPath, bs.sCellNumber, bs.tCellNumber)
-	finalPathCoords := make([]datastructure.Coordinate, 0, len(finalPath))
-	for _, c := range finalPath {
-		cLat, cLon := bs.engine.graph.GetVertexCoordinates(c)
-		finalPathCoords = append(finalPathCoords, datastructure.NewCoordinate(cLat, cLon))
-	}
-	
-	return bs.shortestPath, totalDistance, finalPathCoords, true
+	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, bs.sCellNumber, bs.tCellNumber)
+	// finalPathCoords := make([]datastructure.Coordinate, 0, len(finalPath))
+	// for _, c := range finalPath {
+	// 	cLat, cLon := bs.engine.graph.GetVertexCoordinates(c)
+	// 	finalPathCoords = append(finalPathCoords, datastructure.NewCoordinate(cLat, cLon))
+	// }
+
+	return bs.shortestPath, totalDistance, finalPath, finalEdgePath, true
 }
 
 func (bs *CRPBidirectionalSearch) offsetForward(u, uEntryOffset datastructure.Index) datastructure.Index {
@@ -280,7 +289,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 		queryKey, _ := bs.forwardPq.ExtractMin()
 		uItem := queryKey.GetItem()
 		uId := uItem.GetNode()
-		uEntryId := uItem.GetEntryExitPoint()
+		uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
 
 		uEntryPoint := bs.adjustForward(uId, uEntryId)
 
@@ -319,7 +328,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 
 				// newEta is better, update the forwardInfo
 				bs.forwardInfo[vEntryId] = NewVertexInfo(newEta,
-					newVertexEdgePair(uId, uEntryId, true))
+					newVertexEdgePair(uId, uEntryId, false))
 
 				if vAlreadyVisited {
 					// is key already in the priority queue, decrease its key
@@ -356,8 +365,8 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 
 						if newPathEta < bs.shortestPath {
 							bs.shortestPath = newPathEta
-							bs.forwardMid = newVertexEdgePair(vId, vEntryId, true)
-							bs.backwardMid = newVertexEdgePair(vId, vExitId, false)
+							bs.forwardMid = newVertexEdgePair(vId, vEntryId, false)
+							bs.backwardMid = newVertexEdgePair(vId, vExitId, true)
 						}
 					}
 					vExitId++
@@ -375,7 +384,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 				if !vAlreadyVisited || newEta < bs.forwardInfo[overlayVId].GetEta() {
 
 					vertexInfo := NewVertexInfo(newEta,
-						newVertexEdgePair(uId, uEntryId, true))
+						newVertexEdgePair(uId, uEntryId, false))
 
 					bs.forwardInfo[overlayVId] = vertexInfo
 					if !vAlreadyVisited {
@@ -392,8 +401,8 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 					// if v visited by backward search, check whether we can improve the shortestPath
 					if visitedByBackwardSearch && bs.forwardInfo[overlayVId].GetEta()+bs.backwardInfo[overlayVId].GetEta() < bs.shortestPath {
 						bs.shortestPath = bs.forwardInfo[overlayVId].GetEta() + bs.backwardInfo[overlayVId].GetEta()
-						bs.forwardMid = newVertexEdgePair(v, overlayVId, true)
-						bs.backwardMid = newVertexEdgePair(v, overlayVId, false)
+						bs.forwardMid = newVertexEdgePair(v, overlayVId, false)
+						bs.backwardMid = newVertexEdgePair(v, overlayVId, true)
 					}
 				}
 			}
@@ -405,7 +414,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 		queryKey, _ := bs.backwardPq.ExtractMin()
 		uItem := queryKey.GetItem()
 		uId := uItem.GetNode()
-		uExitId := uItem.GetEntryExitPoint()
+		uExitId := uItem.GetEntryExitPoint() // index of outEdge that have endpoint from vertex uId
 
 		uExitPoint := bs.adjustBackward(uId, uExitId)
 
@@ -440,7 +449,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 				}
 
 				bs.backwardInfo[vExitId] = NewVertexInfo(newEta,
-					newVertexEdgePair(uId, uExitId, false))
+					newVertexEdgePair(uId, uExitId, true))
 
 				if newEta < bs.backwardInfo[vExitId].GetEta() && vAlreadyVisited {
 					bs.backwardPq.DecreaseKey(datastructure.NewPriorityQueueNode(
@@ -468,8 +477,8 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 							bs.backwardInfo[vExitId].GetEta()
 						if newPathEta < bs.shortestPath {
 							bs.shortestPath = newPathEta
-							bs.forwardMid = newVertexEdgePair(vId, entryId, true)
-							bs.backwardMid = newVertexEdgePair(vId, vExitId, false)
+							bs.forwardMid = newVertexEdgePair(vId, entryId, false)
+							bs.backwardMid = newVertexEdgePair(vId, vExitId, true)
 						}
 					}
 					entryId++
@@ -484,7 +493,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 				_, vAlreadyVisited := bs.backwardInfo[overlayVId]
 				if !vAlreadyVisited || newEta < bs.backwardInfo[overlayVId].GetEta() {
 					vertexInfo := NewVertexInfo(newEta,
-						newVertexEdgePair(uId, uExitId, false))
+						newVertexEdgePair(uId, uExitId, true))
 
 					bs.backwardInfo[overlayVId] = vertexInfo
 
@@ -502,8 +511,8 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 
 					if visitedByForwardSearch && bs.forwardInfo[overlayVId].GetEta()+bs.backwardInfo[overlayVId].GetEta() < bs.shortestPath {
 						bs.shortestPath = bs.forwardInfo[overlayVId].GetEta() + bs.backwardInfo[overlayVId].GetEta()
-						bs.forwardMid = newVertexEdgePair(v, overlayVId, true)
-						bs.backwardMid = newVertexEdgePair(v, overlayVId, false)
+						bs.forwardMid = newVertexEdgePair(v, overlayVId, false)
+						bs.backwardMid = newVertexEdgePair(v, overlayVId, true)
 					}
 				}
 			}
@@ -544,15 +553,15 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 			_, vAlreadyVisited := bs.forwardInfo[vId]
 			if !vAlreadyVisited || newEta < bs.forwardInfo[vId].GetEta() {
 				bs.forwardInfo[vId] = NewVertexInfo(newEta,
-					newVertexEdgePair(uVertex.GetOriginalVertex(), uId, true))
+					newVertexEdgePair(uVertex.GetOriginalVertex(), uId, false))
 
 				vVertex := bs.engine.overlayGraph.GetVertex(v)
 
 				_, vVisitedByBackwardSearch := bs.backwardInfo[vId]
 				if vVisitedByBackwardSearch && bs.forwardInfo[vId].GetEta()+bs.backwardInfo[vId].GetEta() < bs.shortestPath {
 					bs.shortestPath = bs.forwardInfo[vId].GetEta() + bs.backwardInfo[vId].GetEta()
-					bs.forwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true)
-					bs.backwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
+					bs.forwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
+					bs.backwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true)
 				}
 
 				// traverse edge to next cell
@@ -591,7 +600,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 					}
 
 					bs.forwardInfo[originalWEntryPoint] = NewVertexInfo(newEta,
-						newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true))
+						newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
 
 					if wAlreadyVisited {
 						bs.forwardPq.DecreaseKey(datastructure.NewPriorityQueueNode(
@@ -617,8 +626,8 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 								bs.backwardInfo[wExitId].GetEta()
 							if newPathEta < bs.shortestPath {
 								bs.shortestPath = newPathEta
-								bs.forwardMid = newVertexEdgePair(originalW, originalWEntryPoint, true)
-								bs.backwardMid = newVertexEdgePair(originalW, wExitId, false)
+								bs.forwardMid = newVertexEdgePair(originalW, originalWEntryPoint, false)
+								bs.backwardMid = newVertexEdgePair(originalW, wExitId, true)
 							}
 						}
 						wExitId++
@@ -631,7 +640,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 					_, wAlreadyVisited := bs.forwardInfo[wId]
 					if !wAlreadyVisited || newEta < bs.forwardInfo[wId].GetEta() {
 						bs.forwardInfo[wId] = NewVertexInfo(newEta,
-							newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true))
+							newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
 
 						if !wAlreadyVisited {
 							bs.forwardOverlayPq.Insert(datastructure.NewPriorityQueueNode(
@@ -647,8 +656,8 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 						if wVisitedByBackwardSearch && bs.forwardInfo[wId].GetEta()+bs.backwardInfo[wId].GetEta() < bs.shortestPath {
 							// if overlay vertex w visited by backward search, check whether we can improve the shortestPath
 							bs.shortestPath = bs.forwardInfo[wId].GetEta() + bs.backwardInfo[wId].GetEta()
-							bs.forwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, true)
-							bs.backwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, false)
+							bs.forwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, false)
+							bs.backwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, true)
 						}
 					}
 				}
@@ -678,14 +687,14 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 			if !vAlreadyVisited || newEta < bs.backwardInfo[vId].GetEta() {
 
 				bs.backwardInfo[vId] = NewVertexInfo(newEta,
-					newVertexEdgePair(uVertex.GetOriginalVertex(), uId, false))
+					newVertexEdgePair(uVertex.GetOriginalVertex(), uId, true))
 				vVertex := bs.engine.overlayGraph.GetVertex(v)
 
 				_, vVisitedByForwardSearch := bs.forwardInfo[vId]
 				if vVisitedByForwardSearch && bs.backwardInfo[vId].GetEta()+bs.forwardInfo[vId].GetEta() < bs.shortestPath {
 					bs.shortestPath = bs.backwardInfo[vId].GetEta() + bs.forwardInfo[vId].GetEta()
-					bs.forwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true)
-					bs.backwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
+					bs.forwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
+					bs.backwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true)
 				}
 
 				// traverse edge to next cell
@@ -712,7 +721,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 					}
 
 					bs.backwardInfo[originalWExitPoint] = NewVertexInfo(newEta,
-						newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
+						newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true))
 
 					if wAlreadyVisited {
 						bs.backwardPq.DecreaseKey(datastructure.NewPriorityQueueNode(
@@ -731,6 +740,11 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 					entryOffset = bs.offsetForward(originalW, entryOffset)
 
 					wEntryId := entryOffset
+
+					if datastructure.Index(inEdge.GetExitPoint()) == 4294966559 {
+						fmt.Printf("debug")
+					}
+
 					bs.engine.graph.ForInEdgesOf(originalW, datastructure.Index(inEdge.GetExitPoint()), func(e *datastructure.InEdge,
 						entryPoint datastructure.Index, turn pkg.TurnType) {
 						_, wVisitedByForwardSearch := bs.forwardInfo[wEntryId]
@@ -739,8 +753,8 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 								bs.backwardInfo[originalWExitPoint].GetEta()
 							if newPathEta < bs.shortestPath {
 								bs.shortestPath = newPathEta
-								bs.forwardMid = newVertexEdgePair(originalW, wEntryId, true)
-								bs.backwardMid = newVertexEdgePair(originalW, originalWExitPoint, false)
+								bs.forwardMid = newVertexEdgePair(originalW, wEntryId, false)
+								bs.backwardMid = newVertexEdgePair(originalW, originalWExitPoint, true)
 							}
 						}
 						wEntryId++
@@ -751,7 +765,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 					if !wAlreadyvisited || newEta < bs.backwardInfo[wId].GetEta() {
 
 						bs.backwardInfo[wId] = NewVertexInfo(newEta,
-							newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
+							newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true))
 
 						if !wAlreadyvisited {
 							bs.backwardOverlayPq.Insert(datastructure.NewPriorityQueueNode(
@@ -766,8 +780,8 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 						_, wVisitedByForwardSearch := bs.forwardInfo[wId]
 						if wVisitedByForwardSearch && bs.forwardInfo[wId].GetEta()+bs.backwardInfo[wId].GetEta() < bs.shortestPath {
 							bs.shortestPath = bs.backwardInfo[wId].GetEta() + bs.forwardInfo[wId].GetEta()
-							bs.forwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, true)
-							bs.backwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, false)
+							bs.forwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, false)
+							bs.backwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, true)
 						}
 					}
 				}

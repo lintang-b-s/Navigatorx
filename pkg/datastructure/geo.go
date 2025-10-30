@@ -35,3 +35,4 @@ func (b *BoundingBox) GetMaxLat() float64 {
 func (b *BoundingBox) GetMaxLon() float64 {
 	return b.maxLon
 }
+

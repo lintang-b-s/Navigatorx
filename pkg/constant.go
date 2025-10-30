@@ -13,5 +13,6 @@ const (
 )
 
 const (
-	INF_WEIGHT = 1e9
+	INF_WEIGHT                             = 1e9
+	TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND = 0
 )

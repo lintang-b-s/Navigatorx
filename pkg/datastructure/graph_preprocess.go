@@ -1,0 +1,246 @@
+package datastructure
+
+import "math"
+
+func (g *Graph) SortByCellNumber() {
+	cellVertices := make([][]struct {
+		vertex        *Vertex
+		originalIndex Index
+	}, g.GetNumberOfCellsNumbers()) // slice of slice of vertices in each cell
+
+	minLat, minLon := math.MaxFloat64, math.MaxFloat64
+	maxLat, maxLon := math.Inf(-1), math.Inf(-1)
+
+	numOutEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers()) // number of outEdges in each cell
+	numInEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers())
+
+	oEdges := make([][]*OutEdge, g.NumberOfVertices()) // copy of original outEdges of each vertex
+	iEdges := make([][]*InEdge, g.NumberOfVertices())
+
+	gsEdgeExtraInfos := make([]EdgeExtraInfo, len(g.graphStorage.mapEdgeInfo))
+	copy(gsEdgeExtraInfos, g.graphStorage.mapEdgeInfo)
+
+	g.maxEdgesInCell = Index(0) // maximum number of edges in any cell
+	for i := Index(0); i < Index(g.NumberOfVertices()); i++ {
+		cell := g.vertices[i].pvPtr // cellNumber
+		v := g.vertices[i]
+		cellVertices[cell] = append(cellVertices[cell], struct {
+			vertex        *Vertex
+			originalIndex Index
+		}{vertex: NewVertex(v.lat, v.lon, v.id), originalIndex: i})
+
+		oEdges[i] = make([]*OutEdge, g.GetOutDegree(i))
+		iEdges[i] = make([]*InEdge, g.GetInDegree(i))
+
+		k := Index(0)
+		e := g.vertices[i].firstOut
+		for e < g.vertices[i+1].firstOut {
+			oEdge := g.outEdges[e]
+			oEdges[i][k] = NewOutEdge(
+				oEdge.edgeId,
+				oEdge.head,
+				oEdge.weight,
+				oEdge.dist,
+				oEdge.entryPoint,
+			)
+			e++
+			k++
+		}
+
+		k = Index(0)
+		e = g.vertices[i].firstIn
+		for e < g.vertices[i+1].firstIn {
+			inEdge := g.inEdges[e]
+			iEdges[i][k] = NewInEdge(
+				inEdge.edgeId,
+				inEdge.tail,
+				inEdge.weight,
+				inEdge.dist,
+				inEdge.exitPoint,
+			)
+			e++
+			k++
+		}
+
+		numOutEdgesInCell[cell] += g.GetOutDegree(i)
+		numInEdgesInCell[cell] += g.GetInDegree(i)
+
+		if g.maxEdgesInCell < numOutEdgesInCell[cell] {
+			g.maxEdgesInCell = numOutEdgesInCell[cell]
+		}
+
+		if g.maxEdgesInCell < numInEdgesInCell[cell] {
+			g.maxEdgesInCell = numInEdgesInCell[cell]
+		}
+
+		minLat = math.Min(minLat, g.vertices[i].lat)
+		minLon = math.Min(minLon, g.vertices[i].lon)
+		maxLat = math.Max(maxLat, g.vertices[i].lat)
+		maxLon = math.Max(maxLon, g.vertices[i].lon)
+	}
+	g.SetBoundingBox(NewBoundingBox(minLat, minLon, maxLat, maxLon))
+
+	newIds := make([]Index, g.NumberOfVertices()) // new vertex id after sorting by cell number
+	newVid := Index(0)                            // new vertex id after sorting by cell number
+	for i := 0; i < len(cellVertices); i++ {
+		for v := 0; v < len(cellVertices[i]); v++ {
+			newIds[cellVertices[i][v].originalIndex] = newVid
+			newVid++
+		}
+	}
+
+	outOffset := Index(0)                                   // new offset for outEdges for each vertex for each cell
+	g.outEdgeCellOffset = make([]Index, len(g.cellNumbers)) // offset of first outEdge for each cell
+	inOffset := Index(0)                                    // new offset for inEdges for each vertex for each cell
+	g.inEdgeCellOffset = make([]Index, len(g.cellNumbers))  // offset of first inEdge for each cell
+
+	vId := Index(0)
+
+	for i := Index(0); i < Index(len(g.cellNumbers)); i++ {
+		g.outEdgeCellOffset[i] = outOffset
+		g.inEdgeCellOffset[i] = inOffset
+
+		for v := Index(0); v < Index(len(cellVertices[i])); v++ {
+			// update vertex to use new vId
+			// in the end of the outer loop, graph vertices are sorted by cell number
+			g.vertices[vId] = cellVertices[i][v].vertex
+			vOldId := cellVertices[i][v].originalIndex
+			g.vertices[vId].SetFirstOut(outOffset)
+			g.vertices[vId].SetFirstIn(inOffset)
+			g.vertices[vId].SetId(vId)
+
+			// update outedges & inedges
+			for k := Index(0); k < Index(len(oEdges[vOldId])); k++ {
+
+				oldOutEdge := oEdges[vOldId][k]
+				g.outEdges[outOffset] = NewOutEdge(
+					oldOutEdge.edgeId, oldOutEdge.head, oldOutEdge.weight,
+					oldOutEdge.dist, oldOutEdge.entryPoint,
+				)
+
+				g.graphStorage.mapEdgeInfo[outOffset] = gsEdgeExtraInfos[oldOutEdge.edgeId] // update edge extra info storage
+				g.outEdges[outOffset].edgeId = outOffset
+				g.outEdges[outOffset].head = newIds[oldOutEdge.head]
+
+				outOffset++
+			}
+
+			for k := Index(0); k < Index(len(iEdges[vOldId])); k++ {
+
+				oldInEdge := iEdges[vOldId][k]
+				g.inEdges[inOffset] = NewInEdge(
+					oldInEdge.edgeId, oldInEdge.tail, oldInEdge.weight,
+					oldInEdge.dist, oldInEdge.exitPoint,
+				)
+				g.inEdges[inOffset].edgeId = inOffset
+				g.inEdges[inOffset].tail = newIds[oldInEdge.tail]
+				inOffset++
+			}
+
+			vId++
+		}
+	}
+
+	for offset, oEdge := range g.outEdges {
+		geom := g.graphStorage.GetEdgeGeometry(Index(offset))
+		_ = geom
+		head := g.GetVertex(oEdge.GetHead())
+		_ = head
+		if len(geom) > 0 && head.GetLat() != geom[len(geom)-1].GetLat() && head.GetLon() != geom[len(geom)-1].GetLon() {
+			panic("debug")
+		}
+	}
+
+	// for offset, inEdges := range g.inEdges {
+
+	// }
+	tesEdgePoints := g.graphStorage.GetEdgeGeometry(34266)
+	_ = tesEdgePoints
+
+}
+
+func (g *Graph) SetOutInEdgeCellOffset() {
+	cellVertices := make([][]struct {
+		vertex        *Vertex
+		originalIndex Index
+	}, g.GetNumberOfCellsNumbers()) // slice of slice of vertices in each cell
+
+	numOutEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers()) // number of outEdges in each cell
+	numInEdgesInCell := make([]Index, g.GetNumberOfCellsNumbers())
+
+	oEdges := make([][]*OutEdge, g.NumberOfVertices()) // copy of original outEdges of each vertex
+	iEdges := make([][]*InEdge, g.NumberOfVertices())
+
+	minLat, minLon := math.MaxFloat64, math.MaxFloat64
+	maxLat, maxLon := math.Inf(-1), math.Inf(-1)
+
+	g.maxEdgesInCell = Index(0) // maximum number of edges in any cell
+	for i := Index(0); i < Index(g.NumberOfVertices()); i++ {
+		cell := g.vertices[i].pvPtr // cellNumber
+		cellVertices[cell] = append(cellVertices[cell], struct {
+			vertex        *Vertex
+			originalIndex Index
+		}{vertex: g.vertices[i], originalIndex: i})
+
+		oEdges[i] = make([]*OutEdge, g.GetOutDegree(i))
+		iEdges[i] = make([]*InEdge, g.GetInDegree(i))
+
+		k := Index(0)
+		e := g.vertices[i].firstOut
+		for e < g.vertices[i+1].firstOut {
+			oEdges[i][k] = g.outEdges[e]
+			e++
+			k++
+		}
+
+		k = Index(0)
+		e = g.vertices[i].firstIn
+		for e < g.vertices[i+1].firstIn {
+			iEdges[i][k] = g.inEdges[e]
+			e++
+			k++
+		}
+
+		numOutEdgesInCell[cell] += g.GetOutDegree(i)
+		numInEdgesInCell[cell] += g.GetInDegree(i)
+
+		if g.maxEdgesInCell < numOutEdgesInCell[cell] {
+			g.maxEdgesInCell = numOutEdgesInCell[cell]
+		}
+
+		if g.maxEdgesInCell < numInEdgesInCell[cell] {
+			g.maxEdgesInCell = numInEdgesInCell[cell]
+		}
+		minLat = math.Min(minLat, g.vertices[i].lat)
+		minLon = math.Min(minLon, g.vertices[i].lon)
+		maxLat = math.Max(maxLat, g.vertices[i].lat)
+		maxLon = math.Max(maxLon, g.vertices[i].lon)
+	}
+
+	g.SetBoundingBox(NewBoundingBox(minLat, minLon, maxLat, maxLon))
+
+	outOffset := Index(0)                                   // new offset for outEdges for each vertex for each cell
+	g.outEdgeCellOffset = make([]Index, len(g.cellNumbers)) // offset of first outEdge for each cell
+	inOffset := Index(0)                                    // new offset for inEdges for each vertex for each cell
+	g.inEdgeCellOffset = make([]Index, len(g.cellNumbers))  // offset of first inEdge for each cell
+
+	for i := Index(0); i < Index(len(g.cellNumbers)); i++ {
+		g.outEdgeCellOffset[i] = outOffset
+		g.inEdgeCellOffset[i] = inOffset
+
+		for v := Index(0); v < Index(len(cellVertices[i])); v++ {
+
+			vId := cellVertices[i][v].originalIndex
+
+			for k := Index(0); k < Index(len(oEdges[vId])); k++ {
+				outOffset++
+			}
+			for k := Index(0); k < Index(len(iEdges[vId])); k++ {
+				inOffset++
+			}
+
+			vId++
+		}
+	}
+
+}
