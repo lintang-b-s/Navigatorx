@@ -136,7 +136,6 @@ func (gs *GraphStorage) GetEdgeExtraInfo(edgeID Index, reverse bool) (EdgeExtraI
 	index := int(math.Floor(float64(edgeID) / 32))
 	roundabout := (gs.roundaboutFlag[index] & (1 << (edgeID % 32))) != 0
 	return gs.mapEdgeInfo[edgeID], roundabout
-
 }
 
 func (gs *GraphStorage) UpdateEdgePoints(edgeID Index, startIdx, endIdx Index) {

@@ -79,7 +79,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		return
 	}
 
-	eta, dist, pathPolyline, drivingDirections, _, err := api.routingService.ShortestPath(request.OriginLat, request.OriginLon,
+	travelTime, dist, pathPolyline, drivingDirections, _, err := api.routingService.ShortestPath(request.OriginLat, request.OriginLon,
 		request.DestinationLat, request.DestinationLon)
 	if err != nil {
 		api.getStatusCode(w, r, err)
@@ -88,7 +88,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 
 	headers := make(http.Header)
 
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewShortestPathResponse(eta, dist, pathPolyline,
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewShortestPathResponse(travelTime, dist, pathPolyline,
 		NewDrivingDirections(drivingDirections))}, headers); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return

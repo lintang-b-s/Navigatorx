@@ -15,22 +15,22 @@ type shortestPathRequest struct {
 }
 
 type shortestPathResponse struct {
-	Eta               float64            `json:"eta"`
+	TravelTime               float64            `json:"travel_time"`
 	Path              string             `json:"path"`
 	Dist              float64            `json:"distance"`
 	DrivingDirections []drivingDirection `json:"driving_directions"`
 }
 
 type drivingDirection struct {
-	Instruction string
-	Point       datastructure.Coordinate
-	StreetName  string
-	TravelTime  float64
-	Distance    float64
-	EdgeIds     []datastructure.Index
-	Polyline    string
-	TurnBearing float64
-	TurnType    string
+	Instruction string                   `json:"instruction"`
+	Point       datastructure.Coordinate `json:"turn_point"`
+	StreetName  string                   `json:"street_name"`
+	TravelTime  float64                  `json:"travel_time"`
+	Distance    float64                  `json:"distance"`
+	EdgeIds     []datastructure.Index    `json:"edge_ids"`
+	Polyline    string                   `json:"polyline"`
+	TurnBearing float64                  `json:"turn_bearing"`
+	TurnType    string                   `json:"turn_type"`
 }
 
 func NewDrivingDirection(d datastructure.DrivingDirection) drivingDirection {
@@ -55,11 +55,11 @@ func NewDrivingDirections(d []datastructure.DrivingDirection) []drivingDirection
 	return drivingDirections
 }
 
-func NewShortestPathResponse(eta, dist float64, path string, drivingDirections []drivingDirection) shortestPathResponse {
+func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirections []drivingDirection) shortestPathResponse {
 	return shortestPathResponse{
-		Eta:  eta,
-		Path: path,
-		Dist: dist,
+		TravelTime:               travelTime,
+		Path:              path,
+		Dist:              dist,
 		DrivingDirections: drivingDirections,
 	}
 }

@@ -122,21 +122,18 @@ func (g *Graph) WriteGraph(filename string) error {
 		pointLat := strconv.FormatFloat(point.Lat, 'f', -1, 64)
 		pointLon := strconv.FormatFloat(point.Lon, 'f', -1, 64)
 		fmt.Fprintf(w, "%s %s\n", pointLat, pointLon)
-
 	}
 
 	fmt.Fprintf(w, "%d\n", len(g.graphStorage.roundaboutFlag))
 	for i := 0; i < len(g.graphStorage.roundaboutFlag); i++ {
 		flag := g.graphStorage.roundaboutFlag[i]
 		fmt.Fprintf(w, "%d \n", flag)
-
 	}
 
 	fmt.Fprintf(w, "%d\n", len(g.graphStorage.nodeTrafficLight))
 	for i := 0; i < len(g.graphStorage.nodeTrafficLight); i++ {
 		flag := g.graphStorage.nodeTrafficLight[i]
 		fmt.Fprintf(w, "%d \n", flag)
-
 	}
 
 	fmt.Fprintf(w, "%d\n", len(g.graphStorage.mapEdgeInfo))
@@ -145,7 +142,6 @@ func (g *Graph) WriteGraph(filename string) error {
 		fmt.Fprintf(w, "%d %d %d %d %d %d %d \n", edgeInfo.startPointsIndex, edgeInfo.endPointsIndex,
 			edgeInfo.streetName, edgeInfo.roadClass, edgeInfo.roadClassLink, edgeInfo.lanes,
 			edgeInfo.osmWayId)
-
 	}
 
 	fmt.Fprintf(w, "%d\n", len(g.graphStorage.streetDirection))
@@ -154,12 +150,9 @@ func (g *Graph) WriteGraph(filename string) error {
 	}
 
 	sortedKeys := make([]int, 0)
-	for key, val := range g.graphStorage.tagStringIDMap.IDToStr {
-		if val == "" {
-			continue
-		}
-		sortedKeys = append(sortedKeys, key)
+	for key, _ := range g.graphStorage.tagStringIDMap.IDToStr {
 
+		sortedKeys = append(sortedKeys, key)
 	}
 
 	fmt.Fprintf(w, "%d\n", len(sortedKeys))
@@ -576,9 +569,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	for i := 0; i < numIdMapItems; i++ {
 
 		line, err = readLine()
-		if line == "" {
-			continue
-		}
+
 		if err != nil {
 			return nil, err
 		}
@@ -599,7 +590,8 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, err
 		}
-		tagStringIdMap.GetID(unquotedVal)
+		key := parseInt(tokens[0])
+		tagStringIdMap.SetID(key, unquotedVal)
 	}
 
 	sccCondensationAdj := make([][]Index, 0)

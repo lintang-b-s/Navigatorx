@@ -337,8 +337,6 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) *datastructure.Gra
 		}
 	}
 
-	tesEdgePoints := graphStorage.GetEdgeGeometry(34266)
-	_ = tesEdgePoints
 	return graph
 }
 
@@ -645,8 +643,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			}
 			edgeSet[p.nodeIDMap[to.id]][p.nodeIDMap[from.id]] = struct{}{}
 
-			// graphStorage.SetRoundabout(int32(len(graphStorage.EdgeStorage)), isRoundabout)
-
 			edgePoints = util.ReverseG(edgePoints)
 
 			startPointsIndex := graphStorage.GetGlobalPointsCount()
@@ -714,6 +710,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			datastructure.Index(endPointsIndex), datastructure.Index(startPointsIndex),
 			id,
 		))
+
+		graphStorage.SetRoundabout(datastructure.Index(len(*scannedEdges)), isRoundabout)
 
 		*scannedEdges = append(*scannedEdges, NewEdge(
 			uint32(p.nodeIDMap[to.id]),

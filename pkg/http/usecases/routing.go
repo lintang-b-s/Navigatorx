@@ -40,7 +40,7 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	}
 
 	crpQuery := routing.NewCRPBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine))
-	eta, dist, pathCoords, edgePath, found := crpQuery.ShortestPathSearch(as, at)
+	travelTime, dist, pathCoords, edgePath, found := crpQuery.ShortestPathSearch(as, at)
 	if !found {
 		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput, fmt.Sprintf("no path found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon))
 	}
@@ -48,5 +48,5 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	pathPolyline := geo.PoylineFromCoords(pathCoords)
 	directionBuilder := guidance.NewDirectionBuilder(rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving)
 	drivingDirection := directionBuilder.GetDrivingDirections(edgePath)
-	return eta, dist, pathPolyline, drivingDirection, true, nil
+	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }

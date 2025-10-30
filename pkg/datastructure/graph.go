@@ -1,9 +1,6 @@
 package datastructure
 
 import (
-	"fmt"
-	"log"
-
 	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
@@ -21,6 +18,14 @@ type Vertex struct {
 }
 
 func NewVertex(lat, lon float64, id Index) *Vertex {
+	return &Vertex{
+		lat: lat,
+		lon: lon,
+		id:  id,
+	}
+}
+
+func NewVertexComplete(lat, lon float64, id, pvPtr, turnTablePtr, firstOut, firstIn Index) *Vertex {
 	return &Vertex{
 		lat: lat,
 		lon: lon,
@@ -311,10 +316,7 @@ func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge,
 		if g.outEdges[e].GetHead() == u {
 			continue
 		}
-		turnTableOffset := g.vertices[u].turnTablePtr + Index(entryPoint)*Index(g.GetOutDegree(u)) + g.GetExitOrder(u, e)
-		if turnTableOffset > Index(len(g.turnTables)) {
-			log.Printf("debug")
-		}
+
 		handle(g.outEdges[e], g.GetExitOrder(u, e), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)))
 	}
 }
@@ -333,9 +335,6 @@ func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, en
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
 		if g.inEdges[e].GetTail() == v {
 			continue
-		}
-		if exitPoint == 4294966559 {
-			fmt.Printf("debug")
 		}
 
 		handle(g.inEdges[e], g.GetEntryOrder(v, e), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint))
@@ -408,6 +407,10 @@ func (g *Graph) GetNumberOfOverlayVertexMapping() int {
 func (g *Graph) GetVertexCoordinates(u Index) (float64, float64) {
 	v := g.vertices[u]
 	return v.lat, v.lon
+}
+
+func (g *Graph) SetVertices(vs []*Vertex) {
+	g.vertices = vs
 }
 
 // for source point in query

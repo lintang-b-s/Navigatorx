@@ -17,15 +17,16 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 	)
 
 	lastEdgeId := uint32(0)
+	edgeId := datastructure.Index(0)
 	for _, e := range scannedEdges {
 		u := datastructure.Index(e.from)
 		v := datastructure.Index(e.to)
 
-		outEdges[u] = append(outEdges[u], datastructure.NewOutEdge(datastructure.Index(e.edgeID),
+		outEdges[u] = append(outEdges[u], datastructure.NewOutEdge(edgeId,
 			v, e.weight, e.distance, uint8(len(inEdges[v]))))
 		outDegree[u]++
 
-		inEdges[v] = append(inEdges[v], datastructure.NewInEdge(datastructure.Index(e.edgeID),
+		inEdges[v] = append(inEdges[v], datastructure.NewInEdge(edgeId,
 			u, e.weight, e.distance, uint8(len(outEdges[u])-1)))
 		inDegree[v]++
 
@@ -34,7 +35,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 
 		vData := p.acceptedNodeMap[p.nodeToOsmId[datastructure.Index(v)]]
 		vertices[v] = datastructure.NewVertex(vData.lat, vData.lon, v)
-
+		edgeId++
 		if e.edgeID >= lastEdgeId {
 			lastEdgeId = e.edgeID + 1
 		}
@@ -111,8 +112,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		}
 	}
 
-	turnMatricesFlattens := flatten2[pkg.TurnType](turnMatrices)
-	_ = turnMatricesFlattens
 	// store u_turn restrictions
 	for _, e := range scannedEdges {
 		// dont allow u_turns at (u,v) -> (v,u)
@@ -335,23 +334,6 @@ func flatten[T any](container [][]*T) []*T {
 	}
 
 	result := make([]*T, finalSize)
-	idx := 0
-	for _, part := range container {
-		for _, elem := range part {
-			result[idx] = elem
-			idx++
-		}
-	}
-	return result
-}
-
-func flatten2[T any](container [][]T) []T {
-	finalSize := 0
-	for _, part := range container {
-		finalSize += len(part)
-	}
-
-	result := make([]T, finalSize)
 	idx := 0
 	for _, part := range container {
 		for _, elem := range part {
