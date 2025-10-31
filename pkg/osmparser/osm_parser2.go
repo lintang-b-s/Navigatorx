@@ -578,7 +578,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		}
 	}
 
-	edgePoints = geo.RamerDouglasPeucker(edgePoints) // simplify edge geometry
+	geoEdgePoints := geo.RamerDouglasPeucker(datastructure.NewGeoCoordinates(edgePoints)) // simplify edge geometry
+	for i, coord := range geoEdgePoints {
+		edgePoints[i] = datastructure.NewCoordinate(coord.GetLat(), coord.GetLon())
+	}
 
 	isRoundabout := false
 	if val, ok := tempMap[JUNCTION]; ok {

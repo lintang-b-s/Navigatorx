@@ -172,9 +172,9 @@ func (om *OnlineMapMatchMHT) filterLog(gps *datastructure.GPSPoint, candidates [
 			head := om.graph.GetVertex(candE.GetHead())
 			tail := om.graph.GetVertex(om.graph.GetTailOfOutedge(cand.EdgeId()))
 			projectedPoint := geo.ProjectPointToLineCoord(
-				datastructure.NewCoordinate(head.GetLat(), head.GetLon()),
-				datastructure.NewCoordinate(tail.GetLat(), tail.GetLon()),
-				datastructure.NewCoordinate(gps.Lat(), gps.Lon()),
+				datastructure.NewCoordinate(head.GetLat(), head.GetLon()).ToGeoCoordinate(),
+				datastructure.NewCoordinate(tail.GetLat(), tail.GetLon()).ToGeoCoordinate(),
+				datastructure.NewCoordinate(gps.Lat(), gps.Lon()).ToGeoCoordinate(),
 			)
 			projectedPointCoord := datastructure.NewCoordinate(projectedPoint.Lat, projectedPoint.Lon)
 			matchedSegment = datastructure.NewMatchedGPSPoint(gps, cand.EdgeId(), projectedPointCoord)
@@ -222,9 +222,9 @@ func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(gps *datastructure.
 	tailId := om.graph.GetTailOfOutedge(cand.edgeId)
 	head := om.graph.GetVertex(headId)
 	tail := om.graph.GetVertex(tailId)
-	headPoint := datastructure.NewCoordinate(head.GetLat(), head.GetLon())
-	tailPoint := datastructure.NewCoordinate(tail.GetLat(), tail.GetLon())
-	gpsPoint := datastructure.NewCoordinate(gps.Lat(), gps.Lon())
+	headPoint := datastructure.NewCoordinate(head.GetLat(), head.GetLon()).ToGeoCoordinate()
+	tailPoint := datastructure.NewCoordinate(tail.GetLat(), tail.GetLon()).ToGeoCoordinate()
+	gpsPoint := datastructure.NewCoordinate(gps.Lat(), gps.Lon()).ToGeoCoordinate()
 	projectedPoint := geo.ProjectPointToLineCoord(headPoint, tailPoint,
 		gpsPoint)
 
@@ -292,9 +292,9 @@ func (om *OnlineMapMatchMHT) computeObservationLikelihood(gps *datastructure.GPS
 	tailId := om.graph.GetTailOfOutedge(cand.edgeId)
 	head := om.graph.GetVertex(headId)
 	tail := om.graph.GetVertex(tailId)
-	headPoint := datastructure.NewCoordinate(head.GetLat(), head.GetLon())
-	tailPoint := datastructure.NewCoordinate(tail.GetLat(), tail.GetLon())
-	gpsPoint := datastructure.NewCoordinate(gps.Lat(), gps.Lon())
+	headPoint := datastructure.NewCoordinate(head.GetLat(), head.GetLon()).ToGeoCoordinate()
+	tailPoint := datastructure.NewCoordinate(tail.GetLat(), tail.GetLon()).ToGeoCoordinate()
+	gpsPoint := datastructure.NewCoordinate(gps.Lat(), gps.Lon()).ToGeoCoordinate()
 	projectedPoint := geo.ProjectPointToLineCoord(headPoint, tailPoint,
 		gpsPoint)
 
@@ -325,9 +325,9 @@ func (om *OnlineMapMatchMHT) computeObservationLikelihoodNewson(gps *datastructu
 	tailId := om.graph.GetTailOfOutedge(cand.edgeId)
 	head := om.graph.GetVertex(headId)
 	tail := om.graph.GetVertex(tailId)
-	headPoint := datastructure.NewCoordinate(head.GetLat(), head.GetLon())
-	tailPoint := datastructure.NewCoordinate(tail.GetLat(), tail.GetLon())
-	gpsPoint := datastructure.NewCoordinate(gps.Lat(), gps.Lon())
+	headPoint := datastructure.NewCoordinate(head.GetLat(), head.GetLon()).ToGeoCoordinate()
+	tailPoint := datastructure.NewCoordinate(tail.GetLat(), tail.GetLon()).ToGeoCoordinate()
+	gpsPoint := datastructure.NewCoordinate(gps.Lat(), gps.Lon()).ToGeoCoordinate()
 	projectedPoint := geo.ProjectPointToLineCoord(headPoint, tailPoint,
 		gpsPoint)
 

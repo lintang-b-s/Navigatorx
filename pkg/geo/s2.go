@@ -1,14 +1,13 @@
 package geo
 
 import (
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 
 	"github.com/golang/geo/s2"
 )
 
-func ProjectPointToLineCoord(pointA datastructure.Coordinate, pointB datastructure.Coordinate,
-	snap datastructure.Coordinate) datastructure.Coordinate {
+func ProjectPointToLineCoord(pointA Coordinate, pointB Coordinate,
+	snap Coordinate) Coordinate {
 	pointA = MakeSixDigitsAfterComa2(pointA, 6)
 	pointB = MakeSixDigitsAfterComa2(pointB, 6)
 	snap = MakeSixDigitsAfterComa2(snap, 6)
@@ -20,12 +19,12 @@ func ProjectPointToLineCoord(pointA datastructure.Coordinate, pointB datastructu
 	snapS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(snapLat, snapLon))
 	projection := s2.Project(snapS2, pointAS2, pointBS2)
 	projectLatLng := s2.LatLngFromPoint(projection)
-	return datastructure.NewCoordinate(projectLatLng.Lat.Degrees(), projectLatLng.Lng.Degrees())
+	return NewCoordinate(projectLatLng.Lat.Degrees(), projectLatLng.Lng.Degrees())
 }
 
 // return in meter
-func PointLinePerpendicularDistance(pointA datastructure.Coordinate, pointB datastructure.Coordinate,
-	snap datastructure.Coordinate) float64 {
+func PointLinePerpendicularDistance(pointA Coordinate, pointB Coordinate,
+	snap Coordinate) float64 {
 	projectionPoint := ProjectPointToLineCoord(pointA, pointB, snap)
 
 	dist := CalculateHaversineDistance(snap.GetLat(), snap.GetLon(), projectionPoint.GetLat(), projectionPoint.GetLon())
@@ -33,7 +32,7 @@ func PointLinePerpendicularDistance(pointA datastructure.Coordinate, pointB data
 	return dist * 1000
 }
 
-func MakeSixDigitsAfterComa2(n datastructure.Coordinate, precision int) datastructure.Coordinate {
+func MakeSixDigitsAfterComa2(n Coordinate, precision int) Coordinate {
 
 	if util.CountDecimalPlacesF64(n.Lat) != precision {
 		n.Lat = util.RoundFloat(n.Lat+0.000001, 6)

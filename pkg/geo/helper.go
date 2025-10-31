@@ -3,7 +3,6 @@ package geo
 import (
 	"container/list"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/twpayne/go-polyline"
 )
 
@@ -13,13 +12,13 @@ const (
 
 // https://cartography-playground.gitlab.io/playgrounds/douglas-peucker-algorithm/
 
-func RamerDouglasPeucker(coords []datastructure.Coordinate) []datastructure.Coordinate {
+func RamerDouglasPeucker(coords []Coordinate) []Coordinate {
 	size := len(coords)
 	if size < 2 {
 		return coords
 	}
 
-	projected := make([]datastructure.Coordinate, size)
+	projected := make([]Coordinate, size)
 	copy(projected, coords)
 
 	kepts := make([]bool, size)
@@ -59,7 +58,7 @@ func RamerDouglasPeucker(coords []datastructure.Coordinate) []datastructure.Coor
 		}
 	}
 
-	simplifiedGeometry := make([]datastructure.Coordinate, 0)
+	simplifiedGeometry := make([]Coordinate, 0)
 	for i, necessary := range kepts {
 		if necessary {
 			simplifiedGeometry = append(simplifiedGeometry, coords[i])
@@ -68,7 +67,7 @@ func RamerDouglasPeucker(coords []datastructure.Coordinate) []datastructure.Coor
 	return simplifiedGeometry
 }
 
-func PoylineFromCoords(path []datastructure.Coordinate) string {
+func PoylineFromCoords(path []Coordinate) string {
 	s := ""
 	coords := make([][]float64, 0)
 	for _, p := range path {

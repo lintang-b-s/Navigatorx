@@ -2,6 +2,7 @@ package datastructure
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 )
 
 type Index uint32
@@ -573,7 +574,7 @@ func (g *Graph) SetNodeTrafficLight(vId Index) {
 func (g *Graph) GetHaversineDistanceFromUtoV(u, v Index) float64 {
 	uvertex := g.GetVertex(u)
 	vvertex := g.GetVertex(v)
-	return HaversineDistance(uvertex.lat, uvertex.lon, vvertex.lat, vvertex.lon)
+	return geo.CalculateHaversineDistance(uvertex.lat, uvertex.lon, vvertex.lat, vvertex.lon)
 }
 
 func (g *Graph) SetGraphStorage(gs *GraphStorage) {
