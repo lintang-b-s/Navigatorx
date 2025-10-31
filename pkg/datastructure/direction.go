@@ -198,18 +198,6 @@ func (instr *Instruction) GetTurnDescription(clockwise bool) string {
 		}
 	}
 
-	dest, _ := instr.extrainfo["street_destination"].(string)
-	destRef, _ := instr.extrainfo["street_destination_ref"].(string)
-
-	if dest != "" {
-		if destRef != "" {
-			return fmt.Sprintf("toward_destination_with_ref %s  %s %s", description, destRef, dest)
-		}
-		return fmt.Sprintf("toward_destination %s  %s", description, dest)
-	} else if destRef != "" {
-		return fmt.Sprintf("toward_destination_ref_only %s  %s", description, destRef)
-	}
-
 	return description
 }
 
@@ -246,7 +234,7 @@ func getDirectionDescription(sign int, instruction *Instruction, clockwise bool)
 			return "Enter the roundabout", "USE_ROUNDABOUT"
 		}
 		roundaboutDir := "clockwise"
-		if clockwise {
+		if !clockwise {
 			roundaboutDir = "counter-clockwise"
 		}
 
@@ -319,26 +307,26 @@ func (d *DrivingDirection) GetStreetName() string {
 	return d.streetName
 }
 
-func (d  *DrivingDirection) GetTravelTime() float64 {
+func (d *DrivingDirection) GetTravelTime() float64 {
 	return d.travelTime
 }
 
-func (d  *DrivingDirection) GetDistance() float64 {
+func (d *DrivingDirection) GetDistance() float64 {
 	return d.distance
 }
 
-func (d  *DrivingDirection) GetEdgesIds() []Index {
+func (d *DrivingDirection) GetEdgesIds() []Index {
 	return d.edgeIds
 }
 
-func (d  *DrivingDirection) GetPolyline() string {
+func (d *DrivingDirection) GetPolyline() string {
 	return d.polyline
 }
 
-func (d  *DrivingDirection) GetTurnBearing() float64 {
+func (d *DrivingDirection) GetTurnBearing() float64 {
 	return d.turnBearing
 }
 
-func (d  *DrivingDirection) GetTurnType() string {
+func (d *DrivingDirection) GetTurnType() string {
 	return d.turnType
 }
