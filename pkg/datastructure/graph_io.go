@@ -629,8 +629,8 @@ func ReadGraph(filename string) (*Graph, error) {
 	graph.maxEdgesInCell = maxEdgesInCell
 	graph.outEdgeCellOffset = outEdgeCellOffset
 	graph.inEdgeCellOffset = inEdgeCellOffset
-	graph.setSCCs(sccs)
-	graph.setSCCCondensationAdj(sccCondensationAdj)
+	graph.SetSCCs(sccs)
+	graph.SetSCCCondensationAdj(sccCondensationAdj)
 	graph.SetBoundingBox(bb)
 	return graph, nil
 }

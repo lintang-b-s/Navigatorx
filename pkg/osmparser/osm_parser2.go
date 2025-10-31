@@ -327,6 +327,8 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) *datastructure.Gra
 				if graph.GetOsmWayId(id) == edgeWayId {
 					e.SetWeight(e.GetWeight() + util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND))
 					tail = e.GetTail()
+					_, outEdge := graph.GetHeadOfInedgeWithOutEdge(e.GetEdgeId())
+					outEdge.SetWeight(outEdge.GetWeight() + util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND))
 					backEdgeHaveSameWayId = true
 					return
 				}

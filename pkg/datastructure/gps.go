@@ -6,7 +6,7 @@ type GPSPoint struct {
 	lon   float64
 	lat   float64
 	time  time.Time
-	speed float64 // 0 if time step k=0
+	speed float64 // 0 if time step k=1
 }
 
 func NewGPSPoint(lat, lon float64, t time.Time, speed float64) *GPSPoint {

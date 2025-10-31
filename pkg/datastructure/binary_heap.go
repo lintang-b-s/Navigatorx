@@ -113,6 +113,11 @@ func (h *MinHeap[T]) isEmpty() bool {
 	return len(h.heap) == 0
 }
 
+// isEmpty check apakah heap kosong
+func (h *MinHeap[T]) IsEmpty() bool {
+	return len(h.heap) == 0
+}
+
 // size ukuran heap
 func (h *MinHeap[T]) Size() int {
 	return len(h.heap)

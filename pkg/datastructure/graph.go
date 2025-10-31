@@ -133,6 +133,14 @@ func (e *OutEdge) SetWeight(travelTime float64) {
 	e.weight = travelTime
 }
 
+func (e *OutEdge) SetEdgeId(edgeId Index) {
+	e.edgeId = edgeId
+}
+
+func (e *OutEdge) SetHead(headId Index) {
+	e.head = headId
+}
+
 func (e *OutEdge) GetLength() float64 {
 	return e.dist
 }
@@ -186,6 +194,14 @@ func (e *InEdge) SetExitPoint(p uint8) {
 
 func (e *InEdge) GetEdgeId() Index {
 	return e.edgeId
+}
+
+func (e *InEdge) SetTailId(tailId Index) {
+	e.tail = tailId
+}
+
+func (e *InEdge) SetEdgeId(edgeId Index) {
+	e.edgeId = edgeId
 }
 
 type SubVertex struct {
@@ -431,12 +447,31 @@ func (g *Graph) GetMaxEdgesInCell() Index {
 	return g.maxEdgesInCell
 }
 
+func (g *Graph) SetMaxEdgesInCell(maxEdgesInCell Index) {
+	g.maxEdgesInCell = maxEdgesInCell
+}
+
 func (g *Graph) GetOutEdgeCellOffset(v Index) Index {
 	return g.outEdgeCellOffset[g.vertices[v].pvPtr]
 }
 
+func (g *Graph) SetOutEdgeCellOffset(i Index, outOffset Index) {
+	g.outEdgeCellOffset[i] = outOffset
+}
+
+func (g *Graph) MakeOutEdgeCellOffset(cellNumbers int) {
+	g.outEdgeCellOffset = make([]Index, cellNumbers)
+}
+
+func (g *Graph) MakeInEdgeCellOffset(cellNumbers int) {
+	g.inEdgeCellOffset = make([]Index, cellNumbers)
+}
+
 func (g *Graph) GetInEdgeCellOffset(v Index) Index {
 	return g.inEdgeCellOffset[g.vertices[v].pvPtr]
+}
+func (g *Graph) SetInEdgeCellOffset(i Index, inOffset Index) {
+	g.inEdgeCellOffset[i] = inOffset
 }
 
 func (g *Graph) GetOutEdgeCellOffsets() []Index {
@@ -467,11 +502,23 @@ func (g *Graph) GetVertexFirstIn(u Index) Index {
 	return g.vertices[u].GetFirstIn()
 }
 
-func (g *Graph) setSCCs(sccs []Index) {
+func (g *Graph) SetOutEdge(id Index, e *OutEdge) {
+	g.outEdges[id] = e
+}
+
+func (g *Graph) GetNumberOfVerticesWithDummyVertex() int {
+	return len(g.vertices)
+}
+
+func (g *Graph) SetInEdge(id Index, e *InEdge) {
+	g.inEdges[id] = e
+}
+
+func (g *Graph) SetSCCs(sccs []Index) {
 	g.sccs = sccs
 }
 
-func (g *Graph) setSCCCondensationAdj(adj [][]Index) {
+func (g *Graph) SetSCCCondensationAdj(adj [][]Index) {
 	g.sccCondensationAdj = adj
 }
 
@@ -497,6 +544,30 @@ func (g *Graph) CondensationGraphOrigintoDestinationConnected(u, v Index) bool {
 		}
 	}
 	return false
+}
+
+func (g *Graph) GetMapEdgeInfo() []EdgeExtraInfo {
+	return g.graphStorage.mapEdgeInfo
+}
+
+func (g *Graph) SetEdgeInfo(id Index, edgeInfo EdgeExtraInfo) {
+	g.graphStorage.mapEdgeInfo[id] = edgeInfo
+}
+
+func (g *Graph) GetRoundaboutFlag() []Index {
+	return g.graphStorage.roundaboutFlag
+}
+
+func (g *Graph) SetRoundabout(edgeID Index, isRoundabout bool) {
+	g.graphStorage.SetRoundabout(edgeID, isRoundabout)
+}
+
+func (g *Graph) GetNodeTrafficLight() []Index {
+	return g.graphStorage.nodeTrafficLight
+}
+
+func (g *Graph) SetNodeTrafficLight(vId Index) {
+	g.graphStorage.SetTrafficLight(vId)
 }
 
 func (g *Graph) GetHaversineDistanceFromUtoV(u, v Index) float64 {

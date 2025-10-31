@@ -134,6 +134,10 @@ func (og *OverlayGraph) ForVertices(handle func(v *OverlayVertex)) {
 	}
 }
 
+func (og *OverlayGraph) TruncateToLevel(cellNumber Pv, level uint8) Pv {
+	return og.levelInfo.TruncateToLevel(cellNumber, level)
+}
+
 /*
 GetQueryLevel. Customizable Route Planning in Road Networks, Daniel Delling, et al. Page 14
 
