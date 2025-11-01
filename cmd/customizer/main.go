@@ -7,10 +7,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 )
 
-var (
-	visualize = flag.Bool("visualize", false, "visualize customization")
-)
-
 func main() {
 	flag.Parse()
 	logger, err := logger.New()
@@ -18,7 +14,7 @@ func main() {
 		panic(err)
 	}
 	custom := customizer.NewCustomizer("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
-	err = custom.Customize(*visualize)
+	err = custom.Customize()
 	if err != nil {
 		panic(err)
 	}

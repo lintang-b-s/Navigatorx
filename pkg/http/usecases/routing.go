@@ -12,41 +12,72 @@ import (
 )
 
 type RoutingService struct {
-	log                        *zap.Logger
-	engine                     RoutingEngine
-	spatialIndex               SpatialIndex
-	searchRadius               float64
-	clockwise, lefthandDriving bool
+	log                         *zap.Logger
+	engine                      RoutingEngine
+	spatialIndex                SpatialIndex
+	searchRadius                float64
+	clockwise, lefthandDriving  bool
+	gamma, alpha, epsilon       float64
+	upperBoundAlternativeSearch float64
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex,
-	searchRadius float64, clockwise, lefthandDriving bool) *RoutingService {
+	searchRadius float64, clockwise, lefthandDriving bool,
+	gamma, alpha, epsilon, upperBoundAlternativeSearch float64) *RoutingService {
 	return &RoutingService{
-		log:             log,
-		engine:          engine,
-		spatialIndex:    spatialindex,
-		searchRadius:    searchRadius,
-		clockwise:       clockwise,
-		lefthandDriving: lefthandDriving,
+		log:                         log,
+		engine:                      engine,
+		spatialIndex:                spatialindex,
+		searchRadius:                searchRadius,
+		clockwise:                   clockwise,
+		lefthandDriving:             lefthandDriving,
+		gamma:                       gamma,
+		alpha:                       alpha,
+		epsilon:                     epsilon,
+		upperBoundAlternativeSearch: upperBoundAlternativeSearch,
 	}
 }
 
 func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []datastructure.DrivingDirection, bool, error) {
 	as, at, err := rs.snapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon)
-	// as = exit/outEdge offset of origin
-	// at = entry/inEdge offset of destination
+	// as = exit/outEdge index of origin
+	// at = entry/inEdge index of destination
 	if err != nil {
 		return 0, 0, "", []datastructure.DrivingDirection{}, false, err
 	}
 
-	crpQuery := routing.NewCRPBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine))
+	crpQuery := routing.NewCRPBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), UPPERBOUND_SHORTEST_PATH)
 	travelTime, dist, pathCoords, edgePath, found := crpQuery.ShortestPathSearch(as, at)
 	if !found {
-		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput, fmt.Sprintf("no path found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon))
+		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput, fmt.Sprintf("no route found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon))
 	}
 
 	pathPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(pathCoords))
 	directionBuilder := guidance.NewDirectionBuilder(rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving)
 	drivingDirection := directionBuilder.GetDrivingDirections(edgePath)
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
+}
+
+func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLon float64, k int) ([]*routing.AlternativeRoute, bool, error) {
+	as, at, err := rs.snapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon)
+	// as = exit/outEdge index of origin
+	// at = entry/inEdge index of destination
+	if err != nil {
+		return []*routing.AlternativeRoute{}, false, err
+	}
+
+	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.upperBoundAlternativeSearch, rs.gamma, rs.alpha, rs.epsilon)
+	alternatives := altSearch.FindAlternativeRoutes(as, at, k)
+	if len(alternatives) == 0 {
+		return []*routing.AlternativeRoute{}, false, nil
+	}
+
+	for _, alt := range alternatives {
+		pathPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(alt.GetCoords()))
+		alt.SetPolylinePath(pathPolyline)
+		directionBuilder := guidance.NewDirectionBuilder(rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving)
+		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetPath())
+		alt.SetDrivingDirections(drivingDirection)
+	}
+	return alternatives, true, nil
 }

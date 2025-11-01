@@ -69,7 +69,7 @@ func NewInstruction(sign int, name string, p Coordinate, isRoundAbout bool, edge
 }
 
 func NewInstructionWithRoundabout(sign int, name string, p Coordinate, isRoundAbout bool, roundabout *RoundaboutInstruction,
-	cumulativeDistance, cumulativeEta float64, edgeIDs []Index, turnBearing float64) Instruction {
+	cumulativeDistance, cumulativeTravelTime float64, edgeIDs []Index, turnBearing float64) Instruction {
 	ins := Instruction{
 		turnSign:             sign,
 		streetname:           name,
@@ -78,7 +78,7 @@ func NewInstructionWithRoundabout(sign int, name string, p Coordinate, isRoundAb
 		roundabout:           roundabout,
 		isRoundabout:         isRoundAbout,
 		cumulativeDistance:   cumulativeDistance,
-		cumulativeTravelTime: cumulativeEta,
+		cumulativeTravelTime: cumulativeTravelTime,
 		edgeIds:              edgeIDs,
 		turnBearing:          turnBearing,
 	}

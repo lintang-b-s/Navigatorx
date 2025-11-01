@@ -392,7 +392,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *datastructure.GraphSt
 			}
 		case "highway":
 			{
-				highwayTypeSpeed = roadTypeMaxSpeed2(tag.Value)
+				highwayTypeSpeed = roadTypeMaxSpeed2(tag.Value) * pkg.NERF_MAXSPEED_OSM
 
 				if strings.Contains(tag.Value, "link") {
 					tempMap[ROAD_CLASS_LINK] = tag.Value
@@ -594,7 +594,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	}
 
 	distanceInMeter := distance * 1000
-	etaWeight := distanceInMeter / (speed * 1000 / 60) // in minutes
+	travelTimeWeight := distanceInMeter / (speed * 1000 / 60) // in minutes
 
 	lanes, err := strconv.Atoi(tempMap[LANES])
 	if err != nil {
@@ -636,7 +636,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			*scannedEdges = append(*scannedEdges, NewEdge(
 				uint32(p.nodeIDMap[from.id]),
 				uint32(p.nodeIDMap[to.id]),
-				etaWeight,
+				travelTimeWeight,
 				distanceInMeter,
 				uint32(len(*scannedEdges)),
 			))
@@ -670,7 +670,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			*scannedEdges = append(*scannedEdges, NewEdge(
 				uint32(p.nodeIDMap[to.id]),
 				uint32(p.nodeIDMap[from.id]),
-				etaWeight,
+				travelTimeWeight,
 				distanceInMeter,
 				uint32(len(*scannedEdges)),
 			))
@@ -702,7 +702,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		*scannedEdges = append(*scannedEdges, NewEdge(
 			uint32(p.nodeIDMap[from.id]),
 			uint32(p.nodeIDMap[to.id]),
-			etaWeight,
+			travelTimeWeight,
 			distanceInMeter,
 			uint32(len(*scannedEdges)),
 		))
@@ -721,7 +721,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		*scannedEdges = append(*scannedEdges, NewEdge(
 			uint32(p.nodeIDMap[to.id]),
 			uint32(p.nodeIDMap[from.id]),
-			etaWeight,
+			travelTimeWeight,
 			distanceInMeter,
 			uint32(len(*scannedEdges)),
 		))

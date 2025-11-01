@@ -90,7 +90,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 
 		uOverlayId := u.GetItem()
 
-		uEta := u.GetRank()
+		uTravelTime := u.GetRank()
 		if uOverlayId == targetOverlayId {
 			break
 		}
@@ -98,23 +98,23 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 		// traverse all out neighbor of u in level l in the same cell as u
 		pu.overlayGraph.ForOutNeighborsOf(uOverlayId, int(level-1), func(vOverlayId datastructure.Index, wOffset datastructure.Index) {
 
-			newEta := uEta + pu.metrics.GetShortcutWeight(wOffset)
+			newTravelTime := uTravelTime + pu.metrics.GetShortcutWeight(wOffset)
 			_, vAlreadyVisited := pu.info[vOverlayId]
 
-			if vAlreadyVisited && newEta >= pu.info[vOverlayId].GetEta() {
+			if vAlreadyVisited && newTravelTime >= pu.info[vOverlayId].GetTravelTime() {
 				return
 			}
 
 			uOverlayVertex := pu.overlayGraph.GetVertex(uOverlayId)
-			pu.info[vOverlayId] = NewVertexInfo(newEta, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
+			pu.info[vOverlayId] = NewVertexInfo(newTravelTime, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
 				uOverlayId, true))
 
 			if vOverlayId == targetOverlayId {
 				// if v is the target overlay vertex, update the pq
 				if !vAlreadyVisited {
-					pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(newEta, vOverlayId))
+					pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(newTravelTime, vOverlayId))
 				} else {
-					pu.overlayPq.DecreaseKey(datastructure.NewPriorityQueueNode(newEta, vOverlayId))
+					pu.overlayPq.DecreaseKey(datastructure.NewPriorityQueueNode(newTravelTime, vOverlayId))
 				}
 			}
 
@@ -130,15 +130,15 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 			// get out edge that point to wEntryVertex from vOverlayId
 			vOverlayVertex := pu.overlayGraph.GetVertex(vOverlayId)
 			vOutEdge := pu.graph.GetOutEdge(vOverlayVertex.GetOriginalEdge())
-			newEta += pu.metrics.GetWeight(vOutEdge)
+			newTravelTime += pu.metrics.GetWeight(vOutEdge)
 
 			_, wAlreadyVisited := pu.info[wNeighborId]
-			pu.info[wNeighborId] = NewVertexInfo(newEta, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+			pu.info[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
 				vOverlayId, true))
 			if !wAlreadyVisited {
-				pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(newEta, wNeighborId))
+				pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(newTravelTime, wNeighborId))
 			} else {
-				pu.overlayPq.DecreaseKey(datastructure.NewPriorityQueueNode(newEta, wNeighborId))
+				pu.overlayPq.DecreaseKey(datastructure.NewPriorityQueueNode(newTravelTime, wNeighborId))
 			}
 		})
 	}
@@ -168,7 +168,6 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoi
 	unpackedPath *[]datastructure.Coordinate, unpackedEdgePath *[]datastructure.OutEdge, distance *float64) {
 	// sourceEntryPoint inEdge that point to source vertex
 	pu.info = make(map[datastructure.Index]VertexInfo)
-
 	// get source vertex
 	sourceVertex := pu.graph.GetVertex(pu.graph.GetHeadFromInEdge(sourceEntryPoint))
 	_, outEdge := pu.graph.GetHeadOfInedgeWithOutEdge(sourceEntryPoint)
@@ -197,29 +196,29 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoi
 			vId := e.GetHead()
 
 			vEntryPoint := pu.graph.GetEntryOffset(vId) + datastructure.Index(e.GetEntryPoint())
-			newEta := queryKey.GetRank() + pu.metrics.GetWeight(e) + pu.metrics.GetTurnCost(turnType)
+			newTravelTime := queryKey.GetRank() + pu.metrics.GetWeight(e) + pu.metrics.GetTurnCost(turnType)
 
 			if pu.graph.GetCellNumber(vId) != sourceCellNumber && vEntryPoint != targetEntryPoint {
 				// do not cross cell boundary except to the target entry point
 				return
 			}
 
-			if newEta >= pkg.INF_WEIGHT {
+			if newTravelTime >= pkg.INF_WEIGHT {
 				return
 			}
 
 			_, vAlreadyVisited := pu.info[vEntryPoint]
 
-			if vAlreadyVisited && newEta >= pu.info[vEntryPoint].GetEta() {
+			if vAlreadyVisited && newTravelTime >= pu.info[vEntryPoint].GetTravelTime() {
 				return
 			}
 
-			pu.info[vEntryPoint] = NewVertexInfo(newEta, newVertexEdgePairWithOutEdgeId(uId, uEntryPoint, uOutEdgeId, false))
+			pu.info[vEntryPoint] = NewVertexInfo(newTravelTime, newVertexEdgePairWithOutEdgeId(uId, uEntryPoint, uOutEdgeId, false))
 			if !vAlreadyVisited {
-				pu.pq.Insert(datastructure.NewPriorityQueueNode(newEta,
+				pu.pq.Insert(datastructure.NewPriorityQueueNode(newTravelTime,
 					datastructure.NewCRPQueryKeyWithOutEdgeId(vId, vEntryPoint, e.GetEdgeId())))
 			} else {
-				pu.pq.DecreaseKey(datastructure.NewPriorityQueueNode(newEta,
+				pu.pq.DecreaseKey(datastructure.NewPriorityQueueNode(newTravelTime,
 					datastructure.NewCRPQueryKeyWithOutEdgeId(vId, vEntryPoint, e.GetEdgeId())))
 			}
 		})
@@ -261,4 +260,5 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryPoint, targetEntryPoi
 	reversedPath := util.ReverseG[datastructure.Coordinate](path)
 	*unpackedPath = append(*unpackedPath, reversedPath...)
 	pu.pq.Clear()
+
 }

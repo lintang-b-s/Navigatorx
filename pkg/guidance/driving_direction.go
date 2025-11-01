@@ -57,16 +57,16 @@ func (db *DirectionBuilder) GetDrivingDirections(path []datastructure.OutEdge) [
 
 	for i, ins := range db.instructions {
 		var (
-			currStepEta, currStepDistance float64
+			currStepTravelTime, currStepDistance float64
 		)
 		if i > 0 {
-			currStepEta = db.instructions[i].GetCumulativeTravelTime() - db.instructions[i-1].GetCumulativeTravelTime()
+			currStepTravelTime = db.instructions[i].GetCumulativeTravelTime() - db.instructions[i-1].GetCumulativeTravelTime()
 			currStepDistance = db.instructions[i].GetCumulativeDistance() - db.instructions[i-1].GetCumulativeDistance()
 		}
 		way := *db.instructions[i]
 		currPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(way.GetPoints()))
 		drivingDirections[i] = datastructure.NewDrivingDirection(way, turnDescriptions[i],
-			currStepEta, currStepDistance, way.GetEdgeIds(), currPolyline, ins.GetTurnBearing())
+			currStepTravelTime, currStepDistance, way.GetEdgeIds(), currPolyline, ins.GetTurnBearing())
 	}
 
 	return drivingDirections

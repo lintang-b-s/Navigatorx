@@ -13,6 +13,8 @@ const (
 )
 
 const (
-	INF_WEIGHT                             = 1e9
-	TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND = 30
+	INF_WEIGHT                              = 1e9
+	TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND  = 20
+	ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD = 90.0
+	NERF_MAXSPEED_OSM                       = 0.9
 )

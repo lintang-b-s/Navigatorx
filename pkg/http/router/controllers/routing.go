@@ -34,6 +34,7 @@ func New(routingService RoutingService, mapmatchingService MapMatcherService, lo
 func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
 	group.POST("/onlineMapMatch", api.onlineMapMatch)
+	group.GET("/computeAlternativeRoutes", api.alternativeRoutes)
 }
 
 func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -90,6 +91,69 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 
 	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewShortestPathResponse(travelTime, dist, pathPolyline,
 		NewDrivingDirections(drivingDirections))}, headers); err != nil {
+		api.ServerErrorResponse(w, r, err)
+		return
+	}
+}
+
+func (api *routingAPI) alternativeRoutes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	var (
+		request alternativeRoutesRequest
+		err     error
+	)
+
+	query := r.URL.Query()
+
+	request.OriginLat, err = strconv.ParseFloat(query.Get("origin_lat"), 64)
+	if err != nil {
+		api.BadRequestResponse(w, r, errors.New("origin_lat is required and must be a valid float"))
+		return
+	}
+	request.OriginLon, err = strconv.ParseFloat(query.Get("origin_lon"), 64)
+	if err != nil {
+		api.BadRequestResponse(w, r, errors.New("origin_lon is required and must be a valid float"))
+		return
+	}
+	request.DestinationLat, err = strconv.ParseFloat(query.Get("destination_lat"), 64)
+	if err != nil {
+		api.BadRequestResponse(w, r, errors.New("destination_lat is required and must be a valid float"))
+		return
+	}
+	request.DestinationLon, err = strconv.ParseFloat(query.Get("destination_lon"), 64)
+	if err != nil {
+		api.BadRequestResponse(w, r, errors.New("destination_lon is required and must be a valid float"))
+		return
+	}
+	request.K, err = strconv.ParseInt(query.Get("k"), 10, 64)
+	if err != nil {
+		api.BadRequestResponse(w, r, errors.New("number of alternatives k is required and must be a valid int"))
+		return
+	}
+	validate := validator.New()
+	if err := validate.Struct(request); err != nil {
+		english := en.New()
+		uni := ut.New(english, english)
+		trans, _ := uni.GetTranslator("en")
+		_ = enTranslations.RegisterDefaultTranslations(validate, trans)
+		vv := translateError(err, trans)
+		vvString := []string{}
+		for _, v := range vv {
+			vvString = append(vvString, v.Error())
+		}
+		api.BadRequestResponse(w, r, fmt.Errorf("validation error: %v", vvString))
+		return
+	}
+
+	alternatives, _, err := api.routingService.AlternativeRouteSearch(request.OriginLat, request.OriginLon,
+		request.DestinationLat, request.DestinationLon, int(request.K))
+	if err != nil {
+		api.getStatusCode(w, r, err)
+		return
+	}
+
+	headers := make(http.Header)
+
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewAlternativeRoutesResponse(alternatives)}, headers); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/mapmatcher/online"
 )
 
@@ -14,11 +15,23 @@ type shortestPathRequest struct {
 	DestinationLon float64 `json:"destination_lon" validate:"required,min=-180,max=180"`
 }
 
+type alternativeRoutesRequest struct {
+	OriginLat      float64 `json:"origin_lat" validate:"required,min=-90,max=90"`
+	OriginLon      float64 `json:"origin_lon" validate:"required,min=-180,max=180"`
+	DestinationLat float64 `json:"destination_lat" validate:"required,min=-90,max=90"`
+	DestinationLon float64 `json:"destination_lon" validate:"required,min=-180,max=180"`
+	K              int64   `json:"k" validate:"required,min=1"`
+}
+
 type shortestPathResponse struct {
-	TravelTime               float64            `json:"travel_time"`
+	TravelTime        float64            `json:"travel_time"`
 	Path              string             `json:"path"`
 	Dist              float64            `json:"distance"`
 	DrivingDirections []drivingDirection `json:"driving_directions"`
+}
+
+type alternativeRoutesResponse struct {
+	Routes []shortestPathResponse `json:"alternative_routes"`
 }
 
 type drivingDirection struct {
@@ -57,11 +70,22 @@ func NewDrivingDirections(d []datastructure.DrivingDirection) []drivingDirection
 
 func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirections []drivingDirection) shortestPathResponse {
 	return shortestPathResponse{
-		TravelTime:               travelTime,
+		TravelTime:        travelTime,
 		Path:              path,
 		Dist:              dist,
 		DrivingDirections: drivingDirections,
 	}
+}
+
+func NewAlternativeRoutesResponse(alts []*routing.AlternativeRoute) alternativeRoutesResponse {
+	altRes := alternativeRoutesResponse{}
+	for _, alt := range alts {
+		altRes.Routes = append(altRes.Routes, NewShortestPathResponse(
+			alt.GetDrivingTravelTime(),
+			alt.GetDist(), alt.GetPolylinePath(), NewDrivingDirections(alt.GetDrivingDirections()),
+		))
+	}
+	return altRes
 }
 
 type errorResponse struct {
