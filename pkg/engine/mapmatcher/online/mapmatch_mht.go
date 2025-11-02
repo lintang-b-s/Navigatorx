@@ -17,6 +17,7 @@ Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), p
 
 udah bisa dites pakai dataset "https://www.microsoft.com/en-us/research/publication/hidden-markov-map-matching-noise-sparseness/"
 see demo: "https://drive.google.com/file/d/1VpwW7O_3FP7bgTiXwWHQq2fTSwS0F-E9/view?usp=sharing"
+
 */
 
 type OnlineMapMatchMHT struct {
@@ -60,6 +61,8 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *datastructure.GPSPoint, k int,
 			candidates[i] = NewCandidate(arcEndpoint.GetId(), arcEndpoint.GetLength(), arcEndpoint.GetLength())
 		}
 
+		om.projectAllCandidates(gps, candidates)
+
 		matchedPoint, newcandidates, _ := om.filterLog(gps, candidates)
 		return matchedPoint, newcandidates, om.initialSpeedMean, om.initialSpeedStd
 	} else {
@@ -82,6 +85,8 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *datastructure.GPSPoint, k int,
 			newCandidates = om.recur(newCandidates, cand.Weight(), tau, ptau, speedMean, hpre, speedStd)
 		}
 		speedMeanK, speedStdK = om.kalmanFilter(speedMean, speedStd, gps.Speed())
+
+		om.projectAllCandidates(gps, newCandidates)
 
 		matchedPoint, newCandidatesFiltered, reset := om.filterLog(gps, newCandidates)
 		if reset {
@@ -137,7 +142,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *datastructure.GPSPoint, candidates [
 	logAllCandWeights := make([]float64, 0, len(candidates))
 
 	for _, cand := range candidates {
-		obsLogLikelihood := om.computeObservationLogLikelihood(gps, cand)
+		obsLogLikelihood := om.computeObservationLogLikelihood(cand)
 
 		logAllCandWeights = append(logAllCandWeights, math.Log(cand.Weight())+obsLogLikelihood)
 	}
@@ -146,9 +151,10 @@ func (om *OnlineMapMatchMHT) filterLog(gps *datastructure.GPSPoint, candidates [
 	sumPosterior := 0.0 // should \approx 1
 
 	for i, cand := range candidates {
-		obsLogLikelihood := om.computeObservationLogLikelihood(gps, cand)
+		obsLogLikelihood := om.computeObservationLogLikelihood(cand)
 		posterior := (obsLogLikelihood + math.Log(cand.Weight())) - (allCandsWeightLSE)
 		candidates[i] = NewCandidate(cand.EdgeId(), math.Exp(posterior), cand.Length())
+		candidates[i].SetProjectedCoord(cand.GetProjectedCoord().GetLat(), cand.GetProjectedCoord().GetLon())
 		sumPosterior += math.Exp(posterior)
 	}
 
@@ -168,15 +174,8 @@ func (om *OnlineMapMatchMHT) filterLog(gps *datastructure.GPSPoint, candidates [
 	maxWeight := -1.0
 	for _, cand := range filteredCands {
 		if cand.Weight() > maxWeight {
-			candE := om.graph.GetOutEdge(cand.EdgeId())
-			head := om.graph.GetVertex(candE.GetHead())
-			tail := om.graph.GetVertex(om.graph.GetTailOfOutedge(cand.EdgeId()))
-			projectedPoint := geo.ProjectPointToLineCoord(
-				datastructure.NewCoordinate(head.GetLat(), head.GetLon()).ToGeoCoordinate(),
-				datastructure.NewCoordinate(tail.GetLat(), tail.GetLon()).ToGeoCoordinate(),
-				datastructure.NewCoordinate(gps.Lat(), gps.Lon()).ToGeoCoordinate(),
-			)
-			projectedPointCoord := datastructure.NewCoordinate(projectedPoint.Lat, projectedPoint.Lon)
+
+			projectedPointCoord := cand.GetProjectedCoord()
 			matchedSegment = datastructure.NewMatchedGPSPoint(gps, cand.EdgeId(), projectedPointCoord)
 			maxWeight = cand.Weight()
 		}
@@ -216,33 +215,13 @@ func logSumExp(ps []float64) float64 {
 	return maxP + math.Log(sumExp)
 }
 
-func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(gps *datastructure.GPSPoint, cand *Candidate) float64 {
-	e := om.graph.GetOutEdge(cand.edgeId)
-	headId := e.GetHead()
-	tailId := om.graph.GetTailOfOutedge(cand.edgeId)
-	head := om.graph.GetVertex(headId)
-	tail := om.graph.GetVertex(tailId)
-	headPoint := datastructure.NewCoordinate(head.GetLat(), head.GetLon()).ToGeoCoordinate()
-	tailPoint := datastructure.NewCoordinate(tail.GetLat(), tail.GetLon()).ToGeoCoordinate()
-	gpsPoint := datastructure.NewCoordinate(gps.Lat(), gps.Lon()).ToGeoCoordinate()
-	projectedPoint := geo.ProjectPointToLineCoord(headPoint, tailPoint,
-		gpsPoint)
-
-	dist := convertKilometerToMeter(geo.CalculateEuclidianDistanceEquirectangularProj(
-		projectedPoint.Lat, projectedPoint.Lon,
-		gpsPoint.Lat, gpsPoint.Lon,
-	))
-
-	distr := convertKilometerToMeter(geo.CalculateEuclidianDistanceEquirectangularProj(
-		tailPoint.Lat, tailPoint.Lon,
-		projectedPoint.Lat, projectedPoint.Lon,
-	))
+func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(cand *Candidate) float64 {
 
 	f := func(x float64) float64 {
-		return (1 / (1 + math.Exp(-(math.Pi*(x-distr))/(math.Sqrt(3)*om.gpsStd))))
+		return (1 / (1 + math.Exp(-(math.Pi*(x-cand.GetDistr()))/(math.Sqrt(3)*om.gpsStd))))
 	}
 
-	gaussianLog := -(math.Pow(dist, 2) / (2 * math.Pow(om.gpsStd, 2)))
+	gaussianLog := -(math.Pow(cand.GetDist(), 2) / (2 * math.Pow(om.gpsStd, 2)))
 
 	left := math.Log((1 / cand.Length())) + gaussianLog
 	right := math.Log(f(cand.Length()) - f(0))
@@ -339,4 +318,48 @@ func (om *OnlineMapMatchMHT) computeObservationLikelihoodNewson(gps *datastructu
 	prob := (1.0 / (math.Sqrt(2*math.Pi) * om.gpsStd)) * math.Exp(-0.5*math.Pow(dist/om.gpsStd, 2))
 
 	return prob
+}
+
+func (om *OnlineMapMatchMHT) projectAllCandidates(gps *datastructure.GPSPoint, candidates []*Candidate) {
+	for _, cand := range candidates {
+
+		gpsCoord := datastructure.NewCoordinate(gps.Lat(), gps.Lon())
+
+		eGeometry := om.graph.GetEdgeGeometry(cand.EdgeId())
+
+		var (
+			minDist, minDistr  float64 = math.MaxFloat64, math.MaxFloat64
+			bestProjectedPoint geo.Coordinate
+		)
+
+		for i := 0; i < len(eGeometry)-1; i++ {
+			tail := eGeometry[i]
+			head := eGeometry[i+1]
+			projectedPoint := geo.ProjectPointToLineCoord(
+				tail.ToGeoCoordinate(),
+				head.ToGeoCoordinate(),
+				gpsCoord.ToGeoCoordinate(),
+			)
+			dist := convertKilometerToMeter(geo.CalculateEuclidianDistanceEquirectangularProj(
+				projectedPoint.Lat, projectedPoint.Lon,
+				gpsCoord.GetLat(), gpsCoord.GetLon(),
+			))
+
+			distr := convertKilometerToMeter(geo.CalculateEuclidianDistanceEquirectangularProj(
+				tail.GetLat(), tail.GetLon(),
+				projectedPoint.GetLat(), projectedPoint.GetLon(),
+			))
+
+			if dist < minDist {
+				minDist = dist
+				minDistr = distr
+				bestProjectedPoint = projectedPoint
+			}
+
+		}
+
+		cand.SetProjectedCoord(bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon())
+		cand.SetDist(minDist)
+		cand.SetDistr(minDistr)
+	}
 }

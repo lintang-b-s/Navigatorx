@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/mapmatcher/online"
 )
 
 type shortestPathRequest struct {
