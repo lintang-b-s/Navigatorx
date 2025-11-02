@@ -92,40 +92,99 @@ https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
             }
 
             let candidates = [];
-            let speedMeanK = 0;
-            let speedStdK = 0;
+            let speedMeanK = 500.0;
+            let speedStdK = 500.0;
+
             let prev = null;
             let prevTime = null;
+            const defaultConstantSpeed = 500.0; // meter/min
+            let defaultSamplingInterval = 1.0 / 60; // default 1s
+            let lastBearing = 0.0;
 
-            for (let k = 1; k <= requestData.length; k++) {
-              const point = requestData[k];
-              const t = new Date(point.datetime_utc);
-              let speed = 0;
-              if (prev) {
-                const distance = haversine(
-                  prev.Latitude,
-                  prev.Longitude,
-                  point.Latitude,
-                  point.Longitude
-                );
-                const dt = (t - prevTime) / 1000.0;
-                if (dt > 0) {
-                  speed = (distance / dt) * 60; // meter/minute
+            const startTime = new Date(requestData[0].datetime_utc);
+            const endTime = new Date(
+              requestData[requestData.length - 1].datetime_utc
+            );
+
+            for (
+              let currentTime = new Date(startTime);
+              currentTime <= endTime;
+              currentTime = new Date(currentTime.getTime() + 1000)
+            ) {
+              const point = requestData.find((p) => {
+                const t = new Date(p.datetime_utc);
+                return Math.abs(t - currentTime) < 1000;
+              });
+
+              let mapMatchRequest = null;
+              let deadReckoning = false;
+              console.log("currentTime: ", currentTime);
+
+              if (point) {
+                const t = new Date(point.datetime_utc);
+                let speed = 0;
+                let dt_minutes = 0.0;
+
+                if (prev) {
+                  const prevTime = new Date(prev.datetime_utc);
+                  dt_minutes = (t - prevTime) / 60000.0; // ms to minutes
+                  const distance = haversine(
+                    prev.Latitude,
+                    prev.Longitude,
+                    point.Latitude,
+                    point.Longitude
+                  );
+                  if (dt_minutes > 0) {
+                    speed = distance / dt_minutes;
+                  }
                 }
-              }
 
-              const mapMatchRequest = {
-                gps_point: {
-                  lat: point.Latitude,
-                  lon: point.Longitude,
-                  time: t.toISOString(),
-                  speed: speed,
-                },
-                k: k,
-                candidates: candidates,
-                speed_mean_k: 500.0,
-                speed_std_k: 500.0,
-              };
+                mapMatchRequest = {
+                  gps_point: {
+                    lat: point.Latitude,
+                    lon: point.Longitude,
+                    time: t.toISOString(),
+                    speed: speed,
+                    delta_time: dt_minutes,
+                    dead_reckoning: false,
+                  },
+                  k: Math.round((t - startTime) / 1000) + 1,
+                  candidates: candidates,
+                  speed_mean_k: speedMeanK,
+                  speed_std_k: speedStdK,
+                  last_bearing: lastBearing,
+                };
+
+                prev = point;
+                prev = point;
+                prevTime = t;
+              } else {
+                console.log(
+                  "dead reckoning...., prev coord: ",
+                  prev.Latitude,
+                  prev.Longitude
+                );
+                deadReckoning = true;
+
+                mapMatchRequest = {
+                  gps_point: {
+                    lat: prev ? prev.Latitude : 0,
+                    lon: prev ? prev.Longitude : 0,
+                    time: currentTime.toISOString(),
+                    speed: defaultConstantSpeed,
+                    delta_time: prevTime
+                      ? (currentTime - prevTime) / 60000.0
+                      : defaultSamplingInterval,
+                    dead_reckoning: true,
+                  },
+                  k: Math.round((currentTime - startTime) / 1000) + 1,
+                  candidates: candidates,
+                  speed_mean_k: speedMeanK,
+                  speed_std_k: speedStdK,
+                  last_bearing: lastBearing,
+                };
+                prevTime = currentTime;
+              }
 
               try {
                 const response = await fetch(
@@ -140,12 +199,15 @@ https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
                 candidates = apiResponse.data.candidates || [];
                 speedMeanK = apiResponse.data.speed_mean_k;
                 speedStdK = apiResponse.data.speed_std_k;
+                lastBearing = apiResponse.data.edge_initial_bearing;
 
-                L.circleMarker([point.Latitude, point.Longitude], {
-                  color: "red",
-                  radius: 4,
-                  fillOpacity: 1,
-                }).addTo(map);
+                if (!deadReckoning && point) {
+                  L.circleMarker([point.Latitude, point.Longitude], {
+                    color: "red",
+                    radius: 4,
+                    fillOpacity: 1,
+                  }).addTo(map);
+                }
 
                 if (
                   apiResponse.data.matched_gps_point &&
@@ -159,13 +221,19 @@ https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
                     fillOpacity: 1,
                   }).addTo(map);
                 }
+
+                if (deadReckoning) {
+                  prev.Latitude =
+                    apiResponse.data.matched_gps_point.predicted_gps_coord.lat;
+                  prev.Longitude =
+                    apiResponse.data.matched_gps_point.predicted_gps_coord.lon;
+                }
               } catch (error) {
                 console.error("Error:", error);
                 alert("Error during map matching");
                 return;
               }
-              prev = point;
-              prevTime = t;
+
               await new Promise((resolve) => setTimeout(resolve, 1));
             }
           };

@@ -191,10 +191,11 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 	}
 
 	mgpsPoint, cands, speedMeanK, speedStdK := api.mapmatchingService.OnlineMapMatch(request.Gps.ToDataGPS(), request.K, ToOnlineCandidates(request.Candidates),
-		request.SpeedMeanK, request.SpeedStdK)
+		request.SpeedMeanK, request.SpeedStdK, request.LastBearing)
 	headers := make(http.Header)
 
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewMapmatchingResponse(mgpsPoint, cands, speedMeanK, speedStdK)}, headers); err != nil {
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewMapmatchingResponse(mgpsPoint, cands, speedMeanK,
+		speedStdK, mgpsPoint.GetBearing())}, headers); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}

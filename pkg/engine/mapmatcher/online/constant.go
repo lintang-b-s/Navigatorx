@@ -7,3 +7,8 @@ const (
 func convertKilometerToMeter(x float64) float64 {
 	return x * 1000
 }
+
+
+func convertMeterToKilometer(x float64) float64 {
+	return x / 1000
+}

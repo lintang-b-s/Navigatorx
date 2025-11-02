@@ -20,5 +20,5 @@ type SpatialIndex interface {
 
 type MapMatcherEngine interface {
 	OnlineMapMatch(gps *datastructure.GPSPoint, k int,
-		candidates []*online.Candidate, speedMeanK, speedStdK float64) (*datastructure.MatchedGPSPoint, []*online.Candidate, float64, float64)
+		candidates []*online.Candidate, speedMeanK, speedStdK, lastBearing float64) (*datastructure.MatchedGPSPoint, []*online.Candidate, float64, float64)
 }

@@ -19,6 +19,6 @@ func NewMapMatcherService(log *zap.Logger, engine MapMatcherEngine) *MapMatcherS
 }
 
 func (ms *MapMatcherService) OnlineMapMatch(gps *datastructure.GPSPoint, k int,
-	candidates []*online.Candidate, speedMeanK, speedStdK float64) (*datastructure.MatchedGPSPoint, []*online.Candidate, float64, float64) {
-	return ms.engine.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK)
+	candidates []*online.Candidate, speedMeanK, speedStdK, lastBearing float64) (*datastructure.MatchedGPSPoint, []*online.Candidate, float64, float64) {
+	return ms.engine.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
 }
