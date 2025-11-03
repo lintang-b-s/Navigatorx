@@ -22,7 +22,8 @@ func (li *LevelInfo) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 	}
 
 	for l := len(li.offset) - 1; l > 0; l-- {
-		if diff>>Pv(li.offset[l-1]) > 0 {
+		diffInLevel := diff >> Pv(li.offset[l-1])
+		if diffInLevel > 0 {
 			return uint8(l)
 		}
 	}

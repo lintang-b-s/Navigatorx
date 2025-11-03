@@ -31,10 +31,12 @@ type OnlineMapMatchMHT struct {
 	accelerationStd         float64
 	lp                      float64 // L_p
 	lc                      float64 // L_c
+	N                       *datastructure.SparseMatrix[int]
 }
 
 func NewOnlineMapMatchMHT(graph *datastructure.Graph, rt *spatialindex.Rtree, initialSpeedMean, initialSpeedStd float64,
-	posteriorThresold, gpsStd, defaultSamplingInterval, lp, lc, accelerationStd float64) *OnlineMapMatchMHT {
+	posteriorThresold, gpsStd, defaultSamplingInterval, lp, lc, accelerationStd float64,
+	N *datastructure.SparseMatrix[int]) *OnlineMapMatchMHT {
 	return &OnlineMapMatchMHT{
 		graph:                   graph,
 		rt:                      rt,
@@ -46,6 +48,7 @@ func NewOnlineMapMatchMHT(graph *datastructure.Graph, rt *spatialindex.Rtree, in
 		lp:                      lp,
 		accelerationStd:         accelerationStd,
 		lc:                      lc,
+		N:                       N,
 	}
 }
 
@@ -259,7 +262,17 @@ func (om *OnlineMapMatchMHT) kalmanFilter(speedMeanKprev, speedStdKprev, gpsSpee
 }
 
 func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo datastructure.Index, nj int) float64 {
-	return 1.0 / float64(nj)
+	branch := make([]datastructure.Index, 0, 4)
+	e := om.graph.GetOutEdge(eFrom)
+	head := e.GetHead()
+	om.graph.ForOutEdgesOfWithId(head, func(e *datastructure.OutEdge, id datastructure.Index) {
+		branch = append(branch, e.GetEdgeId())
+	})
+	sumNej := 0.0
+	for _, j := range branch {
+		sumNej += float64(om.N.Get(int(eFrom), int(j)))
+	}
+	return (1.0 + float64(om.N.Get(int(eFrom), int(eTo)))) / (sumNej + float64(nj))
 }
 
 func (om *OnlineMapMatchMHT) computeHProb(tau []datastructure.Index, speedMean, speedStd, deltaTime float64) float64 {

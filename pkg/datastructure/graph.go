@@ -406,14 +406,14 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 	return len(g.cellNumbers)
 }
 
-func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail, entryOffset Index, percentage float64, idx Index)) {
+func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
 	for idx, e := range g.outEdges {
 		percentage := float64(idx) / float64(len(g.outEdges)) * 100
 		tail := g.GetTailOfOutedge(Index(idx))
 
-		entryOffset := g.GetVertex(e.head).GetFirstIn() + Index(e.GetEntryPoint())
+		entryId := g.GetVertex(e.head).GetFirstIn() + Index(e.GetEntryPoint())
 
-		handle(e, g.GetExitOrder(tail, Index(idx)), e.head, tail, entryOffset, percentage, Index(idx))
+		handle(e, g.GetExitOrder(tail, Index(idx)), e.head, tail, entryId, percentage, Index(idx))
 	}
 }
 

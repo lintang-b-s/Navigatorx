@@ -3,7 +3,6 @@ package preprocesser
 import (
 	"math"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -238,19 +237,18 @@ func (p *Preprocessor) SortByCellNumber() {
 
 }
 
-// RunKosaraju. runs kosaraju's algorithm to find strongly connected components (SCCs) in the graph considering turn-restrictions of road networks.
+// RunKosaraju. runs kosaraju's algorithm to find strongly connected components (SCCs)
 func (p *Preprocessor) RunKosaraju() {
-	m := datastructure.Index(p.graph.NumberOfEdges())
-	components := make([][]datastructure.Index, 0, 10) // k component, with each component has arbritrary number of edges
+	n := datastructure.Index(p.graph.NumberOfVertices())
+	components := make([][]datastructure.Index, 0, 10) // k component, with each component has arbritrary number of nodes
 
-	// remember this project use turn-based/edge-based graph
-	// so the vertex in this graph is actually an edge in node-based graph
-	// the index of inEdge is the same as the index of outEdge
+	//  this project use turn-based graph
 
-	order := make([]datastructure.Index, 0, m)
-	visited := make([]bool, m)
+	order := make([]datastructure.Index, 0, n)
+	visited := make([]bool, n)
 	timeCostFunction := costfunction.NewTimeCostFunction()
-	for v := datastructure.Index(0); v < m; v++ {
+	for v := datastructure.Index(0); v < n; v++ {
+		// v is index of vertice id
 		if !visited[v] {
 			p.dfs(datastructure.Index(v), &order, visited, false, timeCostFunction)
 		}
@@ -259,8 +257,8 @@ func (p *Preprocessor) RunKosaraju() {
 	order = util.ReverseG[datastructure.Index](order)
 
 	// reset visited
-	visited = make([]bool, m)
-	roots := make([]datastructure.Index, m)
+	visited = make([]bool, n)
+	roots := make([]datastructure.Index, n)
 
 	for _, v := range order {
 		if !visited[v] {
@@ -279,7 +277,7 @@ func (p *Preprocessor) RunKosaraju() {
 			}
 		}
 	}
-	sccs := make([]datastructure.Index, m)
+	sccs := make([]datastructure.Index, n)
 
 	for i, component := range components {
 		for _, v := range component {
@@ -288,13 +286,11 @@ func (p *Preprocessor) RunKosaraju() {
 	}
 	p.graph.SetSCCs(sccs)
 
-	condAdj := make([][]datastructure.Index, m)
-	for v := datastructure.Index(0); v < m; v++ {
-		head := p.graph.GetHeadOfInedge(v)
-		p.graph.ForOutEdgesOf(head, v-p.graph.GetEntryOffset(head), func(e *datastructure.OutEdge, exitPoint datastructure.Index, turnType pkg.TurnType) {
-			eEntryPoint := datastructure.Index(e.GetEntryPoint()) + p.graph.GetInEdgeCellOffset(e.GetHead())
-			if roots[eEntryPoint] != roots[v] {
-				condAdj[roots[v]] = append(condAdj[roots[v]], roots[eEntryPoint])
+	condAdj := make([][]datastructure.Index, n)
+	for v := datastructure.Index(0); v < n; v++ {
+		p.graph.ForOutEdgesOfWithId(v, func(e *datastructure.OutEdge, id datastructure.Index) {
+			if roots[e.GetHead()] != roots[v] {
+				condAdj[roots[v]] = append(condAdj[roots[v]], roots[e.GetHead()])
 			}
 		})
 	}
@@ -317,32 +313,17 @@ func (p *Preprocessor) dfs(v datastructure.Index, output *[]datastructure.Index,
 	visited[v] = true
 
 	if !reversed {
-		// for forward dfs, first we find the head of the outdge
-		// then we traverse outedges of the head
-		// in here, v is entryPoint
-		head := p.graph.GetHeadOfInedge(v)
-		p.graph.ForOutEdgesOf(head, v-p.graph.GetEntryOffset(head), func(e *datastructure.OutEdge, exitPoint datastructure.Index, turnType pkg.TurnType) {
-			turnCost := costFunction.GetTurnCost(turnType)
-			if turnCost == pkg.INF_WEIGHT {
-				return
-			}
-			eEntryPoint := datastructure.Index(e.GetEntryPoint()) + p.graph.GetInEdgeCellOffset(e.GetHead())
-			if !visited[eEntryPoint] {
-				p.dfs(eEntryPoint, output, visited, reversed, costFunction)
+
+		p.graph.ForOutEdgesOfWithId(v, func(e *datastructure.OutEdge, id datastructure.Index) {
+			if !visited[e.GetHead()] {
+				p.dfs(e.GetHead(), output, visited, reversed, costFunction)
 			}
 		})
 	} else {
-		// for reversed dfs, first we find the tail of the edge
-		// then we traverse inedges of the tail
-		tail := p.graph.GetTailOfOutedge(v)
-		p.graph.ForInEdgesOf(tail, v-p.graph.GetExitOffset(tail), func(e *datastructure.InEdge, entryPoint datastructure.Index, turnType pkg.TurnType) {
-			turnCost := costFunction.GetTurnCost(turnType)
-			if turnCost == pkg.INF_WEIGHT {
-				return
-			}
-			eExitPoint := datastructure.Index(e.GetExitPoint()) + p.graph.GetOutEdgeCellOffset(e.GetTail())
-			if !visited[eExitPoint] {
-				p.dfs(eExitPoint, output, visited, reversed, costFunction)
+
+		p.graph.ForInEdgesOfWithId(v, func(e *datastructure.InEdge, id datastructure.Index) {
+			if !visited[e.GetTail()] {
+				p.dfs(e.GetTail(), output, visited, reversed, costFunction)
 			}
 		})
 	}

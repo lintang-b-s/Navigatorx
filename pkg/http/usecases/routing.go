@@ -39,7 +39,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 }
 
 func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []datastructure.DrivingDirection, bool, error) {
-	as, at, err := rs.snapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon)
+	as, at, err := rs.SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon)
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
 	if err != nil {
@@ -59,7 +59,7 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 }
 
 func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLon float64, k int) ([]*routing.AlternativeRoute, bool, error) {
-	as, at, err := rs.snapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon)
+	as, at, err := rs.SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon)
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
 	if err != nil {
@@ -80,4 +80,8 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 		alt.SetDrivingDirections(drivingDirection)
 	}
 	return alternatives, true, nil
+}
+
+func (rs *RoutingService ) GetEngine() RoutingEngine {
+	return rs.engine
 }

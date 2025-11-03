@@ -9,7 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 )
 
-func (rs *RoutingService) snapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon float64) (datastructure.Index,
+func (rs *RoutingService) SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon float64) (datastructure.Index,
 	datastructure.Index, error) {
 	// find nearest orig edge (inEdgeOffset) to origLat, origLon
 	origCandidates := rs.spatialIndex.SearchWithinRadius(origLat, origLon, rs.searchRadius)
@@ -28,11 +28,11 @@ func (rs *RoutingService) snapOrigDestToNearbyEdges(origLat, origLon, dstLat, ds
 	origDist := make([]float64, len(origCandidates))
 	dstDist := make([]float64, len(dstCandidates))
 	for i, c := range origCandidates {
-		cLat, cLon := rs.engine.GetVertexCoordinatesFromOutEdge(c.GetExitOffset())
+		cLat, cLon := rs.engine.GetVertexCoordinatesFromOutEdge(c.GetExitId())
 		origDist[i] = geo.CalculateHaversineDistance(origLat, origLon, cLat, cLon)
 	}
 	for i, c := range dstCandidates {
-		cLat, cLon := rs.engine.GetVertexCoordinatesFromInEdge(c.GetEntryOffset())
+		cLat, cLon := rs.engine.GetVertexCoordinatesFromInEdge(c.GetEntryId())
 		dstDist[i] = geo.CalculateHaversineDistance(dstLat, dstLon, cLat, cLon)
 	}
 
@@ -64,13 +64,13 @@ func (rs *RoutingService) snapOrigDestToNearbyEdges(origLat, origLon, dstLat, ds
 		sortedDest[i] = dstCandidates[newId]
 	}
 
-	// for _, o := range origCandidates {
-	// 	for _, d := range dstCandidates {
-	// 		if rs.engine.VerticeUandVAreConnected(o.GetExitOffset(), d.GetEntryOffset()) {
-	// 			return o.GetExitOffset(), d.GetEntryOffset(), nil
-	// 		}
-	// 	}
-	// }
+	for _, o := range sortedOrig {
+		for _, d := range sortedDest {
+			if rs.engine.VerticeUandVAreConnected(o.GetTailId(), d.GetHeadId()) {
+				return o.GetExitId(), d.GetEntryId(), nil
+			}
+		}
+	}
 
-	return sortedOrig[0].GetExitOffset(), sortedDest[0].GetEntryOffset(), nil
+	return sortedOrig[0].GetExitId(), sortedDest[0].GetEntryId(), nil
 }

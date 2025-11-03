@@ -32,10 +32,9 @@ func NewPathUnpacker(graph *datastructure.Graph, overlayGraph *datastructure.Ove
 /*
 unpackPath. unpack a level-i shortcut (v, w) by running Dijkstra between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
 */
-func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCellNumber datastructure.Pv) ([]datastructure.Coordinate, []datastructure.OutEdge, float64) {
+func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCellNumber datastructure.Pv, unpackOverlayOffset datastructure.Index) ([]datastructure.Coordinate, []datastructure.OutEdge, float64) {
 	unpackedPath := make([]datastructure.Coordinate, 0)
 	unpackedEdgePath := make([]datastructure.OutEdge, 0, 50)
-	unpackOverlayOffset := datastructure.Index(pu.graph.NumberOfEdges()) * 5
 	totalDistance := 0.0
 	for i := 0; i < len(packedPath)-1; {
 		cur := packedPath[i]
@@ -57,6 +56,11 @@ func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCe
 
 			entryCellNumber := pu.overlayGraph.GetVertex(entryVertex).GetCellNumber()
 			queryLevel := pu.overlayGraph.GetQueryLevel(sCellNumber, tCellNumber, entryCellNumber)
+
+			maxBoundaryVeticeLevel := pu.overlayGraph.GetVertex(entryVertex).GetEntryPointSize()
+			if maxBoundaryVeticeLevel < queryLevel {
+				queryLevel = maxBoundaryVeticeLevel
+			}
 
 			exitVertex := packedPath[i+1].getEdge() - unpackOverlayOffset
 

@@ -30,7 +30,6 @@ func (g *Graph) WriteGraph(filename string) error {
 	defer bz.Close()
 
 	w := bufio.NewWriter(bz)
-	defer w.Flush()
 
 	fmt.Fprintf(w, "%d %d %d %d\n",
 		len(g.vertices), g.NumberOfEdges(),
@@ -175,6 +174,9 @@ func (g *Graph) WriteGraph(filename string) error {
 			if j < len(g.sccCondensationAdj[i])-1 {
 				fmt.Fprintf(w, " ")
 			}
+		}
+		if len(g.sccCondensationAdj[i]) == 0 {
+			fmt.Fprintf(w, "empty")
 		}
 		fmt.Fprintf(w, "\n")
 	}
@@ -400,10 +402,10 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, err
 	}
 	tokens = fields(line)
-	if len(tokens) != int(numEdges) {
+	if len(tokens) != int(numVertices-1) {
 		return nil, fmt.Errorf("expected %d vertices, got %d", numVertices, len(tokens))
 	}
-	sccs := make([]Index, numEdges)
+	sccs := make([]Index, numVertices-1)
 	for i, token := range tokens {
 		scc, err := parseIndex(token)
 		if err != nil {
@@ -608,12 +610,14 @@ func ReadGraph(filename string) (*Graph, error) {
 			continue
 		}
 		adj := make([]Index, 0)
-		for _, token := range tokens {
-			scc, err := parseIndex(token)
-			if err != nil {
-				return nil, err
+		if tokens[0] != "empty" {
+			for _, token := range tokens {
+				scc, err := parseIndex(token)
+				if err != nil {
+					return nil, err
+				}
+				adj = append(adj, scc)
 			}
-			adj = append(adj, scc)
 		}
 		sccCondensationAdj = append(sccCondensationAdj, adj)
 	}

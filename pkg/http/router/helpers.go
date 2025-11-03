@@ -18,10 +18,6 @@ func (api *API) writeJSON(w http.ResponseWriter, status int, data envelope,
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
-
 	js = append(js, '\n')
 	for key, value := range headers {
 		w.Header()[key] = value

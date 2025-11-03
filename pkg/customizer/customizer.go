@@ -143,7 +143,8 @@ func (c *Customizer) buildLowestLevel(
 						return
 					}
 
-					if c.graph.GetCellNumber(v) == cellNumber {
+					vTruncatedCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
+					if vTruncatedCellNumber == cellNumber {
 						vEntryPoint := c.graph.GetEntryOffset(v) + datastructure.Index(outArc.GetEntryPoint()) - forwardCellOffset
 
 						if _, ok := travelTime[vEntryPoint]; !ok || newETA < travelTime[vEntryPoint] {
@@ -167,13 +168,14 @@ func (c *Customizer) buildLowestLevel(
 
 			// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 			for j := datastructure.Index(0); j < cell.GetNumExitPoints(); j++ {
-				exitPoint := c.overlayGraph.GetExitPoint(cell, j)
-				_, exists := overlayTravelTime[exitPoint]
+				exitId := c.overlayGraph.GetExitId(cell, j)
+				_, exists := overlayTravelTime[exitId]
+
 				c.ow.Lock()
 				if !exists {
 					c.ow.SetWeight(int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j), pkg.INF_WEIGHT)
 				} else {
-					c.ow.SetWeight(int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j), overlayTravelTime[exitPoint])
+					c.ow.SetWeight(int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j), overlayTravelTime[exitId])
 				}
 				c.ow.Unlock()
 			}
@@ -262,13 +264,14 @@ func (c *Customizer) buildLevel(
 
 			// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 			for j := datastructure.Index(0); j < cell.GetNumExitPoints(); j++ {
-				exitPoint := c.overlayGraph.GetExitPoint(cell, j)
-				_, exists := travelTime[exitPoint]
+				exitId := c.overlayGraph.GetExitId(cell, j)
+
+				_, exists := travelTime[exitId]
 				c.ow.Lock()
 				if !exists {
 					c.ow.SetWeight(int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j), pkg.INF_WEIGHT)
 				} else {
-					c.ow.SetWeight(int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j), travelTime[exitPoint])
+					c.ow.SetWeight(int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j), travelTime[exitId])
 				}
 				c.ow.Unlock()
 			}
@@ -277,6 +280,7 @@ func (c *Customizer) buildLevel(
 	}
 
 	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
+
 	workers := concurrent.NewWorkerPool[customizerCell, any](20, len(cellMapInLevel))
 
 	for pv, cell := range cellMapInLevel {

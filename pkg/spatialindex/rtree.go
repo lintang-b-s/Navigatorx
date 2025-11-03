@@ -19,34 +19,46 @@ type Rtree struct {
 // at = exitOffset of target
 // so we need to know nearby as & at before run the query
 type ArcEndpoint struct {
-	entryOffset datastructure.Index
-	exitOffset  datastructure.Index
-	id          datastructure.Index
-	length      float64 // length of this arc
+	entryId datastructure.Index
+	exitId  datastructure.Index
+	tailId  datastructure.Index
+	headId  datastructure.Index
+	id      datastructure.Index
+	length  float64 // length of this arc
 }
 
-func (ae ArcEndpoint) GetExitOffset() datastructure.Index {
-	return ae.exitOffset
+func (ae ArcEndpoint) GetExitId() datastructure.Index {
+	return ae.exitId
 }
 
-func (ae ArcEndpoint) GetEntryOffset() datastructure.Index {
-	return ae.entryOffset
+func (ae ArcEndpoint) GetEntryId() datastructure.Index {
+	return ae.entryId
 }
 
 func (ae ArcEndpoint) GetId() datastructure.Index {
 	return ae.id
 }
 
+func (ae ArcEndpoint) GetTailId() datastructure.Index {
+	return ae.tailId
+}
+
+func (ae ArcEndpoint) GetHeadId() datastructure.Index {
+	return ae.headId
+}
+
 func (ae ArcEndpoint) GetLength() float64 {
 	return ae.length
 }
 
-func newArcEndpoint(exitOffset, entryOffset, id datastructure.Index, length float64) ArcEndpoint {
+func newArcEndpoint(exitId, entryId, id, tailId, headId datastructure.Index, length float64) ArcEndpoint {
 	return ArcEndpoint{
-		exitOffset:  exitOffset,
-		entryOffset: entryOffset,
-		id:          id,
-		length:      length,
+		exitId:  exitId,
+		entryId: entryId,
+		id:      id,
+		length:  length,
+		tailId:  tailId,
+		headId:  headId,
 	}
 }
 
@@ -60,7 +72,7 @@ func NewRtree() *Rtree {
 // Build. build r-tree, with each leaf having bounding box with radius boundingBoxRadius (in km)
 func (rt *Rtree) Build(graph *datastructure.Graph, boundingBoxRadius float64, log *zap.Logger) {
 	log.Info("Building R-tree spatial index...")
-	graph.ForOutEdges(func(e *datastructure.OutEdge, exitPoint, head, tail, entryOffset datastructure.Index,
+	graph.ForOutEdges(func(e *datastructure.OutEdge, exitPoint, head, tail, entryId datastructure.Index,
 		percentage float64, id datastructure.Index) {
 		if math.Mod(percentage, 10) < 0.0001 {
 			log.Info("Building R-tree spatial index...", zap.Float64("progress", percentage))
@@ -81,10 +93,10 @@ func (rt *Rtree) Build(graph *datastructure.Graph, boundingBoxRadius float64, lo
 		maxLat := math.Max(upperFromLat, upperToLat)
 		maxLon := math.Max(upperFromLon, upperToLon)
 
-		exitOffset := exitPoint + graph.GetExitOffset(tail)
+		exitId := exitPoint + graph.GetExitOffset(tail)
 
 		rt.tr.Insert([2]float64{minLon, minLat}, [2]float64{maxLon, maxLat},
-			newArcEndpoint(exitOffset, entryOffset, id, e.GetLength()))
+			newArcEndpoint(exitId, entryId, id, tail, e.GetHead(), e.GetLength()))
 	})
 
 	log.Info("R-tree spatial index built.")
