@@ -11,7 +11,7 @@ import (
 
 const TimeoutMessage = `{"error":"context deadline exceeded"}`
 
-func New(ctx context.Context, h http.Handler, config Config) *http.Server {
+func New(ctx context.Context, h http.Handler, config Config, websocket bool ) *http.Server {
 	viper.SetDefault("HTTP_SERVER_READ_TIMEOUT", "10s")
 	viper.SetDefault("HTTP_SERVER_WRITE_TIMEOUT", "10s")
 	viper.SetDefault("HTTP_SERVER_IDLE_TIMEOUT", "30s")
@@ -19,8 +19,12 @@ func New(ctx context.Context, h http.Handler, config Config) *http.Server {
 
 	handler := http.TimeoutHandler(h, config.Timeout, fmt.Sprintf(`{"error": %q}`, TimeoutMessage))
 
+	port := config.Port 
+	if websocket {
+		port = config.WebsocketPort
+	}
 	server := &http.Server{
-		Addr:    fmt.Sprintf(":%d", config.Port),
+		Addr:    fmt.Sprintf(":%d", port),
 		Handler: handler,
 		BaseContext: func(_ net.Listener) context.Context {
 			return ctx

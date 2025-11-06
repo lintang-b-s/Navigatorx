@@ -118,7 +118,6 @@ https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
 
               let mapMatchRequest = null;
               let deadReckoning = false;
-              console.log("currentTime: ", currentTime);
 
               if (point) {
                 const t = new Date(point.datetime_utc);
@@ -156,14 +155,8 @@ https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
                 };
 
                 prev = point;
-                prev = point;
                 prevTime = t;
               } else {
-                console.log(
-                  "dead reckoning...., prev coord: ",
-                  prev.Latitude,
-                  prev.Longitude
-                );
                 deadReckoning = true;
 
                 mapMatchRequest = {

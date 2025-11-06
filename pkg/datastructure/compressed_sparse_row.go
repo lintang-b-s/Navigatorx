@@ -164,7 +164,7 @@ func (sm *SparseMatrix[T]) WriteToFile(filename string) error {
 
 func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filename string,
 	zero T, eq func(a, b T) bool) (*SparseMatrix[T], error) {
-
+	
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err

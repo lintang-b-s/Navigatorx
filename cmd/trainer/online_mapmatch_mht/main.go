@@ -52,12 +52,13 @@ func main() {
 			0, func(a, b int) bool { return a == b })
 	}
 
+
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
 		0.8, 0.25, 0.25, 1.3)
 
 	boundingBox := graph.GetBoundingBox()
-	for i := 0; i < 1e5; i++ {
-		if (i+1)%5e3 == 0 {
+	for i := 0; i < 5e5; i++ {
+		if (i+1)%1e4 == 0 {
 			fmt.Printf("completed query: %v\n", i+1)
 			N.WriteToFile("./data/omm_transition_history_id.mm")
 		}

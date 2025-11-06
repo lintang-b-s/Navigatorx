@@ -67,6 +67,26 @@ func (p *Preprocessor) BuildCellNumber() {
 	p.graph.SetCellNumbers(cellNumbers)
 }
 
+/*
+To improve the spatial locality of process memory, group vertices and edges such that vertices with the same cell number are adjacent to each other in memory layout of the process.
+
+The Linux Programming interface page 118-120:
+
+Spatial locality is the tendency of a program to reference memory addresses
+that are near those that were recently accessed (because of sequential process-
+ing of instructions, and, sometimes, sequential processing of data structures).
+A virtual memory scheme splits the memory used by each program into small,
+fixed-size units called pages. Correspondingly, RAM is divided into a series of page
+frames of the same size. At any one time, only some of the pages of a program need
+to be resident in physical memory page frames; these pages form the so-called
+resident set. Copies of the unused pages of a program are maintained in the swap
+area—a reserved area of disk space used to supplement the computer’s RAM—and
+loaded into physical memory only as required. When a process references a page
+that is not currently resident in physical memory, a page fault occurs, at which point
+the kernel suspends execution of the process while the page is loaded from disk
+into memory.
+so if we improve spatial locality -> number of page faults is minimized
+*/
 func (p *Preprocessor) SortByCellNumber() {
 	cellVertices := make([][]struct {
 		vertex        *datastructure.Vertex
