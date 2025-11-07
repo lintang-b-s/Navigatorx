@@ -202,6 +202,12 @@ func (om *OnlineMapMatchMHT) filterLog(gps *datastructure.GPSPoint, candidates [
 			maxWeight = cand.Weight()
 		}
 	}
+	if matchedSegment == nil {
+		gpsPoint := datastructure.NewGPSPoint(gps.Lat(), gps.Lon(), gps.Time(), gps.Speed(), gps.DeltaTime(),
+			gps.GetDeadReckoning())
+		invalidMatchedCoord := datastructure.NewCoordinate(INVALID_LAT, INVALID_LON)
+		matchedSegment = datastructure.NewMatchedGPSPoint(gpsPoint, INVALID_EDGE_ID, invalidMatchedCoord, 0.0)
+	}
 
 	return matchedSegment, filteredCands, om.needToReset(gps, matchedSegment)
 }
