@@ -199,6 +199,8 @@ func (api *API) handle(conn net.Conn) {
 				channel will return 0 (end of file) only after all
 				outstanding data in the channel has been consumed.
 			*/
+			api.log.Error("user disconnected from websocket server")
+
 			api.poller.Stop(desc)
 			api.hub.Remove(user)
 			return

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -19,8 +20,9 @@ import (
 )
 
 type User struct {
-	io   sync.Mutex
-	conn io.ReadWriteCloser
+	io         sync.Mutex
+	conn       io.ReadWriteCloser
+	lastActive time.Time
 
 	id  uint
 	hub *Hub
@@ -35,6 +37,7 @@ func (u *User) readRequest() (*mapMatchRequest, error) {
 		return nil, err
 	}
 	if h.OpCode.IsControl() {
+		// handle OpPing, OpPong, OpClose
 		return nil, wsutil.ControlFrameHandler(u.conn, ws.StateServerSide)(h, r)
 	}
 
@@ -50,6 +53,7 @@ func (u *User) OnlineMapMatch() error {
 	req, err := u.readRequest()
 	if err != nil {
 		u.conn.Close()
+		u.hub.Remove(u)
 		return err
 	}
 
@@ -140,6 +144,7 @@ func (h *Hub) Register(conn net.Conn) *User {
 
 func (h *Hub) Remove(user *User) {
 	h.mu.Lock()
+	defer h.mu.Unlock()
 	if _, oki := h.ns[user.id]; !oki {
 		return
 	}
@@ -154,7 +159,6 @@ func (h *Hub) Remove(user *User) {
 	copy(newUs[i:], h.us[i+1:])
 	h.us = newUs
 
-	h.mu.Unlock()
 }
 
 func (h *Hub) RemoveAllUser() {
