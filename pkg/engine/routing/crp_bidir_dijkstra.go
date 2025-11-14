@@ -3,6 +3,7 @@ package routing
 import (
 	"math"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -15,16 +16,18 @@ type CRPRoutingEngine struct {
 	overlayGraph *datastructure.OverlayGraph
 	metrics      *metrics.Metric
 	logger       *zap.Logger
+	puCache      *lru.Cache[PUCacheKey, []datastructure.Index]
 }
 
 func NewCRPRoutingEngine(graph *datastructure.Graph,
 	overlayGraph *datastructure.OverlayGraph, metrics *metrics.Metric,
-	logger *zap.Logger) *CRPRoutingEngine {
+	logger *zap.Logger, puCache *lru.Cache[PUCacheKey, []datastructure.Index]) *CRPRoutingEngine {
 	return &CRPRoutingEngine{
 		graph:        graph,
 		metrics:      metrics,
 		overlayGraph: overlayGraph,
 		logger:       logger,
+		puCache:      puCache,
 	}
 }
 
@@ -42,8 +45,10 @@ type CRPBidirectionalSearch struct {
 	forwardMid         vertexEdgePair
 	backwardMid        vertexEdgePair
 
-	forwardInfo  map[datastructure.Index]VertexInfo
-	backwardInfo map[datastructure.Index]VertexInfo
+	forwardInfo   map[datastructure.Index]VertexInfo
+	backwardInfo  map[datastructure.Index]VertexInfo
+	stallingEntry map[datastructure.Index]float64
+	stallingExit  map[datastructure.Index]float64
 
 	forwardPq         *datastructure.MinHeap[datastructure.CRPQueryKey]
 	backwardPq        *datastructure.MinHeap[datastructure.CRPQueryKey]
@@ -75,6 +80,8 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CR
 		backwardMid:       newVertexEdgePair(0, 0, true),
 		viaVertices:       make([]viaVertex, 0),
 		upperBound:        upperBound,
+		stallingEntry: make(map[datastructure.Index]float64),
+		stallingExit: make(map[datastructure.Index]float64),
 	}
 }
 
@@ -228,7 +235,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		idPath = idPath[1:]
 	}
 
-	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics)
+	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics, bs.engine.puCache)
 	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, bs.sCellNumber, bs.tCellNumber,
 		datastructure.Index(unpackOverlayOffset))
 
@@ -275,8 +282,28 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 		uId := uItem.GetNode()
 		uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
 
+		uEntryPoint := bs.adjustForward(uId, uEntryId)
+
+		// stalling
+		uInDeg := bs.engine.graph.GetInDegree(uId)
+		otherUEntryId := bs.offsetForward(uId, bs.engine.graph.GetEntryOffset(uId))
+
+		for j := datastructure.Index(0); j < uInDeg; j++ {
+
+			stallingOffset := uInDeg*uEntryPoint + j
+			bui := math.Max(0, bs.forwardInfo[uEntryId].GetTravelTime()+
+				bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset))
+
+			if _, exists := bs.stallingEntry[otherUEntryId]; !exists {
+				bs.stallingEntry[otherUEntryId] = bui
+			} else {
+				bs.stallingEntry[otherUEntryId] = math.Min(bs.stallingEntry[otherUEntryId], bui)
+			}
+			otherUEntryId++
+		}
+
 		// traverse outEdges of u
-		bs.engine.graph.ForOutEdgesOf(uId, bs.adjustForward(uId, uEntryId), func(outArc *datastructure.OutEdge, exitPoint datastructure.Index, turnType pkg.TurnType) {
+		bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *datastructure.OutEdge, exitPoint datastructure.Index, turnType pkg.TurnType) {
 			vId := outArc.GetHead()
 
 			// get query level of v l_st(v)
@@ -303,8 +330,13 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 				vEntryId = bs.offsetForward(vId, vEntryId)
 
 				_, vAlreadyVisited := bs.forwardInfo[vEntryId]
-				if newTravelTime >= bs.forwardInfo[vEntryId].GetTravelTime() && vAlreadyVisited {
+				if vAlreadyVisited && newTravelTime >= bs.forwardInfo[vEntryId].GetTravelTime() {
 					// newTravelTime is not better, do nothing
+					return
+				}
+
+				if bvi, exists := bs.stallingEntry[vEntryId]; exists && newTravelTime >= bvi {
+					// stalled
 					return
 				}
 
@@ -416,7 +448,27 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 		uId := uItem.GetNode()
 		uExitId := uItem.GetEntryExitPoint() // index of outEdge that have endpoint from vertex uId
 
-		bs.engine.graph.ForInEdgesOf(uId, bs.adjustBackward(uId, uExitId), func(inArc *datastructure.InEdge, entryPoint datastructure.Index, turnType pkg.TurnType) {
+		eExitPoint := bs.adjustBackward(uId, uExitId)
+
+		// stalling
+		uOutDeg := bs.engine.graph.GetOutDegree(uId)
+		otherUExitId := bs.offsetBackward(uId, bs.engine.graph.GetExitOffset(uId))
+
+		for j := datastructure.Index(0); j < uOutDeg; j++ {
+
+			stallingOffset := uOutDeg*eExitPoint + j
+			bui := math.Max(0, bs.backwardInfo[uExitId].GetTravelTime()+
+				bs.engine.metrics.GetExitStallingTableCost(uId, stallingOffset))
+
+			if _, exists := bs.stallingExit[otherUExitId]; !exists {
+				bs.stallingExit[otherUExitId] = bui
+			} else {
+				bs.stallingExit[otherUExitId] = math.Min(bs.stallingExit[otherUExitId], bui)
+			}
+			otherUExitId++
+		}
+
+		bs.engine.graph.ForInEdgesOf(uId, eExitPoint, func(inArc *datastructure.InEdge, entryPoint datastructure.Index, turnType pkg.TurnType) {
 			vId := inArc.GetTail()
 
 			vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
@@ -442,7 +494,12 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 
 				_, vAlreadyVisited := bs.backwardInfo[vExitId]
 
-				if newTravelTime >= bs.backwardInfo[vExitId].GetTravelTime() && vAlreadyVisited {
+				if vAlreadyVisited && newTravelTime >= bs.backwardInfo[vExitId].GetTravelTime() {
+					return
+				}
+
+				if bvi, exists := bs.stallingExit[vExitId]; exists && newTravelTime >= bvi {
+					// stalled
 					return
 				}
 

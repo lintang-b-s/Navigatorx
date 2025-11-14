@@ -1,6 +1,7 @@
 package engine
 
 import (
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -50,5 +51,8 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		return nil, err
 	}
 
-	return routing.NewCRPRoutingEngine(graph, overlayGraph, metrics, logger), nil
+	// customizable route planning in road networks section 7.2 (path retrieval)
+	puCache, _ := lru.New[routing.PUCacheKey, []datastructure.Index](1 << 20) // 1048576
+
+	return routing.NewCRPRoutingEngine(graph, overlayGraph, metrics, logger, puCache), nil
 }

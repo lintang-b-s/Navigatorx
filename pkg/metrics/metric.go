@@ -62,30 +62,30 @@ func (met *Metric) BuildStallingTables(overlayGraph *datastructure.OverlayGraph,
 			for j := datastructure.Index(0); j < n; j++ {
 				maxDiff := -1.0
 				for k := datastructure.Index(0); k < m; k++ {
-					Tv_ik := graph.GetTurnType(vId, i, k)
-					Tv_jk := graph.GetTurnType(vId, j, k)
-					maxDiff = math.Max(maxDiff, float64(Tv_ik-Tv_jk))
+					Tv_ik := met.GetTurnCost(graph.GetTurnType(vId, i, k))
+					Tv_jk := met.GetTurnCost(graph.GetTurnType(vId, j, k))
+					maxDiff = math.Max(maxDiff, Tv_ik-Tv_jk)
 				}
 
 				entryStallingTable[i*n+j] = maxDiff
 			}
-
-			for i := datastructure.Index(0); i < m; i++ {
-				for j := datastructure.Index(0); j < m; j++ {
-					maxDiff := -1.0
-					for k := datastructure.Index(0); k < n; k++ {
-						Tv_ki := graph.GetTurnType(vId, k, i)
-						Tv_kj := graph.GetTurnType(vId, k, j)
-						maxDiff = math.Max(maxDiff, float64(Tv_ki-Tv_kj))
-					}
-
-					exitStallingTable[i*m+j] = maxDiff
-				}
-			}
-
-			met.entryStallingTables[vId] = entryStallingTable
-			met.exitStallingTables[vId] = exitStallingTable
 		}
+
+		for i := datastructure.Index(0); i < m; i++ {
+			for j := datastructure.Index(0); j < m; j++ {
+				maxDiff := -1.0
+				for k := datastructure.Index(0); k < n; k++ {
+					Tv_ki := met.GetTurnCost(graph.GetTurnType(vId, k, i))
+					Tv_kj := met.GetTurnCost(graph.GetTurnType(vId, k, j))
+					maxDiff = math.Max(maxDiff, Tv_ki-Tv_kj)
+				}
+
+				exitStallingTable[i*m+j] = maxDiff
+			}
+		}
+
+		met.entryStallingTables[vId] = entryStallingTable
+		met.exitStallingTables[vId] = exitStallingTable
 	}
 	return
 }
@@ -96,6 +96,14 @@ func (met *Metric) GetWeights() *datastructure.OverlayWeights {
 
 func (met *Metric) GetWeight(e costfunction.EdgeAttributes) float64 {
 	return met.costFunction.GetWeight(e)
+}
+
+func (met *Metric) GetEntryStallingTableCost(uId datastructure.Index, offset datastructure.Index) float64 {
+	return met.entryStallingTables[uId][offset]
+}
+
+func (met *Metric) GetExitStallingTableCost(uId datastructure.Index, offset datastructure.Index) float64 {
+	return met.exitStallingTables[uId][offset]
 }
 
 func (met *Metric) GetShortcutWeight(offset datastructure.Index) float64 {
