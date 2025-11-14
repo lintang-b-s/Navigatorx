@@ -28,7 +28,7 @@ func NewCRPQueryKey(node Index, entryExitPoint Index) CRPQueryKey {
 }
 
 func NewCRPQueryKeyWithOutEdgeId(node, entryExitPoint, outEdgeId Index) CRPQueryKey {
-	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, outEdgeId:outEdgeId}
+	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, outEdgeId: outEdgeId}
 }
 
 type PriorityQueueNode[T comparable] struct {
@@ -51,61 +51,71 @@ func NewPriorityQueueNode[T comparable](rank float64, item T) PriorityQueueNode[
 // MinHeap binary heap priorityqueue
 type MinHeap[T comparable] struct {
 	heap []PriorityQueueNode[T]
+	d    int
 	pos  map[T]int
 }
 
-func NewMinHeap[T comparable]() *MinHeap[T] {
+func NewBinaryHeap[T comparable]() *MinHeap[T] {
+	return NewdAryHeap[T](2)
+}
+
+func NewFourAryHeap[T comparable]() *MinHeap[T] {
+	return NewdAryHeap[T](4)
+}
+
+func NewdAryHeap[T comparable](d int) *MinHeap[T] {
 	return &MinHeap[T]{
 		heap: make([]PriorityQueueNode[T], 0),
+		d:    d,
 		pos:  make(map[T]int),
 	}
 }
 
 // parent get index dari parent
 func (h *MinHeap[T]) parent(index int) int {
-	return (index - 1) / 2
-}
-
-// leftChild get index dari left child
-func (h *MinHeap[T]) leftChild(index int) int {
-	return 2*index + 1
-}
-
-// rightChild get index dari right child
-func (h *MinHeap[T]) rightChild(index int) int {
-	return 2*index + 2
+	return (index - 1) / h.d
 }
 
 // heapifyUp mempertahankan heap property. check apakah parent dari index lebih besar kalau iya swap, then recursive ke parent.  O(logN) tree height.
 func (h *MinHeap[T]) heapifyUp(index int) {
 	for index != 0 && h.heap[index].rank < h.heap[h.parent(index)].rank {
-		h.heap[index], h.heap[h.parent(index)] = h.heap[h.parent(index)], h.heap[index]
-
-		h.pos[h.heap[index].item] = index
-		h.pos[h.heap[h.parent(index)].item] = h.parent(index)
+		h.Swap(index, h.parent(index))
 		index = h.parent(index)
 	}
 }
 
 // heapifyDown mempertahankan heap property. check apakah nilai salah satu children dari index lebih kecil kalau iya swap, then recursive ke children yang kecil tadi.  O(logN) tree height.
 func (h *MinHeap[T]) heapifyDown(index int) {
-	smallest := index
-	left := h.leftChild(index)
-	right := h.rightChild(index)
 
-	if left < len(h.heap) && h.heap[left].rank < h.heap[smallest].rank {
-		smallest = left
+	leftMostChild := index*h.d + 1
+	if leftMostChild >= len(h.heap) {
+		return
 	}
-	if right < len(h.heap) && h.heap[right].rank < h.heap[smallest].rank {
-		smallest = right
+
+	sentinel := leftMostChild + h.d
+	if sentinel > len(h.heap) {
+		sentinel = len(h.heap)
 	}
-	if smallest != index {
-		h.heap[index], h.heap[smallest] = h.heap[smallest], h.heap[index]
-		h.pos[h.heap[index].item] = index
-		h.pos[h.heap[smallest].item] = smallest
+
+	smallest := leftMostChild
+	for i := leftMostChild + 1; i < sentinel; i++ {
+		if h.heap[i].rank < h.heap[smallest].rank {
+			smallest = i
+		}
+	}
+
+	if h.heap[smallest].rank < h.heap[index].rank {
+		h.Swap(index, smallest)
 
 		h.heapifyDown(smallest)
 	}
+}
+
+func (h *MinHeap[T]) Swap(i, j int) {
+	h.heap[i], h.heap[j] = h.heap[j], h.heap[i]
+	h.pos[h.heap[i].item] = i
+	h.pos[h.heap[j].item] = j
+
 }
 
 // isEmpty check apakah heap kosong
@@ -157,46 +167,31 @@ func (h *MinHeap[T]) ExtractMin() (PriorityQueueNode[T], error) {
 		return PriorityQueueNode[T]{}, errors.New("heap is empty")
 	}
 	root := h.heap[0]
-	h.heap[0] = h.heap[h.Size()-1]
+
+	h.Swap(0, h.Size()-1)
+
 	h.heap = h.heap[:h.Size()-1]
 	h.pos[root.item] = -1
-	h.heapifyDown(0)
+	if len(h.heap) > 0 {
+		h.heapifyDown(0)
+	}
+
 	return root, nil
 }
 
-// deleteNode delete node specific. O(N) linear search.
-func (h *MinHeap[T]) DeleteNode(item PriorityQueueNode[T]) error {
-	index := -1
-	// Find the index of the node to delete
-	for i := 0; i < h.Size(); i++ {
-		if i == h.pos[item.item] {
-			index = i
-			break
-		}
-	}
-	if index == -1 {
-		return errors.New("key not found in the heap")
-	}
-	// Replace the node with the last element
-	h.heap[index] = h.heap[h.Size()-1]
-	h.heap = h.heap[:h.Size()-1]
-	h.pos[item.item] = -1
-	// Restore heap property
-	h.heapifyUp(index)
-	h.heapifyDown(index)
-	return nil
+func (h *MinHeap[T]) getItemPos(item PriorityQueueNode[T]) int {
+	return h.pos[item.item]
 }
 
 // decreaseKey update rank dari item min-heap.   O(logN) heapify.
 func (h *MinHeap[T]) DecreaseKey(item PriorityQueueNode[T]) error {
-	if h.pos[item.item] < 0 || h.pos[item.item] >= h.Size() || item.rank > h.heap[h.pos[item.item]].rank {
+	itemPos := h.getItemPos(item)
+	if itemPos < 0 || itemPos >= h.Size() {
 		return errors.New("invalid index or new value")
 	}
-	h.heap[h.pos[item.item]] = item
-	h.heapifyUp(h.pos[item.item])
-	return nil
-}
 
-func (h *MinHeap[T]) Getitem(item T) PriorityQueueNode[T] {
-	return h.heap[h.pos[item]]
+	h.heap[itemPos] = item
+
+	h.heapifyUp(itemPos)
+	return nil
 }

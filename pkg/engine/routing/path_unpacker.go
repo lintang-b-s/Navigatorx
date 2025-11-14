@@ -24,8 +24,8 @@ func NewPathUnpacker(graph *datastructure.Graph, overlayGraph *datastructure.Ove
 		metrics:      metrics,
 
 		info:      make(map[datastructure.Index]VertexInfo),
-		pq:        datastructure.NewMinHeap[datastructure.CRPQueryKey](),
-		overlayPq: datastructure.NewMinHeap[datastructure.Index](),
+		pq:        datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
+		overlayPq: datastructure.NewFourAryHeap[datastructure.Index](),
 	}
 }
 

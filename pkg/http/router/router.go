@@ -147,11 +147,13 @@ func (api *API) Run(
 		return err
 	case err := <-serverErr:
 		log.Info("HTTP server stopped", zap.Error(err))
+		wsServer.Shutdown(ctx)
 		return err
 
 	case <-ctx.Done():
 		log.Info("Context canceled, shutting down server")
 		_ = srv.Shutdown(context.Background())
+		wsServer.Shutdown(ctx)
 		return ctx.Err()
 	}
 }
