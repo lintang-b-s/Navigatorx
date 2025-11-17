@@ -18,21 +18,16 @@ The reason I want to apply the penalty method to calculate alternative routes is
 */
 
 // FindAlternativeRoutesPenaltyMethod. implement Algorithm CRP-π in paper [1]
-func (ars *AlternativeRouteSearch) FindAlternativeRoutesPenaltyMethod(asId, atId datastructure.Index, k int, dist float64) []*AlternativeRoute {
+func (ars *AlternativeRouteSearch) FindAlternativeRoutesPenaltyMethod(asId, atId datastructure.Index, k int, dist, optTravelTime float64,
+	optEdgePath []datastructure.OutEdge, numSettledNodes int) []*AlternativeRoute {
 
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 	s := ars.engine.graph.GetOutEdge(asId).GetHead()
 	t := ars.engine.graph.GetInEdge(atId).GetTail()
 
 	var (
 		altEdgePath []datastructure.OutEdge
+		found       bool
 	)
-
-	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
-
-	if !found {
-		return []*AlternativeRoute{}
-	}
 
 	altEdgePath = make([]datastructure.OutEdge, len(optEdgePath))
 	copy(altEdgePath, optEdgePath)
@@ -45,13 +40,24 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutesPenaltyMethod(asId, atId
 
 	altTravelTime := optTravelTime
 	epsilon := ars.epsilon
-	if dist <= 10.0 {
-		epsilon = 0.15
-	} else if dist <= 6.0 {
+	maxIter := 1
+	if dist <= 7.0 {
 		epsilon = 0.3
+		maxIter = 2 * k
+	} else if dist <= 10.0 {
+		epsilon = 0.25
+		maxIter = k
 	}
 
-	for altTravelTime <= (1+epsilon)*optTravelTime {
+	maxLevel := 3
+	if numSettledNodes <= 1<<15 {
+		maxLevel = 2
+	} else if numSettledNodes <= 1<<22 {
+		maxLevel = 3
+	}
+
+	iteration := 0
+	for altTravelTime <= (1+epsilon)*optTravelTime && iteration < maxIter {
 		// applyPenalties
 
 		penaltyEdgeCost := ars.applyPenalties(altEdgePath, optTravelTime)
@@ -59,10 +65,10 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutesPenaltyMethod(asId, atId
 		dirtyCells := ars.MarkDirtyCells(altEdgePath, s, t)
 		updatedShortcutWeight := ars.engine.customizer.UpdateDirtyCells(
 			ars.engine.costFunction, dirtyCells,
-			penaltyEdgeCost,
+			penaltyEdgeCost, maxLevel,
 		)
 
-		crpQuery = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
+		crpQuery := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 		crpQuery.SetPenaltyEdgeCost(penaltyEdgeCost)
 		crpQuery.SetShortcutEdgeCost(updatedShortcutWeight)
 
@@ -71,14 +77,15 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutesPenaltyMethod(asId, atId
 			break
 		}
 
-		if ars.isFeasible(newGraphVertexMap, H, altEdgePath, optTravelTime) {
+		if ars.isFeasible(newGraphVertexMap, H, altEdgePath, epsilon, optTravelTime) {
 			ars.updateGraph(newGraphVertexMap, graphEdgeSet, altEdgePath, H)
 		}
+		iteration++
 	}
 
 	s, t = newGraphVertexMap[s], newGraphVertexMap[t]
 
-	return ars.extractAlternatives(s, t, H, 3)
+	return ars.extractAlternatives(s, t, H, 2)
 }
 
 func (ars *AlternativeRouteSearch) extractAlternatives(s, t datastructure.Index, H *datastructure.DynamicGraph, k int,
@@ -146,9 +153,9 @@ func (ars *AlternativeRouteSearch) extractAlternatives(s, t datastructure.Index,
 }
 
 func (ars *AlternativeRouteSearch) isFeasible(graphVertexMap map[datastructure.Index]datastructure.Index, H *datastructure.DynamicGraph, altEdgePath []datastructure.OutEdge,
-	optTravelTime float64) bool {
+	epsilon, optTravelTime float64) bool {
 
-	if ars.haveAdmissibleDetour(graphVertexMap, altEdgePath, optTravelTime, H) {
+	if ars.haveAdmissibleDetour(graphVertexMap, altEdgePath, optTravelTime, epsilon, H) {
 		return true
 	}
 
@@ -165,7 +172,7 @@ are checked against the current alternative graph H for stretch. If one of these
 between vertices a, b is not longer than (1 + \epsilon) · DH(a, b), its containing path is added to the
 alternative graph. All other paths are rejected.
 */
-func (ars *AlternativeRouteSearch) haveAdmissibleDetour(graphVertexMap map[datastructure.Index]datastructure.Index, altEdgepath []datastructure.OutEdge, optTravelTime float64,
+func (ars *AlternativeRouteSearch) haveAdmissibleDetour(graphVertexMap map[datastructure.Index]datastructure.Index, altEdgepath []datastructure.OutEdge, optTravelTime, epsilon float64,
 	H *datastructure.DynamicGraph) bool {
 
 	detourLength := 0.0
@@ -189,7 +196,7 @@ func (ars *AlternativeRouteSearch) haveAdmissibleDetour(graphVertexMap map[datas
 			tail = graphVertexMap[tail]
 			otherPathLength, _, _, _, _, _, _, found := ars.computeBidirectionalDijkstraOnAlternativeGraph(detourStartVid, tail, H)
 
-			if found && detourLength >= ars.delta*optTravelTime && detourLength <= (1+ars.epsilon)*otherPathLength {
+			if found && detourLength >= ars.delta*optTravelTime && detourLength <= (1+epsilon)*otherPathLength {
 				return true
 			}
 

@@ -125,7 +125,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 	}
 
 	if optDist/1000 <= 10.0 { // < 10 km use penalty method (CRP-π)
-		return ars.FindAlternativeRoutesPenaltyMethod(asId, atId, k, optDist/1000)
+		return ars.FindAlternativeRoutesPenaltyMethod(asId, atId, k, optDist/1000, optTravelTime, optEdgePath, 
+			crpQuery.GetNumSettledNodes())
 	}
 
 	viaVertices := make([]datastructure.ViaVertex, len(crpQuery.GetViaVertices()))
@@ -145,11 +146,28 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 	}
 
 	computeAlternatives := func(v datastructure.ViaVertex) any {
+		var (
+			svTravelTime, vtTravelTime float64
+			svDist, vtDist             float64
+			svCoords, vtCoords         []datastructure.Coordinate
+			svEdgePath, vtEdgePath     []datastructure.OutEdge
+			svFound, vtFound           bool
+		)
 
 		crpQuerysv := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
-		svTravelTime, svDist, svCoords, svEdgePath, svFound := crpQuerysv.ShortestPathSearch(asId, v.GetEntryId())
+		wg := sync.WaitGroup{}
+		wg.Add(2)
+		go func() {
+			svTravelTime, svDist, svCoords, svEdgePath, svFound = crpQuerysv.ShortestPathSearch(asId, v.GetEntryId())
+			wg.Done()
+		}()
 		crpQueryvt := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
-		vtTravelTime, vtDist, vtCoords, vtEdgePath, vtFound := crpQueryvt.ShortestPathSearch(v.GetExitId(), atId)
+		go func() {
+			vtTravelTime, vtDist, vtCoords, vtEdgePath, vtFound = crpQueryvt.ShortestPathSearch(v.GetExitId(), atId)
+			wg.Done()
+		}()
+
+		wg.Wait()
 		if !svFound || !vtFound {
 			return nil
 		}
@@ -188,7 +206,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 		return nil
 	}
 
-	workers := concurrent.NewWorkerPool[datastructure.ViaVertex, any](3, len(viaVertices))
+	workers := concurrent.NewWorkerPool[datastructure.ViaVertex, any](4, len(viaVertices))
 
 	for _, v := range viaVertices {
 		workers.AddJob(v)

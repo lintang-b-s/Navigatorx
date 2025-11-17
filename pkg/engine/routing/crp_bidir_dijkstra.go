@@ -75,6 +75,7 @@ type CRPBidirectionalSearch struct {
 	penalty                 bool // wether to use CRP-π or not (Evolution and Evaluation of the Penalty Method for Alternative Graphs, Kobitzsch et al.)
 	penaltyEdgeCost         map[datastructure.PenaltiedEdge]float64
 	penaltyShortcutEdgeCost map[datastructure.Index]float64
+	numSettledNodes         int
 }
 
 func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CRPBidirectionalSearch {
@@ -95,6 +96,7 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CR
 		penalty:                 false,
 		penaltyEdgeCost:         make(map[datastructure.PenaltiedEdge]float64),
 		penaltyShortcutEdgeCost: make(map[datastructure.Index]float64),
+		numSettledNodes:         0,
 	}
 }
 
@@ -165,9 +167,11 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		if minGraph < minOverlay {
 			// search on graph level 1
 			bs.graphSearch(s, t, overlayOffset)
+			bs.numSettledNodes++
 		} else {
 			// search on overlay graph
 			bs.overlayGraphSearch(overlayOffset)
+			bs.numSettledNodes++
 		}
 	}
 
@@ -206,8 +210,6 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 
 		curInfo = bs.forwardInfo[parent.getEdge()]
 	}
-
-	
 
 	idPath = util.ReverseG[vertexEdgePair](idPath)
 
@@ -1016,4 +1018,9 @@ func (bs *CRPBidirectionalSearch) SetShortcutEdgeCost(penaltyShortcutEdgeCost ma
 		bs.penalty = true
 	}
 	bs.penaltyShortcutEdgeCost = penaltyShortcutEdgeCost
+}
+
+
+func (bs *CRPBidirectionalSearch)  GetNumSettledNodes() int {
+	return bs.numSettledNodes
 }

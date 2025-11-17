@@ -16,7 +16,7 @@ ref:
 */
 
 func (c *Customizer) UpdateDirtyCells(costFunction costfunction.CostFunction, dirtyCells []datastructure.DirtyCell,
-	penaltyEdgeCost map[datastructure.PenaltiedEdge]float64) map[datastructure.Index]float64 {
+	penaltyEdgeCost map[datastructure.PenaltiedEdge]float64, maxLevel int) map[datastructure.Index]float64 {
 	dirtyCells = c.removeDirtyCellDuplicates(dirtyCells)
 	updatedShortcutWeightMap := make(map[datastructure.Index]float64)
 
@@ -24,7 +24,7 @@ func (c *Customizer) UpdateDirtyCells(costFunction costfunction.CostFunction, di
 
 	cellUpdater := func(dirtyCellChan <-chan datastructure.DirtyCell) {
 		for dirtyCell := range dirtyCellChan {
-			updateResChan <- c.UpdateCell(costFunction, dirtyCell.GetCellId(), dirtyCell.GetUsedLevel(), penaltyEdgeCost)
+			updateResChan <- c.UpdateCell(costFunction, dirtyCell.GetCellId(), dirtyCell.GetUsedLevel(), penaltyEdgeCost, maxLevel)
 		}
 	}
 
@@ -52,7 +52,7 @@ func (c *Customizer) UpdateDirtyCells(costFunction costfunction.CostFunction, di
 }
 
 func (c *Customizer) UpdateCell(costFunction costfunction.CostFunction, cellId datastructure.Pv, topLevelToUpdate int,
-	penaltyEdgeCost map[datastructure.PenaltiedEdge]float64) map[datastructure.Index]float64 {
+	penaltyEdgeCost map[datastructure.PenaltiedEdge]float64, maxLevel int) map[datastructure.Index]float64 {
 	// update cellId level 1
 	cellLevelOne := c.overlayGraph.GetCell(cellId, 1)
 
@@ -165,7 +165,7 @@ func (c *Customizer) UpdateCell(costFunction costfunction.CostFunction, cellId d
 	levelInfo := c.overlayGraph.GetLevelInfo()
 
 	// update level 2->topLevelToUpdate (1-indexed)
-	for level := 2; level <= util.MinInt(topLevelToUpdate, MAX_LEVEL_TO_UPDATE_PENALTY_METHOD); level++ {
+	for level := 2; level <= util.MinInt(topLevelToUpdate, maxLevel); level++ {
 		cell := c.overlayGraph.GetCell(cellId, level)
 
 		truncatedCellId = c.overlayGraph.TruncateToLevel(cellId, uint8(level))
