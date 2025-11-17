@@ -55,7 +55,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 			RealIP, Heartbeat("healthz"), Logger(api.log), Labels)
 	}
 	mainMwChain := alice.New(mwChain...).Then(wsRouter)
-	srv := http_server.New(ctx, mainMwChain, config, true)
+	srv := http_server.NewWithoutSet(ctx, mainMwChain, config, true)
 	ln, err := net.Listen("tcp", srv.Addr)
 	if err != nil {
 		errChan <- err

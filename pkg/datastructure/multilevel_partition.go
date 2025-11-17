@@ -9,7 +9,7 @@ import (
 
 // MultilevelPartition. store every cell information of each vertex on every level.
 type MultilevelPartition struct {
-	numCells    []uint32
+	numCells    []uint32 // number of cells in the level-index overlay graph
 	pvOffset    []uint8 // offset of each level in the bitpacked cell numbers
 	cellNumbers []Pv
 }

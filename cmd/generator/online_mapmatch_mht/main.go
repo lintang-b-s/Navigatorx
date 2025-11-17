@@ -54,7 +54,7 @@ func main() {
 
 
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
-		0.8, 0.25, 0.25, 1.3)
+		0.8, 0.25, 0.25, 1.3, 0.1)
 
 	boundingBox := graph.GetBoundingBox()
 	for i := 0; i < 5e5; i++ {

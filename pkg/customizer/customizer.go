@@ -130,7 +130,7 @@ func (c *Customizer) buildLowestLevel(
 
 		dijkstra := func(entries <-chan datastructure.Index) {
 			for i := range entries {
-				startOverlayVertexId := c.overlayGraph.GetEntryPoint(cell, i)
+				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 				overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
 				start := overlayVertex.GetOriginalVertex()
 				pq := datastructure.NewFourAryHeap[datastructure.CRPQueryKey]()
@@ -264,7 +264,7 @@ func (c *Customizer) buildLevel(
 			for i := range entries {
 				pq := datastructure.NewFourAryHeap[datastructure.Index]()
 				travelTime := make(map[datastructure.Index]float64)
-				startOverlayVertexId := c.overlayGraph.GetEntryPoint(cell, i)
+				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 
 				travelTime[startOverlayVertexId] = 0
 
@@ -367,4 +367,16 @@ func (c *Customizer) buildLevel(
 			c.ow.SetWeight(w.getIndex(), w.getTravelTime())
 		}
 	}
+}
+
+func (c *Customizer) SetGraph(graph *datastructure.Graph) {
+	c.graph = graph
+}
+
+func (c *Customizer) SetOverlayGraph(overlayGraph *datastructure.OverlayGraph) {
+	c.overlayGraph = overlayGraph
+}
+
+func (c *Customizer) SetOverlayWeight(ow *datastructure.OverlayWeights) {
+	c.ow = ow
 }

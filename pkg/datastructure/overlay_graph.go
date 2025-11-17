@@ -186,7 +186,7 @@ func (og *OverlayGraph) GetVertex(u Index) *OverlayVertex {
 	return og.overlayVertices[u]
 }
 
-func (og *OverlayGraph) GetEntryPoint(cell *Cell, entryPointIndex Index) Index {
+func (og *OverlayGraph) GetEntryId(cell *Cell, entryPointIndex Index) Index {
 	return og.overlayIdMapping[cell.overlayIdOffset+entryPointIndex]
 }
 
@@ -199,6 +199,14 @@ func (og *OverlayGraph) GetCell(cellNumber Pv, level int) *Cell {
 	cell, _ := og.cellMapping[level-1][truncatedCellNumber]
 	return cell
 }
+
+
+
+func (og *OverlayGraph) GetCellFromTruncatedCellNumber(truncatedCellNumber Pv, level int) *Cell {
+	cell, _ := og.cellMapping[level-1][truncatedCellNumber]
+	return cell
+}
+
 
 func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []bool {
 	// iterate over all edges to determine overlay vertices

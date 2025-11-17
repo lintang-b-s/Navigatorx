@@ -166,8 +166,21 @@ func (g *Graph) WriteGraph(filename string) error {
 		fmt.Fprintf(w, "%d %s\n", key, strconv.Quote(val))
 	}
 
-	// write scc condensation
+	// write via nodes
+	for key, viaVertices := range g.vias {
+		fmt.Fprintf(w, "%v %v %v ", key.level, key.sourceCell, key.targetCell)
 
+		for i, via := range viaVertices {
+			fmt.Fprintf(w, "%v %v %v %v", via.v, via.originalVId, via.entryId, via.exitId)
+			if i < len(viaVertices) {
+				fmt.Fprintf(w, " ")
+			}
+		}
+
+		fmt.Fprintf(w, "\n")
+	}
+
+	// write scc condensation
 	for i := 0; i < len(g.sccCondensationAdj); i++ {
 		for j := 0; j < len(g.sccCondensationAdj[i]); j++ {
 			fmt.Fprintf(w, "%d", g.sccCondensationAdj[i][j])

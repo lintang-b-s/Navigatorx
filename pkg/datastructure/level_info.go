@@ -10,8 +10,8 @@ func NewLevelInfo(offset []uint8) *LevelInfo {
 	return &LevelInfo{offset: offset}
 }
 
-func (li *LevelInfo) GetCellNumberOnLevel(l uint8, cellNumber Pv) Index {
-	return Index((cellNumber & ^(^Pv(0) << Pv(li.offset[l]))) >> li.offset[l-1])
+func (li *LevelInfo) GetCellNumberOnLevel(l uint8, cellNumber Pv) Pv {
+	return (cellNumber & ^(^Pv(0) << Pv(li.offset[l]))) >> li.offset[l-1]
 }
 
 // GetHighestDifferingLevel. get the highest level(1-indexed) where two cell numbers differ
@@ -52,10 +52,17 @@ func (li *LevelInfo) TruncateToLevel(cellNumber Pv, level uint8) Pv {
 	return cellNumber >> Pv(li.offset[level-1])
 }
 
+
 func (li *LevelInfo) GetLevelCount() int {
 	return len(li.offset) - 1
 }
 
 func (li *LevelInfo) GetOffsets() []uint8 {
 	return li.offset
+}
+
+
+// l is 1-indexed level
+func (li *LevelInfo) GetOffsetInLevel(l int) uint8 {
+	return li.offset[l-1]
 }

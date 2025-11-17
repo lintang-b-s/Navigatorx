@@ -51,7 +51,9 @@ func (met *Metric) BuildStallingTables(overlayGraph *datastructure.OverlayGraph,
 		n := graph.GetInDegree(vId)
 		m := graph.GetOutDegree(vId)
 
-		if n == 0 || m == 0 {
+		if n == 0 && m == 0 {
+			met.entryStallingTables[vId] = make([]float64, 0)
+			met.exitStallingTables[vId] = make([]float64, 0)
 			continue
 		}
 
@@ -87,6 +89,8 @@ func (met *Metric) BuildStallingTables(overlayGraph *datastructure.OverlayGraph,
 		met.entryStallingTables[vId] = entryStallingTable
 		met.exitStallingTables[vId] = exitStallingTable
 	}
+
+	
 	return
 }
 

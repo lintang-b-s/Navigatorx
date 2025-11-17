@@ -73,3 +73,37 @@ func (vi VertexInfo) GetTravelTime() float64 {
 func (vi VertexInfo) GetParent() vertexEdgePair {
 	return vi.parent
 }
+
+type altVertexPair struct {
+	vertex    datastructure.Index
+	outEdgeId datastructure.Index
+}
+
+func (a altVertexPair) getVertex() datastructure.Index {
+	return a.vertex
+}
+
+func (a altVertexPair) getOutEdge() datastructure.Index {
+	return a.outEdgeId
+}
+
+func NewAltVertexPair(vertexId, outEdgeId datastructure.Index) altVertexPair {
+	return altVertexPair{vertex: vertexId, outEdgeId: outEdgeId}
+}
+
+type altVertexInfo struct {
+	travelTime float64
+	parent     altVertexPair
+}
+
+func NewAltVertexInfo(travelTime float64, parent altVertexPair) altVertexInfo {
+	return altVertexInfo{travelTime: travelTime, parent: parent}
+}
+
+func (a altVertexInfo) getTravelTime() float64 {
+	return a.travelTime
+}
+
+func (a altVertexInfo) getParent() altVertexPair {
+	return a.parent
+}

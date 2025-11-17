@@ -17,17 +17,23 @@ type CRPRoutingEngine struct {
 	metrics      *metrics.Metric
 	logger       *zap.Logger
 	puCache      *lru.Cache[PUCacheKey, []datastructure.Index]
+
+	customizer   Customizer
+	costFunction CostFunction
 }
 
 func NewCRPRoutingEngine(graph *datastructure.Graph,
 	overlayGraph *datastructure.OverlayGraph, metrics *metrics.Metric,
-	logger *zap.Logger, puCache *lru.Cache[PUCacheKey, []datastructure.Index]) *CRPRoutingEngine {
+	logger *zap.Logger, puCache *lru.Cache[PUCacheKey, []datastructure.Index],
+	customizer Customizer, costFunction CostFunction) *CRPRoutingEngine {
 	return &CRPRoutingEngine{
 		graph:        graph,
 		metrics:      metrics,
 		overlayGraph: overlayGraph,
 		logger:       logger,
 		puCache:      puCache,
+		customizer:   customizer,
+		costFunction: costFunction,
 	}
 }
 
@@ -62,26 +68,33 @@ type CRPBidirectionalSearch struct {
 	forwardTOffset  int
 	backwardSOffset int
 	backwardTOffset int
-	viaVertices     []viaVertex
+	viaVertices     []datastructure.ViaVertex
 
 	upperBound float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
+
+	penalty                 bool // wether to use CRP-π or not (Evolution and Evaluation of the Penalty Method for Alternative Graphs, Kobitzsch et al.)
+	penaltyEdgeCost         map[datastructure.PenaltiedEdge]float64
+	penaltyShortcutEdgeCost map[datastructure.Index]float64
 }
 
 func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CRPBidirectionalSearch {
 	return &CRPBidirectionalSearch{
-		engine:            engine,
-		forwardInfo:       make(map[datastructure.Index]VertexInfo),
-		backwardInfo:      make(map[datastructure.Index]VertexInfo),
-		forwardPq:         datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
-		backwardPq:        datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
-		forwardOverlayPq:  datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
-		backwardOverlayPq: datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
-		forwardMid:        newVertexEdgePair(0, 0, false),
-		backwardMid:       newVertexEdgePair(0, 0, true),
-		viaVertices:       make([]viaVertex, 0),
-		upperBound:        upperBound,
-		stallingEntry: make(map[datastructure.Index]float64),
-		stallingExit: make(map[datastructure.Index]float64),
+		engine:                  engine,
+		forwardInfo:             make(map[datastructure.Index]VertexInfo),
+		backwardInfo:            make(map[datastructure.Index]VertexInfo),
+		forwardPq:               datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
+		backwardPq:              datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
+		forwardOverlayPq:        datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
+		backwardOverlayPq:       datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
+		forwardMid:              newVertexEdgePair(0, 0, false),
+		backwardMid:             newVertexEdgePair(0, 0, true),
+		viaVertices:             make([]datastructure.ViaVertex, 0),
+		upperBound:              upperBound,
+		stallingEntry:           make(map[datastructure.Index]float64),
+		stallingExit:            make(map[datastructure.Index]float64),
+		penalty:                 false,
+		penaltyEdgeCost:         make(map[datastructure.PenaltiedEdge]float64),
+		penaltyShortcutEdgeCost: make(map[datastructure.Index]float64),
 	}
 }
 
@@ -194,6 +207,8 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		curInfo = bs.forwardInfo[parent.getEdge()]
 	}
 
+	
+
 	idPath = util.ReverseG[vertexEdgePair](idPath)
 
 	mid := bs.backwardMid
@@ -235,7 +250,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		idPath = idPath[1:]
 	}
 
-	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics, bs.engine.puCache)
+	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics, bs.engine.puCache, bs)
 	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, bs.sCellNumber, bs.tCellNumber,
 		datastructure.Index(unpackOverlayOffset))
 
@@ -311,6 +326,11 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 				bs.engine.graph.GetCellNumber(vId))
 
 			edgeWeight := bs.engine.metrics.GetWeight(outArc)
+
+			if penaltyCost, penalized := bs.penaltyEdgeCost[datastructure.NewPenaltiedEdge(outArc.GetEdgeId(), true)]; bs.penalty && penalized {
+				edgeWeight = penaltyCost
+			}
+
 			turnCost := bs.engine.metrics.GetTurnCost(turnType)
 			if uId == source {
 				turnCost = 0
@@ -382,7 +402,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 							bs.forwardMid = newVertexEdgePair(vId, vEntryId, false)
 							bs.backwardMid = newVertexEdgePair(vId, vExitId, true)
 
-							bs.viaVertices = append(bs.viaVertices, newViaVertex(vId, vEntryId, vExitId, vId))
+							bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(vId, vEntryId, vExitId, vId))
 						}
 					}
 					vExitId++
@@ -434,7 +454,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 						vExitId := bs.engine.graph.GetExitOffset(vInEdge.GetTail()) + datastructure.Index(vInEdge.GetExitPoint())
 						vEntryId := bs.engine.graph.GetEntryOffset(vId) + bs.engine.graph.GetEntryOrder(vId, vInEdge.GetEdgeId())
 
-						bs.viaVertices = append(bs.viaVertices, newViaVertex(overlayVId, vEntryId, vExitId, vId))
+						bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(overlayVId, vEntryId, vExitId, vId))
 					}
 				}
 			}
@@ -475,6 +495,10 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 				bs.engine.graph.GetCellNumber(vId))
 
 			edgeWeight := bs.engine.metrics.GetWeight(inArc)
+			if penalizedCost, penalized := bs.penaltyEdgeCost[datastructure.NewPenaltiedEdge(inArc.GetEdgeId(), false)]; bs.penalty && penalized {
+				edgeWeight = penalizedCost
+			}
+
 			turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
 			if uId == target {
@@ -535,7 +559,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 							bs.forwardMid = newVertexEdgePair(vId, vEntryId, false)
 							bs.backwardMid = newVertexEdgePair(vId, vExitId, true)
 
-							bs.viaVertices = append(bs.viaVertices, newViaVertex(vId, vEntryId, vExitId, vId))
+							bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(vId, vEntryId, vExitId, vId))
 						}
 					}
 					vEntryId++
@@ -583,7 +607,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target, overlayOffset data
 						vEntryId := bs.engine.graph.GetEntryOffset(vOutEdge.GetHead()) + datastructure.Index(vOutEdge.GetEntryPoint())
 						vExitId := bs.engine.graph.GetExitOffset(vId) + bs.engine.graph.GetExitOrder(vId, vOutEdge.GetEdgeId())
 
-						bs.viaVertices = append(bs.viaVertices, newViaVertex(overlayVId, vEntryId, vExitId, vId))
+						bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(overlayVId, vEntryId, vExitId, vId))
 					}
 				}
 			}
@@ -616,7 +640,12 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 		// for each out neighbors of u in level l, check if v already visited by backward search. if so, check whether we can improve shortestPath
 		// then if v not already visited or newTravelTime to v is better, traverse to the next cell entry vertex w using outEdge of v.
 		bs.engine.overlayGraph.ForOutNeighborsOf(u, uQueryLevel, func(v datastructure.Index, wOffset datastructure.Index) {
-			newTravelTime := bs.forwardInfo[uId].GetTravelTime() + bs.engine.metrics.GetShortcutWeight(wOffset)
+			shortcutOutEdgeWeight := bs.engine.metrics.GetShortcutWeight(wOffset)
+			if penaltyCost, penalized := bs.penaltyShortcutEdgeCost[wOffset]; bs.penalty && penalized {
+				shortcutOutEdgeWeight = penaltyCost
+			}
+
+			newTravelTime := bs.forwardInfo[uId].GetTravelTime() + shortcutOutEdgeWeight
 			if newTravelTime >= pkg.INF_WEIGHT {
 				return
 			}
@@ -639,12 +668,17 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 					vEntryId := bs.engine.graph.GetEntryOffset(vOutEdge.GetHead()) + datastructure.Index(vOutEdge.GetEntryPoint())
 					vExitId := bs.engine.graph.GetExitOffset(originalVId) + bs.engine.graph.GetExitOrder(originalVId, vOutEdge.GetEdgeId())
 
-					bs.viaVertices = append(bs.viaVertices, newViaVertex(vId, vEntryId, vExitId, originalVId)) // should use overlay vId (to calculate plateau, we need bactrack forwardInfo)
+					bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(vId, vEntryId, vExitId, originalVId)) // should use overlay vId (to calculate plateau, we need bactrack forwardInfo)
 				}
 
 				// traverse edge to next cell
 				outEdge := bs.engine.graph.GetOutEdge(vVertex.GetOriginalEdge())
 				edgeWeight := bs.engine.metrics.GetWeight(outEdge)
+
+				if penaltyCost, penalized := bs.penaltyEdgeCost[datastructure.NewPenaltiedEdge(outEdge.GetEdgeId(), true)]; bs.penalty && penalized {
+					edgeWeight = penaltyCost
+				}
+
 				newTravelTime = bs.forwardInfo[vId].GetTravelTime() + edgeWeight
 
 				if newTravelTime >= pkg.INF_WEIGHT {
@@ -706,7 +740,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 								bs.forwardMid = newVertexEdgePair(originalW, wEntryId, false)
 								bs.backwardMid = newVertexEdgePair(originalW, wExitId, true)
 
-								bs.viaVertices = append(bs.viaVertices, newViaVertex(originalW, wEntryId, wExitId, originalW))
+								bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(originalW, wEntryId, wExitId, originalW))
 							}
 						}
 						wExitId++
@@ -747,7 +781,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 							wExitId := bs.engine.graph.GetExitOffset(wInEdge.GetTail()) + datastructure.Index(wInEdge.GetExitPoint())
 							wEntryId := bs.engine.graph.GetEntryOffset(originalW) + bs.engine.graph.GetEntryOrder(originalW, wInEdge.GetEdgeId())
 
-							bs.viaVertices = append(bs.viaVertices, newViaVertex(wId, wEntryId, wExitId, originalW))
+							bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(wId, wEntryId, wExitId, originalW))
 						}
 					}
 				}
@@ -767,7 +801,13 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 
 		bs.engine.overlayGraph.ForInNeighborsOf(u, int(uQueryLevel), func(v datastructure.Index,
 			wOffset datastructure.Index) {
-			newTravelTime := bs.backwardInfo[uId].GetTravelTime() + bs.engine.metrics.GetShortcutWeight(wOffset)
+
+			shortcutInEdgeWeight := bs.engine.metrics.GetShortcutWeight(wOffset)
+			if penaltyCost, penalized := bs.penaltyShortcutEdgeCost[wOffset]; bs.penalty && penalized {
+				shortcutInEdgeWeight = penaltyCost
+			}
+
+			newTravelTime := bs.backwardInfo[uId].GetTravelTime() + shortcutInEdgeWeight
 			if newTravelTime >= pkg.INF_WEIGHT {
 				return
 			}
@@ -791,12 +831,18 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 					vExitId := bs.engine.graph.GetExitOffset(vInEdge.GetTail()) + datastructure.Index(vInEdge.GetExitPoint())
 					vEntryId := bs.engine.graph.GetEntryOffset(originalVId) + bs.engine.graph.GetEntryOrder(originalVId, vInEdge.GetEdgeId())
 
-					bs.viaVertices = append(bs.viaVertices, newViaVertex(vId, vEntryId, vExitId, originalVId))
+					bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(vId, vEntryId, vExitId, originalVId))
 				}
 
 				// traverse edge to next cell
 				inEdge := bs.engine.graph.GetInEdge(vVertex.GetOriginalEdge())
-				newTravelTime = bs.backwardInfo[vId].GetTravelTime() + bs.engine.metrics.GetWeight(inEdge)
+
+				inEdgeWeight := bs.engine.metrics.GetWeight(inEdge)
+				if penaltyCost, penalized := bs.penaltyEdgeCost[datastructure.NewPenaltiedEdge(inEdge.GetEdgeId(), false)]; bs.penalty && penalized {
+					inEdgeWeight = penaltyCost
+				}
+
+				newTravelTime = bs.backwardInfo[vId].GetTravelTime() + inEdgeWeight
 
 				if newTravelTime >= pkg.INF_WEIGHT {
 					return
@@ -850,7 +896,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 								bs.forwardMid = newVertexEdgePair(originalW, wEntryId, false)
 								bs.backwardMid = newVertexEdgePair(originalW, wExitId, true)
 
-								bs.viaVertices = append(bs.viaVertices, newViaVertex(originalW, wEntryId, wExitId, originalW))
+								bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(originalW, wEntryId, wExitId, originalW))
 							}
 						}
 						wEntryId++
@@ -890,7 +936,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 							wEntryId := bs.engine.graph.GetEntryOffset(wOutEdge.GetHead()) + datastructure.Index(wOutEdge.GetEntryPoint())
 							wExitId := bs.engine.graph.GetExitOffset(originalW) + bs.engine.graph.GetExitOrder(originalW, wOutEdge.GetEdgeId())
 
-							bs.viaVertices = append(bs.viaVertices, newViaVertex(wId, wEntryId, wExitId, originalW))
+							bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(wId, wEntryId, wExitId, originalW))
 						}
 					}
 				}
@@ -899,7 +945,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch(overlayOffset datastructure
 	}
 }
 
-func (bs *CRPBidirectionalSearch) GetViaVertices() []viaVertex {
+func (bs *CRPBidirectionalSearch) GetViaVertices() []datastructure.ViaVertex {
 	return bs.viaVertices
 }
 
@@ -956,4 +1002,18 @@ func (bs *CRPBidirectionalSearch) adjustBackward(u, uExitOffset datastructure.In
 	} else {
 		return datastructure.Index(int(uExitOffset) + bs.backwardTOffset - int(bs.engine.graph.GetExitOffset(u)))
 	}
+}
+
+func (bs *CRPBidirectionalSearch) SetPenaltyEdgeCost(penaltyEdgeCost map[datastructure.PenaltiedEdge]float64) {
+	if !bs.penalty {
+		bs.penalty = true
+	}
+	bs.penaltyEdgeCost = penaltyEdgeCost
+}
+
+func (bs *CRPBidirectionalSearch) SetShortcutEdgeCost(penaltyShortcutEdgeCost map[datastructure.Index]float64) {
+	if !bs.penalty {
+		bs.penalty = true
+	}
+	bs.penaltyShortcutEdgeCost = penaltyShortcutEdgeCost
 }

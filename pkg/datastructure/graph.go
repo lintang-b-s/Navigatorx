@@ -119,11 +119,11 @@ func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint uint8) *InEdg
 	}
 }
 
-func (e *OutEdge) GetWeight() float64 {
+func (e OutEdge) GetWeight() float64 {
 	return e.weight
 }
 
-func (e *OutEdge) GetEdgeSpeed() float64 {
+func (e OutEdge) GetEdgeSpeed() float64 {
 	if e.weight == 0 {
 		return 0
 	}
@@ -142,7 +142,7 @@ func (e *OutEdge) SetHead(headId Index) {
 	e.head = headId
 }
 
-func (e *OutEdge) GetLength() float64 {
+func (e OutEdge) GetLength() float64 {
 	return e.dist
 }
 
@@ -162,7 +162,7 @@ func (e *OutEdge) GetEdgeId() Index {
 	return e.edgeId
 }
 
-func (e *InEdge) GetWeight() float64 {
+func (e InEdge) GetWeight() float64 {
 	return e.weight
 }
 
@@ -170,14 +170,14 @@ func (e *InEdge) SetWeight(travelTime float64) {
 	e.weight = travelTime
 }
 
-func (e *InEdge) GetEdgeSpeed() float64 {
+func (e InEdge) GetEdgeSpeed() float64 {
 	if e.weight == 0 {
 		return 0
 	}
 	return e.dist / e.weight
 }
 
-func (e *InEdge) GetLength() float64 {
+func (e InEdge) GetLength() float64 {
 	return e.dist
 }
 
@@ -218,6 +218,18 @@ type VertexIDPair struct {
 
 type Pv uint64
 
+type ViaKey struct {
+	level      int
+	sourceCell Pv
+	targetCell Pv
+}
+
+func NewViaKey(level int, sourceCell, targetCell Pv) ViaKey {
+	return ViaKey{level, sourceCell, targetCell}
+}
+
+
+// main crp graph. static (i.e. can't add new edges)
 type Graph struct {
 	vertices          []*Vertex
 	outEdges          []*OutEdge
@@ -235,6 +247,8 @@ type Graph struct {
 
 	boundingBox  *BoundingBox
 	graphStorage *GraphStorage
+
+	vias map[ViaKey][]ViaVertex // Vias_{l,c_l(s),c_l(t)} all via nodes for s-t query (level-l).
 }
 
 func NewGraph(vertices []*Vertex, forwardEdges []*OutEdge, inEdges []*InEdge, turnTables []pkg.TurnType) *Graph {
@@ -272,6 +286,21 @@ func (g *Graph) GetOutEdge(e Index) *OutEdge {
 
 func (g *Graph) GetInEdge(e Index) *InEdge {
 	return g.inEdges[e]
+}
+
+func (g *Graph) GetCellNumbers() []Pv {
+	return g.cellNumbers
+}
+
+func (g *Graph) SetVias(key ViaKey, vias []ViaVertex) {
+	if g.vias == nil {
+		g.vias = map[ViaKey][]ViaVertex{}
+	}
+	g.vias[key] = vias
+}
+
+func (g *Graph) GetVias(key ViaKey) []ViaVertex {
+	return g.vias[key]
 }
 
 func (g *Graph) FindInEdge(u, v Index) (Index, bool) {

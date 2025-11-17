@@ -195,3 +195,16 @@ func (h *MinHeap[T]) DecreaseKey(item PriorityQueueNode[T]) error {
 	h.heapifyUp(itemPos)
 	return nil
 }
+
+type AltQueryKey struct {
+	vertex  Index
+	
+}
+
+func NewAltQueryKey(vertex Index, ) AltQueryKey {
+	return AltQueryKey{vertex: vertex,}
+}
+
+func (a *AltQueryKey) GetVertex() Index {
+	return a.vertex
+}

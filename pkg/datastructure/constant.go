@@ -1,6 +1,7 @@
 package datastructure
 
 const (
-	workersNum = 5
+	workersNum              = 5
 	INVALID_VERTEX_ID Index = 10e8
+	INVALID_EDGE_ID   Index = 10e8 + 1
 )

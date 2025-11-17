@@ -3,6 +3,7 @@ package engine
 import (
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
+	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -28,7 +29,8 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logg
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger) (*routing.CRPRoutingEngine,
+func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger,
+) (*routing.CRPRoutingEngine,
 	error) {
 
 	logger.Info("Starting query engine of Customizable Route Planning...")
@@ -50,9 +52,13 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	if err != nil {
 		return nil, err
 	}
+	customizer := customizer.NewCustomizer(graphFilePath, overlayGraphFilePath, metricsFilePath, logger)
+	customizer.SetGraph(graph)
+	customizer.SetOverlayGraph(overlayGraph)
+	customizer.SetOverlayWeight(metrics.GetWeights())
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
 	puCache, _ := lru.New[routing.PUCacheKey, []datastructure.Index](1 << 20) // 1048576
 
-	return routing.NewCRPRoutingEngine(graph, overlayGraph, metrics, logger, puCache), nil
+	return routing.NewCRPRoutingEngine(graph, overlayGraph, metrics, logger, puCache, customizer, costFunction), nil
 }

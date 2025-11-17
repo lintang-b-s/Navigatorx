@@ -12,18 +12,18 @@ import (
 )
 
 type RoutingService struct {
-	log                         *zap.Logger
-	engine                      RoutingEngine
-	spatialIndex                SpatialIndex
-	searchRadius                float64
-	clockwise, lefthandDriving  bool
-	gamma, alpha, epsilon       float64
-	upperBoundAlternativeSearch float64
+	log                          *zap.Logger
+	engine                       RoutingEngine
+	spatialIndex                 SpatialIndex
+	searchRadius                 float64
+	clockwise, lefthandDriving   bool
+	gamma, alpha, epsilon, delta float64
+	upperBoundAlternativeSearch  float64
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex,
 	searchRadius float64, clockwise, lefthandDriving bool,
-	gamma, alpha, epsilon, upperBoundAlternativeSearch float64) *RoutingService {
+	gamma, alpha, epsilon, upperBoundAlternativeSearch, delta float64) *RoutingService {
 	return &RoutingService{
 		log:                         log,
 		engine:                      engine,
@@ -35,6 +35,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		alpha:                       alpha,
 		epsilon:                     epsilon,
 		upperBoundAlternativeSearch: upperBoundAlternativeSearch,
+		delta:                       delta,
 	}
 }
 
@@ -66,7 +67,7 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 		return []*routing.AlternativeRoute{}, false, err
 	}
 
-	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.upperBoundAlternativeSearch, rs.gamma, rs.alpha, rs.epsilon)
+	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.upperBoundAlternativeSearch, rs.gamma, rs.alpha, rs.epsilon, rs.delta)
 	alternatives := altSearch.FindAlternativeRoutes(as, at, k)
 	if len(alternatives) == 0 {
 		return []*routing.AlternativeRoute{}, false, nil
@@ -82,6 +83,6 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 	return alternatives, true, nil
 }
 
-func (rs *RoutingService ) GetEngine() RoutingEngine {
+func (rs *RoutingService) GetEngine() RoutingEngine {
 	return rs.engine
 }

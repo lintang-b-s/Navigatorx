@@ -89,11 +89,6 @@ func (api *API) Run(
 	)
 
 	go func() {
-		api.handleWebsocket(ctx, config, mapMatcherService,
-			false, errChan)
-	}()
-
-	go func() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/ws", api.upstream("online map matcher", "tcp", "localhost"+":"+strconv.Itoa(config.WebsocketPort)))
 
@@ -128,6 +123,11 @@ func (api *API) Run(
 
 	srv := http_server.New(ctx, mainMwChain, config, false)
 	log.Info(fmt.Sprintf("API run on port %d", config.Port))
+
+	go func() {
+		api.handleWebsocket(ctx, config, mapMatcherService,
+			false, errChan)
+	}()
 
 	serverErr := make(chan error, 1)
 	go func() {
