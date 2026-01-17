@@ -2,6 +2,7 @@ package routing
 
 import (
 	"math"
+	"sort"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -43,18 +44,13 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutesPenaltyMethod(asId, atId
 	maxIter := 1
 	if dist <= 7.0 {
 		epsilon = 0.3
-		maxIter = 2 * k
+		maxIter = 3 * k
 	} else if dist <= 10.0 {
 		epsilon = 0.25
-		maxIter = k
+		maxIter = 3 * k
 	}
 
 	maxLevel := 3
-	if numSettledNodes <= 1<<15 {
-		maxLevel = 2
-	} else if numSettledNodes <= 1<<22 {
-		maxLevel = 3
-	}
 
 	iteration := 0
 	for altTravelTime <= (1+epsilon)*optTravelTime && iteration < maxIter {
@@ -138,8 +134,8 @@ func (ars *AlternativeRouteSearch) extractAlternatives(s, t datastructure.Index,
 
 	}
 
-	util.QuickSortGIdx(ars.candidates, func(j, pivotIdx int) bool {
-		return ars.candidates[j].objectiveValue < ars.candidates[pivotIdx].objectiveValue
+	sort.Slice(ars.candidates, func(i,j int) bool {
+		return ars.candidates[i].objectiveValue < ars.candidates[j].objectiveValue
 	})
 
 	ars.candidates = removeSimiliarAlternatives(ars.candidates)

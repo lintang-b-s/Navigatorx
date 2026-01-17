@@ -2,7 +2,6 @@ package guidance
 
 import (
 	"math"
-
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"

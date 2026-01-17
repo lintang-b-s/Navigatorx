@@ -78,7 +78,7 @@ func (api *API) Run(
 
 	group := router_helper.NewRouteGroup(router, "/api")
 
-	navigatorRoutes := controllers.New(routingService, log)
+	navigatorRoutes := controllers.New(routingService, log, mapMatcherService)
 
 	navigatorRoutes.Routes(group)
 

@@ -228,7 +228,6 @@ func NewViaKey(level int, sourceCell, targetCell Pv) ViaKey {
 	return ViaKey{level, sourceCell, targetCell}
 }
 
-
 // main crp graph. static (i.e. can't add new edges)
 type Graph struct {
 	vertices          []*Vertex
@@ -323,6 +322,7 @@ func (g *Graph) GetHeadOfInedgeWithOutEdge(e Index) (Index, *OutEdge) {
 	inEdge := g.GetInEdge(e)
 	tail := g.vertices[inEdge.tail]
 	outEdge := g.GetOutEdge(tail.firstOut + Index(inEdge.exitPoint))
+
 	return outEdge.head, outEdge
 }
 
@@ -331,6 +331,13 @@ func (g *Graph) GetTailOfOutedge(e Index) Index {
 	head := g.vertices[outEdge.head]
 	inEdge := g.GetInEdge(head.firstIn + Index(outEdge.entryPoint))
 	return inEdge.tail
+}
+
+func (g *Graph) GetTailOfOutedgeWithInEdge(e Index) (Index, *InEdge) {
+	outEdge := g.GetOutEdge(e)
+	head := g.vertices[outEdge.head]
+	inEdge := g.GetInEdge(head.firstIn + Index(outEdge.entryPoint))
+	return inEdge.tail, inEdge
 }
 
 // GetExitOrder. return Index of exit point of a out edge (u,v) at vertex u.

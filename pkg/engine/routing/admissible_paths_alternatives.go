@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"sort"
 	"sync"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -118,16 +119,17 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 
 	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
 
-	optTravelTime, optDist, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
+	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
 
 	if !found {
 		return []*AlternativeRoute{}
 	}
 
-	if optDist/1000 <= 10.0 { // < 10 km use penalty method (CRP-π)
-		return ars.FindAlternativeRoutesPenaltyMethod(asId, atId, k, optDist/1000, optTravelTime, optEdgePath, 
-			crpQuery.GetNumSettledNodes())
-	}
+	// gak jadi pakai penalty method, too slow
+	// if optDist/1000 <= 10.0 { // < 10 km use penalty method (CRP-π)
+	// 	return ars.FindAlternativeRoutesPenaltyMethod(asId, atId, k, optDist/1000, optTravelTime, optEdgePath,
+	// 		crpQuery.GetNumSettledNodes())
+	// }
 
 	viaVertices := make([]datastructure.ViaVertex, len(crpQuery.GetViaVertices()))
 	copy(viaVertices, crpQuery.GetViaVertices())
@@ -216,7 +218,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 	workers.Start(computeAlternatives)
 	workers.Wait()
 
-	util.QuickSortGIdx(ars.candidates, func(j, pivotIdx int) bool {
+	sort.Slice(ars.candidates, func(j, pivotIdx int) bool {
 		return ars.candidates[j].objectiveValue < ars.candidates[pivotIdx].objectiveValue
 	})
 
@@ -292,6 +294,7 @@ func (ars *AlternativeRouteSearch) tTest(T float64, v datastructure.Index, pvEdg
 }
 
 func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []datastructure.OutEdge) float64 {
+	// O(N), N=max{len(pvPath), len(optPath)}
 	distanceShare := 0.0
 
 	optPathSet := make(map[datastructure.Index]struct{})
@@ -300,6 +303,7 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []data
 	}
 
 	for _, e := range pvPath {
+
 		if _, ok := optPathSet[e.GetEdgeId()]; ok {
 			distanceShare += e.GetWeight()
 		}
@@ -400,11 +404,13 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 	}
 	res := make([]*AlternativeRoute, 0, len(alts))
 	for i, alt := range alts {
+		// O(N^2 * M), N=len(alts), M=max{len(alts[i])}, for each 0<=i<len(alts)
 
 		addToRes := true
 		for j := 0; j < i; j++ {
 			// check similiarity with other previous alternative routes
 			similiarity := 0.0
+
 			setJ := set[j]
 			altPath := alt.GetPath()
 			for _, e := range altPath {
@@ -412,6 +418,7 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 					similiarity++
 				}
 			}
+
 			similiarity = (similiarity / float64(len(altPath))) * 100
 			if similiarity > pkg.ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD {
 				// add alt to result if similiarity with other alternative route < pkg.ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD
@@ -422,12 +429,13 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 
 		if addToRes {
 			res = append(res, alt)
+
+			for _, e := range alt.GetPath() {
+				// make alternative route path set
+				set[i][e.GetEdgeId()] = struct{}{}
+			}
 		}
 
-		for _, e := range alt.GetPath() {
-			// make alternative route path set
-			set[i][e.GetEdgeId()] = struct{}{}
-		}
 	}
 	return res
 }
@@ -435,6 +443,7 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 func removeDuplicates(viaVertices []datastructure.ViaVertex) []datastructure.ViaVertex {
 	set := make(map[datastructure.Index]struct{})
 	res := make([]datastructure.ViaVertex, 0, len(viaVertices))
+
 	for _, v := range viaVertices {
 		if _, ok := set[v.GetVId()]; !ok {
 			set[v.GetVId()] = struct{}{}
@@ -447,8 +456,3 @@ func removeDuplicates(viaVertices []datastructure.ViaVertex) []datastructure.Via
 func (ars *AlternativeRouteSearch) Reset() {
 	ars.candidates = make([]*AlternativeRoute, 0)
 }
-
-// if !ars.tTest(T, v.GetOriginalVId(), pvEdgePath) {
-// 	// didnt pass t-test
-// 	return nil
-// }

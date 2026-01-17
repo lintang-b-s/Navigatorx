@@ -8,7 +8,7 @@ import (
 type CRPQueryKey struct {
 	node           Index
 	entryExitPoint Index
-	outEdgeId      Index
+	outInEdgeId    Index
 }
 
 func (qk *CRPQueryKey) GetNode() Index {
@@ -19,16 +19,16 @@ func (qk *CRPQueryKey) GetEntryExitPoint() Index {
 	return qk.entryExitPoint
 }
 
-func (qk *CRPQueryKey) GetOutEdgeId() Index {
-	return qk.outEdgeId
+func (qk *CRPQueryKey) GetOutInEdgeId() Index {
+	return qk.outInEdgeId
 }
 
 func NewCRPQueryKey(node Index, entryExitPoint Index) CRPQueryKey {
 	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint}
 }
 
-func NewCRPQueryKeyWithOutEdgeId(node, entryExitPoint, outEdgeId Index) CRPQueryKey {
-	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, outEdgeId: outEdgeId}
+func NewCRPQueryKeyWithOutInEdgeId(node, entryExitPoint, outInEdgeId Index) CRPQueryKey {
+	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, outInEdgeId: outInEdgeId}
 }
 
 type PriorityQueueNode[T comparable] struct {
@@ -115,7 +115,6 @@ func (h *MinHeap[T]) Swap(i, j int) {
 	h.heap[i], h.heap[j] = h.heap[j], h.heap[i]
 	h.pos[h.heap[i].item] = i
 	h.pos[h.heap[j].item] = j
-
 }
 
 // isEmpty check apakah heap kosong
@@ -187,6 +186,7 @@ func (h *MinHeap[T]) getItemPos(item PriorityQueueNode[T]) int {
 func (h *MinHeap[T]) DecreaseKey(item PriorityQueueNode[T]) error {
 	itemPos := h.getItemPos(item)
 	if itemPos < 0 || itemPos >= h.Size() {
+		
 		return errors.New("invalid index or new value")
 	}
 
@@ -197,12 +197,11 @@ func (h *MinHeap[T]) DecreaseKey(item PriorityQueueNode[T]) error {
 }
 
 type AltQueryKey struct {
-	vertex  Index
-	
+	vertex Index
 }
 
-func NewAltQueryKey(vertex Index, ) AltQueryKey {
-	return AltQueryKey{vertex: vertex,}
+func NewAltQueryKey(vertex Index) AltQueryKey {
+	return AltQueryKey{vertex: vertex}
 }
 
 func (a *AltQueryKey) GetVertex() Index {

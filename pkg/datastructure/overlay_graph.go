@@ -425,7 +425,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 	og.weightVectorSize = uint32(cellOfset) // size of  one-dimensional weight array W.
 }
 
-// ForOutNeighborsOf. iterates over all outgoing-neighbors of u // ada yang salah
+// ForOutNeighborsOf. iterates over all outgoing-neighbors of u 
 func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Index, wOffset Index)) {
 	uVertex := og.GetVertex(u)
 	entryPoint := uVertex.GetEntryExitPoint(level)

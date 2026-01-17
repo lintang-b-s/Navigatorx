@@ -161,7 +161,6 @@ func (om *OnlineMapMatchMHT) filterLog(gps *datastructure.GPSPoint, candidates [
 
 	for _, cand := range candidates {
 		obsLogLikelihood := om.computeObservationLogLikelihood(cand)
-
 		logAllCandWeights = append(logAllCandWeights, math.Log(cand.Weight())+obsLogLikelihood)
 	}
 

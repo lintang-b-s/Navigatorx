@@ -41,7 +41,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 500.0, 500.0, 0.001, 4.07, 1.0/60.0, 0.001,
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 500.0, 500.0, 0.001, 4.07, 1.0/60.0, 0.00001,
 		0.06, 180.0, N) // speed in meter/minute, default sampling interval 1.0 seconds (using seatle dataset)
 
 	api := http.NewServer(logger)

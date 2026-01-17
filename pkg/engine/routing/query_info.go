@@ -3,10 +3,10 @@ package routing
 import "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 
 type vertexEdgePair struct {
-	vertex    datastructure.Index
-	edge      datastructure.Index
-	isOutEdge bool
-	outEdgeId datastructure.Index
+	vertex      datastructure.Index
+	edge        datastructure.Index
+	isOutEdge   bool
+	outInEdgeId datastructure.Index
 }
 
 func (ve *vertexEdgePair) getEdge() datastructure.Index {
@@ -41,17 +41,17 @@ func newVertexEdgePair(vertex, edge datastructure.Index, isOutEdge bool) vertexE
 	}
 }
 
-func newVertexEdgePairWithOutEdgeId(vertex, edge, outEdgeId datastructure.Index, isOutEdge bool) vertexEdgePair {
+func newVertexEdgePairWithOutEdgeId(vertex, edge, outInEdgeId datastructure.Index, isOutEdge bool) vertexEdgePair {
 	return vertexEdgePair{
-		vertex:    vertex,
-		edge:      edge,
-		isOutEdge: isOutEdge,
-		outEdgeId: outEdgeId,
+		vertex:      vertex,
+		edge:        edge,
+		isOutEdge:   isOutEdge,
+		outInEdgeId: outInEdgeId,
 	}
 }
 
-func (ve *vertexEdgePair) getOutEdgeId() datastructure.Index {
-	return ve.outEdgeId
+func (ve *vertexEdgePair) getOutInEdgeId() datastructure.Index {
+	return ve.outInEdgeId
 }
 
 type VertexInfo struct {
