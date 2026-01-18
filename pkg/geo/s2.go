@@ -32,13 +32,16 @@ func PointLinePerpendicularDistance(pointA Coordinate, pointB Coordinate,
 	return dist * 1000
 }
 
+const (
+	EPS = 0.000001
+)
 func MakeSixDigitsAfterComa2(n Coordinate, precision int) Coordinate {
 
 	if util.CountDecimalPlacesF64(n.Lat) != precision {
-		n.Lat = util.RoundFloat(n.Lat+0.000001, 6)
+		n.Lat = util.RoundFloat(n.Lat+EPS, 6)
 	}
 	if util.CountDecimalPlacesF64(n.Lon) != precision {
-		n.Lon = util.RoundFloat(n.Lon+0.000001, 6)
+		n.Lon = util.RoundFloat(n.Lon+EPS, 6)
 	}
 	return n
 }

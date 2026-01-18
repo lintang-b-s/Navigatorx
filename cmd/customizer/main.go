@@ -7,6 +7,10 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 )
 
+var (
+	timeDependent = flag.Bool("time_dependent", false, "Use Time-Dependent Customizable Route Planning")
+)
+
 func main() {
 	flag.Parse()
 	logger, err := logger.New()
@@ -14,7 +18,7 @@ func main() {
 		panic(err)
 	}
 	custom := customizer.NewCustomizer("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
-	err = custom.Customize()
+	err = custom.Customize(*timeDependent)
 	if err != nil {
 		panic(err)
 	}

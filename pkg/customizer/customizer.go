@@ -16,6 +16,7 @@ type Customizer struct {
 	overlayGraphFilePath string
 	metricOutputFilePath string
 	ow                   *datastructure.OverlayWeights
+	owtd                 *datastructure.OverlayWeightsTD
 	graph                *datastructure.Graph
 	overlayGraph         *datastructure.OverlayGraph
 }
@@ -30,7 +31,8 @@ func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath str
 	}
 }
 
-func (c *Customizer) Customize() error {
+func (c *Customizer) Customize(timeDependent bool) error {
+
 	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 	var err error
 	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
@@ -45,19 +47,35 @@ func (c *Customizer) Customize() error {
 		return err
 	}
 
-	costFunction := costfunction.NewTimeCostFunction()
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	c.ow = datastructure.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
-	c.Build(costFunction)
+	c.owtd = datastructure.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
+	if !timeDependent {
+		costFunction := costfunction.NewTimeCostFunction()
 
-	c.logger.Sugar().Infof("Building stalling tables...")
-	metrics := metrics.NewMetric(c.graph, costFunction, c.ow)
-	metrics.BuildStallingTables(c.overlayGraph, c.graph)
-	err = metrics.WriteToFile(c.metricOutputFilePath)
-	if err != nil {
-		return err
+		c.Build(costFunction)
+		c.logger.Sugar().Infof("Building stalling tables...")
+		metrics := metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, false)
+		metrics.BuildStallingTables(c.overlayGraph, c.graph)
+		err = metrics.WriteToFile(c.metricOutputFilePath)
+		if err != nil {
+			return err
+		}
+		c.logger.Sugar().Infof("Customization step completed successfully.")
+	} else {
+		costFunction := costfunction.NewTimeDependentCostFunction(c.graph)
+
+		c.BuildTD(costFunction)
+		c.logger.Sugar().Infof("Building stalling tables...")
+		metrics := metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, true)
+		metrics.BuildStallingTables(c.overlayGraph, c.graph)
+		err = metrics.WriteToFile(c.metricOutputFilePath)
+		if err != nil {
+			return err
+		}
+		c.logger.Sugar().Infof("Customization step completed successfully.")
 	}
-	c.logger.Sugar().Infof("Customization step completed successfully.")
+
 	return nil
 }
 

@@ -134,7 +134,7 @@ func (ars *AlternativeRouteSearch) extractAlternatives(s, t datastructure.Index,
 
 	}
 
-	sort.Slice(ars.candidates, func(i,j int) bool {
+	sort.Slice(ars.candidates, func(i, j int) bool {
 		return ars.candidates[i].objectiveValue < ars.candidates[j].objectiveValue
 	})
 
@@ -186,7 +186,7 @@ func (ars *AlternativeRouteSearch) haveAdmissibleDetour(graphVertexMap map[datas
 			}
 
 			// detour path
-			detourLength += ars.engine.metrics.GetWeight(altEdge)
+			detourLength += ars.engine.metrics.GetWeight(&altEdge)
 		} else if detourStartVid != datastructure.INVALID_VERTEX_ID {
 			detourStartVid = graphVertexMap[detourStartVid]
 			tail = graphVertexMap[tail]
@@ -401,7 +401,7 @@ func (ars *AlternativeRouteSearch) applyPenalties(penaltiedArcs []datastructure.
 	for i := 0; i < len(penaltiedArcs); i++ {
 		arc := penaltiedArcs[i]
 		if _, exists := penaltyEdgeCost[datastructure.NewPenaltiedEdge(arc.GetEdgeId(), true)]; !exists {
-			penaltyEdgeCost[datastructure.NewPenaltiedEdge(arc.GetEdgeId(), true)] = ars.engine.metrics.GetWeight(arc)
+			penaltyEdgeCost[datastructure.NewPenaltiedEdge(arc.GetEdgeId(), true)] = ars.engine.metrics.GetWeight(&arc)
 		}
 		penaltyEdgeCost[datastructure.NewPenaltiedEdge(arc.GetEdgeId(), true)] *= pathPenalty
 

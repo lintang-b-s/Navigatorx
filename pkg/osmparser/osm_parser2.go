@@ -580,6 +580,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 	geoEdgePoints := geo.RamerDouglasPeucker(datastructure.NewGeoCoordinates(edgePoints)) // simplify edge geometry
 	for i, coord := range geoEdgePoints {
+
 		edgePoints[i] = datastructure.NewCoordinate(coord.GetLat(), coord.GetLon())
 	}
 
@@ -598,7 +599,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 	lanes, err := strconv.Atoi(tempMap[LANES])
 	if err != nil {
-		lanes = 1 // assume
+		lanes = 1
 	}
 
 	if _, ok := edgeSet[p.nodeIDMap[from.id]]; !ok {
@@ -785,11 +786,4 @@ func acceptOsmWay(way *osm.Way) bool {
 		return true
 	}
 	return false
-}
-
-func max(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
 }

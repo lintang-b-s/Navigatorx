@@ -8,10 +8,12 @@ import (
 
 type Customizer interface {
 	UpdateDirtyCells(costFunction costfunction.CostFunction, dirtyCells []datastructure.DirtyCell,
-		penaltyEdgeCost map[datastructure.PenaltiedEdge]float64,maxLevel int) map[datastructure.Index]float64
+		penaltyEdgeCost map[datastructure.PenaltiedEdge]float64, maxLevel int) map[datastructure.Index]float64
 }
 
 type CostFunction interface {
 	GetWeight(e costfunction.EdgeAttributes) float64
 	GetTurnCost(turnType pkg.TurnType) float64
+	GetWeightPWL(e costfunction.EdgeAttributes) *datastructure.PWL
+	GetWeightAtTime(e costfunction.EdgeAttributes, time float64) float64
 }

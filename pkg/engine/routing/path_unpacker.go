@@ -27,11 +27,10 @@ type PathUnpacker struct {
 	pq        *datastructure.MinHeap[datastructure.CRPQueryKey]
 	overlayPq *datastructure.MinHeap[datastructure.Index]
 	puCache   *lru.Cache[PUCacheKey, []datastructure.Index]
-	bs        *CRPBidirectionalSearch
 }
 
 func NewPathUnpacker(graph *datastructure.Graph, overlayGraph *datastructure.OverlayGraph, metrics *metrics.Metric,
-	puCache *lru.Cache[PUCacheKey, []datastructure.Index], bs *CRPBidirectionalSearch) *PathUnpacker {
+	puCache *lru.Cache[PUCacheKey, []datastructure.Index]) *PathUnpacker {
 	return &PathUnpacker{
 		graph:        graph,
 		overlayGraph: overlayGraph,
@@ -41,7 +40,6 @@ func NewPathUnpacker(graph *datastructure.Graph, overlayGraph *datastructure.Ove
 		pq:        datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
 		overlayPq: datastructure.NewFourAryHeap[datastructure.Index](),
 		puCache:   puCache,
-		bs:        bs,
 	}
 }
 
@@ -52,7 +50,7 @@ func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCe
 	unpackedPath := make([]datastructure.Coordinate, 0)
 	unpackedEdgePath := make([]datastructure.OutEdge, 0, 50)
 	totalDistance := 0.0
-	for i := 0; i < len(packedPath)-1; {
+	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
 		if cur.getEdge()&datastructure.Index(1<<UNPACK_OVERLAY_OFFSET) == 0 {
 			// original vertex (non-overlay vertex)
@@ -102,7 +100,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 
 	if overlayPath, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, level)); ok {
 		// fetch from cache
-		for i := 0; i < len(overlayPath)-1; i += 2 {
+		for i := 0; i < len(overlayPath); i += 2 {
 			pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedPath, unpackedEdgePath, distance)
 		}
 		return
@@ -113,7 +111,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 	sourceCellNumber := pu.overlayGraph.GetVertex(sourceOverlayId).GetCellNumber()
 	truncatedSourceCellNumber := pu.overlayGraph.GetLevelInfo().TruncateToLevel(sourceCellNumber, uint8(level))
 
-	pu.info[sourceOverlayId] = NewVertexInfo(0, newVertexEdgePair(sourceOverlayId, sourceOverlayId, false))
+	pu.info[sourceOverlayId] = NewVertexInfo(0, newVertexEdgePair(datastructure.INVALID_VERTEX_ID, datastructure.INVALID_EDGE_ID, false))
 	pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(0, sourceOverlayId))
 
 	for pu.overlayPq.Size() != 0 {
@@ -130,9 +128,6 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 		pu.overlayGraph.ForOutNeighborsOf(uOverlayId, int(level-1), func(vOverlayId datastructure.Index, wOffset datastructure.Index) {
 
 			shortcutOutEdgeWeight := pu.metrics.GetShortcutWeight(wOffset)
-			if penaltyCost, penalized := pu.bs.penaltyShortcutEdgeCost[wOffset]; pu.bs.penalty && penalized {
-				shortcutOutEdgeWeight = penaltyCost
-			}
 
 			newTravelTime := uTravelTime + shortcutOutEdgeWeight
 			_, vAlreadyVisited := pu.info[vOverlayId]
@@ -181,12 +176,10 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 
 	overlayPath := make([]datastructure.Index, 0, 8)
 	curOverlayId := targetOverlayId // targetOverlayId = exit vertex
-	overlayPath = append(overlayPath, curOverlayId)
-	for curOverlayId != sourceOverlayId {
 
-		parent := pu.info[curOverlayId].GetParent()
-		curOverlayId = parent.edge
+	for curOverlayId != datastructure.INVALID_EDGE_ID {
 		overlayPath = append(overlayPath, curOverlayId)
+		curOverlayId = pu.info[curOverlayId].GetParent().edge
 	}
 
 	pu.overlayPq.Clear()
@@ -194,8 +187,10 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 	// reverse
 	overlayPath = util.ReverseG[datastructure.Index](overlayPath)
 
+	util.AssertPanic(len(overlayPath)%2 == 0, "harusnya len(overlayPath) genap")
+
 	pu.puCache.Add(NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath)
-	for i := 0; i < len(overlayPath)-1; i += 2 {
+	for i := 0; i < len(overlayPath); i += 2 {
 		pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedPath, unpackedEdgePath, distance)
 	}
 }
@@ -225,7 +220,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId dat
 
 	sourceCellNumber := pu.graph.GetCellNumber(sourceVertex.GetID())
 
-	pu.info[sourceEntryId] = NewVertexInfo(0, newVertexEdgePairWithOutEdgeId(sourceVertex.GetID(), datastructure.INVALID_EDGE_ID,
+	pu.info[sourceEntryId] = NewVertexInfo(0, newVertexEdgePairWithOutEdgeId(datastructure.INVALID_VERTEX_ID, datastructure.INVALID_EDGE_ID,
 		datastructure.INVALID_EDGE_ID, false))
 
 	pu.pq.Insert(datastructure.NewPriorityQueueNode(0, datastructure.NewCRPQueryKeyWithOutInEdgeId(sourceVertex.GetID(),
@@ -249,9 +244,6 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId dat
 
 			vEntryId := pu.graph.GetEntryOffset(vId) + datastructure.Index(e.GetEntryPoint())
 			edgeWeight := pu.metrics.GetWeight(e)
-			if penaltyCost, penalized := pu.bs.penaltyEdgeCost[datastructure.NewPenaltiedEdge(e.GetEdgeId(), true)]; pu.bs.penalty && penalized {
-				edgeWeight = penaltyCost
-			}
 
 			newTravelTime := queryKey.GetRank() + edgeWeight + pu.metrics.GetTurnCost(turnType)
 
@@ -286,22 +278,15 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId dat
 	uId := targetEntryId
 	backwardEdges := make([]datastructure.OutEdge, 0)
 
-	first := true
 	for pu.info[uId].GetParent().edge != datastructure.INVALID_EDGE_ID {
 		prevEdgeId := pu.info[uId].GetParent().outInEdgeId
 
 		edgeIdPath = append(edgeIdPath, prevEdgeId)
-
 		prevOutEdge := *pu.graph.GetOutEdge(prevEdgeId)
 		backwardEdges = append(backwardEdges, prevOutEdge)
 		edgeGeometry := pu.graph.GetEdgeGeometry(prevEdgeId)
-		revEdgeGeometry := util.ReverseG[datastructure.Coordinate](edgeGeometry)
-		if first {
-			path = append(path, revEdgeGeometry...)
-			first = false
-		} else {
-			path = append(path, revEdgeGeometry[1:]...)
-		}
+		revGeom := util.ReverseG(edgeGeometry)
+		path = append(path, revGeom...)
 
 		*distance += prevOutEdge.GetLength()
 

@@ -2,6 +2,7 @@ package costfunction
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 type TimeFunction struct {
@@ -33,4 +34,13 @@ func (tf *TimeFunction) GetTurnCost(turnType pkg.TurnType) float64 {
 		return 0
 	}
 
+}
+
+func (tf *TimeFunction) GetWeightPWL(e EdgeAttributes) *datastructure.PWL {
+
+	return nil
+}
+
+func (tf *TimeFunction) GetWeightAtTime(e EdgeAttributes, time float64) float64 {
+	return 0
 }

@@ -18,9 +18,9 @@ func (e *Engine) GetRoutingEngine() *routing.CRPRoutingEngine {
 	return e.crpRoutingEngine
 }
 
-func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger) (*Engine, error) {
+func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool) (*Engine, error) {
 	initializeRoutingEngine, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath,
-		logger)
+		logger, td)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +29,7 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logg
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger,
+func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool,
 ) (*routing.CRPRoutingEngine,
 	error) {
 
@@ -48,7 +48,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	}
 	costFunction := costfunction.NewTimeCostFunction()
 	logger.Info("Reading stalling tables & time-dependent metrics...")
-	metrics, err := metrics.ReadFromFile(metricsFilePath, costFunction)
+	metrics, err := metrics.ReadFromFile(metricsFilePath, costFunction, td)
 	if err != nil {
 		return nil, err
 	}

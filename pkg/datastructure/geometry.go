@@ -30,12 +30,17 @@ func eq(a, b float64) bool {
 }
 
 // less than operator
-func lt(a, b float64) bool {
+func Lt(a, b float64) bool {
 	return a+EPS < b
 }
 
+// greater than or equal than operator
+func Ge(a, b float64) bool {
+	return Le(b, a)
+}
+
 // less than or equal operator
-func le(a, b float64) bool {
+func Le(a, b float64) bool {
 	return a <= b+EPS
 }
 
@@ -108,15 +113,6 @@ func NewVector(x, y float64) *Vector {
 
 func toVec(a, b *Point) *Vector {
 	return NewVector(b.x-a.x, b.y-a.y)
-}
-
-func translate(p *Point, v *Vector) *Point {
-	return NewPoint(p.x+v.x, p.y+v.y)
-}
-
-// dot product
-func dot(a, b *Vector) float64 {
-	return a.x*b.x + a.y*b.y
 }
 
 // cross product of two vectors a and b

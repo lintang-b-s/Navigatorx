@@ -142,7 +142,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 
 	for i := len(viaVertices) - 1; i >= 0; i-- {
 		v := viaVertices[i]
-		if fInfo[v.GetEntryId()].GetTravelTime()+bInfo[v.GetEntryId()].GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
+		if fInfo[v.GetEntryId()].GetTravelTime()+bInfo[v.GetExitId()].GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
 			viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
 		}
 	}
@@ -160,12 +160,14 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 		go func() {
-			svTravelTime, svDist, svCoords, svEdgePath, svFound = crpQuerysv.ShortestPathSearch(asId, v.GetEntryId())
+			viaEntryId := crpQuerysv.adjustForwardOffBit(v.GetEntryId())
+			svTravelTime, svDist, svCoords, svEdgePath, svFound = crpQuerysv.ShortestPathSearch(asId, viaEntryId)
 			wg.Done()
 		}()
 		crpQueryvt := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 		go func() {
-			vtTravelTime, vtDist, vtCoords, vtEdgePath, vtFound = crpQueryvt.ShortestPathSearch(v.GetExitId(), atId)
+			viaExitId := crpQueryvt.adjustBackwardOffbit(v.GetExitId())
+			vtTravelTime, vtDist, vtCoords, vtEdgePath, vtFound = crpQueryvt.ShortestPathSearch(viaExitId, atId)
 			wg.Done()
 		}()
 
@@ -319,7 +321,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, asId
 	if !ok {
 		u = vId
 	}
-	for u != asId {
+	for u != datastructure.INVALID_EDGE_ID {
 		if _, oki := pb[u]; oki {
 			costf := ps[u].GetTravelTime() - ps[ps[u].parent.edge].GetTravelTime()
 			plateau += costf
@@ -332,7 +334,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, asId
 	if !ok {
 		u = vId
 	}
-	for u != atId {
+	for u != datastructure.INVALID_EDGE_ID {
 		if _, oki := ps[u]; oki {
 			costf := pb[u].GetTravelTime() - pb[pb[u].parent.edge].GetTravelTime()
 			plateau += costf

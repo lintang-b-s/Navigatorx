@@ -14,24 +14,47 @@ type PWL struct {
 }
 
 func NewPWL(points []*Point) *PWL {
+
+	pwl := &PWL{points, 0, 0}
+	pwl.updateMinMax()
+
+	return pwl
+}
+
+func (pwl *PWL) updateMinMax() {
 	max := -1.0
 	min := math.MaxFloat64
 
-	for _, p := range points {
-		if lt(p.GetY(), min) {
+	for _, p := range pwl.points {
+		if Lt(p.GetY(), min) {
 			min = p.GetY()
 		}
 
-		if lt(max, p.GetY()) {
+		if Lt(max, p.GetY()) {
 			max = p.GetY()
 		}
 	}
+}
 
-	return &PWL{points, min, max}
+func (pwl *PWL) GetPoints() []*Point {
+	return pwl.points
+}
+
+func (pwl *PWL) SetPoints(ps []*Point) {
+	pwl.points = ps
+	pwl.updateMinMax()
 }
 
 func (pwl *PWL) isConst() bool {
 	return len(pwl.points) == 1
+}
+
+func (pwl *PWL) GetMin() float64 {
+	return pwl.min
+}
+
+func (pwl *PWL) GetMax() float64 {
+	return pwl.max
 }
 
 func (pwl *PWL) get(i int) *Point {
@@ -69,8 +92,8 @@ func (pwl *PWL) set(i int, p *Point) {
 	pwl.points[i] = p
 }
 
-// get travel time value from the travel time function evaluated at x=time
-func (pwl *PWL) eval(time float64) float64 {
+// get travel time value from the travel time function Evaluated at x=time
+func (pwl *PWL) Eval(time float64) float64 {
 	if pwl.isConst() {
 		return pwl.get(0).GetY()
 	}
@@ -78,7 +101,7 @@ func (pwl *PWL) eval(time float64) float64 {
 	x := math.Mod(time, PERIOD)
 
 	for i := 0; i < len(pwl.points); i++ {
-		if le(x, pwl.get(i).GetX()) {
+		if Le(x, pwl.get(i).GetX()) {
 
 			if eq(x, pwl.get(i).GetX()) {
 				return pwl.get(i).GetY()
@@ -173,21 +196,23 @@ func Link(f, g *PWL) *PWL {
 	if g.isConst() && f.isConst() {
 		p := *g.get(0)
 		p.add(f.get(0))
-		return NewPWL([]*Point{&p})
+		resPWL := NewPWL([]*Point{&p})
+		resPWL.updateMinMax()
+		return resPWL
 	}
 
 	if f.isConst() {
-		LinkConstTwo(f.get(0).GetY(), g)
+		return LinkConstTwo(f.get(0).GetY(), g)
 	}
 
 	if g.isConst() {
-		LinkConstOne(f, g.get(0).GetY())
+		return LinkConstOne(f, g.get(0).GetY())
 	}
 
 	ps := make([]*Point, 0, f.Size()+g.Size())
 	resPWL := NewPWL(ps)
 
-	i := g.lowerBound(f.eval(0))
+	i := g.lowerBound(f.Eval(0))
 	j := 0
 
 	for true {
@@ -198,9 +223,9 @@ func Link(f, g *PWL) *PWL {
 
 			i++
 			j++
-		} else if lt(g.get(i).GetX(), f.get(j).GetX()+f.get(j).GetY()) {
+		} else if Lt(g.get(i).GetX(), f.get(j).GetX()+f.get(j).GetY()) {
 			// f[j-1].x +f[j-1].y < g.get(i).GetX() < f.get(j).GetX()+f.get(j).GetY()
-			util.AssertPanic(lt(f.get(j-1).GetX()+f.get(j-1).GetY(), g.get(i).GetX()), "f[j-1].x +f[j-1].y should less than  g.get(i).x")
+			util.AssertPanic(Lt(f.get(j-1).GetX()+f.get(j-1).GetY(), g.get(i).GetX()), "f[j-1].x +f[j-1].y should less than  g.get(i).x")
 
 			mArrivalFInverse := (f.get(j).GetX() - f.get(j-1).GetX()) / (f.get(j).GetX() + f.get(j).GetY() -
 				f.get(j-1).GetX() - f.get(j-1).GetY())
@@ -219,7 +244,7 @@ func Link(f, g *PWL) *PWL {
 			j++
 		}
 
-		if lt(PERIOD, uwX) {
+		if Lt(PERIOD, uwX) {
 			break
 		}
 
@@ -238,6 +263,8 @@ func Link(f, g *PWL) *PWL {
 		}
 	}
 
+	resPWL.updateMinMax()
+
 	return resPWL
 }
 
@@ -251,6 +278,8 @@ func LinkConstOne(f *PWL, c float64) *PWL {
 		resPWL.appendPoint(&fp)
 	}
 
+	resPWL.updateMinMax()
+
 	return resPWL
 }
 
@@ -260,7 +289,7 @@ func LinkConstTwo(c float64, f *PWL) *PWL {
 	c = math.Mod(c, PERIOD)
 
 	k := 0
-	for k < f.Size() && lt(f.get(k).GetX(), c) {
+	for k < f.Size() && Lt(f.get(k).GetX(), c) {
 		k++
 	}
 
@@ -278,6 +307,8 @@ func LinkConstTwo(c float64, f *PWL) *PWL {
 		resPWL.appendPoint(&fp)
 	}
 
+	resPWL.updateMinMax()
+
 	return resPWL
 }
 
@@ -285,10 +316,17 @@ func LinkConstTwo(c float64, f *PWL) *PWL {
 // O(|f| + |g|)
 func Merge(f, g *PWL) *PWL {
 
-	if lt(f.max, g.min) {
+	if g.isConst() {
+		return mergeConst(f, g.points[0].GetY())
+	}
+	if f.isConst() {
+		return mergeConstTwo(f.points[0].GetY(), g)
+	}
+
+	if Lt(f.max, g.min) {
 		ff := *f
 		return &ff
-	} else if lt(g.max, f.min) {
+	} else if Lt(g.max, f.min) {
 		gg := *g
 		return &gg
 	}
@@ -308,14 +346,14 @@ func Merge(f, g *PWL) *PWL {
 
 			if eq(f.get(i).GetY(), g.get(j).GetY()) {
 				resPWL.appendPoint(f.get(i))
-			} else if lt(f.get(i).GetY(), g.get(j).GetY()) {
+			} else if Lt(f.get(i).GetY(), g.get(j).GetY()) {
 				resPWL.appendPoint(f.get(i))
 			} else {
 				resPWL.appendPoint(g.get(j))
 			}
 			i++
 			j++
-		} else if lt(f.get(i).GetX(), g.get(j).GetX()) {
+		} else if Lt(f.get(i).GetX(), g.get(j).GetX()) {
 
 			if ccw(g.get(j-1), f.get(i), g.get(j)) {
 
@@ -355,6 +393,8 @@ func Merge(f, g *PWL) *PWL {
 		resPWL.appendPoint(g.get(m - 1))
 	}
 
+	resPWL.updateMinMax()
+
 	return resPWL
 }
 
@@ -363,20 +403,20 @@ func mergeConst(f *PWL, c float64) *PWL {
 	ps := make([]*Point, 0, f.Size())
 	resPWL := NewPWL(ps)
 
-	if le(c, f.min) {
+	if Le(c, f.min) {
 		return NewPWL([]*Point{NewPoint(0, c)})
 	}
 
 	n := f.Size()
 	for i := 0; i < n; i++ {
 		if eq(f.get(i).GetY(), c) {
-			if lt(f.get(i-1).GetY(), c) || lt(f.get(i+1).GetY(), c) {
+			if Lt(f.get(i-1).GetY(), c) || Lt(f.get(i+1).GetY(), c) {
 				resPWL.appendPoint(NewPoint(f.get(i).GetX(), c))
 			} else if resPWL.Size() == 0 {
 				resPWL.appendPoint(NewPoint(f.get(i).GetX(), math.Min(f.get(i).GetY(), c)))
 			}
-		} else if lt(f.get(i).GetY(), c) {
-			if lt(c, f.get(i-1).GetY()) {
+		} else if Lt(f.get(i).GetY(), c) {
+			if Lt(c, f.get(i-1).GetY()) {
 
 				itPoint := intersectionPointHorizontalLine(f.get(i-1), f.get(i), c)
 				if itPoint.GetX() >= 0 {
@@ -385,7 +425,7 @@ func mergeConst(f *PWL, c float64) *PWL {
 			}
 
 			resPWL.appendPoint(f.get(i))
-		} else if lt(f.get(i-1).GetY(), c) {
+		} else if Lt(f.get(i-1).GetY(), c) {
 
 			itPoint := intersectionPointHorizontalLine(f.get(i-1), f.get(i), c)
 			if itPoint.GetX() >= 0 {
@@ -394,10 +434,10 @@ func mergeConst(f *PWL, c float64) *PWL {
 		}
 	}
 
-	if lt(f.get(n-1).GetY(), c) && lt(c, f.get(n).GetY()) || lt(c, f.get(n-1).GetY()) && lt(f.get(n).GetY(), c) {
+	if Lt(f.get(n-1).GetY(), c) && Lt(c, f.get(n).GetY()) || Lt(c, f.get(n-1).GetY()) && Lt(f.get(n).GetY(), c) {
 		itPoint := intersectionPointHorizontalLine(f.get(n-1), f.get(n), c)
 
-		if le(itPoint.GetX(), PERIOD) {
+		if Le(itPoint.GetX(), PERIOD) {
 
 			resPWL.appendPoint(itPoint)
 		}
@@ -406,6 +446,8 @@ func mergeConst(f *PWL, c float64) *PWL {
 	if resPWL.Size() == 0 {
 		resPWL.appendPoint(NewPoint(0, c))
 	}
+
+	resPWL.updateMinMax()
 
 	return resPWL
 }
@@ -437,7 +479,7 @@ func (pwl *PWL) appendPoint(p *Point) {
 		return
 	}
 
-	if n != 0 && lt(p.GetX(), pwl.get(n-1).GetX()) {
+	if n != 0 && Lt(p.GetX(), pwl.get(n-1).GetX()) {
 
 		var pp *Point
 		lastPoint := pwl.get(n - 1)

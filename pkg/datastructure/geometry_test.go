@@ -24,7 +24,7 @@ func TestIntersect(t *testing.T) {
 		want               bool
 		wantIntersectPoint *Point
 	}{
-		
+
 		{
 			name: "test intersect 1",
 

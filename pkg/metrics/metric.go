@@ -8,26 +8,33 @@ import (
 	"math"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 type Metric struct {
-	weights             *datastructure.OverlayWeights
+	weights       *da.OverlayWeights
+	weightsTD     *da.OverlayWeightsTD
+	timeDependent bool
+
 	entryStallingTables [][]float64 // stallingTables for vertice-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
 	exitStallingTables  [][]float64
 	costFunction        costfunction.CostFunction
 }
 
-func NewMetric(graph *datastructure.Graph, costFunction costfunction.CostFunction, overlayWeights *datastructure.OverlayWeights) *Metric {
+func NewMetric(graph *da.Graph, costFunction costfunction.CostFunction, overlayWeights *da.OverlayWeights,
+	overlayWeightsTD *da.OverlayWeightsTD, td bool) *Metric {
 
 	return &Metric{
 		weights:             overlayWeights,
 		entryStallingTables: make([][]float64, graph.NumberOfVertices()),
 		exitStallingTables:  make([][]float64, graph.NumberOfVertices()),
 		costFunction:        costFunction,
+		weightsTD:           overlayWeightsTD,
+		timeDependent:       td,
 	}
 }
 
@@ -44,9 +51,9 @@ element (u, i, d), we only insert it into the heap if d ≤ bu [i].
 
 we precompute (during customization) the max_k {Tv [i, k] − Tv [j, k]} entries for all pairs of entry points of each vertex.
 */
-func (met *Metric) BuildStallingTables(overlayGraph *datastructure.OverlayGraph, graph *datastructure.Graph) {
+func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.Graph) {
 
-	for vId := datastructure.Index(0); vId < datastructure.Index(graph.NumberOfVertices()); vId++ {
+	for vId := da.Index(0); vId < da.Index(graph.NumberOfVertices()); vId++ {
 
 		n := graph.GetInDegree(vId)
 		m := graph.GetOutDegree(vId)
@@ -60,10 +67,10 @@ func (met *Metric) BuildStallingTables(overlayGraph *datastructure.OverlayGraph,
 		entryStallingTable := make([]float64, n*n)
 		exitStallingTable := make([]float64, m*m)
 
-		for i := datastructure.Index(0); i < n; i++ {
-			for j := datastructure.Index(0); j < n; j++ {
+		for i := da.Index(0); i < n; i++ {
+			for j := da.Index(0); j < n; j++ {
 				maxDiff := -1.0
-				for k := datastructure.Index(0); k < m; k++ {
+				for k := da.Index(0); k < m; k++ {
 					Tv_ik := met.GetTurnCost(graph.GetTurnType(vId, i, k))
 					Tv_jk := met.GetTurnCost(graph.GetTurnType(vId, j, k))
 					maxDiff = math.Max(maxDiff, Tv_ik-Tv_jk)
@@ -73,10 +80,10 @@ func (met *Metric) BuildStallingTables(overlayGraph *datastructure.OverlayGraph,
 			}
 		}
 
-		for i := datastructure.Index(0); i < m; i++ {
-			for j := datastructure.Index(0); j < m; j++ {
+		for i := da.Index(0); i < m; i++ {
+			for j := da.Index(0); j < m; j++ {
 				maxDiff := -1.0
-				for k := datastructure.Index(0); k < n; k++ {
+				for k := da.Index(0); k < n; k++ {
 					Tv_ki := met.GetTurnCost(graph.GetTurnType(vId, k, i))
 					Tv_kj := met.GetTurnCost(graph.GetTurnType(vId, k, j))
 					maxDiff = math.Max(maxDiff, Tv_ki-Tv_kj)
@@ -90,27 +97,39 @@ func (met *Metric) BuildStallingTables(overlayGraph *datastructure.OverlayGraph,
 		met.exitStallingTables[vId] = exitStallingTable
 	}
 
-	
-	return
 }
 
-func (met *Metric) GetWeights() *datastructure.OverlayWeights {
+func (met *Metric) GetWeights() *da.OverlayWeights {
 	return met.weights
 }
 
 func (met *Metric) GetWeight(e costfunction.EdgeAttributes) float64 {
-	return met.costFunction.GetWeight(e)
+	if !met.timeDependent {
+		return met.costFunction.GetWeight(e)
+	} else {
+		return met.costFunction.GetWeightAtTime(e, getCurrentSeconds())
+	}
 }
 
-func (met *Metric) GetEntryStallingTableCost(uId datastructure.Index, offset datastructure.Index) float64 {
+func getCurrentSeconds() float64 {
+	now := time.Now()
+	hour := now.Hour()
+	min := now.Minute()
+	seconds := now.Second()
+
+	totalDaySeconds := float64(hour*3600 + min*60 + seconds)
+	return totalDaySeconds
+}
+
+func (met *Metric) GetEntryStallingTableCost(uId da.Index, offset da.Index) float64 {
 	return met.entryStallingTables[uId][offset]
 }
 
-func (met *Metric) GetExitStallingTableCost(uId datastructure.Index, offset datastructure.Index) float64 {
+func (met *Metric) GetExitStallingTableCost(uId da.Index, offset da.Index) float64 {
 	return met.exitStallingTables[uId][offset]
 }
 
-func (met *Metric) GetShortcutWeight(offset datastructure.Index) float64 {
+func (met *Metric) GetShortcutWeight(offset da.Index) float64 {
 	return met.weights.GetWeight(offset)
 }
 
@@ -128,18 +147,37 @@ func (met *Metric) WriteToFile(filename string) error {
 	w := bufio.NewWriter(f)
 	defer w.Flush()
 
-	fmt.Fprintf(w, "%d %d %d\n", len(met.weights.GetWeights()), len(met.entryStallingTables), len(met.exitStallingTables))
-	for i, weight := range met.weights.GetWeights() {
+	if !met.timeDependent {
+		fmt.Fprintf(w, "%d %d %d\n", len(met.weights.GetWeights()), len(met.entryStallingTables), len(met.exitStallingTables))
+		for i, weight := range met.weights.GetWeights() {
 
-		_, err := fmt.Fprintf(w, "%f", weight)
-		if err != nil {
-			return err
+			_, err := fmt.Fprintf(w, "%f", weight)
+			if err != nil {
+				return err
+			}
+			if i < len(met.weights.GetWeights())-1 {
+				fmt.Fprintf(w, " ")
+			}
 		}
-		if i < len(met.weights.GetWeights())-1 {
-			fmt.Fprintf(w, " ")
+		fmt.Fprintf(w, "\n")
+	} else {
+		fmt.Fprintf(w, "%d %d %d\n", len(met.weightsTD.GetWeights()), len(met.entryStallingTables), len(met.exitStallingTables))
+		for i, weight := range met.weightsTD.GetWeights() {
+			wp := weight.GetPoints()
+			for _, p := range wp {
+				_, err := fmt.Fprintf(w, "%f, %f", p.GetX(), p.GetY())
+				if err != nil {
+					return err
+				}
+				if i < len(met.weights.GetWeights())-1 {
+					fmt.Fprintf(w, " - ")
+				}
+			}
+
+			fmt.Fprintf(w, "\n")
 		}
+		fmt.Fprintf(w, "\n")
 	}
-	fmt.Fprintf(w, "\n")
 
 	for i := range met.entryStallingTables {
 		if met.entryStallingTables[i] == nil {
@@ -174,7 +212,7 @@ func (met *Metric) WriteToFile(filename string) error {
 	return nil
 }
 
-func ReadFromFile(filename string, costFunction costfunction.CostFunction) (*Metric, error) {
+func ReadFromFile(filename string, costFunction costfunction.CostFunction, td bool) (*Metric, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -221,15 +259,37 @@ func ReadFromFile(filename string, costFunction costfunction.CostFunction) (*Met
 	}
 
 	line, err = readLine()
+	pwls := make([]*da.PWL, numWeights)
 	weights := make([]float64, numWeights)
 	parts = fields(line)
 	if uint32(len(parts)) != numWeights {
 		return nil, fmt.Errorf("invalid format")
 	}
-	for i, weight := range parts {
-		_, err = fmt.Sscanf(weight, "%f", &weights[i])
-		if err != nil {
-			return nil, err
+
+	if !td {
+		for i, weight := range parts {
+			_, err = fmt.Sscanf(weight, "%f", &weights[i])
+			if err != nil {
+				return nil, err
+			}
+		}
+	} else {
+		for i := range numWeights {
+			ps := make([]*da.Point, 0)
+			parts = strings.Split(line, " - ")
+			for _, weight := range parts {
+				var x, y float64
+				_, err = fmt.Sscanf(weight, "%f, %f", x, y)
+				if err != nil {
+					return nil, err
+				}
+				ps = append(ps, da.NewPoint(x, y))
+			}
+			pwls[i].SetPoints(ps)
+			line, err = readLine()
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -301,7 +361,7 @@ func ReadFromFile(filename string, costFunction costfunction.CostFunction) (*Met
 	}
 
 	metric := &Metric{
-		weights:             datastructure.NewOverlayWeights(numWeights),
+		weights:             da.NewOverlayWeights(numWeights),
 		entryStallingTables: entryStallingTables,
 		exitStallingTables:  exitStallingTables,
 	}

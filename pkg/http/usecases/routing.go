@@ -19,11 +19,13 @@ type RoutingService struct {
 	clockwise, lefthandDriving   bool
 	gamma, alpha, epsilon, delta float64
 	upperBoundAlternativeSearch  float64
+	timeDependent                bool
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex,
 	searchRadius float64, clockwise, lefthandDriving bool,
-	gamma, alpha, epsilon, upperBoundAlternativeSearch, delta float64) *RoutingService {
+	gamma, alpha, epsilon, upperBoundAlternativeSearch, delta float64, timeDependent bool,
+) *RoutingService {
 	return &RoutingService{
 		log:                         log,
 		engine:                      engine,
@@ -36,6 +38,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		epsilon:                     epsilon,
 		upperBoundAlternativeSearch: upperBoundAlternativeSearch,
 		delta:                       delta,
+		timeDependent:               timeDependent,
 	}
 }
 
@@ -46,9 +49,21 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	if err != nil {
 		return 0, 0, "", []datastructure.DrivingDirection{}, false, err
 	}
+	var (
+		travelTime, dist float64
+		pathCoords       []datastructure.Coordinate
+		edgePath         []datastructure.OutEdge
+		found            bool
+	)
 
-	crpQuery := routing.NewCRPBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), UPPERBOUND_SHORTEST_PATH)
-	travelTime, dist, pathCoords, edgePath, found := crpQuery.ShortestPathSearch(as, at)
+	if !rs.timeDependent {
+		crpQuery := routing.NewCRPBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), UPPERBOUND_SHORTEST_PATH)
+		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
+	} else {
+		crpQuery := routing.NewCRPUnidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine))
+		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearchUni(as, at)
+
+	}
 	if !found {
 		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput, fmt.Sprintf("no route found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon))
 	}

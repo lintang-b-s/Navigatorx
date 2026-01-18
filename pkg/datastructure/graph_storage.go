@@ -117,7 +117,7 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 	}
 	startIndex := edge.startPointsIndex
 	endIndex := edge.endPointsIndex
-	if startIndex <= endIndex {
+	if startIndex < endIndex {
 		edgePoints = gs.globalPoints[startIndex:endIndex]
 
 		return edgePoints
