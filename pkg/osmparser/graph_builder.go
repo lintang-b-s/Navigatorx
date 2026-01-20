@@ -256,31 +256,31 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 						switch restriction.turnRestriction {
 						case NO_LEFT_TURN:
 							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-							break
+
 						case NO_RIGHT_TURN:
 							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-							break
+
 						case NO_STRAIGHT_ON:
 							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-							break
+
 						case NO_U_TURN:
 							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-							break
+
 						case NO_ENTRY:
 							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-							break
+
 						case ONLY_LEFT_TURN:
 							turnMatrices[via][rowOffset+exitID] = pkg.LEFT_TURN
-							break
+
 						case ONLY_RIGHT_TURN:
 							turnMatrices[via][rowOffset+exitID] = pkg.RIGHT_TURN
-							break
+
 						case ONLY_STRAIGHT_ON:
 							turnMatrices[via][rowOffset+exitID] = pkg.STRAIGHT_ON
-							break
+
 						default:
 							turnMatrices[via][rowOffset+exitID] = pkg.NONE
-							break
+
 						}
 					}
 					break

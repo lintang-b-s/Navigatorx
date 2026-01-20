@@ -29,3 +29,4 @@ idk/
 *.xlsx
 
 *.mm
+cmd/ttf_generator/

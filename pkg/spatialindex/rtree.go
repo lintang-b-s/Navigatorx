@@ -74,8 +74,8 @@ func (rt *Rtree) Build(graph *datastructure.Graph, boundingBoxRadius float64, lo
 	log.Info("Building R-tree spatial index...")
 	graph.ForOutEdges(func(e *datastructure.OutEdge, exitPoint, head, tail, entryId datastructure.Index,
 		percentage float64, id datastructure.Index) {
-		if math.Mod(percentage, 10) < 0.0001 {
-			log.Info("Building R-tree spatial index...", zap.Float64("progress", percentage))
+		if math.Mod(percentage, 10) < 1e-4 {
+			log.Info("Building R-tree spatial index...", zap.Int("progress", int(percentage)))
 		}
 		from := tail
 		to := head

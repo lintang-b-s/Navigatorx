@@ -1,6 +1,7 @@
 package customizer
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -47,6 +48,7 @@ algorithm, which tends to be faster.
 */
 func (c *Customizer) BuildTD(
 	costFunction costfunction.CostFunction) {
+	fmt.Printf("total level: %v\n", c.overlayGraph.GetLevelInfo().GetLevelCount())
 	c.buildLowestLevelTD(costFunction)
 	for level := 2; level <= c.overlayGraph.GetLevelInfo().GetLevelCount(); level++ {
 		c.buildLevelTD(costFunction, level)
@@ -79,7 +81,9 @@ func (c *Customizer) buildLowestLevelTD(
 				startInEdgeOffset := overlayVertex.GetOriginalEdge() - forwardCellOffset
 				overlayTravelTime := make(map[da.Index]*da.PWL)
 
-				travelTime[startInEdgeOffset] = da.NewPWL(make([]*da.Point, 0))
+				startPs := make([]*da.Point, 1)
+				startPs[0] = da.NewPoint(0, 0)
+				travelTime[startInEdgeOffset] = da.NewPWL(startPs)
 
 				pq.Insert(da.NewPriorityQueueNode(0,
 					da.NewCRPQueryKey(start, startInEdgeOffset)))
@@ -127,13 +131,13 @@ func (c *Customizer) buildLowestLevelTD(
 							// found an exit point of the cell
 							// save this shortcut travelTime
 							exitOverlay, _ := c.graph.GetOverlayVertex(uId, uint8(exitPoint), true) // overlay vetex id of exit vertex c_1(u).
-							if da.Ge(exitPointTravelTime.GetMin(), overlayTravelTime[exitOverlay].GetMax()) {
-								return
-							}
 
 							if _, ok := overlayTravelTime[exitOverlay]; !ok {
 								overlayTravelTime[exitOverlay] = exitPointTravelTime
 							} else {
+								if da.Ge(exitPointTravelTime.GetMin(), overlayTravelTime[exitOverlay].GetMax()) {
+									return
+								}
 								overlayTravelTime[exitOverlay] = da.Merge(overlayTravelTime[exitOverlay], exitPointTravelTime)
 							}
 						}
@@ -192,6 +196,7 @@ func (c *Customizer) buildLowestLevelTD(
 			c.owtd.SetWeight(w.getIndex(), w.getTravelTime())
 		}
 	}
+
 }
 
 // buildLevel. build clique of each cell in the level (level > 1)
@@ -219,7 +224,9 @@ func (c *Customizer) buildLevelTD(
 				travelTime := make(map[da.Index]*da.PWL)
 				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 
-				travelTime[startOverlayVertexId] = da.NewPWL(make([]*da.Point, 0))
+				startPs := make([]*da.Point, 1)
+				startPs[0] = da.NewPoint(0, 0)
+				travelTime[startOverlayVertexId] = da.NewPWL(startPs)
 
 				pq.Insert(da.NewPriorityQueueNode(0, startOverlayVertexId))
 
@@ -241,35 +248,37 @@ func (c *Customizer) buildLevelTD(
 						}
 
 						oldExit, exitAlreadyVisited := travelTime[exit]
-						if da.Ge(newTravelTime.GetMin(), oldExit.GetMax()) {
-							return
-						}
 
 						if !exitAlreadyVisited {
 							travelTime[exit] = newTravelTime
 						} else {
+							if da.Ge(newTravelTime.GetMin(), oldExit.GetMax()) {
+								return
+							}
 							travelTime[exit] = da.Merge(travelTime[exit], newTravelTime)
 						}
 
 						exitOverlayVertex := c.overlayGraph.GetVertex(exit)
 						neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
 						neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)
+						exitOriEdge := exitOverlayVertex.GetOriginalEdge()
 
 						if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
-							boundaryArcWeight := costFunction.GetWeightPWL(c.graph.GetOutEdge(exitOverlayVertex.GetOriginalEdge()))
+							boundaryArcWeight := costFunction.GetWeightPWL(c.graph.GetOutEdge(exitOriEdge))
+
 							newNeighborTravelTime := da.Link(newTravelTime, boundaryArcWeight)
 							oldNTravelTime, neighborVertexAlreadyVisited := travelTime[neighborVertex]
 
-							if da.Ge(newNeighborTravelTime.GetMin(), oldNTravelTime.GetMax()) {
-								return
-							}
-
 							if !neighborVertexAlreadyVisited {
-								travelTime[neighborVertex] = da.Merge(travelTime[neighborVertex], newNeighborTravelTime)
+								travelTime[neighborVertex] = newNeighborTravelTime
 
 								pq.Insert(da.NewPriorityQueueNode(travelTime[neighborVertex].GetMin(), neighborVertex))
 							} else {
-								travelTime[neighborVertex] = newNeighborTravelTime
+								if da.Ge(newNeighborTravelTime.GetMin(), oldNTravelTime.GetMax()) {
+									return
+								}
+								travelTime[neighborVertex] = da.Merge(travelTime[neighborVertex], newNeighborTravelTime)
+
 								pq.DecreaseKey(da.NewPriorityQueueNode(travelTime[neighborVertex].GetMin(), neighborVertex))
 							}
 						}
@@ -316,7 +325,7 @@ func (c *Customizer) buildLevelTD(
 
 	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
 
-	workers := concurrent.NewWorkerPool[customizerCell, []cellCustomizationResTD](20, len(cellMapInLevel))
+	workers := concurrent.NewWorkerPool[customizerCell, []cellCustomizationResTD](2, len(cellMapInLevel))
 
 	for pv, cell := range cellMapInLevel {
 		workers.AddJob(newCustomizerCell(cell, pv))
@@ -331,4 +340,5 @@ func (c *Customizer) buildLevelTD(
 			c.owtd.SetWeight(w.getIndex(), w.getTravelTime())
 		}
 	}
+
 }

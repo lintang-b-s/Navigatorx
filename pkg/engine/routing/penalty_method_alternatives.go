@@ -186,7 +186,7 @@ func (ars *AlternativeRouteSearch) haveAdmissibleDetour(graphVertexMap map[datas
 			}
 
 			// detour path
-			detourLength += ars.engine.metrics.GetWeight(&altEdge)
+			detourLength += ars.engine.metrics.GetWeight(&altEdge, 0)
 		} else if detourStartVid != datastructure.INVALID_VERTEX_ID {
 			detourStartVid = graphVertexMap[detourStartVid]
 			tail = graphVertexMap[tail]
@@ -231,7 +231,7 @@ func (ars *AlternativeRouteSearch) computeBidirectionalDijkstraOnAlternativeGrap
 		uId := uItem.GetVertex()
 
 		graph.ForOutEdgesOf(uId, func(e *datastructure.OutEdge) {
-			newTravelTime := distf[uId].getTravelTime() + ars.engine.metrics.GetWeight(e)
+			newTravelTime := distf[uId].getTravelTime() + ars.engine.metrics.GetWeight(e, 0)
 
 			v := e.GetHead()
 			old, exists := distf[v]
@@ -255,7 +255,7 @@ func (ars *AlternativeRouteSearch) computeBidirectionalDijkstraOnAlternativeGrap
 		uId = uItem.GetVertex()
 
 		graph.ForInEdgesOf(uId, func(e *datastructure.InEdge) {
-			newTravelTime := distb[uId].getTravelTime() + ars.engine.metrics.GetWeight(e)
+			newTravelTime := distb[uId].getTravelTime() + ars.engine.metrics.GetWeight(e, 0)
 
 			v := e.GetTail()
 			old, exists := distb[v]
@@ -401,7 +401,7 @@ func (ars *AlternativeRouteSearch) applyPenalties(penaltiedArcs []datastructure.
 	for i := 0; i < len(penaltiedArcs); i++ {
 		arc := penaltiedArcs[i]
 		if _, exists := penaltyEdgeCost[datastructure.NewPenaltiedEdge(arc.GetEdgeId(), true)]; !exists {
-			penaltyEdgeCost[datastructure.NewPenaltiedEdge(arc.GetEdgeId(), true)] = ars.engine.metrics.GetWeight(&arc)
+			penaltyEdgeCost[datastructure.NewPenaltiedEdge(arc.GetEdgeId(), true)] = ars.engine.metrics.GetWeight(&arc, 0)
 		}
 		penaltyEdgeCost[datastructure.NewPenaltiedEdge(arc.GetEdgeId(), true)] *= pathPenalty
 
@@ -409,7 +409,7 @@ func (ars *AlternativeRouteSearch) applyPenalties(penaltiedArcs []datastructure.
 		inArc := ars.engine.graph.GetInEdge(datastructure.Index(arc.GetEntryPoint()) + ars.engine.graph.GetEntryOffset(head))
 
 		if _, exists := penaltyEdgeCost[datastructure.NewPenaltiedEdge(inArc.GetEdgeId(), false)]; !exists {
-			penaltyEdgeCost[datastructure.NewPenaltiedEdge(inArc.GetEdgeId(), false)] = ars.engine.metrics.GetWeight(inArc)
+			penaltyEdgeCost[datastructure.NewPenaltiedEdge(inArc.GetEdgeId(), false)] = ars.engine.metrics.GetWeight(inArc, 0)
 		}
 		penaltyEdgeCost[datastructure.NewPenaltiedEdge(inArc.GetEdgeId(), false)] *= pathPenalty
 
@@ -420,7 +420,7 @@ func (ars *AlternativeRouteSearch) applyPenalties(penaltiedArcs []datastructure.
 				return
 			}
 			if _, exists := penaltyEdgeCost[datastructure.NewPenaltiedEdge(adjoinedArc.GetEdgeId(), true)]; !exists {
-				penaltyEdgeCost[datastructure.NewPenaltiedEdge(adjoinedArc.GetEdgeId(), true)] = ars.engine.metrics.GetWeight(adjoinedArc)
+				penaltyEdgeCost[datastructure.NewPenaltiedEdge(adjoinedArc.GetEdgeId(), true)] = ars.engine.metrics.GetWeight(adjoinedArc, 0)
 			}
 			penaltyEdgeCost[datastructure.NewPenaltiedEdge(adjoinedArc.GetEdgeId(), true)] += adjointPenalty
 
@@ -428,7 +428,7 @@ func (ars *AlternativeRouteSearch) applyPenalties(penaltiedArcs []datastructure.
 			adjoinedInArc := ars.engine.graph.GetInEdge(datastructure.Index(adjoinedArc.GetEntryPoint()) + ars.engine.graph.GetEntryOffset(adjoinedArcHead))
 
 			if _, exists := penaltyEdgeCost[datastructure.NewPenaltiedEdge(adjoinedInArc.GetEdgeId(), true)]; !exists {
-				penaltyEdgeCost[datastructure.NewPenaltiedEdge(adjoinedInArc.GetEdgeId(), true)] = ars.engine.metrics.GetWeight(adjoinedInArc)
+				penaltyEdgeCost[datastructure.NewPenaltiedEdge(adjoinedInArc.GetEdgeId(), true)] = ars.engine.metrics.GetWeight(adjoinedInArc, 0)
 			}
 			penaltyEdgeCost[datastructure.NewPenaltiedEdge(adjoinedInArc.GetEdgeId(), true)] += adjointPenalty
 

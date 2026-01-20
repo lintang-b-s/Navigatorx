@@ -61,11 +61,12 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
 	} else {
 		crpQuery := routing.NewCRPUnidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine))
-		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearchUni(as, at)
-
+		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
 	}
 	if !found {
-		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput, fmt.Sprintf("no route found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon))
+		errmsg := fmt.Sprintf("no route found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
+		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
+			errmsg)
 	}
 
 	pathPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(pathCoords))
@@ -82,7 +83,8 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 		return []*routing.AlternativeRoute{}, false, err
 	}
 
-	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.upperBoundAlternativeSearch, rs.gamma, rs.alpha, rs.epsilon, rs.delta)
+	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.upperBoundAlternativeSearch, rs.gamma, rs.alpha,
+		rs.epsilon, rs.delta, rs.timeDependent)
 	alternatives := altSearch.FindAlternativeRoutes(as, at, k)
 	if len(alternatives) == 0 {
 		return []*routing.AlternativeRoute{}, false, nil

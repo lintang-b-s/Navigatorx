@@ -78,7 +78,7 @@ func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCe
 
 			exitVertex := packedPath[i+1].getEdge() & ^datastructure.Index(1<<UNPACK_OVERLAY_OFFSET)
 
-			pu.unpackInLevelCell(entryVertex, exitVertex, int(queryLevel), &unpackedPath, &unpackedEdgePath, &totalDistance)
+			pu.unpackInLevelCell(entryVertex, exitVertex, int(queryLevel), &unpackedPath, &unpackedEdgePath, &totalDistance, cur.getTime())
 			i += 2
 		}
 	}
@@ -87,21 +87,21 @@ func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCe
 }
 
 func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datastructure.Index, level int, unpackedPath *[]datastructure.Coordinate,
-	unpackedEdgePath *[]datastructure.OutEdge, distance *float64) {
+	unpackedEdgePath *[]datastructure.OutEdge, distance *float64, tSec float64) {
 
 	if level == 1 {
 		sourceEntryId := pu.overlayGraph.GetVertex(sourceOverlayId).GetOriginalEdge()
 		neighborOfTarget := pu.overlayGraph.GetVertex(targetOverlayId).GetNeighborOverlayVertex()
 		targetEntryId := pu.overlayGraph.GetVertex(neighborOfTarget).GetOriginalEdge()
 		pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId, unpackedPath, unpackedEdgePath, distance,
-			sourceOverlayId, targetOverlayId)
+			sourceOverlayId, targetOverlayId, tSec)
 		return
 	}
 
 	if overlayPath, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, level)); ok {
 		// fetch from cache
 		for i := 0; i < len(overlayPath); i += 2 {
-			pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedPath, unpackedEdgePath, distance)
+			pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedPath, unpackedEdgePath, distance, tSec)
 		}
 		return
 	}
@@ -111,11 +111,12 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 	sourceCellNumber := pu.overlayGraph.GetVertex(sourceOverlayId).GetCellNumber()
 	truncatedSourceCellNumber := pu.overlayGraph.GetLevelInfo().TruncateToLevel(sourceCellNumber, uint8(level))
 
-	pu.info[sourceOverlayId] = NewVertexInfo(0, newVertexEdgePair(datastructure.INVALID_VERTEX_ID, datastructure.INVALID_EDGE_ID, false))
-	pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(0, sourceOverlayId))
+	pu.info[sourceOverlayId] = NewVertexInfo(tSec, newVertexEdgePair(datastructure.INVALID_VERTEX_ID, datastructure.INVALID_EDGE_ID, false))
+	pu.overlayPq.Insert(datastructure.NewPriorityQueueNode(tSec, sourceOverlayId))
 
 	for pu.overlayPq.Size() != 0 {
 		u, _ := pu.overlayPq.ExtractMin()
+		uTime := u.GetRank()
 
 		uOverlayId := u.GetItem()
 
@@ -127,7 +128,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 		// traverse all out neighbor of u in level l-1 in the same cell as u
 		pu.overlayGraph.ForOutNeighborsOf(uOverlayId, int(level-1), func(vOverlayId datastructure.Index, wOffset datastructure.Index) {
 
-			shortcutOutEdgeWeight := pu.metrics.GetShortcutWeight(wOffset)
+			shortcutOutEdgeWeight := pu.metrics.GetShortcutWeight(wOffset, uTime)
 
 			newTravelTime := uTravelTime + shortcutOutEdgeWeight
 			_, vAlreadyVisited := pu.info[vOverlayId]
@@ -161,7 +162,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 			// get out edge that point to wEntryVertex from vOverlayId
 			vOverlayVertex := pu.overlayGraph.GetVertex(vOverlayId)
 			vOutEdge := pu.graph.GetOutEdge(vOverlayVertex.GetOriginalEdge())
-			newTravelTime += pu.metrics.GetWeight(vOutEdge)
+			newTravelTime += pu.metrics.GetWeight(vOutEdge, newTravelTime)
 
 			_, wAlreadyVisited := pu.info[wNeighborId]
 			pu.info[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
@@ -191,13 +192,16 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 
 	pu.puCache.Add(NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath)
 	for i := 0; i < len(overlayPath); i += 2 {
-		pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedPath, unpackedEdgePath, distance)
+		curV := overlayPath[i]
+		nextV := overlayPath[i+1]
+		piTime := pu.info[curV].GetTravelTime()
+		pu.unpackInLevelCell(curV, nextV, level-1, unpackedPath, unpackedEdgePath, distance, piTime)
 	}
 }
 
 func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId datastructure.Index,
 	unpackedPath *[]datastructure.Coordinate, unpackedEdgePath *[]datastructure.OutEdge, distance *float64,
-	sourceOverlayId, targetOverlayId datastructure.Index) {
+	sourceOverlayId, targetOverlayId datastructure.Index, tSec float64) {
 	if edgeIds, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1)); ok {
 		// fetch from cache
 		for _, edgeId := range edgeIds {
@@ -220,10 +224,10 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId dat
 
 	sourceCellNumber := pu.graph.GetCellNumber(sourceVertex.GetID())
 
-	pu.info[sourceEntryId] = NewVertexInfo(0, newVertexEdgePairWithOutEdgeId(datastructure.INVALID_VERTEX_ID, datastructure.INVALID_EDGE_ID,
+	pu.info[sourceEntryId] = NewVertexInfo(tSec, newVertexEdgePairWithOutEdgeId(datastructure.INVALID_VERTEX_ID, datastructure.INVALID_EDGE_ID,
 		datastructure.INVALID_EDGE_ID, false))
 
-	pu.pq.Insert(datastructure.NewPriorityQueueNode(0, datastructure.NewCRPQueryKeyWithOutInEdgeId(sourceVertex.GetID(),
+	pu.pq.Insert(datastructure.NewPriorityQueueNode(tSec, datastructure.NewCRPQueryKeyWithOutInEdgeId(sourceVertex.GetID(),
 		sourceEntryId, outEdge.GetEdgeId())))
 
 	for pu.pq.Size() != 0 {
@@ -231,6 +235,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId dat
 
 		uItem := queryKey.GetItem()
 		uId := uItem.GetNode()
+		uTime := queryKey.GetRank()
 		uEntryId := uItem.GetEntryExitPoint()
 		uOutEdgeId := uItem.GetOutInEdgeId()
 
@@ -243,7 +248,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId dat
 			vId := e.GetHead()
 
 			vEntryId := pu.graph.GetEntryOffset(vId) + datastructure.Index(e.GetEntryPoint())
-			edgeWeight := pu.metrics.GetWeight(e)
+			edgeWeight := pu.metrics.GetWeight(e, uTime)
 
 			newTravelTime := queryKey.GetRank() + edgeWeight + pu.metrics.GetTurnCost(turnType)
 

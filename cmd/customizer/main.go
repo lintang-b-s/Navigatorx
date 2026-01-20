@@ -18,7 +18,7 @@ func main() {
 		panic(err)
 	}
 	custom := customizer.NewCustomizer("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
-	err = custom.Customize(*timeDependent)
+	err = custom.Customize(*timeDependent, "monday")
 	if err != nil {
 		panic(err)
 	}

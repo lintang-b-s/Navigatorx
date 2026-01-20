@@ -7,7 +7,19 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"time"
 )
+
+func GetCurrentSeconds() float64 {
+	now := time.Now()
+	hour := now.Hour()
+	min := now.Minute()
+	seconds := now.Second()
+
+	totalDaySeconds := float64(hour*3600 + min*60 + seconds)
+	return totalDaySeconds
+}
+
 
 // error
 
@@ -53,6 +65,7 @@ var MessageInternalServerError string = "internal server error"
 func SecondsToMinutes(seconds float64) float64 {
 	return seconds / 60
 }
+
 func Abs(a int) int {
 	if a < 0 {
 		return -a

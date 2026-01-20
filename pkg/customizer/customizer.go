@@ -1,10 +1,12 @@
 package customizer
 
 import (
+	"fmt"
+
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -15,10 +17,10 @@ type Customizer struct {
 	graphFilePath        string
 	overlayGraphFilePath string
 	metricOutputFilePath string
-	ow                   *datastructure.OverlayWeights
-	owtd                 *datastructure.OverlayWeightsTD
-	graph                *datastructure.Graph
-	overlayGraph         *datastructure.OverlayGraph
+	ow                   *da.OverlayWeights
+	owtd                 *da.OverlayWeightsTD
+	graph                *da.Graph
+	overlayGraph         *da.OverlayGraph
 }
 
 func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath string,
@@ -31,25 +33,25 @@ func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath str
 	}
 }
 
-func (c *Customizer) Customize(timeDependent bool) error {
+func (c *Customizer) Customize(timeDependent bool, day string) error {
 
 	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 	var err error
 	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
-	c.graph, err = datastructure.ReadGraph(c.graphFilePath)
+	c.graph, err = da.ReadGraph(c.graphFilePath)
 	if err != nil {
 		return err
 	}
 
 	c.logger.Sugar().Infof("Reading overlay graph from %s", c.overlayGraphFilePath)
-	c.overlayGraph, err = datastructure.ReadOverlayGraph(c.overlayGraphFilePath)
+	c.overlayGraph, err = da.ReadOverlayGraph(c.overlayGraphFilePath)
 	if err != nil {
 		return err
 	}
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
-	c.ow = datastructure.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
-	c.owtd = datastructure.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
+	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
+	c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
 	if !timeDependent {
 		costFunction := costfunction.NewTimeCostFunction()
 
@@ -63,8 +65,12 @@ func (c *Customizer) Customize(timeDependent bool) error {
 		}
 		c.logger.Sugar().Infof("Customization step completed successfully.")
 	} else {
-		costFunction := costfunction.NewTimeDependentCostFunction(c.graph)
 
+		dayTravelTimeProfile, err := da.ReadTravelTimeProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
+		if err != nil {
+			return err
+		}
+		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, dayTravelTimeProfile)
 		c.BuildTD(costFunction)
 		c.logger.Sugar().Infof("Building stalling tables...")
 		metrics := metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, true)
@@ -80,11 +86,11 @@ func (c *Customizer) Customize(timeDependent bool) error {
 }
 
 type customizerCell struct {
-	cell       *datastructure.Cell
-	cellNumber datastructure.Pv
+	cell       *da.Cell
+	cellNumber da.Pv
 }
 
-func newCustomizerCell(cell *datastructure.Cell, cellNumber datastructure.Pv) customizerCell {
+func newCustomizerCell(cell *da.Cell, cellNumber da.Pv) customizerCell {
 	return customizerCell{cell: cell, cellNumber: cellNumber}
 }
 
@@ -146,20 +152,20 @@ func (c *Customizer) buildLowestLevel(
 		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
 		dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
 
-		dijkstra := func(entries <-chan datastructure.Index) {
+		dijkstra := func(entries <-chan da.Index) {
 			for i := range entries {
 				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 				overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
 				start := overlayVertex.GetOriginalVertex()
-				pq := datastructure.NewFourAryHeap[datastructure.CRPQueryKey]()
-				travelTime := make(map[datastructure.Index]float64)
+				pq := da.NewFourAryHeap[da.CRPQueryKey]()
+				travelTime := make(map[da.Index]float64)
 				forwardCellOffset := c.graph.GetInEdgeCellOffset(start)
 				startInEdgeOffset := overlayVertex.GetOriginalEdge() - forwardCellOffset
-				overlayTravelTime := make(map[datastructure.Index]float64)
+				overlayTravelTime := make(map[da.Index]float64)
 				travelTime[startInEdgeOffset] = 0
 
-				pq.Insert(datastructure.NewPriorityQueueNode(0,
-					datastructure.NewCRPQueryKey(start, startInEdgeOffset)))
+				pq.Insert(da.NewPriorityQueueNode(0,
+					da.NewCRPQueryKey(start, startInEdgeOffset)))
 
 				for !pq.IsEmpty() {
 					pqNode, _ := pq.ExtractMin()
@@ -169,14 +175,21 @@ func (c *Customizer) buildLowestLevel(
 					uTravelTime := pqNode.GetRank()
 
 					c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryPoint+forwardCellOffset), func(
-						outArc *datastructure.OutEdge, exitPoint datastructure.Index, turnType pkg.TurnType) {
+						outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
 						// traverse all out edges
 						v := outArc.GetHead()
 
 						exitPointTravelTime := uTravelTime + costFunction.GetTurnCost(turnType)
 						outArcCost := costFunction.GetWeight(outArc)
 
-						newETA := exitPointTravelTime + outArcCost
+						// add traffic light node penalty cost
+						tfPenalty := 0.0
+						eId := outArc.GetEdgeId()
+						if c.graph.IsEdgeContainTrafficLight(eId) {
+							tfPenalty += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_PENALTY_SP_SECOND)
+						}
+
+						newETA := exitPointTravelTime + outArcCost + tfPenalty
 
 						if newETA >= pkg.INF_WEIGHT {
 							return
@@ -184,14 +197,14 @@ func (c *Customizer) buildLowestLevel(
 
 						vTruncatedCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
 						if vTruncatedCellNumber == cellNumber {
-							vEntryPoint := c.graph.GetEntryOffset(v) + datastructure.Index(outArc.GetEntryPoint()) - forwardCellOffset
+							vEntryPoint := c.graph.GetEntryOffset(v) + da.Index(outArc.GetEntryPoint()) - forwardCellOffset
 
 							if _, ok := travelTime[vEntryPoint]; !ok || newETA < travelTime[vEntryPoint] {
 								travelTime[vEntryPoint] = newETA
 								if ok {
-									pq.DecreaseKey(datastructure.NewPriorityQueueNode(newETA, datastructure.NewCRPQueryKey(v, vEntryPoint)))
+									pq.DecreaseKey(da.NewPriorityQueueNode(newETA, da.NewCRPQueryKey(v, vEntryPoint)))
 								} else {
-									pq.Insert(datastructure.NewPriorityQueueNode(newETA, datastructure.NewCRPQueryKey(v, vEntryPoint)))
+									pq.Insert(da.NewPriorityQueueNode(newETA, da.NewCRPQueryKey(v, vEntryPoint)))
 								}
 							}
 						} else {
@@ -206,7 +219,7 @@ func (c *Customizer) buildLowestLevel(
 				}
 
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
-				for j := datastructure.Index(0); j < cell.GetNumExitPoints(); j++ {
+				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					exitId := c.overlayGraph.GetExitId(cell, j)
 					_, exists := overlayTravelTime[exitId]
 
@@ -219,12 +232,12 @@ func (c *Customizer) buildLowestLevel(
 			}
 		}
 
-		entries := make(chan datastructure.Index, cell.GetNumEntryPoints())
+		entries := make(chan da.Index, cell.GetNumEntryPoints())
 		for worker := 1; worker <= CELL_WORKER; worker++ {
 			go dijkstra(entries)
 		}
 
-		for i := datastructure.Index(0); i < cell.GetNumEntryPoints(); i++ {
+		for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
 			entries <- i
 		}
 
@@ -232,7 +245,7 @@ func (c *Customizer) buildLowestLevel(
 
 		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
 
-		for i := datastructure.Index(0); i < cellWeightSize; i++ {
+		for i := da.Index(0); i < cellWeightSize; i++ {
 			res := <-dijkstraResChan
 			cellWeights[i] = res
 		}
@@ -278,15 +291,15 @@ func (c *Customizer) buildLevel(
 		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
 		dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
 
-		dijkstra := func(entries <-chan datastructure.Index) {
+		dijkstra := func(entries <-chan da.Index) {
 			for i := range entries {
-				pq := datastructure.NewFourAryHeap[datastructure.Index]()
-				travelTime := make(map[datastructure.Index]float64)
+				pq := da.NewFourAryHeap[da.Index]()
+				travelTime := make(map[da.Index]float64)
 				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 
 				travelTime[startOverlayVertexId] = 0
 
-				pq.Insert(datastructure.NewPriorityQueueNode(0, startOverlayVertexId))
+				pq.Insert(da.NewPriorityQueueNode(0, startOverlayVertexId))
 
 				for !pq.IsEmpty() {
 					pqNode, _ := pq.ExtractMin()
@@ -296,9 +309,10 @@ func (c *Customizer) buildLevel(
 					uTruncatedLevel := c.overlayGraph.TruncateToLevel(c.overlayGraph.GetVertex(uOverlayId).GetCellNumber(), uint8(level))
 					util.AssertPanic(uTruncatedLevel == cellNumber, "current truncated cell number and boundary vertex truncated cell number must be the same!")
 
-					c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit datastructure.Index, wOffset datastructure.Index) {
+					c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit da.Index, wOffset da.Index) {
 
 						shortcutWeight := c.ow.GetWeight(wOffset)
+
 						newTravelTime := uTravelTime + shortcutWeight
 
 						if newTravelTime >= pkg.INF_WEIGHT {
@@ -311,19 +325,27 @@ func (c *Customizer) buildLevel(
 							exitOverlayVertex := c.overlayGraph.GetVertex(exit)
 							neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
 							neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)
+							exitOriEdge := exitOverlayVertex.GetOriginalEdge()
 
 							if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
-								boundaryArcWeight := costFunction.GetWeight(c.graph.GetOutEdge(exitOverlayVertex.GetOriginalEdge()))
-								newNeighborTravelTime := newTravelTime + boundaryArcWeight
+								boundaryArcWeight := costFunction.GetWeight(c.graph.GetOutEdge(exitOriEdge))
+
+								// add traffic light node penalty cost
+								tfPenalty := 0.0
+								if c.graph.IsEdgeContainTrafficLight(exitOriEdge) {
+									tfPenalty += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_PENALTY_SP_SECOND)
+								}
+
+								newNeighborTravelTime := newTravelTime + boundaryArcWeight + tfPenalty
 								oldNTravelTime, neighborVertexAlreadyVisited := travelTime[neighborVertex]
 
 								if !neighborVertexAlreadyVisited || newNeighborTravelTime < oldNTravelTime {
 									travelTime[neighborVertex] = newTravelTime + boundaryArcWeight
 
 									if !neighborVertexAlreadyVisited {
-										pq.Insert(datastructure.NewPriorityQueueNode(travelTime[neighborVertex], neighborVertex))
+										pq.Insert(da.NewPriorityQueueNode(travelTime[neighborVertex], neighborVertex))
 									} else {
-										pq.DecreaseKey(datastructure.NewPriorityQueueNode(travelTime[neighborVertex], neighborVertex))
+										pq.DecreaseKey(da.NewPriorityQueueNode(travelTime[neighborVertex], neighborVertex))
 									}
 								}
 							}
@@ -332,7 +354,7 @@ func (c *Customizer) buildLevel(
 				}
 
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
-				for j := datastructure.Index(0); j < cell.GetNumExitPoints(); j++ {
+				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					exitId := c.overlayGraph.GetExitId(cell, j)
 
 					_, exists := travelTime[exitId]
@@ -345,12 +367,12 @@ func (c *Customizer) buildLevel(
 			}
 		}
 
-		entries := make(chan datastructure.Index, cell.GetNumEntryPoints())
+		entries := make(chan da.Index, cell.GetNumEntryPoints())
 		for worker := 1; worker <= CELL_WORKER; worker++ {
 			go dijkstra(entries)
 		}
 
-		for i := datastructure.Index(0); i < cell.GetNumEntryPoints(); i++ {
+		for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
 			entries <- i
 		}
 
@@ -358,7 +380,7 @@ func (c *Customizer) buildLevel(
 
 		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
 
-		for i := datastructure.Index(0); i < cellWeightSize; i++ {
+		for i := da.Index(0); i < cellWeightSize; i++ {
 			res := <-dijkstraResChan
 			cellWeights[i] = res
 		}
@@ -387,14 +409,14 @@ func (c *Customizer) buildLevel(
 	}
 }
 
-func (c *Customizer) SetGraph(graph *datastructure.Graph) {
+func (c *Customizer) SetGraph(graph *da.Graph) {
 	c.graph = graph
 }
 
-func (c *Customizer) SetOverlayGraph(overlayGraph *datastructure.OverlayGraph) {
+func (c *Customizer) SetOverlayGraph(overlayGraph *da.OverlayGraph) {
 	c.overlayGraph = overlayGraph
 }
 
-func (c *Customizer) SetOverlayWeight(ow *datastructure.OverlayWeights) {
+func (c *Customizer) SetOverlayWeight(ow *da.OverlayWeights) {
 	c.ow = ow
 }

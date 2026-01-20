@@ -364,6 +364,8 @@ func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 	g.overlayVertices = overlayVertices
 }
 
+
+
 func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turnType pkg.TurnType)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 		if g.outEdges[e].GetHead() == u {
@@ -654,6 +656,15 @@ func (g *Graph) GetOsmWayId(edgeId Index) int64 {
 
 func (g *Graph) IsTrafficLight(vertexId Index) bool {
 	return g.graphStorage.GetTrafficLight(vertexId)
+}
+
+func (g *Graph) IsWayContainTrafficLight(wayId int64) bool {
+	return g.graphStorage.isWayTrafficLight(wayId)
+}
+
+func (g *Graph) IsEdgeContainTrafficLight(edgeId Index) bool {
+	wayId := g.GetOsmWayId(edgeId)
+	return g.graphStorage.isWayTrafficLight(wayId)
 }
 
 func (g *Graph) GetEdgeGeometry(edgeID Index) []Coordinate {

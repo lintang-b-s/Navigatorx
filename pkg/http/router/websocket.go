@@ -128,7 +128,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 
 	// Handle graceful shutdown
 	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 
 	<-sig
 

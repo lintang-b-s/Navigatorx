@@ -1,6 +1,8 @@
 package engine
 
 import (
+	"fmt"
+
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
@@ -18,9 +20,9 @@ func (e *Engine) GetRoutingEngine() *routing.CRPRoutingEngine {
 	return e.crpRoutingEngine
 }
 
-func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool) (*Engine, error) {
+func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool, day string) (*Engine, error) {
 	initializeRoutingEngine, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath,
-		logger, td)
+		logger, td, day)
 	if err != nil {
 		return nil, err
 	}
@@ -29,7 +31,7 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logg
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool,
+func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool, day string,
 ) (*routing.CRPRoutingEngine,
 	error) {
 
@@ -46,19 +48,39 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	if err != nil {
 		return nil, err
 	}
-	costFunction := costfunction.NewTimeCostFunction()
-	logger.Info("Reading stalling tables & time-dependent metrics...")
-	metrics, err := metrics.ReadFromFile(metricsFilePath, costFunction, td)
-	if err != nil {
-		return nil, err
+	var m *metrics.Metric
+	var cst *customizer.Customizer
+	var costFunction routing.CostFunction
+	if td {
+		logger.Info("Reading stalling tables & time-dependent metrics...")
+		dayTravelTimeProfile, err := datastructure.ReadTravelTimeProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
+		if err != nil {
+			return nil, err
+		}
+		costFunction = costfunction.NewTimeDependentCostFunction(graph, dayTravelTimeProfile)
+		m, err = metrics.ReadFromFile(metricsFilePath, td, graph, day, costFunction)
+		if err != nil {
+			return nil, err
+		}
+		cst = customizer.NewCustomizer(graphFilePath, overlayGraphFilePath, metricsFilePath, logger)
+		cst.SetGraph(graph)
+		cst.SetOverlayGraph(overlayGraph)
+		cst.SetOverlayWeight(m.GetWeights())
+	} else {
+		logger.Info("Reading stalling tables & time-dependent metrics...")
+		costFunction = costfunction.NewTimeCostFunction()
+		m, err = metrics.ReadFromFile(metricsFilePath, td, graph, day, costFunction)
+		if err != nil {
+			return nil, err
+		}
+		cst = customizer.NewCustomizer(graphFilePath, overlayGraphFilePath, metricsFilePath, logger)
+		cst.SetGraph(graph)
+		cst.SetOverlayGraph(overlayGraph)
+		cst.SetOverlayWeight(m.GetWeights())
 	}
-	customizer := customizer.NewCustomizer(graphFilePath, overlayGraphFilePath, metricsFilePath, logger)
-	customizer.SetGraph(graph)
-	customizer.SetOverlayGraph(overlayGraph)
-	customizer.SetOverlayWeight(metrics.GetWeights())
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
 	puCache, _ := lru.New[routing.PUCacheKey, []datastructure.Index](1 << 20) // 1048576
 
-	return routing.NewCRPRoutingEngine(graph, overlayGraph, metrics, logger, puCache, customizer, costFunction), nil
+	return routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, costFunction), nil
 }

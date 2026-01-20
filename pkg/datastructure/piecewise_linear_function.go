@@ -1,9 +1,13 @@
 package datastructure
 
 import (
+	"encoding/csv"
+	"log"
 	"math"
+	"os"
+	"strconv"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
 // periodic piecewise linear function
@@ -34,6 +38,8 @@ func (pwl *PWL) updateMinMax() {
 			max = p.GetY()
 		}
 	}
+	pwl.min = min
+	pwl.max = max
 }
 
 func (pwl *PWL) GetPoints() []*Point {
@@ -75,7 +81,7 @@ func (pwl *PWL) get(i int) *Point {
 		return &pp
 	}
 
-	// i >= n && i >= n+n
+	// (i >= n && i >= n+n ) ||  i < -n
 
 	imod := i % n
 	if imod < 0 {
@@ -144,53 +150,6 @@ travel time function f(\tau) adalah waktu tempuh dari edge saat berangkat dari n
 this function compute:
 link(f,g): \tau -> g(\tau + f(\tau)) + f(\tau), for all \tau \in [0, \Pi]
 
-link(f,g)(\tau) adalah waktu tempuh untuk traverse edge (u,v) dan (v,w) untuk waktu keberangkatan \tau
-
-\tau + f(\tau) = f.get(j).GetX()+f.get(j).GetY()
-f.get(j).GetX() = waktu keberangkatan pada node u untuk breakpoint j
-f.get(j).GetY() = waktu tempuh edge (u,v) untuk breakpoint j
-
-g.get(i).GetX() = waktu keberangkatan pada node v untuk breakpoint i
-g.get(i).GetY() = waktu tempuh edge (v,w) untuk breakpoint i
-
-ada 3 kasus:
-1. g.get(i).GetX() ==  f.get(j).GetX()+f.get(j).GetY(), untuk breakpoint i dan j
-atau waktu keberangkatan pada node v == waktu keberangkatan pada node u +  waktu tempuh edge (u,v)
-travel time edge (u,w) = g(f.get(j).x + f.get(j).y) + f.get(j).y = g.get(i).GetY() + f.get(j).GetY()
-
-2. g.get(i).GetX() > f.get(j).GetX()+f.get(j).GetY()
-f.get(j).x + f.get(j).y = waktu keberangkatan pada node v jika ditempuh dari node u pada waktu f.get(j).x
-
-g[i-1].x < f.get(j).x + f.get(j).y < g.get(i).x
-
-bisa pakai interpolasi linear buat dapetin g(f.get(j).x + f.get(j).y) / travel time dari edge (v,w) jika berangkat dari node v pada waktu f.get(j).x + f.get(j).y
-
-g(f.get(j).x + f.get(j).y) + f.get(j).y = hasil interpolasi linear + f.get(j).y
-
-3. g.get(i).GetX() < f.get(j).GetX()+f.get(j).GetY()
-perhatikan karena sifat FIFO, yaitu untuk bilangan riil positif sembarang σ ≤ τ ∈ Π, kondisi σ + f (σ) ≤ τ + f (τ ) harus berlaku
-
-beberapa points (waktu keberangkatan pada node u, waktu keberangkatan pada node v):
-(f[j-1].x, f[j-1].x +f[j-1].y), (x, g.get(i).x), (f.get(j).x, f.get(j).x + f.get(j).y)
-dimana
-f[j-1].x < x < f.get(j).x
-
-bisa pakai interpolasi linear untuk dapatkan x:
-diketahui (x0,y0), (x1,y1), dan y  dicari x
-y = y0 + m(x-x0), m = (y1-y0)/(x1-x0)
-x = (y-y0)/m + x0
-
-x = (g.get(i).x - f[j-1].x - f[j-1].y) * 1/m + f[j-1].x
-dimana
-1/m =  (f.get(j).x - f[j-1].x)/( f.get(j).x + f.get(j).y - f[j-1].x - f[j-1].y)
-
-dari
-u -> f -> v -> g -> w
-
-kita bisa dapatkan g(f.get(j).x + f.get(j).y) + f.get(j).y dengan:
-waktu tempuh edge (u,w) = g(f.get(j).x + f.get(j).y) + f.get(j).y = g.get(i).x + g.get(i).y - x
-
-O(|f| + |g|)
 */
 func Link(f, g *PWL) *PWL {
 	if g.isConst() && f.isConst() {
@@ -217,6 +176,14 @@ func Link(f, g *PWL) *PWL {
 
 	for true {
 		var uwX, uwY float64
+
+		if Ge(g.get(i).GetY(), pkg.INF_WEIGHT) || Ge(f.get(j).GetY(), pkg.INF_WEIGHT) {
+			if resPWL.Size() == 0 {
+				resPWL.appendPoint(NewPoint(0, pkg.INF_WEIGHT))
+			}
+			break
+		}
+
 		if eq(g.get(i).GetX(), f.get(j).GetX()+f.get(j).GetY()) {
 			uwX = f.get(j).GetX()
 			uwY = g.get(i).GetY() + f.get(j).GetY()
@@ -224,8 +191,6 @@ func Link(f, g *PWL) *PWL {
 			i++
 			j++
 		} else if Lt(g.get(i).GetX(), f.get(j).GetX()+f.get(j).GetY()) {
-			// f[j-1].x +f[j-1].y < g.get(i).GetX() < f.get(j).GetX()+f.get(j).GetY()
-			util.AssertPanic(Lt(f.get(j-1).GetX()+f.get(j-1).GetY(), g.get(i).GetX()), "f[j-1].x +f[j-1].y should less than  g.get(i).x")
 
 			mArrivalFInverse := (f.get(j).GetX() - f.get(j-1).GetX()) / (f.get(j).GetX() + f.get(j).GetY() -
 				f.get(j-1).GetX() - f.get(j-1).GetY())
@@ -245,6 +210,7 @@ func Link(f, g *PWL) *PWL {
 		}
 
 		if Lt(PERIOD, uwX) {
+
 			break
 		}
 
@@ -520,4 +486,56 @@ func (pwl *PWL) lowerBound(xx float64) int {
 	}
 
 	return id
+}
+
+func ReadTravelTimeProfile(filepath string) (map[int64]*PWL, error) {
+	f, err := os.Open(filepath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	r := csv.NewReader(f)
+
+	records, err := r.ReadAll()
+	if err != nil {
+		return nil, err
+	}
+
+	header := records[0]
+	timeId := 0
+
+	ttProfile := make(map[int64]*PWL)
+
+	for colIdx, colName := range header {
+		if colIdx == timeId {
+			continue
+		}
+
+		points := []*Point{}
+		for _, row := range records[1:] {
+
+			timeSec, err := strconv.ParseFloat(row[timeId], 64)
+			if err != nil {
+				log.Fatal(err)
+			}
+			if !eq(math.Mod(timeSec, 7200), 0.0) {
+				continue
+			}
+			travelTime, err := strconv.ParseFloat(row[colIdx], 64)
+			if err != nil {
+				log.Fatal(err)
+			}
+			points = append(points, NewPoint(timeSec, travelTime))
+		}
+
+		osmID, err := strconv.ParseInt(colName, 10, 64)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		ttProfile[osmID] = NewPWL(points)
+	}
+
+	return ttProfile, nil
 }

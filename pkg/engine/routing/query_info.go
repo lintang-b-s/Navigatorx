@@ -7,6 +7,7 @@ type vertexEdgePair struct {
 	edge        datastructure.Index
 	isOutEdge   bool
 	outInEdgeId datastructure.Index
+	tSec        float64
 }
 
 func (ve *vertexEdgePair) getEdge() datastructure.Index {
@@ -19,6 +20,14 @@ func (ve *vertexEdgePair) getVertex() datastructure.Index {
 
 func (ve *vertexEdgePair) setEdge(edge datastructure.Index) {
 	ve.edge = edge
+}
+
+func (ve *vertexEdgePair) setTime(tSec float64) {
+	ve.tSec = tSec
+}
+
+func (ve *vertexEdgePair) getTime() float64 {
+	return ve.tSec
 }
 
 func (ve *vertexEdgePair) setVertex(vertex datastructure.Index) {

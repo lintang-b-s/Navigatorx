@@ -10,26 +10,44 @@ type TimeDependentFunction struct {
 	graph       *da.Graph
 }
 
-func NewTimeDependentCostFunction(graph *da.Graph) *TimeDependentFunction {
-	return &TimeDependentFunction{
-		osmWaySpeed: make(map[int64]*da.PWL),
+func NewTimeDependentCostFunction(graph *da.Graph, osmWaySpeed map[int64]*da.PWL) *TimeDependentFunction {
+	tdf := &TimeDependentFunction{
+		osmWaySpeed: osmWaySpeed,
 		graph:       graph,
 	}
+
+	return tdf
 }
 
 func (tf *TimeDependentFunction) GetWeight(e EdgeAttributes) float64 {
-	return 0
+	speed := e.GetEdgeSpeed()
+	if speed == 0 {
+		return e.GetLength() / (defaultSpeed * 1000 / 60)
+	}
+	return e.GetLength() / speed
 }
 
-// harusnya ambil dari csv (TODO)
 func (tf *TimeDependentFunction) GetWeightPWL(e EdgeAttributes) *da.PWL {
 
 	eOsmWayId := tf.graph.GetOsmWayId(e.GetEdgeId())
-	pwl, ok := tf.osmWaySpeed[eOsmWayId]
+	osmSpeedPwl, ok := tf.osmWaySpeed[eOsmWayId]
 	if !ok {
-		panic("PWL for eOsmWayId not found")
+		defTravelTime := tf.GetWeight(e)
+		ps := make([]*da.Point, 1)
+		ps[0] = da.NewPoint(0, defTravelTime)
+		constPWL := da.NewPWL(ps)
+		return constPWL
 	}
-	return pwl
+
+	ttfPs := make([]*da.Point, osmSpeedPwl.Size())
+	for i, sp := range osmSpeedPwl.GetPoints() {
+		// O(n), n = jumlah breakpoints osmSpeedPwl
+		eLength := e.GetLength() // m
+		eTravelTime := eLength / (sp.GetY() * 1000 / 60)
+		ttfPs[i] = da.NewPoint(sp.GetX(), eTravelTime)
+	}
+
+	return da.NewPWL(ttfPs)
 }
 
 func (tf *TimeDependentFunction) GetWeightAtTime(e EdgeAttributes, time float64) float64 {
@@ -38,9 +56,14 @@ func (tf *TimeDependentFunction) GetWeightAtTime(e EdgeAttributes, time float64)
 
 	pwl, ok := tf.osmWaySpeed[eOsmWayId]
 	if !ok {
-		panic("PWL for eOsmWayId not found")
+		defTravelTime := tf.GetWeight(e)
+		return defTravelTime
 	}
-	return pwl.Eval(time)
+	speed := pwl.Eval(time)
+
+	eLength := e.GetLength() // m
+	eTravelTime := eLength / (speed * 1000 / 60)
+	return eTravelTime
 }
 
 func (tf *TimeDependentFunction) GetTurnCost(turnType pkg.TurnType) float64 {
@@ -52,5 +75,4 @@ func (tf *TimeDependentFunction) GetTurnCost(turnType pkg.TurnType) float64 {
 	default:
 		return 0
 	}
-
 }

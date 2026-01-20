@@ -138,10 +138,20 @@ func (g *Graph) WriteGraph(filename string) error {
 	fmt.Fprintf(w, "%d\n", len(g.graphStorage.mapEdgeInfo))
 	for i := 0; i < len(g.graphStorage.mapEdgeInfo); i++ {
 		edgeInfo := g.graphStorage.mapEdgeInfo[i]
-		fmt.Fprintf(w, "%d %d %d %d %d %d %d \n", edgeInfo.startPointsIndex, edgeInfo.endPointsIndex,
+		fmt.Fprintf(w, "%d %d %d %d %d %d %d\n", edgeInfo.startPointsIndex, edgeInfo.endPointsIndex,
 			edgeInfo.streetName, edgeInfo.roadClass, edgeInfo.roadClassLink, edgeInfo.lanes,
 			edgeInfo.osmWayId)
 	}
+
+	k := 0
+	for wayId := range g.graphStorage.trafficWay {
+		fmt.Fprintf(w, "%d", wayId)
+		if k < len(g.graphStorage.trafficWay)-1 {
+			fmt.Fprintf(w, " ")
+		}
+		k++
+	}
+	fmt.Fprint(w, "\n")
 
 	fmt.Fprintf(w, "%d\n", len(g.graphStorage.streetDirection))
 	for wayId, streetDir := range g.graphStorage.streetDirection {
@@ -544,6 +554,19 @@ func ReadGraph(filename string) (*Graph, error) {
 			int64(osmWayId))
 	}
 
+	line, err = readLine()
+	if err != nil {
+		return nil, err
+	}
+
+	trafficWay := make(map[int64]struct{}, 100)
+	tokens = fields(line)
+	for i := 0; i < len(tokens); i++ {
+		var wayId int64
+		fmt.Sscanf(tokens[i], "%d", &wayId)
+		trafficWay[wayId] = struct{}{}
+	}
+
 	// street direction flag
 	line, err = readLine()
 	if err != nil {
@@ -639,6 +662,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		roundaboutFlag, trafficLight, mapEdgeInfos,
 		tagStringIdMap, streetDirections)
 
+	graphStorage.SetTrafficWayMap(trafficWay)
 	graph := NewGraph(vertices, outEdges, inEdges, turnTables)
 	graph.SetGraphStorage(graphStorage)
 	graph.SetCellNumbers(cellNumbers)

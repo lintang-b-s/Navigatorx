@@ -24,13 +24,14 @@ type GraphStorage struct {
 	nodeTrafficLight []Index
 
 	mapEdgeInfo []EdgeExtraInfo
+	trafficWay  map[int64]struct{}
 
 	tagStringIDMap  util.IDMap
 	streetDirection map[int64][2]bool // osm way id -> [forward,backward]
 }
 
 func NewGraphStorage() *GraphStorage {
-	return &GraphStorage{}
+	return &GraphStorage{trafficWay: make(map[int64]struct{})}
 }
 func BuildGraphStorage(globalPoints []Coordinate, roundaboutFlag []Index, nodeTrafficLight []Index,
 	mapEdgeInfo []EdgeExtraInfo, tagStringIDMap util.IDMap, streetDirection map[int64][2]bool) *GraphStorage {
@@ -38,6 +39,11 @@ func BuildGraphStorage(globalPoints []Coordinate, roundaboutFlag []Index, nodeTr
 		nodeTrafficLight: nodeTrafficLight, mapEdgeInfo: mapEdgeInfo, tagStringIDMap: tagStringIDMap,
 		streetDirection: streetDirection}
 }
+
+func (gs *GraphStorage) SetTrafficWayMap(trafficWay map[int64]struct{}) {
+	gs.trafficWay = trafficWay
+}
+
 func (gs *GraphStorage) SetRoundabout(edgeID Index, isRoundabout bool) {
 	index := int(math.Floor(float64(edgeID) / 32))
 	if len(gs.roundaboutFlag) <= int(index) {
@@ -128,6 +134,15 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 	}
 
 	return edgePoints
+}
+
+func (gs *GraphStorage) isWayTrafficLight(wayId int64) bool {
+	_, tf := gs.trafficWay[wayId]
+	return tf
+}
+
+func (gs *GraphStorage) SetWayTraffic(wayId int64) {
+	gs.trafficWay[wayId] = struct{}{}
 }
 
 // return edgeExtraInfo, isRoundabout

@@ -2,6 +2,8 @@ package datastructure
 
 import (
 	"sync"
+
+	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
 /*
@@ -22,7 +24,6 @@ func (ow *OverlayWeightsTD) GetWeightAtTime(i Index, time float64) float64 {
 	ow.lock.RUnlock()
 	return shortcutWeight
 }
-
 
 func (ow *OverlayWeightsTD) GetWeightPWL(i Index) *PWL {
 	ow.lock.RLock()
@@ -54,7 +55,9 @@ func (ow *OverlayWeightsTD) Unlock() {
 func NewOverlayWeightsTD(weightVectorSize uint32) *OverlayWeightsTD {
 	weights := make([]*PWL, weightVectorSize)
 	for i := range weights {
-		weights[i] = NewPWL(make([]*Point, 0))
+		ps := make([]*Point, 1)
+		ps[0] = NewPoint(0,pkg.INF_WEIGHT)
+		weights[i] = NewPWL(ps)
 	}
 	return &OverlayWeightsTD{weights: weights, lock: &sync.RWMutex{}}
 }

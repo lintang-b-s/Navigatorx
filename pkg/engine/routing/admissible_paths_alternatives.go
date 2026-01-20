@@ -86,9 +86,11 @@ type AlternativeRouteSearch struct {
 	gamma, alpha, epsilon float64
 	lock                  *sync.RWMutex
 	delta                 float64 //  Evolution and Evaluation of the Penalty Method for Alternative Graphs, by Kobitzsch et al. (2013)
+	td                    bool    // time dependent routing
 }
 
 func NewAlternativeRouteSearch(engine *CRPRoutingEngine, upperBound, gamma, alpha, epsilon, delta float64,
+	td bool,
 ) *AlternativeRouteSearch {
 	return &AlternativeRouteSearch{
 		engine:     engine,
@@ -98,8 +100,8 @@ func NewAlternativeRouteSearch(engine *CRPRoutingEngine, upperBound, gamma, alph
 		alpha:      alpha,
 		epsilon:    epsilon,
 		lock:       &sync.RWMutex{},
-
-		delta: delta,
+		td:         td,
+		delta:      delta,
 	}
 }
 
@@ -154,9 +156,16 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 			svCoords, vtCoords         []datastructure.Coordinate
 			svEdgePath, vtEdgePath     []datastructure.OutEdge
 			svFound, vtFound           bool
+			crpQuerysv, crpQueryvt     Router
 		)
+		if !ars.td {
+			crpQuerysv = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
+			crpQueryvt = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
+		} else {
+			crpQuerysv = NewCRPUnidirectionalSearch(ars.engine)
+			crpQueryvt = NewCRPUnidirectionalSearch(ars.engine)
+		}
 
-		crpQuerysv := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 		go func() {
@@ -164,7 +173,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 			svTravelTime, svDist, svCoords, svEdgePath, svFound = crpQuerysv.ShortestPathSearch(asId, viaEntryId)
 			wg.Done()
 		}()
-		crpQueryvt := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
+
 		go func() {
 			viaExitId := crpQueryvt.adjustBackwardOffbit(v.GetExitId())
 			vtTravelTime, vtDist, vtCoords, vtEdgePath, vtFound = crpQueryvt.ShortestPathSearch(viaExitId, atId)
@@ -255,7 +264,7 @@ func (ars *AlternativeRouteSearch) tTest(T float64, v datastructure.Index, pvEdg
 	x := datastructure.INVALID_VERTEX_ID
 	vEdgeId := edgeIdContainsV
 	distFromV := 0.0
-	for distFromV < T && vEdgeId >= 0 {
+	for distFromV < T {
 		edge := pvEdgePath[vEdgeId]
 		distFromV += edge.GetLength()
 		x = edge.GetEdgeId()

@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
@@ -23,6 +22,8 @@ type Metric struct {
 	entryStallingTables [][]float64 // stallingTables for vertice-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
 	exitStallingTables  [][]float64
 	costFunction        costfunction.CostFunction
+
+	costFunctionTD costfunction.CostFunction
 }
 
 func NewMetric(graph *da.Graph, costFunction costfunction.CostFunction, overlayWeights *da.OverlayWeights,
@@ -103,22 +104,16 @@ func (met *Metric) GetWeights() *da.OverlayWeights {
 	return met.weights
 }
 
-func (met *Metric) GetWeight(e costfunction.EdgeAttributes) float64 {
+func (met *Metric) GetWeight(e costfunction.EdgeAttributes, time float64) float64 {
 	if !met.timeDependent {
 		return met.costFunction.GetWeight(e)
 	} else {
-		return met.costFunction.GetWeightAtTime(e, getCurrentSeconds())
+		return met.costFunction.GetWeightAtTime(e, time)
 	}
 }
 
-func getCurrentSeconds() float64 {
-	now := time.Now()
-	hour := now.Hour()
-	min := now.Minute()
-	seconds := now.Second()
-
-	totalDaySeconds := float64(hour*3600 + min*60 + seconds)
-	return totalDaySeconds
+func (met *Metric) GetWeightTD(e costfunction.EdgeAttributes, time float64) float64 {
+	return met.costFunctionTD.GetWeightAtTime(e, time)
 }
 
 func (met *Metric) GetEntryStallingTableCost(uId da.Index, offset da.Index) float64 {
@@ -129,8 +124,12 @@ func (met *Metric) GetExitStallingTableCost(uId da.Index, offset da.Index) float
 	return met.exitStallingTables[uId][offset]
 }
 
-func (met *Metric) GetShortcutWeight(offset da.Index) float64 {
-	return met.weights.GetWeight(offset)
+func (met *Metric) GetShortcutWeight(offset da.Index, time float64) float64 {
+	if met.timeDependent {
+		return met.weightsTD.GetWeightAtTime(offset, time)
+	} else {
+		return met.weights.GetWeight(offset)
+	}
 }
 
 func (met *Metric) GetTurnCost(t pkg.TurnType) float64 {
@@ -160,16 +159,17 @@ func (met *Metric) WriteToFile(filename string) error {
 			}
 		}
 		fmt.Fprintf(w, "\n")
+
 	} else {
 		fmt.Fprintf(w, "%d %d %d\n", len(met.weightsTD.GetWeights()), len(met.entryStallingTables), len(met.exitStallingTables))
-		for i, weight := range met.weightsTD.GetWeights() {
+		for _, weight := range met.weightsTD.GetWeights() {
 			wp := weight.GetPoints()
-			for _, p := range wp {
+			for j, p := range wp {
 				_, err := fmt.Fprintf(w, "%f, %f", p.GetX(), p.GetY())
 				if err != nil {
 					return err
 				}
-				if i < len(met.weights.GetWeights())-1 {
+				if j < len(wp)-1 {
 					fmt.Fprintf(w, " - ")
 				}
 			}
@@ -212,7 +212,7 @@ func (met *Metric) WriteToFile(filename string) error {
 	return nil
 }
 
-func ReadFromFile(filename string, costFunction costfunction.CostFunction, td bool) (*Metric, error) {
+func ReadFromFile(filename string, td bool, graph *da.Graph, day string, costFunction costfunction.CostFunction) (*Metric, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -262,11 +262,11 @@ func ReadFromFile(filename string, costFunction costfunction.CostFunction, td bo
 	pwls := make([]*da.PWL, numWeights)
 	weights := make([]float64, numWeights)
 	parts = fields(line)
-	if uint32(len(parts)) != numWeights {
-		return nil, fmt.Errorf("invalid format")
-	}
 
 	if !td {
+		if uint32(len(parts)) != numWeights {
+			return nil, fmt.Errorf("invalid format")
+		}
 		for i, weight := range parts {
 			_, err = fmt.Sscanf(weight, "%f", &weights[i])
 			if err != nil {
@@ -279,13 +279,14 @@ func ReadFromFile(filename string, costFunction costfunction.CostFunction, td bo
 			parts = strings.Split(line, " - ")
 			for _, weight := range parts {
 				var x, y float64
-				_, err = fmt.Sscanf(weight, "%f, %f", x, y)
+				_, err = fmt.Sscanf(weight, "%f, %f", &x, &y)
 				if err != nil {
 					return nil, err
 				}
 				ps = append(ps, da.NewPoint(x, y))
 			}
-			pwls[i].SetPoints(ps)
+			pwl := da.NewPWL(ps)
+			pwls[i] = pwl
 			line, err = readLine()
 			if err != nil {
 				return nil, err
@@ -360,13 +361,41 @@ func ReadFromFile(filename string, costFunction costfunction.CostFunction, td bo
 		exitStallingTables[i] = stallingTable
 	}
 
-	metric := &Metric{
-		weights:             da.NewOverlayWeights(numWeights),
-		entryStallingTables: entryStallingTables,
-		exitStallingTables:  exitStallingTables,
+	var metric *Metric
+	if td {
+		dayTravelTimeProfile, err := da.ReadTravelTimeProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
+		if err != nil {
+			return nil, err
+		}
+		costFunctionTD := costfunction.NewTimeDependentCostFunction(graph, dayTravelTimeProfile)
+
+		metric = &Metric{
+			weightsTD:           da.NewOverlayWeightsTD(numWeights),
+			entryStallingTables: entryStallingTables,
+			exitStallingTables:  exitStallingTables,
+			timeDependent:       td,
+			costFunction:        costFunction,
+			costFunctionTD:      costFunctionTD,
+		}
+		metric.weightsTD.SetWeights(pwls)
+	} else {
+		dayTravelTimeProfile, err := da.ReadTravelTimeProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
+		if err != nil {
+			return nil, err
+		}
+		costFunctionTD := costfunction.NewTimeDependentCostFunction(graph, dayTravelTimeProfile)
+
+		metric = &Metric{
+			weights:             da.NewOverlayWeights(numWeights),
+			entryStallingTables: entryStallingTables,
+			exitStallingTables:  exitStallingTables,
+			timeDependent:       td,
+			costFunctionTD:      costFunctionTD,
+		}
+		metric.weights.SetWeights(weights)
+		metric.costFunction = costFunction
 	}
-	metric.weights.SetWeights(weights)
-	metric.costFunction = costFunction
+
 	return metric, nil
 
 }

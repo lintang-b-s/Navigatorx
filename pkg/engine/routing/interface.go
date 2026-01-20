@@ -17,3 +17,10 @@ type CostFunction interface {
 	GetWeightPWL(e costfunction.EdgeAttributes) *datastructure.PWL
 	GetWeightAtTime(e costfunction.EdgeAttributes, time float64) float64
 }
+
+type Router interface {
+	ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate,
+		[]datastructure.OutEdge, bool)
+	adjustForwardOffBit(uEntryOffset datastructure.Index) datastructure.Index
+	adjustBackwardOffbit(uExitOffset datastructure.Index) datastructure.Index
+}
