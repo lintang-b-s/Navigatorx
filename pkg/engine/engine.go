@@ -53,11 +53,11 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	var costFunction routing.CostFunction
 	if td {
 		logger.Info("Reading stalling tables & time-dependent metrics...")
-		dayTravelTimeProfile, err := datastructure.ReadTravelTimeProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
+		daySpeedProfile, err := datastructure.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
 		if err != nil {
 			return nil, err
 		}
-		costFunction = costfunction.NewTimeDependentCostFunction(graph, dayTravelTimeProfile)
+		costFunction = costfunction.NewTimeDependentCostFunction(graph, daySpeedProfile)
 		m, err = metrics.ReadFromFile(metricsFilePath, td, graph, day, costFunction)
 		if err != nil {
 			return nil, err

@@ -50,3 +50,45 @@ func TestIntersect(t *testing.T) {
 		})
 	}
 }
+
+func TestIntersectHorizontalLine(t *testing.T) {
+	ps := []*Point{
+
+		NewPoint(2, 2),
+		NewPoint(0, 3),
+		NewPoint(2, 4),
+	}
+
+	testCases := []struct {
+		name               string
+		p1                 *Point
+		p2                 *Point
+		p3                 *Point
+		p4                 *Point
+		want               bool
+		wantIntersectPoint *Point
+	}{
+
+		{
+			name: "test intersect 1",
+
+			p1:                 ps[0],
+			p2:                 ps[2],
+			p3:                 ps[1],
+			wantIntersectPoint: NewPoint(2, 3),
+			want:               true,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+
+			intersectPoint := intersectionPointHorizontalLine(tt.p1, tt.p2, tt.p3.GetY())
+			if !eq(intersectPoint.x, tt.wantIntersectPoint.x) &&
+				!eq(intersectPoint.y, tt.wantIntersectPoint.y) {
+				t.Error("l1 & l2 should intersect")
+			}
+
+		})
+	}
+}

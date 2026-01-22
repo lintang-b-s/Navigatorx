@@ -20,8 +20,8 @@ type CRPUnidirectionalSearch struct {
 	overlayPq *datastructure.MinHeap[datastructure.CRPQueryKey]
 	tEntryId  datastructure.Index
 
-	startTime            float64
-	dayTravelTimeProfile map[int64]*datastructure.PWL
+	startTime       float64
+	daySpeedProfile map[int64]*datastructure.PWL
 
 	sCellNumber datastructure.Pv
 	tCellNumber datastructure.Pv
@@ -153,7 +153,8 @@ func (us *CRPUnidirectionalSearch) ShortestPathSearch(asId, atId datastructure.I
 		}
 
 		parentCopy.setisOutEdge(true)
-		pTime := us.forwardInfo[parentCopy.getEdge()].GetTravelTime()
+		pEdge := parent.getEdge()
+		pTime := us.forwardInfo[pEdge].GetTravelTime()
 		parentCopy.setTime(pTime)
 		idPath = append(idPath, parentCopy)
 

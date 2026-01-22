@@ -66,11 +66,11 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 		c.logger.Sugar().Infof("Customization step completed successfully.")
 	} else {
 
-		dayTravelTimeProfile, err := da.ReadTravelTimeProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
+		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
 		if err != nil {
 			return err
 		}
-		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, dayTravelTimeProfile)
+		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, daySpeedProfile)
 		c.BuildTD(costFunction)
 		c.logger.Sugar().Infof("Building stalling tables...")
 		metrics := metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, true)

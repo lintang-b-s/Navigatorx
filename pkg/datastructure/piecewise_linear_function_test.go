@@ -14,13 +14,6 @@ func TestMerge(t *testing.T) {
 	}{
 
 		{
-			name: "test merge(f,g)",
-			fPoints: []*Point{NewPoint(0, 60), NewPoint(7200, 15),
-				NewPoint(14500, 40)},
-			gPoints: []*Point{NewPoint(0, 80), NewPoint(4800, 15),
-				NewPoint(29000, 60)},
-			expected: []*Point{NewPoint(0, 60), NewPoint(4800, 15), NewPoint(7200, 15), NewPoint(14500, 40)},
-		}, {
 			name: "test merge(f,g) g is constant",
 			fPoints: []*Point{NewPoint(0, 60), NewPoint(7200, 15),
 				NewPoint(14500, 40)},

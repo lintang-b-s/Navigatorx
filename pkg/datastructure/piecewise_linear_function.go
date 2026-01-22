@@ -20,12 +20,12 @@ type PWL struct {
 func NewPWL(points []*Point) *PWL {
 
 	pwl := &PWL{points, 0, 0}
-	pwl.updateMinMax()
+	pwl.UpdateMinMax()
 
 	return pwl
 }
 
-func (pwl *PWL) updateMinMax() {
+func (pwl *PWL) UpdateMinMax() {
 	max := -1.0
 	min := math.MaxFloat64
 
@@ -42,13 +42,22 @@ func (pwl *PWL) updateMinMax() {
 	pwl.max = max
 }
 
+func (pwl *PWL) IsMonotone() bool {
+	for i := 1; i < pwl.Size(); i++ {
+		if pwl.points[i].GetX() < pwl.points[i-1].GetX() {
+			return false
+		}
+	}
+	return true
+}
+
 func (pwl *PWL) GetPoints() []*Point {
 	return pwl.points
 }
 
 func (pwl *PWL) SetPoints(ps []*Point) {
 	pwl.points = ps
-	pwl.updateMinMax()
+	pwl.UpdateMinMax()
 }
 
 func (pwl *PWL) isConst() bool {
@@ -149,14 +158,13 @@ travel time function f(\tau) adalah waktu tempuh dari edge saat berangkat dari n
 
 this function compute:
 link(f,g): \tau -> g(\tau + f(\tau)) + f(\tau), for all \tau \in [0, \Pi]
-
 */
 func Link(f, g *PWL) *PWL {
 	if g.isConst() && f.isConst() {
 		p := *g.get(0)
 		p.add(f.get(0))
 		resPWL := NewPWL([]*Point{&p})
-		resPWL.updateMinMax()
+		resPWL.UpdateMinMax()
 		return resPWL
 	}
 
@@ -179,7 +187,7 @@ func Link(f, g *PWL) *PWL {
 
 		if Ge(g.get(i).GetY(), pkg.INF_WEIGHT) || Ge(f.get(j).GetY(), pkg.INF_WEIGHT) {
 			if resPWL.Size() == 0 {
-				resPWL.appendPoint(NewPoint(0, pkg.INF_WEIGHT))
+				resPWL.AppendPoint(NewPoint(0, pkg.INF_WEIGHT))
 			}
 			break
 		}
@@ -217,7 +225,7 @@ func Link(f, g *PWL) *PWL {
 		uwX = math.Min(uwX, PERIOD)
 		uwX = math.Max(uwX, 0.0)
 
-		resPWL.appendPoint(NewPoint(uwX, uwY))
+		resPWL.AppendPoint(NewPoint(uwX, uwY))
 	}
 
 	if resPWL.Size() > 1 {
@@ -229,7 +237,7 @@ func Link(f, g *PWL) *PWL {
 		}
 	}
 
-	resPWL.updateMinMax()
+	resPWL.UpdateMinMax()
 
 	return resPWL
 }
@@ -241,10 +249,10 @@ func LinkConstOne(f *PWL, c float64) *PWL {
 	for i := 0; i < f.Size(); i++ {
 		fp := *f.get(i)
 		fp.add(NewPoint(0, c))
-		resPWL.appendPoint(&fp)
+		resPWL.AppendPoint(&fp)
 	}
 
-	resPWL.updateMinMax()
+	resPWL.UpdateMinMax()
 
 	return resPWL
 }
@@ -263,17 +271,17 @@ func LinkConstTwo(c float64, f *PWL) *PWL {
 		// process f.points [c, PERIOD]
 		fp := *f.get(i)
 		fp.add(NewPoint(-c, c))
-		resPWL.appendPoint(&fp)
+		resPWL.AppendPoint(&fp)
 	}
 
 	for i := 0; i < k; i++ {
 		// process f.points [0, c)
 		fp := *f.get(i)
 		fp.add(NewPoint(PERIOD-c, c))
-		resPWL.appendPoint(&fp)
+		resPWL.AppendPoint(&fp)
 	}
 
-	resPWL.updateMinMax()
+	resPWL.UpdateMinMax()
 
 	return resPWL
 }
@@ -307,15 +315,22 @@ func Merge(f, g *PWL) *PWL {
 	m := g.Size()
 
 	for i < n || j < m {
+		if intersect(f.get(i-1), f.get(i), g.get(j-1), g.get(j)) {
+
+			iPoint := intersectionPoint(f.get(i-1), f.get(i), g.get(j-1), g.get(j))
+			if iPoint.GetX() >= 0 {
+				resPWL.AppendPoint(iPoint)
+			}
+		}
 
 		if eq(f.get(i).GetX(), g.get(j).GetX()) {
 
 			if eq(f.get(i).GetY(), g.get(j).GetY()) {
-				resPWL.appendPoint(f.get(i))
+				resPWL.AppendPoint(f.get(i))
 			} else if Lt(f.get(i).GetY(), g.get(j).GetY()) {
-				resPWL.appendPoint(f.get(i))
+				resPWL.AppendPoint(f.get(i))
 			} else {
-				resPWL.appendPoint(g.get(j))
+				resPWL.AppendPoint(g.get(j))
 			}
 			i++
 			j++
@@ -323,14 +338,14 @@ func Merge(f, g *PWL) *PWL {
 
 			if ccw(g.get(j-1), f.get(i), g.get(j)) {
 
-				resPWL.appendPoint(f.get(i))
+				resPWL.AppendPoint(f.get(i))
 			} else if collinear(g.get(j-1), f.get(i), g.get(j)) {
 
 				if (ccw(g.get(j-1), f.get(i-1), f.get(i))) || ccw(f.get(i), f.get(i+1), g.get(j)) {
-					resPWL.appendPoint(f.get(i))
+					resPWL.AppendPoint(f.get(i))
 				} else if resPWL.Size() == 0 {
 
-					resPWL.appendPoint(f.get(i))
+					resPWL.AppendPoint(f.get(i))
 				}
 			}
 
@@ -339,27 +354,29 @@ func Merge(f, g *PWL) *PWL {
 
 			if ccw(f.get(i-1), g.get(j), f.get(i)) {
 
-				resPWL.appendPoint(g.get(j))
+				resPWL.AppendPoint(g.get(j))
 			} else if collinear(f.get(i-1), g.get(j), f.get(i)) {
 
 				if (ccw(g.get(j-1), g.get(j), f.get(i-1))) || ccw(g.get(j), g.get(j+1), f.get(i)) {
-					resPWL.appendPoint(g.get(j))
+					resPWL.AppendPoint(g.get(j))
 				}
 				if resPWL.Size() == 0 {
-					resPWL.appendPoint(g.get(j))
+					resPWL.AppendPoint(g.get(j))
 				}
 			}
 			j++
 		}
 	}
 
-	if pLt(f.get(n-1), g.get(m-1)) {
-		resPWL.appendPoint(f.get(n - 1))
-	} else {
-		resPWL.appendPoint(g.get(m - 1))
+	if intersect(f.get(n-1), f.get(n), g.get(m-1), g.get(m)) {
+
+		iPoint := intersectionPoint(f.get(n-1), f.get(n), g.get(m-1), g.get(m))
+		if iPoint.GetX() < PERIOD {
+			resPWL.AppendPoint(iPoint)
+		}
 	}
 
-	resPWL.updateMinMax()
+	resPWL.UpdateMinMax()
 
 	return resPWL
 }
@@ -377,25 +394,25 @@ func mergeConst(f *PWL, c float64) *PWL {
 	for i := 0; i < n; i++ {
 		if eq(f.get(i).GetY(), c) {
 			if Lt(f.get(i-1).GetY(), c) || Lt(f.get(i+1).GetY(), c) {
-				resPWL.appendPoint(NewPoint(f.get(i).GetX(), c))
+				resPWL.AppendPoint(NewPoint(f.get(i).GetX(), c))
 			} else if resPWL.Size() == 0 {
-				resPWL.appendPoint(NewPoint(f.get(i).GetX(), math.Min(f.get(i).GetY(), c)))
+				resPWL.AppendPoint(NewPoint(f.get(i).GetX(), math.Min(f.get(i).GetY(), c)))
 			}
 		} else if Lt(f.get(i).GetY(), c) {
 			if Lt(c, f.get(i-1).GetY()) {
 
 				itPoint := intersectionPointHorizontalLine(f.get(i-1), f.get(i), c)
 				if itPoint.GetX() >= 0 {
-					resPWL.appendPoint(itPoint)
+					resPWL.AppendPoint(itPoint)
 				}
 			}
 
-			resPWL.appendPoint(f.get(i))
+			resPWL.AppendPoint(f.get(i))
 		} else if Lt(f.get(i-1).GetY(), c) {
 
 			itPoint := intersectionPointHorizontalLine(f.get(i-1), f.get(i), c)
 			if itPoint.GetX() >= 0 {
-				resPWL.appendPoint(itPoint)
+				resPWL.AppendPoint(itPoint)
 			}
 		}
 	}
@@ -405,15 +422,15 @@ func mergeConst(f *PWL, c float64) *PWL {
 
 		if Le(itPoint.GetX(), PERIOD) {
 
-			resPWL.appendPoint(itPoint)
+			resPWL.AppendPoint(itPoint)
 		}
 	}
 
 	if resPWL.Size() == 0 {
-		resPWL.appendPoint(NewPoint(0, c))
+		resPWL.AppendPoint(NewPoint(0, c))
 	}
 
-	resPWL.updateMinMax()
+	resPWL.UpdateMinMax()
 
 	return resPWL
 }
@@ -426,7 +443,7 @@ func (pwl *PWL) Size() int {
 	return len(pwl.points)
 }
 
-func (pwl *PWL) appendPoint(p *Point) {
+func (pwl *PWL) AppendPoint(p *Point) {
 
 	n := len(pwl.points)
 	if n != 0 && eq(pwl.get(n-1).GetX(), p.GetX()) {
@@ -488,7 +505,147 @@ func (pwl *PWL) lowerBound(xx float64) int {
 	return id
 }
 
-func ReadTravelTimeProfile(filepath string) (map[int64]*PWL, error) {
+/*
+implementation of algorithm 3:
+NEUBAUER, S. 2009. Space efficient approximation of piecewise linear functions. Studienarbeit, Universitat¨
+Karlsruhe, Fakultat f ¨ ur Informatik. http://algo2.iti.kit.edu/download/neubauer ¨ sa.pdf.
+
+O(n), n=pwl.Size()
+*/
+func ImaiIriApprox(pwl *PWL, epsilon float64) *PWL {
+	n := pwl.Size()
+	psNeg := make([]*Point, n)
+	psPos := make([]*Point, n)
+
+	for i, p := range pwl.GetPoints() {
+		psNeg[i] = NewPoint(p.x, p.y)
+		psPos[i] = NewPoint(p.x, (1+epsilon)*p.y)
+	}
+
+	pNeg := NewPoint(-1, -1)
+	pPos := NewPoint(-1, 1)
+
+	lNeg := NewPoint(-1, -1)
+	lPos := NewPoint(-1, -1)
+	rNeg := NewPoint(-1, -1)
+	rPos := NewPoint(-1, -1)
+
+	sPos := make(map[*Point]*Point, n)
+	sNeg := make(map[*Point]*Point, n)
+	tPos := make(map[*Point]*Point, n)
+	tNeg := make(map[*Point]*Point, n)
+
+	posNeg := []int{-1, 1}
+	for _, star := range posNeg {
+		if star == 1 {
+			pPos = psPos[0]
+			lPos = psPos[0]
+			rPos = psPos[1]
+			sPos[psPos[0]] = psPos[1]
+			tPos[psPos[1]] = psPos[0]
+
+		} else {
+			pNeg = psNeg[0]
+			lNeg = psNeg[0]
+			rNeg = psNeg[1]
+			sNeg[psNeg[0]] = psNeg[1]
+			tNeg[psNeg[1]] = psNeg[0]
+		}
+	}
+
+	qs := make([]*Point, 0)
+	for i := 2; i < n; i++ {
+
+		p := psPos[i-1]
+
+		for !pEqual(p, pPos) && cw(p, psPos[i], tPos[p]) {
+			p = tPos[p]
+		}
+		sPos[p] = psPos[i]
+		tPos[psPos[i]] = p
+
+		p = psNeg[i-1]
+
+		for !pEqual(p, pNeg) && ccw(p, psNeg[i], tNeg[p]) {
+			p = tNeg[p]
+		}
+		sNeg[p] = psNeg[i]
+		tNeg[psNeg[i]] = p
+
+		nextWindow := false
+
+		if !nextWindow && ccw(lPos, psPos[i], rNeg) {
+			qs = append(qs, intersectionPoint(lPos, rNeg, pPos, pNeg))
+
+			pNeg = rNeg
+			pPos = intersectionPoint(lPos, rNeg, psPos[i-1], psPos[i])
+			sPos[pPos] = psPos[i]
+			tPos[psPos[i]] = pPos
+			rPos = psPos[i]
+			rNeg = psNeg[i]
+			lPos = pPos
+			lNeg = pNeg
+
+			for cw(rPos, lNeg, sNeg[lNeg]) {
+				lNeg = sNeg[lNeg]
+
+			}
+			nextWindow = true
+		}
+		if !nextWindow && cw(lNeg, psNeg[i], rPos) {
+			qs = append(qs, intersectionPoint(lNeg, rPos, pNeg, pPos))
+
+			pPos = rPos
+			pNeg = intersectionPoint(lNeg, rPos, psNeg[i-1], psNeg[i])
+			sNeg[pNeg] = psNeg[i]
+			tNeg[psNeg[i]] = pNeg
+			rNeg = psNeg[i]
+			rPos = psPos[i]
+			lNeg = pNeg
+			lPos = pPos
+
+			for ccw(rNeg, lPos, sPos[lPos]) {
+
+				lPos = sPos[lPos]
+			}
+			nextWindow = true
+		}
+		if !nextWindow {
+
+			if ccw(lNeg, psPos[i], rPos) {
+				rPos = psPos[i]
+				for ccw(lNeg, psPos[i], sNeg[lNeg]) {
+					lNeg = sNeg[lNeg]
+				}
+			}
+
+			if cw(lPos, psNeg[i], rNeg) {
+				rNeg = psNeg[i]
+				for cw(lPos, psNeg[i], sPos[lPos]) {
+					lPos = sPos[lPos]
+				}
+			}
+		}
+	}
+
+	a := intersectionPoint(lPos, rNeg, pPos, pNeg)
+	b := intersectionPoint(lNeg, rPos, pNeg, pPos)
+	newQ := NewPoint((a.GetX()+b.GetX())/2, (a.GetY()+b.GetY())/2)
+
+	qs = append(qs, newQ)
+
+	a = intersectionPoint(newQ, rPos, psNeg[n-1], psPos[n-1])
+	b = intersectionPoint(newQ, rNeg, psNeg[n-1], psPos[n-1])
+	newQ = NewPoint((a.GetX()+b.GetX())/2, (a.GetY()+b.GetY())/2)
+
+	qs = append(qs, newQ)
+
+	resPWL := NewPWL(qs)
+
+	return resPWL
+}
+
+func ReadSpeedProfile(filepath string) (map[int64]*PWL, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return nil, err
@@ -519,14 +676,12 @@ func ReadTravelTimeProfile(filepath string) (map[int64]*PWL, error) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			if !eq(math.Mod(timeSec, 7200), 0.0) {
-				continue
-			}
-			travelTime, err := strconv.ParseFloat(row[colIdx], 64)
+
+			speed, err := strconv.ParseFloat(row[colIdx], 64)
 			if err != nil {
 				log.Fatal(err)
 			}
-			points = append(points, NewPoint(timeSec, travelTime))
+			points = append(points, NewPoint(timeSec, speed))
 		}
 
 		osmID, err := strconv.ParseInt(colName, 10, 64)

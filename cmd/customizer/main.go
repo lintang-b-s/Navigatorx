@@ -8,7 +8,7 @@ import (
 )
 
 var (
-	timeDependent = flag.Bool("time_dependent", false, "Use Time-Dependent Customizable Route Planning")
+	timeDependent = flag.Bool("time_dependent", true, "Use Time-Dependent Customizable Route Planning")
 )
 
 func main() {

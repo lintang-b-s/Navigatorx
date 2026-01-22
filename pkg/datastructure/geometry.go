@@ -5,16 +5,16 @@ import (
 )
 
 const (
-	EPS = 1e-9
-	
+	EPS = 1e-20
 )
 
 type Point struct {
 	x, y float64
+	id   int
 }
 
 func NewPoint(x, y float64) *Point {
-	return &Point{x, y}
+	return &Point{x, y, 0}
 }
 
 func (p *Point) GetX() float64 {
@@ -38,6 +38,10 @@ func Lt(a, b float64) bool {
 // greater than or equal than operator
 func Ge(a, b float64) bool {
 	return Le(b, a)
+}
+
+func Gt(a, b float64) bool {
+	return Lt(b, a)
 }
 
 // less than or equal operator
@@ -78,32 +82,6 @@ func (p *Point) multConst(q float64) {
 	p.y *= q
 }
 
-// ax + by + c = 0
-type Line struct {
-	a, b, c float64
-}
-
-func NewLine(a, b, c float64) *Line {
-	return &Line{a, b, c}
-}
-
-// compute line equation given 2 points on that line
-func pointsToLine(p1, p2 *Point) *Line {
-	l := &Line{}
-	if math.Abs(p1.x-p2.x) < EPS {
-		// vertical line
-		l = &Line{1.0, 0.0, -p1.x}
-	} else {
-		a := -(p1.y - p2.y) / (p1.x - p2.x)
-		l = &Line{a, 1.0, -(a * p1.x) - p1.y}
-	}
-	return l
-}
-
-func areParallel(l1, l2 *Line) bool {
-	return math.Abs(l1.a-l2.a) < EPS && math.Abs(l1.b-l2.b) < EPS
-}
-
 type Vector struct {
 	x, y float64
 }
@@ -121,50 +99,110 @@ func cross(a, b *Vector) float64 {
 	return a.x*b.y - a.y*b.x
 }
 
+func dir(p, q, r *Point) int {
+
+	if math.Abs(p.GetX()-q.GetX()) < 0.000001 && math.Abs(p.GetY()-q.GetY()) < 0.000001 {
+		return 0
+	}
+
+	if math.Abs(p.GetX()-r.GetX()) < 0.000001 && math.Abs(p.GetY()-r.GetY()) < 0.000001 {
+		return 0
+	}
+
+	if math.Abs(q.GetX()-r.GetX()) < 0.000001 && math.Abs(q.GetY()-r.GetY()) < 0.000001 {
+		return 0
+	}
+
+	x := cross(toVec(p, r), toVec(p, q))
+	if math.Abs(x) < EPS {
+		return 0
+	}
+
+	if x > 0 {
+		return 1
+	}
+	return -1
+}
+
 // counterclockwise test
 // returns true if point r is on the left side of line pq
 func ccw(p, q, r *Point) bool {
-	return cross(toVec(p, q), toVec(p, r)) > -EPS
+	return dir(p, q, r) == -1
+}
+
+func cw(p, q, r *Point) bool {
+	return dir(p, q, r) == 1
 }
 
 // returns true if point r is on the same line as the line pq
 func collinear(p, q, r *Point) bool {
-	return math.Abs(cross(toVec(p, q), toVec(p, r))) < EPS
+	return dir(p, q, r) == 0
 }
 
-// returns true (+ intersection point p) if two lines are intersect
-func areIntersect(l1, l2 *Line) (bool, *Point) {
-	if areParallel(l1, l2) {
-		return false, nil
+func dot(a, b *Vector) float64 {
+	return a.x*b.x + a.y*b.y
+}
+
+func normSq(v *Vector) float64 {
+	return v.x*v.x + v.y*v.y
+}
+
+// return ccw angle <aob
+func angle(a, o, b *Point) float64 {
+	oa := toVec(o, a)
+	ob := toVec(o, b)
+	ang := math.Acos(dot(oa, ob) / math.Sqrt(normSq(oa)*normSq(ob)))
+
+	return ang
+}
+
+func radToDeg(r float64) float64 {
+	return r * 180.0 / math.Pi
+}
+
+func degToRad(d float64) float64 {
+	return d * math.Pi / 180.0
+}
+
+// check wether line segments (ab) and (pq) intersect (+ intersection point)
+func intersectionPoint(a, b, p, q *Point) *Point {
+
+	denom := cross(toVec(q, p), toVec(a, b))
+
+	bb := *b
+	cp := cross(toVec(q, p), toVec(a, p)) / denom
+	bb.sub(a)
+	bb.multConst(cp)
+	aa := *a
+	aa.add(&bb)
+	return &aa
+}
+
+// check wether line segments (ab) and (cd) intersect in exactly zone point
+func intersect(a, b, p, q *Point) bool {
+
+	if dir(a, b, p) == 0 {
+		return false
+	}
+	if dir(a, b, q) == 0 {
+		return false
 	}
 
-	p := NewPoint(0, 0)
-	p.x = (l2.b*l1.c - l1.b*l2.c) / (l2.a*l1.b - l1.a*l2.b)
-
-	if math.Abs(l1.b) > EPS {
-		p.y = -(l1.a*p.x + l1.c)
-	} else {
-		p.y = -(l2.a*p.x + l2.c)
+	if dir(p, q, a) == 0 {
+		return false
 	}
-	return true, p
-}
+	if dir(p, q, b) == 0 {
+		return false
+	}
 
-// check wether line segments (ab) and (cd) intersect in exactly one point (+ intersection point)
-func intersectionPoint(a, b, c, d *Point) *Point {
-	l1 := pointsToLine(a, b)
-	l2 := pointsToLine(c, d)
+	if dir(a, b, p) == dir(a, b, q) {
+		return false
+	}
+	if dir(p, q, a) == dir(p, q, b) {
+		return false
+	}
 
-	_, intersectPoint := areIntersect(l1, l2)
-	return intersectPoint
-}
-
-// check wether line segments (ab) and (cd) intersect in exactly one point (+ intersection point)
-func intersect(a, b, c, d *Point) bool {
-	l1 := pointsToLine(a, b)
-	l2 := pointsToLine(c, d)
-
-	isIntersect, _ := areIntersect(l1, l2)
-	return isIntersect
+	return true
 }
 
 // check wether line segment (ab) and y=c intersect
@@ -172,9 +210,11 @@ func intersectionPointHorizontalLine(a, b *Point, c float64) *Point {
 	p := NewPoint(a.GetX(), c)
 	q := NewPoint(b.GetX(), c)
 
-	if math.Abs(p.GetX()-q.GetX()) <= EPS {
+	if math.Abs(p.GetX()-q.GetX()) <= 0.000001 {
 		return NewPoint((p.GetX()+q.GetX())/2.0, c)
 	}
 
-	return intersectionPoint(a, b, p, q)
+	itPoint := intersectionPoint(a, b, p, q)
+
+	return itPoint
 }

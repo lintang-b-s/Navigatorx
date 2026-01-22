@@ -39,15 +39,21 @@ func (tf *TimeDependentFunction) GetWeightPWL(e EdgeAttributes) *da.PWL {
 		return constPWL
 	}
 
-	ttfPs := make([]*da.Point, osmSpeedPwl.Size())
-	for i, sp := range osmSpeedPwl.GetPoints() {
+	newpwl := da.NewPWL(make([]*da.Point, 0))
+
+	for _, sp := range osmSpeedPwl.GetPoints() {
 		// O(n), n = jumlah breakpoints osmSpeedPwl
 		eLength := e.GetLength() // m
+
 		eTravelTime := eLength / (sp.GetY() * 1000 / 60)
-		ttfPs[i] = da.NewPoint(sp.GetX(), eTravelTime)
+		newpwl.AppendPoint(da.NewPoint(sp.GetX(), eTravelTime))
+	}
+	newpwl.UpdateMinMax()
+	if newpwl.Size() > 2 {
+		return da.ImaiIriApprox(newpwl, 0.05)
 	}
 
-	return da.NewPWL(ttfPs)
+	return newpwl
 }
 
 func (tf *TimeDependentFunction) GetWeightAtTime(e EdgeAttributes, time float64) float64 {

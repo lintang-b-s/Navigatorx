@@ -363,11 +363,11 @@ func ReadFromFile(filename string, td bool, graph *da.Graph, day string, costFun
 
 	var metric *Metric
 	if td {
-		dayTravelTimeProfile, err := da.ReadTravelTimeProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
+		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
 		if err != nil {
 			return nil, err
 		}
-		costFunctionTD := costfunction.NewTimeDependentCostFunction(graph, dayTravelTimeProfile)
+		costFunctionTD := costfunction.NewTimeDependentCostFunction(graph, daySpeedProfile)
 
 		metric = &Metric{
 			weightsTD:           da.NewOverlayWeightsTD(numWeights),
@@ -379,11 +379,11 @@ func ReadFromFile(filename string, td bool, graph *da.Graph, day string, costFun
 		}
 		metric.weightsTD.SetWeights(pwls)
 	} else {
-		dayTravelTimeProfile, err := da.ReadTravelTimeProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
+		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
 		if err != nil {
 			return nil, err
 		}
-		costFunctionTD := costfunction.NewTimeDependentCostFunction(graph, dayTravelTimeProfile)
+		costFunctionTD := costfunction.NewTimeDependentCostFunction(graph, daySpeedProfile)
 
 		metric = &Metric{
 			weights:             da.NewOverlayWeights(numWeights),
