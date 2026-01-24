@@ -3,7 +3,6 @@ package osmparser
 import (
 	"context"
 	"io"
-	"log"
 	"os"
 	"strconv"
 	"strings"
@@ -73,12 +72,12 @@ func (o *OsmParser) GetTagStringIdMap() util.IDMap {
 	return o.tagStringIdMap
 }
 
-func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) *datastructure.Graph {
+func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) (*datastructure.Graph, error) {
 
 	f, err := os.Open(mapFile)
 
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	defer f.Close()
 
@@ -175,9 +174,9 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 
 	edgeSet := make(map[datastructure.Index]map[datastructure.Index]struct{})
 
-	f.Seek(0, io.SeekStart)
+	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
 	scanner = osmpbf.New(context.Background(), f, 0)
 	//must not be parallel
@@ -314,7 +313,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	graph := p.BuildGraph(scannedEdges, graphStorage)
 	graph.SetGraphStorage(graphStorage)
 
-	return graph
+	return graph, nil
 }
 
 type wayExtraInfo struct {
@@ -728,55 +727,23 @@ func roadTypeSpeed(roadType string) float64 {
 	switch roadType {
 	case "motorway":
 		return 80
-	case "trunk":
-		return 40
-	case "primary":
-		return 30
-	case "secondary":
-		return 27
-	case "tertiary":
-		return 25
-	case "unclassified":
-		return 25
-	case "residential":
-		return 20
-	case "service":
-		return 20
-	case "motorway_link":
-		return 60
-	case "trunk_link":
-		return 30
-	case "primary_link":
-		return 25
-	case "secondary_link":
-		return 25
-	case "tertiary_link":
-		return 25
-	case "living_street":
-		return 5
-	case "road":
-		return 20
-	case "track":
-		return 15
-	case "motorroad":
-		return 90
 	default:
-		return 30
+		return roadTypeMaxSpeedOsm(roadType) * NERF_MAXSPEED_OSM_REALISTIC
 	}
 }
 
 func roadTypeMaxSpeedOsm(roadType string) float64 {
 	switch roadType {
 	case "motorway":
-		return 100
+		return 80
 	case "trunk":
-		return 70
-	case "primary":
-		return 65
-	case "secondary":
 		return 60
-	case "tertiary":
+	case "primary":
 		return 50
+	case "secondary":
+		return 40
+	case "tertiary":
+		return 40
 	case "unclassified":
 		return 40
 	case "residential":
@@ -786,11 +753,11 @@ func roadTypeMaxSpeedOsm(roadType string) float64 {
 	case "motorway_link":
 		return 70
 	case "trunk_link":
-		return 65
-	case "primary_link":
 		return 60
-	case "secondary_link":
+	case "primary_link":
 		return 50
+	case "secondary_link":
+		return 40
 	case "tertiary_link":
 		return 40
 	case "living_street":

@@ -13,7 +13,10 @@ func main() {
 		panic(err)
 	}
 	osmParser := osmparser.NewOSMParserV2()
-	graph := osmParser.Parse("./data/diy_solo_semarang.osm.pbf", logger, false)
+	graph, err := osmParser.Parse("./data/diy_solo_semarang.osm.pbf", logger, false)
+	if err != nil {
+		panic(err)
+	}
 
 	mlp := datastructure.NewPlainMLP()
 	err = mlp.ReadMlpFile("./data/crp_inertial_flow_diy_solo_semarang.mlp")

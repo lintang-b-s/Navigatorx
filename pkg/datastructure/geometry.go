@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	EPS = 1e-20
+	EPS = 1e-6
 )
 
 type Point struct {
@@ -101,15 +101,15 @@ func cross(a, b *Vector) float64 {
 
 func dir(p, q, r *Point) int {
 
-	if math.Abs(p.GetX()-q.GetX()) < 0.000001 && math.Abs(p.GetY()-q.GetY()) < 0.000001 {
+	if math.Abs(p.GetX()-q.GetX()) < EPS && math.Abs(p.GetY()-q.GetY()) < EPS {
 		return 0
 	}
 
-	if math.Abs(p.GetX()-r.GetX()) < 0.000001 && math.Abs(p.GetY()-r.GetY()) < 0.000001 {
+	if math.Abs(p.GetX()-r.GetX()) < EPS && math.Abs(p.GetY()-r.GetY()) < EPS {
 		return 0
 	}
 
-	if math.Abs(q.GetX()-r.GetX()) < 0.000001 && math.Abs(q.GetY()-r.GetY()) < 0.000001 {
+	if math.Abs(q.GetX()-r.GetX()) < EPS && math.Abs(q.GetY()-r.GetY()) < EPS {
 		return 0
 	}
 
@@ -139,6 +139,7 @@ func collinear(p, q, r *Point) bool {
 	return dir(p, q, r) == 0
 }
 
+// return dot product of two vectors a and b
 func dot(a, b *Vector) float64 {
 	return a.x*b.x + a.y*b.y
 }
@@ -154,14 +155,6 @@ func angle(a, o, b *Point) float64 {
 	ang := math.Acos(dot(oa, ob) / math.Sqrt(normSq(oa)*normSq(ob)))
 
 	return ang
-}
-
-func radToDeg(r float64) float64 {
-	return r * 180.0 / math.Pi
-}
-
-func degToRad(d float64) float64 {
-	return d * math.Pi / 180.0
 }
 
 // check wether line segments (ab) and (pq) intersect (+ intersection point)
@@ -210,7 +203,7 @@ func intersectionPointHorizontalLine(a, b *Point, c float64) *Point {
 	p := NewPoint(a.GetX(), c)
 	q := NewPoint(b.GetX(), c)
 
-	if math.Abs(p.GetX()-q.GetX()) <= 0.000001 {
+	if math.Abs(p.GetX()-q.GetX()) <= EPS {
 		return NewPoint((p.GetX()+q.GetX())/2.0, c)
 	}
 

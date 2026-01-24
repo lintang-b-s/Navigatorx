@@ -20,7 +20,6 @@ func GetCurrentSeconds() float64 {
 	return totalDaySeconds
 }
 
-
 // error
 
 type Error struct {

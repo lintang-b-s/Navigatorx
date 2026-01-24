@@ -28,6 +28,7 @@ func (ow *OverlayWeightsTD) GetWeightAtTime(i Index, time float64) float64 {
 func (ow *OverlayWeightsTD) GetWeightPWL(i Index) *PWL {
 	ow.lock.RLock()
 	shortcutWeight := ow.weights[i]
+	shortcutWeight.CheckIsFIFO()
 	ow.lock.RUnlock()
 	return shortcutWeight
 }
@@ -41,7 +42,9 @@ func (ow *OverlayWeightsTD) SetWeights(weights []*PWL) {
 }
 
 func (ow *OverlayWeightsTD) SetWeight(index int, weight *PWL) {
+	ow.lock.Lock()
 	ow.weights[index] = weight
+	ow.lock.Unlock()
 }
 
 func (ow *OverlayWeightsTD) Lock() {
@@ -56,7 +59,7 @@ func NewOverlayWeightsTD(weightVectorSize uint32) *OverlayWeightsTD {
 	weights := make([]*PWL, weightVectorSize)
 	for i := range weights {
 		ps := make([]*Point, 1)
-		ps[0] = NewPoint(0,pkg.INF_WEIGHT)
+		ps[0] = NewPoint(0, pkg.INF_WEIGHT)
 		weights[i] = NewPWL(ps)
 	}
 	return &OverlayWeightsTD{weights: weights, lock: &sync.RWMutex{}}

@@ -73,6 +73,7 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, daySpeedProfile)
 		c.BuildTD(costFunction)
 		c.logger.Sugar().Infof("Building stalling tables...")
+		c.debugShortcutsPWL()
 		metrics := metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, true)
 		metrics.BuildStallingTables(c.overlayGraph, c.graph)
 		err = metrics.WriteToFile(c.metricOutputFilePath)
@@ -83,6 +84,14 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 	}
 
 	return nil
+}
+
+func (c *Customizer) debugShortcutsPWL() {
+	if pkg.DEBUG {
+		for _, w :=range c.owtd.GetWeights() {
+			w.CheckIsFIFO()
+		}
+	}
 }
 
 type customizerCell struct {
@@ -255,7 +264,7 @@ func (c *Customizer) buildLowestLevel(
 		return cellWeights
 	}
 
-	workers := concurrent.NewWorkerPool[customizerCell, []cellCustomizationRes](8, len(cellMapInLevelOne))
+	workers := concurrent.NewWorkerPool[customizerCell, []cellCustomizationRes](CUSTOMIZER_WORKER, len(cellMapInLevelOne))
 
 	for cellNumber, cell := range cellMapInLevelOne {
 		workers.AddJob(newCustomizerCell(cell, cellNumber))
@@ -392,7 +401,7 @@ func (c *Customizer) buildLevel(
 
 	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
 
-	workers := concurrent.NewWorkerPool[customizerCell, []cellCustomizationRes](20, len(cellMapInLevel))
+	workers := concurrent.NewWorkerPool[customizerCell, []cellCustomizationRes](CUSTOMIZER_WORKER, len(cellMapInLevel))
 
 	for pv, cell := range cellMapInLevel {
 		workers.AddJob(newCustomizerCell(cell, pv))

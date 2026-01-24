@@ -2,12 +2,12 @@ package datastructure
 
 import (
 	"encoding/csv"
-	"log"
 	"math"
 	"os"
 	"strconv"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // periodic piecewise linear function
@@ -40,15 +40,6 @@ func (pwl *PWL) UpdateMinMax() {
 	}
 	pwl.min = min
 	pwl.max = max
-}
-
-func (pwl *PWL) IsMonotone() bool {
-	for i := 1; i < pwl.Size(); i++ {
-		if pwl.points[i].GetX() < pwl.points[i-1].GetX() {
-			return false
-		}
-	}
-	return true
 }
 
 func (pwl *PWL) GetPoints() []*Point {
@@ -113,7 +104,7 @@ func (pwl *PWL) Eval(time float64) float64 {
 		return pwl.get(0).GetY()
 	}
 
-	x := math.Mod(time, PERIOD)
+	x := modulo(time, PERIOD)
 
 	for i := 0; i < len(pwl.points); i++ {
 		if Le(x, pwl.get(i).GetX()) {
@@ -165,16 +156,24 @@ func Link(f, g *PWL) *PWL {
 		p.add(f.get(0))
 		resPWL := NewPWL([]*Point{&p})
 		resPWL.UpdateMinMax()
+		resPWL.CheckIsFIFO()
 		return resPWL
 	}
 
 	if f.isConst() {
-		return LinkConstTwo(f.get(0).GetY(), g)
+		resPWL := LinkConstTwo(f.get(0).GetY(), g)
+		resPWL.CheckIsFIFO()
+		return resPWL
 	}
 
 	if g.isConst() {
-		return LinkConstOne(f, g.get(0).GetY())
+		resPWL := LinkConstOne(f, g.get(0).GetY())
+		resPWL.CheckIsFIFO()
+		return resPWL
 	}
+
+	f.CheckIsFIFO()
+	g.CheckIsFIFO()
 
 	ps := make([]*Point, 0, f.Size()+g.Size())
 	resPWL := NewPWL(ps)
@@ -185,20 +184,13 @@ func Link(f, g *PWL) *PWL {
 	for true {
 		var uwX, uwY float64
 
-		if Ge(g.get(i).GetY(), pkg.INF_WEIGHT) || Ge(f.get(j).GetY(), pkg.INF_WEIGHT) {
-			if resPWL.Size() == 0 {
-				resPWL.AppendPoint(NewPoint(0, pkg.INF_WEIGHT))
-			}
-			break
-		}
-
 		if eq(g.get(i).GetX(), f.get(j).GetX()+f.get(j).GetY()) {
 			uwX = f.get(j).GetX()
 			uwY = g.get(i).GetY() + f.get(j).GetY()
 
 			i++
 			j++
-		} else if Lt(g.get(i).GetX(), f.get(j).GetX()+f.get(j).GetY()) {
+		} else if g.get(i).GetX() < f.get(j).GetX()+f.get(j).GetY() {
 
 			mArrivalFInverse := (f.get(j).GetX() - f.get(j-1).GetX()) / (f.get(j).GetX() + f.get(j).GetY() -
 				f.get(j-1).GetX() - f.get(j-1).GetY())
@@ -225,7 +217,9 @@ func Link(f, g *PWL) *PWL {
 		uwX = math.Min(uwX, PERIOD)
 		uwX = math.Max(uwX, 0.0)
 
-		resPWL.AppendPoint(NewPoint(uwX, uwY))
+		newp := NewPoint(uwX, uwY)
+
+		resPWL.AppendPoint(newp)
 	}
 
 	if resPWL.Size() > 1 {
@@ -238,11 +232,16 @@ func Link(f, g *PWL) *PWL {
 	}
 
 	resPWL.UpdateMinMax()
+	resPWL.CheckIsFIFO()
 
 	return resPWL
 }
 
 func LinkConstOne(f *PWL, c float64) *PWL {
+	if Ge(c, pkg.INF_WEIGHT) {
+		return NewPWL([]*Point{NewPoint(0, pkg.INF_WEIGHT)})
+	}
+
 	ps := make([]*Point, 0, f.Size())
 	resPWL := NewPWL(ps)
 
@@ -258,26 +257,31 @@ func LinkConstOne(f *PWL, c float64) *PWL {
 }
 
 func LinkConstTwo(c float64, f *PWL) *PWL {
+	if Ge(c, pkg.INF_WEIGHT) {
+
+		return NewPWL([]*Point{NewPoint(0, pkg.INF_WEIGHT)})
+	}
+
 	ps := make([]*Point, 0, f.Size())
 	resPWL := NewPWL(ps)
-	c = math.Mod(c, PERIOD)
+	cmod := modulo(c, PERIOD)
 
 	k := 0
-	for k < f.Size() && Lt(f.get(k).GetX(), c) {
+	for k < f.Size() && Lt(f.get(k).GetX(), cmod) {
 		k++
 	}
 
 	for i := k; i < f.Size(); i++ {
 		// process f.points [c, PERIOD]
 		fp := *f.get(i)
-		fp.add(NewPoint(-c, c))
+		fp.add(NewPoint(-cmod, c))
 		resPWL.AppendPoint(&fp)
 	}
 
 	for i := 0; i < k; i++ {
 		// process f.points [0, c)
 		fp := *f.get(i)
-		fp.add(NewPoint(PERIOD-c, c))
+		fp.add(NewPoint(PERIOD-cmod, c))
 		resPWL.AppendPoint(&fp)
 	}
 
@@ -291,10 +295,15 @@ func LinkConstTwo(c float64, f *PWL) *PWL {
 func Merge(f, g *PWL) *PWL {
 
 	if g.isConst() {
-		return mergeConst(f, g.points[0].GetY())
+		resPWL := mergeConst(f, g.points[0].GetY())
+		resPWL.CheckIsFIFO()
+		return resPWL
 	}
+
 	if f.isConst() {
-		return mergeConstTwo(f.points[0].GetY(), g)
+		resPWL := mergeConstTwo(f.points[0].GetY(), g)
+		resPWL.CheckIsFIFO()
+		return resPWL
 	}
 
 	if Lt(f.max, g.min) {
@@ -327,14 +336,14 @@ func Merge(f, g *PWL) *PWL {
 
 			if eq(f.get(i).GetY(), g.get(j).GetY()) {
 				resPWL.AppendPoint(f.get(i))
-			} else if Lt(f.get(i).GetY(), g.get(j).GetY()) {
+			} else if f.get(i).GetY() < g.get(j).GetY() {
 				resPWL.AppendPoint(f.get(i))
 			} else {
 				resPWL.AppendPoint(g.get(j))
 			}
 			i++
 			j++
-		} else if Lt(f.get(i).GetX(), g.get(j).GetX()) {
+		} else if f.get(i).GetX() < g.get(j).GetX() {
 
 			if ccw(g.get(j-1), f.get(i), g.get(j)) {
 
@@ -368,6 +377,8 @@ func Merge(f, g *PWL) *PWL {
 		}
 	}
 
+	n = f.Size()
+	m = g.Size()
 	if intersect(f.get(n-1), f.get(n), g.get(m-1), g.get(m)) {
 
 		iPoint := intersectionPoint(f.get(n-1), f.get(n), g.get(m-1), g.get(m))
@@ -377,6 +388,7 @@ func Merge(f, g *PWL) *PWL {
 	}
 
 	resPWL.UpdateMinMax()
+	resPWL.CheckIsFIFO()
 
 	return resPWL
 }
@@ -398,7 +410,7 @@ func mergeConst(f *PWL, c float64) *PWL {
 			} else if resPWL.Size() == 0 {
 				resPWL.AppendPoint(NewPoint(f.get(i).GetX(), math.Min(f.get(i).GetY(), c)))
 			}
-		} else if Lt(f.get(i).GetY(), c) {
+		} else if f.get(i).GetY() < c {
 			if Lt(c, f.get(i-1).GetY()) {
 
 				itPoint := intersectionPointHorizontalLine(f.get(i-1), f.get(i), c)
@@ -416,6 +428,8 @@ func mergeConst(f *PWL, c float64) *PWL {
 			}
 		}
 	}
+
+	n = f.Size()
 
 	if Lt(f.get(n-1).GetY(), c) && Lt(c, f.get(n).GetY()) || Lt(c, f.get(n-1).GetY()) && Lt(f.get(n).GetY(), c) {
 		itPoint := intersectionPointHorizontalLine(f.get(n-1), f.get(n), c)
@@ -451,31 +465,26 @@ func (pwl *PWL) AppendPoint(p *Point) {
 			return
 		}
 
-		lastPoint := pwl.get(n - 1)
+		pp := NewPoint(math.Max(pwl.points[n-1].GetX()+EPS, p.GetX()+EPS), p.GetY())
 
-		var pp *Point
-		pp = NewPoint(math.Max(lastPoint.GetX()+EPS, p.GetX()+EPS), p.GetY())
-
-		lastPoint.x = math.Min(lastPoint.GetX(), p.GetX())
+		pwl.points[n-1].x = math.Min(pwl.points[n-1].GetX(), p.GetX())
 
 		pwl.points = append(pwl.points, pp)
 		return
 	}
 
-	if n != 0 && Lt(p.GetX(), pwl.get(n-1).GetX()) {
+	if n != 0 && p.GetX() < pwl.get(n-1).GetX() {
 
-		var pp *Point
-		lastPoint := pwl.get(n - 1)
-
-		pp = NewPoint(lastPoint.GetX(), p.GetY())
-		lastPoint.x = p.GetX()
+		pp := NewPoint(pwl.points[n-1].GetX(), p.GetY())
+		pwl.points[n-1].x = p.GetX()
 
 		pwl.points = append(pwl.points, pp)
 		return
 	}
 
+	n = len(pwl.points) // update points size
 	if n > 1 {
-		if collinear(pwl.get(n-2), pwl.get(n-1), p) {
+		if collinear(pwl.points[n-2], pwl.points[n-1], p) {
 			pwl.set(n-1, p)
 			return
 		}
@@ -485,30 +494,84 @@ func (pwl *PWL) AppendPoint(p *Point) {
 }
 
 // smallest index in the sorted pwl.points[].x where the element is greater than or equal to the xx.
-// O(log(N)), N = len(pwl.points)
-func (pwl *PWL) lowerBound(xx float64) int {
-	xx = math.Mod(xx, PERIOD)
+func (pwl *PWL) lowerBound(x float64) int {
+	xx := math.Mod(x, PERIOD)
+
+	if xx < 0 {
+		xx += PERIOD
+	}
+
+	offset := pwl.Size() * int(math.Floor(x/PERIOD))
+
+	if Le(xx, pwl.points[0].GetX()) {
+		return offset
+	}
 
 	l, r := 0, len(pwl.points)-1
 	id := len(pwl.points)
 	for l <= r {
 		mid := l + (r-l)/2
-		if pwl.get(mid).GetX() >= xx {
+		if Ge(pwl.get(mid).GetX(), xx) {
 			id = mid
 			r = mid - 1
-
 		} else {
 			l = mid + 1
 		}
 	}
 
-	return id
+	return id + offset
+}
+
+// \textit{Travel-time function} memenuhi sifat \textit{FIFO}, yaitu untuk bilangan riil positif sembarang $\sigma\leq\tau\in\Pi$, kondisi $\sigma+f(\sigma)\leq \tau+f(\tau)$ harus berlaku.
+func (pwl *PWL) isFIFO() bool {
+	if pwl.isConst() {
+		return true
+	}
+	for i := 0; i < len(pwl.points)-1; i++ {
+		p := pwl.points[i]
+		q := pwl.points[i+1]
+
+		if Lt(q.GetX()+q.GetY(), p.GetX()+p.GetY()) {
+
+			return false
+		}
+	}
+
+	p := pwl.get(pwl.Size() - 1)
+	q := NewPoint(pwl.get(0).GetX()+PERIOD, pwl.get(0).GetY())
+
+	if Lt(q.GetX()+q.GetY(), p.GetX()+p.GetY()) {
+
+		return false
+	}
+
+	return true
+}
+
+func (pwl *PWL) IsMonotonic() bool {
+	if pwl.isConst() {
+		return true
+	}
+	for i := 1; i < pwl.Size(); i++ {
+		if pwl.points[i].GetX() < pwl.points[i-1].GetX() {
+			return false
+		}
+	}
+	return true
+}
+
+func (pwl *PWL) CheckIsFIFO() {
+
+	if pkg.DEBUG {
+		util.AssertPanic(pwl.IsMonotonic(), "deprature time dari travel time function haruslah monotonic")
+		util.AssertPanic(pwl.isFIFO(), "travel time function haruslah memenuhi sifat FIFO")
+	}
 }
 
 /*
-implementation of algorithm 3:
-NEUBAUER, S. 2009. Space efficient approximation of piecewise linear functions. Studienarbeit, Universitat¨
-Karlsruhe, Fakultat f ¨ ur Informatik. http://algo2.iti.kit.edu/download/neubauer ¨ sa.pdf.
+implementation of:
+H. Imai and M. Iri. An optimal algorithm for approximating a piecewise linear function. Journal of
+information processing, 9(3):159–162, 1987.
 
 O(n), n=pwl.Size()
 */
@@ -516,6 +579,23 @@ func ImaiIriApprox(pwl *PWL, epsilon float64) *PWL {
 	n := pwl.Size()
 	psNeg := make([]*Point, n)
 	psPos := make([]*Point, n)
+
+	dirTest := func(p, q, r *Point) int {
+		x := cross(toVec(p, r), toVec(p, q))
+
+		if x > 0 {
+			return 1
+		}
+		return -1
+	}
+
+	ccwTest := func(p, q, r *Point) bool {
+		return dirTest(p, q, r) == -1
+	}
+
+	cwTest := func(p, q, r *Point) bool {
+		return dirTest(p, q, r) == 1
+	}
 
 	for i, p := range pwl.GetPoints() {
 		psNeg[i] = NewPoint(p.x, p.y)
@@ -558,7 +638,7 @@ func ImaiIriApprox(pwl *PWL, epsilon float64) *PWL {
 
 		p := psPos[i-1]
 
-		for !pEqual(p, pPos) && cw(p, psPos[i], tPos[p]) {
+		for !pEqual(p, pPos) && cwTest(p, psPos[i], tPos[p]) {
 			p = tPos[p]
 		}
 		sPos[p] = psPos[i]
@@ -566,15 +646,13 @@ func ImaiIriApprox(pwl *PWL, epsilon float64) *PWL {
 
 		p = psNeg[i-1]
 
-		for !pEqual(p, pNeg) && ccw(p, psNeg[i], tNeg[p]) {
+		for !pEqual(p, pNeg) && ccwTest(p, psNeg[i], tNeg[p]) {
 			p = tNeg[p]
 		}
 		sNeg[p] = psNeg[i]
 		tNeg[psNeg[i]] = p
 
-		nextWindow := false
-
-		if !nextWindow && ccw(lPos, psPos[i], rNeg) {
+		if ccwTest(lPos, psPos[i], rNeg) {
 			qs = append(qs, intersectionPoint(lPos, rNeg, pPos, pNeg))
 
 			pNeg = rNeg
@@ -586,13 +664,10 @@ func ImaiIriApprox(pwl *PWL, epsilon float64) *PWL {
 			lPos = pPos
 			lNeg = pNeg
 
-			for cw(rPos, lNeg, sNeg[lNeg]) {
+			for cwTest(rPos, lNeg, sNeg[lNeg]) {
 				lNeg = sNeg[lNeg]
-
 			}
-			nextWindow = true
-		}
-		if !nextWindow && cw(lNeg, psNeg[i], rPos) {
+		} else if cwTest(lNeg, psNeg[i], rPos) {
 			qs = append(qs, intersectionPoint(lNeg, rPos, pNeg, pPos))
 
 			pPos = rPos
@@ -604,24 +679,22 @@ func ImaiIriApprox(pwl *PWL, epsilon float64) *PWL {
 			lNeg = pNeg
 			lPos = pPos
 
-			for ccw(rNeg, lPos, sPos[lPos]) {
+			for ccwTest(rNeg, lPos, sPos[lPos]) {
 
 				lPos = sPos[lPos]
 			}
-			nextWindow = true
-		}
-		if !nextWindow {
+		} else {
 
-			if ccw(lNeg, psPos[i], rPos) {
+			if ccwTest(lNeg, psPos[i], rPos) {
 				rPos = psPos[i]
-				for ccw(lNeg, psPos[i], sNeg[lNeg]) {
+				for ccwTest(lNeg, psPos[i], sNeg[lNeg]) {
 					lNeg = sNeg[lNeg]
 				}
 			}
 
-			if cw(lPos, psNeg[i], rNeg) {
+			if cwTest(lPos, psNeg[i], rNeg) {
 				rNeg = psNeg[i]
-				for cw(lPos, psNeg[i], sPos[lPos]) {
+				for cwTest(lPos, psNeg[i], sPos[lPos]) {
 					lPos = sPos[lPos]
 				}
 			}
@@ -642,7 +715,64 @@ func ImaiIriApprox(pwl *PWL, epsilon float64) *PWL {
 
 	resPWL := NewPWL(qs)
 
+	if !resPWL.isFIFO() {
+		resPWL.restoreFIFO()
+	}
+
+	resPWL.CheckIsFIFO()
+
 	return resPWL
+}
+
+// restoreFIFO. restore fifo property of travel time function, imai-iri algorithm for approximate ttf can produce non-fifo ttf
+// Finding time-dependent shortest paths over large graphs, Ding et al. (2008)
+// this function compute f(t_i) = min_{0<= tdelta <= t_{n+1} - t_i} {tdelta + f'(t_i + tdelta)}, for all t_i, 1<=i<=n.
+// t_1, t_2, .., t_n are monotically increasing departure times in the ttf
+// tdelta = t_j - t_i, j>=i  . f'() is the non-fifo travel time function
+// O(n), n=pwl.Size()
+func (pwl *PWL) restoreFIFO() {
+	n := pwl.Size()
+	newPWL := NewPWL(make([]*Point, 0))
+	suffixMin := make([]float64, n+1)
+
+	for i := 0; i <= n; i++ {
+		suffixMin[i] = pwl.get(i).GetX() + pwl.get(i).GetY()
+	}
+
+	for i := n - 1; i >= 0; i-- {
+		suffixMin[i] = math.Min(suffixMin[i], suffixMin[i+1])
+	}
+
+	for i := 0; i < n; i++ {
+		x := pwl.points[i].GetX()
+		minY := suffixMin[i] - x
+		newPWL.AppendPoint(NewPoint(x, minY))
+	}
+
+	newPWL.UpdateMinMax()
+
+	pwl.points = newPWL.points
+	pwl.min = newPWL.min
+	pwl.max = newPWL.max
+}
+
+func modulo(x, m float64) float64 {
+
+	if x >= 0 {
+		if x < m {
+			return x
+		}
+		if x < m+m {
+			return x - m
+		}
+	}
+
+	xx := math.Mod(x, PERIOD)
+
+	if xx < 0 {
+		xx += PERIOD
+	}
+	return xx
 }
 
 func ReadSpeedProfile(filepath string) (map[int64]*PWL, error) {
@@ -674,19 +804,19 @@ func ReadSpeedProfile(filepath string) (map[int64]*PWL, error) {
 
 			timeSec, err := strconv.ParseFloat(row[timeId], 64)
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 
 			speed, err := strconv.ParseFloat(row[colIdx], 64)
 			if err != nil {
-				log.Fatal(err)
+				return nil, err
 			}
 			points = append(points, NewPoint(timeSec, speed))
 		}
 
 		osmID, err := strconv.ParseInt(colName, 10, 64)
 		if err != nil {
-			log.Fatal(err)
+			return nil, err
 		}
 
 		ttProfile[osmID] = NewPWL(points)

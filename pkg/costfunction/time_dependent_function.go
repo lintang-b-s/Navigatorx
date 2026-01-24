@@ -49,8 +49,12 @@ func (tf *TimeDependentFunction) GetWeightPWL(e EdgeAttributes) *da.PWL {
 		newpwl.AppendPoint(da.NewPoint(sp.GetX(), eTravelTime))
 	}
 	newpwl.UpdateMinMax()
+	if newpwl.Size() > 1 {
+		newpwl.CheckIsFIFO()
+	}
+
 	if newpwl.Size() > 2 {
-		return da.ImaiIriApprox(newpwl, 0.05)
+		return da.ImaiIriApprox(newpwl, pkg.EPSILON_IMAI_IRI_APPROX_PWL)
 	}
 
 	return newpwl

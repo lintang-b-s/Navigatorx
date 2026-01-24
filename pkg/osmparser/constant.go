@@ -9,6 +9,10 @@ const (
 )
 
 const (
+	NERF_MAXSPEED_OSM_REALISTIC = 0.6
+)
+
+const (
 	STREET_NAME     = "STREET_NAME"
 	STREET_REF      = "STREET_REF"
 	WAY_DISTANCE    = "WAY_DISTANCE"
