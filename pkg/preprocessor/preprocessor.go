@@ -10,9 +10,10 @@ import (
 )
 
 type Preprocessor struct {
-	graph  *datastructure.Graph
-	mlp    *datastructure.MultilevelPartition
-	logger *zap.Logger
+	graph        *datastructure.Graph
+	mlp          *datastructure.MultilevelPartition
+	overlayGraph *datastructure.OverlayGraph
+	logger       *zap.Logger
 }
 
 func NewPreprocessor(graph *datastructure.Graph, mlp *datastructure.MultilevelPartition,
@@ -24,7 +25,7 @@ func NewPreprocessor(graph *datastructure.Graph, mlp *datastructure.MultilevelPa
 	}
 }
 
-func (p *Preprocessor) PreProcessing() error {
+func (p *Preprocessor) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Starting preprocessing step of Customizable Route Planning...")
 
 	p.logger.Sugar().Infof("Building Overlay Graph of each levels...")
@@ -32,19 +33,23 @@ func (p *Preprocessor) PreProcessing() error {
 	p.SortByCellNumber()
 	p.logger.Sugar().Infof("After setting out/in edge cell offset")
 
-	overlayGraph := datastructure.NewOverlayGraph(p.graph, p.mlp)
+	p.overlayGraph = datastructure.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")
-	err := overlayGraph.WriteToFile("./data/overlay_graph.graph")
-	if err != nil {
-		return err
-	}
 
 	p.logger.Sugar().Infof("Running Kosaraju's algorithm to find strongly connected components (SCCs)...")
 	p.RunKosaraju()
 
 	p.logger.Sugar().Infof("Writing graph to ./data/original.graph")
 
-	return p.graph.WriteGraph("./data/original.graph")
+	if writefile {
+		err := p.overlayGraph.WriteToFile("./data/overlay_graph.graph")
+		if err != nil {
+			return err
+		}
+
+		return p.graph.WriteGraph("./data/original.graph")
+	}
+	return nil
 }
 
 func (p *Preprocessor) BuildCellNumber() {
@@ -182,8 +187,8 @@ func (p *Preprocessor) SortByCellNumber() {
 	copy(gsEdgeExtraInfos, graphMapEdgeInfo)
 
 	graphRoundaboutFlag := p.graph.GetRoundaboutFlag()
-	roundabout := make([]datastructure.Index, len(graphRoundaboutFlag))
-	copy(roundabout, graphRoundaboutFlag)
+	roundaboutFlags := make([]datastructure.Index, len(graphRoundaboutFlag))
+	copy(roundaboutFlags, graphRoundaboutFlag)
 
 	graphTrafficLight := p.graph.GetNodeTrafficLight()
 	nodeTrafficLight := make([]datastructure.Index, len(graphTrafficLight))
@@ -225,8 +230,8 @@ func (p *Preprocessor) SortByCellNumber() {
 				p.graph.SetEdgeInfo(outOffset, gsEdgeExtraInfos[oldOutEdge.GetEdgeId()]) // update edge extra info storage
 
 				indexRoundabout := int(math.Floor(float64(oldOutEdge.GetEdgeId()) / 32)) // update roundabout edge info
-				roundabout := (roundabout[indexRoundabout] & (1 << (oldOutEdge.GetEdgeId() % 32))) != 0
-				p.graph.SetRoundabout(outOffset, roundabout)
+				isRoundabout := (roundaboutFlags[indexRoundabout] & (1 << (oldOutEdge.GetEdgeId() % 32))) != 0
+				p.graph.SetRoundabout(outOffset, isRoundabout)
 
 				outEdge := p.graph.GetOutEdge(outOffset)
 				outEdge.SetEdgeId(outOffset)
@@ -349,4 +354,8 @@ func (p *Preprocessor) dfs(v datastructure.Index, output *[]datastructure.Index,
 	}
 
 	*output = append(*output, v)
+}
+
+func (p *Preprocessor) GetOverlayGraph() *datastructure.OverlayGraph {
+	return p.overlayGraph
 }

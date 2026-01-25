@@ -31,6 +31,19 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logg
 	}, nil
 }
 
+func NewEngineDirect(graph *datastructure.Graph, overlayGraph *datastructure.OverlayGraph, m *metrics.Metric,
+	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction,
+	td bool, day string) (*Engine, error) {
+	// customizable route planning in road networks section 7.2 (path retrieval)
+	puCache, _ := lru.New[routing.PUCacheKey, []datastructure.Index](1 << 20) // 1048576
+
+	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf)
+
+	return &Engine{
+		crpRoutingEngine: re,
+	}, nil
+}
+
 func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool, day string,
 ) (*routing.CRPRoutingEngine,
 	error) {
@@ -50,15 +63,15 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	}
 	var m *metrics.Metric
 	var cst *customizer.Customizer
-	var costFunction routing.CostFunction
+	var cf routing.CostFunction
 	if td {
 		logger.Info("Reading stalling tables & time-dependent metrics...")
 		daySpeedProfile, err := datastructure.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
 		if err != nil {
 			return nil, err
 		}
-		costFunction = costfunction.NewTimeDependentCostFunction(graph, daySpeedProfile)
-		m, err = metrics.ReadFromFile(metricsFilePath, td, graph, day, costFunction)
+		cf = costfunction.NewTimeDependentCostFunction(graph, daySpeedProfile)
+		m, err = metrics.ReadFromFile(metricsFilePath, td, graph, day, cf)
 		if err != nil {
 			return nil, err
 		}
@@ -68,8 +81,8 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		cst.SetOverlayWeight(m.GetWeights())
 	} else {
 		logger.Info("Reading stalling tables & time-dependent metrics...")
-		costFunction = costfunction.NewTimeCostFunction()
-		m, err = metrics.ReadFromFile(metricsFilePath, td, graph, day, costFunction)
+		cf = costfunction.NewTimeCostFunction()
+		m, err = metrics.ReadFromFile(metricsFilePath, td, graph, day, cf)
 		if err != nil {
 			return nil, err
 		}
@@ -82,5 +95,5 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	// customizable route planning in road networks section 7.2 (path retrieval)
 	puCache, _ := lru.New[routing.PUCacheKey, []datastructure.Index](1 << 20) // 1048576
 
-	return routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, costFunction), nil
+	return routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf), nil
 }

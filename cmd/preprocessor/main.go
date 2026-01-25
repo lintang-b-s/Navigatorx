@@ -24,7 +24,7 @@ func main() {
 		panic(err)
 	}
 	prep := preprocessor.NewPreprocessor(graph, mlp, logger)
-	err = prep.PreProcessing()
+	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)
 	}

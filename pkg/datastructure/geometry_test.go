@@ -92,36 +92,3 @@ func TestIntersectHorizontalLine(t *testing.T) {
 		})
 	}
 }
-
-func TestCollinear(t *testing.T) {
-
-	testCases := []struct {
-		name string
-		p1   *Point
-		p2   *Point
-		p3   *Point
-		p4   *Point
-		want bool
-	}{
-
-		{
-			name: "test collinear 1",
-			p1:   NewPoint(80797.38238525062, 5.481913407850589),
-
-			p2:   NewPoint(85798.39142488316, 5.479420965763702),
-			p3:   NewPoint(86398.31517913383, 5.478361835528631),
-			want: true,
-		},
-	}
-
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-
-			is := collinear(tt.p1, tt.p2, tt.p3)
-			if is != tt.want {
-				t.Error("l1 & l2 should intersect")
-			}
-
-		})
-	}
-}

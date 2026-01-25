@@ -31,13 +31,32 @@ type GraphStorage struct {
 }
 
 func NewGraphStorage() *GraphStorage {
-	return &GraphStorage{trafficWay: make(map[int64]struct{})}
+	return &GraphStorage{trafficWay: make(map[int64]struct{}),
+		streetDirection:  make(map[int64][2]bool),
+		mapEdgeInfo:      make([]EdgeExtraInfo, 0),
+		tagStringIDMap:   util.NewIdMap(),
+		roundaboutFlag:   make([]Index, 0),
+		nodeTrafficLight: make([]Index, 0),
+		globalPoints:     make([]Coordinate, 0),
+	}
 }
+
 func BuildGraphStorage(globalPoints []Coordinate, roundaboutFlag []Index, nodeTrafficLight []Index,
 	mapEdgeInfo []EdgeExtraInfo, tagStringIDMap util.IDMap, streetDirection map[int64][2]bool) *GraphStorage {
 	return &GraphStorage{globalPoints: globalPoints, roundaboutFlag: roundaboutFlag,
 		nodeTrafficLight: nodeTrafficLight, mapEdgeInfo: mapEdgeInfo, tagStringIDMap: tagStringIDMap,
 		streetDirection: streetDirection}
+}
+
+func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStorage {
+	return &GraphStorage{trafficWay: make(map[int64]struct{}),
+		streetDirection:  make(map[int64][2]bool),
+		mapEdgeInfo:      make([]EdgeExtraInfo, numberOfEdges),
+		tagStringIDMap:   util.NewIdMap(),
+		roundaboutFlag:   make([]Index, numberOfEdges),
+		nodeTrafficLight: make([]Index, numberOfVertices),
+		globalPoints:     make([]Coordinate, 1),
+	}
 }
 
 func (gs *GraphStorage) SetTrafficWayMap(trafficWay map[int64]struct{}) {
@@ -127,6 +146,10 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 		edgePoints = gs.globalPoints[startIndex:endIndex]
 
 		return edgePoints
+	}
+
+	if startIndex <= 0 {
+		return make([]Coordinate, 0)
 	}
 
 	for i := startIndex - 1; i >= endIndex; i-- {

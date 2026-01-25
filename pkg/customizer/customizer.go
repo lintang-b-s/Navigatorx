@@ -33,6 +33,14 @@ func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath str
 	}
 }
 
+func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, logger *zap.Logger) *Customizer {
+	return &Customizer{
+		graph:        graph,
+		overlayGraph: overlayGraph,
+		logger:       logger,
+	}
+}
+
 func (c *Customizer) Customize(timeDependent bool, day string) error {
 
 	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
@@ -52,14 +60,16 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
 	c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
+
+	var m *metrics.Metric
 	if !timeDependent {
 		costFunction := costfunction.NewTimeCostFunction()
 
 		c.Build(costFunction)
 		c.logger.Sugar().Infof("Building stalling tables...")
-		metrics := metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, false)
-		metrics.BuildStallingTables(c.overlayGraph, c.graph)
-		err = metrics.WriteToFile(c.metricOutputFilePath)
+		m = metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, false)
+		m.BuildStallingTables(c.overlayGraph, c.graph)
+		err = m.WriteToFile(c.metricOutputFilePath)
 		if err != nil {
 			return err
 		}
@@ -74,9 +84,9 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 		c.BuildTD(costFunction)
 		c.logger.Sugar().Infof("Building stalling tables...")
 		c.debugShortcutsPWL()
-		metrics := metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, true)
-		metrics.BuildStallingTables(c.overlayGraph, c.graph)
-		err = metrics.WriteToFile(c.metricOutputFilePath)
+		m = metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, true)
+		m.BuildStallingTables(c.overlayGraph, c.graph)
+		err = m.WriteToFile(c.metricOutputFilePath)
 		if err != nil {
 			return err
 		}
@@ -86,9 +96,45 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 	return nil
 }
 
+func (c *Customizer) CustomizeDirect(td bool, day string) (*metrics.Metric, error) {
+
+	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
+	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
+	c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
+	var m *metrics.Metric
+	if !td {
+		costFunction := costfunction.NewTimeCostFunction()
+
+		c.Build(costFunction)
+		c.logger.Sugar().Infof("Building stalling tables...")
+		m = metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, false)
+		m.BuildStallingTables(c.overlayGraph, c.graph)
+		c.logger.Sugar().Infof("Customization step completed successfully.")
+	} else {
+
+		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
+		if err != nil {
+			return nil, err
+		}
+		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, daySpeedProfile)
+		c.BuildTD(costFunction)
+		c.logger.Sugar().Infof("Building stalling tables...")
+		c.debugShortcutsPWL()
+		m = metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, true)
+		m.BuildStallingTables(c.overlayGraph, c.graph)
+		err = m.WriteToFile(c.metricOutputFilePath)
+		if err != nil {
+			return nil, err
+		}
+		c.logger.Sugar().Infof("Customization step completed successfully.")
+	}
+
+	return m, nil
+}
+
 func (c *Customizer) debugShortcutsPWL() {
 	if pkg.DEBUG {
-		for _, w :=range c.owtd.GetWeights() {
+		for _, w := range c.owtd.GetWeights() {
 			w.CheckIsFIFO()
 		}
 	}
@@ -191,14 +237,7 @@ func (c *Customizer) buildLowestLevel(
 						exitPointTravelTime := uTravelTime + costFunction.GetTurnCost(turnType)
 						outArcCost := costFunction.GetWeight(outArc)
 
-						// add traffic light node penalty cost
-						tfPenalty := 0.0
-						eId := outArc.GetEdgeId()
-						if c.graph.IsEdgeContainTrafficLight(eId) {
-							tfPenalty += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_PENALTY_SP_SECOND)
-						}
-
-						newETA := exitPointTravelTime + outArcCost + tfPenalty
+						newETA := exitPointTravelTime + outArcCost
 
 						if newETA >= pkg.INF_WEIGHT {
 							return
@@ -208,7 +247,7 @@ func (c *Customizer) buildLowestLevel(
 						if vTruncatedCellNumber == cellNumber {
 							vEntryPoint := c.graph.GetEntryOffset(v) + da.Index(outArc.GetEntryPoint()) - forwardCellOffset
 
-							if _, ok := travelTime[vEntryPoint]; !ok || newETA < travelTime[vEntryPoint] {
+							if _, ok := travelTime[vEntryPoint]; !ok || (ok && newETA < travelTime[vEntryPoint]) {
 								travelTime[vEntryPoint] = newETA
 								if ok {
 									pq.DecreaseKey(da.NewPriorityQueueNode(newETA, da.NewCRPQueryKey(v, vEntryPoint)))
@@ -220,7 +259,7 @@ func (c *Customizer) buildLowestLevel(
 							// found an exit point of the cell
 							// save this shortcut travelTime
 							exitOverlay, _ := c.graph.GetOverlayVertex(uId, uint8(exitPoint), true) // overlay vetex id of exit vertex c_1(u).
-							if _, ok := overlayTravelTime[exitOverlay]; !ok || exitPointTravelTime < overlayTravelTime[exitOverlay] {
+							if _, ok := overlayTravelTime[exitOverlay]; !ok || (ok && exitPointTravelTime < overlayTravelTime[exitOverlay]) {
 								overlayTravelTime[exitOverlay] = exitPointTravelTime
 							}
 						}
@@ -329,7 +368,7 @@ func (c *Customizer) buildLevel(
 						}
 
 						oldExit, exitAlreadyVisited := travelTime[exit]
-						if !exitAlreadyVisited || newTravelTime < oldExit {
+						if !exitAlreadyVisited || (exitAlreadyVisited && newTravelTime < oldExit) {
 							travelTime[exit] = newTravelTime
 							exitOverlayVertex := c.overlayGraph.GetVertex(exit)
 							neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
@@ -339,19 +378,14 @@ func (c *Customizer) buildLevel(
 							if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
 								boundaryArcWeight := costFunction.GetWeight(c.graph.GetOutEdge(exitOriEdge))
 
-								// add traffic light node penalty cost
-								tfPenalty := 0.0
-								if c.graph.IsEdgeContainTrafficLight(exitOriEdge) {
-									tfPenalty += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_PENALTY_SP_SECOND)
-								}
+								newNeighborTravelTime := newTravelTime + boundaryArcWeight
+								oldNTravelTime, nAlreadyVisited := travelTime[neighborVertex]
 
-								newNeighborTravelTime := newTravelTime + boundaryArcWeight + tfPenalty
-								oldNTravelTime, neighborVertexAlreadyVisited := travelTime[neighborVertex]
+								if !nAlreadyVisited ||
+									(nAlreadyVisited && newNeighborTravelTime < oldNTravelTime) {
+									travelTime[neighborVertex] = newNeighborTravelTime
 
-								if !neighborVertexAlreadyVisited || newNeighborTravelTime < oldNTravelTime {
-									travelTime[neighborVertex] = newTravelTime + boundaryArcWeight
-
-									if !neighborVertexAlreadyVisited {
+									if !nAlreadyVisited {
 										pq.Insert(da.NewPriorityQueueNode(travelTime[neighborVertex], neighborVertex))
 									} else {
 										pq.DecreaseKey(da.NewPriorityQueueNode(travelTime[neighborVertex], neighborVertex))

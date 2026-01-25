@@ -7,13 +7,13 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
-func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.GraphStorage) *datastructure.Graph {
+func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.GraphStorage, numV uint32) *datastructure.Graph {
 	var (
-		outEdges  [][]*datastructure.OutEdge = make([][]*datastructure.OutEdge, len(p.nodeIDMap))
-		inEdges   [][]*datastructure.InEdge  = make([][]*datastructure.InEdge, len(p.nodeIDMap))
-		inDegree  []uint8                    = make([]uint8, len(p.nodeIDMap))
-		outDegree []uint8                    = make([]uint8, len(p.nodeIDMap))
-		vertices  []*datastructure.Vertex    = make([]*datastructure.Vertex, len(p.nodeIDMap)+1)
+		outEdges  [][]*datastructure.OutEdge = make([][]*datastructure.OutEdge, numV)
+		inEdges   [][]*datastructure.InEdge  = make([][]*datastructure.InEdge, numV)
+		inDegree  []uint8                    = make([]uint8, numV)
+		outDegree []uint8                    = make([]uint8, numV)
+		vertices  []*datastructure.Vertex    = make([]*datastructure.Vertex, numV+1)
 	)
 
 	lastEdgeId := uint32(0)
@@ -41,64 +41,32 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		}
 	}
 
-	// flattenOutEdges := flatten(outEdges)
-	// originalEdgesLength := len(flattenOutEdges)
-
 	for v := 0; v < len(vertices)-1; v++ {
-		// we need to do this because crp query assume all vertex have at least one outEdge (at for target) and one inEdge (as for source)
-		if len(outEdges[v]) == 0 {
+		// we need to do this because crp query assume all vertex have at least one outEdge (at for target as source)
 
-			dummyID := datastructure.Index(lastEdgeId)
-			dummyOut := datastructure.NewOutEdge(dummyID, datastructure.Index(v),
-				0, 0, uint8(len(inEdges[v])))
-			outEdges[v] = append(outEdges[v], dummyOut)
-			outDegree[v]++
+		dummyID := datastructure.Index(lastEdgeId)
+		dummyOut := datastructure.NewOutEdge(dummyID, datastructure.Index(v),
+			pkg.INF_WEIGHT, 0, uint8(len(inEdges[v])))
+		outEdges[v] = append(outEdges[v], dummyOut)
+		outDegree[v]++
 
-			dummyIn := datastructure.NewInEdge(dummyID, datastructure.Index(v),
-				0, 0, uint8(len(outEdges[v])-1))
-			inEdges[v] = append(inEdges[v], dummyIn)
-			inDegree[v]++
-			lastEdgeId++
-			graphStorage.AppendMapEdgeInfo(
-				datastructure.NewEdgeExtraInfo(
-					p.tagStringIdMap.GetID(""),
-					uint8(p.tagStringIdMap.GetID("")),
-					uint8(0),
-					uint8(p.tagStringIdMap.GetID("")),
-					datastructure.Index(uint32(math.Pow(1, 30))), datastructure.Index(uint32(math.Pow(1, 30))),
-					-1,
-				),
-			)
-		}
+		dummyIn := datastructure.NewInEdge(dummyID, datastructure.Index(v),
+			pkg.INF_WEIGHT, 0, uint8(len(outEdges[v])-1))
+		inEdges[v] = append(inEdges[v], dummyIn)
+		inDegree[v]++
+		lastEdgeId++
+		graphStorage.AppendMapEdgeInfo(
+			datastructure.NewEdgeExtraInfo(
+				p.tagStringIdMap.GetID(""),
+				uint8(p.tagStringIdMap.GetID("")),
+				uint8(0),
+				uint8(p.tagStringIdMap.GetID("")),
+				datastructure.Index(uint32(math.Pow(1, 30))), datastructure.Index(uint32(math.Pow(1, 30))),
+				-1,
+			),
+		)
 
-		// if len(inEdges[v]) == 0 {
-		// 	dummyID := datastructure.Index(lastEdgeId)
-		// 	dummyOut := datastructure.NewOutEdge(dummyID, datastructure.Index(v),
-		// 		0, 0, uint8(len(inEdges[v])))
-		// 	outEdges[v] = append(outEdges[v], dummyOut)
-		// 	outDegree[v]++
-
-		// 	dummyIn := datastructure.NewInEdge(dummyID, datastructure.Index(v),
-		// 		0, 0, uint8(len(outEdges[v])-1))
-		// 	inEdges[v] = append(inEdges[v], dummyIn)
-		// 	inDegree[v]++
-		// 	lastEdgeId++
-
-		// 	graphStorage.AppendMapEdgeInfo(
-		// 		datastructure.NewEdgeExtraInfo(
-		// 			p.tagStringIdMap.GetID(""),
-		// 			uint8(p.tagStringIdMap.GetID("")),
-		// 			uint8(0),
-		// 			uint8(p.tagStringIdMap.GetID("")),
-		// 			datastructure.Index(uint32(math.Pow(1, 30))), datastructure.Index(uint32(math.Pow(1, 30))),
-		// 			-1,
-		// 		),
-		// 	)
-		// }
 	}
-
-	// flattenOutEdges = flatten(outEdges)
-	// augmentedEdgesLength := len(flattenOutEdges)
 
 	turnMatrices := make([][]pkg.TurnType, len(vertices)-1)
 	// T_u[i*outDegree[u]+j] = turn type from inEdge i to outEdge j at vertex u

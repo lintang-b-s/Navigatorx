@@ -310,7 +310,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 		p.restrictions[key] = savedRest
 	}
 
-	graph := p.BuildGraph(scannedEdges, graphStorage)
+	graph := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)))
 	graph.SetGraphStorage(graphStorage)
 
 	return graph, nil

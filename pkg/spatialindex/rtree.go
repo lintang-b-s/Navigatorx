@@ -13,6 +13,8 @@ type Rtree struct {
 	tr *rtree.RTreeG[ArcEndpoint]
 }
 
+// TODO: ganti jadi vertex aja, buat as sama at nya pakai dummy edge setiap vertices
+
 // our query is turn-based multilevel bidirectional dijkstra
 // query input = (as,s, at,t)
 // as = entryOffset of source

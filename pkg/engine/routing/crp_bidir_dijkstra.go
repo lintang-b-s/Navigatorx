@@ -146,8 +146,9 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 	bs.backwardPq.Insert(datastructure.NewPriorityQueueNode(0, datastructure.NewCRPQueryKey(t, tBackwardId)))
 
 	for bs.forwardPq.Size()+bs.forwardOverlayPq.Size() > 0 && bs.backwardPq.Size()+bs.backwardOverlayPq.Size() > 0 {
-		if math.Min(bs.forwardPq.GetMinrank(), bs.forwardOverlayPq.GetMinrank())+
-			math.Min(bs.backwardPq.GetMinrank(), bs.backwardOverlayPq.GetMinrank()) > bs.shortestTimeTravel*(bs.upperBound) {
+		minForward := math.Min(bs.forwardPq.GetMinrank(), bs.forwardOverlayPq.GetMinrank())
+		minBackward := math.Min(bs.backwardPq.GetMinrank(), bs.backwardOverlayPq.GetMinrank())
+		if minForward+minBackward > bs.shortestTimeTravel*(bs.upperBound) {
 			break
 		}
 
@@ -255,19 +256,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics, bs.engine.puCache)
 	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, bs.sCellNumber, bs.tCellNumber)
 
-	tfTime := 0.0
-	wayPath := make(map[int64]struct{}, len(finalEdgePath))
-	for _, e := range finalEdgePath {
-		wayPath[bs.engine.graph.GetOsmWayId(e.GetEdgeId())] = struct{}{}
-	}
-
-	for wId := range wayPath {
-		if bs.engine.graph.IsWayContainTrafficLight(wId) {
-			tfTime += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND)
-		}
-	}
-
-	return bs.shortestTimeTravel + tfTime, totalDistance, finalPath, finalEdgePath, true
+	return bs.shortestTimeTravel, totalDistance, finalPath, finalEdgePath, true
 }
 
 /*
@@ -307,7 +296,6 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target datastructure.Index
 		// forward search  on graph level 1
 		queryKey, _ := bs.forwardPq.ExtractMin()
 		uItem := queryKey.GetItem()
-		uTime := queryKey.GetRank()
 		uId := uItem.GetNode()
 		uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
 
@@ -339,7 +327,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target datastructure.Index
 			vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
 				bs.engine.graph.GetCellNumber(vId))
 
-			edgeWeight := bs.engine.metrics.GetWeight(outArc, uTime)
+			edgeWeight := bs.engine.metrics.GetWeight(outArc, 0)
 
 			if penaltyCost, penalized := bs.penaltyEdgeCost[datastructure.NewPenaltiedEdge(outArc.GetEdgeId(), true)]; bs.penalty && penalized {
 				edgeWeight = penaltyCost
@@ -350,15 +338,8 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target datastructure.Index
 				turnCost = 0
 			}
 
-			// add traffic light node penalty cost
-			tfPenalty := 0.0
-			eId := outArc.GetEdgeId()
-			if bs.engine.graph.IsEdgeContainTrafficLight(eId) {
-				tfPenalty += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_PENALTY_SP_SECOND)
-			}
-
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
-			newTravelTime := bs.forwardInfo[uEntryId].GetTravelTime() + edgeWeight + turnCost + tfPenalty
+			newTravelTime := bs.forwardInfo[uEntryId].GetTravelTime() + edgeWeight + turnCost
 
 			if newTravelTime >= pkg.INF_WEIGHT {
 				return
@@ -526,14 +507,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target datastructure.Index
 				turnCost = 0
 			}
 
-			// add traffic light node penalty cost
-			tfPenalty := 0.0
-			eId := inArc.GetEdgeId()
-			if bs.engine.graph.IsEdgeContainTrafficLight(eId) {
-				tfPenalty += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_PENALTY_SP_SECOND)
-			}
-
-			newTravelTime := bs.backwardInfo[uExitId].GetTravelTime() + edgeWeight + turnCost + tfPenalty
+			newTravelTime := bs.backwardInfo[uExitId].GetTravelTime() + edgeWeight + turnCost
 
 			if newTravelTime >= pkg.INF_WEIGHT {
 				return
@@ -558,11 +532,11 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target datastructure.Index
 				bs.backwardInfo[vExitId] = NewVertexInfo(newTravelTime,
 					newVertexEdgePair(uId, uExitId, true))
 
-				if newTravelTime < bs.backwardInfo[vExitId].GetTravelTime() && vAlreadyVisited {
+				if vAlreadyVisited && newTravelTime < bs.backwardInfo[vExitId].GetTravelTime() {
 					bs.backwardPq.DecreaseKey(datastructure.NewPriorityQueueNode(
 						newTravelTime, datastructure.NewCRPQueryKey(vId, vExitId)),
 					)
-				} else if !vAlreadyVisited {
+				} else {
 					bs.backwardPq.Insert(datastructure.NewPriorityQueueNode(
 						newTravelTime, datastructure.NewCRPQueryKey(vId, vExitId)),
 					)
@@ -719,13 +693,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch() {
 					wVertex.GetCellNumber())
 				originalW := wVertex.GetOriginalVertex()
 
-				// add traffic light node penalty cost
-				tfPenalty := 0.0
-				if bs.engine.graph.IsEdgeContainTrafficLight(vOriEdgeId) {
-					tfPenalty += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_PENALTY_SP_SECOND)
-				}
-
-				newTravelTime = bs.forwardInfo[vId].GetTravelTime() + edgeWeight + tfPenalty
+				newTravelTime = bs.forwardInfo[vId].GetTravelTime() + edgeWeight
 
 				if newTravelTime >= pkg.INF_WEIGHT {
 					return
@@ -885,14 +853,7 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch() {
 					wVertex.GetCellNumber())
 				originalW := wVertex.GetOriginalVertex()
 
-				// add traffic light node penalty cost
-				tfPenalty := 0.0
-
-				if bs.engine.graph.IsEdgeContainTrafficLight(vOriEdgeId) {
-					tfPenalty += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_PENALTY_SP_SECOND)
-				}
-
-				newTravelTime = bs.backwardInfo[vId].GetTravelTime() + inEdgeWeight + tfPenalty
+				newTravelTime = bs.backwardInfo[vId].GetTravelTime() + inEdgeWeight
 
 				if newTravelTime >= pkg.INF_WEIGHT {
 					return
