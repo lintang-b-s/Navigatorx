@@ -10,12 +10,21 @@ import (
 // MultilevelPartition. store every cell information of each vertex on every level.
 type MultilevelPartition struct {
 	numCells    []uint32 // number of cells in the level-index overlay graph
-	pvOffset    []uint8 // offset of each level in the bitpacked cell numbers
+	pvOffset    []uint8  // offset of each level in the bitpacked cell numbers
 	cellNumbers []Pv
 }
 
 func NewPlainMLP() *MultilevelPartition {
 	return &MultilevelPartition{}
+}
+
+func NewMultilevelPartition(cellNumbers []Pv, numCells []uint32, pvOffset []uint8) *MultilevelPartition {
+
+	return &MultilevelPartition{
+		numCells:    numCells,
+		pvOffset:    pvOffset,
+		cellNumbers: cellNumbers,
+	}
 }
 
 func (mp *MultilevelPartition) SetNumberOflevels(numLevels int) {
@@ -66,6 +75,14 @@ func (mp *MultilevelPartition) GetPVOffsets() []uint8 {
 
 func (mp *MultilevelPartition) GetCellNumber(u Index) Pv {
 	return mp.cellNumbers[u]
+}
+
+func (mp *MultilevelPartition)  GetCellNumbers() []Pv {
+	return mp.cellNumbers
+}
+
+func (mp *MultilevelPartition) GetNumCells() []uint32 {
+	return mp.numCells
 }
 
 func (mp *MultilevelPartition) ReadMlpFile(filename string) error {

@@ -81,7 +81,7 @@ func (pwl *PWL) get(i int) *Point {
 		return &pp
 	}
 
-	// (i >= n && i >= n+n ) ||  i < -n
+	// (i >= n+n ) ||  i < -n
 
 	imod := i % n
 	if imod < 0 {
@@ -527,12 +527,12 @@ func (pwl *PWL) isFIFO() bool {
 	if pwl.isConst() {
 		return true
 	}
+	
 	for i := 0; i < len(pwl.points)-1; i++ {
 		p := pwl.points[i]
 		q := pwl.points[i+1]
 
 		if Lt(q.GetX()+q.GetY(), p.GetX()+p.GetY()) {
-
 			return false
 		}
 	}

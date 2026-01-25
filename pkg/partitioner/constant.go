@@ -1,0 +1,10 @@
+package partitioner
+
+const (
+	INVALID_LEVEL           = 9e9
+	ARTIFICIAL_SOURCE_ID    = int32(2147483646)
+	ARTIFICIAL_SINK_ID      = int32(2147483647)
+	INERTIAL_FLOW_ITERATION = 5
+	INVALID_PARTITION_ID    = -1
+	SOURCE_SINK_RATE        = 0.25
+)
