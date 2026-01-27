@@ -106,6 +106,10 @@ Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 2. query phase: Delling, D. et al. (20data11) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
 
+time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
+let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortucts within any partition
+let n,m,k denote the number vertices of the original graph,edges of the original graph, and partitioning depth, respectively.
+time complexity of CRP query is: O((n_p + m_p + k *  \hat{m_p}) * log n)
 */
 
 func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate,

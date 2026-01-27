@@ -53,7 +53,18 @@ func NewTDCRPUnidirectionalSearch(engine *CRPRoutingEngine) *TDCRPUnidirectional
 	}
 }
 
-// query phase td-crp
+/*
+implementation of:
+1. query phase: Baum, M. et al. (2016) “Dynamic Time-Dependent Route Planning in Road Networks
+with User Preferences,” in A.V. Goldberg and A.S. Kulikov (eds.) Experimental
+Algorithms. Cham: Springer International Publishing, pp. 33–49. Available at:
+https://doi.org/10.1007/978-3-319-38851-9_3
+
+time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
+let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortucts within any partition
+let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
+time complexity of TD-CRP query is: O((n_p + m_p + k * \hat{m_p}) * log n)
+*/
 func (us *TDCRPUnidirectionalSearch) ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate,
 	[]datastructure.OutEdge, bool) {
 	// Our query algorithm takes as input a source arc as , a target arc at, the original graph G, the overlay graph

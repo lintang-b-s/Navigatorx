@@ -266,7 +266,7 @@ func (p *Preprocessor) SortByCellNumber() {
 	p.graph.SetVertices(newVertices)
 }
 
-func (p *Preprocessor) GetNewVIdMap() []datastructure.Index {
+func (p *Preprocessor) GetOldToNewVIdMap() []datastructure.Index {
 	return p.newVIdMap
 }
 
@@ -275,6 +275,7 @@ func (p *Preprocessor) GetNewToOldVIdMap() map[datastructure.Index]datastructure
 }
 
 // RunKosaraju. runs kosaraju's algorithm to find strongly connected components (SCCs)
+// O(V+E)
 func (p *Preprocessor) RunKosaraju() {
 	n := datastructure.Index(p.graph.NumberOfVertices())
 	components := make([][]datastructure.Index, 0, 10) // k component, with each component has arbritrary number of nodes

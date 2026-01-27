@@ -34,6 +34,10 @@ func (ow *OverlayWeights) SetWeights(weights []float64) {
 	copy(ow.weights, weights)
 }
 
+func (ow *OverlayWeights) GetNumberOfShortcuts() int {
+	return len(ow.weights)
+}
+
 func (ow *OverlayWeights) SetWeight(index int, weight float64) {
 	ow.weights[index] = weight
 }

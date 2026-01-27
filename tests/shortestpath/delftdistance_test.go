@@ -14,15 +14,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
-	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
-	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
-	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
 /*
@@ -38,6 +32,8 @@ skip test cases yang jumlah edges nya > 600k, biar cepet
  jangan submit solusi ini ke online judge, karen bakal TLE & MLE  wkwkwk
  pakai solusi c++ ku aja (got AC on kattis: https://open.kattis.com/problems/delftdistance):
  https://drive.google.com/file/d/1vNQ7GQH1JJJn-Z0u4EW_Nsk9AvFsSfdS/view?usp=sharing
+
+This test will be completed in approximately 10-15 minutes.
 */
 
 func readLine(br *bufio.Reader) (string, error) {
@@ -56,6 +52,26 @@ func fields(s string) []string {
 	return strings.Fields(s)
 }
 
+type pairEdge struct {
+	to     int
+	weight float64
+}
+
+func flattenEdges(es [][]pairEdge) []osmparser.Edge {
+	flatten := make([]osmparser.Edge, 0, len(es))
+
+	eid := 0
+
+	for from, edges := range es {
+		for _, e := range edges {
+			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, 0, uint32(eid)))
+			eid++
+		}
+	}
+
+	return flatten
+}
+
 func solve(t *testing.T, filepath string) {
 	var (
 		err     error
@@ -63,26 +79,6 @@ func solve(t *testing.T, filepath string) {
 		h, w    int
 		f, fOut *os.File
 	)
-
-	type pairEdge struct {
-		to     int
-		weight float64
-	}
-
-	flattenEdges := func(es [][]pairEdge) []osmparser.Edge {
-		flatten := make([]osmparser.Edge, 0, len(es))
-
-		eid := 0
-
-		for from, edges := range es {
-			for _, e := range edges {
-				flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, 0, uint32(eid)))
-				eid++
-			}
-		}
-
-		return flatten
-	}
 
 	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
 	if err != nil {
@@ -263,54 +259,13 @@ func solve(t *testing.T, filepath string) {
 
 	adjList[last2] = append(adjList[last2], pairEdge{target, 5.0})
 
-	es := flattenEdges(adjList)
+	n := h*w*4 + 2
+	re, g, oldToNewVIdMap, _ := buildCRP(t, adjList, n, 11, 15)
 
-	op := osmparser.NewOSMParserV2()
-	gs := datastructure.NewGraphStorageWithSize(len(es), h*w*4+2)
-	g := op.BuildGraph(es, gs, uint32(h*w*4+2), true)
-
-	t.Logf("number of vertices: %v, number of edges: %v", uint32(h*w*4+2), len(es))
-
-	g.SetGraphStorage(gs)
-
-	logger, err := logger.New()
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	mp := partitioner.NewMultilevelPartitioner(
-		[]int{int(math.Pow(2, 11)), int(math.Pow(2, 14))},
-		2,
-		g, logger,
-	)
-	mp.RunMultilevelPartitioning()
-
-	mlp := mp.BuildMLP()
-
-	prep := preprocesser.NewPreprocessor(g, mlp, logger)
-	err = prep.PreProcessing(false)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	og := prep.GetOverlayGraph()
-	cust := customizer.NewCustomizerDirect(g, og, logger)
-	m, err := cust.CustomizeDirect(false, "monday")
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	cf := costfunction.NewTimeCostFunction()
-
-	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, false, "monday")
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-
-	vIdMap := prep.GetNewVIdMap()
 	crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 
-	sid := vIdMap[datastructure.Index(source)]
-	tid := vIdMap[datastructure.Index(target)]
+	sid := oldToNewVIdMap[datastructure.Index(source)]
+	tid := oldToNewVIdMap[datastructure.Index(target)]
 
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
@@ -341,8 +296,8 @@ func solve(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// // please run the test using command: "cd tests && go test ./... -v -timeout=0"
-// // karena bakal timeout kalau pakai run test vscode
+// please run the test using command: "cd tests && go test ./... -v -timeout=0"
+// karena bakal timeout kalau pakai run test vscode
 func TestCRPQueryDelftDistance(t *testing.T) {
 
 	dirPath := "./data/tests/shortestpath/icpc_nwerc2022_delftdistance/"
@@ -383,8 +338,3 @@ func TestCRPQueryDelftDistance(t *testing.T) {
 const (
 	EPS = 1e-9
 )
-
-// equal operator
-func eq(a, b float64) bool {
-	return math.Abs(a-b) <= EPS
-}

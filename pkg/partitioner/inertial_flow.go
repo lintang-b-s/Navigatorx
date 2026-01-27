@@ -41,6 +41,7 @@ func (inf *inertialFlow) getPartitionGraph() *datastructure.PartitionGraph {
 	return inf.graph
 }
 
+
 func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCut {
 	var (
 		best                    *MinCut = &MinCut{}

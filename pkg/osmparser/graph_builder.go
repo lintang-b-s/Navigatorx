@@ -7,7 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
-func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.GraphStorage, numV uint32, skipUTurn bool ) *datastructure.Graph {
+func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.GraphStorage, numV uint32, skipUTurn bool) *datastructure.Graph {
 	var (
 		outEdges  [][]*datastructure.OutEdge = make([][]*datastructure.OutEdge, numV)
 		inEdges   [][]*datastructure.InEdge  = make([][]*datastructure.InEdge, numV)
@@ -15,6 +15,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		outDegree []int                      = make([]int, numV)
 		vertices  []*datastructure.Vertex    = make([]*datastructure.Vertex, numV+1)
 	)
+
+	for v := 0; v < int(numV)+1; v++ {
+		vertices[v] = datastructure.NewVertex(0, 0, datastructure.Index(v))
+	}
 
 	lastEdgeId := uint32(0)
 	edgeId := datastructure.Index(0)
@@ -79,64 +83,63 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 			turnMatrices[i][j] = pkg.NONE
 		}
 	}
-	
 
 	// store u_turn restrictions
 	if !skipUTurn {
 		for _, e := range scannedEdges {
-		// dont allow u_turns at (u,v) -> (v,u)
-		via := datastructure.Index(e.from)
-		if inDegree[via] != 1 || outDegree[via] != 1 {
-			to := datastructure.Index(e.to)
+			// dont allow u_turns at (u,v) -> (v,u)
+			via := datastructure.Index(e.from)
+			if inDegree[via] != 1 || outDegree[via] != 1 {
+				to := datastructure.Index(e.to)
 
-			entryId := -1
-			exitId := -1
-			for k := 0; k < len(outEdges[via]); k++ {
-				if outEdges[via][k].GetHead() == to {
-					exitId = k
-					break
+				entryId := -1
+				exitId := -1
+				for k := 0; k < len(outEdges[via]); k++ {
+					if outEdges[via][k].GetHead() == to {
+						exitId = k
+						break
+					}
 				}
+
+				for k := 0; k < len(inEdges[via]); k++ {
+					if inEdges[via][k].GetTail() == to {
+						entryId = k
+						break
+					}
+				}
+				if entryId == -1 || exitId == -1 {
+					continue
+				}
+				turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
 			}
 
-			for k := 0; k < len(inEdges[via]); k++ {
-				if inEdges[via][k].GetTail() == to {
-					entryId = k
-					break
+			// to
+			via = datastructure.Index(e.to)
+			if inDegree[via] != 1 || outDegree[via] != 1 {
+				to := datastructure.Index(e.from)
+
+				entryId := -1
+				exitId := -1
+				for k := 0; k < len(outEdges[via]); k++ {
+					if outEdges[via][k].GetHead() == to {
+						exitId = k
+						break
+					}
 				}
+
+				for k := 0; k < len(inEdges[via]); k++ {
+					if inEdges[via][k].GetTail() == to {
+						entryId = k
+						break
+					}
+				}
+
+				if entryId == -1 || exitId == -1 {
+					continue
+				}
+				turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
 			}
-			if entryId == -1 || exitId == -1 {
-				continue
-			}
-			turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
 		}
-
-		// to
-		via = datastructure.Index(e.to)
-		if inDegree[via] != 1 || outDegree[via] != 1 {
-			to := datastructure.Index(e.from)
-
-			entryId := -1
-			exitId := -1
-			for k := 0; k < len(outEdges[via]); k++ {
-				if outEdges[via][k].GetHead() == to {
-					exitId = k
-					break
-				}
-			}
-
-			for k := 0; k < len(inEdges[via]); k++ {
-				if inEdges[via][k].GetTail() == to {
-					entryId = k
-					break
-				}
-			}
-
-			if entryId == -1 || exitId == -1 {
-				continue
-			}
-			turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
-		}
-	}
 
 	}
 	// store turn restrictions

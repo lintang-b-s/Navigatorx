@@ -84,6 +84,14 @@ func (dmf *DinicMaxFlow) resetCurrentEdges() {
 	}
 }
 
+/*
+Dinitz, Y. (2006) “Dinitz’ Algorithm: The Original Version and Even’s Version,” in O.
+Goldreich, A.L. Rosenberg, and A.L. Selman (eds.) Theoretical Computer Science:
+Essays in Memory of Shimon Even. Berlin, Heidelberg: Springer, pp. 218–240.
+Available at: https://doi.org/10.1007/11685654_10.
+
+time complexity: O(N^2 * M), N,M=number of vertices & edges dari datastructure.PartitionGraph 
+*/
 func (dmf *DinicMaxFlow) computeMinCutSuperSourceSink(s datastructure.Index, t datastructure.Index, sources, sinks []datastructure.Index) *MinCut {
 	var (
 		minCut = NewMinCut(dmf.graph.NumberOfVertices() - 2) // exclude artificial source and sink

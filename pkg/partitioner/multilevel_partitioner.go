@@ -36,7 +36,10 @@ RunMultilevelPartitioning. run L-level partitioning using inertial flow algorith
 Customizable Route Planning in Road Networks, Delling et al.
 We then use PUNCH to generate an L-level partition (with maximum cell sizes U1 , . . . , UL ) in top-down fashion. We first run
 PUNCH with parameter UL to obtain the top-level cells. Cells in lower levels are then obtained by running
-PUNCH on individual cells of the level immediately abov
+PUNCH on individual cells of the level immediately above
+
+time complexity:
+T(N, U1,...,UL) \in O(N^4 * (N-U_{L}) + \sum_{l=2}^{L} U_l^4 *(U_{l} - U_{l-1}))
 */
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level

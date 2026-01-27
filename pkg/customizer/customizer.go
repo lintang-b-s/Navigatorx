@@ -59,7 +59,7 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
-
+	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 	var m *metrics.Metric
 	if !timeDependent {
 		costFunction := costfunction.NewTimeCostFunction()
@@ -97,10 +97,13 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 	return nil
 }
 
+// just for shortest path test
 func (c *Customizer) CustomizeDirect(td bool, day string) (*metrics.Metric, error) {
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
+	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
+
 	var m *metrics.Metric
 	if !td {
 		c.owtd = da.NewEmptyOverlayWeightsTD()
@@ -168,6 +171,13 @@ working on the original graph, we can work on the subgraph of Hi−1 (the overla
 corresponding to subcells of C. This subgraph is much smaller than the corresponding subgraph of G. In
 addition, since overlay graphs have no (explicit) turns, we can just apply the standard version of Dijkstra’s
 algorithm, which tends to be faster.
+
+time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
+let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortucts within any partition
+let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
+let n_b, \hat{m} denote the total number of boundary nodes and shortcuts
+
+time complexity of CRP Customization is: O(n_b * m_p * log n)
 */
 func (c *Customizer) Build(
 	costFunction costfunction.CostFunction) {
