@@ -7,12 +7,12 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
-func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.GraphStorage, numV uint32) *datastructure.Graph {
+func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.GraphStorage, numV uint32, skipUTurn bool ) *datastructure.Graph {
 	var (
 		outEdges  [][]*datastructure.OutEdge = make([][]*datastructure.OutEdge, numV)
 		inEdges   [][]*datastructure.InEdge  = make([][]*datastructure.InEdge, numV)
-		inDegree  []uint8                    = make([]uint8, numV)
-		outDegree []uint8                    = make([]uint8, numV)
+		inDegree  []int                      = make([]int, numV)
+		outDegree []int                      = make([]int, numV)
 		vertices  []*datastructure.Vertex    = make([]*datastructure.Vertex, numV+1)
 	)
 
@@ -23,11 +23,11 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		v := datastructure.Index(e.to)
 
 		outEdges[u] = append(outEdges[u], datastructure.NewOutEdge(edgeId,
-			v, e.weight, e.distance, uint8(len(inEdges[v]))))
+			v, e.weight, e.distance, len(inEdges[v])))
 		outDegree[u]++
 
 		inEdges[v] = append(inEdges[v], datastructure.NewInEdge(edgeId,
-			u, e.weight, e.distance, uint8(len(outEdges[u])-1)))
+			u, e.weight, e.distance, len(outEdges[u])-1))
 		inDegree[v]++
 
 		uData := p.acceptedNodeMap[p.nodeToOsmId[datastructure.Index(u)]]
@@ -46,12 +46,12 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 
 		dummyID := datastructure.Index(lastEdgeId)
 		dummyOut := datastructure.NewOutEdge(dummyID, datastructure.Index(v),
-			pkg.INF_WEIGHT, 0, uint8(len(inEdges[v])))
+			0, 0, len(inEdges[v]))
 		outEdges[v] = append(outEdges[v], dummyOut)
 		outDegree[v]++
 
 		dummyIn := datastructure.NewInEdge(dummyID, datastructure.Index(v),
-			pkg.INF_WEIGHT, 0, uint8(len(outEdges[v])-1))
+			0, 0, len(outEdges[v])-1)
 		inEdges[v] = append(inEdges[v], dummyIn)
 		inDegree[v]++
 		lastEdgeId++
@@ -79,9 +79,11 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 			turnMatrices[i][j] = pkg.NONE
 		}
 	}
+	
 
 	// store u_turn restrictions
-	for _, e := range scannedEdges {
+	if !skipUTurn {
+		for _, e := range scannedEdges {
 		// dont allow u_turns at (u,v) -> (v,u)
 		via := datastructure.Index(e.from)
 		if inDegree[via] != 1 || outDegree[via] != 1 {
@@ -136,6 +138,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		}
 	}
 
+	}
 	// store turn restrictions
 	for wayID, way := range p.ways {
 		fromNodes := way.nodes

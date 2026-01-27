@@ -33,14 +33,7 @@ problem D: Delft Distance
 contest page: https://2022.nwerc.eu/
 test cases: https://chipcie.wisv.ch/archive/2022/nwerc/solutions.zip
 
-skip test cases yang jumlah edges nya > 600k
-karena space consump gede banget & auto force close
-
-minimal free memory space: 12GB to run this tests, 
-fase kustomisasi dari Customizable Route Planning makan memory space sangat besar kalau number of edges besar 
-(graph pada soal ini beda dengan graph openstreetmap road networks.
- pada graph osm rata-rata outdegree & indegree setiap vertices/persimpangan lebih kecil dibandingkan pada soal ini ) 
-
+skip test cases yang jumlah edges nya > 600k, biar cepet
 
  jangan submit solusi ini ke online judge, karen bakal TLE & MLE  wkwkwk
  pakai solusi c++ ku aja (got AC on kattis: https://open.kattis.com/problems/delftdistance):
@@ -51,7 +44,7 @@ func readLine(br *bufio.Reader) (string, error) {
 	line, err := br.ReadString('\n')
 	if err != nil {
 		if errors.Is(err, io.EOF) && len(line) > 0 {
-		} else if err != nil {
+		} else {
 			return "", err
 		}
 	}
@@ -63,11 +56,6 @@ func fields(s string) []string {
 	return strings.Fields(s)
 }
 
-type pairEdge struct {
-	to     int
-	weight float64
-}
-
 func solve(t *testing.T, filepath string) {
 	var (
 		err     error
@@ -75,6 +63,26 @@ func solve(t *testing.T, filepath string) {
 		h, w    int
 		f, fOut *os.File
 	)
+
+	type pairEdge struct {
+		to     int
+		weight float64
+	}
+
+	flattenEdges := func(es [][]pairEdge) []osmparser.Edge {
+		flatten := make([]osmparser.Edge, 0, len(es))
+
+		eid := 0
+
+		for from, edges := range es {
+			for _, e := range edges {
+				flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, 0, uint32(eid)))
+				eid++
+			}
+		}
+
+		return flatten
+	}
 
 	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
 	if err != nil {
@@ -259,7 +267,7 @@ func solve(t *testing.T, filepath string) {
 
 	op := osmparser.NewOSMParserV2()
 	gs := datastructure.NewGraphStorageWithSize(len(es), h*w*4+2)
-	g := op.BuildGraph(es, gs, uint32(h*w*4+2))
+	g := op.BuildGraph(es, gs, uint32(h*w*4+2), true)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(h*w*4+2), len(es))
 
@@ -271,7 +279,7 @@ func solve(t *testing.T, filepath string) {
 	}
 
 	mp := partitioner.NewMultilevelPartitioner(
-		[]int{int(math.Pow(2, 12)), int(math.Pow(2, 20))},
+		[]int{int(math.Pow(2, 11)), int(math.Pow(2, 14))},
 		2,
 		g, logger,
 	)
@@ -298,10 +306,11 @@ func solve(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
+	vIdMap := prep.GetNewVIdMap()
 	crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 
-	sid := datastructure.Index(source)
-	tid := datastructure.Index(target)
+	sid := vIdMap[datastructure.Index(source)]
+	tid := vIdMap[datastructure.Index(target)]
 
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
@@ -332,8 +341,8 @@ func solve(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests && go test ./... -v -timeout=0"
-// karena bakal timeout kalau pakai run test vscode aowowoakwoawkoaw
+// // please run the test using command: "cd tests && go test ./... -v -timeout=0"
+// // karena bakal timeout kalau pakai run test vscode
 func TestCRPQueryDelftDistance(t *testing.T) {
 
 	dirPath := "./data/tests/shortestpath/icpc_nwerc2022_delftdistance/"
@@ -369,21 +378,6 @@ func TestCRPQueryDelftDistance(t *testing.T) {
 
 		}
 	}
-}
-
-func flattenEdges(es [][]pairEdge) []osmparser.Edge {
-	flatten := make([]osmparser.Edge, 0, len(es))
-
-	eid := 0
-
-	for from, edges := range es {
-		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, 0, uint32(eid)))
-			eid++
-		}
-	}
-
-	return flatten
 }
 
 const (

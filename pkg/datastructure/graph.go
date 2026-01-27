@@ -87,7 +87,7 @@ type OutEdge struct {
 	dist       float64 // meter
 	edgeId     Index
 	head       Index
-	entryPoint uint8
+	entryPoint int
 }
 
 // inedge exits vertex tail at exitPoint
@@ -96,10 +96,10 @@ type InEdge struct {
 	dist      float64 // meter
 	edgeId    Index
 	tail      Index
-	exitPoint uint8
+	exitPoint int
 }
 
-func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint uint8) *OutEdge {
+func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint int) *OutEdge {
 	return &OutEdge{
 		edgeId:     edgeId,
 		head:       head,
@@ -109,7 +109,7 @@ func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint uint8) *Out
 	}
 }
 
-func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint uint8) *InEdge {
+func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint int) *InEdge {
 	return &InEdge{
 		edgeId:    edgeId,
 		tail:      tail,
@@ -150,11 +150,11 @@ func (e *OutEdge) GetHead() Index {
 	return e.head
 }
 
-func (e *OutEdge) GetEntryPoint() uint8 {
+func (e *OutEdge) GetEntryPoint() int {
 	return e.entryPoint
 }
 
-func (e *OutEdge) SetEntryPoint(p uint8) {
+func (e *OutEdge) SetEntryPoint(p int) {
 	e.entryPoint = p
 }
 
@@ -185,11 +185,11 @@ func (e *InEdge) GetTail() Index {
 	return e.tail
 }
 
-func (e *InEdge) GetExitPoint() uint8 {
+func (e *InEdge) GetExitPoint() int {
 	return e.exitPoint
 }
 
-func (e *InEdge) SetExitPoint(p uint8) {
+func (e *InEdge) SetExitPoint(p int) {
 	e.exitPoint = p
 }
 
@@ -207,7 +207,7 @@ func (e *InEdge) SetEdgeId(edgeId Index) {
 
 type SubVertex struct {
 	originalID     Index // original vertex id
-	exitEntryOrder uint8 // entry/exit point order (from 0 to outDegree-1/inDegree-1)
+	exitEntryOrder int   // entry/exit point order (from 0 to outDegree-1/inDegree-1)
 	exit           bool  // is exit point
 }
 
@@ -366,9 +366,6 @@ func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 
 func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turnType pkg.TurnType)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-		if g.outEdges[e].GetHead() == u {
-			continue
-		}
 
 		handle(g.outEdges[e], g.GetExitOrder(u, e), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)))
 	}
@@ -376,9 +373,6 @@ func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge,
 
 func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-		if g.outEdges[e].GetHead() == u {
-			continue
-		}
 
 		handle(g.outEdges[e], e)
 	}
@@ -386,9 +380,6 @@ func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) 
 
 func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
-		if g.inEdges[e].GetTail() == v {
-			continue
-		}
 
 		handle(g.inEdges[e], g.GetEntryOrder(v, e), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint))
 	}
@@ -420,7 +411,7 @@ func (g *Graph) GetTailFromOutEdge(exitPoint Index) Index {
 }
 
 // GetOverlayVertex. return overlay vertex id
-func (g *Graph) GetOverlayVertex(u Index, exitEntryOrder uint8, exit bool) (Index, bool) {
+func (g *Graph) GetOverlayVertex(u Index, exitEntryOrder int, exit bool) (Index, bool) {
 	subV := SubVertex{
 		originalID:     u,
 		exitEntryOrder: exitEntryOrder,

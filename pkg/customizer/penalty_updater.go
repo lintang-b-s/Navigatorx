@@ -119,7 +119,7 @@ func (c *Customizer) UpdateCell(costFunction costfunction.CostFunction, cellId d
 					} else {
 						// found an exit point of the cell
 						// save this shortcut travelTime
-						exitOverlay, _ := c.graph.GetOverlayVertex(uId, uint8(exitPoint), true) // overlay vetex id of exit vertex c_1(u).
+						exitOverlay, _ := c.graph.GetOverlayVertex(uId, int(exitPoint), true) // overlay vetex id of exit vertex c_1(u).
 						if _, ok := overlayTravelTime[exitOverlay]; !ok || exitPointTravelTime < overlayTravelTime[exitOverlay] {
 							overlayTravelTime[exitOverlay] = exitPointTravelTime
 						}

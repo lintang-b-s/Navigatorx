@@ -59,11 +59,11 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
-	c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
 
 	var m *metrics.Metric
 	if !timeDependent {
 		costFunction := costfunction.NewTimeCostFunction()
+		c.owtd = da.NewEmptyOverlayWeightsTD()
 
 		c.Build(costFunction)
 		c.logger.Sugar().Infof("Building stalling tables...")
@@ -75,6 +75,7 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 		}
 		c.logger.Sugar().Infof("Customization step completed successfully.")
 	} else {
+		c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
 
 		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
 		if err != nil {
@@ -100,9 +101,9 @@ func (c *Customizer) CustomizeDirect(td bool, day string) (*metrics.Metric, erro
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
-	c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
 	var m *metrics.Metric
 	if !td {
+		c.owtd = da.NewEmptyOverlayWeightsTD()
 		costFunction := costfunction.NewTimeCostFunction()
 
 		c.Build(costFunction)
@@ -111,6 +112,7 @@ func (c *Customizer) CustomizeDirect(td bool, day string) (*metrics.Metric, erro
 		m.BuildStallingTables(c.overlayGraph, c.graph)
 		c.logger.Sugar().Infof("Customization step completed successfully.")
 	} else {
+		c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
 
 		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
 		if err != nil {
@@ -170,8 +172,11 @@ algorithm, which tends to be faster.
 func (c *Customizer) Build(
 	costFunction costfunction.CostFunction) {
 	c.buildLowestLevel(costFunction)
+	c.logger.Info("finished crp customization level 1")
 	for level := 2; level <= c.overlayGraph.GetLevelInfo().GetLevelCount(); level++ {
 		c.buildLevel(costFunction, level)
+		c.logger.Sugar().Infof("finished crp customization level %v", level)
+
 	}
 }
 
@@ -258,7 +263,7 @@ func (c *Customizer) buildLowestLevel(
 						} else {
 							// found an exit point of the cell
 							// save this shortcut travelTime
-							exitOverlay, _ := c.graph.GetOverlayVertex(uId, uint8(exitPoint), true) // overlay vetex id of exit vertex c_1(u).
+							exitOverlay, _ := c.graph.GetOverlayVertex(uId, int(exitPoint), true) // overlay vetex id of exit vertex c_1(u).
 							if _, ok := overlayTravelTime[exitOverlay]; !ok || (ok && exitPointTravelTime < overlayTravelTime[exitOverlay]) {
 								overlayTravelTime[exitOverlay] = exitPointTravelTime
 							}

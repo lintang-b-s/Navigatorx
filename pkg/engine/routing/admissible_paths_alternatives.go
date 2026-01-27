@@ -119,19 +119,16 @@ https://doi.org/10.1287/trsc.2014.0579.
 
 func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructure.Index, k int) []*AlternativeRoute {
 
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
-
-	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
+	unicrpQuery := NewCRPUniDijkstra(ars.engine)
+	optTravelTime, _, _, optEdgePath, found := unicrpQuery.ShortestPathSearch(asId, atId)
 
 	if !found {
 		return []*AlternativeRoute{}
 	}
 
-	// gak jadi pakai penalty method, too slow
-	// if optDist/1000 <= 10.0 { // < 10 km use penalty method (CRP-π)
-	// 	return ars.FindAlternativeRoutesPenaltyMethod(asId, atId, k, optDist/1000, optTravelTime, optEdgePath,
-	// 		crpQuery.GetNumSettledNodes())
-	// }
+	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
+
+	optTravelTime, _, _, _, _ = crpQuery.ShortestPathSearch(asId, atId)
 
 	viaVertices := make([]datastructure.ViaVertex, len(crpQuery.GetViaVertices()))
 	copy(viaVertices, crpQuery.GetViaVertices())
@@ -162,20 +159,20 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 			crpQuerysv = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 			crpQueryvt = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 		} else {
-			crpQuerysv = NewCRPUnidirectionalSearch(ars.engine)
-			crpQueryvt = NewCRPUnidirectionalSearch(ars.engine)
+			crpQuerysv = NewTDCRPUnidirectionalSearch(ars.engine)
+			crpQueryvt = NewTDCRPUnidirectionalSearch(ars.engine)
 		}
 
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 		go func() {
-			viaEntryId := crpQuerysv.adjustForwardOffBit(v.GetEntryId())
+			viaEntryId := adjustForwardOffBit(v.GetEntryId())
 			svTravelTime, svDist, svCoords, svEdgePath, svFound = crpQuerysv.ShortestPathSearch(asId, viaEntryId)
 			wg.Done()
 		}()
 
 		go func() {
-			viaExitId := crpQueryvt.adjustBackwardOffbit(v.GetExitId())
+			viaExitId := adjustBackwardOffbit(v.GetExitId())
 			vtTravelTime, vtDist, vtCoords, vtEdgePath, vtFound = crpQueryvt.ShortestPathSearch(viaExitId, atId)
 			wg.Done()
 		}()

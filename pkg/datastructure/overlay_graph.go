@@ -200,13 +200,10 @@ func (og *OverlayGraph) GetCell(cellNumber Pv, level int) *Cell {
 	return cell
 }
 
-
-
 func (og *OverlayGraph) GetCellFromTruncatedCellNumber(truncatedCellNumber Pv, level int) *Cell {
 	cell, _ := og.cellMapping[level-1][truncatedCellNumber]
 	return cell
 }
-
 
 func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []bool {
 	// iterate over all edges to determine overlay vertices
@@ -307,11 +304,11 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			exitFlagsArray[i+int(vertexOffset)] = isExitPoint // index exitflagsArray dari 0 itu overlay vertex di level teringgi sampai di index terakhir  itu last overlay vertex di level terendah.
 
 			// order = offset/index of boundary outEdge/inEdge in outEdges/inEdges slice
-			var order uint8
+			var order int
 			if isExitPoint {
-				order = uint8(g.GetExitOrder(vertex.originalVertex, vertex.originalEdge))
+				order = int(g.GetExitOrder(vertex.originalVertex, vertex.originalEdge))
 			} else {
-				order = uint8(g.GetEntryOrder(vertex.originalVertex, vertex.originalEdge))
+				order = int(g.GetEntryOrder(vertex.originalVertex, vertex.originalEdge))
 			}
 
 			// subVertex = (originalVertexId, offset of boundary outedge/inEdge, is vertex a exit point}
@@ -425,7 +422,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 	og.weightVectorSize = uint32(cellOfset) // size of  one-dimensional weight array W.
 }
 
-// ForOutNeighborsOf. iterates over all outgoing-neighbors of u 
+// ForOutNeighborsOf. iterates over all outgoing-neighbors of u
 func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Index, wOffset Index)) {
 	uVertex := og.GetVertex(u)
 	entryPoint := uVertex.GetEntryExitPoint(level)

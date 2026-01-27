@@ -64,3 +64,9 @@ func NewOverlayWeightsTD(weightVectorSize uint32) *OverlayWeightsTD {
 	}
 	return &OverlayWeightsTD{weights: weights, lock: &sync.RWMutex{}}
 }
+
+func NewEmptyOverlayWeightsTD() *OverlayWeightsTD {
+	weights := make([]*PWL, 0)
+
+	return &OverlayWeightsTD{weights: weights, lock: &sync.RWMutex{}}
+}

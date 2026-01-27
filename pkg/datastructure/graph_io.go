@@ -370,7 +370,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		}
 		subV := SubVertex{
 			originalID:     origID,
-			exitEntryOrder: uint8(exitEntryOrder),
+			exitEntryOrder: int(exitEntryOrder),
 			exit:           exit,
 		}
 		overlayVertices[subV] = overlayId
@@ -745,7 +745,7 @@ func parseOutEdge(line string) (*OutEdge, error) {
 		return nil, err
 	}
 
-	return NewOutEdge(edgeId, head, weight, dist, uint8(entryPoint)), nil
+	return NewOutEdge(edgeId, head, weight, dist, int(entryPoint)), nil
 }
 
 func parseInEdge(line string) (*InEdge, error) {
@@ -775,5 +775,5 @@ func parseInEdge(line string) (*InEdge, error) {
 		return nil, err
 	}
 
-	return NewInEdge(edgeId, tail, weight, dist, uint8(exitPoint)), nil
+	return NewInEdge(edgeId, tail, weight, dist, int(exitPoint)), nil
 }

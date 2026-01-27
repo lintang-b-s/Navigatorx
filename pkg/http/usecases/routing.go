@@ -57,10 +57,10 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	)
 
 	if !rs.timeDependent {
-		crpQuery := routing.NewCRPBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), UPPERBOUND_SHORTEST_PATH)
+		crpQuery := routing.NewCRPUniDijkstra(rs.engine.(*routing.CRPRoutingEngine))
 		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
 	} else {
-		crpQuery := routing.NewCRPUnidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine))
+		crpQuery := routing.NewTDCRPUnidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine))
 		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
 	}
 	if !found {

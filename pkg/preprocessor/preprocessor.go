@@ -10,18 +10,22 @@ import (
 )
 
 type Preprocessor struct {
-	graph        *datastructure.Graph
-	mlp          *datastructure.MultilevelPartition
-	overlayGraph *datastructure.OverlayGraph
-	logger       *zap.Logger
+	graph          *datastructure.Graph
+	mlp            *datastructure.MultilevelPartition
+	overlayGraph   *datastructure.OverlayGraph
+	logger         *zap.Logger
+	newVIdMap      []datastructure.Index
+	newToOldVIdMap map[datastructure.Index]datastructure.Index
 }
 
 func NewPreprocessor(graph *datastructure.Graph, mlp *datastructure.MultilevelPartition,
 	logger *zap.Logger) *Preprocessor {
 	return &Preprocessor{
-		graph:  graph,
-		mlp:    mlp,
-		logger: logger,
+		graph:          graph,
+		mlp:            mlp,
+		logger:         logger,
+		newVIdMap:      make([]datastructure.Index, graph.NumberOfVertices()),
+		newToOldVIdMap: make(map[datastructure.Index]datastructure.Index, graph.NumberOfVertices()),
 	}
 }
 
@@ -168,11 +172,12 @@ func (p *Preprocessor) SortByCellNumber() {
 	}
 	p.graph.SetBoundingBox(datastructure.NewBoundingBox(minLat, minLon, maxLat, maxLon))
 
-	newIds := make([]datastructure.Index, p.graph.NumberOfVertices()) // new vertex id after sorting by cell number
-	newVid := datastructure.Index(0)                                  // new vertex id after sorting by cell number
+	p.newVIdMap = make([]datastructure.Index, p.graph.NumberOfVertices()) // new vertex id after sorting by cell number
+	newVid := datastructure.Index(0)                                      // new vertex id after sorting by cell number
 	for i := 0; i < len(cellVertices); i++ {
 		for v := 0; v < len(cellVertices[i]); v++ {
-			newIds[cellVertices[i][v].originalIndex] = newVid
+			p.newVIdMap[cellVertices[i][v].originalIndex] = newVid
+			p.newToOldVIdMap[newVid] = cellVertices[i][v].originalIndex
 			newVid++
 		}
 	}
@@ -235,7 +240,7 @@ func (p *Preprocessor) SortByCellNumber() {
 
 				outEdge := p.graph.GetOutEdge(outOffset)
 				outEdge.SetEdgeId(outOffset)
-				outEdge.SetHead(newIds[oldOutEdge.GetHead()])
+				outEdge.SetHead(p.newVIdMap[oldOutEdge.GetHead()])
 
 				outOffset++
 			}
@@ -249,7 +254,7 @@ func (p *Preprocessor) SortByCellNumber() {
 
 				inEdge := p.graph.GetInEdge(inOffset)
 				inEdge.SetEdgeId(inOffset)
-				inEdge.SetTailId(newIds[oldInEdge.GetTail()])
+				inEdge.SetTailId(p.newVIdMap[oldInEdge.GetTail()])
 				inOffset++
 			}
 
@@ -259,7 +264,14 @@ func (p *Preprocessor) SortByCellNumber() {
 
 	newVertices[len(newVertices)-1] = lastVertex
 	p.graph.SetVertices(newVertices)
+}
 
+func (p *Preprocessor) GetNewVIdMap() []datastructure.Index {
+	return p.newVIdMap
+}
+
+func (p *Preprocessor) GetNewToOldVIdMap() map[datastructure.Index]datastructure.Index {
+	return p.newToOldVIdMap
 }
 
 // RunKosaraju. runs kosaraju's algorithm to find strongly connected components (SCCs)
