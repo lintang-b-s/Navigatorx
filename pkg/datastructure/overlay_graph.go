@@ -16,7 +16,7 @@ import (
 // each overlay vertex corresponds to either an entry point or an exit point of a cell in some level
 type OverlayVertex struct {
 	originalVertex        Index   // original vertex id
-	neighborOverlayVertex Index   // ini set nya salah // overlay vertex id that on another cell and incident to originalEdge. can be a head if this overlay vertex is an exit point, or can be a tail if this overlay vertex is an entry point.
+	neighborOverlayVertex Index   // overlay vertex id that on another cell and incident to originalEdge. can be a head if this overlay vertex is an exit point, or can be a tail if this overlay vertex is an entry point.
 	cellNumber            Pv      // cell number of this overlay vertex. cellNumber = 64 bit uint with rightmost contain level 0 cellNumber, and to the left contain higher level cellNumber
 	originalEdge          Index   // original index to outEdge(this overlay vertex is an exit point)/inEdge(this overlay vertex is an entry point) that incident to this overlay vertex
 	entryExitPoint        []Index // stores for each level l on which this vertex is an overlay vertex (entry/exit point index in its cell on level l). index = level-l

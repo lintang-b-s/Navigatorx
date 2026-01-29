@@ -109,7 +109,7 @@ func (pwl *PWL) Eval(time float64) float64 {
 	for i := 0; i < len(pwl.points); i++ {
 		if Le(x, pwl.get(i).GetX()) {
 
-			if eq(x, pwl.get(i).GetX()) {
+			if Eq(x, pwl.get(i).GetX()) {
 				return pwl.get(i).GetY()
 			}
 
@@ -184,7 +184,7 @@ func Link(f, g *PWL) *PWL {
 	for true {
 		var uwX, uwY float64
 
-		if eq(g.get(i).GetX(), f.get(j).GetX()+f.get(j).GetY()) {
+		if Eq(g.get(i).GetX(), f.get(j).GetX()+f.get(j).GetY()) {
 			uwX = f.get(j).GetX()
 			uwY = g.get(i).GetY() + f.get(j).GetY()
 
@@ -332,9 +332,9 @@ func Merge(f, g *PWL) *PWL {
 			}
 		}
 
-		if eq(f.get(i).GetX(), g.get(j).GetX()) {
+		if Eq(f.get(i).GetX(), g.get(j).GetX()) {
 
-			if eq(f.get(i).GetY(), g.get(j).GetY()) {
+			if Eq(f.get(i).GetY(), g.get(j).GetY()) {
 				resPWL.AppendPoint(f.get(i))
 			} else if f.get(i).GetY() < g.get(j).GetY() {
 				resPWL.AppendPoint(f.get(i))
@@ -404,7 +404,7 @@ func mergeConst(f *PWL, c float64) *PWL {
 
 	n := f.Size()
 	for i := 0; i < n; i++ {
-		if eq(f.get(i).GetY(), c) {
+		if Eq(f.get(i).GetY(), c) {
 			if Lt(f.get(i-1).GetY(), c) || Lt(f.get(i+1).GetY(), c) {
 				resPWL.AppendPoint(NewPoint(f.get(i).GetX(), c))
 			} else if resPWL.Size() == 0 {
@@ -460,8 +460,8 @@ func (pwl *PWL) Size() int {
 func (pwl *PWL) AppendPoint(p *Point) {
 
 	n := len(pwl.points)
-	if n != 0 && eq(pwl.get(n-1).GetX(), p.GetX()) {
-		if eq(pwl.get(n-1).GetY(), p.GetY()) {
+	if n != 0 && Eq(pwl.get(n-1).GetX(), p.GetX()) {
+		if Eq(pwl.get(n-1).GetY(), p.GetY()) {
 			return
 		}
 
@@ -527,7 +527,7 @@ func (pwl *PWL) isFIFO() bool {
 	if pwl.isConst() {
 		return true
 	}
-	
+
 	for i := 0; i < len(pwl.points)-1; i++ {
 		p := pwl.points[i]
 		q := pwl.points[i+1]

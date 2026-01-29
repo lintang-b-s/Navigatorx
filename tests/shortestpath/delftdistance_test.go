@@ -2,9 +2,7 @@ package shortestpath
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
-	"io"
 	"math"
 	"os"
 	"path/filepath"
@@ -16,7 +14,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
 
 /*
@@ -27,50 +24,18 @@ problem D: Delft Distance
 contest page: https://2022.nwerc.eu/
 test cases: https://chipcie.wisv.ch/archive/2022/nwerc/solutions.zip
 
+
 skip test cases yang jumlah edges nya > 600k, biar cepet
 
  jangan submit solusi ini ke online judge, karen bakal TLE & MLE  wkwkwk
  pakai solusi c++ ku aja (got AC on kattis: https://open.kattis.com/problems/delftdistance):
  https://drive.google.com/file/d/1vNQ7GQH1JJJn-Z0u4EW_Nsk9AvFsSfdS/view?usp=sharing
 
+
+ graph soal ini (lebih dense) ,beda dengan graph openstreetmap road networks
+
 This test will be completed in approximately 10-15 minutes.
 */
-
-func readLine(br *bufio.Reader) (string, error) {
-	line, err := br.ReadString('\n')
-	if err != nil {
-		if errors.Is(err, io.EOF) && len(line) > 0 {
-		} else {
-			return "", err
-		}
-	}
-	return strings.TrimRight(line, "\r\n"), nil
-}
-
-func fields(s string) []string {
-
-	return strings.Fields(s)
-}
-
-type pairEdge struct {
-	to     int
-	weight float64
-}
-
-func flattenEdges(es [][]pairEdge) []osmparser.Edge {
-	flatten := make([]osmparser.Edge, 0, len(es))
-
-	eid := 0
-
-	for from, edges := range es {
-		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, 0, uint32(eid)))
-			eid++
-		}
-	}
-
-	return flatten
-}
 
 func solve(t *testing.T, filepath string) {
 	var (
@@ -270,6 +235,8 @@ func solve(t *testing.T, filepath string) {
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
+	t.Logf("calculating shortest path...\n")
+
 	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
 	// assert expected output dari test cases soal
@@ -296,7 +263,7 @@ func solve(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests && go test ./... -v -timeout=0"
+// please run the test using command: "cd tests/shortestpath && go test -run TestCRPQueryDelftDistance  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 func TestCRPQueryDelftDistance(t *testing.T) {
 

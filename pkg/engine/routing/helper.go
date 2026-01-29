@@ -1,6 +1,8 @@
 package routing
 
-import "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+import (
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+)
 
 func (crp *CRPRoutingEngine) GetHaversineDistanceFromUtoV(u, v datastructure.Index) float64 {
 	return crp.graph.GetHaversineDistanceFromUtoV(u, v)

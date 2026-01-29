@@ -6,6 +6,10 @@ func onOverlayBit(v datastructure.Index) datastructure.Index {
 	return onBit(v, OVERLAY_OFFSET)
 }
 
+func offOverlayBit(v datastructure.Index) datastructure.Index {
+	return offBit(v, OVERLAY_OFFSET)
+}
+
 func isOverlay(u datastructure.Index) bool {
 	return isBitOn(u, OVERLAY_OFFSET)
 }

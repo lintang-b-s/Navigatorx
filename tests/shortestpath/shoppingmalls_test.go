@@ -230,7 +230,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 	}
 }
 
-// please run the test using command: "cd tests && go test ./... -v -timeout=0"
+// please run the test using command: "cd tests/shortestpath && go test -run TestCRPQueryShoppingMalls  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 func TestCRPQueryShoppingMalls(t *testing.T) {
 

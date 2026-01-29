@@ -26,7 +26,7 @@ func (p *Point) GetY() float64 {
 }
 
 // equal operator
-func eq(a, b float64) bool {
+func Eq(a, b float64) bool {
 	return math.Abs(a-b) <= EPS
 }
 
@@ -51,7 +51,7 @@ func Le(a, b float64) bool {
 
 // equal operator
 func pEqual(a, b *Point) bool {
-	return eq(a.x, b.x) && eq(a.y, b.y)
+	return Eq(a.x, b.x) && Eq(a.y, b.y)
 }
 
 // less than operator

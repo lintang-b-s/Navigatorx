@@ -32,31 +32,33 @@ func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logg
 	}
 }
 
-
 /*
 [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
 
 time complexity:
 let U = rb.maximumCellSize
 T(N) = N^2 * \frac{N * (N-1)}{2} *c + T(N-1)
-base case: N-k = U 
+base case: N-k = U
 
 T(N) \in O(N^4(N-U))
-
 */
 func (rb *RecursiveBisection) Partition(initialNodeIds []datastructure.Index) {
 	pg := rb.buildInitialPartitionGraph(initialNodeIds)
 	queue := list.New()
 	queue.PushBack(pg)
+	tooSmall := func(partitionSize int) bool {
+		return partitionSize < rb.maximumCellSize
+	}
+	if tooSmall(pg.NumberOfVertices()) {
+		rb.assignFinalPartition(pg)
+		return
+	}
 
 	for queue.Len() > 0 {
 		curPartitionGraph := queue.Remove(queue.Front()).(*datastructure.PartitionGraph)
 
 		iflow := NewInertialFlow(curPartitionGraph)
 		cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE)
-		tooSmall := func(partitionSize int) bool {
-			return partitionSize < rb.maximumCellSize
-		}
 
 		partOne, partTwo := rb.applyBisection(cut, curPartitionGraph)
 

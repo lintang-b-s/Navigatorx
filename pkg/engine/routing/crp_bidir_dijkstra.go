@@ -93,9 +93,6 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CR
 		penaltyEdgeCost:         make(map[datastructure.PenaltiedEdge]float64),
 		penaltyShortcutEdgeCost: make(map[datastructure.Index]float64),
 		numSettledNodes:         0,
-
-		// entryIdsEnterOverlay:   make([]vertexEdgePair, 0),
-		// exitIdsIdsEnterOverlay: make([]vertexEdgePair, 0),
 	}
 }
 
@@ -261,7 +258,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId datastructure.In
 		curInfo = bs.backwardInfo[parentEdge]
 	}
 
-	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics, bs.engine.puCache)
+	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics, bs.engine.puCache, true)
 	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, bs.sCellNumber, bs.tCellNumber)
 
 	return bs.shortestTimeTravel, totalDistance, finalPath, finalEdgePath, true
@@ -404,12 +401,12 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target datastructure.Index
 					// basically: check if forward and backward search already visited entry and exit point of v. if so, check whether we can improve the shortest path
 					_, visitedByBackwardSearch := bs.backwardInfo[vExitId]
 					// if head of outEdge v->w already visited by backward search, and its forwardTravelTime + backwardTravelTime is better than shortestPath, then update shortestPath
-					bidirTravelTime := bs.forwardInfo[vEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turnType2) +
-						bs.backwardInfo[vExitId].GetTravelTime()
 
-					if visitedByBackwardSearch && bidirTravelTime < bs.shortestTimeTravel {
+					if visitedByBackwardSearch && bs.forwardInfo[vEntryId].GetTravelTime()+bs.engine.metrics.GetTurnCost(turnType2)+
+						bs.backwardInfo[vExitId].GetTravelTime() < bs.shortestTimeTravel {
 
-						bs.shortestTimeTravel = bidirTravelTime
+						bs.shortestTimeTravel = bs.forwardInfo[vEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turnType2) +
+							bs.backwardInfo[vExitId].GetTravelTime()
 						bs.forwardMid = newVertexEdgePair(vId, vEntryId, false)
 						bs.backwardMid = newVertexEdgePair(vId, vExitId, true)
 						bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(vId, vEntryId, vExitId, vId))
@@ -456,9 +453,8 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target datastructure.Index
 
 					_, visitedByBackwardSearch := bs.backwardInfo[overlayVId]
 					// if v visited by backward search, check whether we can improve the shortestPath
-					bidirTravelTime := bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
-					if visitedByBackwardSearch && bidirTravelTime < bs.shortestTimeTravel {
-						bs.shortestTimeTravel = bidirTravelTime
+					if visitedByBackwardSearch && bs.forwardInfo[overlayVId].GetTravelTime()+bs.backwardInfo[overlayVId].GetTravelTime() < bs.shortestTimeTravel {
+						bs.shortestTimeTravel = bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
 						bs.forwardMid = newVertexEdgePair(vId, overlayVId, false)
 						bs.backwardMid = newVertexEdgePair(vId, overlayVId, true)
 
@@ -566,11 +562,11 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target datastructure.Index
 				bs.engine.graph.ForInEdgesOf(vId, datastructure.Index(inArc.GetExitPoint()), func(inArc2 *datastructure.InEdge,
 					entryPoint2 datastructure.Index, turnType2 pkg.TurnType) {
 					_, visitedByForwardSearch := bs.forwardInfo[vEntryId]
-					bidirTravelTime := bs.forwardInfo[vEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turnType2) +
-						bs.backwardInfo[vExitId].GetTravelTime()
-					if visitedByForwardSearch && bidirTravelTime < bs.shortestTimeTravel {
+					if visitedByForwardSearch && bs.forwardInfo[vEntryId].GetTravelTime()+bs.engine.metrics.GetTurnCost(turnType2)+
+						bs.backwardInfo[vExitId].GetTravelTime() < bs.shortestTimeTravel {
 
-						bs.shortestTimeTravel = bidirTravelTime
+						bs.shortestTimeTravel = bs.forwardInfo[vEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turnType2) +
+							bs.backwardInfo[vExitId].GetTravelTime()
 						bs.forwardMid = newVertexEdgePair(vId, vEntryId, false)
 						bs.backwardMid = newVertexEdgePair(vId, vExitId, true)
 
@@ -616,9 +612,8 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target datastructure.Index
 					}
 
 					_, visitedByForwardSearch := bs.forwardInfo[overlayVId]
-					bidirTravelTime := bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
-					if visitedByForwardSearch && bidirTravelTime < bs.shortestTimeTravel {
-						bs.shortestTimeTravel = bidirTravelTime
+					if visitedByForwardSearch && bs.forwardInfo[overlayVId].GetTravelTime()+bs.backwardInfo[overlayVId].GetTravelTime() < bs.shortestTimeTravel {
+						bs.shortestTimeTravel = bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
 						bs.forwardMid = newVertexEdgePair(vId, overlayVId, false)
 						bs.backwardMid = newVertexEdgePair(vId, overlayVId, true)
 
@@ -679,9 +674,8 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch() {
 				vVertex := bs.engine.overlayGraph.GetVertex(v)
 
 				_, vVisitedByBackwardSearch := bs.backwardInfo[vId]
-				bidirTravelTime := bs.forwardInfo[vId].GetTravelTime() + bs.backwardInfo[vId].GetTravelTime()
-				if vVisitedByBackwardSearch && bidirTravelTime < bs.shortestTimeTravel {
-					bs.shortestTimeTravel = bidirTravelTime
+				if vVisitedByBackwardSearch && bs.forwardInfo[vId].GetTravelTime()+bs.backwardInfo[vId].GetTravelTime() < bs.shortestTimeTravel {
+					bs.shortestTimeTravel = bs.forwardInfo[vId].GetTravelTime() + bs.backwardInfo[vId].GetTravelTime()
 					bs.forwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
 					bs.backwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true)
 
@@ -756,10 +750,11 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch() {
 					bs.engine.graph.ForOutEdgesOf(originalW, datastructure.Index(outEdge.GetEntryPoint()), func(e *datastructure.OutEdge, exitPoint datastructure.Index, turn pkg.TurnType) {
 						// basically: check if forward and backward search already visited entry and exit point of w. if so, check whether we can improve the shortest path
 						_, wVisitedByBackwardSearch := bs.backwardInfo[wExitId]
-						bidirTravelTime := bs.forwardInfo[wEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turn) +
-							bs.backwardInfo[wExitId].GetTravelTime()
-						if wVisitedByBackwardSearch && bidirTravelTime < bs.shortestTimeTravel {
-							bs.shortestTimeTravel = bidirTravelTime
+						if wVisitedByBackwardSearch && bs.forwardInfo[wEntryId].GetTravelTime()+bs.engine.metrics.GetTurnCost(turn)+
+							bs.backwardInfo[wExitId].GetTravelTime() < bs.shortestTimeTravel {
+
+							bs.shortestTimeTravel = bs.forwardInfo[wEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turn) +
+								bs.backwardInfo[wExitId].GetTravelTime()
 							bs.forwardMid = newVertexEdgePair(originalW, wEntryId, false)
 							bs.backwardMid = newVertexEdgePair(originalW, wExitId, true)
 
@@ -794,10 +789,9 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch() {
 						}
 
 						_, wVisitedByBackwardSearch := bs.backwardInfo[wId]
-						bidirTravelTime := bs.forwardInfo[wId].GetTravelTime() + bs.backwardInfo[wId].GetTravelTime()
-						if wVisitedByBackwardSearch && bidirTravelTime < bs.shortestTimeTravel {
+						if wVisitedByBackwardSearch && bs.forwardInfo[wId].GetTravelTime()+bs.backwardInfo[wId].GetTravelTime() < bs.shortestTimeTravel {
 							// if overlay vertex w visited by backward search, check whether we can improve the shortestPath
-							bs.shortestTimeTravel = bidirTravelTime
+							bs.shortestTimeTravel = bs.forwardInfo[wId].GetTravelTime() + bs.backwardInfo[wId].GetTravelTime()
 							bs.forwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, false)
 							bs.backwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, true)
 
@@ -845,9 +839,8 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch() {
 				vVertex := bs.engine.overlayGraph.GetVertex(v)
 
 				_, vVisitedByForwardSearch := bs.forwardInfo[vId]
-				bidirTravelTime := bs.backwardInfo[vId].GetTravelTime() + bs.forwardInfo[vId].GetTravelTime()
-				if vVisitedByForwardSearch && bidirTravelTime < bs.shortestTimeTravel {
-					bs.shortestTimeTravel = bidirTravelTime
+				if vVisitedByForwardSearch && bs.backwardInfo[vId].GetTravelTime()+bs.forwardInfo[vId].GetTravelTime() < bs.shortestTimeTravel {
+					bs.shortestTimeTravel = bs.backwardInfo[vId].GetTravelTime() + bs.forwardInfo[vId].GetTravelTime()
 					bs.forwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
 					bs.backwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), vId, true)
 
@@ -915,11 +908,11 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch() {
 					bs.engine.graph.ForInEdgesOf(originalW, datastructure.Index(inEdge.GetExitPoint()), func(e *datastructure.InEdge,
 						entryPoint datastructure.Index, turn pkg.TurnType) {
 						_, wVisitedByForwardSearch := bs.forwardInfo[wEntryId]
-						bidirTravelTime := bs.forwardInfo[wEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turn) +
-							bs.backwardInfo[wExitId].GetTravelTime()
-						if wVisitedByForwardSearch && bidirTravelTime < bs.shortestTimeTravel {
+						if wVisitedByForwardSearch && bs.forwardInfo[wEntryId].GetTravelTime()+bs.engine.metrics.GetTurnCost(turn)+
+							bs.backwardInfo[wExitId].GetTravelTime() < bs.shortestTimeTravel {
 
-							bs.shortestTimeTravel = bidirTravelTime
+							bs.shortestTimeTravel = bs.forwardInfo[wEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turn) +
+								bs.backwardInfo[wExitId].GetTravelTime()
 							bs.forwardMid = newVertexEdgePair(originalW, wEntryId, false)
 							bs.backwardMid = newVertexEdgePair(originalW, wExitId, true)
 							bs.viaVertices = append(bs.viaVertices, datastructure.NewViaVertex(originalW, wEntryId, wExitId, originalW))
@@ -953,9 +946,8 @@ func (bs *CRPBidirectionalSearch) overlayGraphSearch() {
 						}
 
 						_, wVisitedByForwardSearch := bs.forwardInfo[wId]
-						bidirTravelTime := bs.forwardInfo[wId].GetTravelTime() + bs.backwardInfo[wId].GetTravelTime()
-						if wVisitedByForwardSearch && bidirTravelTime < bs.shortestTimeTravel {
-							bs.shortestTimeTravel = bidirTravelTime
+						if wVisitedByForwardSearch && bs.forwardInfo[wId].GetTravelTime()+bs.backwardInfo[wId].GetTravelTime() < bs.shortestTimeTravel {
+							bs.shortestTimeTravel = bs.forwardInfo[wId].GetTravelTime() + bs.backwardInfo[wId].GetTravelTime()
 							bs.forwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, false)
 							bs.backwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), wId, true)
 

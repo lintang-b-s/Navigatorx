@@ -13,7 +13,7 @@ const (
 )
 
 const (
-	INF_WEIGHT                              = 1e9
+	INF_WEIGHT                              = 1e15
 	TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND  = 0.0
 	TRAFFIC_LIGHT_PENALTY_SP_SECOND         = 0.0
 	ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD = 90.0

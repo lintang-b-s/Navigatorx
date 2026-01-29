@@ -160,7 +160,7 @@ func (us *TDCRPUnidirectionalSearch) ShortestPathSearch(asId, atId datastructure
 
 	idPath = util.ReverseG[vertexEdgePair](idPath)
 
-	unpacker := NewPathUnpacker(us.engine.graph, us.engine.overlayGraph, us.engine.metrics, us.engine.puCache)
+	unpacker := NewPathUnpacker(us.engine.graph, us.engine.overlayGraph, us.engine.metrics, us.engine.puCache, true)
 	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, us.sCellNumber, us.tCellNumber)
 
 	return us.shortestTimeTravel, totalDistance, finalPath, finalEdgePath, true

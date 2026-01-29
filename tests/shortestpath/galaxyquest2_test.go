@@ -19,8 +19,6 @@ import (
 /*
 taken from: https://2023.nwerc.eu/main/problem-set.pdf
 
-
-
 karena Customizable Route Planning only support point-to-point shortest path,
 dan soal ini butuh compute shortest path distance from planet 1 to other planets..
 test ini menjalankan query CRP dari source ke other vertices satu persatu
@@ -231,7 +229,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	dist := make(map[int]float64)
 	dist[s] = 0
 
-	t.Logf("calculating shortest paths from planet 1 to other planets.....")
+	t.Logf("calculating shortest paths from planet 1 to other planets.....\n")
 	for v := 1; v < n; v++ {
 		crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 
@@ -302,7 +300,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests && go test ./... -v -timeout=0"
+// please run the test using command: "cd tests/shortestpath && go test -run TestCRPQueryGalaxyQuest  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 func TestCRPQueryGalaxyQuest(t *testing.T) {
 

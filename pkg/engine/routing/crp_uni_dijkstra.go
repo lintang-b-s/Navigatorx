@@ -1,10 +1,8 @@
 package routing
 
 import (
-	"maps"
-
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -12,42 +10,37 @@ type CRPUniDijkstra struct {
 	engine             *CRPRoutingEngine
 	shortestTimeTravel float64
 
-	forwardInfo   map[datastructure.Index]VertexInfo
-	stallingEntry map[datastructure.Index]float64
-	stallingExit  map[datastructure.Index]float64
+	forwardInfo   map[da.Index]VertexInfo
+	stallingEntry map[da.Index]float64
+	stallingExit  map[da.Index]float64
 
-	pq        *datastructure.MinHeap[datastructure.CRPQueryKey]
-	overlayPq *datastructure.MinHeap[datastructure.CRPQueryKey]
-	tEntryId  datastructure.Index
+	pq        *da.MinHeap[da.CRPQueryKey]
+	overlayPq *da.MinHeap[da.CRPQueryKey]
+	tEntryId  da.Index
 
-	daySpeedProfile map[int64]*datastructure.PWL
+	daySpeedProfile map[int64]*da.PWL
 
-	sCellNumber datastructure.Pv
-	tCellNumber datastructure.Pv
+	sCellNumber da.Pv
+	tCellNumber da.Pv
 
 	upperBound float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
 
-	penalty                 bool // wether to use CRP-π or not (Evolution and Evaluation of the Penalty Method for Alternative Graphs, Kobitzsch et al.)
-	penaltyEdgeCost         map[datastructure.PenaltiedEdge]float64
-	penaltyShortcutEdgeCost map[datastructure.Index]float64
-	numSettledNodes         int
+	numSettledNodes int
 }
 
 func NewCRPUniDijkstra(engine *CRPRoutingEngine) *CRPUniDijkstra {
 	return &CRPUniDijkstra{
 		engine:      engine,
-		forwardInfo: make(map[datastructure.Index]VertexInfo),
-		pq:          datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
-		overlayPq:   datastructure.NewFourAryHeap[datastructure.CRPQueryKey](),
+		forwardInfo: make(map[da.Index]VertexInfo),
+		pq:          da.NewFourAryHeap[da.CRPQueryKey](),
+		overlayPq:   da.NewFourAryHeap[da.CRPQueryKey](),
 
-		stallingEntry:           make(map[datastructure.Index]float64),
-		stallingExit:            make(map[datastructure.Index]float64),
-		penalty:                 false,
-		penaltyEdgeCost:         make(map[datastructure.PenaltiedEdge]float64),
-		penaltyShortcutEdgeCost: make(map[datastructure.Index]float64),
-		numSettledNodes:         0,
+		stallingEntry: make(map[da.Index]float64),
+		stallingExit:  make(map[da.Index]float64),
 
-		tEntryId: datastructure.INVALID_VERTEX_ID,
+		numSettledNodes: 0,
+
+		tEntryId: da.INVALID_VERTEX_ID,
 	}
 }
 
@@ -56,15 +49,15 @@ implementation of:
 1. query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
-2. query phase: Delling, D. et al. (20data11) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
+2. query phase: Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
 let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortucts within any partition
 let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
 time complexity of CRP query is: O((n_p + m_p + k * \hat{m_p}) * log n)
 */
-func (us *CRPUniDijkstra) ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate,
-	[]datastructure.OutEdge, bool) {
+func (us *CRPUniDijkstra) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
+	[]da.OutEdge, bool) {
 	// Our query algorithm takes as input a source arc as , a target arc at, the original graph G, the overlay graph
 	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
 	// asId exitPoint of outEdge u->s
@@ -77,15 +70,15 @@ func (us *CRPUniDijkstra) ShortestPathSearch(asId, atId datastructure.Index) (fl
 	us.tCellNumber = us.engine.graph.GetCellNumber(t)
 
 	// for iterating outEdges, we need entryOffset.
-	sForwardId := us.engine.graph.GetEntryOffset(s) + datastructure.Index(us.engine.graph.GetOutEdge(asId).GetEntryPoint())
+	sForwardId := us.engine.graph.GetEntryOffset(s) + da.Index(us.engine.graph.GetOutEdge(asId).GetEntryPoint())
 
 	sForwardId = offsetForward(sForwardId, us.engine.graph.GetCellNumber(s), us.sCellNumber)
 
 	us.shortestTimeTravel = 2 * pkg.INF_WEIGHT
 
-	us.forwardInfo[sForwardId] = NewVertexInfo(0, newVertexEdgePair(datastructure.INVALID_VERTEX_ID, datastructure.INVALID_EDGE_ID, false))
+	us.forwardInfo[sForwardId] = NewVertexInfo(0, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
-	us.pq.Insert(datastructure.NewPriorityQueueNode(0, datastructure.NewCRPQueryKey(s, sForwardId)))
+	us.pq.Insert(da.NewPriorityQueueNode(0, da.NewCRPQueryKey(s, sForwardId)))
 
 	finished := false
 
@@ -107,12 +100,12 @@ func (us *CRPUniDijkstra) ShortestPathSearch(asId, atId datastructure.Index) (fl
 	}
 
 	if us.shortestTimeTravel == 2*pkg.INF_WEIGHT {
-		return pkg.INF_WEIGHT, pkg.INF_WEIGHT, []datastructure.Coordinate{}, []datastructure.OutEdge{}, false
+		return pkg.INF_WEIGHT, pkg.INF_WEIGHT, []da.Coordinate{}, []da.OutEdge{}, false
 	}
 
 	idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
 	curInfo := us.forwardInfo[us.tEntryId]
-	tEntryIdAdj := adjustForwardOffBit(datastructure.Index(us.tEntryId))
+	tEntryIdAdj := adjustForwardOffBit(da.Index(us.tEntryId))
 
 	_, tOutEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(tEntryIdAdj)
 	toutEdgeId := tOutEdge.GetEdgeId()
@@ -125,8 +118,7 @@ func (us *CRPUniDijkstra) ShortestPathSearch(asId, atId datastructure.Index) (fl
 
 		if isOverlay(parentCopy.getEdge()) {
 			// shortcut
-			ovVertexId := offBit(parentCopy.getEdge(), OVERLAY_OFFSET)
-			ovTT := us.forwardInfo[ovVertexId].GetTravelTime()
+			ovTT := us.forwardInfo[parentCopy.getEdge()].GetTravelTime()
 			parentCopy.setTravelTime(ovTT)
 
 			adjustedForwardEdge := adjustOverlay(parentCopy.getEdge())
@@ -151,32 +143,13 @@ func (us *CRPUniDijkstra) ShortestPathSearch(asId, atId datastructure.Index) (fl
 
 	idPath = util.ReverseG[vertexEdgePair](idPath)
 
-	unpacker := NewPathUnpacker(us.engine.graph, us.engine.overlayGraph, us.engine.metrics, us.engine.puCache)
+	unpacker := NewPathUnpacker(us.engine.graph, us.engine.overlayGraph, us.engine.metrics, us.engine.puCache, true)
 	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, us.sCellNumber, us.tCellNumber)
-	upInfo := unpacker.GetCRPInfo()
-
-	maps.Copy(us.forwardInfo, upInfo)
-
-	verticesTT := make(map[datastructure.Index]VertexInfo)
-
-	// update map jadi map[vid]vertexInfo
-	for entryId, eInfo := range us.forwardInfo {
-		if isOverlay(entryId) {
-
-			continue
-		}
-		adEntryId := adjustForwardOffBit(entryId)
-		head := us.engine.graph.GetHeadFromInEdge(adEntryId)
-		verticesTT[head] = eInfo
-	}
-
-	clear(us.forwardInfo)
-	maps.Copy(us.forwardInfo, verticesTT)
 
 	return us.shortestTimeTravel, totalDistance, finalPath, finalEdgePath, true
 }
 
-func (us *CRPUniDijkstra) graphSearchUni(source, target datastructure.Index) bool {
+func (us *CRPUniDijkstra) graphSearchUni(source, target da.Index) bool {
 
 	//The query algorithm maintains a distance label d(u) for each entry u which can either be a vertex on the overlay or a pair (u, i) corresponding to the i-th entry point of u in the original graph.
 	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
@@ -195,18 +168,18 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target datastructure.Index) boo
 	uEntryPoint := adjustForward(uEntryId, us.engine.graph.GetEntryOffset(uId))
 
 	// traverse outEdges of u
-	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *datastructure.OutEdge, exitPoint datastructure.Index, turnType pkg.TurnType) {
+	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
+
 		vId := outArc.GetHead()
+		if vId == uId {
+			return
+		}
 
 		// get query level of v l_st(v)
 		vQueryLevel := us.engine.overlayGraph.GetQueryLevel(us.sCellNumber, us.tCellNumber,
 			us.engine.graph.GetCellNumber(vId))
 
 		edgeWeight := us.engine.metrics.GetWeight(outArc, 0)
-
-		if penaltyCost, penalized := us.penaltyEdgeCost[datastructure.NewPenaltiedEdge(outArc.GetEdgeId(), true)]; us.penalty && penalized {
-			edgeWeight = penaltyCost
-		}
 
 		turnCost := us.engine.metrics.GetTurnCost(turnType)
 		if uId == source {
@@ -220,7 +193,7 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target datastructure.Index) boo
 			return
 		}
 
-		vEntryId := us.engine.graph.GetEntryOffset(vId) + datastructure.Index(outArc.GetEntryPoint())
+		vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
 		vEntryId = offsetForward(vEntryId, us.engine.graph.GetCellNumber(vId), us.sCellNumber)
 
 		if vQueryLevel == 0 {
@@ -230,6 +203,7 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target datastructure.Index) boo
 			_, vAlreadyVisited := us.forwardInfo[vEntryId]
 			if vAlreadyVisited && newArrTime >= us.forwardInfo[vEntryId].GetTravelTime() {
 				// newArrTime is not better, do nothing
+
 				return
 			}
 
@@ -244,13 +218,13 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target datastructure.Index) boo
 
 			if vAlreadyVisited {
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(datastructure.NewPriorityQueueNode(
-					newArrTime, datastructure.NewCRPQueryKey(vId, vEntryId)),
+				us.pq.DecreaseKey(da.NewPriorityQueueNode(
+					newArrTime, da.NewCRPQueryKey(vId, vEntryId)),
 				)
 			} else if !vAlreadyVisited {
 				// is key not in the priority queue, insert it
-				us.pq.Insert(datastructure.NewPriorityQueueNode(
-					newArrTime, datastructure.NewCRPQueryKey(vId, vEntryId)),
+				us.pq.Insert(da.NewPriorityQueueNode(
+					newArrTime, da.NewCRPQueryKey(vId, vEntryId)),
 				)
 			}
 
@@ -284,12 +258,12 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target datastructure.Index) boo
 				us.forwardInfo[overlayVId] = vVertexInfo
 				if !vAlreadyVisited {
 
-					us.overlayPq.Insert(datastructure.NewPriorityQueueNode(
-						newArrTime, datastructure.NewCRPQueryKey(v, datastructure.Index(vQueryLevel))),
+					us.overlayPq.Insert(da.NewPriorityQueueNode(
+						newArrTime, da.NewCRPQueryKey(v, da.Index(vQueryLevel))),
 					)
 				} else {
-					us.overlayPq.DecreaseKey(datastructure.NewPriorityQueueNode(
-						newArrTime, datastructure.NewCRPQueryKey(v, datastructure.Index(vQueryLevel))),
+					us.overlayPq.DecreaseKey(da.NewPriorityQueueNode(
+						newArrTime, da.NewCRPQueryKey(v, da.Index(vQueryLevel))),
 					)
 				}
 			}
@@ -313,32 +287,25 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 	// outNeighbors of u = all overlay vertex v that has shortcut edge u->v in level l within the same cell as u.
 	// for each out neighbors of u in level l, check if v already visited by backward search. if so, check whether we can improve shortestPath
 	// then if v not already visited or newArrTime to v is better, traverse to the next cell entry vertex w using outEdge of v.
-	us.engine.overlayGraph.ForOutNeighborsOf(u, uQueryLevel, func(v datastructure.Index, wOffset datastructure.Index) {
+	us.engine.overlayGraph.ForOutNeighborsOf(u, uQueryLevel, func(v da.Index, wOffset da.Index) {
 		shortcutOutEdgeWeight := us.engine.metrics.GetShortcutWeight(wOffset, 0)
-		if penaltyCost, penalized := us.penaltyShortcutEdgeCost[wOffset]; us.penalty && penalized {
-			shortcutOutEdgeWeight = penaltyCost
-		}
 
 		newArrTime := us.forwardInfo[uId].GetTravelTime() + shortcutOutEdgeWeight
 		if newArrTime >= pkg.INF_WEIGHT {
 			return
 		}
+		vVertex := us.engine.overlayGraph.GetVertex(v)
+
 		vId := onOverlayBit(v)
 		_, vAlreadyVisited := us.forwardInfo[vId]
-		if !vAlreadyVisited || newArrTime < us.forwardInfo[vId].GetTravelTime() {
+		if !vAlreadyVisited || (vAlreadyVisited && newArrTime < us.forwardInfo[vId].GetTravelTime()) {
 			us.forwardInfo[vId] = NewVertexInfo(newArrTime,
 				newVertexEdgePair(uVertex.GetOriginalVertex(), uId, false))
-
-			vVertex := us.engine.overlayGraph.GetVertex(v)
 
 			// traverse edge to next cell
 			vOriEdgeId := vVertex.GetOriginalEdge()
 			outEdge := us.engine.graph.GetOutEdge(vOriEdgeId)
 			edgeWeight := us.engine.metrics.GetWeight(outEdge, 0)
-
-			if penaltyCost, penalized := us.penaltyEdgeCost[datastructure.NewPenaltiedEdge(outEdge.GetEdgeId(), true)]; us.penalty && penalized {
-				edgeWeight = penaltyCost
-			}
 
 			/*
 				We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
@@ -361,7 +328,7 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 			if wQueryLevel == 0 {
 				// w is in the same cell as s or t
 
-				wEntryId := us.engine.graph.GetEntryOffset(originalW) + datastructure.Index(outEdge.GetEntryPoint())
+				wEntryId := us.engine.graph.GetEntryOffset(originalW) + da.Index(outEdge.GetEntryPoint())
 
 				wEntryId = offsetForwardOverlay(wVertex, wEntryId, us.sCellNumber)
 
@@ -369,6 +336,7 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 				// update travelTime to reach entry point of w and insert entryPoint of w to forwardPq
 				_, wAlreadyVisited := us.forwardInfo[wEntryId]
 				if wAlreadyVisited && newArrTime >= us.forwardInfo[wEntryId].GetTravelTime() {
+
 					return
 				}
 
@@ -376,12 +344,12 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 					newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
 
 				if wAlreadyVisited {
-					us.pq.DecreaseKey(datastructure.NewPriorityQueueNode(
-						newArrTime, datastructure.NewCRPQueryKey(originalW, wEntryId)),
+					us.pq.DecreaseKey(da.NewPriorityQueueNode(
+						newArrTime, da.NewCRPQueryKey(originalW, wEntryId)),
 					)
 				} else {
-					us.pq.Insert(datastructure.NewPriorityQueueNode(
-						newArrTime, datastructure.NewCRPQueryKey(originalW, wEntryId)),
+					us.pq.Insert(da.NewPriorityQueueNode(
+						newArrTime, da.NewCRPQueryKey(originalW, wEntryId)),
 					)
 				}
 
@@ -401,22 +369,16 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 					}
 
 					if !wAlreadyVisited {
-						us.overlayPq.Insert(datastructure.NewPriorityQueueNode(
-							newArrTime, datastructure.NewCRPQueryKey(w, datastructure.Index(wQueryLevel))),
+						us.overlayPq.Insert(da.NewPriorityQueueNode(
+							newArrTime, da.NewCRPQueryKey(w, da.Index(wQueryLevel))),
 						)
 					} else {
-						us.overlayPq.DecreaseKey(datastructure.NewPriorityQueueNode(
-							newArrTime, datastructure.NewCRPQueryKey(w, datastructure.Index(wQueryLevel))),
+						us.overlayPq.DecreaseKey(da.NewPriorityQueueNode(
+							newArrTime, da.NewCRPQueryKey(w, da.Index(wQueryLevel))),
 						)
 					}
-
 				}
 			}
 		}
 	})
-
-}
-
-func (us *CRPUniDijkstra) GetForwardInfo() map[datastructure.Index]VertexInfo {
-	return us.forwardInfo
 }

@@ -42,8 +42,8 @@ func TestIntersect(t *testing.T) {
 
 			got := intersect(tt.p1, tt.p2, tt.p3, tt.p4)
 			intersectPoint := intersectionPoint(tt.p1, tt.p2, tt.p3, tt.p4)
-			if got != tt.want || (!eq(intersectPoint.x, tt.wantIntersectPoint.x) &&
-				!eq(intersectPoint.y, tt.wantIntersectPoint.y)) {
+			if got != tt.want || (!Eq(intersectPoint.x, tt.wantIntersectPoint.x) &&
+				!Eq(intersectPoint.y, tt.wantIntersectPoint.y)) {
 				t.Error("l1 & l2 should intersect")
 			}
 
@@ -84,8 +84,8 @@ func TestIntersectHorizontalLine(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			intersectPoint := intersectionPointHorizontalLine(tt.p1, tt.p2, tt.p3.GetY())
-			if !eq(intersectPoint.x, tt.wantIntersectPoint.x) &&
-				!eq(intersectPoint.y, tt.wantIntersectPoint.y) {
+			if !Eq(intersectPoint.x, tt.wantIntersectPoint.x) &&
+				!Eq(intersectPoint.y, tt.wantIntersectPoint.y) {
 				t.Error("l1 & l2 should intersect")
 			}
 
