@@ -5,7 +5,7 @@ import "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 type MinCut struct {
 	flags                  []bool // true if the vertex is reachable from source in residual graph, or partition one, else partition two
 	numNodesInPartitionTwo int    // number of nodes in source partition (partition 2)
-	numberOfMinCutEdges    int    // number of edges in the min cut
+	minCut                 int
 }
 
 func NewMinCut(numberOfVertices int) *MinCut {
@@ -30,10 +30,10 @@ func (mc *MinCut) incrementNumNodesInPartitionTwo() {
 	mc.numNodesInPartitionTwo++
 }
 
-func (mc *MinCut) GetNumberOfMinCutEdges() int {
-	return mc.numberOfMinCutEdges
+func (mc *MinCut) GetMinCut() int {
+	return mc.minCut
 }
 
-func (mc *MinCut) setNumberofMinCutEdges(n int) {
-	mc.numberOfMinCutEdges = n
+func (mc *MinCut) setMinCut(maxflow int) {
+	mc.minCut = maxflow
 }

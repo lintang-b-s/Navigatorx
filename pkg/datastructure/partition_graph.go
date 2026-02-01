@@ -136,7 +136,6 @@ func (g *PartitionGraph) AddVertex(v PartitionVertex) {
 	}
 	if len(g.level) < int(v.id)+1 {
 		g.level = append(g.level, 0)
-
 	}
 	if len(g.last) < int(v.id)+1 {
 		g.last = append(g.last, 0)
@@ -216,7 +215,6 @@ func (g *PartitionGraph) AddEdge(u, v Index) {
 		return
 	}
 
-	// undirected graph add reverseEdge with same capacity (https://www.inf.ufpr.br/pos/techreport/RT_DINF003_2004.pdf)
 	edge := NewMaxFlowEdge(len(g.edgeList), u, v, 1)
 	g.edgeList = append(g.edgeList, edge)
 	g.adjacencyList[u] = append(g.adjacencyList[u], len(g.edgeList)-1)
@@ -224,6 +222,27 @@ func (g *PartitionGraph) AddEdge(u, v Index) {
 	reverseEdge := NewMaxFlowEdge(len(g.edgeList), v, u, 1)
 	g.edgeList = append(g.edgeList, reverseEdge)
 	g.adjacencyList[v] = append(g.adjacencyList[v], len(g.edgeList)-1)
+}
+
+func (g *PartitionGraph) AddEdgeW(u, v Index, w int, directed bool) {
+	if u == v {
+		return
+	}
+
+	edge := NewMaxFlowEdge(len(g.edgeList), u, v, w)
+	g.edgeList = append(g.edgeList, edge)
+	g.adjacencyList[u] = append(g.adjacencyList[u], len(g.edgeList)-1)
+
+	var reverseEdge *MaxFlowEdge = &MaxFlowEdge{}
+	if directed {
+		reverseEdge = NewMaxFlowEdge(len(g.edgeList), v, u, 0)
+	} else {
+		reverseEdge = NewMaxFlowEdge(len(g.edgeList), v, u, w)
+	}
+	
+	g.edgeList = append(g.edgeList, reverseEdge)
+	g.adjacencyList[v] = append(g.adjacencyList[v], len(g.edgeList)-1)
+
 }
 
 func (g *PartitionGraph) AddInfEdge(u, v Index) {

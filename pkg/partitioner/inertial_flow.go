@@ -41,7 +41,6 @@ func (inf *inertialFlow) getPartitionGraph() *datastructure.PartitionGraph {
 	return inf.graph
 }
 
-
 func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCut {
 	var (
 		best                    *MinCut = &MinCut{}
@@ -83,7 +82,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 		}
 
 		s, t := dn.createArtificialSourceSink(sources, sinks)
-		return dn.computeMinCutSuperSourceSink(s, t, sources, sinks)
+		return dn.ComputeMaxflowMinCut(s, t)
 	}
 
 	wpInertialFlow.Close()
@@ -92,13 +91,13 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 
 	numberOfVertices := inf.graph.NumberOfVertices()
 	for minCut := range wpInertialFlow.CollectResults() {
-		if minCut.GetNumberOfMinCutEdges() < bestNumberOfMinCutEdges ||
-			(best.GetNumberOfMinCutEdges() == minCut.GetNumberOfMinCutEdges() &&
+		if minCut.GetMinCut() < bestNumberOfMinCutEdges ||
+			(best.GetMinCut() == minCut.GetMinCut() &&
 				balanceDelta(minCut.GetNumNodesInPartitionTwo(),
 					numberOfVertices) < balanceDelta(best.GetNumNodesInPartitionTwo(),
 					numberOfVertices)) {
 			best = minCut
-			bestNumberOfMinCutEdges = minCut.GetNumberOfMinCutEdges()
+			bestNumberOfMinCutEdges = minCut.GetMinCut()
 		}
 	}
 
