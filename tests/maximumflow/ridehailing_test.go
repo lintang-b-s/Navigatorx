@@ -230,9 +230,9 @@ func SolveRideHailing(t *testing.T, filepath string) {
 	if ans != expectedAns {
 		t.Fatalf("FAIL: Expected minimum number of drivers: %v, got: %v", expectedAns, ans)
 	}
+	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests/maximumflow && go test -run TestRideHailing  -v -timeout=0  -count=1"
 func TestRideHailing(t *testing.T) {
 	dirPath := "./data/ridehailing/"
 	testDirs := []string{"sample", "secret"}

@@ -107,7 +107,6 @@ func (dmf *DinicMaxFlow) ComputeMaxflowMinCut(s datastructure.Index, t datastruc
 	}
 	dmf.makeMinCutFlags(minCut, maxFlow)
 	return minCut //  or maxflow
-
 }
 
 func (dmf *DinicMaxFlow) makeMinCutFlags(minCut *MinCut, maxflow int) {
