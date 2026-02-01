@@ -21,8 +21,8 @@ problem B Ride-Hailing
 test data: https://catsofwywop.com/icpc/data/ncna/2020/
 
 my c++ solution (got AC on kattis: https://open.kattis.com/problems/ridehailing?tab=metadata):
-https://drive.google.com/file/d/1yqBLNSSXey8DsJu36pGc4PYM-ahPUAkT/view?usp=sharing
-*/
+https://drive.google.com/file/d/11PXNeUQA_0q5rB1sW9xFhfNJn4yj6N56/view?usp=sharing
+// */
 
 func SolveRideHailing(t *testing.T, filepath string) {
 	var (

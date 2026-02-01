@@ -3,9 +3,7 @@ package preprocesser
 import (
 	"math"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -41,7 +39,7 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")
 
 	p.logger.Sugar().Infof("Running Kosaraju's algorithm to find strongly connected components (SCCs)...")
-	p.RunKosaraju()
+	p.graph.RunKosaraju()
 
 	p.logger.Sugar().Infof("Writing graph to ./data/original.graph")
 
@@ -276,98 +274,96 @@ func (p *Preprocessor) GetNewToOldVIdMap() map[datastructure.Index]datastructure
 
 // RunKosaraju. runs kosaraju's algorithm to find strongly connected components (SCCs)
 // O(V+E)
-func (p *Preprocessor) RunKosaraju() {
-	n := datastructure.Index(p.graph.NumberOfVertices())
-	components := make([][]datastructure.Index, 0, 10) // k component, with each component has arbritrary number of nodes
+// func (p *Preprocessor) RunKosaraju() {
+// 	n := datastructure.Index(p.graph.NumberOfVertices())
+// 	components := make([][]datastructure.Index, 0, 10) // k component, with each component has arbritrary number of nodes
 
-	//  this project use turn-based graph
+// 	order := make([]datastructure.Index, 0, n)
+// 	visited := make([]bool, n)
+// 	timeCostFunction := costfunction.NewTimeCostFunction()
+// 	for v := datastructure.Index(0); v < n; v++ {
+// 		// v is index of vertice id
+// 		if !visited[v] {
+// 			p.dfs(datastructure.Index(v), &order, visited, false, timeCostFunction)
+// 		}
+// 	}
 
-	order := make([]datastructure.Index, 0, n)
-	visited := make([]bool, n)
-	timeCostFunction := costfunction.NewTimeCostFunction()
-	for v := datastructure.Index(0); v < n; v++ {
-		// v is index of vertice id
-		if !visited[v] {
-			p.dfs(datastructure.Index(v), &order, visited, false, timeCostFunction)
-		}
-	}
+// 	order = util.ReverseG[datastructure.Index](order)
 
-	order = util.ReverseG[datastructure.Index](order)
+// 	// reset visited
+// 	visited = make([]bool, n)
+// 	roots := make([]datastructure.Index, n)
 
-	// reset visited
-	visited = make([]bool, n)
-	roots := make([]datastructure.Index, n)
+// 	for _, v := range order {
+// 		if !visited[v] {
+// 			component := make([]datastructure.Index, 0, 10)
+// 			p.dfs(v, &component, visited, true, timeCostFunction)
+// 			components = append(components, component)
+// 			root := datastructure.Index(math.MaxInt32)
+// 			for _, node := range component {
+// 				if node < root {
+// 					root = node
+// 				}
+// 			}
 
-	for _, v := range order {
-		if !visited[v] {
-			component := make([]datastructure.Index, 0, 10)
-			p.dfs(v, &component, visited, true, timeCostFunction)
-			components = append(components, component)
-			root := datastructure.Index(math.MaxInt32)
-			for _, node := range component {
-				if node < root {
-					root = node
-				}
-			}
+// 			for _, node := range component {
+// 				roots[node] = root
+// 			}
+// 		}
+// 	}
+// 	sccs := make([]datastructure.Index, n)
 
-			for _, node := range component {
-				roots[node] = root
-			}
-		}
-	}
-	sccs := make([]datastructure.Index, n)
+// 	for i, component := range components {
+// 		for _, v := range component {
+// 			sccs[v] = datastructure.Index(i)
+// 		}
+// 	}
+// 	p.graph.SetSCCs(sccs)
 
-	for i, component := range components {
-		for _, v := range component {
-			sccs[v] = datastructure.Index(i)
-		}
-	}
-	p.graph.SetSCCs(sccs)
+// 	condAdj := make([][]datastructure.Index, n)
+// 	for v := datastructure.Index(0); v < n; v++ {
+// 		p.graph.ForOutEdgesOfWithId(v, func(e *datastructure.OutEdge, id datastructure.Index) {
+// 			if roots[e.GetHead()] != roots[v] {
+// 				condAdj[roots[v]] = append(condAdj[roots[v]], roots[e.GetHead()])
+// 			}
+// 		})
+// 	}
 
-	condAdj := make([][]datastructure.Index, n)
-	for v := datastructure.Index(0); v < n; v++ {
-		p.graph.ForOutEdgesOfWithId(v, func(e *datastructure.OutEdge, id datastructure.Index) {
-			if roots[e.GetHead()] != roots[v] {
-				condAdj[roots[v]] = append(condAdj[roots[v]], roots[e.GetHead()])
-			}
-		})
-	}
+// 	scccCondAdj := make([][]datastructure.Index, len(components))
+// 	for fromRootId, adjRootIds := range condAdj {
+// 		sccOfV := sccs[fromRootId]
+// 		for _, adjRootID := range adjRootIds {
+// 			sccOfAdjRootId := sccs[adjRootID]
+// 			scccCondAdj[sccOfV] = append(scccCondAdj[sccOfV], sccOfAdjRootId)
+// 		}
+// 	}
 
-	scccCondAdj := make([][]datastructure.Index, len(components))
-	for fromRootId, adjRootIds := range condAdj {
-		sccOfV := sccs[fromRootId]
-		for _, adjRootID := range adjRootIds {
-			sccOfAdjRootId := sccs[adjRootID]
-			scccCondAdj[sccOfV] = append(scccCondAdj[sccOfV], sccOfAdjRootId)
-		}
-	}
+// 	p.graph.SetSCCCondensationAdj(scccCondAdj)
+// }
 
-	p.graph.SetSCCCondensationAdj(scccCondAdj)
-}
+// func (p *Preprocessor) dfs(v datastructure.Index, output *[]datastructure.Index, visited []bool,
+// 	reversed bool, costFunction costfunction.CostFunction) {
 
-func (p *Preprocessor) dfs(v datastructure.Index, output *[]datastructure.Index, visited []bool,
-	reversed bool, costFunction costfunction.CostFunction) {
+// 	visited[v] = true
 
-	visited[v] = true
+// 	if !reversed {
 
-	if !reversed {
+// 		p.graph.ForOutEdgesOfWithId(v, func(e *datastructure.OutEdge, id datastructure.Index) {
+// 			if !visited[e.GetHead()] {
+// 				p.dfs(e.GetHead(), output, visited, reversed, costFunction)
+// 			}
+// 		})
+// 	} else {
 
-		p.graph.ForOutEdgesOfWithId(v, func(e *datastructure.OutEdge, id datastructure.Index) {
-			if !visited[e.GetHead()] {
-				p.dfs(e.GetHead(), output, visited, reversed, costFunction)
-			}
-		})
-	} else {
+// 		p.graph.ForInEdgesOfWithId(v, func(e *datastructure.InEdge, id datastructure.Index) {
+// 			if !visited[e.GetTail()] {
+// 				p.dfs(e.GetTail(), output, visited, reversed, costFunction)
+// 			}
+// 		})
+// 	}
 
-		p.graph.ForInEdgesOfWithId(v, func(e *datastructure.InEdge, id datastructure.Index) {
-			if !visited[e.GetTail()] {
-				p.dfs(e.GetTail(), output, visited, reversed, costFunction)
-			}
-		})
-	}
-
-	*output = append(*output, v)
-}
+// 	*output = append(*output, v)
+// }
 
 func (p *Preprocessor) GetOverlayGraph() *datastructure.OverlayGraph {
 	return p.overlayGraph

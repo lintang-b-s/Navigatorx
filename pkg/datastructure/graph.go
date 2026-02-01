@@ -554,6 +554,10 @@ func (g *Graph) GetSCCOfAVertex(u Index) Index {
 	return g.sccs[u]
 }
 
+func (g *Graph) GetSCCS() []Index {
+	return g.sccs
+}
+
 func (g *Graph) SetBoundingBox(bb *BoundingBox) {
 	g.boundingBox = bb
 }
