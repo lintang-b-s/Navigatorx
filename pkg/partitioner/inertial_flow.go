@@ -4,6 +4,7 @@ import (
 	"math"
 	"sort"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
@@ -176,11 +177,11 @@ func (ek *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []data
 	ek.graph.AddVertex(datastructure.NewPartitionVertex(artificialSink, datastructure.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
 
 	for _, s := range sourceNodes {
-		ek.graph.AddInfEdge(artificialSource, s)
+		ek.graph.AddEdge(artificialSource, s, pkg.INF_WEIGHT, false)
 	}
 
 	for _, t := range sinkNodes {
-		ek.graph.AddInfEdge(t, artificialSink)
+		ek.graph.AddEdge(t, artificialSink, pkg.INF_WEIGHT, false)
 	}
 	return artificialSource, artificialSink
 }

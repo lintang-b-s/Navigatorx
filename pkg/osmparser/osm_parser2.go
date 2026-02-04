@@ -205,7 +205,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 				if !acceptOsmWay(way) {
 					continue
 				}
-				if (countWays+1)%50000 == 0 {
+				if (countWays+1)%100000 == 0 {
 					logger.Sugar().Infof("processing openstreetmap ways: %d...", countWays+1)
 				}
 				countWays++
@@ -242,7 +242,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 		case osm.TypeNode:
 			{
 
-				if (countNodes+1)%50000 == 0 {
+				if (countNodes+1)%500000 == 0 {
 					logger.Sugar().Infof("processing openstreetmap nodes: %d...", countNodes+1)
 				}
 				countNodes++

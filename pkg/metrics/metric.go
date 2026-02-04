@@ -379,18 +379,15 @@ func ReadFromFile(filename string, td bool, graph *da.Graph, day string, costFun
 		}
 		metric.weightsTD.SetWeights(pwls)
 	} else {
-		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
-		if err != nil {
-			return nil, err
-		}
-		costFunctionTD := costfunction.NewTimeDependentCostFunction(graph, daySpeedProfile)
+
+		costFunction := costfunction.NewTimeCostFunction()
 
 		metric = &Metric{
 			weights:             da.NewOverlayWeights(numWeights),
 			entryStallingTables: entryStallingTables,
 			exitStallingTables:  exitStallingTables,
 			timeDependent:       td,
-			costFunctionTD:      costFunctionTD,
+			costFunction:        costFunction,
 		}
 		metric.weights.SetWeights(weights)
 		metric.costFunction = costFunction

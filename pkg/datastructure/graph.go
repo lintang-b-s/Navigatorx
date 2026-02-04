@@ -570,12 +570,25 @@ func (g *Graph) CondensationGraphOrigintoDestinationConnected(u, v Index) bool {
 	sccOfU := g.sccs[u]
 	sccOfV := g.sccs[v]
 
-	for _, adjSCC := range g.sccCondensationAdj[sccOfU] {
-		if adjSCC == sccOfV {
-			return true
-		}
+	connected := false
+	visited := make([]bool, len(g.sccs))
+	g.dfsCondensationGraph(sccOfU, sccOfV, visited, &connected)
+	return connected
+}
+
+// O(V_G + E_G), V_G=number of sccs/number of vertices in condensation graph^scc, E_G=number of edges in condensation graph^scc
+func (g *Graph) dfsCondensationGraph(u Index, t Index, visited []bool, connected *bool) {
+	if u == t {
+		*connected = true
 	}
-	return false
+	if visited[u] {
+		return
+	}
+	visited[u] = true
+
+	for _, v := range g.sccCondensationAdj[u] {
+		g.dfsCondensationGraph(v, t, visited, connected)
+	}
 }
 
 func (g *Graph) GetMapEdgeInfo() []EdgeExtraInfo {

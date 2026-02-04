@@ -73,18 +73,19 @@ func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCe
 
 			exitVertex := offBit(packedPath[i+1].getEdge(), UNPACK_OVERLAY_OFFSET)
 
-			pu.unpackInLevelCell(entryVertex, exitVertex, int(queryLevel), &unpackedPath, &unpackedEdgePath, &totalDistance, cur.getTime(),
-				cur.getTravelTime())
+			pu.unpackInLevelCell(entryVertex, exitVertex, int(queryLevel), &unpackedPath, &unpackedEdgePath, &totalDistance, cur.getTime())
 
 			i += 2
 		}
 	}
 
+	unpackedEdgePath = removeDuplicates(unpackedEdgePath)
+	unpackedPath = removeDuplicates(unpackedPath)
 	return unpackedPath, unpackedEdgePath, totalDistance
 }
 
 func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datastructure.Index, level int, unpackedPath *[]datastructure.Coordinate,
-	unpackedEdgePath *[]datastructure.OutEdge, distance *float64, tSec, stravelTime float64) {
+	unpackedEdgePath *[]datastructure.OutEdge, distance *float64, tSec float64) {
 
 	if level == 1 {
 		sourceEntryId := pu.overlayGraph.GetVertex(sourceOverlayId).GetOriginalEdge()
@@ -92,7 +93,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 		targetEntryId := pu.overlayGraph.GetVertex(neighborOfTarget).GetOriginalEdge()
 
 		pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId, unpackedPath, unpackedEdgePath, distance,
-			sourceOverlayId, targetOverlayId, tSec, stravelTime)
+			sourceOverlayId, targetOverlayId, tSec)
 		return
 	}
 
@@ -101,7 +102,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 			// fetch from cache, cuma dipakai di server
 			// buat tests, gak ambil dari cache
 			for i := 0; i < len(overlayPath); i += 2 {
-				pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedPath, unpackedEdgePath, distance, tSec, stravelTime)
+				pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedPath, unpackedEdgePath, distance, tSec)
 			}
 			return
 		}
@@ -199,14 +200,13 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId datas
 		nextV := overlayPath[i+1]
 		piTime := pu.info[curV].GetTravelTime()
 
-		curVTT := pu.info[curV].GetTravelTime() + stravelTime
-		pu.unpackInLevelCell(curV, nextV, level-1, unpackedPath, unpackedEdgePath, distance, piTime, curVTT)
+		pu.unpackInLevelCell(curV, nextV, level-1, unpackedPath, unpackedEdgePath, distance, piTime)
 	}
 }
 
 func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId datastructure.Index,
 	unpackedPath *[]datastructure.Coordinate, unpackedEdgePath *[]datastructure.OutEdge, distance *float64,
-	sourceOverlayId, targetOverlayId datastructure.Index, tSec, stravelTime float64) {
+	sourceOverlayId, targetOverlayId datastructure.Index, tSec float64) {
 
 	if pu.useCache {
 		if edgeIds, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1)); ok {
@@ -291,7 +291,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId dat
 	uId := targetEntryId
 	backwardEdges := make([]datastructure.OutEdge, 0)
 
-	for pu.info[uId].GetParent().edge != sourceEntryId { // sampai parent.edge = sourceEntryId, cuma include sp edges didalam current cell
+	for pu.info[uId].GetParent().edge != datastructure.INVALID_EDGE_ID { // sampai parent.edge = sourceEntryId, cuma include sp edges didalam current cell
 		prevOutEdgeId := pu.info[uId].GetParent().outInEdgeId
 
 		edgeIdPath = append(edgeIdPath, prevOutEdgeId)

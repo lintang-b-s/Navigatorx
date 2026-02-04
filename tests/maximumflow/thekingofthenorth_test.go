@@ -110,26 +110,26 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 			inVId := da.Index(i*C + j)
 			outVId := da.Index(R*C + i*C + j)
 
-			dg.AddEdgeW(inVId, outVId, kingdom[i][j], true)
+			dg.AddEdge(inVId, outVId, kingdom[i][j], true)
 
 			if i+1 <= R-1 {
 				bawahInVid := da.Index((i+1)*C + j)
-				dg.AddEdgeW(outVId, bawahInVid, kingdom[i+1][j], true)
+				dg.AddEdge(outVId, bawahInVid, kingdom[i+1][j], true)
 			}
 
 			if j+1 <= C-1 {
 				kananVId := da.Index((i)*C + (j + 1))
-				dg.AddEdgeW(outVId, kananVId, kingdom[i][(j+1)], true)
+				dg.AddEdge(outVId, kananVId, kingdom[i][(j+1)], true)
 			}
 
 			if i-1 >= 0 {
 				atasVId := da.Index((i-1)*C + j)
-				dg.AddEdgeW(outVId, atasVId, kingdom[i-1][j], true)
+				dg.AddEdge(outVId, atasVId, kingdom[i-1][j], true)
 			}
 
 			if j-1 >= 0 {
 				kiriVId := da.Index(i*C + (j - 1))
-				dg.AddEdgeW(outVId, kiriVId, kingdom[i][j-1], true)
+				dg.AddEdge(outVId, kiriVId, kingdom[i][j-1], true)
 			}
 		}
 	}
@@ -147,8 +147,8 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 		dg.AddVertex(da.NewPartitionVertex(musuhVId, musuhVId, 0, 0))
 
 		pasukanAtasInVId := da.Index(k)
-		dg.AddEdgeW(musuhVId, pasukanAtasInVId, INF, true)
-		dg.AddEdgeW(superSource, musuhVId, INF, true)
+		dg.AddEdge(musuhVId, pasukanAtasInVId, INF, true)
+		dg.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	// bawah
@@ -157,8 +157,8 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 		dg.AddVertex(da.NewPartitionVertex(musuhVId, musuhVId, 0, 0))
 
 		pasukanBawahInVId := da.Index((R-1)*C + k)
-		dg.AddEdgeW(musuhVId, pasukanBawahInVId, INF, true)
-		dg.AddEdgeW(superSource, musuhVId, INF, true)
+		dg.AddEdge(musuhVId, pasukanBawahInVId, INF, true)
+		dg.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	// kiri
@@ -167,8 +167,8 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 		dg.AddVertex(da.NewPartitionVertex(musuhVId, musuhVId, 0, 0))
 
 		pasukanKiriInVId := da.Index(k*C + 0)
-		dg.AddEdgeW(musuhVId, pasukanKiriInVId, INF, true)
-		dg.AddEdgeW(superSource, musuhVId, INF, true)
+		dg.AddEdge(musuhVId, pasukanKiriInVId, INF, true)
+		dg.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	// kanan
@@ -177,8 +177,8 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 		dg.AddVertex(da.NewPartitionVertex(musuhVId, musuhVId, 0, 0))
 
 		pasukanKananInVId := da.Index(k*C + (C - 1))
-		dg.AddEdgeW(musuhVId, pasukanKananInVId, INF, true)
-		dg.AddEdgeW(superSource, musuhVId, INF, true)
+		dg.AddEdge(musuhVId, pasukanKananInVId, INF, true)
+		dg.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	line, err = readLine(br)

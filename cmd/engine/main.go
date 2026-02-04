@@ -16,7 +16,7 @@ import (
 
 var (
 	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
-	timeDependent         = flag.Bool("time_dependent", true, "Use Time-Dependent Customizable Route Planning")
+	timeDependent         = flag.Bool("time_dependent", false, "Use Time-Dependent Customizable Route Planning")
 )
 
 func main() {

@@ -145,7 +145,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		adjList[b] = append(adjList[b], pairEdge{a, pd.baDist})
 	}
 
-	re, g, oldToNewVIdMap, newToOldVidMap := buildCRP(t, adjList, N, 11, 12)
+	re, g, oldToNewVIdMap, newToOldVidMap := buildCRP(t, adjList, N, 6, 7)
 
 	line, err = readLine(br)
 	if err != nil {

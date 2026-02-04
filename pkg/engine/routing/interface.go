@@ -7,8 +7,6 @@ import (
 )
 
 type Customizer interface {
-	UpdateDirtyCells(costFunction costfunction.CostFunction, dirtyCells []datastructure.DirtyCell,
-		penaltyEdgeCost map[datastructure.PenaltiedEdge]float64, maxLevel int) map[datastructure.Index]float64
 }
 
 type CostFunction interface {

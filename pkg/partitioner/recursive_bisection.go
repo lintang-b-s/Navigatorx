@@ -122,11 +122,11 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, graph *datastructure.P
 			if cut.GetFlag(u) && cut.GetFlag(v) {
 				uPartOne := partOneMap[u]
 				vPartOne := partOneMap[v]
-				partitionOne.AddEdge(uPartOne, vPartOne)
+				partitionOne.AddEdge(uPartOne, vPartOne, 1, false)
 			} else if !cut.GetFlag(u) && !cut.GetFlag(v) {
 				uPartTwo := partTwoMap[u]
 				vPartTwo := partTwoMap[v]
-				partitionTwo.AddEdge(uPartTwo, vPartTwo)
+				partitionTwo.AddEdge(uPartTwo, vPartTwo, 1, false)
 			}
 		})
 	}
@@ -167,7 +167,7 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 				// skip arc that have endpoint outside current cell
 				return
 			}
-			pg.AddEdge(newMapVid[vId], newMapVid[e.GetHead()])
+			pg.AddEdge(newMapVid[vId], newMapVid[e.GetHead()], 1, false)
 		})
 	}
 

@@ -27,8 +27,7 @@ func main() {
 	)
 	mp.RunMultilevelPartitioning()
 
-	// mlp := mp.BuildMLP()
-	err = mp.SaveToFile("./data/diy_solo_semarang.mlp")
+	err = mp.SaveToFile("diy_solo_semarang")
 	if err != nil {
 		panic(err)
 	}

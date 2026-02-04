@@ -119,16 +119,12 @@ https://doi.org/10.1287/trsc.2014.0579.
 
 func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructure.Index, k int) []*AlternativeRoute {
 
-	unicrpQuery := NewCRPUniDijkstra(ars.engine)
-	optTravelTime, _, _, optEdgePath, found := unicrpQuery.ShortestPathSearch(asId, atId)
+	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
 
+	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
 	if !found {
 		return []*AlternativeRoute{}
 	}
-
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
-
-	optTravelTime, _, _, _, _ = crpQuery.ShortestPathSearch(asId, atId)
 
 	viaVertices := make([]datastructure.ViaVertex, len(crpQuery.GetViaVertices()))
 	copy(viaVertices, crpQuery.GetViaVertices())
@@ -159,8 +155,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 			crpQuerysv = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 			crpQueryvt = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 		} else {
-			crpQuerysv = NewTDCRPUnidirectionalSearch(ars.engine)
-			crpQueryvt = NewTDCRPUnidirectionalSearch(ars.engine)
+			crpQuerysv = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
+			crpQueryvt = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 		}
 
 		wg := sync.WaitGroup{}
@@ -195,7 +191,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 			return nil
 		}
 
-		plv := ars.calculatePlateau(v.GetVId(), v.GetEntryId(), v.GetExitId(), asId, atId,
+		plv := ars.calculatePlateau(v.GetVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
 			fInfo, bInfo)
 
 		T := ars.alpha * lvExcludeOpt
@@ -302,12 +298,14 @@ func (ars *AlternativeRouteSearch) tTest(T float64, v datastructure.Index, pvEdg
 }
 
 func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []datastructure.OutEdge) float64 {
-	// O(N), N=max{len(pvPath), len(optPath)}
+	// O(N+M), N=len(optPath), M=len(pvPath)
 	distanceShare := 0.0
 
+	optDist := 0.0
 	optPathSet := make(map[datastructure.Index]struct{})
 	for _, e := range optPath {
 		optPathSet[e.GetEdgeId()] = struct{}{}
+		optDist += e.GetWeight()
 	}
 
 	for _, e := range pvPath {
@@ -319,15 +317,16 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []data
 	return distanceShare
 }
 
-func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, asId, atId datastructure.Index,
+func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, sForwardId, tBackwardId datastructure.Index,
 	ps, pb map[datastructure.Index]VertexInfo) float64 {
+
 	plateau := 0.0
 	u := vEntryId
 	_, ok := ps[u]
 	if !ok {
 		u = vId
 	}
-	for u != datastructure.INVALID_EDGE_ID {
+	for u != sForwardId {
 		if _, oki := pb[u]; oki {
 			costf := ps[u].GetTravelTime() - ps[ps[u].parent.edge].GetTravelTime()
 			plateau += costf
@@ -340,7 +339,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, asId
 	if !ok {
 		u = vId
 	}
-	for u != datastructure.INVALID_EDGE_ID {
+	for u != tBackwardId {
 		if _, oki := ps[u]; oki {
 			costf := pb[u].GetTravelTime() - pb[pb[u].parent.edge].GetTravelTime()
 			plateau += costf
@@ -350,61 +349,6 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, asId
 	return plateau
 }
 
-func (ars *AlternativeRouteSearch) PathAdmissible(asId, atId datastructure.Index, v datastructure.ViaVertex) bool {
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
-
-	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
-	if !found {
-		return false
-	}
-
-	containV := false
-	for _, via := range crpQuery.GetViaVertices() {
-		if via.GetOriginalVId() == v.GetOriginalVId() && via.GetEntryId() == v.GetEntryId() &&
-			via.GetExitId() == v.GetExitId() {
-			containV = true
-			break
-		}
-	}
-
-	if !containV {
-		return false
-	}
-
-	crpQuerysv := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
-	svTravelTime, _, _, svEdgePath, svFound := crpQuerysv.ShortestPathSearch(asId, v.GetEntryId())
-	crpQueryvt := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
-	vtTravelTime, _, _, vtEdgePath, vtFound := crpQueryvt.ShortestPathSearch(v.GetExitId(), atId)
-	if !svFound || !vtFound {
-		return false
-	}
-
-	pvEdgePath := append(svEdgePath, vtEdgePath...)
-	sigmav := ars.calculateDistanceShare(optEdgePath, pvEdgePath)
-	if sigmav >= ars.gamma*optTravelTime {
-		return false
-	}
-
-	lv := svTravelTime + vtTravelTime
-	lvExcludeOpt := lv - sigmav
-	lOptExcludePv := optTravelTime - sigmav
-	if lvExcludeOpt >= (1+ars.epsilon)*lOptExcludePv {
-		return false
-	}
-
-	plv := ars.calculatePlateau(v.GetVId(), v.GetEntryId(), v.GetExitId(), asId, atId,
-		crpQuery.GetForwardInfo(), crpQuery.GetBackwardInfo())
-
-	T := ars.alpha * lvExcludeOpt
-
-	if plv <= T {
-		// didnt pass t-test
-		return false
-	}
-
-	return true
-}
-
 func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 	set := make([]map[datastructure.Index]struct{}, len(alts))
 	for i := 0; i < len(alts); i++ {
@@ -412,7 +356,7 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 	}
 	res := make([]*AlternativeRoute, 0, len(alts))
 	for i, alt := range alts {
-		// O(N^2 * M), N=len(alts), M=max{len(alts[i])}, for each 0<=i<len(alts)
+		// O(N^2 * M), N=len(alts), M=max{len(alts.edges[i])}, for each 0<=i<len(alts)
 
 		addToRes := true
 		for j := 0; j < i; j++ {
@@ -444,19 +388,6 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 			}
 		}
 
-	}
-	return res
-}
-
-func removeDuplicates(viaVertices []datastructure.ViaVertex) []datastructure.ViaVertex {
-	set := make(map[datastructure.Index]struct{})
-	res := make([]datastructure.ViaVertex, 0, len(viaVertices))
-
-	for _, v := range viaVertices {
-		if _, ok := set[v.GetVId()]; !ok {
-			set[v.GetVId()] = struct{}{}
-			res = append(res, v)
-		}
 	}
 	return res
 }

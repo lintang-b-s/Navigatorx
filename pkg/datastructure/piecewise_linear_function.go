@@ -360,6 +360,7 @@ func Merge(f, g *PWL) *PWL {
 
 			i++
 		} else {
+			//  g.get(j).GetX() < f.get(i).GetX()
 
 			if ccw(f.get(i-1), g.get(j), f.get(i)) {
 
@@ -368,8 +369,7 @@ func Merge(f, g *PWL) *PWL {
 
 				if (ccw(g.get(j-1), g.get(j), f.get(i-1))) || ccw(g.get(j), g.get(j+1), f.get(i)) {
 					resPWL.AppendPoint(g.get(j))
-				}
-				if resPWL.Size() == 0 {
+				} else if resPWL.Size() == 0 {
 					resPWL.AppendPoint(g.get(j))
 				}
 			}
@@ -581,7 +581,7 @@ func ImaiIriApprox(pwl *PWL, epsilon float64) *PWL {
 	psPos := make([]*Point, n)
 
 	dirTest := func(p, q, r *Point) int {
-		x := cross(toVec(p, r), toVec(p, q))
+		x := cross(toVec(p, q), toVec(p, r))
 
 		if x > 0 {
 			return 1
@@ -590,15 +590,15 @@ func ImaiIriApprox(pwl *PWL, epsilon float64) *PWL {
 	}
 
 	ccwTest := func(p, q, r *Point) bool {
-		return dirTest(p, q, r) == -1
-	}
-
-	cwTest := func(p, q, r *Point) bool {
 		return dirTest(p, q, r) == 1
 	}
 
+	cwTest := func(p, q, r *Point) bool {
+		return dirTest(p, q, r) == -1
+	}
+
 	for i, p := range pwl.GetPoints() {
-		psNeg[i] = NewPoint(p.x, p.y)
+		psNeg[i] = NewPoint(p.x, p.y*(1-epsilon))
 		psPos[i] = NewPoint(p.x, (1+epsilon)*p.y)
 	}
 

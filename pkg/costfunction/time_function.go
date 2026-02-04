@@ -17,11 +17,7 @@ const (
 )
 
 func (tf *TimeFunction) GetWeight(e EdgeAttributes) float64 {
-	// speed := e.GetEdgeSpeed()
-	// if speed == 0 {
-	// 	return e.GetLength() / (defaultSpeed * 1000 / 60)
-	// }
-	// return e.GetLength() / speed
+
 	return e.GetWeight()
 }
 

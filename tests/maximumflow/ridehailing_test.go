@@ -108,17 +108,17 @@ func SolveRideHailing(t *testing.T, filepath string) {
 			u := queryKey.GetItem()
 			uDist := int64(queryKey.GetRank())
 
-			if _, ok := djdist[u]; ok && uDist > djdist[u] {
-				continue
-			}
-
 			for _, vv := range adjList[u] {
 				v := vv.to
 				vDist := int64(vv.weight)
 				_, ok := djdist[v]
 				if !ok || (ok && uDist+vDist < djdist[v]) {
 					djdist[v] = uDist + vDist
-					pq.Insert(da.NewPriorityQueueNode(float64(djdist[v]), v))
+					if !ok {
+						pq.Insert(da.NewPriorityQueueNode(float64(djdist[v]), v))
+					} else {
+						pq.DecreaseKey(da.NewPriorityQueueNode(float64(djdist[v]), v))
+					}
 				}
 			}
 		}
@@ -190,8 +190,8 @@ func SolveRideHailing(t *testing.T, filepath string) {
 		v := tt.v
 		ut := int64(tt.t)
 
-		dg.AddEdgeW(source, i+1, 1, true)
-		dg.AddEdgeW(i+da.Index(k)+1, sink, 1, true)
+		dg.AddEdge(source, i+1, 1, true)
+		dg.AddEdge(i+da.Index(k)+1, sink, 1, true)
 		for j := da.Index(1); j <= da.Index(len(tripRequest)); j++ {
 			ttj := tripRequest[j-1]
 			q := ttj.u
@@ -201,7 +201,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 			}
 
 			if ut+dist[bitpack(u, v)]+dist[bitpack(v, q)] <= qt {
-				dg.AddEdgeW(i+1, j+da.Index(k)+1, 1, true)
+				dg.AddEdge(i+1, j+da.Index(k)+1, 1, true)
 			}
 		}
 	}

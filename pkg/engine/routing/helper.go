@@ -27,3 +27,16 @@ func (crp *CRPRoutingEngine) VerticeUandVAreConnected(u, v datastructure.Index) 
 
 	return crp.graph.CondensationGraphOrigintoDestinationConnected(u, v)
 }
+
+func removeDuplicates[T comparable](arr []T) []T {
+	set := make(map[T]struct{})
+	newarr := make([]T, 0, len(arr))
+
+	for _, v := range arr {
+		if _, ok := set[v]; !ok {
+			set[v] = struct{}{}
+			newarr = append(newarr, v)
+		}
+	}
+	return newarr
+}

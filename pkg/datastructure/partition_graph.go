@@ -1,7 +1,5 @@
 package datastructure
 
-import "github.com/lintang-b-s/Navigatorx/pkg"
-
 // we use capacity 1 for each edge in graph (see On Balanced Separators in Road Networks, Schild, et al.)
 // maximum flow using Dinic’s algorithm (augmenting paths, in the unit-capacity case computed by breadth-first search)
 type MaxFlowEdge struct {
@@ -210,21 +208,7 @@ func (g *PartitionGraph) GetEdgeById(eId int) *MaxFlowEdge {
 	return g.edgeList[eId]
 }
 
-func (g *PartitionGraph) AddEdge(u, v Index) {
-	if u == v {
-		return
-	}
-
-	edge := NewMaxFlowEdge(len(g.edgeList), u, v, 1)
-	g.edgeList = append(g.edgeList, edge)
-	g.adjacencyList[u] = append(g.adjacencyList[u], len(g.edgeList)-1)
-
-	reverseEdge := NewMaxFlowEdge(len(g.edgeList), v, u, 1)
-	g.edgeList = append(g.edgeList, reverseEdge)
-	g.adjacencyList[v] = append(g.adjacencyList[v], len(g.edgeList)-1)
-}
-
-func (g *PartitionGraph) AddEdgeW(u, v Index, w int, directed bool) {
+func (g *PartitionGraph) AddEdge(u, v Index, w int, directed bool) {
 	if u == v {
 		return
 	}
@@ -239,23 +223,7 @@ func (g *PartitionGraph) AddEdgeW(u, v Index, w int, directed bool) {
 	} else {
 		reverseEdge = NewMaxFlowEdge(len(g.edgeList), v, u, w)
 	}
-	
-	g.edgeList = append(g.edgeList, reverseEdge)
-	g.adjacencyList[v] = append(g.adjacencyList[v], len(g.edgeList)-1)
 
-}
-
-func (g *PartitionGraph) AddInfEdge(u, v Index) {
-	if u == v {
-		return
-	}
-
-	// undirected graph
-	edge := NewMaxFlowEdge(len(g.edgeList), u, v, pkg.INF_WEIGHT)
-	g.edgeList = append(g.edgeList, edge)
-	g.adjacencyList[u] = append(g.adjacencyList[u], len(g.edgeList)-1)
-
-	reverseEdge := NewMaxFlowEdge(len(g.edgeList), v, u, pkg.INF_WEIGHT)
 	g.edgeList = append(g.edgeList, reverseEdge)
 	g.adjacencyList[v] = append(g.adjacencyList[v], len(g.edgeList)-1)
 }

@@ -113,25 +113,25 @@ func dir(p, q, r *Point) int {
 		return 0
 	}
 
-	x := cross(toVec(p, r), toVec(p, q))
+	x := cross(toVec(p, q), toVec(p, r))
 	if math.Abs(x) < EPS {
 		return 0
 	}
 
-	if x > 0 {
-		return 1
+	if x < 0 {
+		return -1
 	}
-	return -1
+	return 1
 }
 
 // counterclockwise test
 // returns true if point r is on the left side of line pq
 func ccw(p, q, r *Point) bool {
-	return dir(p, q, r) == -1
+	return dir(p, q, r) == 1
 }
 
 func cw(p, q, r *Point) bool {
-	return dir(p, q, r) == 1
+	return dir(p, q, r) == -1
 }
 
 // returns true if point r is on the same line as the line pq

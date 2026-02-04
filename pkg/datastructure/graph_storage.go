@@ -6,11 +6,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-/*
-----
-edge extra info related section
-----
-*/
 type GraphStorage struct {
 	globalPoints []Coordinate
 

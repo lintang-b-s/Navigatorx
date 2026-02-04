@@ -169,7 +169,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	tid := oldToNewVIdMap[datastructure.Index(tnId)]
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
-	t.Log("calculating shortest path...\n")
+	t.Log("calculating shortest paths...\n")
 
 	minDist := pkg.INF_WEIGHT
 
