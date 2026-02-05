@@ -10,7 +10,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
@@ -18,12 +18,22 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
-func buildCRP(t *testing.T, adjList [][]pairEdge, n int, U1, U2 float64) (*engine.Engine, *datastructure.Graph,
-	[]datastructure.Index, map[datastructure.Index]datastructure.Index) {
+func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEdge, n int, U1, U2 float64) (*engine.Engine, *da.Graph,
+	[]da.Index, map[da.Index]da.Index) {
 	es := flattenEdges(adjList)
 
 	op := osmparser.NewOSMParserV2()
-	gs := datastructure.NewGraphStorageWithSize(len(es), n)
+	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
+	nodeToOsmId := make(map[da.Index]int64, n)
+	for i := 0; i < n; i++ {
+		acceptedNodeMap[int64(i)] = nodeCoords[i]
+		nodeToOsmId[da.Index(i)] = int64(i)
+	}
+
+	op.SetAcceptedNodeMap(acceptedNodeMap)
+	op.SetNodeToOsmId(nodeToOsmId)
+
+	gs := da.NewGraphStorageWithSize(len(es), n)
 	g := op.BuildGraph(es, gs, uint32(n), true)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))

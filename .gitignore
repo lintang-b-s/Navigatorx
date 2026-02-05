@@ -31,3 +31,6 @@ idk/
 *.mm
 cmd/ttf_generator/
 dataori/
+
+*.tpgr
+*.coordinate

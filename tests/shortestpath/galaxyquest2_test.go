@@ -14,6 +14,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
 
 /*
@@ -221,7 +222,13 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		adjList[v] = append(adjList[v], pairEdge{u, dist})
 	}
 
-	re, g, oldToNewVIdMap, _ := buildCRP(t, adjList, n, 11, 12)
+	nodeCoords := make([]osmparser.NodeCoord, 0)
+	for i := 0; i < n; i++ {
+		planet := galaxy[i]
+		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(planet.x+planet.z), float64(planet.y+planet.z)))
+	}
+
+	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, 7, 9)
 	s := 0
 	sid := oldToNewVIdMap[datastructure.Index(s)]
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1

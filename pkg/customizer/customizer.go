@@ -41,7 +41,7 @@ func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, logger 
 	}
 }
 
-func (c *Customizer) Customize(timeDependent bool, day string) error {
+func (c *Customizer) Customize(timeDependent bool, osmwayPWL map[int64]*da.PWL) error {
 
 	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 	var err error
@@ -68,31 +68,27 @@ func (c *Customizer) Customize(timeDependent bool, day string) error {
 		c.Build(costFunction)
 		c.logger.Sugar().Infof("Building stalling tables...")
 		m = metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, false)
-		m.BuildStallingTables(c.overlayGraph, c.graph)
-		err = m.WriteToFile(c.metricOutputFilePath)
-		if err != nil {
-			return err
-		}
-		c.logger.Sugar().Infof("Customization step completed successfully.")
+
 	} else {
+		if osmwayPWL == nil {
+			return fmt.Errorf("please define osmwayPWL")
+		}
+
 		c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
 
-		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
-		if err != nil {
-			return err
-		}
-		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, daySpeedProfile)
+		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, osmwayPWL)
 		c.BuildTD(costFunction)
 		c.logger.Sugar().Infof("Building stalling tables...")
 		c.debugShortcutsPWL()
 		m = metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, true)
-		m.BuildStallingTables(c.overlayGraph, c.graph)
-		err = m.WriteToFile(c.metricOutputFilePath)
-		if err != nil {
-			return err
-		}
-		c.logger.Sugar().Infof("Customization step completed successfully.")
 	}
+
+	m.BuildStallingTables(c.overlayGraph, c.graph)
+	err = m.WriteToFile(c.metricOutputFilePath)
+	if err != nil {
+		return err
+	}
+	c.logger.Sugar().Infof("Customization step completed successfully.")
 
 	return nil
 }

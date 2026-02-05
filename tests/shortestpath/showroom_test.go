@@ -10,11 +10,14 @@ import (
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
 
 /*
@@ -24,9 +27,9 @@ test data: https://drive.google.com/drive/folders/0B8zAOBDFU39pNTRYSm5jN1Njbzg?r
 
 tests selesai sekitar 5 -7 menit
 
-graph soal ini (lebih dense) ,beda dengan graph openstreetmap road networks
+shortcuts yang dihasilkan graph soal ini (jauh lebih banyak),beda dengan graph openstreetmap road networks
 
-my c++ solution (got AC on kattis: https://open.kattis.com/problems/showroom?tab=metadata): 
+my c++ solution (got AC on kattis: https://open.kattis.com/problems/showroom?tab=metadata):
 https://drive.google.com/file/d/1d1SQqB-8Y6EUvTlVPgrNwltpWpCqXmes/view?usp=sharing
 */
 
@@ -163,7 +166,14 @@ func SolveShowroom(t *testing.T, filepath string) {
 	tx--
 	ty--
 
-	re, g, oldToNewVIdMap, _ := buildCRP(t, adjList, r*c, 17, 18)
+	nodeCoords := make([]osmparser.NodeCoord, 0)
+	for i := 0; i < r; i++ {
+		for j := 0; j < c; j++ {
+			nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(j)))
+		}
+	}
+
+	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, r*c, 13, 16)
 
 	tnId := cellToNId(tx, ty)
 	tid := oldToNewVIdMap[datastructure.Index(tnId)]
@@ -173,7 +183,8 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 	minDist := pkg.INF_WEIGHT
 
-	for _, p := range pintuUjungs {
+	lock := sync.Mutex{}
+	calcSp := func(p pair) any {
 		snId := cellToNId(p.first, p.second)
 		sid := oldToNewVIdMap[datastructure.Index(snId)]
 
@@ -182,8 +193,20 @@ func SolveShowroom(t *testing.T, filepath string) {
 		crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
+		lock.Lock()
+		defer lock.Unlock()
 		minDist = math.Min(minDist, spLength)
+		return nil
 	}
+	workers := concurrent.NewWorkerPool[pair, any](50, len(pintuUjungs))
+
+	for _, p := range pintuUjungs {
+		workers.AddJob(p)
+	}
+
+	workers.Close()
+	workers.Start(calcSp)
+	workers.Wait()
 
 	ans := minDist
 	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)

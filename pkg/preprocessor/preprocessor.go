@@ -217,9 +217,11 @@ func (p *Preprocessor) SortByCellNumber() {
 
 			index := int(math.Floor(float64(vOldId) / 32))
 
-			isTraficLight := (nodeTrafficLight[index] & (1 << (vOldId % 32))) != 0
-			if isTraficLight {
-				p.graph.SetNodeTrafficLight(vId)
+			if len(nodeTrafficLight) > 0 {
+				isTraficLight := (nodeTrafficLight[index] & (1 << (vOldId % 32))) != 0
+				if isTraficLight {
+					p.graph.SetNodeTrafficLight(vId)
+				}
 			}
 
 			// update outedges & inedges
@@ -233,8 +235,10 @@ func (p *Preprocessor) SortByCellNumber() {
 				p.graph.SetEdgeInfo(outOffset, gsEdgeExtraInfos[oldOutEdge.GetEdgeId()]) // update edge extra info storage
 
 				indexRoundabout := int(math.Floor(float64(oldOutEdge.GetEdgeId()) / 32)) // update roundabout edge info
-				isRoundabout := (roundaboutFlags[indexRoundabout] & (1 << (oldOutEdge.GetEdgeId() % 32))) != 0
-				p.graph.SetRoundabout(outOffset, isRoundabout)
+				if len(roundaboutFlags) > 0 {
+					isRoundabout := (roundaboutFlags[indexRoundabout] & (1 << (oldOutEdge.GetEdgeId() % 32))) != 0
+					p.graph.SetRoundabout(outOffset, isRoundabout)
+				}
 
 				outEdge := p.graph.GetOutEdge(outOffset)
 				outEdge.SetEdgeId(outOffset)

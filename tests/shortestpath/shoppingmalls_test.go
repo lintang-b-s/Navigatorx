@@ -13,6 +13,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
 
 /*
@@ -145,7 +146,13 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		adjList[b] = append(adjList[b], pairEdge{a, pd.baDist})
 	}
 
-	re, g, oldToNewVIdMap, newToOldVidMap := buildCRP(t, adjList, N, 6, 7)
+	nodeCoords := make([]osmparser.NodeCoord, 0)
+	for i := 0; i < N; i++ {
+		placei := places[i]
+		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(placei.x), float64(placei.y*placei.floor)))
+	}
+
+	re, g, oldToNewVIdMap, newToOldVidMap := buildCRP(t, nodeCoords, adjList, N, 6, 7)
 
 	line, err = readLine(br)
 	if err != nil {

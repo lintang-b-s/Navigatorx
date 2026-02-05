@@ -74,7 +74,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 
 
 func (mp *MultilevelPartitioner) SaveToFile(name string) error {
-	return mp.writeMLPToMLPFile(fmt.Sprintf("crp_inertial_flow_%s.mlp", name))
+	return mp.writeMLPToMLPFile(fmt.Sprintf("./data/crp_inertial_flow_%s.mlp", name))
 }
 
 func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]datastructure.Index {

@@ -18,12 +18,16 @@ import (
 
 type node struct {
 	id    int64
-	coord nodeCoord
+	coord NodeCoord
 }
 
-type nodeCoord struct {
+type NodeCoord struct {
 	lat float64
 	lon float64
+}
+
+func NewNodeCoord(lat, lon float64) NodeCoord {
+	return NodeCoord{lat, lon}
 }
 
 type restriction struct {
@@ -41,7 +45,7 @@ type osmWay struct {
 type OsmParser struct {
 	wayNodeMap         map[int64]NodeType
 	relationMemberMap  map[int64]struct{}
-	acceptedNodeMap    map[int64]nodeCoord
+	acceptedNodeMap    map[int64]NodeCoord
 	barrierNodes       map[int64]bool
 	nodeTag            map[int64]map[int]int
 	tagStringIdMap     util.IDMap
@@ -58,7 +62,7 @@ func NewOSMParserV2() *OsmParser {
 	return &OsmParser{
 		wayNodeMap:         make(map[int64]NodeType),
 		relationMemberMap:  make(map[int64]struct{}),
-		acceptedNodeMap:    make(map[int64]nodeCoord),
+		acceptedNodeMap:    make(map[int64]NodeCoord),
 		barrierNodes:       make(map[int64]bool),
 		nodeTag:            make(map[int64]map[int]int),
 		tagStringIdMap:     util.NewIdMap(),
@@ -68,6 +72,15 @@ func NewOSMParserV2() *OsmParser {
 		osmWayDefaultSpeed: make(map[int64]float64),
 	}
 }
+
+func (o *OsmParser) SetAcceptedNodeMap(acceptedNodeMap map[int64]NodeCoord) {
+	o.acceptedNodeMap = acceptedNodeMap
+}
+
+func (o *OsmParser) SetNodeToOsmId(nodeToOsmId map[datastructure.Index]int64) {
+	o.nodeToOsmId = nodeToOsmId
+}
+
 func (o *OsmParser) GetTagStringIdMap() util.IDMap {
 	return o.tagStringIdMap
 }
@@ -251,7 +264,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 				p.maxNodeID = max(p.maxNodeID, int64(node.ID))
 
 				if _, ok := p.wayNodeMap[int64(node.ID)]; ok {
-					p.acceptedNodeMap[int64(node.ID)] = nodeCoord{
+					p.acceptedNodeMap[int64(node.ID)] = NodeCoord{
 						lat: node.Lat,
 						lon: node.Lon,
 					}
@@ -424,10 +437,10 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *datastructure.GraphSt
 
 	waySegment := []node{}
 	for _, wayNode := range way.Nodes {
-		nodeCoord := p.acceptedNodeMap[int64(wayNode.ID)]
+		NodeCoord := p.acceptedNodeMap[int64(wayNode.ID)]
 		nodeData := node{
 			id:    int64(wayNode.ID),
-			coord: nodeCoord,
+			coord: NodeCoord,
 		}
 		if p.isJunctionNode(int64(nodeData.id)) {
 
@@ -513,14 +526,14 @@ func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, s
 func (p *OsmParser) copyNode(nodeData node) node {
 	// use the same coordinate but different id & and the newID is not used
 	newMaxID := p.maxNodeID + 1
-	p.acceptedNodeMap[newMaxID] = nodeCoord{
+	p.acceptedNodeMap[newMaxID] = NodeCoord{
 		lat: nodeData.coord.lat,
 		lon: nodeData.coord.lon,
 	}
 	p.maxNodeID++
 	return node{
 		id: newMaxID,
-		coord: nodeCoord{
+		coord: NodeCoord{
 			lat: nodeData.coord.lat,
 			lon: nodeData.coord.lon,
 		},

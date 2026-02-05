@@ -14,6 +14,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
 
 /*
@@ -32,7 +33,7 @@ skip test cases yang jumlah edges nya > 600k, biar cepet
  https://drive.google.com/file/d/1vNQ7GQH1JJJn-Z0u4EW_Nsk9AvFsSfdS/view?usp=sharing
 
 
- graph soal ini (lebih dense) ,beda dengan graph openstreetmap road networks
+shortcuts yang dihasilkan graph soal ini (jauh lebih banyak),beda dengan graph openstreetmap road networks
 
 This test will be completed in approximately 10-15 minutes.
 */
@@ -225,7 +226,20 @@ func solve(t *testing.T, filepath string) {
 	adjList[last2] = append(adjList[last2], pairEdge{target, 5.0})
 
 	n := h*w*4 + 2
-	re, g, oldToNewVIdMap, _ := buildCRP(t, adjList, n, 11, 15)
+
+	nodeCoords := make([]osmparser.NodeCoord, 0)
+	for i := 0; i < h; i++ {
+		for j := 0; j < w; j++ {
+			for k := 0; k < 4; k++ {
+				nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(j)))
+			}
+		}
+	}
+
+	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(0), float64(0)))
+	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(h-1), float64(w-1)))
+
+	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, 7, 14)
 
 	crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 

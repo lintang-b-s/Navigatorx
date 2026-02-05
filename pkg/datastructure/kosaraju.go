@@ -76,18 +76,17 @@ func (g *Graph) RunKosaraju() {
 
 func (g *Graph) dfs(v Index, output *[]Index, visited []bool,
 	reversed bool) {
+	visited[v] = true
 
 	if !reversed {
 		g.ForOutEdgesOfWithId(v, func(e *OutEdge, id Index) {
 			if !visited[e.GetHead()] {
-				visited[e.GetHead()] = true
 				g.dfs(e.GetHead(), output, visited, reversed)
 			}
 		})
 	} else {
 		g.ForInEdgesOfWithId(v, func(e *InEdge, id Index) {
 			if !visited[e.GetTail()] {
-				visited[e.GetTail()] = true
 				g.dfs(e.GetTail(), output, visited, reversed)
 			}
 		})

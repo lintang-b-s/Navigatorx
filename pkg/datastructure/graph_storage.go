@@ -93,7 +93,11 @@ func (gs *GraphStorage) SetTrafficLight(nodeID Index) {
 func (gs *GraphStorage) GetTrafficLight(nodeID Index) bool {
 	index := int(math.Floor(float64(nodeID) / 32))
 
-	return (gs.nodeTrafficLight[index] & (1 << (nodeID % 32))) != 0
+	var tf bool
+	if len(gs.nodeTrafficLight) > 0 {
+		tf = (gs.nodeTrafficLight[index] & (1 << (nodeID % 32))) != 0
+	}
+	return tf
 }
 
 type EdgeExtraInfo struct {
@@ -167,7 +171,10 @@ func (gs *GraphStorage) SetWayTraffic(wayId int64) {
 func (gs *GraphStorage) GetEdgeExtraInfo(edgeID Index, reverse bool) (EdgeExtraInfo, bool) {
 
 	index := int(math.Floor(float64(edgeID) / 32))
-	roundabout := (gs.roundaboutFlag[index] & (1 << (edgeID % 32))) != 0
+	var roundabout bool
+	if len(gs.roundaboutFlag) > 0 {
+		roundabout = (gs.roundaboutFlag[index] & (1 << (edgeID % 32))) != 0
+	}
 	return gs.mapEdgeInfo[edgeID], roundabout
 }
 

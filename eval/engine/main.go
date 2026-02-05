@@ -16,7 +16,7 @@ import (
 
 var (
 	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
-	timeDependent         = flag.Bool("time_dependent", false, "Use Time-Dependent Customizable Route Planning")
+	timeDependent         = flag.Bool("time_dependent", true, "Use Time-Dependent Customizable Route Planning")
 	transitionMHTFile     = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
 )
 
