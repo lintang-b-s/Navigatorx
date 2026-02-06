@@ -4,7 +4,7 @@ import (
 	"context"
 	"flag"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
@@ -18,6 +18,7 @@ var (
 	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
 	timeDependent         = flag.Bool("time_dependent", false, "Use Time-Dependent Customizable Route Planning")
 	transitionMHTFile     = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
+	ttfsFile              = flag.String("ttfs_file", "./data/traveltime_profiles/day_speed_profile_monday.csv", "travel time function for all openstreetmap way filepath")
 )
 
 const (
@@ -32,19 +33,31 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger, *timeDependent, "monday")
+
+	var (
+		dayTTF map[int64]*da.PWL = make(map[int64]*da.PWL)
+	)
+
+	if *timeDependent {
+		dayTTF, err = da.ReadTravelTimeFunctions(*ttfsFile)
+		if err != nil {
+			panic(err)
+		}
+	}
+	
+	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger, *timeDependent, dayTTF)
 	if err != nil {
 		panic(err)
 	}
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), *leafBoundingBoxRadius, logger)
-	graph, err := datastructure.ReadGraph(graphFile)
+	graph, err := da.ReadGraph(graphFile)
 	if err != nil {
 		panic(err)
 	}
 
-	N, err := datastructure.ReadSparseMatrixFromFile[int](*transitionMHTFile, int(0),
+	N, err := da.ReadSparseMatrixFromFile[int](*transitionMHTFile, int(0),
 		func(a, b int) bool { return a == b })
 	if err != nil {
 		panic(err)

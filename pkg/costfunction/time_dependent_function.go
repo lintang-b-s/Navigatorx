@@ -6,14 +6,14 @@ import (
 )
 
 type TimeDependentFunction struct {
-	osmWaySpeed map[int64]*da.PWL
-	graph       *da.Graph
+	osmWayTTF map[int64]*da.PWL
+	graph     *da.Graph
 }
 
-func NewTimeDependentCostFunction(graph *da.Graph, osmWaySpeed map[int64]*da.PWL) *TimeDependentFunction {
+func NewTimeDependentCostFunction(graph *da.Graph, osmWayTTF map[int64]*da.PWL) *TimeDependentFunction {
 	tdf := &TimeDependentFunction{
-		osmWaySpeed: osmWaySpeed,
-		graph:       graph,
+		osmWayTTF: osmWayTTF,
+		graph:     graph,
 	}
 
 	return tdf
@@ -30,7 +30,7 @@ func (tf *TimeDependentFunction) GetWeight(e EdgeAttributes) float64 {
 func (tf *TimeDependentFunction) GetWeightPWL(e EdgeAttributes) *da.PWL {
 
 	eOsmWayId := tf.graph.GetOsmWayId(e.GetEdgeId())
-	osmSpeedPwl, ok := tf.osmWaySpeed[eOsmWayId]
+	ttfPWL, ok := tf.osmWayTTF[eOsmWayId]
 	if !ok {
 		defTravelTime := tf.GetWeight(e)
 		ps := make([]*da.Point, 1)
@@ -39,41 +39,24 @@ func (tf *TimeDependentFunction) GetWeightPWL(e EdgeAttributes) *da.PWL {
 		return constPWL
 	}
 
-	newpwl := da.NewPWL(make([]*da.Point, 0))
-
-	for _, sp := range osmSpeedPwl.GetPoints() {
-		// O(n), n = jumlah breakpoints osmSpeedPwl
-		eLength := e.GetLength() // m
-
-		eTravelTime := eLength / (sp.GetY() * 1000 / 60)
-		newpwl.AppendPoint(da.NewPoint(sp.GetX(), eTravelTime))
-	}
-	newpwl.UpdateMinMax()
-	if newpwl.Size() > 1 {
-		newpwl.CheckIsFIFO()
+	if ttfPWL.Size() > 2 {
+		return da.ImaiIriApprox(ttfPWL, pkg.EPSILON_IMAI_IRI_APPROX_PWL)
 	}
 
-	if newpwl.Size() > 2 {
-		return da.ImaiIriApprox(newpwl, pkg.EPSILON_IMAI_IRI_APPROX_PWL)
-	}
-
-	return newpwl
+	return ttfPWL
 }
 
 func (tf *TimeDependentFunction) GetWeightAtTime(e EdgeAttributes, time float64) float64 {
 
 	eOsmWayId := tf.graph.GetOsmWayId(e.GetEdgeId())
 
-	pwl, ok := tf.osmWaySpeed[eOsmWayId]
+	pwl, ok := tf.osmWayTTF[eOsmWayId]
 	if !ok {
 		defTravelTime := tf.GetWeight(e)
 		return defTravelTime
 	}
-	speed := pwl.Eval(time)
-
-	eLength := e.GetLength() // m
-	eTravelTime := eLength / (speed * 1000 / 60)
-	return eTravelTime
+	travelTimeSeconds := pwl.Eval(time) // in seconds
+	return travelTimeSeconds / 60.0
 }
 
 func (tf *TimeDependentFunction) GetTurnCost(turnType pkg.TurnType) float64 {

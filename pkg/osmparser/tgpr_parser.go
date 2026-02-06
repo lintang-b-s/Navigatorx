@@ -134,10 +134,13 @@ func (p *TGPRParser) ParseTGPRFile(coordFile, tgprFile string, logger *zap.Logge
 			if err != nil {
 				return nil, nil, err
 			}
+			t /= 10 //  dari dataset nya:the unit of time is 0.1 seconds
 			y, err = strconv.ParseFloat(ff[3+(j+1)], 64)
 			if err != nil {
 				return nil, nil, err
 			}
+			y /= 10
+
 			points = append(points, da.NewPoint(t, y))
 			mintt = math.Min(mintt, y)
 		}

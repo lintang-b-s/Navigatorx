@@ -2,6 +2,7 @@ package routing
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 func (crp *CRPRoutingEngine) GetHaversineDistanceFromUtoV(u, v datastructure.Index) float64 {
@@ -26,6 +27,23 @@ func (crp *CRPRoutingEngine) VerticeUandVAreConnected(u, v datastructure.Index) 
 	}
 
 	return crp.graph.CondensationGraphOrigintoDestinationConnected(u, v)
+}
+
+type target struct {
+	tId  da.Index
+	atId da.Index
+}
+
+func newTarget(t, atId da.Index) target {
+	return target{t, atId}
+}
+
+func (t target) gettId() da.Index {
+	return t.tId
+}
+
+func (t target) getatId() da.Index {
+	return t.atId
 }
 
 func removeDuplicates[T comparable](arr []T) []T {

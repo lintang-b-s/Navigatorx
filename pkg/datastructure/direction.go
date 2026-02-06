@@ -175,7 +175,7 @@ func (instr *Instruction) GetTurnDescription(clockwise bool) string {
 			description = fmt.Sprintf("Head toward %s", streetName)
 		}
 	case FINISH:
-		description = fmt.Sprint("you have arrived at your destination")
+		description = "you have arrived at your destination"
 	default:
 		dir, _ := getDirectionDescription(sign, instr, clockwise)
 		if dir == "" {

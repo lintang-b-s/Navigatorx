@@ -30,18 +30,17 @@ func main() {
 	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
 
 	var (
-		daySpeedProfile map[int64]*da.PWL = make(map[int64]*da.PWL)
+		dayTTF map[int64]*da.PWL = make(map[int64]*da.PWL)
 	)
 
 	if *timeDependent {
-		daySpeedProfile, err = da.ReadSpeedProfile(*ttfsFile)
+		dayTTF, err = da.ReadTravelTimeFunctions(*ttfsFile)
 		if err != nil {
 			panic(err)
 		}
-
 	}
 
-	err = custom.Customize(*timeDependent, daySpeedProfile)
+	err = custom.Customize(*timeDependent, dayTTF)
 	if err != nil {
 		panic(err)
 	}

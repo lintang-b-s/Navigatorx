@@ -259,7 +259,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 		curInfo = bs.backwardInfo[parentEdge]
 	}
 
-	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics, bs.engine.puCache, true)
+	unpacker := NewPathUnpacker(bs.engine.graph, bs.engine.overlayGraph, bs.engine.metrics, bs.engine.puCache, true, false)
 	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, bs.sCellNumber, bs.tCellNumber)
 
 	return bs.shortestTimeTravel, totalDistance, finalPath, finalEdgePath, true
@@ -351,7 +351,7 @@ func (bs *CRPBidirectionalSearch) graphSearch(source, target da.Index) {
 			vEntryId = offsetForward(vEntryId, bs.engine.graph.GetCellNumber(vId), bs.sCellNumber)
 
 			if vQueryLevel == 0 {
-				// if query level of v is 0, then v is in the same cell as s or t
+				// if query level of v is 0, then v is in the same cell as s or t in the lowest level
 				// then, we just do edge relaxation as usual in turn-aware dijkstra
 
 				_, vAlreadyVisited := bs.forwardInfo[vEntryId]

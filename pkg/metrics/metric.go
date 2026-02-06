@@ -22,8 +22,6 @@ type Metric struct {
 	entryStallingTables [][]float64 // stallingTables for vertice-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
 	exitStallingTables  [][]float64
 	costFunction        costfunction.CostFunction
-
-	costFunctionTD costfunction.CostFunction
 }
 
 func NewMetric(graph *da.Graph, costFunction costfunction.CostFunction, overlayWeights *da.OverlayWeights,
@@ -110,10 +108,6 @@ func (met *Metric) GetWeight(e costfunction.EdgeAttributes, time float64) float6
 	} else {
 		return met.costFunction.GetWeightAtTime(e, time)
 	}
-}
-
-func (met *Metric) GetWeightTD(e costfunction.EdgeAttributes, time float64) float64 {
-	return met.costFunctionTD.GetWeightAtTime(e, time)
 }
 
 func (met *Metric) GetEntryStallingTableCost(uId da.Index, offset da.Index) float64 {
@@ -212,7 +206,7 @@ func (met *Metric) WriteToFile(filename string) error {
 	return nil
 }
 
-func ReadFromFile(filename string, td bool, graph *da.Graph, day string, costFunction costfunction.CostFunction) (*Metric, error) {
+func ReadFromFile(filename string, td bool, graph *da.Graph, costFunction costfunction.CostFunction) (*Metric, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -363,11 +357,6 @@ func ReadFromFile(filename string, td bool, graph *da.Graph, day string, costFun
 
 	var metric *Metric
 	if td {
-		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
-		if err != nil {
-			return nil, err
-		}
-		costFunctionTD := costfunction.NewTimeDependentCostFunction(graph, daySpeedProfile)
 
 		metric = &Metric{
 			weightsTD:           da.NewOverlayWeightsTD(numWeights),
@@ -375,7 +364,6 @@ func ReadFromFile(filename string, td bool, graph *da.Graph, day string, costFun
 			exitStallingTables:  exitStallingTables,
 			timeDependent:       td,
 			costFunction:        costFunction,
-			costFunctionTD:      costFunctionTD,
 		}
 		metric.weightsTD.SetWeights(pwls)
 	} else {

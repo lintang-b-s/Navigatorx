@@ -110,26 +110,7 @@ func (c *Customizer) CustomizeDirect(td bool, day string) (*metrics.Metric, erro
 		m = metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, false)
 		m.BuildStallingTables(c.overlayGraph, c.graph)
 		c.logger.Sugar().Infof("Customization step completed successfully.")
-	} else {
-		c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
-
-		daySpeedProfile, err := da.ReadSpeedProfile(fmt.Sprintf("./data/traveltime_profiles/day_speed_profile_%v.csv", day))
-		if err != nil {
-			return nil, err
-		}
-		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, daySpeedProfile)
-		c.BuildTD(costFunction)
-		c.logger.Sugar().Infof("Building stalling tables...")
-		c.debugShortcutsPWL()
-		m = metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, true)
-		m.BuildStallingTables(c.overlayGraph, c.graph)
-		err = m.WriteToFile(c.metricOutputFilePath)
-		if err != nil {
-			return nil, err
-		}
-		c.logger.Sugar().Infof("Customization step completed successfully.")
 	}
-
 	return m, nil
 }
 

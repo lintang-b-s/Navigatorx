@@ -6,9 +6,9 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type CRPUniDijkstra struct {
-	engine             *CRPRoutingEngine
-	shortestTimeTravel float64
+type TDCRPUnidirectionalOneToManySearch struct {
+	engine              *CRPRoutingEngine
+	shortestTimeTravels map[da.Index]float64
 
 	forwardInfo   map[da.Index]VertexInfo
 	stallingEntry map[da.Index]float64
@@ -16,69 +16,90 @@ type CRPUniDijkstra struct {
 
 	pq        *da.MinHeap[da.CRPQueryKey]
 	overlayPq *da.MinHeap[da.CRPQueryKey]
-	tEntryId  da.Index
+	tEntryIds map[target]da.Index
 
+	startTime       float64
 	daySpeedProfile map[int64]*da.PWL
 
-	sCellNumber da.Pv
-	tCellNumber da.Pv
+	sCellNumber  da.Pv
+	tCellNumbers []da.Pv
+
+	targetsSettled map[da.Index]struct{}
+
+	viaVertices []da.ViaVertex
 
 	upperBound float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
 
-	numSettledNodes int
+	penalty                 bool // wether to use CRP-π or not (Evolution and Evaluation of the Penalty Method for Alternative Graphs, Kobitzsch et al.)
+	penaltyEdgeCost         map[da.PenaltiedEdge]float64
+	penaltyShortcutEdgeCost map[da.Index]float64
+	numSettledNodes         int
 }
 
-func NewCRPUniDijkstra(engine *CRPRoutingEngine) *CRPUniDijkstra {
-	return &CRPUniDijkstra{
+func NewTDCRPUnidirectionalOneToManySearch(engine *CRPRoutingEngine) *TDCRPUnidirectionalOneToManySearch {
+	return &TDCRPUnidirectionalOneToManySearch{
 		engine:      engine,
 		forwardInfo: make(map[da.Index]VertexInfo),
 		pq:          da.NewFourAryHeap[da.CRPQueryKey](),
 		overlayPq:   da.NewFourAryHeap[da.CRPQueryKey](),
 
-		stallingEntry: make(map[da.Index]float64),
-		stallingExit:  make(map[da.Index]float64),
+		viaVertices:             make([]da.ViaVertex, 0),
+		stallingEntry:           make(map[da.Index]float64),
+		stallingExit:            make(map[da.Index]float64),
+		penalty:                 false,
+		penaltyEdgeCost:         make(map[da.PenaltiedEdge]float64),
+		penaltyShortcutEdgeCost: make(map[da.Index]float64),
+		numSettledNodes:         0,
+		startTime:               0,
 
-		numSettledNodes: 0,
-
-		tEntryId: da.INVALID_VERTEX_ID,
+		tEntryIds:           make(map[target]da.Index),
+		shortestTimeTravels: make(map[da.Index]float64),
+		targetsSettled:      make(map[da.Index]struct{}),
 	}
 }
 
 /*
 implementation of:
-1. query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
-Networks,” Transportation Science [Preprint]. Available at:
-https://doi.org/10.1287/trsc.2014.0579.
-2. query phase: Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
+1. query phase: Baum, M. et al. (2016) “Dynamic Time-Dependent Route Planning in Road Networks
+with User Preferences,” in A.V. Goldberg and A.S. Kulikov (eds.) Experimental
+Algorithms. Cham: Springer International Publishing, pp. 33–49. Available at:
+https://doi.org/10.1007/978-3-319-38851-9_3
+
+2. one-to-many crp-query: https://patentimages.storage.googleapis.com/00/16/32/08bc539e7761fd/US20140107921A1.pdf or https://patents.google.com/patent/US20140107921A1/en
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
 let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortucts within any partition
 let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
-time complexity of CRP query is: O((n_p + m_p + k * \hat{m_p}) * log n)
+time complexity of TD-CRP query is: O((n_p + m_p + k * \hat{m_p}) * log n)
 */
-func (us *CRPUniDijkstra) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
-	[]da.OutEdge, bool) {
+func (us *TDCRPUnidirectionalOneToManySearch) ShortestPathOneToManySearch(asId da.Index, atIds []da.Index) (map[da.Index]float64, map[da.Index]float64, map[da.Index][]da.Coordinate,
+	map[da.Index][]da.OutEdge) {
 	// Our query algorithm takes as input a source arc as , a target arc at, the original graph G, the overlay graph
 	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
 	// asId exitPoint of outEdge u->s
 	// atId entryPoint of inEdge t->v
 
 	s := us.engine.graph.GetOutEdge(asId).GetHead()
-	t := us.engine.graph.GetInEdge(atId).GetTail()
-
 	us.sCellNumber = us.engine.graph.GetCellNumber(s)
-	us.tCellNumber = us.engine.graph.GetCellNumber(t)
+
+	ts := make([]target, 0, len(atIds))
+	us.tCellNumbers = make([]da.Pv, 0, len(atIds))
+	for _, atId := range atIds {
+		t := us.engine.graph.GetInEdge(atId).GetTail()
+		ts = append(ts, newTarget(t, atId))
+		us.tCellNumbers = append(us.tCellNumbers, us.engine.graph.GetCellNumber(t))
+	}
 
 	// for iterating outEdges, we need entryOffset.
 	sForwardId := us.engine.graph.GetEntryOffset(s) + da.Index(us.engine.graph.GetOutEdge(asId).GetEntryPoint())
 
 	sForwardId = offsetForward(sForwardId, us.engine.graph.GetCellNumber(s), us.sCellNumber)
 
-	us.shortestTimeTravel = 2 * pkg.INF_WEIGHT
+	us.startTime = util.GetCurrentSeconds()
 
-	us.forwardInfo[sForwardId] = NewVertexInfo(0, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	us.forwardInfo[sForwardId] = NewVertexInfo(us.startTime, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
-	us.pq.Insert(da.NewPriorityQueueNode(0, da.NewCRPQueryKey(s, sForwardId)))
+	us.pq.Insert(da.NewPriorityQueueNode(us.startTime, da.NewCRPQueryKey(s, sForwardId)))
 
 	finished := false
 
@@ -87,9 +108,15 @@ func (us *CRPUniDijkstra) ShortestPathSearch(asId, atId da.Index) (float64, floa
 		if finished {
 			break
 		}
+		// Customizable Route Planning In Road Networks, Daniel Delling, page 14:
+		// Each iteration of the algorithm takes the minimum-distance entry from the queue, representing either an
+		// overlay vertex u or a pair (u, i) from the original graph. If the entry is a pair, we scan it using the turn-aware
+		// version of Dijkstra’s algorithm (and look at its neighbors in G). Otherwise, we use the overlay graph at level
+		// lst (u), which does not have turns. In either case, the neighbors v of u are added to the priority queue with
+		// the appropriate distance labels. Note that a level transition occurs when u and v have different query levels;
 		if us.overlayPq.IsEmpty() || (!us.pq.IsEmpty() && us.pq.GetMinrank() < us.overlayPq.GetMinrank()) {
 			// search on graph level 1
-			finished = us.graphSearchUni(s, t)
+			finished = us.graphSearchUni(s, ts)
 			us.numSettledNodes++
 		} else {
 			// search on overlay graph
@@ -99,57 +126,62 @@ func (us *CRPUniDijkstra) ShortestPathSearch(asId, atId da.Index) (float64, floa
 
 	}
 
-	if us.shortestTimeTravel == 2*pkg.INF_WEIGHT {
-		return pkg.INF_WEIGHT, pkg.INF_WEIGHT, []da.Coordinate{}, []da.OutEdge{}, false
-	}
+	tdists := make(map[da.Index]float64, len(atIds))
+	tfinalPath := make(map[da.Index][]da.Coordinate, len(atIds))
+	tfinalEdgePath := make(map[da.Index][]da.OutEdge, len(atIds))
 
-	idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
-	curInfo := us.forwardInfo[us.tEntryId]
-	tEntryIdAdj := adjustForwardOffBit(da.Index(us.tEntryId))
+	for t, tEntryId := range us.tEntryIds {
+		idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
+		curInfo := us.forwardInfo[tEntryId]
+		tEntryIdAdj := adjustForwardOffBit(da.Index(tEntryId))
 
-	_, tOutEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(tEntryIdAdj)
-	toutEdgeId := tOutEdge.GetEdgeId()
-	tpair := newVertexEdgePair(t, toutEdgeId, true)
-	idPath = append(idPath, tpair)
+		_, tOutEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(tEntryIdAdj)
+		toutEdgeId := tOutEdge.GetEdgeId()
+		tpair := newVertexEdgePair(t.gettId(), toutEdgeId, true)
+		tpair.setTime(us.forwardInfo[tEntryId].GetTravelTime())
+		idPath = append(idPath, tpair)
 
-	for curInfo.GetParent().edge != sForwardId {
-		parent := curInfo.GetParent()
-		parentCopy := parent
+		for curInfo.GetParent().edge != sForwardId {
+			parent := curInfo.GetParent()
+			parentCopy := parent
 
-		if isOverlay(parentCopy.getEdge()) {
-			// shortcut
-			ovTT := us.forwardInfo[parentCopy.getEdge()].GetTravelTime()
-			parentCopy.setTravelTime(ovTT)
+			if isOverlay(parentCopy.getEdge()) {
+				// shortcut
+				adjustedForwardEdge := adjustOverlay(parentCopy.getEdge())
+				parentCopy.setEdge(adjustedForwardEdge)
 
-			adjustedForwardEdge := adjustOverlay(parentCopy.getEdge())
-			parentCopy.setEdge(adjustedForwardEdge)
+			} else {
 
-		} else {
+				adjustedForwardEdge := adjustForwardOffBit(parentCopy.getEdge())
+				parentCopy.setEdge(adjustedForwardEdge)
 
-			adjustedForwardEdge := adjustForwardOffBit(parentCopy.getEdge())
-			parentCopy.setEdge(adjustedForwardEdge)
+				inEdge := us.engine.graph.GetInEdge(parentCopy.getEdge())
+				_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+				parentCopy.setEdge(outEdge.GetEdgeId())
+			}
 
-			inEdge := us.engine.graph.GetInEdge(parentCopy.getEdge())
-			_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-			parentCopy.setEdge(outEdge.GetEdgeId())
+			parentCopy.setisOutEdge(true)
+			pEdge := parent.getEdge()
+			pTime := us.forwardInfo[pEdge].GetTravelTime()
+			parentCopy.setTime(pTime)
+			idPath = append(idPath, parentCopy)
 
+			curInfo = us.forwardInfo[parent.getEdge()]
 		}
 
-		parentCopy.setisOutEdge(true)
-		idPath = append(idPath, parentCopy)
+		idPath = util.ReverseG[vertexEdgePair](idPath)
 
-		curInfo = us.forwardInfo[parent.getEdge()]
+		unpacker := NewPathUnpacker(us.engine.graph, us.engine.overlayGraph, us.engine.metrics, us.engine.puCache, false,true)
+		finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))
+		tdists[t.getatId()] = totalDistance
+		tfinalPath[t.getatId()] = finalPath
+		tfinalEdgePath[t.getatId()] = finalEdgePath
 	}
 
-	idPath = util.ReverseG[vertexEdgePair](idPath)
-
-	unpacker := NewPathUnpacker(us.engine.graph, us.engine.overlayGraph, us.engine.metrics, us.engine.puCache, true)
-	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, us.sCellNumber, us.tCellNumber)
-
-	return us.shortestTimeTravel, totalDistance, finalPath, finalEdgePath, true
+	return us.shortestTimeTravels, tdists, tfinalPath, tfinalEdgePath
 }
 
-func (us *CRPUniDijkstra) graphSearchUni(source, target da.Index) bool {
+func (us *TDCRPUnidirectionalOneToManySearch) graphSearchUni(source da.Index, targets []target) bool {
 
 	//The query algorithm maintains a distance label d(u) for each entry u which can either be a vertex on the overlay or a pair (u, i) corresponding to the i-th entry point of u in the original graph.
 	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
@@ -157,29 +189,47 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target da.Index) bool {
 	// forward search  on graph level 1
 	queryKey, _ := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
-
+	uTime := queryKey.GetRank()
 	uId := uItem.GetNode()
 	uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
-	if uId == target {
-		us.shortestTimeTravel = us.forwardInfo[uEntryId].GetTravelTime()
-		us.tEntryId = uEntryId
+
+	for _, t := range targets {
+		_, alreadySettled := us.targetsSettled[t.gettId()]
+		if alreadySettled {
+			continue
+		}
+		if uId == t.gettId() {
+			us.targetsSettled[t.gettId()] = struct{}{}
+			us.shortestTimeTravels[t.getatId()] = us.forwardInfo[uEntryId].GetTravelTime() - us.startTime
+			us.tEntryIds[t] = uEntryId
+		}
+	}
+
+	if len(us.targetsSettled) == len(targets) {
 		return true
 	}
+
 	uEntryPoint := adjustForward(uEntryId, us.engine.graph.GetEntryOffset(uId))
 
 	// traverse outEdges of u
 	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
-
 		vId := outArc.GetHead()
-		if vId == uId {
-			return
-		}
 
 		// get query level of v l_st(v)
-		vQueryLevel := us.engine.overlayGraph.GetQueryLevel(us.sCellNumber, us.tCellNumber,
-			us.engine.graph.GetCellNumber(vId))
+		lowestVQueryLevel := uint8(255)
+		for _, tcellNumber := range us.tCellNumbers {
+			vQueryLevel := us.engine.overlayGraph.GetQueryLevel(us.sCellNumber, tcellNumber,
+				us.engine.graph.GetCellNumber(vId))
+			if vQueryLevel < lowestVQueryLevel {
+				lowestVQueryLevel = vQueryLevel
+			}
+		}
 
-		edgeWeight := us.engine.metrics.GetWeight(outArc, 0)
+		edgeWeight := us.engine.metrics.GetWeight(outArc, uTime)
+
+		if penaltyCost, penalized := us.penaltyEdgeCost[da.NewPenaltiedEdge(outArc.GetEdgeId(), true)]; us.penalty && penalized {
+			edgeWeight = penaltyCost
+		}
 
 		turnCost := us.engine.metrics.GetTurnCost(turnType)
 		if uId == source {
@@ -192,18 +242,16 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target da.Index) bool {
 		if newArrTime >= pkg.INF_WEIGHT {
 			return
 		}
-
 		vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
 		vEntryId = offsetForward(vEntryId, us.engine.graph.GetCellNumber(vId), us.sCellNumber)
 
-		if vQueryLevel == 0 {
+		if lowestVQueryLevel == 0 {
 			// if query level of v is 0, then v is in the same cell as s or t
 			// then, we just do edge relaxation as usual in turn-aware dijkstra
 
 			_, vAlreadyVisited := us.forwardInfo[vEntryId]
 			if vAlreadyVisited && newArrTime >= us.forwardInfo[vEntryId].GetTravelTime() {
 				// newArrTime is not better, do nothing
-
 				return
 			}
 
@@ -242,9 +290,9 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target da.Index) bool {
 				vVertex := us.engine.overlayGraph.GetVertex(v)
 
 				maxBoundaryVerticeLevel := vVertex.GetEntryPointSize()
-				if maxBoundaryVerticeLevel < vQueryLevel {
+				if maxBoundaryVerticeLevel < lowestVQueryLevel {
 					// to handle the case where the query level v is greater than the level where vertex v becomes the boundary vertex
-					vQueryLevel = uint8(maxBoundaryVerticeLevel)
+					lowestVQueryLevel = uint8(maxBoundaryVerticeLevel)
 				}
 
 				vertexInfo := NewVertexInfo(newArrTime,
@@ -256,14 +304,14 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target da.Index) bool {
 					newVertexEdgePair(vId, vEntryId, false))
 
 				us.forwardInfo[overlayVId] = vVertexInfo
-				if !vAlreadyVisited {
 
+				if !vAlreadyVisited {
 					us.overlayPq.Insert(da.NewPriorityQueueNode(
-						newArrTime, da.NewCRPQueryKey(v, da.Index(vQueryLevel))),
+						newArrTime, da.NewCRPQueryKey(v, da.Index(lowestVQueryLevel))),
 					)
 				} else {
 					us.overlayPq.DecreaseKey(da.NewPriorityQueueNode(
-						newArrTime, da.NewCRPQueryKey(v, da.Index(vQueryLevel))),
+						newArrTime, da.NewCRPQueryKey(v, da.Index(lowestVQueryLevel))),
 					)
 				}
 			}
@@ -273,11 +321,11 @@ func (us *CRPUniDijkstra) graphSearchUni(source, target da.Index) bool {
 	return false
 }
 
-func (us *CRPUniDijkstra) overlayGraphSearchUni() {
+func (us *TDCRPUnidirectionalOneToManySearch) overlayGraphSearchUni() {
 	// search on overlay graph
 	queryKey, _ := us.overlayPq.ExtractMin()
 	uItem := queryKey.GetItem()
-
+	uTime := queryKey.GetRank()
 	u := uItem.GetNode() // overlay vertex id
 
 	uId := onOverlayBit(u) // overlay vertex id | overlayOffset to get unique id in forwardInfo & backwardInfo
@@ -288,24 +336,31 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 	// for each out neighbors of u in level l, check if v already visited by backward search. if so, check whether we can improve shortestPath
 	// then if v not already visited or newArrTime to v is better, traverse to the next cell entry vertex w using outEdge of v.
 	us.engine.overlayGraph.ForOutNeighborsOf(u, uQueryLevel, func(v da.Index, wOffset da.Index) {
-		shortcutOutEdgeWeight := us.engine.metrics.GetShortcutWeight(wOffset, 0)
+		shortcutOutEdgeWeight := us.engine.metrics.GetShortcutWeight(wOffset, uTime)
+		if penaltyCost, penalized := us.penaltyShortcutEdgeCost[wOffset]; us.penalty && penalized {
+			shortcutOutEdgeWeight = penaltyCost
+		}
 
 		newArrTime := us.forwardInfo[uId].GetTravelTime() + shortcutOutEdgeWeight
 		if newArrTime >= pkg.INF_WEIGHT {
 			return
 		}
-		vVertex := us.engine.overlayGraph.GetVertex(v)
-
 		vId := onOverlayBit(v)
 		_, vAlreadyVisited := us.forwardInfo[vId]
-		if !vAlreadyVisited || (vAlreadyVisited && newArrTime < us.forwardInfo[vId].GetTravelTime()) {
+		if !vAlreadyVisited || newArrTime < us.forwardInfo[vId].GetTravelTime() {
 			us.forwardInfo[vId] = NewVertexInfo(newArrTime,
 				newVertexEdgePair(uVertex.GetOriginalVertex(), uId, false))
+
+			vVertex := us.engine.overlayGraph.GetVertex(v)
 
 			// traverse edge to next cell
 			vOriEdgeId := vVertex.GetOriginalEdge()
 			outEdge := us.engine.graph.GetOutEdge(vOriEdgeId)
-			edgeWeight := us.engine.metrics.GetWeight(outEdge, 0)
+			edgeWeight := us.engine.metrics.GetWeight(outEdge, newArrTime)
+
+			if penaltyCost, penalized := us.penaltyEdgeCost[da.NewPenaltiedEdge(outEdge.GetEdgeId(), true)]; us.penalty && penalized {
+				edgeWeight = penaltyCost
+			}
 
 			/*
 				We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
@@ -315,8 +370,16 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 			// w is in the next cell from v cell
 			w := vVertex.GetNeighborOverlayVertex()
 			wVertex := us.engine.overlayGraph.GetVertex(w)
-			wQueryLevel := us.engine.overlayGraph.GetQueryLevel(us.sCellNumber, us.tCellNumber,
-				wVertex.GetCellNumber())
+
+			lowestWQueryLevel := uint8(255)
+			for _, tcellNumber := range us.tCellNumbers {
+				wQueryLevel := us.engine.overlayGraph.GetQueryLevel(us.sCellNumber, tcellNumber,
+					wVertex.GetCellNumber())
+				if wQueryLevel < lowestWQueryLevel {
+					lowestWQueryLevel = wQueryLevel
+				}
+			}
+
 			originalW := wVertex.GetOriginalVertex()
 
 			newArrTime = us.forwardInfo[vId].GetTravelTime() + edgeWeight
@@ -325,7 +388,7 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 				return
 			}
 
-			if wQueryLevel == 0 {
+			if lowestWQueryLevel == 0 {
 				// w is in the same cell as s or t
 
 				wEntryId := us.engine.graph.GetEntryOffset(originalW) + da.Index(outEdge.GetEntryPoint())
@@ -336,7 +399,6 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 				// update travelTime to reach entry point of w and insert entryPoint of w to forwardPq
 				_, wAlreadyVisited := us.forwardInfo[wEntryId]
 				if wAlreadyVisited && newArrTime >= us.forwardInfo[wEntryId].GetTravelTime() {
-
 					return
 				}
 
@@ -364,21 +426,23 @@ func (us *CRPUniDijkstra) overlayGraphSearchUni() {
 						newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
 
 					maxBoundaryVerticeLevel := wVertex.GetEntryPointSize()
-					if maxBoundaryVerticeLevel < wQueryLevel {
-						wQueryLevel = uint8(maxBoundaryVerticeLevel)
+					if maxBoundaryVerticeLevel < lowestWQueryLevel {
+						lowestWQueryLevel = uint8(maxBoundaryVerticeLevel)
 					}
 
 					if !wAlreadyVisited {
 						us.overlayPq.Insert(da.NewPriorityQueueNode(
-							newArrTime, da.NewCRPQueryKey(w, da.Index(wQueryLevel))),
+							newArrTime, da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel))),
 						)
 					} else {
 						us.overlayPq.DecreaseKey(da.NewPriorityQueueNode(
-							newArrTime, da.NewCRPQueryKey(w, da.Index(wQueryLevel))),
+							newArrTime, da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel))),
 						)
 					}
+
 				}
 			}
 		}
 	})
+
 }

@@ -4,12 +4,13 @@ import (
 	"context"
 	"flag"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"go.uber.org/zap"
 )
@@ -32,19 +33,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger, *timeDependent, "monday")
+
+	tgprParser := osmparser.NewTPGRParser()
+
+	_, osmWayProfile, err := tgprParser.ParseTGPRFile("./data/NY/NY.coordinate", "./data/NY/NY.tpgr",
+		logger)
+	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger, *timeDependent, osmWayProfile)
 	if err != nil {
 		panic(err)
 	}
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), *leafBoundingBoxRadius, logger)
-	graph, err := datastructure.ReadGraph(graphFile)
+	graph, err := da.ReadGraph(graphFile)
 	if err != nil {
 		panic(err)
 	}
 
-	N, err := datastructure.ReadSparseMatrixFromFile[int](*transitionMHTFile, int(0),
+	N, err := da.ReadSparseMatrixFromFile[int](*transitionMHTFile, int(0),
 		func(a, b int) bool { return a == b })
 	if err != nil {
 		panic(err)

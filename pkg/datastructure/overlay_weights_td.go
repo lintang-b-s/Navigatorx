@@ -20,9 +20,9 @@ type OverlayWeightsTD struct {
 
 func (ow *OverlayWeightsTD) GetWeightAtTime(i Index, time float64) float64 {
 	ow.lock.RLock()
-	shortcutWeight := ow.weights[i].Eval(time)
+	shortcutWeight := ow.weights[i].Eval(time)  // in seconds
 	ow.lock.RUnlock()
-	return shortcutWeight
+	return shortcutWeight / 60.0
 }
 
 func (ow *OverlayWeightsTD) GetWeightPWL(i Index) *PWL {

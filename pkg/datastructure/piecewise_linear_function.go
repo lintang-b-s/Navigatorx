@@ -13,7 +13,7 @@ import (
 // periodic piecewise linear function
 // for implementing td-crp: https://link-springer-com.ezproxy.ugm.ac.id/chapter/10.1007/978-3-319-38851-9_3
 type PWL struct {
-	points   []*Point // x=departure time , y=travel time
+	points   []*Point // x=departure time , y=travel time (in seconds)
 	min, max float64
 }
 
@@ -775,7 +775,7 @@ func modulo(x, m float64) float64 {
 	return xx
 }
 
-func ReadSpeedProfile(filepath string) (map[int64]*PWL, error) {
+func ReadTravelTimeFunctions(filepath string) (map[int64]*PWL, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return nil, err
@@ -807,11 +807,11 @@ func ReadSpeedProfile(filepath string) (map[int64]*PWL, error) {
 				return nil, err
 			}
 
-			speed, err := strconv.ParseFloat(row[colIdx], 64)
+			travelTime, err := strconv.ParseFloat(row[colIdx], 64)
 			if err != nil {
 				return nil, err
 			}
-			points = append(points, NewPoint(timeSec, speed))
+			points = append(points, NewPoint(timeSec, travelTime))
 		}
 
 		osmID, err := strconv.ParseInt(colName, 10, 64)

@@ -12,17 +12,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
 
 /*
 taken from: https://2023.nwerc.eu/main/problem-set.pdf
-
-karena Customizable Route Planning only support point-to-point shortest path,
-dan soal ini butuh compute shortest path distance from planet 1 to other planets..
-test ini menjalankan query CRP dari source ke other vertices satu persatu
 
 test data: https://chipcie.wisv.ch/archive/2023/nwerc/solutions.zip
 exclude test cases that contains > 50k edges or > 30k vertices, to speed up the testings,
@@ -230,22 +226,30 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 
 	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, 7, 9)
 	s := 0
-	sid := oldToNewVIdMap[datastructure.Index(s)]
+	sid := oldToNewVIdMap[da.Index(s)]
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 
 	dist := make(map[int]float64)
 	dist[s] = 0
 
 	t.Logf("calculating shortest paths from planet 1 to other planets.....\n")
+
+	atIds := make([]da.Index, 0, n)
+
+	atIdTotId := make(map[da.Index]int)
 	for v := 1; v < n; v++ {
-		crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 
-		tid := oldToNewVIdMap[datastructure.Index(v)]
+		tid := oldToNewVIdMap[da.Index(v)]
 		at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
+		atIds = append(atIds, at)
+		atIdTotId[at] = v
+	}
+	crpQuery := routing.NewCRPUniDijkstraOneToMany(re.GetRoutingEngine())
 
-		spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
-
-		dist[v] = spLength
+	spLengths, _, _, _ := crpQuery.ShortestPathOneToManySearch(as, atIds)
+	for atId, spLength := range spLengths {
+		t := atIdTotId[atId]
+		dist[t] = spLength
 	}
 
 	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)

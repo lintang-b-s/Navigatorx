@@ -371,6 +371,10 @@ func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge,
 	}
 }
 
+func (g *Graph) GetNumberOfOutEdges(u Index) Index {
+	return g.vertices[u+1].firstOut - g.vertices[u].firstOut
+}
+
 func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 
@@ -441,6 +445,13 @@ func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail,
 		entryId := g.GetVertex(e.head).GetFirstIn() + Index(e.GetEntryPoint())
 
 		handle(e, g.GetExitOrder(tail, Index(idx)), e.head, tail, entryId, percentage, Index(idx))
+	}
+}
+
+func (g *Graph) ForVertices(handle func(v *Vertex)) {
+	for _, v := range g.vertices {
+
+		handle(v)
 	}
 }
 

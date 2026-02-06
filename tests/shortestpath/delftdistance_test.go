@@ -33,9 +33,7 @@ skip test cases yang jumlah edges nya > 600k, biar cepet
  https://drive.google.com/file/d/1vNQ7GQH1JJJn-Z0u4EW_Nsk9AvFsSfdS/view?usp=sharing
 
 
-shortcuts yang dihasilkan graph soal ini (jauh lebih banyak),beda dengan graph openstreetmap road networks
 
-This test will be completed in approximately 10-15 minutes.
 */
 
 func solve(t *testing.T, filepath string) {

@@ -27,7 +27,6 @@ test data: https://drive.google.com/drive/folders/0B8zAOBDFU39pNTRYSm5jN1Njbzg?r
 
 tests selesai sekitar 5 -7 menit
 
-shortcuts yang dihasilkan graph soal ini (jauh lebih banyak),beda dengan graph openstreetmap road networks
 
 my c++ solution (got AC on kattis: https://open.kattis.com/problems/showroom?tab=metadata):
 https://drive.google.com/file/d/1d1SQqB-8Y6EUvTlVPgrNwltpWpCqXmes/view?usp=sharing
@@ -200,6 +199,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	}
 	workers := concurrent.NewWorkerPool[pair, any](50, len(pintuUjungs))
 
+	// TODO: add many-to-many crp query biar cepet, ref: https://patentimages.storage.googleapis.com/00/16/32/08bc539e7761fd/US20140107921A1.pdf
 	for _, p := range pintuUjungs {
 		workers.AddJob(p)
 	}

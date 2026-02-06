@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
@@ -26,30 +26,34 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	var (
+		daySpeedProfile map[int64]*da.PWL = make(map[int64]*da.PWL)
+	)
 	rand.Seed(uint64(time.Now().UnixNano()))
-	routingEngine, err := engine.NewEngine("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger, *timeDependent, "monday")
+	routingEngine, err := engine.NewEngine("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger, *timeDependent, daySpeedProfile)
 	if err != nil {
 		panic(err)
 	}
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), *leafBoundingBoxRadius, logger)
-	graph, err := datastructure.ReadGraph("./data/original.graph")
+	graph, err := da.ReadGraph("./data/original.graph")
 	if err != nil {
 		panic(err)
 	}
-	var N *datastructure.SparseMatrix[int]
+	var N *da.SparseMatrix[int]
 	_, err = os.Stat("./data/omm_transition_history_id.mm")
 	if err == nil {
 		logger.Info("reading transition matrix from file...")
 
-		N, err = datastructure.ReadSparseMatrixFromFile[int]("./data/omm_transition_history_id.mm", int(0),
+		N, err = da.ReadSparseMatrixFromFile[int]("./data/omm_transition_history_id.mm", int(0),
 			func(a, b int) bool { return a == b })
 		if err != nil {
 			panic(err)
 		}
 	} else {
-		N = datastructure.NewSparseMatrix[int](graph.NumberOfEdges(), graph.NumberOfEdges(),
+		N = da.NewSparseMatrix[int](graph.NumberOfEdges(), graph.NumberOfEdges(),
 			0, func(a, b int) bool { return a == b })
 	}
 
@@ -86,9 +90,9 @@ func main() {
 
 }
 
-func RandomCoordinate(bb *datastructure.BoundingBox) datastructure.Coordinate {
+func RandomCoordinate(bb *da.BoundingBox) da.Coordinate {
 
 	lat := bb.GetMinLat() + rand.Float64()*(bb.GetMaxLat()-bb.GetMinLat())
 	lon := bb.GetMinLon() + rand.Float64()*(bb.GetMaxLon()-bb.GetMinLon())
-	return datastructure.NewCoordinate(lat, lon)
+	return da.NewCoordinate(lat, lon)
 }

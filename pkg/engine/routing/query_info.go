@@ -8,7 +8,7 @@ type vertexEdgePair struct {
 	isOutEdge   bool
 	outInEdgeId datastructure.Index
 	tSec        float64
-	travelTime  float64
+	queryLevel  uint8
 }
 
 func (ve *vertexEdgePair) getEdge() datastructure.Index {
@@ -27,14 +27,6 @@ func (ve *vertexEdgePair) setTime(tSec float64) {
 	ve.tSec = tSec
 }
 
-func (ve *vertexEdgePair) setTravelTime(tt float64) {
-	ve.travelTime = tt
-}
-
-func (ve *vertexEdgePair) getTravelTime() float64 {
-	return ve.travelTime
-}
-
 func (ve *vertexEdgePair) getTime() float64 {
 	return ve.tSec
 }
@@ -49,6 +41,14 @@ func (ve *vertexEdgePair) setisOutEdge(is bool) {
 
 func (ve *vertexEdgePair) isOut() bool {
 	return ve.isOutEdge
+}
+
+func (ve *vertexEdgePair) setQueryLevel(queryLevel uint8) {
+	ve.queryLevel = queryLevel
+}
+
+func (ve *vertexEdgePair) getQueryLevel() uint8 {
+	return ve.queryLevel
 }
 
 func newVertexEdgePair(vertex, edge datastructure.Index, isOutEdge bool) vertexEdgePair {
