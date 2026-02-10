@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	osmFile = flag.String("osm_file", "new_york_city.osm.pbf", "Openstreetmap .pbf filename")
-	mlpFile = flag.String("mlp_file", "crp_inertial_flow_new_york_city.mlp", "Multilevel partition filename")
+	osmFile = flag.String("osm_file", "diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
+	mlpFile = flag.String("mlp_file", "crp_inertial_flow_diy_solo_semarang.mlp", "Multilevel partition filename")
 )
 
 func main() {

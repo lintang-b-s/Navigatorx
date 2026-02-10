@@ -306,7 +306,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 
 	for nodeID, nodeIDX := range p.nodeIDMap {
 		if val, ok := p.nodeTag[int64(nodeID)][p.tagStringIdMap.GetID(TRAFFIC_LIGHT)]; ok && val == 1 {
-			graphStorage.SetTrafficLight(nodeIDX)
+			graphStorage.SetTrafficLight(nodeIDX, true)
 		}
 	}
 
@@ -563,7 +563,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	distance := 0.0
 	for i := 0; i < len(segment); i++ {
 		if p.nodeTag[int64(segment[i].id)][p.tagStringIdMap.GetID(TRAFFIC_LIGHT)] == 1 {
-			graphStorage.SetWayTraffic(id)
 
 			p.trafficEdges = append(p.trafficEdges, datastructure.Index(len(*scannedEdges)))
 		}
@@ -733,56 +732,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		)
 
 		*scannedEdges = append(*scannedEdges, e)
-	}
-}
-
-func roadTypeSpeed(roadType string) float64 {
-	switch roadType {
-	case "motorway":
-		return 80
-	default:
-		return roadTypeMaxSpeedOsm(roadType) * NERF_MAXSPEED_OSM_REALISTIC
-	}
-}
-
-func roadTypeMaxSpeedOsm(roadType string) float64 {
-	switch roadType {
-	case "motorway":
-		return 80
-	case "trunk":
-		return 60
-	case "primary":
-		return 50
-	case "secondary":
-		return 40
-	case "tertiary":
-		return 40
-	case "unclassified":
-		return 40
-	case "residential":
-		return 30
-	case "service":
-		return 20
-	case "motorway_link":
-		return 70
-	case "trunk_link":
-		return 60
-	case "primary_link":
-		return 50
-	case "secondary_link":
-		return 40
-	case "tertiary_link":
-		return 40
-	case "living_street":
-		return 5
-	case "road":
-		return 20
-	case "track":
-		return 15
-	case "motorroad":
-		return 90
-	default:
-		return 30
 	}
 }
 

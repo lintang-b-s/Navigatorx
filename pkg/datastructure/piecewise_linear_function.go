@@ -135,7 +135,6 @@ func (pwl *PWL) Eval(time float64) float64 {
 	p = pwl.get(len(pwl.points) - 1)
 
 	// linear interpolation
-
 	m := (q.GetY() - p.GetY()) / (q.GetX() - p.GetX())
 	res := m*(x-p.GetX()) + p.GetY()
 
@@ -775,7 +774,7 @@ func modulo(x, m float64) float64 {
 	return xx
 }
 
-func ReadTravelTimeFunctions(filepath string) (map[int64]*PWL, error) {
+func ReadTravelTimeFunctions(filepath string) (map[Index]*PWL, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return nil, err
@@ -792,7 +791,7 @@ func ReadTravelTimeFunctions(filepath string) (map[int64]*PWL, error) {
 	header := records[0]
 	timeId := 0
 
-	ttProfile := make(map[int64]*PWL)
+	ttProfile := make(map[Index]*PWL)
 
 	for colIdx, colName := range header {
 		if colIdx == timeId {
@@ -814,12 +813,12 @@ func ReadTravelTimeFunctions(filepath string) (map[int64]*PWL, error) {
 			points = append(points, NewPoint(timeSec, travelTime))
 		}
 
-		osmID, err := strconv.ParseInt(colName, 10, 64)
+		eId, err := ParseIndex(colName)
 		if err != nil {
 			return nil, err
 		}
 
-		ttProfile[osmID] = NewPWL(points)
+		ttProfile[eId] = NewPWL(points)
 	}
 
 	return ttProfile, nil

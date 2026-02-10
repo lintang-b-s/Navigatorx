@@ -2,14 +2,12 @@ package datastructure
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/dsnet/compress/bzip2"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"golang.org/x/exp/constraints"
 )
 
@@ -164,7 +162,7 @@ func (sm *SparseMatrix[T]) WriteToFile(filename string) error {
 
 func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filename string,
 	zero T, eq func(a, b T) bool) (*SparseMatrix[T], error) {
-	
+
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, err
@@ -180,18 +178,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 
 	br := bufio.NewReader(bz)
 
-	readLine := func() (string, error) {
-		line, err := br.ReadString('\n')
-		if err != nil {
-			if errors.Is(err, io.EOF) && len(line) > 0 {
-			} else if err != nil {
-				return "", err
-			}
-		}
-		return strings.TrimRight(line, "\r\n"), nil
-	}
-
-	line, err := readLine()
+	line, err := util.ReadLine(br)
 	if err != nil {
 		return nil, err
 	}
@@ -212,7 +199,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	sm.rows = make([]int, rowsLen)
 
 	// vals
-	line, err = readLine()
+	line, err = util.ReadLine(br)
 	if err != nil {
 		return nil, err
 	}
@@ -237,7 +224,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	}
 
 	// cols
-	line, err = readLine()
+	line, err = util.ReadLine(br)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +242,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	}
 
 	// rows
-	line, err = readLine()
+	line, err = util.ReadLine(br)
 	if err != nil {
 		return nil, err
 	}

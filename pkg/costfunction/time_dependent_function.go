@@ -6,14 +6,14 @@ import (
 )
 
 type TimeDependentFunction struct {
-	osmWayTTF map[int64]*da.PWL
-	graph     *da.Graph
+	edgeTTFs map[da.Index]*da.PWL
+	graph    *da.Graph
 }
 
-func NewTimeDependentCostFunction(graph *da.Graph, osmWayTTF map[int64]*da.PWL) *TimeDependentFunction {
+func NewTimeDependentCostFunction(graph *da.Graph, edgeTTFs map[da.Index]*da.PWL) *TimeDependentFunction {
 	tdf := &TimeDependentFunction{
-		osmWayTTF: osmWayTTF,
-		graph:     graph,
+		edgeTTFs: edgeTTFs,
+		graph:    graph,
 	}
 
 	return tdf
@@ -29,8 +29,7 @@ func (tf *TimeDependentFunction) GetWeight(e EdgeAttributes) float64 {
 
 func (tf *TimeDependentFunction) GetWeightPWL(e EdgeAttributes) *da.PWL {
 
-	eOsmWayId := tf.graph.GetOsmWayId(e.GetEdgeId())
-	ttfPWL, ok := tf.osmWayTTF[eOsmWayId]
+	ttfPWL, ok := tf.edgeTTFs[e.GetOriginalEdgeId()]
 	if !ok {
 		defTravelTime := tf.GetWeight(e)
 		ps := make([]*da.Point, 1)
@@ -48,9 +47,7 @@ func (tf *TimeDependentFunction) GetWeightPWL(e EdgeAttributes) *da.PWL {
 
 func (tf *TimeDependentFunction) GetWeightAtTime(e EdgeAttributes, time float64) float64 {
 
-	eOsmWayId := tf.graph.GetOsmWayId(e.GetEdgeId())
-
-	pwl, ok := tf.osmWayTTF[eOsmWayId]
+	pwl, ok := tf.edgeTTFs[e.GetOriginalEdgeId()]
 	if !ok {
 		defTravelTime := tf.GetWeight(e)
 		return defTravelTime

@@ -45,7 +45,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
 	nodeIDs := mp.graph.GetVerticeIds()
 
-	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l-1, mp.u[mp.l-1])
+	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l, mp.u[mp.l-1])
 	if len(nodeIDs) > mp.u[mp.l-1] {
 
 		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger)
@@ -54,24 +54,22 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	} else {
 		mp.overlayNodes[mp.l-1] = [][]datastructure.Index{nodeIDs}
 	}
-	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l-1, len(mp.overlayNodes[mp.l-1]))
+	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.overlayNodes[mp.l-1]))
 
 	// next partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
-		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level, mp.u[level])
+		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
 		for cellId, cell := range mp.overlayNodes[level+1] {
 			inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger)
 			inertialFlowPartitioner.Partition(cell)
 
 			partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
-			mp.logger.Sugar().Infof("level %d, cellId %d done, total cells: %d", level, cellId, len(partitions))
+			mp.logger.Sugar().Infof("level %d, cellId %d done, total cells: %d", level+1, cellId, len(partitions))
 			mp.overlayNodes[level] = append(mp.overlayNodes[level], partitions...)
 		}
-		mp.logger.Sugar().Infof("level %d total cells: %d", level, len(mp.overlayNodes[level]))
+		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.overlayNodes[level]))
 	}
 }
-
-
 
 func (mp *MultilevelPartitioner) SaveToFile(name string) error {
 	return mp.writeMLPToMLPFile(fmt.Sprintf("./data/crp_inertial_flow_%s.mlp", name))

@@ -83,20 +83,20 @@ func (v *Vertex) GetTurnTablePtr() Index {
 
 // outedge enters vertex head at entryPoint
 type OutEdge struct {
-	weight     float64 // minute
-	dist       float64 // meter
-	edgeId     Index
-	head       Index
-	entryPoint int
+	weight            float64 // minute
+	dist              float64 // meter
+	edgeId, oriEdgeId Index
+	head              Index
+	entryPoint        int
 }
 
 // inedge exits vertex tail at exitPoint
 type InEdge struct {
-	weight    float64 // minute
-	dist      float64 // meter
-	edgeId    Index
-	tail      Index
-	exitPoint int
+	weight            float64 // minute
+	dist              float64 // meter
+	edgeId, oriEdgeId Index
+	tail              Index
+	exitPoint         int
 }
 
 func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint int) *OutEdge {
@@ -158,6 +158,14 @@ func (e *OutEdge) SetEntryPoint(p int) {
 	e.entryPoint = p
 }
 
+func (e *OutEdge) SetOriginalEdgeId(oriEdgeId Index) {
+	e.oriEdgeId = oriEdgeId
+}
+
+func (e *OutEdge) GetOriginalEdgeId() Index {
+	return e.oriEdgeId
+}
+
 func (e *OutEdge) GetEdgeId() Index {
 	return e.edgeId
 }
@@ -203,6 +211,14 @@ func (e *InEdge) SetTailId(tailId Index) {
 
 func (e *InEdge) SetEdgeId(edgeId Index) {
 	e.edgeId = edgeId
+}
+
+func (e *InEdge) SetOriginalEdgeId(oriEdgeId Index) {
+	e.oriEdgeId = oriEdgeId
+}
+
+func (e *InEdge) GetOriginalEdgeId() Index {
+	return e.oriEdgeId
 }
 
 type SubVertex struct {
@@ -618,12 +634,28 @@ func (g *Graph) SetRoundabout(edgeID Index, isRoundabout bool) {
 	g.graphStorage.SetRoundabout(edgeID, isRoundabout)
 }
 
+func (g *Graph) IsTrafficLight(vertexId Index) bool {
+	return g.graphStorage.GetTrafficLight(vertexId)
+}
+
+
+// O(V_G + E_G), V_G=number of sccs/number of vertices in condensation graph^scc, E_G=number of edges in condensation graph^scc
+func (g *Graph) VerticeUandVAreConnected(u, v Index) bool {
+	sccOfU := g.GetSCCOfAVertex(u)
+	sccOfV := g.GetSCCOfAVertex(v)
+	if sccOfU == sccOfV {
+		return true
+	}
+
+	return g.CondensationGraphOrigintoDestinationConnected(u, v) // O(V_G + E_G), V_G=number of sccs/number of vertices in condensation graph^scc, E_G=number of edges in condensation graph^scc
+}
+
 func (g *Graph) GetNodeTrafficLight() []Index {
 	return g.graphStorage.nodeTrafficLight
 }
 
-func (g *Graph) SetNodeTrafficLight(vId Index) {
-	g.graphStorage.SetTrafficLight(vId)
+func (g *Graph) SetNodeTrafficLight(vId Index, yes bool) {
+	g.graphStorage.SetTrafficLight(vId, yes)
 }
 
 func (g *Graph) GetHaversineDistanceFromUtoV(u, v Index) float64 {
@@ -669,19 +701,6 @@ func (g *Graph) GetStreetDirection(edgeId Index) [2]bool {
 func (g *Graph) GetOsmWayId(edgeId Index) int64 {
 	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
 	return edgeInfo.osmWayId
-}
-
-func (g *Graph) IsTrafficLight(vertexId Index) bool {
-	return g.graphStorage.GetTrafficLight(vertexId)
-}
-
-func (g *Graph) IsWayContainTrafficLight(wayId int64) bool {
-	return g.graphStorage.isWayTrafficLight(wayId)
-}
-
-func (g *Graph) IsEdgeContainTrafficLight(edgeId Index) bool {
-	wayId := g.GetOsmWayId(edgeId)
-	return g.graphStorage.isWayTrafficLight(wayId)
 }
 
 func (g *Graph) GetEdgeGeometry(edgeID Index) []Coordinate {

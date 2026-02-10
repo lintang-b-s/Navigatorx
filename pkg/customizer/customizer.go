@@ -41,20 +41,20 @@ func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, logger 
 	}
 }
 
-func (c *Customizer) Customize(timeDependent bool, osmwayPWL map[int64]*da.PWL) error {
+func (c *Customizer) Customize(timeDependent bool, edgeTTFs map[da.Index]*da.PWL) (*metrics.Metric, error) {
 
 	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 	var err error
 	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
 	c.graph, err = da.ReadGraph(c.graphFilePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	c.logger.Sugar().Infof("Reading overlay graph from %s", c.overlayGraphFilePath)
 	c.overlayGraph, err = da.ReadOverlayGraph(c.overlayGraphFilePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
@@ -70,13 +70,13 @@ func (c *Customizer) Customize(timeDependent bool, osmwayPWL map[int64]*da.PWL) 
 		m = metrics.NewMetric(c.graph, costFunction, c.ow, c.owtd, false)
 
 	} else {
-		if osmwayPWL == nil {
-			return fmt.Errorf("please define osmwayPWL")
+		if edgeTTFs == nil {
+			return nil, fmt.Errorf("please define edgeTTFs")
 		}
 
 		c.owtd = da.NewOverlayWeightsTD(c.overlayGraph.GetWeightVectorSize())
 
-		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, osmwayPWL)
+		costFunction := costfunction.NewTimeDependentCostFunction(c.graph, edgeTTFs)
 		c.BuildTD(costFunction)
 		c.logger.Sugar().Infof("Building stalling tables...")
 		c.debugShortcutsPWL()
@@ -86,11 +86,11 @@ func (c *Customizer) Customize(timeDependent bool, osmwayPWL map[int64]*da.PWL) 
 	m.BuildStallingTables(c.overlayGraph, c.graph)
 	err = m.WriteToFile(c.metricOutputFilePath)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	c.logger.Sugar().Infof("Customization step completed successfully.")
 
-	return nil
+	return m, nil
 }
 
 // just for shortest path test
@@ -212,7 +212,7 @@ func (c *Customizer) buildLowestLevel(
 				travelTime[startInEdgeOffset] = 0
 
 				pq.Insert(da.NewPriorityQueueNode(0,
-					da.NewCRPQueryKey(start, startInEdgeOffset)))
+					da.NewDijkstraKey(start, startInEdgeOffset)))
 
 				for !pq.IsEmpty() {
 					pqNode, _ := pq.ExtractMin()
@@ -242,9 +242,9 @@ func (c *Customizer) buildLowestLevel(
 							if _, ok := travelTime[vEntryPoint]; !ok || (ok && newETA < travelTime[vEntryPoint]) {
 								travelTime[vEntryPoint] = newETA
 								if ok {
-									pq.DecreaseKey(da.NewPriorityQueueNode(newETA, da.NewCRPQueryKey(v, vEntryPoint)))
+									pq.DecreaseKey(da.NewPriorityQueueNode(newETA, da.NewDijkstraKey(v, vEntryPoint)))
 								} else {
-									pq.Insert(da.NewPriorityQueueNode(newETA, da.NewCRPQueryKey(v, vEntryPoint)))
+									pq.Insert(da.NewPriorityQueueNode(newETA, da.NewDijkstraKey(v, vEntryPoint)))
 								}
 							}
 						} else {
@@ -454,4 +454,12 @@ func (c *Customizer) SetOverlayGraph(overlayGraph *da.OverlayGraph) {
 
 func (c *Customizer) SetOverlayWeight(ow *da.OverlayWeights) {
 	c.ow = ow
+}
+
+func (c *Customizer) GetGraph() *da.Graph {
+	return c.graph
+}
+
+func (c *Customizer) GetOverlayGraph() *da.OverlayGraph {
+	return c.overlayGraph
 }

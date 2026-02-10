@@ -20,13 +20,7 @@ func (crp *CRPRoutingEngine) GetVertexCoordinatesFromInEdge(u datastructure.Inde
 }
 
 func (crp *CRPRoutingEngine) VerticeUandVAreConnected(u, v datastructure.Index) bool {
-	sccOfU := crp.graph.GetSCCOfAVertex(u)
-	sccOfV := crp.graph.GetSCCOfAVertex(v)
-	if sccOfU == sccOfV {
-		return true
-	}
-
-	return crp.graph.CondensationGraphOrigintoDestinationConnected(u, v)
+	return crp.graph.VerticeUandVAreConnected(u, v)
 }
 
 type target struct {
@@ -53,6 +47,35 @@ func removeDuplicates[T comparable](arr []T) []T {
 	for _, v := range arr {
 		if _, ok := set[v]; !ok {
 			set[v] = struct{}{}
+			newarr = append(newarr, v)
+		}
+	}
+	return newarr
+}
+
+func (bs *CRPBidirectionalSearch) GetViaVertices() []da.ViaVertex {
+	return bs.viaVertices
+}
+
+func (bs *CRPBidirectionalSearch) GetForwardInfo() map[da.Index]VertexInfo {
+	return bs.forwardInfo
+}
+
+func (bs *CRPBidirectionalSearch) GetBackwardInfo() map[da.Index]VertexInfo {
+	return bs.backwardInfo
+}
+
+func (bs *CRPBidirectionalSearch) GetNumSettledNodes() int {
+	return bs.numSettledNodes
+}
+
+func removeDuplicatesEdges(unpackedEdgePath []da.OutEdge) []da.OutEdge {
+	set := make(map[da.Index]struct{})
+	newarr := make([]da.OutEdge, 0, len(unpackedEdgePath))
+
+	for _, v := range unpackedEdgePath {
+		if _, ok := set[v.GetEdgeId()]; !ok {
+			set[v.GetEdgeId()] = struct{}{}
 			newarr = append(newarr, v)
 		}
 	}

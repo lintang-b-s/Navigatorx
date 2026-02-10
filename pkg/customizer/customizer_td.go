@@ -87,7 +87,7 @@ func (c *Customizer) buildLowestLevelTD(
 				travelTime[startInEdgeOffset] = da.NewPWL(startPs)
 
 				pq.Insert(da.NewPriorityQueueNode(0,
-					da.NewCRPQueryKey(start, startInEdgeOffset)))
+					da.NewDijkstraKey(start, startInEdgeOffset)))
 
 				for !pq.IsEmpty() {
 					pqNode, _ := pq.ExtractMin()
@@ -130,11 +130,11 @@ func (c *Customizer) buildLowestLevelTD(
 
 								newVTTF := travelTime[vEntryPoint]
 
-								pq.DecreaseKey(da.NewPriorityQueueNode(newVTTF.GetMin(), da.NewCRPQueryKey(v, vEntryPoint)))
+								pq.DecreaseKey(da.NewPriorityQueueNode(newVTTF.GetMin(), da.NewDijkstraKey(v, vEntryPoint)))
 							} else {
 								travelTime[vEntryPoint] = newTTF
 
-								pq.Insert(da.NewPriorityQueueNode(newTTF.GetMin(), da.NewCRPQueryKey(v, vEntryPoint)))
+								pq.Insert(da.NewPriorityQueueNode(newTTF.GetMin(), da.NewDijkstraKey(v, vEntryPoint)))
 							}
 
 						} else {

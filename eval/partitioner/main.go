@@ -19,8 +19,8 @@ func main() {
 		logger)
 
 	mp := partitioner.NewMultilevelPartitioner(
-		[]int{int(math.Pow(2, 8)), int(math.Pow(2, 11)), int(math.Pow(2, 13))},
-		3,
+		[]int{int(math.Pow(2, 8)), int(math.Pow(2, 11)), int(math.Pow(2, 13)), int(math.Pow(2, 14))},
+		4,
 		graph, logger,
 	)
 	mp.RunMultilevelPartitioning()

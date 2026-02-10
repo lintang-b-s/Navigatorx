@@ -137,8 +137,14 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 
 	for i := len(viaVertices) - 1; i >= 0; i-- {
 		v := viaVertices[i]
-		if fInfo[v.GetEntryId()].GetTravelTime()+bInfo[v.GetExitId()].GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
-			viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
+		if !isOverlay(v.GetVId()) {
+			if fInfo[v.GetEntryId()].GetTravelTime()+bInfo[v.GetExitId()].GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
+				viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
+			}
+		} else {
+			if fInfo[v.GetVId()].GetTravelTime()+bInfo[v.GetVId()].GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
+				viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
+			}
 		}
 	}
 
@@ -185,16 +191,14 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 		}
 
 		lv := svTravelTime + vtTravelTime
-		lvExcludeOpt := lv - sigmav
-		lOptExcludePv := optTravelTime - sigmav
-		if lvExcludeOpt >= (1+ars.epsilon)*lOptExcludePv {
+		if lv >= (1+ars.epsilon)*optTravelTime {
 			return nil
 		}
 
 		plv := ars.calculatePlateau(v.GetVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
 			fInfo, bInfo)
 
-		T := ars.alpha * lvExcludeOpt
+		T := ars.alpha * optTravelTime
 
 		if plv <= T {
 			// didnt pass t-test
@@ -301,11 +305,9 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []data
 	// O(N+M), N=len(optPath), M=len(pvPath)
 	distanceShare := 0.0
 
-	optDist := 0.0
 	optPathSet := make(map[datastructure.Index]struct{})
 	for _, e := range optPath {
 		optPathSet[e.GetEdgeId()] = struct{}{}
-		optDist += e.GetWeight()
 	}
 
 	for _, e := range pvPath {
@@ -320,19 +322,33 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []data
 func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, sForwardId, tBackwardId datastructure.Index,
 	ps, pb map[datastructure.Index]VertexInfo) float64 {
 
-	plateau := 0.0
 	u := vEntryId
 	_, ok := ps[u]
 	if !ok {
 		u = vId
 	}
+
 	for u != sForwardId {
-		if _, oki := pb[u]; oki {
-			costf := ps[u].GetTravelTime() - ps[ps[u].parent.edge].GetTravelTime()
-			plateau += costf
+		if isOverlay(u) {
+			// plateau iff parent_backward_search(parent_forward_search(u)) == u
+			if b, oki := pb[ps[u].parent.edge]; !(oki && b.parent.edge == u) {
+				break
+			}
+		} else {
+			// kalau u is entryId  dari edge, sedangkan di pb isinya exitId dari edge, shg u harus dijadiin exitId dari edgenya
+			adjU := adjustForwardOffBit(u)
+			_, uOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(adjU)
+			ueId := uOutEdge.GetEdgeId()
+			_, parUOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(adjustForwardOffBit(ps[u].parent.edge))
+			pareId := parUOutEdge.GetEdgeId()
+			if b, oki := pb[pareId]; !(oki && b.parent.edge == ueId) {
+				break
+			}
 		}
+
 		u = ps[u].parent.edge
 	}
+	firstPlateauTT := ps[u].GetTravelTime()
 
 	u = vExitId
 	_, ok = pb[u]
@@ -340,12 +356,35 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, sFor
 		u = vId
 	}
 	for u != tBackwardId {
-		if _, oki := ps[u]; oki {
-			costf := pb[u].GetTravelTime() - pb[pb[u].parent.edge].GetTravelTime()
-			plateau += costf
+		if isOverlay(u) {
+			if f, oki := ps[pb[u].parent.edge]; !(oki && f.parent.edge == u) {
+				break
+			}
+		} else {
+			adjU := adjustBackwardOffbit(u)
+			_, uInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(adjU)
+			ueId := uInEdge.GetEdgeId()
+			_, parUInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(adjustBackwardOffbit(pb[u].parent.edge))
+			pareId := parUInEdge.GetEdgeId()
+			if f, oki := ps[pareId]; !(oki && f.parent.edge == ueId) {
+				break
+			}
 		}
+
 		u = pb[u].parent.edge
 	}
+
+	var lastPlateauTT float64
+	if isOverlay(u) {
+		lastPlateauTT = ps[u].GetTravelTime()
+	} else {
+		_, uInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(u)
+		ueId := uInEdge.GetEdgeId()
+		lastPlateauTT = ps[ueId].GetTravelTime()
+	}
+
+	plateau := lastPlateauTT - firstPlateauTT
+
 	return plateau
 }
 
@@ -381,11 +420,10 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 
 		if addToRes {
 			res = append(res, alt)
-
-			for _, e := range alt.GetPath() {
-				// make alternative route path set
-				set[i][e.GetEdgeId()] = struct{}{}
-			}
+		}
+		for _, e := range alt.GetPath() {
+			// make alternative route path set
+			set[i][e.GetEdgeId()] = struct{}{}
 		}
 
 	}

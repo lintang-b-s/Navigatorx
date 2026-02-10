@@ -7,6 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/guidance"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
@@ -19,12 +20,13 @@ type RoutingService struct {
 	clockwise, lefthandDriving   bool
 	gamma, alpha, epsilon, delta float64
 	upperBoundAlternativeSearch  float64
+	lm                           *landmark.Landmark
 	timeDependent                bool
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex,
 	searchRadius float64, clockwise, lefthandDriving bool,
-	gamma, alpha, epsilon, upperBoundAlternativeSearch, delta float64, timeDependent bool,
+	gamma, alpha, epsilon, upperBoundAlternativeSearch, delta float64, timeDependent bool, lm *landmark.Landmark,
 ) *RoutingService {
 	return &RoutingService{
 		log:                         log,
@@ -39,6 +41,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		upperBoundAlternativeSearch: upperBoundAlternativeSearch,
 		delta:                       delta,
 		timeDependent:               timeDependent,
+		lm:                          lm,
 	}
 }
 
@@ -57,11 +60,11 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	)
 
 	if !rs.timeDependent {
-		crpQuery := routing.NewCRPBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0, rs.lm)
 		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
 	} else {
 		crpQuery := routing.NewTDCRPUnidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine))
-		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
+		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at, util.GetCurrentSeconds())
 	}
 	if !found {
 		errmsg := fmt.Sprintf("no route found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)

@@ -87,7 +87,7 @@ func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCe
 		}
 	}
 
-	unpackedEdgePath = removeDuplicates(unpackedEdgePath)
+	unpackedEdgePath = removeDuplicatesEdges(unpackedEdgePath)
 	unpackedPath = removeDuplicates(unpackedPath)
 	return unpackedPath, unpackedEdgePath, totalDistance
 }
@@ -304,7 +304,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 	uId := targetEntryId
 	backwardEdges := make([]da.OutEdge, 0)
 
-	for pu.info[uId].GetParent().edge != da.INVALID_EDGE_ID { // sampai parent.edge = sourceEntryId, cuma include sp edges didalam current cell
+	for pu.info[uId].GetParent().edge != da.INVALID_EDGE_ID { // sampai parent.edge = sourceEntryId, include sp edges didalam current cell & sp edge entry cell ini
 		prevOutEdgeId := pu.info[uId].GetParent().outInEdgeId
 
 		edgeIdPath = append(edgeIdPath, prevOutEdgeId)

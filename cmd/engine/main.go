@@ -9,6 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"go.uber.org/zap"
@@ -25,6 +26,7 @@ const (
 	graphFile        string = "./data/original.graph"
 	overlayGraphFile string = "./data/overlay_graph.graph"
 	metricsFile      string = "./data/metrics.txt"
+	landmarkFile     string = "./data/landmark.lm"
 )
 
 func main() {
@@ -35,17 +37,22 @@ func main() {
 	}
 
 	var (
-		dayTTF map[int64]*da.PWL = make(map[int64]*da.PWL)
+		dayEdgeTTfs map[da.Index]*da.PWL = make(map[da.Index]*da.PWL)
 	)
 
 	if *timeDependent {
-		dayTTF, err = da.ReadTravelTimeFunctions(*ttfsFile)
+		dayEdgeTTfs, err = da.ReadTravelTimeFunctions(*ttfsFile)
 		if err != nil {
 			panic(err)
 		}
 	}
-	
-	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger, *timeDependent, dayTTF)
+
+	lm, err := landmark.ReadLandmark(landmarkFile)
+	if err != nil {
+		panic(err)
+	}
+
+	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger, *timeDependent, dayEdgeTTfs)
 	if err != nil {
 		panic(err)
 	}
@@ -68,7 +75,7 @@ func main() {
 	api := http.NewServer(logger)
 
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
-		0.8, 0.25, 0.25, 1.3, 0.1, *timeDependent)
+		0.8, 0.3, 0.35, 1.35, 0.1, *timeDependent, lm)
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {

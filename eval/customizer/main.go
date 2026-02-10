@@ -21,10 +21,10 @@ func main() {
 
 	tgprParser := osmparser.NewTPGRParser()
 
-	_, osmWayProfile, err := tgprParser.ParseTGPRFile("./data/NY/NY.coordinate", "./data/NY/NY.tpgr",
+	_, edgeTTFs, err := tgprParser.ParseTGPRFile("./data/NY/NY.coordinate", "./data/NY/NY.tpgr",
 		logger)
 
-	err = custom.Customize(*timeDependent, osmWayProfile)
+	_, err = custom.Customize(*timeDependent, edgeTTFs)
 	if err != nil {
 		panic(err)
 	}

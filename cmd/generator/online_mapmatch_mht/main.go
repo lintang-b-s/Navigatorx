@@ -10,6 +10,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"golang.org/x/exp/rand"
@@ -20,6 +21,13 @@ var (
 	timeDependent         = flag.Bool("time_dependent", false, "Use Time-Dependent Customizable Route Planning")
 )
 
+const (
+	graphFile        string = "./data/original.graph"
+	overlayGraphFile string = "./data/overlay_graph.graph"
+	metricsFile      string = "./data/metrics.txt"
+	landmarkFile     string = "./data/landmark.lm"
+)
+
 func main() {
 	flag.Parse()
 	logger, err := logger.New()
@@ -28,10 +36,9 @@ func main() {
 	}
 
 	var (
-		daySpeedProfile map[int64]*da.PWL = make(map[int64]*da.PWL)
+		dayEdgeTTFs map[da.Index]*da.PWL = make(map[da.Index]*da.PWL)
 	)
-	rand.Seed(uint64(time.Now().UnixNano()))
-	routingEngine, err := engine.NewEngine("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger, *timeDependent, daySpeedProfile)
+	routingEngine, err := engine.NewEngine("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger, *timeDependent, dayEdgeTTFs)
 	if err != nil {
 		panic(err)
 	}
@@ -56,9 +63,13 @@ func main() {
 		N = da.NewSparseMatrix[int](graph.NumberOfEdges(), graph.NumberOfEdges(),
 			0, func(a, b int) bool { return a == b })
 	}
-
+	rd := rand.New(rand.NewSource(uint64(time.Now().UnixNano())))
+	lm, err := landmark.ReadLandmark(landmarkFile)
+	if err != nil {
+		panic(err)
+	}
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
-		0.8, 0.25, 0.25, 1.3, 0.1, false)
+		0.8, 0.25, 0.25, 1.3, 0.1, false,lm)
 
 	boundingBox := graph.GetBoundingBox()
 	for i := 0; i < 5e5; i++ {
@@ -66,8 +77,8 @@ func main() {
 			fmt.Printf("completed query: %v\n", i+1)
 			N.WriteToFile("./data/omm_transition_history_id.mm")
 		}
-		src := RandomCoordinate(boundingBox)
-		dst := RandomCoordinate(boundingBox)
+		src := RandomCoordinate(boundingBox, rd)
+		dst := RandomCoordinate(boundingBox, rd)
 		as, at, err := routingService.SnapOrigDestToNearbyEdges(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon())
 		// as = exit/outEdge index of origin
 		// at = entry/inEdge index of destination
@@ -90,9 +101,9 @@ func main() {
 
 }
 
-func RandomCoordinate(bb *da.BoundingBox) da.Coordinate {
+func RandomCoordinate(bb *da.BoundingBox, rd *rand.Rand) da.Coordinate {
 
-	lat := bb.GetMinLat() + rand.Float64()*(bb.GetMaxLat()-bb.GetMinLat())
-	lon := bb.GetMinLon() + rand.Float64()*(bb.GetMaxLon()-bb.GetMinLon())
+	lat := bb.GetMinLat() + rd.Float64()*(bb.GetMaxLat()-bb.GetMinLat())
+	lon := bb.GetMinLon() + rd.Float64()*(bb.GetMaxLon()-bb.GetMinLon())
 	return da.NewCoordinate(lat, lon)
 }

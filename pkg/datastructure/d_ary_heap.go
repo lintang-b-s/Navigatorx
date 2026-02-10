@@ -2,13 +2,15 @@ package datastructure
 
 import (
 	"errors"
-	"math"
+
+	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
 type CRPQueryKey struct {
 	node           Index
 	entryExitPoint Index
 	outInEdgeId    Index
+	overlay        bool
 }
 
 func (qk *CRPQueryKey) GetNode() Index {
@@ -23,8 +25,16 @@ func (qk *CRPQueryKey) GetOutInEdgeId() Index {
 	return qk.outInEdgeId
 }
 
-func NewCRPQueryKey(node Index, entryExitPoint Index) CRPQueryKey {
+func (qk *CRPQueryKey) IsOverlay() bool {
+	return qk.overlay
+}
+
+func NewDijkstraKey(node Index, entryExitPoint Index) CRPQueryKey {
 	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint}
+}
+
+func NewCRPQueryKey(node Index, entryExitPoint Index, overlay bool) CRPQueryKey {
+	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, overlay: overlay}
 }
 
 func NewCRPQueryKeyWithOutInEdgeId(node, entryExitPoint, outInEdgeId Index) CRPQueryKey {
@@ -147,7 +157,7 @@ func (h *MinHeap[T]) GetMin() (PriorityQueueNode[T], error) {
 
 func (h *MinHeap[T]) GetMinrank() float64 {
 	if h.isEmpty() {
-		return math.MaxFloat64
+		return 2 * pkg.INF_WEIGHT
 	}
 	return h.heap[0].rank
 }
@@ -186,12 +196,10 @@ func (h *MinHeap[T]) getItemPos(item PriorityQueueNode[T]) int {
 func (h *MinHeap[T]) DecreaseKey(item PriorityQueueNode[T]) error {
 	itemPos := h.getItemPos(item)
 	if itemPos < 0 || itemPos >= h.Size() {
-		
 		return errors.New("invalid index or new value")
 	}
 
 	h.heap[itemPos] = item
-
 	h.heapifyUp(itemPos)
 	return nil
 }

@@ -18,7 +18,7 @@ func (e *Engine) GetRoutingEngine() *routing.CRPRoutingEngine {
 	return e.crpRoutingEngine
 }
 
-func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool, osmwayPWL map[int64]*da.PWL) (*Engine, error) {
+func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool, osmwayPWL map[da.Index]*da.PWL) (*Engine, error) {
 	initializeRoutingEngine, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath,
 		logger, td, osmwayPWL)
 	if err != nil {
@@ -33,7 +33,7 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction,
 	td bool, day string) (*Engine, error) {
 	// customizable route planning in road networks section 7.2 (path retrieval)
-	puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 20) // 1048576
+	puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 1048576
 
 	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf)
 
@@ -42,19 +42,19 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool, osmwayPWL map[int64]*da.PWL,
+func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool, osmwayPWL map[da.Index]*da.PWL,
 ) (*routing.CRPRoutingEngine,
 	error) {
 
 	logger.Info("Starting query engine of Customizable Route Planning...")
 
-	logger.Info("Reading graph from ", zap.String("graphFilePath", graphFilePath))
+	logger.Info("Reading graph....")
 	graph, err := da.ReadGraph(graphFilePath)
 	if err != nil {
 		return nil, err
 	}
 
-	logger.Info("Reading overlay graph from ", zap.String("overlayGraphFilePath", overlayGraphFilePath))
+	logger.Info("Reading overlay graph....")
 	overlayGraph, err := da.ReadOverlayGraph(overlayGraphFilePath)
 	if err != nil {
 		return nil, err

@@ -3,7 +3,8 @@ package main
 import (
 	"flag"
 	"fmt"
-	"math"
+	"strconv"
+	"strings"
 
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
@@ -11,8 +12,9 @@ import (
 )
 
 var (
-	osmFile = flag.String("osm_file", "diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
-	mlpFile = flag.String("mlp_file", "diy_solo_semarang", "Multilevel partition filename")
+	osmFile        = flag.String("osm_file", "diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
+	mlpFile        = flag.String("mlp_file", "diy_solo_semarang", "Multilevel partition filename")
+	partitionSizes = flag.String("us", "8,11,14,17,18", "Multilevel Partition Sizes")
 )
 
 func main() {
@@ -28,11 +30,22 @@ func main() {
 		panic(err)
 	}
 
+	pss := strings.Split(*partitionSizes, ",")
+	ps := make([]int, len(pss))
+	for i := 0; i < len(ps); i++ {
+		pow, err := strconv.Atoi(pss[i])
+		if err != nil {
+			panic(err)
+		}
+		ps[i] = 1 << pow // 2^pow
+	}
+
 	mp := partitioner.NewMultilevelPartitioner(
-		[]int{int(math.Pow(2, 9)), int(math.Pow(2, 11)), int(math.Pow(2, 14)), int(math.Pow(2, 16))},
-		4,
+		ps,
+		len(ps),
 		graph, logger,
 	)
+	
 	mp.RunMultilevelPartitioning()
 
 	err = mp.SaveToFile(*mlpFile)

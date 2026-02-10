@@ -5,6 +5,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 )
@@ -18,6 +19,7 @@ const (
 	graphFile        string = "./data/original.graph"
 	overlayGraphFile string = "./data/overlay_graph.graph"
 	metricsFile      string = "./data/metrics.txt"
+	landmarkFile     string = "./data/landmark.lm"
 )
 
 func main() {
@@ -30,17 +32,27 @@ func main() {
 	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
 
 	var (
-		dayTTF map[int64]*da.PWL = make(map[int64]*da.PWL)
+		dayEdgeTTFs map[da.Index]*da.PWL = make(map[da.Index]*da.PWL)
 	)
 
 	if *timeDependent {
-		dayTTF, err = da.ReadTravelTimeFunctions(*ttfsFile)
+		dayEdgeTTFs, err = da.ReadTravelTimeFunctions(*ttfsFile)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	err = custom.Customize(*timeDependent, dayTTF)
+	m, err := custom.Customize(*timeDependent, dayEdgeTTFs)
+	if err != nil {
+		panic(err)
+	}
+
+	lm := landmark.NewLandmark()
+	err = lm.PreprocessALT(8, m, custom, logger)
+	if err != nil {
+		panic(err)
+	}
+	err = lm.WriteLandmark(landmarkFile, custom)
 	if err != nil {
 		panic(err)
 	}

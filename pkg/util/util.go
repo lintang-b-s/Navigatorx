@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math"
 	"strconv"
 	"strings"
@@ -15,10 +14,7 @@ import (
 func ReadLine(br *bufio.Reader) (string, error) {
 	line, err := br.ReadString('\n')
 	if err != nil {
-		if errors.Is(err, io.EOF) && len(line) > 0 {
-		} else if err != nil {
-			return "", err
-		}
+		return "", err
 	}
 	return strings.TrimRight(line, "\r\n"), nil
 }
@@ -27,6 +23,7 @@ func Fields(s string) []string {
 
 	return strings.Fields(s)
 }
+
 
 func GetCurrentSeconds() float64 {
 	now := time.Now()

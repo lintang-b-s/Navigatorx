@@ -9,7 +9,7 @@ const (
 )
 
 const (
-	NERF_MAXSPEED_OSM_REALISTIC = 0.6
+	NERF_MAXSPEED_OSM_REALISTIC = 0.7
 )
 
 const (
@@ -144,3 +144,51 @@ var (
 		"gate":           struct{}{},
 	}
 )
+
+func roadTypeSpeed(roadType string) float64 {
+	switch roadType {
+	default:
+		return roadTypeMaxSpeedOsm(roadType) * NERF_MAXSPEED_OSM_REALISTIC
+	}
+}
+
+func roadTypeMaxSpeedOsm(roadType string) float64 {
+	switch roadType {
+	case "motorway":
+		return 100
+	case "trunk":
+		return 60
+	case "primary":
+		return 50
+	case "secondary":
+		return 40
+	case "tertiary":
+		return 40
+	case "unclassified":
+		return 40
+	case "residential":
+		return 30
+	case "service":
+		return 20
+	case "motorway_link":
+		return 70
+	case "trunk_link":
+		return 60
+	case "primary_link":
+		return 50
+	case "secondary_link":
+		return 40
+	case "tertiary_link":
+		return 40
+	case "living_street":
+		return 5
+	case "road":
+		return 20
+	case "track":
+		return 15
+	case "motorroad":
+		return 90
+	default:
+		return 30
+	}
+}

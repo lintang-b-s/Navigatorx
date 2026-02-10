@@ -4,16 +4,20 @@ import (
 	"encoding/csv"
 	"flag"
 	"fmt"
+	"math/rand"
 	"os"
 	"strconv"
 	"sync"
+	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var (
@@ -33,6 +37,7 @@ func main() {
 		panic(err)
 	}
 
+	// EPSILON_IMAI_IRI_APPROX_PWL=10%
 	tgprParser := osmparser.NewTPGRParser()
 
 	_, osmWayProfile, err := tgprParser.ParseTGPRFile("./data/NY/NY.coordinate", "./data/NY/NY.tpgr",
@@ -45,14 +50,10 @@ func main() {
 	g := re.GetRoutingEngine().GetGraph()
 
 	// n := g.NumberOfVertices()
-	n := 2000
+	n := 1000
 
-	outRecs := make([][]string, n*24)
-	for v := 0; v < n*24; v++ {
-		outRecs[v] = make([]string, n)
-	}
+	outres := make([][]string, 24*n)
 
-	lock := sync.Mutex{}
 	type spParam struct {
 		s    da.Index
 		hour int
@@ -60,54 +61,81 @@ func main() {
 	newSPParam := func(s da.Index, hour int) spParam {
 		return spParam{s, hour}
 	}
+	fout, err := os.Create("allpairs_ea_ny.csv")
+	if err != nil {
+		panic(err)
+	}
+	defer fout.Close()
 
-	// TODO: all pairs sp dibikin batch (setiap batch dirun 1 goroutine pake goroutine pool),
-	// setiap batch (source, to other vertices), tapi other vertices nya gak semua V (karna kalau semua CRP one-to-many bakal sama kaya plain dijkstra) & dibikin random
-	// idk belum kepikiran caranya
-	
+	batchSize := 500
+	lock := sync.Mutex{}
+
+	type target struct {
+		tid  da.Index
+		atId da.Index
+	}
+
 	calcsSP := func(p spParam) any {
+		rd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
 		s := p.s
 		hour := p.hour
-		if s%500 == 0 {
-			logger.Sugar().Infof(fmt.Sprintf("calculating earliest arrival query, from: %v, hour: %v ...\n", s, hour))
-		}
+		logger.Sugar().Infof(fmt.Sprintf("calculating earliest arrival query, from: %v, hour: %v ...\n", s, hour))
 
-		atIds := make([]da.Index, 0, n)
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 
-		for t := da.Index(0); t < da.Index(n); t++ {
-			if s == t {
-				continue
+		ts := make([]target, n)
+		for t := 0; t < n; t++ {
+			at := g.GetEntryOffset(da.Index(t)) + g.GetInDegree(da.Index(t)) - 1
+			ts[t] = target{da.Index(t), at}
+		}
+
+		rd.Shuffle(n, func(i, j int) {
+			ts[i], ts[j] = ts[j], ts[i]
+		})
+		offset := n * hour
+		row := int(s) + offset
+
+		outSpLengths := make([]float64, n)
+
+		for i := 0; i < n; i += batchSize {
+			bts := ts[i:util.MinInt(i+batchSize, n)]
+
+			atIds := make([]da.Index, 0, len(bts))
+			for _, at := range bts {
+				atIds = append(atIds, at.atId)
 			}
+			crpQuery := routing.NewTDCRPUnidirectionalOneToManySearch(re.GetRoutingEngine())
 
-			at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
+			spLengths, _, _, _ := crpQuery.ShortestPathOneToManySearch(as, atIds, float64(hour*3600))
+			for _, tt := range bts {
+				spLength, ok := spLengths[tt.atId]
+				if !ok {
+					spLength = 2 * pkg.INF_WEIGHT
+				}
 
-			atIds = append(atIds, at)
+				outSpLengths[tt.tid] = spLength
+			}
 		}
 
-		crpQuery := routing.NewCRPUniDijkstraOneToMany(re.GetRoutingEngine())
+		outRecs := make([]string, n)
 
-		spLengths, _, _, _ := crpQuery.ShortestPathOneToManySearch(as, atIds)
-		for t, atId := range atIds {
-			spLength := spLengths[atId]
-			offset := n * hour
-			row := int(s) + offset
-			lock.Lock()
-
-			outRecs[row][t] = strconv.FormatFloat(spLength, 'f', -1, 64)
-			lock.Unlock()
+		for col, sp := range outSpLengths {
+			outRecs[col] = strconv.FormatFloat(sp, 'f', -1, 64)
 		}
 
-		if s%500 == 0 {
-			logger.Sugar().Infof(fmt.Sprintf("done calculating earliest arrival query, from: %v, hour: %v ...\n", s, hour))
-		}
+		lock.Lock()
+		outres[row] = outRecs
+		lock.Unlock()
+
+		logger.Sugar().Infof(fmt.Sprintf("done calculating earliest arrival query, from: %v, hour: %v ...\n", s, hour))
 
 		return nil
 	}
 
-	workers := concurrent.NewWorkerPool[spParam, any](50, 24*n*n)
+	workers := concurrent.NewWorkerPool[spParam, any](50, 24*n)
 
-	for hour := 0; hour < 24; hour++ {
+	for hour := 0; hour < 24; hour += 4 {
 		for s := da.Index(0); s < da.Index(n); s++ {
 			workers.AddJob(newSPParam(s, hour))
 		}
@@ -117,17 +145,15 @@ func main() {
 	workers.Start(calcsSP)
 	workers.Wait()
 
-	fout, err := os.Create("allpairs_ea_ny.csv")
-	if err != nil {
-		panic(err)
-	}
-	defer fout.Close()
-
 	writer := csv.NewWriter(fout)
 	defer writer.Flush()
 
-	if err := writer.WriteAll(outRecs); err != nil {
-		panic(err)
+	for i := 0; i < 24*n; i++ {
+		if outres[i] == nil {
+			panic(fmt.Errorf("harusnya gak nil %v", i))
+		}
+		if err := writer.Write(outres[i]); err != nil {
+			panic(err)
+		}
 	}
-
 }

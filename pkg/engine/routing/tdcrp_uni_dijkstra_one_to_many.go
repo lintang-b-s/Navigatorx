@@ -72,7 +72,7 @@ let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortuc
 let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
 time complexity of TD-CRP query is: O((n_p + m_p + k * \hat{m_p}) * log n)
 */
-func (us *TDCRPUnidirectionalOneToManySearch) ShortestPathOneToManySearch(asId da.Index, atIds []da.Index) (map[da.Index]float64, map[da.Index]float64, map[da.Index][]da.Coordinate,
+func (us *TDCRPUnidirectionalOneToManySearch) ShortestPathOneToManySearch(asId da.Index, atIds []da.Index, curTimeSec float64) (map[da.Index]float64, map[da.Index]float64, map[da.Index][]da.Coordinate,
 	map[da.Index][]da.OutEdge) {
 	// Our query algorithm takes as input a source arc as , a target arc at, the original graph G, the overlay graph
 	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
@@ -95,11 +95,11 @@ func (us *TDCRPUnidirectionalOneToManySearch) ShortestPathOneToManySearch(asId d
 
 	sForwardId = offsetForward(sForwardId, us.engine.graph.GetCellNumber(s), us.sCellNumber)
 
-	us.startTime = util.GetCurrentSeconds()
+	us.startTime = curTimeSec
 
 	us.forwardInfo[sForwardId] = NewVertexInfo(us.startTime, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
-	us.pq.Insert(da.NewPriorityQueueNode(us.startTime, da.NewCRPQueryKey(s, sForwardId)))
+	us.pq.Insert(da.NewPriorityQueueNode(us.startTime, da.NewDijkstraKey(s, sForwardId)))
 
 	finished := false
 
@@ -131,6 +131,12 @@ func (us *TDCRPUnidirectionalOneToManySearch) ShortestPathOneToManySearch(asId d
 	tfinalEdgePath := make(map[da.Index][]da.OutEdge, len(atIds))
 
 	for t, tEntryId := range us.tEntryIds {
+		if t.getatId() == asId || t.gettId() == s {
+			tdists[t.getatId()] = 0
+			tfinalPath[t.getatId()] = make([]da.Coordinate, 0)
+			tfinalEdgePath[t.getatId()] = make([]da.OutEdge, 0)
+			continue
+		}
 		idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
 		curInfo := us.forwardInfo[tEntryId]
 		tEntryIdAdj := adjustForwardOffBit(da.Index(tEntryId))
@@ -171,7 +177,7 @@ func (us *TDCRPUnidirectionalOneToManySearch) ShortestPathOneToManySearch(asId d
 
 		idPath = util.ReverseG[vertexEdgePair](idPath)
 
-		unpacker := NewPathUnpacker(us.engine.graph, us.engine.overlayGraph, us.engine.metrics, us.engine.puCache, false,true)
+		unpacker := NewPathUnpacker(us.engine.graph, us.engine.overlayGraph, us.engine.metrics, us.engine.puCache, false, true)
 		finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))
 		tdists[t.getatId()] = totalDistance
 		tfinalPath[t.getatId()] = finalPath
@@ -267,12 +273,12 @@ func (us *TDCRPUnidirectionalOneToManySearch) graphSearchUni(source da.Index, ta
 			if vAlreadyVisited {
 				// is key already in the priority queue, decrease its key
 				us.pq.DecreaseKey(da.NewPriorityQueueNode(
-					newArrTime, da.NewCRPQueryKey(vId, vEntryId)),
+					newArrTime, da.NewDijkstraKey(vId, vEntryId)),
 				)
 			} else if !vAlreadyVisited {
 				// is key not in the priority queue, insert it
 				us.pq.Insert(da.NewPriorityQueueNode(
-					newArrTime, da.NewCRPQueryKey(vId, vEntryId)),
+					newArrTime, da.NewDijkstraKey(vId, vEntryId)),
 				)
 			}
 
@@ -307,11 +313,11 @@ func (us *TDCRPUnidirectionalOneToManySearch) graphSearchUni(source da.Index, ta
 
 				if !vAlreadyVisited {
 					us.overlayPq.Insert(da.NewPriorityQueueNode(
-						newArrTime, da.NewCRPQueryKey(v, da.Index(lowestVQueryLevel))),
+						newArrTime, da.NewDijkstraKey(v, da.Index(lowestVQueryLevel))),
 					)
 				} else {
 					us.overlayPq.DecreaseKey(da.NewPriorityQueueNode(
-						newArrTime, da.NewCRPQueryKey(v, da.Index(lowestVQueryLevel))),
+						newArrTime, da.NewDijkstraKey(v, da.Index(lowestVQueryLevel))),
 					)
 				}
 			}
@@ -348,8 +354,9 @@ func (us *TDCRPUnidirectionalOneToManySearch) overlayGraphSearchUni() {
 		vId := onOverlayBit(v)
 		_, vAlreadyVisited := us.forwardInfo[vId]
 		if !vAlreadyVisited || newArrTime < us.forwardInfo[vId].GetTravelTime() {
-			us.forwardInfo[vId] = NewVertexInfo(newArrTime,
-				newVertexEdgePair(uVertex.GetOriginalVertex(), uId, false))
+			par := newVertexEdgePair(uVertex.GetOriginalVertex(), uId, false)
+			par.setQueryLevel(uint8(uQueryLevel))
+			us.forwardInfo[vId] = NewVertexInfo(newArrTime, par)
 
 			vVertex := us.engine.overlayGraph.GetVertex(v)
 
@@ -407,11 +414,11 @@ func (us *TDCRPUnidirectionalOneToManySearch) overlayGraphSearchUni() {
 
 				if wAlreadyVisited {
 					us.pq.DecreaseKey(da.NewPriorityQueueNode(
-						newArrTime, da.NewCRPQueryKey(originalW, wEntryId)),
+						newArrTime, da.NewDijkstraKey(originalW, wEntryId)),
 					)
 				} else {
 					us.pq.Insert(da.NewPriorityQueueNode(
-						newArrTime, da.NewCRPQueryKey(originalW, wEntryId)),
+						newArrTime, da.NewDijkstraKey(originalW, wEntryId)),
 					)
 				}
 
@@ -432,11 +439,11 @@ func (us *TDCRPUnidirectionalOneToManySearch) overlayGraphSearchUni() {
 
 					if !wAlreadyVisited {
 						us.overlayPq.Insert(da.NewPriorityQueueNode(
-							newArrTime, da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel))),
+							newArrTime, da.NewDijkstraKey(w, da.Index(lowestWQueryLevel))),
 						)
 					} else {
 						us.overlayPq.DecreaseKey(da.NewPriorityQueueNode(
-							newArrTime, da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel))),
+							newArrTime, da.NewDijkstraKey(w, da.Index(lowestWQueryLevel))),
 						)
 					}
 

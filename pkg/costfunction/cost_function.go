@@ -10,6 +10,7 @@ type EdgeAttributes interface {
 	GetEdgeSpeed() float64
 	GetLength() float64
 	GetEdgeId() datastructure.Index
+	GetOriginalEdgeId() datastructure.Index
 }
 
 type CostFunction interface {

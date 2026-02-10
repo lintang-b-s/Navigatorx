@@ -180,9 +180,9 @@ func (p *Preprocessor) SortByCellNumber() {
 		}
 	}
 
-	outOffset := datastructure.Index(0)                              // new offset for outEdges for each vertex for each cell
+	newOutEdgeId := datastructure.Index(0)                           // new id for outEdges for each vertex for each cell
 	p.graph.MakeOutEdgeCellOffset(p.graph.GetNumberOfCellsNumbers()) // offset of first outEdge for each cell
-	inOffset := datastructure.Index(0)                               // new offset for inEdges for each vertex for each cell
+	newInEdgeId := datastructure.Index(0)                            // new id for inEdges for each vertex for each cell
 	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
 
 	graphMapEdgeInfo := p.graph.GetMapEdgeInfo()
@@ -201,8 +201,8 @@ func (p *Preprocessor) SortByCellNumber() {
 	lastVertex := p.graph.GetVertex(datastructure.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
 	newVertices := make([]*datastructure.Vertex, p.graph.GetNumberOfVerticesWithDummyVertex())
 	for i := datastructure.Index(0); i < datastructure.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
-		p.graph.SetOutEdgeCellOffset(i, outOffset)
-		p.graph.SetInEdgeCellOffset(i, inOffset)
+		p.graph.SetOutEdgeCellOffset(i, newOutEdgeId)
+		p.graph.SetInEdgeCellOffset(i, newInEdgeId)
 
 		for v := datastructure.Index(0); v < datastructure.Index(len(cellVertices[i])); v++ {
 			// update vertex to use new vId
@@ -211,8 +211,8 @@ func (p *Preprocessor) SortByCellNumber() {
 			newVertices[vId] = cellVertices[i][v].vertex
 
 			vOldId := cellVertices[i][v].originalIndex
-			newVertices[vId].SetFirstOut(outOffset)
-			newVertices[vId].SetFirstIn(inOffset)
+			newVertices[vId].SetFirstOut(newOutEdgeId)
+			newVertices[vId].SetFirstIn(newInEdgeId)
 			newVertices[vId].SetId(vId)
 
 			index := int(math.Floor(float64(vOldId) / 32))
@@ -220,7 +220,8 @@ func (p *Preprocessor) SortByCellNumber() {
 			if len(nodeTrafficLight) > 0 {
 				isTraficLight := (nodeTrafficLight[index] & (1 << (vOldId % 32))) != 0
 				if isTraficLight {
-					p.graph.SetNodeTrafficLight(vId)
+					p.graph.SetNodeTrafficLight(vId, true)
+					p.graph.SetNodeTrafficLight(vOldId, false)
 				}
 			}
 
@@ -228,36 +229,40 @@ func (p *Preprocessor) SortByCellNumber() {
 			for k := datastructure.Index(0); k < datastructure.Index(len(oEdges[vOldId])); k++ {
 
 				oldOutEdge := oEdges[vOldId][k]
-				p.graph.SetOutEdge(outOffset, datastructure.NewOutEdge(
+				p.graph.SetOutEdge(newOutEdgeId, datastructure.NewOutEdge(
 					oldOutEdge.GetEdgeId(), oldOutEdge.GetHead(), oldOutEdge.GetWeight(),
 					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(),
 				))
-				p.graph.SetEdgeInfo(outOffset, gsEdgeExtraInfos[oldOutEdge.GetEdgeId()]) // update edge extra info storage
+				p.graph.SetEdgeInfo(newOutEdgeId, gsEdgeExtraInfos[oldOutEdge.GetEdgeId()]) // update edge extra info storage
 
 				indexRoundabout := int(math.Floor(float64(oldOutEdge.GetEdgeId()) / 32)) // update roundabout edge info
 				if len(roundaboutFlags) > 0 {
 					isRoundabout := (roundaboutFlags[indexRoundabout] & (1 << (oldOutEdge.GetEdgeId() % 32))) != 0
-					p.graph.SetRoundabout(outOffset, isRoundabout)
+					p.graph.SetRoundabout(newOutEdgeId, isRoundabout)
+					p.graph.SetRoundabout(oldOutEdge.GetEdgeId(), false)
 				}
 
-				outEdge := p.graph.GetOutEdge(outOffset)
-				outEdge.SetEdgeId(outOffset)
+				outEdge := p.graph.GetOutEdge(newOutEdgeId)
+				outEdge.SetEdgeId(newOutEdgeId)
 				outEdge.SetHead(p.newVIdMap[oldOutEdge.GetHead()])
+				outEdge.SetOriginalEdgeId(oldOutEdge.GetEdgeId())
 
-				outOffset++
+				newOutEdgeId++
 			}
 
 			for k := datastructure.Index(0); k < datastructure.Index(len(iEdges[vOldId])); k++ {
 				oldInEdge := iEdges[vOldId][k]
-				p.graph.SetInEdge(inOffset, datastructure.NewInEdge(
+				p.graph.SetInEdge(newInEdgeId, datastructure.NewInEdge(
 					oldInEdge.GetEdgeId(), oldInEdge.GetTail(), oldInEdge.GetWeight(),
 					oldInEdge.GetLength(), oldInEdge.GetExitPoint(),
 				))
 
-				inEdge := p.graph.GetInEdge(inOffset)
-				inEdge.SetEdgeId(inOffset)
+				inEdge := p.graph.GetInEdge(newInEdgeId)
+				inEdge.SetEdgeId(newInEdgeId)
 				inEdge.SetTailId(p.newVIdMap[oldInEdge.GetTail()])
-				inOffset++
+				inEdge.SetOriginalEdgeId(oldInEdge.GetEdgeId())
+				
+				newInEdgeId++
 			}
 
 			vId++

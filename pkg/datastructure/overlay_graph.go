@@ -2,14 +2,12 @@ package datastructure
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
-	"io"
 	"os"
 	"sort"
-	"strings"
 
 	"github.com/dsnet/compress/bzip2"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // OverlayVertex. overlay vertex information
@@ -533,18 +531,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 
 	br := bufio.NewReader(bz)
 
-	readLine := func() (string, error) {
-		line, err := br.ReadString('\n')
-		if err != nil {
-			if errors.Is(err, io.EOF) && len(line) > 0 {
-			} else if err != nil {
-				return "", err
-			}
-		}
-		return strings.TrimRight(line, "\r\n"), nil
-	}
-
-	line, err := readLine()
+	line, err := util.ReadLine(br)
 	if err != nil {
 		return nil, err
 	}
@@ -557,20 +544,20 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 
 	levelInfo := NewLevelInfo(offsets)
 
-	line, err = readLine()
+	line, err = util.ReadLine(br)
 	tokens = fields(line)
 	vertexCountInLevel := make([]Index, 0, len(tokens))
 	for _, token := range tokens {
 		vertexCountInLevel = append(vertexCountInLevel, Index(parseInt(token)))
 	}
 
-	line, err = readLine()
+	line, err = util.ReadLine(br)
 	tokens = fields(line)
 	vertexCount := parseInt(tokens[0])
 	vertices := make([]*OverlayVertex, 0, vertexCount)
 
 	for i := Index(0); i < Index(vertexCount); i++ {
-		line, err = readLine()
+		line, err = util.ReadLine(br)
 		if err != nil {
 			return nil, err
 		}
@@ -587,13 +574,13 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 		vertices = append(vertices, vertex)
 	}
 
-	line, err = readLine()
+	line, err = util.ReadLine(br)
 	if err != nil {
 		return nil, err
 	}
 	weightVectorSize := uint32(parseInt(line))
 
-	line, err = readLine()
+	line, err = util.ReadLine(br)
 	if err != nil {
 		return nil, err
 	}
@@ -605,10 +592,10 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 
 	cellMapping := make([]map[Pv]*Cell, levelInfo.GetLevelCount())
 	for i := 0; i < levelInfo.GetLevelCount(); i++ {
-		line, err = readLine()
+		line, err = util.ReadLine(br)
 		cellsInLevel := parseInt(line)
 		for j := 0; j < cellsInLevel; j++ {
-			line, err = readLine()
+			line, err = util.ReadLine(br)
 			if err != nil {
 				return nil, err
 			}

@@ -24,7 +24,7 @@ func NewTPGRParser() *TGPRParser {
 	}
 }
 
-func (p *TGPRParser) ParseTGPRFile(coordFile, tgprFile string, logger *zap.Logger) (*datastructure.Graph, map[int64]*da.PWL, error) {
+func (p *TGPRParser) ParseTGPRFile(coordFile, tgprFile string, logger *zap.Logger) (*datastructure.Graph, map[da.Index]*da.PWL, error) {
 	f, err := os.Open(coordFile)
 
 	if err != nil {
@@ -94,7 +94,7 @@ func (p *TGPRParser) ParseTGPRFile(coordFile, tgprFile string, logger *zap.Logge
 		return nil, nil, err
 	}
 
-	ttProfile := make(map[int64]*da.PWL, m)
+	ttProfile := make(map[da.Index]*da.PWL, m)
 
 	edges := make([]Edge, m)
 
@@ -145,7 +145,7 @@ func (p *TGPRParser) ParseTGPRFile(coordFile, tgprFile string, logger *zap.Logge
 			mintt = math.Min(mintt, y)
 		}
 
-		ttProfile[int64(i)] = da.NewPWL(points)
+		ttProfile[da.Index(i)] = da.NewPWL(points)
 
 		e := NewEdge(
 			uint32(u),
