@@ -15,7 +15,5 @@ type EdgeAttributes interface {
 
 type CostFunction interface {
 	GetWeight(e EdgeAttributes) float64
-	GetWeightPWL(e EdgeAttributes) *datastructure.PWL
 	GetTurnCost(turnType pkg.TurnType) float64
-	GetWeightAtTime(e EdgeAttributes, time float64) float64
 }

@@ -21,12 +21,11 @@ type RoutingService struct {
 	gamma, alpha, epsilon, delta float64
 	upperBoundAlternativeSearch  float64
 	lm                           *landmark.Landmark
-	timeDependent                bool
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex,
 	searchRadius float64, clockwise, lefthandDriving bool,
-	gamma, alpha, epsilon, upperBoundAlternativeSearch, delta float64, timeDependent bool, lm *landmark.Landmark,
+	gamma, alpha, epsilon, upperBoundAlternativeSearch, delta float64, lm *landmark.Landmark,
 ) *RoutingService {
 	return &RoutingService{
 		log:                         log,
@@ -40,7 +39,6 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		epsilon:                     epsilon,
 		upperBoundAlternativeSearch: upperBoundAlternativeSearch,
 		delta:                       delta,
-		timeDependent:               timeDependent,
 		lm:                          lm,
 	}
 }
@@ -59,13 +57,9 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 		found            bool
 	)
 
-	if !rs.timeDependent {
-		crpQuery := routing.NewCRPALTBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0, rs.lm)
-		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
-	} else {
-		crpQuery := routing.NewTDCRPUnidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine))
-		travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at, util.GetCurrentSeconds())
-	}
+	crpQuery := routing.NewCRPALTBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0, rs.lm)
+	travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
+
 	if !found {
 		errmsg := fmt.Sprintf("no route found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
 		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
@@ -87,7 +81,7 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 	}
 
 	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.upperBoundAlternativeSearch, rs.gamma, rs.alpha,
-		rs.epsilon, rs.delta, rs.timeDependent)
+		rs.epsilon, rs.delta)
 	alternatives := altSearch.FindAlternativeRoutes(as, at, k)
 	if len(alternatives) == 0 {
 		return []*routing.AlternativeRoute{}, false, nil

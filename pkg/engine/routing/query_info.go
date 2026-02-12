@@ -1,37 +1,31 @@
 package routing
 
-import "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+import (
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+)
 
 type vertexEdgePair struct {
-	vertex      datastructure.Index
-	edge        datastructure.Index
+	vertex      da.Index
+	edge        da.Index
 	isOutEdge   bool
-	outInEdgeId datastructure.Index
-	tSec        float64
+	outInEdgeId da.Index
 	queryLevel  uint8
 }
 
-func (ve *vertexEdgePair) getEdge() datastructure.Index {
+func (ve *vertexEdgePair) getEdge() da.Index {
 	return ve.edge
 }
 
-func (ve *vertexEdgePair) getVertex() datastructure.Index {
+func (ve *vertexEdgePair) getVertex() da.Index {
 	return ve.vertex
 }
 
-func (ve *vertexEdgePair) setEdge(edge datastructure.Index) {
+func (ve *vertexEdgePair) setEdge(edge da.Index) {
 	ve.edge = edge
 }
 
-func (ve *vertexEdgePair) setTime(tSec float64) {
-	ve.tSec = tSec
-}
-
-func (ve *vertexEdgePair) getTime() float64 {
-	return ve.tSec
-}
-
-func (ve *vertexEdgePair) setVertex(vertex datastructure.Index) {
+func (ve *vertexEdgePair) setVertex(vertex da.Index) {
 	ve.vertex = vertex
 }
 
@@ -51,15 +45,28 @@ func (ve *vertexEdgePair) getQueryLevel() uint8 {
 	return ve.queryLevel
 }
 
-func newVertexEdgePair(vertex, edge datastructure.Index, isOutEdge bool) vertexEdgePair {
+func (ve *vertexEdgePair) getFirstOverlayEntryExitId() da.Index {
+	return ve.outInEdgeId
+}
+
+func (ve *vertexEdgePair) setFirstOverlayEntryExitId(vEntryExitId da.Index) {
+	ve.outInEdgeId = vEntryExitId
+}
+
+func (ve *vertexEdgePair) isFirstOverlayVertex() bool {
+	return ve.getFirstOverlayEntryExitId() != da.INVALID_EDGE_ID
+}
+
+func newVertexEdgePair(vertex, edge da.Index, isOutEdge bool) vertexEdgePair {
 	return vertexEdgePair{
-		vertex:    vertex,
-		edge:      edge,
-		isOutEdge: isOutEdge,
+		vertex:      vertex,
+		edge:        edge,
+		isOutEdge:   isOutEdge,
+		outInEdgeId: da.INVALID_EDGE_ID,
 	}
 }
 
-func newVertexEdgePairWithOutEdgeId(vertex, edge, outInEdgeId datastructure.Index, isOutEdge bool) vertexEdgePair {
+func newVertexEdgePairWithOutEdgeId(vertex, edge, outInEdgeId da.Index, isOutEdge bool) vertexEdgePair {
 	return vertexEdgePair{
 		vertex:      vertex,
 		edge:        edge,
@@ -68,44 +75,64 @@ func newVertexEdgePairWithOutEdgeId(vertex, edge, outInEdgeId datastructure.Inde
 	}
 }
 
-func (ve *vertexEdgePair) getOutInEdgeId() datastructure.Index {
+func (ve *vertexEdgePair) getOutInEdgeId() da.Index {
 	return ve.outInEdgeId
 }
 
-type VertexInfo struct {
+type VertexInfo[T comparable] struct {
 	travelTime float64
 	parent     vertexEdgePair
+	heapNode   *da.PriorityQueueNode[T]
 }
 
-func NewVertexInfo(travelTime float64, parent vertexEdgePair) VertexInfo {
-	return VertexInfo{
+func NewVertexInfo[T comparable](travelTime float64, parent vertexEdgePair, hnode *da.PriorityQueueNode[T]) *VertexInfo[T] {
+	return &VertexInfo[T]{
 		travelTime: travelTime,
 		parent:     parent,
+		heapNode:   hnode,
 	}
 }
 
-func (vi VertexInfo) GetTravelTime() float64 {
+func (vi *VertexInfo[T]) GetTravelTime() float64 {
 	return vi.travelTime
 }
 
-func (vi VertexInfo) GetParent() vertexEdgePair {
+func (vi *VertexInfo[T]) UpdateTravelTime(tt float64) {
+	vi.travelTime = tt
+}
+
+func (vi *VertexInfo[T]) UpdateParent(par vertexEdgePair) {
+	vi.parent = par
+}
+
+func (vi *VertexInfo[T]) GetParent() vertexEdgePair {
 	return vi.parent
 }
 
-type altVertexPair struct {
-	vertex    datastructure.Index
-	outEdgeId datastructure.Index
+func (vi *VertexInfo[T]) GetHeapNode() *da.PriorityQueueNode[T] {
+	return vi.heapNode
 }
 
-func (a altVertexPair) getVertex() datastructure.Index {
+func initInfWeightVertexInfo[T comparable](vs []*VertexInfo[T]) {
+	for i := range vs {
+		vs[i] = NewVertexInfo[T](pkg.INF_WEIGHT, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false), nil)
+	}
+}
+
+type altVertexPair struct {
+	vertex    da.Index
+	outEdgeId da.Index
+}
+
+func (a altVertexPair) getVertex() da.Index {
 	return a.vertex
 }
 
-func (a altVertexPair) getOutEdge() datastructure.Index {
+func (a altVertexPair) getOutEdge() da.Index {
 	return a.outEdgeId
 }
 
-func NewAltVertexPair(vertexId, outEdgeId datastructure.Index) altVertexPair {
+func NewAltVertexPair(vertexId, outEdgeId da.Index) altVertexPair {
 	return altVertexPair{vertex: vertexId, outEdgeId: outEdgeId}
 }
 

@@ -18,9 +18,9 @@ func (e *Engine) GetRoutingEngine() *routing.CRPRoutingEngine {
 	return e.crpRoutingEngine
 }
 
-func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool, osmwayPWL map[da.Index]*da.PWL) (*Engine, error) {
+func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger) (*Engine, error) {
 	initializeRoutingEngine, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath,
-		logger, td, osmwayPWL)
+		logger)
 	if err != nil {
 		return nil, err
 	}
@@ -30,8 +30,7 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logg
 }
 
 func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.Metric,
-	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction,
-	td bool, day string) (*Engine, error) {
+	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction) (*Engine, error) {
 	// customizable route planning in road networks section 7.2 (path retrieval)
 	puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 1048576
 
@@ -42,7 +41,7 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger, td bool, osmwayPWL map[da.Index]*da.PWL,
+func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger,
 ) (*routing.CRPRoutingEngine,
 	error) {
 
@@ -59,27 +58,15 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	if err != nil {
 		return nil, err
 	}
-	var m *metrics.Metric
-	var cst *customizer.Customizer
-	var cf routing.CostFunction
-	if td {
-		logger.Info("Reading stalling tables & time-dependent metrics...")
 
-		cf = costfunction.NewTimeDependentCostFunction(graph, osmwayPWL)
-		m, err = metrics.ReadFromFile(metricsFilePath, td, graph, cf)
-		if err != nil {
-			return nil, err
-		}
-
-	} else {
-		logger.Info("Reading stalling tables & time-dependent metrics...")
-		cf = costfunction.NewTimeCostFunction()
-		m, err = metrics.ReadFromFile(metricsFilePath, td, graph, cf)
-		if err != nil {
-			return nil, err
-		}
+	logger.Info("Reading stalling tables & time-dependent metrics...")
+	cf := costfunction.NewTimeCostFunction()
+	m, err := metrics.ReadFromFile(metricsFilePath, graph, cf)
+	if err != nil {
+		return nil, err
 	}
-	cst = customizer.NewCustomizer(graphFilePath, overlayGraphFilePath, metricsFilePath, logger)
+
+	cst := customizer.NewCustomizer(graphFilePath, overlayGraphFilePath, metricsFilePath, logger)
 	cst.SetGraph(graph)
 	cst.SetOverlayGraph(overlayGraph)
 	cst.SetOverlayWeight(m.GetWeights())

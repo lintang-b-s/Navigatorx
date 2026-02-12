@@ -79,29 +79,15 @@ func (c *Cell) GetOverlayIdOffset() Index {
 
 type OverlayGraph struct {
 	/*
-		(overlayVertices) To improve spatial  locality, we assign IDs to overlay vertices such that the boundary
-							vertices of the highest level have the lowest IDs, followed by the boundary vertices of the second highest
-							level (which are not on the highest), and so on. Within a level, we keep the same relative ordering as in the
-							original graph.
+			(overlayVertices) To improve spatial  locality, we assign IDs to overlay vertices such that the boundary
+								vertices of the highest level have the lowest IDs, followed by the boundary vertices of the second highest
+								level (which are not on the highest), and so on. Within a level, we keep the same relative ordering as in the
+								original graph.
 
 
-
-
-		The Linux Programming interface page 118-120:
-		Spatial locality is the tendency of a program to reference memory addresses
-			that are near those that were recently accessed (because of sequential process-
-			ing of instructions, and, sometimes, sequential processing of data structures).
-		A virtual memory scheme splits the memory used by each program into small,
-					fixed-size units called pages. Correspondingly, RAM is divided into a series of page
-					frames of the same size. At any one time, only some of the pages of a program need
-					to be resident in physical memory page frames; these pages form the so-called
-					resident set. Copies of the unused pages of a program are maintained in the swap
-					area—a reserved area of disk space used to supplement the computer’s RAM—and
-					loaded into physical memory only as required. When a process references a page
-					that is not currently resident in physical memory, a page fault occurs, at which point
-					the kernel suspends execution of the process while the page is loaded from disk
-					into memory.
-				so if we improve spatial locality -> number of page faults is minimized
+		og.overlayVertices only store unique overlay vertices,
+		 with overlay vertex that is a border in highest level cells (border in highest level is also border in lower levels until level-1) stored at the beginning of the slice
+		 it means that if we want to get overlay vertex for level 1 that is also a border vertex in level L (highest) we can use the same index (of the highest level border vertex) at the beginning of the array
 	*/
 	overlayVertices    []*OverlayVertex // all overlay vertices in the overlay graph. from the highest level to the lowest level, and sorted by their cell number in each level
 	vertexCountInLevel []Index          // number of overlay vertices in each level (cumulative sum from highest level to lowest level)
@@ -172,7 +158,7 @@ func (og *OverlayGraph) GetWeightVectorSize() uint32 {
 	return og.weightVectorSize
 }
 
-func (og *OverlayGraph) NumberOfVertices() int {
+func (og *OverlayGraph) NumberOfOverlayVertices() int {
 	return len(og.overlayVertices)
 }
 
@@ -208,7 +194,17 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 	// store these overlay vertices according to the highest level in which the edge
 	//  that connect two overlay vertices is a boundary edge (i.e., the two endpoints are in different cells in that level)
 
-	// overlayVerticesByLevel[l] contains all overlay vertices that are endpoints of boundary edges in level l+1
+	// overlay/border vertices are vertices that have endpoint in other cell within same level
+	// because overlay vertices at a high level also become overlay vertices at the lower level,
+	// in this overlayGraph data structure we only store 1 overlay vertex for that case
+	// each overlayVertex store neighborVertex, originalEdge (cut/boundary edge), cellNumber, originalVertexId, and its exitVertices index in its cell
+	// each cell in each level contain all overlay vertices and shortest paths/shortcuts between each (entry,exit) its overlay vertices,
+	//  each overlay vertices can be a exit Vertex (have edge that point to other entryVertex) or entry Vertex
+	// og.overlayVertices only store unique overlay vertices,
+	// with overlay vertex that is a border in highest level cells (border in highest level is also border in lower levels until level-1) stored at the beginning of the slice
+	// it means that if we want to get overlay vertex for level 1 that is a border vertex in level L (highest) we can use the same index (of the highest level border vertex) at the beginning of the array
+
+	// overlayVerticesByLevel[l] contains all overlay vertices that are endpoints of boundary edges in level l+1 (overlayVerticesByLevel is 0-based indexing)
 	overlayVerticesByLevel := make([][]OverlayVertex, numberOfLevels)
 	for start := 0; start < g.NumberOfVertices(); start++ {
 		v := g.vertices[start]
@@ -224,19 +220,19 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 				// so save the two overlay vertices that are the endpoints of the edge in overlayVerticesByLevel[overlayLevel-1]
 				// neighborOverlayVertex of start vertex if the targetVertex in the overlay graph
 				// index target vertex in overlayVerticesByLevel[overlayLevel-1] is len(overlayVerticesByLevel[overlayLevel-1])+1
-				startVertex := OverlayVertex{cellNumber: startPv, originalVertex: Index(start),
+				exitVertex := OverlayVertex{cellNumber: startPv, originalVertex: Index(start),
 					originalEdge: e, neighborOverlayVertex: Index(len(overlayVerticesByLevel[overlayLevel-1]) + 1),
 					entryExitPoint: make([]Index, overlayLevel)}
-				overlayVerticesByLevel[overlayLevel-1] = append(overlayVerticesByLevel[overlayLevel-1], startVertex)
+				overlayVerticesByLevel[overlayLevel-1] = append(overlayVerticesByLevel[overlayLevel-1], exitVertex)
 
-				// neighborOverlayVertex of target vertex is the startVertex in the overlay graph
+				// neighborOverlayVertex of target vertex is the exitVertex in the overlay graph
 				// index start vertex in overlayVerticesByLevel[overlayLevel-1] is len(overlayVerticesByLevel[overlayLevel-1])-1
-				// because we just appended startVertex to overlayVerticesByLevel[overlayLevel-1]
+				// because we just appended exitVertex to overlayVerticesByLevel[overlayLevel-1]
 				inEdgeId, _ := g.FindInEdge(Index(start), edge.head)
-				targetVertex := OverlayVertex{cellNumber: targetPv, originalVertex: edge.head,
+				entryVertex := OverlayVertex{cellNumber: targetPv, originalVertex: edge.head,
 					originalEdge: inEdgeId, neighborOverlayVertex: Index(len(overlayVerticesByLevel[overlayLevel-1]) - 1),
 					entryExitPoint: make([]Index, overlayLevel)}
-				overlayVerticesByLevel[overlayLevel-1] = append(overlayVerticesByLevel[overlayLevel-1], targetVertex)
+				overlayVerticesByLevel[overlayLevel-1] = append(overlayVerticesByLevel[overlayLevel-1], entryVertex)
 			}
 		}
 	}
@@ -276,6 +272,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			newToOldPosition[k] = Index(k)
 		}
 
+		// sort overlay vertices in level-j by their cell number
 		sort.Slice(newToOldPosition, func(i, j int) bool {
 			return verticesInLevelJ[newToOldPosition[i]].cellNumber < verticesInLevelJ[newToOldPosition[j]].cellNumber
 		})
@@ -340,7 +337,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 	for l := 0; l < int(numberOfLevels); l++ {
 		og.cellMapping[l] = make(map[Pv]*Cell)
 	}
-	cellOfset := 0
+	shorcutsWeightSize := 0
 	overlayIdOffset := 0 // offset of first entry/exit point (overlay vertex) in og.overlayIdMapping for the each cell for each level
 
 	// iterate from highest level to lowest level
@@ -350,6 +347,8 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 	for l := int(numberOfLevels - 1); l >= 0; l-- {
 
 		// og.overlayVertices already sorted by level descending and cell number ascending
+
+		// overlayVertices in level numberOfLevels-1 (that are also a overlayVertices in lower level) are at the beginning of the array
 
 		for v := Index(0); v < og.vertexCountInLevel[l]; v++ {
 			vertex := og.overlayVertices[v]
@@ -387,11 +386,11 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 		// update cell info
 		for key := range og.cellMapping[l] {
 			og.cellMapping[l][key].overlayIdOffset = Index(overlayIdOffset)
-			og.cellMapping[l][key].cellOffset = Index(cellOfset)
+			og.cellMapping[l][key].cellOffset = Index(shorcutsWeightSize)
 
 			overlayVertexCountInCell := int(og.cellMapping[l][key].numEntryPoints + og.cellMapping[l][key].numExitPoints)
 			overlayIdOffset += overlayVertexCountInCell
-			cellOfset += int(og.cellMapping[l][key].numEntryPoints * og.cellMapping[l][key].numExitPoints)
+			shorcutsWeightSize += int(og.cellMapping[l][key].numEntryPoints * og.cellMapping[l][key].numExitPoints)
 		}
 	}
 
@@ -417,7 +416,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 		}
 	}
 
-	og.weightVectorSize = uint32(cellOfset) // size of  one-dimensional weight array W.
+	og.weightVectorSize = uint32(shorcutsWeightSize) // size of  one-dimensional weight array W.
 }
 
 // ForOutNeighborsOf. iterates over all outgoing-neighbors of u

@@ -85,12 +85,10 @@ type AlternativeRouteSearch struct {
 	upperBound            float64
 	gamma, alpha, epsilon float64
 	lock                  *sync.RWMutex
-	delta                 float64 //  Evolution and Evaluation of the Penalty Method for Alternative Graphs, by Kobitzsch et al. (2013)
-	td                    bool    // time dependent routing
 }
 
 func NewAlternativeRouteSearch(engine *CRPRoutingEngine, upperBound, gamma, alpha, epsilon, delta float64,
-	td bool,
+
 ) *AlternativeRouteSearch {
 	return &AlternativeRouteSearch{
 		engine:     engine,
@@ -100,8 +98,6 @@ func NewAlternativeRouteSearch(engine *CRPRoutingEngine, upperBound, gamma, alph
 		alpha:      alpha,
 		epsilon:    epsilon,
 		lock:       &sync.RWMutex{},
-		td:         td,
-		delta:      delta,
 	}
 }
 
@@ -137,7 +133,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 
 	for i := len(viaVertices) - 1; i >= 0; i-- {
 		v := viaVertices[i]
-		if !isOverlay(v.GetVId()) {
+		if !ars.engine.isOverlay(v.GetVId()) {
 			if fInfo[v.GetEntryId()].GetTravelTime()+bInfo[v.GetExitId()].GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
 				viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
 			}
@@ -157,24 +153,19 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 			svFound, vtFound           bool
 			crpQuerysv, crpQueryvt     Router
 		)
-		if !ars.td {
-			crpQuerysv = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
-			crpQueryvt = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
-		} else {
-			crpQuerysv = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
-			crpQueryvt = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
-		}
+		crpQuerysv = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
+		crpQueryvt = NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
 
 		wg := sync.WaitGroup{}
 		wg.Add(2)
 		go func() {
-			viaEntryId := adjustForwardOffBit(v.GetEntryId())
+			viaEntryId := ars.engine.adjustForward(v.GetOriginalVId(), v.GetEntryId())
 			svTravelTime, svDist, svCoords, svEdgePath, svFound = crpQuerysv.ShortestPathSearch(asId, viaEntryId)
 			wg.Done()
 		}()
 
 		go func() {
-			viaExitId := adjustBackwardOffbit(v.GetExitId())
+			viaExitId := ars.engine.adjustBackward(v.GetOriginalVId(), v.GetExitId())
 			vtTravelTime, vtDist, vtCoords, vtEdgePath, vtFound = crpQueryvt.ShortestPathSearch(viaExitId, atId)
 			wg.Done()
 		}()
@@ -195,8 +186,10 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 			return nil
 		}
 
-		plv := ars.calculatePlateau(v.GetVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
-			fInfo, bInfo)
+		// todo: fix calculatePlateau() function, tapi selesain eval crp_alt dulu
+		// plv := ars.calculatePlateau(v.GetVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
+		// 	fInfo, bInfo)
+		plv := 0.0 // todo
 
 		T := ars.alpha * optTravelTime
 
@@ -319,74 +312,74 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []data
 	return distanceShare
 }
 
-func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, sForwardId, tBackwardId datastructure.Index,
-	ps, pb map[datastructure.Index]VertexInfo) float64 {
+// func (ars *AlternativeRouteSearch) calculatePlateau(vId, vEntryId, vExitId, sForwardId, tBackwardId datastructure.Index,
+// 	ps, pb map[datastructure.Index]VertexInfo) float64 {
 
-	u := vEntryId
-	_, ok := ps[u]
-	if !ok {
-		u = vId
-	}
+// 	u := vEntryId
+// 	_, ok := ps[u]
+// 	if !ok {
+// 		u = vId
+// 	}
 
-	for u != sForwardId {
-		if isOverlay(u) {
-			// plateau iff parent_backward_search(parent_forward_search(u)) == u
-			if b, oki := pb[ps[u].parent.edge]; !(oki && b.parent.edge == u) {
-				break
-			}
-		} else {
-			// kalau u is entryId  dari edge, sedangkan di pb isinya exitId dari edge, shg u harus dijadiin exitId dari edgenya
-			adjU := adjustForwardOffBit(u)
-			_, uOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(adjU)
-			ueId := uOutEdge.GetEdgeId()
-			_, parUOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(adjustForwardOffBit(ps[u].parent.edge))
-			pareId := parUOutEdge.GetEdgeId()
-			if b, oki := pb[pareId]; !(oki && b.parent.edge == ueId) {
-				break
-			}
-		}
+// 	for u != sForwardId {
+// 		if ars.engine.isOverlay(u) {
+// 			// plateau iff parent_backward_search(parent_forward_search(u)) == u
+// 			if b, oki := pb[ps[u].parent.edge]; !(oki && b.parent.edge == u) {
+// 				break
+// 			}
+// 		} else {
+// 			// kalau u is entryId  dari edge, sedangkan di pb isinya exitId dari edge, shg u harus dijadiin exitId dari edgenya
+// 			adjU := ars.engine.adjustForward(u)
+// 			_, uOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(adjU)
+// 			ueId := uOutEdge.GetEdgeId()
+// 			_, parUOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(ars.engine.adjustForward(ps[u].parent.edge))
+// 			pareId := parUOutEdge.GetEdgeId()
+// 			if b, oki := pb[pareId]; !(oki && b.parent.edge == ueId) {
+// 				break
+// 			}
+// 		}
 
-		u = ps[u].parent.edge
-	}
-	firstPlateauTT := ps[u].GetTravelTime()
+// 		u = ps[u].parent.edge
+// 	}
+// 	firstPlateauTT := ps[u].GetTravelTime()
 
-	u = vExitId
-	_, ok = pb[u]
-	if !ok {
-		u = vId
-	}
-	for u != tBackwardId {
-		if isOverlay(u) {
-			if f, oki := ps[pb[u].parent.edge]; !(oki && f.parent.edge == u) {
-				break
-			}
-		} else {
-			adjU := adjustBackwardOffbit(u)
-			_, uInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(adjU)
-			ueId := uInEdge.GetEdgeId()
-			_, parUInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(adjustBackwardOffbit(pb[u].parent.edge))
-			pareId := parUInEdge.GetEdgeId()
-			if f, oki := ps[pareId]; !(oki && f.parent.edge == ueId) {
-				break
-			}
-		}
+// 	u = vExitId
+// 	_, ok = pb[u]
+// 	if !ok {
+// 		u = vId
+// 	}
+// 	for u != tBackwardId {
+// 		if ars.engine.isOverlay(u) {
+// 			if f, oki := ps[pb[u].parent.edge]; !(oki && f.parent.edge == u) {
+// 				break
+// 			}
+// 		} else {
+// 			adjU := adjustBackwardOffbit(u)
+// 			_, uInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(adjU)
+// 			ueId := uInEdge.GetEdgeId()
+// 			_, parUInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(adjustBackwardOffbit(pb[u].parent.edge))
+// 			pareId := parUInEdge.GetEdgeId()
+// 			if f, oki := ps[pareId]; !(oki && f.parent.edge == ueId) {
+// 				break
+// 			}
+// 		}
 
-		u = pb[u].parent.edge
-	}
+// 		u = pb[u].parent.edge
+// 	}
 
-	var lastPlateauTT float64
-	if isOverlay(u) {
-		lastPlateauTT = ps[u].GetTravelTime()
-	} else {
-		_, uInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(u)
-		ueId := uInEdge.GetEdgeId()
-		lastPlateauTT = ps[ueId].GetTravelTime()
-	}
+// 	var lastPlateauTT float64
+// 	if ars.engine.isOverlay(u) {
+// 		lastPlateauTT = ps[u].GetTravelTime()
+// 	} else {
+// 		_, uInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(u)
+// 		ueId := uInEdge.GetEdgeId()
+// 		lastPlateauTT = ps[ueId].GetTravelTime()
+// 	}
 
-	plateau := lastPlateauTT - firstPlateauTT
+// 	plateau := lastPlateauTT - firstPlateauTT
 
-	return plateau
-}
+// 	return plateau
+// }
 
 func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 	set := make([]map[datastructure.Index]struct{}, len(alts))

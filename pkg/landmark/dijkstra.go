@@ -10,7 +10,8 @@ type Dijkstra struct {
 	graph   *da.Graph
 	metrics *met.Metric
 
-	forwardInfo         map[da.Index]float64
+	forwardInfo         []float64
+	heapNodes           []*da.PriorityQueueNode[da.CRPQueryKey]
 	shortestTimeTravels []float64
 
 	pq *da.MinHeap[da.CRPQueryKey]
@@ -24,7 +25,8 @@ type Dijkstra struct {
 func NewDijkstra(graph *da.Graph, metrics *met.Metric, useReverseGraph bool) *Dijkstra {
 	return &Dijkstra{
 		graph:               graph,
-		forwardInfo:         make(map[da.Index]float64),
+		forwardInfo:         make([]float64, graph.NumberOfEdges()),
+		heapNodes:           make([]*da.PriorityQueueNode[da.CRPQueryKey], graph.NumberOfEdges()),
 		pq:                  da.NewFourAryHeap[da.CRPQueryKey](),
 		useReverseGraph:     useReverseGraph,
 		numSettledNodes:     0,
@@ -69,9 +71,9 @@ func (us *Dijkstra) ShortestPath(asId da.Index) []float64 {
 
 		v := da.Index(0)
 		if !us.useReverseGraph {
-			v = us.graph.GetHeadOfInedge(entryExitId)
+			v = us.graph.GetHeadOfInedge(da.Index(entryExitId))
 		} else {
-			v = us.graph.GetTailOfOutedge(entryExitId)
+			v = us.graph.GetTailOfOutedge(da.Index(entryExitId))
 		}
 
 		if da.Lt(sp, us.shortestTimeTravels[v]) {
@@ -106,7 +108,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 				return
 			}
 
-			edgeWeight := us.metrics.GetWeight(outArc, 0)
+			edgeWeight := us.metrics.GetWeight(outArc)
 
 			turnCost := us.metrics.GetTurnCost(turnType)
 			if uId == source {
@@ -116,14 +118,14 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
 			newArrTime := us.forwardInfo[uEntryId] + edgeWeight + turnCost
 
-			if newArrTime >= pkg.INF_WEIGHT {
+			if da.Ge(newArrTime, pkg.INF_WEIGHT) {
 				return
 			}
 
 			vEntryId := us.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
 
-			_, vAlreadyVisited := us.forwardInfo[vEntryId]
-			if vAlreadyVisited && newArrTime >= us.forwardInfo[vEntryId] {
+			vAlreadyLabelled := da.Lt(us.forwardInfo[vEntryId], pkg.INF_WEIGHT)
+			if vAlreadyLabelled && da.Ge(newArrTime, us.forwardInfo[vEntryId]) {
 				// newArrTime is not better, do nothing
 
 				return
@@ -132,16 +134,16 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			// newArrTime is better, update the forwardInfo
 			us.forwardInfo[vEntryId] = newArrTime
 
-			if vAlreadyVisited {
+			if vAlreadyLabelled {
+
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(da.NewPriorityQueueNode(
-					newArrTime, da.NewDijkstraKey(vId, vEntryId)),
-				)
-			} else if !vAlreadyVisited {
+				us.pq.DecreaseKey(us.heapNodes[vEntryId], newArrTime)
+			} else if !vAlreadyLabelled {
 				// is key not in the priority queue, insert it
-				us.pq.Insert(da.NewPriorityQueueNode(
-					newArrTime, da.NewDijkstraKey(vId, vEntryId)),
-				)
+				vhNode := da.NewPriorityQueueNode(
+					newArrTime, da.NewDijkstraKey(vId, vEntryId))
+				us.heapNodes[vEntryId] = vhNode
+				us.pq.Insert(vhNode)
 			}
 
 		})
@@ -159,7 +161,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 				return
 			}
 
-			edgeWeight := us.metrics.GetWeight(inArc, 0)
+			edgeWeight := us.metrics.GetWeight(inArc)
 
 			turnCost := us.metrics.GetTurnCost(turnType)
 			if uId == source {
@@ -169,14 +171,14 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
 			newArrTime := us.forwardInfo[uExitId] + edgeWeight + turnCost
 
-			if newArrTime >= pkg.INF_WEIGHT {
+			if da.Ge(newArrTime, pkg.INF_WEIGHT) {
 				return
 			}
 
 			vExitId := us.graph.GetExitOffset(vId) + da.Index(inArc.GetExitPoint())
 
-			_, vAlreadyVisited := us.forwardInfo[vExitId]
-			if vAlreadyVisited && newArrTime >= us.forwardInfo[vExitId] {
+			vAlreadyLabelled := da.Lt(us.forwardInfo[vExitId], pkg.INF_WEIGHT)
+			if vAlreadyLabelled && da.Ge(newArrTime, us.forwardInfo[vExitId]) {
 				// newArrTime is not better, do nothing
 
 				return
@@ -185,16 +187,15 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			// newArrTime is better, update the forwardInfo
 			us.forwardInfo[vExitId] = newArrTime
 
-			if vAlreadyVisited {
+			if vAlreadyLabelled {
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(da.NewPriorityQueueNode(
-					newArrTime, da.NewDijkstraKey(vId, vExitId)),
-				)
-			} else if !vAlreadyVisited {
+				us.pq.DecreaseKey(us.heapNodes[vExitId], newArrTime)
+			} else if !vAlreadyLabelled {
 				// is key not in the priority queue, insert it
-				us.pq.Insert(da.NewPriorityQueueNode(
-					newArrTime, da.NewDijkstraKey(vId, vExitId)),
-				)
+				vhNode := da.NewPriorityQueueNode(
+					newArrTime, da.NewDijkstraKey(vId, vExitId))
+				us.heapNodes[vExitId] = vhNode
+				us.pq.Insert(vhNode)
 			}
 
 		})

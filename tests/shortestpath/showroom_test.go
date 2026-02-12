@@ -92,7 +92,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 			return 0
 		}
 
-		return pkg.INF_WEIGHT
+		return pkg.INF_WEIGHT_INT
 	}
 
 	type pair struct {

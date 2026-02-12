@@ -42,8 +42,9 @@ func NewCRPQueryKeyWithOutInEdgeId(node, entryExitPoint, outInEdgeId Index) CRPQ
 }
 
 type PriorityQueueNode[T comparable] struct {
-	rank float64
-	item T
+	rank    float64
+	item    T
+	itemPos int
 }
 
 func (p *PriorityQueueNode[T]) GetItem() T {
@@ -54,15 +55,25 @@ func (p *PriorityQueueNode[T]) GetRank() float64 {
 	return p.rank
 }
 
-func NewPriorityQueueNode[T comparable](rank float64, item T) PriorityQueueNode[T] {
-	return PriorityQueueNode[T]{rank: rank, item: item}
+func (p *PriorityQueueNode[T]) SetRank(rank float64) {
+	p.rank = rank
+}
+func (p *PriorityQueueNode[T]) SetPos(i int) {
+	p.itemPos = i
+}
+
+func (p *PriorityQueueNode[T]) GetPos() int {
+	return p.itemPos
+}
+
+func NewPriorityQueueNode[T comparable](rank float64, item T) *PriorityQueueNode[T] {
+	return &PriorityQueueNode[T]{rank: rank, item: item}
 }
 
 // MinHeap binary heap priorityqueue
 type MinHeap[T comparable] struct {
-	heap []PriorityQueueNode[T]
+	heap []*PriorityQueueNode[T]
 	d    int
-	pos  map[T]int
 }
 
 func NewBinaryHeap[T comparable]() *MinHeap[T] {
@@ -75,10 +86,13 @@ func NewFourAryHeap[T comparable]() *MinHeap[T] {
 
 func NewdAryHeap[T comparable](d int) *MinHeap[T] {
 	return &MinHeap[T]{
-		heap: make([]PriorityQueueNode[T], 0),
+		heap: make([]*PriorityQueueNode[T], 0),
 		d:    d,
-		pos:  make(map[T]int),
 	}
+}
+
+func (h *MinHeap[T]) Preallocate(maxSearchSize int) {
+	h.heap = make([]*PriorityQueueNode[T], 0, maxSearchSize)
 }
 
 // parent get index dari parent
@@ -123,8 +137,9 @@ func (h *MinHeap[T]) heapifyDown(index int) {
 
 func (h *MinHeap[T]) Swap(i, j int) {
 	h.heap[i], h.heap[j] = h.heap[j], h.heap[i]
-	h.pos[h.heap[i].item] = i
-	h.pos[h.heap[j].item] = j
+
+	h.heap[i].SetPos(i)
+	h.heap[j].SetPos(j)
 }
 
 // isEmpty check apakah heap kosong
@@ -143,14 +158,13 @@ func (h *MinHeap[T]) Size() int {
 }
 
 func (h *MinHeap[T]) Clear() {
-	h.heap = make([]PriorityQueueNode[T], 0)
-	h.pos = make(map[T]int)
+	h.heap = make([]*PriorityQueueNode[T], 0)
 }
 
 // getMin mendapatkan nilai minimum dari min-heap (index 0)
-func (h *MinHeap[T]) GetMin() (PriorityQueueNode[T], error) {
+func (h *MinHeap[T]) GetMin() (*PriorityQueueNode[T], error) {
 	if h.isEmpty() {
-		return PriorityQueueNode[T]{}, errors.New("heap is empty")
+		return &PriorityQueueNode[T]{}, errors.New("heap is empty")
 	}
 	return h.heap[0], nil
 }
@@ -163,24 +177,24 @@ func (h *MinHeap[T]) GetMinrank() float64 {
 }
 
 // insert item baru
-func (h *MinHeap[T]) Insert(key PriorityQueueNode[T]) {
+func (h *MinHeap[T]) Insert(key *PriorityQueueNode[T]) {
 	h.heap = append(h.heap, key)
 	index := h.Size() - 1
-	h.pos[key.item] = index
+	key.SetPos(index)
 	h.heapifyUp(index)
 }
 
 // extractMin ambil nilai minimum dari min-heap (index 0) & pop dari heap. O(logN), heapifyDown(0) O(logN)
-func (h *MinHeap[T]) ExtractMin() (PriorityQueueNode[T], error) {
+func (h *MinHeap[T]) ExtractMin() (*PriorityQueueNode[T], error) {
 	if h.isEmpty() {
-		return PriorityQueueNode[T]{}, errors.New("heap is empty")
+		return &PriorityQueueNode[T]{}, errors.New("heap is empty")
 	}
 	root := h.heap[0]
 
 	h.Swap(0, h.Size()-1)
 
 	h.heap = h.heap[:h.Size()-1]
-	h.pos[root.item] = -1
+	root.SetPos(-1)
 	if len(h.heap) > 0 {
 		h.heapifyDown(0)
 	}
@@ -188,18 +202,18 @@ func (h *MinHeap[T]) ExtractMin() (PriorityQueueNode[T], error) {
 	return root, nil
 }
 
-func (h *MinHeap[T]) getItemPos(item PriorityQueueNode[T]) int {
-	return h.pos[item.item]
+func (h *MinHeap[T]) getItemPos(item *PriorityQueueNode[T]) int {
+	return item.GetPos()
 }
 
 // decreaseKey update rank dari item min-heap.   O(logN) heapify.
-func (h *MinHeap[T]) DecreaseKey(item PriorityQueueNode[T]) error {
+func (h *MinHeap[T]) DecreaseKey(item *PriorityQueueNode[T], rank float64) error {
 	itemPos := h.getItemPos(item)
-	if itemPos < 0 || itemPos >= h.Size() {
+	if itemPos < 0 || itemPos >= h.Size() || h.heap[itemPos].GetRank() < rank {
 		return errors.New("invalid index or new value")
 	}
 
-	h.heap[itemPos] = item
+	h.heap[itemPos].SetRank(rank)
 	h.heapifyUp(itemPos)
 	return nil
 }

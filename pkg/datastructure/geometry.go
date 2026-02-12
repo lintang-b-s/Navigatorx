@@ -5,7 +5,7 @@ import (
 )
 
 const (
-	EPS = 1e-6
+	EPS = 1e-9
 )
 
 type Point struct {

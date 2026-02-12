@@ -5,32 +5,29 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"strconv"
-	"sync"
 	"time"
 
-	"net/http"
-
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-
-	_ "net/http/pprof"
 )
 
 var (
-	timeDependent = flag.Bool("time_dependent", true, "Use Time-Dependent Customizable Route Planning")
+	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
+	transitionMHTFile     = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
 )
 
 const (
 	graphFile        string = "./data/original.graph"
 	overlayGraphFile string = "./data/overlay_graph.graph"
 	metricsFile      string = "./data/metrics.txt"
+	landmarkFile     string = "./data/landmark.lm"
 )
 
 func main() {
@@ -40,16 +37,15 @@ func main() {
 		panic(err)
 	}
 
-	tgprParser := osmparser.NewTPGRParser()
-
-	_, osmWayProfile, err := tgprParser.ParseTGPRFile("./data/NY/NY.coordinate", "./data/NY/NY.tpgr",
-		logger)
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger, *timeDependent, osmWayProfile)
+	lm, err := landmark.ReadLandmark(landmarkFile)
 	if err != nil {
 		panic(err)
 	}
 
-	g := re.GetRoutingEngine().GetGraph()
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	if err != nil {
+		panic(err)
+	}
 
 	type spParam struct {
 		row int
@@ -60,7 +56,7 @@ func main() {
 		return spParam{row, s, t}
 	}
 
-	fq, err := os.Open("random_queries_1mil_ea_ny.txt")
+	fq, err := os.Open("random_queries_1mil_sp_crp_alt.txt")
 	if err != nil {
 		panic(err)
 	}
@@ -94,20 +90,16 @@ func main() {
 		n++
 	}
 
-	lock := sync.Mutex{}
-
-	randfout, err := os.Create("rand_queries_result_1mil_ea_ny4.csv")
-	if err != nil {
-		panic(err)
-	}
-	defer randfout.Close()
-	w := bufio.NewWriter(randfout)
-	defer w.Flush()
-
 	go func() {
 		http.ListenAndServe("localhost:6060", nil)
 	}()
 
+	durations := 0.0
+
+	g := re.GetRoutingEngine().GetGraph()
+
+	efficiency := 0.0
+	totScannedVertices := 0
 	calcsSP := func(p spParam) any {
 
 		s := p.s
@@ -117,30 +109,16 @@ func main() {
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
-		rowRec := make([]string, len(hours)*2)
-		for j, hour := range hours {
-			before := time.Now()
-			crpQuery := routing.NewTDCRPUnidirectionalSearch(re.GetRoutingEngine())
-			sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at, float64(hour*3600))
-			after := time.Now()
-			duration := after.Sub(before)
-			rowRec[j] = strconv.FormatFloat(sp, 'f', -1, 64)
-			rowRec[j+len(hours)] = strconv.Itoa(int(duration.Milliseconds()))
-		}
+		now := time.Now()
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		_, _, _, spEdges, _ := crpQuery.ShortestPathSearch(as, at)
+		dur := time.Since(now).Milliseconds()
+		durations += float64(dur)
 
-		lock.Lock()
+		eff, numScannedVertices := crpQuery.GetStats(len(spEdges) + 1)
+		efficiency += eff
+		totScannedVertices += numScannedVertices
 
-		for j, v := range rowRec {
-			if _, err := fmt.Fprintf(w, "%s", v); err != nil {
-				panic(err)
-			}
-			if j < len(rowRec)-1 {
-				fmt.Fprint(w, " ")
-			}
-		}
-		fmt.Fprintf(w, "\n")
-
-		lock.Unlock()
 		if (row+1)%1000 == 0 {
 			logger.Sugar().Infof("done query %v", row+1)
 		}
@@ -148,13 +126,11 @@ func main() {
 		return nil
 	}
 
-	workers := concurrent.NewWorkerPool[spParam, any](500, n)
-
-	for _, q := range queries {
-		workers.AddJob(q)
+	for _, q := range queries[:5000] {
+		calcsSP(q)
 	}
 
-	workers.Close()
-	workers.Start(calcsSP)
-	workers.Wait()
+	fmt.Printf("avg query times: %f\n", durations/5000.0)
+	fmt.Printf("avg efficiency: %f\n", efficiency/5000.0)
+	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/5000.0)
 }

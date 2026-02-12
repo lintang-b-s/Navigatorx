@@ -18,7 +18,6 @@ import (
 
 var (
 	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
-	timeDependent         = flag.Bool("time_dependent", false, "Use Time-Dependent Customizable Route Planning")
 )
 
 const (
@@ -35,10 +34,7 @@ func main() {
 		panic(err)
 	}
 
-	var (
-		dayEdgeTTFs map[da.Index]*da.PWL = make(map[da.Index]*da.PWL)
-	)
-	routingEngine, err := engine.NewEngine("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger, *timeDependent, dayEdgeTTFs)
+	routingEngine, err := engine.NewEngine("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
 	if err != nil {
 		panic(err)
 	}
@@ -69,7 +65,7 @@ func main() {
 		panic(err)
 	}
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
-		0.8, 0.25, 0.25, 1.3, 0.1, false,lm)
+		0.8, 0.25, 0.25, 1.3, 0.1, lm)
 
 	boundingBox := graph.GetBoundingBox()
 	for i := 0; i < 5e5; i++ {

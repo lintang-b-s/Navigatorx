@@ -39,16 +39,16 @@ func NewLandmark() *Landmark {
 
 this is an implementation of planar landmark selection described in section 7 paper [1]
 */
-func (lm *Landmark) SelectLandmarks(k int, cst *customizer.Customizer) []*da.Vertex {
+func (lm *Landmark) SelectLandmarksOne(k int, cst *customizer.Customizer) []*da.Vertex {
 	thetaDif := 360.0 / float64(k)
 
 	landmarks := make([]*da.Vertex, k)
 	ivs := cst.GetGraph().GetVertices()
 
 	minLon := math.MaxFloat64
-	maxLon := -999999.0
+	maxLon := math.Inf(-1)
 	minLat := math.MaxFloat64
-	maxLat := -999999.0
+	maxLat := math.Inf(-1)
 	for _, v := range ivs {
 		if v.GetLon() > maxLon {
 			maxLon = v.GetLon()
@@ -141,6 +141,100 @@ func (lm *Landmark) SelectLandmarks(k int, cst *customizer.Customizer) []*da.Ver
 }
 
 /*
+[1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+
+this is an implementation of planar landmark selection described in section 7 paper [1] versi 2
+
+O(V*logV)
+*/
+func (lm *Landmark) SelectLandmarksTwo(k int, cst *customizer.Customizer) []*da.Vertex {
+
+	landmarks := make([]*da.Vertex, 0, k)
+	ivs := cst.GetGraph().GetVertices()
+
+	minLon := math.MaxFloat64
+	maxLon := math.Inf(-1)
+	minLat := math.MaxFloat64
+	maxLat := math.Inf(-1)
+	for _, v := range ivs {
+		if v.GetLon() > maxLon {
+			maxLon = v.GetLon()
+		}
+		if v.GetLon() < minLon {
+			minLon = v.GetLon()
+		}
+
+		if v.GetLat() > maxLat {
+			maxLat = v.GetLat()
+		}
+		if v.GetLat() < minLat {
+			minLat = v.GetLat()
+		}
+	}
+
+	centerLat := (maxLat + minLat) / 2.0
+	centerLon := (maxLon + minLon) / 2.0
+	n := cst.GetGraph().NumberOfVertices()
+
+	midLandmark := &da.Vertex{}
+	minMidDist := math.MaxFloat64
+	for _, v := range ivs {
+		// O(V)
+		dist := geo.CalculateHaversineDistance(v.GetLat(), v.GetLon(),
+			centerLat, centerLon)
+		if dist < minMidDist {
+			minMidDist = dist
+			midLandmark = v
+		}
+	}
+
+	vs := cst.GetGraph().GetVertices()
+	vsCopy := make([]*da.Vertex, n)
+	copy(vsCopy, vs)
+
+	landmarks = append(landmarks, midLandmark)
+
+	// mirip algoritma graham scan buat bikin convex hull
+	// graham scan: sort Points by their polar angles around a p0 (bottomost point or rightmost & bottomost point if tie)
+	// ini: sort Points by their initial bearing angles around a p0 (center point/coordinate)
+	// karena geographic coordinate, sort by initial bearing angle (sudut antara garis yang menghubungkan titik pivot ke other point dan garis meridian)
+
+	sort.Slice(vsCopy, func(i, j int) bool { // O(V * logV)
+		return geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[j].GetLat(), vsCopy[j].GetLon()) <
+			geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[i].GetLat(), vsCopy[i].GetLon())
+	})
+
+	var (
+		pieSize int
+	)
+
+	pieSize = n / k
+
+	for i := 0; i < k; i++ {
+		// O(V)
+		pie := vsCopy[i*pieSize : (i+1)*pieSize]
+		if i == k-1 {
+			pie = vsCopy[i*pieSize:]
+		}
+
+		terjauhId := 0
+		maxDist := math.Inf(-1)
+		for j, v := range pie {
+			midToVDist := geo.CalculateHaversineDistance(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
+			if midToVDist > maxDist {
+				maxDist = midToVDist
+				terjauhId = j
+			}
+		}
+
+		farthestV := pie[terjauhId]
+		landmarks = append(landmarks, farthestV)
+	}
+
+	return landmarks
+}
+
+/*
 [1] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 
 preprocessing phase of A*, landmark, and triangle inequality (ALT) described in [1]
@@ -153,10 +247,17 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 	if k > 64 {
 		return errors.New("too much landmarks!, the maximum number of landmarks is 64. ")
 	}
+	n := cst.GetGraph().NumberOfVertices()
+
+	if n < k {
+		lm.lw = make([][]float64, 0)
+		lm.landmarks = make([]da.Index, 0)
+		return nil
+	}
+
 	logger.Info("computing landmarks....")
 	lm.lw = make([][]float64, k)
 	lm.landmarks = make([]da.Index, k)
-	n := cst.GetGraph().NumberOfVertices()
 
 	lm.vlw = make([][]float64, n)
 	for i := 0; i < n; i++ {
@@ -166,7 +267,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 	for i := 0; i < k; i++ {
 		lm.lw[i] = make([]float64, n)
 	}
-	landmarks := lm.SelectLandmarks(k, cst)
+	landmarks := lm.SelectLandmarksTwo(k, cst)
 
 	lock := sync.Mutex{}
 
@@ -189,7 +290,9 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 			lock.Unlock()
 		}(i, as)
 
+		wg.Add(1)
 		go func(il int, sidl da.Index) {
+			defer wg.Done()
 			crpQuery := NewDijkstra(cst.GetGraph(), m, true) // O((n+m)logn)
 			at := cst.GetGraph().GetEntryOffset(sidl) + cst.GetGraph().GetInDegree(sidl) - 1
 
@@ -217,16 +320,16 @@ https://doi.org/10.1007/978-3-319-49487-6_2.
 
 implementation of computing tighest lower bound of A*, landmarks, and triangle inequality, 6 Computing Lower Bounds in [1] or section 2.2 ALT in [2]
 */
-func (lm *Landmark) FindTighestLowerBound(u, t da.Index) float64 {
+func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) float64 {
 	// O(k), k = number of landmarks
 	tighestLowerBound := -math.MaxFloat64
-	for i := 0; i < len(lm.landmarks); i++ {
-		if lm.vlw[u][i] >= pkg.INF_WEIGHT || lm.lw[i][t] >= pkg.INF_WEIGHT ||
-			lm.vlw[t][i] >= pkg.INF_WEIGHT || lm.lw[i][u] >= pkg.INF_WEIGHT {
+	for i := 0; i < len(activeLandmarks); i++ {
+		landmarkId := activeLandmarks[i]
+		if lm.vlw[u][landmarkId] >= pkg.INF_WEIGHT || lm.lw[landmarkId][t] >= pkg.INF_WEIGHT {
 			continue
 		}
-		lbOne := lm.vlw[u][i] - lm.vlw[t][i]
-		lbTwo := lm.lw[i][t] - lm.lw[i][u]
+		lbOne := lm.vlw[u][landmarkId] - lm.vlw[t][landmarkId]
+		lbTwo := lm.lw[landmarkId][t] - lm.lw[landmarkId][u]
 
 		betterLb := math.Max(lbOne, lbTwo)
 		tighestLowerBound = math.Max(tighestLowerBound, betterLb)
@@ -238,10 +341,55 @@ func (lm *Landmark) FindTighestLowerBound(u, t da.Index) float64 {
 	// \pi(v) <= dist(v,t) and \pi(v) is nonnegative.
 	// using triangle inequalities computed in the for loop above, we know that
 	// tighestLowerBound = \pi(u) <= dist(u,t) holds
-	// thus, after clamping tighestLowerBound, tighestLowerBound is feasible/admissible potential function for A* algorithm
+	// thus, after clamping tighestLowerBound, tighestLowerBound is feasible/consistent potential function for A* algorithm
 	tighestLowerBound = math.Max(tighestLowerBound, 0)
 
 	return tighestLowerBound
+}
+
+type activeLandmark struct {
+	i  da.Index
+	lb float64
+}
+
+func newActiveLandmark(i da.Index, lb float64) activeLandmark {
+	return activeLandmark{i, lb}
+}
+
+const (
+	activeLandmarkSize = 2
+)
+
+/*
+https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
+
+Use only an active subset:  (page 6)
+– prefer landmarks that give the best lower bound on dist(s, t).
+*/
+func (lm *Landmark) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
+	bestLandmarks := make([]da.Index, 0, len(lm.landmarks))
+
+	oriLandmarks := make([]da.Index, len(lm.landmarks))
+	for i := 0; i < len(lm.landmarks); i++ {
+		oriLandmarks[i] = da.Index(i)
+	}
+
+	lowerBounds := make([]activeLandmark, len(lm.landmarks))
+	for i := 0; i < len(lm.landmarks); i++ {
+		lb, _ := lm.FindTighestConsistentLowerBound(s, s, t, oriLandmarks)
+		lowerBounds[i] = newActiveLandmark(da.Index(i), lb)
+	}
+
+	sort.Slice(lowerBounds, func(i, j int) bool {
+		return lowerBounds[i].lb > lowerBounds[j].lb
+	})
+
+	lbs := lowerBounds[:util.MinInt(len(lowerBounds), activeLandmarkSize)]
+	for _, v := range lbs {
+		bestLandmarks = append(bestLandmarks, v.i)
+	}
+
+	return bestLandmarks
 }
 
 /*
@@ -251,9 +399,9 @@ func (lm *Landmark) FindTighestLowerBound(u, t da.Index) float64 {
 
 implementation of consistent potential function in 5.2 Consistent Approach ref [1]
 */
-func (lm *Landmark) FindTighestConsistentLowerBound(u, s, t da.Index) (float64, float64) {
-	pifu := lm.FindTighestLowerBound(u, t)
-	piru := lm.FindTighestLowerBound(u, s)
+func (lm *Landmark) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index) (float64, float64) {
+	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks)
+	piru := lm.FindTighestLowerBound(u, s, activeLandmarks)
 	pfu := (pifu - piru) / 2.0
 	pru := -pfu
 
@@ -385,7 +533,7 @@ func ReadLandmark(filename string) (*Landmark, error) {
 
 	lm := NewLandmark()
 	lm.lw = lw
-	lm.vlw=vlw
+	lm.vlw = vlw
 	lm.landmarks = landmarks
 	return lm, nil
 }

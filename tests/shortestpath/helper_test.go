@@ -62,13 +62,13 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 
 	og := prep.GetOverlayGraph()
 	cust := customizer.NewCustomizerDirect(g, og, logger)
-	m, err := cust.CustomizeDirect(false, "monday")
+	m, err := cust.CustomizeDirect()
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 	cf := costfunction.NewTimeCostFunction()
 
-	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, false, "monday")
+	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

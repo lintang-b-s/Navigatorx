@@ -17,9 +17,7 @@ import (
 
 var (
 	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
-	timeDependent         = flag.Bool("time_dependent", false, "Use Time-Dependent Customizable Route Planning")
 	transitionMHTFile     = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
-	ttfsFile              = flag.String("ttfs_file", "./data/traveltime_profiles/day_speed_profile_monday.csv", "travel time function for all openstreetmap way filepath")
 )
 
 const (
@@ -36,23 +34,12 @@ func main() {
 		panic(err)
 	}
 
-	var (
-		dayEdgeTTfs map[da.Index]*da.PWL = make(map[da.Index]*da.PWL)
-	)
-
-	if *timeDependent {
-		dayEdgeTTfs, err = da.ReadTravelTimeFunctions(*ttfsFile)
-		if err != nil {
-			panic(err)
-		}
-	}
-
 	lm, err := landmark.ReadLandmark(landmarkFile)
 	if err != nil {
 		panic(err)
 	}
 
-	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger, *timeDependent, dayEdgeTTfs)
+	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +62,7 @@ func main() {
 	api := http.NewServer(logger)
 
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
-		0.8, 0.3, 0.35, 1.35, 0.1, *timeDependent, lm)
+		0.8, 0.3, 0.35, 1.35, 0.1, lm)
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {

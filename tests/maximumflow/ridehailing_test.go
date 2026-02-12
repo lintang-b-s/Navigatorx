@@ -2,6 +2,7 @@ package maximumflow
 
 import (
 	"bufio"
+	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -94,8 +95,12 @@ func SolveRideHailing(t *testing.T, filepath string) {
 		return u | (v << 16)
 	}
 
-	dijkstra := func(s int) map[int]int64 {
-		djdist := make(map[int]int64)
+	dijkstra := func(s int) []int64 {
+		djdist := make([]int64, n+1)
+		hnodes := make([]*da.PriorityQueueNode[int], n+1)
+		for v := 1; v <= n; v++ {
+			djdist[v] = math.MaxInt64
+		}
 		pq := da.NewFourAryHeap[int]()
 
 		djdist[s] = 0
@@ -111,13 +116,14 @@ func SolveRideHailing(t *testing.T, filepath string) {
 			for _, vv := range adjList[u] {
 				v := vv.to
 				vDist := int64(vv.weight)
-				_, ok := djdist[v]
-				if !ok || (ok && uDist+vDist < djdist[v]) {
+				ok := djdist[v] < math.MaxInt64
+				if !ok || uDist+vDist < djdist[v] {
 					djdist[v] = uDist + vDist
 					if !ok {
-						pq.Insert(da.NewPriorityQueueNode(float64(djdist[v]), v))
+						hnodes[v] = da.NewPriorityQueueNode(float64(djdist[v]), v)
+						pq.Insert(hnodes[v])
 					} else {
-						pq.DecreaseKey(da.NewPriorityQueueNode(float64(djdist[v]), v))
+						pq.DecreaseKey(hnodes[v], float64(djdist[v]))
 					}
 				}
 			}

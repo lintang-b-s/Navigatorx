@@ -12,17 +12,13 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
-)
-
-var (
-	timeDependent = flag.Bool("time_dependent", true, "Use Time-Dependent Customizable Route Planning")
 )
 
 const (
 	graphFile        string = "./data/original.graph"
 	overlayGraphFile string = "./data/overlay_graph.graph"
 	metricsFile      string = "./data/metrics.txt"
+	landmarkFile     string = "./data/landmark.lm"
 )
 
 func main() {
@@ -32,11 +28,7 @@ func main() {
 		panic(err)
 	}
 
-	tgprParser := osmparser.NewTPGRParser()
-
-	_, edgeTTFs, err := tgprParser.ParseTGPRFile("./data/NY/NY.coordinate", "./data/NY/NY.tpgr",
-		logger)
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger, *timeDependent, edgeTTFs)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -48,7 +40,7 @@ func main() {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	fout, err := os.Create("random_queries_1mil_ea_ny.txt")
+	fout, err := os.Create("random_queries_1mil_sp_crp_alt.txt")
 	if err != nil {
 		panic(err)
 	}

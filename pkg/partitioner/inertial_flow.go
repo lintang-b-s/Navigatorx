@@ -177,11 +177,11 @@ func (ek *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []data
 	ek.graph.AddVertex(datastructure.NewPartitionVertex(artificialSink, datastructure.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
 
 	for _, s := range sourceNodes {
-		ek.graph.AddEdge(artificialSource, s, pkg.INF_WEIGHT, false)
+		ek.graph.AddEdge(artificialSource, s, pkg.INF_WEIGHT_INT, false)
 	}
 
 	for _, t := range sinkNodes {
-		ek.graph.AddEdge(t, artificialSink, pkg.INF_WEIGHT, false)
+		ek.graph.AddEdge(t, artificialSink, pkg.INF_WEIGHT_INT, false)
 	}
 	return artificialSource, artificialSink
 }

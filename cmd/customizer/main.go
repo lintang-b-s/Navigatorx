@@ -4,15 +4,9 @@ import (
 	"flag"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
-	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-)
-
-var (
-	timeDependent = flag.Bool("time_dependent", false, "Use Time-Dependent Customizable Route Planning")
-	ttfsFile      = flag.String("ttfs_file", "./data/traveltime_profiles/day_speed_profile_monday.csv", "travel time function for all openstreetmap way filepath")
 )
 
 const (
@@ -31,24 +25,13 @@ func main() {
 
 	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
 
-	var (
-		dayEdgeTTFs map[da.Index]*da.PWL = make(map[da.Index]*da.PWL)
-	)
-
-	if *timeDependent {
-		dayEdgeTTFs, err = da.ReadTravelTimeFunctions(*ttfsFile)
-		if err != nil {
-			panic(err)
-		}
-	}
-
-	m, err := custom.Customize(*timeDependent, dayEdgeTTFs)
+	m, err := custom.Customize()
 	if err != nil {
 		panic(err)
 	}
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(8, m, custom, logger)
+	err = lm.PreprocessALT(16, m, custom, logger)
 	if err != nil {
 		panic(err)
 	}

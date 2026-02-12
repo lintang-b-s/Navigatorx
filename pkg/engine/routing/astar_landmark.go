@@ -9,12 +9,13 @@ import (
 type AstarLandmark struct {
 	engine *CRPRoutingEngine
 
-	forwardInfo         map[da.Index]VertexInfo
+	forwardInfo         []*VertexInfo[da.CRPQueryKey]
 	shortestTimeTravels []float64
 
 	pq *da.MinHeap[da.CRPQueryKey]
 
-	lm *landmark.Landmark
+	lm              *landmark.Landmark
+	activeLandmarks []da.Index
 
 	targetEntryId da.Index
 
@@ -26,10 +27,11 @@ type AstarLandmark struct {
 func NewAstarLandmark(engine *CRPRoutingEngine, lm *landmark.Landmark) AstarLandmark {
 	return AstarLandmark{
 		engine:              engine,
-		forwardInfo:         make(map[da.Index]VertexInfo),
+		forwardInfo:         make([]*VertexInfo[da.CRPQueryKey], 0),
 		pq:                  da.NewFourAryHeap[da.CRPQueryKey](),
 		numSettledNodes:     0,
 		shortestTimeTravels: make([]float64, 0),
+		activeLandmarks:     make([]da.Index, 0),
 		lm:                  lm,
 	}
 }
@@ -43,9 +45,17 @@ func (us *AstarLandmark) ShortestPath(asId, atId da.Index) float64 {
 
 	t := us.engine.graph.GetInEdge(atId).GetTail()
 
-	us.forwardInfo[sForwardId] = NewVertexInfo(0, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	shNode := da.NewPriorityQueueNode(0, da.NewDijkstraKey(s, sForwardId))
+	us.pq.Insert(shNode)
 
-	us.pq.Insert(da.NewPriorityQueueNode(0, da.NewDijkstraKey(s, sForwardId)))
+	us.forwardInfo[sForwardId] = NewVertexInfo(0, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false), shNode)
+	us.activeLandmarks = us.lm.SelectBestQueryLandmarks(s, t)
+
+	// https://ai.stanford.edu/~nilsson/OnlinePubs-Nils/PublishedPapers/astar.pdf
+	// hart et al (1967) proved that solution given by A* algorithm will be optimal iff the heuristics is consistent (i.e h(u) <= l(u,v) + h(v))
+	// if heuristics consistent, reopening a closed node step (in A* algorithm pseudocode) can be eliminated
+	// ALT (A*, Landmark, and triangle inequality) provides a consistent heuristic (by triangle inequality)
+	
 
 	finish := false
 	for !us.pq.IsEmpty() {
@@ -61,7 +71,7 @@ func (us *AstarLandmark) ShortestPath(asId, atId da.Index) float64 {
 	inEdge := us.engine.graph.GetInEdge(us.targetEntryId)
 	_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 	sp := 0.0
-	sp += us.engine.metrics.GetWeight(outEdge, 0)
+	sp += us.engine.metrics.GetWeight(outEdge)
 
 	for curInfo.GetParent().edge != sForwardId {
 		parent := curInfo.GetParent()
@@ -74,7 +84,7 @@ func (us *AstarLandmark) ShortestPath(asId, atId da.Index) float64 {
 		parentCopy.setEdge(outEdge.GetEdgeId())
 		parentCopy.setisOutEdge(true)
 
-		sp += us.engine.metrics.GetWeight(outEdge, 0)
+		sp += us.engine.metrics.GetWeight(outEdge)
 
 		curInfo = us.forwardInfo[parentEdge]
 	}
@@ -109,7 +119,7 @@ func (us *AstarLandmark) graphSearchUni(source, target da.Index) bool {
 			return
 		}
 
-		edgeWeight := us.engine.metrics.GetWeight(outArc, 0)
+		edgeWeight := us.engine.metrics.GetWeight(outArc)
 
 		turnCost := us.engine.metrics.GetTurnCost(turnType)
 		if uId == source {
@@ -117,7 +127,7 @@ func (us *AstarLandmark) graphSearchUni(source, target da.Index) bool {
 		}
 
 		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-		lb := us.lm.FindTighestLowerBound(vId, target)
+		lb := us.lm.FindTighestLowerBound(vId, target, us.activeLandmarks)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := us.forwardInfo[uEntryId].GetTravelTime() + edgeWeight + turnCost
@@ -128,29 +138,30 @@ func (us *AstarLandmark) graphSearchUni(source, target da.Index) bool {
 
 		vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
 
-		_, vAlreadyVisited := us.forwardInfo[vEntryId]
-		if vAlreadyVisited && newTravelTime >= us.forwardInfo[vEntryId].GetTravelTime() {
+		vAlreadyLabelled := da.Lt(us.forwardInfo[vEntryId].GetTravelTime(), pkg.INF_WEIGHT)
+		if vAlreadyLabelled && newTravelTime >= us.forwardInfo[vEntryId].GetTravelTime() {
 			// newTravelTime is not better, do nothing
 
 			return
 		}
 
 		// newTravelTime is better, update the forwardInfo
-		us.forwardInfo[vEntryId] = NewVertexInfo(newTravelTime, newVertexEdgePair(uId, uEntryId, false))
 
 		priority := newTravelTime + lb
-		if vAlreadyVisited {
+		if vAlreadyLabelled {
+			vhNode := us.forwardInfo[vEntryId].GetHeapNode()
+			us.forwardInfo[vEntryId].UpdateTravelTime(newTravelTime)
 			// is key already in the priority queue, decrease its key
-			us.pq.DecreaseKey(da.NewPriorityQueueNode(
-				priority, da.NewDijkstraKey(vId, vEntryId)),
-			)
-		} else if !vAlreadyVisited {
-			// is key not in the priority queue, insert it
-			us.pq.Insert(da.NewPriorityQueueNode(
-				priority, da.NewDijkstraKey(vId, vEntryId)),
-			)
-		}
+			us.pq.DecreaseKey(vhNode, priority)
 
+		} else if !vAlreadyLabelled {
+			vhNode := da.NewPriorityQueueNode(
+				priority, da.NewDijkstraKey(vId, vEntryId))
+			us.forwardInfo[vEntryId] = NewVertexInfo(newTravelTime, newVertexEdgePair(uId, uEntryId, false), vhNode)
+
+			// is key not in the priority queue, insert it
+			us.pq.Insert(vhNode)
+		}
 	})
 
 	return false
