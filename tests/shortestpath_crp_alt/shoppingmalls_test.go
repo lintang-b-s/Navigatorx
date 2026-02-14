@@ -197,15 +197,18 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
-
-		sp, _, _, spEdges, _ := crpQuery.ShortestPathSearch(as, at)
-		_ = sp
+		_, _, _, spEdges, _ := crpQuery.ShortestPathSearch(as, at)
 		path := make([]int, 0)
 		path = append(path, a)
 
+		pathSet := make(map[int]struct{}, len(spEdges)*2)
+
 		for _, e := range spEdges {
-			v := newToOldVidMap[e.GetHead()]
-			path = append(path, int(v))
+			if _, ok := pathSet[int(e.GetHead())]; !ok {
+				v := newToOldVidMap[e.GetHead()]
+				path = append(path, int(v))
+				pathSet[int(e.GetHead())] = struct{}{}
+			}
 		}
 
 		// assert expected output dari test cases soal

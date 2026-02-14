@@ -46,7 +46,8 @@ func (ve *vertexEdgePair) getQueryLevel() uint8 {
 }
 
 func (ve *vertexEdgePair) getFirstOverlayEntryExitId() da.Index {
-	return ve.outInEdgeId
+	firstEntryExitId := ve.outInEdgeId
+	return firstEntryExitId
 }
 
 func (ve *vertexEdgePair) setFirstOverlayEntryExitId(vEntryExitId da.Index) {
@@ -54,7 +55,7 @@ func (ve *vertexEdgePair) setFirstOverlayEntryExitId(vEntryExitId da.Index) {
 }
 
 func (ve *vertexEdgePair) isFirstOverlayVertex() bool {
-	return ve.getFirstOverlayEntryExitId() != da.INVALID_EDGE_ID
+	return ve.outInEdgeId != da.INVALID_EDGE_ID
 }
 
 func newVertexEdgePair(vertex, edge da.Index, isOutEdge bool) vertexEdgePair {

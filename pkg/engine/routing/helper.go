@@ -66,8 +66,12 @@ func (bs *CRPBidirectionalSearch) GetBackwardInfo() []*VertexInfo[da.CRPQueryKey
 	return bs.backwardInfo
 }
 
-func (bs *CRPBidirectionalSearch) GetNumSettledNodes() int {
-	return bs.numSettledNodes
+func (bs *CRPBidirectionalSearch) GetSCellNumber() da.Pv {
+	return bs.sCellNumber
+}
+
+func (bs *CRPBidirectionalSearch) GetNumScannedNodes() int {
+	return bs.numScannedNodes
 }
 
 func initInfWeight(dist []float64) {

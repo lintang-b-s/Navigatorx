@@ -142,7 +142,7 @@ func (og *OverlayGraph) TruncateToLevel(cellNumber Pv, level uint8) Pv {
 }
 
 /*
-GetQueryLevel. Customizable Route Planning in Road Networks, Daniel Delling, et al. Page 14
+GetQueryLevel. Customizable Route Planning in Road Networks, Delling et al., et al. Page 14
 
 define its query level lst (v) as the highest level such that v is not
 at the same cell as s or t. Equivalently, lst(v) is the maximum i such that ci (v) ∩ {s, t} = ∅.

@@ -34,7 +34,7 @@ func NewMetric(graph *da.Graph, costFunction costfunction.CostFunction, overlayW
 }
 
 /*
-BuildStallingTables. Customizable Route Planning in Road Networks, Daniel Delling, et al. Page 7:
+BuildStallingTables. Customizable Route Planning in Road Networks, Delling et al., et al. Page 7:
 
 To determine quickly whether a distance label at an entry point can improve the implicit distance labels
 of the exit points, we keep an array of size p (the number of entry points) for each vertex v, with each entry

@@ -8,7 +8,7 @@ import (
 multilevel-ALT (A*, Landmarks , and Triangle Inequality)/multilevel-dijkstra/query phase of Customizable Route Planning only search edges & vertices that in lowest level cells that containing s or t, and all overlay vertices & shortcuts all cells in each level (other than lowest level cells that containing s or t )
 thus we can preallocate the capacity of distance slices and heap as max number of edges in each cell * 2 + number of overlayVertices
 
-buat indexing di info/distance slice & heap nya biar gak tabrakan:
+buat indexing di info/distance slice biar gak tabrakan:
 edges that in lowest level cell that containing s: originalEdgeId - sCellEdgesOffsetId -> range [0, max number of edges in each cell)
 edges that in lowest level cell that containing t: originalEdgeId - tCellEdgesOffsetId +  max number of edges in each cell -> range [max number of edges in each cell, max number of edges in each cell*2)
 overlayVertices: original overlayVertexId +  max number of edges in each cell * 2 -> range [ max number of edges in each cell*2  ,  max number of edges in each cell*2 + number of overlayVertices)
@@ -26,6 +26,7 @@ func (e *CRPRoutingEngine) isOverlay(u da.Index) bool {
 
 // biar edge yang satu cell dengan s atau t punya range  [0, max number of edges in each cell) atau [max number of edges in each cell, max number of edges in each cell*2)
 func (e *CRPRoutingEngine) offsetForward(u, uEntryId da.Index, uCellNumber, sCellNumber da.Pv) da.Index {
+
 	if uCellNumber == sCellNumber {
 		return uEntryId - e.graph.GetInEdgeCellOffset(u)
 	}
@@ -35,6 +36,7 @@ func (e *CRPRoutingEngine) offsetForward(u, uEntryId da.Index, uCellNumber, sCel
 func (e *CRPRoutingEngine) offsetBackward(u, uExitId da.Index, uCellNumber, sCellNumber da.Pv) da.Index {
 
 	if uCellNumber == sCellNumber {
+
 		return uExitId - e.graph.GetOutEdgeCellOffset(u)
 	}
 	return uExitId - e.graph.GetOutEdgeCellOffset(u) + e.graph.GetMaxEdgesInCell()

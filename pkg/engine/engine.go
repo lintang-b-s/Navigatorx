@@ -59,7 +59,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		return nil, err
 	}
 
-	logger.Info("Reading stalling tables & time-dependent metrics...")
+	logger.Info("Reading stalling tables & metrics...")
 	cf := costfunction.NewTimeCostFunction()
 	m, err := metrics.ReadFromFile(metricsFilePath, graph, cf)
 	if err != nil {

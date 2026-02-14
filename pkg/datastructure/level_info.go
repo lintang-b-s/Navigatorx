@@ -31,7 +31,7 @@ func (li *LevelInfo) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 }
 
 /*
-GetQueryLevel. Customizable Route Planning in Road Networks, Daniel Delling, et al. Page 14
+GetQueryLevel. Customizable Route Planning in Road Networks, Delling et al., et al. Page 14
 
 define its query level lst (v) as the highest level such that v is not
 at the same cell as s or t. Equivalently, lst(v) is the maximum i such that ci(v) ∩ {s, t} = ∅.
@@ -52,7 +52,6 @@ func (li *LevelInfo) TruncateToLevel(cellNumber Pv, level uint8) Pv {
 	return cellNumber >> Pv(li.offset[level-1])
 }
 
-
 func (li *LevelInfo) GetLevelCount() int {
 	return len(li.offset) - 1
 }
@@ -60,7 +59,6 @@ func (li *LevelInfo) GetLevelCount() int {
 func (li *LevelInfo) GetOffsets() []uint8 {
 	return li.offset
 }
-
 
 // l is 1-indexed level
 func (li *LevelInfo) GetOffsetInLevel(l int) uint8 {

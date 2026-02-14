@@ -105,7 +105,7 @@ func newCustomizerCell(cell *da.Cell, cellNumber da.Pv) customizerCell {
 }
 
 /*
-Build. Customizable Route Planning in Road Networks, Daniel Delling, et al. Page 11:
+Build. Customizable Route Planning in Road Networks, Delling et al., et al. Page 11:
 
 The customization phase has access to the actual cost function that must be optimized during queries.
 Because we have the metric-independent data structures in place, all we need to do is compute the entries

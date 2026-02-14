@@ -37,112 +37,6 @@ func NewLandmark() *Landmark {
 /*
 [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 
-this is an implementation of planar landmark selection described in section 7 paper [1]
-*/
-func (lm *Landmark) SelectLandmarksOne(k int, cst *customizer.Customizer) []*da.Vertex {
-	thetaDif := 360.0 / float64(k)
-
-	landmarks := make([]*da.Vertex, k)
-	ivs := cst.GetGraph().GetVertices()
-
-	minLon := math.MaxFloat64
-	maxLon := math.Inf(-1)
-	minLat := math.MaxFloat64
-	maxLat := math.Inf(-1)
-	for _, v := range ivs {
-		if v.GetLon() > maxLon {
-			maxLon = v.GetLon()
-		}
-		if v.GetLon() < minLon {
-			minLon = v.GetLon()
-		}
-
-		if v.GetLat() > maxLat {
-			maxLat = v.GetLat()
-		}
-		if v.GetLat() < minLat {
-			minLat = v.GetLat()
-		}
-	}
-
-	centerLat := (maxLat + minLat) / 2.0
-	centerLon := (maxLon + minLon) / 2.0
-	n := cst.GetGraph().NumberOfVertices()
-
-	vs := cst.GetGraph().GetVertices()
-	vsCopy := make([]*da.Vertex, n)
-	copy(vsCopy, vs)
-
-	theta := 0.0
-	for i := 0; i < k; i++ {
-		// O(k * VlogV)
-
-		thetaRad := util.DegreeToRadians(theta)
-		sint := math.Sin(thetaRad)
-		cost := math.Cos(thetaRad)
-		sort.Slice(vsCopy, func(i, j int) bool { // O(V*logV)
-			a := vsCopy[i].GetLon()*cost + vsCopy[i].GetLat()*sint
-			b := vsCopy[j].GetLon()*cost + vsCopy[j].GetLat()*sint
-			return a < b
-		})
-		var (
-			cand *da.Vertex
-		)
-
-		cmaxLon := vsCopy[n-1].GetLon()
-		cmaxLat := vsCopy[n-1].GetLat()
-
-		if sint == 0 {
-			minxDist := math.MaxFloat64
-			for j := n / 2; j < n; j++ {
-				// O(V)
-				v := vsCopy[j]
-				dist := geo.CalculateHaversineDistance(v.GetLat(), v.GetLon(),
-					centerLat, cmaxLon)
-				if dist < minxDist {
-					minxDist = dist
-					cand = v
-				}
-			}
-		} else if cost == 0 {
-			minyDist := math.MaxFloat64
-			for j := n / 2; j < n; j++ {
-				v := vsCopy[j]
-				dist := geo.CalculateHaversineDistance(v.GetLat(), v.GetLon(),
-					cmaxLat, centerLon)
-				if dist < minyDist {
-					minyDist = dist
-					cand = v
-				}
-			}
-		} else {
-			cand = vsCopy[n-1]
-		}
-		landmarks[i] = cand
-
-		theta += thetaDif
-	}
-
-	midLandmark := &da.Vertex{}
-	minMidDist := math.MaxFloat64
-	for _, v := range ivs {
-		// O(V)
-		dist := geo.CalculateHaversineDistance(v.GetLat(), v.GetLon(),
-			centerLat, centerLon)
-		if dist < minMidDist {
-			minMidDist = dist
-			midLandmark = v
-		}
-	}
-
-	landmarks = append(landmarks, midLandmark)
-
-	return landmarks
-}
-
-/*
-[1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
-
 this is an implementation of planar landmark selection described in section 7 paper [1] versi 2
 
 O(V*logV)
@@ -379,7 +273,7 @@ func (lm *Landmark) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 		lb, _ := lm.FindTighestConsistentLowerBound(s, s, t, oriLandmarks)
 		lowerBounds[i] = newActiveLandmark(da.Index(i), lb)
 	}
-
+	// O(k* logk), k = number of landmarks
 	sort.Slice(lowerBounds, func(i, j int) bool {
 		return lowerBounds[i].lb > lowerBounds[j].lb
 	})

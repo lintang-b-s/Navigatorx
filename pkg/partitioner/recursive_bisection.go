@@ -85,9 +85,10 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, graph *datastructure.P
 	partOneId := datastructure.Index(0)
 	partTwoId := datastructure.Index(0)
 
-	partOneMap := make(map[datastructure.Index]datastructure.Index)
-	partTwoMap := make(map[datastructure.Index]datastructure.Index)
-	origGraphVertIdMap := make(map[datastructure.Index]datastructure.Index) // map from original graph vertex id to partition graph vertex id
+	n := graph.NumberOfVertices()
+	partOneMap := make(map[datastructure.Index]datastructure.Index, n*2)
+	partTwoMap := make(map[datastructure.Index]datastructure.Index, n*2)
+	origGraphVertIdMap := make(map[datastructure.Index]datastructure.Index, n*2) // map from original graph vertex id to partition graph vertex id
 	graph.ForEachVertices(func(v datastructure.PartitionVertex) {
 		if v.GetOriginalVertexID() == datastructure.Index(ARTIFICIAL_SOURCE_ID) ||
 			v.GetOriginalVertexID() == datastructure.Index(ARTIFICIAL_SINK_ID) {
@@ -152,7 +153,7 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 	initialVerticeIdSet := makeNodeSet(initialVerticeIds)
 
 	newVid := datastructure.Index(0)
-	newMapVid := make(map[datastructure.Index]datastructure.Index)
+	newMapVid := make(map[datastructure.Index]datastructure.Index, len(initialVerticeIds)*2)
 	for _, vId := range initialVerticeIds {
 		lat, lon := rb.originalGraph.GetVertexCoordinates(vId)
 		vertex := datastructure.NewPartitionVertex(newVid, vId, lat, lon)
@@ -184,7 +185,7 @@ func nodeInSet(u datastructure.Index, nodeSet map[datastructure.Index]struct{}) 
 }
 
 func makeNodeSet(nodeIds []datastructure.Index) map[datastructure.Index]struct{} {
-	set := make(map[datastructure.Index]struct{}, len(nodeIds))
+	set := make(map[datastructure.Index]struct{}, len(nodeIds)*2)
 	for _, nodeId := range nodeIds {
 		set[nodeId] = struct{}{}
 	}

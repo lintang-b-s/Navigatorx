@@ -247,7 +247,7 @@ func solve(t *testing.T, filepath string) {
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
-	t.Logf("calculating shortest path...\n")
+	t.Logf("calculating shortest path...  \n")
 
 	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
