@@ -87,7 +87,7 @@ time complexity of CRP query is: O((n_p + m_p + k * \hat{m_p}) * log (m_p+n_o)),
 multilevel-ALT (A*, Landmarks , and Triangle Inequality) only search at most edges & vertices that in lowest level cells that containing s or t, and all overlay vertices & shortcuts all cells in each level (other than lowest level cells that containing s or t )
 thus we can preallocate the capacity of distance slices and heap as max number of edges in each cell * 2 + number of overlayVertices
 
-https://ai.stanford.edu/~nilsson/OnlinePubs-Nils/PublishedPapers/astar.pdf
+https://ai.stanford.edu/~nilsson/OnlinePubs-Nils/PublishedPapers/astar.pdf or https://web.stanford.edu/class/archive/cs/cs221/cs221.1196/lectures/search2-6pp.pdf
 Hart et al (1967) [5] proved that the solution given by the A* algorithm will be optimal iff the heuristic is consistent (i.e. h(u) <= h(u,v) + h(v), h(u,v) sp distance from u to v), a consistent heuristic implies that the heuristic is also admissible (i.e h(u) <= spdist(u,t))
 ALT (A*, Landmark, and triangle inequality) (Goldberg, A.V. and Harrelson, lm. (2005)) provides a consistent heuristic (by triangle inequality)
 Ikeda et al. (1994) [4]  proved that Bidirectional A* is equivalent to bidirectional dijkstra iff the bidirectional A* implemented using heuristic function 1/2(hs(v)-ht(v)) for forward search and 1/2(ht(v)-hs(v)) for backward search, hs and ht are consistent/feasible heuristic function

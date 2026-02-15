@@ -1,10 +1,12 @@
 package routing
 
 import (
+	"sync"
 	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -30,6 +32,7 @@ type PathUnpacker struct {
 	useCache  bool
 	oneToMany bool
 	runtime   int64
+	lock      sync.RWMutex
 }
 
 func NewPathUnpacker(engine *CRPRoutingEngine, metrics *metrics.Metric,
@@ -42,6 +45,7 @@ func NewPathUnpacker(engine *CRPRoutingEngine, metrics *metrics.Metric,
 		useCache:  useCache,
 		oneToMany: oneToMany,
 		runtime:   0,
+		lock:      sync.RWMutex{},
 	}
 }
 
@@ -93,16 +97,19 @@ todo3: mungkin biar lebih cepet, di path upacking overlay cells yang saling disj
 */
 func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Coordinate, []da.OutEdge, float64) {
 	unpackedPath := make([]da.Coordinate, 0, 50)
-	unpackedEdgePath := make([]da.OutEdge, 0, 50)
+	unpackedEdgePathComp := make([][]da.OutEdge, len(packedPath))
 	totalDistance := 0.0
 	now := time.Now()
+
+	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](4, len(packedPath))
+
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
 		if !isBitOn(cur.getEdge(), UNPACK_OVERLAY_OFFSET) {
 			// original vertex (non-overlay vertex)
 
 			outEdge := pu.engine.graph.GetOutEdge(cur.getEdge())
-			unpackedEdgePath = append(unpackedEdgePath, *outEdge)
+			unpackedEdgePathComp[i] = append(unpackedEdgePathComp[i], *outEdge)
 
 			i++
 		} else {
@@ -122,10 +129,20 @@ func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCe
 
 			exitVertex := offBit(packedPath[i+1].getEdge(), UNPACK_OVERLAY_OFFSET)
 
-			pu.unpackInLevelCell(entryVertex, exitVertex, queryLevel, &unpackedEdgePath)
+			workers.AddJob(NewPathUnpackingParam(entryVertex, exitVertex, queryLevel, &unpackedEdgePathComp[i]))
 
 			i += 2
 		}
+	}
+
+	workers.Close()
+	workers.Start(pu.unpackInLevelCell)
+	workers.Wait()
+
+	unpackedEdgePath := make([]da.OutEdge, 0, 50)
+
+	for i := 0; i < len(unpackedEdgePathComp); i++ {
+		unpackedEdgePath = append(unpackedEdgePath, unpackedEdgePathComp[i]...)
 	}
 
 	unpackedEdgePath = removeDuplicates(unpackedEdgePath)
@@ -142,9 +159,12 @@ func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCe
 	return unpackedPath, unpackedEdgePath, totalDistance
 }
 
-func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId da.Index, level uint8, unpackedEdgePath *[]da.OutEdge,
-) {
-
+func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
+) any {
+	sourceOverlayId := param.getSourceOverlayId()
+	targetOverlayId := param.getTargetOverlayId()
+	level := param.getLevel()
+	unpackedEdgePath := param.getUnpackedEdgePath()
 	if level == 1 {
 		sourceEntryId := pu.engine.overlayGraph.GetVertex(sourceOverlayId).GetOriginalEdge()
 		neighborOfTarget := pu.engine.overlayGraph.GetVertex(targetOverlayId).GetNeighborOverlayVertex()
@@ -152,7 +172,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId da.In
 
 		pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId, unpackedEdgePath,
 			sourceOverlayId, targetOverlayId)
-		return
+		return nil
 	}
 
 	if pu.useCache {
@@ -160,9 +180,9 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId da.In
 			// fetch from cache, cuma dipakai di server time-independent
 			// buat tests, gak ambil dari cache
 			for i := 0; i < len(overlayPath); i += 2 {
-				pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, unpackedEdgePath)
+				pu.unpackInLevelCell(NewPathUnpackingParam(overlayPath[i], overlayPath[i+1], level-1, unpackedEdgePath))
 			}
-			return
+			return nil
 		}
 	}
 
@@ -394,8 +414,9 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId, targetOverlayId da.In
 		curV := overlayPath[i]
 		nextV := overlayPath[i+1]
 
-		pu.unpackInLevelCell(curV, nextV, level-1, unpackedEdgePath)
+		pu.unpackInLevelCell(NewPathUnpackingParam(curV, nextV, level-1, unpackedEdgePath))
 	}
+	return nil
 }
 
 func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.Index,
@@ -690,12 +711,15 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 		uId = pEId
 	}
 
+	pu.lock.Lock()
 	*unpackedEdgePath = append(*unpackedEdgePath, outEdges...)
+	pu.lock.Unlock()
 
 	fpq.Clear()
 	bpq.Clear()
 
 	if pu.useCache {
+		// github.com/hashicorp/golang-lru/v2 is thread-safe
 		pu.puCache.Add(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1), edgeIdPath)
 	}
 }
