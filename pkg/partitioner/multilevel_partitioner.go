@@ -82,8 +82,11 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]datastr
 			continue
 		}
 
-		for len(cells) <= cellId {
-			cells = append(cells, make([]datastructure.Index, 0))
+		if len(cells) <= cellId {
+			n := len(cells)
+			for j := 0; j < cellId-n+1; j++ {
+				cells = append(cells, make([]datastructure.Index, 0))
+			}
 		}
 		cells[cellId] = append(cells[cellId], datastructure.Index(nodeId))
 	}

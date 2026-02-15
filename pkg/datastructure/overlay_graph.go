@@ -55,10 +55,11 @@ point of C will be stored in W [fC + iqC + j].
 
 */
 type Cell struct {
-	numEntryPoints  Index // p_c // number of entry points
-	numExitPoints   Index // q_c // number of exit points
-	cellOffset      Index // f_c (the position in W where the first entry of C’s matrix is represented)
-	overlayIdOffset Index //  offset of first entry/exit point (overlay vertex) in og.overlayIdMapping for the each cell for each level
+	numEntryPoints       Index // p_c // number of entry points
+	numExitPoints        Index // q_c // number of exit points
+	cellOffset           Index // f_c (the position in W where the first entry of C’s matrix is represented)
+	overlayIdOffset      Index //  offset of first entry/exit point (overlay vertex) in og.overlayIdMapping for the each cell for each level
+	numOfOverlayVertices int   // number of overlay vertices in this cell + number of overlayVertices in all direct subcells (subcells in level-1) of this cell
 }
 
 func (c *Cell) GetNumEntryPoints() Index {
@@ -139,6 +140,13 @@ func (og *OverlayGraph) ForVertices(handle func(id Index, v *OverlayVertex)) {
 
 func (og *OverlayGraph) TruncateToLevel(cellNumber Pv, level uint8) Pv {
 	return og.levelInfo.TruncateToLevel(cellNumber, level)
+}
+
+// level is 1-indexed
+func (og *OverlayGraph) GetNumOfOverlayVerticesOfCell(cellNumber Pv, level uint8) int {
+	truncatedCellNumber := og.levelInfo.TruncateToLevel(cellNumber, uint8(level))
+	cell, _ := og.cellMapping[level-1][truncatedCellNumber]
+	return cell.numOfOverlayVertices
 }
 
 /*
@@ -416,6 +424,28 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 		}
 	}
 
+	for l := 0; l < int(numberOfLevels)-1; l++ {
+		subCellNumbers := make([]Pv, 0, len(og.cellMapping[l]))
+		subCells := make([]*Cell, 0, len(og.cellMapping[l]))
+		for cellNumber, subCell := range og.cellMapping[l] {
+			subCellNumbers = append(subCellNumbers, cellNumber)
+			subCells = append(subCells, subCell)
+		}
+
+		for _, subCellNumber := range subCellNumbers {
+			subCell := og.cellMapping[l][subCellNumber]
+			og.cellMapping[l][subCellNumber].numOfOverlayVertices += int(subCell.numEntryPoints) + int(subCell.numExitPoints)
+		}
+
+		for _, subCell := range subCells {
+			entry := og.GetEntryId(subCell, 0)
+			entryVertex := og.GetVertex(entry)
+			superCellNumber := entryVertex.GetCellNumber()
+			superCell := og.GetCell(superCellNumber, l+1)
+			superCell.numOfOverlayVertices += int(subCell.numEntryPoints) + int(subCell.numExitPoints)
+		}
+	}
+
 	og.weightVectorSize = uint32(shorcutsWeightSize) // size of  one-dimensional weight array W.
 }
 
@@ -506,8 +536,8 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 	for l := 1; l <= og.levelInfo.GetLevelCount(); l++ {
 		fmt.Fprintf(w, "%d\n", og.numberOfCellsInLevel(l))
 		for cellNumber, cell := range og.cellMapping[l-1] {
-			fmt.Fprintf(w, "%d %d %d %d %d\n", cellNumber, cell.numEntryPoints, cell.numExitPoints,
-				cell.cellOffset, cell.overlayIdOffset)
+			fmt.Fprintf(w, "%d %d %d %d %d %d\n", cellNumber, cell.numEntryPoints, cell.numExitPoints,
+				cell.cellOffset, cell.overlayIdOffset, cell.numOfOverlayVertices)
 		}
 	}
 
@@ -605,6 +635,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 			cell.numExitPoints = Index(parseInt(tokens[2]))
 			cell.cellOffset = Index(parseInt(tokens[3]))
 			cell.overlayIdOffset = Index(parseInt(tokens[4]))
+			cell.numOfOverlayVertices = parseInt(tokens[5])
 
 			if cellMapping[i] == nil {
 				cellMapping[i] = make(map[Pv]*Cell)

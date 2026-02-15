@@ -46,7 +46,7 @@ func (li *LevelInfo) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uin
 	return uint8(util.MinInt(int(l_sv), int(l_tv)))
 }
 
-// get cell number.
+// get cell number. level is 1-indexed
 func (li *LevelInfo) TruncateToLevel(cellNumber Pv, level uint8) Pv {
 	// shift right to remove bits below the given level (but still contains bits above the level)
 	return cellNumber >> Pv(li.offset[level-1])

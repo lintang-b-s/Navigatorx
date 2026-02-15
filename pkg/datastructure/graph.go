@@ -246,6 +246,7 @@ func NewViaKey(level int, sourceCell, targetCell Pv) ViaKey {
 
 // main crp graph. static (i.e. can't add new edges)
 type Graph struct {
+	graphStorage      *GraphStorage
 	vertices          []*Vertex
 	outEdges          []*OutEdge
 	inEdges           []*InEdge
@@ -260,10 +261,7 @@ type Graph struct {
 	sccs               []Index   // verticeId -> sccId
 	sccCondensationAdj [][]Index // condensation connection of scc of u -> scc of v
 
-	boundingBox  *BoundingBox
-	graphStorage *GraphStorage
-
-	vias map[ViaKey][]ViaVertex // Vias_{l,c_l(s),c_l(t)} all via nodes for s-t query (level-l).
+	boundingBox *BoundingBox
 }
 
 func NewGraph(vertices []*Vertex, forwardEdges []*OutEdge, inEdges []*InEdge, turnTables []pkg.TurnType) *Graph {
@@ -305,17 +303,6 @@ func (g *Graph) GetInEdge(e Index) *InEdge {
 
 func (g *Graph) GetCellNumbers() []Pv {
 	return g.cellNumbers
-}
-
-func (g *Graph) SetVias(key ViaKey, vias []ViaVertex) {
-	if g.vias == nil {
-		g.vias = map[ViaKey][]ViaVertex{}
-	}
-	g.vias[key] = vias
-}
-
-func (g *Graph) GetVias(key ViaKey) []ViaVertex {
-	return g.vias[key]
 }
 
 func (g *Graph) FindInEdge(u, v Index) (Index, bool) {
@@ -637,7 +624,6 @@ func (g *Graph) SetRoundabout(edgeID Index, isRoundabout bool) {
 func (g *Graph) IsTrafficLight(vertexId Index) bool {
 	return g.graphStorage.GetTrafficLight(vertexId)
 }
-
 
 // O(V_G + E_G), V_G=number of sccs/number of vertices in condensation graph^scc, E_G=number of edges in condensation graph^scc
 func (g *Graph) VerticeUandVAreConnected(u, v Index) bool {

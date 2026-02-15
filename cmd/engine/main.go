@@ -18,6 +18,7 @@ import (
 var (
 	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
 	transitionMHTFile     = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
+	cpuprofile            = flag.String("cpuprofile", "", "write cpu profile to file")
 )
 
 const (
@@ -28,6 +29,7 @@ const (
 )
 
 func main() {
+
 	flag.Parse()
 	logger, err := log.New()
 	if err != nil {

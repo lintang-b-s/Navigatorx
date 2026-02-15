@@ -99,6 +99,8 @@ func main() {
 	g := re.GetRoutingEngine().GetGraph()
 
 	efficiency := 0.0
+	qRuntime := 0.0
+	puRuntime := 0.0
 	totScannedVertices := 0
 	calcsSP := func(p spParam) any {
 
@@ -115,7 +117,9 @@ func main() {
 		dur := time.Since(now).Milliseconds()
 		durations += float64(dur)
 
-		eff, numScannedVertices := crpQuery.GetStats(len(spEdges) + 1)
+		eff, numScannedVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spEdges) + 1)
+		qRuntime += float64(queryRuntime)
+		puRuntime += float64(pathUnpackingRuntime)
 		efficiency += eff
 		totScannedVertices += numScannedVertices
 
@@ -126,11 +130,14 @@ func main() {
 		return nil
 	}
 
-	for _, q := range queries[:5000] {
+	for _, q := range queries[:10000] {
 		calcsSP(q)
 	}
 
-	fmt.Printf("avg query times: %f\n", durations/5000.0)
-	fmt.Printf("avg efficiency: %f\n", efficiency/5000.0)
-	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/5000.0)
+	fmt.Printf("avg query times: %f\n", durations/10000.0)
+	fmt.Printf("avg efficiency: %f\n", efficiency/10000.0)
+	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/10000.0)
+	fmt.Printf("avg query runtime: %f\n", qRuntime/10000.0)
+	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/10000.0)
+
 }

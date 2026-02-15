@@ -117,7 +117,6 @@ https://doi.org/10.1287/trsc.2014.0579.
 
 
 todo: add alternative routes stats success rate, UBS, sharing, locally optimal (https://dl.acm.org/doi/abs/10.1145/2444016.2444019)
-todo2: ada rute alternative yang unpacked path nya lompat (mungkin karena exclude 1 overlay vertex setelah makePackedViaPathOverlayEven? ), fix this bug
 todo3: update tTest, hasil rute alternative buat jarak jauh masih jelek
 todo4: mungkin ada yang salah di calculatePlateau?
 */

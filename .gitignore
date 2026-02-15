@@ -35,3 +35,6 @@ dataori/
 *.tpgr
 *.coordinate
 *.lm
+
+pprof_cheatsheet.txt
+navigatorx-cpu-profile

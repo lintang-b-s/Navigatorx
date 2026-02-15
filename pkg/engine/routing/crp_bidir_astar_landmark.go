@@ -2,6 +2,7 @@ package routing
 
 import (
 	"math"
+	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -38,7 +39,9 @@ type CRPALTBidirectionalSearch struct {
 
 	upperBound float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
 
-	numScannedVertices int
+	numScannedVertices   int
+	runtime              int64
+	pathUnpackingRuntime int64
 }
 
 func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, lm *landmark.Landmark) *CRPALTBidirectionalSearch {
@@ -60,7 +63,9 @@ func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, 
 		lm:              lm,
 		activeLandmarks: make([]da.Index, 0),
 
-		numScannedVertices: 0,
+		numScannedVertices:   0,
+		runtime:              0,
+		pathUnpackingRuntime: 0,
 	}
 }
 
@@ -75,15 +80,15 @@ https://doi.org/10.1287/trsc.2014.0579.
 5. consistent heuristic for A* & optimality of A*: Hart, P.E., Nilsson, N.J. and Raphael, B. (1968) “A Formal Basis for the Heuristic Determination of Minimum Cost Paths,” IEEE Transactions on Systems Science and Cybernetics, 4(2), pp. 100–107. Available at: https://doi.org/10.1109/TSSC.1968.300136.
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
-let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortucts within any partition
-let n,m,k denote the number vertices of the original graph,edges of the original graph, and partitioning depth, respectively.
-time complexity of CRP query is: O((n_p + m_p + k *  \hat{m_p}) * log (m_p+np)), bcs in this implementation, priority queue (4-ary heap) contains at most all edges in lowest level cell that containing s or t and all overlay vertices in all cell other than cell that containing s or t
+let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
+let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, partitioning depth, and number of overlay vertices respectively.
+time complexity of CRP query is: O((n_p + m_p + k * \hat{m_p}) * log (m_p+n_o)), bcs in this implementation, priority queue (4-ary heap) contains at most all edges in lowest level cell that containing s or t and all overlay vertices in all cell other than cell that containing s or t
 
-multilevel-ALT (A*, Landmarks , and Triangle Inequality) at most only search edges & vertices that in lowest level cells that containing s or t, and all overlay vertices & shortcuts all cells in each level (other than lowest level cells that containing s or t )
+multilevel-ALT (A*, Landmarks , and Triangle Inequality) only search at most edges & vertices that in lowest level cells that containing s or t, and all overlay vertices & shortcuts all cells in each level (other than lowest level cells that containing s or t )
 thus we can preallocate the capacity of distance slices and heap as max number of edges in each cell * 2 + number of overlayVertices
 
 https://ai.stanford.edu/~nilsson/OnlinePubs-Nils/PublishedPapers/astar.pdf
-Hart et al (1967) [5] proved that the solution given by the A* algorithm will be optimal iff the heuristic is consistent (i.e. h(u) <= l(u,v) + h(v)), a consistent heuristic implies that the heuristic is also admissible (i.e h(u) <= spdist(u,t))
+Hart et al (1967) [5] proved that the solution given by the A* algorithm will be optimal iff the heuristic is consistent (i.e. h(u) <= h(u,v) + h(v), h(u,v) sp distance from u to v), a consistent heuristic implies that the heuristic is also admissible (i.e h(u) <= spdist(u,t))
 ALT (A*, Landmark, and triangle inequality) (Goldberg, A.V. and Harrelson, lm. (2005)) provides a consistent heuristic (by triangle inequality)
 Ikeda et al. (1994) [4]  proved that Bidirectional A* is equivalent to bidirectional dijkstra iff the bidirectional A* implemented using heuristic function 1/2(hs(v)-ht(v)) for forward search and 1/2(ht(v)-hs(v)) for backward search, hs and ht are consistent/feasible heuristic function
 */
@@ -95,6 +100,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	// asId exitPoint of outEdge u->s
 	// atId entryPoint of inEdge t->v
 
+	now := time.Now()
 	if asId == atId {
 		return 0, 0, []da.Coordinate{}, []da.OutEdge{}, true
 	}
@@ -187,8 +193,15 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 
 	packedPath := bs.engine.RetrievePackedPath(bs.forwardMid, bs.backwardMid,
 		bs.forwardInfo, bs.backwardInfo, bs.sForwardId, bs.tBackwardId, bs.sCellNumber)
+
+	dur := time.Since(now).Milliseconds()
+	bs.runtime = dur
+	
+
 	unpacker := NewPathUnpacker(bs.engine, bs.engine.metrics, bs.engine.puCache, true, false)
 	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
+
+	bs.pathUnpackingRuntime = unpacker.GetStats()
 
 	return bs.shortestTimeTravel, totalDistance, finalPath, finalEdgePath, true
 }
@@ -932,7 +945,7 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 	bs.backwardPq.Preallocate(maxSearchSize)
 }
 
-func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int) {
+func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
 	// efficiency:
 	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf
 	/*
@@ -944,5 +957,5 @@ func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int) {
 	*/
 
 	efficiency := float64(n) / float64(bs.numScannedVertices)
-	return efficiency, bs.numScannedVertices
+	return efficiency, bs.numScannedVertices, bs.runtime, bs.pathUnpackingRuntime
 }

@@ -86,8 +86,8 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, graph *datastructure.P
 	partTwoId := datastructure.Index(0)
 
 	n := graph.NumberOfVertices()
-	partOneMap := make(map[datastructure.Index]datastructure.Index, n*2)
-	partTwoMap := make(map[datastructure.Index]datastructure.Index, n*2)
+	partOneMap := make([]datastructure.Index, n)
+	partTwoMap := make([]datastructure.Index, n)
 	origGraphVertIdMap := make(map[datastructure.Index]datastructure.Index, n*2) // map from original graph vertex id to partition graph vertex id
 	graph.ForEachVertices(func(v datastructure.PartitionVertex) {
 		if v.GetOriginalVertexID() == datastructure.Index(ARTIFICIAL_SOURCE_ID) ||
@@ -113,7 +113,7 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, graph *datastructure.P
 		}
 	})
 
-	for _, uVertex := range graph.GetVertices() {
+	for _, uVertex := range graph.GetVertices() { // O(V+E)
 		rb.originalGraph.ForOutEdgesOfVertex(uVertex.GetOriginalVertexID(), func(e *datastructure.OutEdge, exitPoint datastructure.Index) {
 			v, ok := origGraphVertIdMap[e.GetHead()]
 			if !ok {
@@ -153,7 +153,7 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 	initialVerticeIdSet := makeNodeSet(initialVerticeIds)
 
 	newVid := datastructure.Index(0)
-	newMapVid := make(map[datastructure.Index]datastructure.Index, len(initialVerticeIds)*2)
+	newMapVid := make(map[datastructure.Index]datastructure.Index, len(initialVerticeIds))
 	for _, vId := range initialVerticeIds {
 		lat, lon := rb.originalGraph.GetVertexCoordinates(vId)
 		vertex := datastructure.NewPartitionVertex(newVid, vId, lat, lon)
@@ -177,11 +177,6 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 
 func (rb *RecursiveBisection) GetFinalPartition() []int {
 	return rb.finalPartition
-}
-
-func nodeInSet(u datastructure.Index, nodeSet map[datastructure.Index]struct{}) bool {
-	_, exists := nodeSet[u]
-	return exists
 }
 
 func makeNodeSet(nodeIds []datastructure.Index) map[datastructure.Index]struct{} {

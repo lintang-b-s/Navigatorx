@@ -39,7 +39,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		N, M    int
 		f, fOut *os.File
 	)
-
+	filepath = "../shortestpath/data/tests/shortestpath/icpc_swerc2013_shoppingmalls/secret/5"
 	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
