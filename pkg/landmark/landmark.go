@@ -222,6 +222,7 @@ func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.In
 		if lm.vlw[u][landmarkId] >= pkg.INF_WEIGHT || lm.lw[landmarkId][t] >= pkg.INF_WEIGHT {
 			continue
 		}
+		// 
 		lbOne := lm.vlw[u][landmarkId] - lm.vlw[t][landmarkId]
 		lbTwo := lm.lw[landmarkId][t] - lm.lw[landmarkId][u]
 

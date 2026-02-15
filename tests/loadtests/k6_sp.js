@@ -2,8 +2,8 @@ import http from "k6/http";
 import { sleep, check } from "k6";
 export const options = {
   stages: [
-    { duration: "1m", target: 5 }, // ramp up
-    { duration: "30s", target: 5 }, // peak
+    { duration: "1m", target: 50 }, // ramp up
+    { duration: "30s", target: 50 }, // peak
   ],
 };
 
@@ -16,11 +16,11 @@ function getRandomInRange(from, to, fixed) {
 }
 
 export default () => {
-  const srcLon = getRandomInRange(110.132, 110.9221, 6);
-  const srcLat = getRandomInRange(-8.2618, -6.888, 6);
+  const srcLon = getRandomInRange(110.20878415486057, 110.84218487543602, 6);
+  const srcLat = getRandomInRange(-7.8629891244016274, -7.152809872985647, 6);
 
-  const destLon = getRandomInRange(110.132, 110.9221, 6);
-  const destLat = getRandomInRange(-8.2618, -6.888, 6);
+  const destLon = getRandomInRange(110.20878415486057, 110.84218487543602, 6);
+  const destLat = getRandomInRange(-7.8629891244016274, -7.152809872985647, 6);
 
   const res = http.get(
     `http://localhost:6060/api/computeRoutes?origin_lat=${srcLat}&origin_lon=${srcLon}&destination_lat=${destLat}&destination_lon=${destLon}`,
