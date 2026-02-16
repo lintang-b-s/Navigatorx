@@ -238,7 +238,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 
 	workers.Close()
 	workers.Start(computeAlternatives)
-	workers.Wait()
+	workers.WaitDirect()
 
 	sort.Slice(ars.candidates, func(j, pivotIdx int) bool {
 		return ars.candidates[j].objectiveValue < ars.candidates[pivotIdx].objectiveValue

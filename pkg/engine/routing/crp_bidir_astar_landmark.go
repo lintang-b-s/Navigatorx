@@ -103,9 +103,6 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	// atId entryPoint of inEdge t->v
 
 	now := time.Now()
-	if asId == atId {
-		return 0, 0, []da.Coordinate{}, []da.OutEdge{}, true
-	}
 
 	s := bs.engine.graph.GetOutEdge(asId).GetHead()
 	t := bs.engine.graph.GetInEdge(atId).GetTail()
@@ -267,10 +264,6 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 	// traverse outEdges of u
 	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
 		vId := outArc.GetHead()
-
-		if vId == uId {
-			return
-		}
 
 		// get query level of v l_st(v)
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
@@ -447,9 +440,6 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 
 	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *da.InEdge, entryPoint da.Index, turnType pkg.TurnType) {
 		vId := inArc.GetTail()
-		if vId == uId {
-			return
-		}
 
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(vId))

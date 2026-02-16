@@ -30,6 +30,11 @@ func Eq(a, b float64) bool {
 	return math.Abs(a-b) <= EPS
 }
 
+// equal operator
+func EqEps(a, b, eps float64) bool {
+	return math.Abs(a-b) <= eps
+}
+
 // less than operator
 func Lt(a, b float64) bool {
 	return a+EPS < b

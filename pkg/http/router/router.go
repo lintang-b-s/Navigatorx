@@ -69,7 +69,6 @@ func (api *API) Run(
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,
 		MaxAge:           300, //nolint:mnd // ignore
-
 	})
 
 	router.GET("/doc/*any", swaggerHandler)

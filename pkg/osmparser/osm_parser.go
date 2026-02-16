@@ -326,6 +326,9 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	graph := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false)
 	graph.SetGraphStorage(graphStorage)
 
+	logger.Sugar().Infof("number of vertices: %v\n", graph.NumberOfVertices())
+	logger.Sugar().Infof("number of edges: %v\n", graph.NumberOfEdges())
+
 	return graph, nil
 }
 

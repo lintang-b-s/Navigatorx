@@ -70,7 +70,7 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []vertexEdgePair, sCellNumber, 
 	totalDistance := 0.0
 	now := time.Now()
 
-	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](4, len(packedPath))
+	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](1, len(packedPath))
 
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
@@ -106,7 +106,7 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []vertexEdgePair, sCellNumber, 
 
 	workers.Close()
 	workers.Start(pu.unpackInLevelCell)
-	workers.Wait()
+	workers.WaitDirect()
 
 	unpackedEdgePath := make([]da.OutEdge, 0, 50)
 
@@ -679,8 +679,10 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 	// u->mid
 	_, midOutEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(fMid)
-	outEdges = append(outEdges, *midOutEdge)
-	edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+	if da.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
+		outEdges = append(outEdges, *midOutEdge)
+		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+	}
 
 	uId := offFMid
 	for lfInfo[uId].parent.getEdge() != da.INVALID_EDGE_ID { // sampai parent.edge = sourceEntryId, include sp edges didalam current cell & sp edge entry cell ini
@@ -701,8 +703,10 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 	// mid<-v
 	midOutEdge = pu.engine.graph.GetOutEdge(bMid)
-	outEdges = append(outEdges, *midOutEdge)
-	edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+	if da.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
+		outEdges = append(outEdges, *midOutEdge)
+		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+	}
 
 	uId = offBMid
 	for lbInfo[uId].parent.getEdge() != da.INVALID_EDGE_ID { // sampai parent.edge = targetEntry, include sp edges didalam current cell & sp edge exit cell ini

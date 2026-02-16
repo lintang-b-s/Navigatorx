@@ -222,20 +222,29 @@ func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.In
 		if lm.vlw[u][landmarkId] >= pkg.INF_WEIGHT || lm.lw[landmarkId][t] >= pkg.INF_WEIGHT {
 			continue
 		}
-		// 
+		// Goldberg, A.V. and Harrelson, lm. (2005):
+		// let dist(v,w) the shortest path from v to w
+		// let d_l(.) shortest path distance from every vertices to landmark landmarkId
+		// from triangle inequality property of shortest path (see clrs)
+		// d_l(v) <= d_l(w) + dist(v,w)
+		// the proof is intuitive, let p be the shortest path from v to landmarkId, we know that dist of this shortest path p cannot greater than other path p',
+		// p' is concatenation of shortest path from v to w and shortest path from w to landmarkId
+		// thus d_l(v) - d_l(w) <= dist(v,w) is a consistent and admissible lowerbound for A* algorithm
+		// let d_v(.) shortest path from landmark landmarkId to every other vertices
+		// using the triangle inequality, d_v(w) <= d_v(v) + dist(v,w)
+		// d_v(w) - d_v(v) <= dist(v,w) also a consistent and admissible lowerbound for A* algorithm 
 		lbOne := lm.vlw[u][landmarkId] - lm.vlw[t][landmarkId]
 		lbTwo := lm.lw[landmarkId][t] - lm.lw[landmarkId][u]
 
 		betterLb := math.Max(lbOne, lbTwo)
 		tighestLowerBound = math.Max(tighestLowerBound, betterLb)
-
 	}
 
 	// lemma 2.1 from paper [3]:
 	// Suppose \pi is feasible and for vertex t \in V we have \pi(t) <= 0. Then for any v \in V,
-	// \pi(v) <= dist(v,t) and \pi(v) is nonnegative.
+	// \pi(v) <= spdist(v,t) and \pi(v) is nonnegative.
 	// using triangle inequalities computed in the for loop above, we know that
-	// tighestLowerBound = \pi(u) <= dist(u,t) holds
+	// tighestLowerBound = \pi(u) <= spdist(u,t) holds
 	// thus, after clamping tighestLowerBound, tighestLowerBound is feasible/consistent potential function for A* algorithm
 	tighestLowerBound = math.Max(tighestLowerBound, 0)
 

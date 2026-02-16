@@ -113,7 +113,7 @@ func (pu *PathUnpacker) unpackPath(packedPath []vertexEdgePair, sCellNumber, tCe
 
 	workers.Close()
 	workers.Start(pu.unpackInLevelCell)
-	workers.Wait()
+	workers.WaitDirect()
 
 	unpackedEdgePath := make([]da.OutEdge, 0, 50)
 

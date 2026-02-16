@@ -104,10 +104,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 		us.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
 
 			vId := outArc.GetHead()
-			if vId == uId {
-				return
-			}
-
+			
 			edgeWeight := us.metrics.GetWeight(outArc)
 
 			turnCost := us.metrics.GetTurnCost(turnType)
@@ -157,9 +154,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 		us.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *da.InEdge, entryPoint da.Index, turnType pkg.TurnType) {
 
 			vId := inArc.GetTail()
-			if vId == uId {
-				return
-			}
+			
 
 			edgeWeight := us.metrics.GetWeight(inArc)
 

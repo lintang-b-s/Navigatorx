@@ -206,7 +206,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 	workers.Close()
 	workers.Start(calcSp)
-	workers.Wait()
+	workers.WaitDirect()
 
 	ans := minDist
 	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)

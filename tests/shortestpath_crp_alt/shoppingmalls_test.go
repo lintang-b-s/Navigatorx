@@ -39,7 +39,6 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		N, M    int
 		f, fOut *os.File
 	)
-	filepath = "../shortestpath/data/tests/shortestpath/icpc_swerc2013_shoppingmalls/secret/5"
 	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
@@ -201,14 +200,9 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		path := make([]int, 0)
 		path = append(path, a)
 
-		pathSet := make(map[int]struct{}, len(spEdges)*2)
-
 		for _, e := range spEdges {
-			if _, ok := pathSet[int(e.GetHead())]; !ok {
-				v := newToOldVidMap[e.GetHead()]
-				path = append(path, int(v))
-				pathSet[int(e.GetHead())] = struct{}{}
-			}
+			v := newToOldVidMap[e.GetHead()]
+			path = append(path, int(v))
 		}
 
 		// assert expected output dari test cases soal

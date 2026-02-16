@@ -71,7 +71,7 @@ func (bs *CRPBidirectionalSearch) GetSCellNumber() da.Pv {
 }
 
 func (bs *CRPBidirectionalSearch) GetNumScannedNodes() int {
-	return bs.numScannedNodes
+	return bs.numScannedVertices
 }
 
 func initInfWeight(dist []float64) {

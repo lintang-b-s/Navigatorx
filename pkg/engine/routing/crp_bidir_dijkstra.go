@@ -2,6 +2,7 @@ package routing
 
 import (
 	"math"
+	"time"
 
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -70,7 +71,9 @@ type CRPBidirectionalSearch struct {
 
 	upperBound float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
 
-	numScannedNodes int
+	numScannedVertices   int
+	runtime              int64
+	pathUnpackingRuntime int64
 }
 
 func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CRPBidirectionalSearch {
@@ -89,7 +92,7 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CR
 		fScanned:      make([]bool, 0),
 		bScanned:      make([]bool, 0),
 
-		numScannedNodes: 0,
+		numScannedVertices: 0,
 	}
 }
 
@@ -118,10 +121,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
 	// asId exitPoint of outEdge u->s
 	// atId entryPoint of inEdge t->v
-
-	if asId == atId {
-		return 0, 0, []da.Coordinate{}, []da.OutEdge{}, true
-	}
+	now := time.Now()
 
 	s := bs.engine.graph.GetOutEdge(asId).GetHead()
 	t := bs.engine.graph.GetInEdge(atId).GetTail()
@@ -191,7 +191,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 			bs.backwardOverlayGraphSearch(uItem)
 		}
 
-		bs.numScannedNodes += 2
+		bs.numScannedVertices += 2
 	}
 
 	if bs.shortestTimeTravel == 2*pkg.INF_WEIGHT {
@@ -201,8 +201,13 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 	packedPath := bs.engine.RetrievePackedPath(bs.forwardMid, bs.backwardMid,
 		bs.forwardInfo, bs.backwardInfo, bs.sForwardId, bs.tBackwardId, bs.sCellNumber)
 
+	dur := time.Since(now).Milliseconds()
+	bs.runtime = dur
+
 	unpacker := NewPathUnpacker(bs.engine, bs.engine.metrics, bs.engine.puCache, true, false)
 	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
+
+	bs.pathUnpackingRuntime = unpacker.GetStats()
 
 	return bs.shortestTimeTravel, totalDistance, finalPath, finalEdgePath, true
 }
@@ -268,9 +273,6 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
 		vId := outArc.GetHead()
 
-		if vId == uId {
-			return
-		}
 		// get query level of v l_st(v)
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(vId))
@@ -441,10 +443,6 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, targ
 
 	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *da.InEdge, entryPoint da.Index, turnType pkg.TurnType) {
 		vId := inArc.GetTail()
-
-		if vId == uId {
-			return
-		}
 
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(vId))
@@ -926,7 +924,7 @@ func (bs *CRPBidirectionalSearch) Preallocate() {
 	bs.backwardPq.Preallocate(maxSearchSize)
 }
 
-func (bs *CRPBidirectionalSearch) GetStats(n int) (float64, int) {
+func (bs *CRPBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
 	// efficiency:
 	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf
 	/*
@@ -937,6 +935,6 @@ func (bs *CRPBidirectionalSearch) GetStats(n int) (float64, int) {
 		scans only the shortest path vertices has 100% efficiency.
 	*/
 
-	efficiency := float64(n) / float64(bs.numScannedNodes)
-	return efficiency, bs.numScannedNodes
+	efficiency := float64(n) / float64(bs.numScannedVertices)
+	return efficiency, bs.numScannedVertices, bs.runtime, bs.pathUnpackingRuntime
 }

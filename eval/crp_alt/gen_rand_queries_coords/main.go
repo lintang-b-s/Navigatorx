@@ -38,7 +38,7 @@ func main() {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	fout, err := os.Create("random_queries_1mil_sp_crp_alt.txt")
+	fout, err := os.Create("random_queries_1mil_sp_crp_alt_coords.txt")
 	if err != nil {
 		panic(err)
 	}
@@ -71,7 +71,9 @@ func main() {
 		}
 
 		qset[bitpack(s, t)] = struct{}{}
-		fmt.Fprintf(w, "%d %d\n", s, t)
+		sv := g.GetVertex(da.Index(s))
+		tv := g.GetVertex(da.Index(t))
+		fmt.Fprintf(w, "%f %f %f %f\n", sv.GetLat(), sv.GetLon(), tv.GetLat(), tv.GetLon())
 		i++
 	}
 

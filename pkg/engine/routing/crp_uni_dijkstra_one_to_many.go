@@ -200,9 +200,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
 
 		vId := outArc.GetHead()
-		if vId == uId {
-			return
-		}
+		
 
 		// get query level of v l_st(v)
 		lowestVQueryLevel := uint8(255)
