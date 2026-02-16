@@ -648,8 +648,10 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 
 	// u->mid
 	_, midOutEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(fMid)
-	outEdges = append(outEdges, *midOutEdge)
-	edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+	if da.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
+		outEdges = append(outEdges, *midOutEdge)
+		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+	}
 
 	uId := offFMid
 	for lfInfo[uId].parent.getEdge() != da.INVALID_EDGE_ID { // sampai parent.edge = sourceEntryId, include sp edges didalam current cell & sp edge entry cell ini
@@ -670,8 +672,10 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 
 	// mid<-v
 	midOutEdge = pu.engine.graph.GetOutEdge(bMid)
-	outEdges = append(outEdges, *midOutEdge)
-	edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+	if da.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
+		outEdges = append(outEdges, *midOutEdge)
+		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+	}
 
 	uId = offBMid
 	for lbInfo[uId].parent.getEdge() != da.INVALID_EDGE_ID { // sampai parent.edge = targetEntry, include sp edges didalam current cell & sp edge exit cell ini
