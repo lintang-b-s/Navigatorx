@@ -159,7 +159,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
-		if da.Gt(minForward+minBackward, bs.shortestTimeTravel*(bs.upperBound)) {
+		if da.Ge(minForward+minBackward, bs.shortestTimeTravel*(bs.upperBound)) {
 			break
 		}
 

@@ -143,7 +143,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
-		if da.Gt(minForward+minBackward, (bs.shortestTimeTravel+prt)*(bs.upperBound)) {
+		if da.Ge(minForward+minBackward, (bs.shortestTimeTravel+prt)*(bs.upperBound)) {
 			/*
 				https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 				stopping criterion for Bidirectional A* Search:

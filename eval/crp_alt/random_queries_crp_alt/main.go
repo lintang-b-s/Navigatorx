@@ -56,7 +56,7 @@ func main() {
 		return spParam{row, s, t}
 	}
 
-	fq, err := os.Open("random_queries_1mil_sp_crp_alt.txt")
+	fq, err := os.Open("./data/random_queries_1mil_sp_crp_alt.txt")
 	if err != nil {
 		panic(err)
 	}
