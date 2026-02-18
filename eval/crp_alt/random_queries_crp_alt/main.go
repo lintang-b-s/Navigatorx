@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
@@ -102,11 +103,10 @@ func main() {
 	qRuntime := 0.0
 	puRuntime := 0.0
 	totScannedVertices := 0
-	calcsSP := func(p spParam) any {
+	calcsSP := func(i int, p spParam) any {
 
 		s := p.s
 		t := p.t
-		row := p.row
 
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
@@ -123,15 +123,18 @@ func main() {
 		efficiency += eff
 		totScannedVertices += numScannedVertices
 
-		if (row+1)%1000 == 0 {
-			logger.Sugar().Infof("done query %v", row+1)
+		if (i+1)%1000 == 0 {
+			logger.Sugar().Infof("done query %v", i+1)
 		}
 
 		return nil
 	}
 
-	for _, q := range queries[:10000] {
-		calcsSP(q)
+	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	rdStartId := rd.Intn(len(queries) - 10000)
+	for i, q := range queries[rdStartId : rdStartId+10000] {
+		calcsSP(i, q)
 	}
 
 	fmt.Printf("avg query times: %f\n", durations/10000.0)

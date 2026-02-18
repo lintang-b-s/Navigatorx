@@ -193,7 +193,6 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 	s := sVertex.GetOriginalVertex()
 	t := tVertex.GetOriginalVertex()
 	activeLandmarks := pu.lm.SelectBestQueryLandmarks(s, t)
-	_, prt := pu.lm.FindTighestConsistentLowerBound(t, s, t, activeLandmarks)
 
 	labelled := func(dist map[da.Index]*VertexInfo[da.Index], v da.Index) bool {
 		// same as check dist[v] < INF_WEIGHT if dist implemented using array/slice
@@ -212,12 +211,8 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 	for fOverlayPq.Size() > 0 && bOverlayPq.Size() > 0 {
 		minForward := fOverlayPq.GetMinrank()
 		minBackward := bOverlayPq.GetMinrank()
-		if da.Ge(minForward+minBackward, fastestTT+prt) {
-			/*
-				https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
-				stopping criterion for Bidirectional A* Search:
-				top_f+top_r > \mu + p_r(t)
-			*/
+		if da.Ge(minForward+minBackward, fastestTT) {
+
 			break
 		}
 		u, _ := fOverlayPq.ExtractMin()
@@ -238,16 +233,14 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 			}
 
 			vAlreadyLabelled := labelled(fInfo, vOverlayId)
-			if vAlreadyLabelled && da.Ge(newTravelTime, fInfo[vOverlayId].GetTravelTime()) {
-				return
+			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, fInfo[vOverlayId].GetTravelTime())) {
+				uOverlayVertex := pu.engine.overlayGraph.GetVertex(uOverlayId)
+
+				fScanned[vOverlayId] = true
+				// if v is the target overlay vertex, update the pq
+				fInfo[vOverlayId] = NewVertexInfo[da.Index](newTravelTime, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
+					uOverlayId, true), nil)
 			}
-
-			uOverlayVertex := pu.engine.overlayGraph.GetVertex(uOverlayId)
-
-			fScanned[vOverlayId] = true
-			// if v is the target overlay vertex, update the pq
-			fInfo[vOverlayId] = NewVertexInfo[da.Index](newTravelTime, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
-				uOverlayId, true), nil)
 
 			scannedByBackwardSearch := bScanned[vOverlayId]
 			if scannedByBackwardSearch && da.Lt(fInfo[vOverlayId].GetTravelTime()+bInfo[vOverlayId].GetTravelTime(), fastestTT) {
@@ -276,18 +269,21 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 			pfv, _ := pu.lm.FindTighestConsistentLowerBound(wOriginalId, s, t, activeLandmarks)
 			priority := newTravelTime + pfv
 
+			// relax edge
 			wAlreadyLabelled := labelled(fInfo, wNeighborId)
-			if !wAlreadyLabelled {
-				whNode := da.NewPriorityQueueNode(priority, wNeighborId)
-				fInfo[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
-					vOverlayId, true), whNode)
-				fOverlayPq.Insert(whNode)
-			} else {
-				whNode := fInfo[wNeighborId].GetHeapNode()
-				fInfo[wNeighborId].UpdateTravelTime(newTravelTime)
-				fInfo[wNeighborId].UpdateParent(newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
-					vOverlayId, true))
-				fOverlayPq.DecreaseKey(whNode, priority)
+			if !wAlreadyLabelled || (wAlreadyLabelled && da.Lt(newTravelTime, fInfo[wNeighborId].GetTravelTime())) {
+				if !wAlreadyLabelled {
+					whNode := da.NewPriorityQueueNode(priority, wNeighborId)
+					fInfo[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						vOverlayId, true), whNode)
+					fOverlayPq.Insert(whNode)
+				} else {
+					whNode := fInfo[wNeighborId].GetHeapNode()
+					fInfo[wNeighborId].UpdateTravelTime(newTravelTime)
+					fInfo[wNeighborId].UpdateParent(newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						vOverlayId, true))
+					fOverlayPq.DecreaseKey(whNode, priority)
+				}
 			}
 
 			scannedByBackwardSearch = bScanned[wNeighborId]
@@ -315,15 +311,13 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 			}
 
 			vAlreadyLabelled := labelled(bInfo, vOverlayId)
-			if vAlreadyLabelled && da.Ge(newTravelTime, bInfo[vOverlayId].GetTravelTime()) {
-				return
+			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, bInfo[vOverlayId].GetTravelTime())) {
+				uOverlayVertex := pu.engine.overlayGraph.GetVertex(uOverlayId)
+
+				bScanned[vOverlayId] = true
+				bInfo[vOverlayId] = NewVertexInfo[da.Index](newTravelTime, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
+					uOverlayId, true), nil)
 			}
-
-			uOverlayVertex := pu.engine.overlayGraph.GetVertex(uOverlayId)
-
-			bScanned[vOverlayId] = true
-			bInfo[vOverlayId] = NewVertexInfo[da.Index](newTravelTime, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
-				uOverlayId, true), nil)
 
 			scannedByForwardSearch := fScanned[vOverlayId]
 			if scannedByForwardSearch && da.Lt(fInfo[vOverlayId].GetTravelTime()+bInfo[vOverlayId].GetTravelTime(), fastestTT) {
@@ -347,22 +341,24 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 			newTravelTime += pu.metrics.GetWeight(vInEdge)
 			wOriginalid := wNeigborVertex.GetOriginalVertex()
 
+			// relax edge
 			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 			_, prv := pu.lm.FindTighestConsistentLowerBound(wOriginalid, s, t, activeLandmarks)
 			priority := newTravelTime + prv
-
 			wAlreadyLabelled := labelled(bInfo, wNeighborId)
-			if !wAlreadyLabelled {
-				whNode := da.NewPriorityQueueNode(priority, wNeighborId)
-				bInfo[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
-					vOverlayId, true), whNode)
-				bOverlayPq.Insert(whNode)
-			} else {
-				whNode := bInfo[wNeighborId].GetHeapNode()
-				bInfo[wNeighborId].UpdateTravelTime(newTravelTime)
-				bInfo[wNeighborId].UpdateParent(newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
-					vOverlayId, true))
-				bOverlayPq.DecreaseKey(whNode, priority)
+			if !wAlreadyLabelled || (wAlreadyLabelled && da.Lt(newTravelTime, bInfo[wNeighborId].GetTravelTime())) {
+				if !wAlreadyLabelled {
+					whNode := da.NewPriorityQueueNode(priority, wNeighborId)
+					bInfo[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						vOverlayId, true), whNode)
+					bOverlayPq.Insert(whNode)
+				} else {
+					whNode := bInfo[wNeighborId].GetHeapNode()
+					bInfo[wNeighborId].UpdateTravelTime(newTravelTime)
+					bInfo[wNeighborId].UpdateParent(newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						vOverlayId, true))
+					bOverlayPq.DecreaseKey(whNode, priority)
+				}
 			}
 
 			scannedByForwardSearch = fScanned[wNeighborId]
@@ -487,17 +483,12 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	offBMid := da.INVALID_EDGE_ID
 
 	activeLandmarks := pu.lm.SelectBestQueryLandmarks(s, t)
-	_, prt := pu.lm.FindTighestConsistentLowerBound(t, s, t, activeLandmarks)
 
 	for fpq.Size() > 0 && bpq.Size() > 0 {
 		minForward := fpq.GetMinrank()
 		minBackward := bpq.GetMinrank()
-		if da.Ge(minForward+minBackward, fastestTT+prt) {
-			/*
-				https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
-				stopping criterion for Bidirectional A* Search:
-				top_f+top_r > \mu + p_r(t)
-			*/
+		if da.Ge(minForward+minBackward, fastestTT) {
+
 			break
 		}
 
@@ -532,26 +523,26 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 			offVEntryId := pu.engine.offsetForward(vId, vEntryId, pu.engine.graph.GetCellNumber(vId), sourceCellNumber)
 
+			// relax edge
 			vAlreadyLabelled := da.Lt(lfInfo[offVEntryId].GetTravelTime(), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newTravelTime, lfInfo[offVEntryId].GetTravelTime()) {
-				return
-			}
+			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, lfInfo[offVEntryId].GetTravelTime())) {
+				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+				pfv, _ := pu.lm.FindTighestConsistentLowerBound(vId, s, t, activeLandmarks)
+				priority := newTravelTime + pfv
 
-			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-			pfv, _ := pu.lm.FindTighestConsistentLowerBound(vId, s, t, activeLandmarks)
-			priority := newTravelTime + pfv
+				if !vAlreadyLabelled {
+					vhNode := da.NewPriorityQueueNode(priority,
+						da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, e.GetEdgeId()))
+					lfInfo[offVEntryId] = NewVertexInfo(newTravelTime, newVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false), vhNode)
 
-			if !vAlreadyLabelled {
-				vhNode := da.NewPriorityQueueNode(priority,
-					da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, e.GetEdgeId()))
-				lfInfo[offVEntryId] = NewVertexInfo(newTravelTime, newVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false), vhNode)
+					fpq.Insert(vhNode)
+				} else {
+					vhNode := lfInfo[offVEntryId].GetHeapNode()
+					lfInfo[offVEntryId].UpdateTravelTime(newTravelTime)
+					lfInfo[offVEntryId].UpdateParent(newVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
+					fpq.DecreaseKey(vhNode, priority)
+				}
 
-				fpq.Insert(vhNode)
-			} else {
-				vhNode := lfInfo[offVEntryId].GetHeapNode()
-				lfInfo[offVEntryId].UpdateTravelTime(newTravelTime)
-				lfInfo[offVEntryId].UpdateParent(newVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
-				fpq.DecreaseKey(vhNode, priority)
 			}
 
 			// check wether we already Labelled an exit point of vId
@@ -619,27 +610,27 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 			offVExitId := pu.engine.offsetBackward(vId, vExitId, pu.engine.graph.GetCellNumber(vId), sourceCellNumber)
 
+			// relax edge
 			vAlreadyLabelled := da.Lt(lbInfo[offVExitId].GetTravelTime(), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newTravelTime, lbInfo[offVExitId].GetTravelTime()) {
-				return
-			}
+			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, lbInfo[offVExitId].GetTravelTime())) {
 
-			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-			_, prv := pu.lm.FindTighestConsistentLowerBound(vId, s, t, activeLandmarks)
-			priority := newTravelTime + prv
+				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+				_, prv := pu.lm.FindTighestConsistentLowerBound(vId, s, t, activeLandmarks)
+				priority := newTravelTime + prv
 
-			if !vAlreadyLabelled {
-				_, outEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(e.GetEdgeId())
-				vhNode := da.NewPriorityQueueNode(priority,
-					da.NewCRPQueryKeyWithOutInEdgeId(vId, offVExitId, outEdge.GetEdgeId()))
-				lbInfo[offVExitId] = NewVertexInfo(newTravelTime, newVertexEdgePairWithOutEdgeId(uId, uExitId, uOutEdgeId, false), vhNode)
+				if !vAlreadyLabelled {
+					_, outEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(e.GetEdgeId())
+					vhNode := da.NewPriorityQueueNode(priority,
+						da.NewCRPQueryKeyWithOutInEdgeId(vId, offVExitId, outEdge.GetEdgeId()))
+					lbInfo[offVExitId] = NewVertexInfo(newTravelTime, newVertexEdgePairWithOutEdgeId(uId, uExitId, uOutEdgeId, false), vhNode)
 
-				bpq.Insert(vhNode)
-			} else {
-				vhNode := lbInfo[offVExitId].GetHeapNode()
-				lbInfo[offVExitId].UpdateTravelTime(newTravelTime)
-				lbInfo[offVExitId].UpdateParent(newVertexEdgePairWithOutEdgeId(uId, uExitId, uOutEdgeId, false))
-				bpq.DecreaseKey(vhNode, priority)
+					bpq.Insert(vhNode)
+				} else {
+					vhNode := lbInfo[offVExitId].GetHeapNode()
+					lbInfo[offVExitId].UpdateTravelTime(newTravelTime)
+					lbInfo[offVExitId].UpdateParent(newVertexEdgePairWithOutEdgeId(uId, uExitId, uOutEdgeId, false))
+					bpq.DecreaseKey(vhNode, priority)
+				}
 			}
 
 			// check wether we already Labelled an entry point of vId

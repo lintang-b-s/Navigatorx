@@ -233,16 +233,14 @@ func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
 			}
 
 			vAlreadyLabelled := labelled(fInfo, vOverlayId)
-			if vAlreadyLabelled && da.Ge(newTravelTime, fInfo[vOverlayId].GetTravelTime()) {
-				return
+			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, fInfo[vOverlayId].GetTravelTime())) {
+				uOverlayVertex := pu.engine.overlayGraph.GetVertex(uOverlayId)
+
+				fScanned[vOverlayId] = true
+				// if v is the target overlay vertex, update the pq
+				fInfo[vOverlayId] = NewVertexInfo[da.Index](newTravelTime, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
+					uOverlayId, true), nil)
 			}
-
-			uOverlayVertex := pu.engine.overlayGraph.GetVertex(uOverlayId)
-
-			fScanned[vOverlayId] = true
-			// if v is the target overlay vertex, update the pq
-			fInfo[vOverlayId] = NewVertexInfo[da.Index](newTravelTime, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
-				uOverlayId, true), nil)
 
 			scannedByBackwardSearch := bScanned[vOverlayId]
 			if scannedByBackwardSearch && da.Lt(fInfo[vOverlayId].GetTravelTime()+bInfo[vOverlayId].GetTravelTime(), fastestTT) {
@@ -267,17 +265,19 @@ func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
 			newTravelTime += pu.metrics.GetWeight(vOutEdge)
 
 			wAlreadyLabelled := labelled(fInfo, wNeighborId)
-			if !wAlreadyLabelled {
-				whNode := da.NewPriorityQueueNode(newTravelTime, wNeighborId)
-				fInfo[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
-					vOverlayId, true), whNode)
-				fOverlayPq.Insert(whNode)
-			} else {
-				whNode := fInfo[wNeighborId].GetHeapNode()
-				fInfo[wNeighborId].UpdateTravelTime(newTravelTime)
-				fInfo[wNeighborId].UpdateParent(newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
-					vOverlayId, true))
-				fOverlayPq.DecreaseKey(whNode, newTravelTime)
+			if !wAlreadyLabelled || (wAlreadyLabelled && da.Lt(newTravelTime, fInfo[wNeighborId].GetTravelTime())) {
+				if !wAlreadyLabelled {
+					whNode := da.NewPriorityQueueNode(newTravelTime, wNeighborId)
+					fInfo[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						vOverlayId, true), whNode)
+					fOverlayPq.Insert(whNode)
+				} else {
+					whNode := fInfo[wNeighborId].GetHeapNode()
+					fInfo[wNeighborId].UpdateTravelTime(newTravelTime)
+					fInfo[wNeighborId].UpdateParent(newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						vOverlayId, true))
+					fOverlayPq.DecreaseKey(whNode, newTravelTime)
+				}
 			}
 
 			scannedByBackwardSearch = bScanned[wNeighborId]
@@ -305,15 +305,13 @@ func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
 			}
 
 			vAlreadyLabelled := labelled(bInfo, vOverlayId)
-			if vAlreadyLabelled && da.Ge(newTravelTime, bInfo[vOverlayId].GetTravelTime()) {
-				return
+			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, bInfo[vOverlayId].GetTravelTime())) {
+				uOverlayVertex := pu.engine.overlayGraph.GetVertex(uOverlayId)
+
+				bScanned[vOverlayId] = true
+				bInfo[vOverlayId] = NewVertexInfo[da.Index](newTravelTime, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
+					uOverlayId, true), nil)
 			}
-
-			uOverlayVertex := pu.engine.overlayGraph.GetVertex(uOverlayId)
-
-			bScanned[vOverlayId] = true
-			bInfo[vOverlayId] = NewVertexInfo[da.Index](newTravelTime, newVertexEdgePair(uOverlayVertex.GetOriginalVertex(),
-				uOverlayId, true), nil)
 
 			scannedByForwardSearch := fScanned[vOverlayId]
 			if scannedByForwardSearch && da.Lt(fInfo[vOverlayId].GetTravelTime()+bInfo[vOverlayId].GetTravelTime(), fastestTT) {
@@ -338,17 +336,19 @@ func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
 			newTravelTime += pu.metrics.GetWeight(vInEdge)
 
 			wAlreadyLabelled := labelled(bInfo, wNeighborId)
-			if !wAlreadyLabelled {
-				whNode := da.NewPriorityQueueNode(newTravelTime, wNeighborId)
-				bInfo[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
-					vOverlayId, true), whNode)
-				bOverlayPq.Insert(whNode)
-			} else {
-				whNode := bInfo[wNeighborId].GetHeapNode()
-				bInfo[wNeighborId].UpdateTravelTime(newTravelTime)
-				bInfo[wNeighborId].UpdateParent(newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
-					vOverlayId, true))
-				bOverlayPq.DecreaseKey(whNode, newTravelTime)
+			if !wAlreadyLabelled || (wAlreadyLabelled && da.Lt(newTravelTime, bInfo[wNeighborId].GetTravelTime())) {
+				if !wAlreadyLabelled {
+					whNode := da.NewPriorityQueueNode(newTravelTime, wNeighborId)
+					bInfo[wNeighborId] = NewVertexInfo(newTravelTime, newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						vOverlayId, true), whNode)
+					bOverlayPq.Insert(whNode)
+				} else {
+					whNode := bInfo[wNeighborId].GetHeapNode()
+					bInfo[wNeighborId].UpdateTravelTime(newTravelTime)
+					bInfo[wNeighborId].UpdateParent(newVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						vOverlayId, true))
+					bOverlayPq.DecreaseKey(whNode, newTravelTime)
+				}
 			}
 
 			scannedByForwardSearch = fScanned[wNeighborId]
@@ -510,21 +510,19 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 			offVEntryId := pu.engine.offsetForward(vId, vEntryId, pu.engine.graph.GetCellNumber(vId), sourceCellNumber)
 
 			vAlreadyLabelled := da.Lt(lfInfo[offVEntryId].GetTravelTime(), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newTravelTime, lfInfo[offVEntryId].GetTravelTime()) {
-				return
-			}
+			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, lfInfo[offVEntryId].GetTravelTime())) {
+				if !vAlreadyLabelled {
+					vhNode := da.NewPriorityQueueNode(newTravelTime,
+						da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, e.GetEdgeId()))
+					lfInfo[offVEntryId] = NewVertexInfo(newTravelTime, newVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false), vhNode)
 
-			if !vAlreadyLabelled {
-				vhNode := da.NewPriorityQueueNode(newTravelTime,
-					da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, e.GetEdgeId()))
-				lfInfo[offVEntryId] = NewVertexInfo(newTravelTime, newVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false), vhNode)
-
-				fpq.Insert(vhNode)
-			} else {
-				vhNode := lfInfo[offVEntryId].GetHeapNode()
-				lfInfo[offVEntryId].UpdateTravelTime(newTravelTime)
-				lfInfo[offVEntryId].UpdateParent(newVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
-				fpq.DecreaseKey(vhNode, newTravelTime)
+					fpq.Insert(vhNode)
+				} else {
+					vhNode := lfInfo[offVEntryId].GetHeapNode()
+					lfInfo[offVEntryId].UpdateTravelTime(newTravelTime)
+					lfInfo[offVEntryId].UpdateParent(newVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
+					fpq.DecreaseKey(vhNode, newTravelTime)
+				}
 			}
 
 			// check wether we already Labelled an exit point of vId
@@ -593,22 +591,21 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 			offVExitId := pu.engine.offsetBackward(vId, vExitId, pu.engine.graph.GetCellNumber(vId), sourceCellNumber)
 
 			vAlreadyLabelled := da.Lt(lbInfo[offVExitId].GetTravelTime(), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newTravelTime, lbInfo[offVExitId].GetTravelTime()) {
-				return
-			}
+			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, lbInfo[offVExitId].GetTravelTime())) {
+				if !vAlreadyLabelled {
+					_, outEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(e.GetEdgeId())
+					vhNode := da.NewPriorityQueueNode(newTravelTime,
+						da.NewCRPQueryKeyWithOutInEdgeId(vId, offVExitId, outEdge.GetEdgeId()))
+					lbInfo[offVExitId] = NewVertexInfo(newTravelTime, newVertexEdgePairWithOutEdgeId(uId, uExitId, uOutEdgeId, false), vhNode)
 
-			if !vAlreadyLabelled {
-				_, outEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(e.GetEdgeId())
-				vhNode := da.NewPriorityQueueNode(newTravelTime,
-					da.NewCRPQueryKeyWithOutInEdgeId(vId, offVExitId, outEdge.GetEdgeId()))
-				lbInfo[offVExitId] = NewVertexInfo(newTravelTime, newVertexEdgePairWithOutEdgeId(uId, uExitId, uOutEdgeId, false), vhNode)
+					bpq.Insert(vhNode)
+				} else {
+					vhNode := lbInfo[offVExitId].GetHeapNode()
+					lbInfo[offVExitId].UpdateTravelTime(newTravelTime)
+					lbInfo[offVExitId].UpdateParent(newVertexEdgePairWithOutEdgeId(uId, uExitId, uOutEdgeId, false))
+					bpq.DecreaseKey(vhNode, newTravelTime)
+				}
 
-				bpq.Insert(vhNode)
-			} else {
-				vhNode := lbInfo[offVExitId].GetHeapNode()
-				lbInfo[offVExitId].UpdateTravelTime(newTravelTime)
-				lbInfo[offVExitId].UpdateParent(newVertexEdgePairWithOutEdgeId(uId, uExitId, uOutEdgeId, false))
-				bpq.DecreaseKey(vhNode, newTravelTime)
 			}
 
 			// check wether we already Labelled an entry point of vId

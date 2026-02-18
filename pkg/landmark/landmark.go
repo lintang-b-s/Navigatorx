@@ -90,7 +90,7 @@ func (lm *Landmark) SelectLandmarksTwo(k int, cst *customizer.Customizer) []*da.
 	// mirip algoritma graham scan buat bikin convex hull
 	// graham scan: sort Points by their polar angles around a p0 (bottomost point or rightmost & bottomost point if tie)
 	// ini: sort Points by their initial bearing angles around a p0 (center point/coordinate)
-	// karena geographic coordinate, sort by initial bearing angle (sudut antara garis yang menghubungkan titik pivot ke other point dan garis meridian)
+	// karena geographic coordinate, sort by initial bearing angle (sudut clockwise antara garis yang menghubungkan titik pivot ke other point dan garis meridian)
 
 	sort.Slice(vsCopy, func(i, j int) bool { // O(V * logV)
 		return geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[j].GetLat(), vsCopy[j].GetLon()) <
@@ -240,7 +240,7 @@ func newActiveLandmark(i da.Index, lb float64) activeLandmark {
 }
 
 const (
-	activeLandmarkSize = 2
+	activeLandmarkSize = 3
 )
 
 /*
