@@ -70,7 +70,7 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []vertexEdgePair, sCellNumber, 
 	totalDistance := 0.0
 	now := time.Now()
 
-	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](1, len(packedPath))
+	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](4, len(packedPath))
 
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
