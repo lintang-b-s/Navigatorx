@@ -50,6 +50,8 @@ func (us *Dijkstra) ShortestPath(asId da.Index) []float64 {
 		sForwardId = us.graph.GetExitOffset(s) + da.Index(us.graph.GetInEdge(asId).GetExitPoint())
 	}
 
+	initInfWeightVertexInfo(us.forwardInfo)
+
 	us.forwardInfo[sForwardId] = 0
 
 	us.pq.Insert(da.NewPriorityQueueNode(0, da.NewDijkstraKey(s, sForwardId)))
@@ -104,7 +106,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 		us.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
 
 			vId := outArc.GetHead()
-			
+
 			edgeWeight := us.metrics.GetWeight(outArc)
 
 			turnCost := us.metrics.GetTurnCost(turnType)
@@ -154,7 +156,6 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 		us.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *da.InEdge, entryPoint da.Index, turnType pkg.TurnType) {
 
 			vId := inArc.GetTail()
-			
 
 			edgeWeight := us.metrics.GetWeight(inArc)
 
@@ -194,5 +195,11 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			}
 
 		})
+	}
+}
+
+func initInfWeightVertexInfo(vs []float64) {
+	for i := range vs {
+		vs[i] = pkg.INF_WEIGHT
 	}
 }

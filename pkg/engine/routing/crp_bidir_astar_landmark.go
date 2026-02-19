@@ -42,6 +42,8 @@ type CRPALTBidirectionalSearch struct {
 	numScannedVertices   int
 	runtime              int64
 	pathUnpackingRuntime int64
+
+	lastpqSum float64
 }
 
 func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, lm *landmark.Landmark) *CRPALTBidirectionalSearch {
@@ -66,6 +68,7 @@ func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, 
 		numScannedVertices:   0,
 		runtime:              0,
 		pathUnpackingRuntime: 0,
+		lastpqSum:            0,
 	}
 }
 
@@ -143,7 +146,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
 		if da.Ge(minForward+minBackward, (bs.shortestTimeTravel)*(bs.upperBound)) {
-
+			bs.lastpqSum = minForward + minBackward
 			break
 		}
 
@@ -941,4 +944,12 @@ func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int, int64, int64
 
 	efficiency := float64(n) / float64(bs.numScannedVertices)
 	return efficiency, bs.numScannedVertices, bs.runtime, bs.pathUnpackingRuntime
+}
+
+func (bs *CRPALTBidirectionalSearch) GetLastPQSum() float64 {
+	return bs.lastpqSum
+}
+
+func (bs *CRPALTBidirectionalSearch) GetActiveLandmarks() []da.Index {
+	return bs.activeLandmarks
 }

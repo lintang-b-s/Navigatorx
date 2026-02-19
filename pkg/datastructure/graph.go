@@ -119,11 +119,11 @@ func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint int) *InEdge 
 	}
 }
 
-func (e OutEdge) GetWeight() float64 {
+func (e *OutEdge) GetWeight() float64 {
 	return e.weight
 }
 
-func (e OutEdge) GetEdgeSpeed() float64 {
+func (e *OutEdge) GetEdgeSpeed() float64 {
 	if e.weight == 0 {
 		return 0
 	}
@@ -142,7 +142,7 @@ func (e *OutEdge) SetHead(headId Index) {
 	e.head = headId
 }
 
-func (e OutEdge) GetLength() float64 {
+func (e *OutEdge) GetLength() float64 {
 	return e.dist
 }
 
@@ -170,7 +170,7 @@ func (e *OutEdge) GetEdgeId() Index {
 	return e.edgeId
 }
 
-func (e InEdge) GetWeight() float64 {
+func (e *InEdge) GetWeight() float64 {
 	return e.weight
 }
 
@@ -178,14 +178,14 @@ func (e *InEdge) SetWeight(travelTime float64) {
 	e.weight = travelTime
 }
 
-func (e InEdge) GetEdgeSpeed() float64 {
+func (e *InEdge) GetEdgeSpeed() float64 {
 	if e.weight == 0 {
 		return 0
 	}
 	return e.dist / e.weight
 }
 
-func (e InEdge) GetLength() float64 {
+func (e *InEdge) GetLength() float64 {
 	return e.dist
 }
 

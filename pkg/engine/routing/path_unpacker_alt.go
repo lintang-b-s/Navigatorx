@@ -220,14 +220,12 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 		uOverlayId := u.GetItem()
 		fScanned[uOverlayId] = true
 
-		uTravelTime := u.GetRank()
-
 		// traverse all out neighbor of u in level l-1 in the same cell as u
 		pu.engine.overlayGraph.ForOutNeighborsOf(uOverlayId, int(level-1), func(vOverlayId da.Index, wOffset da.Index) {
 
 			shortcutOutEdgeWeight := pu.metrics.GetShortcutWeight(wOffset)
 
-			newTravelTime := uTravelTime + shortcutOutEdgeWeight
+			newTravelTime := fInfo[uOverlayId].GetTravelTime() + shortcutOutEdgeWeight
 			if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
 			}
@@ -298,14 +296,12 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 		uOverlayId = u.GetItem()
 		bScanned[uOverlayId] = true
 
-		uTravelTime = u.GetRank()
-
 		// traverse all in neighbor of u in level l-1 in the same cell as u
 		pu.engine.overlayGraph.ForInNeighborsOf(uOverlayId, int(level-1), func(vOverlayId da.Index, wOffset da.Index) {
 
 			shortcutInEdgeWeight := pu.metrics.GetShortcutWeight(wOffset)
 
-			newTravelTime := uTravelTime + shortcutInEdgeWeight
+			newTravelTime := bInfo[uOverlayId].GetTravelTime() + shortcutInEdgeWeight
 			if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
 			}
@@ -510,7 +506,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			vEntryId := pu.engine.graph.GetEntryOffset(vId) + da.Index(e.GetEntryPoint())
 			edgeWeight := pu.metrics.GetWeight(e)
 
-			newTravelTime := queryKey.GetRank() + edgeWeight + pu.metrics.GetTurnCost(turnType)
+			newTravelTime := lfInfo[uEntryId].GetTravelTime() + edgeWeight + pu.metrics.GetTurnCost(turnType)
 
 			if pu.engine.graph.GetCellNumber(vId) != sourceCellNumber {
 				// do not cross cell boundary
@@ -597,7 +593,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			vExitId := pu.engine.graph.GetExitOffset(vId) + da.Index(e.GetExitPoint())
 			edgeWeight := pu.metrics.GetWeight(e)
 
-			newTravelTime := queryKey.GetRank() + edgeWeight + pu.metrics.GetTurnCost(turnType)
+			newTravelTime := lbInfo[uExitId].GetTravelTime() + edgeWeight + pu.metrics.GetTurnCost(turnType)
 
 			if pu.engine.graph.GetCellNumber(vId) != sourceCellNumber {
 				// do not cross cell boundary

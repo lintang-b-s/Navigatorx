@@ -99,6 +99,8 @@ func main() {
 
 	g := re.GetRoutingEngine().GetGraph()
 
+	logger.Sugar().Infof("starting benchmark")
+
 	efficiency := 0.0
 	qRuntime := 0.0
 	puRuntime := 0.0

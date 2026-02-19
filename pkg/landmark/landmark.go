@@ -281,6 +281,7 @@ func (lm *Landmark) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 [3] Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
 
 implementation of consistent potential function in 5.2 Consistent Approach ref [1]
+calc \pi_f(u) and \pi_r(u)
 */
 func (lm *Landmark) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index) (float64, float64) {
 	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks) // estimate on dist(u,t)

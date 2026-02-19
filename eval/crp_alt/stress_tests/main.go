@@ -286,7 +286,7 @@ func main() {
 		return newCounterExampleData(0, 0, nil, nil, false)
 	}
 
-	workers := concurrent.NewWorkerPool[query, counterExampleData](100, n*numberOfVertices)
+	workers := concurrent.NewWorkerPool[query, counterExampleData](1, n*numberOfVertices)
 
 	for i := 0; i < n; i++ {
 		s := queries[i]
