@@ -132,6 +132,7 @@ func (p *Preprocessor) SortByCellNumber() {
 				oEdge.GetWeight(),
 				oEdge.GetLength(),
 				oEdge.GetEntryPoint(),
+				oEdge.GetHighwayType(),
 			)
 			e++
 			k++
@@ -147,6 +148,7 @@ func (p *Preprocessor) SortByCellNumber() {
 				inEdge.GetWeight(),
 				inEdge.GetLength(),
 				inEdge.GetExitPoint(),
+				inEdge.GetHighwayType(),
 			)
 			e++
 			k++
@@ -231,7 +233,7 @@ func (p *Preprocessor) SortByCellNumber() {
 				oldOutEdge := oEdges[vOldId][k]
 				p.graph.SetOutEdge(newOutEdgeId, datastructure.NewOutEdge(
 					oldOutEdge.GetEdgeId(), oldOutEdge.GetHead(), oldOutEdge.GetWeight(),
-					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(),
+					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
 				))
 				p.graph.SetEdgeInfo(newOutEdgeId, gsEdgeExtraInfos[oldOutEdge.GetEdgeId()]) // update edge extra info storage
 
@@ -255,13 +257,14 @@ func (p *Preprocessor) SortByCellNumber() {
 				p.graph.SetInEdge(newInEdgeId, datastructure.NewInEdge(
 					oldInEdge.GetEdgeId(), oldInEdge.GetTail(), oldInEdge.GetWeight(),
 					oldInEdge.GetLength(), oldInEdge.GetExitPoint(),
+					oldInEdge.GetHighwayType(),
 				))
 
 				inEdge := p.graph.GetInEdge(newInEdgeId)
 				inEdge.SetEdgeId(newInEdgeId)
 				inEdge.SetTailId(p.newVIdMap[oldInEdge.GetTail()])
 				inEdge.SetOriginalEdgeId(oldInEdge.GetEdgeId())
-				
+
 				newInEdgeId++
 			}
 

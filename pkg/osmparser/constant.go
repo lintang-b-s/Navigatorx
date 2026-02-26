@@ -9,7 +9,7 @@ const (
 )
 
 const (
-	NERF_MAXSPEED_OSM_REALISTIC = 0.7
+	NERF_MAXSPEED_OSM_REALISTIC = 0.8
 )
 
 const (

@@ -12,7 +12,7 @@ type Dijkstra struct {
 
 	forwardInfo         []float64
 	heapNodes           []*da.PriorityQueueNode[da.CRPQueryKey]
-	shortestTimeTravels []float64
+	shortestTravelTimes []float64
 
 	pq *da.MinHeap[da.CRPQueryKey]
 
@@ -30,7 +30,7 @@ func NewDijkstra(graph *da.Graph, metrics *met.Metric, useReverseGraph bool) *Di
 		pq:                  da.NewFourAryHeap[da.CRPQueryKey](),
 		useReverseGraph:     useReverseGraph,
 		numSettledNodes:     0,
-		shortestTimeTravels: make([]float64, 0),
+		shortestTravelTimes: make([]float64, 0),
 		metrics:             metrics,
 	}
 }
@@ -63,10 +63,10 @@ func (us *Dijkstra) ShortestPath(asId da.Index) []float64 {
 	}
 
 	n := us.graph.NumberOfVertices()
-	us.shortestTimeTravels = make([]float64, n)
+	us.shortestTravelTimes = make([]float64, n)
 
 	for v := 0; v < n; v++ {
-		us.shortestTimeTravels[v] = 2 * pkg.INF_WEIGHT
+		us.shortestTravelTimes[v] = 2 * pkg.INF_WEIGHT
 	}
 
 	for entryExitId, sp := range us.forwardInfo {
@@ -78,12 +78,12 @@ func (us *Dijkstra) ShortestPath(asId da.Index) []float64 {
 			v = us.graph.GetTailOfOutedge(da.Index(entryExitId))
 		}
 
-		if da.Lt(sp, us.shortestTimeTravels[v]) {
-			us.shortestTimeTravels[v] = sp
+		if da.Lt(sp, us.shortestTravelTimes[v]) {
+			us.shortestTravelTimes[v] = sp
 		}
 	}
-	us.shortestTimeTravels[s] = 0
-	return us.shortestTimeTravels
+	us.shortestTravelTimes[s] = 0
+	return us.shortestTravelTimes
 }
 
 func (us *Dijkstra) graphSearchUni(source da.Index) {

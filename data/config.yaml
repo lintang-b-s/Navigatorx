@@ -1,0 +1,27 @@
+maxspeeds:
+  motorway: 100
+  trunk: 60
+  primary: 50
+  secondary: 40
+  tertiary: 40
+  unclassified: 40
+  residential: 30
+  service: 20
+  motorway_link: 70
+  trunk_link: 60
+  primary_link: 50
+  secondary_link: 40
+  tertiary_link: 40
+  living_street: 5
+  road: 20
+  track: 15
+  motorroad: 90
+  default: 30
+
+turncosts:
+  u_turn: 1e9
+  no_entry: 1e9
+  left_turn: 0
+  right_turn: 0
+  straight_on: 0
+  none: 0

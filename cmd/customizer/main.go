@@ -5,6 +5,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 )
@@ -19,6 +20,11 @@ const (
 func main() {
 	flag.Parse()
 	logger, err := log.New()
+	if err != nil {
+		panic(err)
+	}
+
+	err = util.ReadConfig()
 	if err != nil {
 		panic(err)
 	}

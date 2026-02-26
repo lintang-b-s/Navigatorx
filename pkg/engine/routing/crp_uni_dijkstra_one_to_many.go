@@ -8,7 +8,7 @@ import (
 
 type CRPUniDijkstraOneToMany struct {
 	engine              *CRPRoutingEngine
-	shortestTimeTravels map[da.Index]float64
+	shortestTravelTimes map[da.Index]float64
 
 	forwardInfo   []*VertexInfo[da.CRPQueryKey]
 	stallingEntry []float64
@@ -39,7 +39,7 @@ func NewCRPUniDijkstraOneToMany(engine *CRPRoutingEngine) *CRPUniDijkstraOneToMa
 		numSettledNodes: 0,
 
 		tEntryIds:           make(map[target]da.Index, 0),
-		shortestTimeTravels: make(map[da.Index]float64),
+		shortestTravelTimes: make(map[da.Index]float64),
 		targetsSettled:      make(map[da.Index]struct{}),
 	}
 }
@@ -164,7 +164,7 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 		tfinalEdgePath[t.getatId()] = finalEdgePath
 	}
 
-	return us.shortestTimeTravels, tdists, tfinalPath, tfinalEdgePath
+	return us.shortestTravelTimes, tdists, tfinalPath, tfinalEdgePath
 }
 
 func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source da.Index, targets []target) bool {
@@ -185,7 +185,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 		}
 		if uId == t.gettId() {
 			us.targetsSettled[t.gettId()] = struct{}{}
-			us.shortestTimeTravels[t.getatId()] = us.forwardInfo[uEntryId].GetTravelTime()
+			us.shortestTravelTimes[t.getatId()] = us.forwardInfo[uEntryId].GetTravelTime()
 			us.tEntryIds[t] = uEntryId
 		}
 	}
@@ -200,7 +200,6 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
 
 		vId := outArc.GetHead()
-		
 
 		// get query level of v l_st(v)
 		lowestVQueryLevel := uint8(255)
@@ -240,7 +239,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 				return
 			}
 
-			if bvi := us.stallingEntry[vEntryId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Ge(newTravelTime, bvi) {
+			if bvi := us.stallingEntry[vEntryId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Gt(newTravelTime, bvi) {
 				// stalled
 				return
 			}

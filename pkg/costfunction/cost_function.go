@@ -11,6 +11,7 @@ type EdgeAttributes interface {
 	GetLength() float64
 	GetEdgeId() datastructure.Index
 	GetOriginalEdgeId() datastructure.Index
+	GetHighwayType() pkg.OsmHighwayType
 }
 
 type CostFunction interface {

@@ -612,6 +612,13 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		edgeSet[p.nodeIDMap[to.id]] = make(map[datastructure.Index]struct{})
 	}
 
+	roadClass := tempMap[ROAD_CLASS]
+	if roadClass == "" {
+		roadClass = tempMap[ROAD_CLASS_LINK]
+	}
+
+	hwType := pkg.GetHighwayType(roadClass)
+
 	if wayExtraInfoData.oneWay {
 		if wayExtraInfoData.forward {
 
@@ -643,6 +650,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				travelTimeWeight,
 				distanceInMeter,
 				uint32(len(*scannedEdges)),
+				hwType,
 			)
 			*scannedEdges = append(*scannedEdges, e)
 
@@ -677,6 +685,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				travelTimeWeight,
 				distanceInMeter,
 				uint32(len(*scannedEdges)),
+				hwType,
 			)
 
 			*scannedEdges = append(*scannedEdges, e)
@@ -711,6 +720,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			travelTimeWeight,
 			distanceInMeter,
 			uint32(len(*scannedEdges)),
+			hwType,
 		)
 
 		*scannedEdges = append(*scannedEdges, e)
@@ -732,6 +742,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			travelTimeWeight,
 			distanceInMeter,
 			uint32(len(*scannedEdges)),
+			hwType,
 		)
 
 		*scannedEdges = append(*scannedEdges, e)

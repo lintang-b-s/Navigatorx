@@ -16,13 +16,15 @@ type Vertex struct {
 	firstOut Index // index of the first outEdge of this vertex in the flattened graph.outEdges array
 	firstIn  Index // index of the first inEdge of this vertex in the flattened graph.inEdges array
 	id       Index
+	osmId    uint64
 }
 
-func NewVertex(lat, lon float64, id Index) *Vertex {
+func NewVertex(lat, lon float64, id Index, osmId uint64) *Vertex {
 	return &Vertex{
-		lat: lat,
-		lon: lon,
-		id:  id,
+		lat:   lat,
+		lon:   lon,
+		id:    id,
+		osmId: osmId,
 	}
 }
 
@@ -57,6 +59,10 @@ func (v *Vertex) GetID() Index {
 	return v.id
 }
 
+func (v *Vertex) GetOsmID() uint64 {
+	return v.osmId
+}
+
 func (v *Vertex) GetLat() float64 {
 	return v.lat
 }
@@ -88,6 +94,7 @@ type OutEdge struct {
 	edgeId, oriEdgeId Index
 	head              Index
 	entryPoint        int
+	hwType            pkg.OsmHighwayType
 }
 
 // inedge exits vertex tail at exitPoint
@@ -97,25 +104,28 @@ type InEdge struct {
 	edgeId, oriEdgeId Index
 	tail              Index
 	exitPoint         int
+	hwType            pkg.OsmHighwayType
 }
 
-func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint int) *OutEdge {
+func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint int, hwType pkg.OsmHighwayType) *OutEdge {
 	return &OutEdge{
 		edgeId:     edgeId,
 		head:       head,
 		weight:     weight,
 		dist:       dist,
 		entryPoint: entryPoint,
+		hwType:     hwType,
 	}
 }
 
-func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint int) *InEdge {
+func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint int, hwType pkg.OsmHighwayType) *InEdge {
 	return &InEdge{
 		edgeId:    edgeId,
 		tail:      tail,
 		weight:    weight,
 		dist:      dist,
 		exitPoint: exitPoint,
+		hwType:    hwType,
 	}
 }
 
@@ -154,6 +164,10 @@ func (e *OutEdge) GetEntryPoint() int {
 	return e.entryPoint
 }
 
+func (e *OutEdge) GetHighwayType() pkg.OsmHighwayType {
+	return e.hwType
+}
+
 func (e *OutEdge) SetEntryPoint(p int) {
 	e.entryPoint = p
 }
@@ -172,6 +186,10 @@ func (e *OutEdge) GetEdgeId() Index {
 
 func (e *InEdge) GetWeight() float64 {
 	return e.weight
+}
+
+func (e *InEdge) GetHighwayType() pkg.OsmHighwayType {
+	return e.hwType
 }
 
 func (e *InEdge) SetWeight(travelTime float64) {

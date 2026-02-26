@@ -11,7 +11,7 @@ import (
 
 type CRPALTBidirectionalSearch struct {
 	engine             *CRPRoutingEngine
-	shortestTimeTravel float64
+	shortestTravelTime float64
 
 	forwardMid  vertexEdgePair
 	backwardMid vertexEdgePair
@@ -131,7 +131,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	bs.sForwardId = sForwardId
 	bs.tBackwardId = tBackwardId
 
-	bs.shortestTimeTravel = 2 * pkg.INF_WEIGHT
+	bs.shortestTravelTime = 2 * pkg.INF_WEIGHT
 
 	shNode := da.NewPriorityQueueNode(0, da.NewCRPQueryKey(s, sForwardId, false))
 	thNode := da.NewPriorityQueueNode(0, da.NewCRPQueryKey(t, tBackwardId, false))
@@ -145,7 +145,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
-		if da.Ge(minForward+minBackward, (bs.shortestTimeTravel)*(bs.upperBound)) {
+		if da.Ge(minForward+minBackward, (bs.shortestTravelTime)*(bs.upperBound)) {
 			bs.lastpqSum = minForward + minBackward
 			break
 		}
@@ -184,7 +184,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 		bs.numScannedVertices += 2
 	}
 
-	if bs.shortestTimeTravel == 2*pkg.INF_WEIGHT {
+	if bs.shortestTravelTime == 2*pkg.INF_WEIGHT {
 		return pkg.INF_WEIGHT, pkg.INF_WEIGHT, []da.Coordinate{}, []da.OutEdge{}, false
 	}
 
@@ -199,7 +199,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 
 	bs.pathUnpackingRuntime = unpacker.GetStats()
 
-	return bs.shortestTimeTravel, totalDistance, finalPath, finalEdgePath, true
+	return bs.shortestTravelTime, totalDistance, finalPath, finalEdgePath, true
 }
 
 /*
@@ -296,7 +296,7 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 			// relax edge
 			vAlreadyLabelled := da.Lt(bs.forwardInfo[vEntryId].GetTravelTime(), pkg.INF_WEIGHT)
 			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, bs.forwardInfo[vEntryId].GetTravelTime())) {
-				if bvi := bs.stallingEntry[vEntryId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Ge(newTravelTime, bvi) {
+				if bvi := bs.stallingEntry[vEntryId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Gt(newTravelTime, bvi) {
 					// stalled
 					return
 				}
@@ -340,9 +340,9 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 				// if head of outEdge v->w already Labelled by backward search, and its forwardTravelTime + backwardTravelTime is better than shortestPath, then update shortestPath
 				scannedByBackwardSearch := bs.bScanned[vExitId]
 				if scannedByBackwardSearch && da.Lt(bs.forwardInfo[vEntryId].GetTravelTime()+bs.engine.metrics.GetTurnCost(turnType2)+
-					bs.backwardInfo[vExitId].GetTravelTime(), bs.shortestTimeTravel) {
+					bs.backwardInfo[vExitId].GetTravelTime(), bs.shortestTravelTime) {
 
-					bs.shortestTimeTravel = bs.forwardInfo[vEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turnType2) +
+					bs.shortestTravelTime = bs.forwardInfo[vEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turnType2) +
 						bs.backwardInfo[vExitId].GetTravelTime()
 
 					bs.forwardMid = newVertexEdgePair(vId, vEntryId, false)
@@ -386,8 +386,8 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 
 			scannedByBackwardSearch := bs.bScanned[overlayVId]
 			// if v Labelled by backward search, check whether we can improve the shortestPath
-			if scannedByBackwardSearch && da.Lt(bs.forwardInfo[overlayVId].GetTravelTime()+bs.backwardInfo[overlayVId].GetTravelTime(), bs.shortestTimeTravel) {
-				bs.shortestTimeTravel = bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
+			if scannedByBackwardSearch && da.Lt(bs.forwardInfo[overlayVId].GetTravelTime()+bs.backwardInfo[overlayVId].GetTravelTime(), bs.shortestTravelTime) {
+				bs.shortestTravelTime = bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
 
 				bs.forwardMid = newVertexEdgePair(vId, overlayVId, false)
 				bs.backwardMid = newVertexEdgePair(vId, overlayVId, true)
@@ -467,7 +467,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 			vAlreadyLabelled := da.Lt(bs.backwardInfo[vExitId].GetTravelTime(), pkg.INF_WEIGHT)
 			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, bs.backwardInfo[vExitId].GetTravelTime())) {
 
-				if bvi := bs.stallingExit[vExitId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Ge(newTravelTime, bvi) {
+				if bvi := bs.stallingExit[vExitId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Gt(newTravelTime, bvi) {
 					// stalled
 					return
 				}
@@ -501,9 +501,9 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 				entryPoint2 da.Index, turnType2 pkg.TurnType) {
 				scannedByForwardSearch := bs.fScanned[vEntryId]
 				if scannedByForwardSearch && da.Lt(bs.forwardInfo[vEntryId].GetTravelTime()+bs.engine.metrics.GetTurnCost(turnType2)+
-					bs.backwardInfo[vExitId].GetTravelTime(), bs.shortestTimeTravel) {
+					bs.backwardInfo[vExitId].GetTravelTime(), bs.shortestTravelTime) {
 
-					bs.shortestTimeTravel = bs.forwardInfo[vEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turnType2) +
+					bs.shortestTravelTime = bs.forwardInfo[vEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turnType2) +
 						bs.backwardInfo[vExitId].GetTravelTime()
 
 					bs.forwardMid = newVertexEdgePair(vId, vEntryId, false)
@@ -545,8 +545,8 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 			}
 
 			scannedByForwardSearch := bs.fScanned[overlayVId]
-			if scannedByForwardSearch && da.Lt(bs.forwardInfo[overlayVId].GetTravelTime()+bs.backwardInfo[overlayVId].GetTravelTime(), bs.shortestTimeTravel) {
-				bs.shortestTimeTravel = bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
+			if scannedByForwardSearch && da.Lt(bs.forwardInfo[overlayVId].GetTravelTime()+bs.backwardInfo[overlayVId].GetTravelTime(), bs.shortestTravelTime) {
+				bs.shortestTravelTime = bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
 
 				bs.forwardMid = newVertexEdgePair(vId, overlayVId, false)
 				bs.backwardMid = newVertexEdgePair(vId, overlayVId, true)
@@ -671,9 +671,9 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 					// basically: check if forward and backward search already Labelled entry and exit point of w. if so, check whether we can improve the shortest path
 					scannedByBackwardSearch := bs.bScanned[wExitId]
 					if scannedByBackwardSearch && da.Lt(bs.forwardInfo[wEntryId].GetTravelTime()+bs.engine.metrics.GetTurnCost(turn)+
-						bs.backwardInfo[wExitId].GetTravelTime(), bs.shortestTimeTravel) {
+						bs.backwardInfo[wExitId].GetTravelTime(), bs.shortestTravelTime) {
 
-						bs.shortestTimeTravel = bs.forwardInfo[wEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turn) +
+						bs.shortestTravelTime = bs.forwardInfo[wEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turn) +
 							bs.backwardInfo[wExitId].GetTravelTime()
 
 						bs.forwardMid = newVertexEdgePair(originalWId, wEntryId, false)
@@ -708,9 +708,9 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 				}
 
 				scannedByBackwardSearch := bs.bScanned[overlayWId]
-				if scannedByBackwardSearch && da.Lt(bs.forwardInfo[overlayWId].GetTravelTime()+bs.backwardInfo[overlayWId].GetTravelTime(), bs.shortestTimeTravel) {
+				if scannedByBackwardSearch && da.Lt(bs.forwardInfo[overlayWId].GetTravelTime()+bs.backwardInfo[overlayWId].GetTravelTime(), bs.shortestTravelTime) {
 					// if overlay vertex w Labelled by backward search, check whether we can improve the shortestPath
-					bs.shortestTimeTravel = bs.forwardInfo[overlayWId].GetTravelTime() + bs.backwardInfo[overlayWId].GetTravelTime()
+					bs.shortestTravelTime = bs.forwardInfo[overlayWId].GetTravelTime() + bs.backwardInfo[overlayWId].GetTravelTime()
 
 					bs.forwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), overlayWId, false)
 					bs.backwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), overlayWId, true)
@@ -727,9 +727,9 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 		}
 
 		scannedByBackwardSearch := bs.bScanned[overlayVId]
-		if scannedByBackwardSearch && da.Lt(bs.forwardInfo[overlayVId].GetTravelTime()+bs.backwardInfo[overlayVId].GetTravelTime(), bs.shortestTimeTravel) {
+		if scannedByBackwardSearch && da.Lt(bs.forwardInfo[overlayVId].GetTravelTime()+bs.backwardInfo[overlayVId].GetTravelTime(), bs.shortestTravelTime) {
 
-			bs.shortestTimeTravel = bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
+			bs.shortestTravelTime = bs.forwardInfo[overlayVId].GetTravelTime() + bs.backwardInfo[overlayVId].GetTravelTime()
 
 			bs.forwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, false)
 			bs.backwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, true)
@@ -838,9 +838,9 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 					entryPoint da.Index, turn pkg.TurnType) {
 					scannedByForwardSearch := bs.fScanned[wEntryId]
 					if scannedByForwardSearch && da.Lt(bs.forwardInfo[wEntryId].GetTravelTime()+bs.engine.metrics.GetTurnCost(turn)+
-						bs.backwardInfo[wExitId].GetTravelTime(), bs.shortestTimeTravel) {
+						bs.backwardInfo[wExitId].GetTravelTime(), bs.shortestTravelTime) {
 
-						bs.shortestTimeTravel = bs.forwardInfo[wEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turn) +
+						bs.shortestTravelTime = bs.forwardInfo[wEntryId].GetTravelTime() + bs.engine.metrics.GetTurnCost(turn) +
 							bs.backwardInfo[wExitId].GetTravelTime()
 
 						bs.forwardMid = newVertexEdgePair(originalWId, wEntryId, false)
@@ -871,8 +871,8 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 				}
 
 				scannedByForwardSearch := bs.fScanned[overlayWId]
-				if scannedByForwardSearch && da.Lt(bs.forwardInfo[overlayWId].GetTravelTime()+bs.backwardInfo[overlayWId].GetTravelTime(), bs.shortestTimeTravel) {
-					bs.shortestTimeTravel = bs.forwardInfo[overlayWId].GetTravelTime() + bs.backwardInfo[overlayWId].GetTravelTime()
+				if scannedByForwardSearch && da.Lt(bs.forwardInfo[overlayWId].GetTravelTime()+bs.backwardInfo[overlayWId].GetTravelTime(), bs.shortestTravelTime) {
+					bs.shortestTravelTime = bs.forwardInfo[overlayWId].GetTravelTime() + bs.backwardInfo[overlayWId].GetTravelTime()
 
 					bs.forwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), overlayWId, false)
 					bs.backwardMid = newVertexEdgePair(wVertex.GetOriginalVertex(), overlayWId, true)
@@ -889,9 +889,9 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 		}
 
 		scannedByForwardSearch := bs.fScanned[overlayVId]
-		if scannedByForwardSearch && da.Lt(bs.backwardInfo[overlayVId].GetTravelTime()+bs.forwardInfo[overlayVId].GetTravelTime(), bs.shortestTimeTravel) {
+		if scannedByForwardSearch && da.Lt(bs.backwardInfo[overlayVId].GetTravelTime()+bs.forwardInfo[overlayVId].GetTravelTime(), bs.shortestTravelTime) {
 
-			bs.shortestTimeTravel = bs.backwardInfo[overlayVId].GetTravelTime() + bs.forwardInfo[overlayVId].GetTravelTime()
+			bs.shortestTravelTime = bs.backwardInfo[overlayVId].GetTravelTime() + bs.forwardInfo[overlayVId].GetTravelTime()
 
 			bs.forwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, false)
 			bs.backwardMid = newVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, true)

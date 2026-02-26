@@ -17,7 +17,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 	)
 
 	for v := 0; v < int(numV)+1; v++ {
-		vertices[v] = datastructure.NewVertex(0, 0, datastructure.Index(v))
+		vertices[v] = datastructure.NewVertex(0, 0, datastructure.Index(v), 0)
 	}
 
 	lastEdgeId := uint32(0)
@@ -25,20 +25,22 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 	for _, e := range scannedEdges {
 		u := datastructure.Index(e.from)
 		v := datastructure.Index(e.to)
+		uOsmId := e.GetFromOsmId()
+		vOsmId := e.GetToOsmId()
 
 		outEdges[u] = append(outEdges[u], datastructure.NewOutEdge(edgeId,
-			v, e.weight, e.distance, len(inEdges[v])))
+			v, e.GetWeight(), e.GetDistance(), len(inEdges[v]), e.GetHighwayType()))
 		outDegree[u]++
 
 		inEdges[v] = append(inEdges[v], datastructure.NewInEdge(edgeId,
-			u, e.weight, e.distance, len(outEdges[u])-1))
+			u, e.GetWeight(), e.GetDistance(), len(outEdges[u])-1, e.GetHighwayType()))
 		inDegree[v]++
 
 		uData := p.acceptedNodeMap[p.nodeToOsmId[datastructure.Index(u)]]
-		vertices[u] = datastructure.NewVertex(uData.lat, uData.lon, u)
+		vertices[u] = datastructure.NewVertex(uData.lat, uData.lon, u, uOsmId)
 
 		vData := p.acceptedNodeMap[p.nodeToOsmId[datastructure.Index(v)]]
-		vertices[v] = datastructure.NewVertex(vData.lat, vData.lon, v)
+		vertices[v] = datastructure.NewVertex(vData.lat, vData.lon, v, vOsmId)
 		edgeId++
 		if e.edgeID >= lastEdgeId {
 			lastEdgeId = e.edgeID + 1
@@ -50,12 +52,12 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 
 		dummyID := datastructure.Index(lastEdgeId)
 		dummyOut := datastructure.NewOutEdge(dummyID, datastructure.Index(v),
-			0, 0, len(inEdges[v]))
+			0, 0, len(inEdges[v]), pkg.UNKNOWN)
 		outEdges[v] = append(outEdges[v], dummyOut)
 		outDegree[v]++
 
 		dummyIn := datastructure.NewInEdge(dummyID, datastructure.Index(v),
-			0, 0, len(outEdges[v])-1)
+			0, 0, len(outEdges[v])-1, pkg.UNKNOWN)
 		inEdges[v] = append(inEdges[v], dummyIn)
 		inDegree[v]++
 		lastEdgeId++
@@ -290,7 +292,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		inEdgeOffset += datastructure.Index(len(inEdges[i]))
 	}
 
-	vertices[len(vertices)-1] = datastructure.NewVertex(0, 0, datastructure.Index(len(vertices)-1))
+	vertices[len(vertices)-1] = datastructure.NewVertex(0, 0, datastructure.Index(len(vertices)-1), 0)
 	vertices[len(vertices)-1].SetFirstOut(outEdgeOffset)
 	vertices[len(vertices)-1].SetFirstIn(inEdgeOffset)
 

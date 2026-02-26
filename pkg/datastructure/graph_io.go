@@ -40,24 +40,24 @@ func (g *Graph) WriteGraph(filename string) error {
 		latF := strconv.FormatFloat(v.lat, 'f', -1, 64)
 		lonF := strconv.FormatFloat(v.lon, 'f', -1, 64)
 
-		fmt.Fprintf(w, "%d %d %d %d %d %s %s\n",
-			v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, v.id, latF, lonF)
+		fmt.Fprintf(w, "%d %d %d %d %d %s %s %d\n",
+			v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, v.id, latF, lonF, v.osmId)
 	}
 
 	for _, v := range g.outEdges {
 		weightF := strconv.FormatFloat(v.weight, 'f', -1, 64)
 		distF := strconv.FormatFloat(v.dist, 'f', -1, 64)
 
-		fmt.Fprintf(w, "%d %d %s %s %d %d\n",
-			v.edgeId, v.head, weightF, distF, v.entryPoint, v.oriEdgeId)
+		fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
+			v.edgeId, v.head, weightF, distF, v.entryPoint, v.oriEdgeId, v.hwType)
 	}
 
 	for _, v := range g.inEdges {
 		weightF := strconv.FormatFloat(v.weight, 'f', -1, 64)
 		distF := strconv.FormatFloat(v.dist, 'f', -1, 64)
 
-		fmt.Fprintf(w, "%d %d %s %s %d %d\n",
-			v.edgeId, v.tail, weightF, distF, v.exitPoint, v.oriEdgeId)
+		fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
+			v.edgeId, v.tail, weightF, distF, v.exitPoint, v.oriEdgeId, v.hwType)
 	}
 
 	for _, cellNumber := range g.cellNumbers {
@@ -629,8 +629,8 @@ func ReadGraph(filename string) (*Graph, error) {
 
 func parseVertex(line string) (*Vertex, error) {
 	tokens := fields(line)
-	if len(tokens) != 7 {
-		return nil, fmt.Errorf("expected 6 fields, got %d", len(tokens))
+	if len(tokens) != 8 {
+		return nil, fmt.Errorf("expected 8 fields, got %d", len(tokens))
 	}
 	pvPtr, err := ParseIndex(tokens[0])
 	if err != nil {
@@ -662,17 +662,23 @@ func parseVertex(line string) (*Vertex, error) {
 	if err != nil {
 		return nil, fmt.Errorf("lon: %w", err)
 	}
+
+	osmId, err := strconv.ParseUint(tokens[7], 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("osmId: %w", err)
+	}
+
 	return &Vertex{
 		pvPtr: pvPtr, turnTablePtr: ttPtr,
 		firstOut: firstOut, firstIn: firstIn,
-		lat: lat, lon: lon, id: id,
+		lat: lat, lon: lon, id: id, osmId: osmId,
 	}, nil
 }
 
 func parseOutEdge(line string) (*OutEdge, error) {
 	tokens := fields(line)
-	if len(tokens) != 6 {
-		return nil, fmt.Errorf("expected 6 fields, got %d", len(tokens))
+	if len(tokens) != 7 {
+		return nil, fmt.Errorf("expected 7 fields, got %d", len(tokens))
 	}
 	edgeId, err := ParseIndex(tokens[0])
 	if err != nil {
@@ -700,15 +706,21 @@ func parseOutEdge(line string) (*OutEdge, error) {
 	if err != nil {
 		return nil, err
 	}
-	e := NewOutEdge(edgeId, head, weight, dist, int(entryPoint))
+
+	hwType, err := strconv.ParseUint(tokens[6], 10, 8)
+	if err != nil {
+		return nil, err
+	}
+
+	e := NewOutEdge(edgeId, head, weight, dist, int(entryPoint), pkg.OsmHighwayType(hwType))
 	e.SetOriginalEdgeId(oriEdgeId)
 	return e, nil
 }
 
 func parseInEdge(line string) (*InEdge, error) {
 	tokens := fields(line)
-	if len(tokens) != 6 {
-		return nil, fmt.Errorf("expected 6 fields, got %d", len(tokens))
+	if len(tokens) != 7 {
+		return nil, fmt.Errorf("expected 7 fields, got %d", len(tokens))
 	}
 	edgeId, err := ParseIndex(tokens[0])
 	if err != nil {
@@ -736,7 +748,12 @@ func parseInEdge(line string) (*InEdge, error) {
 		return nil, err
 	}
 
-	e := NewInEdge(edgeId, tail, weight, dist, int(exitPoint))
+	hwType, err := strconv.ParseUint(tokens[6], 10, 8)
+	if err != nil {
+		return nil, err
+	}
+
+	e := NewInEdge(edgeId, tail, weight, dist, int(exitPoint), pkg.OsmHighwayType(hwType))
 	e.SetOriginalEdgeId(oriEdgeId)
 	return e, nil
 }

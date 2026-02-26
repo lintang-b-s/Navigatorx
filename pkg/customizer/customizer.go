@@ -84,7 +84,7 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 
 	var m *metrics.Metric
-	costFunction := costfunction.NewTimeCostFunction()
+	costFunction := costfunction.NewTimeCostFunctionEmpty()
 
 	c.Build(costFunction)
 	c.logger.Sugar().Infof("Building stalling tables...")

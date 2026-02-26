@@ -67,7 +67,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	cf := costfunction.NewTimeCostFunction()
+	cf := costfunction.NewTimeCostFunctionEmpty()
 
 	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf)
 	if err != nil {
@@ -127,7 +127,7 @@ func flattenEdges(es [][]pairEdge) []osmparser.Edge {
 
 	for from, edges := range es {
 		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, 0, uint32(eid)))
+			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, 0, uint32(eid), 0))
 			eid++
 		}
 	}

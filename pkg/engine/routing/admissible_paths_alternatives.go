@@ -610,7 +610,7 @@ func (ars *AlternativeRouteSearch) makePackedViaPathOverlayEven(svPackedPath, vt
 
 	lSV := 0 // first overlayVertex
 	// dari crp query, bisa aja via vertex nya di entryVertex sel sebelah
-	// s-> u1 -> u2 -cutEdge/boundaryEdge-> v1 -shortcut-> v2 -cutEdge/boundaryEdge-> v3-> via <- ...... vertices scanned by backward search
+	// s-> u1 -> u2 -cutEdge-> v1 -shortcut-> v2 -cutEdge-> v3-> via <- ...... vertices scanned by backward search
 	// karena sv overlayPath  nya [v1,v2,v3] ganjil dan syarat dari pathUnpacker: len(overlayPath) even, kita harus buat jadi even
 
 	nSV := len(svPackedPath)
@@ -620,7 +620,7 @@ func (ars *AlternativeRouteSearch) makePackedViaPathOverlayEven(svPackedPath, vt
 		}
 	}
 
-	if (nSV-lSV)%2 != 0 {
+	if lSV != 0 && (nSV-lSV)%2 != 0 {
 		svPackedPath = append(svPackedPath, vtPackedPath[0])
 		vtPackedPath = vtPackedPath[1:]
 	}

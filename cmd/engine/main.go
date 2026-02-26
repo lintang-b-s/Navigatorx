@@ -12,6 +12,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -32,6 +33,10 @@ func main() {
 
 	flag.Parse()
 	logger, err := log.New()
+	if err != nil {
+		panic(err)
+	}
+	err = util.ReadConfig()
 	if err != nil {
 		panic(err)
 	}

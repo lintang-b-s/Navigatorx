@@ -11,7 +11,7 @@ type Dijkstra struct {
 	forwardInfo         []*VertexInfo[da.CRPQueryKey]
 	finalDist           []*VertexInfo[da.CRPQueryKey]
 	finalEdge           []da.Index
-	shortestTimeTravels []float64
+	shortestTravelTimes []float64
 
 	pq *da.MinHeap[da.CRPQueryKey]
 
@@ -25,7 +25,7 @@ func NewDijkstra(engine *CRPRoutingEngine) Dijkstra {
 		finalDist:           make([]*VertexInfo[da.CRPQueryKey], 0),
 		pq:                  da.NewFourAryHeap[da.CRPQueryKey](),
 		numSettledNodes:     0,
-		shortestTimeTravels: make([]float64, 0),
+		shortestTravelTimes: make([]float64, 0),
 	}
 }
 
