@@ -74,6 +74,26 @@ func (bs *CRPBidirectionalSearch) GetNumScannedNodes() int {
 	return bs.numScannedVertices
 }
 
+func (bs *CRPALTBidirectionalSearch) GetViaVertices() []da.ViaVertex {
+	return bs.viaVertices
+}
+
+func (bs *CRPALTBidirectionalSearch) GetForwardInfo() []*VertexInfo[da.CRPQueryKey] {
+	return bs.forwardInfo
+}
+
+func (bs *CRPALTBidirectionalSearch) GetBackwardInfo() []*VertexInfo[da.CRPQueryKey] {
+	return bs.backwardInfo
+}
+
+func (bs *CRPALTBidirectionalSearch) GetSCellNumber() da.Pv {
+	return bs.sCellNumber
+}
+
+func (bs *CRPALTBidirectionalSearch) GetNumScannedNodes() int {
+	return bs.numScannedVertices
+}
+
 func initInfWeight(dist []float64) {
 	for i := range dist {
 		dist[i] = pkg.INF_WEIGHT

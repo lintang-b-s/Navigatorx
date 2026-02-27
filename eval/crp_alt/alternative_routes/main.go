@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"io"
@@ -11,10 +10,8 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -70,12 +67,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
 	err = util.ReadConfig()
 	if err != nil {
 		panic(err)
 	}
-
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
 		output, err := os.Create(osmfFile)
 		if err != nil {
@@ -167,169 +162,79 @@ func main() {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := int(math.Pow(10, 1)) * 5
-	qset := make(map[da.Index]struct{})
+	n := int(math.Pow(10, 4))
+	qset := make(map[uint64]struct{})
 
-	queries := make([]da.Index, 0, n)
+	type query struct {
+		s, t da.Index
+	}
+
+	newQuery := func(s, t da.Index) query {
+		return query{
+			s: s,
+			t: t,
+		}
+	}
+
+	queries := make([]query, 0, n)
+
+	bitpack := func(i, j da.Index) uint64 {
+		return uint64(i) | (uint64(j) << 30)
+	}
 
 	i := 0
 	for i < n {
 		s := da.Index(rd.Intn(V))
-
-		if _, ok := qset[s]; ok {
+		t := da.Index(rd.Intn(V))
+		if s == t {
+			continue
+		}
+		if !g.VerticeUandVAreConnected(s, t) {
+			continue
+		}
+		if _, ok := qset[bitpack(s, t)]; ok {
 			continue
 		}
 
-		qset[s] = struct{}{}
-		queries = append(queries, da.Index(s))
+		qset[bitpack(s, t)] = struct{}{}
+		queries = append(queries, newQuery(s, t))
 		i++
 	}
-	numberOfVertices := g.NumberOfVertices()
 
-	expectedSPTravelTimes := make([][]float64, n)
-	// expectedShortestPaths := make([][][]da.Index, n) // kita gak assert vertex ids path nya karena makan memory gede banget awowakaowo
-	// todo: mungkin bisa write ke file langsung buat expectedVertexIds nya?
-	// for i := 0; i < n; i++ {
-	// 	expectedShortestPaths[i] = make([][]da.Index, numberOfVertices)
-	// }
+	successRate := 0.0
+	stretch := 0.0
+	diversity := 0.0
+	runtime := 0.0
 
-	logger.Sugar().Infof("start dijkstra query for all sources...")
+	for i := 0; i < len(queries); i++ {
+		s := queries[i].s
+		t := queries[i].t
 
-	lock := sync.Mutex{}
+		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), 1.3, 0.8, 0.3, 0.35, lm)
 
-	calcSpDijkstra := func(i int) any {
-		s := queries[i]
+		alts := altSearch.FindAlternativeRoutes(s, t, 4)
 
-		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine())
-
-		sps, _ := dijkstraQuery.ShortestPath(s)
-
-		lock.Lock()
-		// for t := 0; t < numberOfVertices; t++ {
-		// 	spVertices := make([]da.Index, 0, len(spEdges[t]))
-		// 	for k := 0; k < len(spEdges[t]); k++ {
-		// 		spVertices = append(spVertices, spEdges[t][k].GetHead())
-		// 	}
-		// 	expectedShortestPaths[i][t] = append(expectedShortestPaths[i][t], spVertices...)
-		// }
-		expectedSPTravelTimes[i] = sps
-
-		if (i+1)%5 == 0 {
-			logger.Sugar().Infof("done query from source number: %v\n", i+1)
-		}
-		lock.Unlock()
-
-		return nil
-	}
-
-	workersDijkstra := concurrent.NewWorkerPool[int, any](7, n)
-
-	for i := 0; i < n; i++ {
-		workersDijkstra.AddJob(i)
-	}
-
-	workersDijkstra.Close()
-	workersDijkstra.Start(calcSpDijkstra)
-	workersDijkstra.WaitDirect()
-
-	type query struct {
-		i, s, t da.Index
-		id      da.Index
-	}
-
-	newQuery := func(i, s, t, id da.Index) query {
-		return query{i, s, t, id}
-	}
-
-	type counterExampleData struct {
-		expectedSp, crpALTSP           float64
-		expectedSpEdges, crpALTSPEdges []da.Index
-		counterexample                 bool
-	}
-
-	newCounterExampleData := func(expectedSp, crpALTSP float64, expectedSpEdges, crpALTSPEdges []da.Index, cx bool) counterExampleData {
-		return counterExampleData{expectedSp: expectedSp, crpALTSP: crpALTSP, expectedSpEdges: expectedSpEdges, crpALTSPEdges: crpALTSPEdges,
-			counterexample: cx}
-	}
-
-	calcSp := func(q query) counterExampleData {
-		i := q.i
-		s := q.s
-		t := q.t
-		id := q.id
-		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
-		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
-		sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
-
-		expectedSp := expectedSPTravelTimes[i][t]
-		// expectedSPEdges := expectedShortestPaths[i][t]
-
-		counterexample := false
-		if !da.EqEps(expectedSp, sp, 1e-5) { // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
-			counterexample = true
+		if len(alts) == 0 {
+			continue
 		}
 
-		// if len(spEdges) != len(expectedSPEdges) {
-		// 	counterexample = true
-		// }
-
-		// for k := 0; k < len(spEdges); k++ {
-		// 	if spEdges[k].GetHead() != expectedSPEdges[k] {
-		// 		counterexample = true
-		// 		break
-		// 	}
-		// }
-
-		if (id+1)%5000 == 0 {
-			logger.Sugar().Infof("done query id: %v\n", id+1)
-		}
-		if counterexample {
-			// spVertices := make([]da.Index, 0, len(spEdges))
-			// for k := 0; k < len(spEdges); k++ {
-			// 	spVertices = append(spVertices, spEdges[k].GetHead())
-			// }
-			return newCounterExampleData(expectedSp, sp, []da.Index{}, []da.Index{}, true)
+		if (i+1)%100 == 0 {
+			fmt.Printf("processed %d queries\n", i+1)
 		}
 
-		return newCounterExampleData(0, 0, nil, nil, false)
+		stretch += altSearch.GetStretch()
+		diversity += altSearch.GetDiversity()
+		successRate += 1.0
+		runtime += float64(altSearch.GetRuntime())
 	}
 
-	workers := concurrent.NewWorkerPool[query, counterExampleData](100, n*numberOfVertices)
+	successRate /= float64(len(queries))
+	stretch /= float64(len(queries))
+	diversity /= float64(len(queries))
+	runtime /= float64(len(queries))
 
-	for i := 0; i < n; i++ {
-		s := queries[i]
-
-		for t := da.Index(0); t < da.Index(numberOfVertices); t++ {
-			workers.AddJob(newQuery(da.Index(i), s, t, da.Index(i)*da.Index(numberOfVertices)+t))
-		}
-	}
-	logger.Sugar().Infof("start crp query...")
-
-	ctx, cancel := context.WithCancel(context.Background())
-	workers.Close()
-	workers.StartWithContext(ctx, calcSp)
-	workers.Wait()
-
-	for res := range workers.CollectResults() {
-		if res.counterexample {
-			logger.Sugar().Infof("found counterExample!!\n")
-
-			logger.Sugar().Infof("expected shortest path travel time: %f, got: %f\n", res.expectedSp, res.crpALTSP)
-			cancel()
-			// logger.Sugar().Infof("\n expected shortest path vertex ids:\n")
-			// for j := 0; j < len(res.expectedSpEdges); j++ {
-			// 	logger.Sugar().Infof("%v, ", res.expectedSpEdges[j])
-			// }
-
-			// logger.Sugar().Infof("\n got shortest path vertex ids:\n")
-			// for j := 0; j < len(res.crpALTSPEdges); j++ {
-			// 	logger.Sugar().Infof("%v, ", res.crpALTSPEdges[j])
-			// }
-
-			logger.Sugar().Infof("\n")
-		}
-	}
-
-	logger.Sugar().Infof("done yeaayy (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~!!!!!")
+	fmt.Printf("success rate: %f\n", successRate)
+	fmt.Printf("stretch: %f\n", stretch)
+	fmt.Printf("diversity: %f\n", diversity)
+	fmt.Printf("runtime: %f ms\n", runtime)
 }

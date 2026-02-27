@@ -122,12 +122,9 @@ corresponding to subcells of C. This subgraph is much smaller than the correspon
 addition, since overlay graphs have no (explicit) turns, we can just apply the standard version of Dijkstra’s
 algorithm, which tends to be faster.
 
-time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
-let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortucts within any partition
-let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
-let n_b, \hat{m} denote the total number of boundary nodes and shortcuts
-
-time complexity of CRP Customization is: O(n_b * m_p * log n)
+worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
+worst case buildLevel:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
+worst case crp customization: O( c_1 * n_op * (m_p* log(m_p)) + \sum_{l=2}^{L} c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
 */
 func (c *Customizer) Build(
 	costFunction costfunction.CostFunction) {
@@ -157,10 +154,12 @@ func (cc cellCustomizationRes) getIndex() int {
 	return cc.index
 }
 
+/*
 // buildLowestLevel. build clique of each cell in the lowest level (level 1)
 // using Dijkstra algorithm from each entry point of the cell to all exit points of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
+*/
 func (c *Customizer) buildLowestLevel(
 	costFunction costfunction.CostFunction) {
 
@@ -173,6 +172,18 @@ func (c *Customizer) buildLowestLevel(
 		dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
 
 		dijkstra := func(entries <-chan da.Index) {
+			/*
+				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
+				let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
+
+
+				pq contains at most all edges in a cell level 1
+				extractMin at most m_p
+				decreaseKey and insert at most m_p
+				we do dijkstra for all entries in the cell, num of entries is at most n_op
+				worst case: O( n_op * (m_p* log(m_p)) )
+
+			*/
 			for i := range entries {
 				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 				overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
@@ -199,10 +210,10 @@ func (c *Customizer) buildLowestLevel(
 					pqNode, _ := pq.ExtractMin()
 					uKey := pqNode.GetItem()
 					uId := uKey.GetNode()
-					uEntryPoint := uKey.GetEntryExitPoint()
+					uEntryId := uKey.GetEntryExitPoint()
 					uTravelTime := pqNode.GetRank()
 
-					c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryPoint+forwardCellOffset), func(
+					c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryId+forwardCellOffset), func(
 						outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
 						// traverse all out edges
 						v := outArc.GetHead()
@@ -218,16 +229,16 @@ func (c *Customizer) buildLowestLevel(
 
 						vTruncatedCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
 						if vTruncatedCellNumber == cellNumber {
-							vEntryPoint := c.graph.GetEntryOffset(v) + da.Index(outArc.GetEntryPoint()) - forwardCellOffset
+							vEntryId := c.graph.GetEntryOffset(v) + da.Index(outArc.GetEntryPoint()) - forwardCellOffset
 
-							ok := da.Lt(travelTime[vEntryPoint], pkg.INF_WEIGHT)
-							if oldvTT := travelTime[vEntryPoint]; !ok || (ok && newTravelTime < oldvTT) {
-								travelTime[vEntryPoint] = newTravelTime
+							ok := da.Lt(travelTime[vEntryId], pkg.INF_WEIGHT)
+							if oldvTT := travelTime[vEntryId]; !ok || (ok && newTravelTime < oldvTT) {
+								travelTime[vEntryId] = newTravelTime
 								if ok {
-									pq.DecreaseKey(hnodes[vEntryPoint], newTravelTime)
+									pq.DecreaseKey(hnodes[vEntryId], newTravelTime)
 								} else {
-									vhNode := da.NewPriorityQueueNode(newTravelTime, da.NewDijkstraKey(v, vEntryPoint))
-									hnodes[vEntryPoint] = vhNode
+									vhNode := da.NewPriorityQueueNode(newTravelTime, da.NewDijkstraKey(v, vEntryId))
+									hnodes[vEntryId] = vhNode
 									pq.Insert(vhNode)
 								}
 							}
@@ -286,6 +297,9 @@ func (c *Customizer) buildLowestLevel(
 		workers.AddJob(newCustomizerCell(cell, cellNumber))
 	}
 
+	// let c_1 be the number of cells in level 1
+	// worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
+
 	workers.Close()
 	workers.Start(buildCellClique)
 	workers.Wait()
@@ -317,6 +331,18 @@ func (c *Customizer) buildLevel(
 		dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
 
 		dijkstra := func(entries <-chan da.Index) {
+			/*
+				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
+				let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
+
+
+				pq contains at most all overlay vertices in all subcells of this cell in level-1
+				extractMin at most n_op
+				decreaseKey and insert at most \hat{m_p}
+
+				we do dijkstra for all entries in the cell, num of entries is at most n_op
+				worst case: O( n_op * (n_op + \hat{m_p})* log(n_op) )
+			*/
 			for i := range entries {
 				pq := da.NewFourAryHeap[da.Index]()
 				travelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
@@ -339,6 +365,7 @@ func (c *Customizer) buildLevel(
 					util.AssertPanic(uTruncatedLevel == cellNumber, "current truncated cell number and boundary vertex truncated cell number must be the same!")
 
 					c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit da.Index, wOffset da.Index) {
+						// iterate all shortcuts (u, \cdot)
 
 						shortcutWeight := c.ow.GetWeight(wOffset)
 
@@ -425,6 +452,9 @@ func (c *Customizer) buildLevel(
 	for pv, cell := range cellMapInLevel {
 		workers.AddJob(newCustomizerCell(cell, pv))
 	}
+
+	// let c_l be the number of cells in level l
+	// worst case buildLevel:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
 
 	workers.Close()
 	workers.Start(buildCellClique)

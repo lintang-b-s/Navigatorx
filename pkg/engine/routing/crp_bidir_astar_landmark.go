@@ -142,6 +142,12 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 
 	bs.activeLandmarks = bs.lm.SelectBestQueryLandmarks(s, t)
 
+	close := func(id da.Index, scanned []bool, info []*VertexInfo[da.CRPQueryKey]) {
+		// scan item (can be edgeId or overlay vertex id)
+		scanned[id] = true
+		info[id].Scan()
+	}
+
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
@@ -159,25 +165,22 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 
 		queryKey, _ := bs.forwardPq.ExtractMin()
 		uItem := queryKey.GetItem()
-		if !uItem.IsOverlay() {
 
-			bs.fScanned[uItem.GetEntryExitPoint()] = true
+		if !uItem.IsOverlay() {
+			close(uItem.GetEntryExitPoint(), bs.fScanned, bs.forwardInfo)
 			bs.forwardGraphSearch(uItem, s, t)
 		} else {
-
-			bs.fScanned[bs.engine.offsetOverlay(uItem.GetNode())] = true
+			close(bs.engine.offsetOverlay(uItem.GetNode()), bs.fScanned, bs.forwardInfo)
 			bs.forwardOverlayGraphSearch(uItem, s, t)
 		}
 
 		queryKey, _ = bs.backwardPq.ExtractMin()
 		uItem = queryKey.GetItem()
 		if !uItem.IsOverlay() {
-
-			bs.bScanned[uItem.GetEntryExitPoint()] = true
+			close(uItem.GetEntryExitPoint(), bs.bScanned, bs.backwardInfo)
 			bs.backwardGraphSearch(uItem, s, t)
 		} else {
-
-			bs.bScanned[bs.engine.offsetOverlay(uItem.GetNode())] = true
+			close(bs.engine.offsetOverlay(uItem.GetNode()), bs.bScanned, bs.backwardInfo)
 			bs.backwardOverlayGraphSearch(uItem, s, t)
 		}
 

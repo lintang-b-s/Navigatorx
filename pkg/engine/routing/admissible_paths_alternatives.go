@@ -1,8 +1,11 @@
 package routing
 
 import (
+	"maps"
+	"math"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
@@ -19,10 +22,11 @@ type AlternativeRoute struct {
 	drivingDirections []datastructure.DrivingDirection
 	polylinePath      string
 
-	travelTime float64
-	dist       float64
-	viaNode    datastructure.Index
-	viaVertex  datastructure.ViaVertex
+	travelTime  float64
+	dist        float64
+	distSharing float64
+	viaNode     datastructure.Index
+	viaVertex   datastructure.ViaVertex
 }
 
 func (ar *AlternativeRoute) GetCoords() []datastructure.Coordinate {
@@ -63,11 +67,15 @@ func (ar *AlternativeRoute) GetDist() float64 {
 	return ar.dist
 }
 
+func (ar *AlternativeRoute) GetDistSharing() float64 {
+	return ar.distSharing
+}
+
 func (ar *AlternativeRoute) GetViaNode() datastructure.Index {
 	return ar.viaNode
 }
 
-func NewAlternativeRoute(objectiveValue, dist, travelTime float64,
+func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
 	viaNode datastructure.Index, path []datastructure.Coordinate, edges []datastructure.OutEdge,
 	viaVertex datastructure.ViaVertex) *AlternativeRoute {
 	return &AlternativeRoute{
@@ -78,6 +86,7 @@ func NewAlternativeRoute(objectiveValue, dist, travelTime float64,
 		edges:          edges,
 		travelTime:     travelTime,
 		viaVertex:      viaVertex,
+		distSharing:    distSharing,
 	}
 }
 
@@ -87,11 +96,13 @@ type AlternativeRouteSearch struct {
 	upperBound            float64
 	gamma, alpha, epsilon float64
 	lm                    *landmark.Landmark
+	optTravelTime         float64
+	runtime               int64
 
 	lock *sync.RWMutex
 }
 
-func NewAlternativeRouteSearch(engine *CRPRoutingEngine, upperBound, gamma, alpha, epsilon, delta float64, lm *landmark.Landmark,
+func NewAlternativeRouteSearch(engine *CRPRoutingEngine, upperBound, gamma, alpha, epsilon float64, lm *landmark.Landmark,
 
 ) *AlternativeRouteSearch {
 	return &AlternativeRouteSearch{
@@ -116,19 +127,25 @@ Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 
 
-todo: add alternative routes stats success rate, UBS, sharing, locally optimal (https://dl.acm.org/doi/abs/10.1145/2444016.2444019)
-todo3: update tTest, hasil rute alternative buat jarak jauh masih jelek
-todo4: mungkin ada yang salah di calculatePlateau?
 */
 
 func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructure.Index, k int) []*AlternativeRoute {
 
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
+	/*
+		let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
+		let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, partitioning depth, and number of overlay vertices respectively.
+		time complexity of CRP query is: O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o)), in this implementation, priority queue (4-ary heap) contains at most all edges in lowest level cell that containing s or t and all overlay vertices in all cell other than cell that containing s or t
+		decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately scan v and add neighbor of v (vertex w) to priority queue
+		extract-min at most O(m_p+n_o) operations
+	*/
+	now := time.Now()
+	crpQuery := NewCRPALTBidirectionalSearch(ars.engine, ars.upperBound, ars.lm)
 
 	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
 	if !found {
 		return []*AlternativeRoute{}
 	}
+	ars.optTravelTime = optTravelTime
 
 	viaVertices := make([]datastructure.ViaVertex, len(crpQuery.GetViaVertices()))
 	copy(viaVertices, crpQuery.GetViaVertices())
@@ -162,28 +179,44 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 			svEdgePath, vtEdgePath     []datastructure.OutEdge
 		)
 
+		/*
+			let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcuts within any partition
+			let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, partitioning depth, and number of overlay vertices respectively.
+			lowest level cell: O(m_p*log(m_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most m_p (turn-based graph), decrease-key and insert at most O(m_p) operations, extract-min at-most O(m_p) operations
+			cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
+			let q = number of shorcut edges in packedPath
+			worst case  of unpackPath: O(\sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
+
+			let p = number of edges & shortcut edges in s-via-t path
+
+			worst case of RetrieveForwardPackedPath+RetrieveForwardPackedPath: O(p)
+			worst case  of calculatePlateau: O(p)
+			worst case of  calculateDistanceShare: O(p)
+
+			worst case of computeAlternatives: O( p + \sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
+		*/
 		if !v.IsOverlay() {
 			// forward
 			svPackedPath := ars.engine.RetrieveForwardPackedPath(newVertexEdgePair(v.GetOriginalVId(), v.GetEntryId(), false),
 				fInfo, crpQuery.sForwardId, crpQuery.sCellNumber)
-			unpacker := NewPathUnpacker(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, false)
+			unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.lm)
 			svCoords, svEdgePath, svDist = unpacker.unpackPath(svPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 
 			// backward
 			vtPackedPath := ars.engine.RetrieveBackwardPackedPath(newVertexEdgePair(v.GetOriginalVId(), v.GetExitId(), true),
 				bInfo, crpQuery.tBackwardId, crpQuery.sCellNumber)
-			unpacker = NewPathUnpacker(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, false)
+			unpacker = NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.lm)
 			vtCoords, vtEdgePath, vtDist = unpacker.unpackPath(vtPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 		} else {
 			// forward
 			svPackedPath := ars.engine.RetrieveForwardPackedPath(newVertexEdgePair(v.GetOriginalVId(), v.GetVId(), false),
 				fInfo, crpQuery.sForwardId, crpQuery.sCellNumber)
-			unpacker := NewPathUnpacker(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, false)
+			unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.lm)
 
 			// backward
 			vtPackedPath := ars.engine.RetrieveBackwardPackedPath(newVertexEdgePair(v.GetOriginalVId(), v.GetVId(), false),
 				bInfo, crpQuery.tBackwardId, crpQuery.sCellNumber)
-			unpacker = NewPathUnpacker(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, false)
+			unpacker = NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.lm)
 
 			svPackedPath, vtPackedPath = ars.makePackedViaPathOverlayEven(svPackedPath, vtPackedPath)
 
@@ -225,7 +258,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 
 		ars.lock.Lock()
 		ars.candidates =
-			append(ars.candidates, NewAlternativeRoute(fv, svDist+vtDist, lv, v.GetOriginalVId(), pvCoords, pvEdgePath, v))
+			append(ars.candidates, NewAlternativeRoute(fv, svDist+vtDist, lv, sigmav, v.GetOriginalVId(), pvCoords, pvEdgePath, v))
 		ars.lock.Unlock()
 		return nil
 	}
@@ -236,6 +269,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 		workers.AddJob(v)
 	}
 
+	// let \alpha = number of via vertices
+	// worst case computeAlternatives for all via vertices: O(\alpha * ( p + \sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))
 	workers.Close()
 	workers.Start(computeAlternatives)
 	workers.WaitDirect()
@@ -252,67 +287,13 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 		res = append(res, ars.candidates[i])
 	}
 
+	// worst case of FindAlternativeRoutes: worst case crp query + worst case computeAlternatives for all via vertices
+	// O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o) + \alpha * ( p + \sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))
+
+	dur := time.Since(now).Milliseconds()
+	ars.runtime = dur
+
 	return res
-}
-
-/*
-Alternative Routes in Road Networks, Abraham et al., page 5:
-For local optimality, there is a quick 2-approximation. Take a via path Pv and a
-parameter T. Let P1 and P2 be the s–v and v–t subpaths of Pv, respectively. Among all
-vertices in P1 that are at least T away from v, let x be the closest to v (and let x = s
-if `(P1) < T). Let y be the analogous vertex in P2 (and let y = t if `(P2) < T). We say
-that Pv passes the T-test if the portion of Pv between x and y is a shortest path.
-Example for two T-tests. The T-test for v successful if shortest between x and y contains v.
-*/
-func (ars *AlternativeRouteSearch) tTest(T float64, v datastructure.Index, pvEdgePath []datastructure.OutEdge) bool {
-	edgeIdContainsV := datastructure.Index(0)
-	for i := 0; i < len(pvEdgePath); i++ {
-		if pvEdgePath[i].GetHead() == v {
-			edgeIdContainsV = datastructure.Index(i)
-		}
-	}
-
-	x := datastructure.INVALID_VERTEX_ID
-	vEdgeId := edgeIdContainsV
-	distFromV := 0.0
-	for distFromV < T {
-		edge := pvEdgePath[vEdgeId]
-		distFromV += edge.GetLength()
-		x = edge.GetEdgeId()
-
-		vEdgeId--
-	}
-
-	y := datastructure.INVALID_VERTEX_ID
-	vEdgeId = edgeIdContainsV
-	distFromV = 0.0
-
-	for distFromV < T && vEdgeId < datastructure.Index(len(pvEdgePath)) {
-		edge := pvEdgePath[vEdgeId]
-		distFromV += edge.GetLength()
-		y = edge.GetEdgeId()
-
-		vEdgeId++
-	}
-
-	if x == datastructure.INVALID_VERTEX_ID || y == datastructure.INVALID_VERTEX_ID {
-		return false
-	}
-
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, UPPERBOUND_SHORTEST_PATH)
-
-	_, _, _, xyOptPath, _ := crpQuery.ShortestPathSearch(x, y)
-	for i := 0; i < len(xyOptPath); i++ {
-		edge := xyOptPath[i]
-		if edge.GetHead() == v {
-			return true
-		}
-		tail := ars.engine.graph.GetTailOfOutedge(edge.GetEdgeId())
-		if tail == v {
-			return true
-		}
-	}
-	return false
 }
 
 func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []datastructure.OutEdge) float64 {
@@ -353,9 +334,21 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 		then looks at plateaus, i.e., maximal paths that appear in both trees simultaneously.
 		In general, a plateau u–w gives a natural s–t path: follow the out-tree from s to u, then
 		the plateau, then the in-tree from w to t. The algorithm selects paths corresponding to
-		long plateaus, orders them according to some “goodness” criteria (not explained in the
-		original paper [Cambridge Vehicle Information Technology Ltd. 2005]), and outputs
-		the best one (or more, if desired).
+		long plateaus.
+	*/
+
+	// shortest path tree from s to v: all scanned (already extracted using extractMin from pq) vertices in forward search
+	// shortest path tree from v to t: all scanned (already extracted using extractMin from pq) vertices in backward search
+	/*
+		Intuisi dari plateau (ref: https://dl.acm.org/doi/abs/10.1145/2444016.2444019):
+		buat ngecek apakah alternative route P_v T-Locally Optimall (T-LO): every subpath P' of P_v with l(P') <= T adalah shortest path
+		P_v is admissble alternative route iff P_v is T-locally optimal for T=\alpha* l(Opt)
+		lemma 4.4 dari ref[1]:
+		If P_v corresponds to a plateau u-w, P_v is dist(u,w)-LO
+		proof:
+		karena semua item antara u-w di scan di kedua search, pakai lemma subpath of shortest path area shortest path (clrs): subpath u-v dan v-w adalah shortest path-> subpath u-w is shortest path
+		pakai  lemma subpath of shortest path area shortest path (clrs) lagi: every subpath P' dari path u ke w, l(P') <= dist(u,w) is shortest path
+
 	*/
 
 	// u = vEntryId/vId  dari via
@@ -364,16 +357,19 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 	// task kita disini adalah find total length dari plateau u-w dari definisi platau diatas
 	// so kita harus backtrack dari vEntryId/vOverlayId dari via vertex ke vertex awal dari plateau (atau vertex u dari definisi diatas)
+	// let n=number of edges in s-via-t path
+	// worst case: O(n)
 	for u != sForwardId {
 		if ars.engine.isOverlay(u) {
 			// plateau iff parent_backward_search(parent_forward_search(u)) == u
 
 			oki := da.Lt(pb[ps[u].parent.edge].GetTravelTime(), pkg.INF_WEIGHT)
-			if b := pb[ps[u].parent.edge]; !(oki && b.parent.edge == u) {
+			if b := pb[ps[u].parent.edge]; !(oki && b.IsScanned() && b.parent.edge == u) {
 				// qParentOverlay -qShortcut-> qOverlay -vShortcut-> vOverlay
 				// u == vOverlay, ps[u].parent.edge == qOverlay
-				// kalau parent dari qOverlay di backward search equal to vOverlay kita bisa lanjut backtrack
+				// kalau parent dari qOverlay di backward search equal to vOverlay && qOverlay udah di scan di backward search kita bisa lanjut backtrack
 				// else: vOverlay (atau u) adalah overlayVertex pertama dari plateau path
+
 				break
 			}
 		} else if !ars.engine.isOverlay(u) && !ars.engine.isOverlay(ps[u].parent.edge) {
@@ -399,8 +395,8 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			q = ars.engine.graph.GetTailOfOutedge(vExitId)
 
 			offVExitId := ars.engine.offsetBackward(q, vExitId, ars.engine.graph.GetCellNumber(q), sCellNumber)
-			if b := pb[offQExitId]; !(oki && b.parent.edge == offVExitId) {
-				// kalau parent dari qInEdge di backward search equal to vInEdge kita bisa lanjut backtrack
+			if b := pb[offQExitId]; !(oki && b.IsScanned() && b.parent.edge == offVExitId) {
+				// kalau parent dari qInEdge di backward search equal to vInEdge && qInEdge udah di scan di backward search kita bisa lanjut backtrack
 				// else: vInEdge (atau u) adalah entryEdge pertama dari plateau path
 				break
 			}
@@ -420,7 +416,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			oki := da.Lt(pb[vOverlay].GetTravelTime(), pkg.INF_WEIGHT)
 
-			if b := pb[vOverlay].parent.edge; !(oki && b == offWExitId) {
+			if b := pb[vOverlay]; !(oki && b.IsScanned() && b.parent.edge == offWExitId) {
 				break
 			}
 
@@ -441,7 +437,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			offVExitId := ars.engine.offsetBackward(q, vExitId, ars.engine.graph.GetCellNumber(q), sCellNumber)
 			oki := da.Lt(pb[offVExitId].GetTravelTime(), pkg.INF_WEIGHT)
-			if b := pb[offVExitId]; !(oki && b.parent.edge == vOverlay) {
+			if b := pb[offVExitId]; !(oki && b.IsScanned() && b.parent.edge == vOverlay) {
 				// kalau parent dari vInEdge di backward search equal to vOverlay kita bisa lanjut backtrack
 				// else: vOverlay (atau u) adalah overlayVertex pertama dari plateau path
 
@@ -449,8 +445,12 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			}
 		}
 
-		u = ps[u].parent.edge
-		uVId = ps[u].parent.vertex
+		uPar := ps[u].parent
+		if !ps[uPar.edge].IsScanned() { // syarat parent(u) ada di shortest path tree forward search
+			break
+		}
+		u = uPar.edge
+		uVId = uPar.vertex
 	}
 
 	firstPlateauTT := ps[u].GetTravelTime()
@@ -465,7 +465,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 	for u != tBackwardId {
 		if ars.engine.isOverlay(u) {
 			oki := da.Lt(ps[pb[u].parent.edge].GetTravelTime(), pkg.INF_WEIGHT)
-			if f := ps[pb[u].parent.edge]; !(oki && f.parent.edge == u) {
+			if f := ps[pb[u].parent.edge]; !(oki && f.IsScanned() && f.parent.edge == u) {
 				// vOverlay -vShortcut-> qOverlay -qShortcut-> qParentOverlay
 				// u == vOverlay, pb[u].parent.edge == qOverlay
 				break
@@ -494,7 +494,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			oki := da.Lt(ps[offQParentEntryId].GetTravelTime(), pkg.INF_WEIGHT)
 
 			offQEntryId := ars.engine.offsetForward(q, qEntryId, ars.engine.graph.GetCellNumber(q), sCellNumber)
-			if f := ps[offQParentEntryId]; !(oki && f.parent.edge == offQEntryId) {
+			if f := ps[offQParentEntryId]; !(oki && f.IsScanned() && f.parent.edge == offQEntryId) {
 				break
 			}
 		} else if !ars.engine.isOverlay(u) && ars.engine.isOverlay(pb[u].parent.edge) {
@@ -513,7 +513,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			v := ars.engine.graph.GetHeadOfInedge(vEntryId)
 			offVEntryId := ars.engine.offsetForward(v, vEntryId, ars.engine.graph.GetCellNumber(v), sCellNumber)
-			if b := ps[vOverlay].parent.edge; !(oki && b == offVEntryId) {
+			if f := ps[vOverlay]; !(oki && f.IsScanned() && f.parent.edge == offVEntryId) {
 				break
 			}
 		} else {
@@ -532,13 +532,17 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			offQEntryId := ars.engine.offsetForward(q, qEntryId, ars.engine.graph.GetCellNumber(q), sCellNumber)
 			oki := da.Lt(ps[offQEntryId].GetTravelTime(), pkg.INF_WEIGHT)
-			if f := ps[offQEntryId]; !(oki && f.parent.edge == vOverlay) {
+			if f := ps[offQEntryId]; !(oki && f.IsScanned() && f.parent.edge == vOverlay) {
 				break
 			}
 		}
 
-		u = pb[u].parent.edge
-		uVId = pb[u].parent.vertex
+		uPar := pb[u].parent
+		if !pb[uPar.edge].IsScanned() {
+			break
+		}
+		u = uPar.edge
+		uVId = uPar.vertex
 	}
 
 	var lastPlateauTT float64
@@ -573,18 +577,25 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 		addToRes := true
 		for j := 0; j < i; j++ {
 			// check similiarity with other previous alternative routes
-			similiarity := 0.0
+			intersection := 0.0
 
 			setJ := set[j]
 			altPath := alt.GetPath()
 			for _, e := range altPath {
 				if _, exists := setJ[e.GetEdgeId()]; exists {
-					similiarity++
+					intersection++
 				}
 			}
 
-			similiarity = (similiarity / float64(len(altPath))) * 100
-			if similiarity > pkg.ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD {
+			union := make(map[da.Index]struct{}, len(altPath)+len(setJ))
+			maps.Copy(union, setJ)
+			for _, e := range altPath {
+				union[e.GetEdgeId()] = struct{}{}
+			}
+			unionSize := float64(len(union))
+
+			jaccardSimiliarity := (intersection / unionSize) * 100
+			if jaccardSimiliarity >= pkg.ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD {
 				// add alt to result if similiarity with other alternative route < pkg.ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD
 				addToRes = false
 				break
@@ -626,4 +637,93 @@ func (ars *AlternativeRouteSearch) makePackedViaPathOverlayEven(svPackedPath, vt
 	}
 
 	return svPackedPath, vtPackedPath
+}
+
+
+
+func (ars *AlternativeRouteSearch) GetStretch() float64 {
+	/*
+		https://dl.acm.org/doi/10.1145/3567421
+
+		We quantify this by measuring the stretch of
+		each path, which is the ratio of path’s cost to the shortest path cost.
+	*/
+	if len(ars.candidates) == 0 {
+		return -1 // gak ke count karena gak ada alternative routes
+	}
+
+	stretch := 0.0
+
+	for i := 0; i < len(ars.candidates); i++ {
+		stretch += ars.candidates[i].GetDrivingTravelTime() / ars.optTravelTime
+	}
+	stretch /= float64(len(ars.candidates))
+
+	return stretch
+}
+
+func (ars *AlternativeRouteSearch) GetDiversity() float64 {
+
+	/*
+		https://dl.acm.org/doi/10.1145/3567421
+		Another desirable aspect from alternate paths is that each
+		path should be sufficiently different from all the preceding ones. For
+		this we use Jaccard distance, J(A, B)=\frac{|A \Delta B|}{A \cup B} , where A \Delta B is the
+		symmetric set difference. For each path \pi_i , we record the minimum
+		Jaccard distance to the preceding paths, min{j <i} J(\pi_i , \pi_j), where
+		we view each path \pi_i as a set over edges.
+	*/
+	if len(ars.candidates) == 0 {
+		return -1 // gak ke count karena gak ada alternative routes
+	}
+
+	alts := ars.candidates
+	set := make([]map[datastructure.Index]struct{}, len(alts))
+	for i := 0; i < len(alts); i++ {
+		set[i] = make(map[datastructure.Index]struct{}, len(alts[i].GetPath())*2)
+	}
+
+	diversity := 0.0
+	for i, alt := range alts {
+		// O(N^2 * M), N=len(alts), M=max{len(alts.edges[i])}, for each 0<=i<len(alts)
+
+		minJaccardDist := math.MaxFloat64
+		for j := 0; j < i; j++ {
+			// check similiarity with other previous alternative routes
+			intersection := 0.0
+
+			setJ := set[j]
+			altPath := alt.GetPath()
+			for _, e := range altPath {
+				if _, exists := setJ[e.GetEdgeId()]; exists {
+					intersection++
+				}
+			}
+
+			union := make(map[da.Index]struct{}, len(altPath)+len(setJ))
+			maps.Copy(union, setJ)
+			for _, e := range altPath {
+				union[e.GetEdgeId()] = struct{}{}
+			}
+			unionSize := float64(len(union))
+			jaccardSimiliarity := (intersection / unionSize)
+
+			jaccardDistance := 1 - jaccardSimiliarity
+			minJaccardDist = math.Min(minJaccardDist, jaccardDistance)
+		}
+		diversity += minJaccardDist
+
+		for _, e := range alt.GetPath() {
+			// make alternative route path set
+			set[i][e.GetEdgeId()] = struct{}{}
+		}
+	}
+
+	diversity /= float64(len(alts))
+
+	return diversity
+}
+
+func (ars *AlternativeRouteSearch) GetRuntime() int64 {
+	return ars.runtime
 }

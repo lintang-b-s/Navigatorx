@@ -18,3 +18,10 @@ maxspeeds:
   motorroad: 90
   default: 30
 
+turncosts:
+  u_turn: 1e9
+  no_entry: 1e9
+  left_turn: 0
+  right_turn: 0
+  straight_on: 0
+  none: 0

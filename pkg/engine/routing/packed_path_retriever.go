@@ -20,6 +20,8 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair,
 	sForwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
 	idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
 
+	// let n = number of edges in shortest path from s to mid, (from forward search)
+	// worst: case O(n)
 	mid := forwardMid
 
 	if !re.isOverlay(mid.getEdge()) {
@@ -112,6 +114,8 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair,
 func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid vertexEdgePair, backwardInfo []*VertexInfo[da.CRPQueryKey],
 	tBackwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
 	idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
+	// let n = number of edges in shortest path from mid to t, (from backward search)
+	// worst: case O(n)
 
 	mid := backwardMid
 	if re.isOverlay(mid.getEdge()) {

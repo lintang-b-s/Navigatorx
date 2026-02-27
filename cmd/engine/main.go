@@ -69,7 +69,7 @@ func main() {
 	api := http.NewServer(logger)
 
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
-		0.8, 0.3, 0.35, 1.35, 0.1, lm)
+		0.8, 0.3, 0.35, 1.3, 0.1, lm)
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {

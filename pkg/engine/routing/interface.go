@@ -4,6 +4,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 type Customizer interface {
@@ -17,4 +18,10 @@ type CostFunction interface {
 type Router interface {
 	ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate,
 		[]datastructure.OutEdge, bool)
+	GetViaVertices() []da.ViaVertex
+	GetForwardInfo() []*VertexInfo[da.CRPQueryKey]
+	GetBackwardInfo() []*VertexInfo[da.CRPQueryKey]
+	GetSCellNumber() da.Pv
+	GetNumScannedNodes() int
+
 }

@@ -81,7 +81,7 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 	}
 
 	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.upperBoundAlternativeSearch, rs.gamma, rs.alpha,
-		rs.epsilon, rs.delta, rs.lm)
+		rs.epsilon, rs.lm)
 	alternatives := altSearch.FindAlternativeRoutes(as, at, k)
 	if len(alternatives) == 0 {
 		return []*routing.AlternativeRoute{}, false, nil

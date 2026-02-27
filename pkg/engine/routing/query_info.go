@@ -83,6 +83,7 @@ func (ve *vertexEdgePair) getOutInEdgeId() da.Index {
 type VertexInfo[T comparable] struct {
 	travelTime float64
 	parent     vertexEdgePair
+	scanned    bool // scanned or est dist from s to this v is equal to shortest path cost, and contained in shortest path tree
 	heapNode   *da.PriorityQueueNode[T]
 }
 
@@ -104,6 +105,14 @@ func (vi *VertexInfo[T]) UpdateTravelTime(tt float64) {
 
 func (vi *VertexInfo[T]) UpdateParent(par vertexEdgePair) {
 	vi.parent = par
+}
+
+func (vi *VertexInfo[T]) Scan() {
+	vi.scanned = true
+}
+
+func (vi *VertexInfo[T]) IsScanned() bool {
+	return vi.scanned
 }
 
 func (vi *VertexInfo[T]) GetParent() vertexEdgePair {
@@ -181,4 +190,3 @@ func (p pathUnpackingParam) getLevel() uint8 {
 func (p pathUnpackingParam) getUnpackedEdgePath() *[]da.OutEdge {
 	return p.unpackedEdgePath
 }
-
