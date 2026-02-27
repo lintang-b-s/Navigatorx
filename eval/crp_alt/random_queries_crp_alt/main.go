@@ -37,7 +37,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	err = util.ReadConfig()
+	if err != nil {
+		panic(err)
+	}
 	lm, err := landmark.ReadLandmark(landmarkFile)
 	if err != nil {
 		panic(err)

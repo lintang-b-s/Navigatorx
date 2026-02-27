@@ -206,6 +206,8 @@ func main() {
 	diversity := 0.0
 	runtime := 0.0
 
+	foundAltCount := 0
+
 	for i := 0; i < len(queries); i++ {
 		s := queries[i].s
 		t := queries[i].t
@@ -213,24 +215,24 @@ func main() {
 		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), 1.3, 0.8, 0.3, 0.35, lm)
 
 		alts := altSearch.FindAlternativeRoutes(s, t, 4)
-
-		if len(alts) == 0 {
-			continue
-		}
-
+		
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)
+		}
+		if len(alts) == 0 {
+			continue
 		}
 
 		stretch += altSearch.GetStretch()
 		diversity += altSearch.GetDiversity()
 		successRate += 1.0
 		runtime += float64(altSearch.GetRuntime())
+		foundAltCount++
 	}
 
 	successRate /= float64(len(queries))
-	stretch /= float64(len(queries))
-	diversity /= float64(len(queries))
+	stretch /= float64(foundAltCount)
+	diversity /= float64(foundAltCount)
 	runtime /= float64(len(queries))
 
 	fmt.Printf("success rate: %f\n", successRate)

@@ -626,6 +626,7 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 
 			// karena kita langsung scan v & traverse to its neighbor (exit vertex dari suatu cell), kita harus tandain kalau v udah di scan
 			bs.fScanned[overlayVId] = true
+			bs.forwardInfo[overlayVId].Scan()
 
 			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 			pfw, _ := bs.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
@@ -794,6 +795,7 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 				newVertexEdgePair(uVertex.GetOriginalVertex(), uId, true), nil)
 
 			bs.bScanned[overlayVId] = true
+			bs.backwardInfo[overlayVId].Scan()
 
 			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 			_, prw := bs.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)

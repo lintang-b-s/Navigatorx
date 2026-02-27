@@ -36,7 +36,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-
+	err = util.ReadConfig()
+	if err != nil {
+		panic(err)
+	}
 	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
 	if err != nil {
 		panic(err)

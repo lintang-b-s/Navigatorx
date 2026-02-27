@@ -632,6 +632,7 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 
 			// karena kita langsung scan v & traverse to its neighbor (exit vertex dari suatu cell), kita harus tandain kalau v udah di scan
 			bs.fScanned[overlayVId] = true
+			bs.forwardInfo[overlayVId].Scan()
 
 			newTravelTime = bs.forwardInfo[overlayVId].GetTravelTime() + edgeWeight
 			if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
@@ -796,6 +797,7 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 				newVertexEdgePair(uVertex.GetOriginalVertex(), uId, true), nil)
 
 			bs.bScanned[overlayVId] = true
+			bs.backwardInfo[overlayVId].Scan()
 
 			newTravelTime = bs.backwardInfo[overlayVId].GetTravelTime() + inEdgeWeight
 

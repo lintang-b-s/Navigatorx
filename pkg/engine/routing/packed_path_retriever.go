@@ -72,11 +72,8 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair,
 			// kita gak simpan parent dari vOverlay sebagai vEntryEdge tapi langsung uEntryEdge
 			// sedangkan fungsi calculatePlateau di admissible_paths_alternatives.go buat cari alternative routes pakai plateau method,
 			// kita butuh simpan parent dari vOverlay sebagai vEntryEdge, karena mungkin aja plateau (s-> .... -> u -> ..plateau... -> mid <- ...plateau... <- v <- .... <-  t) nya di di backward search
-			// parent dari vEntryEdge adalah vOverlay
 			// fInfo[vOverlay].parent.edge == uEntryEdge
-			// pas disini parentCopy.edge == uEntryEdge, gmn cara set fInfo[vOverlay].parent.edge = vEntryEdge pas disini ??
-			// tapi persis sebelum iterasi loop di sini, parentCopy.edge = vOverlay, setelah curInfo = forwardInfo[parentEdge] kita bisa update  forwardInfo[vOverlay]=vEntryEdge dan bs.forwardInf[vEntryEdge]=uEntryEdge
-
+			
 			v := parentCopy.getVertex()
 			vEntryId := curInfo.parent.getFirstOverlayEntryExitId()
 			// jadiin outEdge semua
