@@ -3,7 +3,7 @@ import { sleep, check } from "k6";
 import { SharedArray } from "k6/data";
 
 const queryData = new SharedArray("queries", function () {
-  const file = open("../../data/random_queries_1mil_sp_crp_alt_coords.txt");
+  const file = open("../../../data/random_queries_1mil_sp_crp_alt_coords.txt");
 
   return file
     .split("\n")
@@ -16,15 +16,15 @@ const queryData = new SharedArray("queries", function () {
         srcLon: parts[1],
         destLat: parts[2],
         destLon: parts[3],
-        z
+        
       };
     });
 });
 
 export const options = {
   stages: [
-    { duration: "1m", target: 50 }, 
-    { duration: "30s", target: 50 }, 
+    { duration: "1m", target: 100 }, 
+    { duration: "30s", target: 100 }, 
   ],
 };
 

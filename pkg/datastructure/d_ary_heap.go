@@ -7,10 +7,11 @@ import (
 )
 
 type CRPQueryKey struct {
-	node           Index
-	entryExitPoint Index
-	outInEdgeId    Index
-	overlay        bool
+	node           Index //  4 byte
+	entryExitPoint Index //  4 byte
+	outInEdgeId    Index //  4 byte
+	overlay        bool  // 1 byte
+	// total 13 byte
 }
 
 func (qk *CRPQueryKey) GetNode() Index {
@@ -42,9 +43,10 @@ func NewCRPQueryKeyWithOutInEdgeId(node, entryExitPoint, outInEdgeId Index) CRPQ
 }
 
 type PriorityQueueNode[T comparable] struct {
-	rank    float64
-	item    T
-	itemPos int
+	rank    float64 // 8 byte
+	item    T       // max pake crpQueryKey  13 byte
+	itemPos int     // 4 byte
+	// total 25 byte
 }
 
 func (p *PriorityQueueNode[T]) GetItem() T {

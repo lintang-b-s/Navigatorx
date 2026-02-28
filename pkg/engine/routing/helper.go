@@ -42,7 +42,7 @@ func (t target) getatId() da.Index {
 }
 
 func removeDuplicates[T comparable](arr []T) []T {
-	set := make(map[T]struct{}, len(arr)*2)
+	set := make(map[T]struct{}, len(arr))
 	newarr := make([]T, 0, len(arr))
 
 	for _, v := range arr {
@@ -58,11 +58,11 @@ func (bs *CRPBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices
 }
 
-func (bs *CRPBidirectionalSearch) GetForwardInfo() []*VertexInfo[da.CRPQueryKey] {
+func (bs *CRPBidirectionalSearch) GetForwardInfo() *TwoLevelStorage[da.CRPQueryKey] {
 	return bs.forwardInfo
 }
 
-func (bs *CRPBidirectionalSearch) GetBackwardInfo() []*VertexInfo[da.CRPQueryKey] {
+func (bs *CRPBidirectionalSearch) GetBackwardInfo() *TwoLevelStorage[da.CRPQueryKey] {
 	return bs.backwardInfo
 }
 
@@ -78,11 +78,11 @@ func (bs *CRPALTBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices
 }
 
-func (bs *CRPALTBidirectionalSearch) GetForwardInfo() []*VertexInfo[da.CRPQueryKey] {
+func (bs *CRPALTBidirectionalSearch) GetForwardInfo() *TwoLevelStorage[da.CRPQueryKey] {
 	return bs.forwardInfo
 }
 
-func (bs *CRPALTBidirectionalSearch) GetBackwardInfo() []*VertexInfo[da.CRPQueryKey] {
+func (bs *CRPALTBidirectionalSearch) GetBackwardInfo() *TwoLevelStorage[da.CRPQueryKey] {
 	return bs.backwardInfo
 }
 
@@ -90,8 +90,12 @@ func (bs *CRPALTBidirectionalSearch) GetSCellNumber() da.Pv {
 	return bs.sCellNumber
 }
 
-func (bs *CRPALTBidirectionalSearch) GetNumScannedNodes() int {
+func (bs *CRPALTBidirectionalSearch) GetNumScannedVertices() int {
 	return bs.numScannedVertices
+}
+
+func (bs *CRPALTBidirectionalSearch) GetNumScannedOverlayVertices() int {
+	return bs.numScannedOverlayVertices
 }
 
 func initInfWeight(dist []float64) {

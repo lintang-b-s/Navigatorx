@@ -9,27 +9,26 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type AlternativeRoute struct {
-	path              []datastructure.Coordinate
-	edges             []datastructure.OutEdge
+	path              []da.Coordinate
+	edges             []da.OutEdge
 	objectiveValue    float64
-	drivingDirections []datastructure.DrivingDirection
+	drivingDirections []da.DrivingDirection
 	polylinePath      string
 
 	travelTime  float64
 	dist        float64
 	distSharing float64
-	viaNode     datastructure.Index
-	viaVertex   datastructure.ViaVertex
+	viaNode     da.Index
+	viaVertex   da.ViaVertex
 }
 
-func (ar *AlternativeRoute) GetCoords() []datastructure.Coordinate {
+func (ar *AlternativeRoute) GetCoords() []da.Coordinate {
 	return ar.path
 }
 
@@ -41,17 +40,17 @@ func (ar *AlternativeRoute) SetPolylinePath(pp string) {
 	ar.polylinePath = pp
 }
 
-func (ar *AlternativeRoute) GetPath() []datastructure.OutEdge {
+func (ar *AlternativeRoute) GetPath() []da.OutEdge {
 	return ar.edges
 }
 func (ar *AlternativeRoute) GetObjectiveValue() float64 {
 	return ar.objectiveValue
 }
 
-func (ar *AlternativeRoute) GetDrivingDirections() []datastructure.DrivingDirection {
+func (ar *AlternativeRoute) GetDrivingDirections() []da.DrivingDirection {
 	return ar.drivingDirections
 }
-func (ar *AlternativeRoute) SetDrivingDirections(dds []datastructure.DrivingDirection) {
+func (ar *AlternativeRoute) SetDrivingDirections(dds []da.DrivingDirection) {
 	ar.drivingDirections = dds
 }
 
@@ -59,7 +58,7 @@ func (ar *AlternativeRoute) GetDrivingTravelTime() float64 {
 	return ar.travelTime
 }
 
-func (ar *AlternativeRoute) GetViaVertex() datastructure.ViaVertex {
+func (ar *AlternativeRoute) GetViaVertex() da.ViaVertex {
 	return ar.viaVertex
 }
 
@@ -71,13 +70,13 @@ func (ar *AlternativeRoute) GetDistSharing() float64 {
 	return ar.distSharing
 }
 
-func (ar *AlternativeRoute) GetViaNode() datastructure.Index {
+func (ar *AlternativeRoute) GetViaNode() da.Index {
 	return ar.viaNode
 }
 
 func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
-	viaNode datastructure.Index, path []datastructure.Coordinate, edges []datastructure.OutEdge,
-	viaVertex datastructure.ViaVertex) *AlternativeRoute {
+	viaNode da.Index, path []da.Coordinate, edges []da.OutEdge,
+	viaVertex da.ViaVertex) *AlternativeRoute {
 	return &AlternativeRoute{
 		objectiveValue: objectiveValue,
 		viaNode:        viaNode,
@@ -127,11 +126,11 @@ Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 
 
-todo: invstigate kenapa success rate nya kecil banget, udah naik ke 41-44% setelah update calculatePlateau.... 
+todo: invstigate kenapa success rate nya kecil banget, udah naik ke 41-44% setelah update calculatePlateau....
 mungkin bisa update parameter gamma,alpha,epsilon nya biar makin naik...?
 */
 
-func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructure.Index, k int) []*AlternativeRoute {
+func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k int) []*AlternativeRoute {
 
 	/*
 		let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
@@ -149,7 +148,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 	}
 	ars.optTravelTime = optTravelTime
 
-	viaVertices := make([]datastructure.ViaVertex, len(crpQuery.GetViaVertices()))
+	viaVertices := make([]da.ViaVertex, len(crpQuery.GetViaVertices()))
 	copy(viaVertices, crpQuery.GetViaVertices())
 
 	ars.candidates = make([]*AlternativeRoute, 0, len(viaVertices))
@@ -163,28 +162,28 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 	for i := len(viaVertices) - 1; i >= 0; i-- {
 		v := viaVertices[i]
 		if !v.IsOverlay() {
-			if !fInfo[v.GetEntryId()].IsScanned() && !bInfo[v.GetExitId()].IsScanned() {
+			if !fInfo.Get(v.GetEntryId()).IsScanned() && !bInfo.Get(v.GetExitId()).IsScanned() {
 				continue
 			}
-			if fInfo[v.GetEntryId()].GetTravelTime()+bInfo[v.GetExitId()].GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
+			if fInfo.Get(v.GetEntryId()).GetTravelTime()+bInfo.Get(v.GetExitId()).GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
 				viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
 			}
 		} else {
-			if !fInfo[v.GetVId()].IsScanned() && !bInfo[v.GetVId()].IsScanned() {
+			if !fInfo.Get(v.GetVId()).IsScanned() && !bInfo.Get(v.GetVId()).IsScanned() {
 				continue
 			}
-			if fInfo[v.GetVId()].GetTravelTime()+bInfo[v.GetVId()].GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
+			if fInfo.Get(v.GetVId()).GetTravelTime()+bInfo.Get(v.GetVId()).GetTravelTime() >= (1+ars.epsilon)*optTravelTime {
 				viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
 			}
 		}
 	}
 
-	computeAlternatives := func(v datastructure.ViaVertex) any {
+	computeAlternatives := func(v da.ViaVertex) any {
 		var (
 			svTravelTime, vtTravelTime float64
 			svDist, vtDist             float64
-			svCoords, vtCoords         []datastructure.Coordinate
-			svEdgePath, vtEdgePath     []datastructure.OutEdge
+			svCoords, vtCoords         []da.Coordinate
+			svEdgePath, vtEdgePath     []da.OutEdge
 		)
 
 		/*
@@ -279,7 +278,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 		return nil
 	}
 
-	workers := concurrent.NewWorkerPool[datastructure.ViaVertex, any](1, len(viaVertices))
+	workers := concurrent.NewWorkerPool[da.ViaVertex, any](3, len(viaVertices))
 
 	for _, v := range viaVertices {
 		workers.AddJob(v)
@@ -312,11 +311,11 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId datastructur
 	return res
 }
 
-func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []datastructure.OutEdge) float64 {
+func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []da.OutEdge) float64 {
 	// O(N+M), N=len(optPath), M=len(pvPath)
 	distanceShare := 0.0
 
-	optPathSet := make(map[datastructure.Index]struct{}, len(optPath)*2)
+	optPathSet := make(map[da.Index]struct{}, len(optPath)*2)
 	for _, e := range optPath {
 		optPathSet[e.GetEdgeId()] = struct{}{}
 	}
@@ -330,11 +329,11 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []data
 	return distanceShare
 }
 
-func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, viaExitId, sForwardId, tBackwardId datastructure.Index,
-	ps, pb []*VertexInfo[datastructure.CRPQueryKey], sCellNumber da.Pv, lv float64, overlay bool) float64 {
+func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, viaExitId, sForwardId, tBackwardId da.Index,
+	ps, pb *TwoLevelStorage[da.CRPQueryKey], sCellNumber da.Pv, lv float64, overlay bool) float64 {
 
 	var (
-		u datastructure.Index
+		u da.Index
 	)
 	uVId := oriVId
 	if overlay {
@@ -383,19 +382,19 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 		if ars.engine.isOverlay(u) {
 			// parent_forward_search(u) is in plateau iff parent_forward_search(u) scanned in backward search
 
-			oki := da.Lt(pb[ps[u].parent.edge].GetTravelTime(), pkg.INF_WEIGHT)
-			if b := pb[ps[u].parent.edge]; !oki && !b.IsScanned() {
+			oki := da.Lt(pb.Get(ps.Get(u).parent.edge).GetTravelTime(), pkg.INF_WEIGHT)
+			if b := pb.Get(ps.Get(u).parent.edge); !oki && !b.IsScanned() {
 				// qParentOverlay -qShortcut-> qOverlay -vShortcut-> vOverlay
-				// u == vOverlay, ps[u].parent.edge == qOverlay
+				// u == vOverlay, ps.Get(u).parent.edge == qOverlay
 				// kalau qOverlay udah di scan di backward search kita bisa lanjut backtrack
 				// else: vOverlay (atau u) adalah overlayVertex pertama dari plateau path
 
 				break
 			}
-		} else if !ars.engine.isOverlay(u) && !ars.engine.isOverlay(ps[u].parent.edge) {
-			// u dan ps[u].parent.edge bukan overlay vertex
+		} else if !ars.engine.isOverlay(u) && !ars.engine.isOverlay(ps.Get(u).parent.edge) {
+			// u dan ps.Get(u).parent.edge bukan overlay vertex
 			// qParent -qInEdge-> q -vInEdge-> v
-			// u == vInEdge,  ps[u].parent.edge == qInEdge
+			// u == vInEdge,  ps.Get(u).parent.edge == qInEdge
 
 			// kalau u == entryId  dari edge, sedangkan di pb isinya exitId dari edge, shg u harus dijadiin exitId dari edgenya
 			vEntryId := ars.engine.adjustForward(uVId, u)
@@ -403,55 +402,55 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			vExitId := vOutEdge.GetEdgeId()
 
 			q := ars.engine.graph.GetTailOfOutedge(vExitId)
-			qInEdge := ps[u].parent.getEdge()
+			qInEdge := ps.Get(u).parent.getEdge()
 			qEntryId := ars.engine.adjustForward(q, qInEdge)
 			_, qOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(qEntryId)
 			qExitId := qOutEdge.GetEdgeId()
 			qParent := ars.engine.graph.GetTailOfOutedge(qExitId)
 
 			offQExitId := ars.engine.offsetBackward(qParent, qExitId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
-			oki := da.Lt(pb[offQExitId].GetTravelTime(), pkg.INF_WEIGHT)
+			oki := da.Lt(pb.Get(offQExitId).GetTravelTime(), pkg.INF_WEIGHT)
 
 			q = ars.engine.graph.GetTailOfOutedge(vExitId)
 
-			if b := pb[offQExitId]; !oki && !b.IsScanned() {
+			if b := pb.Get(offQExitId); !oki && !b.IsScanned() {
 				// kalau qInEdge udah di scan di backward search kita bisa lanjut backtrack
 				// else: vInEdge (atau u) adalah entryEdge pertama dari plateau path
 				break
 			}
-		} else if !ars.engine.isOverlay(u) && ars.engine.isOverlay(ps[u].parent.getEdge()) {
+		} else if !ars.engine.isOverlay(u) && ars.engine.isOverlay(ps.Get(u).parent.getEdge()) {
 			// q -vShortcut-> vOverlay -boundaryEdge/wInEdge-> w -> wOutEdge
-			// u == wInEdge, ps[u].parent.getEdge() == vOverlay
+			// u == wInEdge, ps.Get(u).parent.getEdge() == vOverlay
 
 			// cek apakah vOverlay already scanned di backward search, kalau iya bisa lanjut backtrack ke parent_forward_search(u)
 			// di backward search: parent dari vOverlay adalah wOutEdge
 
-			vOverlay := ps[u].parent.getEdge()
+			vOverlay := ps.Get(u).parent.getEdge()
 
-			notOki := !da.Lt(pb[vOverlay].GetTravelTime(), pkg.INF_WEIGHT) && !pb[vOverlay].IsScanned()
+			notOki := !da.Lt(pb.Get(vOverlay).GetTravelTime(), pkg.INF_WEIGHT) && !pb.Get(vOverlay).IsScanned()
 
 			if notOki {
 				break
 			}
 
 		} else {
-			// u overlay vertex tapi ps[u].parent.edge bukan overlay vertex
+			// u overlay vertex tapi ps.Get(u).parent.edge bukan overlay vertex
 			// q -vInEdge/qOutEdge-> vOverlay
-			// u == vOverlay,  ps[u].parent.edge == vInEdge
+			// u == vOverlay,  ps.Get(u).parent.edge == vInEdge
 
 			// cek apakah vExitId scanned di backward search
 
 			// vOverlay := u
 
-			vEntryId := ps[u].parent.getFirstOverlayEntryExitId()
+			vEntryId := ps.Get(u).parent.getFirstOverlayEntryExitId()
 
 			_, vOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vEntryId)
 			qExitId := vOutEdge.GetEdgeId()
 			q := ars.engine.graph.GetTailOfOutedge(qExitId)
 
 			offQExitId := ars.engine.offsetBackward(q, qExitId, ars.engine.graph.GetCellNumber(q), sCellNumber)
-			oki := da.Lt(pb[offQExitId].GetTravelTime(), pkg.INF_WEIGHT)
-			if b := pb[offQExitId]; !oki && !b.IsScanned() {
+			oki := da.Lt(pb.Get(offQExitId).GetTravelTime(), pkg.INF_WEIGHT)
+			if b := pb.Get(offQExitId); !oki && !b.IsScanned() {
 				// kalau qOutEdge scanned di backward search, kita bisa lanjut backtrack
 				// else: vOverlay (atau u) adalah overlayVertex pertama dari plateau path
 
@@ -459,15 +458,15 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			}
 		}
 
-		uPar := ps[u].parent
-		if !ps[uPar.edge].IsScanned() { // syarat parent(u) ada di shortest path tree forward search
+		uPar := ps.Get(u).parent
+		if !ps.Get(uPar.edge).IsScanned() { // syarat parent(u) ada di shortest path tree forward search
 			break
 		}
 		u = uPar.edge
 		uVId = uPar.vertex
 	}
 
-	firstPlateauTT := ps[u].GetTravelTime()
+	firstPlateauTT := ps.Get(u).GetTravelTime()
 
 	if overlay {
 		u = vId
@@ -478,18 +477,18 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 	for u != tBackwardId {
 		if ars.engine.isOverlay(u) {
-			oki := da.Lt(ps[pb[u].parent.edge].GetTravelTime(), pkg.INF_WEIGHT)
-			if f := ps[pb[u].parent.edge]; !oki && !f.IsScanned() {
+			oki := da.Lt(ps.Get(pb.Get(u).parent.edge).GetTravelTime(), pkg.INF_WEIGHT)
+			if f := ps.Get(pb.Get(u).parent.edge); !oki && !f.IsScanned() {
 				// vOverlay -vShortcut-> qOverlay -qShortcut-> qParentOverlay
-				// u == vOverlay, pb[u].parent.edge == qOverlay
+				// u == vOverlay, pb.Get(u).parent.edge == qOverlay
 				// cek kalau qOverlay scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOverlay
 				break
 			}
-		} else if !ars.engine.isOverlay(u) && !ars.engine.isOverlay(pb[u].parent.edge) {
-			// u dan pb[u].parent.edge bukan overlay vertex
+		} else if !ars.engine.isOverlay(u) && !ars.engine.isOverlay(pb.Get(u).parent.edge) {
+			// u dan pb.Get(u).parent.edge bukan overlay vertex
 
 			// v -vOutEdge/qInEdge-> q -qOutEdge/qParentInEdge-> qParent
-			// u == vOutEdge,  pb[u].parent.edge == qOutEdge, pb[u].parent.vertex=q
+			// u == vOutEdge,  pb.Get(u).parent.edge == qOutEdge, pb.Get(u).parent.vertex=q
 
 			// cek qParentInEdge udah di scan di forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOutEdge
 			v := uVId
@@ -497,7 +496,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			_, qInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(vExitId)
 
 			q := ars.engine.graph.GetHeadOfInedge(qInEdge.GetEdgeId())
-			offQExitId := pb[u].parent.getEdge()
+			offQExitId := pb.Get(u).parent.getEdge()
 			qExitId := ars.engine.adjustBackward(q, offQExitId)
 
 			qParent := ars.engine.graph.GetOutEdge(qExitId).GetHead()
@@ -505,47 +504,47 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			qParentEntryId := qParentInEdge.GetEdgeId()
 
 			offQParentEntryId := ars.engine.offsetForward(qParent, qParentEntryId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
-			oki := da.Lt(ps[offQParentEntryId].GetTravelTime(), pkg.INF_WEIGHT)
+			oki := da.Lt(ps.Get(offQParentEntryId).GetTravelTime(), pkg.INF_WEIGHT)
 
-			if f := ps[offQParentEntryId]; !oki && !f.IsScanned() {
+			if f := ps.Get(offQParentEntryId); !oki && !f.IsScanned() {
 				break
 			}
-		} else if !ars.engine.isOverlay(u) && ars.engine.isOverlay(pb[u].parent.edge) {
+		} else if !ars.engine.isOverlay(u) && ars.engine.isOverlay(pb.Get(u).parent.edge) {
 			// wInEdge -> w -boundaryEdge/vInEdge/wExitEdge-> vOverlay -qShortcut-> q
-			// u == wExitEdge, pb[u].parent.getEdge() == vOverlay
+			// u == wExitEdge, pb.Get(u).parent.getEdge() == vOverlay
 
 			// cek apakah vOverlay scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau vOverlay
 
-			vOverlay := pb[u].parent.getEdge()
+			vOverlay := pb.Get(u).parent.getEdge()
 
-			notOki := !da.Lt(ps[vOverlay].GetTravelTime(), pkg.INF_WEIGHT) && !ps[vOverlay].IsScanned()
+			notOki := !da.Lt(ps.Get(vOverlay).GetTravelTime(), pkg.INF_WEIGHT) && !ps.Get(vOverlay).IsScanned()
 
 			if notOki {
 				break
 			}
 		} else {
-			// u overlay vertex tapi pb[u].parent.edge bukan overlay vertex
+			// u overlay vertex tapi pb.Get(u).parent.edge bukan overlay vertex
 			// vOverlay -vExitEdge/qInEdge-> q -qExitEdge/qParentInEdge-> qParent
-			// u == vOverlay,  pb[u].parent.edge == vExitId
+			// u == vOverlay,  pb.Get(u).parent.edge == vExitId
 
 			// cek qParentInEdge scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qExitEdge
 
 			// vOverlay := u
-			vExitId := pb[u].parent.getFirstOverlayEntryExitId()
+			vExitId := pb.Get(u).parent.getFirstOverlayEntryExitId()
 
 			_, qInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(vExitId)
 			qEntryId := qInEdge.GetEdgeId()
 			q := ars.engine.graph.GetHeadOfInedge(qEntryId)
 
 			offQEntryId := ars.engine.offsetForward(q, qEntryId, ars.engine.graph.GetCellNumber(q), sCellNumber)
-			oki := da.Lt(ps[offQEntryId].GetTravelTime(), pkg.INF_WEIGHT)
-			if f := ps[offQEntryId]; !oki && !f.IsScanned() {
+			oki := da.Lt(ps.Get(offQEntryId).GetTravelTime(), pkg.INF_WEIGHT)
+			if f := ps.Get(offQEntryId); !oki && !f.IsScanned() {
 				break
 			}
 		}
 
-		uPar := pb[u].parent
-		if !pb[uPar.edge].IsScanned() {
+		uPar := pb.Get(u).parent
+		if !pb.Get(uPar.edge).IsScanned() {
 			break
 		}
 		u = uPar.edge
@@ -555,12 +554,12 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 	var lastPlateauTT float64
 	if ars.engine.isOverlay(u) {
 		// disini u == last overlay vertex Id dari plateau path
-		lastPlateauTT = pb[u].GetTravelTime()
+		lastPlateauTT = pb.Get(u).GetTravelTime()
 	} else {
 		// disini u == last out edge dari plateau path
 		// ......-vInEdge-> uVId -uInEdge/u-> head
 
-		lastPlateauTT = pb[u].GetTravelTime()
+		lastPlateauTT = pb.Get(u).GetTravelTime()
 	}
 
 	// s-> ---- -> via -> ......-> u -> ..... -> t
@@ -574,9 +573,9 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 }
 
 func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
-	set := make([]map[datastructure.Index]struct{}, len(alts))
+	set := make([]map[da.Index]struct{}, len(alts))
 	for i := 0; i < len(alts); i++ {
-		set[i] = make(map[datastructure.Index]struct{}, len(alts[i].GetPath())*2)
+		set[i] = make(map[da.Index]struct{}, len(alts[i].GetPath())*2)
 	}
 	res := make([]*AlternativeRoute, 0, len(alts))
 	for i, alt := range alts {
@@ -684,9 +683,9 @@ func (ars *AlternativeRouteSearch) GetDiversity() float64 {
 	}
 
 	alts := ars.candidates
-	set := make([]map[datastructure.Index]struct{}, len(alts))
+	set := make([]map[da.Index]struct{}, len(alts))
 	for i := 0; i < len(alts); i++ {
-		set[i] = make(map[datastructure.Index]struct{}, len(alts[i].GetPath())*2)
+		set[i] = make(map[da.Index]struct{}, len(alts[i].GetPath())*2)
 	}
 
 	diversity := 0.0

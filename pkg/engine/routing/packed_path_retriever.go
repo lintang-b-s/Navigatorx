@@ -6,8 +6,8 @@ import (
 )
 
 func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
-	backwardMid vertexEdgePair, forwardInfo []*VertexInfo[da.CRPQueryKey],
-	backwardInfo []*VertexInfo[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
+	backwardMid vertexEdgePair, forwardInfo *TwoLevelStorage[da.CRPQueryKey],
+	backwardInfo *TwoLevelStorage[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
 
 	forwardPackedPath := re.RetrieveForwardPackedPath(forwardMid, forwardInfo, sForwardId, sCellNumber)
 
@@ -16,7 +16,7 @@ func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
 	return append(forwardPackedPath, backwardPackedPath...)
 }
 
-func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair, forwardInfo []*VertexInfo[da.CRPQueryKey],
+func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair, forwardInfo *TwoLevelStorage[da.CRPQueryKey],
 	sForwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
 	idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
 
@@ -37,7 +37,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair,
 	}
 
 	fMidEdge := forwardMid.getEdge()
-	curInfo := forwardInfo[fMidEdge]
+	curInfo := forwardInfo.Get(fMidEdge)
 
 	lastParVertex := forwardMid.getVertex()
 
@@ -63,7 +63,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair,
 		}
 
 		idPath = append(idPath, parentCopy)
-		curInfo = forwardInfo[parentEdge]
+		curInfo = forwardInfo.Get(parentEdge)
 
 		if curInfo.parent.getEdge() != sForwardId && curInfo.parent.isFirstOverlayVertex() {
 			// first entry ke overlay graph
@@ -73,7 +73,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair,
 			// sedangkan fungsi calculatePlateau di admissible_paths_alternatives.go buat cari alternative routes pakai plateau method,
 			// kita butuh simpan parent dari vOverlay sebagai vEntryEdge, karena mungkin aja plateau (s-> .... -> u -> ..plateau... -> mid <- ...plateau... <- v <- .... <-  t) nya di di backward search
 			// fInfo[vOverlay].parent.edge == uEntryEdge
-			
+
 			v := parentCopy.getVertex()
 			vEntryId := curInfo.parent.getFirstOverlayEntryExitId()
 			// jadiin outEdge semua
@@ -108,7 +108,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair,
 	return idPath
 }
 
-func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid vertexEdgePair, backwardInfo []*VertexInfo[da.CRPQueryKey],
+func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid vertexEdgePair, backwardInfo *TwoLevelStorage[da.CRPQueryKey],
 	tBackwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
 	idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
 	// let n = number of edges in shortest path from mid to t, (from backward search)
@@ -134,7 +134,7 @@ func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid vertexEdgePai
 	}
 
 	bMidEdge := backwardMid.getEdge()
-	curInfo := backwardInfo[bMidEdge]
+	curInfo := backwardInfo.Get(bMidEdge)
 
 	lastParVertex := backwardMid.getVertex()
 
@@ -156,7 +156,7 @@ func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid vertexEdgePai
 		}
 
 		idPath = append(idPath, parentCopy)
-		curInfo = backwardInfo[parentEdge]
+		curInfo = backwardInfo.Get(parentEdge)
 
 		if curInfo.parent.getEdge() != tBackwardId && curInfo.parent.isFirstOverlayVertex() {
 			v := parentCopy.getVertex()

@@ -6,11 +6,12 @@ import (
 )
 
 type vertexEdgePair struct {
-	vertex      da.Index
-	edge        da.Index
-	isOutEdge   bool
-	outInEdgeId da.Index
-	queryLevel  uint8
+	vertex      da.Index // 4 byte
+	edge        da.Index // 4 byte
+	isOutEdge   bool     // 1 byte
+	outInEdgeId da.Index // 4 byte
+	queryLevel  uint8    // 1 byte
+	// total 14 byte
 }
 
 func (ve *vertexEdgePair) getEdge() da.Index {
@@ -81,10 +82,11 @@ func (ve *vertexEdgePair) getOutInEdgeId() da.Index {
 }
 
 type VertexInfo[T comparable] struct {
-	travelTime float64
-	parent     vertexEdgePair
-	scanned    bool // scanned or est dist from s to this v is equal to shortest path cost, and contained in shortest path tree
-	heapNode   *da.PriorityQueueNode[T]
+	travelTime float64        // 8 byte
+	parent     vertexEdgePair // 14 byte
+	scanned    bool           // 1 byte, scanned or est dist from s to this v is equal to shortest path cost, and contained in shortest path tree
+	heapNode   *da.PriorityQueueNode[T] //  25 byte
+	// total 48 byte
 }
 
 func NewVertexInfo[T comparable](travelTime float64, parent vertexEdgePair, hnode *da.PriorityQueueNode[T]) *VertexInfo[T] {

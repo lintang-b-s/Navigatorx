@@ -108,6 +108,7 @@ func main() {
 	qRuntime := 0.0
 	puRuntime := 0.0
 	totScannedVertices := 0
+	totScannedOverlayVertices := 0
 	calcsSP := func(i int, p spParam) any {
 
 		s := p.s
@@ -127,6 +128,7 @@ func main() {
 		puRuntime += float64(pathUnpackingRuntime)
 		efficiency += eff
 		totScannedVertices += numScannedVertices
+		totScannedOverlayVertices += crpQuery.GetNumScannedOverlayVertices()
 
 		if (i+1)%1000 == 0 {
 			logger.Sugar().Infof("done query %v", i+1)
@@ -147,5 +149,5 @@ func main() {
 	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/10000.0)
 	fmt.Printf("avg query runtime: %f\n", qRuntime/10000.0)
 	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/10000.0)
-
+	fmt.Printf("avg number of overlay vertices scanned: %d\n", totScannedOverlayVertices/10000.0)
 }
