@@ -16,8 +16,8 @@ type CRPALTBidirectionalSearch struct {
 	forwardMid  vertexEdgePair
 	backwardMid vertexEdgePair
 
-	forwardInfo   *TwoLevelStorage[da.CRPQueryKey]
-	backwardInfo  *TwoLevelStorage[da.CRPQueryKey]
+	forwardInfo   QueryInfoStorage[da.CRPQueryKey]
+	backwardInfo  QueryInfoStorage[da.CRPQueryKey]
 	stallingEntry []float64
 	stallingExit  []float64
 
@@ -108,7 +108,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
 	// asId exitPoint of outEdge u->s
 	// atId entryPoint of inEdge t->v
-
+	defer bs.Done()
 	now := time.Now()
 
 	s := bs.engine.graph.GetOutEdge(asId).GetHead()
@@ -146,7 +146,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 
 	bs.activeLandmarks = bs.lm.SelectBestQueryLandmarks(s, t)
 
-	close := func(id da.Index, scanned []bool, info *TwoLevelStorage[da.CRPQueryKey]) {
+	close := func(id da.Index, scanned []bool, info QueryInfoStorage[da.CRPQueryKey]) {
 		// scan item (can be edgeId or overlay vertex id)
 		scanned[id] = true
 		info.Get(id).Scan()
@@ -924,8 +924,13 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 	numberOfOverlayVertices := bs.engine.overlayGraph.NumberOfOverlayVertices()
 	maxSearchSize := int(maxEdgesInCell)*2 + numberOfOverlayVertices
 
-	bs.forwardInfo = NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
-	bs.backwardInfo = NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
+	// bs.forwardInfo = NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
+	// bs.backwardInfo = NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
+
+	bs.forwardInfo = bs.engine.fBufPool.Get().(*TwoLevelStorage[da.CRPQueryKey])
+	bs.backwardInfo = bs.engine.bBufPool.Get().(*TwoLevelStorage[da.CRPQueryKey])
+	bs.forwardInfo.Clear()
+	bs.backwardInfo.Clear()
 
 	bs.stallingEntry = make([]float64, maxSearchSize)
 	bs.stallingExit = make([]float64, maxSearchSize)
@@ -941,6 +946,11 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 	allocateHeapCapacity := int(maxEdgesInCell)*2 + OVERLAY_INFO_SIZE
 	bs.forwardPq.Preallocate(allocateHeapCapacity)
 	bs.backwardPq.Preallocate(allocateHeapCapacity)
+}
+
+func (bs *CRPALTBidirectionalSearch) Done() {
+	bs.engine.fBufPool.Put(bs.forwardInfo)
+	bs.engine.bBufPool.Put(bs.backwardInfo)
 }
 
 func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {

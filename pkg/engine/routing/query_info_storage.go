@@ -59,3 +59,48 @@ func (s *TwoLevelStorage[T]) Set(id da.Index, info *VertexInfo[T]) {
 	}
 	s.base[id] = info
 }
+
+func (s *TwoLevelStorage[T]) Clear() {
+	baseSize := len(s.base)
+	base := make([]*VertexInfo[T], baseSize)
+	for i := 0; i < baseSize; i++ {
+		base[i] = NewVertexInfo[T](pkg.INF_WEIGHT, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false), nil)
+	}
+	s.base = base
+	clear(s.overlay)
+}
+
+type ArrayStorage[T comparable] struct {
+	queryInfos     []*VertexInfo[T]
+	maxEdgesInCell int
+}
+
+func NewArrayStorage[T comparable](size, maxEdgesInCell int) *ArrayStorage[T] {
+	base := make([]*VertexInfo[T], size)
+	for i := 0; i < size; i++ {
+		base[i] = NewVertexInfo[T](pkg.INF_WEIGHT, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false), nil)
+	}
+	return &ArrayStorage[T]{
+		queryInfos:     base,
+		maxEdgesInCell: maxEdgesInCell,
+	}
+}
+
+func (s *ArrayStorage[T]) Get(id da.Index) *VertexInfo[T] {
+
+	return s.queryInfos[id]
+}
+
+func (s *ArrayStorage[T]) Set(id da.Index, info *VertexInfo[T]) {
+
+	s.queryInfos[id] = info
+}
+
+func (s *ArrayStorage[T]) Clear() {
+	baseSize := len(s.queryInfos)
+	base := make([]*VertexInfo[T], baseSize)
+	for i := 0; i < baseSize; i++ {
+		base[i] = NewVertexInfo[T](pkg.INF_WEIGHT, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false), nil)
+	}
+	s.queryInfos = base
+}

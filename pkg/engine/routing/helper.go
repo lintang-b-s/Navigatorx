@@ -78,11 +78,11 @@ func (bs *CRPALTBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices
 }
 
-func (bs *CRPALTBidirectionalSearch) GetForwardInfo() *TwoLevelStorage[da.CRPQueryKey] {
+func (bs *CRPALTBidirectionalSearch) GetForwardInfo() QueryInfoStorage[da.CRPQueryKey] {
 	return bs.forwardInfo
 }
 
-func (bs *CRPALTBidirectionalSearch) GetBackwardInfo() *TwoLevelStorage[da.CRPQueryKey] {
+func (bs *CRPALTBidirectionalSearch) GetBackwardInfo() QueryInfoStorage[da.CRPQueryKey] {
 	return bs.backwardInfo
 }
 

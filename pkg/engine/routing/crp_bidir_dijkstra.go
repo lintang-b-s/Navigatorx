@@ -4,46 +4,9 @@ import (
 	"math"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
-	"go.uber.org/zap"
 )
-
-type CRPRoutingEngine struct {
-	graph        *da.Graph
-	overlayGraph *da.OverlayGraph
-	metrics      *met.Metric
-	logger       *zap.Logger
-	puCache      *lru.Cache[PUCacheKey, []da.Index]
-
-	customizer   Customizer
-	costFunction CostFunction
-}
-
-func NewCRPRoutingEngine(graph *da.Graph,
-	overlayGraph *da.OverlayGraph, metrics *met.Metric,
-	logger *zap.Logger, puCache *lru.Cache[PUCacheKey, []da.Index],
-	customizer Customizer, costFunction CostFunction) *CRPRoutingEngine {
-	return &CRPRoutingEngine{
-		graph:        graph,
-		metrics:      metrics,
-		overlayGraph: overlayGraph,
-		logger:       logger,
-		puCache:      puCache,
-		customizer:   customizer,
-		costFunction: costFunction,
-	}
-}
-
-func (crp *CRPRoutingEngine) GetGraph() *da.Graph {
-	return crp.graph
-}
-
-func (crp *CRPRoutingEngine) GetOverlayGraph() *da.OverlayGraph {
-	return crp.overlayGraph
-}
 
 type CRPBidirectionalSearch struct {
 	engine             *CRPRoutingEngine
@@ -123,6 +86,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
 	// asId exitPoint of outEdge u->s
 	// atId entryPoint of inEdge t->v
+	defer bs.Done()
 	now := time.Now()
 
 	s := bs.engine.graph.GetOutEdge(asId).GetHead()
@@ -916,8 +880,13 @@ func (bs *CRPBidirectionalSearch) Preallocate() {
 	numberOfOverlayVertices := bs.engine.overlayGraph.NumberOfOverlayVertices()
 	maxSearchSize := int(maxEdgesInCell)*2 + numberOfOverlayVertices
 
-	bs.forwardInfo = NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
-	bs.backwardInfo = NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
+	// bs.forwardInfo = NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
+	// bs.backwardInfo = NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
+
+	bs.forwardInfo = bs.engine.fBufPool.Get().(*TwoLevelStorage[da.CRPQueryKey])
+	bs.backwardInfo = bs.engine.bBufPool.Get().(*TwoLevelStorage[da.CRPQueryKey])
+	bs.forwardInfo.Clear()
+	bs.backwardInfo.Clear()
 
 	bs.stallingEntry = make([]float64, maxSearchSize)
 	bs.stallingExit = make([]float64, maxSearchSize)
@@ -933,6 +902,11 @@ func (bs *CRPBidirectionalSearch) Preallocate() {
 	allocateHeapCapacity := int(maxEdgesInCell)*2 + OVERLAY_INFO_SIZE
 	bs.forwardPq.Preallocate(allocateHeapCapacity)
 	bs.backwardPq.Preallocate(allocateHeapCapacity)
+}
+
+func (bs *CRPBidirectionalSearch) Done() {
+	bs.engine.fBufPool.Put(bs.forwardInfo)
+	bs.engine.bBufPool.Put(bs.backwardInfo)
 }
 
 func (bs *CRPBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {

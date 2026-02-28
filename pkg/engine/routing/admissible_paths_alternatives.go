@@ -330,7 +330,7 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []da.O
 }
 
 func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, viaExitId, sForwardId, tBackwardId da.Index,
-	ps, pb *TwoLevelStorage[da.CRPQueryKey], sCellNumber da.Pv, lv float64, overlay bool) float64 {
+	ps, pb QueryInfoStorage[da.CRPQueryKey], sCellNumber da.Pv, lv float64, overlay bool) float64 {
 
 	var (
 		u da.Index
@@ -364,7 +364,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 		lemma 4.4 dari ref[1]:
 		If P_v corresponds to a plateau u-w, P_v is dist(u,w)-LO
 		proof:
-		karena semua item antara u-v di scan forward search dan v-w discan backward search, pakai lemma subpath of shortest path is shortest path (clrs): subpath u-v dan v-w adalah shortest path -> subpath u-w is shortest path
+		karena semua item antara u-w di scan forward search dan u-w discan backward search, pakai lemma subpath of shortest path is shortest path (clrs): subpath u-w is shortest path
 		pakai  lemma subpath of shortest path is shortest path (clrs) lagi: every subpath P' dari path u ke w, l(P') <= dist(u,w) is shortest path
 	*/
 

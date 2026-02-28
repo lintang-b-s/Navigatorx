@@ -23,5 +23,10 @@ type Router interface {
 	GetBackwardInfo() []*VertexInfo[da.CRPQueryKey]
 	GetSCellNumber() da.Pv
 	GetNumScannedNodes() int
+}
 
+type QueryInfoStorage[T comparable] interface {
+	Get(id da.Index) *VertexInfo[T]
+	Set(id da.Index, info *VertexInfo[T])
+	Clear()
 }

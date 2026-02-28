@@ -6,8 +6,8 @@ import (
 )
 
 func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
-	backwardMid vertexEdgePair, forwardInfo *TwoLevelStorage[da.CRPQueryKey],
-	backwardInfo *TwoLevelStorage[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
+	backwardMid vertexEdgePair, forwardInfo QueryInfoStorage[da.CRPQueryKey],
+	backwardInfo QueryInfoStorage[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
 
 	forwardPackedPath := re.RetrieveForwardPackedPath(forwardMid, forwardInfo, sForwardId, sCellNumber)
 
@@ -16,7 +16,7 @@ func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
 	return append(forwardPackedPath, backwardPackedPath...)
 }
 
-func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair, forwardInfo *TwoLevelStorage[da.CRPQueryKey],
+func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair, forwardInfo QueryInfoStorage[da.CRPQueryKey],
 	sForwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
 	idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
 
@@ -108,7 +108,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid vertexEdgePair,
 	return idPath
 }
 
-func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid vertexEdgePair, backwardInfo *TwoLevelStorage[da.CRPQueryKey],
+func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid vertexEdgePair, backwardInfo QueryInfoStorage[da.CRPQueryKey],
 	tBackwardId da.Index, sCellNumber da.Pv) []vertexEdgePair {
 	idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
 	// let n = number of edges in shortest path from mid to t, (from backward search)
