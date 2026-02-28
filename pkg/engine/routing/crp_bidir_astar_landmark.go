@@ -97,7 +97,9 @@ thus we can preallocate the capacity of distance slices and heap as max number o
 https://ai.stanford.edu/~nilsson/OnlinePubs-Nils/PublishedPapers/astar.pdf or https://web.stanford.edu/class/archive/cs/cs221/cs221.1196/lectures/search2-6pp.pdf
 Hart et al (1967) [5] proved that the solution given by the A* algorithm will be optimal iff the heuristic is consistent (i.e. h(u) <= h(u,v) + h(v), h(u,v) sp distance from u to v), a consistent heuristic implies that the heuristic is also admissible (i.e h(u) <= spdist(u,t))
 ALT (A*, Landmark, and triangle inequality) (Goldberg, A.V. and Harrelson, lm. (2005)) provides a consistent heuristic (by triangle inequality)
-Ikeda et al. (1994) [4]  proved that Bidirectional A* is equivalent to bidirectional dijkstra iff the bidirectional A* implemented using heuristic function 1/2(hs(v)-ht(v)) for forward search and 1/2(ht(v)-hs(v)) for backward search, hs and ht are consistent/feasible heuristic function
+Ikeda et al. (1994) [4]  proved that Bidirectional A* is equivalent to bidirectional dijkstra with modified edge length iff the bidirectional A* implemented using heuristic function 1/2(hs(v)-ht(v)) for forward search and 1/2(ht(v)-hs(v)) for backward search, hs and ht are consistent/feasible heuristic function
+
+todo: investigate kenapa kalau load tests dengan > 300 users, p95 latency nya naik drastis, (kayaknya berkatan dengan preallocate lagi?)
 */
 
 func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
@@ -934,8 +936,11 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 	bs.fScanned = make([]bool, maxSearchSize)
 	bs.bScanned = make([]bool, maxSearchSize)
 
-	bs.forwardPq.Preallocate(maxSearchSize)
-	bs.backwardPq.Preallocate(maxSearchSize)
+	// https://drive.google.com/file/d/1eViVblw6g0E4WrAn22-q0AhdVYTgCy9F/view?usp=sharing
+	// kalo kita preallocate heap capacity dengan maxSearchSize, load tests pakai 900 vu, makan memory banyak
+	allocateHeapCapacity := int(maxEdgesInCell)*2 + OVERLAY_INFO_SIZE
+	bs.forwardPq.Preallocate(allocateHeapCapacity)
+	bs.backwardPq.Preallocate(allocateHeapCapacity)
 }
 
 func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {

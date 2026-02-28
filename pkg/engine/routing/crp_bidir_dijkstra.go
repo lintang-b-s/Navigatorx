@@ -928,8 +928,11 @@ func (bs *CRPBidirectionalSearch) Preallocate() {
 	bs.fScanned = make([]bool, maxSearchSize)
 	bs.bScanned = make([]bool, maxSearchSize)
 
-	bs.forwardPq.Preallocate(maxSearchSize)
-	bs.backwardPq.Preallocate(maxSearchSize)
+	// https://drive.google.com/file/d/1eViVblw6g0E4WrAn22-q0AhdVYTgCy9F/view?usp=sharing
+	// kalo kita preallocate heap capacity dengan maxSearchSize, load tests pakai 900 vu, makan memory banyak
+	allocateHeapCapacity := int(maxEdgesInCell)*2 + OVERLAY_INFO_SIZE
+	bs.forwardPq.Preallocate(allocateHeapCapacity)
+	bs.backwardPq.Preallocate(allocateHeapCapacity)
 }
 
 func (bs *CRPBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
