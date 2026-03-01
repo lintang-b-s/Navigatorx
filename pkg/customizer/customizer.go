@@ -188,10 +188,12 @@ func (c *Customizer) buildLowestLevel(
 				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 				overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
 				start := overlayVertex.GetOriginalVertex()
-				pq := da.NewFourAryHeap[da.CRPQueryKey]()
-				travelTime := make([]float64, c.graph.GetMaxEdgesInCell())
+				maxSearchSize := c.graph.GetMaxEdgesInCell()
+				maxEdgesInCell := c.graph.GetMaxEdgesInCell()
+
+				pq := da.NewQueryHeap[da.CRPQueryKey](int(maxSearchSize), int(maxEdgesInCell), da.ARRAY_STORAGE)
+				travelTime := make([]float64, maxSearchSize)
 				overlayTravelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
-				hnodes := make([]*da.PriorityQueueNode[da.CRPQueryKey], c.graph.GetMaxEdgesInCell())
 				for q := 0; q < len(travelTime); q++ {
 					travelTime[q] = pkg.INF_WEIGHT
 				}
@@ -202,12 +204,13 @@ func (c *Customizer) buildLowestLevel(
 				startInEdgeOffset := overlayVertex.GetOriginalEdge() - forwardCellOffset
 
 				travelTime[startInEdgeOffset] = 0
+				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
-				pq.Insert(da.NewPriorityQueueNode(0,
-					da.NewDijkstraKey(start, startInEdgeOffset)))
+				sVertexInfo := da.NewVertexInfo[da.CRPQueryKey](0, noPar)
+				pq.Insert(startInEdgeOffset, 0, sVertexInfo, da.NewDijkstraKey(start, startInEdgeOffset))
 
 				for !pq.IsEmpty() {
-					pqNode, _ := pq.ExtractMin()
+					pqNode := pq.ExtractMin()
 					uKey := pqNode.GetItem()
 					uId := uKey.GetNode()
 					uEntryId := uKey.GetEntryExitPoint()
@@ -235,11 +238,10 @@ func (c *Customizer) buildLowestLevel(
 							if oldvTT := travelTime[vEntryId]; !ok || (ok && newTravelTime < oldvTT) {
 								travelTime[vEntryId] = newTravelTime
 								if ok {
-									pq.DecreaseKey(hnodes[vEntryId], newTravelTime)
+									pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, noPar)
 								} else {
-									vhNode := da.NewPriorityQueueNode(newTravelTime, da.NewDijkstraKey(v, vEntryId))
-									hnodes[vEntryId] = vhNode
-									pq.Insert(vhNode)
+									vVertexInfo := da.NewVertexInfo[da.CRPQueryKey](newTravelTime, noPar)
+									pq.Insert(vEntryId, newTravelTime, vVertexInfo, da.NewDijkstraKey(v, vEntryId))
 								}
 							}
 						} else {
@@ -344,20 +346,23 @@ func (c *Customizer) buildLevel(
 				worst case: O( n_op * (n_op + \hat{m_p})* log(n_op) )
 			*/
 			for i := range entries {
-				pq := da.NewFourAryHeap[da.Index]()
+				maxSearchSize := c.overlayGraph.NumberOfOverlayVertices()
+				maxEdgesInCell := c.graph.GetMaxEdgesInCell()
+
+				pq := da.NewQueryHeap[da.Index](int(maxSearchSize), int(maxEdgesInCell), da.MAP_STORAGE)
 				travelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
-				hnodes := make([]*da.PriorityQueueNode[da.Index], c.overlayGraph.NumberOfOverlayVertices())
 				for v := 0; v < c.overlayGraph.NumberOfOverlayVertices(); v++ {
 					travelTime[v] = pkg.INF_WEIGHT
 				}
 				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 
-				travelTime[startOverlayVertexId] = 0
+				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
+				sVertexInfo := da.NewVertexInfo[da.Index](0, noPar)
 
-				pq.Insert(da.NewPriorityQueueNode(0, startOverlayVertexId))
+				pq.Insert(startOverlayVertexId, 0, sVertexInfo, startOverlayVertexId)
 
 				for !pq.IsEmpty() {
-					pqNode, _ := pq.ExtractMin()
+					pqNode := pq.ExtractMin()
 					uOverlayId := pqNode.GetItem()
 					uTravelTime := pqNode.GetRank()
 
@@ -396,11 +401,11 @@ func (c *Customizer) buildLevel(
 									travelTime[neighborVertex] = newNeighborTravelTime
 
 									if !nAlreadyLabelled {
-										vhNode := da.NewPriorityQueueNode(travelTime[neighborVertex], neighborVertex)
-										hnodes[neighborVertex] = vhNode
-										pq.Insert(vhNode)
+										vVertexInfo := da.NewVertexInfo[da.Index](newTravelTime, noPar)
+										pq.Insert(neighborVertex, newNeighborTravelTime, vVertexInfo, neighborVertex)
 									} else {
-										pq.DecreaseKey(hnodes[neighborVertex], newNeighborTravelTime)
+										pq.DecreaseKey(neighborVertex, newNeighborTravelTime,
+											newNeighborTravelTime, noPar)
 									}
 								}
 							}

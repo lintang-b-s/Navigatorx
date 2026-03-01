@@ -10,11 +10,10 @@ type CRPUniDijkstraOneToMany struct {
 	engine              *CRPRoutingEngine
 	shortestTravelTimes map[da.Index]float64
 
-	forwardInfo   []*VertexInfo[da.CRPQueryKey]
 	stallingEntry []float64
 	stallingExit  []float64
 
-	pq        *da.MinHeap[da.CRPQueryKey]
+	pq        *da.QueryHeap[da.CRPQueryKey]
 	tEntryIds map[target]da.Index
 
 	sCellNumber  da.Pv
@@ -28,10 +27,8 @@ type CRPUniDijkstraOneToMany struct {
 }
 
 func NewCRPUniDijkstraOneToMany(engine *CRPRoutingEngine) *CRPUniDijkstraOneToMany {
-	return &CRPUniDijkstraOneToMany{
-		engine:      engine,
-		forwardInfo: make([]*VertexInfo[da.CRPQueryKey], 0),
-		pq:          da.NewFourAryHeap[da.CRPQueryKey](),
+	crpQuery := &CRPUniDijkstraOneToMany{
+		engine: engine,
 
 		stallingEntry: make([]float64, 0),
 		stallingExit:  make([]float64, 0),
@@ -42,6 +39,8 @@ func NewCRPUniDijkstraOneToMany(engine *CRPRoutingEngine) *CRPUniDijkstraOneToMa
 		shortestTravelTimes: make(map[da.Index]float64),
 		targetsSettled:      make(map[da.Index]struct{}),
 	}
+	crpQuery.Preallocate()
+	return crpQuery
 }
 
 /*
@@ -84,10 +83,9 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 	// for iterating outEdges, we need entryOffset.
 	sForwardId := us.engine.graph.GetEntryOffset(s) + da.Index(us.engine.graph.GetOutEdge(asId).GetEntryPoint())
 
-	shNode := da.NewPriorityQueueNode(0, da.NewCRPQueryKey(s, sForwardId, false))
-	us.pq.Insert(shNode)
-
-	us.forwardInfo[sForwardId] = NewVertexInfo[da.CRPQueryKey](0, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false), shNode)
+	sQueryKey := da.NewCRPQueryKey(s, sForwardId, false)
+	sVertexInfo := da.NewVertexInfo[da.CRPQueryKey](0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	us.pq.Insert(sForwardId, 0, sVertexInfo, sQueryKey)
 
 	finished := false
 
@@ -97,7 +95,7 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 			break
 		}
 
-		queryKey, _ := us.pq.ExtractMin()
+		queryKey := us.pq.ExtractMin()
 		uItem := queryKey.GetItem()
 		if !uItem.IsOverlay() {
 			// search on graph level 1
@@ -123,39 +121,38 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 			tfinalEdgePath[t.getatId()] = make([]da.OutEdge, 0)
 			continue
 		}
-		idPath := make([]vertexEdgePair, 0) // contains all outedges that make up the shortest path
-		curInfo := us.forwardInfo[tEntryId]
+		idPath := make([]da.VertexEdgePair, 0) // contains all outedges that make up the shortest path
+		curInfo := us.pq.Get(tEntryId)
 
 		_, tOutEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(tEntryId)
 		toutEdgeId := tOutEdge.GetEdgeId()
-		tpair := newVertexEdgePair(t.gettId(), toutEdgeId, true)
+		tpair := da.NewVertexEdgePair(t.gettId(), toutEdgeId, true)
 		idPath = append(idPath, tpair)
 
-		for curInfo.GetParent().edge != sForwardId {
+		for curInfo.GetParent().GetEdge() != sForwardId {
 			parent := curInfo.GetParent()
 			parentCopy := parent
 
-			if parentCopy.getEdge() >= da.Index(us.engine.graph.NumberOfEdges()) {
+			if parentCopy.GetEdge() >= da.Index(us.engine.graph.NumberOfEdges()) {
 				// shortcut
-				adjustedForwardEdge := onBit(parentCopy.getEdge()-da.Index(us.engine.graph.NumberOfEdges()), UNPACK_OVERLAY_OFFSET)
-				parentCopy.setEdge(adjustedForwardEdge)
+				adjustedForwardEdge := onBit(parentCopy.GetEdge()-da.Index(us.engine.graph.NumberOfEdges()), UNPACK_OVERLAY_OFFSET)
+				parentCopy.SetEdge(adjustedForwardEdge)
 
 			} else {
 
-				parentCopy.setEdge(parentCopy.getEdge())
+				parentCopy.SetEdge(parentCopy.GetEdge())
 
-				inEdge := us.engine.graph.GetInEdge(parentCopy.getEdge())
+				inEdge := us.engine.graph.GetInEdge(parentCopy.GetEdge())
 				_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-				parentCopy.setEdge(outEdge.GetEdgeId())
+				parentCopy.SetEdge(outEdge.GetEdgeId())
 			}
 
-			parentCopy.setisOutEdge(true)
 			idPath = append(idPath, parentCopy)
 
-			curInfo = us.forwardInfo[parent.getEdge()]
+			curInfo = us.pq.Get(parent.GetEdge())
 		}
 
-		idPath = util.ReverseG[vertexEdgePair](idPath)
+		idPath = util.ReverseG[da.VertexEdgePair](idPath)
 
 		unpacker := NewPathUnpacker(us.engine, us.engine.metrics, us.engine.puCache, true, true)
 		finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))
@@ -185,7 +182,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 		}
 		if uId == t.gettId() {
 			us.targetsSettled[t.gettId()] = struct{}{}
-			us.shortestTravelTimes[t.getatId()] = us.forwardInfo[uEntryId].GetTravelTime()
+			us.shortestTravelTimes[t.getatId()] = us.pq.GetPriority(uEntryId)
 			us.tEntryIds[t] = uEntryId
 		}
 	}
@@ -220,7 +217,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 		}
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
-		newTravelTime := us.forwardInfo[uEntryId].GetTravelTime() + edgeWeight + turnCost
+		newTravelTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost
 
 		if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
@@ -232,8 +229,8 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			// if query level of v is 0, then v is in the same cell as s or t in the lowest level
 			// then, we just do edge relaxation as usual in turn-aware dijkstra
 
-			vAlreadyLabelled := da.Lt(us.forwardInfo[vEntryId].GetTravelTime(), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newTravelTime, us.forwardInfo[vEntryId].GetTravelTime()) {
+			vAlreadyLabelled := da.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
+			if vAlreadyLabelled && da.Ge(newTravelTime, us.pq.GetPriority(vEntryId)) {
 				// newTravelTime is not better, do nothing
 
 				return
@@ -245,22 +242,19 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			}
 
 			if vAlreadyLabelled {
-				vhNode := us.forwardInfo[vEntryId].GetHeapNode()
-				us.forwardInfo[vEntryId].UpdateTravelTime(newTravelTime)
-				us.forwardInfo[vEntryId].UpdateParent(newVertexEdgePair(uId, uEntryId, false))
-
+				newPar := da.NewVertexEdgePair(uId, uEntryId, false)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vhNode, newTravelTime)
+				us.pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime,
+					newPar)
 			} else if !vAlreadyLabelled {
 
-				vhNode := da.NewPriorityQueueNode(
-					newTravelTime, da.NewCRPQueryKey(vId, vEntryId, false))
+				queryKey := da.NewCRPQueryKey(vId, vEntryId, false)
 				// newTravelTime is better, update the forwardInfo
-				us.forwardInfo[vEntryId] = NewVertexInfo[da.CRPQueryKey](newTravelTime,
-					newVertexEdgePair(uId, uEntryId, false), vhNode)
+				vertexInfo := da.NewVertexInfo[da.CRPQueryKey](newTravelTime,
+					da.NewVertexEdgePair(uId, uEntryId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vhNode)
+				us.pq.Insert(vEntryId, newTravelTime, vertexInfo, queryKey)
 			}
 
 		} else {
@@ -272,26 +266,20 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			v, _ := us.engine.graph.GetOverlayVertex(vId, outArc.GetEntryPoint(), false)
 			overlayVId := v + da.Index(us.engine.graph.NumberOfEdges())
 
-			vAlreadyLabelled := da.Lt(us.forwardInfo[overlayVId].GetTravelTime(), pkg.INF_WEIGHT)
-			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, us.forwardInfo[overlayVId].GetTravelTime())) {
+			vAlreadyLabelled := da.Lt(us.pq.GetPriority(overlayVId), pkg.INF_WEIGHT)
+			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, us.pq.GetPriority(overlayVId))) {
 
 				if !vAlreadyLabelled {
-					vhNode := da.NewPriorityQueueNode(
-						newTravelTime, da.NewCRPQueryKey(v, da.Index(lowestVQueryLevel), true))
+					queryKey := da.NewCRPQueryKey(v, da.Index(lowestVQueryLevel), true)
 
-					vVertexInfo := NewVertexInfo[da.CRPQueryKey](newTravelTime,
-						newVertexEdgePair(vId, vEntryId, false), vhNode)
+					vertexInfo := da.NewVertexInfo[da.CRPQueryKey](newTravelTime,
+						da.NewVertexEdgePair(vId, vEntryId, false))
 
-					us.forwardInfo[overlayVId] = vVertexInfo
-
-					us.pq.Insert(vhNode)
+					us.pq.Insert(overlayVId, newTravelTime, vertexInfo, queryKey)
 				} else {
-					vhNode := us.forwardInfo[overlayVId].GetHeapNode()
-					us.forwardInfo[overlayVId].UpdateTravelTime(newTravelTime)
-					us.forwardInfo[overlayVId].UpdateParent(newVertexEdgePair(uId, uEntryId, false))
-					us.forwardInfo[overlayVId].parent.setFirstOverlayEntryExitId(vEntryId)
-
-					us.pq.DecreaseKey(vhNode, newTravelTime)
+					newPar := da.NewVertexEdgePair(uId, uEntryId, false)
+					us.pq.DecreaseKey(overlayVId, newTravelTime, newTravelTime,
+						newPar)
 				}
 			}
 		}
@@ -314,17 +302,17 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 	us.engine.overlayGraph.ForOutNeighborsOf(u, uQueryLevel, func(v da.Index, wOffset da.Index) {
 		shortcutOutEdgeWeight := us.engine.metrics.GetShortcutWeight(wOffset)
 
-		newTravelTime := us.forwardInfo[uId].GetTravelTime() + shortcutOutEdgeWeight
+		newTravelTime := us.pq.GetPriority(uId) + shortcutOutEdgeWeight
 		if newTravelTime >= pkg.INF_WEIGHT {
 			return
 		}
 		vVertex := us.engine.overlayGraph.GetVertex(v)
 
 		vId := v + da.Index(us.engine.graph.NumberOfEdges())
-		vAlreadyLabelled := da.Lt(us.forwardInfo[vId].GetTravelTime(), pkg.INF_WEIGHT)
-		if !vAlreadyLabelled || (vAlreadyLabelled && newTravelTime < us.forwardInfo[vId].GetTravelTime()) {
+		vAlreadyLabelled := da.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
+		if !vAlreadyLabelled || (vAlreadyLabelled && newTravelTime < us.pq.GetPriority(vId)) {
 
-			us.forwardInfo[vId].parent.setQueryLevel(uint8(uQueryLevel))
+			us.pq.SetQueryLevel(vId, uint8(uQueryLevel))
 
 			// traverse edge to next cell
 			vOriEdgeId := vVertex.GetOriginalEdge()
@@ -353,7 +341,7 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 
 			originalW := wVertex.GetOriginalVertex()
 
-			newTravelTime = us.forwardInfo[vId].GetTravelTime() + edgeWeight
+			newTravelTime = us.pq.GetPriority(vId) + edgeWeight
 
 			if newTravelTime >= pkg.INF_WEIGHT {
 				return
@@ -366,26 +354,21 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 
 				// relax entry Edge of w
 				// update travelTime to reach entry point of w and insert entryPoint of w to forwardPq
-				wAlreadyLabelled := da.Lt(us.forwardInfo[wEntryId].GetTravelTime(), pkg.INF_WEIGHT)
-				if wAlreadyLabelled && da.Ge(newTravelTime, us.forwardInfo[wEntryId].GetTravelTime()) {
+				wAlreadyLabelled := da.Lt(us.pq.GetPriority(wEntryId), pkg.INF_WEIGHT)
+				if wAlreadyLabelled && da.Ge(newTravelTime, us.pq.GetPriority(wEntryId)) {
 
 					return
 				}
 
 				if wAlreadyLabelled {
-					whNode := us.forwardInfo[wEntryId].GetHeapNode()
-					us.forwardInfo[wEntryId].UpdateTravelTime(newTravelTime)
-					us.forwardInfo[wEntryId].UpdateParent(newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
-
-					us.pq.DecreaseKey(whNode, newTravelTime)
+					newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
+					us.pq.DecreaseKey(wEntryId, newTravelTime, newTravelTime, newPar)
 				} else {
-					whNode := da.NewPriorityQueueNode(
-						newTravelTime, da.NewCRPQueryKey(originalW, wEntryId, false))
+					queryKey := da.NewCRPQueryKey(originalW, wEntryId, false)
+					vertexInfo := da.NewVertexInfo[da.CRPQueryKey](newTravelTime,
+						da.NewVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
 
-					us.forwardInfo[wEntryId] = NewVertexInfo[da.CRPQueryKey](newTravelTime,
-						newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false), whNode)
-
-					us.pq.Insert(whNode)
+					us.pq.Insert(wEntryId, newTravelTime, vertexInfo, queryKey)
 				}
 
 			} else {
@@ -393,22 +376,19 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 				// update new travelTime to reach overlay vertex w
 				// insert item overlay vertex w and its query level to pq, because we need to traverse & relax shortcut edges in overlay graph
 				wId := w + da.Index(us.engine.graph.NumberOfEdges())
-				wAlreadyLabelled := da.Lt(us.forwardInfo[wId].GetTravelTime(), pkg.INF_WEIGHT)
-				if !wAlreadyLabelled || (wAlreadyLabelled && da.Lt(newTravelTime, us.forwardInfo[wId].GetTravelTime())) {
+				wAlreadyLabelled := da.Lt(us.pq.GetPriority(wId), pkg.INF_WEIGHT)
+				if !wAlreadyLabelled || (wAlreadyLabelled && da.Lt(newTravelTime, us.pq.GetPriority(wId))) {
 
 					if !wAlreadyLabelled {
-						whNode := da.NewPriorityQueueNode(
-							newTravelTime, da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel), true))
-						us.forwardInfo[wId] = NewVertexInfo[da.CRPQueryKey](newTravelTime,
-							newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false), whNode)
+						queryKey := da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel), true)
+						vertexInfo := da.NewVertexInfo[da.CRPQueryKey](newTravelTime,
+							da.NewVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
 
-						us.pq.Insert(whNode)
+						us.pq.Insert(wId, newTravelTime, vertexInfo, queryKey)
 					} else {
-						whNode := us.forwardInfo[wId].GetHeapNode()
-						us.forwardInfo[wId].UpdateTravelTime(newTravelTime)
-						us.forwardInfo[wId].UpdateParent(newVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
+						newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
 
-						us.pq.DecreaseKey(whNode, newTravelTime)
+						us.pq.DecreaseKey(wId, newTravelTime, newTravelTime, newPar)
 					}
 				}
 			}
@@ -417,12 +397,11 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 }
 
 func (bs *CRPUniDijkstraOneToMany) Preallocate() {
+	maxEdgesInCell := bs.engine.graph.GetMaxEdgesInCell()
 
 	maxSearchSize := bs.engine.graph.NumberOfEdges() + bs.engine.overlayGraph.NumberOfOverlayVertices()
-	bs.forwardInfo = make([]*VertexInfo[da.CRPQueryKey], maxSearchSize)
-
-	initInfWeightVertexInfo(bs.forwardInfo)
-
+	bs.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE)
+	bs.pq.PreallocateHeap(maxSearchSize)
 	bs.stallingEntry = make([]float64, maxSearchSize)
 	bs.stallingExit = make([]float64, maxSearchSize)
 

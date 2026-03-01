@@ -8,25 +8,25 @@ import (
 type Dijkstra struct {
 	engine *CRPRoutingEngine
 
-	forwardInfo         []*VertexInfo[da.CRPQueryKey]
-	finalDist           []*VertexInfo[da.CRPQueryKey]
+	finalDist           []da.VertexInfo[da.CRPQueryKey]
 	finalEdge           []da.Index
 	shortestTravelTimes []float64
 
-	pq *da.MinHeap[da.CRPQueryKey]
+	pq *da.QueryHeap[da.CRPQueryKey]
 
 	numSettledNodes int
 }
 
 func NewDijkstra(engine *CRPRoutingEngine) Dijkstra {
-	return Dijkstra{
+	dj := Dijkstra{
 		engine:              engine,
-		forwardInfo:         make([]*VertexInfo[da.CRPQueryKey], 0),
-		finalDist:           make([]*VertexInfo[da.CRPQueryKey], 0),
-		pq:                  da.NewFourAryHeap[da.CRPQueryKey](),
+		finalDist:           make([]da.VertexInfo[da.CRPQueryKey], 0),
 		numSettledNodes:     0,
 		shortestTravelTimes: make([]float64, 0),
 	}
+
+	dj.Preallocate()
+	return dj
 }
 
 // single-source shortest paths, from s to all other vertices
@@ -36,12 +36,10 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 	// for iterating outEdges, we need entryOffset.
 	sForwardId := us.engine.graph.GetEntryOffset(s) + da.Index(us.engine.graph.GetOutEdge(asId).GetEntryPoint())
 
-	us.Preallocate()
+	sVertexInfo := da.NewVertexInfo[da.CRPQueryKey](0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
-	shNode := da.NewPriorityQueueNode(0, da.NewDijkstraKey(s, sForwardId))
-	us.pq.Insert(shNode)
-
-	us.forwardInfo[sForwardId] = NewVertexInfo(0, newVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false), shNode)
+	djKey := da.NewDijkstraKey(s, sForwardId)
+	us.pq.Insert(sForwardId, 0, sVertexInfo, djKey)
 
 	finish := false
 	for !us.pq.IsEmpty() {
@@ -75,19 +73,18 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 		_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 		spEdges[t] = append(spEdges[t], *outEdge)
 
-		for curInfo.GetParent().edge != sForwardId {
+		for curInfo.GetParent().GetEdge() != sForwardId {
 			parent := curInfo.GetParent()
-			parentEdge := parent.getEdge()
+			parentEdge := parent.GetEdge()
 			parentCopy := parent
 
 			// jadiin outEdge semua
-			inEdge := us.engine.graph.GetInEdge(parentCopy.getEdge())
+			inEdge := us.engine.graph.GetInEdge(parentCopy.GetEdge())
 			_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 			spEdges[t] = append(spEdges[t], *outEdge)
-			parentCopy.setEdge(outEdge.GetEdgeId())
-			parentCopy.setisOutEdge(true)
+			parentCopy.SetEdge(outEdge.GetEdgeId())
 
-			curInfo = us.forwardInfo[parentEdge]
+			curInfo = us.pq.Get(parentEdge)
 		}
 
 	}
@@ -101,14 +98,14 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
 	// we need to store entryPoint because we need to know turnType & turn cost when traversing from inEdge to outEdge of vertex u.
 	// forward search  on graph level 1
-	queryKey, _ := us.pq.ExtractMin()
+	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
 	uId := uItem.GetNode()
 
 	uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
 
 	if da.Eq(us.finalDist[uId].GetTravelTime(), pkg.INF_WEIGHT) {
-		us.finalDist[uId] = us.forwardInfo[uEntryId]
+		us.finalDist[uId] = us.pq.Get(uEntryId)
 		us.finalEdge[uId] = uEntryId
 	}
 
@@ -127,7 +124,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 		}
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
-		newTravelTime := us.forwardInfo[uEntryId].GetTravelTime() + edgeWeight + turnCost
+		newTravelTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost
 
 		if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
@@ -135,8 +132,8 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 
 		vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
 
-		vAlreadyLabelled := da.Lt(us.forwardInfo[vEntryId].GetTravelTime(), pkg.INF_WEIGHT)
-		if vAlreadyLabelled && da.Ge(newTravelTime, us.forwardInfo[vEntryId].GetTravelTime()) {
+		vAlreadyLabelled := da.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
+		if vAlreadyLabelled && da.Ge(newTravelTime, us.pq.GetPriority(vEntryId)) {
 			// newTravelTime is not better, do nothing
 
 			return
@@ -145,19 +142,16 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 		// newTravelTime is better, update the forwardInfo
 
 		if vAlreadyLabelled {
-			vhNode := us.forwardInfo[vEntryId].GetHeapNode()
-			us.forwardInfo[vEntryId].UpdateTravelTime(newTravelTime)
-			us.forwardInfo[vEntryId].UpdateParent(newVertexEdgePair(uId, uEntryId, false))
+			newPar := da.NewVertexEdgePair(uId, uEntryId, false)
 			// is key already in the priority queue, decrease its key
-			us.pq.DecreaseKey(vhNode, newTravelTime)
+			us.pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, newPar)
 
 		} else if !vAlreadyLabelled {
-			vhNode := da.NewPriorityQueueNode(
-				newTravelTime, da.NewDijkstraKey(vId, vEntryId))
-			us.forwardInfo[vEntryId] = NewVertexInfo(newTravelTime, newVertexEdgePair(uId, uEntryId, false), vhNode)
+			queryKey := da.NewDijkstraKey(vId, vEntryId)
+			vertexInfo := da.NewVertexInfo[da.CRPQueryKey](newTravelTime, da.NewVertexEdgePair(uId, uEntryId, false))
 
 			// is key not in the priority queue, insert it
-			us.pq.Insert(vhNode)
+			us.pq.Insert(vEntryId, newTravelTime, vertexInfo, queryKey)
 		}
 	})
 
@@ -167,11 +161,10 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 func (us *Dijkstra) Preallocate() {
 	numberOfEdges := us.engine.graph.NumberOfEdges()
 	maxSearchSize := numberOfEdges
-	us.forwardInfo = make([]*VertexInfo[da.CRPQueryKey], maxSearchSize)
 	numberOfVerties := us.engine.graph.NumberOfVertices()
-	us.finalDist = make([]*VertexInfo[da.CRPQueryKey], numberOfVerties)
+	us.finalDist = make([]da.VertexInfo[da.CRPQueryKey], numberOfVerties)
 	us.finalEdge = make([]da.Index, numberOfVerties)
-	initInfWeightVertexInfo(us.forwardInfo)
-	initInfWeightVertexInfo(us.finalDist)
-	us.pq.Preallocate(maxSearchSize)
+	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
+	us.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE)
+	us.pq.PreallocateHeap(maxSearchSize)
 }

@@ -23,16 +23,16 @@ const queryData = new SharedArray("queries", function () {
 
 export const options = {
   stages: [
-    { duration: "1m", target: 300 },
-    { duration: "30s", target: 300 },
+    { duration: "1m", target: 900 },
+    { duration: "30s", target: 900 },
   ],
 };
 
 export default () => {
   const randomQuery = queryData[Math.floor(Math.random() * queryData.length)];
-
+  // http://localhost:5000/route/v1/driving/110.3521728515625,-7.754197163260652\;110.37775039672852,-7.770015394576607\?overview\=false\&alternatives\=true\&steps\=true;
   const res = http.get(
-    `http://localhost:6060/api/computeRoutes?origin_lat=${randomQuery.srcLat}&origin_lon=${randomQuery.srcLon}&destination_lat=${randomQuery.destLat}&destination_lon=${randomQuery.destLon}`,
+    `http://localhost:5000/route/v1/driving/${randomQuery.srcLon},${randomQuery.srcLat};${randomQuery.destLon},${randomQuery.destLat}?overview=false&alternatives=false&steps=true`,
     {
       headers: {
         "Content-Type": "application/json",

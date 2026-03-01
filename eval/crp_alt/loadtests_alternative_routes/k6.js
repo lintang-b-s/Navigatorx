@@ -2,6 +2,7 @@ import http from "k6/http";
 import { sleep, check } from "k6";
 import { SharedArray } from "k6/data";
 
+// https://grafana.com/docs/k6/latest/testing-guides/api-load-testing/
 const queryData = new SharedArray("queries", function () {
   const file = open("../../../data/random_queries_1mil_sp_crp_alt_coords.txt");
 

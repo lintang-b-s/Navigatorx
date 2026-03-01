@@ -1,0 +1,154 @@
+package datastructure
+
+import (
+	"math"
+
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+)
+
+type QueryHeap[T comparable] struct {
+	heap       *DAryHeap[T]     // 4-ary minheap
+	queryInfos []VertexInfo[T]  // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array), scanned dari node. node bisa berupa edgeId/overlayVertexId dari graph. ingat, this crp query impl. support turn costs
+	storage    QueryInfoStorage // map dari edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
+}
+
+func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStorageType) *QueryHeap[T] {
+	switch tipe {
+	case TWO_LEVEL_STORAGE:
+		return &QueryHeap[T]{
+			heap:       NewFourAryHeap[T](),
+			queryInfos: make([]VertexInfo[T], 0),
+			storage:    NewTwoLevelStorage(baseSize, maxEdgesInCell),
+		}
+	case ARRAY_STORAGE:
+		return &QueryHeap[T]{
+			heap:       NewFourAryHeap[T](),
+			queryInfos: make([]VertexInfo[T], 0),
+			storage:    NewArrayStorage(baseSize),
+		}
+	case MAP_STORAGE:
+		return &QueryHeap[T]{
+			heap:       NewFourAryHeap[T](),
+			queryInfos: make([]VertexInfo[T], 0),
+			storage:    NewMapStorage(baseSize),
+		}
+	default:
+		return &QueryHeap[T]{
+			heap:       NewFourAryHeap[T](),
+			queryInfos: make([]VertexInfo[T], 0),
+			storage:    NewTwoLevelStorage(baseSize, maxEdgesInCell),
+		}
+	}
+
+}
+
+// updatePosition. buat update heapNodeId dari queryInfo (dipake pas heapifyUp dan heapifyDown)
+func (qh *QueryHeap[T]) updatePosition(queryInfoId, newHeapNodeId int) {
+	qh.queryInfos[queryInfoId].SetHeapNodeId(newHeapNodeId)
+}
+
+// Insert. insert node ke priority queue
+// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+func (qh *QueryHeap[T]) Insert(id Index, priority float64, vInfo VertexInfo[T], queryKey T) {
+	newQueryInfoid := len(qh.queryInfos)
+
+	qh.queryInfos = append(qh.queryInfos, vInfo)
+
+	qh.storage.Set(id, newQueryInfoid)
+
+	heapNode := NewPriorityQueueNode[T](priority,
+		queryKey, newQueryInfoid)
+	qh.heap.Insert(heapNode, newQueryInfoid, qh.updatePosition)
+}
+
+// ExtractMin. remove and extract heapNode dari heap dengan lowest priority
+func (qh *QueryHeap[T]) ExtractMin() PriorityQueueNode[T] {
+	topNode, err := qh.heap.ExtractMin(qh.updatePosition)
+	util.AssertPanic(err == nil, "pq is empty")
+	return topNode
+}
+
+// DecreaseKey. decreaseKey() operation dari min heap. decrease priority dari node ke newPriority
+// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+// newPriority adlh priority dari Multilevel-Dijkstra / Multilevel-ALT (A*, landmarks, and triangle intequality), kalau ALT priority dari pq beda sama estimated sp cost/qInfoPriority
+func (qh *QueryHeap[T]) DecreaseKey(id Index, newPriority, qInfoPriority float64, newPar VertexEdgePair) {
+	qInfoId := qh.storage.Get(id)
+	heapNodeId := qh.queryInfos[qInfoId].GetHeapNodeId()
+	qh.queryInfos[qInfoId].UpdateParent(newPar)
+	qh.queryInfos[qInfoId].UpdateTravelTime(qInfoPriority)
+	qh.heap.DecreaseKey(heapNodeId, newPriority, qh.updatePosition)
+}
+
+// Get. Get queryInfo dari node
+// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+func (qh *QueryHeap[T]) GetPriority(id Index) float64 {
+	qInfoId := qh.storage.Get(id)
+	if qInfoId == math.MaxInt {
+		return pkg.INF_WEIGHT
+	}
+	return qh.queryInfos[qInfoId].GetTravelTime()
+}
+
+// Clear. ya clear
+// dipake karena queryheap reussable objects (routing engine pakai sync.Pool)
+func (qh *QueryHeap[T]) Clear() {
+	qh.storage.Clear()
+	qh.queryInfos = make([]VertexInfo[T], 0)
+	qh.heap = NewFourAryHeap[T]()
+}
+
+// Get. get queryInfo dari node
+// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+func (qh *QueryHeap[T]) Get(id Index) VertexInfo[T] {
+	qInfoId := qh.storage.Get(id)
+
+	return qh.queryInfos[qInfoId]
+}
+
+func (qh *QueryHeap[T]) PreallocateHeap(initHeapSize int) {
+	qh.heap.Preallocate(initHeapSize)
+}
+
+// Size. return heap size
+func (qh *QueryHeap[T]) Size() int {
+	return qh.heap.Size()
+}
+
+// GetMinRank. get priority/rank of top heapNode
+func (qh *QueryHeap[T]) GetMinrank() float64 {
+	return qh.heap.GetMinrank()
+}
+
+// Scan. mark node as scanned
+// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+func (qh *QueryHeap[T]) Scan(id Index) {
+	qInfoId := qh.storage.Get(id)
+	qh.queryInfos[qInfoId].Scan()
+}
+
+func (qh *QueryHeap[T]) SetFirstOverlayEntryExitId(id Index, firstEntryExitId Index) {
+	qInfoId := qh.storage.Get(id)
+	qh.queryInfos[qInfoId].SetFirstOverlayEntryExitId(firstEntryExitId)
+}
+
+func (qh *QueryHeap[T]) Set(id Index, vInfo VertexInfo[T], queryKey T) {
+	newQueryInfoid := len(qh.queryInfos)
+
+	qh.queryInfos = append(qh.queryInfos, vInfo)
+	qh.storage.Set(id, newQueryInfoid)
+}
+
+func (qh *QueryHeap[T]) IsEmpty() bool {
+	return qh.heap.isEmpty()
+}
+
+func (qh *QueryHeap[T]) SetQueryLevel(id Index, qLevel uint8) {
+	qInfoId := qh.storage.Get(id)
+	qh.queryInfos[qInfoId].parent.SetQueryLevel(qLevel)
+}
+
+func (qh *QueryHeap[T]) IsScanned(id Index) bool {
+	qInfoId := qh.storage.Get(id)
+	return qh.queryInfos[qInfoId].IsScanned()
+}

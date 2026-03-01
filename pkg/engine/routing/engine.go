@@ -51,12 +51,12 @@ func (crp *CRPRoutingEngine) BuildBufferPool() {
 
 	crp.fBufPool = sync.Pool{
 		New: func() any {
-			return NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE)
 		},
 	}
 	crp.bBufPool = sync.Pool{
 		New: func() any {
-			return NewTwoLevelStorage[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell))
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE)
 		},
 	}
 }

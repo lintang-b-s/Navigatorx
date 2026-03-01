@@ -14,25 +14,28 @@ type Dijkstra struct {
 	heapNodes           []*da.PriorityQueueNode[da.CRPQueryKey]
 	shortestTravelTimes []float64
 
-	pq *da.MinHeap[da.CRPQueryKey]
+	pq *da.QueryHeap[da.CRPQueryKey]
 
 	useReverseGraph bool
-	upperBound      float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
 
 	numSettledNodes int
 }
 
 func NewDijkstra(graph *da.Graph, metrics *met.Metric, useReverseGraph bool) *Dijkstra {
-	return &Dijkstra{
+	dj := &Dijkstra{
 		graph:               graph,
 		forwardInfo:         make([]float64, graph.NumberOfEdges()),
 		heapNodes:           make([]*da.PriorityQueueNode[da.CRPQueryKey], graph.NumberOfEdges()),
-		pq:                  da.NewFourAryHeap[da.CRPQueryKey](),
 		useReverseGraph:     useReverseGraph,
 		numSettledNodes:     0,
 		shortestTravelTimes: make([]float64, 0),
 		metrics:             metrics,
 	}
+	maxSearchSize := graph.NumberOfEdges()
+	maxEdgesInCell := graph.GetMaxEdgesInCell()
+
+	dj.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE)
+	return dj
 }
 
 func (us *Dijkstra) ShortestPath(asId da.Index) []float64 {
@@ -54,7 +57,10 @@ func (us *Dijkstra) ShortestPath(asId da.Index) []float64 {
 
 	us.forwardInfo[sForwardId] = 0
 
-	us.pq.Insert(da.NewPriorityQueueNode(0, da.NewDijkstraKey(s, sForwardId)))
+	noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
+
+	us.pq.Insert(sForwardId, 0, da.NewVertexInfo[da.CRPQueryKey](0,
+		noPar), da.NewDijkstraKey(s, sForwardId))
 
 	for !us.pq.IsEmpty() {
 		// search on graph level 1
@@ -91,7 +97,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 	//The query algorithm maintains a distance label d(u) for each entry u which can either be a vertex on the overlay or a pair (u, i) corresponding to the i-th entry point of u in the original graph.
 	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
 	// we need to store entryPoint because we need to know turnType & turn cost when traversing from inEdge to outEdge of vertex u.
-	queryKey, _ := us.pq.ExtractMin()
+	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
 
 	uId := uItem.GetNode()
@@ -125,23 +131,23 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			vAlreadyLabelled := da.Lt(us.forwardInfo[vEntryId], pkg.INF_WEIGHT)
 			if vAlreadyLabelled && da.Ge(newArrTime, us.forwardInfo[vEntryId]) {
 				// newArrTime is not better, do nothing
-
 				return
 			}
 
 			// newArrTime is better, update the forwardInfo
 			us.forwardInfo[vEntryId] = newArrTime
 
+			noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 			if vAlreadyLabelled {
 
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(us.heapNodes[vEntryId], newArrTime)
+				us.pq.DecreaseKey(vEntryId, newArrTime, newArrTime,
+					noPar)
 			} else if !vAlreadyLabelled {
 				// is key not in the priority queue, insert it
-				vhNode := da.NewPriorityQueueNode(
-					newArrTime, da.NewDijkstraKey(vId, vEntryId))
-				us.heapNodes[vEntryId] = vhNode
-				us.pq.Insert(vhNode)
+
+				us.pq.Insert(vEntryId, newArrTime,
+					da.NewVertexInfo[da.CRPQueryKey](newArrTime, noPar), da.NewDijkstraKey(vId, vEntryId))
 			}
 
 		})
@@ -181,16 +187,16 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 			// newArrTime is better, update the forwardInfo
 			us.forwardInfo[vExitId] = newArrTime
+			noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
 			if vAlreadyLabelled {
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(us.heapNodes[vExitId], newArrTime)
+				us.pq.DecreaseKey(vExitId, newArrTime, newArrTime, noPar)
 			} else if !vAlreadyLabelled {
 				// is key not in the priority queue, insert it
-				vhNode := da.NewPriorityQueueNode(
-					newArrTime, da.NewDijkstraKey(vId, vExitId))
-				us.heapNodes[vExitId] = vhNode
-				us.pq.Insert(vhNode)
+
+				us.pq.Insert(vExitId, newArrTime, da.NewVertexInfo[da.CRPQueryKey](newArrTime, noPar),
+					da.NewDijkstraKey(vId, vExitId))
 			}
 
 		})

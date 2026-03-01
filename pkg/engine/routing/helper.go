@@ -58,12 +58,12 @@ func (bs *CRPBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices
 }
 
-func (bs *CRPBidirectionalSearch) GetForwardInfo() *TwoLevelStorage[da.CRPQueryKey] {
-	return bs.forwardInfo
+func (bs *CRPBidirectionalSearch) GetForwardInfo() *da.QueryHeap[da.CRPQueryKey] {
+	return bs.forwardPq
 }
 
-func (bs *CRPBidirectionalSearch) GetBackwardInfo() *TwoLevelStorage[da.CRPQueryKey] {
-	return bs.backwardInfo
+func (bs *CRPBidirectionalSearch) GetBackwardInfo() *da.QueryHeap[da.CRPQueryKey] {
+	return bs.backwardPq
 }
 
 func (bs *CRPBidirectionalSearch) GetSCellNumber() da.Pv {
@@ -78,12 +78,12 @@ func (bs *CRPALTBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices
 }
 
-func (bs *CRPALTBidirectionalSearch) GetForwardInfo() QueryInfoStorage[da.CRPQueryKey] {
-	return bs.forwardInfo
+func (bs *CRPALTBidirectionalSearch) GetForwardInfo() *da.QueryHeap[da.CRPQueryKey] {
+	return bs.forwardPq
 }
 
-func (bs *CRPALTBidirectionalSearch) GetBackwardInfo() QueryInfoStorage[da.CRPQueryKey] {
-	return bs.backwardInfo
+func (bs *CRPALTBidirectionalSearch) GetBackwardInfo() *da.QueryHeap[da.CRPQueryKey] {
+	return bs.backwardPq
 }
 
 func (bs *CRPALTBidirectionalSearch) GetSCellNumber() da.Pv {

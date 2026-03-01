@@ -97,18 +97,21 @@ func SolveRideHailing(t *testing.T, filepath string) {
 
 	dijkstra := func(s int) []int64 {
 		djdist := make([]int64, n+1)
-		hnodes := make([]*da.PriorityQueueNode[int], n+1)
 		for v := 1; v <= n; v++ {
 			djdist[v] = math.MaxInt64
 		}
-		pq := da.NewFourAryHeap[int]()
+		pq := da.NewQueryHeap[da.Index](n+1, n+1, da.ARRAY_STORAGE)
 
 		djdist[s] = 0
-		pq.Insert(da.NewPriorityQueueNode(0, s))
+		noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
+
+		sVertexInfo := da.NewVertexInfo[da.Index](0, noPar)
+
+		pq.Insert(da.Index(s), 0, sVertexInfo, da.Index(s))
 
 		for !pq.IsEmpty() {
 
-			queryKey, _ := pq.ExtractMin()
+			queryKey := pq.ExtractMin()
 
 			u := queryKey.GetItem()
 			uDist := int64(queryKey.GetRank())
@@ -120,10 +123,12 @@ func SolveRideHailing(t *testing.T, filepath string) {
 				if !ok || uDist+vDist < djdist[v] {
 					djdist[v] = uDist + vDist
 					if !ok {
-						hnodes[v] = da.NewPriorityQueueNode(float64(djdist[v]), v)
-						pq.Insert(hnodes[v])
+						vVertexInfo := da.NewVertexInfo[da.Index](0, noPar)
+
+						pq.Insert(da.Index(v), float64(djdist[v]), vVertexInfo, da.Index(v))
 					} else {
-						pq.DecreaseKey(hnodes[v], float64(djdist[v]))
+						pq.DecreaseKey(da.Index(v), float64(djdist[v]), float64(djdist[v]),
+							noPar)
 					}
 				}
 			}
