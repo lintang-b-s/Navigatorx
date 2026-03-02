@@ -2,6 +2,7 @@ package customizer
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
@@ -20,16 +21,20 @@ type Customizer struct {
 	ow                   *da.OverlayWeights
 	graph                *da.Graph
 	overlayGraph         *da.OverlayGraph
+	lowestHeapPool       sync.Pool
+	levelHeapPool        sync.Pool
 }
 
 func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath string,
 	logger *zap.Logger) *Customizer {
-	return &Customizer{
+	cst := &Customizer{
 		graphFilePath:        graphFilePath,
 		overlayGraphFilePath: overlayGraphFilePath,
 		metricOutputFilePath: metricOutputFilePath,
 		logger:               logger,
 	}
+
+	return cst
 }
 
 func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, logger *zap.Logger) *Customizer {
@@ -61,6 +66,20 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 	var m *metrics.Metric
 	costFunction := costfunction.NewTimeCostFunction()
+
+	maxEdgesInCell := c.graph.GetMaxEdgesInCell()
+
+	c.lowestHeapPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell), int(maxEdgesInCell), da.ARRAY_STORAGE)
+		},
+	}
+
+	c.levelHeapPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.Index](int(da.OVERLAY_INFO_SIZE), int(maxEdgesInCell), da.MAP_STORAGE)
+		},
+	}
 
 	c.Build(costFunction)
 	c.logger.Sugar().Infof("Building stalling tables...")
@@ -189,9 +208,13 @@ func (c *Customizer) buildLowestLevel(
 				overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
 				start := overlayVertex.GetOriginalVertex()
 				maxSearchSize := c.graph.GetMaxEdgesInCell()
-				maxEdgesInCell := c.graph.GetMaxEdgesInCell()
 
-				pq := da.NewQueryHeap[da.CRPQueryKey](int(maxSearchSize), int(maxEdgesInCell), da.ARRAY_STORAGE)
+				pq := c.lowestHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
+				pq.Clear()
+				done := func() {
+					c.lowestHeapPool.Put(pq)
+				}
+
 				travelTime := make([]float64, maxSearchSize)
 				overlayTravelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
 				for q := 0; q < len(travelTime); q++ {
@@ -206,7 +229,7 @@ func (c *Customizer) buildLowestLevel(
 				travelTime[startInEdgeOffset] = 0
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
-				sVertexInfo := da.NewVertexInfo[da.CRPQueryKey](0, noPar)
+				sVertexInfo := da.NewVertexInfo(0, noPar)
 				pq.Insert(startInEdgeOffset, 0, sVertexInfo, da.NewDijkstraKey(start, startInEdgeOffset))
 
 				for !pq.IsEmpty() {
@@ -240,7 +263,7 @@ func (c *Customizer) buildLowestLevel(
 								if ok {
 									pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, noPar)
 								} else {
-									vVertexInfo := da.NewVertexInfo[da.CRPQueryKey](newTravelTime, noPar)
+									vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
 									pq.Insert(vEntryId, newTravelTime, vVertexInfo, da.NewDijkstraKey(v, vEntryId))
 								}
 							}
@@ -267,6 +290,8 @@ func (c *Customizer) buildLowestLevel(
 						dijkstraResChan <- NewCellCustomizationResult(overlayTravelTime[exitId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					}
 				}
+
+				done()
 			}
 		}
 
@@ -346,10 +371,13 @@ func (c *Customizer) buildLevel(
 				worst case: O( n_op * (n_op + \hat{m_p})* log(n_op) )
 			*/
 			for i := range entries {
-				maxSearchSize := c.overlayGraph.NumberOfOverlayVertices()
-				maxEdgesInCell := c.graph.GetMaxEdgesInCell()
 
-				pq := da.NewQueryHeap[da.Index](int(maxSearchSize), int(maxEdgesInCell), da.MAP_STORAGE)
+				pq := c.levelHeapPool.Get().(*da.QueryHeap[da.Index])
+				pq.Clear()
+				done := func() {
+					c.levelHeapPool.Put(pq)
+				}
+
 				travelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
 				for v := 0; v < c.overlayGraph.NumberOfOverlayVertices(); v++ {
 					travelTime[v] = pkg.INF_WEIGHT
@@ -357,7 +385,7 @@ func (c *Customizer) buildLevel(
 				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
-				sVertexInfo := da.NewVertexInfo[da.Index](0, noPar)
+				sVertexInfo := da.NewVertexInfo(0, noPar)
 
 				pq.Insert(startOverlayVertexId, 0, sVertexInfo, startOverlayVertexId)
 
@@ -401,7 +429,7 @@ func (c *Customizer) buildLevel(
 									travelTime[neighborVertex] = newNeighborTravelTime
 
 									if !nAlreadyLabelled {
-										vVertexInfo := da.NewVertexInfo[da.Index](newTravelTime, noPar)
+										vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
 										pq.Insert(neighborVertex, newNeighborTravelTime, vVertexInfo, neighborVertex)
 									} else {
 										pq.DecreaseKey(neighborVertex, newNeighborTravelTime,
@@ -424,6 +452,8 @@ func (c *Customizer) buildLevel(
 						dijkstraResChan <- NewCellCustomizationResult(travelTime[exitId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					}
 				}
+
+				done()
 			}
 		}
 

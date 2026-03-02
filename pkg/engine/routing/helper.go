@@ -41,18 +41,32 @@ func (t target) getatId() da.Index {
 	return t.atId
 }
 
-func removeDuplicates[T comparable](arr []T) []T {
-	set := make(map[T]struct{}, len(arr))
-	newarr := make([]T, 0, len(arr))
+func removeDuplicates(arr []da.OutEdge) []da.OutEdge {
+	set := make(map[da.Index]struct{}, len(arr))
+	newarr := make([]da.OutEdge, 0, len(arr))
 
 	for _, v := range arr {
-		if _, ok := set[v]; !ok {
-			set[v] = struct{}{}
+		if _, ok := set[v.GetEdgeId()]; !ok {
+			set[v.GetEdgeId()] = struct{}{}
 			newarr = append(newarr, v)
 		}
 	}
 	return newarr
 }
+
+func removeDuplicatesVias(arr []da.ViaVertex) []da.ViaVertex {
+	set := make(map[da.Index]struct{}, len(arr))
+	newarr := make([]da.ViaVertex, 0, len(arr))
+
+	for _, v := range arr {
+		if _, ok := set[v.GetVId()]; !ok {
+			set[v.GetVId()] = struct{}{}
+			newarr = append(newarr, v)
+		}
+	}
+	return newarr
+}
+
 
 func (bs *CRPBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices

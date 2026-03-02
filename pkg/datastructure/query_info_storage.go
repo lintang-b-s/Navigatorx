@@ -65,13 +65,14 @@ func (s *TwoLevelStorage) Set(id Index, queryInfoId int) {
 }
 
 func (s *TwoLevelStorage) Clear() {
-	baseSize := len(s.base)
-	base := make([]int, baseSize)
-	for i := 0; i < baseSize; i++ {
-		base[i] = math.MaxInt
+	for i := 0; i < len(s.base); i++ {
+		s.base[i] = math.MaxInt
 	}
-	s.base = base
-	clear(s.overlay)
+
+	// https://go101.org/optimizations/6-map.html
+	for key := range s.overlay {
+		delete(s.overlay, key)
+	}
 }
 
 type ArrayStorage struct {
@@ -97,12 +98,9 @@ func (s *ArrayStorage) Set(id Index, info int) {
 }
 
 func (s *ArrayStorage) Clear() {
-	baseSize := len(s.base)
-	base := make([]int, baseSize)
-	for i := 0; i < baseSize; i++ {
-		base[i] = math.MaxInt
+	for i := 0; i < len(s.base); i++ {
+		s.base[i] = math.MaxInt
 	}
-	s.base = base
 }
 
 type MapStorage struct {
@@ -133,5 +131,8 @@ func (s *MapStorage) Set(id Index, queryInfoId int) {
 }
 
 func (s *MapStorage) Clear() {
-	clear(s.overlay)
+	// https://go101.org/optimizations/6-map.html
+	for key := range s.overlay {
+		delete(s.overlay, key)
+	}
 }

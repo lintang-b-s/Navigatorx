@@ -152,7 +152,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	copy(viaVertices, crpQuery.GetViaVertices())
 
 	ars.candidates = make([]*AlternativeRoute, 0, len(viaVertices))
-	viaVertices = removeDuplicates(viaVertices)
+	viaVertices = removeDuplicatesVias(viaVertices)
 
 	fInfo := crpQuery.GetForwardInfo()
 	bInfo := crpQuery.GetBackwardInfo()
@@ -383,7 +383,10 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			// parent_forward_search(u) is in plateau iff parent_forward_search(u) scanned in backward search
 
 			oki := da.Lt(pb.GetPriority(ps.Get(u).GetParent().GetEdge()), pkg.INF_WEIGHT)
-			if b := pb.Get(ps.Get(u).GetParent().GetEdge()); !oki && !b.IsScanned() {
+			if !oki {
+				break
+			}
+			if b := pb.Get(ps.Get(u).GetParent().GetEdge()); !b.IsScanned() {
 				// qParentOverlay -qShortcut-> qOverlay -vShortcut-> vOverlay
 				// u == vOverlay, ps.Get(u).GetParent().GetEdge() == qOverlay
 				// kalau qOverlay udah di scan di backward search kita bisa lanjut backtrack
@@ -413,7 +416,11 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			q = ars.engine.graph.GetTailOfOutedge(vExitId)
 
-			if b := pb.Get(offQExitId); !oki && !b.IsScanned() {
+			if !oki {
+				break
+			}
+
+			if b := pb.Get(offQExitId); !b.IsScanned() {
 				// kalau qInEdge udah di scan di backward search kita bisa lanjut backtrack
 				// else: vInEdge (atau u) adalah entryEdge pertama dari plateau path
 				break
@@ -450,7 +457,10 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			offQExitId := ars.engine.offsetBackward(q, qExitId, ars.engine.graph.GetCellNumber(q), sCellNumber)
 			oki := da.Lt(pb.GetPriority(offQExitId), pkg.INF_WEIGHT)
-			if b := pb.Get(offQExitId); !oki && !b.IsScanned() {
+			if !oki {
+				break
+			}
+			if b := pb.Get(offQExitId); !b.IsScanned() {
 				// kalau qOutEdge scanned di backward search, kita bisa lanjut backtrack
 				// else: vOverlay (atau u) adalah overlayVertex pertama dari plateau path
 
@@ -478,7 +488,10 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 	for u != tBackwardId {
 		if ars.engine.isOverlay(u) {
 			oki := da.Lt(ps.GetPriority(pb.Get(u).GetParent().GetEdge()), pkg.INF_WEIGHT)
-			if f := ps.Get(pb.Get(u).GetParent().GetEdge()); !oki && !f.IsScanned() {
+			if !oki {
+				break
+			}
+			if f := ps.Get(pb.Get(u).GetParent().GetEdge()); !f.IsScanned() {
 				// vOverlay -vShortcut-> qOverlay -qShortcut-> qParentOverlay
 				// u == vOverlay, pb.Get(u).GetParent().GetEdge() == qOverlay
 				// cek kalau qOverlay scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOverlay
@@ -506,7 +519,10 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			offQParentEntryId := ars.engine.offsetForward(qParent, qParentEntryId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
 			oki := da.Lt(ps.GetPriority(offQParentEntryId), pkg.INF_WEIGHT)
 
-			if f := ps.Get(offQParentEntryId); !oki && !f.IsScanned() {
+			if !oki {
+				break
+			}
+			if f := ps.Get(offQParentEntryId); !f.IsScanned() {
 				break
 			}
 		} else if !ars.engine.isOverlay(u) && ars.engine.isOverlay(pb.Get(u).GetParent().GetEdge()) {
@@ -538,7 +554,10 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			offQEntryId := ars.engine.offsetForward(q, qEntryId, ars.engine.graph.GetCellNumber(q), sCellNumber)
 			oki := da.Lt(ps.GetPriority(offQEntryId), pkg.INF_WEIGHT)
-			if f := ps.Get(offQEntryId); !oki && !f.IsScanned() {
+			if !oki {
+				break
+			}
+			if f := ps.Get(offQEntryId); !f.IsScanned() {
 				break
 			}
 		}

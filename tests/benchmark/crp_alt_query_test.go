@@ -1,4 +1,4 @@
-package main
+package benchmark
 
 import (
 	"flag"
@@ -10,19 +10,21 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"testing"
 	"time"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
-	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+
+	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var (
@@ -39,11 +41,11 @@ const (
 	landmarkFile     string = "./data/landmark.lm"
 )
 
-/*
-go run eval/crp_alt/alternative_routes/main.go
+type query struct {
+	s, t da.Index
+}
 
-*/
-func main() {
+func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		panic(err)
 	}
@@ -146,12 +148,8 @@ func main() {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := int(math.Pow(10, 4))
+	n := int(math.Pow(10, 6))
 	qset := make(map[uint64]struct{})
-
-	type query struct {
-		s, t da.Index
-	}
 
 	newQuery := func(s, t da.Index) query {
 		return query{
@@ -185,43 +183,50 @@ func main() {
 		i++
 	}
 
-	successRate := 0.0
-	stretch := 0.0
-	diversity := 0.0
-	runtime := 0.0
+	logger.Sugar().Infof("starting benchmark.....")
 
-	foundAltCount := 0
+	return re, queries, g, lm
+}
 
-	for i := 0; i < len(queries); i++ {
-		s := queries[i].s
-		t := queries[i].t
+/*
+cd tests/benchmark && go test -bench . -benchmem -cpuprofile prof.cpu -memprofile prof.mem -benchtime=120s
 
-		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), 1.3, 0.8, 0.3, 0.35, lm)
+[1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 
-		alts := altSearch.FindAlternativeRoutes(s, t, 4)
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkCRPALTQuery-12           113902           1288741 ns/op                 1.289 ms/op           776.0 ops/sec      120749 B/op        222 allocs/op
 
-		if (i+1)%100 == 0 {
-			fmt.Printf("processed %d queries\n", i+1)
-		}
-		runtime += float64(altSearch.GetRuntime())
+p2p query runtime match dengan hasil eksperimen ref [1], sekitar 1 ms
 
-		if len(alts) == 0 {
-			continue
-		}
+todo: reduce space alloc / op lagi
+ngaruh ke load test
+load test > 200 vus masih kalah sama osrm
+*/
+func BenchmarkCRPALTQuery(b *testing.B) {
+	re, queries, g, lm := setup()
+	start := time.Now()
 
-		stretch += altSearch.GetStretch()
-		diversity += altSearch.GetDiversity()
-		successRate += 1.0
-		foundAltCount++
+	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	n := len(queries)
+	for b.Loop() {
+		i := rd.Intn(n)
+		q := queries[i]
+
+		s := q.s
+		t := q.t
+
+		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
+		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
+
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		crpQuery.ShortestPathSearch(as, at)
 	}
 
-	successRate /= float64(len(queries))
-	stretch /= float64(foundAltCount)
-	diversity /= float64(foundAltCount)
-	runtime /= float64(len(queries))
+	now := time.Since(start)
+	msPerOp := float64(now.Milliseconds()) / float64(b.N)
+	throughput := float64(b.N) / b.Elapsed().Seconds()
 
-	fmt.Printf("success rate: %f\n", successRate)
-	fmt.Printf("stretch: %f\n", stretch)
-	fmt.Printf("diversity: %f\n", diversity)
-	fmt.Printf("runtime: %f ms\n", runtime)
+	b.ReportMetric(msPerOp, "ms/op")
+	b.ReportMetric(throughput, "ops/sec")
+
 }

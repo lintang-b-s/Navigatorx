@@ -164,6 +164,15 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 
 	lock := sync.Mutex{}
 
+	maxSearchSize := cst.GetGraph().NumberOfEdges()
+	maxEdgesInCell := cst.GetGraph().GetMaxEdgesInCell()
+
+	heapPool := sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE)
+		},
+	}
+
 	wg := sync.WaitGroup{}
 	for i := 0; i < k; i++ {
 		landmark := landmarks[i]
@@ -176,7 +185,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 			defer wg.Done()
 
 			crpQuery := NewDijkstra(cst.GetGraph(), m, false) // O((n+m)logn)
-			sps := crpQuery.ShortestPath(asl)
+			sps := crpQuery.ShortestPath(asl, &heapPool)
 
 			lock.Lock()
 			copy(lm.lw[il], sps)
@@ -189,7 +198,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 			crpQuery := NewDijkstra(cst.GetGraph(), m, true) // O((n+m)logn)
 			at := cst.GetGraph().GetEntryOffset(sidl) + cst.GetGraph().GetInDegree(sidl) - 1
 
-			sps := crpQuery.ShortestPath(at)
+			sps := crpQuery.ShortestPath(at, &heapPool)
 			lock.Lock()
 			for v := 0; v < n; v++ {
 				lm.vlw[v][il] = sps[v]

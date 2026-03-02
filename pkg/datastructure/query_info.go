@@ -65,7 +65,7 @@ func (ve VertexEdgePair) GetOutInEdgeId() Index {
 	return ve.outInEdgeId
 }
 
-type VertexInfo[T comparable] struct {
+type VertexInfo struct {
 	parent     VertexEdgePair // 13 byte
 	travelTime float64        // 8 byte
 	heapNodeId int            // 4 byte
@@ -73,46 +73,47 @@ type VertexInfo[T comparable] struct {
 	// total 26 byte
 }
 
-func NewVertexInfo[T comparable](travelTime float64, parent VertexEdgePair) VertexInfo[T] {
-	return VertexInfo[T]{
+func NewVertexInfo(travelTime float64, parent VertexEdgePair) VertexInfo {
+	return VertexInfo{
 		travelTime: travelTime,
 		parent:     parent,
 		heapNodeId: 0,
+		scanned:    false,
 	}
 }
 
-func (vi *VertexInfo[T]) GetTravelTime() float64 {
+func (vi *VertexInfo) GetTravelTime() float64 {
 	return vi.travelTime
 }
 
-func (vi *VertexInfo[T]) UpdateTravelTime(tt float64) {
+func (vi *VertexInfo) UpdateTravelTime(tt float64) {
 	vi.travelTime = tt
 }
 
-func (vi *VertexInfo[T]) UpdateParent(par VertexEdgePair) {
+func (vi *VertexInfo) UpdateParent(par VertexEdgePair) {
 	vi.parent = par
 }
 
-func (vi *VertexInfo[T]) SetHeapNodeId(id int) {
+func (vi *VertexInfo) SetHeapNodeId(id int) {
 	vi.heapNodeId = id
 }
 
-func (vi *VertexInfo[T]) GetHeapNodeId() int {
+func (vi *VertexInfo) GetHeapNodeId() int {
 	return vi.heapNodeId
 }
 
-func (vi *VertexInfo[T]) Scan() {
+func (vi *VertexInfo) Scan() {
 	vi.scanned = true
 }
 
-func (vi *VertexInfo[T]) IsScanned() bool {
+func (vi *VertexInfo) IsScanned() bool {
 	return vi.scanned
 }
 
-func (vi *VertexInfo[T]) SetFirstOverlayEntryExitId(id Index) {
+func (vi *VertexInfo) SetFirstOverlayEntryExitId(id Index) {
 	vi.parent.SetFirstOverlayEntryExitId(id)
 }
 
-func (vi VertexInfo[T]) GetParent() VertexEdgePair {
+func (vi VertexInfo) GetParent() VertexEdgePair {
 	return vi.parent
 }

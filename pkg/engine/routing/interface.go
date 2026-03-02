@@ -19,10 +19,8 @@ type Router interface {
 	ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate,
 		[]datastructure.OutEdge, bool)
 	GetViaVertices() []da.ViaVertex
-	GetForwardInfo() da.VertexInfo[da.CRPQueryKey]
-	GetBackwardInfo() da.VertexInfo[da.CRPQueryKey]
+	GetForwardInfo() da.VertexInfo
+	GetBackwardInfo() da.VertexInfo
 	GetSCellNumber() da.Pv
 	GetNumScannedNodes() int
 }
-
-

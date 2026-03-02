@@ -8,7 +8,7 @@ import (
 type Dijkstra struct {
 	engine *CRPRoutingEngine
 
-	finalDist           []da.VertexInfo[da.CRPQueryKey]
+	finalDist           []da.VertexInfo
 	finalEdge           []da.Index
 	shortestTravelTimes []float64
 
@@ -20,7 +20,7 @@ type Dijkstra struct {
 func NewDijkstra(engine *CRPRoutingEngine) Dijkstra {
 	dj := Dijkstra{
 		engine:              engine,
-		finalDist:           make([]da.VertexInfo[da.CRPQueryKey], 0),
+		finalDist:           make([]da.VertexInfo, 0),
 		numSettledNodes:     0,
 		shortestTravelTimes: make([]float64, 0),
 	}
@@ -36,7 +36,7 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 	// for iterating outEdges, we need entryOffset.
 	sForwardId := us.engine.graph.GetEntryOffset(s) + da.Index(us.engine.graph.GetOutEdge(asId).GetEntryPoint())
 
-	sVertexInfo := da.NewVertexInfo[da.CRPQueryKey](0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
 	djKey := da.NewDijkstraKey(s, sForwardId)
 	us.pq.Insert(sForwardId, 0, sVertexInfo, djKey)
@@ -148,7 +148,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 
 		} else if !vAlreadyLabelled {
 			queryKey := da.NewDijkstraKey(vId, vEntryId)
-			vertexInfo := da.NewVertexInfo[da.CRPQueryKey](newTravelTime, da.NewVertexEdgePair(uId, uEntryId, false))
+			vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, uEntryId, false))
 
 			// is key not in the priority queue, insert it
 			us.pq.Insert(vEntryId, newTravelTime, vertexInfo, queryKey)
@@ -162,7 +162,7 @@ func (us *Dijkstra) Preallocate() {
 	numberOfEdges := us.engine.graph.NumberOfEdges()
 	maxSearchSize := numberOfEdges
 	numberOfVerties := us.engine.graph.NumberOfVertices()
-	us.finalDist = make([]da.VertexInfo[da.CRPQueryKey], numberOfVerties)
+	us.finalDist = make([]da.VertexInfo, numberOfVerties)
 	us.finalEdge = make([]da.Index, numberOfVerties)
 	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
 	us.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE)

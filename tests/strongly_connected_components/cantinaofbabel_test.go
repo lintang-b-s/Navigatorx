@@ -16,7 +16,7 @@ import (
 /*
 
 taken from: https://cs.baylor.edu/~hamerly/icpc/qualifier_2015/problemset-naq-2015.pdf
-Problem C: Cantina of Babe
+Problem C: Cantina of Babel
 
 test data: https://cs.baylor.edu/~hamerly/icpc/qualifier_2015/naq15-data.zip
 */

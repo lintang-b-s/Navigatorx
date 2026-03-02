@@ -1,6 +1,8 @@
 package landmark
 
 import (
+	"sync"
+
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -31,14 +33,18 @@ func NewDijkstra(graph *da.Graph, metrics *met.Metric, useReverseGraph bool) *Di
 		shortestTravelTimes: make([]float64, 0),
 		metrics:             metrics,
 	}
-	maxSearchSize := graph.NumberOfEdges()
-	maxEdgesInCell := graph.GetMaxEdgesInCell()
 
-	dj.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE)
 	return dj
 }
 
-func (us *Dijkstra) ShortestPath(asId da.Index) []float64 {
+func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
+	us.pq = heapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
+	us.pq.Clear()
+
+	done := func() {
+		heapPool.Put(us.pq)
+	}
+	defer done()
 
 	s := da.Index(0)
 	sForwardId := da.Index(0)
@@ -59,7 +65,7 @@ func (us *Dijkstra) ShortestPath(asId da.Index) []float64 {
 
 	noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
-	us.pq.Insert(sForwardId, 0, da.NewVertexInfo[da.CRPQueryKey](0,
+	us.pq.Insert(sForwardId, 0, da.NewVertexInfo(0,
 		noPar), da.NewDijkstraKey(s, sForwardId))
 
 	for !us.pq.IsEmpty() {
@@ -147,7 +153,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 				// is key not in the priority queue, insert it
 
 				us.pq.Insert(vEntryId, newArrTime,
-					da.NewVertexInfo[da.CRPQueryKey](newArrTime, noPar), da.NewDijkstraKey(vId, vEntryId))
+					da.NewVertexInfo(newArrTime, noPar), da.NewDijkstraKey(vId, vEntryId))
 			}
 
 		})
@@ -195,7 +201,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			} else if !vAlreadyLabelled {
 				// is key not in the priority queue, insert it
 
-				us.pq.Insert(vExitId, newArrTime, da.NewVertexInfo[da.CRPQueryKey](newArrTime, noPar),
+				us.pq.Insert(vExitId, newArrTime, da.NewVertexInfo(newArrTime, noPar),
 					da.NewDijkstraKey(vId, vExitId))
 			}
 
@@ -205,6 +211,6 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 func initInfWeightVertexInfo(vs []float64) {
 	for i := range vs {
-		vs[i] = pkg.INF_WEIGHT
+		vs[i] = 2 * pkg.INF_WEIGHT
 	}
 }

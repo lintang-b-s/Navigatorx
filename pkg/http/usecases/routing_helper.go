@@ -64,6 +64,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, ds
 		sortedDest[i] = dstCandidates[newId]
 	}
 
+	// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 	for _, o := range sortedOrig {
 		for _, d := range sortedDest {
 			if rs.engine.VerticeUandVAreConnected(o.GetTailId(), d.GetHeadId()) {

@@ -43,8 +43,8 @@ func NewCRPQueryKeyWithOutInEdgeId(node, entryExitPoint, outInEdgeId Index) CRPQ
 }
 
 type PriorityQueueNode[T comparable] struct {
-	rank        float64 // 8 byte
 	item        T       // max pake crpQueryKey  13 byte
+	rank        float64 // 8 byte
 	queryInfoId int
 	// total 21 byte
 }
@@ -157,7 +157,7 @@ func (h *DAryHeap[T]) Size() int {
 }
 
 func (h *DAryHeap[T]) Clear() {
-	h.heap = make([]PriorityQueueNode[T], 0)
+	h.heap = h.heap[:0] //  buat slice length jadi 0, tapi capacity tetep sama
 }
 
 // getMin mendapatkan nilai minimum dari min-heap (index 0)

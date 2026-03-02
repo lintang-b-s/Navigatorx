@@ -9,38 +9,41 @@ import (
 
 type QueryHeap[T comparable] struct {
 	heap       *DAryHeap[T]     // 4-ary minheap
-	queryInfos []VertexInfo[T]  // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array), scanned dari node. node bisa berupa edgeId/overlayVertexId dari graph. ingat, this crp query impl. support turn costs
+	queryInfos []VertexInfo     // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array), scanned dari node. node bisa berupa edgeId/overlayVertexId dari graph. ingat, this crp query impl. support turn costs
 	storage    QueryInfoStorage // map dari edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
 }
 
 func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStorageType) *QueryHeap[T] {
+
+	minHeap := NewFourAryHeap[T]()
+	allocateHeapCapacity := int(maxEdgesInCell)*2 + OVERLAY_INFO_SIZE
+	minHeap.Preallocate(allocateHeapCapacity)
 	switch tipe {
 	case TWO_LEVEL_STORAGE:
 		return &QueryHeap[T]{
-			heap:       NewFourAryHeap[T](),
-			queryInfos: make([]VertexInfo[T], 0),
+			heap:       minHeap,
+			queryInfos: make([]VertexInfo, 0, baseSize),
 			storage:    NewTwoLevelStorage(baseSize, maxEdgesInCell),
 		}
 	case ARRAY_STORAGE:
 		return &QueryHeap[T]{
-			heap:       NewFourAryHeap[T](),
-			queryInfos: make([]VertexInfo[T], 0),
+			heap:       minHeap,
+			queryInfos: make([]VertexInfo, 0, baseSize),
 			storage:    NewArrayStorage(baseSize),
 		}
 	case MAP_STORAGE:
 		return &QueryHeap[T]{
-			heap:       NewFourAryHeap[T](),
-			queryInfos: make([]VertexInfo[T], 0),
+			heap:       minHeap,
+			queryInfos: make([]VertexInfo, 0, baseSize),
 			storage:    NewMapStorage(baseSize),
 		}
 	default:
 		return &QueryHeap[T]{
-			heap:       NewFourAryHeap[T](),
-			queryInfos: make([]VertexInfo[T], 0),
+			heap:       minHeap,
+			queryInfos: make([]VertexInfo, 0, baseSize),
 			storage:    NewTwoLevelStorage(baseSize, maxEdgesInCell),
 		}
 	}
-
 }
 
 // updatePosition. buat update heapNodeId dari queryInfo (dipake pas heapifyUp dan heapifyDown)
@@ -50,7 +53,7 @@ func (qh *QueryHeap[T]) updatePosition(queryInfoId, newHeapNodeId int) {
 
 // Insert. insert node ke priority queue
 // node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
-func (qh *QueryHeap[T]) Insert(id Index, priority float64, vInfo VertexInfo[T], queryKey T) {
+func (qh *QueryHeap[T]) Insert(id Index, priority float64, vInfo VertexInfo, queryKey T) {
 	newQueryInfoid := len(qh.queryInfos)
 
 	qh.queryInfos = append(qh.queryInfos, vInfo)
@@ -94,13 +97,13 @@ func (qh *QueryHeap[T]) GetPriority(id Index) float64 {
 // dipake karena queryheap reussable objects (routing engine pakai sync.Pool)
 func (qh *QueryHeap[T]) Clear() {
 	qh.storage.Clear()
-	qh.queryInfos = make([]VertexInfo[T], 0)
-	qh.heap = NewFourAryHeap[T]()
+	qh.queryInfos = qh.queryInfos[:0] //  buat slice length jadi 0, tapi capacity tetep sama
+	qh.heap.Clear()
 }
 
 // Get. get queryInfo dari node
 // node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
-func (qh *QueryHeap[T]) Get(id Index) VertexInfo[T] {
+func (qh *QueryHeap[T]) Get(id Index) VertexInfo {
 	qInfoId := qh.storage.Get(id)
 
 	return qh.queryInfos[qInfoId]
@@ -132,7 +135,7 @@ func (qh *QueryHeap[T]) SetFirstOverlayEntryExitId(id Index, firstEntryExitId In
 	qh.queryInfos[qInfoId].SetFirstOverlayEntryExitId(firstEntryExitId)
 }
 
-func (qh *QueryHeap[T]) Set(id Index, vInfo VertexInfo[T], queryKey T) {
+func (qh *QueryHeap[T]) Set(id Index, vInfo VertexInfo, queryKey T) {
 	newQueryInfoid := len(qh.queryInfos)
 
 	qh.queryInfos = append(qh.queryInfos, vInfo)
@@ -150,5 +153,8 @@ func (qh *QueryHeap[T]) SetQueryLevel(id Index, qLevel uint8) {
 
 func (qh *QueryHeap[T]) IsScanned(id Index) bool {
 	qInfoId := qh.storage.Get(id)
+	if qInfoId == math.MaxInt {
+		return false
+	}
 	return qh.queryInfos[qInfoId].IsScanned()
 }

@@ -39,3 +39,7 @@ dataori/
 pprof_cheatsheet.txt
 navigatorx-cpu-profile
 navigatorx-heap
+navigatorx-cpu-profile2
+*.cpu
+*.mem
+benchmark.test
