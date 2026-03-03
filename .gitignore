@@ -43,3 +43,4 @@ navigatorx-cpu-profile2
 *.cpu
 *.mem
 benchmark.test
+navigatorx*

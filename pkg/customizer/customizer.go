@@ -104,6 +104,19 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 
 	var m *metrics.Metric
 	costFunction := costfunction.NewTimeCostFunctionEmpty()
+	maxEdgesInCell := c.graph.GetMaxEdgesInCell()
+
+	c.lowestHeapPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell), int(maxEdgesInCell), da.ARRAY_STORAGE)
+		},
+	}
+
+	c.levelHeapPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.Index](int(da.OVERLAY_INFO_SIZE), int(maxEdgesInCell), da.MAP_STORAGE)
+		},
+	}
 
 	c.Build(costFunction)
 	c.logger.Sugar().Infof("Building stalling tables...")

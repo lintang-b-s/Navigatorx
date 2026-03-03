@@ -23,10 +23,12 @@ const queryData = new SharedArray("queries", function () {
 
 export const options = {
   stages: [
-    { duration: "1m", target: 300 },
-    { duration: "30s", target: 300 },
+    { duration: "20s", target: 300 },
+    { duration: "10s", target: 300 },
   ],
 };
+
+// todo: kurangi call GetPriority di overlay graph search..
 
 export default () => {
   const randomQuery = queryData[Math.floor(Math.random() * queryData.length)];

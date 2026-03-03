@@ -153,7 +153,7 @@ func (qh *QueryHeap[T]) SetQueryLevel(id Index, qLevel uint8) {
 
 func (qh *QueryHeap[T]) IsScanned(id Index) bool {
 	qInfoId := qh.storage.Get(id)
-	if qInfoId == math.MaxInt {
+	if qInfoId == math.MaxInt { // belum ke label & ke scan
 		return false
 	}
 	return qh.queryInfos[qInfoId].IsScanned()

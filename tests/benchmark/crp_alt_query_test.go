@@ -198,7 +198,7 @@ BenchmarkCRPALTQuery-12           113902           1288741 ns/op                
 
 p2p query runtime match dengan hasil eksperimen ref [1], sekitar 1 ms
 
-todo: reduce space alloc / op lagi
+todo: reduce memory space alloc / op lagi
 ngaruh ke load test
 load test > 200 vus masih kalah sama osrm
 */
