@@ -98,7 +98,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
-		graph, logger,
+		graph, logger, true,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -194,7 +194,7 @@ cd tests/benchmark && go test -bench . -benchmem -cpuprofile prof.cpu -memprofil
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
-BenchmarkCRPALTQuery-12           113902           1288741 ns/op                 1.289 ms/op           776.0 ops/sec      120749 B/op        222 allocs/op
+BenchmarkCRPALTQuery-12           115634           1235790 ns/op                 1.236 ms/op           809.2 ops/sec      122300 B/op        224 allocs/op
 
 p2p query runtime match dengan hasil eksperimen ref [1], sekitar 1 ms
 

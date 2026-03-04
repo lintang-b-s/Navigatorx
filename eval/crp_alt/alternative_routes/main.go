@@ -41,7 +41,6 @@ const (
 
 /*
 go run eval/crp_alt/alternative_routes/main.go
-
 */
 func main() {
 	if err := os.MkdirAll("./data", 0755); err != nil {
@@ -96,7 +95,7 @@ func main() {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
-		graph, logger,
+		graph, logger, true,
 	)
 
 	mp.RunMultilevelPartitioning()

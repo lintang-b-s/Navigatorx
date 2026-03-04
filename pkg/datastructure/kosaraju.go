@@ -1,8 +1,6 @@
 package datastructure
 
 import (
-	"math"
-
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -32,13 +30,7 @@ func (g *Graph) RunKosaraju() {
 			component := make([]Index, 0, 10)
 			g.dfs(v, &component, visited, true)
 			components = append(components, component)
-			root := Index(math.MaxInt32)
-			for _, node := range component {
-				if node < root {
-					root = node
-				}
-			}
-
+			root := v
 			for _, node := range component {
 				roots[node] = root
 			}
@@ -51,6 +43,7 @@ func (g *Graph) RunKosaraju() {
 			sccs[v] = Index(i)
 		}
 	}
+
 	g.SetSCCs(sccs)
 
 	condAdj := make([][]Index, n)

@@ -2,9 +2,12 @@ package partitioner
 
 import (
 	"container/list"
+	"math"
 	"sync"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"go.uber.org/zap"
 )
 
@@ -15,9 +18,11 @@ type RecursiveBisection struct {
 	partitionCount  int
 	logger          *zap.Logger
 	mu              sync.Mutex
+	k               float64
+	unitCapacity    bool
 }
 
-func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logger *zap.Logger,
+func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logger *zap.Logger, k int, unitCapacity bool,
 ) *RecursiveBisection {
 	finalPartitions := make([]int, graph.NumberOfVertices())
 	for i := range finalPartitions {
@@ -29,6 +34,8 @@ func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logg
 		finalPartition:  finalPartitions,
 		partitionCount:  0,
 		logger:          logger,
+		k:               float64(k),
+		unitCapacity:    unitCapacity,
 	}
 }
 
@@ -54,14 +61,37 @@ func (rb *RecursiveBisection) Partition(initialNodeIds []datastructure.Index) {
 		return
 	}
 
+	
+
+	type bisectionRes struct {
+		partOne, partTwo *da.PartitionGraph
+	}
+
+	NewBisectionRes := func(partOne, partTwo *da.PartitionGraph) bisectionRes {
+		return bisectionRes{partOne: partOne, partTwo: partTwo}
+	}
+
+	n := len(initialNodeIds)
+	worstCaseNumOfOps := n - rb.maximumCellSize + 1 // m=number of vertices in current partition graph. worst case ketika hasil partisi setiap computeIflow = (m-1, 1).....
+	wpInertialFlow := concurrent.NewWorkerPool[*da.PartitionGraph, bisectionRes](BISECTION_WORKERS, worstCaseNumOfOps)
+	computeIflow := func(pg *da.PartitionGraph) bisectionRes {
+		iflow := NewInertialFlow(pg)
+		cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE)
+		partOne, partTwo := rb.applyBisection(cut, pg)
+		return NewBisectionRes(partOne, partTwo)
+	}
+
+	wpInertialFlow.Start(computeIflow)
+	wpInertialFlow.Wait()
+
 	for queue.Len() > 0 {
 		curPartitionGraph := queue.Remove(queue.Front()).(*datastructure.PartitionGraph)
 
-		iflow := NewInertialFlow(curPartitionGraph)
-		cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE)
+		wpInertialFlow.AddJob(curPartitionGraph)
 
-		partOne, partTwo := rb.applyBisection(cut, curPartitionGraph)
-
+		res := <-wpInertialFlow.CollectResults()
+		partOne := res.partOne
+		partTwo := res.partTwo
 		if !tooSmall(partOne.NumberOfVertices()) {
 			queue.PushBack(partOne)
 		} else {
@@ -73,6 +103,8 @@ func (rb *RecursiveBisection) Partition(initialNodeIds []datastructure.Index) {
 			rb.assignFinalPartition(partTwo)
 		}
 	}
+
+	wpInertialFlow.Close()
 }
 
 func (rb *RecursiveBisection) applyBisection(cut *MinCut, graph *datastructure.PartitionGraph) (*datastructure.PartitionGraph, *datastructure.PartitionGraph) {
@@ -120,14 +152,23 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, graph *datastructure.P
 				return
 			}
 			u := uVertex.GetID()
+			eWeight := int64(1)
+			if rb.unitCapacity {
+				eWeight = 1
+			} else if da.Eq(e.GetWeight(), 0) {
+				eWeight = 1
+			} else {
+				eWeight = int64(e.GetWeight() * math.Pow(10, rb.k))
+			}
+
 			if cut.GetFlag(u) && cut.GetFlag(v) {
 				uPartOne := partOneMap[u]
 				vPartOne := partOneMap[v]
-				partitionOne.AddEdge(uPartOne, vPartOne, 1, false)
+				partitionOne.AddEdge(uPartOne, vPartOne, eWeight, false)
 			} else if !cut.GetFlag(u) && !cut.GetFlag(v) {
 				uPartTwo := partTwoMap[u]
 				vPartTwo := partTwoMap[v]
-				partitionTwo.AddEdge(uPartTwo, vPartTwo, 1, false)
+				partitionTwo.AddEdge(uPartTwo, vPartTwo, eWeight, false)
 			}
 		})
 	}
@@ -168,7 +209,16 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 				// skip arc that have endpoint outside current cell
 				return
 			}
-			pg.AddEdge(newMapVid[vId], newMapVid[e.GetHead()], 1, false)
+
+			eWeight := int64(1)
+			if rb.unitCapacity {
+				eWeight = 1
+			} else if da.Eq(e.GetWeight(), 0) {
+				eWeight = 1
+			} else {
+				eWeight = int64(e.GetWeight() * math.Pow(10, rb.k))
+			}
+			pg.AddEdge(newMapVid[vId], newMapVid[e.GetHead()], eWeight, false)
 		})
 	}
 

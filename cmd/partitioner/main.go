@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
@@ -23,6 +24,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	now := time.Now()
 	osmParser := osmparser.NewOSMParserV2()
 
 	graph, err := osmParser.Parse(fmt.Sprintf("./data/%s", *osmFile), logger, false)
@@ -44,12 +46,16 @@ func main() {
 		ps,
 		len(ps),
 		graph, logger,
-	)
-	
+		true,
+	) // i recommend u to use unit-capacity, because it faster, less shorctuts created, faster p2p query runtime
+
 	mp.RunMultilevelPartitioning()
 
 	err = mp.SaveToFile(*mlpFile)
 	if err != nil {
 		panic(err)
 	}
+
+	duration := time.Now().Sub(now)
+	logger.Sugar().Infof("done partitioning... time taken: %v s", duration.Seconds())
 }

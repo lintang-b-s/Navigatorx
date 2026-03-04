@@ -249,7 +249,7 @@ func newActiveLandmark(i da.Index, lb float64) activeLandmark {
 }
 
 const (
-	activeLandmarkSize = 2
+	activeLandmarkSize = 4
 )
 
 /*

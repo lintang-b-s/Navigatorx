@@ -37,6 +37,9 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 
 	p.overlayGraph = datastructure.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")
+	for l := p.overlayGraph.GetLevelInfo().GetLevelCount(); l >= 1; l-- {
+		p.logger.Sugar().Infof("overlay graph level %v: number of overlay vertices %v", l, p.overlayGraph.NumberOfVerticesInLevel(l))
+	}
 
 	p.logger.Sugar().Infof("Running Kosaraju's algorithm to find strongly connected components (SCCs)...")
 	p.graph.RunKosaraju()

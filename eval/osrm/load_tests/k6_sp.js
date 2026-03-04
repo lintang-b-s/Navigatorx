@@ -23,8 +23,8 @@ const queryData = new SharedArray("queries", function () {
 
 export const options = {
   stages: [
-    { duration: "1m", target: 900 },
-    { duration: "30s", target: 900 },
+    { duration: "20s", target: 1000 },
+    { duration: "10s", target: 1000 },
   ],
 };
 

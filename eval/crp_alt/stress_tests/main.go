@@ -70,7 +70,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	err = util.ReadConfig()
 	if err != nil {
 		panic(err)
@@ -117,7 +117,7 @@ func main() {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
-		graph, logger,
+		graph, logger, true,
 	)
 
 	mp.RunMultilevelPartitioning()

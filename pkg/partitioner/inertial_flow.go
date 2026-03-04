@@ -10,20 +10,11 @@ import (
 )
 
 type minCutJob struct {
-	slope    float64
-	diagonal bool
-	line     []float64
+	line []float64
 }
 
-func newMinCutJob(slope float64, diagonal bool, line []float64) minCutJob {
-	return minCutJob{slope: slope, diagonal: diagonal, line: line}
-}
-func (mj minCutJob) GetSlope() float64 {
-	return mj.slope
-}
-
-func (mj minCutJob) isDiagonal() bool {
-	return mj.diagonal
+func newMinCutJob(line []float64) minCutJob {
+	return minCutJob{line: line}
 }
 
 func (mj minCutJob) getLine() []float64 {
@@ -48,7 +39,13 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 		bestNumberOfMinCutEdges         = math.MaxInt
 	)
 
-	wpInertialFlow := concurrent.NewWorkerPool[minCutJob, *MinCut](5, 20)
+	n := inf.graph.NumberOfVertices()
+	iterations := INERTIAL_FLOW_ITERATION
+	if n >= 100000 {
+		iterations = INERTIAL_FLOW_ITERATION_LARGE_GRAPH
+	}
+
+	wpInertialFlow := concurrent.NewWorkerPool[minCutJob, *MinCut](INERTIAL_FLOW_WORKERS, iterations+2)
 
 	balanceDelta := func(numPartTwoNodes int, numberOfVertices int) int {
 		diff := numberOfVertices/2 - numPartTwoNodes
@@ -58,29 +55,22 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 		return diff
 	}
 
-	for i := 0; i < INERTIAL_FLOW_ITERATION; i++ {
-		slope := -1 + float64(i)*(2.0/INERTIAL_FLOW_ITERATION)
-		wpInertialFlow.AddJob(newMinCutJob(slope, false, []float64{}))
+	for i := 0; i < iterations; i++ {
+		slope := -1 + float64(i)*float64(2/iterations) // direction vectors (-1,0), ....., (0, 1)
+		wpInertialFlow.AddJob(newMinCutJob([]float64{slope, (1 - math.Abs(slope))}))
 	}
 
-	wpInertialFlow.AddJob(newMinCutJob(0, true, []float64{1, 0}))
-	wpInertialFlow.AddJob(newMinCutJob(0, true, []float64{0, 1}))
-	wpInertialFlow.AddJob(newMinCutJob(0, true, []float64{1, 1}))
-	wpInertialFlow.AddJob(newMinCutJob(0, true, []float64{1, -1}))
-	wpInertialFlow.AddJob(newMinCutJob(0, true, []float64{-1, 1}))
+	wpInertialFlow.AddJob(newMinCutJob([]float64{1, 1}))
+	wpInertialFlow.AddJob(newMinCutJob([]float64{-1, 1}))
 
 	computeMinCut := func(input minCutJob) *MinCut {
-		slope := input.GetSlope()
-		dn := NewDinicMaxFlow(inf.getPartitionGraph().Clone(), false)
+		dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true)
 		var (
 			sources []datastructure.Index
 			sinks   []datastructure.Index
 		)
-		if !input.isDiagonal() {
-			sources, sinks = dn.sortVerticesByLineProjection(slope, sourceSinkRate)
-		} else {
-			sources, sinks = dn.sortVerticesByLineDiagonalProjection(input.getLine(), sourceSinkRate)
-		}
+
+		sources, sinks = dn.sortVerticesByOrthoProjection(input.getLine(), sourceSinkRate)
 
 		s, t := dn.createArtificialSourceSink(sources, sinks)
 		return dn.ComputeMaxflowMinCut(s, t)
@@ -92,38 +82,39 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 
 	numberOfVertices := inf.graph.NumberOfVertices()
 	for minCut := range wpInertialFlow.CollectResults() {
-		if minCut.GetMinCut() < bestNumberOfMinCutEdges ||
-			(best.GetMinCut() == minCut.GetMinCut() &&
+
+		if minCut.GetNumOfCutEdges() < bestNumberOfMinCutEdges ||
+			(bestNumberOfMinCutEdges == minCut.GetNumOfCutEdges() &&
 				balanceDelta(minCut.GetNumNodesInPartitionTwo(),
 					numberOfVertices) < balanceDelta(best.GetNumNodesInPartitionTwo(),
 					numberOfVertices)) {
 			best = minCut
-			bestNumberOfMinCutEdges = minCut.GetMinCut()
+			bestNumberOfMinCutEdges = minCut.GetNumOfCutEdges()
 		}
 	}
 
 	return best
 }
 
-func (dn *DinicMaxFlow) sortVerticesByLineProjection(slope, ratio float64) ([]datastructure.Index, []datastructure.Index) {
+func (dn *DinicMaxFlow) sortVerticesByOrthoProjection(l []float64, ratio float64) ([]datastructure.Index, []datastructure.Index) {
 
 	vertices := dn.graph.GetVertices()
 
 	type item struct {
 		idx        int
-		projection float64
+		dotProduct float64
 	}
 	n := len(vertices)
 
 	items := make([]item, n)
 	for i, v := range vertices {
 		lat, lon := v.GetVertexCoordinate()
-		proj := slope*lon + (1.0-math.Abs(slope))*lat
-		items[i] = item{idx: i, projection: proj}
+		proj := dot(lon, lat, l[0], l[1])
+		items[i] = item{idx: i, dotProduct: proj}
 	}
 
 	sort.Slice(items, func(i, j int) bool {
-		return items[i].projection < items[j].projection
+		return items[i].dotProduct < items[j].dotProduct
 	})
 
 	endpointsLength := int(float64(n) * ratio)
@@ -137,51 +128,24 @@ func (dn *DinicMaxFlow) sortVerticesByLineProjection(slope, ratio float64) ([]da
 	return sourceNodes, sinkNodes
 }
 
-func (dn *DinicMaxFlow) sortVerticesByLineDiagonalProjection(line []float64, ratio float64) ([]datastructure.Index, []datastructure.Index) {
-
-	vertices := dn.graph.GetVertices()
-
-	type item struct {
-		idx        int
-		projection float64
-	}
-	n := len(vertices)
-
-	items := make([]item, n)
-	for i, v := range vertices {
-		lat, lon := v.GetVertexCoordinate()
-		proj := line[0]*lon + line[1]*lat
-		items[i] = item{idx: i, projection: proj}
-	}
-
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].projection < items[j].projection
-	})
-
-	endpointsLength := int(float64(n) * ratio)
-	sourceNodes := make([]datastructure.Index, 0, endpointsLength)
-	sinkNodes := make([]datastructure.Index, 0, endpointsLength)
-
-	for i := 0; i < endpointsLength; i++ {
-		sourceNodes = append(sourceNodes, vertices[items[i].idx].GetID())
-		sinkNodes = append(sinkNodes, vertices[items[n-1-i].idx].GetID())
-	}
-	return sourceNodes, sinkNodes
+func dot(x1, y1, x2, y2 float64) float64 {
+	return x1*x2 + y1*y2
 }
 
-func (ek *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []datastructure.Index) (datastructure.Index, datastructure.Index) {
-	artificialSource := datastructure.Index(ek.graph.NumberOfVertices())
-	artificialSink := datastructure.Index(ek.graph.NumberOfVertices() + 1)
+func (dn *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []datastructure.Index) (datastructure.Index, datastructure.Index) {
+	artificialSource := datastructure.Index(dn.graph.NumberOfVertices())
+	artificialSink := datastructure.Index(dn.graph.NumberOfVertices() + 1)
 
-	ek.graph.AddVertex(datastructure.NewPartitionVertex(artificialSource, datastructure.Index(ARTIFICIAL_SOURCE_ID), 0.0, 0.0))
-	ek.graph.AddVertex(datastructure.NewPartitionVertex(artificialSink, datastructure.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
+	dn.AddArtificialVertex(datastructure.NewPartitionVertex(artificialSource, datastructure.Index(ARTIFICIAL_SOURCE_ID), 0.0, 0.0))
+	dn.AddArtificialVertex(datastructure.NewPartitionVertex(artificialSink, datastructure.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
 
 	for _, s := range sourceNodes {
-		ek.graph.AddEdge(artificialSource, s, pkg.INF_WEIGHT_INT, false)
+		dn.AddArtificialEdge(artificialSource, s, pkg.INF_WEIGHT_INT, false)
 	}
 
 	for _, t := range sinkNodes {
-		ek.graph.AddEdge(t, artificialSink, pkg.INF_WEIGHT_INT, false)
+		dn.AddSinks(t)
+		dn.AddArtificialEdge(t, artificialSink, pkg.INF_WEIGHT_INT, false)
 	}
 	return artificialSource, artificialSink
 }

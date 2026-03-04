@@ -24,7 +24,6 @@ func Fields(s string) []string {
 	return strings.Fields(s)
 }
 
-
 func GetCurrentSeconds() float64 {
 	now := time.Now()
 	hour := now.Hour()
@@ -151,8 +150,14 @@ func MinInt(a, b int) int {
 	return b
 }
 
+func MinInt64(a, b int64) int64 {
+	if a < b {
+		return a
+	}
+	return b
+}
 
-func MaxInt(a, b int) int {
+func MaxInt(a, b int64) int64 {
 	if a > b {
 		return a
 	}

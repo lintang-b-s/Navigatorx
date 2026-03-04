@@ -110,37 +110,31 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 			inVId := da.Index(i*C + j)
 			outVId := da.Index(R*C + i*C + j)
 
-			dg.AddEdge(inVId, outVId, kingdom[i][j], true)
+			dg.AddEdge(inVId, outVId, int64(kingdom[i][j]), true)
 
 			if i+1 <= R-1 {
 				bawahInVid := da.Index((i+1)*C + j)
-				dg.AddEdge(outVId, bawahInVid, kingdom[i+1][j], true)
+				dg.AddEdge(outVId, bawahInVid, int64(kingdom[i+1][j]), true)
 			}
 
 			if j+1 <= C-1 {
 				kananVId := da.Index((i)*C + (j + 1))
-				dg.AddEdge(outVId, kananVId, kingdom[i][(j+1)], true)
+				dg.AddEdge(outVId, kananVId, int64(kingdom[i][(j+1)]), true)
 			}
 
 			if i-1 >= 0 {
 				atasVId := da.Index((i-1)*C + j)
-				dg.AddEdge(outVId, atasVId, kingdom[i-1][j], true)
+				dg.AddEdge(outVId, atasVId, int64(kingdom[i-1][j]), true)
 			}
 
 			if j-1 >= 0 {
 				kiriVId := da.Index(i*C + (j - 1))
-				dg.AddEdge(outVId, kiriVId, kingdom[i][j-1], true)
+				dg.AddEdge(outVId, kiriVId, int64(kingdom[i][j-1]), true)
 			}
 		}
 	}
 
 	// dari posisi enemies ke border army kerajaan
-
-	// karena multi-sources kita harus tambah artificial source, dan tambahkan edges dari supersource ke semua sources degnan INF weight
-	superSource := da.Index(R*C + R*C + C + R + R + C)
-
-	dg.AddVertex(da.NewPartitionVertex(superSource, superSource, 0, 0))
-
 	// atas
 	for k := 1; k <= C; k++ {
 		musuhVId := da.Index(R*C + R*C + k)
@@ -148,7 +142,6 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 
 		pasukanAtasInVId := da.Index(k)
 		dg.AddEdge(musuhVId, pasukanAtasInVId, INF, true)
-		dg.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	// bawah
@@ -158,7 +151,6 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 
 		pasukanBawahInVId := da.Index((R-1)*C + k)
 		dg.AddEdge(musuhVId, pasukanBawahInVId, INF, true)
-		dg.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	// kiri
@@ -168,7 +160,6 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 
 		pasukanKiriInVId := da.Index(k*C + 0)
 		dg.AddEdge(musuhVId, pasukanKiriInVId, INF, true)
-		dg.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	// kanan
@@ -178,7 +169,41 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 
 		pasukanKananInVId := da.Index(k*C + (C - 1))
 		dg.AddEdge(musuhVId, pasukanKananInVId, INF, true)
-		dg.AddEdge(superSource, musuhVId, INF, true)
+	}
+
+	dinic := partitioner.NewDinicMaxFlow(dg, false, true)
+
+	// karena multi-sources kita harus tambah artificial source, dan tambahkan edges dari supersource ke semua sources degnan INF weight
+	superSource := da.Index(R*C + R*C + C + R + R + C)
+
+	dinic.AddArtificialVertex(da.NewPartitionVertex(superSource, superSource, 0, 0))
+
+	// atas
+	for k := 1; k <= C; k++ {
+		musuhVId := da.Index(R*C + R*C + k)
+
+		dinic.AddArtificialEdge(superSource, musuhVId, INF, true)
+	}
+
+	// bawah
+	for k := 1; k <= C; k++ {
+		musuhVId := da.Index(R*C + R*C + C + R + R + k)
+
+		dinic.AddArtificialEdge(superSource, musuhVId, INF, true)
+	}
+
+	// kiri
+	for k := 1; k <= R; k++ {
+		musuhVId := da.Index(R*C + R*C + C + k)
+
+		dinic.AddArtificialEdge(superSource, musuhVId, INF, true)
+	}
+
+	// kanan
+	for k := 1; k <= R; k++ {
+		musuhVId := da.Index(R*C + R*C + C + R + k)
+
+		dinic.AddArtificialEdge(superSource, musuhVId, INF, true)
 	}
 
 	line, err = readLine(br)
@@ -197,10 +222,9 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	}
 
 	castleOutVId := da.Index(R*C + (castlei*C + castlej))
-	dinic := partitioner.NewDinicMaxFlow(dg, false)
 	mf := dinic.ComputeMaxflowMinCut(superSource, castleOutVId)
 
-	ans := mf.GetMinCut()
+	ans := mf.GetMaxFlow()
 
 	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0644)
 	if err != nil {
