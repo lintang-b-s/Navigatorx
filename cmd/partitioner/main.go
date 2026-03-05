@@ -47,6 +47,7 @@ func main() {
 		len(ps),
 		graph, logger,
 		true,
+		true,
 	) // i recommend u to use unit-capacity, because it faster, less shorctuts created, faster p2p query runtime
 
 	mp.RunMultilevelPartitioning()

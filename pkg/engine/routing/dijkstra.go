@@ -30,6 +30,7 @@ func NewDijkstra(engine *CRPRoutingEngine) Dijkstra {
 }
 
 // single-source shortest paths, from s to all other vertices
+// edge-based graph, support turn-costs
 func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 
 	asId := us.engine.graph.GetExitOffset(s) + us.engine.graph.GetOutDegree(s) - 1
@@ -86,7 +87,6 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 
 			curInfo = us.pq.Get(parentEdge)
 		}
-
 	}
 
 	return sps, spEdges
@@ -163,6 +163,9 @@ func (us *Dijkstra) Preallocate() {
 	maxSearchSize := numberOfEdges
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	us.finalDist = make([]da.VertexInfo, numberOfVerties)
+	for i := 0; i < numberOfVerties; i++ {
+		us.finalDist[i] = da.NewVertexInfo(pkg.INF_WEIGHT, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	}
 	us.finalEdge = make([]da.Index, numberOfVerties)
 	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
 	us.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE)

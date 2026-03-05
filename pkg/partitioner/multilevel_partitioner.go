@@ -14,26 +14,31 @@ type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
 	// best parameter for customizable route planning by delling et al:
 	// [2^8, 2^11, 2^14, 2^17, 2^20]
-	l            int                       // max level of overlay graph
-	overlayNodes [][][]datastructure.Index // nodes in each cells in each level
-	graph        *datastructure.Graph
-	logger       *zap.Logger
-	unitCapacity bool
-	minPrec      int
+	l                                 int                       // max level of overlay graph
+	cellVertices                      [][][]datastructure.Index // nodes in each cells in each level
+	graph                             *datastructure.Graph
+	logger                            *zap.Logger
+	unitCapacity, prePartitionWithSCC bool
+	minPrec                           int
 }
 
-func NewMultilevelPartitioner(u []int, l int, graph *datastructure.Graph, logger *zap.Logger, unitCapacity bool) *MultilevelPartitioner {
+func NewMultilevelPartitioner(u []int, l int, graph *datastructure.Graph, logger *zap.Logger, unitCapacity, prePartitionWithSCC bool) *MultilevelPartitioner {
 	if len(u) != l {
 		panic(fmt.Sprintf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
 	return &MultilevelPartitioner{
-		u:            u,
-		l:            l,
-		overlayNodes: make([][][]datastructure.Index, l),
-		graph:        graph,
-		logger:       logger,
-		unitCapacity: unitCapacity,
+		u:                   u,
+		l:                   l,
+		cellVertices:        make([][][]datastructure.Index, l),
+		graph:               graph,
+		logger:              logger,
+		unitCapacity:        unitCapacity,
+		prePartitionWithSCC: prePartitionWithSCC,
 	}
+}
+
+func (mpr *MultilevelPartitioner) GetCellVertices() [][][]datastructure.Index {
+	return mpr.cellVertices
 }
 
 /*
@@ -45,7 +50,8 @@ PUNCH with parameter UL to obtain the top-level cells. Cells in lower levels are
 PUNCH on individual cells of the level immediately above
 
 time complexity:
-T(N, U1,...,UL) \in O(N^4 * (N-U_{L}) + \sum_{l=2}^{L} U_l^4 *(U_{l} - U_{l-1}))
+for each level l, time complexity recursiveBisection.Partition() is O(n^4(n-U_l))
+T(n, U1,...,UL) \in O(n^4 * (n-U_{L}) + \sum_{l=2}^{L} U_l^4 *(U_{l} - U_{l-1}))
 */
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
@@ -55,25 +61,26 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l, mp.u[mp.l-1])
 	if len(nodeIDs) > mp.u[mp.l-1] {
 
-		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger, k, mp.unitCapacity)
+		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger, k, mp.unitCapacity,
+			mp.prePartitionWithSCC)
 		inertialFlowPartitioner.Partition(nodeIDs)
-		mp.overlayNodes[mp.l-1] = append(mp.overlayNodes[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
+		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
 	} else {
-		mp.overlayNodes[mp.l-1] = [][]datastructure.Index{nodeIDs}
+		mp.cellVertices[mp.l-1] = [][]datastructure.Index{nodeIDs}
 	}
-	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.overlayNodes[mp.l-1]))
+	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.cellVertices[mp.l-1]))
 
 	// next partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
-		for _, cell := range mp.overlayNodes[level+1] {
-			inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, k, mp.unitCapacity)
+		for _, cell := range mp.cellVertices[level+1] {
+			inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, k, mp.unitCapacity, mp.prePartitionWithSCC)
 			inertialFlowPartitioner.Partition(cell)
 
 			partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
-			mp.overlayNodes[level] = append(mp.overlayNodes[level], partitions...)
+			mp.cellVertices[level] = append(mp.cellVertices[level], partitions...)
 		}
-		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.overlayNodes[level]))
+		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.cellVertices[level]))
 
 	}
 }

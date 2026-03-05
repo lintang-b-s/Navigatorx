@@ -57,7 +57,7 @@ untuk alt query crp find point-to-point(p2p) shortest paths, untuk semua p2p sp 
 yogyakarta.osm.pbf di google drive ada 55136 vertices, dan stress tests ini dari shortest paths dari 50 sources ke 55136 vertices jadi ada sekitar 2.7568 x 10^6 p2p sp query
 note that Customizable Route Planning (CRP) query/multilevel dijkstra (MLD) [https://github.com/Project-OSRM/osrm-backend]/ multilevel A*, landmarks, and triangle inequality (ALT) hanya mempercepat p2p sp query bukan mempercepat sssp query
 
-stress tests ini selesai dalam 30 menit
+stress tests ini selesai dalam 10 menit
 dan akan kestop ketika ada counterexample
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphic #6 cpu cores #12 threads
 ram: 16gb
@@ -71,7 +71,8 @@ func main() {
 		panic(err)
 	}
 
-	err = util.ReadConfig()
+	workingDir, err := os.Getwd()
+	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}
@@ -117,7 +118,7 @@ func main() {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
-		graph, logger, true,
+		graph, logger, true, true,
 	)
 
 	mp.RunMultilevelPartitioning()

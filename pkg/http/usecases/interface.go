@@ -11,7 +11,7 @@ type RoutingEngine interface {
 	GetHaversineDistanceFromUtoV(u, v datastructure.Index) float64
 	GetVertexCoordinatesFromOutEdge(u datastructure.Index) (float64, float64)
 	GetVertexCoordinatesFromInEdge(u datastructure.Index) (float64, float64)
-	VerticeUandVAreConnected(u, v datastructure.Index) bool
+	VerticeUToVConnected(u, v datastructure.Index) bool
 }
 
 type SpatialIndex interface {

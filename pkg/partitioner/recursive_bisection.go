@@ -12,30 +12,32 @@ import (
 )
 
 type RecursiveBisection struct {
-	originalGraph   *datastructure.Graph
-	maximumCellSize int
-	finalPartition  []int // map from vertex id to partition id
-	partitionCount  int
-	logger          *zap.Logger
-	mu              sync.Mutex
-	k               float64
-	unitCapacity    bool
+	originalGraph       *datastructure.Graph
+	maximumCellSize     int
+	finalPartition      []int // map from vertex id to partition id
+	partitionCount      int
+	logger              *zap.Logger
+	mu                  sync.Mutex
+	k                   float64
+	prePartitionWithSCC bool
+	unitCapacity        bool
 }
 
-func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logger *zap.Logger, k int, unitCapacity bool,
+func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logger *zap.Logger, k int, unitCapacity, prePartitionWithSCC bool,
 ) *RecursiveBisection {
 	finalPartitions := make([]int, graph.NumberOfVertices())
 	for i := range finalPartitions {
 		finalPartitions[i] = INVALID_PARTITION_ID
 	}
 	return &RecursiveBisection{
-		originalGraph:   graph,
-		maximumCellSize: maximumCellSize,
-		finalPartition:  finalPartitions,
-		partitionCount:  0,
-		logger:          logger,
-		k:               float64(k),
-		unitCapacity:    unitCapacity,
+		originalGraph:       graph,
+		maximumCellSize:     maximumCellSize,
+		finalPartition:      finalPartitions,
+		partitionCount:      0,
+		logger:              logger,
+		k:                   float64(k),
+		unitCapacity:        unitCapacity,
+		prePartitionWithSCC: prePartitionWithSCC,
 	}
 }
 
@@ -43,25 +45,25 @@ func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logg
 [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
 
 time complexity:
-let U = rb.maximumCellSize
-T(N) = N^2 * \frac{N * (N-1)}{2} *c + T(N-1)
-base case: N-k = U
-
-T(N) \in O(N^4(N-U))
+let U = rb.maximumCellSize. computeInertialFlowDinic is just run dinic algorithm for multiple times. dinic time complexity O(n^2 * m).
+worst case ketika the graph adlh complete graph, m=n(n-1)/2 -> dinic O(n^2 * n(n-1)/2)
+worst case dari inertial flow ketika dinic return minimum cut dengan partisi S, T, dengan |S|=1  dan |T|= n-1  (atau |T|=1 dan |S|=n-1).
+T(n) = n^2 * \frac{n * (n-1)}{2} *c + T(n-1)
+base case: n-k = U
+T(n) in O(n^4(n-U))
 */
 func (rb *RecursiveBisection) Partition(initialNodeIds []datastructure.Index) {
-	pg := rb.buildInitialPartitionGraph(initialNodeIds)
-	queue := list.New()
-	queue.PushBack(pg)
+
+	initialPg := rb.buildInitialPartitionGraph(initialNodeIds)
+
 	tooSmall := func(partitionSize int) bool {
 		return partitionSize < rb.maximumCellSize
 	}
-	if tooSmall(pg.NumberOfVertices()) {
-		rb.assignFinalPartition(pg)
+
+	if tooSmall(initialPg.NumberOfVertices()) {
+		rb.assignFinalPartition(initialPg)
 		return
 	}
-
-	
 
 	type bisectionRes struct {
 		partOne, partTwo *da.PartitionGraph
@@ -71,84 +73,122 @@ func (rb *RecursiveBisection) Partition(initialNodeIds []datastructure.Index) {
 		return bisectionRes{partOne: partOne, partTwo: partTwo}
 	}
 
-	n := len(initialNodeIds)
-	worstCaseNumOfOps := n - rb.maximumCellSize + 1 // m=number of vertices in current partition graph. worst case ketika hasil partisi setiap computeIflow = (m-1, 1).....
-	wpInertialFlow := concurrent.NewWorkerPool[*da.PartitionGraph, bisectionRes](BISECTION_WORKERS, worstCaseNumOfOps)
-	computeIflow := func(pg *da.PartitionGraph) bisectionRes {
-		iflow := NewInertialFlow(pg)
-		cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE)
-		partOne, partTwo := rb.applyBisection(cut, pg)
-		return NewBisectionRes(partOne, partTwo)
+	partitionComponent := func(comp *da.PartitionGraph) bool {
+		n := comp.NumberOfVertices()
+
+		worstCaseNumOfOps := n - rb.maximumCellSize + 1
+		wpInertialFlowComp := concurrent.NewWorkerPool[*da.PartitionGraph, bisectionRes](BISECTION_WORKERS, worstCaseNumOfOps)
+
+		computeIflow := func(pg *da.PartitionGraph) bisectionRes {
+			iflow := NewInertialFlow(pg)
+			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n^2 * m)
+			partOne, partTwo := rb.applyBisection(cut, pg)
+			return NewBisectionRes(partOne, partTwo)
+		}
+
+		wpInertialFlowComp.Start(computeIflow)
+		wpInertialFlowComp.Wait()
+
+		queue := list.New()
+		queue.PushBack(comp)
+
+		for queue.Len() > 0 {
+			curPartitionGraph := queue.Remove(queue.Front()).(*datastructure.PartitionGraph)
+
+			wpInertialFlowComp.AddJob(curPartitionGraph)
+
+			res := <-wpInertialFlowComp.CollectResults()
+			partOne := res.partOne
+			partTwo := res.partTwo
+			if !tooSmall(partOne.NumberOfVertices()) {
+				queue.PushBack(partOne)
+			} else {
+				rb.assignFinalPartition(partOne)
+			}
+			if !tooSmall(partTwo.NumberOfVertices()) {
+				queue.PushBack(partTwo)
+			} else {
+				rb.assignFinalPartition(partTwo)
+			}
+		}
+
+		wpInertialFlowComp.Close()
+
+		return true
+	}
+	var (
+		components []*da.PartitionGraph
+	)
+
+	if rb.prePartitionWithSCC {
+		components = prePartitionWithSCC(initialPg, rb.maximumCellSize) // O(n+m)
+	} else {
+		components = append(components, initialPg)
 	}
 
-	wpInertialFlow.Start(computeIflow)
-	wpInertialFlow.Wait()
+	wpInertialFlow := concurrent.NewWorkerPool[*da.PartitionGraph, bool](BISECTION_WORKERS, len(components))
 
-	for queue.Len() > 0 {
-		curPartitionGraph := queue.Remove(queue.Front()).(*datastructure.PartitionGraph)
-
-		wpInertialFlow.AddJob(curPartitionGraph)
-
-		res := <-wpInertialFlow.CollectResults()
-		partOne := res.partOne
-		partTwo := res.partTwo
-		if !tooSmall(partOne.NumberOfVertices()) {
-			queue.PushBack(partOne)
-		} else {
-			rb.assignFinalPartition(partOne)
+	for _, component := range components {
+		if tooSmall(component.NumberOfVertices()) {
+			rb.assignFinalPartition(component)
+			continue
 		}
-		if !tooSmall(partTwo.NumberOfVertices()) {
-			queue.PushBack(partTwo)
-		} else {
-			rb.assignFinalPartition(partTwo)
-		}
+
+		wpInertialFlow.AddJob(component)
 	}
 
 	wpInertialFlow.Close()
+	wpInertialFlow.Start(partitionComponent)
+	wpInertialFlow.WaitDirect()
 }
 
-func (rb *RecursiveBisection) applyBisection(cut *MinCut, graph *datastructure.PartitionGraph) (*datastructure.PartitionGraph, *datastructure.PartitionGraph) {
+// applyBisection. bisect st-cut jadi partisi S dan T yang saling disjoint
+func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *datastructure.PartitionGraph) (*datastructure.PartitionGraph, *datastructure.PartitionGraph) {
 	var (
-		partitionOne = datastructure.NewPartitionGraph(graph.NumberOfVertices() - cut.GetNumNodesInPartitionTwo())
+		partitionOne = datastructure.NewPartitionGraph(pg.NumberOfVertices() - cut.GetNumNodesInPartitionTwo())
 		partitionTwo = datastructure.NewPartitionGraph(cut.GetNumNodesInPartitionTwo())
 	)
 
-	// remap id
+	// remap id untuk partisi S dan T
 	partOneId := datastructure.Index(0)
 	partTwoId := datastructure.Index(0)
 
-	n := graph.NumberOfVertices()
-	partOneMap := make([]datastructure.Index, n)
-	partTwoMap := make([]datastructure.Index, n)
-	origGraphVertIdMap := make(map[datastructure.Index]datastructure.Index, n*2) // map from original graph vertex id to partition graph vertex id
-	graph.ForEachVertices(func(v datastructure.PartitionVertex) {
+	n := pg.NumberOfVertices()
+	partOneNewVIdMap := make([]datastructure.Index, n)
+	partTwoNewVIdMapMap := make([]datastructure.Index, n)
+	origVIdToCurPartVIdMap := make(map[datastructure.Index]datastructure.Index, n*2) // map from original pg vertex id to partition pg vertex id
+	pg.ForEachVertices(func(v datastructure.PartitionVertex) {
 		if v.GetOriginalVertexID() == datastructure.Index(ARTIFICIAL_SOURCE_ID) ||
 			v.GetOriginalVertexID() == datastructure.Index(ARTIFICIAL_SINK_ID) {
 			// skip artificial source and sink
 			return
 		}
-		origGraphVertIdMap[v.GetOriginalVertexID()] = v.GetID()
+		origVIdToCurPartVIdMap[v.GetOriginalVertexID()] = v.GetID()
 
 		lat, lon := v.GetVertexCoordinate()
 		if cut.GetFlag(v.GetID()) {
+			// v in partisi S
 			newVertex := datastructure.NewPartitionVertex(partOneId, v.GetOriginalVertexID(),
 				lat, lon)
 			partitionOne.AddVertex(newVertex)
-			partOneMap[v.GetID()] = partOneId
+			partOneNewVIdMap[v.GetID()] = partOneId
 			partOneId++
 		} else {
+			// v in partisi T
 			newVertex := datastructure.NewPartitionVertex(partTwoId, v.GetOriginalVertexID(),
 				lat, lon)
 			partitionTwo.AddVertex(newVertex)
-			partTwoMap[v.GetID()] = partTwoId
+			partTwoNewVIdMapMap[v.GetID()] = partTwoId
 			partTwoId++
 		}
 	})
 
-	for _, uVertex := range graph.GetVertices() { // O(V+E)
-		rb.originalGraph.ForOutEdgesOfVertex(uVertex.GetOriginalVertexID(), func(e *datastructure.OutEdge, exitPoint datastructure.Index) {
-			v, ok := origGraphVertIdMap[e.GetHead()]
+	for _, uVertex := range pg.GetVertices() { // O(V+E)
+		uOriVId := uVertex.GetOriginalVertexID()
+		rb.originalGraph.ForOutEdgesOfVertex(uOriVId, func(e *datastructure.OutEdge, exitPoint datastructure.Index) {
+			v, ok := origVIdToCurPartVIdMap[e.GetHead()] // get vertex id di current partition graph pg
 			if !ok {
+				// v not in current partition Graph
 				return
 			}
 			u := uVertex.GetID()
@@ -162,13 +202,15 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, graph *datastructure.P
 			}
 
 			if cut.GetFlag(u) && cut.GetFlag(v) {
-				uPartOne := partOneMap[u]
-				vPartOne := partOneMap[v]
-				partitionOne.AddEdge(uPartOne, vPartOne, eWeight, false)
+				// v in partisi S
+				uId := partOneNewVIdMap[u]
+				vId := partOneNewVIdMap[v]
+				partitionOne.AddEdge(uId, vId, eWeight, false)
 			} else if !cut.GetFlag(u) && !cut.GetFlag(v) {
-				uPartTwo := partTwoMap[u]
-				vPartTwo := partTwoMap[v]
-				partitionTwo.AddEdge(uPartTwo, vPartTwo, eWeight, false)
+				// v in partisi T
+				uId := partTwoNewVIdMapMap[u]
+				vId := partTwoNewVIdMapMap[v]
+				partitionTwo.AddEdge(uId, vId, eWeight, false)
 			}
 		})
 	}
@@ -176,17 +218,27 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, graph *datastructure.P
 	return partitionOne, partitionTwo
 }
 
-func (rb *RecursiveBisection) assignFinalPartition(graph *datastructure.PartitionGraph) {
+// assignFinalPartition. assign id partisi dari setiap vertices in partitionGraph
+func (rb *RecursiveBisection) assignFinalPartition(partitionGraph *datastructure.PartitionGraph) {
 	rb.mu.Lock()
 	defer rb.mu.Unlock()
-	for i := 0; i < graph.NumberOfVertices(); i++ {
-		v := graph.GetVertex(datastructure.Index(i))
+	for i := 0; i < partitionGraph.NumberOfVertices(); i++ {
+		v := partitionGraph.GetVertex(datastructure.Index(i))
 		originalId := v.GetOriginalVertexID()
 		rb.finalPartition[originalId] = rb.partitionCount
 	}
 	rb.partitionCount++
 }
 
+/*
+buildInitialPartitionGraph. build partitionGraph
+
+initialVerticeIds = nodeIds dari original graph
+
+return partitionGraph
+partitionGraph punya vertices sama dengan vertices di initialVerticeIds, tapi dengan id baru
+edges dari partitionGraph cuma include edges yang tail dan head dari edge satu partisi atau in initialVerticeIds
+*/
 func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []datastructure.Index) *datastructure.PartitionGraph {
 	pg := datastructure.NewPartitionGraph(len(initialVerticeIds))
 	// initialVerticeIds = stil original vertex id
@@ -205,8 +257,8 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 
 	for _, vId := range initialVerticeIds {
 		rb.originalGraph.ForOutEdgesOfVertex(vId, func(e *datastructure.OutEdge, exitPoint datastructure.Index) {
-			if _, adjVertexInSet := initialVerticeIdSet[exitPoint]; !adjVertexInSet {
-				// skip arc that have endpoint outside current cell
+			if _, adjVertexInSet := initialVerticeIdSet[e.GetHead()]; !adjVertexInSet {
+				// skip arc that its head outside current cell
 				return
 			}
 
@@ -218,7 +270,10 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 			} else {
 				eWeight = int64(e.GetWeight() * math.Pow(10, rb.k))
 			}
-			pg.AddEdge(newMapVid[vId], newMapVid[e.GetHead()], eWeight, false)
+
+			newV := newMapVid[vId]
+			newHead := newMapVid[e.GetHead()]
+			pg.AddEdge(newV, newHead, eWeight, false)
 		})
 	}
 

@@ -236,6 +236,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 
 // please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestCRPQueryShoppingMalls  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
+// selesai dalam 1 detik
 func TestCRPQueryShoppingMalls(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/icpc_swerc2013_shoppingmalls/"

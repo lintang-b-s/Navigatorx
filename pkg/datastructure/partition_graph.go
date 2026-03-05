@@ -100,6 +100,17 @@ func NewPartitionGraph(numberOfVertices int) *PartitionGraph {
 func (g *PartitionGraph) GetVertices() []PartitionVertex {
 	return g.vertices
 }
+
+func (g *PartitionGraph) SetVertices(vertices []PartitionVertex) {
+	g.vertices = vertices
+}
+
+func (g *PartitionGraph) ForVertices(handle func(vertex PartitionVertex, idx int)) {
+	for idx, vertex := range g.vertices {
+		handle(vertex, idx)
+	}
+}
+
 func (g *PartitionGraph) NumberOfVertices() int {
 	return len(g.vertices)
 }
@@ -177,14 +188,14 @@ func (g *PartitionGraph) AddEdge(u, v Index, w int64, directed bool) {
 	g.edgeList = append(g.edgeList, edge)
 	g.adjacencyList[u] = append(g.adjacencyList[u], len(g.edgeList)-1)
 
-	var reverseEdge MaxFlowEdge = MaxFlowEdge{}
+	var reversedEdge MaxFlowEdge = MaxFlowEdge{}
 	if directed {
-		reverseEdge = NewMaxFlowEdge(len(g.edgeList), v, u, 0)
+		reversedEdge = NewMaxFlowEdge(len(g.edgeList), v, u, 0)
 	} else {
-		reverseEdge = NewMaxFlowEdge(len(g.edgeList), v, u, w)
+		reversedEdge = NewMaxFlowEdge(len(g.edgeList), v, u, w)
 	}
 
-	g.edgeList = append(g.edgeList, reverseEdge)
+	g.edgeList = append(g.edgeList, reversedEdge)
 	g.adjacencyList[v] = append(g.adjacencyList[v], len(g.edgeList)-1)
 }
 
@@ -192,4 +203,34 @@ func (g *PartitionGraph) ForEdgeList(handle func(e MaxFlowEdge, eId int)) {
 	for eId, e := range g.edgeList {
 		handle(e, eId)
 	}
+}
+
+// GetDirectedEdges.
+// return directed edges
+func (g *PartitionGraph) GetDirectedEdges() []MaxFlowEdge {
+	// karena partition graph bisa undirected
+	// fungsi ini hanya return directed edges
+	// di AddEdge() kita add direceted edge dengan id genap
+	edges := make([]MaxFlowEdge, 0, len(g.edgeList)/2)
+	for edgeId, edge := range g.edgeList {
+		if edgeId%2 == 0 {
+			edges = append(edges, edge)
+		}
+	}
+
+	return edges
+}
+
+// GetDirectedEdges.
+// return directed edges dari vertex u
+func (g *PartitionGraph) ForEachDirectedEdgesOf(u Index, handle func(e MaxFlowEdge, eId int)) {
+	// karena partition graph bisa undirected
+	// fungsi ini hanya return directed edges
+	// di AddEdge() kita add direceted edge dengan id genap
+	g.ForEachVertexEdges(u, func(e MaxFlowEdge) {
+		edgeId := e.GetID()
+		if edgeId%2 == 0 {
+			handle(e, edgeId)
+		}
+	})
 }

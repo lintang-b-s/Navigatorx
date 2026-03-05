@@ -386,6 +386,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 // please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestOSN2024KRL  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode,
+// selesai dalam 300 detik
 func TestOSN2024KRL(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/osn2024_krl/"

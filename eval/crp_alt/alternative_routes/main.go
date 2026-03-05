@@ -50,10 +50,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig()
+	workingDir, err := os.Getwd()
+	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}
+
+	
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
 		output, err := os.Create(osmfFile)
 		if err != nil {
@@ -95,7 +98,7 @@ func main() {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
-		graph, logger, true,
+		graph, logger, true, true,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -172,7 +175,7 @@ func main() {
 		if s == t {
 			continue
 		}
-		if !g.VerticeUandVAreConnected(s, t) {
+		if !g.VerticeUToVConnected(s, t) {
 			continue
 		}
 		if _, ok := qset[bitpack(s, t)]; ok {

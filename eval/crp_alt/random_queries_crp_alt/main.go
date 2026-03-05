@@ -37,7 +37,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig()
+	workingDir, err := os.Getwd()
+	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}

@@ -101,7 +101,10 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	})
 	scanner := osmpbf.New(context.Background(), f, 0)
 	// must not be parallel
-	countWays := 0
+	scannedWays := 0
+
+	logger.Sugar().Infof("parsing openstreetmap .pbf file......")
+
 	for scanner.Scan() {
 		o := scanner.Object()
 
@@ -118,10 +121,8 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 				if !acceptOsmWay(way) {
 					continue
 				}
-				if (countWays+1)%50000 == 0 {
-					logger.Sugar().Infof("scanning openstreetmap ways: %d...", countWays+1)
-				}
-				countWays++
+
+				scannedWays++
 
 				for i, node := range way.Nodes {
 					if _, ok := p.wayNodeMap[int64(node.ID)]; !ok {
@@ -196,12 +197,17 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	defer scanner.Close()
 
 	scannedEdges := make([]Edge, 0)
-	p.ways = make(map[int64]osmWay, countWays)
+	p.ways = make(map[int64]osmWay, scannedWays)
 
 	streetDirection := make(map[int64][2]bool)
 
-	countWays = 0
+	countWays := 0
 	countNodes := 0
+
+	logger.Sugar().Infof("processing openstreetmap .pbf file: 0%.... ")
+	outputEvery := 5
+	pg := make([]bool, 101)
+
 	for scanner.Scan() {
 		o := scanner.Object()
 
@@ -218,9 +224,13 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 				if !acceptOsmWay(way) {
 					continue
 				}
-				if (countWays+1)%100000 == 0 {
-					logger.Sugar().Infof("processing openstreetmap ways: %d...", countWays+1)
+
+				progress := int(((float64(countWays) + 1) / float64(scannedWays)) * 100)
+				if progress > 0 && progress%outputEvery == 0 && !pg[progress] {
+					pg[progress] = true
+					logger.Sugar().Infof("processing openstreetmap .pbf file: %v %% .....  ", int(progress))
 				}
+
 				countWays++
 
 				hwTag, err := p.processWay(way, graphStorage, streetDirection, edgeSet, &scannedEdges, useMaxSpeed)
@@ -254,10 +264,6 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 			}
 		case osm.TypeNode:
 			{
-
-				if (countNodes+1)%500000 == 0 {
-					logger.Sugar().Infof("processing openstreetmap nodes: %d...", countNodes+1)
-				}
 				countNodes++
 				node := o.(*osm.Node)
 
@@ -322,6 +328,8 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 		}
 		p.restrictions[key] = savedRest
 	}
+
+	logger.Sugar().Infof("building road network graph.... ")
 
 	graph := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false)
 	graph.SetGraphStorage(graphStorage)

@@ -94,6 +94,19 @@ func RadiansToDegree(rad float64) float64 {
 	return 180.0 * rad / math.Pi
 }
 
+func RemoveDuplicates[T comparable](arr []T) []T {
+	set := make(map[T]struct{}, len(arr)*2)
+	newarr := make([]T, 0, len(arr))
+
+	for _, v := range arr {
+		if _, ok := set[v]; !ok {
+			set[v] = struct{}{}
+			newarr = append(newarr, v)
+		}
+	}
+	return newarr
+}
+
 func StringToFloat64(str string) (float64, error) {
 	val, err := strconv.ParseFloat(str, 64)
 	if err != nil {

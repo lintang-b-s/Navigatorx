@@ -53,7 +53,8 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig()
+	workingDir, err := os.Getwd()
+	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}
@@ -98,7 +99,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
-		graph, logger, true,
+		graph, logger, true, true,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -171,7 +172,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 		if s == t {
 			continue
 		}
-		if !g.VerticeUandVAreConnected(s, t) {
+		if !g.VerticeUToVConnected(s, t) {
 			continue
 		}
 		if _, ok := qset[bitpack(s, t)]; ok {

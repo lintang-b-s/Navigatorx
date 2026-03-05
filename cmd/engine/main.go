@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"flag"
+	"os"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -36,10 +37,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig()
+	
+	workingDir, err := os.Getwd()
+	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}
+
 
 	lm, err := landmark.ReadLandmark(landmarkFile)
 	if err != nil {
@@ -73,7 +77,7 @@ func main() {
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {
-		
+
 		panic(err)
 	}
 	api.Use(ctx,

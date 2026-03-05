@@ -5,7 +5,6 @@ import (
 )
 
 /*
-inspiration (TwoLevelStorage OSRM): https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/query_heap.hpp
 
 design decision:
 commit 83a333d36ca77b910b3e6197eb0910192be0c868:

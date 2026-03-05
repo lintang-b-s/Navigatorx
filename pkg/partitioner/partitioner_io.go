@@ -52,7 +52,7 @@ func (mp *MultilevelPartitioner) writeMLPToMLPFile(filename string) error {
 func (mp *MultilevelPartitioner) BuildMLP() *datastructure.MultilevelPartition {
 	numCells := make([]uint32, mp.l)
 	for i := 0; i < mp.l; i++ {
-		numCells[i] = uint32(len(mp.overlayNodes[i]))
+		numCells[i] = uint32(len(mp.cellVertices[i]))
 	}
 
 	pvOffset := make([]uint8, mp.l+1)
@@ -63,7 +63,7 @@ func (mp *MultilevelPartitioner) BuildMLP() *datastructure.MultilevelPartition {
 	cellNumbers := make([]datastructure.Pv, mp.graph.NumberOfVertices()) // 64 bit integer. rightmost contain level 0 cellId, leftmost contain level l-1 cellId
 
 	for l := 0; l < mp.l; l++ {
-		for cellId, vertexIds := range mp.overlayNodes[l] {
+		for cellId, vertexIds := range mp.cellVertices[l] {
 			for _, vertexId := range vertexIds {
 				cellNumbers[vertexId] |= datastructure.Pv(cellId) << datastructure.Pv(pvOffset[l])
 			}

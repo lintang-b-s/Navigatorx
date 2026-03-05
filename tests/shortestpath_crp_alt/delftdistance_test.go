@@ -277,6 +277,8 @@ func solve(t *testing.T, filepath string) {
 
 // please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestCRPQueryDelftDistance  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
+// selesai dalam dalam 400 detik
+// 
 func TestCRPQueryDelftDistance(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/icpc_nwerc2022_delftdistance/"

@@ -55,20 +55,25 @@ func (g *Graph) RunKosaraju() {
 		})
 	}
 
-	scccCondAdj := make([][]Index, len(components))
+	sccCondAdj := make([][]Index, len(components))
 	for fromRootId, adjRootIds := range condAdj {
 		sccOfV := sccs[fromRootId]
 		for _, adjRootID := range adjRootIds {
 			sccOfAdjRootId := sccs[adjRootID]
-			scccCondAdj[sccOfV] = append(scccCondAdj[sccOfV], sccOfAdjRootId)
+			sccCondAdj[sccOfV] = append(sccCondAdj[sccOfV], sccOfAdjRootId)
 		}
+
+		sccAdjs := sccCondAdj[sccOfV]
+		sccCondAdj[sccOfV] = util.RemoveDuplicates(sccAdjs)
 	}
 
-	g.SetSCCCondensationAdj(scccCondAdj)
+	g.SetSCCCondensationAdj(sccCondAdj)
 }
 
 func (g *Graph) dfs(v Index, output *[]Index, visited []bool,
 	reversed bool) {
+	// discovered v
+
 	visited[v] = true
 
 	if !reversed {
@@ -85,5 +90,6 @@ func (g *Graph) dfs(v Index, output *[]Index, visited []bool,
 		})
 	}
 
+	// finished v
 	*output = append(*output, v)
 }

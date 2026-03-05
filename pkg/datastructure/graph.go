@@ -644,7 +644,7 @@ func (g *Graph) IsTrafficLight(vertexId Index) bool {
 }
 
 // O(V_G + E_G), V_G=number of sccs/number of vertices in condensation graph^scc, E_G=number of edges in condensation graph^scc
-func (g *Graph) VerticeUandVAreConnected(u, v Index) bool {
+func (g *Graph) VerticeUToVConnected(u, v Index) bool {
 	sccOfU := g.GetSCCOfAVertex(u)
 	sccOfV := g.GetSCCOfAVertex(v)
 	if sccOfU == sccOfV {

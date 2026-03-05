@@ -6,9 +6,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-func ReadConfig() error {
+func ReadConfig(wordkingDir string) error {
 	viper.SetConfigName("config")
-	viper.AddConfigPath("./data/")
+	viper.AddConfigPath(wordkingDir + "/data/")
 
 	err := viper.ReadInConfig()
 	if err != nil {

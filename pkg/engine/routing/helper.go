@@ -20,8 +20,8 @@ func (crp *CRPRoutingEngine) GetVertexCoordinatesFromInEdge(u datastructure.Inde
 	return crp.graph.GetVertexCoordinatesFromInEdge(u)
 }
 
-func (crp *CRPRoutingEngine) VerticeUandVAreConnected(u, v datastructure.Index) bool {
-	return crp.graph.VerticeUandVAreConnected(u, v)
+func (crp *CRPRoutingEngine) VerticeUToVConnected(u, v datastructure.Index) bool {
+	return crp.graph.VerticeUToVConnected(u, v)
 }
 
 type target struct {
@@ -66,7 +66,6 @@ func removeDuplicatesVias(arr []da.ViaVertex) []da.ViaVertex {
 	}
 	return newarr
 }
-
 
 func (bs *CRPBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices
