@@ -22,11 +22,12 @@ func (mj minCutJob) getLine() []float64 {
 }
 
 type inertialFlow struct {
-	graph *datastructure.PartitionGraph
+	graph      *datastructure.PartitionGraph
+	iterations int
 }
 
-func NewInertialFlow(graph *datastructure.PartitionGraph) *inertialFlow {
-	return &inertialFlow{graph: graph}
+func NewInertialFlow(graph *datastructure.PartitionGraph, iterations int) *inertialFlow {
+	return &inertialFlow{graph: graph, iterations: iterations}
 }
 
 func (inf *inertialFlow) getPartitionGraph() *datastructure.PartitionGraph {
@@ -53,7 +54,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	)
 
 	n := inf.graph.NumberOfVertices()
-	iterations := INERTIAL_FLOW_ITERATION
+	iterations := inf.iterations
 	if n >= 100000 {
 		iterations = INERTIAL_FLOW_ITERATION_LARGE_GRAPH
 	}

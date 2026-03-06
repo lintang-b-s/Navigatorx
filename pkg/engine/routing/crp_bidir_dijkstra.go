@@ -165,8 +165,8 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 		bs.numScannedVertices += 2
 	}
 
-	if bs.shortestTravelTime == 2*pkg.INF_WEIGHT {
-		return pkg.INF_WEIGHT, pkg.INF_WEIGHT, []da.Coordinate{}, []da.OutEdge{}, false
+	if da.Eq(bs.shortestTravelTime, 2*pkg.INF_WEIGHT) {
+		return pkg.INF_WEIGHT, 2 * pkg.INF_WEIGHT, []da.Coordinate{}, []da.OutEdge{}, false
 	}
 
 	packedPath := bs.engine.RetrievePackedPath(bs.forwardMid, bs.backwardMid,

@@ -170,7 +170,7 @@ func (h *DAryHeap[T]) GetMin() (PriorityQueueNode[T], error) {
 
 func (h *DAryHeap[T]) GetMinrank() float64 {
 	if h.isEmpty() {
-		return 2 * pkg.INF_WEIGHT
+		return pkg.INF_WEIGHT
 	}
 	return h.heap[0].rank
 }

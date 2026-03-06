@@ -37,6 +37,17 @@ func NewDijkstra(graph *da.Graph, metrics *met.Metric, useReverseGraph bool) *Di
 	return dj
 }
 
+/*
+dijkstra sssp.
+
+useReversedGraph = true -> buat cari sssp dari every vertices in graph to s
+
+Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA:
+MIT Press (CLRS).:
+Single-destination shortest-paths problem: Find a shortest path to a given des-
+tination vertex t from each vertex v. By reversing the direction of each edge in
+the graph, we can reduce this problem to a single-source problem
+*/
 func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 	us.pq = heapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
 	us.pq.Clear()
@@ -78,15 +89,17 @@ func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 	us.shortestTravelTimes = make([]float64, n)
 
 	for v := 0; v < n; v++ {
-		us.shortestTravelTimes[v] = 2 * pkg.INF_WEIGHT
+		us.shortestTravelTimes[v] = pkg.INF_WEIGHT
 	}
 
 	for entryExitId, sp := range us.forwardInfo {
 
 		v := da.Index(0)
 		if !us.useReverseGraph {
+			// -vEntry->v
 			v = us.graph.GetHeadOfInedge(da.Index(entryExitId))
 		} else {
+			// v-vExit->
 			v = us.graph.GetTailOfOutedge(da.Index(entryExitId))
 		}
 
@@ -211,6 +224,6 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 func initInfWeightVertexInfo(vs []float64) {
 	for i := range vs {
-		vs[i] = 2 * pkg.INF_WEIGHT
+		vs[i] = pkg.INF_WEIGHT
 	}
 }

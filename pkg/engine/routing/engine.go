@@ -50,6 +50,10 @@ func (crp *CRPRoutingEngine) GetOverlayGraph() *da.OverlayGraph {
 	return crp.overlayGraph
 }
 
+func (crp *CRPRoutingEngine) GetMetrics() *met.Metric {
+	return crp.metrics
+}
+
 func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 	maxEdgesInCell := crp.graph.GetMaxEdgesInCell()
 

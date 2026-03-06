@@ -78,6 +78,10 @@ func (c *Cell) GetOverlayIdOffset() Index {
 	return c.overlayIdOffset
 }
 
+func (c *Cell) GetShortcutWeightId(i, j Index) int {
+	return int(c.GetCellOffset() + i*c.GetNumExitPoints() + j)
+}
+
 type OverlayGraph struct {
 	/*
 			(overlayVertices) To improve spatial  locality, we assign IDs to overlay vertices such that the boundary

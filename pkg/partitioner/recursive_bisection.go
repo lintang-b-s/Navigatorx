@@ -12,32 +12,35 @@ import (
 )
 
 type RecursiveBisection struct {
-	originalGraph       *datastructure.Graph
-	maximumCellSize     int
-	finalPartition      []int // map from vertex id to partition id
-	partitionCount      int
-	logger              *zap.Logger
-	mu                  sync.Mutex
-	k                   float64
-	prePartitionWithSCC bool
-	unitCapacity        bool
+	originalGraph          *datastructure.Graph
+	maximumCellSize        int
+	finalPartition         []int // map from vertex id to partition id
+	partitionCount         int
+	logger                 *zap.Logger
+	mu                     sync.Mutex
+	k                      float64
+	prePartitionWithSCC    bool
+	unitCapacity           bool
+	inertialFlowIterations int
 }
 
 func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logger *zap.Logger, k int, unitCapacity, prePartitionWithSCC bool,
+	inertialFlowIterations int,
 ) *RecursiveBisection {
 	finalPartitions := make([]int, graph.NumberOfVertices())
 	for i := range finalPartitions {
 		finalPartitions[i] = INVALID_PARTITION_ID
 	}
 	return &RecursiveBisection{
-		originalGraph:       graph,
-		maximumCellSize:     maximumCellSize,
-		finalPartition:      finalPartitions,
-		partitionCount:      0,
-		logger:              logger,
-		k:                   float64(k),
-		unitCapacity:        unitCapacity,
-		prePartitionWithSCC: prePartitionWithSCC,
+		originalGraph:          graph,
+		maximumCellSize:        maximumCellSize,
+		finalPartition:         finalPartitions,
+		partitionCount:         0,
+		logger:                 logger,
+		k:                      float64(k),
+		unitCapacity:           unitCapacity,
+		prePartitionWithSCC:    prePartitionWithSCC,
+		inertialFlowIterations: inertialFlowIterations,
 	}
 }
 
@@ -80,7 +83,7 @@ func (rb *RecursiveBisection) Partition(initialNodeIds []datastructure.Index) {
 		wpInertialFlowComp := concurrent.NewWorkerPool[*da.PartitionGraph, bisectionRes](BISECTION_WORKERS, worstCaseNumOfOps)
 
 		computeIflow := func(pg *da.PartitionGraph) bisectionRes {
-			iflow := NewInertialFlow(pg)
+			iflow := NewInertialFlow(pg, rb.inertialFlowIterations)
 			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n^2 * m)
 			partOne, partTwo := rb.applyBisection(cut, pg)
 			return NewBisectionRes(partOne, partTwo)

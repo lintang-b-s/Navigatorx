@@ -364,8 +364,8 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 		lemma 4.4 dari ref[1]:
 		If P_v corresponds to a plateau u-w, P_v is dist(u,w)-LO
 		proof:
-		karena semua item antara u-w di scan forward search dan u-w discan backward search, pakai lemma subpath of shortest path is shortest path (clrs): subpath u-w is shortest path
-		pakai  lemma subpath of shortest path is shortest path (clrs) lagi: every subpath P' dari path u ke w, l(P') <= dist(u,w) is shortest path
+		karena semua item antara u-w di scan forward search dan u-w discan backward search, pakai lemma every subpath of shortest path is shortest path (CLRS): subpath u-w is shortest path
+		pakai lemma every subpath of shortest path is shortest path (CLRS) lagi: every subpath P' dari path u ke w, l(P') <= dist(u,w) is shortest path
 	*/
 
 	// u = vEntryId/vId  dari via

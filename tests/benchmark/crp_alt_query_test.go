@@ -99,6 +99,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
+		25,
 		graph, logger, true, true,
 	)
 

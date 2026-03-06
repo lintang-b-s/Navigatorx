@@ -118,6 +118,7 @@ func main() {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
+		25,
 		graph, logger, true, true,
 	)
 
@@ -201,7 +202,7 @@ func main() {
 	calcSpDijkstra := func(i int) any {
 		s := queries[i]
 
-		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine())
+		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
 
 		sps, _ := dijkstraQuery.ShortestPath(s)
 
@@ -332,5 +333,5 @@ func main() {
 		}
 	}
 
-	logger.Sugar().Infof("done yeaayy (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~ (~˘▾˘)~!!!!!")
+	logger.Sugar().Infof("done")
 }

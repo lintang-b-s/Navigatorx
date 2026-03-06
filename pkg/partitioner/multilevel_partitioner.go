@@ -20,20 +20,22 @@ type MultilevelPartitioner struct {
 	logger                            *zap.Logger
 	unitCapacity, prePartitionWithSCC bool
 	minPrec                           int
+	inertialFlowIterations            int
 }
 
-func NewMultilevelPartitioner(u []int, l int, graph *datastructure.Graph, logger *zap.Logger, unitCapacity, prePartitionWithSCC bool) *MultilevelPartitioner {
+func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *datastructure.Graph, logger *zap.Logger, unitCapacity, prePartitionWithSCC bool) *MultilevelPartitioner {
 	if len(u) != l {
 		panic(fmt.Sprintf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
 	return &MultilevelPartitioner{
-		u:                   u,
-		l:                   l,
-		cellVertices:        make([][][]datastructure.Index, l),
-		graph:               graph,
-		logger:              logger,
-		unitCapacity:        unitCapacity,
-		prePartitionWithSCC: prePartitionWithSCC,
+		u:                      u,
+		l:                      l,
+		cellVertices:           make([][][]datastructure.Index, l),
+		graph:                  graph,
+		logger:                 logger,
+		unitCapacity:           unitCapacity,
+		prePartitionWithSCC:    prePartitionWithSCC,
+		inertialFlowIterations: inertialFlowIterations,
 	}
 }
 
@@ -62,7 +64,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	if len(nodeIDs) > mp.u[mp.l-1] {
 
 		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger, k, mp.unitCapacity,
-			mp.prePartitionWithSCC)
+			mp.prePartitionWithSCC, mp.inertialFlowIterations)
 		inertialFlowPartitioner.Partition(nodeIDs)
 		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
 	} else {
@@ -74,7 +76,8 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	for level := mp.l - 2; level >= 0; level-- {
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
 		for _, cell := range mp.cellVertices[level+1] {
-			inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, k, mp.unitCapacity, mp.prePartitionWithSCC)
+			inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, k, mp.unitCapacity, mp.prePartitionWithSCC,
+				mp.inertialFlowIterations)
 			inertialFlowPartitioner.Partition(cell)
 
 			partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())

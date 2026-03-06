@@ -98,6 +98,7 @@ func main() {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
+		25,
 		graph, logger, true, true,
 	)
 

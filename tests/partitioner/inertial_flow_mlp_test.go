@@ -90,16 +90,21 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
+		20,
 		graph, logger, true, true,
 	)
 
 	return graph, mp
 }
 
+const (
+	invalidCellId int = -1
+)
+
 // todo: add test customizer & query pake file osm yang di gdrive
-// please run the test using command: "cd tests/partitioner && go test -run TestInertialFlow  -v -timeout=0  -count=1"
+// please run the test using command: "cd tests/partitioner && go test -run TestInertialFlowMLP  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
-func TestInertialFlow(t *testing.T) {
+func TestInertialFlowMLP(t *testing.T) {
 	g, mp := setup()
 	mp.RunMultilevelPartitioning()
 
@@ -110,9 +115,22 @@ func TestInertialFlow(t *testing.T) {
 		for l := 0; l < len(cellVertices); l++ {
 			numVerticesInPartitionLevell := 0
 			cellsInLevel := cellVertices[l]
-			for _, cell := range cellsInLevel {
-				numVerticesInPartitionLevell += len(cell)
+
+			verticeCells := make([]int, n)
+			for i := 0; i < n; i++ {
+				verticeCells[i] = invalidCellId
 			}
+
+			for cellId, cell := range cellsInLevel {
+				numVerticesInPartitionLevell += len(cell)
+				for _, v := range cell {
+					if verticeCells[v] != invalidCellId {
+						return false, l + 1
+					}
+					verticeCells[v] = cellId
+				}
+			}
+
 			if numVerticesInPartitionLevell != n {
 				return false, l + 1
 			}

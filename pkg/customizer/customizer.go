@@ -262,7 +262,7 @@ func (c *Customizer) buildLowestLevel(
 
 						newTravelTime := exitPointTravelTime + outArcCost
 
-						if newTravelTime >= pkg.INF_WEIGHT {
+						if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 							return
 						}
 
@@ -417,7 +417,7 @@ func (c *Customizer) buildLevel(
 
 						newTravelTime := uTravelTime + shortcutWeight
 
-						if newTravelTime >= pkg.INF_WEIGHT {
+						if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 							return
 						}
 

@@ -178,7 +178,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 		landmark := landmarks[i]
 		sid := landmark.GetID()
 		lm.landmarks[i] = sid
-		as := cst.GetGraph().GetExitOffset(sid) + cst.GetGraph().GetOutDegree(sid) - 1
+		as := cst.GetGraph().GetExitOffset(sid) + cst.GetGraph().GetOutDegree(sid) - 1 // dummy edge (s,s)
 
 		wg.Add(1)
 		go func(il int, asl da.Index) {
@@ -195,8 +195,8 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 		wg.Add(1)
 		go func(il int, sidl da.Index) {
 			defer wg.Done()
-			crpQuery := NewDijkstra(cst.GetGraph(), m, true) // O((n+m)logn)
-			at := cst.GetGraph().GetEntryOffset(sidl) + cst.GetGraph().GetInDegree(sidl) - 1
+			crpQuery := NewDijkstra(cst.GetGraph(), m, true)                                 // O((n+m)logn)
+			at := cst.GetGraph().GetEntryOffset(sidl) + cst.GetGraph().GetInDegree(sidl) - 1 // dummy edge (s,s)
 
 			sps := crpQuery.ShortestPath(at, &heapPool)
 			lock.Lock()
@@ -299,6 +299,22 @@ func (lm *Landmark) FindTighestConsistentLowerBound(u, s, t da.Index, activeLand
 	pru := -pfu
 
 	return pfu, pru
+}
+
+func (lm *Landmark) GetLandmarkVId(i da.Index) da.Index {
+	return lm.landmarks[i]
+}
+
+func (lm *Landmark) GetLandmarkVIds() []da.Index {
+	return lm.landmarks
+}
+
+func (lm *Landmark) GetLandmarkVWeights() [][]float64 {
+	return lm.lw
+}
+
+func (lm *Landmark) GetVerticesLandmarkWeights() [][]float64 {
+	return lm.vlw
 }
 
 func (lm *Landmark) WriteLandmark(filename string, cst *customizer.Customizer) error {
