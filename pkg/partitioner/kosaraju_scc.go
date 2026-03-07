@@ -175,3 +175,4 @@ func (g *kosrajuGraph) dfs(vertex da.PartitionVertex, output *[]da.PartitionVert
 	// finished v
 	*output = append(*output, vertex)
 }
+

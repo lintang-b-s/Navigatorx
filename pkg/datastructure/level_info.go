@@ -10,8 +10,14 @@ func NewLevelInfo(offset []uint8) *LevelInfo {
 	return &LevelInfo{offset: offset}
 }
 
+// off bits above the given level
+func (li *LevelInfo) OffUpperBit(l uint8, cellNumber Pv) Pv {
+	return (cellNumber & ^(^Pv(0) << Pv(li.offset[l])))
+}
+
 func (li *LevelInfo) GetCellNumberOnLevel(l uint8, cellNumber Pv) Pv {
-	return (cellNumber & ^(^Pv(0) << Pv(li.offset[l]))) >> li.offset[l-1]
+	withoutUpperBit := li.OffUpperBit(l, cellNumber)
+	return withoutUpperBit >> li.offset[l-1]
 }
 
 // GetHighestDifferingLevel. get the highest level(1-indexed) where two cell numbers differ

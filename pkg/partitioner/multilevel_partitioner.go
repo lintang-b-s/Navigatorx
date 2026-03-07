@@ -43,6 +43,10 @@ func (mpr *MultilevelPartitioner) GetCellVertices() [][][]datastructure.Index {
 	return mpr.cellVertices
 }
 
+func (mpr *MultilevelPartitioner) SetCellVertices(cellVertices [][][]datastructure.Index) {
+	mpr.cellVertices = cellVertices
+}
+
 /*
 RunMultilevelPartitioning. run L-level partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
 

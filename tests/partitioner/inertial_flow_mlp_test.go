@@ -125,6 +125,7 @@ func TestInertialFlowMLP(t *testing.T) {
 				numVerticesInPartitionLevell += len(cell)
 				for _, v := range cell {
 					if verticeCells[v] != invalidCellId {
+						// cek setiap sel di level l saling disjoint
 						return false, l + 1
 					}
 					verticeCells[v] = cellId
@@ -132,6 +133,7 @@ func TestInertialFlowMLP(t *testing.T) {
 			}
 
 			if numVerticesInPartitionLevell != n {
+				// cek union semua sel sama dengan vertices dari graph
 				return false, l + 1
 			}
 		}

@@ -33,7 +33,6 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Building Overlay Graph of each levels...")
 	p.BuildCellNumber()
 	p.SortByCellNumber()
-	p.logger.Sugar().Infof("After setting out/in edge cell offset")
 
 	p.overlayGraph = datastructure.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")
@@ -289,4 +288,8 @@ func (p *Preprocessor) GetNewToOldVIdMap() map[datastructure.Index]datastructure
 
 func (p *Preprocessor) GetOverlayGraph() *datastructure.OverlayGraph {
 	return p.overlayGraph
+}
+
+func (p *Preprocessor) GetGraph() *datastructure.Graph {
+	return p.graph
 }

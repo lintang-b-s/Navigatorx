@@ -267,7 +267,7 @@ type Graph struct {
 	graphStorage      *GraphStorage
 	vertices          []*Vertex
 	outEdges          []*OutEdge
-	inEdges           []*InEdge
+	inEdges           []*InEdge           // reversed edges. setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v)
 	turnTables        []pkg.TurnType      // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
 	maxEdgesInCell    Index               // maximum number of inEdges/outEdges in any cell
@@ -471,7 +471,6 @@ func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail,
 
 func (g *Graph) ForVertices(handle func(v *Vertex)) {
 	for _, v := range g.vertices {
-
 		handle(v)
 	}
 }

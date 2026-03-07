@@ -188,7 +188,7 @@ func (cc cellCustomizationRes) getIndex() int {
 
 /*
 // buildLowestLevel. build clique of each cell in the lowest level (level 1)
-// using Dijkstra algorithm from each entry point of the cell to all exit points of the cell
+// using Dijkstra algorithm (restricted to C) from each entry point of the cell to all exit points of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
 */
@@ -294,13 +294,13 @@ func (c *Customizer) buildLowestLevel(
 
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exitId := c.overlayGraph.GetExitId(cell, j)
-					ok := da.Lt(overlayTravelTime[exitId], pkg.INF_WEIGHT)
+					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
+					ok := da.Lt(overlayTravelTime[exitOverlayVId], pkg.INF_WEIGHT)
 
 					if !ok {
 						dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					} else {
-						dijkstraResChan <- NewCellCustomizationResult(overlayTravelTime[exitId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(overlayTravelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					}
 				}
 
@@ -456,13 +456,13 @@ func (c *Customizer) buildLevel(
 
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exitId := c.overlayGraph.GetExitId(cell, j)
+					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
 
-					ok := da.Lt(travelTime[exitId], pkg.INF_WEIGHT)
+					ok := da.Lt(travelTime[exitOverlayVId], pkg.INF_WEIGHT)
 					if !ok {
 						dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					} else {
-						dijkstraResChan <- NewCellCustomizationResult(travelTime[exitId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(travelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					}
 				}
 
