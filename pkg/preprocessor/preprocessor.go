@@ -128,7 +128,7 @@ func (p *Preprocessor) SortByCellNumber() {
 		e := p.graph.GetVertex(i).GetFirstOut()
 		for e < p.graph.GetVertex(i+1).GetFirstOut() {
 			oEdge := p.graph.GetOutEdge(e)
-			oEdges[i][k] = datastructure.NewOutEdge(
+			newOEdge := datastructure.NewOutEdge(
 				oEdge.GetEdgeId(),
 				oEdge.GetHead(),
 				oEdge.GetWeight(),
@@ -136,6 +136,8 @@ func (p *Preprocessor) SortByCellNumber() {
 				oEdge.GetEntryPoint(),
 				oEdge.GetHighwayType(),
 			)
+			newOEdge.SetInfoEdgeId(oEdge.GetEdgeInfoId())
+			oEdges[i][k] = newOEdge
 			e++
 			k++
 		}
@@ -144,7 +146,7 @@ func (p *Preprocessor) SortByCellNumber() {
 		e = p.graph.GetVertex(i).GetFirstIn()
 		for e < p.graph.GetVertex(i+1).GetFirstIn() {
 			inEdge := p.graph.GetInEdge(e)
-			iEdges[i][k] = datastructure.NewInEdge(
+			newInEdge := datastructure.NewInEdge(
 				inEdge.GetEdgeId(),
 				inEdge.GetTail(),
 				inEdge.GetWeight(),
@@ -152,6 +154,8 @@ func (p *Preprocessor) SortByCellNumber() {
 				inEdge.GetExitPoint(),
 				inEdge.GetHighwayType(),
 			)
+			newInEdge.SetInfoEdgeId(inEdge.GetEdgeInfoId())
+			iEdges[i][k] = newInEdge
 			e++
 			k++
 		}
@@ -172,6 +176,7 @@ func (p *Preprocessor) SortByCellNumber() {
 		maxLat = math.Max(maxLat, p.graph.GetVertex(i).GetLat())
 		maxLon = math.Max(maxLon, p.graph.GetVertex(i).GetLon())
 	}
+	
 	p.graph.SetBoundingBox(datastructure.NewBoundingBox(minLat, minLon, maxLat, maxLon))
 
 	p.newVIdMap = make([]datastructure.Index, p.graph.NumberOfVertices()) // new vertex id after sorting by cell number
@@ -233,11 +238,12 @@ func (p *Preprocessor) SortByCellNumber() {
 			for k := datastructure.Index(0); k < datastructure.Index(len(oEdges[vOldId])); k++ {
 
 				oldOutEdge := oEdges[vOldId][k]
-				p.graph.SetOutEdge(newOutEdgeId, datastructure.NewOutEdge(
+				newOutEdge := datastructure.NewOutEdge(
 					oldOutEdge.GetEdgeId(), oldOutEdge.GetHead(), oldOutEdge.GetWeight(),
 					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
-				))
-				p.graph.SetEdgeInfo(newOutEdgeId, gsEdgeExtraInfos[oldOutEdge.GetEdgeId()]) // update edge extra info storage
+				)
+				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
+				p.graph.SetEdgeInfo(newOutEdgeId, gsEdgeExtraInfos[oldOutEdge.GetEdgeInfoId()]) // update edge extra info storage
 
 				indexRoundabout := int(math.Floor(float64(oldOutEdge.GetEdgeId()) / 32)) // update roundabout edge info
 				if len(roundaboutFlags) > 0 {
@@ -249,23 +255,23 @@ func (p *Preprocessor) SortByCellNumber() {
 				outEdge := p.graph.GetOutEdge(newOutEdgeId)
 				outEdge.SetEdgeId(newOutEdgeId)
 				outEdge.SetHead(p.newVIdMap[oldOutEdge.GetHead()])
-				outEdge.SetOriginalEdgeId(oldOutEdge.GetEdgeId())
 
 				newOutEdgeId++
 			}
 
 			for k := datastructure.Index(0); k < datastructure.Index(len(iEdges[vOldId])); k++ {
 				oldInEdge := iEdges[vOldId][k]
-				p.graph.SetInEdge(newInEdgeId, datastructure.NewInEdge(
+				newInEdge := datastructure.NewInEdge(
 					oldInEdge.GetEdgeId(), oldInEdge.GetTail(), oldInEdge.GetWeight(),
 					oldInEdge.GetLength(), oldInEdge.GetExitPoint(),
 					oldInEdge.GetHighwayType(),
-				))
+				)
+
+				p.graph.SetInEdge(newInEdgeId, newInEdge)
 
 				inEdge := p.graph.GetInEdge(newInEdgeId)
 				inEdge.SetEdgeId(newInEdgeId)
 				inEdge.SetTailId(p.newVIdMap[oldInEdge.GetTail()])
-				inEdge.SetOriginalEdgeId(oldInEdge.GetEdgeId())
 
 				newInEdgeId++
 			}

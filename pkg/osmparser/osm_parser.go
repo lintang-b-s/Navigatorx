@@ -3,12 +3,13 @@ package osmparser
 import (
 	"context"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/paulmach/osm"
@@ -31,13 +32,13 @@ func NewNodeCoord(lat, lon float64) NodeCoord {
 }
 
 type restriction struct {
-	via             datastructure.Index
+	via             da.Index
 	to              int64
 	turnRestriction TurnRestriction
 }
 
 type osmWay struct {
-	nodes  []datastructure.Index
+	nodes  []da.Index
 	oneWay bool
 	hwTag  string
 }
@@ -49,13 +50,14 @@ type OsmParser struct {
 	barrierNodes       map[int64]bool
 	nodeTag            map[int64]map[int]int
 	tagStringIdMap     util.IDMap
-	nodeIDMap          map[int64]datastructure.Index
-	nodeToOsmId        map[datastructure.Index]int64
+	nodeIDMap          map[int64]da.Index
+	nodeToOsmId        map[da.Index]int64
 	maxNodeID          int64
 	restrictions       map[int64][]restriction // wayId -> list of restrictions
 	ways               map[int64]osmWay
-	trafficEdges       []datastructure.Index
+	trafficEdges       []da.Index
 	osmWayDefaultSpeed map[int64]float64
+	bb                 *da.BoundingBox
 }
 
 func NewOSMParserV2() *OsmParser {
@@ -66,10 +68,11 @@ func NewOSMParserV2() *OsmParser {
 		barrierNodes:       make(map[int64]bool),
 		nodeTag:            make(map[int64]map[int]int),
 		tagStringIdMap:     util.NewIdMap(),
-		nodeIDMap:          make(map[int64]datastructure.Index),
-		nodeToOsmId:        make(map[datastructure.Index]int64),
-		trafficEdges:       make([]datastructure.Index, 0),
+		nodeIDMap:          make(map[int64]da.Index),
+		nodeToOsmId:        make(map[da.Index]int64),
+		trafficEdges:       make([]da.Index, 0),
 		osmWayDefaultSpeed: make(map[int64]float64),
+		bb:                 da.NewBoundingBoxEmpty(),
 	}
 }
 
@@ -77,7 +80,7 @@ func (o *OsmParser) SetAcceptedNodeMap(acceptedNodeMap map[int64]NodeCoord) {
 	o.acceptedNodeMap = acceptedNodeMap
 }
 
-func (o *OsmParser) SetNodeToOsmId(nodeToOsmId map[datastructure.Index]int64) {
+func (o *OsmParser) SetNodeToOsmId(nodeToOsmId map[da.Index]int64) {
 	o.nodeToOsmId = nodeToOsmId
 }
 
@@ -85,7 +88,7 @@ func (o *OsmParser) GetTagStringIdMap() util.IDMap {
 	return o.tagStringIdMap
 }
 
-func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) (*datastructure.Graph, error) {
+func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) (*da.Graph, error) {
 
 	f, err := os.Open(mapFile)
 
@@ -184,9 +187,9 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 		}
 	}
 	scanner.Close()
-	graphStorage := datastructure.NewGraphStorage()
+	graphStorage := da.NewGraphStorage()
 
-	edgeSet := make(map[datastructure.Index]map[datastructure.Index]struct{})
+	edgeSet := make(map[da.Index]map[da.Index]struct{})
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
@@ -251,7 +254,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 				} else {
 					wayExtraInfoData.forward = true
 				}
-				wNodes := make([]datastructure.Index, 0, len(way.Nodes))
+				wNodes := make([]da.Index, 0, len(way.Nodes))
 				for _, node := range way.Nodes {
 					nodeID := p.nodeIDMap[int64(node.ID)]
 					wNodes = append(wNodes, nodeID)
@@ -333,6 +336,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 
 	graph := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false)
 	graph.SetGraphStorage(graphStorage)
+	graph.SetBoundingBox(p.bb)
 
 	logger.Sugar().Infof("number of vertices: %v\n", graph.NumberOfVertices())
 	logger.Sugar().Infof("number of edges: %v\n", graph.NumberOfEdges())
@@ -345,8 +349,8 @@ type wayExtraInfo struct {
 	forward bool
 }
 
-func (p *OsmParser) processWay(way *osm.Way, graphStorage *datastructure.GraphStorage,
-	streetDirection map[int64][2]bool, edgeSet map[datastructure.Index]map[datastructure.Index]struct{},
+func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
+	streetDirection map[int64][2]bool, edgeSet map[da.Index]map[da.Index]struct{},
 	scannedEdges *[]Edge, useMaxSpeed bool) (string, error) {
 	tempMap := make(map[string]string)
 	name := way.Tags.Find("name")
@@ -490,8 +494,8 @@ func getReversedOneWay(way *osm.Way) (bool, bool, bool, bool) {
 	return isRestricted(vehicleForward), isRestricted(motorVehicleForward), isRestricted(vehicleBackward), isRestricted(motorVehicleBackward)
 }
 
-func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *datastructure.GraphStorage,
-	wayExtraInfoData wayExtraInfo, edgeSet map[datastructure.Index]map[datastructure.Index]struct{}, scannedEdges *[]Edge, id int64) {
+func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
+	wayExtraInfoData wayExtraInfo, edgeSet map[da.Index]map[da.Index]struct{}, scannedEdges *[]Edge, id int64) {
 
 	if len(segment) == 2 && segment[0].id == segment[1].id {
 		// skip
@@ -505,8 +509,8 @@ func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, sp
 	}
 }
 
-func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, speed float64, graphStorage *datastructure.GraphStorage,
-	wayExtraInfoData wayExtraInfo, edgeSet map[datastructure.Index]map[datastructure.Index]struct{}, scannedEdges *[]Edge, id int64,
+func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
+	wayExtraInfoData wayExtraInfo, edgeSet map[da.Index]map[da.Index]struct{}, scannedEdges *[]Edge, id int64,
 ) {
 	waySegment := []node{}
 	for i := 0; i < len(segment); i++ {
@@ -551,8 +555,8 @@ func (p *OsmParser) copyNode(nodeData node) node {
 	}
 }
 
-func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *datastructure.GraphStorage,
-	wayExtraInfoData wayExtraInfo, edgeSet map[datastructure.Index]map[datastructure.Index]struct{}, scannedEdges *[]Edge, id int64) {
+func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
+	wayExtraInfoData wayExtraInfo, edgeSet map[da.Index]map[da.Index]struct{}, scannedEdges *[]Edge, id int64) {
 	from := segment[0]
 
 	to := segment[len(segment)-1]
@@ -560,24 +564,34 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	if from == to {
 		return
 	}
+	maxLonft := math.Max(from.coord.lon, to.coord.lon)
+	maxLatft := math.Max(from.coord.lat, to.coord.lat)
+
+	minLonft := math.Min(from.coord.lon, to.coord.lon)
+	minLatft := math.Min(from.coord.lat, to.coord.lat)
+
+	p.bb.SetMaxLat(math.Max(p.bb.GetMaxLat(), maxLatft))
+	p.bb.SetMaxLon(math.Max(p.bb.GetMaxLon(), maxLonft))
+	p.bb.SetMinLat(math.Min(p.bb.GetMinLat(), minLatft))
+	p.bb.SetMinLon(math.Min(p.bb.GetMinLon(), minLonft))
 
 	if _, ok := p.nodeIDMap[from.id]; !ok {
-		p.nodeIDMap[from.id] = datastructure.Index(len(p.nodeIDMap))
+		p.nodeIDMap[from.id] = da.Index(len(p.nodeIDMap))
 		p.nodeToOsmId[p.nodeIDMap[from.id]] = from.id
 	}
 	if _, ok := p.nodeIDMap[to.id]; !ok {
-		p.nodeIDMap[to.id] = datastructure.Index(len(p.nodeIDMap))
+		p.nodeIDMap[to.id] = da.Index(len(p.nodeIDMap))
 		p.nodeToOsmId[p.nodeIDMap[to.id]] = to.id
 	}
 
-	edgePoints := []datastructure.Coordinate{}
+	edgePoints := []da.Coordinate{}
 	distance := 0.0
 	for i := 0; i < len(segment); i++ {
 		if p.nodeTag[int64(segment[i].id)][p.tagStringIdMap.GetID(TRAFFIC_LIGHT)] == 1 {
 
-			p.trafficEdges = append(p.trafficEdges, datastructure.Index(len(*scannedEdges)))
+			p.trafficEdges = append(p.trafficEdges, da.Index(len(*scannedEdges)))
 		}
-		edgePoints = append(edgePoints, datastructure.NewCoordinate(
+		edgePoints = append(edgePoints, da.NewCoordinate(
 			segment[i].coord.lat,
 			segment[i].coord.lon,
 		))
@@ -586,10 +600,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		}
 	}
 
-	geoEdgePoints := geo.RamerDouglasPeucker(datastructure.NewGeoCoordinates(edgePoints)) // simplify edge geometry
+	geoEdgePoints := geo.RamerDouglasPeucker(da.NewGeoCoordinates(edgePoints)) // simplify edge geometry
 	for i, coord := range geoEdgePoints {
 
-		edgePoints[i] = datastructure.NewCoordinate(coord.GetLat(), coord.GetLon())
+		edgePoints[i] = da.NewCoordinate(coord.GetLat(), coord.GetLon())
 	}
 
 	isRoundabout := false
@@ -614,10 +628,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	}
 
 	if _, ok := edgeSet[p.nodeIDMap[from.id]]; !ok {
-		edgeSet[p.nodeIDMap[from.id]] = make(map[datastructure.Index]struct{})
+		edgeSet[p.nodeIDMap[from.id]] = make(map[da.Index]struct{})
 	}
 	if _, ok := edgeSet[p.nodeIDMap[to.id]]; !ok {
-		edgeSet[p.nodeIDMap[to.id]] = make(map[datastructure.Index]struct{})
+		edgeSet[p.nodeIDMap[to.id]] = make(map[da.Index]struct{})
 	}
 
 	roadClass := tempMap[ROAD_CLASS]
@@ -641,16 +655,16 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			graphStorage.AppendGlobalPoints(edgePoints)
 			endPointsIndex := graphStorage.GetGlobalPointsCount()
 
-			graphStorage.AppendMapEdgeInfo(datastructure.NewEdgeExtraInfo(
+			graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
 				uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
 				uint8(lanes),
 				uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK])),
-				datastructure.Index(startPointsIndex), datastructure.Index(endPointsIndex),
+				da.Index(startPointsIndex), da.Index(endPointsIndex),
 				id,
 			))
 
-			graphStorage.SetRoundabout(datastructure.Index(len(*scannedEdges)), isRoundabout)
+			graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
 
 			e := NewEdge(
 				uint32(p.nodeIDMap[from.id]),
@@ -660,6 +674,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				uint32(len(*scannedEdges)),
 				hwType,
 			)
+
+			e.SetFromOSMId(uint64(from.id))
+			e.SetToOSMId(uint64(to.id))
+
 			*scannedEdges = append(*scannedEdges, e)
 
 		} else {
@@ -676,17 +694,17 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			graphStorage.AppendGlobalPoints(edgePoints)
 			endPointsIndex := graphStorage.GetGlobalPointsCount()
 
-			graphStorage.AppendMapEdgeInfo(datastructure.NewEdgeExtraInfo(
+			graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
 				uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
 				uint8(lanes),
 				uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK])),
-				datastructure.Index(startPointsIndex), datastructure.Index(endPointsIndex),
+				da.Index(startPointsIndex), da.Index(endPointsIndex),
 				id,
 			),
 			)
 
-			graphStorage.SetRoundabout(datastructure.Index(len(*scannedEdges)), isRoundabout)
+			graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
 			e := NewEdge(
 				uint32(p.nodeIDMap[to.id]),
 				uint32(p.nodeIDMap[from.id]),
@@ -695,6 +713,9 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				uint32(len(*scannedEdges)),
 				hwType,
 			)
+
+			e.SetFromOSMId(uint64(to.id))
+			e.SetToOSMId(uint64(from.id))
 
 			*scannedEdges = append(*scannedEdges, e)
 		}
@@ -710,17 +731,17 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		graphStorage.AppendGlobalPoints(edgePoints)
 		endPointsIndex := graphStorage.GetGlobalPointsCount()
 
-		graphStorage.AppendMapEdgeInfo(datastructure.NewEdgeExtraInfo(
+		graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
 			uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
 			uint8(lanes),
 			uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK])),
-			datastructure.Index(startPointsIndex), datastructure.Index(endPointsIndex),
+			da.Index(startPointsIndex), da.Index(endPointsIndex),
 			id,
 		),
 		)
 
-		graphStorage.SetRoundabout(datastructure.Index(len(*scannedEdges)), isRoundabout)
+		graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
 
 		e := NewEdge(
 			uint32(p.nodeIDMap[from.id]),
@@ -731,18 +752,21 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			hwType,
 		)
 
+		e.SetFromOSMId(uint64(from.id))
+		e.SetToOSMId(uint64(to.id))
+
 		*scannedEdges = append(*scannedEdges, e)
 
-		graphStorage.AppendMapEdgeInfo(datastructure.NewEdgeExtraInfo(
+		graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
 			uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
 			uint8(lanes),
 			uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK])),
-			datastructure.Index(endPointsIndex), datastructure.Index(startPointsIndex),
+			da.Index(endPointsIndex), da.Index(startPointsIndex),
 			id,
 		))
 
-		graphStorage.SetRoundabout(datastructure.Index(len(*scannedEdges)), isRoundabout)
+		graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
 
 		e = NewEdge(
 			uint32(p.nodeIDMap[to.id]),
@@ -752,6 +776,9 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			uint32(len(*scannedEdges)),
 			hwType,
 		)
+
+		e.SetFromOSMId(uint64(to.id))
+		e.SetToOSMId(uint64(from.id))
 
 		*scannedEdges = append(*scannedEdges, e)
 	}
@@ -782,4 +809,8 @@ func (p *OsmParser) GetRoadSpeed(osmWayId int64) float64 {
 // return osm way length in meter
 func (p *OsmParser) GetOldRoadSpeed(osmWayId int64) float64 {
 	return p.osmWayDefaultSpeed[osmWayId]
+}
+
+func (p *OsmParser) GetNodeIdMap() map[int64]da.Index {
+	return p.nodeIDMap
 }

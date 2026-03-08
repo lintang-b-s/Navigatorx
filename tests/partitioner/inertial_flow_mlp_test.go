@@ -70,9 +70,9 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 		logger.Sugar().Infof("download complete")
 	}
 
-	osmParser := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2()
 
-	graph, err := osmParser.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
 	if err != nil {
 		panic(err)
 	}
@@ -102,7 +102,6 @@ const (
 )
 
 // todo: add test customizer & query pake file osm yang di gdrive
-
 // https://stackoverflow.com/questions/63842225/go-test-coverage-over-different-packages
 // please run the test using command: "cd tests/partitioner &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=part_coverage.out  -v -timeout=0  -count=1"
 // go tool cover -func=part_coverage.out

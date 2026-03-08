@@ -102,7 +102,7 @@ func (gs *GraphStorage) GetTrafficLight(nodeID Index) bool {
 }
 
 type EdgeExtraInfo struct {
-	startPointsIndex Index
+	startPointsIndex Index // edge geometry start index di gs.globalPoints
 	endPointsIndex   Index
 	streetName       int
 	roadClass        uint8
@@ -140,6 +140,7 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 	if edge.osmWayId == -1 {
 		return []Coordinate{}
 	}
+
 	startIndex := edge.startPointsIndex
 	endIndex := edge.endPointsIndex
 	if startIndex < endIndex {

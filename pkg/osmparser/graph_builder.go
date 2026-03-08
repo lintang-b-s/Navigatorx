@@ -5,6 +5,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.GraphStorage, numV uint32, skipUTurn bool) *datastructure.Graph {
@@ -20,20 +21,23 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		vertices[v] = datastructure.NewVertex(0, 0, datastructure.Index(v), 0)
 	}
 
-	lastEdgeId := uint32(0)
-	edgeId := datastructure.Index(0)
-	for _, e := range scannedEdges {
+	for eId, e := range scannedEdges {
 		u := datastructure.Index(e.from)
 		v := datastructure.Index(e.to)
 		uOsmId := e.GetFromOsmId()
 		vOsmId := e.GetToOsmId()
 
-		outEdges[u] = append(outEdges[u], datastructure.NewOutEdge(edgeId,
-			v, e.GetWeight(), e.GetDistance(), len(inEdges[v]), e.GetHighwayType()))
+		outEdge := datastructure.NewOutEdge(0,
+			v, e.GetWeight(), e.GetDistance(), len(inEdges[v]), e.GetHighwayType())
+		outEdge.SetInfoEdgeId(da.Index(eId))
+		outEdges[u] = append(outEdges[u], outEdge)
+
 		outDegree[u]++
 
-		inEdges[v] = append(inEdges[v], datastructure.NewInEdge(edgeId,
-			u, e.GetWeight(), e.GetDistance(), len(outEdges[u])-1, e.GetHighwayType()))
+		inEdge := datastructure.NewInEdge(0,
+			u, e.GetWeight(), e.GetDistance(), len(outEdges[u])-1, e.GetHighwayType())
+		inEdge.SetInfoEdgeId(da.Index(eId))
+		inEdges[v] = append(inEdges[v], inEdge)
 		inDegree[v]++
 
 		uData := p.acceptedNodeMap[p.nodeToOsmId[datastructure.Index(u)]]
@@ -41,16 +45,12 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 
 		vData := p.acceptedNodeMap[p.nodeToOsmId[datastructure.Index(v)]]
 		vertices[v] = datastructure.NewVertex(vData.lat, vData.lon, v, vOsmId)
-		edgeId++
-		if e.edgeID >= lastEdgeId {
-			lastEdgeId = e.edgeID + 1
-		}
 	}
 
 	for v := 0; v < len(vertices)-1; v++ {
 		// we need to do this because crp query assume all vertex have at least one outEdge (at for target as source)
 
-		dummyID := datastructure.Index(lastEdgeId)
+		dummyID := datastructure.Index(0)
 		dummyOut := datastructure.NewOutEdge(dummyID, datastructure.Index(v),
 			0, 0, len(inEdges[v]), pkg.UNKNOWN)
 		outEdges[v] = append(outEdges[v], dummyOut)
@@ -60,7 +60,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 			0, 0, len(outEdges[v])-1, pkg.UNKNOWN)
 		inEdges[v] = append(inEdges[v], dummyIn)
 		inDegree[v]++
-		lastEdgeId++
 		graphStorage.AppendMapEdgeInfo(
 			datastructure.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(""),
@@ -269,7 +268,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 	matrixOffset := 0
 
 	for v := 0; v < len(vertices)-1; v++ {
-
 		// set the turnTablePtr of vertex v to the current matrixOffset
 		// matrix offset is index of the first element of turnMatrices[v] in the flattened matrices array
 		vertices[v].SetTurnTablePtr(datastructure.Index(matrixOffset))
@@ -297,7 +295,13 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 	vertices[len(vertices)-1].SetFirstIn(inEdgeOffset)
 
 	flattenOutEdges := flatten(outEdges)
+	for i := 0; i < len(flattenOutEdges); i++ {
+		flattenOutEdges[i].SetEdgeId(da.Index(i))
+	}
 	flattenInEdges := flatten(inEdges)
+	for i := 0; i < len(flattenInEdges); i++ {
+		flattenInEdges[i].SetEdgeId(da.Index(i))
+	}
 	graph := datastructure.NewGraph(vertices, flattenOutEdges, flattenInEdges, matrices)
 
 	return graph

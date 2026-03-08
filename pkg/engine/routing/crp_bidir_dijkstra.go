@@ -551,8 +551,6 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 		vVertex := bs.engine.overlayGraph.GetVertex(v)
 
 		newTravelTime := bs.forwardPq.GetPriority(uId) + shortcutOutEdgeWeight
-		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-
 		if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
 		}

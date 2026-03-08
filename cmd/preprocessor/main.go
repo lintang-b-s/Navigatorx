@@ -21,8 +21,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	osmParser := osmparser.NewOSMParserV2()
-	graph, err := osmParser.Parse(fmt.Sprintf("./data/%s", *osmFile), logger, false)
+	op := osmparser.NewOSMParserV2()
+	graph, err := op.Parse(fmt.Sprintf("./data/%s", *osmFile), logger, false)
 	if err != nil {
 		panic(err)
 	}

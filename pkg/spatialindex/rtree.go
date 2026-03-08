@@ -13,7 +13,6 @@ type Rtree struct {
 	tr *rtree.RTreeG[ArcEndpoint]
 }
 
-
 // our query is turn-based multilevel bidirectional dijkstra
 // query input = (as,s, at,t)
 // as = entryOffset of source

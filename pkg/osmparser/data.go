@@ -44,6 +44,14 @@ func (e *Edge) GetHighwayType() pkg.OsmHighwayType {
 	return e.hwType
 }
 
+func (e *Edge) SetFromOSMId(fromOsmId uint64) {
+	e.fromOsmId = fromOsmId
+}
+
+func (e *Edge) SetToOSMId(toOsmId uint64) {
+	e.toOsmId = toOsmId
+}
+
 func NewEdge(from, to uint32, weight, distance float64, edgeID uint32, hwType pkg.OsmHighwayType) Edge {
 	return Edge{
 		from:     from,

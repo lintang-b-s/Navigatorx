@@ -44,20 +44,20 @@ func (g *Graph) WriteGraph(filename string) error {
 			v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, v.id, latF, lonF, v.osmId)
 	}
 
-	for _, v := range g.outEdges {
-		weightF := strconv.FormatFloat(v.weight, 'f', -1, 64)
-		distF := strconv.FormatFloat(v.dist, 'f', -1, 64)
+	for _, e := range g.outEdges {
+		weightF := strconv.FormatFloat(e.weight, 'f', -1, 64)
+		distF := strconv.FormatFloat(e.dist, 'f', -1, 64)
 
 		fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
-			v.edgeId, v.head, weightF, distF, v.entryPoint, v.oriEdgeId, v.hwType)
+			e.edgeId, e.head, weightF, distF, e.entryPoint, e.edgeInfoId, e.hwType)
 	}
 
-	for _, v := range g.inEdges {
-		weightF := strconv.FormatFloat(v.weight, 'f', -1, 64)
-		distF := strconv.FormatFloat(v.dist, 'f', -1, 64)
+	for _, e := range g.inEdges {
+		weightF := strconv.FormatFloat(e.weight, 'f', -1, 64)
+		distF := strconv.FormatFloat(e.dist, 'f', -1, 64)
 
 		fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
-			v.edgeId, v.tail, weightF, distF, v.exitPoint, v.oriEdgeId, v.hwType)
+			e.edgeId, e.tail, weightF, distF, e.exitPoint, e.edgeInfoId, e.hwType)
 	}
 
 	for _, cellNumber := range g.cellNumbers {
@@ -702,7 +702,7 @@ func parseOutEdge(line string) (*OutEdge, error) {
 		return nil, err
 	}
 
-	oriEdgeId, err := ParseIndex(tokens[5])
+	edgeInfoId, err := ParseIndex(tokens[5])
 	if err != nil {
 		return nil, err
 	}
@@ -713,7 +713,7 @@ func parseOutEdge(line string) (*OutEdge, error) {
 	}
 
 	e := NewOutEdge(edgeId, head, weight, dist, int(entryPoint), pkg.OsmHighwayType(hwType))
-	e.SetOriginalEdgeId(oriEdgeId)
+	e.SetInfoEdgeId(edgeInfoId)
 	return e, nil
 }
 
@@ -743,7 +743,7 @@ func parseInEdge(line string) (*InEdge, error) {
 	if err != nil {
 		return nil, err
 	}
-	oriEdgeId, err := ParseIndex(tokens[5])
+	edgeInfoId, err := ParseIndex(tokens[5])
 	if err != nil {
 		return nil, err
 	}
@@ -754,6 +754,6 @@ func parseInEdge(line string) (*InEdge, error) {
 	}
 
 	e := NewInEdge(edgeId, tail, weight, dist, int(exitPoint), pkg.OsmHighwayType(hwType))
-	e.SetOriginalEdgeId(oriEdgeId)
+	e.SetInfoEdgeId(edgeInfoId)
 	return e, nil
 }

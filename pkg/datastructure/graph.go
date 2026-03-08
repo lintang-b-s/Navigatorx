@@ -89,22 +89,22 @@ func (v *Vertex) GetTurnTablePtr() Index {
 
 // outedge enters vertex head at entryPoint
 type OutEdge struct {
-	weight            float64 // minute
-	dist              float64 // meter
-	edgeId, oriEdgeId Index
-	head              Index
-	entryPoint        int
-	hwType            pkg.OsmHighwayType
+	weight             float64 // minute
+	dist               float64 // meter
+	edgeId, edgeInfoId Index   // edgeId = edgeId di graph.outEdges.
+	head               Index
+	entryPoint         int
+	hwType             pkg.OsmHighwayType
 }
 
 // inedge exits vertex tail at exitPoint
 type InEdge struct {
-	weight            float64 // minute
-	dist              float64 // meter
-	edgeId, oriEdgeId Index
-	tail              Index
-	exitPoint         int
-	hwType            pkg.OsmHighwayType
+	weight             float64 // minute
+	dist               float64 // meter
+	edgeId, edgeInfoId Index   //edgeId = edgeId di graph.inEdges.
+	tail               Index
+	exitPoint          int
+	hwType             pkg.OsmHighwayType
 }
 
 func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint int, hwType pkg.OsmHighwayType) *OutEdge {
@@ -172,12 +172,12 @@ func (e *OutEdge) SetEntryPoint(p int) {
 	e.entryPoint = p
 }
 
-func (e *OutEdge) SetOriginalEdgeId(oriEdgeId Index) {
-	e.oriEdgeId = oriEdgeId
+func (e *OutEdge) SetInfoEdgeId(edgeInfoId Index) {
+	e.edgeInfoId = edgeInfoId
 }
 
-func (e *OutEdge) GetOriginalEdgeId() Index {
-	return e.oriEdgeId
+func (e *OutEdge) GetEdgeInfoId() Index {
+	return e.edgeInfoId
 }
 
 func (e *OutEdge) GetEdgeId() Index {
@@ -231,12 +231,12 @@ func (e *InEdge) SetEdgeId(edgeId Index) {
 	e.edgeId = edgeId
 }
 
-func (e *InEdge) SetOriginalEdgeId(oriEdgeId Index) {
-	e.oriEdgeId = oriEdgeId
+func (e *InEdge) SetInfoEdgeId(edgeInfoId Index) {
+	e.edgeInfoId = edgeInfoId
 }
 
-func (e *InEdge) GetOriginalEdgeId() Index {
-	return e.oriEdgeId
+func (e *InEdge) GetEdgeInfoId() Index {
+	return e.edgeInfoId
 }
 
 type SubVertex struct {
@@ -398,7 +398,6 @@ func (g *Graph) GetNumberOfOutEdges(u Index) Index {
 
 func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-
 		handle(g.outEdges[e], e)
 	}
 }
@@ -448,6 +447,10 @@ func (g *Graph) GetOverlayVertex(u Index, exitEntryOrder int, exit bool) (Index,
 
 func (g *Graph) GetTurntables() []pkg.TurnType {
 	return g.turnTables
+}
+
+func (g *Graph) GetTurntablesLength() int {
+	return len(g.turnTables)
 }
 
 func (g *Graph) GetCellNumber(u Index) Pv {
