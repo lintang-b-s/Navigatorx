@@ -2,6 +2,7 @@ package customizer
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -164,10 +165,12 @@ func TestCRPCustomizerSimple(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name            string
-		filepath        string
-		want            [][]map[uint64]float64 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
-		cellVertices    [][][]da.Index
+		name         string
+		filepath     string
+		want         [][]map[uint64]float64 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
+		cellVertices [][][]da.Index
+
+		apspFilePath    string // all pairs shortest paths filepath.
 		minNumShortcuts int
 		wantErr         bool
 	}{
@@ -236,6 +239,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				},
 			},
 			minNumShortcuts: 17,
+			apspFilePath:    "./data/samplegraph/big.out",
 		},
 		{
 			// https://visualgo.net/en/sssp
@@ -295,6 +299,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				},
 			},
 			minNumShortcuts: 9,
+			apspFilePath:    "./data/samplegraph/410.out",
 		},
 	}
 
@@ -405,7 +410,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 		lm := landmark.NewLandmark()
-		err = lm.PreprocessALT(16, mt, custom, logger)
+		err = lm.PreprocessALT(util.MinInt(16, n), mt, custom, logger)
 		if err != nil {
 			panic(err)
 		}
@@ -427,7 +432,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			re, _, newToOldVidMap, err := buildGraph(tc.filepath, tc.cellVertices)
+			re, lm, newToOldVidMap, err := buildGraph(tc.filepath, tc.cellVertices)
 			if !tc.wantErr && (err != nil) {
 				t.Errorf("expected error: %v, got error", tc.wantErr)
 			} else if tc.wantErr && (err == nil) {
@@ -502,7 +507,65 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				t.Errorf("expected minimal number of shortcuts: %v, got: %v", tc.minNumShortcuts, gotNumOfShortcuts)
 			}
 
-			
+			// validating precalculated landmark distances
+			g := re.GetRoutingEngine().GetGraph()
+			landmarks := lm.GetLandmarkVIds()
+			lw := lm.GetLandmarkVWeights()
+			vlw := lm.GetVerticesLandmarkWeights()
+			n := g.NumberOfVertices()
+
+			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0644)
+			if err != nil {
+				t.Fatalf("could not open test file: %v", err)
+			}
+
+			brOut := bufio.NewReader(fOut)
+
+			apsp := make(map[uint64]float64, n*n) // all pairs shortest path. bitpack(source,target) -> shortest st-path cost
+			for {
+				line, err := readLine(brOut)
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				ff := fields(line)
+				ss, tt, stcosts := ff[0], ff[1], ff[2]
+				source, err := strconv.Atoi(ss)
+				if err != nil {
+					t.Fatal(err)
+				}
+				target, err := strconv.Atoi(tt)
+				if err != nil {
+					t.Fatal(err)
+				}
+				stcost, err := strconv.ParseFloat(stcosts, 64)
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				apsp[bitpack(da.Index(source), da.Index(target))] = stcost
+			}
+
+			for i := 0; i < len(landmarks); i++ {
+				landmarkId := landmarks[i]
+				oldLandmarkId := newToOldVidMap[landmarkId]
+
+				for v := 0; v < n; v++ {
+					oldV := newToOldVidMap[da.Index(v)]
+					gotLwDist := lw[i][v]
+					expectedLwDist := apsp[bitpack(oldLandmarkId, da.Index(oldV))]
+					if !da.Eq(gotLwDist, expectedLwDist) {
+						t.Errorf("expected shortest path cost from landmarkId %v to vertex %v: %v, got: %v", landmarkId, v, gotLwDist, expectedLwDist)
+					}
+					gotVlwDist := vlw[v][i]
+					expectedVlwDist := apsp[bitpack(da.Index(oldV), oldLandmarkId)]
+					if !da.Eq(gotVlwDist, expectedVlwDist) {
+						t.Errorf("expected shortest path cost from vertex %v to landmarkId %v: %v, got: %v", v, landmarkId, gotVlwDist, expectedVlwDist)
+					}
+
+				}
+			}
+
+			fOut.Close()
 		})
 	}
 }

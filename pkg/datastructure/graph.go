@@ -588,6 +588,9 @@ func (g *Graph) GetSCCOfAVertex(u Index) Index {
 func (g *Graph) GetSCCS() []Index {
 	return g.sccs
 }
+func (g *Graph) GetSCCCondensationAdjList() [][]Index {
+	return g.sccCondensationAdj
+}
 
 func (g *Graph) SetBoundingBox(bb *BoundingBox) {
 	g.boundingBox = bb

@@ -222,6 +222,8 @@ https://doi.org/10.1007/978-3-319-49487-6_2.
 
 implementation of computing tighest lower bound of A*, landmarks, and triangle inequality, 6 Computing Lower Bounds in [1] or section 2.2 ALT in [2]
 estimate on dist (u,t)
+
+activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
 func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) float64 {
 	// O(k), k = number of landmarks

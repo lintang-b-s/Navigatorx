@@ -143,13 +143,15 @@ func TestPreprocessorSimple(t *testing.T) {
 	}
 
 	testCases := []struct {
-		name                  string
-		filepath              string
-		want                  [][]map[uint64]float64 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
-		cellVertices          [][][]da.Index         // level -> cellId -> vertices
-		entryVertices         [][][]da.Index         //  level  -> cellId -> entry vertices
-		exitVertices          [][][]da.Index         //  level  -> cellId -> exit vertices
-		sccs                  [][]da.Index           // sccId -> vId
+		name               string
+		filepath           string
+		want               [][]map[uint64]float64 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
+		cellVertices       [][][]da.Index         // level -> cellId -> vertices
+		entryVertices      [][][]da.Index         //  level  -> cellId -> entry vertices
+		exitVertices       [][][]da.Index         //  level  -> cellId -> exit vertices
+		sccs               [][]da.Index           // sccId -> vId
+		sccCondensationAdj [][]da.Index           // condensation connection of scc of u -> scc of v
+
 		numOfLevelOneCells    int
 		minNumShortcuts       int
 		minNumOverlayVertices int
@@ -292,6 +294,24 @@ func TestPreprocessorSimple(t *testing.T) {
 					8,
 				},
 			},
+			sccCondensationAdj: [][]da.Index{
+				{
+					1,
+				},
+				{
+					2, 3, 4, 5,
+				},
+				{
+					5,
+				},
+				{
+					4,
+				},
+				{
+					5,
+				},
+				{},
+			},
 		},
 		{
 			// https://visualgo.net/en/sssp
@@ -406,6 +426,15 @@ func TestPreprocessorSimple(t *testing.T) {
 				{0, 1, 2},
 				{3},
 				{4},
+			},
+			sccCondensationAdj: [][]da.Index{
+				{
+					1, 2,
+				},
+				{
+					2,
+				},
+				{},
 			},
 		},
 	}
@@ -708,6 +737,20 @@ func TestPreprocessorSimple(t *testing.T) {
 				}
 			}
 
+			gotSccCond := g.GetSCCCondensationAdjList()
+
+			for i := 0; i < len(gotSccCond); i++ {
+				if len(gotSccCond[i]) != len(tc.sccCondensationAdj[i]) {
+					t.Errorf("expected len(sccCondAdjlist[i]): %v, got: %v", len(tc.sccCondensationAdj[i]), len(gotSccCond[i]))
+				}
+
+				for j, to := range tc.sccCondensationAdj[i] {
+					if to != gotSccCond[i][j] {
+						t.Errorf("expected sccCondAdjlist[i][j]: %v, got: %v", to, gotSccCond[i][j])
+
+					}
+				}
+			}
 		})
 	}
 }
