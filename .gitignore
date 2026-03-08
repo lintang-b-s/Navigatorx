@@ -44,3 +44,7 @@ navigatorx-cpu-profile2
 *.mem
 benchmark.test
 navigatorx*
+
+*coverage*
+
+

@@ -102,7 +102,11 @@ const (
 )
 
 // todo: add test customizer & query pake file osm yang di gdrive
-// please run the test using command: "cd tests/partitioner && go test -run TestInertialFlowMLP  -v -timeout=0  -count=1"
+
+// https://stackoverflow.com/questions/63842225/go-test-coverage-over-different-packages
+// please run the test using command: "cd tests/partitioner &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=part_coverage.out  -v -timeout=0  -count=1"
+// go tool cover -func=part_coverage.out
+// go tool cover -html=part_coverage.out
 // karena bakal timeout kalau pakai run test vscode
 func TestInertialFlowMLP(t *testing.T) {
 	g, mp := setup()

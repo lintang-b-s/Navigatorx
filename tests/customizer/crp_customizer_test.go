@@ -156,6 +156,10 @@ const (
 	CELL_WORKERS = 5
 )
 
+// https://stackoverflow.com/questions/63842225/go-test-coverage-over-different-packages
+// cd tests/customizer &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=cust_coverage.out
+// go tool cover -func=cust_coverage.out
+// go tool cover -html=cust_coverage.out
 func TestCRPCustomizerSimple(t *testing.T) {
 
 	// https://visualgo.net/en/sssp

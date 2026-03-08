@@ -6,7 +6,7 @@ import (
 	"os"
 	"sort"
 
-	"github.com/dsnet/compress/bzip2"
+	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -505,13 +505,13 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 	}
 	defer f.Close()
 
-	bz, err := bzip2.NewWriter(f, &bzip2.WriterConfig{})
+	snp := s2.NewWriter(f)
 	if err != nil {
 		return err
 	}
-	defer bz.Close()
+	defer snp.Close()
 
-	w := bufio.NewWriter(bz)
+	w := bufio.NewWriter(snp)
 	defer w.Flush()
 
 	offsets := og.levelInfo.GetOffsets()
@@ -575,13 +575,13 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 
 	defer f.Close()
 
-	bz, err := bzip2.NewReader(f, nil)
+	snp := s2.NewReader(f)
 
 	if err != nil {
 		return nil, err
 	}
 
-	br := bufio.NewReader(bz)
+	br := bufio.NewReader(snp)
 
 	line, err := util.ReadLine(br)
 	if err != nil {

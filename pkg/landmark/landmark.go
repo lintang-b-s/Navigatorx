@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/dsnet/compress/bzip2"
+	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -326,13 +326,13 @@ func (lm *Landmark) WriteLandmark(filename string, cst *customizer.Customizer) e
 	}
 	defer f.Close()
 
-	bz, err := bzip2.NewWriter(f, &bzip2.WriterConfig{})
+	snp := s2.NewWriter(f)
 	if err != nil {
 		return err
 	}
-	defer bz.Close()
+	defer snp.Close()
 
-	w := bufio.NewWriter(bz)
+	w := bufio.NewWriter(snp)
 
 	k := len(lm.landmarks)
 
@@ -374,12 +374,12 @@ func ReadLandmark(filename string) (*Landmark, error) {
 
 	defer f.Close()
 
-	bz, err := bzip2.NewReader(f, nil)
+	snp := s2.NewReader(f)
 
 	if err != nil {
 		return nil, err
 	}
-	br := bufio.NewReader(bz)
+	br := bufio.NewReader(snp)
 
 	line, err := util.ReadLine(br)
 	if err != nil {

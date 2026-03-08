@@ -13,6 +13,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"golang.org/x/exp/rand"
 )
 
@@ -34,6 +35,11 @@ func main() {
 		panic(err)
 	}
 
+	workingDir, err := os.Getwd()
+	err = util.ReadConfig(workingDir)
+	if err != nil {
+		panic(err)
+	}
 	routingEngine, err := engine.NewEngine("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
 	if err != nil {
 		panic(err)
@@ -59,6 +65,7 @@ func main() {
 		N = da.NewSparseMatrix[int](graph.NumberOfEdges(), graph.NumberOfEdges(),
 			0, func(a, b int) bool { return a == b })
 	}
+
 	rd := rand.New(rand.NewSource(uint64(time.Now().UnixNano())))
 	lm, err := landmark.ReadLandmark(landmarkFile)
 	if err != nil {
@@ -69,7 +76,7 @@ func main() {
 
 	boundingBox := graph.GetBoundingBox()
 	for i := 0; i < 5e5; i++ {
-		if (i+1)%1e4 == 0 {
+		if (i+1)%1e2 == 0 {
 			fmt.Printf("completed query: %v\n", i+1)
 			N.WriteToFile("./data/omm_transition_history_id.mm")
 		}

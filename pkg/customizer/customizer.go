@@ -233,7 +233,7 @@ func (c *Customizer) buildLowestLevel(
 				for q := 0; q < len(travelTime); q++ {
 					travelTime[q] = pkg.INF_WEIGHT
 				}
-				for q := 0; q < c.overlayGraph.NumberOfOverlayVertices(); q++ {
+				for q := 0; q < len(overlayTravelTime); q++ {
 					overlayTravelTime[q] = pkg.INF_WEIGHT
 				}
 				forwardCellOffset := c.graph.GetInEdgeCellOffset(start)

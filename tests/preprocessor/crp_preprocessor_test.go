@@ -36,6 +36,10 @@ type query struct {
 	s, t da.Index
 }
 
+// https://stackoverflow.com/questions/63842225/go-test-coverage-over-different-packages
+// cd tests/preprocessor &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=prep_coverage.out
+// go tool cover -func=prep_coverage.out
+// go tool cover -html=prep_coverage.out
 func TestPreprocessorSimple(t *testing.T) {
 	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*preprocesser.Preprocessor, error) {
 		var (

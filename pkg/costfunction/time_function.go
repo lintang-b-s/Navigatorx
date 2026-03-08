@@ -72,6 +72,9 @@ func (tf *TimeFunction) GetWeight(e EdgeAttributes) float64 {
 	if tf.maxspeeds != nil {
 		hwType := e.GetHighwayType()
 		maxspeed = tf.maxspeeds[hwType]
+		if maxspeed == 0 {
+			maxspeed = defaultSpeed
+		}
 	} else {
 		return e.GetWeight()
 	}
