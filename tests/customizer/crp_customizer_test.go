@@ -48,115 +48,11 @@ type query struct {
 	s, t da.Index
 }
 
-func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
-	}
-	logger, err := log.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-	workingDir, err := os.Getwd()
-	err = util.ReadConfig(workingDir)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
-		output, err := os.Create(osmfFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer output.Close()
-
-		logger.Sugar().Infof("downloading osm file......")
-		response, err := http.Get(url)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer response.Body.Close()
-
-		_, err = io.Copy(output, response.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		logger.Sugar().Infof("download complete")
-	}
-
-	op := osmparser.NewOSMParserV2()
-
-	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	pss := strings.Split(*partitionSizes, ",")
-	ps := make([]int, len(pss))
-	for i := 0; i < len(ps); i++ {
-		pow, err := strconv.Atoi(pss[i])
-		if err != nil {
-			t.Fatal(err)
-		}
-		ps[i] = 1 << pow // 2^pow
-	}
-
-	mp := partitioner.NewMultilevelPartitioner(
-		ps,
-		len(ps),
-		5,
-		graph, logger, true, true,
-	)
-
-	mp.RunMultilevelPartitioning()
-
-	err = mp.SaveToFile(mlpFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger)
-	err = prep.PreProcessing(true)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	logger.Sugar().Infof("Preprocessing completed successfully.")
-
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
-
-	m, err := custom.Customize()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, custom, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = lm.WriteLandmark(landmarkFile, custom)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return re, lm
-}
-
 const (
 	CUST_WORKERS = 10
 	CELL_WORKERS = 5
 )
 
-// https://stackoverflow.com/questions/63842225/go-test-coverage-over-different-packages
 // cd tests/customizer &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=cust_coverage.out
 // go tool cover -func=cust_coverage.out
 // go tool cover -html=cust_coverage.out
@@ -572,6 +468,109 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			fOut.Close()
 		})
 	}
+}
+
+func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
+	if err := os.MkdirAll("./data", 0755); err != nil {
+		t.Fatal(err)
+	}
+	logger, err := log.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	workingDir, err := os.Getwd()
+	err = util.ReadConfig(workingDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
+		output, err := os.Create(osmfFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer output.Close()
+
+		logger.Sugar().Infof("downloading osm file......")
+		response, err := http.Get(url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+
+		_, err = io.Copy(output, response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		logger.Sugar().Infof("download complete")
+	}
+
+	op := osmparser.NewOSMParserV2()
+
+	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pss := strings.Split(*partitionSizes, ",")
+	ps := make([]int, len(pss))
+	for i := 0; i < len(ps); i++ {
+		pow, err := strconv.Atoi(pss[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		ps[i] = 1 << pow // 2^pow
+	}
+
+	mp := partitioner.NewMultilevelPartitioner(
+		ps,
+		len(ps),
+		5,
+		graph, logger, true, true,
+	)
+
+	mp.RunMultilevelPartitioning()
+
+	err = mp.SaveToFile(mlpFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mlp := da.NewPlainMLP()
+	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prep := preprocessor.NewPreprocessor(graph, mlp, logger)
+	err = prep.PreProcessing(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	logger.Sugar().Infof("Preprocessing completed successfully.")
+
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+
+	m, err := custom.Customize()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	lm := landmark.NewLandmark()
+	err = lm.PreprocessALT(16, m, custom, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = lm.WriteLandmark(landmarkFile, custom)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return re, lm
 }
 
 // todo: add test customizer & query pake file osm yang di gdrive

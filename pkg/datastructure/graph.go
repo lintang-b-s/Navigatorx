@@ -392,6 +392,16 @@ func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge,
 	}
 }
 
+// GetDummyOutEdgeId. return dummy outEdge (u,u)
+func (g *Graph) GetDummyOutEdgeId(u Index) Index {
+	return g.GetExitOffset(u) + g.GetOutDegree(u) - 1
+}
+
+// GetDummyOutEdgeId. return dummy inEdge (u,u)
+func (g *Graph) GetDummyInEdgeId(u Index) Index {
+	return g.GetEntryOffset(u) + g.GetInDegree(u) - 1
+}
+
 func (g *Graph) GetNumberOfOutEdges(u Index) Index {
 	return g.vertices[u+1].firstOut - g.vertices[u].firstOut
 }

@@ -134,6 +134,9 @@ func (dn *DinicMaxFlow) sortVerticesByOrthoProjection(l []float64, ratio float64
 	})
 
 	endpointsLength := int(float64(n) * ratio)
+	if endpointsLength == 0 {
+		endpointsLength = 1
+	}
 	sourceNodes := make([]datastructure.Index, 0, endpointsLength)
 	sinkNodes := make([]datastructure.Index, 0, endpointsLength)
 

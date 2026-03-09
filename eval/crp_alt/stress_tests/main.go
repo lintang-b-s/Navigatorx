@@ -58,7 +58,7 @@ yogyakarta.osm.pbf di google drive ada 55136 vertices, dan stress tests ini dari
 note that Customizable Route Planning (CRP) query/multilevel dijkstra (MLD) [https://github.com/Project-OSRM/osrm-backend]/ multilevel A*, landmarks, and triangle inequality (ALT) hanya mempercepat p2p sp query bukan mempercepat sssp query
 
 stress tests ini selesai dalam 10 menit
-dan akan kestop ketika ada counterexample
+dan akan berhenti ketika ada counterexample
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphic #6 cpu cores #12 threads
 ram: 16gb
 */
