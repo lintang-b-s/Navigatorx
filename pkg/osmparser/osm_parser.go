@@ -406,6 +406,8 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 				} else {
 					tempMap[ROAD_CLASS] = tag.Value
 				}
+				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])
+
 			}
 		case "lanes":
 			{
@@ -657,9 +659,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 			graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-				uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
+				(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
+				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
 				uint8(lanes),
-				uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK])),
+
 				da.Index(startPointsIndex), da.Index(endPointsIndex),
 				id,
 			))
@@ -696,9 +699,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 			graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-				uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
+				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS]),
+				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
 				uint8(lanes),
-				uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK])),
+
 				da.Index(startPointsIndex), da.Index(endPointsIndex),
 				id,
 			),
@@ -733,9 +737,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 		graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-			uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
+			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS]),
+			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
 			uint8(lanes),
-			uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK])),
+
 			da.Index(startPointsIndex), da.Index(endPointsIndex),
 			id,
 		),
@@ -759,9 +764,9 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 		graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-			uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
+			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS]),
+			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
 			uint8(lanes),
-			uint8(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK])),
 			da.Index(endPointsIndex), da.Index(startPointsIndex),
 			id,
 		))

@@ -77,6 +77,27 @@ func setup(t *testing.T) (*da.Graph, *osmparser.OsmParser) {
 
 func TestOSMParser(t *testing.T) {
 
+	var (
+		roundaboutWay = map[int64]struct{}{
+			1460805468: struct{}{},
+			1460805470: struct{}{},
+			1427239361: struct{}{},
+		}
+
+		streetNameWay = map[int64]string{
+			24277036:  "Jalan Urip Sumoharjo",
+			293600459: "Jl. Jenderal Sudirman",
+		}
+		highwayTypeWay = map[int64]string{
+			24277036:  "primary",
+			293600459: "primary",
+		}
+		roadLanes = map[int64]uint8{
+			24277036:  3,
+			293600459: 4,
+		}
+	)
+
 	graph, op := setup(t)
 	bb := graph.GetBoundingBox()
 	n := graph.NumberOfVertices()
@@ -87,23 +108,23 @@ func TestOSMParser(t *testing.T) {
 			return
 		}
 		if v.GetID() >= da.Index(n) {
-			t.Errorf("expected vertex id less or equal than: %v, got: %v", n, v.GetID())
+			t.Errorf("expected vertex id lesser than or equal to: %v, got: %v", n, v.GetID())
 		}
 
 		if da.Lt(v.GetLat(), bb.GetMinLat()) {
-			t.Errorf("expected vertex latitude greater or equal than: %v, got: %v", bb.GetMinLat(), v.GetLat())
+			t.Errorf("expected vertex latitude greater than or equal to: %v, got: %v", bb.GetMinLat(), v.GetLat())
 		}
 
 		if da.Lt(v.GetLon(), bb.GetMinLon()) {
-			t.Errorf("expected vertex longitude greater or equal than: %v, got: %v", bb.GetMinLon(), v.GetLon())
+			t.Errorf("expected vertex longitude greater than or equal to: %v, got: %v", bb.GetMinLon(), v.GetLon())
 		}
 
 		if da.Gt(v.GetLat(), bb.GetMaxLat()) {
-			t.Errorf("expected vertex latitude less or equal than: %v, got: %v", bb.GetMaxLat(), v.GetLat())
+			t.Errorf("expected vertex latitude lesser than or equal to: %v, got: %v", bb.GetMaxLat(), v.GetLat())
 		}
 
 		if da.Gt(v.GetLon(), bb.GetMaxLon()) {
-			t.Errorf("expected vertex longitude less or equal than: %v, got: %v", bb.GetMaxLon(), v.GetLon())
+			t.Errorf("expected vertex longitude lesser than or equal to: %v, got: %v", bb.GetMaxLon(), v.GetLon())
 		}
 
 		// cek v.osmId
@@ -132,6 +153,35 @@ func TestOSMParser(t *testing.T) {
 			if e.GetEdgeId() != id {
 				t.Errorf("expected edge id: %v, got: %v", id, e.GetEdgeId())
 			}
+
+			// cek roundabout
+			if _, roundabout := roundaboutWay[graph.GetOsmWayId(e.GetEdgeInfoId())]; roundabout && !graph.IsRoundabout(e.GetEdgeInfoId()) {
+				t.Errorf("expected edge with osm way id %v is a roundabout, got no", graph.GetOsmWayId(e.GetEdgeInfoId()))
+			}
+
+			// cek edge geometry
+			if len(graph.GetEdgeGeometry(e.GetEdgeInfoId())) < 2 {
+				t.Errorf("expected number of edge geometry coordinates is greater than or equal to 2, got: %v", len(graph.GetEdgeGeometry(e.GetEdgeInfoId())))
+			}
+
+			// cek street name dari edge
+
+			eOsmwayId := graph.GetOsmWayId(e.GetEdgeInfoId())
+
+			gotStreetName := graph.GetStreetName(e.GetEdgeInfoId())
+			if expectedStreetname, ok := streetNameWay[eOsmwayId]; ok && expectedStreetname != gotStreetName {
+				t.Errorf("expected edge with osm way id %v street name: %v, got: %v", eOsmwayId, expectedStreetname, gotStreetName)
+			}
+
+			gotRoadClass := graph.GetRoadClass(e.GetEdgeInfoId())
+			if expectedHighwayType, ok := highwayTypeWay[eOsmwayId]; ok && expectedHighwayType != gotRoadClass {
+				t.Errorf("expected edge with osm way id %v highway type: %v, got: %v", eOsmwayId, expectedHighwayType, gotRoadClass)
+			}
+
+			gotRoadLanes := graph.GetRoadLanes(e.GetEdgeInfoId())
+			if expectedRoadLane, ok := roadLanes[eOsmwayId]; ok && expectedRoadLane != gotRoadLanes {
+				t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, expectedRoadLane, gotRoadLanes)
+			}
 		})
 
 		graph.ForInEdgesOfWithId(v.GetID(), func(e *da.InEdge, id da.Index) {
@@ -144,6 +194,7 @@ func TestOSMParser(t *testing.T) {
 				t.Errorf("expected edge id: %v, got: %v", id, e.GetEdgeId())
 			}
 		})
+
 	})
 
 	if graph.GetTurntablesLength() != int(matrixOffset) {

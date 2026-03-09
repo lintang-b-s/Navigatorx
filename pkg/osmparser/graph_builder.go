@@ -63,9 +63,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		graphStorage.AppendMapEdgeInfo(
 			datastructure.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(""),
-				uint8(p.tagStringIdMap.GetID("")),
+				p.tagStringIdMap.GetID(""),
+				p.tagStringIdMap.GetID(""),
 				uint8(0),
-				uint8(p.tagStringIdMap.GetID("")),
+
 				datastructure.Index(uint32(math.Pow(1, 30))), datastructure.Index(uint32(math.Pow(1, 30))),
 				-1,
 			),

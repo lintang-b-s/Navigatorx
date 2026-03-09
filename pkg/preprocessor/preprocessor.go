@@ -176,7 +176,7 @@ func (p *Preprocessor) SortByCellNumber() {
 		maxLat = math.Max(maxLat, p.graph.GetVertex(i).GetLat())
 		maxLon = math.Max(maxLon, p.graph.GetVertex(i).GetLon())
 	}
-	
+
 	p.graph.SetBoundingBox(datastructure.NewBoundingBox(minLat, minLon, maxLat, maxLon))
 
 	p.newVIdMap = make([]datastructure.Index, p.graph.NumberOfVertices()) // new vertex id after sorting by cell number
@@ -239,17 +239,16 @@ func (p *Preprocessor) SortByCellNumber() {
 
 				oldOutEdge := oEdges[vOldId][k]
 				newOutEdge := datastructure.NewOutEdge(
-					oldOutEdge.GetEdgeId(), oldOutEdge.GetHead(), oldOutEdge.GetWeight(),
+					newOutEdgeId, oldOutEdge.GetHead(), oldOutEdge.GetWeight(),
 					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
 				)
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
 				p.graph.SetEdgeInfo(newOutEdgeId, gsEdgeExtraInfos[oldOutEdge.GetEdgeInfoId()]) // update edge extra info storage
 
-				indexRoundabout := int(math.Floor(float64(oldOutEdge.GetEdgeId()) / 32)) // update roundabout edge info
+				indexRoundabout := int(math.Floor(float64(oldOutEdge.GetEdgeInfoId()) / 32)) // update roundabout edge info
 				if len(roundaboutFlags) > 0 {
-					isRoundabout := (roundaboutFlags[indexRoundabout] & (1 << (oldOutEdge.GetEdgeId() % 32))) != 0
+					isRoundabout := (roundaboutFlags[indexRoundabout] & (1 << (oldOutEdge.GetEdgeInfoId() % 32))) != 0
 					p.graph.SetRoundabout(newOutEdgeId, isRoundabout)
-					p.graph.SetRoundabout(oldOutEdge.GetEdgeId(), false)
 				}
 
 				outEdge := p.graph.GetOutEdge(newOutEdgeId)
@@ -262,7 +261,7 @@ func (p *Preprocessor) SortByCellNumber() {
 			for k := datastructure.Index(0); k < datastructure.Index(len(iEdges[vOldId])); k++ {
 				oldInEdge := iEdges[vOldId][k]
 				newInEdge := datastructure.NewInEdge(
-					oldInEdge.GetEdgeId(), oldInEdge.GetTail(), oldInEdge.GetWeight(),
+					newInEdgeId, oldInEdge.GetTail(), oldInEdge.GetWeight(),
 					oldInEdge.GetLength(), oldInEdge.GetExitPoint(),
 					oldInEdge.GetHighwayType(),
 				)

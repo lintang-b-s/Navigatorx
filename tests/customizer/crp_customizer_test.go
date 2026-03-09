@@ -48,36 +48,36 @@ type query struct {
 	s, t da.Index
 }
 
-func setup() (*engine.Engine, *landmark.Landmark) {
+func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	logger, err := log.New()
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	workingDir, err := os.Getwd()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
 		output, err := os.Create(osmfFile)
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 		defer output.Close()
 
 		logger.Sugar().Infof("downloading osm file......")
 		response, err := http.Get(url)
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 		defer response.Body.Close()
 
 		_, err = io.Copy(output, response.Body)
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 		logger.Sugar().Infof("download complete")
 	}
@@ -86,7 +86,7 @@ func setup() (*engine.Engine, *landmark.Landmark) {
 
 	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	pss := strings.Split(*partitionSizes, ",")
@@ -94,7 +94,7 @@ func setup() (*engine.Engine, *landmark.Landmark) {
 	for i := 0; i < len(ps); i++ {
 		pow, err := strconv.Atoi(pss[i])
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 		ps[i] = 1 << pow // 2^pow
 	}
@@ -110,18 +110,18 @@ func setup() (*engine.Engine, *landmark.Landmark) {
 
 	err = mp.SaveToFile(mlpFile)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	mlp := da.NewPlainMLP()
 	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	prep := preprocessor.NewPreprocessor(graph, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
@@ -130,22 +130,22 @@ func setup() (*engine.Engine, *landmark.Landmark) {
 
 	m, err := custom.Customize()
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	lm := landmark.NewLandmark()
 	err = lm.PreprocessALT(16, m, custom, logger)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	err = lm.WriteLandmark(landmarkFile, custom)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 
 	return re, lm
@@ -416,11 +416,11 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		lm := landmark.NewLandmark()
 		err = lm.PreprocessALT(util.MinInt(16, n), mt, custom, logger)
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 		err = lm.WriteLandmark(landmarkFile, custom)
 		if err != nil {
-			panic(err)
+			t.Fatal(err)
 		}
 
 		cf := costfunction.NewTimeCostFunctionEmpty()
@@ -580,7 +580,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 // please run the test using command: "cd tests/customizer && go test -run TestCRPCustomizer  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 func TestCRPCustomizer(t *testing.T) {
-	re, lm := setup()
+	re, lm := setup(t)
 
 	og := re.GetRoutingEngine().GetOverlayGraph()
 	m := re.GetRoutingEngine().GetMetrics()

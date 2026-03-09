@@ -514,8 +514,8 @@ func ReadGraph(filename string) (*Graph, error) {
 		lanes := parseInt(tokens[5])
 		osmWayId := parseInt(tokens[6])
 
-		mapEdgeInfos[i] = NewEdgeExtraInfo(streetName, uint8(roadClass),
-			uint8(lanes), uint8(roadClassLink), Index(startsPointIndex), Index(endPointIndex),
+		mapEdgeInfos[i] = NewEdgeExtraInfo(streetName, roadClass,
+			roadClassLink, uint8(lanes), Index(startsPointIndex), Index(endPointIndex),
 			int64(osmWayId))
 	}
 

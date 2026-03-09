@@ -3,8 +3,14 @@ package preprocessor
 import (
 	"bufio"
 	"flag"
+	"fmt"
+	"io"
 	"math"
+	"net/http"
+	"strings"
 	"testing"
+
+	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 
 	"os"
 	"strconv"
@@ -41,6 +47,7 @@ type query struct {
 // go tool cover -func=prep_coverage.out
 // go tool cover -html=prep_coverage.out
 func TestPreprocessorSimple(t *testing.T) {
+
 	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*preprocesser.Preprocessor, error) {
 		var (
 			err  error
@@ -583,7 +590,7 @@ func TestPreprocessorSimple(t *testing.T) {
 			// sedangkan pada  og.vertexCountInLevel dihitung 3 kali
 			// jadi kita cukup assert gotTotalCountOverlayVertices >=  tc.minNumOverlayVertices atau gak
 			if gotTotalCountOverlayVertices < tc.minNumOverlayVertices {
-				t.Errorf("expected num overlay vertices greater or equal than %v, got: %v", tc.minNumOverlayVertices, gotTotalCountOverlayVertices)
+				t.Errorf("expected num overlay vertices greater than or equal to %v, got: %v", tc.minNumOverlayVertices, gotTotalCountOverlayVertices)
 			}
 
 			maxOverlayIdOffset := 0
@@ -607,7 +614,7 @@ func TestPreprocessorSimple(t *testing.T) {
 					expectedMinNumExitPoints := len(tc.exitVertices[l-1][cellIdInLevelL])
 					gotNumExitPoints := int(cell.GetNumExitPoints())
 					if gotNumExitPoints < expectedMinNumExitPoints {
-						t.Errorf("expected num exit overlay vertices in cellId %d level %d greater or equal than: %v , got: %v", cellIdInLevelL, l,
+						t.Errorf("expected num exit overlay vertices in cellId %d level %d greater than or equal to: %v , got: %v", cellIdInLevelL, l,
 							expectedMinNumExitPoints, gotNumExitPoints)
 					}
 
@@ -617,7 +624,7 @@ func TestPreprocessorSimple(t *testing.T) {
 					expectedMinNumEntryPoints := len(tc.entryVertices[l-1][cellIdInLevelL])
 					gotNumEntryPoints := int(cell.GetNumEntryPoints())
 					if gotNumEntryPoints < expectedMinNumEntryPoints {
-						t.Errorf("expected num entry overlay vertices in cellId %d level %d greater or equal than: %v , got: %v", cellIdInLevelL, l,
+						t.Errorf("expected num entry overlay vertices in cellId %d level %d greater than or equal to: %v , got: %v", cellIdInLevelL, l,
 							expectedMinNumEntryPoints, gotNumEntryPoints)
 					}
 
@@ -638,11 +645,11 @@ func TestPreprocessorSimple(t *testing.T) {
 			}
 
 			if maxOverlayIdOffset < tc.minNumOverlayVertices {
-				t.Errorf("expected maxOverlayIdOffset greater or equal than %v, got: %v", tc.minNumOverlayVertices, maxOverlayIdOffset)
+				t.Errorf("expected maxOverlayIdOffset greater than or equal to %v, got: %v", tc.minNumOverlayVertices, maxOverlayIdOffset)
 			}
 
 			if len(og.GetOverlayIdMapping()) < tc.minNumOverlayVertices {
-				t.Errorf("expected maxOverlayIdOffset greater or equal than %v, got: %v", tc.minNumOverlayVertices, len(og.GetOverlayIdMapping()))
+				t.Errorf("expected maxOverlayIdOffset greater than or equal to %v, got: %v", tc.minNumOverlayVertices, len(og.GetOverlayIdMapping()))
 			}
 
 			// overlayIdMapping  maps from key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints) to value = overlay entry/exit vertex of a cell (represented as overlay vertex id)
@@ -699,7 +706,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 			gotShortcutWeightSize := og.GetWeightVectorSize()
 			if gotShortcutWeightSize < uint32(tc.minNumShortcuts) {
-				t.Errorf("expected shorcut size greater or equal than: %v, got: %v", uint32(tc.minNumShortcuts), gotShortcutWeightSize)
+				t.Errorf("expected shorcut size greater than or equal to: %v, got: %v", uint32(tc.minNumShortcuts), gotShortcutWeightSize)
 			}
 
 			levelInfo := og.GetLevelInfo()
@@ -757,4 +764,162 @@ func TestPreprocessorSimple(t *testing.T) {
 			}
 		})
 	}
+}
+
+func setup(t *testing.T) *preprocesser.Preprocessor {
+	if err := os.MkdirAll("./data", 0755); err != nil {
+		t.Fatal(err)
+	}
+	logger, err := log.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	workingDir, err := os.Getwd()
+	err = util.ReadConfig(workingDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
+		output, err := os.Create(osmfFile)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer output.Close()
+
+		logger.Sugar().Infof("downloading osm file......")
+		response, err := http.Get(url)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+
+		_, err = io.Copy(output, response.Body)
+		if err != nil {
+			t.Fatal(err)
+		}
+		logger.Sugar().Infof("download complete")
+	}
+
+	op := osmparser.NewOSMParserV2()
+
+	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	pss := strings.Split(*partitionSizes, ",")
+	ps := make([]int, len(pss))
+	for i := 0; i < len(ps); i++ {
+		pow, err := strconv.Atoi(pss[i])
+		if err != nil {
+			t.Fatal(err)
+		}
+		ps[i] = 1 << pow // 2^pow
+	}
+
+	mp := partitioner.NewMultilevelPartitioner(
+		ps,
+		len(ps),
+		5,
+		graph, logger, true, true,
+	)
+
+	mp.RunMultilevelPartitioning()
+
+	err = mp.SaveToFile(mlpFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mlp := da.NewPlainMLP()
+	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	prep := preprocesser.NewPreprocessor(graph, mlp, logger)
+	err = prep.PreProcessing(true)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return prep
+}
+
+func TestPreprocessUsingOSMFile(t *testing.T) {
+
+	var (
+		roundaboutWay = map[int64]struct{}{
+			1460805468: struct{}{},
+			1460805470: struct{}{},
+			1427239361: struct{}{},
+		}
+
+		streetNameWay = map[int64]string{
+			24277036:  "Jalan Urip Sumoharjo",
+			293600459: "Jl. Jenderal Sudirman",
+		}
+		highwayTypeWay = map[int64]string{
+			24277036:  "primary",
+			293600459: "primary",
+		}
+		roadLanes = map[int64]uint8{
+			24277036:  3,
+			293600459: 4,
+		}
+	)
+	prep := setup(t)
+	// di preprocessor kita melakukan:
+	// 1. build g.cellNumbers
+	// 2. set cellNumber index dari setiap vertices
+	// 3. group vertices by cellNumber
+	// 4. build overlay graph
+	// 5. bikin strongly connected components
+
+	// karena step 1-5 udah dicover di TestPreprocessorSimple
+	// di prep.SortByCellNumber() kita juga update edge info (edge geometry, edge streetname, edge roadclass/highway type, etc)
+	// kita bisa assert edge info aja
+
+	graph := prep.GetGraph()
+	n := graph.NumberOfVertices()
+	for v := da.Index(0); v < da.Index(n); v++ {
+		graph.ForOutEdgesOfWithId(v, func(e *da.OutEdge, id da.Index) {
+			_, inE := graph.GetTailOfOutedgeWithInEdge(id)
+			if inE.GetTail() != v {
+				t.Errorf("expected tail of outedge (%v, %v): %v, got: %v", v, e.GetHead(), v, inE.GetTail())
+			}
+
+			if e.GetEdgeId() != id {
+				t.Errorf("expected edge id: %v, got: %v", id, e.GetEdgeId())
+			}
+
+			// cek roundabout
+			if _, roundabout := roundaboutWay[graph.GetOsmWayId(e.GetEdgeId())]; roundabout && !graph.IsRoundabout(e.GetEdgeId()) {
+				t.Errorf("expected edge with osm way id %v is a roundabout, got no", graph.GetOsmWayId(e.GetEdgeId()))
+			}
+
+			// cek edge geometry
+			if len(graph.GetEdgeGeometry(e.GetEdgeId())) < 2 {
+				t.Errorf("expected number of edge geometry coordinates is greater than or equal to 2, got: %v", len(graph.GetEdgeGeometry(e.GetEdgeId())))
+			}
+
+			// cek street name dari edge
+
+			eOsmwayId := graph.GetOsmWayId(e.GetEdgeId())
+			gotStreetName := graph.GetStreetName(e.GetEdgeId())
+			if expectedStreetname, ok := streetNameWay[eOsmwayId]; ok && expectedStreetname != gotStreetName {
+				t.Errorf("expected edge with osm way id %v street name: %v, got: %v", eOsmwayId, expectedStreetname, gotStreetName)
+			}
+
+			gotRoadClass := graph.GetRoadClass(e.GetEdgeId())
+			if expectedHighwayType, ok := highwayTypeWay[eOsmwayId]; ok && expectedHighwayType != gotRoadClass {
+				t.Errorf("expected edge with osm way id %v highway type: %v, got: %v", eOsmwayId, expectedHighwayType, gotRoadClass)
+			}
+
+			gotRoadLanes := graph.GetRoadLanes(e.GetEdgeId())
+			if roadLane, ok := roadLanes[eOsmwayId]; ok && roadLane != gotRoadLanes {
+				t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, roadLane, gotRoadLanes)
+			}
+		})
+	}
+
 }

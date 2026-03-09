@@ -40,7 +40,7 @@ func Lt(a, b float64) bool {
 	return a+EPS < b
 }
 
-// greater than or equal than operator
+// greater than or equal to operator
 func Ge(a, b float64) bool {
 	return Le(b, a)
 }
