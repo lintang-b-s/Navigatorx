@@ -45,10 +45,10 @@ func main() {
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
-		25,
+		5,
 		graph, logger,
 		true,
-		true,
+		false,
 	) // i recommend u to use unit-capacity, because it faster, less shorctuts created, faster p2p query runtime
 
 	mp.RunMultilevelPartitioning()

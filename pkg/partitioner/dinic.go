@@ -30,7 +30,7 @@ func NewDinicMaxFlow(graph *da.PartitionGraph, debug, multSourcesSinks bool) *Di
 
 	dc.edgeFlows = make([]int64, graph.GetNumberOfEdges())
 	graph.ForEdges(func(i int, e da.MaxFlowEdge) {
-		dc.edgeFlows[i] = e.GetFlow()
+		dc.edgeFlows[i] = 0
 	})
 
 	return dc

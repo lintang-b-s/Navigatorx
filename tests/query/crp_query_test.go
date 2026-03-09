@@ -47,9 +47,9 @@ const (
 	landmarkFile     string = "./data/landmark.lm"
 )
 
-// there is also a test for crp query using test cases taken from
+// there is also tests for crp query using test cases taken from
 // programming contests problems (such as ICPC regionals & Indonesian NOI)
-// which are found in tests/shortestpath_crp_alt and tests/shortestpath
+// which can be found in tests/shortestpath_crp_alt and tests/shortestpath
 // cd tests/query &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=query_coverage.out
 // go tool cover -func=query_coverage.out
 // go tool cover -html=query_coverage.out

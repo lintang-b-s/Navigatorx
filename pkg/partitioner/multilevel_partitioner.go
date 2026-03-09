@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -56,7 +57,7 @@ PUNCH with parameter UL to obtain the top-level cells. Cells in lower levels are
 PUNCH on individual cells of the level immediately above
 
 time complexity:
-for each level l, time complexity recursiveBisection.Partition() is O(n^4(n-U_l))
+for each level l, time complexity recursiveBisection.Partition() is O(U_{l+1}^4(U_{l+1}-U_l)), dengan U_{l+1}=n
 T(n, U1,...,UL) \in O(n^4 * (n-U_{L}) + \sum_{l=2}^{L} U_l^4 *(U_{l} - U_{l-1}))
 */
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
@@ -79,16 +80,31 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// next partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
-		for _, cell := range mp.cellVertices[level+1] {
+
+		computeRecursiveBisection := func(cell []da.Index) [][]da.Index {
 			inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, k, mp.unitCapacity, mp.prePartitionWithSCC,
 				mp.inertialFlowIterations)
 			inertialFlowPartitioner.Partition(cell)
-
 			partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
+			return partitions
+		}
+
+		numOfCellInLev := len(mp.cellVertices[level+1])
+		wpMlp := concurrent.NewWorkerPool[[]da.Index, [][]da.Index](LEVEL_WORKERS, numOfCellInLev)
+
+		for _, cell := range mp.cellVertices[level+1] {
+			wpMlp.AddJob(cell)
+		}
+
+		wpMlp.Close()
+		wpMlp.Start(computeRecursiveBisection)
+		wpMlp.Wait()
+
+		for partitions := range wpMlp.CollectResults() {
 			mp.cellVertices[level] = append(mp.cellVertices[level], partitions...)
 		}
-		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.cellVertices[level]))
 
+		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.cellVertices[level]))
 	}
 }
 
@@ -97,21 +113,19 @@ func (mp *MultilevelPartitioner) SaveToFile(name string) error {
 }
 
 func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]datastructure.Index {
-	cells := make([][]datastructure.Index, 0)
-	for nodeId, cellId := range partition {
-		if cellId == INVALID_PARTITION_ID {
-			continue
-		}
+	cellSet := make(map[int]struct{})
+	for _, cellId := range partition {
+		cellSet[cellId] = struct{}{}
+	}
+	cells := make([][]datastructure.Index, len(cellSet))
 
-		if len(cells) <= cellId {
-			n := len(cells)
-			for j := 0; j < cellId-n+1; j++ {
-				cells = append(cells, make([]datastructure.Index, 0))
-			}
+	for nodeId, cellId := range partition {
+		if cellId == -1 {
+			continue
 		}
 		cells[cellId] = append(cells[cellId], datastructure.Index(nodeId))
 	}
-	return cells
+	return cells // cellId -> vertices Id
 }
 
 func (mp *MultilevelPartitioner) MinPrecision() int {

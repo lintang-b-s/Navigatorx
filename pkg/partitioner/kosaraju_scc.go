@@ -88,6 +88,8 @@ func prePartitionWithSCC(pg *da.PartitionGraph, maximumCellSize int) []*da.Parti
 		}
 	}
 
+
+	// pecah sccs
 	bigComponents := make([][]da.PartitionVertex, 0, len(components)/2)
 	smallComponent := make([]da.PartitionVertex, 0, maximumCellSize)
 
@@ -103,8 +105,9 @@ func prePartitionWithSCC(pg *da.PartitionGraph, maximumCellSize int) []*da.Parti
 
 	pgComponents := make([]*da.PartitionGraph, 0, len(groupedComponents))
 
+	// bikin id baru buat tiap vertices di setiap components
 	for i := 0; i < len(groupedComponents); i++ {
-		// O(n+m)
+		// O(n+m), number of vertices & edges dari union of all components equal to n dan m
 		comp := groupedComponents[i]
 		npg := len(comp)
 		pgComponent := da.NewPartitionGraph(npg)

@@ -72,8 +72,8 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	}
 
 	for i := 0; i < iterations; i++ {
-		slope := -1 + float64(i)*float64(2/iterations) // direction vectors (-1,0), ....., (0, 1)
-		wpInertialFlow.AddJob(newMinCutJob([]float64{slope, (1 - math.Abs(slope))}))
+		slope := -1 + float64(i)*float64(2/iterations)
+		wpInertialFlow.AddJob(newMinCutJob([]float64{slope, (1 - math.Abs(slope))})) // direction vectors (-1,0), ....., (0, 1)
 	}
 
 	wpInertialFlow.AddJob(newMinCutJob([]float64{1, 1}))
