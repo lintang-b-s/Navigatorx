@@ -78,7 +78,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	newToOldVidMap := prep.GetNewToOldVIdMap()
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, cust, logger)
+	err = lm.PreprocessALT(2, m, cust, logger)
 	if err != nil {
 		panic(err)
 	}

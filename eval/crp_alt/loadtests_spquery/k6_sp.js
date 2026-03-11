@@ -63,8 +63,7 @@ http_reqs...............................................................: 14297 
 gokilll
 
 todo0: update inertial flow partitioner biar jumlah cut edges makin kecil (DONE)
-todo1: parameter search buat alternative route -> bikin success rate alternative routes lebih tinggi (minimal 60%? coba lihat alternative routesnya punya osrm mld dulu..)
-
+todo1: coba coba parameter buat alternative route -> bikin success rate alternative routes lebih tinggi (minimal 60%? coba lihat alternative routesnya punya osrm mld dulu..)
 todo2: bikin repo baru, buat bandingin navigatorx,osrm,graphopper,valhalla
 
 */

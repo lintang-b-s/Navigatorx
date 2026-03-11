@@ -4,11 +4,13 @@ import (
 	"flag"
 	"os"
 
+	"net/http"
+	_ "net/http/pprof"
+
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
-
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 const (
@@ -30,6 +32,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	go func() { // pprof
+		http.ListenAndServe("localhost:6868", nil)
+	}()
 
 	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
 

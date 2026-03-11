@@ -12,8 +12,6 @@ type Dijkstra struct {
 	graph   *da.Graph
 	metrics *met.Metric
 
-	forwardInfo         []float64
-	heapNodes           []*da.PriorityQueueNode[da.CRPQueryKey]
 	shortestTravelTimes []float64
 
 	pq *da.QueryHeap[da.CRPQueryKey]
@@ -26,8 +24,6 @@ type Dijkstra struct {
 func NewDijkstra(graph *da.Graph, metrics *met.Metric, useReverseGraph bool) *Dijkstra {
 	dj := &Dijkstra{
 		graph:               graph,
-		forwardInfo:         make([]float64, graph.NumberOfEdges()),
-		heapNodes:           make([]*da.PriorityQueueNode[da.CRPQueryKey], graph.NumberOfEdges()),
 		useReverseGraph:     useReverseGraph,
 		numSettledNodes:     0,
 		shortestTravelTimes: make([]float64, 0),
@@ -70,10 +66,6 @@ func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 		sForwardId = us.graph.GetExitOffset(s) + da.Index(us.graph.GetInEdge(asId).GetExitPoint())
 	}
 
-	initInfWeightVertexInfo(us.forwardInfo)
-
-	us.forwardInfo[sForwardId] = 0
-
 	noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
 	us.pq.Insert(sForwardId, 0, da.NewVertexInfo(0,
@@ -92,21 +84,32 @@ func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 		us.shortestTravelTimes[v] = pkg.INF_WEIGHT
 	}
 
-	for entryExitId, sp := range us.forwardInfo {
+	if !us.useReverseGraph {
+		us.graph.ForOutEdges(func(e *da.OutEdge, exitPoint, head, tail, entryId da.Index, percentage float64, idx da.Index) {
 
-		v := da.Index(0)
-		if !us.useReverseGraph {
 			// -vEntry->v
-			v = us.graph.GetHeadOfInedge(da.Index(entryExitId))
-		} else {
-			// v-vExit->
-			v = us.graph.GetTailOfOutedge(da.Index(entryExitId))
-		}
+			v := us.graph.GetHeadOfInedge(da.Index(entryId))
 
-		if da.Lt(sp, us.shortestTravelTimes[v]) {
-			us.shortestTravelTimes[v] = sp
-		}
+			sp := us.pq.GetPriority(entryId)
+
+			if da.Lt(sp, us.shortestTravelTimes[v]) {
+				us.shortestTravelTimes[v] = sp
+			}
+		})
+	} else {
+		us.graph.ForInEdges(func(e *da.InEdge, entryPoint, head, tail, exitId da.Index, percentage float64, idx da.Index) {
+
+			// v-vExit->
+			v := us.graph.GetTailOfOutedge(da.Index(exitId))
+
+			sp := us.pq.GetPriority(exitId)
+
+			if da.Lt(sp, us.shortestTravelTimes[v]) {
+				us.shortestTravelTimes[v] = sp
+			}
+		})
 	}
+
 	us.shortestTravelTimes[s] = 0
 	return us.shortestTravelTimes
 }
@@ -139,7 +142,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			}
 
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
-			newArrTime := us.forwardInfo[uEntryId] + edgeWeight + turnCost
+			newArrTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost
 
 			if da.Ge(newArrTime, pkg.INF_WEIGHT) {
 				return
@@ -147,14 +150,13 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 			vEntryId := us.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
 
-			vAlreadyLabelled := da.Lt(us.forwardInfo[vEntryId], pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newArrTime, us.forwardInfo[vEntryId]) {
+			vAlreadyLabelled := da.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
+			if vAlreadyLabelled && da.Ge(newArrTime, us.pq.GetPriority(vEntryId)) {
 				// newArrTime is not better, do nothing
 				return
 			}
 
 			// newArrTime is better, update the forwardInfo
-			us.forwardInfo[vEntryId] = newArrTime
 
 			noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 			if vAlreadyLabelled {
@@ -189,7 +191,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			}
 
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
-			newArrTime := us.forwardInfo[uExitId] + edgeWeight + turnCost
+			newArrTime := us.pq.GetPriority(uExitId) + edgeWeight + turnCost
 
 			if da.Ge(newArrTime, pkg.INF_WEIGHT) {
 				return
@@ -197,15 +199,14 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 			vExitId := us.graph.GetExitOffset(vId) + da.Index(inArc.GetExitPoint())
 
-			vAlreadyLabelled := da.Lt(us.forwardInfo[vExitId], pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newArrTime, us.forwardInfo[vExitId]) {
+			vAlreadyLabelled := da.Lt(us.pq.GetPriority(vExitId), pkg.INF_WEIGHT)
+			if vAlreadyLabelled && da.Ge(newArrTime, us.pq.GetPriority(vExitId)) {
 				// newArrTime is not better, do nothing
 
 				return
 			}
 
 			// newArrTime is better, update the forwardInfo
-			us.forwardInfo[vExitId] = newArrTime
 			noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
 			if vAlreadyLabelled {
@@ -219,11 +220,5 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			}
 
 		})
-	}
-}
-
-func initInfWeightVertexInfo(vs []float64) {
-	for i := range vs {
-		vs[i] = pkg.INF_WEIGHT
 	}
 }

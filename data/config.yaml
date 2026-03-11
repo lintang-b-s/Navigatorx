@@ -1,6 +1,6 @@
 maxspeeds:
   motorway: 100
-  trunk: 70
+  trunk: 65
   primary: 50
   secondary: 40
   tertiary: 40

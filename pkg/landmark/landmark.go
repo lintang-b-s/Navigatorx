@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/klauspost/compress/s2"
+	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -127,6 +128,40 @@ func (lm *Landmark) SelectLandmarksTwo(k int, cst *customizer.Customizer) []*da.
 	return landmarks
 }
 
+type queryParam struct {
+	il  int
+	sid da.Index
+}
+
+func newQueryparam(il int, sid da.Index) queryParam {
+	return queryParam{il, sid}
+}
+
+func (qp *queryParam) getIndex() int {
+	return qp.il
+}
+
+func (qp *queryParam) getSid() da.Index {
+	return qp.sid
+}
+
+type queryRet struct {
+	il  int
+	sps []float64
+}
+
+func newQueryRet(il int, sps []float64) queryRet {
+	return queryRet{il, sps}
+}
+
+func (qr *queryRet) getIndex() int {
+	return qr.il
+}
+
+func (qr *queryRet) getSpCosts() []float64 {
+	return qr.sps
+}
+
 /*
 [1] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 
@@ -162,8 +197,6 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 	}
 	landmarks := lm.SelectLandmarksTwo(k, cst)
 
-	lock := sync.Mutex{}
-
 	maxSearchSize := cst.GetGraph().NumberOfEdges()
 	maxEdgesInCell := cst.GetGraph().GetMaxEdgesInCell()
 
@@ -173,41 +206,71 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 		},
 	}
 
-	wg := sync.WaitGroup{}
+	calcDijkstra := func(qp queryParam) queryRet {
+		sid := qp.getSid()
+		il := qp.getIndex()
+
+		asl := cst.GetGraph().GetDummyOutEdgeId(sid)
+
+		crpQuery := NewDijkstra(cst.GetGraph(), m, false) // O(mlogm). at most m items in pq (edge-based), decrease/insert key operation at most m times, extractMin operation at most m times
+		sps := crpQuery.ShortestPath(asl, &heapPool)
+
+		return newQueryRet(il, sps)
+	}
+
+	calcDijkstraRev := func(qp queryParam) queryRet {
+		sid := qp.getSid()
+		il := qp.getIndex()
+		crpQuery := NewDijkstra(cst.GetGraph(), m, true) // O(mlogm)
+		at := cst.GetGraph().GetDummyInEdgeId(sid)       // dummy edge (s,s)
+
+		sps := crpQuery.ShortestPath(at, &heapPool)
+		return newQueryRet(il, sps)
+	}
+
+	wpdijkstra := concurrent.NewWorkerPool[queryParam, queryRet](WORKERS, k)
+	wpdijkstraRev := concurrent.NewWorkerPool[queryParam, queryRet](WORKERS, k)
 	for i := 0; i < k; i++ {
 		landmark := landmarks[i]
 		sid := landmark.GetID()
 		lm.landmarks[i] = sid
-		as := cst.GetGraph().GetExitOffset(sid) + cst.GetGraph().GetOutDegree(sid) - 1 // dummy edge (s,s)
 
-		wg.Add(1)
-		go func(il int, asl da.Index) {
-			defer wg.Done()
+		wpdijkstra.AddJob(newQueryparam(i, sid))
+		wpdijkstraRev.AddJob(newQueryparam(i, sid))
 
-			crpQuery := NewDijkstra(cst.GetGraph(), m, false) // O((n+m)logn)
-			sps := crpQuery.ShortestPath(asl, &heapPool)
-
-			lock.Lock()
-			copy(lm.lw[il], sps)
-			lock.Unlock()
-		}(i, as)
-
-		wg.Add(1)
-		go func(il int, sidl da.Index) {
-			defer wg.Done()
-			crpQuery := NewDijkstra(cst.GetGraph(), m, true)                                 // O((n+m)logn)
-			at := cst.GetGraph().GetEntryOffset(sidl) + cst.GetGraph().GetInDegree(sidl) - 1 // dummy edge (s,s)
-
-			sps := crpQuery.ShortestPath(at, &heapPool)
-			lock.Lock()
-			for v := 0; v < n; v++ {
-				lm.vlw[v][il] = sps[v]
-			}
-			lock.Unlock()
-		}(i, sid)
 	}
 
+	wpdijkstra.Close()
+	wpdijkstra.Start(calcDijkstra)
+	wpdijkstra.Wait()
+
+	wpdijkstraRev.Close()
+	wpdijkstraRev.Start(calcDijkstraRev)
+	wpdijkstraRev.Wait()
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for res := range wpdijkstra.CollectResults() {
+			il := res.getIndex()
+			sps := res.getSpCosts()
+			copy(lm.lw[il], sps)
+		}
+	}()
+
+	for res := range wpdijkstraRev.CollectResults() {
+		il := res.getIndex()
+		sps := res.getSpCosts()
+		for v := 0; v < n; v++ {
+			lm.vlw[v][il] = sps[v]
+		}
+	}
+
+
 	wg.Wait()
+
+	
 	logger.Info("done computing landmarks....")
 	return nil
 }

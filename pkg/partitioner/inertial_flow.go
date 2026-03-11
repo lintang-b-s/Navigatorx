@@ -2,11 +2,14 @@ package partitioner
 
 import (
 	"math"
+	"math/rand"
 	"sort"
+	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type minCutJob struct {
@@ -24,10 +27,12 @@ func (mj minCutJob) getLine() []float64 {
 type inertialFlow struct {
 	graph      *datastructure.PartitionGraph
 	iterations int
+	rd         *rand.Rand
 }
 
 func NewInertialFlow(graph *datastructure.PartitionGraph, iterations int) *inertialFlow {
-	return &inertialFlow{graph: graph, iterations: iterations}
+	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	return &inertialFlow{graph: graph, iterations: iterations, rd: rd}
 }
 
 func (inf *inertialFlow) getPartitionGraph() *datastructure.PartitionGraph {
@@ -73,20 +78,20 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 
 	for i := 0; i < iterations; i++ {
 		slope := -1 + float64(i)*float64(2/iterations)
-		wpInertialFlow.AddJob(newMinCutJob([]float64{slope, (1 - math.Abs(slope))})) // direction vectors (-1,0), ....., (0, 1)
+		wpInertialFlow.AddJob(newMinCutJob([]float64{slope, (1 - math.Abs(slope))})) //  (-1,0), ....., (0, 1)
 	}
 
 	wpInertialFlow.AddJob(newMinCutJob([]float64{1, 1}))
 	wpInertialFlow.AddJob(newMinCutJob([]float64{-1, 1}))
 
 	computeMinCut := func(input minCutJob) *MinCut {
-		dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true)
+		dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true, inf.rd)
 		var (
 			sources []datastructure.Index
 			sinks   []datastructure.Index
 		)
 
-		sources, sinks = dn.sortVerticesByOrthoProjection(input.getLine(), sourceSinkRate)
+		sources, sinks = dn.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
 
 		s, t := dn.createArtificialSourceSink(sources, sinks)
 		return dn.ComputeMaxflowMinCut(s, t) //  O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
@@ -112,43 +117,112 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	return best
 }
 
-func (dn *DinicMaxFlow) sortVerticesByOrthoProjection(l []float64, ratio float64) ([]datastructure.Index, []datastructure.Index) {
+type vertexEmb struct {
+	idx        int
+	dotProduct float64
+}
+
+func newVertexEmb(idx int, dotProduct float64) vertexEmb {
+	return vertexEmb{idx, dotProduct}
+}
+
+func (v vertexEmb) getDotProd() float64 {
+	return v.dotProduct
+}
+
+func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]datastructure.Index, []datastructure.Index) {
 
 	vertices := dn.graph.GetVertices()
 
-	type item struct {
-		idx        int
-		dotProduct float64
-	}
 	n := len(vertices)
 
-	items := make([]item, n)
+	vertEmbeds := make([]vertexEmb, n)
 	for i, v := range vertices {
 		lat, lon := v.GetVertexCoordinate()
 		proj := dot(lon, lat, l[0], l[1])
-		items[i] = item{idx: i, dotProduct: proj}
+		vertEmbeds[i] = newVertexEmb(i, proj)
+	}
+	kth := int(float64(n) * ratio)
+
+	if kth == 0 {
+		kth = 1
+	}
+	sourceNodes := make([]datastructure.Index, 0, kth)
+	sinkNodes := make([]datastructure.Index, 0, kth)
+
+	if USE_RANDOMIZED_SELECT {
+		// expected runtime O(n)
+
+		q := dn.randomizedSelect(vertEmbeds, 0, n-1, kth, func(left, right int) bool {
+			return vertEmbeds[left].getDotProd() <= vertEmbeds[right].getDotProd()
+		}) // q is the index of the kth-smallest element in the vertEmbeds
+
+		for i := 0; i < kth; i++ {
+			sourceNodes = append(sourceNodes, vertices[vertEmbeds[i].idx].GetID())
+		}
+
+		// sampai sini kita mendapatkan semua elements didalam arr[q+1, n-1] lebih dari arr[q]
+		// kita bisa randomizedSelect arr[q+1, n-1] untuk mendapatkan last k sinks
+		lastKth := util.MinInt(kth, n-kth)
+		dn.randomizedSelect(vertEmbeds, q+1, n-1, lastKth, func(left, right int) bool {
+			return vertEmbeds[left].getDotProd() > vertEmbeds[right].getDotProd()
+		})
+
+		for i := q + 1; i < q+1+lastKth; i++ {
+			sinkNodes = append(sinkNodes, vertices[vertEmbeds[i].idx].GetID())
+		}
+	} else {
+		// expected runtime O(nlogn)
+		sort.Slice(vertEmbeds, func(i, j int) bool {
+			return vertEmbeds[i].getDotProd() < vertEmbeds[j].getDotProd()
+		})
+
+		for i := 0; i < kth; i++ {
+			sourceNodes = append(sourceNodes, vertices[vertEmbeds[i].idx].GetID())
+			sinkNodes = append(sinkNodes, vertices[vertEmbeds[n-1-i].idx].GetID())
+		}
 	}
 
-	sort.Slice(items, func(i, j int) bool {
-		return items[i].dotProduct < items[j].dotProduct
-	})
-
-	endpointsLength := int(float64(n) * ratio)
-	if endpointsLength == 0 {
-		endpointsLength = 1
-	}
-	sourceNodes := make([]datastructure.Index, 0, endpointsLength)
-	sinkNodes := make([]datastructure.Index, 0, endpointsLength)
-
-	for i := 0; i < endpointsLength; i++ {
-		sourceNodes = append(sourceNodes, vertices[items[i].idx].GetID())
-		sinkNodes = append(sinkNodes, vertices[items[n-1-i].idx].GetID())
-	}
 	return sourceNodes, sinkNodes
 }
 
 func dot(x1, y1, x2, y2 float64) float64 {
 	return x1*x2 + y1*y2
+}
+
+// randomizedSelect. return the i-th smallest element (or largest depends on comp) of the array arr[p...r]
+// & partition the arr such that all elements (arr[p,..q]) left of i-th smallest element  are smaller (or largest depends on comp) than  the pivot element arr[q] & all elements (arr[q+1,...,r]) in the right of i-th smallest element
+// comp return true iff arr[left].dotProduct <= arr[right].dotProduct
+// expected runtime O(n), n=len(arr). worst case O(n^2)
+func (dn *DinicMaxFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func(left, right int) bool) int {
+	if p == r {
+		return p
+	}
+
+	q := dn.randomizedPartition(arr, p, r, comp)
+	k := q - p + 1 // size of arr[p,...,q] (include pivot element arr[q])
+	if i == k {
+		return q
+	} else if i < k {
+		return dn.randomizedSelect(arr, p, q-1, i, comp)
+	}
+	return dn.randomizedSelect(arr, q+1, r, i-k, comp) // i-k th smallest/largest element di arr[q+1,...,r] karena di next recursion kita operate di arr[q+1,...,r]
+}
+
+func (dn *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
+	i := p - 1
+	pivotId := p + dn.rd.Intn(r-p+1)
+	arr[pivotId], arr[r] = arr[r], arr[pivotId]
+	for j := p; j < r; j++ {
+		if comp(j, r) {
+			i++
+			arr[i], arr[j] = arr[j], arr[i]
+		}
+	}
+
+	arr[i+1], arr[r] = arr[r], arr[i+1]
+
+	return i + 1
 }
 
 func (dn *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []datastructure.Index) (datastructure.Index, datastructure.Index) {
