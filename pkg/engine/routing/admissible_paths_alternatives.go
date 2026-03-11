@@ -1,7 +1,6 @@
 package routing
 
 import (
-	"fmt"
 	"maps"
 	"math"
 	"sort"
@@ -145,7 +144,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	now := time.Now()
 	crpQuery := NewCRPALTBidirectionalSearch(ars.engine, ars.upperBound, ars.lm)
 	crpQuery.ClonePQ()
-	
+
 	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
 	if !found {
 		return []*AlternativeRoute{}
@@ -392,9 +391,6 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 		if ars.engine.isOverlay(u) {
 			// parent_forward_search(u) is in plateau iff parent_forward_search(u) scanned in backward search
 
-			if !ps.IsScanned(u) {
-				fmt.Printf("debug")
-			}
 			oki := da.Lt(pb.GetPriority(ps.Get(u).GetParent().GetEdge()), pkg.INF_WEIGHT)
 			if !oki {
 				break
@@ -500,10 +496,6 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 	for u != tBackwardId {
 		if ars.engine.isOverlay(u) {
-
-			if !pb.IsScanned(u) {
-				fmt.Printf("debug")
-			}
 
 			oki := da.Lt(ps.GetPriority(pb.Get(u).GetParent().GetEdge()), pkg.INF_WEIGHT)
 			if !oki {

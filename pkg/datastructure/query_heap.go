@@ -107,7 +107,7 @@ func (qh *QueryHeap[T]) GetPriority(id Index) float64 {
 // dipake karena queryheap reussable objects (routing engine pakai sync.Pool)
 func (qh *QueryHeap[T]) Clear() {
 	qh.storage.Clear()
-	qh.queryInfos = qh.queryInfos[:0] //  buat slice length jadi 0, tapi capacity tetep sama
+	qh.queryInfos = qh.queryInfos[:0] //  buat slice length jadi 0, tapi capacity tetep sama, buat prevent array doubling dari dynamic array (slice)
 	qh.heap.Clear()
 }
 
