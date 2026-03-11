@@ -96,6 +96,7 @@ func (bs *CRPALTBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey
 	// bisa ada dipakai query lain buat write ke map & sekaligus dipakai alternative routes finder buat read map nya
 	// udah coba load test endpoint alternative routes, dapet error concurrent map read & write
 	// solusi awal kita bikin clone query heap sebelum put ke sync.Pool
+	// kayake ada solusi lain
 	return bs.forwardPq
 }
 

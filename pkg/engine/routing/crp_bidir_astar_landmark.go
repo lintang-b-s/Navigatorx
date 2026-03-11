@@ -38,6 +38,7 @@ type CRPALTBidirectionalSearch struct {
 	numScannedOverlayVertices int
 	runtime                   int64
 	pathUnpackingRuntime      int64
+	clonePq                   bool
 
 	lastpqSum float64
 }
@@ -917,14 +918,24 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 }
 
 func (bs *CRPALTBidirectionalSearch) Done() {
-	forwardPqCopy := bs.forwardPq.Clone()
-	backwardPqCopy := bs.backwardPq.Clone()
+	var (
+		fpqCopy, bpqCopy *da.QueryHeap[da.CRPQueryKey]
+	)
+	if bs.clonePq {
+		// clone kita harus allocate query heap baru (banyak slice & map) -> tambah lemot kalau di load test.
+		// padahal cuma dipakai kalau kita find alternative routes aja
+		// only clone ketika pakai query buat find alternative routes
+		fpqCopy = bs.forwardPq.Clone()
+		bpqCopy = bs.backwardPq.Clone()
+	}
 
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
 
-	bs.forwardPq = forwardPqCopy
-	bs.backwardPq = backwardPqCopy
+	if bs.clonePq {
+		bs.forwardPq = fpqCopy
+		bs.backwardPq = bpqCopy
+	}
 }
 
 func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
@@ -948,4 +959,8 @@ func (bs *CRPALTBidirectionalSearch) GetLastPQSum() float64 {
 
 func (bs *CRPALTBidirectionalSearch) GetActiveLandmarks() []da.Index {
 	return bs.activeLandmarks
+}
+
+func (bs *CRPALTBidirectionalSearch) ClonePQ() {
+	bs.clonePq = true
 }

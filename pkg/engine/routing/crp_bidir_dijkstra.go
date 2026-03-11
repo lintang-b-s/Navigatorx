@@ -37,6 +37,7 @@ type CRPBidirectionalSearch struct {
 	runtime                   int64
 	pathUnpackingRuntime      int64
 	lastpqSum                 float64
+	clonePq                   bool
 }
 
 func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CRPBidirectionalSearch {
@@ -881,14 +882,24 @@ func (bs *CRPBidirectionalSearch) Preallocate() {
 }
 
 func (bs *CRPBidirectionalSearch) Done() {
-	forwardPqCopy := bs.forwardPq.Clone()
-	backwardPqCopy := bs.backwardPq.Clone()
+	var (
+		fpqCopy, bpqCopy *da.QueryHeap[da.CRPQueryKey]
+	)
+	if bs.clonePq {
+		// clone kita harus allocate query heap baru (banyak slice & map) -> tambah lemot kalau di load test.
+		// padahal cuma dipakai kalau kita find alternative routes aja
+		// only clone ketika pakai query buat find alternative routes
+		fpqCopy = bs.forwardPq.Clone()
+		bpqCopy = bs.backwardPq.Clone()
+	}
 
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
-	
-	bs.forwardPq = forwardPqCopy
-	bs.backwardPq = backwardPqCopy
+
+	if bs.clonePq {
+		bs.forwardPq = fpqCopy
+		bs.backwardPq = bpqCopy
+	}
 }
 
 func (bs *CRPBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
@@ -908,4 +919,8 @@ func (bs *CRPBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
 
 func (bs *CRPBidirectionalSearch) GetLastPQSum() float64 {
 	return bs.lastpqSum
+}
+
+func (bs *CRPBidirectionalSearch) ClonePQ() {
+	bs.clonePq = true
 }

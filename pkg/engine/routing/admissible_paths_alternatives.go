@@ -130,8 +130,7 @@ Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 
 
-todo: invstigate kenapa success rate nya kecil banget, udah naik ke 41-44% setelah update calculatePlateau....
-mungkin bisa update parameter gamma,alpha,epsilon nya biar makin naik...?
+
 */
 
 func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k int) []*AlternativeRoute {
@@ -145,7 +144,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	*/
 	now := time.Now()
 	crpQuery := NewCRPALTBidirectionalSearch(ars.engine, ars.upperBound, ars.lm)
-
+	crpQuery.ClonePQ()
+	
 	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
 	if !found {
 		return []*AlternativeRoute{}
