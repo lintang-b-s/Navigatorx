@@ -147,7 +147,7 @@ func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) (
 	if kth == 0 {
 		kth = 1
 	}
-	
+
 	sourceNodes := make([]datastructure.Index, 0, kth)
 	sinkNodes := make([]datastructure.Index, 0, kth)
 

@@ -142,7 +142,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		extract-min at most O(m_p+n_o) operations
 	*/
 	now := time.Now()
-	crpQuery := NewCRPALTBidirectionalSearch(ars.engine, ars.upperBound, ars.lm)
+	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
 	crpQuery.ClonePQ()
 
 	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
@@ -251,7 +251,10 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 			return nil
 		}
 
+		// stretch
+
 		lv := svTravelTime + vtTravelTime
+
 		if lv >= (1+ars.epsilon)*optTravelTime {
 			ars.failStretch.Add(1)
 			return nil
@@ -286,7 +289,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		return nil
 	}
 
-	workers := concurrent.NewWorkerPool[da.ViaVertex, any](3, len(viaVertices))
+	workers := concurrent.NewWorkerPool[da.ViaVertex, any](ALTERNATIVE_ROUTES_WORKERS, len(viaVertices))
 
 	for _, v := range viaVertices {
 		workers.AddJob(v)
@@ -325,15 +328,32 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []da.O
 
 	optPathSet := make(map[da.Index]struct{}, len(optPath)*2)
 	for _, e := range optPath {
-		optPathSet[e.GetEdgeId()] = struct{}{}
+		optPathSet[e.GetHead()] = struct{}{}
 	}
 
-	for _, e := range pvPath {
+	/*
+		Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
+		Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
+		https://doi.org/10.1007/978-3-642-13193-6_3.:
 
-		if _, ok := optPathSet[e.GetEdgeId()]; ok {
+		The easiest condition to check is sharing. For any vertex v visited by the searches,
+		let \sigma_f(v) be the sharing amount in the forward direction (i.e., how much s–v shares
+		with Opt, which is known). Set σf \sigma_f(s)=0 and, for each vertex v (in forward scanning
+		order), set σf \sigma_f(v) to \sigma_r(pf (v)) + l(pf (v), v) if v \in Opt or to \sigma_f(pf(v)) otherwise (here pf
+		denotes the parent in the forward search). Computing \sigma_r(v), the sharing in the reverse
+		direction, is similar. The total sharing amount σ(v) = l(Opt ∩ Pv ) is \sigma_f(v) + \sigma_r(v). Note
+		that each vertex in the search space can be processed in constant time, which means
+		this procedure can compute σ(v) for all vertices v in O(n) total time (excluding the time
+		to run BD).
+	*/
+
+	for _, e := range pvPath {
+		if _, ok := optPathSet[e.GetHead()]; ok {
+			// kualitas rute alternatif lebih bagus kalau length functionnya travel time
 			distanceShare += ars.engine.metrics.GetWeight(&e)
 		}
 	}
+
 	return distanceShare
 }
 

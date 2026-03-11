@@ -40,14 +40,19 @@ const (
 )
 
 var (
-	alpha      = 0.2
-	gamma      = 0.8
-	epsilon    = 0.35
-	upperBound = 1.3
+	alpha      = 0.25 // every subpath P' of alternative route with l(P') <= T =\alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
+	gamma      = 0.85 // alternative routes at least 15% different than the shortest path
+	epsilon    = 0.3  // alternative routes at most 30% longer than the shortest path
+	upperBound = 1.33
 )
 
 /*
 go run eval/crp_alt/alternative_routes/main.go
+
+
+naik dari 41-45% -> 60-66% success rate nya
+pas exclude test distance sharing bisa > 90% sucess rate tapi alternative routes nya mirip banget kaya shortest path
+
 */
 func main() {
 	if err := os.MkdirAll("./data", 0755); err != nil {
@@ -226,7 +231,7 @@ func main() {
 		failSharing += cfailSharing
 		failStretch += cfailStretch
 		failPlateau += cfailPlateau
-		
+
 		if len(alts) == 0 {
 			continue
 		}

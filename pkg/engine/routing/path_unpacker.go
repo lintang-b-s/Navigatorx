@@ -152,7 +152,6 @@ func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
 
 	if pu.useCache {
 		if overlayPath, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, level)); ok {
-			// fetch from cache, cuma dipakai di server time-independent
 			// buat tests, gak ambil dari cache
 			for i := 0; i < len(overlayPath); i += 2 {
 				pu.unpackInLevelCell(NewPathUnpackingParam(overlayPath[i], overlayPath[i+1], level-1, unpackedEdgePath))
