@@ -5,6 +5,7 @@ import (
 	"math"
 	"sort"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -90,13 +91,15 @@ func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
 }
 
 type AlternativeRouteSearch struct {
-	engine                *CRPRoutingEngine
-	candidates            []*AlternativeRoute
-	upperBound            float64
-	gamma, alpha, epsilon float64
-	lm                    *landmark.Landmark
-	optTravelTime         float64
-	runtime               int64
+	engine                                             *CRPRoutingEngine
+	candidates                                         []*AlternativeRoute
+	upperBound                                         float64
+	gamma, alpha, epsilon                              float64
+	lm                                                 *landmark.Landmark
+	optTravelTime                                      float64
+	runtime                                            int64
+	failScanned, failPlateau, failSharing, failStretch atomic.Int32
+	numOfInitialCands                                  int
 
 	lock *sync.RWMutex
 }
@@ -158,11 +161,13 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	bInfo := crpQuery.GetBackwardInfo()
 
 	sCellNumber := crpQuery.GetSCellNumber()
+	ars.numOfInitialCands = len(viaVertices)
 
 	for i := len(viaVertices) - 1; i >= 0; i-- {
 		v := viaVertices[i]
 		if !v.IsOverlay() {
 			if !fInfo.IsScanned(v.GetEntryId()) && !bInfo.IsScanned(v.GetExitId()) {
+				ars.failScanned.Add(1)
 				continue
 			}
 			if fInfo.GetPriority(v.GetEntryId())+bInfo.GetPriority(v.GetExitId()) >= (1+ars.epsilon)*optTravelTime {
@@ -170,6 +175,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 			}
 		} else {
 			if !fInfo.IsScanned(v.GetVId()) && !bInfo.IsScanned(v.GetVId()) {
+				ars.failScanned.Add(1)
 				continue
 			}
 			if fInfo.GetPriority(v.GetVId())+bInfo.GetPriority(v.GetVId()) >= (1+ars.epsilon)*optTravelTime {
@@ -192,7 +198,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 			lowest level cell: O(m_p*log(m_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most m_p (turn-based graph), decrease-key and insert at most O(m_p) operations, extract-min at-most O(m_p) operations
 			cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
 			let q = number of shorcut edges in packedPath
-			worst case  of unpacGetPrioritykPath: O(\sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
+			worst case  of unpackPath: O(\sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
 
 			let p = number of edges & shortcut edges in s-via-t path
 
@@ -241,11 +247,13 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		pvEdgePath := append(svEdgePath, vtEdgePath...)
 		sigmav := ars.calculateDistanceShare(optEdgePath, pvEdgePath)
 		if sigmav >= ars.gamma*optTravelTime {
+			ars.failSharing.Add(1)
 			return nil
 		}
 
 		lv := svTravelTime + vtTravelTime
 		if lv >= (1+ars.epsilon)*optTravelTime {
+			ars.failStretch.Add(1)
 			return nil
 		}
 
@@ -257,12 +265,12 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		} else {
 			plv = ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
 				fInfo, bInfo, sCellNumber, lv, true)
-
 		}
 
 		T := ars.alpha * optTravelTime
 
 		if plv <= T {
+			ars.failPlateau.Add(1)
 			// didnt pass t-test
 			return nil
 		}
@@ -323,7 +331,7 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []da.O
 	for _, e := range pvPath {
 
 		if _, ok := optPathSet[e.GetEdgeId()]; ok {
-			distanceShare += e.GetWeight()
+			distanceShare += ars.engine.metrics.GetWeight(&e)
 		}
 	}
 	return distanceShare
@@ -357,6 +365,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 	// shortest path tree from s to v: all scanned (already extracted using extractMin from pq) vertices in forward search
 	// shortest path tree from v to t: all scanned (already extracted using extractMin from pq) vertices in backward search
+	// note that karena backward search pakai reversed edges (dengan bobot setiap rev edge (v,u) sama dengan bobot edge (u,v)), kalau v scanned -> est sp cost dari t ke v di backward search equal to sp cost dari v ke t (kalau pakai original edges)
 	/*
 		Intuisi dari plateau (ref: https://dl.acm.org/doi/abs/10.1145/2444016.2444019):
 		buat ngecek apakah alternative route P_v T-Localy Optimall (T-LO): every subpath P' of P_v with l(P') <= T adalah shortest path
@@ -751,6 +760,11 @@ func (ars *AlternativeRouteSearch) GetDiversity() float64 {
 	diversity /= float64(len(alts))
 
 	return diversity
+}
+
+func (ars *AlternativeRouteSearch) GetFailCounter() (int, int, int, int, int) {
+	return ars.numOfInitialCands, int(ars.failScanned.Load()), int(ars.failSharing.Load()), int(ars.failStretch.Load()),
+		int(ars.failPlateau.Load())
 }
 
 func (ars *AlternativeRouteSearch) GetRuntime() int64 {

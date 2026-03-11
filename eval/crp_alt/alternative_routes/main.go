@@ -39,6 +39,13 @@ const (
 	landmarkFile     string = "./data/landmark.lm"
 )
 
+var (
+	alpha      = 0.2
+	gamma      = 0.8
+	epsilon    = 0.35
+	upperBound = 1.3
+)
+
 /*
 go run eval/crp_alt/alternative_routes/main.go
 */
@@ -56,7 +63,6 @@ func main() {
 		panic(err)
 	}
 
-	
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
 		output, err := os.Create(osmfFile)
 		if err != nil {
@@ -195,11 +201,17 @@ func main() {
 
 	foundAltCount := 0
 
+	numOfInitialCands := 0
+	failScanned := 0
+	failSharing := 0
+	failStretch := 0
+	failPlateau := 0
+
 	for i := 0; i < len(queries); i++ {
 		s := queries[i].s
 		t := queries[i].t
 
-		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), 1.3, 0.8, 0.3, 0.35, lm)
+		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), upperBound, gamma, alpha, epsilon, lm)
 
 		alts := altSearch.FindAlternativeRoutes(s, t, 4)
 
@@ -208,12 +220,20 @@ func main() {
 		}
 		runtime += float64(altSearch.GetRuntime())
 
+		cnumOfInitialCands, cfailScanned, cfailSharing, cfailStretch, cfailPlateau := altSearch.GetFailCounter()
+		numOfInitialCands += cnumOfInitialCands
+		failScanned += cfailScanned
+		failSharing += cfailSharing
+		failStretch += cfailStretch
+		failPlateau += cfailPlateau
+		
 		if len(alts) == 0 {
 			continue
 		}
 
 		stretch += altSearch.GetStretch()
 		diversity += altSearch.GetDiversity()
+
 		successRate += 1.0
 		foundAltCount++
 	}
@@ -222,9 +242,20 @@ func main() {
 	stretch /= float64(foundAltCount)
 	diversity /= float64(foundAltCount)
 	runtime /= float64(len(queries))
+	numOfInitialCands /= len(queries)
+	failScanned /= len(queries)
+	failSharing /= len(queries)
+	failStretch /= len(queries)
+	failPlateau /= len(queries)
 
 	fmt.Printf("success rate: %f\n", successRate)
 	fmt.Printf("stretch: %f\n", stretch)
 	fmt.Printf("diversity: %f\n", diversity)
 	fmt.Printf("runtime: %f ms\n", runtime)
+
+	fmt.Printf("numOfInitialCands: %v \n", numOfInitialCands)
+	fmt.Printf("failScanned: %v \n", failScanned)
+	fmt.Printf("failSharing: %v \n", failSharing)
+	fmt.Printf("failStretch: %v \n", failStretch)
+	fmt.Printf("failPlateau: %v \n", failPlateau)
 }

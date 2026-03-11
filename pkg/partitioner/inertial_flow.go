@@ -147,12 +147,14 @@ func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) (
 	if kth == 0 {
 		kth = 1
 	}
+	
 	sourceNodes := make([]datastructure.Index, 0, kth)
 	sinkNodes := make([]datastructure.Index, 0, kth)
 
 	if USE_RANDOMIZED_SELECT {
 		// expected runtime O(n)
 
+		// inspiration: https://daniel-j-h.github.io/post/selection-algorithms-for-partitioning/
 		q := dn.randomizedSelect(vertEmbeds, 0, n-1, kth, func(left, right int) bool {
 			return vertEmbeds[left].getDotProd() <= vertEmbeds[right].getDotProd()
 		}) // q is the index of the kth-smallest element in the vertEmbeds
@@ -172,7 +174,7 @@ func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) (
 			sinkNodes = append(sinkNodes, vertices[vertEmbeds[i].idx].GetID())
 		}
 	} else {
-		// expected runtime O(nlogn)
+		// expected runtime O(nlogn) kalau sort.Slice randomized quicksort
 		sort.Slice(vertEmbeds, func(i, j int) bool {
 			return vertEmbeds[i].getDotProd() < vertEmbeds[j].getDotProd()
 		})
@@ -192,7 +194,6 @@ func dot(x1, y1, x2, y2 float64) float64 {
 
 // randomizedSelect. return the i-th smallest element (or largest depends on comp) of the array arr[p...r]
 // & partition the arr such that all elements (arr[p,..q]) left of i-th smallest element  are smaller (or largest depends on comp) than  the pivot element arr[q] & all elements (arr[q+1,...,r]) in the right of i-th smallest element
-// comp return true iff arr[left].dotProduct <= arr[right].dotProduct
 // expected runtime O(n), n=len(arr). worst case O(n^2)
 func (dn *DinicMaxFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func(left, right int) bool) int {
 	if p == r {
