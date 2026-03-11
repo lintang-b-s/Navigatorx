@@ -8,9 +8,11 @@ import (
 )
 
 type QueryHeap[T comparable] struct {
-	heap       *DAryHeap[T]     // 4-ary minheap
-	queryInfos []VertexInfo     // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array), scanned dari node. node bisa berupa edgeId/overlayVertexId dari graph. ingat, this crp query impl. support turn costs
-	storage    QueryInfoStorage // map dari edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
+	heap           *DAryHeap[T]     // 4-ary minheap
+	queryInfos     []VertexInfo     // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array), scanned dari node. node bisa berupa edgeId/overlayVertexId dari graph. ingat, this crp query impl. support turn costs
+	storage        QueryInfoStorage // map dari edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
+	maxEdgesInCell int
+	storageType    QueryInfoStorageType
 }
 
 func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStorageType) *QueryHeap[T] {
@@ -21,27 +23,35 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStor
 	switch tipe {
 	case TWO_LEVEL_STORAGE:
 		return &QueryHeap[T]{
-			heap:       minHeap,
-			queryInfos: make([]VertexInfo, 0, baseSize),
-			storage:    NewTwoLevelStorage(baseSize, maxEdgesInCell),
+			heap:           minHeap,
+			queryInfos:     make([]VertexInfo, 0, baseSize),
+			storage:        NewTwoLevelStorage(baseSize, maxEdgesInCell),
+			maxEdgesInCell: maxEdgesInCell,
+			storageType:    tipe,
 		}
 	case ARRAY_STORAGE:
 		return &QueryHeap[T]{
-			heap:       minHeap,
-			queryInfos: make([]VertexInfo, 0, baseSize),
-			storage:    NewArrayStorage(baseSize),
+			heap:           minHeap,
+			queryInfos:     make([]VertexInfo, 0, baseSize),
+			storage:        NewArrayStorage(baseSize),
+			maxEdgesInCell: maxEdgesInCell,
+			storageType:    tipe,
 		}
 	case MAP_STORAGE:
 		return &QueryHeap[T]{
-			heap:       minHeap,
-			queryInfos: make([]VertexInfo, 0, baseSize),
-			storage:    NewMapStorage(baseSize),
+			heap:           minHeap,
+			queryInfos:     make([]VertexInfo, 0, baseSize),
+			storage:        NewMapStorage(baseSize),
+			maxEdgesInCell: maxEdgesInCell,
+			storageType:    tipe,
 		}
 	default:
 		return &QueryHeap[T]{
-			heap:       minHeap,
-			queryInfos: make([]VertexInfo, 0, baseSize),
-			storage:    NewTwoLevelStorage(baseSize, maxEdgesInCell),
+			heap:           minHeap,
+			queryInfos:     make([]VertexInfo, 0, baseSize),
+			storage:        NewTwoLevelStorage(baseSize, maxEdgesInCell),
+			maxEdgesInCell: maxEdgesInCell,
+			storageType:    tipe,
 		}
 	}
 }
@@ -157,4 +167,16 @@ func (qh *QueryHeap[T]) IsScanned(id Index) bool {
 		return false
 	}
 	return qh.queryInfos[qInfoId].IsScanned()
+}
+
+// Clone. clone queryheap
+// dipakai di alternative routes finder
+func (qh *QueryHeap[T]) Clone() *QueryHeap[T] {
+
+	newQheap := NewQueryHeap[T](cap(qh.queryInfos), qh.maxEdgesInCell, qh.storageType)
+	newQheap.storage = qh.storage.Clone()
+	queryInfosClone := make([]VertexInfo, len(qh.queryInfos))
+	copy(queryInfosClone, qh.queryInfos)
+	newQheap.queryInfos = queryInfosClone
+	return newQheap
 }

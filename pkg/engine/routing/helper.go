@@ -71,11 +71,11 @@ func (bs *CRPBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices
 }
 
-func (bs *CRPBidirectionalSearch) GetForwardInfo() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *CRPBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
 	return bs.forwardPq
 }
 
-func (bs *CRPBidirectionalSearch) GetBackwardInfo() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *CRPBidirectionalSearch) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey] {
 	return bs.backwardPq
 }
 
@@ -91,11 +91,15 @@ func (bs *CRPALTBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices
 }
 
-func (bs *CRPALTBidirectionalSearch) GetForwardInfo() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *CRPALTBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
+	// karena queryHeap diambil dari sync.Pool & a pointer,
+	// bisa ada dipakai query lain buat write ke map & sekaligus dipakai alternative routes finder buat read map nya
+	// udah coba load test endpoint alternative routes, dapet error concurrent map read & write
+	// solusi awal kita bikin clone query heap sebelum put ke sync.Pool
 	return bs.forwardPq
 }
 
-func (bs *CRPALTBidirectionalSearch) GetBackwardInfo() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *CRPALTBidirectionalSearch) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey] {
 	return bs.backwardPq
 }
 

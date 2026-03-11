@@ -1,11 +1,11 @@
 package datastructure
 
 import (
+	"maps"
 	"math"
 )
 
 /*
-
 design decision:
 commit 83a333d36ca77b910b3e6197eb0910192be0c868:
 dari heap profile: https://drive.google.com/file/d/1b7IdOpduPOu1oKJH94UUzbacUv8fBgnw/view?usp=sharing
@@ -74,6 +74,16 @@ func (s *TwoLevelStorage) Clear() {
 	}
 }
 
+func (s *TwoLevelStorage) Clone() QueryInfoStorage {
+	overlayClone := make(map[Index]int, len(s.overlay))
+	maps.Copy(overlayClone, s.overlay)
+	base := make([]int, len(s.base))
+	copy(base, s.base)
+
+	return &TwoLevelStorage{overlay: overlayClone,
+		base: base, maxEdgesInCell: s.maxEdgesInCell}
+}
+
 type ArrayStorage struct {
 	base []int
 }
@@ -100,6 +110,15 @@ func (s *ArrayStorage) Clear() {
 	for i := 0; i < len(s.base); i++ {
 		s.base[i] = math.MaxInt
 	}
+}
+
+func (s *ArrayStorage) Clone() QueryInfoStorage {
+
+	base := make([]int, len(s.base))
+	copy(base, s.base)
+
+	return &TwoLevelStorage{
+		base: base}
 }
 
 type MapStorage struct {
@@ -134,4 +153,11 @@ func (s *MapStorage) Clear() {
 	for key := range s.overlay {
 		delete(s.overlay, key)
 	}
+}
+
+func (s *MapStorage) Clone() QueryInfoStorage {
+	overlayClone := make(map[Index]int, len(s.overlay))
+	maps.Copy(overlayClone, s.overlay)
+
+	return &TwoLevelStorage{overlay: overlayClone}
 }

@@ -917,8 +917,14 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 }
 
 func (bs *CRPALTBidirectionalSearch) Done() {
+	forwardPqCopy := bs.forwardPq.Clone()
+	backwardPqCopy := bs.backwardPq.Clone()
+
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
+
+	bs.forwardPq = forwardPqCopy
+	bs.backwardPq = backwardPqCopy
 }
 
 func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {

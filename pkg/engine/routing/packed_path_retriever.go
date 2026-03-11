@@ -6,17 +6,17 @@ import (
 )
 
 func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
-	backwardMid da.VertexEdgePair, forwardInfo *da.QueryHeap[da.CRPQueryKey],
-	backwardInfo *da.QueryHeap[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv) []da.VertexEdgePair {
+	backwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
+	bpq *da.QueryHeap[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv) []da.VertexEdgePair {
 
-	forwardPackedPath := re.RetrieveForwardPackedPath(forwardMid, forwardInfo, sForwardId, sCellNumber)
+	forwardPackedPath := re.RetrieveForwardPackedPath(forwardMid, fpq, sForwardId, sCellNumber)
 
-	backwardPackedPath := re.RetrieveBackwardPackedPath(backwardMid, backwardInfo, tBackwardId, sCellNumber)
+	backwardPackedPath := re.RetrieveBackwardPackedPath(backwardMid, bpq, tBackwardId, sCellNumber)
 
 	return append(forwardPackedPath, backwardPackedPath...)
 }
 
-func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid da.VertexEdgePair, forwardInfo *da.QueryHeap[da.CRPQueryKey],
+func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
 	sForwardId da.Index, sCellNumber da.Pv) []da.VertexEdgePair {
 	idPath := make([]da.VertexEdgePair, 0) // contains all outedges that make up the shortest path
 
@@ -37,7 +37,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid da.VertexEdgePa
 	}
 
 	fMidEdge := forwardMid.GetEdge()
-	curInfo := forwardInfo.Get(fMidEdge)
+	curInfo := fpq.Get(fMidEdge)
 
 	lastParVertex := forwardMid.GetVertex()
 
@@ -62,7 +62,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid da.VertexEdgePa
 		}
 
 		idPath = append(idPath, parentCopy)
-		curInfo = forwardInfo.Get(parentEdge)
+		curInfo = fpq.Get(parentEdge)
 
 		if curInfo.GetParent().GetEdge() != sForwardId && curInfo.GetParent().IsFirstOverlayVertex() {
 			// first entry ke overlay graph
@@ -107,7 +107,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid da.VertexEdgePa
 	return idPath
 }
 
-func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid da.VertexEdgePair, backwardInfo *da.QueryHeap[da.CRPQueryKey],
+func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey],
 	tBackwardId da.Index, sCellNumber da.Pv) []da.VertexEdgePair {
 	idPath := make([]da.VertexEdgePair, 0) // contains all outedges that make up the shortest path
 	// let n = number of edges in shortest path from mid to t, (from backward search)
@@ -133,7 +133,7 @@ func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid da.VertexEdge
 	}
 
 	bMidEdge := backwardMid.GetEdge()
-	curInfo := backwardInfo.Get(bMidEdge)
+	curInfo := bpq.Get(bMidEdge)
 
 	lastParVertex := backwardMid.GetVertex()
 
@@ -155,7 +155,7 @@ func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid da.VertexEdge
 		}
 
 		idPath = append(idPath, parentCopy)
-		curInfo = backwardInfo.Get(parentEdge)
+		curInfo = bpq.Get(parentEdge)
 
 		if curInfo.GetParent().GetEdge() != tBackwardId && curInfo.GetParent().IsFirstOverlayVertex() {
 			v := parentCopy.GetVertex()
