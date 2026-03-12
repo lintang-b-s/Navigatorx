@@ -67,10 +67,6 @@ func removeDuplicatesVias(arr []da.ViaVertex) []da.ViaVertex {
 	return newarr
 }
 
-func (bs *CRPBidirectionalSearch) GetViaVertices() []da.ViaVertex {
-	return bs.viaVertices
-}
-
 func (bs *CRPBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
 	return bs.forwardPq
 }
@@ -85,10 +81,6 @@ func (bs *CRPBidirectionalSearch) GetSCellNumber() da.Pv {
 
 func (bs *CRPBidirectionalSearch) GetNumScannedNodes() int {
 	return bs.numScannedVertices
-}
-
-func (bs *CRPALTBidirectionalSearch) GetViaVertices() []da.ViaVertex {
-	return bs.viaVertices
 }
 
 func (bs *CRPALTBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
@@ -131,10 +123,6 @@ func (bs *BidirectionalDijkstra) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey] {
 func (bs *BidirectionalDijkstra) GetSCellNumber() da.Pv {
 	return 0
 }
-
-
-
-
 
 func initInfWeight(dist []float64) {
 	for i := range dist {

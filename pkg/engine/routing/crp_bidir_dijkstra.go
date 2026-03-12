@@ -25,8 +25,6 @@ type CRPBidirectionalSearch struct {
 	sCellNumber da.Pv
 	tCellNumber da.Pv
 
-	viaVertices []da.ViaVertex
-
 	sForwardId  da.Index
 	tBackwardId da.Index
 
@@ -46,7 +44,6 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CR
 
 		forwardMid:    da.NewVertexEdgePair(0, 0, false),
 		backwardMid:   da.NewVertexEdgePair(0, 0, true),
-		viaVertices:   make([]da.ViaVertex, 0),
 		upperBound:    upperBound,
 		stallingEntry: make([]float64, 0),
 		stallingExit:  make([]float64, 0),
@@ -317,14 +314,11 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 				if scannedByBackwardSearch && da.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
 					vExitIdTravelTime, bs.shortestTravelTime) {
 
-
-						
 					bs.shortestTravelTime = newVEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnType2) +
 						vExitIdTravelTime
 
 					bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
 					bs.backwardMid = da.NewVertexEdgePair(vId, vExitId, true)
-					bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
 				}
 				vExitId++
 			})
@@ -375,7 +369,6 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 				vExitId = bs.engine.offsetBackward(uId, vExitId, vOverlay.GetCellNumber(), bs.sCellNumber)
 				vEntryId = bs.engine.offsetForward(vId, vEntryId, vOverlay.GetCellNumber(), bs.sCellNumber)
 
-				bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayVId, vEntryId, vExitId, vId, true))
 			}
 		}
 	})
@@ -477,7 +470,6 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 					bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
 					bs.backwardMid = da.NewVertexEdgePair(vId, vExitId, true)
 
-					bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
 				}
 				vEntryId++
 			})
@@ -523,7 +515,6 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 				vExitId = bs.engine.offsetBackward(vId, vExitId, vOverlay.GetCellNumber(), bs.sCellNumber)
 				vEntryId = bs.engine.offsetForward(uId, vEntryId, vOverlay.GetCellNumber(), bs.sCellNumber)
 
-				bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayVId, vEntryId, vExitId, vId, true))
 			}
 		}
 	})
@@ -638,8 +629,6 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 						bs.forwardMid = da.NewVertexEdgePair(originalWId, wEntryId, false)
 						bs.backwardMid = da.NewVertexEdgePair(originalWId, wExitId, true)
 
-						bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(originalWId, wEntryId, wExitId, originalWId, false))
-
 					}
 					wExitId++
 				})
@@ -681,7 +670,6 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 					wExitId = bs.engine.offsetBackward(vVertex.GetOriginalVertex(), wExitId, wVertex.GetCellNumber(), bs.sCellNumber)
 					wEntryId = bs.engine.offsetForward(originalWId, wEntryId, wVertex.GetCellNumber(), bs.sCellNumber)
 
-					bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayWId, wEntryId, wExitId, originalWId, true))
 				}
 			}
 		}
@@ -703,7 +691,6 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 			vExitId = bs.engine.offsetBackward(originalVId, vExitId, vVertex.GetCellNumber(), bs.sCellNumber)
 			vEntryId = bs.engine.offsetForward(originalWId, vEntryId, vVertex.GetCellNumber(), bs.sCellNumber)
 
-			bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayVId, vEntryId, vExitId, originalVId, true)) // should use overlay vId (to calculate plateau, we need bactrack forwardInfo)
 		}
 	})
 }
@@ -804,7 +791,6 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 
 						bs.forwardMid = da.NewVertexEdgePair(originalWId, wEntryId, false)
 						bs.backwardMid = da.NewVertexEdgePair(originalWId, wExitId, true)
-						bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(originalWId, wEntryId, wExitId, originalWId, false))
 
 					}
 					wEntryId++
@@ -842,7 +828,6 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 					wExitId = bs.engine.offsetBackward(originalWId, wExitId, wVertex.GetCellNumber(), bs.sCellNumber)
 					wEntryId = bs.engine.offsetForward(vVertex.GetOriginalVertex(), wEntryId, wVertex.GetCellNumber(), bs.sCellNumber)
 
-					bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayWId, wEntryId, wExitId, originalWId, true))
 				}
 			}
 		}
@@ -864,7 +849,6 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 			vExitId = bs.engine.offsetBackward(originalWId, vExitId, vVertex.GetCellNumber(), bs.sCellNumber)
 			vEntryId = bs.engine.offsetForward(originalVId, vEntryId, vVertex.GetCellNumber(), bs.sCellNumber)
 
-			bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayVId, vEntryId, vExitId, originalVId, true))
 		}
 	})
 }

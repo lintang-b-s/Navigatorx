@@ -49,13 +49,14 @@ const (
 /*
 go run eval/crp_alt/alternative_routes/main.go
 
-naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 90%-92% success rate nya. lets gooo
+naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 89%-92% success rate nya. lets gooo
 
 osrm cuma 52-56%
 
 todo5: benerin sp_crp_alt query test & partitioner lagi?, partitioner buat test cases soal krl lama banget
 todo6: bikin cara agar bisa eliminate banyak via vertices sebelum di unpack path nya ...
 lemot banget setelah via vertices bener, karena banyak via path yang harus di unpack...
+target p95 latency dengan 900vus endpoint alternative routes: 200ms
 
 kalau di https://github.com/Project-OSRM/osrm-backend/blob/master/src/engine/routing_algorithms/alternative_path_mld.cpp
 mereka eliminate via vertices pakai cara tambahan: filterViaCandidatesByUniqueNodeIds, filterViaCandidatesByRoadImportance, filterPackedPathsByCellSharing
