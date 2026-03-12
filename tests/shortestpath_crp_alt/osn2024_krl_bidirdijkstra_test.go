@@ -3,7 +3,6 @@ package shortestpath
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,164 +17,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
 
-/*
-
-taken from: https://tlx.toki.id/problems/osn-2024/2B
-
-
-test data generated using: https://github.com/ia-toki/osn-2024/blob/main/osn-2024-krl/spec.cpp  && https://tcframe.toki.id/docs/topic-guides/spec/
-
-tests selesai sekitar 2 menitan
-shortcuts yang dihasilkan graph soal ini (jauh lebih banyak),beda dengan graph openstreetmap road networks
-
-
-my c++ solution (got AC di semua subtasks tlx: https://tlx.toki.id/problems/osn-2024/2B):
-https://drive.google.com/file/d/1KMMGWNHz4eAvEDppBrRUhN4vCdhzbIQT/view?usp=sharing
-*/
-
-type SegmentTree struct {
-	n       int
-	A       []int64
-	st      []int64
-	lazy    []int64
-	minimum bool
-}
-
-func (st *SegmentTree) leftChild(parent int) int {
-	return parent << 1
-}
-
-func (st *SegmentTree) rightChild(parent int) int {
-	return (parent << 1) + 1
-}
-
-func (st *SegmentTree) conquer(a, b int64) int64 {
-	if a == -1.0 {
-		return b
-	}
-	if b == -1.0 {
-		return a
-	}
-	if st.minimum {
-		if a < b {
-			return a
-		}
-		return b
-	} else {
-		if a > b {
-			return a
-		}
-		return b
-	}
-}
-
-func (st *SegmentTree) build(parent, L, R int) {
-	if L == R {
-		st.st[parent] = st.A[L]
-	} else {
-		mid := (L + R) / 2
-		st.build(st.leftChild(parent), L, mid)
-		st.build(st.rightChild(parent), mid+1, R)
-		st.st[parent] = st.conquer(st.st[st.leftChild(parent)], st.st[st.rightChild(parent)])
-	}
-}
-
-func (st *SegmentTree) propagate(parent, L, R int) {
-	if st.lazy[parent] != -1 {
-		// parent has a lazy flag
-		st.st[parent] = st.lazy[parent]
-
-		if L != R {
-			st.lazy[st.rightChild(parent)] = st.lazy[parent]
-			st.lazy[st.leftChild(parent)] = st.lazy[parent]
-		} else {
-			st.A[L] = st.lazy[parent]
-		}
-
-		st.lazy[parent] = -1.0
-	}
-}
-
-func (st *SegmentTree) rmq(parent, L, R, i, j int) int64 {
-	// O(log n)
-	st.propagate(parent, L, R)
-	if i > j {
-		return -1.0
-	}
-	if (i <= L) && (j >= R) {
-		return st.st[parent]
-	}
-	mid := (L + R) / 2
-	return st.conquer(st.rmq(st.leftChild(parent), L, mid, i, min(j, mid)),
-		st.rmq(st.rightChild(parent), mid+1, R, max(i, mid+1), j))
-}
-
-func (st *SegmentTree) updateRange(parent, L, R, i, j int, val int64) {
-	// O(log n)
-	st.propagate(parent, L, R)
-	if i > j {
-		return
-	}
-	if (i <= L) && (j >= R) {
-		st.lazy[parent] = val
-		st.propagate(parent, L, R)
-	} else {
-		mid := (L + R) / 2
-		st.updateRange(st.leftChild(parent), L, mid, i, min(mid, j), val)
-		st.updateRange(st.rightChild(parent), mid+1, R, max(i, mid+1), j, val)
-
-		var left, right int64
-		if st.lazy[st.leftChild(parent)] != -1 {
-			left = st.lazy[st.leftChild(parent)]
-		} else {
-			left = st.st[st.leftChild(parent)]
-		}
-
-		if st.lazy[st.rightChild(parent)] != -1 {
-			right = st.lazy[st.rightChild(parent)]
-		} else {
-			right = st.st[st.rightChild(parent)]
-		}
-		st.st[parent] = st.conquer(left, right)
-	}
-}
-
-func NewSegmentTree(A []int64, minimum bool) *SegmentTree {
-	lazy := make([]int64, 4*len(A))
-	for i := range lazy {
-		lazy[i] = -1.0
-	}
-	st := &SegmentTree{
-		n:       len(A),
-		A:       A,
-		st:      make([]int64, 4*len(A)),
-		lazy:    lazy,
-		minimum: minimum,
-	}
-	st.build(1, 0, len(A)-1) // O(n)
-	return st
-}
-
-func (st *SegmentTree) RMQ(i, j int) int64 {
-	// O(log n)
-	return st.rmq(1, 0, st.n-1, i, j)
-}
-
-func (st *SegmentTree) UpdateRange(i, j int, val int64) {
-	// O(log n)
-	st.updateRange(1, 0, st.n-1, i, j, val)
-}
-
-type rute struct {
-	a, b int
-	c, d int64
-}
-
-func newRute(a, b int, c, d int64) rute {
-	return rute{a, b, c, d}
-}
-
-func SolveOSN2024KRL(t *testing.T, filepath string) {
+func SolveOSN2024KRLBidirDijkstra(t *testing.T, filepath string) {
 	var (
 		err     error
 		line    string
@@ -331,11 +173,8 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i-N), float64(i-N)))
 	}
 
-	u1, u2 := 15, 17
-	if (2.0*float64(e))/math.Pow(float64(N)*2.0, 2) >= 0.00005 {
-		u1, u2 = 22, 23 // gak bikin partisi
-	} // jumlah shortcuts nya kebanyakan aowkwowk > 100jt kalau test case nya dense
-	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2})
+	u1, u2 := 22, 23 // gak bikin partisi
+	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2})
 
 	t.Logf("calculating shortest path from P: %v, to: Q: %v\n", P+1, Q+1)
 
@@ -347,10 +186,10 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 	atTransit := g.GetEntryOffset(tidTransit) + g.GetInDegree(tidTransit) - 1
 
-	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+	crpQuery := routing.NewBidirectionalDijkstra(re.GetRoutingEngine(), 1.0)
 	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
-	crpQuery2 := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+	crpQuery2 := routing.NewBidirectionalDijkstra(re.GetRoutingEngine(), 1.0)
 	spLengthTransit, _, _, _, _ := crpQuery2.ShortestPathSearch(as, atTransit)
 
 	var ans float64
@@ -384,10 +223,9 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestOSN2024KRL  -v -timeout=0  -count=1"
+// please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestOSN2024KRLBidirDijkstra  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode,
-// selesai dalam 300 detik
-func TestOSN2024KRL(t *testing.T) {
+func TestOSN2024KRLBidirDijkstra(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/osn2024_krl/"
 	testDirs := []string{"tc"}
@@ -414,7 +252,7 @@ func TestOSN2024KRL(t *testing.T) {
 
 			t.Logf("solving test case: %v", baseName)
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
-				SolveOSN2024KRL(t, testPath)
+				SolveOSN2024KRLBidirDijkstra(t, testPath)
 
 				runtime.GC()
 				debug.FreeOSMemory()

@@ -40,19 +40,28 @@ const (
 )
 
 var (
-	alpha      = 0.25 // every subpath P' of alternative route with l(P') <= T =\alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
+	alpha      = 0.25 // every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
 	gamma      = 0.85 // alternative routes at least 15% different than the shortest path
-	epsilon    = 0.3  // alternative routes at most 30% longer than the shortest path
-	upperBound = 1.33
+	epsilon    = 0.25 // alternative routes at most 30% longer than the shortest path
+	upperBound = 1.25
 )
 
 /*
 go run eval/crp_alt/alternative_routes/main.go
 
-
-naik dari 41-45% -> 60-66% success rate nya
+naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 90%-92% success rate nya. lets gooo
 pas exclude test distance sharing bisa > 90% sucess rate tapi alternative routes nya mirip banget kaya shortest path
 
+
+osrm cuma 52-56%
+
+todo5: benerin sp_crp_alt query test & partitioner lagi?, partitioner buat test cases soal krl lama banget
+todo6: bikin cara agar bisa eliminate banyak via vertices sebelum di unpack path nya ...
+lemot banget setelah via vertices bener, karena banyak via path yang harus di unpack...
+
+kalau di https://github.com/Project-OSRM/osrm-backend/blob/master/src/engine/routing_algorithms/alternative_path_mld.cpp
+mereka eliminate via vertices pakai cara tambahan: filterViaCandidatesByUniqueNodeIds, filterViaCandidatesByRoadImportance, filterPackedPathsByCellSharing
+.... 
 */
 func main() {
 	if err := os.MkdirAll("./data", 0755); err != nil {
@@ -92,6 +101,7 @@ func main() {
 	op := osmparser.NewOSMParserV2()
 
 	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+
 	if err != nil {
 		panic(err)
 	}

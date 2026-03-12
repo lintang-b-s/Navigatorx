@@ -24,6 +24,10 @@ func (e *CRPRoutingEngine) isOverlay(u da.Index) bool {
 	return u >= e.graph.GetMaxEdgesInCell()*2
 }
 
+func (e *CRPRoutingEngine) offOverlay(u da.Index) da.Index {
+	return u - e.graph.GetMaxEdgesInCell()*2
+}
+
 // biar edge yang satu cell dengan s atau t punya range  [0, max number of edges in each cell) atau [max number of edges in each cell, max number of edges in each cell*2)
 func (e *CRPRoutingEngine) offsetForward(u, uEntryId da.Index, uCellNumber, sCellNumber da.Pv) da.Index {
 
@@ -36,7 +40,6 @@ func (e *CRPRoutingEngine) offsetForward(u, uEntryId da.Index, uCellNumber, sCel
 func (e *CRPRoutingEngine) offsetBackward(u, uExitId da.Index, uCellNumber, sCellNumber da.Pv) da.Index {
 
 	if uCellNumber == sCellNumber {
-
 		return uExitId - e.graph.GetOutEdgeCellOffset(u)
 	}
 	return uExitId - e.graph.GetOutEdgeCellOffset(u) + e.graph.GetMaxEdgesInCell()

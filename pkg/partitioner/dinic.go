@@ -3,7 +3,6 @@ package partitioner
 import (
 	"container/list"
 	"math"
-	"math/rand"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -19,14 +18,13 @@ type DinicMaxFlow struct {
 	debug              bool
 	multSourcesSinks   bool
 	sinks              map[da.Index]struct{}
-	rd                 *rand.Rand
 }
 
-func NewDinicMaxFlow(graph *da.PartitionGraph, debug, multSourcesSinks bool, rd *rand.Rand) *DinicMaxFlow {
+func NewDinicMaxFlow(graph *da.PartitionGraph, debug, multSourcesSinks bool) *DinicMaxFlow {
 	n := graph.NumberOfVertices()
 
 	dc := &DinicMaxFlow{graph: graph, debug: debug, last: make([]int, n), level: make([]int, n), artificialAdjList: make(map[da.Index][]int, 2),
-		multSourcesSinks: multSourcesSinks, sinks: make(map[da.Index]struct{}), artificialEdgeList: make(map[int]da.MaxFlowEdge, 10), rd: rd}
+		multSourcesSinks: multSourcesSinks, sinks: make(map[da.Index]struct{}), artificialEdgeList: make(map[int]da.MaxFlowEdge, 10)}
 	copy(dc.last, graph.GetLast())
 	copy(dc.level, graph.GetLevel())
 

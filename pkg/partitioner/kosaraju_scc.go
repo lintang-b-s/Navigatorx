@@ -145,7 +145,7 @@ func prePartitionWithSCC(pg *da.PartitionGraph, maximumCellSize int) []*da.Parti
 
 				newU := newMapVid[u]
 				newV := newMapVid[v]
-				pgComponent.AddEdge(newU, newV, e.GetCapacity(), false)
+				pgComponent.AddEdge(newU, newV, e.GetCapacity(), true)
 			})
 		}
 

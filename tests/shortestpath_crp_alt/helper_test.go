@@ -19,7 +19,7 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
-func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEdge, n int, U1, U2 float64) (*engine.Engine, *da.Graph,
+func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEdge, n int, Us []int) (*engine.Engine, *da.Graph,
 	[]da.Index, map[da.Index]da.Index, *landmark.Landmark) {
 	es := flattenEdges(adjList)
 
@@ -46,9 +46,16 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 		t.Fatalf("err: %v", err)
 	}
 
+	ps := make([]int, len(Us))
+
+	for i := 0; i < len(ps); i++ {
+		pow := Us[i]
+		ps[i] = 1 << pow // 2^pow
+	}
+
 	mp := partitioner.NewMultilevelPartitioner(
-		[]int{int(math.Pow(2, U1)), int(math.Pow(2, U2))},
-		2, 1,
+		ps,
+		len(ps), 1,
 		g, logger, true, false,
 	)
 	mp.RunMultilevelPartitioning()

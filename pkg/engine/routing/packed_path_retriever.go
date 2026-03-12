@@ -185,3 +185,93 @@ func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid da.VertexEdge
 
 	return idPath
 }
+
+func (re *CRPRoutingEngine) RetrieveForwardUnpackedPath(forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
+	sForwardId da.Index, sCellNumber da.Pv) (float64, float64, []da.Coordinate, []da.OutEdge) {
+	finalEdgePath := make([]da.OutEdge, 0)
+	finalPath := make([]da.Coordinate, 0)
+
+	mid := forwardMid
+
+	totalDistance := 0.0
+	totalTravelTime := 0.0
+	_, midOutEdge := re.graph.GetHeadOfInedgeWithOutEdge(mid.GetEdge())
+	mid.SetEdge(midOutEdge.GetEdgeId())
+	tail := re.graph.GetTailFromOutEdge(midOutEdge.GetEdgeId())
+
+	if tail != midOutEdge.GetHead() {
+		geom := re.graph.GetEdgeGeometry(midOutEdge.GetEdgeId())
+		revGeom := util.ReverseG(geom)
+		finalPath = append(finalPath, revGeom...)
+		finalEdgePath = append(finalEdgePath, *midOutEdge)
+		totalDistance += midOutEdge.GetLength()
+		totalTravelTime += re.costFunction.GetWeight(midOutEdge)
+	}
+
+	curInfo := fpq.Get(forwardMid.GetEdge())
+
+	for curInfo.GetParent().GetEdge() != sForwardId {
+		parent := curInfo.GetParent()
+		parentEdge := parent.GetEdge()
+		parentCopy := parent
+
+		// jadiin outEdge semua
+		inEdge := re.graph.GetInEdge(parentCopy.GetEdge())
+		_, outEdge := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+		parentCopy.SetEdge(outEdge.GetEdgeId())
+
+		finalEdgePath = append(finalEdgePath, *outEdge)
+
+		geom := re.graph.GetEdgeGeometry(outEdge.GetEdgeId())
+		revGeom := util.ReverseG(geom)
+		finalPath = append(finalPath, revGeom...)
+		totalDistance += outEdge.GetLength()
+		totalTravelTime += re.costFunction.GetWeight(outEdge)
+		curInfo = fpq.Get(parentEdge)
+	}
+
+	finalPath = util.ReverseG(finalPath)
+
+	return totalTravelTime, totalDistance, finalPath, finalEdgePath
+}
+
+func (re *CRPRoutingEngine) RetrieveBackwardUnpackedPath(backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey],
+	tBackwardId da.Index, sCellNumber da.Pv) (float64, float64, []da.Coordinate, []da.OutEdge) {
+
+	totalTravelTime := 0.0
+	finalEdgePath := make([]da.OutEdge, 0)
+	finalPath := make([]da.Coordinate, 0)
+
+	mid := backwardMid
+
+	totalDistance := 0.0
+
+	midOutEdge := re.graph.GetOutEdge(mid.GetEdge())
+	tail := re.graph.GetTailFromOutEdge(midOutEdge.GetEdgeId())
+	if tail != midOutEdge.GetHead() {
+		geom := re.graph.GetEdgeGeometry(midOutEdge.GetEdgeId())
+		finalPath = append(finalPath, geom...)
+		finalEdgePath = append(finalEdgePath, *midOutEdge)
+		totalDistance += midOutEdge.GetLength()
+		totalTravelTime += re.metrics.GetWeight(midOutEdge)
+	}
+
+	curInfo := bpq.Get(backwardMid.GetEdge())
+
+	for curInfo.GetParent().GetEdge() != tBackwardId {
+		parent := curInfo.GetParent()
+		parentEdge := parent.GetEdge()
+		parentCopy := parent
+
+		outEdge := re.graph.GetOutEdge(parentCopy.GetEdge())
+		finalEdgePath = append(finalEdgePath, *outEdge)
+
+		geom := re.graph.GetEdgeGeometry(outEdge.GetEdgeId())
+		finalPath = append(finalPath, geom...)
+		totalDistance += outEdge.GetLength()
+		totalTravelTime += re.metrics.GetWeight(outEdge)
+		curInfo = bpq.Get(parentEdge)
+	}
+
+	return totalTravelTime, totalDistance, finalPath, finalEdgePath
+}

@@ -91,7 +91,6 @@ Hart et al (1967) [5] proved that the solution given by the A* algorithm will be
 ALT (A*, Landmark, and triangle inequality) (Goldberg, A.V. and Harrelson, lm. (2005)) provides a consistent heuristic (by triangle inequality)
 Ikeda et al. (1994) [4]  proved that Bidirectional A* is equivalent to bidirectional dijkstra with modified edge length iff the bidirectional A* implemented using heuristic function 1/2(hs(v)-ht(v)) for forward search and 1/2(ht(v)-hs(v)) for backward search, hs and ht are consistent/feasible heuristic function
 
-todo: investigate kenapa kalau load tests dengan > 300 users, p95 latency nya naik drastis, (kayaknya berkatan dengan preallocate lagi?)
 */
 
 func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,

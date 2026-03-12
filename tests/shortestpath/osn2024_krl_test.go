@@ -335,7 +335,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	if (2.0*float64(e))/math.Pow(float64(N)*2.0, 2) >= 0.00005 {
 		u1 = 20.0
 	} // jumlah shortcuts nya kebanyakan aowkwowk > 100jt kalau test case nya dense
-	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, N*2, u1, 22)
+	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, N*2, u1, 16)
 
 	t.Logf("calculating shortest path from P: %v, to: Q: %v\n", P+1, Q+1)
 

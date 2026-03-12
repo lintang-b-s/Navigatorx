@@ -84,6 +84,16 @@ func (s *TwoLevelStorage) Clone() QueryInfoStorage {
 		base: base, maxEdgesInCell: s.maxEdgesInCell}
 }
 
+func (s *TwoLevelStorage) ForAllItems(handle func(offsetedVId Index, queryInfoId int)) {
+	for offsetedEdgeId, queryInfoId := range s.base {
+		handle(Index(offsetedEdgeId), queryInfoId)
+	}
+
+	for overlayVId, queryInfoId := range s.overlay {
+		handle(overlayVId, queryInfoId)
+	}
+}
+
 type ArrayStorage struct {
 	base []int
 }
@@ -119,6 +129,13 @@ func (s *ArrayStorage) Clone() QueryInfoStorage {
 
 	return &TwoLevelStorage{
 		base: base}
+}
+
+func (s *ArrayStorage) ForAllItems(handle func(offsetedVId Index, queryInfoId int)) {
+	for offsetedEdgeId, queryInfoId := range s.base {
+		handle(Index(offsetedEdgeId), queryInfoId)
+	}
+
 }
 
 type MapStorage struct {
@@ -160,4 +177,11 @@ func (s *MapStorage) Clone() QueryInfoStorage {
 	maps.Copy(overlayClone, s.overlay)
 
 	return &TwoLevelStorage{overlay: overlayClone}
+}
+
+func (s *MapStorage) ForAllItems(handle func(offsetedVId Index, queryInfoId int)) {
+
+	for overlayVId, queryInfoId := range s.overlay {
+		handle(overlayVId, queryInfoId)
+	}
 }

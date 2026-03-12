@@ -151,7 +151,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(placei.x), float64(placei.y*placei.floor)))
 	}
 
-	re, g, oldToNewVIdMap, newToOldVidMap, lm := buildCRP(t, nodeCoords, adjList, N, 6, 7)
+	re, g, oldToNewVIdMap, newToOldVidMap, lm := buildCRP(t, nodeCoords, adjList, N, []int{6, 7})
 
 	line, err = readLine(br)
 	if err != nil {

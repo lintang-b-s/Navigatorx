@@ -5,4 +5,5 @@ type QueryInfoStorage interface {
 	Set(id Index, info int)
 	Clear()
 	Clone() QueryInfoStorage
+	ForAllItems(handle func(offsetedVId Index, queryInfoId int))
 }

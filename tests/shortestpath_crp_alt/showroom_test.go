@@ -172,7 +172,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		}
 	}
 
-	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, r*c, 13, 16)
+	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, r*c, []int{14, 17})
 
 	tnId := cellToNId(tx, ty)
 	tid := oldToNewVIdMap[datastructure.Index(tnId)]

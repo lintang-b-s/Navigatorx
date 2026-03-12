@@ -213,12 +213,12 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *datastructure.Part
 				// v in partisi S
 				uId := partOneNewVIdMap[u]
 				vId := partOneNewVIdMap[v]
-				partitionOne.AddEdge(uId, vId, eWeight, false)
+				partitionOne.AddEdge(uId, vId, eWeight, true)
 			} else if !cut.GetFlag(u) && !cut.GetFlag(v) {
 				// v in partisi T
 				uId := partTwoNewVIdMapMap[u]
 				vId := partTwoNewVIdMapMap[v]
-				partitionTwo.AddEdge(uId, vId, eWeight, false)
+				partitionTwo.AddEdge(uId, vId, eWeight, true)
 			}
 		})
 	}
@@ -295,7 +295,7 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 
 			newV := newMapVid[vId]
 			newHead := newMapVid[e.GetHead()]
-			pg.AddEdge(newV, newHead, eWeight, false)
+			pg.AddEdge(newV, newHead, eWeight, true)
 		})
 	}
 

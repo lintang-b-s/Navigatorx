@@ -171,7 +171,7 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 		dg.AddEdge(musuhVId, pasukanKananInVId, INF, true)
 	}
 
-	dinic := partitioner.NewDinicMaxFlow(dg, false, true, nil)
+	dinic := partitioner.NewDinicMaxFlow(dg, false, true)
 
 	// karena multi-sources kita harus tambah artificial source, dan tambahkan edges dari supersource ke semua sources degnan INF weight
 	superSource := da.Index(R*C + R*C + C + R + R + C)

@@ -218,7 +218,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 	}
 
 	t.Logf("calculating maxflow....")
-	dinic := partitioner.NewDinicMaxFlow(dg, false, false, nil)
+	dinic := partitioner.NewDinicMaxFlow(dg, false, false)
 	mf := dinic.ComputeMaxflowMinCut(source, sink)
 	ans := k - mf.GetMaxFlow()
 

@@ -116,6 +116,26 @@ func (bs *CRPALTBidirectionalSearch) GetNumScannedOverlayVertices() int {
 	return bs.numScannedOverlayVertices
 }
 
+func (bs *BidirectionalDijkstra) GetViaVertices() []da.ViaVertex {
+	return bs.viaVertices
+}
+
+func (bs *BidirectionalDijkstra) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
+	return bs.forwardPq
+}
+
+func (bs *BidirectionalDijkstra) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey] {
+	return bs.backwardPq
+}
+
+func (bs *BidirectionalDijkstra) GetSCellNumber() da.Pv {
+	return 0
+}
+
+
+
+
+
 func initInfWeight(dist []float64) {
 	for i := range dist {
 		dist[i] = pkg.INF_WEIGHT

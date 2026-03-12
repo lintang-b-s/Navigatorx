@@ -27,12 +27,10 @@ func (mj minCutJob) getLine() []float64 {
 type inertialFlow struct {
 	graph      *datastructure.PartitionGraph
 	iterations int
-	rd         *rand.Rand
 }
 
 func NewInertialFlow(graph *datastructure.PartitionGraph, iterations int) *inertialFlow {
-	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	return &inertialFlow{graph: graph, iterations: iterations, rd: rd}
+	return &inertialFlow{graph: graph, iterations: iterations}
 }
 
 func (inf *inertialFlow) getPartitionGraph() *datastructure.PartitionGraph {
@@ -85,7 +83,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	wpInertialFlow.AddJob(newMinCutJob([]float64{-1, 1}))
 
 	computeMinCut := func(input minCutJob) *MinCut {
-		dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true, inf.rd)
+		dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true)
 		var (
 			sources []datastructure.Index
 			sinks   []datastructure.Index
@@ -212,7 +210,9 @@ func (dn *DinicMaxFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func
 
 func (dn *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
 	i := p - 1
-	pivotId := p + dn.rd.Intn(r-p+1)
+	rd := rand.New(rand.NewSource(time.Now().UnixNano())) // gak thread-safe
+
+	pivotId := p + rd.Intn(r-p+1)
 	arr[pivotId], arr[r] = arr[r], arr[pivotId]
 	for j := p; j < r; j++ {
 		if comp(j, r) {
@@ -234,12 +234,12 @@ func (dn *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []data
 	dn.AddArtificialVertex(datastructure.NewPartitionVertex(artificialSink, datastructure.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
 
 	for _, s := range sourceNodes {
-		dn.AddArtificialEdge(artificialSource, s, pkg.INF_WEIGHT_INT, false)
+		dn.AddArtificialEdge(artificialSource, s, pkg.INF_WEIGHT_INT, true)
 	}
 
 	for _, t := range sinkNodes {
 		dn.AddSinks(t)
-		dn.AddArtificialEdge(t, artificialSink, pkg.INF_WEIGHT_INT, false)
+		dn.AddArtificialEdge(t, artificialSink, pkg.INF_WEIGHT_INT, true)
 	}
 	return artificialSource, artificialSink
 }

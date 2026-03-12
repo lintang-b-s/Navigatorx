@@ -142,8 +142,15 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		extract-min at most O(m_p+n_o) operations
 	*/
 	now := time.Now()
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
-	crpQuery.ClonePQ()
+	var (
+		crpQuery *CRPBidirectionalSearch
+		crp      bool
+	)
+	if USE_CRP_FOR_ALTERNATIVE_ROUTES {
+		crpQuery = NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
+		crpQuery.ClonePQ()
+		crp = true
+	}
 
 	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
 	if !found {
@@ -151,38 +158,16 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	}
 	ars.optTravelTime = optTravelTime
 
-	viaVertices := make([]da.ViaVertex, len(crpQuery.GetViaVertices()))
-	copy(viaVertices, crpQuery.GetViaVertices())
-
-	ars.candidates = make([]*AlternativeRoute, 0, len(viaVertices))
-	viaVertices = removeDuplicatesVias(viaVertices)
-
 	fpq := crpQuery.GetForwardPQ()
 	bpq := crpQuery.GetBackwardPQ()
 
 	sCellNumber := crpQuery.GetSCellNumber()
-	ars.numOfInitialCands = len(viaVertices)
 
-	for i := len(viaVertices) - 1; i >= 0; i-- {
-		v := viaVertices[i]
-		if !v.IsOverlay() {
-			if !fpq.IsScanned(v.GetEntryId()) && !bpq.IsScanned(v.GetExitId()) {
-				ars.failScanned.Add(1)
-				viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
-			}
-			if fpq.GetPriority(v.GetEntryId())+bpq.GetPriority(v.GetExitId()) >= (1+ars.epsilon)*optTravelTime {
-				viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
-			}
-		} else {
-			if !fpq.IsScanned(v.GetVId()) && !bpq.IsScanned(v.GetVId()) {
-				ars.failScanned.Add(1)
-				viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
-			}
-			if fpq.GetPriority(v.GetVId())+bpq.GetPriority(v.GetVId()) >= (1+ars.epsilon)*optTravelTime {
-				viaVertices = append(viaVertices[:i], viaVertices[i+1:]...)
-			}
-		}
-	}
+	viaVertices := ars.retrieveViaVertices(fpq, bpq, crp, sCellNumber, optTravelTime)
+	viaVertices = removeDuplicatesVias(viaVertices)
+	ars.candidates = make([]*AlternativeRoute, 0, len(viaVertices))
+
+	ars.numOfInitialCands = len(viaVertices)
 
 	computeAlternatives := func(v da.ViaVertex) any {
 		var (
@@ -208,7 +193,43 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 			worst case of computeAlternatives: O( p + \sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
 		*/
+
 		if !v.IsOverlay() {
+			// via vertex is an overlay vertex
+			svTravelTime = fpq.GetPriority(v.GetEntryId())
+			vtTravelTime = bpq.GetPriority(v.GetExitId())
+		} else {
+			// via vertex is not an overlay vertex
+			svTravelTime = fpq.GetPriority(v.GetVId())
+			vtTravelTime = bpq.GetPriority(v.GetVId())
+		}
+
+		// stretch
+		// lebih cepet eliminasi via vertices yang gak lolos local optimallity dan uniformly bounded stretch dulu, sebelum limited sharing
+		// karena buat cek limited sharing kita harus unpack packed path dari via path nya dulu....
+		lv := svTravelTime + vtTravelTime
+
+		if lv >= (1+ars.epsilon)*optTravelTime {
+			ars.failStretch.Add(1)
+			return nil
+		}
+
+		var plv float64
+		plv = ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
+			fpq, bpq, sCellNumber, lv, v.IsOverlay())
+
+		T := ars.alpha * optTravelTime
+
+		if plv <= T {
+			// plateau must at least ars.alpha * optTravelTime
+			// plateau = subpath dari Pv yang optimal (shortest path) dari first vertex ke last vertex dari subpath
+			// atau every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
+			ars.failPlateau.Add(1)
+			// didnt pass t-test
+			return nil
+		}
+
+		if crp && !v.IsOverlay() {
 			// forward
 			svPackedPath := ars.engine.RetrieveForwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetEntryId(), false),
 				fpq, crpQuery.sForwardId, crpQuery.sCellNumber)
@@ -220,7 +241,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber)
 			unpacker = NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.lm)
 			vtCoords, vtEdgePath, vtDist = unpacker.unpackPath(vtPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
-		} else {
+		} else if crp {
 			// forward
 			svPackedPath := ars.engine.RetrieveForwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetVId(), false),
 				fpq, crpQuery.sForwardId, crpQuery.sCellNumber)
@@ -235,46 +256,18 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 			svCoords, svEdgePath, svDist = unpacker.unpackPath(svPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 			vtCoords, vtEdgePath, vtDist = unpacker.unpackPath(vtPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
-		}
+		} else {
+			svTravelTime, svDist, svCoords, svEdgePath = ars.engine.RetrieveForwardUnpackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetEntryId(), false),
+				fpq, crpQuery.sForwardId, crpQuery.sCellNumber)
 
-		for _, e := range svEdgePath {
-			svTravelTime += ars.engine.metrics.GetWeight(&e)
-		}
-		for _, e := range vtEdgePath {
-			vtTravelTime += ars.engine.metrics.GetWeight(&e)
+			vtTravelTime, vtDist, vtCoords, vtEdgePath = ars.engine.RetrieveBackwardUnpackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetExitId(), true),
+				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber)
 		}
 
 		pvEdgePath := append(svEdgePath, vtEdgePath...)
 		sigmav := ars.calculateDistanceShare(optEdgePath, pvEdgePath)
 		if sigmav >= ars.gamma*optTravelTime {
 			ars.failSharing.Add(1)
-			return nil
-		}
-
-		// stretch
-
-		lv := svTravelTime + vtTravelTime
-
-		if lv >= (1+ars.epsilon)*optTravelTime {
-			ars.failStretch.Add(1)
-			return nil
-		}
-
-		var plv float64
-		if !v.IsOverlay() {
-			plv = ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
-				fpq, bpq, sCellNumber, lv, false)
-
-		} else {
-			plv = ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
-				fpq, bpq, sCellNumber, lv, true)
-		}
-
-		T := ars.alpha * optTravelTime
-
-		if plv <= T {
-			ars.failPlateau.Add(1)
-			// didnt pass t-test
 			return nil
 		}
 
@@ -320,6 +313,121 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	ars.runtime = dur
 
 	return res
+}
+
+/*
+retrieveViaVertices. retrieve via vertices. vertices that visited by forward and backward search
+Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
+Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
+https://doi.org/10.1007/978-3-642-13193-6_3. :
+For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
+*/
+func (ars *AlternativeRouteSearch) retrieveViaVertices(fpq, bpq *da.QueryHeap[da.CRPQueryKey], crp bool,
+	sCellNumber da.Pv, optTravelTime float64) []da.ViaVertex {
+	viaVertices := make([]da.ViaVertex, 0, 40)
+	fpq.ForLabelledItems(func(itemId da.Index, vInfo da.VertexInfo) {
+		if ars.engine.isOverlay(itemId) && crp {
+			// via vertex is an overlay vertex
+			overlayVId := itemId
+
+			scannedByBackwardSearch := bpq.IsScanned(overlayVId)
+			scannedByForwardSearch := fpq.IsScanned(overlayVId)
+			scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
+			admissibleCost := fpq.GetPriority(overlayVId)+bpq.GetPriority(overlayVId) < (1+ars.epsilon)*optTravelTime
+			if scannedByBothSearch && admissibleCost {
+				//  Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
+				// Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
+				// https://doi.org/10.1007/978-3-642-13193-6_3. :
+				// For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
+
+				v := ars.engine.offOverlay(overlayVId)
+				vVertex := ars.engine.overlayGraph.GetVertex(v)
+				originalVId := vVertex.GetOriginalVertex()
+				viaVertices = append(viaVertices, da.NewViaVertex(overlayVId, 0, 0, originalVId, true))
+			}
+
+		} else {
+			// via vertex is not an overlay vertex
+
+			vEntryId := itemId
+			vId, outArc := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vEntryId)
+			// check wether we already Labelled an exit point of vId
+			exitOffset := ars.engine.graph.GetExitOffset(vId)
+
+			if crp {
+				exitOffset = ars.engine.offsetBackward(vId, exitOffset, ars.engine.graph.GetCellNumber(vId), sCellNumber)
+			}
+
+			vExitId := exitOffset
+
+			// traverse outEdges of v
+			ars.engine.graph.ForOutEdgesOf(vId, da.Index(outArc.GetEntryPoint()), func(e2 *da.OutEdge,
+				exitPoint da.Index, turnType2 pkg.TurnType) {
+				//  Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
+				// Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
+				// https://doi.org/10.1007/978-3-642-13193-6_3. :
+				// For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
+
+				scannedByBackwardSearch := bpq.IsScanned(vExitId)
+				scannedByForwardSearch := fpq.IsScanned(vEntryId)
+				scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
+				admissibleCost := fpq.GetPriority(vEntryId)+bpq.GetPriority(vExitId) < (1+ars.epsilon)*optTravelTime
+				if scannedByBothSearch && admissibleCost {
+					viaVertices = append(viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
+				}
+				vExitId++
+			})
+		}
+
+	})
+
+	bpq.ForLabelledItems(func(itemId da.Index, vInfo da.VertexInfo) {
+		if ars.engine.isOverlay(itemId) && crp {
+			// via vertex is an overlay vertex
+			overlayVId := itemId
+
+			scannedByBackwardSearch := bpq.IsScanned(overlayVId)
+			scannedByForwardSearch := fpq.IsScanned(overlayVId)
+			scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
+			admissibleCost := fpq.GetPriority(overlayVId)+bpq.GetPriority(overlayVId) < (1+ars.epsilon)*optTravelTime
+			if scannedByBothSearch && admissibleCost {
+				// For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
+
+				v := ars.engine.offOverlay(overlayVId)
+				vVertex := ars.engine.overlayGraph.GetVertex(v)
+				originalVId := vVertex.GetOriginalVertex()
+				viaVertices = append(viaVertices, da.NewViaVertex(overlayVId, 0, 0, originalVId, true))
+			}
+		} else {
+			// via vertex is not an overlay vertex
+			vExitId := itemId
+			vId, inArc := ars.engine.graph.GetTailOfOutedgeWithInEdge(vExitId)
+
+			// check wether we already Labelled an entry point
+			entryOffset := ars.engine.graph.GetEntryOffset(vId)
+			if crp {
+				entryOffset = ars.engine.offsetForward(vId, entryOffset, ars.engine.graph.GetCellNumber(vId), sCellNumber)
+			}
+
+			vEntryId := entryOffset
+
+			ars.engine.graph.ForInEdgesOf(vId, da.Index(inArc.GetExitPoint()), func(inArc2 *da.InEdge,
+				entryPoint2 da.Index, turnType2 pkg.TurnType) {
+				scannedByForwardSearch := fpq.IsScanned(vEntryId)
+				scannedByBackwardSearch := bpq.IsScanned(vExitId)
+				scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
+				admissibleCost := fpq.GetPriority(vEntryId)+bpq.GetPriority(vExitId) < (1+ars.epsilon)*optTravelTime
+				if scannedByBothSearch && admissibleCost {
+					// For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
+
+					viaVertices = append(viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
+				}
+				vEntryId++
+			})
+		}
+	})
+
+	return viaVertices
 }
 
 func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []da.OutEdge) float64 {

@@ -75,7 +75,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		adjList[u] = append(adjList[u], pairEdge{v, float64(w)})
 	}
 
-	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, n, 7, 14)
+	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, n, []int{7,14})
 
 	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
 

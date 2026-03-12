@@ -169,6 +169,26 @@ func (qh *QueryHeap[T]) IsScanned(id Index) bool {
 	return qh.queryInfos[qInfoId].IsScanned()
 }
 
+func (qh *QueryHeap[T]) IsLabelled(id Index) bool {
+	qInfoId := qh.storage.Get(id)
+	if qInfoId == math.MaxInt { // belum ke label & ke scan
+		return false
+	}
+	return true
+}
+
+// ForLabelledItems. get all items inserted to pq.
+// karena kita support turn costs:
+// offsetedVId berupa edgeId atau overlay vertex id.
+func (qh *QueryHeap[T]) ForLabelledItems(handle func(offsetedVId Index, vInfo VertexInfo)) {
+	qh.storage.ForAllItems(func(offsetedVId Index, queryInfoId int) {
+		if queryInfoId == math.MaxInt {
+			return //  belum ke label & ke scan
+		}
+		handle(offsetedVId, qh.queryInfos[queryInfoId])
+	})
+}
+
 // Clone. clone queryheap
 // dipakai di alternative routes finder
 func (qh *QueryHeap[T]) Clone() *QueryHeap[T] {

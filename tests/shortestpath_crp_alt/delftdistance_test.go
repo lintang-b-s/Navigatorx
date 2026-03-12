@@ -237,7 +237,7 @@ func solve(t *testing.T, filepath string) {
 	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(0), float64(0)))
 	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(h-1), float64(w-1)))
 
-	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, n, 7, 14)
+	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, n, []int{7, 11, 14})
 
 	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
 
@@ -278,7 +278,6 @@ func solve(t *testing.T, filepath string) {
 // please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestCRPQueryDelftDistance  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 // selesai dalam dalam 400 detik
-// 
 func TestCRPQueryDelftDistance(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/icpc_nwerc2022_delftdistance/"
