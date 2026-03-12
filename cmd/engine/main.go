@@ -30,6 +30,14 @@ const (
 	landmarkFile     string = "./data/landmark.lm"
 )
 
+// constants buat alternative routes
+const (
+	alpha      = 0.25 // every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
+	gamma      = 0.8  // alternative routes at least 20% different than the shortest path
+	epsilon    = 0.25 // alternative routes at most 25% longer than the shortest path
+	upperBound = 1.25
+)
+
 func main() {
 
 	flag.Parse()
@@ -37,13 +45,12 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	workingDir, err := os.Getwd()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}
-
 
 	lm, err := landmark.ReadLandmark(landmarkFile)
 	if err != nil {
@@ -73,7 +80,7 @@ func main() {
 	api := http.NewServer(logger)
 
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
-		0.8, 0.3, 0.3, 1.25, 0.1, lm)
+		gamma, alpha, epsilon, upperBound, 0.1, lm)
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {
