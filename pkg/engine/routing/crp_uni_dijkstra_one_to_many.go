@@ -62,11 +62,6 @@ if len(atIds) approaches n, u should use plain dijkstra in dijkstra.go
 func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, atIds []da.Index) (map[da.Index]float64, map[da.Index]float64, map[da.Index][]da.Coordinate,
 	map[da.Index][]da.OutEdge) {
 
-	// Our query algorithm takes as input a source arc as , a target arc at, the original graph G, the overlay graph
-	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
-	// asId exitPoint of outEdge u->s
-	// atId entryPoint of inEdge t->v
-
 	us.Preallocate()
 
 	s := us.engine.graph.GetOutEdge(asId).GetHead()
@@ -166,11 +161,6 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 
 func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source da.Index, targets []target) bool {
 
-	//The query algorithm maintains a distance label d(u) for each entry u which can either be a vertex on the overlay or a pair (u, i) corresponding to the i-th entry point of u in the original graph.
-	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
-	// we need to store entryPoint because we need to know turnType & turn cost when traversing from inEdge to outEdge of vertex u.
-	// forward search  on graph level 1
-
 	uId := uItem.GetNode()
 	uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
 
@@ -259,9 +249,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 
 		} else {
 			// v is in another cell on higher level
-			// CRP In Road Networks: Note that a level transition occurs when u and v have different query levels.
-			// i.e. if v not in the same cell as s and t then v query level is different from u query level.
-			// update the forward info of overlay vertex v
+
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
 			v, _ := us.engine.graph.GetOverlayVertex(vId, outArc.GetEntryPoint(), false)
 			overlayVId := v + da.Index(us.engine.graph.NumberOfEdges())
@@ -293,12 +281,10 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 
 	u := uItem.GetNode() // overlay vertex id
 
-	uId := u + da.Index(us.engine.graph.NumberOfEdges()) // overlay vertex id | overlayOffset to get unique id in forwardInfo & backwardInfo
+	uId := u + da.Index(us.engine.graph.NumberOfEdges())
 	uQueryLevel := int(uItem.GetEntryExitPoint())
 
 	// outNeighbors of u = all overlay vertex v that has shortcut edge u->v in level l within the same cell as u.
-	// for each out neighbors of u in level l, check if v already Labelledby backward search. if so, check whether we can improve shortestPath
-	// then if v not already Labelledor newTravelTime to v is better, traverse to the next cell entry vertex w using outEdge of v.
 	us.engine.overlayGraph.ForOutNeighborsOf(u, uQueryLevel, func(v da.Index, wOffset da.Index) {
 		shortcutOutEdgeWeight := us.engine.metrics.GetShortcutWeight(wOffset)
 
@@ -319,11 +305,7 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 			outEdge := us.engine.graph.GetOutEdge(vOriEdgeId)
 			edgeWeight := us.engine.metrics.GetWeight(outEdge)
 
-			/*
-				We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
-				outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
-				the arc (u, v) immediately and process v.
-			*/
+		
 			// w is in the next cell from v cell
 			w := vVertex.GetNeighborOverlayVertex()
 			wVertex := us.engine.overlayGraph.GetVertex(w)

@@ -51,13 +51,8 @@ func (mpr *MultilevelPartitioner) SetCellVertices(cellVertices [][][]datastructu
 /*
 RunMultilevelPartitioning. run L-level partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
 
-Customizable Route Planning in Road Networks, Delling et al.
-We then use PUNCH to generate an L-level partition (with maximum cell sizes U1 , . . . , UL ) in top-down fashion. We first run
-PUNCH with parameter UL to obtain the top-level cells. Cells in lower levels are then obtained by running
-PUNCH on individual cells of the level immediately above
-
 time complexity:
-for each level l, time complexity recursiveBisection.Partition() is O(U_{l+1}^4(U_{l+1}-U_l)), dengan U_{l+1}=n
+for each level l, time complexity recursiveBisection.Partition() is O(U_{l+1}^4(U_{l+1}-U_l)), dengan U_{L+1}=n
 T(n, U1,...,UL) \in O(n^4 * (n-U_{L}) + \sum_{l=2}^{L} U_l^4 *(U_{l} - U_{l-1}))
 */
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {

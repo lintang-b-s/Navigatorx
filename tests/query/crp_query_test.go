@@ -441,6 +441,9 @@ stress tests ini selesai dalam 5 menit
 dan akan berhenti ketika ada counterexample
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphic #6 cpu cores #12 threads
 ram: 16gb
+
+please run the test using command: "cd tests/query && go test -run TestCRPQueryStressTest  -v -timeout=0  -count=1"
+
 */
 func TestCRPQueryStressTest(t *testing.T) {
 	re, lm := setup(t)

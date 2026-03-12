@@ -37,12 +37,6 @@ single-source shortest paths, from s to all other vertices
 edge-based graph, support turn-costs
 
 useReversedGraph = true -> buat cari sssp dari every vertices in graph to s
-
-Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA:
-MIT Press (CLRS).:
-Single-destination shortest-paths problem: Find a shortest path to a given des-
-tination vertex t from each vertex v. By reversing the direction of each edge in
-the graph, we can reduce this problem to a single-source problem
 */
 func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 	var (

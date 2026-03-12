@@ -7,11 +7,12 @@ import (
 )
 
 /*
-Customizable Route Planning In Road Networks, Delling et al., Page 11:
-First, for each cell C in the overlay graph, we keep three integers: pC (the number of entry points), qC
-(the number of exit points), and fC (the position in W where the first entry of C’s matrix is represented).
-During customization and queries, the cost of the shortcut between the i-th entry point and the j-th exit
-point of C will be stored in W [fC + iqC + j].
+we store shortcut weights in OverlayWeights.weights
+for each cell C, we have:
+qC = number of exit points (vertex that have at least one out edge that point to vertex in other cell)
+pC = number of entry points (vertex that have at least one in edge that point to vertex in other cell)
+fC = poisition in OverlayWeights.weights where the first entry of C is represented
+shortcut betweeb i-th entry point and the j-th exit point of C will be stored in W [fC + iqC + j].
 */
 type OverlayWeights struct {
 	weights []float64

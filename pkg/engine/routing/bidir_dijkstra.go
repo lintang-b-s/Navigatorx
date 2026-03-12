@@ -262,7 +262,7 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 			}
 		}
 
-		// check wether we already Labelled an exit point of vId
+		// check wether we already scanned an exit point of vId
 
 		exitOffset := bs.engine.graph.GetExitOffset(vId)
 
@@ -272,11 +272,8 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 		// traverse outEdges of v
 		bs.engine.graph.ForOutEdgesOf(vId, da.Index(outArc.GetEntryPoint()), func(e2 *da.OutEdge,
 			exitPoint da.Index, turnType2 pkg.TurnType) {
-			// Customizable Route Planning In Road Networks, Page 8: Whenever we scan a vertex that has been seen from
-			// the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
-			// whether we can improve µ.
-			// basically: check if forward and backward search already Labelled entry and exit point of v. if so, check whether we can improve the shortest path
-			// if head of outEdge v->w already Labelled by backward search, and its forwardTravelTime + backwardTravelTime is better than shortestPath, then update shortestPath
+
+			//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 			scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
 			labelledByBackwardSearch := bs.backwardPq.IsLabelled(vExitId)
 

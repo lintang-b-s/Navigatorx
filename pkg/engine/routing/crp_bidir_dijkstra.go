@@ -72,17 +72,12 @@ time complexity of CRP query is: O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o)),
 decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately scan v and add neighbor of v (vertex w) to priority queue
 extract-min at most O(m_p+n_o) operations
 
-multilevel-dijkstra / query phase of customizable route planning only search at most edges & vertices that in lowest level cells that containing s or t, and all overlay vertices & shortcuts all cells in each level (other than lowest level cells that containing s or t )
-thus we can preallocate the capacity of distance slices and heap as max number of edges in each cell * 2 + number of overlayVertices
 
 */
 
 func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
 	[]da.OutEdge, bool) {
-	// Our query algorithm takes as input a source arc as , a target arc at, the original graph G, the overlay graph
-	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
-	// asId exitPoint of outEdge u->s
-	// atId entryPoint of inEdge t->v
+
 	defer bs.Done()
 	now := time.Now()
 
@@ -95,9 +90,6 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 
 	bs.sCellNumber = bs.engine.graph.GetCellNumber(s)
 	bs.tCellNumber = bs.engine.graph.GetCellNumber(t)
-
-	// strategy: use outEdges for forward search, use inEdges for backward search
-	// for iterating outEdges, we need entryOffset. for iterating inEdges, we need exitOffset.
 
 	sForwardId := bs.engine.graph.GetEntryOffset(s) + da.Index(bs.engine.graph.GetOutEdge(asId).GetEntryPoint())
 	tBackwardId := bs.engine.graph.GetExitOffset(t) + da.Index(bs.engine.graph.GetInEdge(atId).GetExitPoint())
@@ -129,13 +121,6 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 			bs.lastpqSum = minForward + minBackward
 			break
 		}
-
-		// Customizable Route Planning In Road Networks, Delling et al., page 14:
-		// Each iteration of the algorithm takes the minimum-distance entry from the queue, representing either an
-		// overlay vertex u or a pair (u, i) from the original graph. If the entry is a pair, we scan it using the turn-aware
-		// version of Dijkstra’s algorithm (and look at its neighbors in G). Otherwise, we use the overlay graph at level
-		// lst (u), which does not have turns. In either case, the neighbors v of u are added to the priority queue with
-		// the appropriate distance labels. Note that a level transition occurs when u and v have different query levels;
 
 		queryKey := bs.forwardPq.ExtractMin()
 		uItem := queryKey.GetItem()
@@ -183,37 +168,8 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 
 /*
 graphSearch. turn-aware bidirectional dijkstra search on graph level 1.
-
-Customizable Route Planning In Road Networks, Delling et al., page 7-8:
-
-We implement this by main-taining triples (v, i, d) in the heap, where v is a vertex, i the order of an entry point at v, and d a distance
-label. The algorithm is initialized by (s, i, 0) indicating that we start the query from entry point i at vertex
-s. (Note that one can generalize this to allow queries starting anywhere along an arc by inserting s, i with
-an offset into the queue.) The distance value d of a label (v, i, d) then indicates the cost of the best path
-seen so far from the source to the entry point i at vertex v.
-
-To implement bidirectional search on the compact model, we maintain a tentative
-shortest path distance µ, initialized by ∞. Then, we perform a forward search from an entry point at s,
-operating as described above, and a backward search from an exit point of t that operates on the exit points
-of the vertices.
-
-Whenever we scan a vertex that has been seen from the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
-whether we can improve µ. We can stop the search as soon as the sum of the minimum keys in both priority
-queues exceeds µ. Note that this algorithm basically performs a search from the head vertex (s) of an arc to
-the tail (t) of another.
-
-Each iteration of the algorithm takes the minimum-distance entry from the queue, representing either an
-overlay vertex u or a pair (u, i) from the original graph. If the entry is a pair, we scan it using the turn-aware
-version of Dijkstra’s algorithm (and look at its neighbors in G). Otherwise, we use the overlay graph at level
-lst (u), which does not have turns. In either case, the neighbors v of u are added to the priority queue with
-the appropriate distance labels. Note that a level transition occurs when u and v have different query levels;
 */
 func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
-
-	//The query algorithm maintains a distance label d(u) for each entry u which can either be a vertex on the overlay or a pair (u, i) corresponding to the i-th entry point of u in the original graph.
-	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
-	// we need to store entryPoint because we need to know turnType & turn cost when traversing from inEdge to outEdge of vertex u.
-	// forward search  on graph level 1
 
 	uId := uItem.GetNode()
 	uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
@@ -304,11 +260,8 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 			// traverse outEdges of v
 			bs.engine.graph.ForOutEdgesOf(vId, da.Index(outArc.GetEntryPoint()), func(e2 *da.OutEdge,
 				exitPoint da.Index, turnType2 pkg.TurnType) {
-				// Customizable Route Planning In Road Networks, Page 8: Whenever we scan a vertex that has been seen from
-				// the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
-				// whether we can improve µ.
-				// basically: check if forward and backward search already Labelled entry and exit point of v. if so, check whether we can improve the shortest path
-				// if head of outEdge v->w already Labelled by backward search, and its forwardTravelTime + backwardTravelTime is better than shortestPath, then update shortestPath
+
+				//  check if forward and backward search already scanned  exit point of v. if so, check whether we can improve the shortest path
 				scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
 				vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
 				if scannedByBackwardSearch && da.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
@@ -325,9 +278,6 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 
 		} else {
 			// v is in another cell on higher level
-			// CRP In Road Networks: Note that a level transition occurs when u and v have different query levels.
-			// i.e. if v not in the same cell as s and t then v query level is different from u query level.
-			// update the forward info of overlay vertex v
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
 			v, _ := bs.engine.graph.GetOverlayVertex(vId, outArc.GetEntryPoint(), false)
 			overlayVId := bs.engine.offsetOverlay(v)
@@ -352,7 +302,7 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 			}
 
 			scannedByBackwardSearch := bs.backwardPq.IsScanned(overlayVId)
-			// if v Labelled by backward search, check whether we can improve the shortestPath
+			// if overlay vertex v scanned by backward search, check whether we can improve the shortestPath
 			newEstimateShortestPathCost := bs.forwardPq.GetPriority(overlayVId) + bs.backwardPq.GetPriority(overlayVId)
 			if scannedByBackwardSearch && da.Lt(newEstimateShortestPathCost, bs.shortestTravelTime) {
 				bs.shortestTravelTime = newEstimateShortestPathCost
@@ -449,7 +399,6 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 				}
 			}
 
-			// check wether we already Labelled an entry point
 			entryOffset := bs.engine.graph.GetEntryOffset(vId)
 
 			entryOffset = bs.engine.offsetForward(vId, entryOffset, bs.engine.graph.GetCellNumber(vId), bs.sCellNumber)
@@ -476,8 +425,6 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 
 		} else {
 			// v is in another cell on higher level
-			// Note that a level transition occurs when u and v have different query levels.
-			// i.e. if v not in the same cell as s and t then v query level is different from u query level.
 			v, _ := bs.engine.graph.GetOverlayVertex(vId, inArc.GetExitPoint(), true)
 			overlayVId := bs.engine.offsetOverlay(v)
 			oldOverlayVIdTravelTime := bs.backwardPq.GetPriority(overlayVId)
@@ -521,12 +468,7 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 }
 
 /*
-Customizable Route Planning In Road Networks, Delling et al., page 14:
-Each iteration of the algorithm takes the minimum-distance entry from the queue, representing either an
-overlay vertex u or a pair (u, i) from the original graph. If the entry is a pair, we scan it using the turn-aware
-version of Dijkstra’s algorithm (and look at its neighbors in G). Otherwise, we use the overlay graph at level
-lst (u), which does not have turns. In either case, the neighbors v of u are added to the priority queue with
-the appropriate distance labels. Note that a level transition occurs when u and v have different query levels;
+search on overlay graph
 */
 func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
 	// search on overlay graph
@@ -536,9 +478,7 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 	uVertex := bs.engine.overlayGraph.GetVertex(u)
 	uQueryLevel := int(uItem.GetEntryExitPoint())
 
-	// outNeighbors of u = all overlay vertex v that has shortcut edge u->v in level l within the same cell as u.
-	// for each out neighbors of u in level l, check if v already Labelled by backward search. if so, check whether we can improve shortestPath
-	// then if v not already Labelled or newTravelTime to v is better, traverse to the next cell entry vertex w using outEdge of v.
+	// outNeighbors of u = all overlay vertices v that has shortcut edge u->v in level l within the same cell as u.
 	bs.engine.overlayGraph.ForOutNeighborsOf(u, uQueryLevel, func(v da.Index, wOffset da.Index) {
 		shortcutOutEdgeWeight := bs.engine.metrics.GetShortcutWeight(wOffset)
 
@@ -555,11 +495,6 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 		outEdge := bs.engine.graph.GetOutEdge(vOriEdgeId)
 		edgeWeight := bs.engine.metrics.GetWeight(outEdge)
 
-		/*
-			We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
-			outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
-			the arc (u, v) immediately and process v.
-		*/
 		// w is in the next cell from v cell
 
 		w := vVertex.GetNeighborOverlayVertex()
@@ -609,7 +544,6 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 					}
 				}
 
-				// check whether we already Labelled an exit point
 				exitOffset := bs.engine.graph.GetExitOffset(originalWId)
 
 				exitOffset = bs.engine.offsetBackward(originalWId, exitOffset, wVertex.GetCellNumber(), bs.sCellNumber)
@@ -617,7 +551,7 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 				newWEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
 				wExitId := exitOffset
 				bs.engine.graph.ForOutEdgesOf(originalWId, da.Index(outEdge.GetEntryPoint()), func(e *da.OutEdge, exitPoint da.Index, turn pkg.TurnType) {
-					// basically: check if forward and backward search already Labelled entry and exit point of w. if so, check whether we can improve the shortest path
+					//  check if forward and backward search already scanned exit point of w. if so, check whether we can improve the shortest path
 					scannedByBackwardSearch := bs.backwardPq.IsScanned(wExitId)
 					wExitIdTravelTime := bs.backwardPq.GetPriority(wExitId)
 					if scannedByBackwardSearch && da.Lt(newWEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turn)+
@@ -891,13 +825,6 @@ func (bs *CRPBidirectionalSearch) Done() {
 func (bs *CRPBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
 	// efficiency:
 	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf
-	/*
-		The efficiency of a run of a P2P algorithm is defined as
-		the number of vertices on the shortest path divided by
-		the number of vertices scanned by the algorithm.1 We
-		report efficiency in percent. An optimal algorithm that
-		scans only the shortest path vertices has 100% efficiency.
-	*/
 
 	efficiency := float64(n) / float64(bs.numScannedVertices)
 	return efficiency, bs.numScannedVertices, bs.runtime, bs.pathUnpackingRuntime

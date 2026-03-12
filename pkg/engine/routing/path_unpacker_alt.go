@@ -48,11 +48,9 @@ Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 [2] Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
 [3] I. Pohl. Bi-directional Search. In Machine Intelligence, volume 6, pages 124–140. Edinburgh Univ. Press, Edinburgh, 1971.
+[4] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 
-unpackPath. unpack a level-i shortcut (v, w) by running Bidirectional Dijkstra between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
-
-this path unpacking use bidirectional dijkstra (see algorithm 2 in ref [2])
-proof of correctness of bidirectional dijkstra algorithm can be found in [2] or [3]
+this path unpacking use bidirectional ALT in ref[4]
 
 time complexity:
 let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcuts within any partition
@@ -513,7 +511,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 			}
 
-			// check wether we already Labelled an exit point of vId
+			// check wether we already scannned an exit point of vId
 
 			exitOffset := pu.engine.graph.GetExitOffset(vId)
 
@@ -524,11 +522,8 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			// traverse outEdges of v
 			pu.engine.graph.ForOutEdgesOf(vId, da.Index(e.GetEntryPoint()), func(e2 *da.OutEdge,
 				exitPoint da.Index, turnType2 pkg.TurnType) {
-				// Customizable Route Planning In Road Networks, Page 8: Whenever we scan a vertex that has been seen from
-				// the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
-				// whether we can improve µ.
-				// basically: check if forward and backward search already Labelled entry and exit point of v. if so, check whether we can improve the shortest path
-				// if head of outEdge v->w already Labelled by backward search, and its forwardTravelTime + backwardTravelTime is better than shortestPath, then update shortestPath
+
+				//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 				scannedByBackwardSearch := bpq.IsScanned(offVExitId)
 				if scannedByBackwardSearch && da.Lt(fpq.GetPriority(offVEntryId)+pu.engine.metrics.GetTurnCost(turnType2)+
 					bpq.GetPriority(offVExitId), fastestTT) {
@@ -608,10 +603,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			// traverse outEdges of v
 			pu.engine.graph.ForInEdgesOf(vId, da.Index(e.GetExitPoint()), func(e2 *da.InEdge,
 				entryPoint da.Index, turnType2 pkg.TurnType) {
-				// Customizable Route Planning In Road Networks, Page 8: Whenever we scan a vertex that has been seen from
-				// the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
-				// whether we can improve µ.
-				// basically: check if forward and backward search already Labelled entry and exit point of v. if so, check whether we can improve the shortest path
+				//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 				scannedByForwardSearch := fpq.IsScanned(offVEntryId)
 				if scannedByForwardSearch && da.Lt(fpq.GetPriority(offVEntryId)+pu.engine.metrics.GetTurnCost(turnType2)+
 					bpq.GetPriority(offVExitId), fastestTT) {

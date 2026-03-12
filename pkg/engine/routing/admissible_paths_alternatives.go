@@ -221,7 +221,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		T := ars.alpha * optTravelTime
 
 		if plv <= T {
-			// plateau must at least ars.alpha * optTravelTime
+			// plateau must > ars.alpha * optTravelTime
 			// plateau = subpath dari Pv yang optimal (shortest path) dari first vertex ke last vertex dari subpath
 			// atau every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
 			ars.failPlateau.Add(1)
@@ -316,11 +316,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 }
 
 /*
-retrieveViaVertices. retrieve via vertices. vertices that visited by forward and backward search
-Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
-Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
-https://doi.org/10.1007/978-3-642-13193-6_3. :
-For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
+retrieveViaVertices. retrieve via vertices. vertices that visited by forward and backward search.
 */
 func (ars *AlternativeRouteSearch) retrieveViaVertices(fpq, bpq *da.QueryHeap[da.CRPQueryKey], crp bool,
 	sCellNumber da.Pv, optTravelTime float64) []da.ViaVertex {
@@ -335,10 +331,6 @@ func (ars *AlternativeRouteSearch) retrieveViaVertices(fpq, bpq *da.QueryHeap[da
 			scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
 			admissibleCost := fpq.GetPriority(overlayVId)+bpq.GetPriority(overlayVId) < (1+ars.epsilon)*optTravelTime
 			if scannedByBothSearch && admissibleCost {
-				//  Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
-				// Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
-				// https://doi.org/10.1007/978-3-642-13193-6_3. :
-				// For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
 
 				v := ars.engine.offOverlay(overlayVId)
 				vVertex := ars.engine.overlayGraph.GetVertex(v)
@@ -363,10 +355,6 @@ func (ars *AlternativeRouteSearch) retrieveViaVertices(fpq, bpq *da.QueryHeap[da
 			// traverse outEdges of v
 			ars.engine.graph.ForOutEdgesOf(vId, da.Index(outArc.GetEntryPoint()), func(e2 *da.OutEdge,
 				exitPoint da.Index, turnType2 pkg.TurnType) {
-				//  Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
-				// Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
-				// https://doi.org/10.1007/978-3-642-13193-6_3. :
-				// For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
 
 				scannedByBackwardSearch := bpq.IsScanned(vExitId)
 				scannedByForwardSearch := fpq.IsScanned(vEntryId)
@@ -391,7 +379,6 @@ func (ars *AlternativeRouteSearch) retrieveViaVertices(fpq, bpq *da.QueryHeap[da
 			scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
 			admissibleCost := fpq.GetPriority(overlayVId)+bpq.GetPriority(overlayVId) < (1+ars.epsilon)*optTravelTime
 			if scannedByBothSearch && admissibleCost {
-				// For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
 
 				v := ars.engine.offOverlay(overlayVId)
 				vVertex := ars.engine.overlayGraph.GetVertex(v)
@@ -418,7 +405,6 @@ func (ars *AlternativeRouteSearch) retrieveViaVertices(fpq, bpq *da.QueryHeap[da
 				scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
 				admissibleCost := fpq.GetPriority(vEntryId)+bpq.GetPriority(vExitId) < (1+ars.epsilon)*optTravelTime
 				if scannedByBothSearch && admissibleCost {
-					// For each vertex v scanned in both directions, we check whether the corresponding path Pv is approximately admissible
 
 					viaVertices = append(viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
 				}
@@ -438,22 +424,6 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []da.O
 	for _, e := range optPath {
 		optPathSet[e.GetHead()] = struct{}{}
 	}
-
-	/*
-		Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
-		Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
-		https://doi.org/10.1007/978-3-642-13193-6_3.:
-
-		The easiest condition to check is sharing. For any vertex v visited by the searches,
-		let \sigma_f(v) be the sharing amount in the forward direction (i.e., how much s–v shares
-		with Opt, which is known). Set σf \sigma_f(s)=0 and, for each vertex v (in forward scanning
-		order), set σf \sigma_f(v) to \sigma_r(pf (v)) + l(pf (v), v) if v \in Opt or to \sigma_f(pf(v)) otherwise (here pf
-		denotes the parent in the forward search). Computing \sigma_r(v), the sharing in the reverse
-		direction, is similar. The total sharing amount σ(v) = l(Opt ∩ Pv ) is \sigma_f(v) + \sigma_r(v). Note
-		that each vertex in the search space can be processed in constant time, which means
-		this procedure can compute σ(v) for all vertices v in O(n) total time (excluding the time
-		to run BD).
-	*/
 
 	for _, e := range pvPath {
 		if _, ok := optPathSet[e.GetHead()]; ok {
@@ -478,19 +448,6 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 		u = viaEntryId
 	}
 
-	/*
-		1. Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
-		Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
-		https://doi.org/10.1007/978-3-642-13193-6_3.
-
-		section 4.2 The Choice Routing Algorithm.
-		It starts by building shortest path trees from s and to t. It
-		then looks at plateaus, i.e., maximal paths that appear in both trees simultaneously.
-		In general, a plateau u–w gives a natural s–t path: follow the out-tree from s to u, then
-		the plateau, then the in-tree from w to t. The algorithm selects paths corresponding to
-		long plateaus.
-	*/
-
 	// shortest path tree from s to v: all scanned (already extracted using extractMin from pq) vertices in forward search
 	// shortest path tree from v to t: all scanned (already extracted using extractMin from pq) vertices in backward search
 	// note that karena backward search pakai reversed edges (dengan bobot setiap rev edge (v,u) sama dengan bobot edge (u,v)), kalau v scanned -> est sp cost dari t ke v di backward search equal to sp cost dari v ke t (kalau pakai original edges)
@@ -503,7 +460,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 		proof:
 		karena semua item antara u-w di scan forward search dan u-w discan backward search, pakai lemma every subpath of shortest path is shortest path (CLRS): subpath u-w is shortest path
 		pakai lemma every subpath of shortest path is shortest path (CLRS) lagi: every subpath P' dari path u ke w, l(P') <= dist(u,w) is shortest path
-		karena s-u scanned di forward search dan w-t scanned di backward search: subpath s-u is shortest path dan subpath w-t is shortest path 
+		karena s-u scanned di forward search dan w-t scanned di backward search: subpath s-u is shortest path dan subpath w-t is shortest path
 		pakai lemma every subpath of shortest path is shortest path lagi: every subpath dari shortest su-path dan wt-path adalah shortest path
 		sehingga didapat every subpath P' of P_v with l(P') <= dist(u,w) adalah shortest path.
 		perhatikan juga karena P_v bukan shortest path (rute alternative), terdapat item x yang belum di scan backward search (x-t is not shortest path) dan item y yang belum di scan forward search (s-y is not shortest path)
@@ -808,12 +765,7 @@ func (ars *AlternativeRouteSearch) makePackedViaPathOverlayEven(svPackedPath, vt
 }
 
 func (ars *AlternativeRouteSearch) GetStretch() float64 {
-	/*
-		https://dl.acm.org/doi/10.1145/3567421
 
-		We quantify this by measuring the stretch of
-		each path, which is the ratio of path’s cost to the shortest path cost.
-	*/
 	if len(ars.candidates) == 0 {
 		return -1 // gak ke count karena gak ada alternative routes
 	}
@@ -830,15 +782,6 @@ func (ars *AlternativeRouteSearch) GetStretch() float64 {
 
 func (ars *AlternativeRouteSearch) GetDiversity() float64 {
 
-	/*
-		https://dl.acm.org/doi/10.1145/3567421
-		Another desirable aspect from alternate paths is that each
-		path should be sufficiently different from all the preceding ones. For
-		this we use Jaccard distance, J(A, B)=\frac{|A \Delta B|}{A \cup B} , where A \Delta B is the
-		symmetric set difference. For each path \pi_i , we record the minimum
-		Jaccard distance to the preceding paths, min{j <i} J(\pi_i , \pi_j), where
-		we view each path \pi_i as a set over edges.
-	*/
 	if len(ars.candidates) == 0 {
 		return -1 // gak ke itung karena gak ada alternative routes
 	}

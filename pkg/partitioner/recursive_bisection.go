@@ -49,11 +49,6 @@ func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logg
 
 /*
 [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
-(i) sort the vertices by longitude (or latitude, or some linear
-combination) and (ii) compute the maximum flow from the first k nodes
-(forming the source) to the last k nodes (forming the sink).  Return the
-corresponding minimum cut as an edge separator (or recurse until the
-resulting subgraphs are sufficiently small).
 
 time complexity:
 let U = rb.maximumCellSize. computeInertialFlowDinic is just run dinic algorithm for multiple times. dinic time complexity O(n^2 * m).

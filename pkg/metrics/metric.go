@@ -34,8 +34,6 @@ func NewMetric(graph *da.Graph, costFunction costfunction.CostFunction, overlayW
 }
 
 /*
-BuildStallingTables. Customizable Route Planning in Road Networks, Delling et al., et al. Page 7:
-
 To determine quickly whether a distance label at an entry point can improve the implicit distance labels
 of the exit points, we keep an array of size p (the number of entry points) for each vertex v, with each entry
 denoted by b_v[i]. We initialize all values in the array with ∞. Whenever we scan an entry point i at a vertex
@@ -43,8 +41,53 @@ v with a distance d, we set each b_v[k] to min{b_v[k], d + max_j {Tv [i, j] − 
 points of v. However, to properly deal with turn restrictions, we must not update  b_v[k] if there exists an exit
 point that can be reached from k, but not from i. We then prune the search as follows: when processing an
 element (u, i, d), we only insert it into the heap if d ≤ bu [i].
+1. query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
+Networks,” Transportation Science [Preprint]. Available at:
+https://doi.org/10.1287/trsc.2014.0579.
 
-we precompute (during customization) the max_k {Tv [i, k] − Tv [j, k]} entries for all pairs of entry points of each vertex.
+
+ingat bahwa pada graf standard (tanpa incorporate turn costs), kita menjalankan dijkstra dengan repeatly memilih vertex u  dengan minimum shortest path estimate dari priority queue, add ke  set of scanned vertices S
+dan relax semua out edges dari vertex u
+
+karena kita incorporate turn costs, kita menggunakan turn-aware dijkstra (see ref[1]) pada forwardGraphSearch dan backwardGraphSearch :
+di implementasi ini kita pakai edgeId sebagai item dari priority queue node
+di turn-aware dijkstra yang dijelaskan ref [1], kita maintain triples (v,i,d) pada priority queue
+v adalah vertex id, i adalah entry point (in edge yang head nya = v) pada v, dan d adalah shortest-path estimate dari s ke v melalui entry point i.
+pendekatan seperti ini lebih lambat jika dibanding dengan hanya menggunakan vertex v sebagai item di priority queue node karena size dari pq tergantung dari jumlah edges yang di scan
+dan biasanya di graph road network openstreetmap jumlah edges jauh lebih banyak dibanding jumlah vertices
+let dist'(s,⋅) adalah shortest path estimate dari simpul s ke any (entry point, vertex). demikian juga untuk t ke any (exit point, vertex)
+di implementasi ini, kita entry ke simpul s dengan menggunakan dummy edge (s,s) dengan turn cost 0 ke exit point manapun.
+di awal kita set dist'(s,(dummyEntry point, s))=0 dan dist'(t, (dummyExit point, t))=0
+
+
+untuk mengurangi slowdown dari pendekatan turn-aware dijkstra, kita menerapkan teknik stalling yang dijelaskan pada ref [1]
+inti dari teknik stalling adalah:
+misal kita punya vertex u dengan entry point i1, i2 dan exit point j1, j2. misal outDegree dari u adalah 2
+contoh turn cost dari case ini adalah ketika kita keluar dari vertex u melalui entry point i1 ke j2
+disini kita simpan turn cost dari i1->u->i2 di graph.turnTables[u.turnTablePtr + 0*2+1]
+
+kita represent turn cost dari entry i1 ke exit i2 melalui u dengna T_u[i1,i2]
+misal kita udah scan (i1,u,d_{i1}) sebelumnya
+(i2, u, d_{i2}) bisa lebih baik dari (i1,u,d_{i1}) iff (lebih baik maksudnya shortest path estimate dari s ke u dengan turn costs lebih baik melalui entry point i2 dibanding i1):
+terdapat k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] <= dist'(s, (i1, u)) + T_u[i1, k]
+
+dengan ini, kita tahu (i2, u, d_{i2}) tidak lebih baik dari (i1,u,d_{i1}) (atau  (i2, u, d_{i2}) bisa kita prune) iff:
+untuk semua k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] > dist'(s, (i1, u)) + T_u[i1, k]
+atau
+dist'(s,(i2, u)) > dist'(s, (i1, u)) + max_k { T_u[i1, k] -  T_u[i2,k]}
+
+setiap kali kita scan entry point i dari vertex v with distance dist'(s,(i,v))
+kita set b_v (bs.stallingEntry di implementasi ini, tapi langsung pakai edgeId instead of (entryPoint, v)) setiap entry point k dari v, dengan 
+b_v[k] = min{ b_v[k], dist'(s,(i,v)) + max_j { T_v[i, j] -  T_v[k,j]} }, inisialisasi awal dari b_v[⋅] adalah infinity utk semua vertices v
+setelah scan (i,v, dist'(s,(i,v))), kita relaksasi semua out edges dari v
+misal salah satu edge nya adalah (v,w) dengan entry point wi1
+kita gak insert (wi1, w, dist'(s,(wi1,w))) ke heap jika dist'(s,(wi1,w)) > b_w[wi1]
+max_j { T_v[i, j] -  T_v[k,j]}  kita precompute untuk setiap pasang (i,k) di metric.go 
+yang kita implementasikan di forwardGraphSearch (dan backwardGraph search, tapi untuk backward graph search kita pakai turn cost dari exit ke entry)
+
+
+karena kita incorporate turn costs, kita menggunakan turn-aware dijkstra (see ref[1]):
+di implementasi ini kita pakai edgeId sebagai item dari priority queue node
 */
 func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.Graph) {
 
@@ -71,6 +114,8 @@ func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.
 					maxDiff = math.Max(maxDiff, Tv_ik-Tv_jk)
 				}
 
+				// ini compute max_k{T_v[i,k] - T_v[j,k]}
+
 				entryStallingTable[i*n+j] = maxDiff
 			}
 		}
@@ -83,6 +128,8 @@ func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.
 					Tv_kj := met.GetTurnCost(graph.GetTurnType(vId, k, j))
 					maxDiff = math.Max(maxDiff, Tv_ki-Tv_kj)
 				}
+
+				// ini compute max_k{T_v[k,i] - T_v[k,j]}
 
 				exitStallingTable[i*m+j] = maxDiff
 			}
@@ -103,10 +150,12 @@ func (met *Metric) GetWeight(e costfunction.EdgeAttributes) float64 {
 
 }
 
+// GetEntryStallingTableCost. get precomputed max_k{T_v[i,k] - T_v[j,k]}
 func (met *Metric) GetEntryStallingTableCost(uId da.Index, offset da.Index) float64 {
 	return met.entryStallingTables[uId][offset]
 }
 
+// GetExitStallingTableCost. get precomputed  max_k{T_v[k,i] - T_v[k,j]}
 func (met *Metric) GetExitStallingTableCost(uId da.Index, offset da.Index) float64 {
 	return met.exitStallingTables[uId][offset]
 }

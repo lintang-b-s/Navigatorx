@@ -48,12 +48,10 @@ func (ov *OverlayVertex) GetNeighborOverlayVertex() Index {
 
 // Cell. cell/partition information
 /*
-Customizable Route Planning In Road Networks, Delling et al., Page 11:
-First, for each cell C in the overlay graph, we keep three integers: pC (the number of entry points), qC
-(the number of exit points), and fC (the position in W where the first entry of C’s matrix is represented).
-During customization and queries, the cost of the shortcut between the i-th entry point and the j-th exit
-point of C will be stored in W [fC + iqC + j].
-
+for each cell C, we have:
+qC = number of exit points (vertex that have at least one out edge that point to vertex in other cell)
+pC = number of entry points (vertex that have at least one in edge that point to vertex in other cell)
+fC = poisition in OverlayWeights.weights where the first entry of C is represented
 */
 type Cell struct {
 	numEntryPoints       Index // p_c // number of entry points
@@ -85,10 +83,6 @@ func (c *Cell) GetShortcutWeightId(i, j Index) int {
 
 type OverlayGraph struct {
 	/*
-			(overlayVertices) To improve spatial  locality, we assign IDs to overlay vertices such that the boundary
-								vertices of the highest level have the lowest IDs, followed by the boundary vertices of the second highest
-								level (which are not on the highest), and so on. Within a level, we keep the same relative ordering as in the
-								original graph.
 
 
 		og.overlayVertices only store unique overlay vertices,
@@ -168,13 +162,8 @@ func (og *OverlayGraph) GetNumOfOverlayVerticesOfCell(cellNumber Pv, level uint8
 }
 
 /*
-GetQueryLevel. Customizable Route Planning in Road Networks, Delling et al., et al. Page 14
-
-define its query level lst (v) as the highest level such that v is not
-at the same cell as s or t. Equivalently, lst(v) is the maximum i such that ci (v) ∩ {s, t} = ∅.
-To compute lst (v), we first determine the most significant differing bit of pv(s) and pv(v). (Recall that
-pv(v) encodes the cell number of v on each level.) This bit indicates the topmost level ls(v) in which they
-differ. We do the same for pv(t) and pv(v) to determine lt(v). The minimum of ls (v) and lt (v) is lst (v).
+GetQueryLevel. get query level of vertex v.
+highest level s.t. vertex v is not at the same cell as s or t
 */
 func (og *OverlayGraph) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
 	return og.levelInfo.GetQueryLevel(sCellNumber, tCellNumber, vCellNumber)

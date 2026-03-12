@@ -72,6 +72,7 @@ https://doi.org/10.1287/trsc.2014.0579.
 3. ALT query phase: Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 4. bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
 5. consistent heuristic for A* & optimality of A*: Hart, P.E., Nilsson, N.J. and Raphael, B. (1968) “A Formal Basis for the Heuristic Determination of Minimum Cost Paths,” IEEE Transactions on Systems Science and Cybernetics, 4(2), pp. 100–107. Available at: https://doi.org/10.1109/TSSC.1968.300136.
+6. Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
 let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
@@ -80,20 +81,100 @@ time complexity of CRP query is: O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o)),
 decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately scan v and add neighbor of v (vertex w) to priority queue
 extract-min at most O(m_p+n_o) operations
 
-multilevel-ALT (A*, Landmarks , and Triangle Inequality) only search at most edges & vertices that in lowest level cells that containing s or t, and all overlay vertices & shortcuts all cells in each level (other than lowest level cells that containing s or t )
-thus we can preallocate the capacity of distance slices and heap as max number of edges in each cell * 2 + number of overlayVertices
 
-https://ai.stanford.edu/~nilsson/OnlinePubs-Nils/PublishedPapers/astar.pdf or https://web.stanford.edu/class/archive/cs/cs221/cs221.1196/lectures/search2-6pp.pdf
-Hart et al (1967) [5] proved that the solution given by the A* algorithm will be optimal iff the heuristic is consistent (i.e. h(u) <= h(u,v) + h(v), h(u,v) sp distance from u to v), a consistent heuristic implies that the heuristic is also admissible (i.e h(u) <= spdist(u,t))
-ALT (A*, Landmark, and triangle inequality) (Goldberg, A.V. and Harrelson, lm. (2005)) provides a consistent heuristic (by triangle inequality)
-Ikeda et al. (1994) [4]  proved that Bidirectional A* is equivalent to bidirectional dijkstra with modified edge length iff the bidirectional A* implemented using heuristic function 1/2(hs(v)-ht(v)) for forward search and 1/2(ht(v)-hs(v)) for backward search, hs and ht are consistent/feasible heuristic function
+
+ingat bahwa pada graf standard (tanpa incorporate turn costs), kita menjalankan dijkstra dengan repeatly memilih vertex u  dengan minimum shortest path estimate dari priority queue, add ke  set of scanned vertices S
+dan relax semua out edges dari vertex u
+
+karena kita incorporate turn costs, kita menggunakan turn-aware dijkstra (see ref[1]) pada forwardGraphSearch dan backwardGraphSearch :
+di implementasi ini kita pakai edgeId sebagai item dari priority queue node
+di turn-aware dijkstra yang dijelaskan ref [1], kita maintain triples (v,i,d) pada priority queue
+v adalah vertex id, i adalah entry point (in edge yang head nya = v) pada v, dan d adalah shortest-path estimate dari s ke v melalui entry point i.
+pendekatan seperti ini lebih lambat jika dibanding dengan hanya menggunakan vertex v sebagai item di priority queue node karena size dari pq tergantung dari jumlah edges yang di scan
+dan biasanya di graph road network openstreetmap jumlah edges jauh lebih banyak dibanding jumlah vertices
+let dist'(s,⋅) adalah shortest path estimate dari simpul s ke any (entry point, vertex). demikian juga untuk t ke any (exit point, vertex)
+di implementasi ini, kita entry ke simpul s dengan menggunakan dummy edge (s,s) dengan turn cost 0 ke exit point manapun.
+di awal kita set dist'(s,(dummyEntry point, s))=0 dan dist'(t, (dummyExit point, t))=0
+
+
+untuk mengurangi slowdown dari pendekatan turn-aware dijkstra, kita menerapkan teknik stalling yang dijelaskan pada ref [1]
+inti dari teknik stalling adalah:
+misal kita punya vertex u dengan entry point i1, i2 dan exit point j1, j2. misal outDegree dari u adalah 2
+contoh turn cost dari case ini adalah ketika kita keluar dari vertex u melalui entry point i1 ke j2
+disini kita simpan turn cost dari i1->u->i2 di graph.turnTables[u.turnTablePtr + 0*2+1]
+
+kita represent turn cost dari entry i1 ke exit i2 melalui u dengna T_u[i1,i2]
+misal kita udah scan (i1,u,d_{i1}) sebelumnya
+(i2, u, d_{i2}) bisa lebih baik dari (i1,u,d_{i1}) iff (lebih baik maksudnya shortest path estimate dari s ke u dengan turn costs lebih baik melalui entry point i2 dibanding i1):
+terdapat k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] <= dist'(s, (i1, u)) + T_u[i1, k]
+
+dengan ini, kita tahu (i2, u, d_{i2}) tidak lebih baik dari (i1,u,d_{i1}) (atau  (i2, u, d_{i2}) bisa kita prune) iff:
+untuk semua k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] > dist'(s, (i1, u)) + T_u[i1, k]
+atau
+dist'(s,(i2, u)) > dist'(s, (i1, u)) + max_k { T_u[i1, k] -  T_u[i2,k]}
+
+setiap kali kita scan entry point i dari vertex v with distance dist'(s,(i,v))
+kita set b_v (bs.stallingEntry di implementasi ini, tapi langsung pakai edgeId instead of (entryPoint, v)) setiap entry point k dari v, dengan 
+b_v[k] = min{ b_v[k], dist'(s,(i,v)) + max_j { T_v[i, j] -  T_v[k,j]} }, inisialisasi awal dari b_v[⋅] adalah infinity utk semua vertices v
+setelah scan (i,v, dist'(s,(i,v))), kita relaksasi semua out edges dari v
+misal salah satu edge nya adalah (v,w) dengan entry point wi1
+kita gak insert (wi1, w, dist'(s,(wi1,w))) ke heap jika dist'(s,(wi1,w)) > b_w[wi1]
+max_j { T_v[i, j] -  T_v[k,j]}  kita precompute untuk setiap pasang (i,k) di metric.go 
+yang kita implementasikan di forwardGraphSearch (dan backwardGraph search, tapi untuk backward graph search kita pakai turn cost dari exit ke entry)
+
+
+
+setiap iterasi dari algoritma CRP query kita ambi minimum-distance item dari pq,
+item bisa berupa (i,u) dengan i adalah entry/exit point ke vertex u atau overlay vertex u.
+jika item berupa (i,u), kita menjalankan turn aware bidirectional dijkstra
+else kita menjalankan bidirectional overlay graph search
+
+di bidirectional overlay graph search, kita melakukan relaksasi shortcut edges dari u yang cost (sudah include turn costs) nya sudah kita precompute
+di fase kustomisasi Customizable Route planning (CRP) [1] di customizer.go.
+level transition (dari base ke overlay atau sebaliknya) terjadi ketika:
+u dan v memiliki query level yang berbeda.
+query level dari vertex v adalah: highest level s.t. vertex v is not at the same cell as s or t
+kalau transition ke level > 1, kita add overlay vertex v ke priority queue 
+kalau transition ke level 0. kita add (j,v) ( dengan j adalah entry point ke v dari u) ke priority queue.
+
+path dari overlay graph search akan berpola:
+entryVertex_1->exitVertex_1->entryVertex_2->exitVertex_2->....->entryVertex_n->exitVertex_n->entryVertex_{n+1}
+entryVertex_1 adalah overlay vertex yang masih satu sel dengan sel dari vertex s pada level 1.
+entryVertex_{n+1} adalah overlay vertex yang masih satu sel dengan sel dari vertex t pada level 1.
+
+entryVertex adalah overlay vertex yang memiliki setidaknya satu 1 in edge yang tail vertex dari edge berada di sel (di suatu level) yang berbeda dengan sel (di suatu level) dari entryVertex 
+in/out edge (u,v) -> tail = u, head = v, out edge arahnya dari u ke v, in edge arah nya dari v ke u dengan bobot kedua edge sama.
+
+exitVertex adalah overlay vertex yang memiliki setidaknya satu 1 out edge yang head vertex dari edge berada di sel (di suatu level) yang berbeda dengan sel (di suatu level) dari exitVertex
+
+setiap shortcut edges yang dikunjungi forwardOverlayGraphSearch(), adalah (entryVertex, exitVertex)
+di implementasi ini melakukan optimasi pada overlay graph search yang dilakukan pada ref[1]:
+setiap kali relax shortcut edge (u,v) (misal di forwardOverlayGraphSearch()), kita langsung scan v dan relax cut edge (v,w) dari overlay vertex v. 
+cut edge adalah edge yang tail dan head nya berada di sel yang berbeda (di suatu level).
+setiap vertex u yang memiliki cut edges > 1 akan dibuatkan overlay vertices untuk masing masing cut edges.
+
+karena kita appply bidirectional dijkstra (ke base graph dan overlay graph) di implementasi ini, kita melakukan hal yang mirip seperti di ref[1] dan ref[6]:
+untuk base graph:
+(misal untuk forwardGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah vertex) dengan entry point i, kita cek semua possible turns pada vertex v 
+kita cek semua exit point dari v dan cek apakah salah satu (exit point, v) sudah di scan di backward search
+kalau sudah discan  -> kita bisa update \mu (shortest st-path estimate) 
+\mu diupdate kalau sum dari shortest path estimate dari s ke v melalui entry point i + sp estimate dari t ke v (melalui exit point yang discan backward search) kurang dari \mu
+
+untuk overlay graph:
+(misal untuk forwardOverlayGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah overlay vertex)
+kita cek apakah overlay vertex v udah di scan oleh backward search
+kalau udha di scan -> kita bisa update \mu (shortest st-path estimate) 
+\mu diupdate kalau sum dari shortest path estimate dari s ke v + sp estimate dari t ke v kurang dari \mu.
+
+search terminates ketika sum dari minimum keys of both priority queues exceeds \mu. (proof of correctness dari kriteria pemberhentian ini dapat dilihat pada ref[6])
+
+todo7: tambahin comments bindo di banyak fungsi utama, jangan cuma copas kalimat dari paper.
 
 */
 
 func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
 	[]da.OutEdge, bool) {
-	// Our query algorithm takes as input a source arc as , a target arc at, the original graph G, the overlay graph
-	// H = ∪i Hi , and computes the shortest path between the head vertex s of as and the tail vertex t of at.
+
 	// asId exitPoint of outEdge u->s
 	// atId entryPoint of inEdge t->v
 	defer bs.Done()
@@ -108,9 +189,6 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 
 	bs.sCellNumber = bs.engine.graph.GetCellNumber(s)
 	bs.tCellNumber = bs.engine.graph.GetCellNumber(t)
-
-	// strategy: use outEdges for forward search, use inEdges for backward search
-	// for iterating outEdges, we need entryOffset. for iterating inEdges, we need exitOffset.
 
 	sForwardId := bs.engine.graph.GetEntryOffset(s) + da.Index(bs.engine.graph.GetOutEdge(asId).GetEntryPoint())
 	tBackwardId := bs.engine.graph.GetExitOffset(t) + da.Index(bs.engine.graph.GetInEdge(atId).GetExitPoint())
@@ -144,13 +222,6 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 			bs.lastpqSum = minForward + minBackward
 			break
 		}
-
-		// Customizable Route Planning In Road Networks, Delling et al., page 14:
-		// Each iteration of the algorithm takes the minimum-distance entry from the queue, representing either an
-		// overlay vertex u or a pair (u, i) from the original graph. If the entry is a pair, we scan it using the turn-aware
-		// version of Dijkstra’s algorithm (and look at its neighbors in G). Otherwise, we use the overlay graph at level
-		// lst (u), which does not have turns. In either case, the neighbors v of u are added to the priority queue with
-		// the appropriate distance labels. Note that a level transition occurs when u and v have different query levels;
 
 		queryKey := bs.forwardPq.ExtractMin()
 		uItem := queryKey.GetItem()
@@ -198,37 +269,8 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 
 /*
 graphSearch. turn-aware bidirectional dijkstra search on graph level 1.
-
-Customizable Route Planning In Road Networks, Delling et al., page 7-8:
-
-We implement this by main-taining triples (v, i, d) in the heap, where v is a vertex, i the order of an entry point at v, and d a distance
-label. The algorithm is initialized by (s, i, 0) indicating that we start the query from entry point i at vertex
-s. (Note that one can generalize this to allow queries starting anywhere along an arc by inserting s, i with
-an offset into the queue.) The distance value d of a label (v, i, d) then indicates the cost of the best path
-seen so far from the source to the entry point i at vertex v.
-
-To implement bidirectional search on the compact model, we maintain a tentative
-shortest path distance µ, initialized by ∞. Then, we perform a forward search from an entry point at s,
-operating as described above, and a backward search from an exit point of t that operates on the exit points
-of the vertices.
-
-Whenever we scan a vertex that has been seen from the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
-whether we can improve µ. We can stop the search as soon as the sum of the minimum keys in both priority
-queues exceeds µ. Note that this algorithm basically performs a search from the head vertex (s) of an arc to
-the tail (t) of another.
-
-Each iteration of the algorithm takes the minimum-distance entry from the queue, representing either an
-overlay vertex u or a pair (u, i) from the original graph. If the entry is a pair, we scan it using the turn-aware
-version of Dijkstra’s algorithm (and look at its neighbors in G). Otherwise, we use the overlay graph at level
-lst (u), which does not have turns. In either case, the neighbors v of u are added to the priority queue with
-the appropriate distance labels. Note that a level transition occurs when u and v have different query levels;
 */
 func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
-
-	//The query algorithm maintains a distance label d(u) for each entry u which can either be a vertex on the overlay or a pair (u, i) corresponding to the i-th entry point of u in the original graph.
-	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
-	// we need to store entryPoint because we need to know turnType & turn cost when traversing from inEdge to outEdge of vertex u.
-	// forward search  on graph level 1
 
 	uId := uItem.GetNode()
 	uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
@@ -293,7 +335,8 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 			vAlreadyLabelled := da.Lt(oldVEntryIdTravelTime, pkg.INF_WEIGHT)
 			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, oldVEntryIdTravelTime)) {
 				if bvi := bs.stallingEntry[vEntryId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Gt(newTravelTime, bvi) {
-					// stalled
+					// stalled, newTraveltime= dist'(s,(vEntryId, v)) 
+					// dist'(s,(vEntryId, v)) > dist'(s, (, v)) + max_k { T_u[, k] -  T_u[vEntryId,k]}
 					return
 				}
 
@@ -313,8 +356,6 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 				}
 			}
 
-			// check wether we already Labelled an exit point of vId
-
 			exitOffset := bs.engine.graph.GetExitOffset(vId)
 
 			exitOffset = bs.engine.offsetBackward(vId, exitOffset, bs.engine.graph.GetCellNumber(vId), bs.sCellNumber)
@@ -325,11 +366,8 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 			// traverse outEdges of v
 			bs.engine.graph.ForOutEdgesOf(vId, da.Index(outArc.GetEntryPoint()), func(e2 *da.OutEdge,
 				exitPoint da.Index, turnType2 pkg.TurnType) {
-				// Customizable Route Planning In Road Networks, Page 8: Whenever we scan a vertex that has been seen from
-				// the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
-				// whether we can improve µ.
-				// basically: check if forward and backward search already Labelled entry and exit point of v. if so, check whether we can improve the shortest path
-				// if head of outEdge v->w already Labelled by backward search, and its forwardTravelTime + backwardTravelTime is better than shortestPath, then update shortestPath
+
+				// check if forward and backward search already scanned entry point and  exit point of v. if so, check whether we can improve the shortest path
 				scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
 				vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
 				if scannedByBackwardSearch && da.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
@@ -346,9 +384,6 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 
 		} else {
 			// v is in another cell on higher level
-			// CRP In Road Networks: Note that a level transition occurs when u and v have different query levels.
-			// i.e. if v not in the same cell as s and t then v query level is different from u query level.
-			// update the forward info of overlay vertex v
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
 			v, _ := bs.engine.graph.GetOverlayVertex(vId, outArc.GetEntryPoint(), false)
 			overlayVId := bs.engine.offsetOverlay(v)
@@ -373,7 +408,7 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 			}
 
 			scannedByBackwardSearch := bs.backwardPq.IsScanned(overlayVId)
-			// if v Labelled by backward search, check whether we can improve the shortestPath
+			// if v scanned by backward search, check whether we can improve the shortestPath
 			newEstimateShortestPathCost := bs.forwardPq.GetPriority(overlayVId) + bs.backwardPq.GetPriority(overlayVId)
 			if scannedByBackwardSearch && da.Lt(newEstimateShortestPathCost, bs.shortestTravelTime) {
 				bs.shortestTravelTime = newEstimateShortestPathCost
@@ -397,7 +432,7 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 
 func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
 	// search backward on graph level 1
-	// basically same as forward search, but using inEdges and exitPoint instead of outEdges and entryPoint
+	//same as forward search, but using inEdges and exitPoint instead of outEdges and entryPoint
 
 	uId := uItem.GetNode()
 	uExitId := uItem.GetEntryExitPoint() // index of outEdge that have endpoint from vertex uId
@@ -474,7 +509,6 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 				}
 			}
 
-			// check wether we already Labelled an entry point
 			entryOffset := bs.engine.graph.GetEntryOffset(vId)
 
 			entryOffset = bs.engine.offsetForward(vId, entryOffset, bs.engine.graph.GetCellNumber(vId), bs.sCellNumber)
@@ -545,14 +579,6 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 	})
 }
 
-/*
-Customizable Route Planning In Road Networks, Delling et al., page 14:
-Each iteration of the algorithm takes the minimum-distance entry from the queue, representing either an
-overlay vertex u or a pair (u, i) from the original graph. If the entry is a pair, we scan it using the turn-aware
-version of Dijkstra’s algorithm (and look at its neighbors in G). Otherwise, we use the overlay graph at level
-lst (u), which does not have turns. In either case, the neighbors v of u are added to the priority queue with
-the appropriate distance labels. Note that a level transition occurs when u and v have different query levels;
-*/
 func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
 	// search on overlay graph
 
@@ -562,8 +588,6 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 	uQueryLevel := int(uItem.GetEntryExitPoint())
 
 	// outNeighbors of u = all overlay vertex v that has shortcut edge u->v in level l within the same cell as u.
-	// for each out neighbors of u in level l, check if v already Labelled by backward search. if so, check whether we can improve shortestPath
-	// then if v not already Labelled or newTravelTime to v is better, traverse to the next cell entry vertex w using outEdge of v.
 	bs.engine.overlayGraph.ForOutNeighborsOf(u, uQueryLevel, func(v da.Index, wOffset da.Index) {
 		shortcutOutEdgeWeight := bs.engine.metrics.GetShortcutWeight(wOffset)
 
@@ -581,13 +605,6 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 		vOriEdgeId := vVertex.GetOriginalEdge()
 		outEdge := bs.engine.graph.GetOutEdge(vOriEdgeId)
 		edgeWeight := bs.engine.metrics.GetWeight(outEdge)
-
-		/*
-			We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
-			outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
-			the arc (u, v) immediately and process v.
-		*/
-		// w is in the next cell from v cell
 
 		w := vVertex.GetNeighborOverlayVertex()
 		wVertex := bs.engine.overlayGraph.GetVertex(w)
@@ -640,7 +657,6 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 					}
 				}
 
-				// check whether we already Labelled an exit point
 				exitOffset := bs.engine.graph.GetExitOffset(originalWId)
 
 				exitOffset = bs.engine.offsetBackward(originalWId, exitOffset, wVertex.GetCellNumber(), bs.sCellNumber)
@@ -648,7 +664,7 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 				newWEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
 				wExitId := exitOffset
 				bs.engine.graph.ForOutEdgesOf(originalWId, da.Index(outEdge.GetEntryPoint()), func(e *da.OutEdge, exitPoint da.Index, turn pkg.TurnType) {
-					// basically: check if forward and backward search already Labelled entry and exit point of w. if so, check whether we can improve the shortest path
+					// check if forward and backward search already scanned exit point of w. if so, check whether we can improve the shortest path
 					scannedByBackwardSearch := bs.backwardPq.IsScanned(wExitId)
 					wExitIdTravelTime := bs.backwardPq.GetPriority(wExitId)
 					if scannedByBackwardSearch && da.Lt(newWEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turn)+
@@ -666,7 +682,7 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 			} else {
 				// w is in another cell on higher level
 				// update new travelTime to reach overlay vertex w
-				// insert item overlay vertex w and its query level to forwardOverlayPq, because we need to traverse & relax shortcut edges in overlay graph
+				// insert item overlay vertex w and its query level to forwardP
 				overlayWId := bs.engine.offsetOverlay(w)
 				oldOverlayWIdTravelTime := bs.forwardPq.GetPriority(overlayWId)
 				wAlreadyLabelled := da.Lt(oldOverlayWIdTravelTime, pkg.INF_WEIGHT)
@@ -688,7 +704,7 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 				scannedByBackwardSearch := bs.backwardPq.IsScanned(overlayWId)
 				newEstimateShortestPathCost := bs.forwardPq.GetPriority(overlayWId) + bs.backwardPq.GetPriority(overlayWId)
 				if scannedByBackwardSearch && da.Lt(newEstimateShortestPathCost, bs.shortestTravelTime) {
-					// if overlay vertex w Labelled by backward search, check whether we can improve the shortestPath
+					// if overlay vertex w scanned by backward search, check whether we can improve the shortestPath
 					bs.shortestTravelTime = newEstimateShortestPathCost
 
 					bs.forwardMid = da.NewVertexEdgePair(wVertex.GetOriginalVertex(), overlayWId, false)
@@ -728,7 +744,7 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 
 func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
 	// search backward on overlay graph
-	// basically same as forward search on overlayGraph, but using inEdges and exitPoint instead of outEdges and entryPoint
+	//same as forward search on overlayGraph, but using inEdges and exitPoint instead of outEdges and entryPoint
 
 	u := uItem.GetNode()
 
@@ -806,7 +822,7 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 					}
 				}
 
-				// check whether we already scanned an entry point in forward search
+				// check whether we already scanned an entry point of w in forward search
 				entryOffset := bs.engine.graph.GetEntryOffset(originalWId)
 
 				entryOffset = bs.engine.offsetForward(originalWId, entryOffset, wVertex.GetCellNumber(), bs.sCellNumber)
@@ -926,13 +942,6 @@ func (bs *CRPALTBidirectionalSearch) Done() {
 func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
 	// efficiency:
 	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf
-	/*
-		The efficiency of a run of a P2P algorithm is defined as
-		the number of vertices on the shortest path divided by
-		the number of vertices scanned by the algorithm.1 We
-		report efficiency in percent. An optimal algorithm that
-		scans only the shortest path vertices has 100% efficiency.
-	*/
 
 	efficiency := float64(n) / float64(bs.numScannedVertices)
 	return efficiency, bs.numScannedVertices, bs.runtime, bs.pathUnpackingRuntime

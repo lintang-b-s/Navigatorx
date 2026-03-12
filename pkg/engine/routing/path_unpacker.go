@@ -59,7 +59,6 @@ https://doi.org/10.1287/trsc.2014.0579.
 unpackPath. unpack a level-i shortcut (v, w) by running Bidirectional Dijkstra between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
 
 this path unpacking use bidirectional dijkstra (see algorithm 2 in ref [2])
-proof of correctness of bidirectional dijkstra algorithm can be found in [2] or [3]
 
 time complexity:
 let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcuts within any partition
@@ -68,8 +67,6 @@ lowest level cell: O(m_p*log(m_p)), in unpackInLowestLevelCell(), priority queue
 cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
 let q = number of shorcut edges in packedPath
 time complexity of unpackPath: O(\sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
-
-todo: bikin path unpacker pakai A*, landmarks, triangle inequality (ALT) (Goldberg, A.V. and Harrelson, lm. (2005))
 */
 func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Coordinate, []da.OutEdge, float64) {
 	unpackedPath := make([]da.Coordinate, 0, 50)
@@ -503,7 +500,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 
 			}
 
-			// check wether we already Labelled an exit point of vId
+			// check wether we already scanned an exit point of vId
 
 			exitOffset := pu.engine.graph.GetExitOffset(vId)
 
@@ -514,11 +511,8 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 			// traverse outEdges of v
 			pu.engine.graph.ForOutEdgesOf(vId, da.Index(e.GetEntryPoint()), func(e2 *da.OutEdge,
 				exitPoint da.Index, turnType2 pkg.TurnType) {
-				// Customizable Route Planning In Road Networks, Page 8: Whenever we scan a vertex that has been seen from
-				// the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
-				// whether we can improve µ.
-				// basically: check if forward and backward search already Labelled entry and exit point of v. if so, check whether we can improve the shortest path
-				// if head of outEdge v->w already Labelled by backward search, and its forwardTravelTime + backwardTravelTime is better than shortestPath, then update shortestPath
+
+				//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 				scannedByBackwardSearch := bpq.IsScanned(offVExitId)
 				if scannedByBackwardSearch && da.Lt(fpq.GetPriority(offVEntryId)+pu.engine.metrics.GetTurnCost(turnType2)+
 					bpq.GetPriority(offVExitId), fastestTT) {
@@ -584,7 +578,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 				}
 			}
 
-			// check wether we already Labelled an entry point of vId
+			// check wether we already scanned an entry point of vId
 			entryOffset := pu.engine.graph.GetEntryOffset(vId)
 
 			entryOffset = pu.engine.offsetForward(vId, entryOffset, pu.engine.graph.GetCellNumber(vId), sourceCellNumber)
@@ -594,10 +588,8 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 			// traverse outEdges of v
 			pu.engine.graph.ForInEdgesOf(vId, da.Index(e.GetExitPoint()), func(e2 *da.InEdge,
 				entryPoint da.Index, turnType2 pkg.TurnType) {
-				// Customizable Route Planning In Road Networks, Page 8: Whenever we scan a vertex that has been seen from
-				// the other side, we evaluate all possible turns between all entry and exit points of the intersection and check
-				// whether we can improve µ.
-				// basically: check if forward and backward search already Labelled entry and exit point of v. if so, check whether we can improve the shortest path
+
+				//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 				scannedByForwardSearch := fpq.IsScanned(offVEntryId)
 				if scannedByForwardSearch && da.Lt(fpq.GetPriority(offVEntryId)+pu.engine.metrics.GetTurnCost(turnType2)+
 					bpq.GetPriority(offVExitId), fastestTT) {

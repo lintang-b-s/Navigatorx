@@ -41,12 +41,6 @@ func (inf *inertialFlow) getPartitionGraph() *datastructure.PartitionGraph {
 computeInertialFlowDinic.
 [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
 
-(i) sort the vertices by longitude (or latitude, or some linear
-combination) and (ii) compute the maximum flow from the first k nodes
-(forming the source) to the last k nodes (forming the sink).  Return the
-corresponding minimum cut as an edge separator (or recurse until the
-resulting subgraphs are sufficiently small).
-
 return st-mincut dengan partisi S, T yang saling disjoint.
 time complexity:
 karena cuma call algoritma dinic berkali kali sejumlah iterations, let k = number of iterations+2

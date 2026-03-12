@@ -372,6 +372,7 @@ func (g *Graph) GetEntryOrder(v, InEdge Index) Index {
 	return InEdge - g.vertices[v].firstIn
 }
 
+// GetTurnType get turn type dari entryPoint->u->exitPoint
 func (g *Graph) GetTurnType(u Index, entryPoint, exitPoint Index) pkg.TurnType {
 	turnTableOffset := g.vertices[u].turnTablePtr + Index(entryPoint)*Index(g.GetOutDegree(u)) + Index(exitPoint)
 	return g.turnTables[turnTableOffset]
