@@ -128,8 +128,16 @@ https://doi.org/10.1007/978-3-642-13193-6_3.
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 
+misalkan l(P) adalah sum of the lengths dari edge penyusun path P
+ref[1] setiap st-path P dikatakan admissible jika memenuhi kondisi:
+1. sharing amount (edge weights) dari alternative route P dan optimal/shortest route Opt <= \gamma * l(Opt)
+2. P is T-Localy Optimall (T-LO): every subpath P' of P with l(P') <= T adalah shortest path
+3. every subpath P' dari P dengan endpoints s', t', kita memiliki l(P') <= (1+eps)l(Opt(s,t)) (path P' dari s' ke t' tidak lebih panjang 1+eps relative to shortest path dari s' ke t')
 
-
+inti dari FindAlternativeRoutes:
+1. retrieve semua via vertices yang sudah discan (beberapa entry & exit points dari vertex v discan atau overlay vertex v sudah discan) oleh forward search dan backward search dari CRP query
+2. susun kandidat alternative route s-v-t  untuk setiap via vertices v.
+3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
 */
 
 func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k int) []*AlternativeRoute {
@@ -209,11 +217,6 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		// karena buat cek limited sharing kita harus unpack packed path dari via path nya dulu....
 		lv := svTravelTime + vtTravelTime
 
-		if lv >= (1+ars.epsilon)*optTravelTime {
-			ars.failStretch.Add(1)
-			return nil
-		}
-
 		var plv float64
 		plv = ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
 			fpq, bpq, sCellNumber, lv, v.IsOverlay())
@@ -221,11 +224,18 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		T := ars.alpha * optTravelTime
 
 		if plv <= T {
+			// T-test dengan T=dist(v,w) , v-w path adalah plateau dari P_v
 			// plateau must > ars.alpha * optTravelTime
 			// plateau = subpath dari Pv yang optimal (shortest path) dari first vertex ke last vertex dari subpath
 			// atau every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
 			ars.failPlateau.Add(1)
 			// didnt pass t-test
+			return nil
+		}
+
+		if lv >= (1+ars.epsilon)*optTravelTime {
+			// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak
+			ars.failStretch.Add(1)
 			return nil
 		}
 
@@ -316,7 +326,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 }
 
 /*
-retrieveViaVertices. retrieve via vertices. vertices that visited by forward and backward search.
+retrieveViaVertices. retrieve via vertices. vertices that scanned by forward and backward search.
 */
 func (ars *AlternativeRouteSearch) retrieveViaVertices(fpq, bpq *da.QueryHeap[da.CRPQueryKey], crp bool,
 	sCellNumber da.Pv, optTravelTime float64) []da.ViaVertex {
@@ -416,6 +426,7 @@ func (ars *AlternativeRouteSearch) retrieveViaVertices(fpq, bpq *da.QueryHeap[da
 	return viaVertices
 }
 
+// calculateDistanceShare. calculate sharing amount (edge weights) dari alternative route P_v dan optimal/shortest route Opt
 func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []da.OutEdge) float64 {
 	// O(N+M), N=len(optPath), M=len(pvPath)
 	distanceShare := 0.0
@@ -435,6 +446,14 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(optPath, pvPath []da.O
 	return distanceShare
 }
 
+// calculatePlateau. calculate plateau pl(v)
+// pada CRP query, kita build shortest path trees dari s dan ke t
+// forward search membuat shortest path tree dari s ke every scanned vertices di forward search
+// backward search membuat shortest path tree dari every vertices scanned di backward search ke t (karena backward search pakai reversed edges)
+// plateaus adalah maximal paths yang muncul  di kedua shortest path trees
+// plateau u-w dari st-path: path dari s ke u + path dari u ke w + path dari w ke t
+// semua item (pasangan (entry/exit point, vertex) atau overlay vertex) path u-w dari u ke w tedapat pada kedua shortest path tree
+// atau semua item dari path u-w sudah di scan oleh kedua search.
 func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, viaExitId, sForwardId, tBackwardId da.Index,
 	ps, pb *da.QueryHeap[da.CRPQueryKey], sCellNumber da.Pv, lv float64, overlay bool) float64 {
 

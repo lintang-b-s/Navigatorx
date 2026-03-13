@@ -16,12 +16,21 @@ func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
 	return append(forwardPackedPath, backwardPackedPath...)
 }
 
+// RetrieveForwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari s ke mid.
+// setelah CRP query terminates, kita mendapatkan mid vertex (atau overlay vertex), dengan s-mid-t adalah shortest path
+// untuk retrieve full packed path dari s ke mid kita backtrack ke ancestor (parents) dari mid sampai ke s.
+// edges pada path s-mid bisa berupa shortcut edges dan base edge
+// dinakan packed path karena masih terdapat shortcut edges yang menyusun packed path
+// bobot dari shortcut edge (u,v) adalah shortest path cost dari overlay vertex u ke overlay vertex v yang sudah kita precompute di fase kustomisasi CRP
+// shortcut edge (u,v) disusun oleh base edges yang menyusun shortest path dari overlay vertex u ke overlay vertex v
+// kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya
+// sehingga untuk unpacking shortcut edges ada tahapan di CRP bernama Path Unpacking (path_unpacker_alt.go)
 func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
 	sForwardId da.Index, sCellNumber da.Pv) []da.VertexEdgePair {
 	idPath := make([]da.VertexEdgePair, 0) // contains all outedges that make up the shortest path
 
 	// let n = number of edges in shortest path from s to mid, (from forward search)
-	// worst: case O(n)
+	// O(n)
 	mid := forwardMid
 
 	if !re.isOverlay(mid.GetEdge()) {
@@ -107,6 +116,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(forwardMid da.VertexEdgePa
 	return idPath
 }
 
+// RetrieveBackwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari mid ke t.
 func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey],
 	tBackwardId da.Index, sCellNumber da.Pv) []da.VertexEdgePair {
 	idPath := make([]da.VertexEdgePair, 0) // contains all outedges that make up the shortest path

@@ -49,7 +49,9 @@ func (mpr *MultilevelPartitioner) SetCellVertices(cellVertices [][][]datastructu
 }
 
 /*
-RunMultilevelPartitioning. run L-level partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
+RunMultilevelPartitioning. run L-level mutltilevel partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
+pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} untuk mendapatkan cells level L.
+cells di level bawahnya didapatkan dengan menjalankan algoritma inertial flow dari individual cells of the level immediately above.
 
 time complexity:
 for each level l, time complexity recursiveBisection.Partition() is O(U_{l+1}^4(U_{l+1}-U_l)), dengan U_{L+1}=n

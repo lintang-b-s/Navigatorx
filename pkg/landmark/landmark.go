@@ -35,7 +35,7 @@ func NewLandmark() *Landmark {
 }
 
 /*
-[1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+[1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 
 this is an implementation of planar landmark selection described in section 7 paper [1] versi 2
 
@@ -163,13 +163,13 @@ func (qr *queryRet) getSpCosts() []float64 {
 }
 
 /*
-[1] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+[1] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 
 preprocessing phase of A*, landmark, and triangle inequality (ALT) described in [1]
 
 time complexity of ALT preprocessing:
 
-O((n+m)logn * k), n=number of vertices,m=number of edges,k=number of landmarks
+O(m*logm * k), m=number of edges,k=number of landmarks
 */
 func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Customizer, logger *zap.Logger) error {
 	if k > 64 {
@@ -267,16 +267,14 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 		}
 	}
 
-
 	wg.Wait()
 
-	
 	logger.Info("done computing landmarks....")
 	return nil
 }
 
 /*
-[1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+[1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [2] Bast, H. et al. (2016) “Route Planning in Transportation Networks,” in L.
 Kliemann and P. Sanders (eds.) Algorithm Engineering: Selected Results and
 Surveys. Cham: Springer International Publishing, pp. 19–80. Available at:
@@ -284,7 +282,10 @@ https://doi.org/10.1007/978-3-319-49487-6_2.
 [3] Goldberg, A. and Harrelson, C. (2004) “Computing the Shortest Path: A* Search Meets Graph Theory.” Available at: https://www.microsoft.com/en-us/research/publication/computing-the-shortest-path-a-search-meets-graph-theory/ (Accessed: February 9, 2026).
 
 implementation of computing tighest lower bound of A*, landmarks, and triangle inequality, 6 Computing Lower Bounds in [1] or section 2.2 ALT in [2]
-estimate on dist (u,t)
+misal L adalah set of landmarks, dist(v,w) adalah shortest path cost dari vertex v ke vertex w
+FindTighestLowerBound compute h(v)=max_{l\inL}{dist(l,t)-dist(l,v), dist(v,l)-dist(t,l)}
+fungsi potential/heuristik  h(v) meiliki sifat konsisten/feasible [3]
+
 
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
@@ -350,12 +351,15 @@ func (lm *Landmark) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 }
 
 /*
-[1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+[1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [2] https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 [3] Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
 
-implementation of consistent potential function in 5.2 Consistent Approach ref [1]
-calc \pi_f(u) and \pi_r(u)
+implementation of consistent/feasible potential function in 5.2 Consistent Approach ref [1]
+calc \pi_f(u)=\frac{h_f(u)-h_r(u)}{2} and \pi_r(u)=\frac{h_r(u)-h_f(u)}{2}
+h_f(u) adalah estimate sp cost dari u ke t
+h_r(u) adalah estimate sp cost dari s ke u
+
 */
 func (lm *Landmark) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index) (float64, float64) {
 	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks) // estimate on dist(u,t)

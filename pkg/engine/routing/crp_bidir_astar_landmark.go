@@ -69,10 +69,12 @@ implementation of:
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 2. query phase (Goal-direction): Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
-3. ALT query phase: Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+3. ALT query phase: Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 4. bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
 5. consistent heuristic for A* & optimality of A*: Hart, P.E., Nilsson, N.J. and Raphael, B. (1968) “A Formal Basis for the Heuristic Determination of Minimum Cost Paths,” IEEE Transactions on Systems Science and Cybernetics, 4(2), pp. 100–107. Available at: https://doi.org/10.1109/TSSC.1968.300136.
 6. Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
+7. Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA: MIT Press 
+
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
 let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
@@ -103,6 +105,12 @@ misal kita punya vertex u dengan entry point i1, i2 dan exit point j1, j2. misal
 contoh turn cost dari case ini adalah ketika kita keluar dari vertex u melalui entry point i1 ke j2
 disini kita simpan turn cost dari i1->u->i2 di graph.turnTables[u.turnTablePtr + 0*2+1]
 
+
+state dari setiap item (bisa berupa (entry/exit point, vertex) atau overlay vertex) dibagi menjadi tiga:
+unreachable, labelled, dan scanned. pada awal algoritma pencarian (sebelum scan s), semua item memiliki state unreacahble
+sesudah relaksasi edge (v,w) dengan entry point i item (i,w) memiliki state labelled
+setiap item yang sudah di extractMin prioirty queue memiliki state scanned.
+
 kita represent turn cost dari entry i1 ke exit i2 melalui u dengna T_u[i1,i2]
 misal kita udah scan (i1,u,d_{i1}) sebelumnya
 (i2, u, d_{i2}) bisa lebih baik dari (i1,u,d_{i1}) iff (lebih baik maksudnya shortest path estimate dari s ke u dengan turn costs lebih baik melalui entry point i2 dibanding i1):
@@ -114,12 +122,12 @@ atau
 dist'(s,(i2, u)) > dist'(s, (i1, u)) + max_k { T_u[i1, k] -  T_u[i2,k]}
 
 setiap kali kita scan entry point i dari vertex v with distance dist'(s,(i,v))
-kita set b_v (bs.stallingEntry di implementasi ini, tapi langsung pakai edgeId instead of (entryPoint, v)) setiap entry point k dari v, dengan 
+kita set b_v (bs.stallingEntry di implementasi ini, tapi langsung pakai edgeId instead of (entryPoint, v)) setiap entry point k dari v, dengan
 b_v[k] = min{ b_v[k], dist'(s,(i,v)) + max_j { T_v[i, j] -  T_v[k,j]} }, inisialisasi awal dari b_v[⋅] adalah infinity utk semua vertices v
 setelah scan (i,v, dist'(s,(i,v))), kita relaksasi semua out edges dari v
 misal salah satu edge nya adalah (v,w) dengan entry point wi1
 kita gak insert (wi1, w, dist'(s,(wi1,w))) ke heap jika dist'(s,(wi1,w)) > b_w[wi1]
-max_j { T_v[i, j] -  T_v[k,j]}  kita precompute untuk setiap pasang (i,k) di metric.go 
+max_j { T_v[i, j] -  T_v[k,j]}  kita precompute untuk setiap pasang (i,k) di metric.go
 yang kita implementasikan di forwardGraphSearch (dan backwardGraph search, tapi untuk backward graph search kita pakai turn cost dari exit ke entry)
 
 
@@ -134,41 +142,53 @@ di fase kustomisasi Customizable Route planning (CRP) [1] di customizer.go.
 level transition (dari base ke overlay atau sebaliknya) terjadi ketika:
 u dan v memiliki query level yang berbeda.
 query level dari vertex v adalah: highest level s.t. vertex v is not at the same cell as s or t
-kalau transition ke level > 1, kita add overlay vertex v ke priority queue 
+kalau transition ke level > 1, kita add overlay vertex v ke priority queue
 kalau transition ke level 0. kita add (j,v) ( dengan j adalah entry point ke v dari u) ke priority queue.
 
 path dari overlay graph search akan berpola:
-entryVertex_1->exitVertex_1->entryVertex_2->exitVertex_2->....->entryVertex_n->exitVertex_n->entryVertex_{n+1}
-entryVertex_1 adalah overlay vertex yang masih satu sel dengan sel dari vertex s pada level 1.
+exitVertex_0->entryVertex_1->exitVertex_1->entryVertex_2->exitVertex_2->....->entryVertex_n->exitVertex_n->entryVertex_{n+1}
+exitVertex_0 adalah overlay vertex yang masih satu sel dengan sel dari vertex s pada level 1.
 entryVertex_{n+1} adalah overlay vertex yang masih satu sel dengan sel dari vertex t pada level 1.
 
-entryVertex adalah overlay vertex yang memiliki setidaknya satu 1 in edge yang tail vertex dari edge berada di sel (di suatu level) yang berbeda dengan sel (di suatu level) dari entryVertex 
+entryVertex adalah overlay vertex yang memiliki setidaknya satu 1 in edge yang tail vertex dari edge berada di sel (di suatu level) yang berbeda dengan sel (di suatu level) dari entryVertex
 in/out edge (u,v) -> tail = u, head = v, out edge arahnya dari u ke v, in edge arah nya dari v ke u dengan bobot kedua edge sama.
 
 exitVertex adalah overlay vertex yang memiliki setidaknya satu 1 out edge yang head vertex dari edge berada di sel (di suatu level) yang berbeda dengan sel (di suatu level) dari exitVertex
 
 setiap shortcut edges yang dikunjungi forwardOverlayGraphSearch(), adalah (entryVertex, exitVertex)
 di implementasi ini melakukan optimasi pada overlay graph search yang dilakukan pada ref[1]:
-setiap kali relax shortcut edge (u,v) (misal di forwardOverlayGraphSearch()), kita langsung scan v dan relax cut edge (v,w) dari overlay vertex v. 
+setiap kali relax shortcut edge (u,v) (misal di forwardOverlayGraphSearch()), kita langsung scan v dan relax cut edge (v,w) dari overlay vertex v.
 cut edge adalah edge yang tail dan head nya berada di sel yang berbeda (di suatu level).
 setiap vertex u yang memiliki cut edges > 1 akan dibuatkan overlay vertices untuk masing masing cut edges.
 
 karena kita appply bidirectional dijkstra (ke base graph dan overlay graph) di implementasi ini, kita melakukan hal yang mirip seperti di ref[1] dan ref[6]:
 untuk base graph:
-(misal untuk forwardGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah vertex) dengan entry point i, kita cek semua possible turns pada vertex v 
+(misal untuk forwardGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah vertex) dengan entry point i, kita cek semua possible turns pada vertex v
 kita cek semua exit point dari v dan cek apakah salah satu (exit point, v) sudah di scan di backward search
-kalau sudah discan  -> kita bisa update \mu (shortest st-path estimate) 
+kalau sudah discan  -> kita bisa update \mu (shortest st-path estimate)
 \mu diupdate kalau sum dari shortest path estimate dari s ke v melalui entry point i + sp estimate dari t ke v (melalui exit point yang discan backward search) kurang dari \mu
 
 untuk overlay graph:
 (misal untuk forwardOverlayGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah overlay vertex)
 kita cek apakah overlay vertex v udah di scan oleh backward search
-kalau udha di scan -> kita bisa update \mu (shortest st-path estimate) 
+kalau udha di scan -> kita bisa update \mu (shortest st-path estimate)
 \mu diupdate kalau sum dari shortest path estimate dari s ke v + sp estimate dari t ke v kurang dari \mu.
 
 search terminates ketika sum dari minimum keys of both priority queues exceeds \mu. (proof of correctness dari kriteria pemberhentian ini dapat dilihat pada ref[6])
 
-todo7: tambahin comments bindo di banyak fungsi utama, jangan cuma copas kalimat dari paper.
+di implementasi multilevel-alt ini, kita menggunakan Bidirectional ALT [3] instead of bidirectional dijkstra
+Bidirectional A*, landmarks, and triangle inequality (ALT) [3] adalah algoritma bidirectional A* yang fungsi heuristik/potential nya memanfaatkan precomputed landmark shortest path distances (see ref[3] for the details)  
+fungsi heuristik/potential yang digunakan bidirectional ALT memiliki sifat konsisten/feasible
+potential function adalah fungsi dari vertices ke bilangan real, fungsi potensial \pi_t(v) memberikan estimate sp distance dari v ke t
+diberikan fungsi potensial \pi, kita mendefinisikan reduced cost dari sebuah edge dengan l_{\pi}(v,w)=l(v,w)-\pi(v)+\pi(w)
+fungsi potensial \pi dikakan konsisten atau feasible jika l_{\pi} >= 0 untuk semua edges
+
+pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat konsisten. misal \pi_t(v) adalah estimate sp distance dari v ke t dan \pi_s(v) estimate sp distance dari s ke v
+[4] dan [3], kita menggunakan fungsi potensial p_t(v)=\frac{\pi_t(v)-\pi_s(v)}{2} untuk forward search dan p_s(v)=-p_t(v) untuk backward search
+[4] dan [3] membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(v)-p_t(u)=l(v,w)-p_s(v)+p_s(u) >= 0
+dari Lemma 25.1 (Reweighting does not change shortest paths) pada ref 7:
+misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path from v0 to vk with weight function l if and only if it is a shortest path with weight function l_p
+
 
 */
 
@@ -335,7 +355,7 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 			vAlreadyLabelled := da.Lt(oldVEntryIdTravelTime, pkg.INF_WEIGHT)
 			if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, oldVEntryIdTravelTime)) {
 				if bvi := bs.stallingEntry[vEntryId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Gt(newTravelTime, bvi) {
-					// stalled, newTraveltime= dist'(s,(vEntryId, v)) 
+					// stalled, newTraveltime= dist'(s,(vEntryId, v))
 					// dist'(s,(vEntryId, v)) > dist'(s, (, v)) + max_k { T_u[, k] -  T_u[vEntryId,k]}
 					return
 				}

@@ -48,9 +48,26 @@ Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 [2] Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
 [3] I. Pohl. Bi-directional Search. In Machine Intelligence, volume 6, pages 124–140. Edinburgh Univ. Press, Edinburgh, 1971.
-[4] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+[4] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+[5] bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
+[6] Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA: MIT Press 
+
+unpackPath. unpack a level-i shortcut (v, w) by running Bidirectional ALT [4] between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
+jika level i-1 >= 1, kita menggunakan shortcut edges (dari subcells dari level-i cell containing the shortcut) di overlay graph level i-1
+jika level i-1 = 0, kita menggunakan base edges yang terletak pada level-i cell containing the shortcut
 
 this path unpacking use bidirectional ALT in ref[4]
+Bidirectional A*, landmarks, and triangle inequality (ALT) [4] adalah algoritma bidirectional A* yang fungsi heuristik/potential nya memanfaatkan precomputed landmark shortest path distances (see ref[4] for the details)  
+fungsi heuristik/potential yang digunakan bidirectional ALT memiliki sifat konsisten/feasible
+potential function adalah fungsi dari vertices ke bilangan real, fungsi potensial \pi_t(v) memberikan estimate sp distance dari v ke t
+diberikan fungsi potensial \pi, kita mendefinisikan reduced cost dari sebuah edge dengan l_{\pi}(v,w)=l(v,w)-\pi(v)+\pi(w)
+fungsi potensial \pi dikakan konsisten atau feasible jika l_{\pi} >= 0 untuk semua edges
+
+pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat konsisten. misal \pi_t(v) adalah estimate sp distance dari v ke t dan \pi_s(v) estimate sp distance dari s ke v
+[5] dan [4], kita menggunakan fungsi potensial p_t(v)=\frac{\pi_t(v)-\pi_s(v)}{2} untuk forward search dan p_s(v)=-p_t(v) untuk backward search
+[5] dan [4] membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(v)-p_t(u)=l(v,w)-p_s(v)+p_s(u) >= 0
+dari Lemma 25.1 (Reweighting does not change shortest paths) pada ref 6:
+misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path from v0 to vk with weight function l if and only if it is a shortest path with weight function l_p
 
 time complexity:
 let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcuts within any partition

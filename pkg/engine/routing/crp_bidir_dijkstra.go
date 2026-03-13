@@ -65,6 +65,7 @@ Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 2. query phase: Delling, D. et al. (20data11) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
 
+
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
 let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
 let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, partitioning depth, and number of overlay vertices respectively.
@@ -73,6 +74,98 @@ decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shor
 extract-min at most O(m_p+n_o) operations
 
 
+
+ingat bahwa pada graf standard (tanpa incorporate turn costs), kita menjalankan dijkstra dengan repeatly memilih vertex u  dengan minimum shortest path estimate dari priority queue, add ke  set of scanned vertices S
+dan relax semua out edges dari vertex u
+
+karena kita incorporate turn costs, kita menggunakan turn-aware dijkstra (see ref[1]) pada forwardGraphSearch dan backwardGraphSearch :
+di implementasi ini kita pakai edgeId sebagai item dari priority queue node
+di turn-aware dijkstra yang dijelaskan ref [1], kita maintain triples (v,i,d) pada priority queue
+v adalah vertex id, i adalah entry point (in edge yang head nya = v) pada v, dan d adalah shortest-path estimate dari s ke v melalui entry point i.
+pendekatan seperti ini lebih lambat jika dibanding dengan hanya menggunakan vertex v sebagai item di priority queue node karena size dari pq tergantung dari jumlah edges yang di scan
+dan biasanya di graph road network openstreetmap jumlah edges jauh lebih banyak dibanding jumlah vertices
+let dist'(s,⋅) adalah shortest path estimate dari simpul s ke any (entry point, vertex). demikian juga untuk t ke any (exit point, vertex)
+di implementasi ini, kita entry ke simpul s dengan menggunakan dummy edge (s,s) dengan turn cost 0 ke exit point manapun.
+di awal kita set dist'(s,(dummyEntry point, s))=0 dan dist'(t, (dummyExit point, t))=0
+
+
+untuk mengurangi slowdown dari pendekatan turn-aware dijkstra, kita menerapkan teknik stalling yang dijelaskan pada ref [1]
+inti dari teknik stalling adalah:
+misal kita punya vertex u dengan entry point i1, i2 dan exit point j1, j2. misal outDegree dari u adalah 2
+contoh turn cost dari case ini adalah ketika kita keluar dari vertex u melalui entry point i1 ke j2
+disini kita simpan turn cost dari i1->u->i2 di graph.turnTables[u.turnTablePtr + 0*2+1]
+
+state dari setiap item (bisa berupa (entry/exit point, vertex) atau overlay vertex) dibagi menjadi tiga:
+unreachable, labelled, dan scanned. pada awal algoritma pencarian (sebelum scan s), semua item memiliki state unreacahble
+sesudah relaksasi edge (v,w) dengan entry point i item (i,w) memiliki state labelled
+setiap item yang sudah di extractMin prioirty queue memiliki state scanned.
+
+kita represent turn cost dari entry i1 ke exit i2 melalui u dengna T_u[i1,i2]
+misal kita udah scan (i1,u,d_{i1}) sebelumnya
+(i2, u, d_{i2}) bisa lebih baik dari (i1,u,d_{i1}) iff (lebih baik maksudnya shortest path estimate dari s ke u dengan turn costs lebih baik melalui entry point i2 dibanding i1):
+terdapat k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] <= dist'(s, (i1, u)) + T_u[i1, k]
+
+dengan ini, kita tahu (i2, u, d_{i2}) tidak lebih baik dari (i1,u,d_{i1}) (atau  (i2, u, d_{i2}) bisa kita prune) iff:
+untuk semua k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] > dist'(s, (i1, u)) + T_u[i1, k]
+atau
+dist'(s,(i2, u)) > dist'(s, (i1, u)) + max_k { T_u[i1, k] -  T_u[i2,k]}
+
+setiap kali kita scan entry point i dari vertex v with distance dist'(s,(i,v))
+kita set b_v (bs.stallingEntry di implementasi ini, tapi langsung pakai edgeId instead of (entryPoint, v)) setiap entry point k dari v, dengan
+b_v[k] = min{ b_v[k], dist'(s,(i,v)) + max_j { T_v[i, j] -  T_v[k,j]} }, inisialisasi awal dari b_v[⋅] adalah infinity utk semua vertices v
+setelah scan (i,v, dist'(s,(i,v))), kita relaksasi semua out edges dari v
+misal salah satu edge nya adalah (v,w) dengan entry point wi1
+kita gak insert (wi1, w, dist'(s,(wi1,w))) ke heap jika dist'(s,(wi1,w)) > b_w[wi1]
+max_j { T_v[i, j] -  T_v[k,j]}  kita precompute untuk setiap pasang (i,k) di metric.go
+yang kita implementasikan di forwardGraphSearch (dan backwardGraph search, tapi untuk backward graph search kita pakai turn cost dari exit ke entry)
+
+
+
+setiap iterasi dari algoritma CRP query kita ambi minimum-distance item dari pq,
+item bisa berupa (i,u) dengan i adalah entry/exit point ke vertex u atau overlay vertex u.
+jika item berupa (i,u), kita menjalankan turn aware bidirectional dijkstra
+else kita menjalankan bidirectional overlay graph search
+
+di bidirectional overlay graph search, kita melakukan relaksasi shortcut edges dari u yang cost (sudah include turn costs) nya sudah kita precompute
+di fase kustomisasi Customizable Route planning (CRP) [1] di customizer.go.
+level transition (dari base ke overlay atau sebaliknya) terjadi ketika:
+u dan v memiliki query level yang berbeda.
+query level dari vertex v adalah: highest level s.t. vertex v is not at the same cell as s or t
+kalau transition ke level > 1, kita add overlay vertex v ke priority queue
+kalau transition ke level 0. kita add (j,v) ( dengan j adalah entry point ke v dari u) ke priority queue.
+
+path dari overlay graph search akan berpola:
+exitVertex_0->entryVertex_1->exitVertex_1->entryVertex_2->exitVertex_2->....->entryVertex_n->exitVertex_n->entryVertex_{n+1}
+exitVertex_0 adalah overlay vertex yang masih satu sel dengan sel dari vertex s pada level 1.
+entryVertex_{n+1} adalah overlay vertex yang masih satu sel dengan sel dari vertex t pada level 1.
+
+entryVertex adalah overlay vertex yang memiliki setidaknya satu 1 in edge yang tail vertex dari edge berada di sel (di suatu level) yang berbeda dengan sel (di suatu level) dari entryVertex
+in/out edge (u,v) -> tail = u, head = v, out edge arahnya dari u ke v, in edge arah nya dari v ke u dengan bobot kedua edge sama.
+
+exitVertex adalah overlay vertex yang memiliki setidaknya satu 1 out edge yang head vertex dari edge berada di sel (di suatu level) yang berbeda dengan sel (di suatu level) dari exitVertex
+
+setiap shortcut edges yang dikunjungi forwardOverlayGraphSearch(), adalah (entryVertex, exitVertex)
+di implementasi ini melakukan optimasi pada overlay graph search yang dilakukan pada ref[1]:
+setiap kali relax shortcut edge (u,v) (misal di forwardOverlayGraphSearch()), kita langsung scan v dan relax cut edge (v,w) dari overlay vertex v.
+cut edge adalah edge yang tail dan head nya berada di sel yang berbeda (di suatu level).
+setiap vertex u yang memiliki cut edges > 1 akan dibuatkan overlay vertices untuk masing masing cut edges.
+
+karena kita appply bidirectional dijkstra (ke base graph dan overlay graph) di implementasi ini, kita melakukan hal yang mirip seperti di ref[1] dan ref[6]:
+untuk base graph:
+(misal untuk forwardGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah vertex) dengan entry point i, kita cek semua possible turns pada vertex v
+kita cek semua exit point dari v dan cek apakah salah satu (exit point, v) sudah di scan di backward search
+kalau sudah discan  -> kita bisa update \mu (shortest st-path estimate)
+\mu diupdate kalau sum dari shortest path estimate dari s ke v melalui entry point i + sp estimate dari t ke v (melalui exit point yang discan backward search) kurang dari \mu
+
+untuk overlay graph:
+(misal untuk forwardOverlayGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah overlay vertex)
+kita cek apakah overlay vertex v udah di scan oleh backward search
+kalau udha di scan -> kita bisa update \mu (shortest st-path estimate)
+\mu diupdate kalau sum dari shortest path estimate dari s ke v + sp estimate dari t ke v kurang dari \mu.
+
+search terminates ketika sum dari minimum keys of both priority queues exceeds \mu. (proof of correctness dari kriteria pemberhentian ini dapat dilihat pada ref[6])
+
+di implementasi multilevel-dijkstra ini, kita menggunakan bidirectional dijkstra with turn costs
 */
 
 func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,

@@ -288,6 +288,7 @@ func (dmf *DinicMaxFlow) blockingFlow(s, t da.Index) int64 {
 }
 
 /*
+ComputeMaxflowMinCut. compute max flow/min st-cut
 time complexity: O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
 */
 func (dmf *DinicMaxFlow) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {

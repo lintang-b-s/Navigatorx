@@ -172,8 +172,9 @@ func (cc cellCustomizationRes) getIndex() int {
 
 /*
 // buildLowestLevel. build clique of each cell in the lowest level (level 1)
-// using Dijkstra algorithm (restricted to C) from each entry point of the cell to all exit points of the cell
+// using Dijkstra algorithm (restricted to cell C) from each entry point of the cell to all exit points of the cell
 // and store the result in ow.weights
+// restricted to cell C: menggunakan only vertices dan edges yang terletak pada cell C.
 // this function is parallelized using goroutines worker pool
 */
 func (c *Customizer) buildLowestLevel(
@@ -336,11 +337,10 @@ func (c *Customizer) buildLowestLevel(
 }
 
 // buildLevel. build clique of each cell in the level (level > 1)
-// using Dijkstra algorithm from each entry vertices of the cell to all exit vertices of the cell
+// using Dijkstra algorithm (menggunakan shortcut edges pada subcells of the level-i cell) from each entry vertices of the cell to all exit vertices of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
-// this function uses overlay graph from the previous level to compute the weights
-// use shortcut edges from the previous level as edges in this current level overlay graph
+// 
 func (c *Customizer) buildLevel(
 	costFunction costfunction.CostFunction, level int) {
 

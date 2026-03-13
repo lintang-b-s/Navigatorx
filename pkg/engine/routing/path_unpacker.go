@@ -56,7 +56,9 @@ https://doi.org/10.1287/trsc.2014.0579.
 [2] Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
 [3] I. Pohl. Bi-directional Search. In Machine Intelligence, volume 6, pages 124–140. Edinburgh Univ. Press, Edinburgh, 1971.
 
-unpackPath. unpack a level-i shortcut (v, w) by running Bidirectional Dijkstra between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
+unpackPath. unpack a level-i shortcut (v, w) by running Bidirectional Dijkstra [2] between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
+jika level i-1 >= 1, kita menggunakan shortcut edges (dari subcells dari level-i cell containing the shortcut) di overlay graph level i-1
+jika level i-1 = 0, kita menggunakan base edges yang terletak pada level-i cell containing the shortcut
 
 this path unpacking use bidirectional dijkstra (see algorithm 2 in ref [2])
 
