@@ -11,6 +11,7 @@ import (
 	"sync"
 
 	"github.com/klauspost/compress/s2"
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -286,12 +287,11 @@ misal L adalah set of landmarks, dist(v,w) adalah shortest path cost dari vertex
 FindTighestLowerBound compute h(v)=max_{l\inL}{dist(l,t)-dist(l,v), dist(v,l)-dist(t,l)}
 fungsi potential/heuristik  h(v) meiliki sifat konsisten/feasible [3]
 
-
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
 func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) float64 {
 	// O(k), k = number of landmarks
-	tighestLowerBound := -math.MaxFloat64
+	tighestLowerBound := -pkg.INF_WEIGHT
 	for i := 0; i < len(activeLandmarks); i++ {
 		landmarkId := activeLandmarks[i]
 
@@ -359,7 +359,6 @@ implementation of consistent/feasible potential function in 5.2 Consistent Appro
 calc \pi_f(u)=\frac{h_f(u)-h_r(u)}{2} and \pi_r(u)=\frac{h_r(u)-h_f(u)}{2}
 h_f(u) adalah estimate sp cost dari u ke t
 h_r(u) adalah estimate sp cost dari s ke u
-
 */
 func (lm *Landmark) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index) (float64, float64) {
 	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks) // estimate on dist(u,t)

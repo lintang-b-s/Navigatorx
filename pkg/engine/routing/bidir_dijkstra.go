@@ -19,7 +19,6 @@ type BidirectionalDijkstra struct {
 	stallingExit       []float64
 	forwardMid         da.VertexEdgePair
 	backwardMid        da.VertexEdgePair
-	viaVertices        []da.ViaVertex
 	runtime            int64
 	sForwardId         da.Index
 	tBackwardId        da.Index
@@ -39,7 +38,6 @@ func NewBidirectionalDijkstra(engine *CRPRoutingEngine, upperBound float64) Bidi
 		engine:      engine,
 		forwardMid:  da.NewVertexEdgePair(0, 0, false),
 		backwardMid: da.NewVertexEdgePair(0, 0, true),
-		viaVertices: make([]da.ViaVertex, 0),
 
 		numSettledNodes:    0,
 		shortestTravelTime: 0,
@@ -275,7 +273,6 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 
 			//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 			scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
-			labelledByBackwardSearch := bs.backwardPq.IsLabelled(vExitId)
 
 			vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
 			if scannedByBackwardSearch && da.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
@@ -286,9 +283,6 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 
 				bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
 				bs.backwardMid = da.NewVertexEdgePair(vId, vExitId, true)
-				bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
-			} else if labelledByBackwardSearch {
-				bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
 			}
 			vExitId++
 		})
@@ -372,7 +366,6 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 		bs.engine.graph.ForInEdgesOf(vId, da.Index(inArc.GetExitPoint()), func(inArc2 *da.InEdge,
 			entryPoint2 da.Index, turnType2 pkg.TurnType) {
 			scannedByForwardSearch := bs.forwardPq.IsScanned(vEntryId)
-			labelledByForwardSearch := bs.forwardPq.IsLabelled(vEntryId)
 
 			vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
 			if scannedByForwardSearch && da.Lt(vEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
@@ -384,9 +377,6 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 				bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
 				bs.backwardMid = da.NewVertexEdgePair(vId, vExitId, true)
 
-				bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
-			} else if labelledByForwardSearch {
-				bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
 			}
 			vEntryId++
 		})

@@ -487,6 +487,19 @@ func (og *OverlayGraph) ForInNeighborsOf(v Index, level int, handle func(v Index
 	}
 }
 
+func (og *OverlayGraph) GetShortcutWeightId(entryVertexId, exitVertexId Index, queryLevel int) Index {
+	entryVertex := og.GetVertex(entryVertexId)
+	exitVertex := og.GetVertex(exitVertexId)
+
+	entryPoint := entryVertex.GetEntryExitPoint(queryLevel)
+	exitPoint := exitVertex.GetEntryExitPoint(queryLevel)
+
+	cell := og.GetCell(entryVertex.GetCellNumber(), queryLevel)
+	weightOffset := cell.GetCellOffset() + entryPoint*cell.GetNumExitPoints()
+
+	return weightOffset + exitPoint
+}
+
 func (og *OverlayGraph) WriteToFile(filename string) error {
 	f, err := os.Create(filename)
 	if err != nil {

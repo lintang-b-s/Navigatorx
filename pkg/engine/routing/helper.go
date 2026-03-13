@@ -54,9 +54,9 @@ func removeDuplicates(arr []da.OutEdge) []da.OutEdge {
 	return newarr
 }
 
-func removeDuplicatesVias(arr []da.ViaVertex) []da.ViaVertex {
+func removeDuplicatesVias(arr []*da.ViaVertex) []*da.ViaVertex {
 	set := make(map[da.Index]struct{}, len(arr))
-	newarr := make([]da.ViaVertex, 0, len(arr))
+	newarr := make([]*da.ViaVertex, 0, len(arr))
 
 	for _, v := range arr {
 		if _, ok := set[v.GetVId()]; !ok {
@@ -77,6 +77,10 @@ func (bs *CRPBidirectionalSearch) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey] 
 
 func (bs *CRPBidirectionalSearch) GetSCellNumber() da.Pv {
 	return bs.sCellNumber
+}
+
+func (bs *CRPBidirectionalSearch) GetTCellNumber() da.Pv {
+	return bs.tCellNumber
 }
 
 func (bs *CRPBidirectionalSearch) GetNumScannedNodes() int {
@@ -106,10 +110,6 @@ func (bs *CRPALTBidirectionalSearch) GetNumScannedVertices() int {
 
 func (bs *CRPALTBidirectionalSearch) GetNumScannedOverlayVertices() int {
 	return bs.numScannedOverlayVertices
-}
-
-func (bs *BidirectionalDijkstra) GetViaVertices() []da.ViaVertex {
-	return bs.viaVertices
 }
 
 func (bs *BidirectionalDijkstra) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
