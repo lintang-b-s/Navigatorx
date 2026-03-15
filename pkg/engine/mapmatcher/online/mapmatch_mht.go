@@ -59,9 +59,12 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *datastructure.GPSPoint, k int,
 
 	if k == 1 || len(candidates) == 0 {
 		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc)
-		candidates = make([]*Candidate, len(nearbyArcs))
-		for i, arcEndpoint := range nearbyArcs {
-			candidates[i] = NewCandidate(arcEndpoint.GetId(), arcEndpoint.GetLength(), arcEndpoint.GetLength())
+		candidates = make([]*Candidate, 0, len(nearbyArcs))
+		for _, arcEndpoint := range nearbyArcs {
+			if arcEndpoint.GetLength() == 0 { // skip dummy arc
+				continue
+			}
+			candidates = append(candidates, NewCandidate(arcEndpoint.GetId(), arcEndpoint.GetLength(), arcEndpoint.GetLength()))
 		}
 
 		om.projectAllCandidates(gps, candidates)
@@ -124,6 +127,7 @@ func (om *OnlineMapMatchMHT) recur(newCands []*Candidate, w float64, tau []datas
 		head := om.graph.GetOutEdge(lastEdgeId).GetHead()
 
 		om.graph.ForOutEdgesOfWithId(head, func(outArc *datastructure.OutEdge, Id datastructure.Index) {
+
 			eNext = append(eNext, Id)
 		})
 
@@ -271,7 +275,8 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo datastructure.I
 	e := om.graph.GetOutEdge(eFrom)
 	head := e.GetHead()
 	om.graph.ForOutEdgesOfWithId(head, func(e *datastructure.OutEdge, id datastructure.Index) {
-		branch = append(branch, e.GetEdgeId())
+
+		branch = append(branch, id)
 	})
 	sumNej := 0.0
 	for _, j := range branch {

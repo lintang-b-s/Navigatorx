@@ -49,7 +49,7 @@ const (
 /*
 go run eval/crp_alt/alternative_routes/main.go
 
-naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 89%-92% success rate nya. lets gooo
+naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 87%-92% success rate nya. lets gooo
 
 osrm cuma 52-56%
 
@@ -61,8 +61,8 @@ todo: target p95 latency dengan 900vus endpoint alternative routes: 200ms dengan
 sekarang (setelah filter candidates sebelum path unpacking) p95 latency 300vus endpoint alternative routes: 377ms  sucess rate > 87%
 todo: cek heap allocations FindAlternativeRoutes pakai pprof, kurangin heap allocation dari FindAlternativeRoutes
 
-kalau di https://github.com/Project-OSRM/osrm-backend/blob/master/src/engine/routing_algorithms/alternative_path_mld.cpp
-mereka eliminate via vertices pakai cara tambahan: filterViaCandidatesByUniqueNodeIds, filterViaCandidatesByRoadImportance, filterPackedPathsByCellSharing
+todo: add online map matching evaluation setelah kerjaan lain sls
+
 ....
 */
 func main() {

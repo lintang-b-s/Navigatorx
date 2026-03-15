@@ -409,6 +409,9 @@ func (g *Graph) GetNumberOfOutEdges(u Index) Index {
 
 func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
+		if g.outEdges[e].GetLength() == 0 {
+			continue
+		}
 		handle(g.outEdges[e], e)
 	}
 }

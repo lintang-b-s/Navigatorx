@@ -98,7 +98,7 @@ type errorResponse struct {
 type gps struct {
 	Lon           float64   `json:"lon" validate:"required,min=-180,max=180"`
 	Lat           float64   `json:"lat" validate:"required,min=-90,max=90"`
-	Time          time.Time `json:"time" validate:"min=0"`
+	Time          time.Time `json:"time"`
 	Speed         float64   `json:"speed" validate:"min=0"` // 0 if time step k=0
 	DeltaTime     float64   `json:"delta_time" validate:"min=0"`
 	DeadReckoning bool      `json:"dead_reckoning"`
@@ -126,6 +126,7 @@ func NewCandidate(eId datastructure.Index, weight float64, length float64) Candi
 func ToOnlineCandidates(cands []*Candidate) []*online.Candidate {
 	oCands := make([]*online.Candidate, len(cands))
 	for i, cand := range cands {
+
 		oCands[i] = online.NewCandidate(cand.EdgeId, cand.Weight, cand.Length)
 	}
 	return oCands

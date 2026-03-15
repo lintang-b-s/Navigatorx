@@ -40,14 +40,14 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	routingEngine, err := engine.NewEngine("./data/original.graph", "./data/overlay_graph.graph", "./data/metrics.txt", logger)
+	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
 	if err != nil {
 		panic(err)
 	}
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), *leafBoundingBoxRadius, logger)
-	graph, err := da.ReadGraph("./data/original.graph")
+	graph, err := da.ReadGraph(graphFile)
 	if err != nil {
 		panic(err)
 	}
@@ -75,7 +75,7 @@ func main() {
 		0.8, 0.25, 0.25, 1.3, 0.1, lm)
 
 	boundingBox := graph.GetBoundingBox()
-	for i := 0; i < 5e5; i++ {
+	for i := 0; i < 1e3; i++ {
 		if (i+1)%1e2 == 0 {
 			fmt.Printf("completed query: %v\n", i+1)
 			N.WriteToFile("./data/omm_transition_history_id.mm")
@@ -89,7 +89,7 @@ func main() {
 			continue
 		}
 
-		crpQuery := routing.NewCRPBidirectionalSearch(routingService.GetEngine().(*routing.CRPRoutingEngine), 1.0)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(routingService.GetEngine().(*routing.CRPRoutingEngine), 1.0, lm)
 		_, _, _, edgePath, found := crpQuery.ShortestPathSearch(as, at)
 		if !found {
 			continue
