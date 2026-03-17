@@ -765,7 +765,7 @@ func TestPreprocessorSimple(t *testing.T) {
 	}
 }
 
-func setup(t *testing.T) *preprocesser.Preprocessor {
+func setup(t *testing.T, osmFileTest, urlTest string) *preprocesser.Preprocessor {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -778,15 +778,15 @@ func setup(t *testing.T) *preprocesser.Preprocessor {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
-		output, err := os.Create(osmfFile)
+	if _, err := os.Stat(osmFileTest); os.IsNotExist(err) {
+		output, err := os.Create(osmFileTest)
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer output.Close()
 
 		logger.Sugar().Infof("downloading osm file......")
-		response, err := http.Get(url)
+		response, err := http.Get(urlTest)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -801,7 +801,7 @@ func setup(t *testing.T) *preprocesser.Preprocessor {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, err := op.Parse(fmt.Sprintf("%s", osmFileTest), logger, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -846,79 +846,95 @@ func setup(t *testing.T) *preprocesser.Preprocessor {
 
 func TestPreprocessUsingOSMFile(t *testing.T) {
 
-	var (
-		roundaboutWay = map[int64]struct{}{
-			1460805468: struct{}{},
-			1460805470: struct{}{},
-			1427239361: struct{}{},
+	testCases := []struct {
+		name string
+
+		urlTest, osmfFileTest string
+		roundAboutWay         map[int64]struct{}
+		streetNameWay         map[int64]string
+		highwayTypeWay        map[int64]string
+		roadLanes             map[int64]uint8
+	}{
+		{
+			name:         "file osm yogyakarta",
+			urlTest:      url,
+			osmfFileTest: osmfFile,
+			roundAboutWay: map[int64]struct{}{
+				1460805468: struct{}{},
+				1460805470: struct{}{},
+				1427239361: struct{}{},
+			},
+			streetNameWay: map[int64]string{
+				24277036:  "Jalan Urip Sumoharjo",
+				293600459: "Jl. Jenderal Sudirman",
+			},
+			highwayTypeWay: map[int64]string{
+				24277036:  "primary",
+				293600459: "primary",
+			},
+			roadLanes: map[int64]uint8{
+				24277036:  3,
+				293600459: 4,
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+
+		prep := setup(t, tc.osmfFileTest, tc.urlTest)
+		// di preprocessor kita melakukan:
+		// 1. build g.cellNumbers
+		// 2. set cellNumber index dari setiap vertices
+		// 3. group vertices by cellNumber
+		// 4. build overlay graph
+		// 5. bikin strongly connected components
+
+		// karena step 1-5 udah dicover di TestPreprocessorSimple
+		// di prep.SortByCellNumber() kita juga update edge info (edge geometry, edge streetname, edge roadclass/highway type, etc)
+		// kita bisa assert edge info aja
+
+		graph := prep.GetGraph()
+		n := graph.NumberOfVertices()
+		for v := da.Index(0); v < da.Index(n); v++ {
+			graph.ForOutEdgesOfWithId(v, func(e *da.OutEdge, id da.Index) {
+				_, inE := graph.GetTailOfOutedgeWithInEdge(id)
+				if inE.GetTail() != v {
+					t.Errorf("expected tail of outedge (%v, %v): %v, got: %v", v, e.GetHead(), v, inE.GetTail())
+				}
+
+				if e.GetEdgeId() != id {
+					t.Errorf("expected edge id: %v, got: %v", id, e.GetEdgeId())
+				}
+
+				// cek roundabout
+				if _, roundabout := tc.roundAboutWay[graph.GetOsmWayId(e.GetEdgeId())]; roundabout && !graph.IsRoundabout(e.GetEdgeId()) {
+					t.Errorf("expected edge with osm way id %v is a roundabout, got no", graph.GetOsmWayId(e.GetEdgeId()))
+				}
+
+				// cek edge geometry
+				if len(graph.GetEdgeGeometry(e.GetEdgeId())) < 2 {
+					t.Errorf("expected number of edge geometry coordinates is greater than or equal to 2, got: %v", len(graph.GetEdgeGeometry(e.GetEdgeId())))
+				}
+
+				// cek street name dari edge
+
+				eOsmwayId := graph.GetOsmWayId(e.GetEdgeId())
+				gotStreetName := graph.GetStreetName(e.GetEdgeId())
+				if expectedStreetname, ok := tc.streetNameWay[eOsmwayId]; ok && expectedStreetname != gotStreetName {
+					t.Errorf("expected edge with osm way id %v street name: %v, got: %v", eOsmwayId, expectedStreetname, gotStreetName)
+				}
+
+				gotRoadClass := graph.GetRoadClass(e.GetEdgeId())
+				if expectedHighwayType, ok := tc.highwayTypeWay[eOsmwayId]; ok && expectedHighwayType != gotRoadClass {
+					t.Errorf("expected edge with osm way id %v highway type: %v, got: %v", eOsmwayId, expectedHighwayType, gotRoadClass)
+				}
+
+				gotRoadLanes := graph.GetRoadLanes(e.GetEdgeId())
+				if roadLane, ok := tc.roadLanes[eOsmwayId]; ok && roadLane != gotRoadLanes {
+					t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, roadLane, gotRoadLanes)
+				}
+			})
 		}
-
-		streetNameWay = map[int64]string{
-			24277036:  "Jalan Urip Sumoharjo",
-			293600459: "Jl. Jenderal Sudirman",
-		}
-		highwayTypeWay = map[int64]string{
-			24277036:  "primary",
-			293600459: "primary",
-		}
-		roadLanes = map[int64]uint8{
-			24277036:  3,
-			293600459: 4,
-		}
-	)
-	prep := setup(t)
-	// di preprocessor kita melakukan:
-	// 1. build g.cellNumbers
-	// 2. set cellNumber index dari setiap vertices
-	// 3. group vertices by cellNumber
-	// 4. build overlay graph
-	// 5. bikin strongly connected components
-
-	// karena step 1-5 udah dicover di TestPreprocessorSimple
-	// di prep.SortByCellNumber() kita juga update edge info (edge geometry, edge streetname, edge roadclass/highway type, etc)
-	// kita bisa assert edge info aja
-
-	graph := prep.GetGraph()
-	n := graph.NumberOfVertices()
-	for v := da.Index(0); v < da.Index(n); v++ {
-		graph.ForOutEdgesOfWithId(v, func(e *da.OutEdge, id da.Index) {
-			_, inE := graph.GetTailOfOutedgeWithInEdge(id)
-			if inE.GetTail() != v {
-				t.Errorf("expected tail of outedge (%v, %v): %v, got: %v", v, e.GetHead(), v, inE.GetTail())
-			}
-
-			if e.GetEdgeId() != id {
-				t.Errorf("expected edge id: %v, got: %v", id, e.GetEdgeId())
-			}
-
-			// cek roundabout
-			if _, roundabout := roundaboutWay[graph.GetOsmWayId(e.GetEdgeId())]; roundabout && !graph.IsRoundabout(e.GetEdgeId()) {
-				t.Errorf("expected edge with osm way id %v is a roundabout, got no", graph.GetOsmWayId(e.GetEdgeId()))
-			}
-
-			// cek edge geometry
-			if len(graph.GetEdgeGeometry(e.GetEdgeId())) < 2 {
-				t.Errorf("expected number of edge geometry coordinates is greater than or equal to 2, got: %v", len(graph.GetEdgeGeometry(e.GetEdgeId())))
-			}
-
-			// cek street name dari edge
-
-			eOsmwayId := graph.GetOsmWayId(e.GetEdgeId())
-			gotStreetName := graph.GetStreetName(e.GetEdgeId())
-			if expectedStreetname, ok := streetNameWay[eOsmwayId]; ok && expectedStreetname != gotStreetName {
-				t.Errorf("expected edge with osm way id %v street name: %v, got: %v", eOsmwayId, expectedStreetname, gotStreetName)
-			}
-
-			gotRoadClass := graph.GetRoadClass(e.GetEdgeId())
-			if expectedHighwayType, ok := highwayTypeWay[eOsmwayId]; ok && expectedHighwayType != gotRoadClass {
-				t.Errorf("expected edge with osm way id %v highway type: %v, got: %v", eOsmwayId, expectedHighwayType, gotRoadClass)
-			}
-
-			gotRoadLanes := graph.GetRoadLanes(e.GetEdgeId())
-			if roadLane, ok := roadLanes[eOsmwayId]; ok && roadLane != gotRoadLanes {
-				t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, roadLane, gotRoadLanes)
-			}
-		})
 	}
 
 }

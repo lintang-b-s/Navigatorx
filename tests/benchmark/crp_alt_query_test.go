@@ -202,7 +202,6 @@ p2p query runtime match dengan hasil eksperimen ref [1], sekitar 1 ms
 
 todo: reduce memory space alloc / op lagi
 ngaruh ke load test
-load test > 200 vus masih kalah sama osrm
 */
 func BenchmarkCRPALTQuery(b *testing.B) {
 	re, queries, g, lm := setup()
