@@ -174,7 +174,7 @@ func SolveOSN2024KRLBidirDijkstra(t *testing.T, filepath string) {
 	}
 
 	u1, u2 := 22, 23 // gak bikin partisi
-	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2})
+	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2}, true)
 
 	t.Logf("calculating shortest path from P: %v, to: Q: %v\n", P+1, Q+1)
 

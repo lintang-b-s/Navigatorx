@@ -22,10 +22,11 @@ type RecursiveBisection struct {
 	prePartitionWithSCC    bool
 	unitCapacity           bool
 	inertialFlowIterations int
+	directed               bool
 }
 
 func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logger *zap.Logger, k int, unitCapacity, prePartitionWithSCC bool,
-	inertialFlowIterations int,
+	inertialFlowIterations int, directed bool,
 ) *RecursiveBisection {
 
 	n := graph.NumberOfVertices()
@@ -44,6 +45,7 @@ func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logg
 		unitCapacity:           unitCapacity,
 		prePartitionWithSCC:    prePartitionWithSCC,
 		inertialFlowIterations: inertialFlowIterations,
+		directed:               directed,
 	}
 }
 
@@ -99,7 +101,7 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []datastructure.Index)
 	wpInertialFlowComp := concurrent.NewWorkerPool[*da.PartitionGraph, bisectionRes](BISECTION_WORKERS, worstCaseNumOfOps)
 
 	computeIflow := func(pg *da.PartitionGraph) bisectionRes {
-		iflow := NewInertialFlow(pg, rb.inertialFlowIterations)
+		iflow := NewInertialFlow(pg, rb.inertialFlowIterations, rb.directed)
 		cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n^2 * m), n,m = number of vertices & edges in current partition graph pg
 		partOne, partTwo := rb.applyBisection(cut, pg)          // O(n+m)
 		return NewBisectionRes(partOne, partTwo)
@@ -212,12 +214,12 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *datastructure.Part
 				// v in partisi S
 				uId := partOneNewVIdMap[u]
 				vId := partOneNewVIdMap[v]
-				partitionOne.AddEdge(uId, vId, eWeight, true)
+				partitionOne.AddEdge(uId, vId, eWeight, rb.directed)
 			} else if !cut.GetFlag(u) && !cut.GetFlag(v) {
 				// v in partisi T
 				uId := partTwoNewVIdMapMap[u]
 				vId := partTwoNewVIdMapMap[v]
-				partitionTwo.AddEdge(uId, vId, eWeight, true)
+				partitionTwo.AddEdge(uId, vId, eWeight, rb.directed)
 			}
 		})
 	}
@@ -294,7 +296,7 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 
 			newV := newMapVid[vId]
 			newHead := newMapVid[e.GetHead()]
-			pg.AddEdge(newV, newHead, eWeight, true)
+			pg.AddEdge(newV, newHead, eWeight, rb.directed)
 		})
 	}
 

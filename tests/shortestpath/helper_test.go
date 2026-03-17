@@ -18,7 +18,7 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
-func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEdge, n int, U1, U2 float64) (*engine.Engine, *da.Graph,
+func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEdge, n int, Us []int, pgDirected bool) (*engine.Engine, *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	es := flattenEdges(adjList)
 
@@ -45,10 +45,17 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 		t.Fatalf("err: %v", err)
 	}
 
+	ps := make([]int, len(Us))
+
+	for i := 0; i < len(ps); i++ {
+		pow := Us[i]
+		ps[i] = 1 << pow // 2^pow
+	}
+
 	mp := partitioner.NewMultilevelPartitioner(
-		[]int{int(math.Pow(2, U1)), int(math.Pow(2, U2))},
-		2, 1,
-		g, logger, true, false,
+		ps,
+		len(ps), 1,
+		g, logger, true, false, pgDirected,
 	)
 	mp.RunMultilevelPartitioning()
 
@@ -75,6 +82,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 
 	oldToNewVIdMap := prep.GetOldToNewVIdMap()
 	newToOldVidMap := prep.GetNewToOldVIdMap()
+
 	return re, g, oldToNewVIdMap, newToOldVidMap
 }
 
@@ -119,7 +127,7 @@ func flattenEdges(es [][]pairEdge) []osmparser.Edge {
 
 	for from, edges := range es {
 		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, 0, uint32(eid), 0))
+			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, e.weight, uint32(eid), 0))
 			eid++
 		}
 	}

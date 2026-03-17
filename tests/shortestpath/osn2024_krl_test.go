@@ -331,11 +331,11 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i-N), float64(i-N)))
 	}
 
-	u1 := 11.0
+	u1, u2, u3 := 12, 15, 17
 	if (2.0*float64(e))/math.Pow(float64(N)*2.0, 2) >= 0.00005 {
-		u1 = 20.0
+		u1, u2, u3 = 22, 23, 24 // gak bikin partisi
 	} // jumlah shortcuts nya kebanyakan aowkwowk > 100jt kalau test case nya dense
-	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, N*2, u1, 16)
+	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2, u3}, false)
 
 	t.Logf("calculating shortest path from P: %v, to: Q: %v\n", P+1, Q+1)
 
@@ -386,6 +386,8 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 // please run the test using command: "cd tests/shortestpath && go test -run TestOSN2024KRL  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode,
+// selesai dalam dua 30 menit
+// lama karena graph partitioning  nya..
 func TestOSN2024KRL(t *testing.T) {
 
 	dirPath := "./data/tests/shortestpath/osn2024_krl/"

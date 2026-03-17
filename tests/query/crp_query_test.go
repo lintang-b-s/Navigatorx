@@ -220,7 +220,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{int(math.Pow(2, 2)), int(math.Pow(2, 3))},
 			2, 1,
-			g, logger, true, false,
+			g, logger, true, false, true,
 		)
 		mp.RunMultilevelPartitioning()
 
@@ -381,7 +381,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, true, false,
+		graph, logger, true, false, true,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -443,7 +443,6 @@ cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphic #6 cpu cores #12 threads
 ram: 16gb
 
 please run the test using command: "cd tests/query && go test -run TestCRPQueryStressTest  -v -timeout=0  -count=1"
-
 */
 func TestCRPQueryStressTest(t *testing.T) {
 	re, lm := setup(t)

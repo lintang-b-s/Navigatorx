@@ -133,7 +133,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{int(math.Pow(2, 2)), int(math.Pow(2, 3))},
 			2, 1,
-			g, logger, true, false,
+			g, logger, true, false, true,
 		)
 		mp.SetCellVertices(cellVertices)
 
@@ -820,7 +820,7 @@ func setup(t *testing.T) *preprocesser.Preprocessor {
 		ps,
 		len(ps),
 		5,
-		graph, logger, true, true,
+		graph, logger, true, true, true,
 	)
 
 	mp.RunMultilevelPartitioning()

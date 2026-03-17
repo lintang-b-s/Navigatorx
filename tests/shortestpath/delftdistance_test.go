@@ -237,7 +237,7 @@ func solve(t *testing.T, filepath string) {
 	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(0), float64(0)))
 	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(h-1), float64(w-1)))
 
-	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, 7, 14)
+	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, []int{7, 11, 14}, true)
 
 	crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 

@@ -22,9 +22,10 @@ type MultilevelPartitioner struct {
 	unitCapacity, prePartitionWithSCC bool
 	minPrec                           int
 	inertialFlowIterations            int
+	directed                          bool
 }
 
-func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *datastructure.Graph, logger *zap.Logger, unitCapacity, prePartitionWithSCC bool) *MultilevelPartitioner {
+func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *datastructure.Graph, logger *zap.Logger, unitCapacity, prePartitionWithSCC, directed bool) *MultilevelPartitioner {
 	if len(u) != l {
 		panic(fmt.Sprintf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
@@ -37,6 +38,7 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *dat
 		unitCapacity:           unitCapacity,
 		prePartitionWithSCC:    prePartitionWithSCC,
 		inertialFlowIterations: inertialFlowIterations,
+		directed:               directed,
 	}
 }
 
@@ -51,7 +53,7 @@ func (mpr *MultilevelPartitioner) SetCellVertices(cellVertices [][][]datastructu
 /*
 RunMultilevelPartitioning. run L-level mutltilevel partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
 pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} untuk mendapatkan cells level L.
-cells di level bawahnya didapatkan dengan menjalankan algoritma inertial flow dari individual cells of the level immediately above.
+cells di level bawahnya didapatkan dengan menjalankan algoritma inertial flow pada individual cells of the level immediately above.
 
 time complexity:
 for each level l, time complexity recursiveBisection.Partition() is O(U_{l+1}^4(U_{l+1}-U_l)), dengan U_{L+1}=n
@@ -66,7 +68,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	if len(nodeIDs) > mp.u[mp.l-1] {
 
 		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger, k, mp.unitCapacity,
-			mp.prePartitionWithSCC, mp.inertialFlowIterations)
+			mp.prePartitionWithSCC, mp.inertialFlowIterations, mp.directed)
 		inertialFlowPartitioner.Partition(nodeIDs)
 		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
 	} else {
@@ -80,7 +82,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 
 		computeRecursiveBisection := func(cell []da.Index) [][]da.Index {
 			inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, k, mp.unitCapacity, mp.prePartitionWithSCC,
-				mp.inertialFlowIterations)
+				mp.inertialFlowIterations, mp.directed)
 			inertialFlowPartitioner.Partition(cell)
 			partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
 			return partitions

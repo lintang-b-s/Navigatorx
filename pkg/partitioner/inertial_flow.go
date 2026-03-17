@@ -27,10 +27,11 @@ func (mj minCutJob) getLine() []float64 {
 type inertialFlow struct {
 	graph      *datastructure.PartitionGraph
 	iterations int
+	directed   bool
 }
 
-func NewInertialFlow(graph *datastructure.PartitionGraph, iterations int) *inertialFlow {
-	return &inertialFlow{graph: graph, iterations: iterations}
+func NewInertialFlow(graph *datastructure.PartitionGraph, iterations int, directed bool) *inertialFlow {
+	return &inertialFlow{graph: graph, iterations: iterations, directed: directed}
 }
 
 func (inf *inertialFlow) getPartitionGraph() *datastructure.PartitionGraph {
@@ -85,7 +86,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 
 		sources, sinks = dn.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
 
-		s, t := dn.createArtificialSourceSink(sources, sinks)
+		s, t := dn.createArtificialSourceSink(sources, sinks, inf.directed)
 		return dn.ComputeMaxflowMinCut(s, t) //  O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
 	}
 
@@ -220,7 +221,7 @@ func (dn *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func
 	return i + 1
 }
 
-func (dn *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []datastructure.Index) (datastructure.Index, datastructure.Index) {
+func (dn *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []datastructure.Index, directed bool) (datastructure.Index, datastructure.Index) {
 	artificialSource := datastructure.Index(dn.graph.NumberOfVertices())
 	artificialSink := datastructure.Index(dn.graph.NumberOfVertices() + 1)
 
@@ -228,12 +229,12 @@ func (dn *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []data
 	dn.AddArtificialVertex(datastructure.NewPartitionVertex(artificialSink, datastructure.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
 
 	for _, s := range sourceNodes {
-		dn.AddArtificialEdge(artificialSource, s, pkg.INF_WEIGHT_INT, true)
+		dn.AddArtificialEdge(artificialSource, s, pkg.INF_WEIGHT_INT, directed)
 	}
 
 	for _, t := range sinkNodes {
 		dn.AddSinks(t)
-		dn.AddArtificialEdge(t, artificialSink, pkg.INF_WEIGHT_INT, true)
+		dn.AddArtificialEdge(t, artificialSink, pkg.INF_WEIGHT_INT, directed)
 	}
 	return artificialSource, artificialSink
 }

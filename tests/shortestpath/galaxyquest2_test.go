@@ -224,7 +224,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(planet.x+planet.z), float64(planet.y+planet.z)))
 	}
 
-	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, 7, 9)
+	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, []int{7, 9, 11}, true)
 	s := 0
 	sid := oldToNewVIdMap[da.Index(s)]
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1

@@ -62,6 +62,7 @@ sekarang (setelah filter candidates sebelum path unpacking) p95 latency 300vus e
 todo: cek heap allocations FindAlternativeRoutes pakai pprof, kurangin heap allocation dari FindAlternativeRoutes
 
 todo: add online map matching evaluation setelah kerjaan lain sls
+todo: benerin calculateApproxDistanceShare()
 
 ....
 */
@@ -122,7 +123,7 @@ func main() {
 		ps,
 		len(ps),
 		25,
-		graph, logger, true, true,
+		graph, logger, true, true, true,
 	)
 
 	mp.RunMultilevelPartitioning()

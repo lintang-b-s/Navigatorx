@@ -5,17 +5,6 @@ import (
 	"math"
 )
 
-/*
-design decision:
-commit 83a333d36ca77b910b3e6197eb0910192be0c868:
-dari heap profile: https://drive.google.com/file/d/1b7IdOpduPOu1oKJH94UUzbacUv8fBgnw/view?usp=sharing
-https://drive.google.com/file/d/1LICWTdl-_pIXd5hXh4kEQjorp-5NXGU8/view?usp=sharing
-
-sebelumnya di (di commit diatas) crp query phase, buat simpen predecessor, estimate sp, dan heap node cost dari setiap lablled & scanned vertices pakai slice/array
-setiap kali query kita preallocate VertexInfo sebanyak NumberOfOvelayVertices, buat osm map yang include diy,solo, semarang sekitar 100k
-VertexInfo total 48 byte
-pas di load test pake k6 100 vu, makan memory banyak wkwk
-*/
 type TwoLevelStorage struct {
 	overlay        map[Index]int
 	base           []int
