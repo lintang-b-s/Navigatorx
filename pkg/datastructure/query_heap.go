@@ -15,11 +15,15 @@ type QueryHeap[T comparable] struct {
 	storageType    QueryInfoStorageType
 }
 
-func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStorageType) *QueryHeap[T] {
+func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStorageType, preallocateMinHeap bool) *QueryHeap[T] {
 
 	minHeap := NewFourAryHeap[T]()
-	allocateHeapCapacity := int(maxEdgesInCell)*2 + OVERLAY_INFO_SIZE
-	minHeap.Preallocate(allocateHeapCapacity)
+	if preallocateMinHeap {
+		// buat clone queryHeap dari crpQuery di alternativeRoutes gak perlu preallocate heap
+		allocateHeapCapacity := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
+		minHeap.Preallocate(allocateHeapCapacity)
+	}
+
 	switch tipe {
 	case TWO_LEVEL_STORAGE:
 		return &QueryHeap[T]{
@@ -193,7 +197,7 @@ func (qh *QueryHeap[T]) ForLabelledItems(handle func(offsetedVId Index, vInfo Ve
 // dipakai di alternative routes finder
 func (qh *QueryHeap[T]) Clone() *QueryHeap[T] {
 
-	newQheap := NewQueryHeap[T](cap(qh.queryInfos), qh.maxEdgesInCell, qh.storageType)
+	newQheap := NewQueryHeap[T](len(qh.queryInfos), qh.maxEdgesInCell, qh.storageType, false)
 	newQheap.storage = qh.storage.Clone()
 	queryInfosClone := make([]VertexInfo, len(qh.queryInfos))
 	copy(queryInfosClone, qh.queryInfos)

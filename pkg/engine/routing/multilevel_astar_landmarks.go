@@ -39,6 +39,8 @@ type CRPALTBidirectionalSearch struct {
 	clonePq                   bool
 
 	lastpqSum float64
+
+	shortcutPathSet map[uint64]uint8
 }
 
 func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, lm *landmark.Landmark) *CRPALTBidirectionalSearch {
@@ -57,6 +59,7 @@ func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, 
 		pathUnpackingRuntime:      0,
 		lastpqSum:                 0,
 		numScannedOverlayVertices: 0,
+		shortcutPathSet:           make(map[uint64]uint8),
 	}
 
 	crpQuery.Preallocate()
@@ -73,7 +76,7 @@ https://doi.org/10.1287/trsc.2014.0579.
 4. bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
 5. consistent heuristic for A* & optimality of A*: Hart, P.E., Nilsson, N.J. and Raphael, B. (1968) “A Formal Basis for the Heuristic Determination of Minimum Cost Paths,” IEEE Transactions on Systems Science and Cybernetics, 4(2), pp. 100–107. Available at: https://doi.org/10.1109/TSSC.1968.300136.
 6. Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
-7. Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA: MIT Press 
+7. Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA: MIT Press
 
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
@@ -177,7 +180,7 @@ kalau udha di scan -> kita bisa update \mu (shortest st-path estimate)
 search terminates ketika sum dari minimum keys of both priority queues exceeds \mu. (proof of correctness dari kriteria pemberhentian ini dapat dilihat pada ref[6])
 
 di implementasi multilevel-alt ini, kita menggunakan Bidirectional ALT [3] instead of bidirectional dijkstra
-Bidirectional A*, landmarks, and triangle inequality (ALT) [3] adalah algoritma bidirectional A* yang fungsi heuristik/potential nya memanfaatkan precomputed landmark shortest path distances (see ref[3] for the details)  
+Bidirectional A*, landmarks, and triangle inequality (ALT) [3] adalah algoritma bidirectional A* yang fungsi heuristik/potential nya memanfaatkan precomputed landmark shortest path distances (see ref[3] for the details)
 fungsi heuristik/potential yang digunakan bidirectional ALT memiliki sifat konsisten/feasible
 potential function adalah fungsi dari vertices ke bilangan real, fungsi potensial \pi_t(v) memberikan estimate sp distance dari v ke t
 diberikan fungsi potensial \pi, kita mendefinisikan reduced cost dari sebuah edge dengan l_{\pi}(v,w)=l(v,w)-\pi(v)+\pi(w)
@@ -185,7 +188,7 @@ fungsi potensial \pi dikakan konsisten atau feasible jika l_{\pi} >= 0 untuk sem
 
 pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat konsisten. misal \pi_t(v) adalah estimate sp distance dari v ke t dan \pi_s(v) estimate sp distance dari s ke v
 [4] dan [3], kita menggunakan fungsi potensial p_t(v)=\frac{\pi_t(v)-\pi_s(v)}{2} untuk forward search dan p_s(v)=-p_t(v) untuk backward search
-[4] dan [3] membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(v)-p_t(u)=l(v,w)-p_s(v)+p_s(u) >= 0
+[4] dan [3] membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(w)-p_t(v)=l(v,w)-p_s(w)+p_s(v) >= 0
 dari Lemma 25.1 (Reweighting does not change shortest paths) pada ref 7:
 misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path from v0 to vk with weight function l if and only if it is a shortest path with weight function l_p
 
@@ -280,8 +283,8 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	bs.runtime = dur
 
 	unpacker := NewPathUnpackerALT(bs.engine, bs.engine.metrics, bs.engine.puCache, true, bs.lm)
-	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
-
+	finalPath, finalEdgePath, totalDistance, shortcutPathSet := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
+	bs.shortcutPathSet = shortcutPathSet
 	bs.pathUnpackingRuntime = unpacker.GetStats()
 
 	return bs.shortestTravelTime, totalDistance, finalPath, finalEdgePath, true
@@ -977,4 +980,12 @@ func (bs *CRPALTBidirectionalSearch) GetActiveLandmarks() []da.Index {
 
 func (bs *CRPALTBidirectionalSearch) ClonePQ() {
 	bs.clonePq = true
+}
+
+func (bs *CRPALTBidirectionalSearch) GetTCellNumber() da.Pv {
+	return bs.tCellNumber
+}
+
+func (bs *CRPALTBidirectionalSearch) getShortcutPathSet() map[uint64]uint8 {
+	return bs.shortcutPathSet
 }

@@ -50,14 +50,14 @@ https://doi.org/10.1287/trsc.2014.0579.
 [3] I. Pohl. Bi-directional Search. In Machine Intelligence, volume 6, pages 124–140. Edinburgh Univ. Press, Edinburgh, 1971.
 [4] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [5] bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
-[6] Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA: MIT Press 
+[6] Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA: MIT Press
 
 unpackPath. unpack a level-i shortcut (v, w) by running Bidirectional ALT [4] between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
 jika level i-1 >= 1, kita menggunakan shortcut edges (dari subcells dari level-i cell containing the shortcut) di overlay graph level i-1
 jika level i-1 = 0, kita menggunakan base edges yang terletak pada level-i cell containing the shortcut
 
 this path unpacking use bidirectional ALT in ref[4]
-Bidirectional A*, landmarks, and triangle inequality (ALT) [4] adalah algoritma bidirectional A* yang fungsi heuristik/potential nya memanfaatkan precomputed landmark shortest path distances (see ref[4] for the details)  
+Bidirectional A*, landmarks, and triangle inequality (ALT) [4] adalah algoritma bidirectional A* yang fungsi heuristik/potential nya memanfaatkan precomputed landmark shortest path distances (see ref[4] for the details)
 fungsi heuristik/potential yang digunakan bidirectional ALT memiliki sifat konsisten/feasible
 potential function adalah fungsi dari vertices ke bilangan real, fungsi potensial \pi_t(v) memberikan estimate sp distance dari v ke t
 diberikan fungsi potensial \pi, kita mendefinisikan reduced cost dari sebuah edge dengan l_{\pi}(v,w)=l(v,w)-\pi(v)+\pi(w)
@@ -77,11 +77,13 @@ cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at mos
 let q = number of shorcut edges in packedPath
 time complexity of unpackPath: O(\sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
 */
-func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Coordinate, []da.OutEdge, float64) {
+func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Coordinate, []da.OutEdge, float64, map[uint64]uint8) {
 	unpackedPath := make([]da.Coordinate, 0, 50)
 	unpackedEdgePathComp := make([][]da.OutEdge, len(packedPath))
 	totalDistance := 0.0
 	now := time.Now()
+
+	shortcutPathSet := make(map[uint64]uint8)
 
 	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](PATH_UNPACKER_WORKERS, len(packedPath))
 
@@ -96,9 +98,10 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 			i++
 		} else {
 			// overlay vertex
-			entryVertex := offBit(cur.GetEdge(), UNPACK_OVERLAY_OFFSET)
+			entryOverlayId := offBit(cur.GetEdge(), UNPACK_OVERLAY_OFFSET)
 
-			entryCellNumber := pu.engine.overlayGraph.GetVertex(entryVertex).GetCellNumber()
+			entryVertex := pu.engine.overlayGraph.GetVertex(entryOverlayId)
+			entryCellNumber := entryVertex.GetCellNumber()
 			var queryLevel uint8
 
 			if !pu.oneToMany {
@@ -108,9 +111,14 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 				queryLevel = cur.GetQueryLevel()
 			}
 
-			exitVertex := offBit(packedPath[i+1].GetEdge(), UNPACK_OVERLAY_OFFSET)
+			exitOverlayId := offBit(packedPath[i+1].GetEdge(), UNPACK_OVERLAY_OFFSET)
+			exitVertex := pu.engine.overlayGraph.GetVertex(exitOverlayId)
 
-			workers.AddJob(NewPathUnpackingParam(entryVertex, exitVertex, queryLevel, &unpackedEdgePathComp[i]))
+			enOriVId := entryVertex.GetOriginalVertex()
+			exOriVId := exitVertex.GetOriginalVertex()
+			shortcutPathSet[bitpack(enOriVId, exOriVId)] = queryLevel
+
+			workers.AddJob(NewPathUnpackingParam(entryOverlayId, exitOverlayId, queryLevel, &unpackedEdgePathComp[i]))
 
 			i += 2
 		}
@@ -137,7 +145,7 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 	dur := time.Since(now).Milliseconds()
 	pu.runtime = dur
 	// todo: polyline simplification unpackedPath
-	return unpackedPath, unpackedEdgePath, totalDistance
+	return unpackedPath, unpackedEdgePath, totalDistance, shortcutPathSet
 }
 
 func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,

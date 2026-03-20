@@ -392,6 +392,6 @@ func (bs *BidirectionalDijkstra) Preallocate() {
 	initInfWeight(bs.stallingEntry)
 	initInfWeight(bs.stallingExit)
 
-	bs.forwardPq = da.NewQueryHeap[da.CRPQueryKey](maxSearch, maxSearch, da.ARRAY_STORAGE)
-	bs.backwardPq = da.NewQueryHeap[da.CRPQueryKey](maxSearch, maxSearch, da.ARRAY_STORAGE)
+	bs.forwardPq = da.NewQueryHeap[da.CRPQueryKey](maxSearch, maxSearch, da.ARRAY_STORAGE, true)
+	bs.backwardPq = da.NewQueryHeap[da.CRPQueryKey](maxSearch, maxSearch, da.ARRAY_STORAGE, true)
 }

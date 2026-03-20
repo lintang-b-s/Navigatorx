@@ -70,11 +70,13 @@ cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at mos
 let q = number of shorcut edges in packedPath
 time complexity of unpackPath: O(\sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
 */
-func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Coordinate, []da.OutEdge, float64) {
+func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Coordinate, []da.OutEdge, float64, map[uint64]uint8) {
 	unpackedPath := make([]da.Coordinate, 0, 50)
 	unpackedEdgePathComp := make([][]da.OutEdge, len(packedPath))
 	totalDistance := 0.0
 	now := time.Now()
+
+	shortcutPathSet := make(map[uint64]uint8)
 
 	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](4, len(packedPath))
 
@@ -89,9 +91,11 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 			i++
 		} else {
 			// overlay vertex
-			entryVertex := offBit(cur.GetEdge(), UNPACK_OVERLAY_OFFSET)
+			entryOverlayId := offBit(cur.GetEdge(), UNPACK_OVERLAY_OFFSET)
 
-			entryCellNumber := pu.engine.overlayGraph.GetVertex(entryVertex).GetCellNumber()
+			entryVertex := pu.engine.overlayGraph.GetVertex(entryOverlayId)
+			entryCellNumber := entryVertex.GetCellNumber()
+
 			var queryLevel uint8
 
 			if !pu.oneToMany {
@@ -101,9 +105,14 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 				queryLevel = cur.GetQueryLevel()
 			}
 
-			exitVertex := offBit(packedPath[i+1].GetEdge(), UNPACK_OVERLAY_OFFSET)
+			exitOverlayId := offBit(packedPath[i+1].GetEdge(), UNPACK_OVERLAY_OFFSET)
+			exitVertex := pu.engine.overlayGraph.GetVertex(exitOverlayId)
 
-			workers.AddJob(NewPathUnpackingParam(entryVertex, exitVertex, queryLevel, &unpackedEdgePathComp[i]))
+			enOriVId := entryVertex.GetOriginalVertex()
+			exOriVId := exitVertex.GetOriginalVertex()
+			shortcutPathSet[bitpack(enOriVId, exOriVId)] = queryLevel
+
+			workers.AddJob(NewPathUnpackingParam(entryOverlayId, exitOverlayId, queryLevel, &unpackedEdgePathComp[i]))
 
 			i += 2
 		}
@@ -130,7 +139,7 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 	dur := time.Since(now).Milliseconds()
 	pu.runtime = dur
 	// todo: polyline simplification unpackedPath
-	return unpackedPath, unpackedEdgePath, totalDistance
+	return unpackedPath, unpackedEdgePath, totalDistance,shortcutPathSet
 }
 
 func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,

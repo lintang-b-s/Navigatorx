@@ -71,13 +71,13 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 
 	c.lowestHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell), int(maxEdgesInCell), da.ARRAY_STORAGE)
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell), int(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	c.levelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](int(da.OVERLAY_INFO_SIZE), int(maxEdgesInCell), da.MAP_STORAGE)
+			return da.NewQueryHeap[da.Index](int(da.OVERLAY_INFO_SIZE), int(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -108,13 +108,13 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 
 	c.lowestHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell), int(maxEdgesInCell), da.ARRAY_STORAGE)
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell), int(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	c.levelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](int(da.OVERLAY_INFO_SIZE), int(maxEdgesInCell), da.MAP_STORAGE)
+			return da.NewQueryHeap[da.Index](int(da.OVERLAY_INFO_SIZE), int(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 

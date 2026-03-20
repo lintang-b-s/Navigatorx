@@ -55,14 +55,13 @@ osrm cuma 52-56%
 
 todo5: benerin sp_crp_alt query test & partitioner lagi?, partitioner buat test cases soal krl lama banget
 todo6: bikin cara agar bisa eliminate banyak via vertices sebelum di unpack path nya ... (DONE)
-lemot banget setelah via vertices bener, karena banyak via path yang harus di unpack...
 todo: target p95 latency dengan 900vus endpoint alternative routes: 200ms dengan success rate alternative routes > 85%
 
 sekarang (setelah filter candidates sebelum path unpacking) p95 latency 300vus endpoint alternative routes: 377ms  sucess rate > 87%
-todo: cek heap allocations FindAlternativeRoutes pakai pprof, kurangin heap allocation dari FindAlternativeRoutes
+todo: cek heap allocations FindAlternativeRoutes pakai pprof, kurangin heap allocation dari FindAlternativeRoutes, benchmark: setiap FindAlternatveRoutes() 2mb/op, kayake bisa dikurangi lagi
 
 todo: add online map matching evaluation setelah kerjaan lain sls
-todo: benerin calculateApproxDistanceShare()
+todo: benerin calculateApproxDistanceShare() (DONE)
 
 ....
 */

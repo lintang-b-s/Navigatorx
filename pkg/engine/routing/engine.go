@@ -59,37 +59,37 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 
 	crp.fHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE)
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
 		},
 	}
 	crp.bHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE)
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
 		},
 	}
 
 	// path unpacking heap pool
 	crp.pufOverlayHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, int(maxEdgesInCell), da.MAP_STORAGE)
+			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, int(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
 	crp.pubOverlayHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, int(maxEdgesInCell), da.MAP_STORAGE)
+			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, int(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
 	crp.pufBaseHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.ARRAY_STORAGE)
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	crp.pubBaseHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.ARRAY_STORAGE)
+			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 

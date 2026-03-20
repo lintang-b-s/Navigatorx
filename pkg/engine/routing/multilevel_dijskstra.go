@@ -36,6 +36,7 @@ type CRPBidirectionalSearch struct {
 	pathUnpackingRuntime      int64
 	lastpqSum                 float64
 	clonePq                   bool
+	shortcutPathSet           map[uint64]uint8
 }
 
 func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CRPBidirectionalSearch {
@@ -53,6 +54,7 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CR
 		numScannedVertices:        0,
 		lastpqSum:                 0,
 		numScannedOverlayVertices: 0,
+		shortcutPathSet:           make(map[uint64]uint8),
 	}
 	crpQuery.Preallocate()
 	return crpQuery
@@ -252,8 +254,8 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 	bs.runtime = dur
 
 	unpacker := NewPathUnpacker(bs.engine, bs.engine.metrics, bs.engine.puCache, true, false)
-	finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
-
+	finalPath, finalEdgePath, totalDistance, shortcutPathSet := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
+	bs.shortcutPathSet = shortcutPathSet
 	bs.pathUnpackingRuntime = unpacker.GetStats()
 
 	return bs.shortestTravelTime, totalDistance, finalPath, finalEdgePath, true
@@ -929,4 +931,8 @@ func (bs *CRPBidirectionalSearch) GetLastPQSum() float64 {
 
 func (bs *CRPBidirectionalSearch) ClonePQ() {
 	bs.clonePq = true
+}
+
+func (bs *CRPBidirectionalSearch) getShortcutPathSet() map[uint64]uint8 {
+	return bs.shortcutPathSet
 }

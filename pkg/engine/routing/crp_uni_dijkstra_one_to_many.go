@@ -150,7 +150,7 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 		idPath = util.ReverseG[da.VertexEdgePair](idPath)
 
 		unpacker := NewPathUnpacker(us.engine, us.engine.metrics, us.engine.puCache, true, true)
-		finalPath, finalEdgePath, totalDistance := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))
+		finalPath, finalEdgePath, totalDistance, _ := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))
 		tdists[t.getatId()] = totalDistance
 		tfinalPath[t.getatId()] = finalPath
 		tfinalEdgePath[t.getatId()] = finalEdgePath
@@ -305,7 +305,6 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 			outEdge := us.engine.graph.GetOutEdge(vOriEdgeId)
 			edgeWeight := us.engine.metrics.GetWeight(outEdge)
 
-		
 			// w is in the next cell from v cell
 			w := vVertex.GetNeighborOverlayVertex()
 			wVertex := us.engine.overlayGraph.GetVertex(w)
@@ -382,7 +381,7 @@ func (bs *CRPUniDijkstraOneToMany) Preallocate() {
 	maxEdgesInCell := bs.engine.graph.GetMaxEdgesInCell()
 
 	maxSearchSize := bs.engine.graph.NumberOfEdges() + bs.engine.overlayGraph.NumberOfOverlayVertices()
-	bs.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE)
+	bs.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
 	bs.pq.PreallocateHeap(maxSearchSize)
 	bs.stallingEntry = make([]float64, maxSearchSize)
 	bs.stallingExit = make([]float64, maxSearchSize)
