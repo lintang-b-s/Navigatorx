@@ -16,11 +16,11 @@ const (
 )
 
 /*
-cd tests/benchmark && go test -bench BenchmarkAlternativeRoutes -benchmem -cpuprofile prof_alt.cpu -memprofile prof_alt.mem -benchtime=120s
+cd tests/benchmark && go test -bench BenchmarkAlternativeRoutes -benchmem -cpuprofile prof_alt.cpu -memprofile prof_alt.mem -benchtime=15s
 
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 
-p2p query runtime match dengan hasil eksperimen ref [1], sekitar 1 ms
+CRP alternative routes query runtime match dengan hasil eksperimen ref [1] table 8, sekitar 3 ms
 
 todo: reduce memory space alloc / op lagi
 ngaruh ke load test

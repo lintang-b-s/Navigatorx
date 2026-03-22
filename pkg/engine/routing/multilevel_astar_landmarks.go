@@ -36,7 +36,7 @@ type CRPALTBidirectionalSearch struct {
 	numScannedOverlayVertices int
 	runtime                   int64
 	pathUnpackingRuntime      int64
-	clonePq                   bool
+	forAlternativeRoutes      bool
 
 	lastpqSum float64
 
@@ -283,9 +283,11 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	bs.runtime = dur
 
 	unpacker := NewPathUnpackerALT(bs.engine, bs.engine.metrics, bs.engine.puCache, true, bs.lm)
-	finalPath, finalEdgePath, totalDistance, shortcutPathSet := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
+	edgeIdPath, shortcutPathSet := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.shortcutPathSet = shortcutPathSet
 	bs.pathUnpackingRuntime = unpacker.GetStats()
+
+	finalEdgePath, finalPath, totalDistance := bs.engine.GetEdgePath(edgeIdPath)
 
 	return bs.shortestTravelTime, totalDistance, finalPath, finalEdgePath, true
 }
@@ -942,24 +944,14 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 }
 
 func (bs *CRPALTBidirectionalSearch) Done() {
-	var (
-		fpqCopy, bpqCopy *da.QueryHeap[da.CRPQueryKey]
-	)
-	if bs.clonePq {
-		// clone kita harus allocate query heap baru (banyak slice & map) -> tambah lemot kalau di load test.
-		// padahal cuma dipakai kalau kita find alternative routes aja
-		// only clone ketika pakai query buat find alternative routes
-		fpqCopy = bs.forwardPq.Clone()
-		bpqCopy = bs.backwardPq.Clone()
+
+	if bs.forAlternativeRoutes {
+		return
 	}
 
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
 
-	if bs.clonePq {
-		bs.forwardPq = fpqCopy
-		bs.backwardPq = bpqCopy
-	}
 }
 
 func (bs *CRPALTBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
@@ -978,8 +970,8 @@ func (bs *CRPALTBidirectionalSearch) GetActiveLandmarks() []da.Index {
 	return bs.activeLandmarks
 }
 
-func (bs *CRPALTBidirectionalSearch) ClonePQ() {
-	bs.clonePq = true
+func (bs *CRPALTBidirectionalSearch) SetForAlternativeRoutes(yes bool) {
+	bs.forAlternativeRoutes = yes
 }
 
 func (bs *CRPALTBidirectionalSearch) GetTCellNumber() da.Pv {

@@ -191,7 +191,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 }
 
 /*
-cd tests/benchmark && go test -bench BenchmarkCRPALTQuery -benchmem -cpuprofile prof.cpu -memprofile prof.mem -benchtime=120s
+cd tests/benchmark && go test -bench BenchmarkCRPALTQuery -benchmem -cpuprofile prof.cpu -memprofile prof.mem -benchtime=15s
 
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 

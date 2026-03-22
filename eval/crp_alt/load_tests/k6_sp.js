@@ -46,7 +46,7 @@ setelah update partitioner:
     http_reqs...............................................................: 17874  576.457418/s
 
 
-osrm-backend (https://github.com/Project-OSRM/osrm-backend):
+osrm-backend (https://github.com/Project-OSRM/osrm-backend) pakai script di "eval/osrm/load_tests/k6_sp.js":
 300vus:
 
 http_req_duration.......................................................: avg=7.27ms min=533.26µs med=6.69ms max=43.05ms p(90)=11.71ms p(95)=13.94ms

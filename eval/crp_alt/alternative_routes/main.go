@@ -43,13 +43,13 @@ const (
 	alpha      = 0.25 // every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
 	gamma      = 0.8  // alternative routes at least 20% different than the shortest path
 	epsilon    = 0.25 // alternative routes at most 25% longer than the shortest path
-	upperBound = 1.25
+	upperBound = 1.15
 )
 
 /*
 go run eval/crp_alt/alternative_routes/main.go
 
-naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 87%-92% success rate nya. lets gooo
+naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 84%-88% success rate nya. lets gooo
 
 osrm cuma 52-56%
 
@@ -57,11 +57,17 @@ todo5: benerin sp_crp_alt query test & partitioner lagi?, partitioner buat test 
 todo6: bikin cara agar bisa eliminate banyak via vertices sebelum di unpack path nya ... (DONE)
 todo: target p95 latency dengan 900vus endpoint alternative routes: 200ms dengan success rate alternative routes > 85%
 
-sekarang (setelah filter candidates sebelum path unpacking) p95 latency 300vus endpoint alternative routes: 377ms  sucess rate > 87%
-todo: cek heap allocations FindAlternativeRoutes pakai pprof, kurangin heap allocation dari FindAlternativeRoutes, benchmark: setiap FindAlternatveRoutes() 2mb/op, kayake bisa dikurangi lagi
+sekarang (setelah filter candidates sebelum path unpacking) p95 latency 300vus endpoint alternative routes: 377ms  sucess rate > 87% -> setelah optimize lagi: p95 latency 300vus alternative routes: 25ms (eval/crp_alt/load_tests/k6_alternatives.js)
+todo: cek heap allocations FindAlternativeRoutes pakai pprof, kurangin heap allocation dari FindAlternativeRoutes, benchmark: setiap FindAlternatveRoutes() 2mb/op, kayake bisa dikurangi lagi 
+-> setelah optimize, benchmark FindAlternativeRoutes sekitar 600kb/op 
 
-todo: add online map matching evaluation setelah kerjaan lain sls
 todo: benerin calculateApproxDistanceShare() (DONE)
+
+todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , valhalla
+todo2: add evaluasi online map matching pakai dataset dari https://www.microsoft.com/en-us/research/publication/hidden-markov-map-matching-noise-sparseness/
+
+todo (setelah skripsi selesai): implement rute alternative finder pakai cara https://dl.acm.org/doi/10.1145/3567421  (mathnya very hard... belum ada yang implement di open source routing engine)
+todo (setelah skripsi selesai): implement another online map matching algorithm https://dl.acm.org/doi/pdf/10.1145/2666310.2666383
 
 ....
 */
@@ -218,12 +224,6 @@ func main() {
 
 	foundAltCount := 0
 
-	numOfInitialCands := 0
-	failScanned := 0
-	failSharing := 0
-	failStretch := 0
-	failPlateau := 0
-
 	for i := 0; i < len(queries); i++ {
 		s := queries[i].s
 		t := queries[i].t
@@ -236,13 +236,6 @@ func main() {
 			fmt.Printf("processed %d queries\n", i+1)
 		}
 		runtime += float64(altSearch.GetRuntime())
-
-		cnumOfInitialCands, cfailScanned, cfailSharing, cfailStretch, cfailPlateau := altSearch.GetFailCounter()
-		numOfInitialCands += cnumOfInitialCands
-		failScanned += cfailScanned
-		failSharing += cfailSharing
-		failStretch += cfailStretch
-		failPlateau += cfailPlateau
 
 		if len(alts) == 0 {
 			continue
@@ -259,20 +252,10 @@ func main() {
 	stretch /= float64(foundAltCount)
 	diversity /= float64(foundAltCount)
 	runtime /= float64(len(queries))
-	numOfInitialCands /= len(queries)
-	failScanned /= len(queries)
-	failSharing /= len(queries)
-	failStretch /= len(queries)
-	failPlateau /= len(queries)
 
 	fmt.Printf("success rate: %f\n", successRate)
 	fmt.Printf("stretch: %f\n", stretch)
 	fmt.Printf("diversity: %f\n", diversity)
 	fmt.Printf("runtime: %f ms\n", runtime)
 
-	fmt.Printf("numOfInitialCands: %v \n", numOfInitialCands)
-	fmt.Printf("failScanned: %v \n", failScanned)
-	fmt.Printf("failSharing: %v \n", failSharing)
-	fmt.Printf("failStretch: %v \n", failStretch)
-	fmt.Printf("failPlateau: %v \n", failPlateau)
 }

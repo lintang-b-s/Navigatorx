@@ -65,7 +65,7 @@ fungsi potensial \pi dikakan konsisten atau feasible jika l_{\pi} >= 0 untuk sem
 
 pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat konsisten. misal \pi_t(v) adalah estimate sp distance dari v ke t dan \pi_s(v) estimate sp distance dari s ke v
 [5] dan [4], kita menggunakan fungsi potensial p_t(v)=\frac{\pi_t(v)-\pi_s(v)}{2} untuk forward search dan p_s(v)=-p_t(v) untuk backward search
-[5] dan [4] membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(v)-p_t(u)=l(v,w)-p_s(v)+p_s(u) >= 0
+[5] dan [4] membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(w)-p_t(v)=l(v,w)-p_s(w)+p_s(v) >= 0
 dari Lemma 25.1 (Reweighting does not change shortest paths) pada ref 6:
 misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path from v0 to vk with weight function l if and only if it is a shortest path with weight function l_p
 
@@ -77,10 +77,8 @@ cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at mos
 let q = number of shorcut edges in packedPath
 time complexity of unpackPath: O(\sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
 */
-func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Coordinate, []da.OutEdge, float64, map[uint64]uint8) {
-	unpackedPath := make([]da.Coordinate, 0, 50)
-	unpackedEdgePathComp := make([][]da.OutEdge, len(packedPath))
-	totalDistance := 0.0
+func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Index, map[uint64]uint8) {
+	unpackedEdgePathComp := make([][]da.Index, len(packedPath))
 	now := time.Now()
 
 	shortcutPathSet := make(map[uint64]uint8)
@@ -92,8 +90,7 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 		if !isBitOn(cur.GetEdge(), UNPACK_OVERLAY_OFFSET) {
 			// original vertex (non-overlay vertex)
 
-			outEdge := pu.engine.graph.GetOutEdge(cur.GetEdge())
-			unpackedEdgePathComp[i] = append(unpackedEdgePathComp[i], *outEdge)
+			unpackedEdgePathComp[i] = append(unpackedEdgePathComp[i], cur.GetEdge())
 
 			i++
 		} else {
@@ -128,24 +125,27 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 	workers.Start(pu.unpackInLevelCell)
 	workers.WaitDirect()
 
-	unpackedEdgePath := make([]da.OutEdge, 0, 50)
+	size := 0
 
 	for i := 0; i < len(unpackedEdgePathComp); i++ {
-		unpackedEdgePath = append(unpackedEdgePath, unpackedEdgePathComp[i]...)
+		size += len(unpackedEdgePathComp[i])
+	}
+
+	unpackedEdgePath := make([]da.Index, size)
+
+	id := 0
+	for i := 0; i < len(unpackedEdgePathComp); i++ {
+		for j := 0; j < len(unpackedEdgePathComp[i]); j++ {
+			unpackedEdgePath[id] = unpackedEdgePathComp[i][j]
+			id++
+		}
 	}
 
 	unpackedEdgePath = removeDuplicates(unpackedEdgePath)
 
-	for _, e := range unpackedEdgePath {
-		eGeom := pu.engine.graph.GetEdgeGeometry(e.GetEdgeId())
-		unpackedPath = append(unpackedPath, eGeom...)
-		totalDistance += e.GetLength()
-	}
-
 	dur := time.Since(now).Milliseconds()
 	pu.runtime = dur
-	// todo: polyline simplification unpackedPath
-	return unpackedPath, unpackedEdgePath, totalDistance, shortcutPathSet
+	return unpackedEdgePath, shortcutPathSet
 }
 
 func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
@@ -407,16 +407,15 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 }
 
 func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.Index,
-	unpackedEdgePath *[]da.OutEdge,
+	unpackedEdgePath *[]da.Index,
 	sourceOverlayId, targetOverlayId da.Index) {
 
 	if pu.useCache {
 		if edgeIds, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1)); ok {
 			// fetch from cache
 			for _, edgeId := range edgeIds {
-				edge := *pu.engine.graph.GetOutEdge(edgeId)
 
-				*unpackedEdgePath = append(*unpackedEdgePath, edge)
+				*unpackedEdgePath = append(*unpackedEdgePath, edgeId)
 			}
 
 			return
@@ -648,12 +647,10 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	}
 
 	edgeIdPath := make([]da.Index, 0, 10)
-	outEdges := make([]da.OutEdge, 0, 10)
 
 	// u->mid
 	_, midOutEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(fMid)
 	if da.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
-		outEdges = append(outEdges, *midOutEdge)
 		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
 	}
 
@@ -662,9 +659,6 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 		prevOutEdgeId := fpq.Get(uId).GetParent().GetOutInEdgeId()
 
 		edgeIdPath = append(edgeIdPath, prevOutEdgeId)
-		prevOutEdge := *pu.engine.graph.GetOutEdge(prevOutEdgeId)
-
-		outEdges = append(outEdges, prevOutEdge)
 
 		pEId := fpq.Get(uId).GetParent().GetEdge()
 
@@ -672,12 +666,10 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	}
 
 	edgeIdPath = util.ReverseG(edgeIdPath)
-	outEdges = util.ReverseG(outEdges)
 
 	// mid<-v
 	midOutEdge = pu.engine.graph.GetOutEdge(bMid)
 	if da.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
-		outEdges = append(outEdges, *midOutEdge)
 		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
 	}
 
@@ -686,9 +678,6 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 		prevOutEdgeId := bpq.Get(uId).GetParent().GetOutInEdgeId()
 
 		edgeIdPath = append(edgeIdPath, prevOutEdgeId)
-		prevOutEdge := *pu.engine.graph.GetOutEdge(prevOutEdgeId)
-
-		outEdges = append(outEdges, prevOutEdge)
 
 		pEId := bpq.Get(uId).GetParent().GetEdge()
 
@@ -696,7 +685,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	}
 
 	pu.lock.Lock()
-	*unpackedEdgePath = append(*unpackedEdgePath, outEdges...)
+	*unpackedEdgePath = append(*unpackedEdgePath, edgeIdPath...)
 	pu.lock.Unlock()
 
 	fpq.Clear()

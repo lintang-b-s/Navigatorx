@@ -8,10 +8,10 @@ type pathUnpackingParam struct {
 	sourceOverlayId  da.Index
 	targetOverlayId  da.Index
 	level            uint8
-	unpackedEdgePath *[]da.OutEdge
+	unpackedEdgePath *[]da.Index
 }
 
-func NewPathUnpackingParam(sourceOverlayId, targetOverlayId da.Index, level uint8, unpackedEdgePath *[]da.OutEdge) pathUnpackingParam {
+func NewPathUnpackingParam(sourceOverlayId, targetOverlayId da.Index, level uint8, unpackedEdgePath *[]da.Index) pathUnpackingParam {
 	return pathUnpackingParam{sourceOverlayId: sourceOverlayId, targetOverlayId: targetOverlayId, level: level, unpackedEdgePath: unpackedEdgePath}
 }
 
@@ -27,6 +27,6 @@ func (p pathUnpackingParam) getLevel() uint8 {
 	return p.level
 }
 
-func (p pathUnpackingParam) getUnpackedEdgePath() *[]da.OutEdge {
+func (p pathUnpackingParam) getUnpackedEdgePath() *[]da.Index {
 	return p.unpackedEdgePath
 }

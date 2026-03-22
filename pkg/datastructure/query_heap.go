@@ -197,10 +197,12 @@ func (qh *QueryHeap[T]) ForLabelledItems(handle func(offsetedVId Index, vInfo Ve
 // dipakai di alternative routes finder
 func (qh *QueryHeap[T]) Clone() *QueryHeap[T] {
 
-	newQheap := NewQueryHeap[T](len(qh.queryInfos), qh.maxEdgesInCell, qh.storageType, false)
+	newQheap := &QueryHeap[T]{maxEdgesInCell: qh.maxEdgesInCell, storageType: qh.storageType}
 	newQheap.storage = qh.storage.Clone()
 	queryInfosClone := make([]VertexInfo, len(qh.queryInfos))
 	copy(queryInfosClone, qh.queryInfos)
 	newQheap.queryInfos = queryInfosClone
 	return newQheap
 }
+
+

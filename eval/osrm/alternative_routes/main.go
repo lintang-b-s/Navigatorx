@@ -109,7 +109,7 @@ func loadQueries(path string) ([]queryParam, error) {
 }
 
 const (
-	numQueries = 10000
+	numQueries = 5000
 )
 
 func main() {
@@ -158,7 +158,10 @@ func main() {
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)
 		}
-		if len(osrmResp.Routes) > 1 {
+		if len(osrmResp.Routes) > 1 { 
+			// `http://localhost:5000/route/v1/driving/${randomQuery.srcLon},${randomQuery.srcLat};${randomQuery.destLon},${randomQuery.destLat}?overview=false&alternatives=true&steps=true
+			// di endpoint osrm diatas, rutes ke 1 adalah shortest path
+			// rute 2 dan seterusnya adalah rute alternatives
 			successRate++
 		}
 	}
@@ -166,3 +169,5 @@ func main() {
 	successRate /= numQueries
 	fmt.Printf("success rate: %f\n", successRate)
 }
+
+

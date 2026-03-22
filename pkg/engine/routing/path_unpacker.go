@@ -70,23 +70,20 @@ cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at mos
 let q = number of shorcut edges in packedPath
 time complexity of unpackPath: O(\sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
 */
-func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Coordinate, []da.OutEdge, float64, map[uint64]uint8) {
-	unpackedPath := make([]da.Coordinate, 0, 50)
-	unpackedEdgePathComp := make([][]da.OutEdge, len(packedPath))
-	totalDistance := 0.0
+func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Index, map[uint64]uint8) {
+	unpackedEdgePathComp := make([][]da.Index, len(packedPath))
 	now := time.Now()
 
 	shortcutPathSet := make(map[uint64]uint8)
 
-	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](4, len(packedPath))
+	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](PATH_UNPACKER_WORKERS, len(packedPath))
 
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
 		if !isBitOn(cur.GetEdge(), UNPACK_OVERLAY_OFFSET) {
 			// original vertex (non-overlay vertex)
 
-			outEdge := pu.engine.graph.GetOutEdge(cur.GetEdge())
-			unpackedEdgePathComp[i] = append(unpackedEdgePathComp[i], *outEdge)
+			unpackedEdgePathComp[i] = append(unpackedEdgePathComp[i], cur.GetEdge())
 
 			i++
 		} else {
@@ -95,7 +92,6 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 
 			entryVertex := pu.engine.overlayGraph.GetVertex(entryOverlayId)
 			entryCellNumber := entryVertex.GetCellNumber()
-
 			var queryLevel uint8
 
 			if !pu.oneToMany {
@@ -122,24 +118,27 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 	workers.Start(pu.unpackInLevelCell)
 	workers.WaitDirect()
 
-	unpackedEdgePath := make([]da.OutEdge, 0, 50)
+	size := 0
 
 	for i := 0; i < len(unpackedEdgePathComp); i++ {
-		unpackedEdgePath = append(unpackedEdgePath, unpackedEdgePathComp[i]...)
+		size += len(unpackedEdgePathComp[i])
+	}
+
+	unpackedEdgePath := make([]da.Index, size)
+
+	id := 0
+	for i := 0; i < len(unpackedEdgePathComp); i++ {
+		for j := 0; j < len(unpackedEdgePathComp[i]); j++ {
+			unpackedEdgePath[id] = unpackedEdgePathComp[i][j]
+			id++
+		}
 	}
 
 	unpackedEdgePath = removeDuplicates(unpackedEdgePath)
 
-	for _, e := range unpackedEdgePath {
-		eGeom := pu.engine.graph.GetEdgeGeometry(e.GetEdgeId())
-		unpackedPath = append(unpackedPath, eGeom...)
-		totalDistance += e.GetLength()
-	}
-
 	dur := time.Since(now).Milliseconds()
 	pu.runtime = dur
-	// todo: polyline simplification unpackedPath
-	return unpackedPath, unpackedEdgePath, totalDistance,shortcutPathSet
+	return unpackedEdgePath, shortcutPathSet
 }
 
 func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
@@ -387,16 +386,15 @@ func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
 }
 
 func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.Index,
-	unpackedEdgePath *[]da.OutEdge,
+	unpackedEdgePath *[]da.Index,
 	sourceOverlayId, targetOverlayId da.Index) {
 
 	if pu.useCache {
 		if edgeIds, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1)); ok {
 			// fetch from cache
 			for _, edgeId := range edgeIds {
-				edge := *pu.engine.graph.GetOutEdge(edgeId)
 
-				*unpackedEdgePath = append(*unpackedEdgePath, edge)
+				*unpackedEdgePath = append(*unpackedEdgePath, edgeId)
 			}
 
 			return
@@ -620,12 +618,10 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 	}
 
 	edgeIdPath := make([]da.Index, 0, 10)
-	outEdges := make([]da.OutEdge, 0, 10)
 
 	// u->mid
 	_, midOutEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(fMid)
 	if da.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
-		outEdges = append(outEdges, *midOutEdge)
 		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
 	}
 
@@ -634,9 +630,6 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 		prevOutEdgeId := fpq.Get(uId).GetParent().GetOutInEdgeId()
 
 		edgeIdPath = append(edgeIdPath, prevOutEdgeId)
-		prevOutEdge := *pu.engine.graph.GetOutEdge(prevOutEdgeId)
-
-		outEdges = append(outEdges, prevOutEdge)
 
 		pEId := fpq.Get(uId).GetParent().GetEdge()
 
@@ -644,12 +637,10 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 	}
 
 	edgeIdPath = util.ReverseG(edgeIdPath)
-	outEdges = util.ReverseG(outEdges)
 
 	// mid<-v
 	midOutEdge = pu.engine.graph.GetOutEdge(bMid)
 	if da.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
-		outEdges = append(outEdges, *midOutEdge)
 		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
 	}
 
@@ -658,9 +649,6 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 		prevOutEdgeId := bpq.Get(uId).GetParent().GetOutInEdgeId()
 
 		edgeIdPath = append(edgeIdPath, prevOutEdgeId)
-		prevOutEdge := *pu.engine.graph.GetOutEdge(prevOutEdgeId)
-
-		outEdges = append(outEdges, prevOutEdge)
 
 		pEId := bpq.Get(uId).GetParent().GetEdge()
 
@@ -668,7 +656,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 	}
 
 	pu.lock.Lock()
-	*unpackedEdgePath = append(*unpackedEdgePath, outEdges...)
+	*unpackedEdgePath = append(*unpackedEdgePath, edgeIdPath...)
 	pu.lock.Unlock()
 
 	fpq.Clear()
@@ -682,4 +670,18 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 
 func (pu *PathUnpacker) GetStats() int64 {
 	return pu.runtime
+}
+
+func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) ([]da.OutEdge, []da.Coordinate, float64) {
+	edgePath := make([]da.OutEdge, len(edgeIdPath))
+	totalDistance := 0.0
+	finalPath := make([]da.Coordinate, 0, len(edgeIdPath)*2)
+	for i := 0; i < len(edgeIdPath); i++ {
+		e := *re.graph.GetOutEdge(edgeIdPath[i])
+		edgePath[i] = e
+		totalDistance += e.GetLength()
+		finalPath = append(finalPath, re.graph.GetEdgeGeometry(edgeIdPath[i])...)
+	}
+
+	return edgePath, finalPath, totalDistance
 }

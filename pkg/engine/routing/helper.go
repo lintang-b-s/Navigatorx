@@ -41,13 +41,13 @@ func (t target) getatId() da.Index {
 	return t.atId
 }
 
-func removeDuplicates(arr []da.OutEdge) []da.OutEdge {
+func removeDuplicates(arr []da.Index) []da.Index {
 	set := make(map[da.Index]struct{}, len(arr))
-	newarr := make([]da.OutEdge, 0, len(arr))
+	newarr := make([]da.Index, 0, len(arr))
 
 	for _, v := range arr {
-		if _, ok := set[v.GetEdgeId()]; !ok {
-			set[v.GetEdgeId()] = struct{}{}
+		if _, ok := set[v]; !ok {
+			set[v] = struct{}{}
 			newarr = append(newarr, v)
 		}
 	}

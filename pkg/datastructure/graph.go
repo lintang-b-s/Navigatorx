@@ -315,6 +315,10 @@ func (g *Graph) GetOutEdge(e Index) *OutEdge {
 	return g.outEdges[e]
 }
 
+func (g *Graph) GetHeadOfOutEdge(e Index) Index {
+	return g.outEdges[e].GetHead()
+}
+
 func (g *Graph) GetInEdge(e Index) *InEdge {
 	return g.inEdges[e]
 }

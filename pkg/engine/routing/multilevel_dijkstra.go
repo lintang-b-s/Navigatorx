@@ -35,8 +35,9 @@ type CRPBidirectionalSearch struct {
 	runtime                   int64
 	pathUnpackingRuntime      int64
 	lastpqSum                 float64
-	clonePq                   bool
-	shortcutPathSet           map[uint64]uint8
+	forAlternativeRoutes      bool
+
+	shortcutPathSet map[uint64]uint8
 }
 
 func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CRPBidirectionalSearch {
@@ -254,9 +255,11 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 	bs.runtime = dur
 
 	unpacker := NewPathUnpacker(bs.engine, bs.engine.metrics, bs.engine.puCache, true, false)
-	finalPath, finalEdgePath, totalDistance, shortcutPathSet := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
+	edgeIdPath, shortcutPathSet := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.shortcutPathSet = shortcutPathSet
 	bs.pathUnpackingRuntime = unpacker.GetStats()
+
+	finalEdgePath, finalPath, totalDistance := bs.engine.GetEdgePath(edgeIdPath)
 
 	return bs.shortestTravelTime, totalDistance, finalPath, finalEdgePath, true
 }
@@ -897,24 +900,14 @@ func (bs *CRPBidirectionalSearch) Preallocate() {
 }
 
 func (bs *CRPBidirectionalSearch) Done() {
-	var (
-		fpqCopy, bpqCopy *da.QueryHeap[da.CRPQueryKey]
-	)
-	if bs.clonePq {
-		// clone kita harus allocate query heap baru (banyak slice & map) -> tambah lemot kalau di load test.
-		// padahal cuma dipakai kalau kita find alternative routes aja
-		// only clone ketika pakai query buat find alternative routes
-		fpqCopy = bs.forwardPq.Clone()
-		bpqCopy = bs.backwardPq.Clone()
+
+	if bs.forAlternativeRoutes {
+		return
 	}
 
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
 
-	if bs.clonePq {
-		bs.forwardPq = fpqCopy
-		bs.backwardPq = bpqCopy
-	}
 }
 
 func (bs *CRPBidirectionalSearch) GetStats(n int) (float64, int, int64, int64) {
@@ -929,8 +922,8 @@ func (bs *CRPBidirectionalSearch) GetLastPQSum() float64 {
 	return bs.lastpqSum
 }
 
-func (bs *CRPBidirectionalSearch) ClonePQ() {
-	bs.clonePq = true
+func (bs *CRPBidirectionalSearch) SetForAlternativeRoutes(yes bool) {
+	bs.forAlternativeRoutes = yes
 }
 
 func (bs *CRPBidirectionalSearch) getShortcutPathSet() map[uint64]uint8 {
