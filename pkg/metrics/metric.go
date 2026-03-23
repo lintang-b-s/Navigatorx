@@ -45,7 +45,6 @@ element (u, i, d), we only insert it into the heap if d ≤ bu [i].
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 
-
 ingat bahwa pada graf standard (tanpa incorporate turn costs), kita menjalankan dijkstra dengan repeatly memilih vertex u  dengan minimum shortest path estimate dari priority queue, add ke  set of scanned vertices S
 dan relax semua out edges dari vertex u
 
@@ -58,7 +57,6 @@ dan biasanya di graph road network openstreetmap jumlah edges jauh lebih banyak 
 let dist'(s,⋅) adalah shortest path estimate dari simpul s ke any (entry point, vertex). demikian juga untuk t ke any (exit point, vertex)
 di implementasi ini, kita entry ke simpul s dengan menggunakan dummy edge (s,s) dengan turn cost 0 ke exit point manapun.
 di awal kita set dist'(s,(dummyEntry point, s))=0 dan dist'(t, (dummyExit point, t))=0
-
 
 untuk mengurangi slowdown dari pendekatan turn-aware dijkstra, kita menerapkan teknik stalling yang dijelaskan pada ref [1]
 inti dari teknik stalling adalah:
@@ -77,14 +75,13 @@ atau
 dist'(s,(i2, u)) > dist'(s, (i1, u)) + max_k { T_u[i1, k] -  T_u[i2,k]}
 
 setiap kali kita scan entry point i dari vertex v with distance dist'(s,(i,v))
-kita set b_v (bs.stallingEntry di implementasi ini, tapi langsung pakai edgeId instead of (entryPoint, v)) setiap entry point k dari v, dengan 
+kita set b_v (bs.stallingEntry di implementasi ini, tapi langsung pakai edgeId instead of (entryPoint, v)) setiap entry point k dari v, dengan
 b_v[k] = min{ b_v[k], dist'(s,(i,v)) + max_j { T_v[i, j] -  T_v[k,j]} }, inisialisasi awal dari b_v[⋅] adalah infinity utk semua vertices v
 setelah scan (i,v, dist'(s,(i,v))), kita relaksasi semua out edges dari v
 misal salah satu edge nya adalah (v,w) dengan entry point wi1
 kita gak insert (wi1, w, dist'(s,(wi1,w))) ke heap jika dist'(s,(wi1,w)) > b_w[wi1]
-max_j { T_v[i, j] -  T_v[k,j]}  kita precompute untuk setiap pasang (i,k) di metric.go 
+max_j { T_v[i, j] -  T_v[k,j]}  kita precompute untuk setiap pasang (i,k) di metric.go
 yang kita implementasikan di forwardGraphSearch (dan backwardGraph search, tapi untuk backward graph search kita pakai turn cost dari exit ke entry)
-
 
 karena kita incorporate turn costs, kita menggunakan turn-aware dijkstra (see ref[1]):
 di implementasi ini kita pakai edgeId sebagai item dari priority queue node
@@ -147,6 +144,11 @@ func (met *Metric) GetWeights() *da.OverlayWeights {
 
 func (met *Metric) GetWeight(e costfunction.EdgeAttributes) float64 {
 	return met.costFunction.GetWeight(e)
+
+}
+
+func (met *Metric) GetMaxSpeed(e costfunction.EdgeAttributes) float64 {
+	return met.costFunction.GetMaxSpeed(e)
 
 }
 

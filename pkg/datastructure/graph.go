@@ -71,6 +71,10 @@ func (v *Vertex) GetLon() float64 {
 	return v.lon
 }
 
+func (v *Vertex) GetCoordinate() Coordinate {
+	return NewCoordinate(v.GetLat(), v.GetLon())
+}
+
 func (v *Vertex) GetFirstOut() Index {
 	return v.firstOut
 }
@@ -133,6 +137,7 @@ func (e *OutEdge) GetWeight() float64 {
 	return e.weight
 }
 
+// GetEdgeSpeed. get edge speed in meter/minute
 func (e *OutEdge) GetEdgeSpeed() float64 {
 	if e.weight == 0 {
 		return 0
@@ -294,6 +299,14 @@ func (g *Graph) NumberOfEdges() int {
 	return len(g.outEdges)
 }
 
+func (g *Graph) NumberOfOutEdges() int {
+	return len(g.outEdges)
+}
+
+func (g *Graph) NumberOfInEdges() int {
+	return len(g.inEdges)
+}
+
 func (g *Graph) GetOutDegree(u Index) Index {
 	// must return index for uint32 (lot usage of outDegree used as big slice size)
 	return g.vertices[u+1].firstOut - g.vertices[u].firstOut
@@ -365,6 +378,13 @@ func (g *Graph) GetTailOfOutedgeWithInEdge(e Index) (Index, *InEdge) {
 	return inEdge.tail, inEdge
 }
 
+func (g *Graph) GetInEdgeOfOutEdge(e Index) *InEdge {
+	outEdge := g.GetOutEdge(e)
+	head := g.vertices[outEdge.head]
+	inEdge := g.GetInEdge(head.firstIn + Index(outEdge.entryPoint))
+	return inEdge
+}
+
 // GetExitOrder. return Index of exit point of a out edge (u,v) at vertex u.
 func (g *Graph) GetExitOrder(u, outEdge Index) Index {
 	exitPoint := outEdge - g.vertices[u].firstOut
@@ -378,7 +398,11 @@ func (g *Graph) GetEntryOrder(v, InEdge Index) Index {
 
 // GetTurnType get turn type dari entryPoint->u->exitPoint
 func (g *Graph) GetTurnType(u Index, entryPoint, exitPoint Index) pkg.TurnType {
-	turnTableOffset := g.vertices[u].turnTablePtr + Index(entryPoint)*Index(g.GetOutDegree(u)) + Index(exitPoint)
+	if entryPoint == Index(INVALID_ENTRY_POINT) || exitPoint == Index(INVALID_ENTRY_POINT) {
+		return pkg.NONE
+	}
+
+	turnTableOffset := g.vertices[u].turnTablePtr + entryPoint*g.GetOutDegree(u) + exitPoint
 	return g.turnTables[turnTableOffset]
 }
 
@@ -394,6 +418,50 @@ func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge,
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 
 		handle(g.outEdges[e], g.GetExitOrder(u, e), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)))
+	}
+}
+
+func (g *Graph) ForOutEdgesOfWithFilter(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turnType pkg.TurnType),
+	handleVirtOutEdgesof func(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turnType pkg.TurnType)),
+	outEdgeFilter func(eId Index) bool) {
+
+	handleVirtOutEdgesof(u, entryPoint, handle)
+
+	if u >= Index(len(g.vertices)) {
+		return
+	}
+
+	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
+		if outEdgeFilter(e) {
+			continue
+		}
+
+		handle(g.outEdges[e], g.GetExitOrder(u, e), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)))
+	}
+}
+
+func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType)) {
+	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
+		handle(g.inEdges[e], g.GetEntryOrder(v, e), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint))
+	}
+}
+
+func (g *Graph) ForInEdgesOfWithFilter(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType),
+	handleVirtInEdgesOf func(u Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType)),
+	inEdgeFilter func(eId Index) bool) {
+
+	handleVirtInEdgesOf(v, exitPoint, handle)
+
+	if v >= Index(len(g.vertices)) {
+		return
+	}
+
+	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
+		if inEdgeFilter(e) {
+			continue
+		}
+
+		handle(g.inEdges[e], g.GetEntryOrder(v, e), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint))
 	}
 }
 
@@ -417,13 +485,6 @@ func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) 
 			continue
 		}
 		handle(g.outEdges[e], e)
-	}
-}
-
-func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType)) {
-	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
-
-		handle(g.inEdges[e], g.GetEntryOrder(v, e), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint))
 	}
 }
 
@@ -761,4 +822,48 @@ func (g *Graph) GetVerticeIds() []Index {
 		nodeIds = append(nodeIds, Index(i))
 	}
 	return nodeIds
+}
+
+type VirtualOutEdge struct {
+	exitPoint  int
+	outEdge    *OutEdge
+	cellNumber Pv
+}
+
+func NewVirtualOutEdge(exitPoint int, outEdge *OutEdge, cellNumber Pv) *VirtualOutEdge {
+	return &VirtualOutEdge{exitPoint: exitPoint, outEdge: outEdge, cellNumber: cellNumber}
+}
+
+func (vu *VirtualOutEdge) GetExitPoint() int {
+	return vu.exitPoint
+}
+
+func (vu *VirtualOutEdge) GetOutEdge() *OutEdge {
+	return vu.outEdge
+}
+
+func (vu *VirtualOutEdge) GetCellNumber() Pv {
+	return vu.cellNumber
+}
+
+type VirtualInEdge struct {
+	entryPoint int
+	inEdge     *InEdge
+	cellNumber Pv
+}
+
+func NewVirtualInEdge(entryPoint int, inEdge *InEdge, cellNumber Pv) *VirtualInEdge {
+	return &VirtualInEdge{entryPoint: entryPoint, inEdge: inEdge, cellNumber: cellNumber}
+}
+
+func (vu *VirtualInEdge) GetEntryPoint() int {
+	return vu.entryPoint
+}
+
+func (vu *VirtualInEdge) GetInEdge() *InEdge {
+	return vu.inEdge
+}
+
+func (vu *VirtualInEdge) GetCellNumber() Pv {
+	return vu.cellNumber
 }

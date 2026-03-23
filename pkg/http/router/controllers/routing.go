@@ -35,6 +35,7 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
 	group.GET("/computeAlternativeRoutes", api.alternativeRoutes)
 	group.POST("/onlineMapMatch", api.onlineMapMatch)
+	group.POST("/offlineMapMatch", api.offlineMapMatch)
 }
 
 func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -200,4 +201,44 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 		return
 	}
 
+}
+
+func (api *routingAPI) offlineMapMatch(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	var (
+		request offlineMatchRequest
+		err     error
+	)
+	err = json.NewDecoder(r.Body).Decode(&request)
+	if err != nil {
+		api.BadRequestResponse(w, r, err)
+		return
+	}
+	if err := r.Body.Close(); err != nil {
+		api.ServerErrorResponse(w, r, err)
+		return
+	}
+
+	validate := validator.New()
+
+	if err := validate.Struct(request); err != nil {
+		english := en.New()
+		uni := ut.New(english, english)
+		trans, _ := uni.GetTranslator("en")
+		_ = enTranslations.RegisterDefaultTranslations(validate, trans)
+		vv := translateError(err, trans)
+		vvString := []string{}
+		for _, v := range vv {
+			vvString = append(vvString, v.Error())
+		}
+		api.BadRequestResponse(w, r, fmt.Errorf("validation error: %v", vvString))
+		return
+	}
+
+	mgpsPoints, polyline := api.mapmatchingService.OfflineMapMatch(request.ToDataGpsTraj())
+	headers := make(http.Header)
+
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewOfflineMapmatchingResponse(mgpsPoints, polyline)}, headers); err != nil {
+		api.ServerErrorResponse(w, r, err)
+		return
+	}
 }

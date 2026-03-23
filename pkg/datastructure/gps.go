@@ -6,8 +6,8 @@ type GPSPoint struct {
 	lon           float64
 	lat           float64
 	time          time.Time
-	speed         float64 // 0 if time step k=1
-	deltaTime     float64 // in minute
+	speed         float64 // 0 if time step k=1, speed in m/s
+	deltaTime     float64 // in seconds
 	deadReckoning bool
 }
 

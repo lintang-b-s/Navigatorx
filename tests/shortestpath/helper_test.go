@@ -18,6 +18,13 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
+const (
+	graphFile        string = "./data/original_sp_test.graph"
+	overlayGraphFile string = "./data/overlay_graph_sp_test.graph"
+	metricsFile      string = "./data/metrics_sp_test.txt"
+	landmarkFile     string = "./data/landmark_sp_test.lm"
+)
+
 func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEdge, n int, Us []int, pgDirected bool) (*engine.Engine, *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	es := flattenEdges(adjList)
@@ -61,7 +68,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 
 	mlp := mp.BuildMLP()
 
-	prep := preprocesser.NewPreprocessor(g, mlp, logger)
+	prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile)
 	err = prep.PreProcessing(false)
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -127,7 +134,7 @@ func flattenEdges(es [][]pairEdge) []osmparser.Edge {
 
 	for from, edges := range es {
 		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, e.weight, uint32(eid), 0))
+			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, e.weight, 0))
 			eid++
 		}
 	}

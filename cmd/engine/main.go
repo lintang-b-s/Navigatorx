@@ -7,6 +7,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/offline"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
@@ -18,7 +19,7 @@ import (
 )
 
 var (
-	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
+	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.06, "leaf node (r-tree) bounding box radius in km")
 	transitionMHTFile     = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
 	cpuprofile            = flag.String("cpuprofile", "", "write cpu profile to file")
 )
@@ -74,19 +75,22 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 500.0, 500.0, 0.001, 4.07, 1.0/60.0, 0.00001,
-		0.06, 180.0, N) // speed in meter/minute, default sampling interval 1.0 seconds (using seatle dataset)
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
+		0.06, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
+
+	offlineMapMatcherEngine := offline.NewHiddenMarkovModelMapMatching(graph, routingEngine, rtree, lm) // speed in meter/minute, default sampling interval 1.0 seconds (using seatle dataset)
 
 	api := http.NewServer(logger)
 
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
 		gamma, alpha, epsilon, upperBound, 0.1, lm)
-	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
+	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine, offlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {
 
 		panic(err)
 	}
+
 	api.Use(ctx,
 		logger, false, routingService, mapmatcherService)
 

@@ -1,17 +1,18 @@
 package controllers
 
 import (
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 )
 
 type RoutingService interface {
-	ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []datastructure.DrivingDirection, bool, error)
+	ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error)
 	AlternativeRouteSearch(origLat, origLon, dstLat, dstLon float64, k int) ([]*routing.AlternativeRoute, bool, error)
 }
 
 type MapMatcherService interface {
-	OnlineMapMatch(gps *datastructure.GPSPoint, k int,
-		candidates []*online.Candidate, speedMeanK, speedStdK, lastBearing float64) (*datastructure.MatchedGPSPoint, []*online.Candidate, float64, float64)
+	OnlineMapMatch(gps *da.GPSPoint, k int,
+		candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64)
+	OfflineMapMatch(gpsTraj []*da.GPSPoint) ([]*da.MatchedGPSPoint, string)
 }

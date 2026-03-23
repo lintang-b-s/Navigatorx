@@ -7,7 +7,7 @@ import (
 )
 
 type GraphStorage struct {
-	globalPoints []Coordinate
+	osmNodePoints []Coordinate
 
 	/*
 		32 bit -> 32 boolean flag for roundabout & trafficlight
@@ -31,13 +31,13 @@ func NewGraphStorage() *GraphStorage {
 		tagStringIDMap:   util.NewIdMap(),
 		roundaboutFlag:   make([]Index, 0),
 		nodeTrafficLight: make([]Index, 0),
-		globalPoints:     make([]Coordinate, 0),
+		osmNodePoints:     make([]Coordinate, 0),
 	}
 }
 
-func BuildGraphStorage(globalPoints []Coordinate, roundaboutFlag []Index, nodeTrafficLight []Index,
+func BuildGraphStorage(osmNodePoints []Coordinate, roundaboutFlag []Index, nodeTrafficLight []Index,
 	mapEdgeInfo []EdgeExtraInfo, tagStringIDMap util.IDMap, streetDirection map[int64][2]bool) *GraphStorage {
-	return &GraphStorage{globalPoints: globalPoints, roundaboutFlag: roundaboutFlag,
+	return &GraphStorage{osmNodePoints: osmNodePoints, roundaboutFlag: roundaboutFlag,
 		nodeTrafficLight: nodeTrafficLight, mapEdgeInfo: mapEdgeInfo, tagStringIDMap: tagStringIDMap,
 		streetDirection: streetDirection}
 }
@@ -49,7 +49,7 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 		tagStringIDMap:   util.NewIdMap(),
 		roundaboutFlag:   make([]Index, numberOfEdges),
 		nodeTrafficLight: make([]Index, numberOfVertices),
-		globalPoints:     make([]Coordinate, 1),
+		osmNodePoints:     make([]Coordinate, 1),
 	}
 }
 
@@ -102,7 +102,7 @@ func (gs *GraphStorage) GetTrafficLight(nodeID Index) bool {
 }
 
 type EdgeExtraInfo struct {
-	startPointsIndex Index // edge geometry start index di gs.globalPoints
+	startPointsIndex Index // edge geometry start index di gs.osmNodePoints
 	endPointsIndex   Index
 	streetName       int
 	roadClass        int
@@ -144,7 +144,7 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 	startIndex := edge.startPointsIndex
 	endIndex := edge.endPointsIndex
 	if startIndex < endIndex {
-		edgePoints = gs.globalPoints[startIndex:endIndex]
+		edgePoints = gs.osmNodePoints[startIndex:endIndex]
 
 		return edgePoints
 	}
@@ -154,7 +154,7 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 	}
 
 	for i := startIndex - 1; i >= endIndex; i-- {
-		edgePoints = append(edgePoints, gs.globalPoints[i])
+		edgePoints = append(edgePoints, gs.osmNodePoints[i])
 	}
 
 	return edgePoints
@@ -178,14 +178,14 @@ func (gs *GraphStorage) UpdateEdgePoints(edgeID Index, startIdx, endIdx Index) {
 	gs.mapEdgeInfo[edgeID] = edge
 }
 
-func (gs *GraphStorage) AppendGlobalPoints(edgePoints []Coordinate) {
-	gs.globalPoints = append(gs.globalPoints, edgePoints...)
+func (gs *GraphStorage) AppendOsmNodePoints(edgePoints []Coordinate) {
+	gs.osmNodePoints = append(gs.osmNodePoints, edgePoints...)
 }
 
 func (gs *GraphStorage) AppendMapEdgeInfo(edgeInfo EdgeExtraInfo) {
 	gs.mapEdgeInfo = append(gs.mapEdgeInfo, edgeInfo)
 }
 
-func (gs *GraphStorage) GetGlobalPointsCount() int {
-	return len(gs.globalPoints)
+func (gs *GraphStorage) GetOsmNodePointsCount() int {
+	return len(gs.osmNodePoints)
 }

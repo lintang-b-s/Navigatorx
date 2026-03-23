@@ -2,23 +2,40 @@ package usecases
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"go.uber.org/zap"
 )
 
 type MapMatcherService struct {
-	log    *zap.Logger
-	engine MapMatcherEngine
+	log           *zap.Logger
+	onlineEngine  OnlineMapMatcherEngine
+	offlineEngine OfflineMapMatcherEngine
 }
 
-func NewMapMatcherService(log *zap.Logger, engine MapMatcherEngine) *MapMatcherService {
+func NewMapMatcherService(log *zap.Logger, onlineEngine OnlineMapMatcherEngine,
+	offlineEngine OfflineMapMatcherEngine) *MapMatcherService {
 	return &MapMatcherService{
-		log:    log,
-		engine: engine,
+		log:           log,
+		onlineEngine:  onlineEngine,
+		offlineEngine: offlineEngine,
 	}
 }
 
 func (ms *MapMatcherService) OnlineMapMatch(gps *datastructure.GPSPoint, k int,
-	candidates []*online.Candidate, speedMeanK, speedStdK, lastBearing float64) (*datastructure.MatchedGPSPoint, []*online.Candidate, float64, float64) {
-	return ms.engine.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
+	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*datastructure.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
+	return ms.onlineEngine.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
+}
+
+func (ms *MapMatcherService) OfflineMapMatch(gpsTraj []*da.GPSPoint) ([]*datastructure.MatchedGPSPoint, string) {
+	matchedPoints := ms.offlineEngine.MapMatch(gpsTraj)
+
+	matchedCoords := make([]da.Coordinate, len(matchedPoints))
+	for i := 0; i < len(matchedPoints); i++ {
+		matchedCoords[i] = matchedPoints[i].GetMatchedCoord()
+	}
+
+	polyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(matchedCoords))
+	return matchedPoints, polyline
 }

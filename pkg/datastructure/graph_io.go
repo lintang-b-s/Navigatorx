@@ -115,9 +115,9 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// write graph storage
 
-	fmt.Fprintf(w, "%d\n", len(g.graphStorage.globalPoints))
-	for i := 0; i < len(g.graphStorage.globalPoints); i++ {
-		point := g.graphStorage.globalPoints[i]
+	fmt.Fprintf(w, "%d\n", len(g.graphStorage.osmNodePoints))
+	for i := 0; i < len(g.graphStorage.osmNodePoints); i++ {
+		point := g.graphStorage.osmNodePoints[i]
 		pointLat := strconv.FormatFloat(point.Lat, 'f', -1, 64)
 		pointLon := strconv.FormatFloat(point.Lon, 'f', -1, 64)
 		fmt.Fprintf(w, "%s %s\n", pointLat, pointLon)
@@ -434,9 +434,9 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	tokens = fields(line)
-	numGlobalPoints := parseInt(tokens[0])
-	globalPoints := make([]Coordinate, numGlobalPoints)
-	for i := 0; i < numGlobalPoints; i++ {
+	numOsmNodePoints := parseInt(tokens[0])
+	osmNodePoints := make([]Coordinate, numOsmNodePoints)
+	for i := 0; i < numOsmNodePoints; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
 			return nil, err
@@ -451,7 +451,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, fmt.Errorf("lon: %w", err)
 		}
-		globalPoints[i] = NewCoordinate(lat, lon)
+		osmNodePoints[i] = NewCoordinate(lat, lon)
 	}
 
 	// roundabout flag
@@ -610,7 +610,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		sccCondensationAdj = append(sccCondensationAdj, adj)
 	}
 
-	graphStorage := BuildGraphStorage(globalPoints,
+	graphStorage := BuildGraphStorage(osmNodePoints,
 		roundaboutFlag, trafficLight, mapEdgeInfos,
 		tagStringIdMap, streetDirections)
 

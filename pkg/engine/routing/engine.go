@@ -94,3 +94,7 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 	}
 
 }
+
+func (crp *CRPRoutingEngine) GetMaxSpeed(e *da.OutEdge) float64 {
+	return crp.metrics.GetMaxSpeed(e)
+}

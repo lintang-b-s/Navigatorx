@@ -35,10 +35,10 @@ const (
 	mlpFile                 = "stress_test_yogyakarta"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	graphFile        string = "./data/original_benchmark.graph"
+	overlayGraphFile string = "./data/overlay_graph_benchmark.graph"
+	metricsFile      string = "./data/metrics_benchmark.txt"
+	landmarkFile     string = "./data/landmark_benchmark.lm"
 )
 
 type query struct {
@@ -115,7 +115,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger)
+	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

@@ -92,13 +92,13 @@ https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
             }
 
             let candidates = [];
-            let speedMeanK = 500.0;
-            let speedStdK = 500.0;
+            let speedMeanK = 8.3333;
+            let speedStdK = 8.3333;
 
             let prev = null;
             let prevTime = null;
-            const defaultConstantSpeed = 500.0; // meter/min
-            let defaultSamplingInterval = 1.0 / 60; // default 1s
+            const defaultConstantSpeed = 8.3333; // meter/s
+            let defaultSamplingInterval = 1.0; // default 1s
             let lastBearing = 0.0;
 
             const startTime = new Date(requestData[0].datetime_utc);
@@ -122,19 +122,19 @@ https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
               if (point) {
                 const t = new Date(point.datetime_utc);
                 let speed = 0;
-                let dt_minutes = 0.0;
+                let dt_seconds = 0.0;
 
                 if (prev) {
                   const prevTime = new Date(prev.datetime_utc);
-                  dt_minutes = (t - prevTime) / 60000.0; // ms to minutes
+                  dt_seconds = (t - prevTime) / 1000.0; // ms to seconds
                   const distance = haversine(
                     prev.Latitude,
                     prev.Longitude,
                     point.Latitude,
                     point.Longitude
                   );
-                  if (dt_minutes > 0) {
-                    speed = distance / dt_minutes;
+                  if (dt_seconds > 0) {
+                    speed = distance / dt_seconds;
                   }
                 }
 
@@ -144,7 +144,7 @@ https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
                     lon: point.Longitude,
                     time: t.toISOString(),
                     speed: speed,
-                    delta_time: dt_minutes,
+                    delta_time: dt_seconds,
                     dead_reckoning: false,
                   },
                   k: Math.round((t - startTime) / 1000) + 1,
@@ -166,7 +166,7 @@ https://cdn.jsdelivr.net/npm/@mapbox/polyline@1.2.1/src/polyline.min.js
                     time: currentTime.toISOString(),
                     speed: defaultConstantSpeed,
                     delta_time: prevTime
-                      ? (currentTime - prevTime) / 60000.0
+                      ? (currentTime - prevTime) / 1000.0
                       : defaultSamplingInterval,
                     dead_reckoning: true,
                   },

@@ -33,10 +33,10 @@ const (
 	mlpFile                 = "stress_test_yogyakarta"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	graphFile        string = "./data/original_eval_alt.graph"
+	overlayGraphFile string = "./data/overlay_graph_eval_alt.graph"
+	metricsFile      string = "./data/metrics_eval_alt.txt"
+	landmarkFile     string = "./data/landmark_eval_alt.lm"
 )
 
 const (
@@ -58,15 +58,14 @@ todo6: bikin cara agar bisa eliminate banyak via vertices sebelum di unpack path
 todo: target p95 latency dengan 900vus endpoint alternative routes: 200ms dengan success rate alternative routes > 85%
 
 sekarang (setelah filter candidates sebelum path unpacking) p95 latency 300vus endpoint alternative routes: 377ms  sucess rate > 87% -> setelah optimize lagi: p95 latency 300vus alternative routes: 25ms (eval/crp_alt/load_tests/k6_alternatives.js)
-todo: cek heap allocations FindAlternativeRoutes pakai pprof, kurangin heap allocation dari FindAlternativeRoutes, benchmark: setiap FindAlternatveRoutes() 2mb/op, kayake bisa dikurangi lagi 
--> setelah optimize, benchmark FindAlternativeRoutes sekitar 600kb/op 
+todo: cek heap allocations FindAlternativeRoutes pakai pprof, kurangin heap allocation dari FindAlternativeRoutes, benchmark: setiap FindAlternatveRoutes() 2mb/op, kayake bisa dikurangi lagi
+-> setelah optimize, benchmark FindAlternativeRoutes sekitar 600kb/op
 
 todo: benerin calculateApproxDistanceShare() (DONE)
 
 todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , valhalla
 todo2: add evaluasi online map matching pakai dataset dari https://www.microsoft.com/en-us/research/publication/hidden-markov-map-matching-noise-sparseness/
 
-todo (setelah skripsi selesai): implement rute alternative finder pakai cara https://dl.acm.org/doi/10.1145/3567421  (mathnya very hard... belum ada yang implement di open source routing engine)
 todo (setelah skripsi selesai): implement another online map matching algorithm https://dl.acm.org/doi/pdf/10.1145/2666310.2666383
 
 ....
@@ -143,7 +142,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger)
+	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

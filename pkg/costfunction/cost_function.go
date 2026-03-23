@@ -16,5 +16,7 @@ type EdgeAttributes interface {
 
 type CostFunction interface {
 	GetWeight(e EdgeAttributes) float64
+	GetMaxSpeed(e EdgeAttributes) float64
+
 	GetTurnCost(turnType pkg.TurnType) float64
 }

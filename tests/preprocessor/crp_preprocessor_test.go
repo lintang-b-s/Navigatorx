@@ -32,10 +32,10 @@ const (
 	mlpFile                 = "stress_test_yogyakarta"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	graphFile        string = "./data/original_preprocessor_test.graph"
+	overlayGraphFile string = "./data/overlay_graph_preprocessor_test.graph"
+	metricsFile      string = "./data/metrics_preprocessor_test.txt"
+	landmarkFile     string = "./data/landmark_preprocessor_test.lm"
 )
 
 type query struct {
@@ -139,7 +139,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocesser.NewPreprocessor(g, mlp, logger)
+		prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile)
 		err = prep.PreProcessing(false)
 
 		return prep, err
@@ -835,7 +835,7 @@ func setup(t *testing.T, osmFileTest, urlTest string) *preprocesser.Preprocessor
 	if err != nil {
 		t.Fatal(err)
 	}
-	prep := preprocesser.NewPreprocessor(graph, mlp, logger)
+	prep := preprocesser.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

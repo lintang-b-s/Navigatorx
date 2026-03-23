@@ -41,10 +41,10 @@ const (
 	mlpFile                 = "stress_test_yogyakarta"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	graphFile        string = "./data/original_query_test.graph"
+	overlayGraphFile string = "./data/overlay_graph_query_test.graph"
+	metricsFile      string = "./data/metrics_query_test.txt"
+	landmarkFile     string = "./data/landmark_query_test.lm"
 )
 
 // there is also tests for crp query using test cases taken from
@@ -226,7 +226,7 @@ func TestCRPQuerySimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocesser.NewPreprocessor(g, mlp, logger)
+		prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -396,7 +396,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger)
+	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

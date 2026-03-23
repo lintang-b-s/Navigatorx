@@ -188,7 +188,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 	packedPathPool := sync.Pool{
 		New: func() any {
-			s := make([]da.VertexEdgePair, 0, 512)
+			s := make([]da.VertexEdgePair, 0, 64)
 			return s
 		},
 	}
@@ -448,8 +448,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		res = append(res, ars.candidates[i])
 	}
 
-	ars.candidates = ars.candidates[:maxAltSize]
 	res = removeSimiliarAlternatives(res)
+	ars.candidates = res
 
 	// worst case of FindAlternativeRoutes: worst case crp query + worst case computeAlternatives for all via vertices
 	// O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o) + c * ( p + \sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))

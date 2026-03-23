@@ -29,7 +29,7 @@ func PointLinePerpendicularDistance(pointA Coordinate, pointB Coordinate,
 
 	dist := CalculateHaversineDistance(snap.GetLat(), snap.GetLon(), projectionPoint.GetLat(), projectionPoint.GetLon())
 
-	return dist * 1000
+	return util.KilometerToMeter(dist)
 }
 
 const (

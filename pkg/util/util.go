@@ -75,6 +75,14 @@ var (
 
 var MessageInternalServerError string = "internal server error"
 
+func KMHToMMin(speedKmh float64) float64 {
+	return speedKmh * 1000 / 60
+}
+
+func KilometerToMeter(d float64) float64 {
+	return d * 1000
+}
+
 func SecondsToMinutes(seconds float64) float64 {
 	return seconds / 60
 }

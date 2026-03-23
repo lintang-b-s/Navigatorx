@@ -2,6 +2,7 @@ package costfunction
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 )
 
@@ -25,27 +26,11 @@ func NewTimeCostFunction() *TimeFunction {
 		}
 	}
 
-	mapTurnCosts := viper.GetStringMap("turn_costs")
+	mapTurnCosts := viper.GetStringMap("turncosts")
 	turnCosts := make([]float64, 6)
 	for turnTypeStr, cost := range mapTurnCosts {
-		var turnType pkg.TurnType
-		switch turnTypeStr {
-		case "left_turn":
-			turnType = pkg.LEFT_TURN
-		case "right_turn":
-			turnType = pkg.RIGHT_TURN
-		case "straight_on":
-			turnType = pkg.STRAIGHT_ON
-		case "u_turn":
-			turnType = pkg.U_TURN
-		case "no_entry":
-			turnType = pkg.NO_ENTRY
-		case "none":
-			turnType = pkg.NONE
-		default:
-			panic("unsupported turn type")
-		}
 
+		turnType := getTurnType(turnTypeStr)
 		switch v := cost.(type) {
 		case int:
 			turnCosts[turnType] = float64(v)
@@ -55,7 +40,7 @@ func NewTimeCostFunction() *TimeFunction {
 			panic("unsupported type")
 		}
 	}
-	return &TimeFunction{maxspeeds: maxspeeds}
+	return &TimeFunction{maxspeeds: maxspeeds, turnCosts: turnCosts}
 }
 
 func NewTimeCostFunctionEmpty() *TimeFunction {
@@ -63,7 +48,7 @@ func NewTimeCostFunctionEmpty() *TimeFunction {
 }
 
 const (
-	defaultSpeed = 20.0 // km/h
+	defaultSpeed = 30.0 // km/h
 )
 
 func (tf *TimeFunction) GetWeight(e EdgeAttributes) float64 {
@@ -80,17 +65,51 @@ func (tf *TimeFunction) GetWeight(e EdgeAttributes) float64 {
 	}
 
 	// convert km/h to meter/minute
-	maxspeed = maxspeed * 1000 / 60
+	maxspeed = util.KMHToMMin(maxspeed)
 	return e.GetLength() / maxspeed
 }
 
+func (tf *TimeFunction) GetMaxSpeed(e EdgeAttributes) float64 {
+
+	maxspeed := defaultSpeed
+	if tf.maxspeeds != nil {
+		hwType := e.GetHighwayType()
+		maxspeed = tf.maxspeeds[hwType]
+		if maxspeed == 0 {
+			maxspeed = defaultSpeed
+		}
+	} else {
+		return e.GetWeight()
+	}
+	maxspeed = util.KMHToMMin(maxspeed)
+
+	return maxspeed
+}
+
 func (tf *TimeFunction) GetTurnCost(turnType pkg.TurnType) float64 {
-	switch turnType {
-	case pkg.U_TURN:
-		return pkg.INF_WEIGHT
-	case pkg.NO_ENTRY:
-		return pkg.INF_WEIGHT
-	default:
+	if tf.turnCosts == nil {
 		return 0
 	}
+	return tf.turnCosts[turnType]
+}
+
+func getTurnType(turnTypeStr string) pkg.TurnType {
+	var turnType pkg.TurnType
+	switch turnTypeStr {
+	case "left_turn":
+		turnType = pkg.LEFT_TURN
+	case "right_turn":
+		turnType = pkg.RIGHT_TURN
+	case "straight_on":
+		turnType = pkg.STRAIGHT_ON
+	case "u_turn":
+		turnType = pkg.U_TURN
+	case "no_entry":
+		turnType = pkg.NO_ENTRY
+	case "none":
+		turnType = pkg.NONE
+	default:
+		panic("unsupported turn type")
+	}
+	return turnType
 }

@@ -41,6 +41,10 @@ type CRPALTBidirectionalSearch struct {
 	lastpqSum float64
 
 	shortcutPathSet map[uint64]uint8
+
+	mapmatching        bool
+	handleRelaxOutEdge func(e *da.OutEdge) float64
+	handleRelaxInEdge  func(e *da.InEdge) float64
 }
 
 func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, lm *landmark.Landmark) *CRPALTBidirectionalSearch {
@@ -60,6 +64,7 @@ func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, 
 		lastpqSum:                 0,
 		numScannedOverlayVertices: 0,
 		shortcutPathSet:           make(map[uint64]uint8),
+		mapmatching:               false,
 	}
 
 	crpQuery.Preallocate()
@@ -198,13 +203,36 @@ misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path 
 func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
 	[]da.OutEdge, bool) {
 
-	// asId exitPoint of outEdge u->s
-	// atId entryPoint of inEdge t->v
 	defer bs.Done()
 	now := time.Now()
 
-	s := bs.engine.graph.GetOutEdge(asId).GetHead()
-	t := bs.engine.graph.GetInEdge(atId).GetTail()
+	var (
+		s, t da.Index
+	)
+
+	if !bs.mapmatching {
+		// asId: Id of outEdge u->s
+		// atId: Id of inEdge  v->t
+		s = bs.engine.graph.GetOutEdge(asId).GetHead()
+		t = bs.engine.graph.GetInEdge(atId).GetTail()
+	} else {
+		// pas mapmmatching
+		// asId adalah id dari outEdge: u - s -> v
+		// atId adalah id dari outEdge: w - t -> q
+		// s dan t adalah proyeksi gps coordinate ke out edge (u,v) dan (w,q)
+		// disini kita simulasiin sp query dari s ke t dengan cara:
+		// set source = v dan target = w
+		
+		v := bs.engine.graph.GetOutEdge(asId).GetHead()
+		w := bs.engine.graph.GetTailOfOutedge(atId)
+
+		s = v
+		t = w
+
+		// ubah atId jadi id dari inEdge (q,w)
+		tInEdge := bs.engine.graph.GetInEdgeOfOutEdge(atId)
+		atId = tInEdge.GetEdgeId()
+	}
 
 	if s == t {
 		return 0, 0, []da.Coordinate{}, []da.OutEdge{}, true
@@ -307,20 +335,22 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 	otherUEntryId := bs.engine.offsetForward(uId, bs.engine.graph.GetEntryOffset(uId), bs.engine.graph.GetCellNumber(uId), bs.sCellNumber)
 
 	uEntryIdTravelTime := bs.forwardPq.GetPriority(uEntryId)
-	for j := da.Index(0); j < uInDeg; j++ {
+	if !bs.mapmatching {
+		for j := da.Index(0); j < uInDeg; j++ {
 
-		stallingOffset := uInDeg*uEntryPoint + j
-		bui := math.Max(0, uEntryIdTravelTime+
-			bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset))
+			stallingOffset := uInDeg*uEntryPoint + j
+			bui := math.Max(0, uEntryIdTravelTime+
+				bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset))
 
-		if val := bs.stallingEntry[otherUEntryId]; da.Eq(val, pkg.INF_WEIGHT) {
-			bs.stallingEntry[otherUEntryId] = bui
-		} else {
-			bs.stallingEntry[otherUEntryId] = math.Min(bs.stallingEntry[otherUEntryId], bui)
+			if val := bs.stallingEntry[otherUEntryId]; da.Eq(val, pkg.INF_WEIGHT) {
+				bs.stallingEntry[otherUEntryId] = bui
+			} else {
+				bs.stallingEntry[otherUEntryId] = math.Min(bs.stallingEntry[otherUEntryId], bui)
+			}
+			otherUEntryId++
 		}
-		otherUEntryId++
-	}
 
+	}
 	// traverse outEdges of u
 	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
 		vId := outArc.GetHead()
@@ -341,6 +371,8 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
+
+		
 
 		priority := newTravelTime + pfv
 
@@ -470,18 +502,20 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 		bs.engine.graph.GetCellNumber(uId), bs.sCellNumber)
 
 	uExitIdTravelTime := bs.backwardPq.GetPriority(uExitId)
-	for j := da.Index(0); j < uOutDeg; j++ {
+	if !bs.mapmatching {
+		for j := da.Index(0); j < uOutDeg; j++ {
 
-		stallingOffset := uOutDeg*uExitPoint + j
-		bui := math.Max(0, uExitIdTravelTime+
-			bs.engine.metrics.GetExitStallingTableCost(uId, stallingOffset))
+			stallingOffset := uOutDeg*uExitPoint + j
+			bui := math.Max(0, uExitIdTravelTime+
+				bs.engine.metrics.GetExitStallingTableCost(uId, stallingOffset))
 
-		if val := bs.stallingExit[otherUExitId]; da.Eq(val, pkg.INF_WEIGHT) {
-			bs.stallingExit[otherUExitId] = bui
-		} else {
-			bs.stallingExit[otherUExitId] = math.Min(bs.stallingExit[otherUExitId], bui)
+			if val := bs.stallingExit[otherUExitId]; da.Eq(val, pkg.INF_WEIGHT) {
+				bs.stallingExit[otherUExitId] = bui
+			} else {
+				bs.stallingExit[otherUExitId] = math.Min(bs.stallingExit[otherUExitId], bui)
+			}
+			otherUExitId++
 		}
-		otherUExitId++
 	}
 
 	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *da.InEdge, entryPoint da.Index, turnType pkg.TurnType) {
@@ -502,6 +536,9 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 		_, prv := bs.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
 
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
+
+		
+
 		priority := newTravelTime + prv
 		if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
@@ -652,6 +689,9 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 			pfw, _ := bs.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
 
 			newTravelTime = bs.forwardPq.GetPriority(overlayVId) + edgeWeight
+
+			
+
 			priority := newTravelTime + pfw
 			if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
@@ -819,6 +859,8 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 			_, prw := bs.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
 
 			newTravelTime = bs.backwardPq.GetPriority(overlayVId) + inEdgeWeight
+
+
 			priority := newTravelTime + prw
 
 			if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
@@ -980,4 +1022,11 @@ func (bs *CRPALTBidirectionalSearch) GetTCellNumber() da.Pv {
 
 func (bs *CRPALTBidirectionalSearch) getShortcutPathSet() map[uint64]uint8 {
 	return bs.shortcutPathSet
+}
+
+func (bs *CRPALTBidirectionalSearch) OnMapMatching(handleRelaxOutEdge func(e *da.OutEdge) float64,
+	handleRelaxInEdge func(e *da.InEdge) float64) {
+	bs.mapmatching = true
+	bs.handleRelaxOutEdge = handleRelaxOutEdge
+	bs.handleRelaxInEdge = handleRelaxInEdge
 }

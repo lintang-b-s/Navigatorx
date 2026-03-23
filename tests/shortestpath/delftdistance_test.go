@@ -28,9 +28,8 @@ test cases: https://chipcie.wisv.ch/archive/2022/nwerc/solutions.zip
 
 skip test cases yang jumlah edges nya > 600k, biar cepet
 
- jangan submit solusi ini ke online judge, karen bakal TLE & MLE  wkwkwk
- pakai solusi c++ ku aja (got AC on kattis: https://open.kattis.com/problems/delftdistance):
- https://drive.google.com/file/d/1vNQ7GQH1JJJn-Z0u4EW_Nsk9AvFsSfdS/view?usp=sharing
+my c++ solution (got AC on kattis: https://open.kattis.com/problems/delftdistance):
+https://drive.google.com/file/d/1vNQ7GQH1JJJn-Z0u4EW_Nsk9AvFsSfdS/view?usp=sharing
 
 
 

@@ -12,7 +12,6 @@ type Edge struct {
 	toOsmId   uint64
 	weight    float64
 	distance  float64
-	edgeID    uint32
 	hwType    pkg.OsmHighwayType
 }
 
@@ -52,13 +51,12 @@ func (e *Edge) SetToOSMId(toOsmId uint64) {
 	e.toOsmId = toOsmId
 }
 
-func NewEdge(from, to uint32, weight, distance float64, edgeID uint32, hwType pkg.OsmHighwayType) Edge {
+func NewEdge(from, to uint32, weight, distance float64, hwType pkg.OsmHighwayType) Edge {
 	return Edge{
 		from:     from,
 		to:       to,
 		weight:   weight,
 		distance: distance,
-		edgeID:   edgeID,
 		hwType:   hwType,
 	}
 }

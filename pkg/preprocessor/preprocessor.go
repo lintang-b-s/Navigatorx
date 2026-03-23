@@ -8,22 +8,25 @@ import (
 )
 
 type Preprocessor struct {
-	graph          *datastructure.Graph
-	mlp            *datastructure.MultilevelPartition
-	overlayGraph   *datastructure.OverlayGraph
-	logger         *zap.Logger
-	newVIdMap      []datastructure.Index
-	newToOldVIdMap map[datastructure.Index]datastructure.Index
+	graph                               *datastructure.Graph
+	mlp                                 *datastructure.MultilevelPartition
+	overlayGraph                        *datastructure.OverlayGraph
+	logger                              *zap.Logger
+	newVIdMap                           []datastructure.Index
+	newToOldVIdMap                      map[datastructure.Index]datastructure.Index
+	graphFilename, overlayGraphFilename string
 }
 
 func NewPreprocessor(graph *datastructure.Graph, mlp *datastructure.MultilevelPartition,
-	logger *zap.Logger) *Preprocessor {
+	logger *zap.Logger, gFilename string, ogFilename string) *Preprocessor {
 	return &Preprocessor{
-		graph:          graph,
-		mlp:            mlp,
-		logger:         logger,
-		newVIdMap:      make([]datastructure.Index, graph.NumberOfVertices()),
-		newToOldVIdMap: make(map[datastructure.Index]datastructure.Index, graph.NumberOfVertices()),
+		graph:                graph,
+		mlp:                  mlp,
+		logger:               logger,
+		newVIdMap:            make([]datastructure.Index, graph.NumberOfVertices()),
+		newToOldVIdMap:       make(map[datastructure.Index]datastructure.Index, graph.NumberOfVertices()),
+		graphFilename:        gFilename,
+		overlayGraphFilename: ogFilename,
 	}
 }
 
@@ -46,12 +49,12 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Writing graph to ./data/original.graph")
 
 	if writefile {
-		err := p.overlayGraph.WriteToFile("./data/overlay_graph.graph")
+		err := p.overlayGraph.WriteToFile(p.overlayGraphFilename)
 		if err != nil {
 			return err
 		}
 
-		return p.graph.WriteGraph("./data/original.graph")
+		return p.graph.WriteGraph(p.graphFilename)
 	}
 	return nil
 }

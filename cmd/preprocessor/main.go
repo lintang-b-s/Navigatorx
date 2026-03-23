@@ -15,6 +15,11 @@ var (
 	mlpFile = flag.String("mlp_file", "crp_inertial_flow_diy_solo_semarang.mlp", "Multilevel partition filename")
 )
 
+const (
+	graphFile        string = "./data/original.graph"
+	overlayGraphFile string = "./data/overlay_graph.graph"
+)
+
 func main() {
 	flag.Parse()
 	logger, err := log.New()
@@ -32,7 +37,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger)
+	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)
