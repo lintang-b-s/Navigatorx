@@ -605,7 +605,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	geoEdgePoints := geo.RamerDouglasPeucker(da.NewGeoCoordinates(edgePoints)) // simplify edge geometry
 	simplifiedEdgePoints := make([]da.Coordinate, len(geoEdgePoints))
 	for i, coord := range geoEdgePoints {
-
 		simplifiedEdgePoints[i] = da.NewCoordinate(coord.GetLat(), coord.GetLon())
 	}
 

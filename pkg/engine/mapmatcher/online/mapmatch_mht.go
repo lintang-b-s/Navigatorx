@@ -7,6 +7,7 @@ import (
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 /*
@@ -61,11 +62,16 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 	if k == 1 || len(candidates) == 0 {
 		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc)
 		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
+		sumLength := 0.0
+		for _, arcEndpoint := range nearbyArcs {
+			sumLength += arcEndpoint.GetLength()
+		}
+
 		for _, arcEndpoint := range nearbyArcs {
 			if arcEndpoint.GetLength() == 0 { // skip dummy arc
 				continue
 			}
-			candidates = append(candidates, ma.NewCandidate(arcEndpoint.GetId(), arcEndpoint.GetLength(), arcEndpoint.GetLength()))
+			candidates = append(candidates, ma.NewCandidate(arcEndpoint.GetId(), arcEndpoint.GetLength()/sumLength, arcEndpoint.GetLength()))
 		}
 
 		om.projectAllCandidates(gps, candidates)
@@ -375,6 +381,10 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 			bestProjectedPoint geo.Coordinate
 		)
 
+		e := om.graph.GetOutEdge(cand.EdgeId())
+		eTail := om.graph.GetTailOfOutedge(e.GetEdgeId())
+		eTailVertex := om.graph.GetVertex(eTail)
+
 		for i := 0; i < len(eGeometry)-1; i++ {
 			tail := eGeometry[i]
 			head := eGeometry[i+1]
@@ -383,13 +393,13 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 				head.ToGeoCoordinate(),
 				gpsCoord.ToGeoCoordinate(),
 			)
-			dist := convertKilometerToMeter(geo.CalculateHaversineDistance(
+			dist := util.KilometerToMeter(geo.CalculateHaversineDistance(
 				projectedPoint.Lat, projectedPoint.Lon,
 				gpsCoord.GetLat(), gpsCoord.GetLon(),
 			))
 
-			distr := convertKilometerToMeter(geo.CalculateHaversineDistance(
-				tail.GetLat(), tail.GetLon(),
+			distr := util.KilometerToMeter(geo.CalculateHaversineDistance(
+				eTailVertex.GetLat(), eTailVertex.GetLon(),
 				projectedPoint.GetLat(), projectedPoint.GetLon(),
 			))
 
