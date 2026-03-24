@@ -128,18 +128,6 @@ func RoundFloat(val float64, precision uint) float64 {
 	return math.Round(val*ratio) / ratio
 }
 
-func CountDecimalPlacesF64(value float64) int {
-	strValue := strconv.FormatFloat(value, 'f', -1, 64)
-
-	parts := strings.Split(strValue, ".")
-
-	if len(parts) < 2 {
-		return 0
-	}
-
-	return len(parts[1])
-}
-
 func ReverseG[T any](arr []T) []T {
 	copyArr := make([]T, len(arr)) // should do on the copy )
 	copy(copyArr, arr)

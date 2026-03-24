@@ -123,6 +123,7 @@ func (p *Preprocessor) SortByCellNumber() {
 				oEdge.GetHighwayType(),
 			)
 			newOEdge.SetInfoEdgeId(oEdge.GetEdgeInfoId())
+			newOEdge.SetSimplifiedLength(oEdge.GetSimplifiedLength())
 			oEdges[i][k] = newOEdge
 			e++
 			k++
@@ -228,6 +229,8 @@ func (p *Preprocessor) SortByCellNumber() {
 					newOutEdgeId, oldOutEdge.GetHead(), oldOutEdge.GetWeight(),
 					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
 				)
+				newOutEdge.SetSimplifiedLength(oldOutEdge.GetSimplifiedLength())
+
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
 				p.graph.SetEdgeInfo(newOutEdgeId, gsEdgeExtraInfos[oldOutEdge.GetEdgeInfoId()]) // update edge extra info storage
 

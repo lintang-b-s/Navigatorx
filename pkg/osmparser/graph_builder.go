@@ -30,6 +30,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		outEdge := datastructure.NewOutEdge(0,
 			v, e.GetWeight(), e.GetDistance(), len(inEdges[v]), e.GetHighwayType())
 		outEdge.SetInfoEdgeId(da.Index(eId))
+		outEdge.SetSimplifiedLength(e.GetSimplifiedDistance())
 		outEdges[u] = append(outEdges[u], outEdge)
 
 		outDegree[u]++

@@ -1,7 +1,6 @@
 package offline
 
 import (
-	"fmt"
 	"math"
 	"sort"
 
@@ -287,14 +286,14 @@ func (h *HMM) projectAllGps(gpsTraj []*da.GPSPoint) ([][]*ma.Candidate, int) {
 
 		sumLength := 0.0
 		for _, e := range nearbyArcs {
-			sumLength += e.GetLength()
+			sumLength += e.GetSimplifiedLength()
 		}
 
 		for _, arcEndpoint := range nearbyArcs {
-			if arcEndpoint.GetLength() == 0 { // skip dummy arc
+			if arcEndpoint.GetSimplifiedLength() == 0 { // skip dummy arc
 				continue
 			}
-			cand := ma.NewCandidate(arcEndpoint.GetId(), arcEndpoint.GetLength()/sumLength, arcEndpoint.GetLength())
+			cand := ma.NewCandidate(arcEndpoint.GetId(), arcEndpoint.GetSimplifiedLength()/sumLength, arcEndpoint.GetSimplifiedLength())
 			cand.SetStateId(stateId)
 			candidates = append(candidates, cand)
 			stateId++
@@ -376,8 +375,8 @@ func (h *HMM) splitEdges(gpsTraj []*da.GPSPoint, candidates [][]*ma.Candidate) i
 			distFromTail := snap.GetDistr()
 			snap.SetDistanceFromTail(distFromTail)
 			snap.SetTravelTimeFromTail(distFromTail / eSpeed)
-			snap.SetDistanceFromHead(e.GetLength() - distFromTail)
-			snap.SetTravelTimeFromHead((e.GetLength() - distFromTail) / eSpeed)
+			snap.SetDistanceFromHead(e.GetSimplifiedLength() - distFromTail)
+			snap.SetTravelTimeFromHead((e.GetSimplifiedLength() - distFromTail) / eSpeed)
 		}
 	}
 
@@ -390,7 +389,6 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 		gpsCoord := da.NewCoordinate(gps.Lat(), gps.Lon())
 
 		eGeometry := h.graph.GetEdgeGeometry(cand.EdgeId())
-		e := h.graph.GetOutEdge(cand.EdgeId())
 
 		var (
 			minDist, minDistr  float64 = math.MaxFloat64, math.MaxFloat64
@@ -407,8 +405,9 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 				head.ToGeoCoordinate(),
 				gpsCoord.ToGeoCoordinate(),
 			)
+
 			dist := util.KilometerToMeter(geo.CalculateHaversineDistance(
-				projectedPoint.Lat, projectedPoint.Lon,
+				projectedPoint.GetLat(), projectedPoint.GetLon(),
 				gpsCoord.GetLat(), gpsCoord.GetLon(),
 			))
 
@@ -430,13 +429,6 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 				head.GetLat(), head.GetLon(),
 			))
 
-		}
-
-		if da.Gt(minDistr, e.GetLength()) {
-			// masalah nya disini 
-			// todo: benerin ini
-			// masih salah di RamerDouglasPecker osm_parser kayaknya...
-			fmt.Printf("debug")
 		}
 
 		cand.SetProjectedCoord(bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon())

@@ -8,9 +8,7 @@ import (
 
 func ProjectPointToLineCoord(pointA Coordinate, pointB Coordinate,
 	snap Coordinate) Coordinate {
-	pointA = MakeSixDigitsAfterComa2(pointA, 6)
-	pointB = MakeSixDigitsAfterComa2(pointB, 6)
-	snap = MakeSixDigitsAfterComa2(snap, 6)
+
 	snapLat := snap.Lat
 	snapLon := snap.Lon
 
@@ -30,18 +28,4 @@ func PointLinePerpendicularDistance(pointA Coordinate, pointB Coordinate,
 	dist := CalculateHaversineDistance(snap.GetLat(), snap.GetLon(), projectionPoint.GetLat(), projectionPoint.GetLon())
 
 	return util.KilometerToMeter(dist)
-}
-
-const (
-	EPS = 0.000001
-)
-func MakeSixDigitsAfterComa2(n Coordinate, precision int) Coordinate {
-
-	if util.CountDecimalPlacesF64(n.Lat) != precision {
-		n.Lat = util.RoundFloat(n.Lat+EPS, 6)
-	}
-	if util.CountDecimalPlacesF64(n.Lon) != precision {
-		n.Lon = util.RoundFloat(n.Lon+EPS, 6)
-	}
-	return n
 }

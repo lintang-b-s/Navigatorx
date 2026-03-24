@@ -604,8 +604,12 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 	geoEdgePoints := geo.RamerDouglasPeucker(da.NewGeoCoordinates(edgePoints)) // simplify edge geometry
 	simplifiedEdgePoints := make([]da.Coordinate, len(geoEdgePoints))
+	simplifiedDistance := 0.0
 	for i, coord := range geoEdgePoints {
 		simplifiedEdgePoints[i] = da.NewCoordinate(coord.GetLat(), coord.GetLon())
+		if i > 0 {
+			simplifiedDistance += geo.CalculateHaversineDistance(geoEdgePoints[i-1].GetLat(), geoEdgePoints[i-1].GetLon(), geoEdgePoints[i].GetLat(), geoEdgePoints[i].GetLon())
+		}
 	}
 
 	isRoundabout := false
@@ -619,6 +623,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	}
 
 	distanceInMeter := util.KilometerToMeter(distance)
+	simplifiedDistanceInMeter := util.KilometerToMeter(simplifiedDistance)
 
 	travelTimeWeight := distanceInMeter / util.KMHToMMin(speed) // in minutes
 
@@ -676,6 +681,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				uint32(toNId),
 				travelTimeWeight,
 				distanceInMeter,
+				simplifiedDistanceInMeter,
 				hwType,
 			)
 
@@ -715,6 +721,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				uint32(fromNId),
 				travelTimeWeight,
 				distanceInMeter,
+				simplifiedDistanceInMeter,
 				hwType,
 			)
 
@@ -753,6 +760,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			uint32(toNId),
 			travelTimeWeight,
 			distanceInMeter,
+			simplifiedDistanceInMeter,
 			hwType,
 		)
 
@@ -777,6 +785,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			uint32(fromNId),
 			travelTimeWeight,
 			distanceInMeter,
+			simplifiedDistanceInMeter,
 			hwType,
 		)
 

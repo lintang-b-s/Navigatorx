@@ -47,9 +47,10 @@ func (g *Graph) WriteGraph(filename string) error {
 	for _, e := range g.outEdges {
 		weightF := strconv.FormatFloat(e.weight, 'f', -1, 64)
 		distF := strconv.FormatFloat(e.dist, 'f', -1, 64)
+		simplifiedDistF := strconv.FormatFloat(e.simplifiedDist, 'f', -1, 64)
 
-		fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
-			e.edgeId, e.head, weightF, distF, e.entryPoint, e.edgeInfoId, e.hwType)
+		fmt.Fprintf(w, "%d %d %s %s %d %d %d %s\n",
+			e.edgeId, e.head, weightF, distF, e.entryPoint, e.edgeInfoId, e.hwType, simplifiedDistF)
 	}
 
 	for _, e := range g.inEdges {
@@ -677,8 +678,8 @@ func parseVertex(line string) (*Vertex, error) {
 
 func parseOutEdge(line string) (*OutEdge, error) {
 	tokens := fields(line)
-	if len(tokens) != 7 {
-		return nil, fmt.Errorf("expected 7 fields, got %d", len(tokens))
+	if len(tokens) != 8 {
+		return nil, fmt.Errorf("expected 8 fields, got %d", len(tokens))
 	}
 	edgeId, err := ParseIndex(tokens[0])
 	if err != nil {
@@ -712,8 +713,14 @@ func parseOutEdge(line string) (*OutEdge, error) {
 		return nil, err
 	}
 
+	simplifiedDist, err := strconv.ParseFloat(tokens[7], 64)
+	if err != nil {
+		return nil, err
+	}
+
 	e := NewOutEdge(edgeId, head, weight, dist, int(entryPoint), pkg.OsmHighwayType(hwType))
 	e.SetInfoEdgeId(edgeInfoId)
+	e.SetSimplifiedLength(simplifiedDist)
 	return e, nil
 }
 

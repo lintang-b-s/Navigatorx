@@ -19,12 +19,13 @@ type Rtree struct {
 // at = exitOffset of target
 // so we need to know nearby as & at before run the query
 type ArcEndpoint struct {
-	entryId datastructure.Index
-	exitId  datastructure.Index
-	tailId  datastructure.Index
-	headId  datastructure.Index
-	id      datastructure.Index
-	length  float64 // length of this arc
+	entryId          datastructure.Index
+	exitId           datastructure.Index
+	tailId           datastructure.Index
+	headId           datastructure.Index
+	id               datastructure.Index
+	length           float64 // length of this arc
+	simplifiedLength float64
 }
 
 func (ae ArcEndpoint) GetExitId() datastructure.Index {
@@ -51,14 +52,19 @@ func (ae ArcEndpoint) GetLength() float64 {
 	return ae.length
 }
 
-func newArcEndpoint(exitId, entryId, id, tailId, headId datastructure.Index, length float64) ArcEndpoint {
+func (ae ArcEndpoint) GetSimplifiedLength() float64 {
+	return ae.simplifiedLength
+}
+
+func newArcEndpoint(exitId, entryId, id, tailId, headId datastructure.Index, length, simplifiedLength float64) ArcEndpoint {
 	return ArcEndpoint{
-		exitId:  exitId,
-		entryId: entryId,
-		id:      id,
-		length:  length,
-		tailId:  tailId,
-		headId:  headId,
+		exitId:           exitId,
+		entryId:          entryId,
+		id:               id,
+		length:           length,
+		tailId:           tailId,
+		headId:           headId,
+		simplifiedLength: simplifiedLength,
 	}
 }
 
@@ -93,7 +99,7 @@ func (rt *Rtree) Build(graph *datastructure.Graph, boundingBoxRadius float64, lo
 		exitId := exitPoint + graph.GetExitOffset(tail)
 
 		rt.tr.Insert([2]float64{minLon, minLat}, [2]float64{maxLon, maxLat},
-			newArcEndpoint(exitId, entryId, id, tail, e.GetHead(), e.GetLength()))
+			newArcEndpoint(exitId, entryId, id, tail, e.GetHead(), e.GetLength(), e.GetSimplifiedLength()))
 	})
 
 	log.Info("R-tree spatial index built.")

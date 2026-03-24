@@ -2,12 +2,10 @@ package partitioner
 
 import (
 	"fmt"
-	"math"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -62,8 +60,7 @@ T(n, U1,...,UL) \in O(n^4 * (n-U_{L}) + \sum_{l=2}^{L} U_l^4 *(U_{l} - U_{l-1}))
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
 	nodeIDs := mp.graph.GetVerticeIds()
-	k := mp.MinPrecision()
-
+	k := 3
 	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l, mp.u[mp.l-1])
 	if len(nodeIDs) > mp.u[mp.l-1] {
 
@@ -125,21 +122,6 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]datastr
 		cells[cellId] = append(cells[cellId], datastructure.Index(nodeId))
 	}
 	return cells // cellId -> vertices Id
-}
-
-func (mp *MultilevelPartitioner) MinPrecision() int {
-	minWeight := math.MaxFloat64
-	mp.graph.ForOutEdges(func(e *datastructure.OutEdge, exitPoint, head, tail, entryId datastructure.Index, percentage float64, idx datastructure.Index) {
-		eWeight := e.GetWeight()
-		if da.Eq(eWeight, 0) {
-			return
-		}
-		minWeight = math.Min(eWeight, minWeight)
-	})
-
-	prec := util.CountDecimalPlacesF64(minWeight)
-	prec = util.MinInt(prec, mp.minPrec)
-	return prec
 }
 
 func (mp *MultilevelPartitioner) SetMinPrec(k int) {

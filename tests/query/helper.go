@@ -36,7 +36,7 @@ func flattenEdges(es [][]pairEdge) []osmparser.Edge {
 
 	for from, edges := range es {
 		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, e.weight, 0))
+			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, 0, e.weight, 0))
 			eid++
 		}
 	}

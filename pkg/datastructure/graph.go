@@ -93,12 +93,12 @@ func (v *Vertex) GetTurnTablePtr() Index {
 
 // outedge enters vertex head at entryPoint
 type OutEdge struct {
-	weight             float64 // minute
-	dist               float64 // meter
-	edgeId, edgeInfoId Index   // edgeId = edgeId di graph.outEdges.
-	head               Index
-	entryPoint         int
-	hwType             pkg.OsmHighwayType
+	weight               float64 // minute
+	dist, simplifiedDist float64 // meter
+	edgeId, edgeInfoId   Index   // edgeId = edgeId di graph.outEdges.
+	head                 Index
+	entryPoint           int
+	hwType               pkg.OsmHighwayType
 }
 
 // inedge exits vertex tail at exitPoint
@@ -187,6 +187,13 @@ func (e *OutEdge) GetEdgeInfoId() Index {
 
 func (e *OutEdge) GetEdgeId() Index {
 	return e.edgeId
+}
+func (e *OutEdge) SetSimplifiedLength(l float64) {
+	e.simplifiedDist = l
+}
+
+func (e *OutEdge) GetSimplifiedLength() float64 {
+	return e.simplifiedDist
 }
 
 func (e *InEdge) GetWeight() float64 {

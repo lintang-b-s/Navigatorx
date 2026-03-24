@@ -248,6 +248,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				e.toId,
 				travelTimeWeight,
 				distanceInMeter,
+				distanceInMeter,
 				0,
 			)
 
@@ -265,6 +266,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				e.toId,
 				e.fromId,
 				travelTimeWeight,
+				distanceInMeter,
 				distanceInMeter,
 				0,
 			)
@@ -290,6 +292,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				e.fromId,
 				e.toId,
 				travelTimeWeight,
+				distanceInMeter,
 				distanceInMeter,
 				0,
 			)
