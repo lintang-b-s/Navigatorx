@@ -7,7 +7,9 @@ import (
 	"io"
 	"math"
 	"math/rand"
+	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -30,6 +32,8 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
+
+// go run eval/crp_alt/online_map_matching/newsonkrumm/main.go
 
 func parseLineString(s string, vertexCount int) ([]da.Coordinate, error) {
 	const prefix = "LINESTRING("
@@ -91,7 +95,42 @@ const (
 	graphFile                string = "./data/original_eval_mm.graph"
 	overlayGraphFile         string = "./data/overlay_graph_eval_mm.graph"
 	metricsFile              string = "./data/metrics_eval_mm.txt"
+	roadnetworkDriveFile            = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
 )
+
+func download(filePath, url string, logger *zap.Logger) {
+	logger.Sugar().Infof("downloading evaluation road network dataset.....")
+
+	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+
+		dir := filepath.Dir(filePath)
+		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+			panic(err)
+		}
+
+		output, err := os.Create(filePath)
+		if err != nil {
+			panic(err)
+		}
+		defer output.Close()
+
+		logger.Sugar().Infof("downloading file......")
+		response, err := http.Get(url)
+		if err != nil {
+			panic(err)
+		}
+		defer response.Body.Close()
+
+		_, err = io.Copy(output, response.Body)
+		if err != nil {
+			panic(err)
+		}
+
+		logger.Sugar().Infof("download complete")
+	}
+
+	logger.Sugar().Infof("download completed")
+}
 
 func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
 	logger, err := logger.New()
@@ -99,7 +138,8 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		return nil, nil, nil, nil, nil, err
 	}
 
-	logger.Sugar().Infof("downloading evaluation dataset.....")
+	logger.Sugar().Infof("downloading evaluation road network dataset.....")
+	download(roadnetworkFilepath, roadnetworkDriveFile, logger)
 
 	logger.Sugar().Infof("download completed")
 
@@ -400,7 +440,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 	workers.Wait()
 
 	var N *da.SparseMatrix[int]
-	_, err = os.Stat("")
+	_, err = os.Stat(transitionMatrixFilepath)
 	if err == nil {
 		logger.Info("reading transition matrix from file...")
 
@@ -440,8 +480,10 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 }
 
 const (
-	gpsDataFilepath         = "./data/eval/mapmatching/gps_data.txt"
-	groundTruthDataFilepath = "./data/eval/mapmatching/ground_truth.txt"
+	gpsDataFilepath          = "./data/eval/mapmatching/gps_data.txt"
+	groundTruthDataFilepath  = "./data/eval/mapmatching/ground_truth.txt"
+	gpsDataDriveFile         = "https://drive.google.com/uc?export=download&id=1QCrMnchOjCfOMQet9Oon-dmZ36MasTjA"
+	groundTruthDataDriveFile = "https://drive.google.com/uc?export=download&id=11LxzpV-VDCImDq3OWN3m3tukFKmwl9Fn"
 )
 
 func main() {
@@ -449,6 +491,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
+	download(gpsDataFilepath, gpsDataDriveFile, logger)
+	download(groundTruthDataFilepath, groundTruthDataDriveFile, logger)
+
 	rtree := spatialindex.NewRtree()
 	rtree.Build(g, 0.05, logger)
 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(g, rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
@@ -560,19 +606,13 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		traversed, err := strconv.ParseInt(ff[1], 10, 32)
-		if err != nil {
-			panic(err)
-		}
 
-		if traversed == 1 {
-			traversedEdges[edgeId] = edgeLength[edgeId]
-		}
+		traversedEdges[edgeId] = edgeLength[edgeId]
 	}
 
 	lengthOfCorrectRoute := 0.0
 
-	for _, eLength := range edgeLength {
+	for _, eLength := range traversedEdges {
 		lengthOfCorrectRoute += eLength
 	}
 
@@ -619,14 +659,25 @@ func main() {
 	rmf := (lengthOfErrorneouslyAdded + lengthOfErrorneouslySubtracted) / lengthOfCorrectRoute
 	crp := numOfCorrectMatchedRoads / numberOfRoadsOfMatchedTrips
 	fmt.Printf("Route Mismatch Fraction (RMF): %v\n", rmf)
-	fmt.Printf("Correct Road Percentage (CRP): %v\n", crp)
+	fmt.Printf("Correct Road Percentage (CRP) or accuracy: %v\n", crp)
 	fmt.Printf("avg runtime per gpt point: %v microseconds\n", avgRuntimePerGpsPoint)
 
 	polyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(matchedCoords))
 	fmt.Printf("polyline of map matching result: %s\n", polyline)
 
-	// todo: upload dataset ke drive, disini kita download file dataset dari drivenya
-	// todo2: benerin build graph roadnetwork untuk dataset ini,  masih ada yang salah
+	// todo: upload dataset ke drive, disini kita download file dataset dari drivenya (DONE)
+	// todo2: benerin build graph roadnetwork untuk dataset ini,  masih ada yang salah (DONE)
 	// todo3: benerin offline map matching pakai hidden markov model
+	// todo4: add evaluasi online map matching pakai dataset: https://github.com/Hanwen-Hu/AMM/tree/main/MatchData/Shanghai
+	// todo5: benerin frontend online map matching https://github.com/lintang-b-s/navigatorx-crp-fe
+	// todo6: add reroute feature, pas user keluar dari rute pilihan (dari hasil online map matching), reroute -> diassalow u turn
+	// todo7: deploy navigatorx ke vps lagi & coba fitur turn-by-turn navigation,online map  matching & reroute
 	//
+
+	/*
+	   	Route Mismatch Fraction (RMF): 0.06885194640640466
+
+	   Correct Road Percentage (CRP) or accuracy: 0.9563139025361838
+	   avg runtime per gpt point: 8.464612933209402 microseconds
+	*/
 }
