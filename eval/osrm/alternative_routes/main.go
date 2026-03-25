@@ -160,7 +160,7 @@ func main() {
 		}
 		if len(osrmResp.Routes) > 1 { 
 			// `http://localhost:5000/route/v1/driving/${randomQuery.srcLon},${randomQuery.srcLat};${randomQuery.destLon},${randomQuery.destLat}?overview=false&alternatives=true&steps=true
-			// di endpoint osrm diatas, rutes ke 1 adalah shortest path
+			// di endpoint osrm diatas, rute ke 1 adalah shortest path
 			// rute 2 dan seterusnya adalah rute alternatives
 			successRate++
 		}

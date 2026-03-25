@@ -63,7 +63,6 @@ osrm-backend (https://github.com/Project-OSRM/osrm-backend) pakai script di "eva
 success rate (dari semua query ada berapa query yang berhasil return alternative routes): 56%  (didapat dari script eval/osrm/alternative_routes/main.go)
 
 vus:300
-
 HTTP
 http_req_duration.......................................................: avg=20.08ms min=662.48µs med=13.33ms max=254.5ms p(90)=36.29ms p(95)=62.14ms
   { expected_response:true }............................................: avg=20.11ms min=662.48µs med=13.38ms max=254.5ms p(90)=36.31ms p(95)=62.31ms

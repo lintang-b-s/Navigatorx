@@ -110,10 +110,9 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 
 		firstOvArc := da.NewVertexEdgePair(v, outEdge.GetEdgeId(), true)
 		svPackedPath = append(svPackedPath, firstOvArc)
-
 	}
 
-	svPackedPath = util.ReverseG[da.VertexEdgePair](svPackedPath)
+	util.ReverseG[da.VertexEdgePair](svPackedPath)
 
 	return svPackedPath
 }
@@ -212,7 +211,9 @@ func (re *CRPRoutingEngine) RetrieveForwardUnpackedPath(forwardMid da.VertexEdge
 
 	if tail != midOutEdge.GetHead() {
 		geom := re.graph.GetEdgeGeometry(midOutEdge.GetEdgeId())
-		revGeom := util.ReverseG(geom)
+		revGeom := make([]da.Coordinate, len(geom))
+		copy(revGeom, geom)
+		util.ReverseG(revGeom)
 		finalPath = append(finalPath, revGeom...)
 		finalEdgePath = append(finalEdgePath, *midOutEdge)
 		totalDistance += midOutEdge.GetLength()
@@ -234,14 +235,16 @@ func (re *CRPRoutingEngine) RetrieveForwardUnpackedPath(forwardMid da.VertexEdge
 		finalEdgePath = append(finalEdgePath, *outEdge)
 
 		geom := re.graph.GetEdgeGeometry(outEdge.GetEdgeId())
-		revGeom := util.ReverseG(geom)
+		revGeom := make([]da.Coordinate, len(geom))
+		copy(revGeom, geom)
+		util.ReverseG(revGeom)
 		finalPath = append(finalPath, revGeom...)
 		totalDistance += outEdge.GetLength()
 		totalTravelTime += re.costFunction.GetWeight(outEdge)
 		curInfo = fpq.Get(parentEdge)
 	}
 
-	finalPath = util.ReverseG(finalPath)
+	util.ReverseG(finalPath)
 
 	return totalTravelTime, totalDistance, finalPath, finalEdgePath
 }

@@ -66,7 +66,7 @@ implementation of:
 1. query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
-2. query phase: Delling, D. et al. (20data11) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
+2. query phase: Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
 
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):

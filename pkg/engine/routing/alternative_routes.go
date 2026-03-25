@@ -165,6 +165,11 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
 	crpQuery.SetForAlternativeRoutes(true)
 
+	defer func() {
+		crpQuery.SetForAlternativeRoutes(false)
+		crpQuery.Done()
+	}()
+
 	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
 	if !found {
 		return []*AlternativeRoute{}
@@ -421,29 +426,22 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		ars.candidates = append(ars.candidates, alternativeRoute)
 	}
 
-	crpQuery.SetForAlternativeRoutes(false)
-	crpQuery.Done()
-
 	sort.Slice(ars.candidates, func(i, j int) bool {
 		return ars.candidates[i].GetObjectiveValue() < ars.candidates[j].GetObjectiveValue()
 	})
 
-	res := make([]*AlternativeRoute, 0, k)
-
 	maxAltSize := util.MinInt(k, len(ars.candidates))
+	ars.candidates = ars.candidates[:maxAltSize]
 	for i := 0; i < maxAltSize; i++ {
-		// todo: pake sync.pool reuse edgePath & path dari getEdgePath
-		// coba todo setelah fitur reroute, evaluasi map matching, update frontend selesai
+
 		finalEdgePath, finalPath, totalDistance := ars.engine.GetEdgePath(ars.candidates[i].GetEdgeIdPath())
 		ars.candidates[i].SetCoordPath(finalPath)
 		ars.candidates[i].SetEdgePath(finalEdgePath)
 		ars.candidates[i].SetDist(totalDistance)
 
-		res = append(res, ars.candidates[i])
 	}
 
-	res = removeSimiliarAlternatives(res)
-	ars.candidates = res
+	res := removeSimiliarAlternatives(ars.candidates)
 
 	// worst case of FindAlternativeRoutes: worst case crp query + worst case computeAlternatives for all via vertices
 	// O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o) + c * ( p + \sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))
@@ -970,17 +968,15 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 }
 
 func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
-	set := make([]map[da.Index]struct{}, len(alts))
-	for i := 0; i < len(alts); i++ {
-		set[i] = make(map[da.Index]struct{}, len(alts[i].GetPath()))
-	}
+	set := make([]map[da.Index]struct{}, 0, len(alts))
+
 	res := make([]*AlternativeRoute, 0, len(alts))
-	for i, alt := range alts {
+	for _, alt := range alts {
 		// O(N^2 * M), N=len(alts), M=max{len(alts.edges[i])}, for each 0<=i<len(alts)
 		altPath := alt.GetPath()
 
 		addToRes := true
-		for j := 0; j < i; j++ {
+		for j := 0; j < len(set); j++ {
 			// check similiarity with other previous alternative routes
 			intersection := 0.0
 
@@ -1008,10 +1004,11 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 		if addToRes {
 			res = append(res, alt)
 
+			altSet := make(map[da.Index]struct{}, len(altPath))
 			for _, e := range altPath {
-				// make alternative route path set
-				set[i][e.GetEdgeId()] = struct{}{}
+				altSet[e.GetEdgeId()] = struct{}{}
 			}
+			set = append(set, altSet)
 		}
 	}
 	return res

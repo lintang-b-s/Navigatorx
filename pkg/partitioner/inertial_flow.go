@@ -55,7 +55,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 
 	n := inf.graph.NumberOfVertices()
 	iterations := inf.iterations
-	if n >= 100000 {
+	if n >= LARGE_GRAPH_NUMBER_OF_VERTICES {
 		iterations = INERTIAL_FLOW_ITERATION_LARGE_GRAPH
 	}
 

@@ -51,7 +51,6 @@ else gabung semua sccs yang punya size < maximumCellSize jadi 1 smallComponent
 
 return concatenation dari bigcomponents dan smallComponent & jadikan array of partitionGraph
 dengan vertex id dari setiap partitionGraph sama dengan vertex id di pg
-
 */
 func prePartitionWithSCC(pg *da.PartitionGraph, maximumCellSize int) []*da.PartitionGraph {
 	// O(n+m), n,m= number of vertices and edges of pg
@@ -74,7 +73,7 @@ func prePartitionWithSCC(pg *da.PartitionGraph, maximumCellSize int) []*da.Parti
 		}
 	}
 
-	order = util.ReverseG[da.PartitionVertex](order)
+	util.ReverseG[da.PartitionVertex](order)
 
 	// reset visited
 	visited = make([]bool, n)
@@ -87,7 +86,6 @@ func prePartitionWithSCC(pg *da.PartitionGraph, maximumCellSize int) []*da.Parti
 
 		}
 	}
-
 
 	// pecah sccs
 	bigComponents := make([][]da.PartitionVertex, 0, len(components)/2)
@@ -178,4 +176,3 @@ func (g *kosrajuGraph) dfs(vertex da.PartitionVertex, output *[]da.PartitionVert
 	// finished v
 	*output = append(*output, vertex)
 }
-

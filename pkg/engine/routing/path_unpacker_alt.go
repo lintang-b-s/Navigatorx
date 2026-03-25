@@ -50,7 +50,7 @@ https://doi.org/10.1287/trsc.2014.0579.
 [3] I. Pohl. Bi-directional Search. In Machine Intelligence, volume 6, pages 124–140. Edinburgh Univ. Press, Edinburgh, 1971.
 [4] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [5] bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
-[6] Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA: MIT Press
+[6] Cormen, T.H. et al. (2009) Introduction to Algorithms. 3th ed. Cambridge, MA, USA: MIT Press
 
 unpackPath. unpack a level-i shortcut (v, w) by running Bidirectional ALT [4] between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
 jika level i-1 >= 1, kita menggunakan shortcut edges (dari subcells dari level-i cell containing the shortcut) di overlay graph level i-1
@@ -79,6 +79,7 @@ let L = highest level of multilevel partition
 time complexity of unpackPath: O(q * ( L *  (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p) ) )
 */
 func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Index, map[uint64]uint8) {
+
 	unpackedEdgePathComp := make([][]da.Index, len(packedPath))
 	now := time.Now()
 
@@ -379,7 +380,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 		curOverlayId = fOverlayPq.Get(curOverlayId).GetParent().GetEdge()
 	}
 
-	overlayPath = util.ReverseG(overlayPath)
+	util.ReverseG(overlayPath)
 
 	curOverlayId = bOverlayPq.Get(mid).GetParent().GetEdge()
 
@@ -666,7 +667,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 		uId = pEId
 	}
 
-	edgeIdPath = util.ReverseG(edgeIdPath)
+	util.ReverseG(edgeIdPath)
 
 	// mid<-v
 	midOutEdge = pu.engine.graph.GetOutEdge(bMid)

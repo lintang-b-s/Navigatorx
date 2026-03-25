@@ -360,7 +360,7 @@ func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
 		curOverlayId = fOverlayPq.Get(curOverlayId).GetParent().GetEdge()
 	}
 
-	overlayPath = util.ReverseG(overlayPath)
+	util.ReverseG(overlayPath)
 
 	curOverlayId = bOverlayPq.Get(mid).GetParent().GetEdge()
 
@@ -637,7 +637,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 		uId = pEId
 	}
 
-	edgeIdPath = util.ReverseG(edgeIdPath)
+	util.ReverseG(edgeIdPath)
 
 	// mid<-v
 	midOutEdge = pu.engine.graph.GetOutEdge(bMid)

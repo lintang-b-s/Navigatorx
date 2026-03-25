@@ -124,7 +124,9 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 
 	if tail != midOutEdge.GetHead() {
 		geom := bs.engine.graph.GetEdgeGeometry(midOutEdge.GetEdgeId())
-		revGeom := util.ReverseG(geom)
+		revGeom := make([]da.Coordinate, len(geom))
+		copy(revGeom, geom)
+		util.ReverseG(revGeom)
 		finalPath = append(finalPath, revGeom...)
 		finalEdgePath = append(finalEdgePath, *midOutEdge)
 		totalDistance += midOutEdge.GetLength()
@@ -145,14 +147,15 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 		finalEdgePath = append(finalEdgePath, *outEdge)
 
 		geom := bs.engine.graph.GetEdgeGeometry(outEdge.GetEdgeId())
-		revGeom := util.ReverseG(geom)
+		revGeom := make([]da.Coordinate, len(geom))
+		util.ReverseG(revGeom)
 		finalPath = append(finalPath, revGeom...)
 		totalDistance += outEdge.GetLength()
 		curInfo = bs.forwardPq.Get(parentEdge)
 	}
 
-	finalPath = util.ReverseG(finalPath)
-	finalEdgePath = util.ReverseG(finalEdgePath)
+	util.ReverseG(finalPath)
+	util.ReverseG(finalEdgePath)
 
 	mid = bs.backwardMid
 	curInfo = bs.backwardPq.Get(bs.backwardMid.GetEdge())

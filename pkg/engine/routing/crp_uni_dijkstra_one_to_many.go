@@ -147,7 +147,7 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 			curInfo = us.pq.Get(parent.GetEdge())
 		}
 
-		idPath = util.ReverseG[da.VertexEdgePair](idPath)
+		util.ReverseG[da.VertexEdgePair](idPath)
 
 		unpacker := NewPathUnpacker(us.engine, us.engine.metrics, us.engine.puCache, true, true)
 		edgeIdPath, _ := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))

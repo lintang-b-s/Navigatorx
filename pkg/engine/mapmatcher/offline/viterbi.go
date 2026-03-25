@@ -178,7 +178,7 @@ func (v *Viterbi) retrieveMostLikelyStateSequence() []*state {
 		es = es.backPointer
 	}
 
-	result = util.ReverseG(result)
+	util.ReverseG(result)
 
 	return result
 }

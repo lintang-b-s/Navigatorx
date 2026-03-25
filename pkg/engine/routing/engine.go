@@ -24,6 +24,7 @@ type CRPRoutingEngine struct {
 	packedPathPool     sync.Pool
 	edgePathPool       sync.Pool
 	pathPool           sync.Pool
+	unpackedPathPool   sync.Pool
 	customizer         Customizer
 	costFunction       CostFunction
 }
@@ -114,6 +115,13 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 		New: func() any {
 			path := make([]da.Coordinate, 0, 1024)
 			return path
+		},
+	}
+
+	crp.unpackedPathPool = sync.Pool{
+		New: func() any {
+			s := make([]da.Index, 0, 1024)
+			return s
 		},
 	}
 }

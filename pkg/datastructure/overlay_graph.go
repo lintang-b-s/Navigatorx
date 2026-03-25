@@ -464,10 +464,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 // ForOutNeighborsOf. iterates over all outgoing-neighbors of u
 func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Index, wOffset Index)) {
 	uVertex := og.GetVertex(u)
-	if level-1 >= len(uVertex.entryExitPoint) {
-		uOriVertex := uVertex.GetOriginalVertex()
-		fmt.Printf("debug %v", uOriVertex)
-	}
+
 	entryPoint := uVertex.GetEntryExitPoint(level)
 
 	cell := og.GetCell(uVertex.GetCellNumber(), level)

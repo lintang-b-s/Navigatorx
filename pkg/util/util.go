@@ -128,13 +128,11 @@ func RoundFloat(val float64, precision uint) float64 {
 	return math.Round(val*ratio) / ratio
 }
 
-func ReverseG[T any](arr []T) []T {
-	copyArr := make([]T, len(arr)) // should do on the copy )
-	copy(copyArr, arr)
-	for i, j := 0, len(copyArr)-1; i < j; i, j = i+1, j-1 {
-		copyArr[i], copyArr[j] = copyArr[j], copyArr[i]
+func ReverseG[T any](arr []T) {
+
+	for i, j := 0, len(arr)-1; i < j; i, j = i+1, j-1 {
+		arr[i], arr[j] = arr[j], arr[i]
 	}
-	return copyArr
 }
 
 func StopConcurrentOperation(ctx context.Context) bool {

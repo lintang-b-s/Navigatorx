@@ -48,7 +48,9 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
 	if err != nil {
-		return 0, 0, "", []datastructure.DrivingDirection{}, false, err
+		errmsg := fmt.Sprintf("no nearby intersections found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
+		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
+			errmsg)
 	}
 	var (
 		travelTime, dist float64
@@ -78,7 +80,9 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
 	if err != nil {
-		return []*routing.AlternativeRoute{}, false, err
+		errmsg := fmt.Sprintf("no nearby intersections found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
+		return []*routing.AlternativeRoute{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
+			errmsg)
 	}
 
 	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.upperBoundAlternativeSearch, rs.gamma, rs.alpha,

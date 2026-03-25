@@ -43,15 +43,18 @@ func (t target) getatId() da.Index {
 
 func removeDuplicates(arr []da.Index) []da.Index {
 	set := make(map[da.Index]struct{}, len(arr))
-	newarr := make([]da.Index, 0, len(arr))
+	j := 0
 
-	for _, v := range arr {
+	for i := 0; i < len(arr); i++ {
+		v := arr[i]
 		if _, ok := set[v]; !ok {
 			set[v] = struct{}{}
-			newarr = append(newarr, v)
+			arr[j] = v
+			j++
 		}
 	}
-	return newarr
+
+	return arr[:j]
 }
 
 func removeDuplicatesVias(arr []*da.ViaVertex) []*da.ViaVertex {
@@ -133,6 +136,3 @@ func initInfWeight(dist []float64) {
 func bitpack(i, j da.Index) uint64 {
 	return uint64(i) | (uint64(j) << 32)
 }
-
-
-

@@ -104,7 +104,7 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 				curInfo = us.pq.Get(parentEdge)
 			}
 
-			spEdges[t] = util.ReverseG(spEdges[t])
+			util.ReverseG(spEdges[t])
 		}
 
 	} else {

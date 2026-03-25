@@ -679,7 +679,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 		} else {
 
-			simplifiedEdgePoints = util.ReverseG(simplifiedEdgePoints)
+			util.ReverseG(simplifiedEdgePoints)
 
 			startPointsIndex := graphStorage.GetOsmNodePointsCount()
 

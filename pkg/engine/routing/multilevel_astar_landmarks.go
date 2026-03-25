@@ -81,7 +81,7 @@ https://doi.org/10.1287/trsc.2014.0579.
 4. bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
 5. consistent heuristic for A* & optimality of A*: Hart, P.E., Nilsson, N.J. and Raphael, B. (1968) “A Formal Basis for the Heuristic Determination of Minimum Cost Paths,” IEEE Transactions on Systems Science and Cybernetics, 4(2), pp. 100–107. Available at: https://doi.org/10.1109/TSSC.1968.300136.
 6. Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
-7. Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA: MIT Press
+7. Cormen, T.H. et al. (2009) Introduction to Algorithms. 3th ed. Cambridge, MA, USA: MIT Press
 
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
@@ -221,7 +221,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 		// s dan t adalah proyeksi gps coordinate ke out edge (u,v) dan (w,q)
 		// disini kita simulasiin sp query dari s ke t dengan cara:
 		// set source = v dan target = w
-		
+
 		v := bs.engine.graph.GetOutEdge(asId).GetHead()
 		w := bs.engine.graph.GetTailOfOutedge(atId)
 
@@ -370,8 +370,6 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
-
-		
 
 		priority := newTravelTime + pfv
 
@@ -536,8 +534,6 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
 
-		
-
 		priority := newTravelTime + prv
 		if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
@@ -688,8 +684,6 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 			pfw, _ := bs.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
 
 			newTravelTime = bs.forwardPq.GetPriority(overlayVId) + edgeWeight
-
-			
 
 			priority := newTravelTime + pfw
 			if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
@@ -858,7 +852,6 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 			_, prw := bs.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
 
 			newTravelTime = bs.backwardPq.GetPriority(overlayVId) + inEdgeWeight
-
 
 			priority := newTravelTime + prw
 

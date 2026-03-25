@@ -19,7 +19,7 @@ func (g *Graph) RunKosaraju() {
 		}
 	}
 
-	order = util.ReverseG[Index](order)
+	util.ReverseG[Index](order)
 
 	// reset visited
 	visited = make([]bool, n)
