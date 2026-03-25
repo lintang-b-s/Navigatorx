@@ -67,6 +67,9 @@ func (rt *Rtree) Build(graph *datastructure.Graph, boundingBoxRadius float64, lo
 	log.Info("Building R-tree spatial index...")
 	graph.ForOutEdges(func(e *datastructure.OutEdge, exitPoint, head, tail, entryId datastructure.Index,
 		percentage float64, id datastructure.Index) {
+		if e.GetLength() == 0 {
+			return
+		}
 		from := tail
 		to := head
 

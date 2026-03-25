@@ -547,9 +547,7 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 
 func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
 	for idx, e := range g.outEdges {
-		if e.GetLength() == 0 {
-			continue
-		}
+		
 		percentage := float64(idx) / float64(len(g.outEdges)) * 100
 		tail := g.GetTailOfOutedge(Index(idx))
 
