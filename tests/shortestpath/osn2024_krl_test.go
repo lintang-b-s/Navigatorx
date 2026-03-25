@@ -348,10 +348,10 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	atTransit := g.GetEntryOffset(tidTransit) + g.GetInDegree(tidTransit) - 1
 
 	crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+	spLength, _ ,_:= crpQuery.ShortestPathSearch(as, at)
 
 	crpQuery2 := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-	spLengthTransit, _, _, _, _ := crpQuery2.ShortestPathSearch(as, atTransit)
+	spLengthTransit, _ ,_:= crpQuery2.ShortestPathSearch(as, atTransit)
 
 	var ans float64
 	if spLength < spLengthTransit {

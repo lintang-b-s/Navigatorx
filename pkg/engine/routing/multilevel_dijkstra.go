@@ -171,8 +171,7 @@ search terminates ketika sum dari minimum keys of both priority queues exceeds \
 di implementasi multilevel-dijkstra ini, kita menggunakan bidirectional dijkstra with turn costs
 */
 
-func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
-	[]da.OutEdge, bool) {
+func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, []da.Index, bool) {
 
 	defer bs.Done()
 	now := time.Now()
@@ -181,7 +180,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 	t := bs.engine.graph.GetInEdge(atId).GetTail()
 
 	if s == t {
-		return 0, 0, []da.Coordinate{}, []da.OutEdge{}, true
+		return 0, []da.Index{}, true
 	}
 
 	bs.sCellNumber = bs.engine.graph.GetCellNumber(s)
@@ -245,7 +244,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 	}
 
 	if da.Eq(bs.shortestTravelTime, 2*pkg.INF_WEIGHT) {
-		return pkg.INF_WEIGHT, 2 * pkg.INF_WEIGHT, []da.Coordinate{}, []da.OutEdge{}, false
+		return pkg.INF_WEIGHT, []da.Index{}, false
 	}
 
 	packedPath := bs.engine.RetrievePackedPath(bs.forwardMid, bs.backwardMid,
@@ -259,9 +258,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float
 	bs.shortcutPathSet = shortcutPathSet
 	bs.pathUnpackingRuntime = unpacker.GetStats()
 
-	finalEdgePath, finalPath, totalDistance := bs.engine.GetEdgePath(edgeIdPath)
-
-	return bs.shortestTravelTime, totalDistance, finalPath, finalEdgePath, true
+	return bs.shortestTravelTime, edgeIdPath, true
 }
 
 /*

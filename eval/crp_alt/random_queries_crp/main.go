@@ -41,7 +41,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	eng, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -95,7 +95,8 @@ func main() {
 
 	durations := 0.0
 
-	g := re.GetRoutingEngine().GetGraph()
+	re := eng.GetRoutingEngine()
+	g := re.GetGraph()
 
 	logger.Sugar().Infof("starting benchmark....")
 
@@ -112,8 +113,10 @@ func main() {
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
 		now := time.Now()
-		crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-		_, _, _, spEdges, _ := crpQuery.ShortestPathSearch(as, at)
+		crpQuery := routing.NewCRPBidirectionalSearch(re, 1.0)
+		_, spEdgeIds, _ := crpQuery.ShortestPathSearch(as, at)
+		spEdges, _, _ := re.GetEdgePath(spEdgeIds)
+
 		dur := time.Since(now).Milliseconds()
 		durations += float64(dur)
 

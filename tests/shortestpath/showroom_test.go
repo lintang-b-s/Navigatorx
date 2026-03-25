@@ -190,7 +190,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 
 		crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-		spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+		spLength, _, _ := crpQuery.ShortestPathSearch(as, at)
 
 		lock.Lock()
 		defer lock.Unlock()

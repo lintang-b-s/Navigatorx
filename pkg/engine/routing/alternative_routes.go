@@ -170,7 +170,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		crpQuery.Done()
 	}()
 
-	optTravelTime, _, _, optEdgePath, found := crpQuery.ShortestPathSearch(asId, atId)
+	optTravelTime, optEdgeIdPath, found := crpQuery.ShortestPathSearch(asId, atId)
 	if !found {
 		return []*AlternativeRoute{}
 	}
@@ -185,7 +185,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	viaVertices := ars.retrieveViaVertices(fpq, bpq, sCellNumber, optTravelTime)
 	ars.candidates = make([]*AlternativeRoute, 0, MAX_FILTERED_ALTERNATIVE_ROUTE_CANDIDATES)
 
-	optPathSet := ars.buildPathSet(optEdgePath)
+	optPathSet := ars.buildPathSet(optEdgeIdPath)
+
 	shortcutPathSet := crpQuery.getShortcutPathSet()
 
 	ars.numOfInitialCands = len(viaVertices)
@@ -605,10 +606,11 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(svPath, vtPath []da.In
 	return distanceShare
 }
 
-func (ars *AlternativeRouteSearch) buildPathSet(optPath []da.OutEdge) map[da.Index]struct{} {
+func (ars *AlternativeRouteSearch) buildPathSet(optPath []da.Index) map[da.Index]struct{} {
 
 	optPathSet := make(map[da.Index]struct{}, len(optPath))
-	for _, e := range optPath {
+	for _, eId := range optPath {
+		e := ars.engine.graph.GetOutEdge(eId)
 		v := e.GetHead()
 		optPathSet[v] = struct{}{}
 

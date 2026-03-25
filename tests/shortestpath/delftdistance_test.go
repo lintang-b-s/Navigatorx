@@ -248,7 +248,7 @@ func solve(t *testing.T, filepath string) {
 
 	t.Logf("calculating shortest path...\n")
 
-	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+	spLength, _, _ := crpQuery.ShortestPathSearch(as, at)
 
 	// assert expected output dari test cases soal
 
