@@ -92,7 +92,6 @@ decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shor
 extract-min at most O(m_p+n_o) operations
 
 
-
 ingat bahwa pada graf standard (tanpa incorporate turn costs), kita menjalankan dijkstra dengan repeatly memilih vertex u  dengan minimum shortest path estimate dari priority queue, add ke  set of scanned vertices S
 dan relax semua out edges dari vertex u
 

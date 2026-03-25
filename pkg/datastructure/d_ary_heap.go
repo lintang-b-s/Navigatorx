@@ -7,11 +7,10 @@ import (
 )
 
 type CRPQueryKey struct {
-	node           Index //  4 byte
-	entryExitPoint Index //  4 byte
-	outInEdgeId    Index //  4 byte
-	overlay        bool  // 1 byte
-	// total 13 byte
+	node           Index // nodeId or boundary/overlay nodeId
+	entryExitPoint Index // edgeId or node query level (if node is an overlay vertex)
+	outInEdgeId    Index // 
+	overlay        bool  // is node a boundary/overlay vertex
 }
 
 func (qk *CRPQueryKey) GetNode() Index {

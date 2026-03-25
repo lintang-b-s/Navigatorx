@@ -3,7 +3,6 @@ package routing
 import (
 	"math"
 	"sort"
-	"sync"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -186,13 +185,6 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 	ars.numOfInitialCands = len(viaVertices)
 
-	packedPathPool := sync.Pool{
-		New: func() any {
-			s := make([]da.VertexEdgePair, 0, 64)
-			return s
-		},
-	}
-
 	filterCandidates := func(v *da.ViaVertex) *da.ViaVertex {
 		var (
 			svTravelTime, vtTravelTime float64
@@ -251,10 +243,10 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		// sebelum cek limited sharing pakai unpacked path, kita cek approximate limited sharing pakai packed path dulu
 		// karena path unpacking lemot
 
-		svPackedPath = packedPathPool.Get().([]da.VertexEdgePair)
-		vtPackedPath = packedPathPool.Get().([]da.VertexEdgePair)
+		svPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
+		vtPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
 
-		svPackedPath = svPackedPath[:0]
+		svPackedPath = svPackedPath[:0] // reset length , tapi capacity tetep sama, ngaruh ke latency load test
 		vtPackedPath = vtPackedPath[:0]
 
 		if !v.IsOverlay() {
@@ -277,8 +269,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		}
 
 		defer func() {
-			packedPathPool.Put(svPackedPath)
-			packedPathPool.Put(vtPackedPath)
+			ars.engine.packedPathPool.Put(svPackedPath)
+			ars.engine.packedPathPool.Put(vtPackedPath)
 		}()
 
 		approxDistanceShare := ars.calculateApproxDistanceShare(svPackedPath, vtPackedPath, optPathSet, shortcutPathSet,
@@ -341,8 +333,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 			svEdgeIdPath, vtEdgeIdPath []da.Index
 		)
 
-		svPackedPath = packedPathPool.Get().([]da.VertexEdgePair)
-		vtPackedPath = packedPathPool.Get().([]da.VertexEdgePair)
+		svPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
+		vtPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
 
 		svPackedPath = svPackedPath[:0]
 		vtPackedPath = vtPackedPath[:0]
@@ -367,8 +359,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		}
 
 		defer func() {
-			packedPathPool.Put(svPackedPath)
-			packedPathPool.Put(vtPackedPath)
+			ars.engine.packedPathPool.Put(svPackedPath)
+			ars.engine.packedPathPool.Put(vtPackedPath)
 		}()
 
 		// // unpack packed path
@@ -440,6 +432,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 	maxAltSize := util.MinInt(k, len(ars.candidates))
 	for i := 0; i < maxAltSize; i++ {
+		// todo: pake sync.pool reuse edgePath & path dari getEdgePath
+		// coba todo setelah fitur reroute, evaluasi map matching, update frontend selesai
 		finalEdgePath, finalPath, totalDistance := ars.engine.GetEdgePath(ars.candidates[i].GetEdgeIdPath())
 		ars.candidates[i].SetCoordPath(finalPath)
 		ars.candidates[i].SetEdgePath(finalEdgePath)

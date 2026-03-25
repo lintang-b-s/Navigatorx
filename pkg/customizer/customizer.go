@@ -138,9 +138,13 @@ func newCustomizerCell(cell *da.Cell, cellNumber da.Pv) customizerCell {
 
 /*
 
+let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
+
+
 worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
-worst case buildLevel:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
-worst case crp customization: O( c_1 * n_op * (m_p* log(m_p)) + \sum_{l=2}^{L} c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
+worst case buildLevel in level l:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
+
+worst case crp customization: O(  c_1 * n_op * (m_p* log(m_p)) + c_l * n_op * (n_op + \hat{m_p}) * log(n_op)  )
 */
 func (c *Customizer) Build(
 	costFunction costfunction.CostFunction) {

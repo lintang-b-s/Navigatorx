@@ -233,7 +233,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 // please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestShowroom  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
-// selesai dalam 470s
+// selesai dalam 150s
 func TestShowroom(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/ukiepc2016_showroom/"

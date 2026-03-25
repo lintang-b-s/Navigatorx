@@ -34,7 +34,15 @@ import (
 )
 
 // go run eval/crp_alt/online_map_matching/newsonkrumm/main.go
+/*
 
+[1] Taguchi, S., Koide, S. and Yoshimura, T. (2019) “Online Map Matching With Route
+Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), pp.
+338–347. Available at: https://doi.org/10.1109/TITS.2018.2812147.
+
+*/
+// ini evaluasi implementasi online map matching pakai multiple hypothesis techinque [1] (mapmatch_mht.go)
+// pakai dataset dari: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
 func parseLineString(s string, vertexCount int) ([]da.Coordinate, error) {
 	const prefix = "LINESTRING("
 
@@ -93,43 +101,44 @@ const (
 	transitionMatrixFilepath        = "./data/eval/mapmatching/omm_transition_history_id.mm"
 	roadnetworkFilepath             = "./data/eval/mapmatching/road_network.txt"
 	graphFile                string = "./data/original_eval_mm.graph"
+	mlpFile                         = "online_map_match_mlp_newsonkrumm"
 	overlayGraphFile         string = "./data/overlay_graph_eval_mm.graph"
 	metricsFile              string = "./data/metrics_eval_mm.txt"
 	roadnetworkDriveFile            = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
 )
 
-func download(filePath, url string, logger *zap.Logger) {
-	logger.Sugar().Infof("downloading evaluation road network dataset.....")
+func download(filePath, url string, logger *zap.Logger, name string) error {
 
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
+		logger.Sugar().Infof("downloading evaluation %s dataset.....", name)
 
 		dir := filepath.Dir(filePath)
 		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			panic(err)
+			return fmt.Errorf("download: MkdirAll failed %v", err)
 		}
 
 		output, err := os.Create(filePath)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("download: Create failed %v", err)
 		}
 		defer output.Close()
 
 		logger.Sugar().Infof("downloading file......")
 		response, err := http.Get(url)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("download: http.Get failed %v", err)
 		}
 		defer response.Body.Close()
 
 		_, err = io.Copy(output, response.Body)
 		if err != nil {
-			panic(err)
+			return fmt.Errorf("download: io.Copy failed %v", err)
 		}
 
 		logger.Sugar().Infof("download complete")
 	}
 
-	logger.Sugar().Infof("download completed")
+	return nil
 }
 
 func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
@@ -138,10 +147,10 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		return nil, nil, nil, nil, nil, err
 	}
 
-	logger.Sugar().Infof("downloading evaluation road network dataset.....")
-	download(roadnetworkFilepath, roadnetworkDriveFile, logger)
-
-	logger.Sugar().Infof("download completed")
+	err = download(roadnetworkFilepath, roadnetworkDriveFile, logger, "road network")
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 
 	logger.Sugar().Infof("building road network graph & running preprocessing, customization phase of Customizable Route Planning CRP....")
 
@@ -252,11 +261,18 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		if from == to {
 			continue
 		}
+
 		eGeometry := e.geometry
 
 		distance := 0.0
 		for i := 0; i < len(eGeometry); i++ {
-
+			pp := eGeometry[i]
+			ddist := util.KilometerToMeter(geo.CalculateHaversineDistance(47.641583540898786, -122.26548052661369, pp.GetLat(), pp.GetLon()))
+			if da.Lt(ddist, 500) {
+				// ternyata emang koordinat edge geometry di evergreen point floating bridge gak ngepas di jembatannya
+				// pantes polyline hasil map matchingnya gak ngepas di jembatannya
+				// pasang breakpoint debugger disini buat lihat edge geometry nya
+			}
 			if i > 0 {
 				distance += geo.CalculateHaversineDistance(eGeometry[i-1].GetLat(), eGeometry[i-1].GetLon(),
 					eGeometry[i].GetLat(), eGeometry[i].GetLon())
@@ -264,8 +280,8 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		}
 
 		distanceInMeter := util.KilometerToMeter(distance)
-		speed := e.speed
-		travelTimeWeight := distanceInMeter / util.KMHToMMin(speed) // in minutes
+		speed := e.speed * 60 // m/s ke m/min
+		travelTimeWeight := distanceInMeter / speed
 
 		edgeLength[e.eId] = distanceInMeter
 		if e.twoWay {
@@ -371,7 +387,16 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 	)
 	mp.RunMultilevelPartitioning()
 
-	mlp := mp.BuildMLP()
+	err = mp.SaveToFile(mlpFile)
+	if err != nil {
+		panic(err)
+	}
+
+	mlp := da.NewPlainMLP()
+	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
+	if err != nil {
+		panic(err)
+	}
 
 	prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile)
 	err = prep.PreProcessing(true)
@@ -396,7 +421,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		return nil, nil, nil, nil, nil, err
 	}
 
-	logger.Sugar().Infof("building road network graph & running preprocessing, customization phase of Customizable Route Planning CRP done....")
+	logger.Sugar().Infof("customization phase of Customizable Route Planning CRP done....")
 
 	n = g.NumberOfVertices()
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -447,7 +472,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		N, err = da.ReadSparseMatrixFromFile[int](transitionMatrixFilepath, int(0),
 			func(a, b int) bool { return a == b })
 		if err != nil {
-			panic(err)
+			return nil, nil, nil, nil, nil, err
 		}
 	} else {
 		N = da.NewSparseMatrix[int](g.NumberOfEdges(), g.NumberOfEdges(),
@@ -492,8 +517,15 @@ func main() {
 		panic(err)
 	}
 
-	download(gpsDataFilepath, gpsDataDriveFile, logger)
-	download(groundTruthDataFilepath, groundTruthDataDriveFile, logger)
+	err = download(gpsDataFilepath, gpsDataDriveFile, logger, "gps trajectory")
+	if err != nil {
+		panic(err)
+	}
+
+	err = download(groundTruthDataFilepath, groundTruthDataDriveFile, logger, "ground truth")
+	if err != nil {
+		panic(err)
+	}
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(g, 0.05, logger)
@@ -521,6 +553,9 @@ func main() {
 
 	mapMatchPointResult := make([]*da.MatchedGPSPoint, 0)
 	avgRuntimePerGpsPoint := 0.0
+
+	totalRuntime := 0.0
+	nowDataset := time.Now()
 
 	for {
 		line, err := util.ReadLine(br)
@@ -574,6 +609,10 @@ func main() {
 		mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
 		avgRuntimePerGpsPoint += float64(time.Now().Sub(now).Microseconds())
 	}
+
+	totalPoints := float64(k - 1)
+	runtimeDataset := time.Now().Sub(nowDataset).Milliseconds()
+	totalRuntime += float64(runtimeDataset)
 
 	// mteric pertama:
 	// https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
@@ -660,10 +699,18 @@ func main() {
 	crp := numOfCorrectMatchedRoads / numberOfRoadsOfMatchedTrips
 	fmt.Printf("Route Mismatch Fraction (RMF): %v\n", rmf)
 	fmt.Printf("Correct Road Percentage (CRP) or accuracy: %v\n", crp)
-	fmt.Printf("avg runtime per gpt point: %v microseconds\n", avgRuntimePerGpsPoint)
+	fmt.Printf("avg runtime per gpt point: %v microseconds/gps point\n", avgRuntimePerGpsPoint)
+	fmt.Printf("matching efficiency: %v points/ms", totalPoints/totalRuntime)
 
 	polyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(matchedCoords))
-	fmt.Printf("polyline of map matching result: %s\n", polyline)
+
+	polyFile, err := os.Create("polyline.txt")
+	if err != nil {
+		panic(err)
+	}
+
+	polyFile.Write([]byte(polyline))
+	polyFile.Close()
 
 	// todo: upload dataset ke drive, disini kita download file dataset dari drivenya (DONE)
 	// todo2: benerin build graph roadnetwork untuk dataset ini,  masih ada yang salah (DONE)
@@ -679,5 +726,7 @@ func main() {
 
 	   Correct Road Percentage (CRP) or accuracy: 0.9563139025361838
 	   avg runtime per gpt point: 8.464612933209402 microseconds
+
+	   polyline hasil map matching gak ngepas di osm karena emang dataset road networknya begitu (lihat line 269-273)
 	*/
 }

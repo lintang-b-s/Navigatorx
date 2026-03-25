@@ -69,6 +69,7 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	pathPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(pathCoords))
 	directionBuilder := guidance.NewDirectionBuilder(rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving)
 	drivingDirection := directionBuilder.GetDrivingDirections(edgePath)
+	rs.engine.DoneQuery(edgePath, pathCoords)
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }
 
@@ -93,6 +94,7 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 		directionBuilder := guidance.NewDirectionBuilder(rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving)
 		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetPath())
 		alt.SetDrivingDirections(drivingDirection)
+		rs.engine.DoneQuery(alt.GetPath(), alt.GetCoords())
 	}
 	return alternatives, true, nil
 }

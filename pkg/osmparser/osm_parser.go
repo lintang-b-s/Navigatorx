@@ -189,8 +189,6 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	scanner.Close()
 	graphStorage := da.NewGraphStorage()
 
-	edgeSet := make(map[da.Index]map[da.Index]struct{})
-
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, err
@@ -236,7 +234,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 
 				countWays++
 
-				hwTag, err := p.processWay(way, graphStorage, streetDirection, edgeSet, &scannedEdges, useMaxSpeed)
+				hwTag, err := p.processWay(way, graphStorage, streetDirection, &scannedEdges, useMaxSpeed)
 				if err != nil {
 					continue
 				}
@@ -350,7 +348,7 @@ type wayExtraInfo struct {
 }
 
 func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
-	streetDirection map[int64][2]bool, edgeSet map[da.Index]map[da.Index]struct{},
+	streetDirection map[int64][2]bool,
 	scannedEdges *[]Edge, useMaxSpeed bool) (string, error) {
 	tempMap := make(map[string]string)
 	name := way.Tags.Find("name")
@@ -463,7 +461,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 
 			waySegment = append(waySegment, nodeData)
 			p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraInfoData,
-				edgeSet, scannedEdges, int64(way.ID))
+				scannedEdges, int64(way.ID))
 			waySegment = []node{}
 
 			waySegment = append(waySegment, nodeData)
@@ -473,7 +471,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		}
 	}
 	if len(waySegment) > 1 {
-		p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraInfoData, edgeSet, scannedEdges,
+		p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraInfoData, scannedEdges,
 			int64(way.ID))
 	}
 
@@ -497,22 +495,22 @@ func getReversedOneWay(way *osm.Way) (bool, bool, bool, bool) {
 }
 
 func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, edgeSet map[da.Index]map[da.Index]struct{}, scannedEdges *[]Edge, id int64) {
+	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge, id int64) {
 
 	if len(segment) == 2 && segment[0].id == segment[1].id {
 		// skip
 		return
 	} else if len(segment) > 2 && segment[0].id == segment[len(segment)-1].id {
 		// loop
-		p.processSegment2(segment[0:len(segment)-1], tempMap, speed, graphStorage, wayExtraInfoData, edgeSet, scannedEdges, id)
-		p.processSegment2(segment[len(segment)-2:], tempMap, speed, graphStorage, wayExtraInfoData, edgeSet, scannedEdges, id)
+		p.processSegment2(segment[0:len(segment)-1], tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
+		p.processSegment2(segment[len(segment)-2:], tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
 	} else {
-		p.processSegment2(segment, tempMap, speed, graphStorage, wayExtraInfoData, edgeSet, scannedEdges, id)
+		p.processSegment2(segment, tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
 	}
 }
 
 func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, edgeSet map[da.Index]map[da.Index]struct{}, scannedEdges *[]Edge, id int64,
+	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge, id int64,
 ) {
 	waySegment := []node{}
 	for i := 0; i < len(segment); i++ {
@@ -523,7 +521,7 @@ func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, s
 				// if current node is a barrier
 				// add the barrier node and process the segment (add edge)
 				waySegment = append(waySegment, nodeData)
-				p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraInfoData, edgeSet, scannedEdges, id)
+				p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
 				waySegment = []node{}
 			}
 			// copy the barrier node but with different id so that previous edge (with barrier) not connected with the new edge
@@ -536,7 +534,7 @@ func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, s
 		}
 	}
 	if len(waySegment) > 1 {
-		p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraInfoData, edgeSet, scannedEdges, id)
+		p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
 	}
 }
 
@@ -558,7 +556,7 @@ func (p *OsmParser) copyNode(nodeData node) node {
 }
 
 func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, edgeSet map[da.Index]map[da.Index]struct{}, scannedEdges *[]Edge, id int64) {
+	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge, id int64) {
 	from := segment[0]
 
 	to := segment[len(segment)-1]
@@ -635,13 +633,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	}
 
 	fromNId := p.nodeIDMap[from.id]
-	if _, ok := edgeSet[fromNId]; !ok {
-		edgeSet[fromNId] = make(map[da.Index]struct{})
-	}
+
 	toNId := p.nodeIDMap[to.id]
-	if _, ok := edgeSet[toNId]; !ok {
-		edgeSet[toNId] = make(map[da.Index]struct{})
-	}
 
 	roadClass := tempMap[ROAD_CLASS]
 	if roadClass == "" {
@@ -652,12 +645,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 	if wayExtraInfoData.oneWay {
 		if wayExtraInfoData.forward {
-
-			if _, ok := edgeSet[fromNId][toNId]; ok {
-				return
-			}
-
-			edgeSet[fromNId][toNId] = struct{}{}
 
 			startPointsIndex := graphStorage.GetOsmNodePointsCount()
 
@@ -691,11 +678,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			*scannedEdges = append(*scannedEdges, e)
 
 		} else {
-
-			if _, ok := edgeSet[toNId][fromNId]; ok {
-				return
-			}
-			edgeSet[toNId][fromNId] = struct{}{}
 
 			simplifiedEdgePoints = util.ReverseG(simplifiedEdgePoints)
 
@@ -731,11 +713,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			*scannedEdges = append(*scannedEdges, e)
 		}
 	} else {
-		if _, ok := edgeSet[fromNId][toNId]; ok {
-			return
-		}
-		edgeSet[fromNId][toNId] = struct{}{}
-		edgeSet[toNId][fromNId] = struct{}{}
 
 		startPointsIndex := graphStorage.GetOsmNodePointsCount()
 

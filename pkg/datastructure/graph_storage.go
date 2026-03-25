@@ -31,7 +31,7 @@ func NewGraphStorage() *GraphStorage {
 		tagStringIDMap:   util.NewIdMap(),
 		roundaboutFlag:   make([]Index, 0),
 		nodeTrafficLight: make([]Index, 0),
-		osmNodePoints:     make([]Coordinate, 0),
+		osmNodePoints:    make([]Coordinate, 0),
 	}
 }
 
@@ -49,7 +49,7 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 		tagStringIDMap:   util.NewIdMap(),
 		roundaboutFlag:   make([]Index, numberOfEdges),
 		nodeTrafficLight: make([]Index, numberOfVertices),
-		osmNodePoints:     make([]Coordinate, 1),
+		osmNodePoints:    make([]Coordinate, 1),
 	}
 }
 
@@ -144,12 +144,13 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 	startIndex := edge.startPointsIndex
 	endIndex := edge.endPointsIndex
 	if startIndex < endIndex {
-		edgePoints = gs.osmNodePoints[startIndex:endIndex]
+		edgePoints = make([]Coordinate, endIndex-startIndex)
+		copy(edgePoints, gs.osmNodePoints[startIndex:endIndex])
 
 		return edgePoints
 	}
 
-	if startIndex <= 0 {
+	if startIndex == 0 {
 		return make([]Coordinate, 0)
 	}
 

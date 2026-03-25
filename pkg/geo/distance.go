@@ -73,6 +73,7 @@ func radToDeg(r float64) float64 {
 
 // GetDestinationPoint returns the destination point given the starting point, bearing and distance
 // dist in km
+// https://www.movable-type.co.uk/scripts/latlong.html
 func GetDestinationPoint(lat1, lon1 float64, bearing float64, dist float64) (float64, float64) {
 
 	dr := dist / earthRadiusKM

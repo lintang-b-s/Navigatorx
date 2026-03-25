@@ -68,7 +68,8 @@ let n,m,k,n_o denote the number vertices of the original graph,edges of the orig
 lowest level cell: O(m_p*log(m_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most m_p (turn-based graph), decrease-key and insert at most O(m_p) operations, extract-min at-most O(m_p) operations
 cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
 let q = number of shorcut edges in packedPath
-time complexity of unpackPath: O(\sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
+let L = highest level of multilevel partition
+time complexity of unpackPath: O(q * ( L *  (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p) ) )
 */
 func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Index, map[uint64]uint8) {
 	unpackedEdgePathComp := make([][]da.Index, len(packedPath))
@@ -673,15 +674,25 @@ func (pu *PathUnpacker) GetStats() int64 {
 }
 
 func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) ([]da.OutEdge, []da.Coordinate, float64) {
-	edgePath := make([]da.OutEdge, len(edgeIdPath))
+
+	edgePath := re.edgePathPool.Get().([]da.OutEdge)
+	edgePath = edgePath[:0] // buat length jadi 0, capacity tetep sama
+
 	totalDistance := 0.0
-	finalPath := make([]da.Coordinate, 0, len(edgeIdPath)*2)
+
+	finalPath := re.pathPool.Get().([]da.Coordinate)
+	finalPath = finalPath[:0] // buat length jadi 0, capacity tetep sama
 	for i := 0; i < len(edgeIdPath); i++ {
 		e := *re.graph.GetOutEdge(edgeIdPath[i])
-		edgePath[i] = e
+		edgePath = append(edgePath, e)
 		totalDistance += e.GetLength()
 		finalPath = append(finalPath, re.graph.GetEdgeGeometry(edgeIdPath[i])...)
 	}
 
 	return edgePath, finalPath, totalDistance
+}
+
+func (re *CRPRoutingEngine) DoneQuery(edgePath []da.OutEdge, path []da.Coordinate) {
+	re.edgePathPool.Put(edgePath)
+	re.pathPool.Put(path)
 }

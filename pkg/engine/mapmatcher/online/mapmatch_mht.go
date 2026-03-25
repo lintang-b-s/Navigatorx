@@ -55,7 +55,7 @@ func NewOnlineMapMatchMHT(graph *da.Graph, rt *spatialindex.Rtree, initialSpeedM
 }
 
 // OnlineMapMatch. perform online map matching using Multiple Hypothesis Technique
-// speed in meter/minute, arc length in meter, k is current time step (1-based)
+// speed in meter/s, arc length in meter, k is current time step (1-based)
 func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 
@@ -91,7 +91,7 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 		}
 
 		if gps.GetDeadReckoning() {
-			predDist := convertMeterToKilometer(speedMean * gps.DeltaTime()) // speed in m/min, deltatime in min
+			predDist := convertMeterToKilometer(speedMean * gps.DeltaTime()) // speed in m/s, deltatime in s
 			predGpsLat, predGpsLon := geo.GetDestinationPoint(gps.Lat(), gps.Lon(), lastBearing, predDist)
 			gps.SetCoord(predGpsLat, predGpsLon)
 		}
@@ -259,9 +259,9 @@ func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(cand *ma.Candidate)
 		return (1 / (1 + math.Exp(-(math.Pi*(x-cand.GetDistr()))/(math.Sqrt(3)*om.gpsStd))))
 	}
 
-	gaussianLog := -(math.Pow(cand.GetDist(), 2) / (2 * math.Pow(om.gpsStd, 2)))
+	zeroMeanGaussianLog := -(math.Pow(cand.GetDist(), 2) / (2 * math.Pow(om.gpsStd, 2)))
 
-	left := math.Log((1 / cand.Length())) + gaussianLog
+	left := math.Log((1 / cand.Length())) + zeroMeanGaussianLog
 	right := math.Log(f(cand.Length()) - f(0))
 	return left + right
 }
@@ -312,61 +312,6 @@ func (om *OnlineMapMatchMHT) computeHProb(tau []da.Index, speedMean, speedStd, d
 	}
 
 	return out * (f(firstEdge.GetSimplifiedLength()) - f(0))
-}
-
-func (om *OnlineMapMatchMHT) computeObservationLikelihood(gps *da.GPSPoint, cand *ma.Candidate) float64 {
-	e := om.graph.GetOutEdge(cand.EdgeId())
-	headId := e.GetHead()
-	tailId := om.graph.GetTailOfOutedge(cand.EdgeId())
-	head := om.graph.GetVertex(headId)
-	tail := om.graph.GetVertex(tailId)
-	headPoint := da.NewCoordinate(head.GetLat(), head.GetLon()).ToGeoCoordinate()
-	tailPoint := da.NewCoordinate(tail.GetLat(), tail.GetLon()).ToGeoCoordinate()
-	gpsPoint := da.NewCoordinate(gps.Lat(), gps.Lon()).ToGeoCoordinate()
-	projectedPoint := geo.ProjectPointToLineCoord(headPoint, tailPoint,
-		gpsPoint)
-
-	dist := convertKilometerToMeter(geo.CalculateHaversineDistance(
-		projectedPoint.Lat, projectedPoint.Lon,
-		gpsPoint.Lat, gpsPoint.Lon,
-	))
-
-	distr := convertKilometerToMeter(geo.CalculateHaversineDistance(
-		tailPoint.Lat, tailPoint.Lon,
-		projectedPoint.Lat, projectedPoint.Lon,
-	))
-
-	f := func(x float64) float64 {
-		return (1 / (1 + math.Exp(-(math.Pi*(x-distr))/(math.Sqrt(3)*om.gpsStd))))
-	}
-
-	expo := math.Exp(-(math.Pow(dist, 2) / (2 * math.Pow(om.gpsStd, 2)))) // can be NaN if dist is so big...
-
-	left := (1 / cand.Length()) * expo
-	right := f(cand.Length()) - f(0)
-	return left * right
-}
-
-func (om *OnlineMapMatchMHT) computeObservationLikelihoodNewson(gps *da.GPSPoint, cand *ma.Candidate) float64 {
-	e := om.graph.GetOutEdge(cand.EdgeId())
-	headId := e.GetHead()
-	tailId := om.graph.GetTailOfOutedge(cand.EdgeId())
-	head := om.graph.GetVertex(headId)
-	tail := om.graph.GetVertex(tailId)
-	headPoint := da.NewCoordinate(head.GetLat(), head.GetLon()).ToGeoCoordinate()
-	tailPoint := da.NewCoordinate(tail.GetLat(), tail.GetLon()).ToGeoCoordinate()
-	gpsPoint := da.NewCoordinate(gps.Lat(), gps.Lon()).ToGeoCoordinate()
-	projectedPoint := geo.ProjectPointToLineCoord(headPoint, tailPoint,
-		gpsPoint)
-
-	dist := convertKilometerToMeter(geo.CalculateHaversineDistance(
-		projectedPoint.Lat, projectedPoint.Lon,
-		gpsPoint.Lat, gpsPoint.Lon,
-	))
-
-	prob := (1.0 / (math.Sqrt(2*math.Pi) * om.gpsStd)) * math.Exp(-0.5*math.Pow(dist/om.gpsStd, 2))
-
-	return prob
 }
 
 func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate) {

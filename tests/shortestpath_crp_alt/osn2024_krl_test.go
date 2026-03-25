@@ -25,7 +25,6 @@ taken from: https://tlx.toki.id/problems/osn-2024/2B
 
 test data generated using: https://github.com/ia-toki/osn-2024/blob/main/osn-2024-krl/spec.cpp  && https://tcframe.toki.id/docs/topic-guides/spec/
 
-tests selesai sekitar 2 menitan
 shortcuts yang dihasilkan graph soal ini (jauh lebih banyak),beda dengan graph openstreetmap road networks
 
 

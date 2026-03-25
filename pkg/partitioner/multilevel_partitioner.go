@@ -25,8 +25,9 @@ type MultilevelPartitioner struct {
 
 func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *datastructure.Graph, logger *zap.Logger, unitCapacity, prePartitionWithSCC, directed bool) *MultilevelPartitioner {
 	if len(u) != l {
-		panic(fmt.Sprintf("cell levels %d and cell array size %d must be the same", l, len(u)))
+		panic(fmt.Errorf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
+
 	return &MultilevelPartitioner{
 		u:                      u,
 		l:                      l,
@@ -54,9 +55,10 @@ pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} unt
 cells di level bawahnya didapatkan dengan menjalankan algoritma inertial flow pada individual cells of the level immediately above.
 
 time complexity:
-for each level l, time complexity recursiveBisection.Partition() is O(U_{l+1}^4(U_{l+1}-U_l)), dengan U_{L+1}=n
-T(n, U1,...,UL) \in O(n^4 * (n-U_{L}) + \sum_{l=2}^{L} U_l^4 *(U_{l} - U_{l-1}))
+for each level l, time complexity recursiveBisection.Partition() is O(U_{l+1}5), dengan U_{L+1}=n
+T(n, U1,...,UL) = O(n^5) + \sum_{l=2}^{L} O(U_l^5 * n/U_l) = O(n^5)
 */
+
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
 	nodeIDs := mp.graph.GetVerticeIds()

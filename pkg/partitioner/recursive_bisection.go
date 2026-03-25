@@ -62,7 +62,7 @@ worst case ketika the graph adlh complete graph, m=n(n-1)/2 -> dinic O(n^2 * n(n
 worst case dari inertial flow ketika dinic return minimum cut dengan partisi S, T, dengan |S|=1  dan |T|= n-1  (atau |T|=1 dan |S|=n-1).
 T(n) = n^2 * \frac{n * (n-1)}{2} *c + T(n-1)
 base case: n-k = U
-T(n) in O(n^4(n-U))
+T(n) = O(n^5)
 */
 func (rb *RecursiveBisection) Partition(initialVerticeIds []datastructure.Index) {
 

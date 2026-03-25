@@ -21,6 +21,9 @@ type CRPRoutingEngine struct {
 	pubOverlayHeapPool sync.Pool
 	pufBaseHeapPool    sync.Pool
 	pubBaseHeapPool    sync.Pool
+	packedPathPool     sync.Pool
+	edgePathPool       sync.Pool
+	pathPool           sync.Pool
 	customizer         Customizer
 	costFunction       CostFunction
 }
@@ -93,6 +96,26 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 		},
 	}
 
+	crp.packedPathPool = sync.Pool{
+		New: func() any {
+			s := make([]da.VertexEdgePair, 0, 1024)
+			return s
+		},
+	}
+
+	crp.edgePathPool = sync.Pool{
+		New: func() any {
+			edgePath := make([]da.OutEdge, 0, 1024)
+			return edgePath
+		},
+	}
+
+	crp.pathPool = sync.Pool{
+		New: func() any {
+			path := make([]da.Coordinate, 0, 1024)
+			return path
+		},
+	}
 }
 
 func (crp *CRPRoutingEngine) GetMaxSpeed(e *da.OutEdge) float64 {

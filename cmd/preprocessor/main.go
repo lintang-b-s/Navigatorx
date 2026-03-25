@@ -7,7 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
-	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
+	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
 var (
@@ -37,7 +37,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
+	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

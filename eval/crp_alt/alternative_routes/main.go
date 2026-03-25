@@ -53,7 +53,6 @@ naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 84%-88%
 
 osrm cuma 52-56%
 
-todo5: benerin sp_crp_alt query test & partitioner lagi?, partitioner buat test cases soal krl lama banget
 todo6: bikin cara agar bisa eliminate banyak via vertices sebelum di unpack path nya ... (DONE)
 todo: target p95 latency dengan 900vus endpoint alternative routes: 200ms dengan success rate alternative routes > 85%
 
@@ -66,7 +65,6 @@ todo: benerin calculateApproxDistanceShare() (DONE)
 todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , valhalla
 todo2: add evaluasi online map matching pakai dataset dari https://www.microsoft.com/en-us/research/publication/hidden-markov-map-matching-noise-sparseness/
 
-todo (setelah skripsi selesai): implement another online map matching algorithm https://dl.acm.org/doi/pdf/10.1145/2666310.2666383
 
 ....
 */
@@ -127,7 +125,7 @@ func main() {
 		ps,
 		len(ps),
 		25,
-		graph, logger, true, true, true,
+		graph, logger, true, false, true,
 	)
 
 	mp.RunMultilevelPartitioning()
