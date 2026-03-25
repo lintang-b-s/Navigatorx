@@ -759,7 +759,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 		if ars.engine.isOverlay(u) {
 			// parent_forward_search(u) is in plateau iff parent_forward_search(u) scanned in backward search
 
-			oki := da.Lt(pb.GetPriority(ps.Get(u).GetParent().GetEdge()), pkg.INF_WEIGHT)
+			oki := util.Lt(pb.GetPriority(ps.Get(u).GetParent().GetEdge()), pkg.INF_WEIGHT)
 			if !oki {
 				break
 			}
@@ -789,7 +789,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			qParent := ars.engine.graph.GetTailOfOutedge(qExitId)
 
 			offQExitId := ars.engine.offsetBackward(qParent, qExitId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
-			oki := da.Lt(pb.GetPriority(offQExitId), pkg.INF_WEIGHT)
+			oki := util.Lt(pb.GetPriority(offQExitId), pkg.INF_WEIGHT)
 
 			q = ars.engine.graph.GetTailOfOutedge(vExitId)
 
@@ -811,7 +811,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			vOverlay := ps.Get(u).GetParent().GetEdge()
 
-			notOki := !da.Lt(pb.GetPriority(vOverlay), pkg.INF_WEIGHT) && !pb.IsScanned(vOverlay)
+			notOki := !util.Lt(pb.GetPriority(vOverlay), pkg.INF_WEIGHT) && !pb.IsScanned(vOverlay)
 
 			if notOki {
 				break
@@ -833,7 +833,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			q := ars.engine.graph.GetTailOfOutedge(qExitId)
 
 			offQExitId := ars.engine.offsetBackward(q, qExitId, ars.engine.graph.GetCellNumber(q), sCellNumber)
-			oki := da.Lt(pb.GetPriority(offQExitId), pkg.INF_WEIGHT)
+			oki := util.Lt(pb.GetPriority(offQExitId), pkg.INF_WEIGHT)
 			if !oki {
 				break
 			}
@@ -865,7 +865,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 	for u != tBackwardId {
 		if ars.engine.isOverlay(u) {
 
-			oki := da.Lt(ps.GetPriority(pb.Get(u).GetParent().GetEdge()), pkg.INF_WEIGHT)
+			oki := util.Lt(ps.GetPriority(pb.Get(u).GetParent().GetEdge()), pkg.INF_WEIGHT)
 			if !oki {
 				break
 			}
@@ -895,7 +895,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			qParentEntryId := qParentInEdge.GetEdgeId()
 
 			offQParentEntryId := ars.engine.offsetForward(qParent, qParentEntryId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
-			oki := da.Lt(ps.GetPriority(offQParentEntryId), pkg.INF_WEIGHT)
+			oki := util.Lt(ps.GetPriority(offQParentEntryId), pkg.INF_WEIGHT)
 
 			if !oki {
 				break
@@ -911,7 +911,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			vOverlay := pb.Get(u).GetParent().GetEdge()
 
-			notOki := !da.Lt(ps.GetPriority(vOverlay), pkg.INF_WEIGHT) && !ps.IsScanned(vOverlay)
+			notOki := !util.Lt(ps.GetPriority(vOverlay), pkg.INF_WEIGHT) && !ps.IsScanned(vOverlay)
 
 			if notOki {
 				break
@@ -931,7 +931,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			q := ars.engine.graph.GetHeadOfInedge(qEntryId)
 
 			offQEntryId := ars.engine.offsetForward(q, qEntryId, ars.engine.graph.GetCellNumber(q), sCellNumber)
-			oki := da.Lt(ps.GetPriority(offQEntryId), pkg.INF_WEIGHT)
+			oki := util.Lt(ps.GetPriority(offQEntryId), pkg.INF_WEIGHT)
 			if !oki {
 				break
 			}
@@ -964,7 +964,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 	// lv - dist(u,t) = dist(s,u)
 	lastPlateauTT = lv - lastPlateauTT
 
-	plateau := math.Max(lastPlateauTT-firstPlateauTT, 0)
+	plateau := util.MaxFloat(lastPlateauTT-firstPlateauTT, 0)
 
 	return plateau
 }

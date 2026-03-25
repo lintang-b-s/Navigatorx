@@ -363,7 +363,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 						query := bitpack(enOriVId, exOriVId)
 
 						expectedSw := tc.want[0][cellIdInLevel][query]
-						if !da.Eq(got, expectedSw) {
+						if !util.Eq(got, expectedSw) {
 							t.Errorf("expected shortcut weight: %v, got: %v", expectedSw, got)
 						}
 					}
@@ -394,7 +394,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 							query := bitpack(enOriVId, exOriVId)
 
 							expectedSw := tc.want[level-1][cellIdInLevel][query]
-							if !da.Eq(got, expectedSw) {
+							if !util.Eq(got, expectedSw) {
 								t.Errorf("expected shortcut weight: %v, got: %v", expectedSw, got)
 							}
 						}
@@ -453,12 +453,12 @@ func TestCRPCustomizerSimple(t *testing.T) {
 					oldV := newToOldVidMap[da.Index(v)]
 					gotLwDist := lw[i][v]
 					expectedLwDist := apsp[bitpack(oldLandmarkId, da.Index(oldV))]
-					if !da.Eq(gotLwDist, expectedLwDist) {
+					if !util.Eq(gotLwDist, expectedLwDist) {
 						t.Errorf("expected shortest path cost from landmarkId %v to vertex %v: %v, got: %v", landmarkId, v, gotLwDist, expectedLwDist)
 					}
 					gotVlwDist := vlw[v][i]
 					expectedVlwDist := apsp[bitpack(da.Index(oldV), oldLandmarkId)]
-					if !da.Eq(gotVlwDist, expectedVlwDist) {
+					if !util.Eq(gotVlwDist, expectedVlwDist) {
 						t.Errorf("expected shortest path cost from vertex %v to landmarkId %v: %v, got: %v", v, landmarkId, gotVlwDist, expectedVlwDist)
 					}
 
@@ -603,7 +603,7 @@ func TestCRPCustomizer(t *testing.T) {
 			for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 				shortcutId := da.Index(cell.GetShortcutWeightId(i, j))
 				sw := m.GetShortcutWeight(shortcutId)
-				if da.Lt(sw, 0) {
+				if util.Lt(sw, 0) {
 					t.Errorf("shortcut weight must be positive")
 				}
 			}
@@ -620,7 +620,7 @@ func TestCRPCustomizer(t *testing.T) {
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					shortcutId := da.Index(cell.GetShortcutWeightId(i, j))
 					sw := m.GetShortcutWeight(shortcutId)
-					if da.Lt(sw, 0) {
+					if util.Lt(sw, 0) {
 						t.Errorf("shortcut weight must be positive")
 					}
 				}
@@ -650,7 +650,7 @@ func TestCRPCustomizer(t *testing.T) {
 		for v := 0; v < n; v++ {
 			spToV := sps[v] // sp dist dari landmark ke v
 			expectedSpToV := lw[i][v]
-			if !da.Eq(expectedSpToV, spToV) {
+			if !util.Eq(expectedSpToV, spToV) {
 				t.Errorf("expected shortest path travel times: %v, got: %v", expectedSpToV, spToV)
 			}
 		}
@@ -660,7 +660,7 @@ func TestCRPCustomizer(t *testing.T) {
 		for v := 0; v < n; v++ {
 			got := sps[v] // sp dist dari v ke landmark
 			expectedSPVToL := vlw[v][i]
-			if !da.Eq(expectedSPVToL, got) {
+			if !util.Eq(expectedSPVToL, got) {
 				t.Errorf("expected shortest path travel times: %v, got: %v", expectedSPVToL, got)
 			}
 		}

@@ -268,7 +268,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		for i := 0; i < len(eGeometry); i++ {
 			pp := eGeometry[i]
 			ddist := util.KilometerToMeter(geo.CalculateHaversineDistance(47.641583540898786, -122.26548052661369, pp.GetLat(), pp.GetLon()))
-			if da.Lt(ddist, 500) {
+			if util.Lt(ddist, 500) {
 				// ternyata emang koordinat edge geometry di evergreen point floating bridge gak ngepas di jembatannya
 				// pantes polyline hasil map matchingnya gak ngepas di jembatannya
 				// pasang breakpoint debugger disini buat lihat edge geometry nya
@@ -590,7 +590,7 @@ func main() {
 		if hasPrev {
 			deltaTime = curGpsTime.Sub(prevTime).Seconds()
 
-			if da.Gt(deltaTime, 0) {
+			if util.Gt(deltaTime, 0) {
 				dist := geo.CalculateHaversineDistance(prevLat, prevLon, lat, lon)
 				speed = util.KilometerToMeter(dist) / deltaTime
 			}

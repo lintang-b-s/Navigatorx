@@ -268,7 +268,7 @@ func main() {
 		// expectedSPEdges := expectedShortestPaths[i][t]
 
 		counterexample := false
-		if !da.EqEps(expectedSp, sp, 1e-5) { // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
+		if !util.EqEps(expectedSp, sp, 1e-5) { // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
 			counterexample = true
 		}
 

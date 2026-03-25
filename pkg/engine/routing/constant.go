@@ -2,7 +2,7 @@ package routing
 
 const (
 	UNPACK_OVERLAY_OFFSET      int = 31 // set 32-th bit on
-	PATH_UNPACKER_WORKERS      int = 6
+	PATH_UNPACKER_WORKERS      int = 10
 	ALTERNATIVE_ROUTES_WORKERS     = 8
 
 	MAX_FILTERED_ALTERNATIVE_ROUTE_CANDIDATES = 8

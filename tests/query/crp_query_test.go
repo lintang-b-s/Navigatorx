@@ -312,7 +312,7 @@ func TestCRPQuerySimple(t *testing.T) {
 
 					query := bitpack(oldS, oldT)
 					expectedSpCost := apsp[query]
-					if !da.Eq(spCost, expectedSpCost) {
+					if !util.Eq(spCost, expectedSpCost) {
 						t.Errorf("expected shortest path cost from %v to %v: %v, got: %v", oldS, oldT, spCost, expectedSpCost)
 					}
 
@@ -538,7 +538,7 @@ func TestCRPQueryStressTest(t *testing.T) {
 		expectedSp := expectedSPTravelTimes[i][target]
 
 		counterexample := false
-		if !da.EqEps(expectedSp, sp, 1e-5) { // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
+		if !util.EqEps(expectedSp, sp, 1e-5) { // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
 			counterexample = true
 		}
 

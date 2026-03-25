@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"os"
 	"strings"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type Metric struct {
@@ -108,7 +108,7 @@ func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.
 				for k := da.Index(0); k < m; k++ {
 					Tv_ik := met.GetTurnCost(graph.GetTurnType(vId, i, k))
 					Tv_jk := met.GetTurnCost(graph.GetTurnType(vId, j, k))
-					maxDiff = math.Max(maxDiff, Tv_ik-Tv_jk)
+					maxDiff = util.MaxFloat(maxDiff, Tv_ik-Tv_jk)
 				}
 
 				// ini compute max_k{T_v[i,k] - T_v[j,k]}
@@ -123,7 +123,7 @@ func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.
 				for k := da.Index(0); k < n; k++ {
 					Tv_ki := met.GetTurnCost(graph.GetTurnType(vId, k, i))
 					Tv_kj := met.GetTurnCost(graph.GetTurnType(vId, k, j))
-					maxDiff = math.Max(maxDiff, Tv_ki-Tv_kj)
+					maxDiff = util.MaxFloat(maxDiff, Tv_ki-Tv_kj)
 				}
 
 				// ini compute max_k{T_v[k,i] - T_v[k,j]}

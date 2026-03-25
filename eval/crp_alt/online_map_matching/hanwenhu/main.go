@@ -463,7 +463,7 @@ func main() {
 			if hasPrev {
 				deltaTime = curGpsTime.Sub(prevTime).Seconds()
 
-				if da.Gt(deltaTime, 0) {
+				if util.Gt(deltaTime, 0) {
 					dist := geo.CalculateHaversineDistance(prevLat, prevLon, lat, lon)
 					speed = util.KilometerToMeter(dist) / deltaTime
 				}
@@ -552,7 +552,7 @@ func main() {
 
 	fmt.Printf("%-15s %-10s\n", "Error", "CDF P(X<=x)")
 	fmt.Println("-------------------------")
-	for x := 0.02; da.Le(x, 0.32); x += 0.02 {
+	for x := 0.02; util.Le(x, 0.32); x += 0.02 {
 		y := stat.CDF(x, stat.Empirical, matchingErrors, nil)
 		fmt.Printf("%-15.4f %-10.4f\n", x, y)
 	}

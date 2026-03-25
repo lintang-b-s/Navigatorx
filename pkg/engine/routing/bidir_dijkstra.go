@@ -90,7 +90,7 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
-		if da.Ge(minForward+minBackward, (bs.shortestTravelTime)*(bs.upperBound)) {
+		if util.Ge(minForward+minBackward, (bs.shortestTravelTime)*(bs.upperBound)) {
 			break
 		}
 
@@ -108,7 +108,7 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 
 	}
 
-	if da.Eq(bs.shortestTravelTime, 2*pkg.INF_WEIGHT) {
+	if util.Eq(bs.shortestTravelTime, 2*pkg.INF_WEIGHT) {
 		return pkg.INF_WEIGHT, 2 * pkg.INF_WEIGHT, []da.Coordinate{}, []da.OutEdge{}, false
 	}
 
@@ -205,10 +205,10 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 	for j := da.Index(0); j < uInDeg; j++ {
 
 		stallingOffset := uInDeg*uEntryPoint + j
-		bui := math.Max(0, uEntryIdTravelTime+
+		bui := util.MaxFloat(0, uEntryIdTravelTime+
 			bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset))
 
-		if val := bs.stallingEntry[otherUEntryId]; da.Eq(val, pkg.INF_WEIGHT) {
+		if val := bs.stallingEntry[otherUEntryId]; util.Eq(val, pkg.INF_WEIGHT) {
 			bs.stallingEntry[otherUEntryId] = bui
 		} else {
 			bs.stallingEntry[otherUEntryId] = math.Min(bs.stallingEntry[otherUEntryId], bui)
@@ -230,7 +230,7 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
 
-		if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
+		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
 		}
 		vEntryId := bs.engine.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
@@ -240,9 +240,9 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 
 		// relax edge
 		oldVEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
-		vAlreadyLabelled := da.Lt(oldVEntryIdTravelTime, pkg.INF_WEIGHT)
-		if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, oldVEntryIdTravelTime)) {
-			if bvi := bs.stallingEntry[vEntryId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Gt(newTravelTime, bvi) {
+		vAlreadyLabelled := util.Lt(oldVEntryIdTravelTime, pkg.INF_WEIGHT)
+		if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, oldVEntryIdTravelTime)) {
+			if bvi := bs.stallingEntry[vEntryId]; util.Lt(bvi, pkg.INF_WEIGHT) && util.Gt(newTravelTime, bvi) {
 				// stalled
 				return
 			}
@@ -278,7 +278,7 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 			scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
 
 			vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-			if scannedByBackwardSearch && da.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
+			if scannedByBackwardSearch && util.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
 				vExitIdTravelTime, bs.shortestTravelTime) {
 
 				bs.shortestTravelTime = newVEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnType2) +
@@ -310,10 +310,10 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 	for j := da.Index(0); j < uOutDeg; j++ {
 
 		stallingOffset := uOutDeg*uExitPoint + j
-		bui := math.Max(0, uExitIdTravelTime+
+		bui := util.MaxFloat(0, uExitIdTravelTime+
 			bs.engine.metrics.GetExitStallingTableCost(uId, stallingOffset))
 
-		if val := bs.stallingExit[otherUExitId]; da.Eq(val, pkg.INF_WEIGHT) {
+		if val := bs.stallingExit[otherUExitId]; util.Eq(val, pkg.INF_WEIGHT) {
 			bs.stallingExit[otherUExitId] = bui
 		} else {
 			bs.stallingExit[otherUExitId] = math.Min(bs.stallingExit[otherUExitId], bui)
@@ -333,7 +333,7 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 		}
 
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
-		if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
+		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
 		}
 
@@ -341,10 +341,10 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 
 		// relax edge
 		oldVExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-		vAlreadyLabelled := da.Lt(oldVExitIdTravelTime, pkg.INF_WEIGHT)
-		if !vAlreadyLabelled || (vAlreadyLabelled && da.Lt(newTravelTime, oldVExitIdTravelTime)) {
+		vAlreadyLabelled := util.Lt(oldVExitIdTravelTime, pkg.INF_WEIGHT)
+		if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, oldVExitIdTravelTime)) {
 
-			if bvi := bs.stallingExit[vExitId]; da.Lt(bvi, pkg.INF_WEIGHT) && da.Gt(newTravelTime, bvi) {
+			if bvi := bs.stallingExit[vExitId]; util.Lt(bvi, pkg.INF_WEIGHT) && util.Gt(newTravelTime, bvi) {
 				// stalled
 				return
 			}
@@ -371,7 +371,7 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 			scannedByForwardSearch := bs.forwardPq.IsScanned(vEntryId)
 
 			vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
-			if scannedByForwardSearch && da.Lt(vEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
+			if scannedByForwardSearch && util.Lt(vEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
 				newVExitIdTravelTime, bs.shortestTravelTime) {
 
 				bs.shortestTravelTime = vEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnType2) +

@@ -6,6 +6,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type Dijkstra struct {
@@ -92,7 +93,7 @@ func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 
 			sp := us.pq.GetPriority(entryId)
 
-			if da.Lt(sp, us.shortestTravelTimes[v]) {
+			if util.Lt(sp, us.shortestTravelTimes[v]) {
 				us.shortestTravelTimes[v] = sp
 			}
 		})
@@ -104,7 +105,7 @@ func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 
 			sp := us.pq.GetPriority(exitId)
 
-			if da.Lt(sp, us.shortestTravelTimes[v]) {
+			if util.Lt(sp, us.shortestTravelTimes[v]) {
 				us.shortestTravelTimes[v] = sp
 			}
 		})
@@ -144,14 +145,14 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
 			newArrTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost
 
-			if da.Ge(newArrTime, pkg.INF_WEIGHT) {
+			if util.Ge(newArrTime, pkg.INF_WEIGHT) {
 				return
 			}
 
 			vEntryId := us.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
 
-			vAlreadyLabelled := da.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newArrTime, us.pq.GetPriority(vEntryId)) {
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
+			if vAlreadyLabelled && util.Ge(newArrTime, us.pq.GetPriority(vEntryId)) {
 				// newArrTime is not better, do nothing
 				return
 			}
@@ -193,14 +194,14 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
 			newArrTime := us.pq.GetPriority(uExitId) + edgeWeight + turnCost
 
-			if da.Ge(newArrTime, pkg.INF_WEIGHT) {
+			if util.Ge(newArrTime, pkg.INF_WEIGHT) {
 				return
 			}
 
 			vExitId := us.graph.GetExitOffset(vId) + da.Index(inArc.GetExitPoint())
 
-			vAlreadyLabelled := da.Lt(us.pq.GetPriority(vExitId), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newArrTime, us.pq.GetPriority(vExitId)) {
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vExitId), pkg.INF_WEIGHT)
+			if vAlreadyLabelled && util.Ge(newArrTime, us.pq.GetPriority(vExitId)) {
 				// newArrTime is not better, do nothing
 
 				return

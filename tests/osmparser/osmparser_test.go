@@ -124,19 +124,19 @@ func TestOSMParser(t *testing.T) {
 				t.Errorf("expected vertex id lesser than or equal to: %v, got: %v", n, v.GetID())
 			}
 
-			if da.Lt(v.GetLat(), bb.GetMinLat()) {
+			if util.Lt(v.GetLat(), bb.GetMinLat()) {
 				t.Errorf("expected vertex latitude greater than or equal to: %v, got: %v", bb.GetMinLat(), v.GetLat())
 			}
 
-			if da.Lt(v.GetLon(), bb.GetMinLon()) {
+			if util.Lt(v.GetLon(), bb.GetMinLon()) {
 				t.Errorf("expected vertex longitude greater than or equal to: %v, got: %v", bb.GetMinLon(), v.GetLon())
 			}
 
-			if da.Gt(v.GetLat(), bb.GetMaxLat()) {
+			if util.Gt(v.GetLat(), bb.GetMaxLat()) {
 				t.Errorf("expected vertex latitude lesser than or equal to: %v, got: %v", bb.GetMaxLat(), v.GetLat())
 			}
 
-			if da.Gt(v.GetLon(), bb.GetMaxLon()) {
+			if util.Gt(v.GetLon(), bb.GetMaxLon()) {
 				t.Errorf("expected vertex longitude lesser than or equal to: %v, got: %v", bb.GetMaxLon(), v.GetLon())
 			}
 

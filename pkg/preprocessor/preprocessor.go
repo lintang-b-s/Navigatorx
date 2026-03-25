@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -160,8 +161,8 @@ func (p *Preprocessor) SortByCellNumber() {
 
 		minLat = math.Min(minLat, p.graph.GetVertex(i).GetLat())
 		minLon = math.Min(minLon, p.graph.GetVertex(i).GetLon())
-		maxLat = math.Max(maxLat, p.graph.GetVertex(i).GetLat())
-		maxLon = math.Max(maxLon, p.graph.GetVertex(i).GetLon())
+		maxLat = util.MaxFloat(maxLat, p.graph.GetVertex(i).GetLat())
+		maxLon = util.MaxFloat(maxLon, p.graph.GetVertex(i).GetLon())
 	}
 
 	p.graph.SetBoundingBox(datastructure.NewBoundingBox(minLat, minLon, maxLat, maxLon))

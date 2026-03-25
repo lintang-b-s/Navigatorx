@@ -295,11 +295,20 @@ func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.In
 	for i := 0; i < len(activeLandmarks); i++ {
 		landmarkId := activeLandmarks[i]
 
+		
 		lbOne := lm.vlw[u][landmarkId] - lm.vlw[t][landmarkId]
 		lbTwo := lm.lw[landmarkId][t] - lm.lw[landmarkId][u]
 
-		betterLb := math.Max(lbOne, lbTwo)
-		tighestLowerBound = math.Max(tighestLowerBound, betterLb)
+		betterLb := 0.0
+		if util.Gt(lbOne, lbTwo) {
+			betterLb = lbOne
+		} else {
+			betterLb = lbTwo
+		}
+
+		if util.Gt(betterLb, tighestLowerBound) {
+			tighestLowerBound = betterLb
+		}
 	}
 
 	return tighestLowerBound
@@ -315,7 +324,7 @@ func newActiveLandmark(i da.Index, lb float64) activeLandmark {
 }
 
 const (
-	activeLandmarkSize = 4
+	activeLandmarkSize = 2
 )
 
 /*

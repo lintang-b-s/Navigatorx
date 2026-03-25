@@ -16,6 +16,7 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 /*
@@ -355,7 +356,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	spLengthTransit, _, _, _, _ := crpQuery2.ShortestPathSearch(as, atTransit)
 
 	var ans float64
-	if da.Lt(spLength, spLengthTransit) {
+	if util.Lt(spLength, spLengthTransit) {
 		ans = spLength
 	} else {
 		ans = spLengthTransit

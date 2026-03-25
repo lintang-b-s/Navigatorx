@@ -110,7 +110,7 @@ func (h *HMM) MapMatch(gpsTraj []*da.GPSPoint) []*da.MatchedGPSPoint {
 			workers.Wait()
 
 			for transition := range workers.CollectResults() {
-				if da.Eq(transition.transitionProb, INVALIDLOGPROB) {
+				if util.Eq(transition.transitionProb, INVALIDLOGPROB) {
 					continue
 				}
 				transitionProbMatrix[transition.transition] = transition.transitionProb

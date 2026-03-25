@@ -36,6 +36,7 @@ func (g *Graph) RunKosaraju() {
 			}
 		}
 	}
+
 	sccs := make([]Index, n)
 
 	for i, component := range components {

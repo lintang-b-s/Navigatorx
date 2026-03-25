@@ -20,15 +20,19 @@ cd tests/benchmark && go test -bench BenchmarkAlternativeRoutes -benchmem -cpupr
 
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 
+BenchmarkAlternativeRoutes-12               9158           1959775 ns/op                 1.960 ms/op           510.3 ops/sec      273223 B/op       1950 allocs/op
+
 CRP alternative routes query runtime match dengan hasil eksperimen ref [1] table 8, sekitar 3 ms
 
-todo: reduce memory space alloc / op lagi
+todo: reduce memory space alloc / op lagi, now 270k B/op
 ngaruh ke load test
+
+todo2: optimize sampai p95 latency alternative routes ngalahin osrm
 */
 func BenchmarkAlternativeRoutes(b *testing.B) {
-	re, queries, g, lm := setup()
+	eng, queries, g, lm := setup()
 	start := time.Now()
-
+	re := eng.GetRoutingEngine()
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := len(queries)
 	for b.Loop() {
@@ -41,8 +45,16 @@ func BenchmarkAlternativeRoutes(b *testing.B) {
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
-		crpQuery := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), upperBound, gamma, alpha, epsilon, lm)
-		crpQuery.FindAlternativeRoutes(as, at, 3)
+		crpQuery := routing.NewAlternativeRouteSearch(re, upperBound, gamma, alpha, epsilon, lm)
+		alts := crpQuery.FindAlternativeRoutes(as, at, 3)
+		for j := 0; j < len(alts); j++ {
+			alt := alts[j]
+			path := alt.GetCoords()
+			edgePath := alt.GetPath()
+			if len(edgePath) > 0 {
+				re.DoneQuery(edgePath, path)
+			}
+		}
 	}
 
 	now := time.Since(start)

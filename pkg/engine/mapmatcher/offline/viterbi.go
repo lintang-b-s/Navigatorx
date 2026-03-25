@@ -1,7 +1,6 @@
 package offline
 
 import (
-	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -151,7 +150,7 @@ func (vi *Viterbi) forwardStep(observationId int,
 
 func (vi *Viterbi) hmmBreak(forwardProb map[int]float64) bool {
 	for _, logProbability := range forwardProb {
-		if !da.Lt(logProbability, INVALIDLOGPROB) {
+		if !util.Lt(logProbability, INVALIDLOGPROB) {
 			return false
 		}
 	}

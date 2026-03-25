@@ -5,6 +5,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/tidwall/rtree"
 	"go.uber.org/zap"
 )
@@ -79,8 +80,8 @@ func (rt *Rtree) Build(graph *datastructure.Graph, boundingBoxRadius float64, lo
 
 		minLat := math.Min(lowerFromLat, lowerToLat)
 		minLon := math.Min(lowerFromLon, lowerToLon)
-		maxLat := math.Max(upperFromLat, upperToLat)
-		maxLon := math.Max(upperFromLon, upperToLon)
+		maxLat := util.MaxFloat(upperFromLat, upperToLat)
+		maxLon := util.MaxFloat(upperFromLon, upperToLon)
 
 		rt.tr.Insert([2]float64{minLon, minLat}, [2]float64{maxLon, maxLat},
 			newArcEndpoint(entryId, id, tail, e.GetHead()))

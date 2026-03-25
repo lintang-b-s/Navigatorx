@@ -83,7 +83,7 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 				continue // sp == 0
 			}
 			sps[t] = sp
-			if da.Ge(sp, pkg.INF_WEIGHT) {
+			if util.Ge(sp, pkg.INF_WEIGHT) {
 				continue
 			}
 
@@ -118,7 +118,7 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 				continue // sp == 0
 			}
 			sps[t] = sp
-			if da.Ge(sp, pkg.INF_WEIGHT) {
+			if util.Ge(sp, pkg.INF_WEIGHT) {
 				continue
 			}
 
@@ -164,7 +164,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 		uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
 		// -uEntry> u
 
-		if da.Eq(us.finalDist[uId].GetTravelTime(), pkg.INF_WEIGHT) || da.Lt(us.pq.GetPriority(uEntryId), us.finalDist[uId].GetTravelTime()) {
+		if util.Eq(us.finalDist[uId].GetTravelTime(), pkg.INF_WEIGHT) || util.Lt(us.pq.GetPriority(uEntryId), us.finalDist[uId].GetTravelTime()) {
 			us.finalDist[uId] = us.pq.Get(uEntryId)
 			us.finalEdge[uId] = uEntryId
 		}
@@ -186,14 +186,14 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
 			newTravelTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost
 
-			if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
 			}
 
 			vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
 
-			vAlreadyLabelled := da.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newTravelTime, us.pq.GetPriority(vEntryId)) {
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
+			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vEntryId)) {
 				// newTravelTime is not better, do nothing
 
 				return
@@ -219,7 +219,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 		uExitId := uItem.GetEntryExitPoint()
 
 		// u-uExit->
-		if da.Eq(us.finalDist[uId].GetTravelTime(), pkg.INF_WEIGHT) || da.Lt(us.pq.GetPriority(uExitId), us.finalDist[uId].GetTravelTime()) {
+		if util.Eq(us.finalDist[uId].GetTravelTime(), pkg.INF_WEIGHT) || util.Lt(us.pq.GetPriority(uExitId), us.finalDist[uId].GetTravelTime()) {
 			us.finalDist[uId] = us.pq.Get(uExitId)
 			us.finalEdge[uId] = uExitId
 		}
@@ -240,14 +240,14 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 
 			newTravelTime := us.pq.GetPriority(uExitId) + edgeWeight + turnCost
 
-			if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
 			}
 
 			vExitId := us.engine.graph.GetExitOffset(vId) + da.Index(inArc.GetExitPoint())
 
-			vAlreadyLabelled := da.Lt(us.pq.GetPriority(vExitId), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && da.Ge(newTravelTime, us.pq.GetPriority(vExitId)) {
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vExitId), pkg.INF_WEIGHT)
+			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vExitId)) {
 				// newTravelTime is not better, do nothing
 
 				return

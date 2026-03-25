@@ -196,16 +196,18 @@ cd tests/benchmark && go test -bench BenchmarkCRPALTQuery -benchmem -cpuprofile 
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
-BenchmarkCRPALTQuery-12           115634           1235790 ns/op                 1.236 ms/op           809.2 ops/sec      122300 B/op        224 allocs/op
-
+BenchmarkCRPALTQuery-12            22334            780683 ns/op                 0.7806 ms/op         1281 ops/sec         56813 B/op        318 allocs/op
 p2p query runtime match dengan hasil eksperimen ref [1], sekitar 1 ms
 
-todo: reduce memory space alloc / op lagi
+todo: reduce memory space alloc / op lagi, now 56K B/op
 ngaruh ke load test
+
+todo2: optimize sampai p95 latency computeRoute ngalahin osrm
 */
 func BenchmarkCRPALTQuery(b *testing.B) {
-	re, queries, g, lm := setup()
+	eng, queries, g, lm := setup()
 	start := time.Now()
+	re := eng.GetRoutingEngine()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := len(queries)
@@ -219,8 +221,11 @@ func BenchmarkCRPALTQuery(b *testing.B) {
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
-		crpQuery.ShortestPathSearch(as, at)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0, lm)
+		_, _, path, edgePath, found := crpQuery.ShortestPathSearch(as, at)
+		if found {
+			re.DoneQuery(edgePath, path)
+		}
 	}
 
 	now := time.Since(start)

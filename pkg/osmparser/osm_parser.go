@@ -564,14 +564,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	if from == to {
 		return
 	}
-	maxLonft := math.Max(from.coord.lon, to.coord.lon)
-	maxLatft := math.Max(from.coord.lat, to.coord.lat)
+	maxLonft := util.MaxFloat(from.coord.lon, to.coord.lon)
+	maxLatft := util.MaxFloat(from.coord.lat, to.coord.lat)
 
 	minLonft := math.Min(from.coord.lon, to.coord.lon)
 	minLatft := math.Min(from.coord.lat, to.coord.lat)
 
-	p.bb.SetMaxLat(math.Max(p.bb.GetMaxLat(), maxLatft))
-	p.bb.SetMaxLon(math.Max(p.bb.GetMaxLon(), maxLonft))
+	p.bb.SetMaxLat(util.MaxFloat(p.bb.GetMaxLat(), maxLatft))
+	p.bb.SetMaxLon(util.MaxFloat(p.bb.GetMaxLon(), maxLonft))
 	p.bb.SetMinLat(math.Min(p.bb.GetMinLat(), minLatft))
 	p.bb.SetMinLon(math.Min(p.bb.GetMinLon(), minLonft))
 

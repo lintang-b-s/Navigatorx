@@ -204,5 +204,3 @@ func (qh *QueryHeap[T]) Clone() *QueryHeap[T] {
 	newQheap.queryInfos = queryInfosClone
 	return newQheap
 }
-
-

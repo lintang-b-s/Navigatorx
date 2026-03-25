@@ -7,6 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -204,7 +205,7 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *datastructure.Part
 			eWeight := int64(1)
 			if rb.unitCapacity {
 				eWeight = 1
-			} else if da.Eq(e.GetWeight(), 0) {
+			} else if util.Eq(e.GetWeight(), 0) {
 				eWeight = 1
 			} else {
 				eWeight = int64(e.GetWeight() * math.Pow(10, rb.k))
@@ -288,7 +289,7 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 			eWeight := int64(1)
 			if rb.unitCapacity {
 				eWeight = 1
-			} else if da.Eq(e.GetWeight(), 0) {
+			} else if util.Eq(e.GetWeight(), 0) {
 				eWeight = 1
 			} else {
 				eWeight = int64(e.GetWeight() * math.Pow(10, rb.k))

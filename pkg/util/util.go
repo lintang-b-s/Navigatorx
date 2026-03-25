@@ -170,3 +170,43 @@ func MaxInt(a, b int64) int64 {
 	}
 	return b
 }
+
+const (
+	EPS = 1e-9
+)
+
+// equal operator
+func Eq(a, b float64) bool {
+	return math.Abs(a-b) <= EPS
+}
+
+// equal operator
+func EqEps(a, b, eps float64) bool {
+	return math.Abs(a-b) <= eps
+}
+
+// less than operator
+func Lt(a, b float64) bool {
+	return a+EPS < b
+}
+
+// greater than or equal to operator
+func Ge(a, b float64) bool {
+	return Le(b, a)
+}
+
+func Gt(a, b float64) bool {
+	return Lt(b, a)
+}
+
+// less than or equal operator
+func Le(a, b float64) bool {
+	return a <= b+EPS
+}
+
+func MaxFloat(a, b float64) float64 {
+	if Gt(a, b) {
+		return a
+	}
+	return b
+}

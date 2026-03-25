@@ -72,7 +72,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 				-1,
 			),
 		)
-
 	}
 
 	turnMatrices := make([][]pkg.TurnType, len(vertices)-1)

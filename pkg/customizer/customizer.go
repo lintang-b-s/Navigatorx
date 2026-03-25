@@ -137,9 +137,7 @@ func newCustomizerCell(cell *da.Cell, cellNumber da.Pv) customizerCell {
 }
 
 /*
-
 let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
-
 
 worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
 worst case buildLevel in level l:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
@@ -251,7 +249,7 @@ func (c *Customizer) buildLowestLevel(
 
 						newTravelTime := exitPointTravelTime + outArcCost
 
-						if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
+						if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 							return
 						}
 
@@ -259,7 +257,7 @@ func (c *Customizer) buildLowestLevel(
 						if vTruncatedCellNumber == cellNumber {
 							vEntryId := c.graph.GetEntryOffset(v) + da.Index(outArc.GetEntryPoint()) - forwardCellOffset
 
-							ok := da.Lt(travelTime[vEntryId], pkg.INF_WEIGHT)
+							ok := util.Lt(travelTime[vEntryId], pkg.INF_WEIGHT)
 							if oldvTT := travelTime[vEntryId]; !ok || (ok && newTravelTime < oldvTT) {
 								travelTime[vEntryId] = newTravelTime
 								if ok {
@@ -273,7 +271,7 @@ func (c *Customizer) buildLowestLevel(
 							// found an exit vertex of the cell
 							// save this shortcut travelTime
 							exitOverlay, _ := c.graph.GetOverlayVertex(uId, int(exitPoint), true) // overlay vetex id of exit vertex c_1(u).
-							ok := da.Lt(overlayTravelTime[exitOverlay], pkg.INF_WEIGHT)
+							ok := util.Lt(overlayTravelTime[exitOverlay], pkg.INF_WEIGHT)
 							if !ok || (ok && exitPointTravelTime < overlayTravelTime[exitOverlay]) {
 								overlayTravelTime[exitOverlay] = exitPointTravelTime
 							}
@@ -284,7 +282,7 @@ func (c *Customizer) buildLowestLevel(
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
-					ok := da.Lt(overlayTravelTime[exitOverlayVId], pkg.INF_WEIGHT)
+					ok := util.Lt(overlayTravelTime[exitOverlayVId], pkg.INF_WEIGHT)
 
 					if !ok {
 						dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
@@ -344,7 +342,6 @@ func (c *Customizer) buildLowestLevel(
 // using Dijkstra algorithm (menggunakan shortcut edges pada subcells of the level-i cell) from each entry vertices of the cell to all exit vertices of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
-// 
 func (c *Customizer) buildLevel(
 	costFunction costfunction.CostFunction, level int) {
 
@@ -405,12 +402,12 @@ func (c *Customizer) buildLevel(
 
 						newTravelTime := uTravelTime + shortcutWeight
 
-						if da.Ge(newTravelTime, pkg.INF_WEIGHT) {
+						if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 							return
 						}
 
 						oldExit := travelTime[exit]
-						exitAlreadyLabelled := da.Lt(travelTime[exit], pkg.INF_WEIGHT)
+						exitAlreadyLabelled := util.Lt(travelTime[exit], pkg.INF_WEIGHT)
 						if !exitAlreadyLabelled || (exitAlreadyLabelled && newTravelTime < oldExit) {
 							travelTime[exit] = newTravelTime
 							exitOverlayVertex := c.overlayGraph.GetVertex(exit)
@@ -423,7 +420,7 @@ func (c *Customizer) buildLevel(
 
 								newNeighborTravelTime := newTravelTime + boundaryArcWeight
 								oldNTravelTime := travelTime[neighborVertex]
-								nAlreadyLabelled := da.Lt(travelTime[neighborVertex], pkg.INF_WEIGHT)
+								nAlreadyLabelled := util.Lt(travelTime[neighborVertex], pkg.INF_WEIGHT)
 
 								if !nAlreadyLabelled ||
 									(nAlreadyLabelled && newNeighborTravelTime < oldNTravelTime) {
@@ -446,7 +443,7 @@ func (c *Customizer) buildLevel(
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
 
-					ok := da.Lt(travelTime[exitOverlayVId], pkg.INF_WEIGHT)
+					ok := util.Lt(travelTime[exitOverlayVId], pkg.INF_WEIGHT)
 					if !ok {
 						dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					} else {
