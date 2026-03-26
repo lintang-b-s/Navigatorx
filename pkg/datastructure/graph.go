@@ -493,6 +493,14 @@ func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) 
 	}
 }
 
+func SkipDummyEdge(e *OutEdge) bool {
+	if e.GetLength() == 0 {
+		return true
+	}
+
+	return false
+}
+
 func (g *Graph) ForInEdgesOfWithId(v Index, handle func(e *InEdge, id Index)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
 		if g.inEdges[e].GetTail() == v {
@@ -547,7 +555,7 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 
 func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
 	for idx, e := range g.outEdges {
-		
+
 		percentage := float64(idx) / float64(len(g.outEdges)) * 100
 		tail := g.GetTailOfOutedge(Index(idx))
 

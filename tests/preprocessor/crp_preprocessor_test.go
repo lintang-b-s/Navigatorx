@@ -897,6 +897,10 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 		n := graph.NumberOfVertices()
 		for v := da.Index(0); v < da.Index(n); v++ {
 			graph.ForOutEdgesOfWithId(v, func(e *da.OutEdge, id da.Index) {
+				if da.SkipDummyEdge(e) {
+					return
+				}
+
 				_, inE := graph.GetTailOfOutedgeWithInEdge(id)
 				if inE.GetTail() != v {
 					t.Errorf("expected tail of outedge (%v, %v): %v, got: %v", v, e.GetHead(), v, inE.GetTail())

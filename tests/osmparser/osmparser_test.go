@@ -158,6 +158,10 @@ func TestOSMParser(t *testing.T) {
 
 			// cek firstOut && firstIn
 			graph.ForOutEdgesOfWithId(v.GetID(), func(e *da.OutEdge, id da.Index) {
+				if da.SkipDummyEdge(e) {
+					return
+				}
+				
 				_, inE := graph.GetTailOfOutedgeWithInEdge(id)
 				if inE.GetTail() != v.GetID() {
 					t.Errorf("expected tail of outedge (%v, %v): %v, got: %v", v.GetID(), e.GetHead(), v.GetID(), inE.GetTail())

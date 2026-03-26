@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 /*
@@ -26,6 +27,9 @@ func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId dat
 	db.tempOutEdges = db.tempOutEdges[:0] // reset length, tapi capacity tetep sama
 
 	db.graph.ForOutEdgesOfWithId(tailId, func(e *datastructure.OutEdge, id datastructure.Index) {
+		if da.SkipDummyEdge(e) {
+			return
+		}
 		db.tempOutEdges = append(db.tempOutEdges, e)
 	})
 
@@ -111,6 +115,9 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge datastructure.O
 	db.tempOutEdges = db.tempOutEdges[:0] // reset length, tapi capacity tetep sama
 
 	db.graph.ForOutEdgesOfWithId(tail, func(e *datastructure.OutEdge, id datastructure.Index) {
+		if da.SkipDummyEdge(e) {
+			return
+		}
 		db.tempOutEdges = append(db.tempOutEdges, e)
 	})
 

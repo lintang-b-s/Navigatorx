@@ -134,7 +134,7 @@ func (om *OnlineMapMatchMHT) recur(newCands []*ma.Candidate, w float64, tau []da
 		head := om.graph.GetOutEdge(lastEdgeId).GetHead()
 
 		om.graph.ForOutEdgesOfWithId(head, func(outArc *da.OutEdge, Id da.Index) {
-			if outArc.GetLength() == 0 {
+			if da.SkipDummyEdge(outArc) {
 				return
 			}
 			eNext = append(eNext, Id)
@@ -284,7 +284,7 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo da.Index, nj in
 	e := om.graph.GetOutEdge(eFrom)
 	head := e.GetHead()
 	om.graph.ForOutEdgesOfWithId(head, func(e *da.OutEdge, id da.Index) {
-		if e.GetLength() == 0 {
+		if da.SkipDummyEdge(e) {
 			return
 		}
 		branch = append(branch, id)
