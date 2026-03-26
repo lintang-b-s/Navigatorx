@@ -132,6 +132,7 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 }
 
 func (crp *CRPRoutingEngine) initParameter() {
+	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
 	numCpu := runtime.NumCPU()
 	crp.unpackerWorkers = numCpu / 6
 	crp.unpackerForAlternativeRoutesWorkers = numCpu / 6

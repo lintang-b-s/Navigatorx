@@ -16,12 +16,13 @@ type RoutingService struct {
 	log                        *zap.Logger
 	engine                     RoutingEngine
 	spatialIndex               SpatialIndex
+	altRouting                 AlternativeRouteAlgorithm
 	searchRadius               float64
 	clockwise, lefthandDriving bool
 	lm                         *landmark.Landmark
 }
 
-func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex,
+func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
 	searchRadius float64, clockwise, lefthandDriving bool,
 	lm *landmark.Landmark,
 ) *RoutingService {
@@ -32,6 +33,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		searchRadius:    searchRadius,
 		clockwise:       clockwise,
 		lefthandDriving: lefthandDriving,
+		altRouting:      altRouting,
 
 		lm: lm,
 	}
@@ -80,8 +82,7 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 			errmsg)
 	}
 
-	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.lm)
-	alternatives := altSearch.FindAlternativeRoutes(as, at, k)
+	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(as, at, k)
 	if len(alternatives) == 0 {
 		return []*routing.AlternativeRoute{}, false, nil
 	}

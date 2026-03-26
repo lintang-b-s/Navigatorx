@@ -64,7 +64,6 @@ alt.SetDrivingDirections([]datastructure.DrivingDirection{})
 
 dapet p95 latency 900 vus alternative routes: 233ms, lets gooo
 
-
 todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , valhalla
 
 ....
@@ -228,19 +227,19 @@ func main() {
 
 		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), lm)
 
-		alts := altSearch.FindAlternativeRoutes(s, t, 4)
+		alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(s, t, 4)
 
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)
 		}
-		runtime += float64(altSearch.GetRuntime())
+		runtime += float64(dur)
 
 		if len(alts) == 0 {
 			continue
 		}
 
-		stretch += altSearch.GetStretch()
-		diversity += altSearch.GetDiversity()
+		stretch += altSearch.GetStretch(alts, optTravelTime)
+		diversity += altSearch.GetDiversity(alts)
 
 		successRate += 1.0
 		foundAltCount++

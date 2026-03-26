@@ -10,6 +10,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/offline"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
@@ -84,7 +85,9 @@ func main() {
 
 	api := http.NewServer(logger)
 
-	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
+	re := routingEngine.GetRoutingEngine()
+	altSearch := routing.NewAlternativeRouteSearch(re, lm)
+	routingService := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true, true,
 		lm)
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine, offlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()

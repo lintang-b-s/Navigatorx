@@ -4,6 +4,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 )
 
@@ -14,6 +15,10 @@ type RoutingEngine interface {
 	GetVertexCoordinatesFromInEdge(u da.Index) (float64, float64)
 	VerticeUToVConnected(u, v da.Index) bool
 	DoneQuery(edgePath []da.OutEdge, path []da.Coordinate)
+}
+
+type AlternativeRouteAlgorithm interface {
+	FindAlternativeRoutes(asId, atId da.Index, k int) ([]*routing.AlternativeRoute, float64, int64)
 }
 
 type SpatialIndex interface {

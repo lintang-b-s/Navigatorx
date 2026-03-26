@@ -74,8 +74,7 @@ func PoylineFromCoords(path []Coordinate) string {
 	s := ""
 	coords := make([][]float64, 0, len(path))
 	for _, p := range path {
-		pT := p
-		coords = append(coords, []float64{pT.GetLat(), pT.GetLon()})
+		coords = append(coords, []float64{p.GetLat(), p.GetLon()})
 	}
 	s = string(polyline.EncodeCoords(coords))
 	return s

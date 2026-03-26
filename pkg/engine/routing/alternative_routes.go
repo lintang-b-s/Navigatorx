@@ -109,24 +109,73 @@ func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
 	}
 }
 
+type AlternativeRouteParameters struct {
+	gamma, alpha, epsilon, upperBound float64
+	maxCandidatesToUnpack             int
+}
+
+func NewAlternativeRouteParameters(gamma, alpha, epsilon, upperBound float64,
+	maxCandidatesToUnpack int) AlternativeRouteParameters {
+	return AlternativeRouteParameters{
+		gamma:                 gamma,
+		alpha:                 alpha,
+		epsilon:               epsilon,
+		upperBound:            upperBound,
+		maxCandidatesToUnpack: maxCandidatesToUnpack,
+	}
+}
+
+func (al *AlternativeRouteParameters) setGamma(gm float64) {
+	al.gamma = gm
+}
+
+func (al *AlternativeRouteParameters) setAlpha(alp float64) {
+	al.alpha = alp
+}
+
+func (al *AlternativeRouteParameters) setEpsilon(eps float64) {
+	al.epsilon = eps
+}
+
+func (al *AlternativeRouteParameters) setUpperbound(upb float64) {
+	al.upperBound = upb
+}
+
+func (al *AlternativeRouteParameters) setMaxCandidatesToUnpack(maxCandidatesToUnpack int) {
+	al.maxCandidatesToUnpack = maxCandidatesToUnpack
+}
+
+func (al *AlternativeRouteParameters) getGamma() float64 {
+	return al.gamma
+}
+
+func (al *AlternativeRouteParameters) getAlpha() float64 {
+	return al.alpha
+}
+
+func (al *AlternativeRouteParameters) getEpsilon() float64 {
+	return al.epsilon
+}
+
+func (al *AlternativeRouteParameters) getUpperbound() float64 {
+	return al.upperBound
+}
+
+func (al *AlternativeRouteParameters) getMaxCandidatesToUnpack() int {
+	return al.maxCandidatesToUnpack
+}
+
 type AlternativeRouteSearch struct {
-	engine            *CRPRoutingEngine
-	candidates        []*AlternativeRoute
-	lm                *landmark.Landmark
-	optTravelTime     float64
-	runtime           int64
-	numOfInitialCands int
+	engine *CRPRoutingEngine
+	lm     *landmark.Landmark
 
-	s, t                da.Index
-	greatCircleDistance float64
-
-	// parameter yang diinint pakai read yml config
+	// parameter yang di init pakai read yml config
 	maxCandidatesToUnpackMap       map[float64]int
 	gammaMap, alphaMap, epsilonMap map[float64]float64
 	upperBoundMap                  map[float64]float64
 
-	gamma, alpha, epsilon, upperBound float64
-	maxCandidatesToUnpack             int
+	defaultGamma, defaultAlpha, defaultEpsilon, defaultUpperbound float64
+	defaultMaxCandidatesToUnpack                                  int
 
 	// paremeter yang diset tergantung logical cpu pc yang run routing engine
 	candidateUnpackerWorkers int
@@ -137,8 +186,7 @@ func NewAlternativeRouteSearch(engine *CRPRoutingEngine, lm *landmark.Landmark,
 
 ) *AlternativeRouteSearch {
 	alt := &AlternativeRouteSearch{
-		engine:     engine,
-		candidates: make([]*AlternativeRoute, 0),
+		engine: engine,
 
 		lm: lm,
 	}
@@ -167,7 +215,7 @@ inti dari FindAlternativeRoutes:
 3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
 */
 
-func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k int) []*AlternativeRoute {
+func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k int) ([]*AlternativeRoute, float64, int64) {
 
 	/*
 		let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
@@ -178,11 +226,11 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	*/
 	now := time.Now()
 
-	ars.s = ars.engine.graph.GetOutEdge(asId).GetHead()
-	ars.t = ars.engine.graph.GetInEdge(atId).GetTail()
-	ars.parameterByRequest()
+	s := ars.engine.graph.GetOutEdge(asId).GetHead()
+	t := ars.engine.graph.GetInEdge(atId).GetTail()
+	param := ars.parameterByRequest(s, t)
 
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
+	crpQuery := NewCRPBidirectionalSearch(ars.engine, param.upperBound)
 	crpQuery.SetForAlternativeRoutes(true)
 
 	defer func() {
@@ -192,10 +240,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 	optTravelTime, optEdgeIdPath, found := crpQuery.ShortestPathSearch(asId, atId)
 	if !found {
-		return []*AlternativeRoute{}
+		return []*AlternativeRoute{}, pkg.INF_WEIGHT, 0
 	}
-
-	ars.optTravelTime = optTravelTime
 
 	fpq := crpQuery.GetForwardPQ()
 	bpq := crpQuery.GetBackwardPQ()
@@ -206,13 +252,9 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	viaVertices := crpQuery.GetViaVertices()
 	viaVertices = ars.filterByUniqueId(viaVertices)
 
-	ars.candidates = make([]*AlternativeRoute, 0, ars.maxCandidatesToUnpack)
-
 	optPathSet := ars.buildPathSet(optEdgeIdPath)
 
 	shortcutPathSet := crpQuery.getShortcutPathSet()
-
-	ars.numOfInitialCands = len(viaVertices)
 
 	filterCandidates := func(v *da.ViaVertex) *da.ViaVertex {
 		var (
@@ -246,7 +288,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		// karena buat cek limited sharing kita harus unpack packed path dari via path nya dulu....
 		lv := svTravelTime + vtTravelTime
 
-		if util.Ge(lv, (1+ars.epsilon)*optTravelTime) {
+		if util.Ge(lv, (1+param.epsilon)*optTravelTime) {
 			// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak
 			return nil
 		}
@@ -255,7 +297,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		plv = ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
 			fpq, bpq, sCellNumber, lv, v.IsOverlay())
 
-		T := ars.alpha * optTravelTime
+		T := param.alpha * optTravelTime
 
 		if util.Le(plv, T) {
 			// T-test dengan T=\alpha*l(Opt) , v-w path adalah plateau dari P_v
@@ -300,7 +342,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 			sCellNumber, tCellNumber)
 
 		// cek approximate limited sharing
-		if util.Ge(approxDistanceShare, ars.gamma*lv) {
+		if util.Ge(approxDistanceShare, param.gamma*lv) {
 			return nil
 		}
 
@@ -337,7 +379,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 			filteredCandidates[j].GetApproxObjectiveValue()
 	})
 
-	maxFilteredCandSize := util.MinInt(ars.maxCandidatesToUnpack, len(filteredCandidates))
+	maxFilteredCandSize := util.MinInt(param.maxCandidatesToUnpack, len(filteredCandidates))
 	filteredCandidates = filteredCandidates[:maxFilteredCandSize]
 
 	computeAlternatives := func(v *da.ViaVertex) *AlternativeRoute {
@@ -429,7 +471,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		wg.Wait()
 		sigmav := ars.calculateDistanceShare(svEdgeIdPath, vtEdgeIdPath, optPathSet)
 		// cek limited sharing
-		if sigmav >= ars.gamma*optTravelTime {
+		if sigmav >= param.gamma*optTravelTime {
 			return nil
 		}
 		lv := v.GetCost()
@@ -453,178 +495,37 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	workersAlt.Start(computeAlternatives)
 	workersAlt.Wait()
 
+	res := make([]*AlternativeRoute, 0, maxFilteredCandSize)
 	for alternativeRoute := range workersAlt.CollectResults() {
 		if alternativeRoute == nil {
 			continue
 		}
-		ars.candidates = append(ars.candidates, alternativeRoute)
+		res = append(res, alternativeRoute)
 	}
 
-	sort.Slice(ars.candidates, func(i, j int) bool {
-		return ars.candidates[i].GetObjectiveValue() < ars.candidates[j].GetObjectiveValue()
+	sort.Slice(res, func(i, j int) bool {
+		return res[i].GetObjectiveValue() < res[j].GetObjectiveValue()
 	})
 
-	maxAltSize := util.MinInt(k, len(ars.candidates))
-	ars.candidates = ars.candidates[:maxAltSize]
+	maxAltSize := util.MinInt(k, len(res))
+	res = res[:maxAltSize]
 	for i := 0; i < maxAltSize; i++ {
 
-		finalEdgePath, finalPath, totalDistance := ars.engine.GetEdgePath(ars.candidates[i].GetEdgeIdPath())
-		ars.candidates[i].SetCoordPath(finalPath)
-		ars.candidates[i].SetEdgePath(finalEdgePath)
-		ars.candidates[i].SetDist(totalDistance)
+		finalEdgePath, finalPath, totalDistance := ars.engine.GetEdgePath(res[i].GetEdgeIdPath())
+		res[i].SetCoordPath(finalPath)
+		res[i].SetEdgePath(finalEdgePath)
+		res[i].SetDist(totalDistance)
 
 	}
 
-	res := removeSimiliarAlternatives(ars.candidates)
+	res = removeSimiliarAlternatives(res)
 
 	// worst case of FindAlternativeRoutes: worst case crp query + worst case computeAlternatives for all via vertices
 	// O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o) + c * ( p + \sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))
 
-	dur := time.Since(now).Milliseconds()
-	ars.runtime = dur
+	runtime := time.Since(now).Milliseconds()
 
-	return res
-}
-
-/*
-retrieveMoreViaVertices. retrieve via vertices. vertices that scanned by forward and backward search.
-*/
-func (ars *AlternativeRouteSearch) retrieveMoreViaVertices(fpq, bpq *da.QueryHeap[da.CRPQueryKey], viaVertices []*da.ViaVertex,
-	sCellNumber da.Pv, optTravelTime float64) []*da.ViaVertex {
-
-	set := make(map[da.Index]struct{}, len(viaVertices))
-	for i := 0; i < len(viaVertices); i++ {
-		v := viaVertices[i]
-		set[v.GetVId()] = struct{}{}
-	}
-
-	// todo: ini paling lemot, ganti add viavertices di alg querynya
-
-	fpq.ForLabelledItems(func(itemId da.Index, vInfo da.VertexInfo) {
-		if ars.engine.isOverlay(itemId) {
-			// via vertex is an overlay vertex
-			overlayVId := itemId
-
-			_, addedInOldSet := set[overlayVId]
-			if addedInOldSet {
-				return
-			}
-
-			scannedByBackwardSearch := bpq.IsScanned(overlayVId)
-			scannedByForwardSearch := fpq.IsScanned(overlayVId)
-			scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
-			admissibleCost := fpq.GetPriority(overlayVId)+bpq.GetPriority(overlayVId) < (1+ars.epsilon)*optTravelTime
-			if scannedByBothSearch && admissibleCost {
-
-				v := ars.engine.offOverlay(overlayVId)
-				vVertex := ars.engine.overlayGraph.GetVertex(v)
-				originalVId := vVertex.GetOriginalVertex()
-
-				set[overlayVId] = struct{}{}
-
-				viaVertices = append(viaVertices, da.NewViaVertex(overlayVId, 0, 0, originalVId, true))
-			}
-
-		} else {
-			// via vertex is not an overlay vertex
-
-			vEntryId := itemId
-			vId, outArc := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vEntryId)
-			_, addedInOldSet := set[vId]
-			if addedInOldSet {
-				return
-			}
-
-			scannedByForwardSearch := fpq.IsScanned(vEntryId)
-			if !scannedByForwardSearch {
-				return
-			}
-
-			// check wether we already scanned an exit point of vId
-			exitOffset := ars.engine.graph.GetExitOffset(vId)
-
-			exitOffset = ars.engine.offsetBackward(vId, exitOffset, ars.engine.graph.GetCellNumber(vId), sCellNumber)
-
-			vExitId := exitOffset
-
-			// traverse outEdges of v
-			ars.engine.graph.ForOutEdgesOf(vId, da.Index(outArc.GetEntryPoint()), func(e2 *da.OutEdge,
-				exitPoint da.Index, turnType2 pkg.TurnType) {
-
-				scannedByBackwardSearch := bpq.IsScanned(vExitId)
-				scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
-				admissibleCost := fpq.GetPriority(vEntryId)+bpq.GetPriority(vExitId) < (1+ars.epsilon)*optTravelTime
-				if scannedByBothSearch && admissibleCost {
-					set[vId] = struct{}{}
-					viaVertices = append(viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
-				}
-				vExitId++
-			})
-		}
-
-	})
-
-	bpq.ForLabelledItems(func(itemId da.Index, vInfo da.VertexInfo) {
-		if ars.engine.isOverlay(itemId) {
-			// via vertex is an overlay vertex
-			overlayVId := itemId
-			_, addedInOldSet := set[overlayVId]
-			if addedInOldSet {
-				return
-			}
-
-			scannedByBackwardSearch := bpq.IsScanned(overlayVId)
-			scannedByForwardSearch := fpq.IsScanned(overlayVId)
-			scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
-			admissibleCost := fpq.GetPriority(overlayVId)+bpq.GetPriority(overlayVId) < (1+ars.epsilon)*optTravelTime
-			if scannedByBothSearch && admissibleCost {
-
-				v := ars.engine.offOverlay(overlayVId)
-				vVertex := ars.engine.overlayGraph.GetVertex(v)
-				originalVId := vVertex.GetOriginalVertex()
-
-				set[overlayVId] = struct{}{}
-
-				viaVertices = append(viaVertices, da.NewViaVertex(overlayVId, 0, 0, originalVId, true))
-			}
-		} else {
-			// via vertex is not an overlay vertex
-			vExitId := itemId
-			vId, inArc := ars.engine.graph.GetTailOfOutedgeWithInEdge(vExitId)
-
-			_, addedInOldSet := set[vId]
-			if addedInOldSet {
-				return
-			}
-			scannedByBackwardSearch := bpq.IsScanned(vExitId)
-			if !scannedByBackwardSearch {
-				return
-			}
-
-			// check wether we already scanned an entry point
-			entryOffset := ars.engine.graph.GetEntryOffset(vId)
-
-			entryOffset = ars.engine.offsetForward(vId, entryOffset, ars.engine.graph.GetCellNumber(vId), sCellNumber)
-
-			vEntryId := entryOffset
-
-			ars.engine.graph.ForInEdgesOf(vId, da.Index(inArc.GetExitPoint()), func(inArc2 *da.InEdge,
-				entryPoint2 da.Index, turnType2 pkg.TurnType) {
-
-				scannedByForwardSearch := fpq.IsScanned(vEntryId)
-				scannedByBothSearch := scannedByBackwardSearch && scannedByForwardSearch
-				admissibleCost := fpq.GetPriority(vEntryId)+bpq.GetPriority(vExitId) < (1+ars.epsilon)*optTravelTime
-				if scannedByBothSearch && admissibleCost {
-					set[vId] = struct{}{}
-
-					viaVertices = append(viaVertices, da.NewViaVertex(vId, vEntryId, vExitId, vId, false))
-				}
-				vEntryId++
-			})
-		}
-	})
-
-	return viaVertices
+	return res, optTravelTime, runtime
 }
 
 func (ars *AlternativeRouteSearch) filterByUniqueId(vias []*da.ViaVertex) []*da.ViaVertex {
@@ -1077,65 +978,56 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 	return res
 }
 
-func (ars *AlternativeRouteSearch) parameterByRequest() {
+func (ars *AlternativeRouteSearch) parameterByRequest(s, t da.Index) AlternativeRouteParameters {
 
-	sVertex := ars.engine.graph.GetVertex(ars.s)
-	tVertex := ars.engine.graph.GetVertex(ars.t)
+	sVertex := ars.engine.graph.GetVertex(s)
+	tVertex := ars.engine.graph.GetVertex(t)
 	sCoord := sVertex.GetCoordinate()
 	tCoord := tVertex.GetCoordinate()
 	gcDist := geo.CalculateHaversineDistance(sCoord.GetLat(), sCoord.GetLon(),
 		tCoord.GetLat(), tCoord.GetLon()) // in km
 
-	ars.greatCircleDistance = gcDist
+	param := NewAlternativeRouteParameters(ars.defaultGamma, ars.defaultAlpha,
+		ars.defaultEpsilon, ars.defaultUpperbound, ars.defaultMaxCandidatesToUnpack)
+	param.setGamma(pickParam(ars.gammaMap, gcDist, ars.defaultGamma))
 
-	for maxDist, val := range ars.gammaMap {
-		if util.Lt(gcDist, maxDist) {
-			ars.gamma = val
+	param.setAlpha(pickParam(ars.alphaMap, gcDist, ars.defaultAlpha))
+
+	param.setEpsilon(pickParam(ars.epsilonMap, gcDist, ars.defaultEpsilon))
+	param.setUpperbound(pickParam(ars.upperBoundMap, gcDist, ars.defaultUpperbound))
+
+	param.setMaxCandidatesToUnpack(pickParam(ars.maxCandidatesToUnpackMap, gcDist, ars.defaultMaxCandidatesToUnpack))
+
+	return param
+}
+
+func pickParam[T comparable](paramMap map[float64]T, dist float64, defaultVal T) T {
+	keys := make([]float64, 0, len(paramMap))
+	for k := range paramMap {
+		keys = append(keys, k)
+	}
+	sort.Float64s(keys)
+
+	for _, k := range keys {
+		if util.Le(dist, k) {
+			return paramMap[k]
 		}
 	}
-
-	for maxDist, val := range ars.alphaMap {
-		if util.Lt(gcDist, maxDist) {
-			ars.alpha = val
-		}
-	}
-
-	for maxDist, val := range ars.epsilonMap {
-		if util.Lt(gcDist, maxDist) {
-			ars.epsilon = val
-		}
-	}
-
-	for maxDist, val := range ars.upperBoundMap {
-		if util.Lt(gcDist, maxDist) {
-			ars.upperBound = val
-		}
-	}
-
-	for maxDist, val := range ars.maxCandidatesToUnpackMap {
-		if util.Lt(gcDist, maxDist) {
-			ars.maxCandidatesToUnpack = val
-		}
-	}
-
+	return defaultVal
 }
 
 func (ars *AlternativeRouteSearch) initParameter() {
 	altConfig := viper.GetStringMap("alternatives")
-	ars.gammaMap, ars.gamma = util.ToFloat64Map(altConfig["gamma"])
-	ars.alphaMap, ars.alpha = util.ToFloat64Map(altConfig["alpha"])
-	ars.epsilonMap, ars.epsilon = util.ToFloat64Map(altConfig["epsilon"])
-	ars.upperBoundMap, ars.upperBound = util.ToFloat64Map(altConfig["upper_bound"])
-	ars.maxCandidatesToUnpackMap, ars.maxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
+	ars.gammaMap, ars.defaultGamma = util.ToFloat64Map(altConfig["gamma"])
+	ars.alphaMap, ars.defaultAlpha = util.ToFloat64Map(altConfig["alpha"])
+	ars.epsilonMap, ars.defaultEpsilon = util.ToFloat64Map(altConfig["epsilon"])
+	ars.upperBoundMap, ars.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
+	ars.maxCandidatesToUnpackMap, ars.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
 
 	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
 	numCpu := runtime.NumCPU()
 	ars.candidateFilterWorkers = numCpu / 6
 	ars.candidateUnpackerWorkers = numCpu / 6
-}
-
-func (ars *AlternativeRouteSearch) Reset() {
-	ars.candidates = make([]*AlternativeRoute, 0)
 }
 
 func (ars *AlternativeRouteSearch) makePackedViaPathOverlayEven(svPackedPath, vtPackedPath []da.VertexEdgePair) ([]da.VertexEdgePair, []da.VertexEdgePair) {
@@ -1160,29 +1052,29 @@ func (ars *AlternativeRouteSearch) makePackedViaPathOverlayEven(svPackedPath, vt
 	return svPackedPath, vtPackedPath
 }
 
-func (ars *AlternativeRouteSearch) GetStretch() float64 {
+func (ars *AlternativeRouteSearch) GetStretch(candidates []*AlternativeRoute, optimalTravelTime float64) float64 {
 
-	if len(ars.candidates) == 0 {
+	if len(candidates) == 0 {
 		return -1 // gak ke count karena gak ada alternative routes
 	}
 
 	stretch := 0.0
 
-	for i := 0; i < len(ars.candidates); i++ {
-		stretch += ars.candidates[i].GetDrivingTravelTime() / ars.optTravelTime
+	for i := 0; i < len(candidates); i++ {
+		stretch += candidates[i].GetDrivingTravelTime() / optimalTravelTime
 	}
-	stretch /= float64(len(ars.candidates))
+	stretch /= float64(len(candidates))
 
 	return stretch
 }
 
-func (ars *AlternativeRouteSearch) GetDiversity() float64 {
+func (ars *AlternativeRouteSearch) GetDiversity(candidates []*AlternativeRoute) float64 {
 
-	if len(ars.candidates) == 0 {
+	if len(candidates) == 0 {
 		return -1 // gak ke itung karena gak ada alternative routes
 	}
 
-	alts := ars.candidates
+	alts := candidates
 	set := make([]map[da.Index]struct{}, len(alts))
 	for i := 0; i < len(alts); i++ {
 		set[i] = make(map[da.Index]struct{}, len(alts[i].GetPath())*2)
@@ -1230,8 +1122,4 @@ func (ars *AlternativeRouteSearch) GetDiversity() float64 {
 	diversity /= float64(len(alts))
 
 	return diversity
-}
-
-func (ars *AlternativeRouteSearch) GetRuntime() int64 {
-	return ars.runtime
 }
