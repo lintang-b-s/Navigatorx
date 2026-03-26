@@ -29,10 +29,11 @@ type PathUnpacker struct {
 
 	puCache *lru.Cache[PUCacheKey, []da.Index]
 
-	useCache  bool
-	oneToMany bool
-	runtime   int64
-	lock      sync.RWMutex
+	useCache             bool
+	oneToMany            bool
+	runtime              int64
+	lock                 sync.RWMutex
+	forAlternativeRoutes bool
 }
 
 func NewPathUnpacker(engine *CRPRoutingEngine, metrics *metrics.Metric,
@@ -77,7 +78,12 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 
 	shortcutPathSet := make(map[uint64]uint8)
 
-	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](PATH_UNPACKER_WORKERS, len(packedPath))
+	workerSize := PATH_UNPACKER_WORKERS
+	if pu.forAlternativeRoutes {
+		workerSize = PATH_UNPACKER_ALTERNATIVE_WORKERS
+	}
+
+	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](workerSize, len(packedPath))
 
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
@@ -695,4 +701,8 @@ func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) ([]da.OutEdge, []
 func (re *CRPRoutingEngine) DoneQuery(edgePath []da.OutEdge, path []da.Coordinate) {
 	re.edgePathPool.Put(edgePath)
 	re.pathPool.Put(path)
+}
+
+func (pu *PathUnpacker) setForAlternativeRoutes() {
+	pu.forAlternativeRoutes = true
 }

@@ -46,6 +46,8 @@ type CRPALTBidirectionalSearch struct {
 	mapmatching        bool
 	handleRelaxOutEdge func(e *da.OutEdge) float64
 	handleRelaxInEdge  func(e *da.InEdge) float64
+
+	viaVertices []*da.ViaVertex
 }
 
 func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, lm *landmark.Landmark) *CRPALTBidirectionalSearch {
@@ -433,6 +435,7 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 
 					bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
 					bs.backwardMid = da.NewVertexEdgePair(vId, vExitId, true)
+
 				}
 				vExitId++
 			})

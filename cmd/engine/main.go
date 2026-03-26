@@ -36,7 +36,7 @@ const (
 	alpha      = 0.25 // every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
 	gamma      = 0.8  // alternative routes at least 20% different than the shortest path
 	epsilon    = 0.25 // alternative routes at most 25% longer than the shortest path
-	upperBound = 1.2// stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
+	upperBound = 1.25 // stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
 )
 
 func main() {

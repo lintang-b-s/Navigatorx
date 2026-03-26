@@ -204,6 +204,7 @@ func Le(a, b float64) bool {
 	return a <= b+EPS
 }
 
+// MaxFloat. maximum operator
 func MaxFloat(a, b float64) float64 {
 	if Gt(a, b) {
 		return a

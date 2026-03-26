@@ -69,26 +69,11 @@ data_sent...............................................................: 4.2 MB
 
 
 
-osrm-backend  docker quick start(https://github.com/Project-OSRM/osrm-backend) pakai script di "eval/osrm/load_tests/k6_sp.js":
-300vus:
 
-http_req_duration.......................................................: avg=7.27ms min=533.26µs med=6.69ms max=43.05ms p(90)=11.71ms p(95)=13.94ms
-  { expected_response:true }............................................: avg=7.27ms min=533.26µs med=6.7ms  max=43.05ms p(90)=11.71ms p(95)=13.95ms
-http_req_failed.........................................................: 0.21%  13 out of 6105
-http_reqs...............................................................: 6105   196.889472/s
-
-900vus:
-http_req_duration.......................................................: avg=298.32ms min=715.3µs med=205.88ms max=1.35s p(90)=690.78ms p(95)=824.75ms
-  { expected_response:true }............................................: avg=298.31ms min=715.3µs med=205.64ms max=1.35s p(90)=690.78ms p(95)=824.69ms
-http_req_failed.........................................................: 0.13%  20 out of 14297
-http_reqs...............................................................: 14297  459.091542/s
-
-gokilll
 
 todo2: bikin repo baru, buat bandingin navigatorx,osrm,graphopper,valhalla
 
 */
-
 
 // todo: kurangi call GetPriority di overlay graph search..
 

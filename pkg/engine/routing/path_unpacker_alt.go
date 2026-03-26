@@ -21,10 +21,11 @@ type PathUnpackerALT struct {
 	puCache *lru.Cache[PUCacheKey, []da.Index]
 	lm      *landmark.Landmark
 
-	useCache  bool
-	oneToMany bool
-	runtime   int64
-	lock      sync.RWMutex
+	useCache             bool
+	oneToMany            bool
+	runtime              int64
+	lock                 sync.RWMutex
+	forAlternativeRoutes bool
 }
 
 func NewPathUnpackerALT(engine *CRPRoutingEngine, metrics *metrics.Metric,
@@ -85,7 +86,12 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 
 	shortcutPathSet := make(map[uint64]uint8)
 
-	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](PATH_UNPACKER_WORKERS, len(packedPath))
+	workerSize := PATH_UNPACKER_WORKERS
+	if pu.forAlternativeRoutes {
+		workerSize = PATH_UNPACKER_ALTERNATIVE_WORKERS
+	}
+
+	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](workerSize, len(packedPath))
 
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
@@ -701,4 +707,8 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 func (pu *PathUnpackerALT) GetStats() int64 {
 	return pu.runtime
+}
+
+func (pu *PathUnpackerALT) setForAlternativeRoutes() {
+	pu.forAlternativeRoutes = true
 }
