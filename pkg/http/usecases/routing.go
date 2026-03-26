@@ -13,33 +13,27 @@ import (
 )
 
 type RoutingService struct {
-	log                          *zap.Logger
-	engine                       RoutingEngine
-	spatialIndex                 SpatialIndex
-	searchRadius                 float64
-	clockwise, lefthandDriving   bool
-	gamma, alpha, epsilon, delta float64
-	upperBoundAlternativeSearch  float64
-	lm                           *landmark.Landmark
+	log                        *zap.Logger
+	engine                     RoutingEngine
+	spatialIndex               SpatialIndex
+	searchRadius               float64
+	clockwise, lefthandDriving bool
+	lm                         *landmark.Landmark
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex,
 	searchRadius float64, clockwise, lefthandDriving bool,
-	gamma, alpha, epsilon, upperBoundAlternativeSearch, delta float64, lm *landmark.Landmark,
+	lm *landmark.Landmark,
 ) *RoutingService {
 	return &RoutingService{
-		log:                         log,
-		engine:                      engine,
-		spatialIndex:                spatialindex,
-		searchRadius:                searchRadius,
-		clockwise:                   clockwise,
-		lefthandDriving:             lefthandDriving,
-		gamma:                       gamma,
-		alpha:                       alpha,
-		epsilon:                     epsilon,
-		upperBoundAlternativeSearch: upperBoundAlternativeSearch,
-		delta:                       delta,
-		lm:                          lm,
+		log:             log,
+		engine:          engine,
+		spatialIndex:    spatialindex,
+		searchRadius:    searchRadius,
+		clockwise:       clockwise,
+		lefthandDriving: lefthandDriving,
+
+		lm: lm,
 	}
 }
 
@@ -86,8 +80,7 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 			errmsg)
 	}
 
-	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.upperBoundAlternativeSearch, rs.gamma, rs.alpha,
-		rs.epsilon, rs.lm)
+	altSearch := routing.NewAlternativeRouteSearch(rs.engine.(*routing.CRPRoutingEngine), rs.lm)
 	alternatives := altSearch.FindAlternativeRoutes(as, at, k)
 	if len(alternatives) == 0 {
 		return []*routing.AlternativeRoute{}, false, nil

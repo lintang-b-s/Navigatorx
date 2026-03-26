@@ -26,3 +26,20 @@ turncosts:
   straight_on: 0
   none: 0
 
+alternatives:
+  alpha: # every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
+    default: 0.25
+  gamma:
+    50: 0.8 # alternative routes with great circle distance between source and destination <= 50km  at least 20% different than the shortest path
+    default: 0.8 # alternative routes with great circle distance between source and destination > 50km  at least 20% different than the shortest path
+  epsilon:
+    default: 0.25 #  alternative routes at most 25% longer than the shortest path
+  upper_bound:
+    50: 1.25
+    default: 1.25 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
+  max_candidates_to_unpack:
+    10: 10 # great circle distance between source and destination <= 10km -> 10 via candidates to unpack
+    20: 8 # great circle distance between source and destination <= 20km  & > 10km -> 8 via candidates to unpack
+    50: 5
+    100: 4
+    default: 2

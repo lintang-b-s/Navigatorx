@@ -2,6 +2,7 @@ package routing
 
 import (
 	"math"
+	"runtime"
 	"sort"
 	"sync"
 	"time"
@@ -9,8 +10,10 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/spf13/viper"
 )
 
 type AlternativeRoute struct {
@@ -107,28 +110,40 @@ func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
 }
 
 type AlternativeRouteSearch struct {
-	engine                *CRPRoutingEngine
-	candidates            []*AlternativeRoute
-	upperBound            float64
-	gamma, alpha, epsilon float64
-	lm                    *landmark.Landmark
-	optTravelTime         float64
-	runtime               int64
-	numOfInitialCands     int
+	engine            *CRPRoutingEngine
+	candidates        []*AlternativeRoute
+	lm                *landmark.Landmark
+	optTravelTime     float64
+	runtime           int64
+	numOfInitialCands int
+
+	s, t                da.Index
+	greatCircleDistance float64
+
+	// parameter yang diinint pakai read yml config
+	maxCandidatesToUnpackMap       map[float64]int
+	gammaMap, alphaMap, epsilonMap map[float64]float64
+	upperBoundMap                  map[float64]float64
+
+	gamma, alpha, epsilon, upperBound float64
+	maxCandidatesToUnpack             int
+
+	// paremeter yang diset tergantung logical cpu pc yang run routing engine
+	candidateUnpackerWorkers int
+	candidateFilterWorkers   int
 }
 
-func NewAlternativeRouteSearch(engine *CRPRoutingEngine, upperBound, gamma, alpha, epsilon float64, lm *landmark.Landmark,
+func NewAlternativeRouteSearch(engine *CRPRoutingEngine, lm *landmark.Landmark,
 
 ) *AlternativeRouteSearch {
-	return &AlternativeRouteSearch{
+	alt := &AlternativeRouteSearch{
 		engine:     engine,
 		candidates: make([]*AlternativeRoute, 0),
-		upperBound: upperBound,
-		gamma:      gamma,
-		alpha:      alpha,
-		epsilon:    epsilon,
-		lm:         lm,
+
+		lm: lm,
 	}
+	alt.initParameter()
+	return alt
 }
 
 /*
@@ -163,6 +178,10 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	*/
 	now := time.Now()
 
+	ars.s = ars.engine.graph.GetOutEdge(asId).GetHead()
+	ars.t = ars.engine.graph.GetInEdge(atId).GetTail()
+	ars.parameterByRequest()
+
 	crpQuery := NewCRPBidirectionalSearch(ars.engine, ars.upperBound)
 	crpQuery.SetForAlternativeRoutes(true)
 
@@ -175,6 +194,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	if !found {
 		return []*AlternativeRoute{}
 	}
+
 	ars.optTravelTime = optTravelTime
 
 	fpq := crpQuery.GetForwardPQ()
@@ -185,10 +205,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 	viaVertices := crpQuery.GetViaVertices()
 	viaVertices = ars.filterByUniqueId(viaVertices)
-	// viaVertices = viaVertices[:util.MinInt(1, len(viaVertices))] // kalau cuma 1 p95 latency 88 ms, cuma 2 291 ms, cuma 5 700ms,
-	// yang bikin lemot kode dibawah ini
 
-	ars.candidates = make([]*AlternativeRoute, 0, MAX_FILTERED_ALTERNATIVE_ROUTE_CANDIDATES)
+	ars.candidates = make([]*AlternativeRoute, 0, ars.maxCandidatesToUnpack)
 
 	optPathSet := ars.buildPathSet(optEdgeIdPath)
 
@@ -232,8 +250,6 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 			// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak
 			return nil
 		}
-
-		
 
 		var plv float64
 		plv = ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
@@ -295,7 +311,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		return v
 	}
 
-	workersSize := util.MinInt(ALTERNATIVE_ROUTES_WORKERS, len(viaVertices))
+	workersSize := util.MinInt(ars.candidateFilterWorkers, len(viaVertices))
 
 	workers := concurrent.NewWorkerPool[*da.ViaVertex, *da.ViaVertex](workersSize, len(viaVertices))
 
@@ -321,7 +337,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 			filteredCandidates[j].GetApproxObjectiveValue()
 	})
 
-	maxFilteredCandSize := util.MinInt(MAX_FILTERED_ALTERNATIVE_ROUTE_CANDIDATES, len(filteredCandidates))
+	maxFilteredCandSize := util.MinInt(ars.maxCandidatesToUnpack, len(filteredCandidates))
 	filteredCandidates = filteredCandidates[:maxFilteredCandSize]
 
 	computeAlternatives := func(v *da.ViaVertex) *AlternativeRoute {
@@ -426,7 +442,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	// worst case computeAlternatives for all via vertices: O(c * ( p + \sum_{i=1}^{q} (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))
 	// c = min(MAX_FILTERED_ALTERNATIVE_ROUTE_CANDIDATES, len(filteredCandidates))
 
-	workersSize = util.MinInt(ALTERNATIVE_ROUTES_WORKERS, len(filteredCandidates))
+	workersSize = util.MinInt(ars.candidateUnpackerWorkers, len(filteredCandidates))
 	workersAlt := concurrent.NewWorkerPool[*da.ViaVertex, *AlternativeRoute](workersSize, len(filteredCandidates))
 
 	for _, v := range filteredCandidates {
@@ -1059,6 +1075,63 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 		}
 	}
 	return res
+}
+
+func (ars *AlternativeRouteSearch) parameterByRequest() {
+
+	sVertex := ars.engine.graph.GetVertex(ars.s)
+	tVertex := ars.engine.graph.GetVertex(ars.t)
+	sCoord := sVertex.GetCoordinate()
+	tCoord := tVertex.GetCoordinate()
+	gcDist := geo.CalculateHaversineDistance(sCoord.GetLat(), sCoord.GetLon(),
+		tCoord.GetLat(), tCoord.GetLon()) // in km
+
+	ars.greatCircleDistance = gcDist
+
+	for maxDist, val := range ars.gammaMap {
+		if util.Lt(gcDist, maxDist) {
+			ars.gamma = val
+		}
+	}
+
+	for maxDist, val := range ars.alphaMap {
+		if util.Lt(gcDist, maxDist) {
+			ars.alpha = val
+		}
+	}
+
+	for maxDist, val := range ars.epsilonMap {
+		if util.Lt(gcDist, maxDist) {
+			ars.epsilon = val
+		}
+	}
+
+	for maxDist, val := range ars.upperBoundMap {
+		if util.Lt(gcDist, maxDist) {
+			ars.upperBound = val
+		}
+	}
+
+	for maxDist, val := range ars.maxCandidatesToUnpackMap {
+		if util.Lt(gcDist, maxDist) {
+			ars.maxCandidatesToUnpack = val
+		}
+	}
+
+}
+
+func (ars *AlternativeRouteSearch) initParameter() {
+	altConfig := viper.GetStringMap("alternatives")
+	ars.gammaMap, ars.gamma = util.ToFloat64Map(altConfig["gamma"])
+	ars.alphaMap, ars.alpha = util.ToFloat64Map(altConfig["alpha"])
+	ars.epsilonMap, ars.epsilon = util.ToFloat64Map(altConfig["epsilon"])
+	ars.upperBoundMap, ars.upperBound = util.ToFloat64Map(altConfig["upper_bound"])
+	ars.maxCandidatesToUnpackMap, ars.maxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
+
+	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
+	numCpu := runtime.NumCPU()
+	ars.candidateFilterWorkers = numCpu / 6
+	ars.candidateUnpackerWorkers = numCpu / 6
 }
 
 func (ars *AlternativeRouteSearch) Reset() {

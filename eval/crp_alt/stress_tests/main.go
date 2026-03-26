@@ -46,7 +46,7 @@ const (
 go run eval/crp_alt/stress_tests/main.go
 
 stress test ini bertujuan untuk mencari apakah ada counterexample (output dari ALT CRP query bukan shortest path) dari implementasi  A*, landmarks, and triangle inequality (ALT) untuk query Customizable Route Planning (CRP) pada file
-crp_bidir_astar_landmark.go
+multilevel_astar_landmarks.go
 
 ref:
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.

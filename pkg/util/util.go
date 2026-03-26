@@ -211,3 +211,45 @@ func MaxFloat(a, b float64) float64 {
 	}
 	return b
 }
+
+func ToFloat64Map(input interface{}) (map[float64]float64, float64) {
+	result := make(map[float64]float64)
+	defaultVal := 0.0
+	for k, v := range input.(map[string]interface{}) {
+		if k == "default" {
+			defaultVal = v.(float64)
+			continue
+		}
+
+		key, err := strconv.ParseFloat(k, 64)
+		if err != nil {
+			continue
+		}
+
+		result[key] = v.(float64)
+	}
+
+	return result, defaultVal
+}
+
+func ToFloat64IntMap(input interface{}) (map[float64]int, int) {
+	result := make(map[float64]int)
+	defaultVal := 0
+
+	for k, v := range input.(map[string]interface{}) {
+		if k == "default" {
+			defaultVal = v.(int)
+
+			continue
+		}
+
+		key, err := strconv.ParseFloat(k, 64)
+		if err != nil {
+			continue
+		}
+
+		result[key] = int(v.(int))
+	}
+
+	return result, defaultVal
+}

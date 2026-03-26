@@ -49,16 +49,23 @@ const (
 /*
 go run eval/crp_alt/alternative_routes/main.go
 
-naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 80%-81% success rate nya. lets gooo
+naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 79%-81% success rate nya. lets gooo
 
 osrm cuma 52-56%
 
 todo6: bikin cara agar bisa eliminate banyak via vertices sebelum di unpack path nya ... (DONE)
-todo: target p95 latency dengan 900vus endpoint alternative routes: 200ms dengan success rate alternative routes > 85%
+todo: target p95 latency dengan 900vus endpoint alternative routes: 200ms dengan success rate alternative routes >= 80%
 osrm  p95 latency 900vus: 230ms
 
-todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , valhalla
+todo: optimize directionBuilder.GetDrivingDirections()
 
+tadi pakai:
+alt.SetDrivingDirections([]datastructure.DrivingDirection{})
+
+dapet p95 latency 900 vus alternative routes: 233ms, lets gooo
+
+
+todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , valhalla
 
 ....
 */
@@ -219,7 +226,7 @@ func main() {
 		s := queries[i].s
 		t := queries[i].t
 
-		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), upperBound, gamma, alpha, epsilon, lm)
+		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), lm)
 
 		alts := altSearch.FindAlternativeRoutes(s, t, 4)
 

@@ -78,9 +78,9 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 
 	shortcutPathSet := make(map[uint64]uint8)
 
-	workerSize := PATH_UNPACKER_WORKERS
+	workerSize := pu.engine.unpackerWorkers
 	if pu.forAlternativeRoutes {
-		workerSize = PATH_UNPACKER_ALTERNATIVE_WORKERS
+		workerSize = pu.engine.unpackerForAlternativeRoutesWorkers
 	}
 
 	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](workerSize, len(packedPath))

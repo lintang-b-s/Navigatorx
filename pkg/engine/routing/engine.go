@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"runtime"
 	"sync"
 
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -27,6 +28,9 @@ type CRPRoutingEngine struct {
 	unpackedPathPool   sync.Pool
 	customizer         Customizer
 	costFunction       CostFunction
+
+	unpackerWorkers                     int
+	unpackerForAlternativeRoutesWorkers int
 }
 
 func NewCRPRoutingEngine(graph *da.Graph,
@@ -43,6 +47,7 @@ func NewCRPRoutingEngine(graph *da.Graph,
 		costFunction: costFunction,
 	}
 	e.BuildQueryHeapPool()
+	e.initParameter()
 	return e
 }
 
@@ -124,6 +129,12 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 			return s
 		},
 	}
+}
+
+func (crp *CRPRoutingEngine) initParameter() {
+	numCpu := runtime.NumCPU()
+	crp.unpackerWorkers = numCpu / 6
+	crp.unpackerForAlternativeRoutesWorkers = numCpu / 6
 }
 
 func (crp *CRPRoutingEngine) GetMaxSpeed(e *da.OutEdge) float64 {

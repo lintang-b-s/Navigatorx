@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"os"
+	"runtime"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -40,6 +41,7 @@ const (
 )
 
 func main() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	flag.Parse()
 	logger, err := log.New()
@@ -83,7 +85,7 @@ func main() {
 	api := http.NewServer(logger)
 
 	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
-		gamma, alpha, epsilon, upperBound, 0.1, lm)
+		lm)
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine, offlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {

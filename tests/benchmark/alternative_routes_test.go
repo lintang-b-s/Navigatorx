@@ -45,7 +45,7 @@ func BenchmarkAlternativeRoutes(b *testing.B) {
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
-		crpQuery := routing.NewAlternativeRouteSearch(re, upperBound, gamma, alpha, epsilon, lm)
+		crpQuery := routing.NewAlternativeRouteSearch(re, lm)
 		alts := crpQuery.FindAlternativeRoutes(as, at, 3)
 		for j := 0; j < len(alts); j++ {
 			alt := alts[j]

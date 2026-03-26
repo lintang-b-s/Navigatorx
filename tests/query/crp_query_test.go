@@ -431,7 +431,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 /*
 stress test ini bertujuan untuk mencari apakah ada counterexample (output dari ALT CRP query bukan shortest path) dari implementasi  A*, landmarks, and triangle inequality (ALT) untuk query Customizable Route Planning (CRP) pada file
-crp_bidir_astar_landmark.go
+multilevel_astar_landmarks.go
 
 untuk plain dijkstra find single source shortest paths (sssp), from s to all other vertices
 untuk alt query crp find point-to-point(p2p) shortest paths, untuk semua p2p sp queries diatas
