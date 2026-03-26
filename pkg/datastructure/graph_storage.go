@@ -7,6 +7,7 @@ import (
 )
 
 type GraphStorage struct {
+	mapEdgeInfo   []EdgeExtraInfo
 	osmNodePoints []Coordinate
 
 	/*
@@ -15,13 +16,10 @@ type GraphStorage struct {
 		idx in flag array = floor(edgeID/32)
 		idx in flag = edgeID % 32
 	*/
+	streetDirection  map[int64][2]bool // osm way id -> [forward,backward]
+	tagStringIDMap   util.IDMap
 	roundaboutFlag   []Index
 	nodeTrafficLight []Index
-
-	mapEdgeInfo []EdgeExtraInfo
-
-	tagStringIDMap  util.IDMap
-	streetDirection map[int64][2]bool // osm way id -> [forward,backward]
 }
 
 func NewGraphStorage() *GraphStorage {
@@ -102,13 +100,13 @@ func (gs *GraphStorage) GetTrafficLight(nodeID Index) bool {
 }
 
 type EdgeExtraInfo struct {
+	osmWayId         int64
 	startPointsIndex Index // edge geometry start index di gs.osmNodePoints
 	endPointsIndex   Index
 	streetName       int
 	roadClass        int
 	roadClassLink    int
 	lanes            uint8
-	osmWayId         int64
 }
 
 func NewEdgeExtraInfo(streetName int, roadClass, roadClassLink int, lanes uint8, StartPointsIdx, EndPointsIdx Index,

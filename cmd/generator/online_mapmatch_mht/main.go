@@ -71,7 +71,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	routingService := usecases.NewRoutingService(logger, routingEngine.GetRoutingEngine(), rtree, 0.04, true, true,
+
+	re := routingEngine.GetRoutingEngine()
+	altSearch := routing.NewAlternativeRouteSearch(re, lm)
+
+	routingService := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true, true,
 		lm)
 
 	boundingBox := graph.GetBoundingBox()

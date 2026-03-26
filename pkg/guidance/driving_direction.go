@@ -2,6 +2,7 @@ package guidance
 
 import (
 	"math"
+	"sync"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -10,50 +11,103 @@ import (
 )
 
 type DirectionBuilder struct {
-	graph                    Graph
 	instructions             []*datastructure.Instruction
+	prevInstruction          *datastructure.Instruction
+	turnDescriptions         []string
+	tempOutEdges             []*datastructure.OutEdge
+	tempInEdges              []*datastructure.InEdge
+	tempAltTurns             []*datastructure.OutEdge
+	points                   []datastructure.Coordinate
+	edgeIds                  []datastructure.Index
+	drivingInstructionPool   *sync.Pool
+	coordinatesPool          *sync.Pool
+	drivingEdgeIdsPool       *sync.Pool
+	graph                    Graph
 	prevEdge                 datastructure.OutEdge
-	prevNode                 datastructure.Index
+	doublePrevStreetName     string
 	prevInitialBearing       float64
 	doublePrevInitialBearing float64
-	prevInstruction          *datastructure.Instruction
-	prevInRoundabout         bool
-	doublePrevStreetName     string
-	doublePrevNode           datastructure.Index
 	cumulativeDistance       float64
 	cumulativeTravelTime     float64
-	edgeIds                  []datastructure.Index
-	points                   []datastructure.Coordinate
+	doublePrevNode           datastructure.Index
+	prevNode                 datastructure.Index
 	clockwise                bool // clockwise roundabout (like in indonesia) or counter-clockwise roundabout
 	lefthand                 bool // left hand traffic (like in indonesia) or right hand traffic
+	prevInRoundabout         bool
 }
 
-func NewDirectionBuilder(graph Graph, clockwise, lefthand bool) *DirectionBuilder {
-	return &DirectionBuilder{
+func NewDirectionBuilder(graph Graph, clockwise, lefthand bool, drivingInstructionPool, coordinatesPool, drivingEdgeIdsPool *sync.Pool) *DirectionBuilder {
+	db := &DirectionBuilder{
 		graph:                    graph,
-		instructions:             make([]*datastructure.Instruction, 0),
 		prevNode:                 math.MaxUint32,
 		prevInRoundabout:         false,
 		doublePrevInitialBearing: 0,
 		clockwise:                clockwise,
 		lefthand:                 lefthand,
+		drivingInstructionPool:   drivingInstructionPool,
+		coordinatesPool:          coordinatesPool,
+		drivingEdgeIdsPool:       drivingEdgeIdsPool,
+		turnDescriptions:         make([]string, 256),
+		tempOutEdges:          make([]*datastructure.OutEdge, 0, 8),
+		tempInEdges:           make([]*datastructure.InEdge, 0, 8),
+		tempAltTurns:          make([]*datastructure.OutEdge, 0, 8),
 	}
+
+	return db
 }
 
-func (db *DirectionBuilder) GetDrivingDirections(path []datastructure.OutEdge) []datastructure.DrivingDirection {
+func (db *DirectionBuilder) reset() {
+	db.coordinatesPool.Put(db.points)
+	db.drivingEdgeIdsPool.Put(db.edgeIds)
+
+	db.points = db.coordinatesPool.Get().([]datastructure.Coordinate)
+	db.points = db.points[:0]
+
+	db.edgeIds = db.drivingEdgeIdsPool.Get().([]datastructure.Index)
+	db.edgeIds = db.edgeIds[:0]
+}
+
+func (db *DirectionBuilder) done() {
+	db.drivingInstructionPool.Put(db.instructions)
+	db.coordinatesPool.Put(db.points)
+	db.drivingEdgeIdsPool.Put(db.edgeIds)
+
+}
+
+func (db *DirectionBuilder) Reset() {
+
+	db.prevNode = math.MaxUint32
+	db.prevInRoundabout = false
+	db.prevInstruction = nil
+	db.prevEdge = datastructure.OutEdge{}
+	db.doublePrevStreetName = ""
+	db.prevInitialBearing = 0
+	db.doublePrevInitialBearing = 0
+	db.cumulativeDistance = 0
+	db.cumulativeTravelTime = 0
+	db.doublePrevNode = 0
+
+	db.instructions = db.drivingInstructionPool.Get().([]*datastructure.Instruction)
+	db.instructions = db.instructions[:0]
+}
+
+func (db *DirectionBuilder) GetDrivingDirections(path []datastructure.OutEdge, drivingDirections []datastructure.DrivingDirection) []datastructure.DrivingDirection {
+	defer db.done()
 
 	for _, edge := range path {
 		db.buildInstruction(edge)
 	}
 	db.buildFinalInstruction()
 
-	var turnDescriptions = make([]string, len(db.instructions))
-	for i, ins := range db.instructions {
-		desc := ins.GetTurnDescription(db.clockwise)
-		turnDescriptions[i] = desc
+	n := len(db.instructions)
+	if len(db.turnDescriptions) < n {
+		db.turnDescriptions = make([]string, n)
 	}
 
-	drivingDirections := make([]datastructure.DrivingDirection, len(db.instructions))
+	for i, ins := range db.instructions {
+		desc := ins.GetTurnDescription(db.clockwise)
+		db.turnDescriptions[i] = desc
+	}
 
 	for i, ins := range db.instructions {
 		var (
@@ -65,8 +119,8 @@ func (db *DirectionBuilder) GetDrivingDirections(path []datastructure.OutEdge) [
 		}
 		way := *db.instructions[i]
 		currPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(way.GetPoints()))
-		drivingDirections[i] = datastructure.NewDrivingDirection(way, turnDescriptions[i],
-			currStepTravelTime, currStepDistance, way.GetEdgeIds(), currPolyline, ins.GetTurnBearing())
+		drivingDirections = append(drivingDirections, datastructure.NewDrivingDirection(way, db.turnDescriptions[i],
+			currStepTravelTime, currStepDistance, way.GetEdgeIds(), currPolyline, ins.GetTurnBearing()))
 	}
 
 	return drivingDirections
@@ -100,8 +154,11 @@ func (db *DirectionBuilder) buildInstruction(edge datastructure.OutEdge) {
 			db.points, turnBearing, db.clockwise)
 		db.prevInstruction = newIns
 
-		db.edgeIds = make([]datastructure.Index, 0)
-		db.points = make([]datastructure.Coordinate, 0)
+		db.points = db.coordinatesPool.Get().([]datastructure.Coordinate)
+		db.points = db.points[:0]
+
+		db.edgeIds = db.drivingEdgeIdsPool.Get().([]datastructure.Index)
+		db.edgeIds = db.edgeIds[:0]
 
 		db.prevInstruction.SetExtraInfo("heading", turnBearing)
 		db.instructions = append(db.instructions, db.prevInstruction)
@@ -127,8 +184,7 @@ func (db *DirectionBuilder) buildInstruction(edge datastructure.OutEdge) {
 			db.prevInstruction = &prevIns
 
 			// reset edgeIDs and points
-			db.edgeIds = []datastructure.Index{}
-			db.points = []datastructure.Coordinate{}
+			db.reset()
 
 			db.instructions = append(db.instructions, db.prevInstruction)
 		}
@@ -161,8 +217,7 @@ func (db *DirectionBuilder) buildInstruction(edge datastructure.OutEdge) {
 					db.points, turnBearing, db.clockwise)
 				db.prevInstruction = prevIns
 
-				db.edgeIds = make([]datastructure.Index, 0)
-				db.points = make([]datastructure.Coordinate, 0)
+				db.reset()
 
 				db.doublePrevInitialBearing = db.prevInitialBearing
 				db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge.GetEdgeId())
@@ -206,7 +261,6 @@ func (db *DirectionBuilder) buildFinalInstruction() {
 	finishInstruction.SetExtraInfo("heading", geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
 
 	db.instructions = append(db.instructions, finishInstruction)
-
 }
 
 /*

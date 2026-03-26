@@ -2,6 +2,7 @@ package usecases
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -20,13 +21,20 @@ type RoutingService struct {
 	searchRadius               float64
 	clockwise, lefthandDriving bool
 	lm                         *landmark.Landmark
+
+	// sync pools
+	drivingInstructionPool *sync.Pool
+	coordinatesPool        *sync.Pool
+	drivingEdgeIdsPool     *sync.Pool
+	drivingDirectionPool   *sync.Pool
+	directionBuilderPool   *sync.Pool
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
 	searchRadius float64, clockwise, lefthandDriving bool,
 	lm *landmark.Landmark,
 ) *RoutingService {
-	return &RoutingService{
+	rs := &RoutingService{
 		log:             log,
 		engine:          engine,
 		spatialIndex:    spatialindex,
@@ -37,6 +45,47 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 
 		lm: lm,
 	}
+
+	rs.drivingInstructionPool = &sync.Pool{
+		New: func() any {
+			drinvingInstructions := make([]*datastructure.Instruction, 0, 128)
+			return drinvingInstructions
+		},
+	}
+
+	rs.coordinatesPool = &sync.Pool{
+		New: func() any {
+			legCoordinates := make([]datastructure.Coordinate, 0, 128)
+			return legCoordinates
+		},
+	}
+
+	rs.drivingEdgeIdsPool = &sync.Pool{
+		New: func() any {
+			legEdgeIds := make([]datastructure.Index, 0, 128)
+			return legEdgeIds
+		},
+	}
+
+	rs.drivingDirectionPool = &sync.Pool{
+		New: func() any {
+			drivingDirections := make([]datastructure.DrivingDirection, 0, 128)
+			return drivingDirections
+		},
+	}
+
+	rs.directionBuilderPool = &sync.Pool{
+		New: func() any {
+			return guidance.NewDirectionBuilder(
+				rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving,
+				rs.drivingInstructionPool,
+				rs.coordinatesPool,
+				rs.drivingEdgeIdsPool,
+			)
+		},
+	}
+
+	return rs
 }
 
 func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []datastructure.DrivingDirection, bool, error) {
@@ -65,9 +114,16 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	}
 
 	pathPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(pathCoords))
-	directionBuilder := guidance.NewDirectionBuilder(rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving)
+	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 	// todo: update kode driving direction buat improve performance
-	drivingDirection := directionBuilder.GetDrivingDirections(edgePath)
+
+	drivingDirection := rs.drivingDirectionPool.Get().([]datastructure.DrivingDirection)
+	drivingDirection = drivingDirection[:0]
+	directionBuilder.Reset()
+
+	drivingDirection = directionBuilder.GetDrivingDirections(edgePath, drivingDirection)
+
+	rs.directionBuilderPool.Put(directionBuilder)
 	rs.engine.DoneQuery(edgePath, pathCoords)
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }
@@ -90,11 +146,16 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 	for _, alt := range alternatives {
 		pathPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(alt.GetCoords()))
 		alt.SetPolylinePath(pathPolyline)
-		directionBuilder := guidance.NewDirectionBuilder(rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving)
+		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
+		directionBuilder.Reset()
 		// todo: update kode driving direction buat improve performance
 
-		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetPath())
+		drivingDirection := rs.drivingDirectionPool.Get().([]datastructure.DrivingDirection)
+		drivingDirection = drivingDirection[:0]
+		drivingDirection = directionBuilder.GetDrivingDirections(alt.GetPath(), drivingDirection)
 		alt.SetDrivingDirections(drivingDirection)
+
+		rs.directionBuilderPool.Put(directionBuilder)
 		rs.engine.DoneQuery(alt.GetPath(), alt.GetCoords())
 	}
 	return alternatives, true, nil
@@ -102,4 +163,8 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 
 func (rs *RoutingService) GetEngine() RoutingEngine {
 	return rs.engine
+}
+
+func (rs *RoutingService) DoneDrivingDirection(drivingDirection []datastructure.DrivingDirection) {
+	rs.drivingDirectionPool.Put(drivingDirection)
 }

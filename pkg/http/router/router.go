@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/NYTimes/gziphandler"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	router_helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
@@ -113,10 +114,10 @@ func (api *API) Run(
 	var mwChain []alice.Constructor
 	if useRateLimit {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, Heartbeat("healthz"), Logger(log), Labels, Limit)
+			RealIP, Heartbeat("healthz"), Logger(log), Labels, Limit, gziphandler.GzipHandler)
 	} else {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, Heartbeat("healthz"), Logger(log), Labels)
+			RealIP, Heartbeat("healthz"), Logger(log), Labels, gziphandler.GzipHandler)
 	}
 	mainMwChain := alice.New(mwChain...).Then(router)
 

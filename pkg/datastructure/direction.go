@@ -29,19 +29,19 @@ const (
 )
 
 type Instruction struct {
+	points               []Coordinate
+	edgeIds              []Index
+	roundabout           *RoundaboutInstruction
+	extrainfo            map[string]interface{}
 	point                Coordinate
-	turnSign             int
 	streetname           string
 	cumulativeDistance   float64
 	cumulativeTravelTime float64
-	extrainfo            map[string]interface{}
-	isRoundabout         bool
-	roundabout           *RoundaboutInstruction
-	edgeIds              []Index
 	edgeSpeed            float64
-	points               []Coordinate
 	turnBearing          float64
 	turnType             string
+	turnSign             int
+	isRoundabout         bool
 }
 
 func NewInstruction(sign int, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
@@ -270,12 +270,12 @@ func (i *Instruction) SetExited() {
 
 type DrivingDirection struct {
 	instruction string
-	point       Coordinate
-	streetName  string
-	travelTime  float64
-	distance    float64
 	edgeIds     []Index
 	polyline    string
+	streetName  string
+	point       Coordinate
+	travelTime  float64
+	distance    float64
 	turnBearing float64
 	turnType    string
 }

@@ -23,22 +23,21 @@ ada 4 belokan yang bisa dilakukan dari tail B.
 --- / | = jalan 2 arah
 */ // nolint: gofmt
 func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId datastructure.Index) (int, []*datastructure.OutEdge) {
-	alternativeTurns := []*datastructure.OutEdge{}
-	var (
-		edges []*datastructure.OutEdge = make([]*datastructure.OutEdge, 0)
-	)
+	db.tempOutEdges = db.tempOutEdges[:0] // reset length, tapi capacity tetep sama
 
 	db.graph.ForOutEdgesOfWithId(tailId, func(e *datastructure.OutEdge, id datastructure.Index) {
-		edges = append(edges, e)
+		db.tempOutEdges = append(db.tempOutEdges, e)
 	})
 
-	for _, edge := range edges {
+	db.tempAltTurns = db.tempAltTurns[:0]
+
+	for _, edge := range db.tempOutEdges {
 		if edge.GetHead() != prevVertexId && edge.GetHead() != headId {
-			alternativeTurns = append(alternativeTurns, edge)
+			db.tempAltTurns = append(db.tempAltTurns, edge)
 		}
 	}
 
-	return 1 + len(alternativeTurns), alternativeTurns
+	return 1 + len(db.tempAltTurns), db.tempAltTurns
 }
 
 func (db *DirectionBuilder) isLeavingCurrentStreet(prevStreetName, currentStreetName string, prevEdge, currEdge datastructure.OutEdge) bool {
@@ -108,13 +107,14 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge datastructure.O
 	}
 
 	var otherEdge *datastructure.OutEdge = nil // outEdge dari tail selain PrevEdge yang mengarah dari tail
-	outEdges := make([]*datastructure.OutEdge, 0)
+
+	db.tempOutEdges = db.tempOutEdges[:0] // reset length, tapi capacity tetep sama
 
 	db.graph.ForOutEdgesOfWithId(tail, func(e *datastructure.OutEdge, id datastructure.Index) {
-		outEdges = append(outEdges, e)
+		db.tempOutEdges = append(db.tempOutEdges, e)
 	})
 
-	for _, edge := range outEdges {
+	for _, edge := range db.tempOutEdges {
 
 		edgeStreetName := db.graph.GetStreetName(edge.GetEdgeId())
 
@@ -178,16 +178,15 @@ func (db *DirectionBuilder) isStreetSplit(currentEdge, prevEdge datastructure.Ou
 	}
 
 	var otherEdge *datastructure.InEdge = nil // inEdge dari tail selain PrevEdge yang mengarah ke tail
-	var (
-		inEdges []*datastructure.InEdge = make([]*datastructure.InEdge, 0)
-	)
+
+	db.tempInEdges = db.tempInEdges[:0]
 
 	db.graph.ForInEdgesOfWithId(tail, func(e *datastructure.InEdge, id datastructure.Index) {
-		inEdges = append(inEdges, e)
+		db.tempInEdges = append(db.tempInEdges, e)
 	})
 	prevEdgeTail := db.graph.GetTailOfOutedge(prevEdge.GetEdgeId())
 
-	for _, inEdge := range inEdges {
+	for _, inEdge := range db.tempInEdges {
 
 		edgeStreetName := db.graph.GetStreetName(inEdge.GetEdgeId())
 		edgeRoadClass := db.graph.GetRoadClass(inEdge.GetEdgeId())
