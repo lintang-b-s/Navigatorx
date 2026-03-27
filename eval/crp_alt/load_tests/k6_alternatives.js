@@ -23,8 +23,8 @@ const queryData = new SharedArray("queries", function () {
 
 export const options = {
   stages: [
-    { duration: "20s", target: 900 },
-    { duration: "5s", target: 900 },
+    { duration: "15s", target: 900 },
+    { duration: "15s", target: 900 },
   ],
 };
 
@@ -32,24 +32,24 @@ export const options = {
 navigatorx:
 success rate (dari semua query ada berapa query yang berhasil return alternative routes): 81%  (didapat dari script eval/crp_alt/alternative_routes/main.go)
 
-900 vus (laptop tidak sambil dicharge & tdk low battery):
+900 vus (laptop tidak sambil dicharge & tdk low battery), setelah ganti cache ke https://github.com/dgraph-io/ristretto:
 HTTP
-http_req_duration.......................................................: avg=120.33ms min=706.32µs med=19.67ms max=1.49s p(90)=386.27ms p(95)=533.96ms
-  { expected_response:true }............................................: avg=120.34ms min=706.32µs med=19.69ms max=1.49s p(90)=386.29ms p(95)=533.97ms
-http_req_failed.........................................................: 0.00%  1 out of 12610
-http_reqs...............................................................: 12610  480.871108/s
+http_req_duration.......................................................: avg=74.2ms  min=329µs med=38.64ms max=1.02s p(90)=180.83ms p(95)=238.38ms
+{ expected_response:true }............................................: avg=74.21ms min=329µs med=38.64ms max=1.02s p(90)=180.83ms p(95)=238.39ms
+http_req_failed.........................................................: 0.00%  1 out of 19227
+http_reqs...............................................................: 19227  620.093531/s
 
 EXECUTION
-iteration_duration......................................................: avg=1.12s    min=1s       med=1.02s   max=2.49s p(90)=1.38s    p(95)=1.53s   
-iterations..............................................................: 12610  480.871108/s
-vus.....................................................................: 257    min=44         max=900
+iteration_duration......................................................: avg=1.07s   min=1s    med=1.03s   max=2.02s p(90)=1.18s    p(95)=1.23s   
+iterations..............................................................: 19227  620.093531/s
+vus.....................................................................: 90     min=55         max=900
 vus_max.................................................................: 900    min=900        max=900
 
 NETWORK
-data_received...........................................................: 550 MB 21 MB/s
-data_sent...............................................................: 3.2 MB 123 kB/s
+data_received...........................................................: 840 MB 27 MB/s
+data_sent...............................................................: 4.9 MB 159 kB/s
 
-
+gokilll
 
 osrm-backend build from source quick start (laptop tidak sambil dicharge & tdk low battery):
 success rate (dari semua query ada berapa query yang berhasil return alternative routes): 56%  (didapat dari script eval/osrm/alternative_routes/main.go)

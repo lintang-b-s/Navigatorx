@@ -4,7 +4,7 @@ import (
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -18,7 +18,7 @@ type PathUnpackerALT struct {
 
 	metrics *metrics.Metric
 
-	puCache *lru.Cache[PUCacheKey, []da.Index]
+	puCache *ristretto.Cache[[]byte, []da.Index]
 	lm      *landmark.Landmark
 
 	useCache             bool
@@ -29,7 +29,7 @@ type PathUnpackerALT struct {
 }
 
 func NewPathUnpackerALT(engine *CRPRoutingEngine, metrics *metrics.Metric,
-	puCache *lru.Cache[PUCacheKey, []da.Index], useCache bool, lm *landmark.Landmark,
+	puCache *ristretto.Cache[[]byte, []da.Index], useCache bool, lm *landmark.Landmark,
 ) *PathUnpackerALT {
 	return &PathUnpackerALT{
 		engine:  engine,
@@ -401,7 +401,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(param pathUnpackingParam,
 	util.AssertPanic(len(overlayPath)%2 == 0, "harusnya len(overlayPath) genap")
 
 	if pu.useCache {
-		pu.puCache.Add(NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath)
+		pu.puCache.Set(NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath, 1)
 	}
 
 	done()
@@ -700,8 +700,8 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	bpq.Clear()
 
 	if pu.useCache {
-		// github.com/hashicorp/golang-lru/v2 is thread-safe
-		pu.puCache.Add(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1), edgeIdPath)
+		// https://github.com/dgraph-io/ristretto is thread-safe
+		pu.puCache.Set(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1), edgeIdPath, 1)
 	}
 }
 

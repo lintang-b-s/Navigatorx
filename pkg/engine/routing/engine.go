@@ -4,7 +4,7 @@ import (
 	"runtime"
 	"sync"
 
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"go.uber.org/zap"
@@ -15,7 +15,7 @@ type CRPRoutingEngine struct {
 	overlayGraph       *da.OverlayGraph
 	metrics            *met.Metric
 	logger             *zap.Logger
-	puCache            *lru.Cache[PUCacheKey, []da.Index]
+	puCache            *ristretto.Cache[[]byte, []da.Index]
 	fHeapPool          sync.Pool
 	bHeapPool          sync.Pool
 	pufOverlayHeapPool sync.Pool
@@ -35,7 +35,7 @@ type CRPRoutingEngine struct {
 
 func NewCRPRoutingEngine(graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric,
-	logger *zap.Logger, puCache *lru.Cache[PUCacheKey, []da.Index],
+	logger *zap.Logger, puCache *ristretto.Cache[[]byte, []da.Index],
 	customizer Customizer, costFunction CostFunction) *CRPRoutingEngine {
 	e := &CRPRoutingEngine{
 		graph:        graph,

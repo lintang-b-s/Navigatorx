@@ -87,12 +87,15 @@ func main() {
 
 	re := routingEngine.GetRoutingEngine()
 	altSearch := routing.NewAlternativeRouteSearch(re, lm)
-	routingService := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true, true,
+	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true, true,
 		lm)
+	if err != nil {
+		panic(err)
+	}
+	
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine, offlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {
-
 		panic(err)
 	}
 

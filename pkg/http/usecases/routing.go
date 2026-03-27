@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"sync"
 
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/cockroachdb/errors"
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -29,13 +30,13 @@ type RoutingService struct {
 	drivingEdgeIdsPool     *sync.Pool
 	drivingDirectionPool   *sync.Pool
 	directionBuilderPool   *sync.Pool
-	turnSignCache          *lru.Cache[uint64, int]
+	turnSignCache          *ristretto.Cache[uint64, int]
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
 	searchRadius float64, clockwise, lefthandDriving bool,
 	lm *landmark.Landmark,
-) *RoutingService {
+) (*RoutingService, error) {
 	rs := &RoutingService{
 		log:             log,
 		engine:          engine,
@@ -76,7 +77,20 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		},
 	}
 
-	rs.turnSignCache, _ = lru.New[uint64, int](1 << 21)
+	// rs.turnSignCache, _ = lru.New[uint64, int](1 << 21)
+
+	var err error
+	const keyValByteSize = 12
+	maxCost := int64(1) << 25 // kalo ristretto ukurannya mb? 33.554432 MB
+	// max items in cache ~ 2.75jt
+	rs.turnSignCache, err = ristretto.NewCache(&ristretto.Config[uint64, int]{
+		NumCounters: (maxCost / keyValByteSize) * 5, // number of keys to track frequency of .
+		MaxCost:     maxCost,                        // maximum cost of cache .
+		BufferItems: 64,                             // number of keys per Get buffer.
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v")
+	}
 
 	rs.directionBuilderPool = &sync.Pool{
 		New: func() any {
@@ -90,7 +104,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		},
 	}
 
-	return rs
+	return rs, nil
 }
 
 func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []datastructure.DrivingDirection, bool, error) {

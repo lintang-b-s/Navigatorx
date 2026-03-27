@@ -75,9 +75,12 @@ func main() {
 	re := routingEngine.GetRoutingEngine()
 	altSearch := routing.NewAlternativeRouteSearch(re, lm)
 
-	routingService := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true, true,
+	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true, true,
 		lm)
-
+	if err != nil {
+		panic(err)
+	}
+	
 	boundingBox := graph.GetBoundingBox()
 	for i := 0; i < 1e3; i++ {
 		if (i+1)%1e2 == 0 {

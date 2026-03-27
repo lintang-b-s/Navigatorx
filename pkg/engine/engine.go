@@ -1,7 +1,8 @@
 package engine
 
 import (
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/cockroachdb/errors"
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -32,7 +33,17 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logg
 func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.Metric,
 	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction) (*Engine, error) {
 	// customizable route planning in road networks section 7.2 (path retrieval)
-	puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 524288
+	// puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 524288
+
+	maxCost := int64(1) << 27 // kalo ristretto ukurannya mb? 134.217728 MB
+	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
+		NumCounters: maxCost * 5, // number of keys to track frequency of .
+		MaxCost:     maxCost,     // maximum cost of cache .
+		BufferItems: 64,          // number of keys per Get buffer.
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "NewEngineDirect: failed to create new ristretto cache with capacity: %v")
+	}
 
 	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf)
 
@@ -72,7 +83,19 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	cst.SetOverlayWeight(m.GetWeights())
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
-	puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 20) // 1048576
+	// puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 20) // 1048576
+
+	const keyValByteApproxSize = 9 + 4*20
+	maxCost := int64(1) << 27 // kalo ristretto ukurannya mb? 134.217728 MB
+	// max items in cache ~ 1.5jt
+	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
+		NumCounters: (maxCost / keyValByteApproxSize) * 5, // number of keys to track frequency of .
+		MaxCost:     maxCost,                              // maximum cost of cache .
+		BufferItems: 64,                                   // number of keys per Get buffer.
+	})
+	if err != nil {
+		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v")
+	}
 
 	return routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf), nil
 }

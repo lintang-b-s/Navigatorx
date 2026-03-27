@@ -1,10 +1,12 @@
 package routing
 
 import (
+	"bytes"
+	"encoding/binary"
 	"sync"
 	"time"
 
-	lru "github.com/hashicorp/golang-lru/v2"
+	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -18,8 +20,12 @@ type PUCacheKey struct {
 	level           uint8
 }
 
-func NewPUCacheKey(start, target da.Index, level uint8) PUCacheKey {
-	return PUCacheKey{start, target, level}
+func NewPUCacheKey(start, target da.Index, level uint8) []byte {
+	key := PUCacheKey{start, target, level}
+
+	buf := new(bytes.Buffer)
+	binary.Write(buf, binary.LittleEndian, key)
+	return buf.Bytes()
 }
 
 type PathUnpacker struct {
@@ -27,7 +33,7 @@ type PathUnpacker struct {
 
 	metrics *metrics.Metric
 
-	puCache *lru.Cache[PUCacheKey, []da.Index]
+	puCache *ristretto.Cache[[]byte, []da.Index]
 
 	useCache             bool
 	oneToMany            bool
@@ -37,7 +43,7 @@ type PathUnpacker struct {
 }
 
 func NewPathUnpacker(engine *CRPRoutingEngine, metrics *metrics.Metric,
-	puCache *lru.Cache[PUCacheKey, []da.Index], useCache, oneToMany bool) *PathUnpacker {
+	puCache *ristretto.Cache[[]byte, []da.Index], useCache, oneToMany bool) *PathUnpacker {
 	return &PathUnpacker{
 		engine:  engine,
 		metrics: metrics,
@@ -381,7 +387,7 @@ func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
 	util.AssertPanic(len(overlayPath)%2 == 0, "harusnya len(overlayPath) genap")
 
 	if pu.useCache {
-		pu.puCache.Add(NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath)
+		pu.puCache.Set(NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath, 1)
 	}
 	for i := 0; i < len(overlayPath); i += 2 {
 		curV := overlayPath[i]
@@ -670,8 +676,8 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 	bpq.Clear()
 
 	if pu.useCache {
-		// github.com/hashicorp/golang-lru/v2 is thread-safe
-		pu.puCache.Add(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1), edgeIdPath)
+		// https://github.com/dgraph-io/ristretto is thread-safe is thread-safe
+		pu.puCache.Set(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1), edgeIdPath, 1)
 	}
 }
 
