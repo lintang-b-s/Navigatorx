@@ -633,7 +633,7 @@ func (ars *AlternativeRouteSearch) calculateApproxDistanceShare(svPackedPath, vt
 
 			shortcutWeight := ars.engine.metrics.GetShortcutWeight(shortcutWeightOffset)
 
-			bp := bitpack(enoriVid, exitoriVId)
+			bp := util.Bitpack(uint32(enoriVid), uint32(exitoriVId))
 			shortcutInOpt := ok1 && ok2 && shortcutPathSet[bp] == uint8(queryLevel)
 
 			if shortcutInOpt {
@@ -725,7 +725,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			if !oki {
 				break
 			}
-			if b := pb.Get(ps.Get(u).GetParent().GetEdge()); !b.IsScanned() {
+			if scanned := pb.IsScanned(ps.Get(u).GetParent().GetEdge()); !scanned {
 				// qParentOverlay -qShortcut-> qOverlay -vShortcut-> vOverlay
 				// u == vOverlay, ps.Get(u).GetParent().GetEdge() == qOverlay
 				// kalau qOverlay udah di scan di backward search kita bisa lanjut backtrack
@@ -759,7 +759,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 				break
 			}
 
-			if b := pb.Get(offQExitId); !b.IsScanned() {
+			if scanned := pb.IsScanned(offQExitId); !scanned {
 				// kalau qInEdge udah di scan di backward search kita bisa lanjut backtrack
 				// else: vInEdge (atau u) adalah entryEdge pertama dari plateau path
 				break
@@ -799,7 +799,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			if !oki {
 				break
 			}
-			if b := pb.Get(offQExitId); !b.IsScanned() {
+			if scanned := pb.IsScanned(offQExitId); !scanned {
 				// kalau qOutEdge scanned di backward search, kita bisa lanjut backtrack
 				// else: vOverlay (atau u) adalah overlayVertex pertama dari plateau path
 
@@ -831,7 +831,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			if !oki {
 				break
 			}
-			if f := ps.Get(pb.Get(u).GetParent().GetEdge()); !f.IsScanned() {
+			if scanned := ps.IsScanned(pb.Get(u).GetParent().GetEdge()); !scanned {
 				// vOverlay -vShortcut-> qOverlay -qShortcut-> qParentOverlay
 				// u == vOverlay, pb.Get(u).GetParent().GetEdge() == qOverlay
 				// cek kalau qOverlay scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOverlay
@@ -862,7 +862,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			if !oki {
 				break
 			}
-			if f := ps.Get(offQParentEntryId); !f.IsScanned() {
+			if scanned := ps.IsScanned(offQParentEntryId); !scanned {
 				break
 			}
 		} else if !ars.engine.isOverlay(u) && ars.engine.isOverlay(pb.Get(u).GetParent().GetEdge()) {
@@ -897,7 +897,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			if !oki {
 				break
 			}
-			if f := ps.Get(offQEntryId); !f.IsScanned() {
+			if scanned := ps.IsScanned(offQEntryId); !scanned {
 				break
 			}
 		}

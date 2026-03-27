@@ -1,6 +1,7 @@
 package datastructure
 
 import (
+	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 )
@@ -740,7 +741,7 @@ func (g *Graph) SetEdgeInfo(id Index, edgeInfo EdgeExtraInfo) {
 	g.graphStorage.mapEdgeInfo[id] = edgeInfo
 }
 
-func (g *Graph) GetRoundaboutFlag() []Index {
+func (g *Graph) GetRoundaboutFlag() *bitset.BitSet {
 	return g.graphStorage.roundaboutFlag
 }
 
@@ -763,7 +764,7 @@ func (g *Graph) VerticeUToVConnected(u, v Index) bool {
 	return g.CondensationGraphOrigintoDestinationConnected(u, v) // O(V_G + E_G), V_G=number of sccs/number of vertices in condensation graph^scc, E_G=number of edges in condensation graph^scc
 }
 
-func (g *Graph) GetNodeTrafficLight() []Index {
+func (g *Graph) GetNodeTrafficLight() *bitset.BitSet {
 	return g.graphStorage.nodeTrafficLight
 }
 
@@ -788,17 +789,17 @@ func (g *Graph) IsRoundabout(edgeId Index) bool {
 
 func (g *Graph) GetStreetName(edgeId Index) string {
 	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.tagStringIDMap.GetStr(edgeInfo.streetName)
+	return g.graphStorage.tagStringIDMap.GetStrFast(edgeInfo.streetName)
 }
 
 func (g *Graph) GetRoadClass(edgeId Index) string {
 	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.tagStringIDMap.GetStr(int(edgeInfo.roadClass))
+	return g.graphStorage.tagStringIDMap.GetStrFast(int(edgeInfo.roadClass))
 }
 
 func (g *Graph) GetRoadClassLink(edgeId Index) string {
 	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.tagStringIDMap.GetStr(int(edgeInfo.roadClassLink))
+	return g.graphStorage.tagStringIDMap.GetStrFast(int(edgeInfo.roadClassLink))
 }
 
 func (g *Graph) GetRoadLanes(edgeId Index) uint8 {
@@ -807,8 +808,7 @@ func (g *Graph) GetRoadLanes(edgeId Index) uint8 {
 }
 
 func (g *Graph) GetStreetDirection(edgeId Index) [2]bool {
-	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.GetStreetDirection(edgeInfo.osmWayId)
+	return g.graphStorage.GetStreetDirection(edgeId)
 }
 
 func (g *Graph) GetOsmWayId(edgeId Index) int64 {
@@ -818,6 +818,18 @@ func (g *Graph) GetOsmWayId(edgeId Index) int64 {
 
 func (g *Graph) GetEdgeGeometry(edgeID Index) []Coordinate {
 	return g.graphStorage.GetEdgeGeometry(edgeID)
+}
+
+func (g *Graph) SetRoundaboutFlags(roundaboutFlags *bitset.BitSet) {
+	g.graphStorage.roundaboutFlag = roundaboutFlags
+}
+
+func (g *Graph) SetTrafficLightFlags(trafficLightFlags *bitset.BitSet) {
+	g.graphStorage.nodeTrafficLight = trafficLightFlags
+}
+
+func (g *Graph) SetStreetDirection(streetDirectionForward, streetDirectionBackward *bitset.BitSet) {
+	g.graphStorage.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
 }
 
 func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(e *OutEdge, exitPoint Index)) {
@@ -880,4 +892,26 @@ func (vu *VirtualInEdge) GetInEdge() *InEdge {
 
 func (vu *VirtualInEdge) GetCellNumber() Pv {
 	return vu.cellNumber
+}
+
+func NewEmptyOutEdge() OutEdge {
+	return OutEdge{
+		edgeId:     INVALID_EDGE_ID,
+		head:       0,
+		weight:     0,
+		dist:       0,
+		entryPoint: 0,
+		hwType:     0,
+	}
+}
+
+func NewEmptyInEdge() InEdge {
+	return InEdge{
+		edgeId:    INVALID_EDGE_ID,
+		tail:      0,
+		weight:    0,
+		dist:      0,
+		exitPoint: 0,
+		hwType:    0,
+	}
 }

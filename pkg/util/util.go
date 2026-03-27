@@ -3,13 +3,19 @@ package util
 import (
 	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"strconv"
 	"strings"
+
+	"github.com/cockroachdb/errors"
+
 	"time"
 )
+
+func Bitpack(i, j uint32) uint64 {
+	return uint64(i) | (uint64(j) << 32)
+}
 
 func ReadLine(br *bufio.Reader) (string, error) {
 	line, err := br.ReadString('\n')

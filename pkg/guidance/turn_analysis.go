@@ -3,7 +3,6 @@ package guidance
 import (
 	"math"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
@@ -23,14 +22,15 @@ GetAlternativeTurns. get jumlah belokan alternatif yang bisa dilakukan dari tail
 ada 4 belokan yang bisa dilakukan dari tail B.
 --- / | = jalan 2 arah
 */ // nolint: gofmt
-func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId datastructure.Index) (int, []*datastructure.OutEdge) {
+func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId da.Index) (int, []da.OutEdge) {
 	db.tempOutEdges = db.tempOutEdges[:0] // reset length, tapi capacity tetep sama
 
-	db.graph.ForOutEdgesOfWithId(tailId, func(e *datastructure.OutEdge, id datastructure.Index) {
+	db.graph.ForOutEdgesOfWithId(tailId, func(e *da.OutEdge, id da.Index) {
 		if da.SkipDummyEdge(e) {
 			return
 		}
-		db.tempOutEdges = append(db.tempOutEdges, e)
+
+		db.tempOutEdges = append(db.tempOutEdges, *e)
 	})
 
 	db.tempAltTurns = db.tempAltTurns[:0]
@@ -44,7 +44,7 @@ func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId dat
 	return 1 + len(db.tempAltTurns), db.tempAltTurns
 }
 
-func (db *DirectionBuilder) isLeavingCurrentStreet(prevStreetName, currentStreetName string, prevEdge, currEdge datastructure.OutEdge) bool {
+func (db *DirectionBuilder) isLeavingCurrentStreet(prevStreetName, currentStreetName string, prevEdge, currEdge da.OutEdge) bool {
 	if isSameName(currentStreetName, prevStreetName) {
 		// isSameName == false - bisa ketika nama street kosong di osm.
 		return false
@@ -77,7 +77,7 @@ getOtherEdgeContinueDirection. get alternativeEdges lain dari tail yang arahnya 
 
 delta bearing antara currentEdge dan alternativeEdge mendekati 0°
 */ // nolint: gofmt
-func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prevInitialBearing float64, alternativeTurns []*datastructure.OutEdge) *datastructure.OutEdge {
+func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prevInitialBearing float64, alternativeTurns []da.OutEdge) da.OutEdge {
 	var tmpSign int
 	for _, edge := range alternativeTurns {
 
@@ -89,7 +89,7 @@ func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prev
 			return edge
 		}
 	}
-	return nil
+	return da.NewEmptyOutEdge()
 }
 
 /*
@@ -100,25 +100,23 @@ func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prev
 
 examplenya di jalan solo-semarang, A.Yani : -7.5533505900708455, 110.82338424980728
 */ // nolint: gofmt
-func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge datastructure.OutEdge) bool {
+func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.OutEdge, currStreetName, prevEdgeStreetName string,
+	prevEdgeRoadClass, currRoadClass string) bool {
 	tail := db.graph.GetTailOfOutedge(currentEdge.GetEdgeId())
 
-	currStreetName := db.graph.GetStreetName(currentEdge.GetEdgeId())
-	currRoadClass := db.graph.GetRoadClass(currentEdge.GetEdgeId())
-	prevEdgeRoadClass := db.graph.GetRoadClass(prevEdge.GetEdgeId())
 	if currRoadClass != prevEdgeRoadClass {
 		return false
 	}
 
-	var otherEdge *datastructure.OutEdge = nil // outEdge dari tail selain PrevEdge yang mengarah dari tail
+	otherEdge := da.NewEmptyOutEdge() // outEdge dari tail selain PrevEdge yang mengarah dari tail
 
 	db.tempOutEdges = db.tempOutEdges[:0] // reset length, tapi capacity tetep sama
 
-	db.graph.ForOutEdgesOfWithId(tail, func(e *datastructure.OutEdge, id datastructure.Index) {
+	db.graph.ForOutEdgesOfWithId(tail, func(e *da.OutEdge, id da.Index) {
 		if da.SkipDummyEdge(e) {
 			return
 		}
-		db.tempOutEdges = append(db.tempOutEdges, e)
+		db.tempOutEdges = append(db.tempOutEdges, *e)
 	})
 
 	for _, edge := range db.tempOutEdges {
@@ -131,14 +129,14 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge datastructure.O
 			edge.GetHead() != currentEdge.GetHead() && edge.GetHead() != db.graph.GetTailOfOutedge(prevEdge.GetEdgeId()) &&
 			currRoadClass == edgeRoadClass &&
 			isSameName(currStreetName, edgeStreetName) {
-			if otherEdge != nil {
+			if otherEdge.GetEdgeId() != da.INVALID_EDGE_ID {
 				return false
 			}
 			otherEdge = edge
 		}
 	}
 
-	if otherEdge == nil {
+	if otherEdge.GetEdgeId() == da.INVALID_EDGE_ID {
 		return false
 	}
 
@@ -173,23 +171,20 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge datastructure.O
 							   	<--otherEdge--
 		examplenya di -7.559777239220366, 110.83649946865347
 */ // nolint: gofmt
-func (db *DirectionBuilder) isStreetSplit(currentEdge, prevEdge datastructure.OutEdge) bool {
+func (db *DirectionBuilder) isStreetSplit(currentEdge, prevEdge da.OutEdge, currStreetName, prevEdgeStreetName string,
+	prevEdgeRoadClass, currRoadClass string) bool {
 	tail := db.graph.GetTailOfOutedge(currentEdge.GetEdgeId())
 
-	currStreetName := db.graph.GetStreetName(currentEdge.GetEdgeId())
-	currRoadClass := db.graph.GetRoadClass(currentEdge.GetEdgeId())
-	prevEdgeRoadClass := db.graph.GetRoadClass(prevEdge.GetEdgeId())
-	prevEdgeStreetName := db.graph.GetStreetName(prevEdge.GetEdgeId())
 	if !isSameName(currStreetName, prevEdgeStreetName) || currRoadClass != prevEdgeRoadClass {
 		return false
 	}
 
-	var otherEdge *datastructure.InEdge = nil // inEdge dari tail selain PrevEdge yang mengarah ke tail
+	otherEdge := da.NewEmptyInEdge() // inEdge dari tail selain PrevEdge yang mengarah ke tail
 
 	db.tempInEdges = db.tempInEdges[:0]
 
-	db.graph.ForInEdgesOfWithId(tail, func(e *datastructure.InEdge, id datastructure.Index) {
-		db.tempInEdges = append(db.tempInEdges, e)
+	db.graph.ForInEdgesOfWithId(tail, func(e *da.InEdge, id da.Index) {
+		db.tempInEdges = append(db.tempInEdges, *e)
 	})
 	prevEdgeTail := db.graph.GetTailOfOutedge(prevEdge.GetEdgeId())
 
@@ -202,13 +197,14 @@ func (db *DirectionBuilder) isStreetSplit(currentEdge, prevEdge datastructure.Ou
 			inEdge.GetTail() != currentEdge.GetHead() && inEdge.GetTail() != prevEdgeTail &&
 			currRoadClass == edgeRoadClass &&
 			isSameName(currStreetName, edgeStreetName) {
-			if otherEdge != nil {
+			if otherEdge.GetEdgeId() != da.INVALID_EDGE_ID {
 				return false
 			}
 			otherEdge = inEdge
 		}
 	}
-	if otherEdge == nil {
+
+	if otherEdge.GetEdgeId() == da.INVALID_EDGE_ID {
 		return false
 	}
 

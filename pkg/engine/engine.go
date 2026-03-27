@@ -32,7 +32,7 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logg
 func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.Metric,
 	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction) (*Engine, error) {
 	// customizable route planning in road networks section 7.2 (path retrieval)
-	puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 1048576
+	puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 524288
 
 	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf)
 

@@ -3,6 +3,7 @@ package datastructure
 import (
 	"math"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -13,16 +14,20 @@ type QueryHeap[T comparable] struct {
 	storage        QueryInfoStorage // map dari edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
 	maxEdgesInCell int
 	storageType    QueryInfoStorageType
+	scanned        *bitset.BitSet // https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 }
 
 func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStorageType, preallocateMinHeap bool) *QueryHeap[T] {
 
 	minHeap := NewFourAryHeap[T]()
+	allocateHeapCapacity := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
+
 	if preallocateMinHeap {
 		// buat clone queryHeap dari crpQuery di alternativeRoutes gak perlu preallocate heap
-		allocateHeapCapacity := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
 		minHeap.Preallocate(allocateHeapCapacity)
 	}
+
+	scanned := bitset.New(uint(allocateHeapCapacity))
 
 	switch tipe {
 	case TWO_LEVEL_STORAGE:
@@ -32,6 +37,7 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStor
 			storage:        NewTwoLevelStorage(baseSize, maxEdgesInCell),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
+			scanned:        scanned,
 		}
 	case ARRAY_STORAGE:
 		return &QueryHeap[T]{
@@ -40,6 +46,7 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStor
 			storage:        NewArrayStorage(baseSize),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
+			scanned:        scanned,
 		}
 	case MAP_STORAGE:
 		return &QueryHeap[T]{
@@ -48,6 +55,7 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStor
 			storage:        NewMapStorage(baseSize),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
+			scanned:        scanned,
 		}
 	default:
 		return &QueryHeap[T]{
@@ -56,6 +64,7 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStor
 			storage:        NewTwoLevelStorage(baseSize, maxEdgesInCell),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
+			scanned:        scanned,
 		}
 	}
 }
@@ -119,7 +128,7 @@ func (qh *QueryHeap[T]) Clear() {
 // node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T]) Get(id Index) VertexInfo {
 	qInfoId := qh.storage.Get(id)
-
+	util.AssertPanic(qInfoId != math.MaxInt, "qInfoId must not equal to math.MaxInt")
 	return qh.queryInfos[qInfoId]
 }
 
@@ -141,7 +150,7 @@ func (qh *QueryHeap[T]) GetMinrank() float64 {
 // node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T]) Scan(id Index) {
 	qInfoId := qh.storage.Get(id)
-	qh.queryInfos[qInfoId].Scan()
+	qh.scanned.Set(uint(qInfoId))
 }
 
 func (qh *QueryHeap[T]) SetFirstOverlayEntryExitId(id Index, firstEntryExitId Index) {
@@ -170,7 +179,7 @@ func (qh *QueryHeap[T]) IsScanned(id Index) bool {
 	if qInfoId == math.MaxInt { // belum ke label & ke scan
 		return false
 	}
-	return qh.queryInfos[qInfoId].IsScanned()
+	return qh.scanned.Test(uint(qInfoId))
 }
 
 func (qh *QueryHeap[T]) IsLabelled(id Index) bool {

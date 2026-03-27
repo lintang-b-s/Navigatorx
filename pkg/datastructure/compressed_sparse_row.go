@@ -2,11 +2,11 @@ package datastructure
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
 
+	"github.com/cockroachdb/errors"
 	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"golang.org/x/exp/constraints"
@@ -128,6 +128,7 @@ func (sm *SparseMatrix[T]) WriteToFile(filename string) error {
 	if err != nil {
 		return err
 	}
+
 	defer snp.Close()
 
 	w := bufio.NewWriter(snp)
@@ -158,7 +159,10 @@ func (sm *SparseMatrix[T]) WriteToFile(filename string) error {
 	}
 	fmt.Fprintf(w, "\n")
 
-	return w.Flush()
+	if err = w.Flush(); err != nil {
+		return errors.Wrapf(err, "csr.WriteToFile: failed to flush bufio writer")
+	}
+	return nil
 }
 
 func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filename string,
@@ -190,11 +194,31 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	if len(tokens) != 5 {
 		return nil, err
 	}
-	m := parseInt(tokens[0])
-	n := parseInt(tokens[1])
-	valsLen := parseInt(tokens[2])
-	colsLen := parseInt(tokens[3])
-	rowsLen := parseInt(tokens[4])
+
+	m, err := parseInt(tokens[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse m: %v", tokens[0])
+	}
+
+	n, err := parseInt(tokens[1])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse n: %v", tokens[1])
+	}
+
+	valsLen, err := parseInt(tokens[2])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse valsLen: %v", tokens[2])
+	}
+
+	colsLen, err := parseInt(tokens[3])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse colsLen: %v", tokens[3])
+	}
+
+	rowsLen, err := parseInt(tokens[4])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse rowsLen: %v", tokens[4])
+	}
 
 	sm := NewSparseMatrix[T](m, n, zero, eq)
 	sm.vals = make([]T, valsLen)
@@ -240,7 +264,10 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	for i := 0; i < colsLen; i++ {
 		token := tokens[i]
 
-		val := parseInt(token)
+		val, err := parseInt(token)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse cols[i]: %v", token)
+		}
 		sm.cols[i] = val
 	}
 
@@ -258,7 +285,10 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	for i := 0; i < rowsLen; i++ {
 		token := tokens[i]
 
-		val := parseInt(token)
+		val, err := parseInt(token)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse rows[i]: %v", token)
+		}
 		sm.rows[i] = val
 	}
 

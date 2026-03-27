@@ -2,13 +2,14 @@ package landmark
 
 import (
 	"bufio"
-	"errors"
 	"fmt"
 	"math"
 	"os"
 	"sort"
 	"strconv"
 	"sync"
+
+	"github.com/cockroachdb/errors"
 
 	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -295,7 +296,6 @@ func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.In
 	for i := 0; i < len(activeLandmarks); i++ {
 		landmarkId := activeLandmarks[i]
 
-		
 		lbOne := lm.vlw[u][landmarkId] - lm.vlw[t][landmarkId]
 		lbTwo := lm.lw[landmarkId][t] - lm.lw[landmarkId][u]
 
@@ -405,6 +405,7 @@ func (lm *Landmark) WriteLandmark(filename string, cst *customizer.Customizer) e
 	if err != nil {
 		return err
 	}
+
 	defer snp.Close()
 
 	w := bufio.NewWriter(snp)
@@ -438,7 +439,11 @@ func (lm *Landmark) WriteLandmark(filename string, cst *customizer.Customizer) e
 		fmt.Fprintf(w, "\n")
 	}
 
-	return w.Flush()
+	if err = w.Flush(); err != nil {
+		return errors.Wrapf(err, "WriteLandmark: failed to flush bufio writer")
+	}
+
+	return nil
 }
 
 func ReadLandmark(filename string) (*Landmark, error) {
@@ -446,8 +451,6 @@ func ReadLandmark(filename string) (*Landmark, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	defer f.Close()
 
 	snp := s2.NewReader(f)
 
@@ -517,9 +520,14 @@ func ReadLandmark(filename string) (*Landmark, error) {
 		}
 	}
 
+	if err = f.Close(); err != nil {
+		return nil, errors.Wrapf(err, "ReadLandmark: failed to close file: %s", filename)
+	}
+
 	lm := NewLandmark()
 	lm.lw = lw
 	lm.vlw = vlw
 	lm.landmarks = landmarks
+
 	return lm, nil
 }

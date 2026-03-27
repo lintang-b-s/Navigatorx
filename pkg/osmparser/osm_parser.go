@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/bits-and-blooms/bitset"
+	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -95,6 +97,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	if err != nil {
 		return nil, err
 	}
+
 	defer f.Close()
 
 	restrictions := make(map[int64][]struct {
@@ -195,7 +198,6 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	}
 	scanner = osmpbf.New(context.Background(), f, 0)
 	//must not be parallel
-	defer scanner.Close()
 
 	scannedEdges := make([]Edge, 0)
 	p.ways = make(map[int64]osmWay, scannedWays)
@@ -308,7 +310,6 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 		}
 	}
 
-	graphStorage.SetStreetDirection(streetDirection)
 	graphStorage.SetTagStringIdMap(p.tagStringIdMap)
 
 	for nodeID, nodeIDX := range p.nodeIDMap {
@@ -333,11 +334,34 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	logger.Sugar().Infof("building road network graph.... ")
 
 	graph := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false)
+	graphStorage.FlattenIdMap()
 	graph.SetGraphStorage(graphStorage)
 	graph.SetBoundingBox(p.bb)
 
+	streetDirectionForward := bitset.New(uint(graph.NumberOfEdges()))
+	streetDirectionBackward := bitset.New(uint(graph.NumberOfEdges()))
+
+	graph.ForOutEdges(func(e *da.OutEdge, exitPoint, head, tail, entryId da.Index, percentage float64, idx da.Index) {
+
+		eOsmWayId := graph.GetOsmWayId(e.GetEdgeInfoId())
+		direction := streetDirection[eOsmWayId]
+		if direction[0] {
+			streetDirectionForward.Set(uint(e.GetEdgeId()))
+		}
+
+		if direction[1] {
+			streetDirectionBackward.Set(uint(e.GetEdgeId()))
+		}
+	})
+
+	graphStorage.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
+
 	logger.Sugar().Infof("number of vertices: %v\n", graph.NumberOfVertices())
 	logger.Sugar().Infof("number of edges: %v\n", graph.NumberOfEdges())
+
+	if err = scanner.Close(); err != nil {
+		return nil, errors.Wrapf(err, "osmParser.Parse: failed to scanner: %s", mapFile)
+	}
 
 	return graph, nil
 }
@@ -674,6 +698,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 			e.SetFromOSMId(uint64(from.id))
 			e.SetToOSMId(uint64(to.id))
+			e.SetOsmWayId(id)
 
 			*scannedEdges = append(*scannedEdges, e)
 
@@ -709,6 +734,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 			e.SetFromOSMId(uint64(to.id))
 			e.SetToOSMId(uint64(from.id))
+			e.SetOsmWayId(id)
 
 			*scannedEdges = append(*scannedEdges, e)
 		}
@@ -743,6 +769,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 		e.SetFromOSMId(uint64(from.id))
 		e.SetToOSMId(uint64(to.id))
+		e.SetOsmWayId(id)
 
 		*scannedEdges = append(*scannedEdges, e)
 
@@ -768,6 +795,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 		e.SetFromOSMId(uint64(to.id))
 		e.SetToOSMId(uint64(from.id))
+		e.SetOsmWayId(id)
 
 		*scannedEdges = append(*scannedEdges, e)
 	}

@@ -77,7 +77,7 @@ func (mp *MultilevelPartition) GetCellNumber(u Index) Pv {
 	return mp.cellNumbers[u]
 }
 
-func (mp *MultilevelPartition)  GetCellNumbers() []Pv {
+func (mp *MultilevelPartition) GetCellNumbers() []Pv {
 	return mp.cellNumbers
 }
 
@@ -92,6 +92,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	if err != nil {
 		return err
 	}
+
 	defer f.Close()
 
 	scanner := bufio.NewScanner(f)
@@ -158,5 +159,6 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+
 	return nil
 }

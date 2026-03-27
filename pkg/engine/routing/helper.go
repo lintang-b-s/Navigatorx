@@ -133,6 +133,3 @@ func initInfWeight(dist []float64) {
 	}
 }
 
-func bitpack(i, j da.Index) uint64 {
-	return uint64(i) | (uint64(j) << 32)
-}

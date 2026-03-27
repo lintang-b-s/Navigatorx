@@ -4,6 +4,7 @@ import (
 	"math"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -11,12 +12,14 @@ import (
 )
 
 type DirectionBuilder struct {
+	turnSignCache *lru.Cache[uint64, int]
+
 	instructions             []*da.Instruction
 	prevInstruction          *da.Instruction
 	turnDescriptions         []string
-	tempOutEdges             []*da.OutEdge
-	tempInEdges              []*da.InEdge
-	tempAltTurns             []*da.OutEdge
+	tempOutEdges             []da.OutEdge
+	tempInEdges              []da.InEdge
+	tempAltTurns             []da.OutEdge
 	points                   []da.Coordinate
 	edgeIds                  []da.Index
 	drivingInstructionPool   *sync.Pool
@@ -36,7 +39,8 @@ type DirectionBuilder struct {
 	prevInRoundabout         bool
 }
 
-func NewDirectionBuilder(graph Graph, clockwise, lefthand bool, drivingInstructionPool, coordinatesPool, drivingEdgeIdsPool *sync.Pool) *DirectionBuilder {
+func NewDirectionBuilder(graph Graph, clockwise, lefthand bool, drivingInstructionPool, coordinatesPool, drivingEdgeIdsPool *sync.Pool,
+	turnSignCache *lru.Cache[uint64, int]) *DirectionBuilder {
 	db := &DirectionBuilder{
 		graph:                    graph,
 		prevNode:                 math.MaxUint32,
@@ -48,9 +52,10 @@ func NewDirectionBuilder(graph Graph, clockwise, lefthand bool, drivingInstructi
 		coordinatesPool:          coordinatesPool,
 		drivingEdgeIdsPool:       drivingEdgeIdsPool,
 		turnDescriptions:         make([]string, 256),
-		tempOutEdges:             make([]*da.OutEdge, 0, 8),
-		tempInEdges:              make([]*da.InEdge, 0, 8),
-		tempAltTurns:             make([]*da.OutEdge, 0, 8),
+		tempOutEdges:             make([]da.OutEdge, 0, 8),
+		tempInEdges:              make([]da.InEdge, 0, 8),
+		tempAltTurns:             make([]da.OutEdge, 0, 8),
+		turnSignCache:            turnSignCache,
 	}
 
 	return db
@@ -191,7 +196,7 @@ func (db *DirectionBuilder) buildInstruction(edge da.OutEdge) {
 
 		db.graph.ForOutEdgesOfWithId(headId, func(e *da.OutEdge, id da.Index) {
 			if da.SkipDummyEdge(e) {
-				return 
+				return
 			}
 			eIsRoundabout := db.graph.IsRoundabout(e.GetEdgeId())
 			if !eIsRoundabout {
@@ -321,6 +326,13 @@ prevNode----prevEdge----tail
 
 */ // nolint: gofmt
 func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, headId da.Index, name string) int {
+
+	key := util.Bitpack(uint32(db.prevEdge.GetEdgeId()), uint32(edge.GetEdgeId()))
+
+	if sign, ok := db.turnSignCache.Get(key); ok {
+		return sign
+	}
+
 	tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edge.GetEdgeId()))
 	point := db.graph.GetVertex(edge.GetHead())
 	lat := point.GetLat()
@@ -330,20 +342,29 @@ func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, hea
 
 	db.prevInitialBearing = computeInitialBearing(prevNode.GetLat(), prevNode.GetLon(),
 		tail.GetLat(), tail.GetLon())
+
 	sign := getTurnDirection(tail.GetLat(), tail.GetLon(), lat, lon, db.prevInitialBearing)
 
 	alternativeTurnsCount, alternativeTurns := db.GetAlternativeTurns(tailId, headId, prevNodeId)
 
-	isStreetSplit := db.isStreetSplit(edge, db.prevEdge)
+	currStreetName := db.graph.GetStreetName(edge.GetEdgeId())
+	currRoadClass := db.graph.GetRoadClass(edge.GetEdgeId())
 
-	isStreetMerged := db.isStreetMerged(edge, db.prevEdge)
+	prevStreetName := db.graph.GetStreetName(db.prevEdge.GetEdgeId())
+	prevRoadClass := db.graph.GetRoadClass(db.prevEdge.GetEdgeId())
+
+	isStreetSplit := db.isStreetSplit(edge, db.prevEdge, currStreetName, prevStreetName, prevRoadClass, currRoadClass)
+
+	isStreetMerged := db.isStreetMerged(edge, db.prevEdge, currStreetName, prevStreetName, prevRoadClass, currRoadClass)
 
 	if alternativeTurnsCount == 1 {
 		// there are only one alternative turns (other than this current edge)
 		if math.Abs(float64(sign)) > 1 && !(isStreetMerged || isStreetSplit) {
 			// there are only one alternative turns (other than this current edge) and sign is not CONTINUE/TURN_SLIGHT_*
+			db.turnSignCache.Add(key, sign)
 			return sign
 		}
+		db.turnSignCache.Add(key, da.IGNORE)
 		return da.IGNORE
 	}
 
@@ -351,13 +372,16 @@ func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, hea
 	if math.Abs(float64(sign)) > 1 {
 		if (isSameName(name, prevEdgeStreetName)) ||
 			isStreetMerged || isStreetSplit {
+			db.turnSignCache.Add(key, da.IGNORE)
 			return da.IGNORE
 		}
 		// sign is not CONTINUE/TURN_SLIGHT_*  & street name changed from prev edge to curr edge & not split/merged street, so output sign
+		db.turnSignCache.Add(key, sign)
 		return sign
 	}
 
 	if db.prevEdge.GetWeight() == 0 {
+		db.turnSignCache.Add(key, sign)
 		return sign
 	}
 
@@ -365,7 +389,7 @@ func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, hea
 	otherContinueEdge := db.getOtherEdgeContinueDirection(tail.GetLat(), tail.GetLon(), db.prevInitialBearing, alternativeTurns)
 
 	prevCurrEdgeInitialBearingDiff := computeDeltaBearing(tail.GetLat(), tail.GetLon(), lat, lon, db.prevInitialBearing) // bearing difference antara prevNode->tail->head
-	if otherContinueEdge != nil {
+	if otherContinueEdge.GetEdgeId() != da.INVALID_EDGE_ID {
 		// there is another edge (connected to the tail) in the same direction and have CONTINUE direction.
 		if !isSameName(name, prevEdgeStreetName) {
 			// current Street Name != prevEdge Street Name
@@ -383,6 +407,7 @@ func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, hea
 			if isMajorRoad(roadClass) {
 				if (roadClass == prevRoadClass && link == prevLink) && (otherRoadClass != prevRoadClass || otherLink != prevLink) {
 					// current road class == major road class && prevRoadClass sama dg current edge roadClass
+					db.turnSignCache.Add(key, da.IGNORE)
 					return da.IGNORE
 				}
 			}
@@ -391,11 +416,13 @@ func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, hea
 
 			if util.RadiansToDegree(math.Abs(prevCurrEdgeInitialBearingDiff)) < 6 && util.RadiansToDegree(math.Abs(prevOtherEdgeInitialBearing)) > 8.6 && isSameName(name, prevEdgeStreetName) {
 				// bearing difference antara prevEdge dan currentEDge < 6° (CONTINUE Direction), Edge otherContinueEdge > 8.6 (TURN SLIGHT or more direction). Nama prevEdge street == current Street
+				db.turnSignCache.Add(key, da.CONTINUE_ON_STREET)
 				return da.CONTINUE_ON_STREET
 			}
 
 			if roadClass == "residential" || prevRoadClass == "residential" || (roadClass == "unclassified" && prevRoadClass == "unclassified") {
 				// skip roadclass residential untuk mengurangi instructions.
+				db.turnSignCache.Add(key, da.IGNORE)
 				return da.IGNORE
 			}
 
@@ -408,8 +435,11 @@ func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, hea
 				pada case diatas, output keep left karena prevCurrEdgeInitialBearingDiff <= prevOtherEdgeInitialBearing
 			*/ // nolint: gofmt
 			if prevCurrEdgeInitialBearingDiff > prevOtherEdgeInitialBearing {
+				db.turnSignCache.Add(key, da.KEEP_RIGHT)
+
 				return da.KEEP_RIGHT
 			} else {
+				db.turnSignCache.Add(key, da.KEEP_LEFT)
 				return da.KEEP_LEFT
 			}
 		}
@@ -418,8 +448,11 @@ func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, hea
 	if ok := db.isLeavingCurrentStreet(prevEdgeStreetName, name, db.prevEdge, edge); !(isStreetMerged || isStreetSplit) &&
 		(util.RadiansToDegree(math.Abs(prevCurrEdgeInitialBearingDiff)) > 34 || ok) {
 		// current streetname != prev streetname & not street split & not street merged, so output sign other than CONTINUE_ON_STREET
+		db.turnSignCache.Add(key, sign)
 		return sign
 	}
+
+	db.turnSignCache.Add(key, da.IGNORE)
 	return da.IGNORE
 }
 

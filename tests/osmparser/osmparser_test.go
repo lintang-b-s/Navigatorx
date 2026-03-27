@@ -72,6 +72,7 @@ func setup(t *testing.T, osmfFileTest, urlTest string) (*da.Graph, *osmparser.Os
 	if err != nil {
 		t.Fatal(err)
 	}
+	
 	return graph, osmParser
 }
 

@@ -1,102 +1,91 @@
 package datastructure
 
 import (
-	"math"
-
+	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type GraphStorage struct {
-	mapEdgeInfo   []EdgeExtraInfo
-	osmNodePoints []Coordinate
+	mapEdgeInfo    []EdgeExtraInfo
+	osmNodePoints  []Coordinate
+	tagStringIDMap util.IDMap 
 
-	/*
-		32 bit -> 32 boolean flag for roundabout & trafficlight
-
-		idx in flag array = floor(edgeID/32)
-		idx in flag = edgeID % 32
-	*/
-	streetDirection  map[int64][2]bool // osm way id -> [forward,backward]
-	tagStringIDMap   util.IDMap
-	roundaboutFlag   []Index
-	nodeTrafficLight []Index
+	//  https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
+	streetDirectionForward  *bitset.BitSet // kalau direction dari edgeId forward: bitset.Test(edgeId) return true
+	streetDirectionBackward *bitset.BitSet
+	roundaboutFlag          *bitset.BitSet
+	nodeTrafficLight        *bitset.BitSet
 }
 
 func NewGraphStorage() *GraphStorage {
 	return &GraphStorage{
-		streetDirection:  make(map[int64][2]bool),
+		streetDirectionForward: bitset.New(100000),
+
 		mapEdgeInfo:      make([]EdgeExtraInfo, 0),
 		tagStringIDMap:   util.NewIdMap(),
-		roundaboutFlag:   make([]Index, 0),
-		nodeTrafficLight: make([]Index, 0),
+		roundaboutFlag:   bitset.New(100000),
+		nodeTrafficLight: bitset.New(100000),
 		osmNodePoints:    make([]Coordinate, 0),
 	}
 }
 
-func BuildGraphStorage(osmNodePoints []Coordinate, roundaboutFlag []Index, nodeTrafficLight []Index,
-	mapEdgeInfo []EdgeExtraInfo, tagStringIDMap util.IDMap, streetDirection map[int64][2]bool) *GraphStorage {
+func BuildGraphStorage(osmNodePoints []Coordinate, roundaboutFlag, nodeTrafficLight *bitset.BitSet,
+	mapEdgeInfo []EdgeExtraInfo, tagStringIDMap util.IDMap, streetDirectionForward, streetDirectionBackward *bitset.BitSet) *GraphStorage {
 	return &GraphStorage{osmNodePoints: osmNodePoints, roundaboutFlag: roundaboutFlag,
 		nodeTrafficLight: nodeTrafficLight, mapEdgeInfo: mapEdgeInfo, tagStringIDMap: tagStringIDMap,
-		streetDirection: streetDirection}
+		streetDirectionForward: streetDirectionForward, streetDirectionBackward: streetDirectionBackward}
 }
 
 func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStorage {
 	return &GraphStorage{
-		streetDirection:  make(map[int64][2]bool),
-		mapEdgeInfo:      make([]EdgeExtraInfo, numberOfEdges),
-		tagStringIDMap:   util.NewIdMap(),
-		roundaboutFlag:   make([]Index, numberOfEdges),
-		nodeTrafficLight: make([]Index, numberOfVertices),
-		osmNodePoints:    make([]Coordinate, 1),
+		streetDirectionForward:  bitset.New(uint(numberOfEdges)),
+		streetDirectionBackward: bitset.New(uint(numberOfEdges)),
+		mapEdgeInfo:             make([]EdgeExtraInfo, numberOfEdges),
+		tagStringIDMap:          util.NewIdMap(),
+		roundaboutFlag:          bitset.New(uint(numberOfEdges)),
+		nodeTrafficLight:        bitset.New(uint(numberOfVertices)),
+		osmNodePoints:           make([]Coordinate, 1),
 	}
 }
 
 func (gs *GraphStorage) SetRoundabout(edgeID Index, isRoundabout bool) {
-	index := int(math.Floor(float64(edgeID) / 32))
-	if len(gs.roundaboutFlag) <= int(index) {
-		gs.roundaboutFlag = append(gs.roundaboutFlag, make([]Index, edgeID-Index(len(gs.roundaboutFlag))+1)...)
-	}
 	if isRoundabout {
-		gs.roundaboutFlag[index] |= 1 << (edgeID % 32)
+		gs.roundaboutFlag.Set(uint(edgeID))
 	} else {
-		gs.roundaboutFlag[index] &= ^(1 << (edgeID % 32))
+		gs.roundaboutFlag.Clear(uint(edgeID))
 	}
 }
 
-func (gs *GraphStorage) SetStreetDirection(streetDirection map[int64][2]bool) {
-	gs.streetDirection = streetDirection
+func (gs *GraphStorage) SetStreetDirection(streetDirectionForward, streetDirectionBackward *bitset.BitSet) {
+	gs.streetDirectionForward = streetDirectionForward
+	gs.streetDirectionBackward = streetDirectionBackward
 }
 
 func (gs *GraphStorage) SetTagStringIdMap(tagStringIDMap util.IDMap) {
 	gs.tagStringIDMap = tagStringIDMap
 }
 
-func (gs *GraphStorage) GetStreetDirection(wayId int64) [2]bool {
-	return gs.streetDirection[wayId]
+func (gs *GraphStorage) GetStreetDirection(edgeId Index) [2]bool {
+	var direction [2]bool
+	forward := gs.streetDirectionForward.Test(uint(edgeId))
+	direction[0] = forward
+	backward := gs.streetDirectionBackward.Test(uint(edgeId))
+	direction[1] = backward
+	return direction
+
 }
 
 func (gs *GraphStorage) SetTrafficLight(nodeID Index, yes bool) {
-	index := int(math.Floor(float64(nodeID) / 32))
-
-	if len(gs.nodeTrafficLight) <= int(index) {
-		gs.nodeTrafficLight = append(gs.nodeTrafficLight, make([]Index, nodeID-Index(len(gs.nodeTrafficLight))+1)...)
-	}
-
 	if yes {
-		gs.nodeTrafficLight[index] |= 1 << (nodeID % 32)
+		gs.nodeTrafficLight.Set(uint(nodeID))
 	} else {
-		gs.nodeTrafficLight[index] &= ^(1 << (nodeID % 32))
+		gs.nodeTrafficLight.Clear(uint(nodeID))
 	}
 }
 
 func (gs *GraphStorage) GetTrafficLight(nodeID Index) bool {
-	index := int(math.Floor(float64(nodeID) / 32))
 
-	var tf bool
-	if len(gs.nodeTrafficLight) > 0 {
-		tf = (gs.nodeTrafficLight[index] & (1 << (nodeID % 32))) != 0
-	}
-	return tf
+	return gs.nodeTrafficLight.Test(uint(nodeID))
 }
 
 type EdgeExtraInfo struct {
@@ -162,11 +151,7 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 // return edgeExtraInfo, isRoundabout
 func (gs *GraphStorage) GetEdgeExtraInfo(edgeID Index, reverse bool) (EdgeExtraInfo, bool) {
 
-	index := int(math.Floor(float64(edgeID) / 32))
-	var roundabout bool
-	if len(gs.roundaboutFlag) > 0 {
-		roundabout = (gs.roundaboutFlag[index] & (1 << (edgeID % 32))) != 0
-	}
+	roundabout := gs.roundaboutFlag.Test(uint(edgeID))
 	return gs.mapEdgeInfo[edgeID], roundabout
 }
 
@@ -187,4 +172,8 @@ func (gs *GraphStorage) AppendMapEdgeInfo(edgeInfo EdgeExtraInfo) {
 
 func (gs *GraphStorage) GetOsmNodePointsCount() int {
 	return len(gs.osmNodePoints)
+}
+
+func (gs *GraphStorage) FlattenIdMap() {
+	gs.tagStringIDMap.ToStringArray()
 }

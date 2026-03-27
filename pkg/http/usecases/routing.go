@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"sync"
 
+	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -28,6 +29,7 @@ type RoutingService struct {
 	drivingEdgeIdsPool     *sync.Pool
 	drivingDirectionPool   *sync.Pool
 	directionBuilderPool   *sync.Pool
+	turnSignCache          *lru.Cache[uint64, int]
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
@@ -74,6 +76,8 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		},
 	}
 
+	rs.turnSignCache, _ = lru.New[uint64, int](1 << 21)
+
 	rs.directionBuilderPool = &sync.Pool{
 		New: func() any {
 			return guidance.NewDirectionBuilder(
@@ -81,6 +85,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 				rs.drivingInstructionPool,
 				rs.coordinatesPool,
 				rs.drivingEdgeIdsPool,
+				rs.turnSignCache,
 			)
 		},
 	}

@@ -3,6 +3,7 @@ package preprocesser
 import (
 	"math"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -186,13 +187,19 @@ func (p *Preprocessor) SortByCellNumber() {
 	gsEdgeExtraInfos := make([]datastructure.EdgeExtraInfo, len(graphMapEdgeInfo))
 	copy(gsEdgeExtraInfos, graphMapEdgeInfo)
 
+	// create new roundabout flag
 	graphRoundaboutFlag := p.graph.GetRoundaboutFlag()
-	roundaboutFlags := make([]datastructure.Index, len(graphRoundaboutFlag))
-	copy(roundaboutFlags, graphRoundaboutFlag)
+	roundaboutFlags := bitset.New(graphRoundaboutFlag.Len())
 
+	// create new traffic light flag
 	graphTrafficLight := p.graph.GetNodeTrafficLight()
-	nodeTrafficLight := make([]datastructure.Index, len(graphTrafficLight))
-	copy(nodeTrafficLight, graphTrafficLight)
+	nodeTrafficLight := bitset.New(graphTrafficLight.Len())
+
+	// create new street direction flags
+
+	streetDirectionForward := bitset.New(uint(p.graph.NumberOfEdges()))
+	streetDirectionBackward := bitset.New(uint(p.graph.NumberOfEdges()))
+
 	vId := datastructure.Index(0)
 
 	lastVertex := p.graph.GetVertex(datastructure.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
@@ -212,14 +219,10 @@ func (p *Preprocessor) SortByCellNumber() {
 			newVertices[vId].SetFirstIn(newInEdgeId)
 			newVertices[vId].SetId(vId)
 
-			index := int(math.Floor(float64(vOldId) / 32))
-
-			if len(nodeTrafficLight) > 0 {
-				isTraficLight := (nodeTrafficLight[index] & (1 << (vOldId % 32))) != 0
-				if isTraficLight {
-					p.graph.SetNodeTrafficLight(vId, true)
-					p.graph.SetNodeTrafficLight(vOldId, false)
-				}
+			// update trafic light flag
+			isTraficLight := graphTrafficLight.Test(uint(vOldId))
+			if isTraficLight {
+				nodeTrafficLight.Set(uint(vId))
 			}
 
 			// update outedges & inedges
@@ -235,10 +238,20 @@ func (p *Preprocessor) SortByCellNumber() {
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
 				p.graph.SetEdgeInfo(newOutEdgeId, gsEdgeExtraInfos[oldOutEdge.GetEdgeInfoId()]) // update edge extra info storage
 
-				indexRoundabout := int(math.Floor(float64(oldOutEdge.GetEdgeInfoId()) / 32)) // update roundabout edge info
-				if len(roundaboutFlags) > 0 {
-					isRoundabout := (roundaboutFlags[indexRoundabout] & (1 << (oldOutEdge.GetEdgeInfoId() % 32))) != 0
-					p.graph.SetRoundabout(newOutEdgeId, isRoundabout)
+				// update roundabout flag
+				isRoundabout := graphRoundaboutFlag.Test(uint(oldOutEdge.GetEdgeInfoId()))
+				if isRoundabout {
+					roundaboutFlags.Set(uint(newOutEdgeId))
+				}
+
+				// update street direction flag
+				streetdir := p.graph.GetStreetDirection(oldOutEdge.GetEdgeId())
+				if streetdir[0] {
+					streetDirectionForward.Set(uint(newOutEdgeId))
+				}
+
+				if streetdir[1] {
+					streetDirectionBackward.Set(uint(newOutEdgeId))
 				}
 
 				outEdge := p.graph.GetOutEdge(newOutEdgeId)
@@ -271,6 +284,9 @@ func (p *Preprocessor) SortByCellNumber() {
 
 	newVertices[len(newVertices)-1] = lastVertex
 	p.graph.SetVertices(newVertices)
+	p.graph.SetRoundaboutFlags(roundaboutFlags)
+	p.graph.SetTrafficLightFlags(nodeTrafficLight)
+	p.graph.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
 }
 
 func (p *Preprocessor) GetOldToNewVIdMap() []datastructure.Index {

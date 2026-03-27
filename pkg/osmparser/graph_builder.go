@@ -303,6 +303,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 	for i := 0; i < len(flattenInEdges); i++ {
 		flattenInEdges[i].SetEdgeId(da.Index(i))
 	}
+
 	graph := datastructure.NewGraph(vertices, flattenOutEdges, flattenInEdges, matrices)
 
 	return graph

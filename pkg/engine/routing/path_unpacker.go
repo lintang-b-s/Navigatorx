@@ -113,7 +113,7 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 
 			enOriVId := entryVertex.GetOriginalVertex()
 			exOriVId := exitVertex.GetOriginalVertex()
-			shortcutPathSet[bitpack(enOriVId, exOriVId)] = queryLevel
+			shortcutPathSet[util.Bitpack(uint32(enOriVId), uint32(exOriVId))] = queryLevel
 
 			workers.AddJob(NewPathUnpackingParam(entryOverlayId, exitOverlayId, queryLevel, &unpackedEdgePathComp[i]))
 

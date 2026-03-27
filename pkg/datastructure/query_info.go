@@ -69,7 +69,6 @@ type VertexInfo struct {
 	parent     VertexEdgePair // 13 byte
 	travelTime float64        // 8 byte
 	heapNodeId int            // 4 byte
-	scanned    bool           // 1 byte, scanned or est dist from s to this v is equal to shortest path cost, and contained in shortest path tree
 	// total 26 byte
 }
 
@@ -78,7 +77,6 @@ func NewVertexInfo(travelTime float64, parent VertexEdgePair) VertexInfo {
 		travelTime: travelTime,
 		parent:     parent,
 		heapNodeId: 0,
-		scanned:    false,
 	}
 }
 
@@ -100,14 +98,6 @@ func (vi *VertexInfo) SetHeapNodeId(id int) {
 
 func (vi *VertexInfo) GetHeapNodeId() int {
 	return vi.heapNodeId
-}
-
-func (vi *VertexInfo) Scan() {
-	vi.scanned = true
-}
-
-func (vi *VertexInfo) IsScanned() bool {
-	return vi.scanned
 }
 
 func (vi *VertexInfo) SetFirstOverlayEntryExitId(id Index) {
