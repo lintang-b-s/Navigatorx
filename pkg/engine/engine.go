@@ -34,12 +34,13 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction) (*Engine, error) {
 	// customizable route planning in road networks section 7.2 (path retrieval)
 	// puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 524288
+	const keyValByteApproxSize = 9 + 4*20
 
-	maxCost := int64(1) << 27 // kalo ristretto ukurannya mb? 134.217728 MB
+	maxCost := int64(1) << 16
 	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
-		NumCounters: maxCost * 5, // number of keys to track frequency of .
-		MaxCost:     maxCost,     // maximum cost of cache .
-		BufferItems: 64,          // number of keys per Get buffer.
+		NumCounters: (maxCost / keyValByteApproxSize) * 5, // number of keys to track frequency of .
+		MaxCost:     maxCost,                              // maximum cost of cache .
+		BufferItems: 64,                                   // number of keys per Get buffer.
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "NewEngineDirect: failed to create new ristretto cache with capacity: %v")
