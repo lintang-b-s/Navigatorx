@@ -51,13 +51,12 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 	for v := 0; v < len(vertices)-1; v++ {
 		// we need to do this because crp query assume all vertex have at least one outEdge (at for target as source)
 
-		dummyID := datastructure.Index(0)
-		dummyOut := datastructure.NewOutEdge(dummyID, datastructure.Index(v),
+		dummyOut := datastructure.NewOutEdge(da.INVALID_EDGE_ID, datastructure.Index(v),
 			0, 0, len(inEdges[v]), pkg.UNKNOWN)
 		outEdges[v] = append(outEdges[v], dummyOut)
 		outDegree[v]++
 
-		dummyIn := datastructure.NewInEdge(dummyID, datastructure.Index(v),
+		dummyIn := datastructure.NewInEdge(da.INVALID_EDGE_ID, datastructure.Index(v),
 			0, 0, len(outEdges[v])-1, pkg.UNKNOWN)
 		inEdges[v] = append(inEdges[v], dummyIn)
 		inDegree[v]++

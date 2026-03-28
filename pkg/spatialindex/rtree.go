@@ -3,7 +3,7 @@ package spatialindex
 import (
 	"math"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/tidwall/rtree"
@@ -20,33 +20,33 @@ type Rtree struct {
 // at = exitOffset of target
 // so we need to know nearby as & at before run the query
 type ArcEndpoint struct {
-	entryId datastructure.Index
-	tailId  datastructure.Index
-	headId  datastructure.Index
-	id      datastructure.Index //
+	entryId da.Index
+	tailId  da.Index
+	headId  da.Index
+	id      da.Index //
 }
 
-func (ae ArcEndpoint) GetExitId() datastructure.Index {
+func (ae ArcEndpoint) GetExitId() da.Index {
 	return ae.id
 }
 
-func (ae ArcEndpoint) GetEntryId() datastructure.Index {
+func (ae ArcEndpoint) GetEntryId() da.Index {
 	return ae.entryId
 }
 
-func (ae ArcEndpoint) GetId() datastructure.Index {
+func (ae ArcEndpoint) GetId() da.Index {
 	return ae.id
 }
 
-func (ae ArcEndpoint) GetTailId() datastructure.Index {
+func (ae ArcEndpoint) GetTailId() da.Index {
 	return ae.tailId
 }
 
-func (ae ArcEndpoint) GetHeadId() datastructure.Index {
+func (ae ArcEndpoint) GetHeadId() da.Index {
 	return ae.headId
 }
 
-func newArcEndpoint(entryId, id, tailId, headId datastructure.Index) ArcEndpoint {
+func newArcEndpoint(entryId, id, tailId, headId da.Index) ArcEndpoint {
 	return ArcEndpoint{
 		entryId: entryId,
 		id:      id,
@@ -63,13 +63,14 @@ func NewRtree() *Rtree {
 }
 
 // Build. build r-tree, with each leaf having bounding box with radius boundingBoxRadius (in km)
-func (rt *Rtree) Build(graph *datastructure.Graph, boundingBoxRadius float64, log *zap.Logger) {
+func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logger) {
 	log.Info("Building R-tree spatial index...")
-	graph.ForOutEdges(func(e *datastructure.OutEdge, exitPoint, head, tail, entryId datastructure.Index,
-		percentage float64, id datastructure.Index) {
-		if e.GetLength() == 0 {
+	graph.ForOutEdges(func(e *da.OutEdge, exitPoint, head, tail, entryId da.Index,
+		percentage float64, id da.Index) {
+		if da.SkipDummyEdge(e) {
 			return
 		}
+
 		from := tail
 		to := head
 

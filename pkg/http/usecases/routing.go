@@ -81,12 +81,11 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 
 	var err error
 	const keyValByteSize = 12
-	maxCost := int64(1) << 25 // kalo ristretto ukurannya mb? 33.554432 MB
-	// max items in cache ~ 2.75jt
+	maxCost := int64(1) << 26
 	rs.turnSignCache, err = ristretto.NewCache(&ristretto.Config[uint64, int]{
-		NumCounters: (maxCost / keyValByteSize) * 5, // number of keys to track frequency of .
-		MaxCost:     maxCost,                        // maximum cost of cache .
-		BufferItems: 64,                             // number of keys per Get buffer.
+		NumCounters: (maxCost / keyValByteSize) * 10, // number of keys to track frequency of .
+		MaxCost:     maxCost,                         // maximum cost of cache .
+		BufferItems: 64,                              // number of keys per Get buffer.
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v")

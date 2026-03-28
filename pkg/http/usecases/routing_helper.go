@@ -64,6 +64,8 @@ func (rs *RoutingService) SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, ds
 		sortedDest[i] = dstCandidates[newId]
 	}
 
+	// todo: use web mercator projection & increase search radius kalau gak ada candidates: https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/od_in_osrm.md
+
 	// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 	for _, o := range sortedOrig {
 		for _, d := range sortedDest {

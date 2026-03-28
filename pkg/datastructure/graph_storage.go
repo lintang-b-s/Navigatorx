@@ -8,7 +8,7 @@ import (
 type GraphStorage struct {
 	mapEdgeInfo    []EdgeExtraInfo
 	osmNodePoints  []Coordinate
-	tagStringIDMap util.IDMap 
+	tagStringIDMap util.IDMap
 
 	//  https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 	streetDirectionForward  *bitset.BitSet // kalau direction dari edgeId forward: bitset.Test(edgeId) return true
@@ -19,13 +19,13 @@ type GraphStorage struct {
 
 func NewGraphStorage() *GraphStorage {
 	return &GraphStorage{
-		streetDirectionForward: bitset.New(100000),
-
-		mapEdgeInfo:      make([]EdgeExtraInfo, 0),
-		tagStringIDMap:   util.NewIdMap(),
-		roundaboutFlag:   bitset.New(100000),
-		nodeTrafficLight: bitset.New(100000),
-		osmNodePoints:    make([]Coordinate, 0),
+		streetDirectionForward:  bitset.New(50000),
+		streetDirectionBackward: bitset.New(50000),
+		mapEdgeInfo:             make([]EdgeExtraInfo, 0),
+		tagStringIDMap:          util.NewIdMap(),
+		roundaboutFlag:          bitset.New(5000),
+		nodeTrafficLight:        bitset.New(5000),
+		osmNodePoints:           make([]Coordinate, 0),
 	}
 }
 

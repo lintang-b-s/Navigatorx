@@ -495,7 +495,7 @@ func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) 
 }
 
 func SkipDummyEdge(e *OutEdge) bool {
-	if e.GetLength() == 0 {
+	if e.GetLength() == 0 && e.GetEdgeId() == INVALID_EDGE_ID {
 		return true
 	}
 

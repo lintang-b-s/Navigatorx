@@ -22,6 +22,10 @@ const queryData = new SharedArray("queries", function () {
 });
 
 export const options = {
+  thresholds: {
+    http_req_failed: ["rate<0.01"], // http errors should be less than 1%
+    http_req_duration: ["p(95)<850"], // 95% of requests should be below 850ms
+  },
   stages: [
     { duration: "15s", target: 900 },
     { duration: "15s", target: 900 },
@@ -89,6 +93,10 @@ export default () => {
     },
   );
 
-  check(res, { 200: (r) => r.status === 200 });
+  check(res, {
+    "Get status is 200": (r) => res.status === 200,
+    "Get Content-Type header": (r) =>
+      res.headers["Content-Type"] === "application/json",
+  });
   sleep(1);
 };

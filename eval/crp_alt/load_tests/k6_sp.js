@@ -22,6 +22,10 @@ const queryData = new SharedArray("queries", function () {
 });
 
 export const options = {
+  thresholds: {
+    http_req_failed: ["rate<0.01"], // http errors should be less than 1%
+    http_req_duration: ["p(95)<100"], // 95% of requests should be below 100ms
+  },
   stages: [
     { duration: "15s", target: 900 },
     { duration: "15s", target: 900 },
@@ -73,8 +77,6 @@ todo2: bikin repo baru, buat bandingin navigatorx,osrm,graphopper,valhalla
 
 */
 
-// todo: kurangi call GetPriority di overlay graph search..
-
 export default () => {
   const randomQuery = queryData[Math.floor(Math.random() * queryData.length)];
 
@@ -88,6 +90,28 @@ export default () => {
     },
   );
 
-  check(res, { 200: (r) => r.status === 200 });
+  check(res, {
+    "Get status is 200": (r) => res.status === 200,
+    "Get Content-Type header": (r) =>
+      res.headers["Content-Type"] === "application/json",
+    "Ignore no path from source to destination response": (r) => {
+      if (r.status === 200) return true;
+
+      if (r.status === 400) {
+        try {
+          const body = JSON.parse(r.body);
+          const msg = body?.error?.message || "";
+          return (
+            msg.includes("no nearby road segments") ||
+            msg.includes("no route found")
+          );
+        } catch (e) {
+          return false;
+        }
+      }
+
+      return false;
+    },
+  });
   sleep(1);
 };

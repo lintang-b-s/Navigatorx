@@ -41,6 +41,15 @@ export default () => {
     },
   );
 
-  check(res, { 200: (r) => r.status === 200 });
+  check(res, {
+    "Get status is 200": (r) => res.status === 200,
+    "Get Content-Type header": (r) =>
+      res.headers["Content-Type"] === "application/json",
+    "Ignore no path from source to destination response": (r) => {
+      if (r.status === 200) return true;
+
+      return false;
+    },
+  });
   sleep(1);
 };
