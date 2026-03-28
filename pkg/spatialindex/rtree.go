@@ -20,38 +20,16 @@ type Rtree struct {
 // at = exitOffset of target
 // so we need to know nearby as & at before run the query
 type ArcEndpoint struct {
-	entryId da.Index
-	tailId  da.Index
-	headId  da.Index
-	id      da.Index //
-}
-
-func (ae ArcEndpoint) GetExitId() da.Index {
-	return ae.id
-}
-
-func (ae ArcEndpoint) GetEntryId() da.Index {
-	return ae.entryId
+	id da.Index
 }
 
 func (ae ArcEndpoint) GetId() da.Index {
 	return ae.id
 }
 
-func (ae ArcEndpoint) GetTailId() da.Index {
-	return ae.tailId
-}
-
-func (ae ArcEndpoint) GetHeadId() da.Index {
-	return ae.headId
-}
-
-func newArcEndpoint(entryId, id, tailId, headId da.Index) ArcEndpoint {
+func newArcEndpoint(id da.Index) ArcEndpoint {
 	return ArcEndpoint{
-		entryId: entryId,
-		id:      id,
-		tailId:  tailId,
-		headId:  headId,
+		id: id,
 	}
 }
 
@@ -82,13 +60,24 @@ func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logg
 		lowerToLat, lowerToLon := geo.GetDestinationPoint(toLat, toLon, 225, boundingBoxRadius)
 		upperToLat, upperToLon := geo.GetDestinationPoint(toLat, toLon, 45, boundingBoxRadius)
 
-		minLat := math.Min(lowerFromLat, lowerToLat)
-		minLon := math.Min(lowerFromLon, lowerToLon)
-		maxLat := util.MaxFloat(upperFromLat, upperToLat)
-		maxLon := util.MaxFloat(upperFromLon, upperToLon)
+		// use web mercator projected coordinate
+		lowerFromY := geo.CalcLatToYApprox(lowerFromLat)
+		upperFromY := geo.CalcLatToYApprox(upperFromLat)
+		lowerFromX := geo.CalcLonToX(lowerFromLon)
+		upperFromX := geo.CalcLonToX(upperFromLon)
 
-		rt.tr.Insert([2]float64{minLon, minLat}, [2]float64{maxLon, maxLat},
-			newArcEndpoint(entryId, id, tail, e.GetHead()))
+		lowerToY := geo.CalcLatToYApprox(lowerToLat)
+		upperToY := geo.CalcLatToYApprox(upperToLat)
+		lowerToX := geo.CalcLonToX(lowerToLon)
+		upperToX := geo.CalcLonToX(upperToLon)
+
+		minY := math.Min(lowerFromY, lowerToY)
+		minX := math.Min(lowerFromX, lowerToX)
+		maxY := util.MaxFloat(upperFromY, upperToY)
+		maxX := util.MaxFloat(upperFromX, upperToX)
+
+		rt.tr.Insert([2]float64{minX, minY}, [2]float64{maxX, maxY},
+			newArcEndpoint(id))
 	})
 
 	log.Info("R-tree spatial index built.")
@@ -99,8 +88,11 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []ArcEndpoint {
 	lowerLat, lowerLon := geo.GetDestinationPoint(qLat, qLon, 225, radius)
 	upperLat, upperLon := geo.GetDestinationPoint(qLat, qLon, 45, radius)
 
+	lowerY, lowerX := geo.CalcLatToYApprox(lowerLat), geo.CalcLonToX(lowerLon)
+	upperY, upperX := geo.CalcLatToYApprox(upperLat), geo.CalcLonToX(upperLon)
+
 	results := make([]ArcEndpoint, 0, 10)
-	rt.tr.Search([2]float64{lowerLon, lowerLat}, [2]float64{upperLon, upperLat},
+	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},
 		func(min, max [2]float64, data ArcEndpoint) bool {
 			results = append(results, data)
 			if len(results) >= 20 {

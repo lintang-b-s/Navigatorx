@@ -80,7 +80,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	boundingBox := graph.GetBoundingBox()
 	for i := 0; i < 1e3; i++ {
 		if (i+1)%1e2 == 0 {
@@ -89,10 +89,11 @@ func main() {
 		}
 		src := RandomCoordinate(boundingBox, rd)
 		dst := RandomCoordinate(boundingBox, rd)
-		as, at, err := routingService.SnapOrigDestToNearbyEdges(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon())
+		var prevPairSet map[uint64]struct{} = make(map[uint64]struct{})
+		as, at, _, _ := routingService.SnapOrigDestToNearbyEdges(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon(), *leafBoundingBoxRadius, prevPairSet)
 		// as = exit/outEdge index of origin
 		// at = entry/inEdge index of destination
-		if err != nil {
+		if as == da.INVALID_EDGE_ID || at == da.INVALID_EDGE_ID {
 			continue
 		}
 

@@ -22,7 +22,7 @@ type AlternativeRouteAlgorithm interface {
 }
 
 type SpatialIndex interface {
-	SearchWithinRadius(float64, float64, float64) []spatialindex.ArcEndpoint
+	SearchWithinRadius(qLat, qLon, radius float64) []spatialindex.ArcEndpoint
 }
 
 type OnlineMapMatcherEngine interface {

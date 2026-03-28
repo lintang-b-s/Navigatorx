@@ -1,39 +1,43 @@
 package usecases
 
 import (
-	"errors"
 	"sort"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-func (rs *RoutingService) SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon float64) (datastructure.Index,
-	datastructure.Index, error) {
+func (rs *RoutingService) SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon, searchRad float64,
+	prevPairSet map[uint64]struct{}) (da.Index,
+	da.Index, da.Coordinate, da.Coordinate) {
+	var (
+		projectedLat, projectedLon float64
+	)
+
 	// find nearest orig edge (inEdgeOffset) to origLat, origLon
-	origCandidates := rs.spatialIndex.SearchWithinRadius(origLat, origLon, rs.searchRadius)
-	if len(origCandidates) == 0 {
-		return 0, 0, errors.New("no origin candidates found")
-	}
+	origCandidates := rs.spatialIndex.SearchWithinRadius(origLat, origLon, searchRad)
 
 	// find nearest dst edge (outEdgeOffset) to dstLat, dstLon
-	dstCandidates := rs.spatialIndex.SearchWithinRadius(dstLat, dstLon, rs.searchRadius)
-	if len(dstCandidates) == 0 {
-		return 0, 0, errors.New("no destination candidates found")
-	}
+	dstCandidates := rs.spatialIndex.SearchWithinRadius(dstLat, dstLon, searchRad)
 
 	// sort origCandidates by distance to origLat, origLon
 	// sort dstCandidates by distance to dstLat, dstLon
 	origDist := make([]float64, len(origCandidates))
 	dstDist := make([]float64, len(dstCandidates))
+	origCoord := make([]da.Coordinate, len(origCandidates))
+	dstCoord := make([]da.Coordinate, len(dstCandidates))
+
 	for i, c := range origCandidates {
-		cLat, cLon := rs.engine.GetVertexCoordinatesFromOutEdge(c.GetExitId())
-		origDist[i] = geo.CalculateHaversineDistance(origLat, origLon, cLat, cLon)
+		projectedLat, projectedLon, origDist[i] = rs.ProjectCoordinateToEdge(origLat, origLon, c.GetId())
+		origCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
 	}
+
 	for i, c := range dstCandidates {
-		cLat, cLon := rs.engine.GetVertexCoordinatesFromInEdge(c.GetEntryId())
-		dstDist[i] = geo.CalculateHaversineDistance(dstLat, dstLon, cLat, cLon)
+		projectedLat, projectedLon, dstDist[i] = rs.ProjectCoordinateToEdge(dstLat, dstLon, c.GetId())
+		dstCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
 	}
 
 	sortedOrigId := make([]int, len(origCandidates))
@@ -41,39 +45,127 @@ func (rs *RoutingService) SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, ds
 		sortedOrigId[i] = i
 	}
 
-	sortedDestId := make([]int, len(dstCandidates))
-	for i := range sortedDestId {
-		sortedDestId[i] = i
+	sortedDstId := make([]int, len(dstCandidates))
+	for i := range sortedDstId {
+		sortedDstId[i] = i
 	}
 
 	sort.Slice(sortedOrigId, func(i, j int) bool {
 		return origDist[sortedOrigId[i]] < origDist[sortedOrigId[j]]
 	})
 
-	sort.Slice(sortedDestId, func(i, j int) bool {
-		return dstDist[sortedDestId[i]] < dstDist[sortedDestId[j]]
+	sort.Slice(sortedDstId, func(i, j int) bool {
+		return dstDist[sortedDstId[i]] < dstDist[sortedDstId[j]]
 	})
 
 	sortedOrig := make([]spatialindex.ArcEndpoint, len(origCandidates))
-	sortedDest := make([]spatialindex.ArcEndpoint, len(dstCandidates))
-	for i, newId := range sortedOrigId {
-		sortedOrig[i] = origCandidates[newId]
+	sortedDst := make([]spatialindex.ArcEndpoint, len(dstCandidates))
+	sortedOrigCoord := make([]da.Coordinate, len(origCandidates))
+	sortedDstCoord := make([]da.Coordinate, len(dstCandidates))
+
+	for i, oldId := range sortedOrigId {
+		sortedOrig[i] = origCandidates[oldId]
+		sortedOrigCoord[i] = origCoord[oldId]
 	}
 
-	for i, newId := range sortedDestId {
-		sortedDest[i] = dstCandidates[newId]
+	for i, oldId := range sortedDstId {
+		sortedDst[i] = dstCandidates[oldId]
+		sortedDstCoord[i] = dstCoord[oldId]
 	}
 
-	// todo: use web mercator projection & increase search radius kalau gak ada candidates: https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/od_in_osrm.md
+	g := rs.engine.GetGraph()
 
-	// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
-	for _, o := range sortedOrig {
-		for _, d := range sortedDest {
-			if rs.engine.VerticeUToVConnected(o.GetTailId(), d.GetHeadId()) {
-				return o.GetExitId(), d.GetEntryId(), nil
+	// origDestination
+
+	minDist := pkg.INF_WEIGHT
+
+	bestPair := newOriginDestination(da.INVALID_EDGE_ID, da.INVALID_EDGE_ID,
+		da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON), da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON))
+	for i, o := range sortedOrig {
+		for j, d := range sortedDst {
+			destinationTail, dstInEdge := g.GetTailOfOutedgeWithInEdge(d.GetId())
+			originHead := g.GetHeadOfOutEdge(o.GetId())
+
+			if rs.isAlreadyEvaluated(o.GetId(), d.GetId(), prevPairSet) {
+				continue
+			}
+			if !rs.engine.VerticeUToVConnected(originHead, destinationTail) {
+				continue
+			}
+
+			origDestSnapDist := origDist[sortedOrigId[i]] + dstDist[sortedDstId[j]]
+
+			if origDestSnapDist < minDist {
+				minDist = origDestSnapDist
+				bestPair = newOriginDestination(o.GetId(), dstInEdge.GetEdgeId(), sortedOrigCoord[i], sortedDstCoord[j])
 			}
 		}
 	}
 
-	return sortedOrig[0].GetExitId(), sortedDest[0].GetEntryId(), nil
+	return bestPair.origEdgeId, bestPair.destEdgeId, bestPair.origCoord, bestPair.destCoord
+}
+
+type originDestination struct {
+	origEdgeId, destEdgeId da.Index
+	origCoord, destCoord   da.Coordinate
+}
+
+func newOriginDestination(origEdgeId, destEdgeId da.Index, origCoord, destCoord da.Coordinate) originDestination {
+	return originDestination{
+		origEdgeId: origEdgeId,
+		destEdgeId: destEdgeId,
+		origCoord:  origCoord,
+		destCoord:  destCoord,
+	}
+}
+
+func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.Index) (float64, float64, float64) {
+
+	eGeometry := rs.engine.GetGraph().GetEdgeGeometry(edgeId)
+	minDist := pkg.INF_WEIGHT
+	var bestProjectedPoint geo.Coordinate
+
+	for i := 0; i < len(eGeometry)-1; i++ {
+		tail := eGeometry[i]
+		head := eGeometry[i+1]
+		projectedPoint := geo.ProjectPointOnSegment(
+			tail.ToGeoCoordinate(),
+			head.ToGeoCoordinate(),
+			geo.Coordinate(da.NewCoordinate(lat, lon)),
+		)
+
+		// untuk calc distance ini better pakai great circle distance
+		// dibanding euclidean distance dari  web mercator projected coord
+		// dist := util.KilometerToMeter(geo.CalculateHaversineDistance(
+		// projectedPoint.Lat, projectedPoint.Lon,
+		// lat, lon,
+		// ))
+
+		dist := geo.CalculateEuclidianDistWebMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+			lat, lon)
+
+		if dist < minDist {
+			minDist = dist
+			bestProjectedPoint = projectedPoint
+		}
+	}
+
+	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist
+}
+
+func (rs *RoutingService) notFoundOriginDestinationWithinRadius(seId, teId da.Index) bool {
+	if seId == da.INVALID_EDGE_ID && teId == da.INVALID_EDGE_ID {
+		return true
+	}
+	return false
+}
+
+func (rs *RoutingService) isAlreadyEvaluated(orig, dest da.Index, prevPairSet map[uint64]struct{}) bool {
+	pairKey := util.Bitpack(uint32(orig), uint32(dest))
+	if _, alreadyEvaluated := prevPairSet[pairKey]; alreadyEvaluated {
+		return true
+	}
+
+	prevPairSet[pairKey] = struct{}{}
+	return false
 }

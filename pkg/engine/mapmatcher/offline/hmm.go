@@ -286,13 +286,13 @@ func (h *HMM) projectAllGps(gpsTraj []*da.GPSPoint) ([][]*ma.Candidate, int) {
 
 		sumLength := 0.0
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := h.graph.GetOutEdge(arcEndpoint.GetExitId()).GetSimplifiedLength()
+			eLength := h.graph.GetOutEdge(arcEndpoint.GetId()).GetSimplifiedLength()
 			sumLength += eLength
 		}
 
 		for _, arcEndpoint := range nearbyArcs {
 
-			eLength := h.graph.GetOutEdge(arcEndpoint.GetExitId()).GetSimplifiedLength()
+			eLength := h.graph.GetOutEdge(arcEndpoint.GetId()).GetSimplifiedLength()
 
 			cand := ma.NewCandidate(arcEndpoint.GetId(), eLength/sumLength, eLength)
 			cand.SetStateId(stateId)
@@ -401,7 +401,7 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 		for i := 0; i < len(eGeometry)-1; i++ {
 			tail := eGeometry[i]
 			head := eGeometry[i+1]
-			projectedPoint := geo.ProjectPointToLineCoord(
+			projectedPoint := geo.ProjectPointOnSegment(
 				tail.ToGeoCoordinate(),
 				head.ToGeoCoordinate(),
 				gpsCoord.ToGeoCoordinate(),

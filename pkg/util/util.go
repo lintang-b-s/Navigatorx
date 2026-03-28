@@ -218,6 +218,13 @@ func MaxFloat(a, b float64) float64 {
 	return b
 }
 
+func MinFloat(a, b float64) float64 {
+	if Lt(a, b) {
+		return a
+	}
+	return b
+}
+
 func ToFloat64Map(input interface{}) (map[float64]float64, float64) {
 	result := make(map[float64]float64)
 	defaultVal := 0.0

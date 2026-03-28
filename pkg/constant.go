@@ -20,6 +20,9 @@ const (
 	TRAFFIC_LIGHT_PENALTY_SP_SECOND         = 0.0
 	ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD = 92.0
 	NERF_MAXSPEED_OSM                       = 0.9
+
+	INVALID_LAT = 91
+	INVALID_LON = 181
 )
 
 const (
@@ -50,11 +53,10 @@ const (
 	UNKNOWN        OsmHighwayType = 17
 )
 
-
 func GetHighwayType(roadType string) OsmHighwayType {
 	switch roadType {
 	case "motorway":
-		return  MOTORWAY
+		return MOTORWAY
 	case "trunk":
 		return TRUNK
 	case "primary":

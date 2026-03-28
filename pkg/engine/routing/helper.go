@@ -11,7 +11,6 @@ func (crp *CRPRoutingEngine) GetHaversineDistanceFromUtoV(u, v datastructure.Ind
 }
 
 func (crp *CRPRoutingEngine) GetVertexCoordinatesFromOutEdge(u datastructure.Index) (float64, float64) {
-
 	return crp.graph.GetVertexCoordinatesFromOutEdge(u)
 }
 

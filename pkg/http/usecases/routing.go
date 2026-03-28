@@ -6,7 +6,7 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/dgraph-io/ristretto/v2"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/guidance"
@@ -51,28 +51,28 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 
 	rs.drivingInstructionPool = &sync.Pool{
 		New: func() any {
-			drinvingInstructions := make([]*datastructure.Instruction, 0, 128)
+			drinvingInstructions := make([]*da.Instruction, 0, 128)
 			return drinvingInstructions
 		},
 	}
 
 	rs.coordinatesPool = &sync.Pool{
 		New: func() any {
-			legCoordinates := make([]datastructure.Coordinate, 0, 128)
+			legCoordinates := make([]da.Coordinate, 0, 128)
 			return legCoordinates
 		},
 	}
 
 	rs.drivingEdgeIdsPool = &sync.Pool{
 		New: func() any {
-			legEdgeIds := make([]datastructure.Index, 0, 128)
+			legEdgeIds := make([]da.Index, 0, 128)
 			return legEdgeIds
 		},
 	}
 
 	rs.drivingDirectionPool = &sync.Pool{
 		New: func() any {
-			drivingDirections := make([]datastructure.DrivingDirection, 0, 128)
+			drivingDirections := make([]da.DrivingDirection, 0, 128)
 			return drivingDirections
 		},
 	}
@@ -106,19 +106,36 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 	return rs, nil
 }
 
-func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []datastructure.DrivingDirection, bool, error) {
-	as, at, err := rs.SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon)
+func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
+	searchRad := rs.searchRadius
+	var (
+		as, at                  da.Index
+		snappedOrig, snappedDst da.Coordinate
+		prevPairSet             map[uint64]struct{} = make(map[uint64]struct{})
+	)
+
+	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
+		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
+		as, at, snappedOrig, snappedDst = rs.SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon, searchRad, prevPairSet)
+		if !rs.notFoundOriginDestinationWithinRadius(as, at) {
+			// break loop early if found connected origin and destination
+			break
+		}
+		searchRad *= SEARCH_RADIUS_MULTIPLIER
+	}
+
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
-	if err != nil {
-		errmsg := fmt.Sprintf("no nearby intersections found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
-		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
+	if rs.notFoundOriginDestinationWithinRadius(as, at) {
+		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
+		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
 	}
+
 	var (
 		travelTime, dist float64
-		pathCoords       []datastructure.Coordinate
-		edgePath         []datastructure.OutEdge
+		pathCoords       []da.Coordinate
+		edgePath         []da.OutEdge
 		found            bool
 	)
 
@@ -127,15 +144,18 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 
 	if !found {
 		errmsg := fmt.Sprintf("no route found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
-		return 0, 0, "", []datastructure.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
+		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
 	}
 
-	pathPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(pathCoords))
+	pathCoords = append([]da.Coordinate{snappedOrig}, pathCoords...)
+	pathCoords = append(pathCoords, snappedDst)
+
+	pathPolyline := geo.PoylineFromCoords(da.NewGeoCoordinates(pathCoords))
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 	// todo: update kode driving direction buat improve performance
 
-	drivingDirection := rs.drivingDirectionPool.Get().([]datastructure.DrivingDirection)
+	drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
 	drivingDirection = drivingDirection[:0]
 	directionBuilder.Reset()
 
@@ -147,11 +167,27 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 }
 
 func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLon float64, k int) ([]*routing.AlternativeRoute, bool, error) {
-	as, at, err := rs.SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon)
+	searchRad := rs.searchRadius
+	var (
+		as, at                  da.Index
+		snappedOrig, snappedDst da.Coordinate
+
+		prevPairSet map[uint64]struct{} = make(map[uint64]struct{})
+	)
+
+	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
+		as, at, snappedOrig, snappedDst = rs.SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon, searchRad, prevPairSet)
+		if !rs.notFoundOriginDestinationWithinRadius(as, at) {
+			// break loop early if found connected origin and destination
+			break
+		}
+		searchRad *= SEARCH_RADIUS_MULTIPLIER
+	}
+
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
-	if err != nil {
-		errmsg := fmt.Sprintf("no nearby intersections found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
+	if rs.notFoundOriginDestinationWithinRadius(as, at) {
+		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
 		return []*routing.AlternativeRoute{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
 	}
@@ -162,13 +198,17 @@ func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLo
 	}
 
 	for _, alt := range alternatives {
-		pathPolyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(alt.GetCoords()))
+		altPathCoords := alt.GetCoords()
+		altPathCoords = append([]da.Coordinate{snappedOrig}, altPathCoords...)
+		altPathCoords = append(altPathCoords, snappedDst)
+
+		pathPolyline := geo.PoylineFromCoords(da.NewGeoCoordinates(altPathCoords))
 		alt.SetPolylinePath(pathPolyline)
 		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 		directionBuilder.Reset()
 		// todo: update kode driving direction buat improve performance
 
-		drivingDirection := rs.drivingDirectionPool.Get().([]datastructure.DrivingDirection)
+		drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
 		drivingDirection = drivingDirection[:0]
 		drivingDirection = directionBuilder.GetDrivingDirections(alt.GetPath(), drivingDirection)
 		alt.SetDrivingDirections(drivingDirection)
@@ -183,6 +223,6 @@ func (rs *RoutingService) GetEngine() RoutingEngine {
 	return rs.engine
 }
 
-func (rs *RoutingService) DoneDrivingDirection(drivingDirection []datastructure.DrivingDirection) {
+func (rs *RoutingService) DoneDrivingDirection(drivingDirection []da.DrivingDirection) {
 	rs.drivingDirectionPool.Put(drivingDirection)
 }

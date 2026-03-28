@@ -56,6 +56,26 @@ func CalculateHaversineDistance(latOne, longOne, latTwo, longTwo float64) float6
 	return earthRadiusKM * c
 }
 
+const (
+	e  = 0.081819191
+	RF = 1.0 / 3000000.0
+)
+
+// CalculateEuclidianDistWebMercatorProj. calculate euclidian distance using web mercator projected coordinates
+// https://gis.stackexchange.com/questions/14528/better-distance-measurements-in-web-mercator-projection
+func CalculateEuclidianDistWebMercatorProj(latOne, longOne, latTwo, longTwo float64) float64 {
+	xOne := CalcLonToX(longOne)
+	yOne := CalcLatToYApprox(latOne)
+	xTwo := CalcLonToX(longTwo)
+	yTwo := CalcLatToYApprox(latTwo)
+
+	meanLat := (latOne + latTwo) / 2.0
+
+	xx := xTwo - xOne
+	yy := yTwo - yOne
+	return math.Sqrt(xx*xx+yy*yy) * math.Cos(meanLat) * (1 / RF)
+}
+
 func CalculateEuclidianDistanceEquirectangularProj(latOne, longOne, latTwo, longTwo float64) float64 {
 	latOne = util.DegreeToRadians(latOne)
 	longOne = util.DegreeToRadians(longOne)
