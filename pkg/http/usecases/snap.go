@@ -85,10 +85,10 @@ func (rs *RoutingService) SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, ds
 		for j, d := range sortedDst {
 			destinationTail, dstInEdge := g.GetTailOfOutedgeWithInEdge(d.GetId())
 			originHead := g.GetHeadOfOutEdge(o.GetId())
-
 			if rs.isAlreadyEvaluated(o.GetId(), d.GetId(), prevPairSet) {
 				continue
 			}
+			
 			if !rs.engine.VerticeUToVConnected(originHead, destinationTail) {
 				continue
 			}
@@ -133,13 +133,6 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 			head.ToGeoCoordinate(),
 			geo.Coordinate(da.NewCoordinate(lat, lon)),
 		)
-
-		// untuk calc distance ini better pakai great circle distance
-		// dibanding euclidean distance dari  web mercator projected coord
-		// dist := util.KilometerToMeter(geo.CalculateHaversineDistance(
-		// projectedPoint.Lat, projectedPoint.Lon,
-		// lat, lon,
-		// ))
 
 		dist := geo.CalculateEuclidianDistWebMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
 			lat, lon)

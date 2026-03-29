@@ -95,7 +95,7 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []ArcEndpoint {
 	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},
 		func(min, max [2]float64, data ArcEndpoint) bool {
 			results = append(results, data)
-			if len(results) >= 20 {
+			if len(results) >= 15 {
 				return false
 			}
 			return true

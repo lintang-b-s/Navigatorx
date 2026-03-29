@@ -57,7 +57,6 @@ func CalculateHaversineDistance(latOne, longOne, latTwo, longTwo float64) float6
 }
 
 const (
-	e  = 0.081819191
 	RF = 1.0 / 3000000.0
 )
 
@@ -70,6 +69,7 @@ func CalculateEuclidianDistWebMercatorProj(latOne, longOne, latTwo, longTwo floa
 	yTwo := CalcLatToYApprox(latTwo)
 
 	meanLat := (latOne + latTwo) / 2.0
+	meanLat = util.DegreeToRadians(meanLat)
 
 	xx := xTwo - xOne
 	yy := yTwo - yOne

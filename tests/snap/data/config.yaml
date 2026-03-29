@@ -1,0 +1,48 @@
+maxspeeds:
+  motorway: 100
+  trunk: 65
+  primary: 50
+  secondary: 40
+  tertiary: 40
+  unclassified: 25
+  residential: 25
+  service: 15
+  motorway_link: 45
+  trunk_link: 40
+  primary_link: 30
+  secondary_link: 25
+  tertiary_link: 20
+  living_street: 10
+  road: 20
+  track: 15
+  motorroad: 90
+  default: 30
+
+turncosts:
+  u_turn: 1e9
+  no_entry: 1e9
+  left_turn: 0
+  right_turn: 0
+  straight_on: 0
+  none: 0
+
+alternatives:
+  alpha: # every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
+    default: 0.25
+  gamma:
+    50: 0.8 # alternative routes with great circle distance between source and destination <= 50km  at least 20% different than the shortest path
+    default: 0.8 # alternative routes with great circle distance between source and destination > 50km  at least 20% different than the shortest path
+  epsilon:
+    default: 0.25 #  alternative routes at most 25% longer than the shortest path
+  upper_bound:
+    50: 1.25
+    default: 1.2 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
+  max_candidates_to_unpack:
+    10: 10 # great circle distance between source and destination <= 10km -> 10 via candidates to unpack
+    20: 8 # great circle distance between source and destination <= 20km  & > 10km -> 8 via candidates to unpack
+    50: 5
+    100: 4
+    default: 2
+
+
+
