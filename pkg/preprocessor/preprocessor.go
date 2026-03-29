@@ -183,7 +183,9 @@ func (p *Preprocessor) SortByCellNumber() {
 	newInEdgeId := datastructure.Index(0)                            // new id for inEdges for each vertex for each cell
 	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
 
+	// create new edge infos
 	oldEdgeInfos := p.graph.GetEdgeInfos()
+	newEdgeInfos := make([]datastructure.EdgeExtraInfo, len(oldEdgeInfos))
 
 	// create new roundabout flag
 	oldRoundaboutFlag := p.graph.GetRoundaboutFlag()
@@ -196,8 +198,6 @@ func (p *Preprocessor) SortByCellNumber() {
 	// create new street direction flags
 	newStreetDirectionForward := bitset.New(uint(p.graph.NumberOfEdges()))
 	newStreetDirectionBackward := bitset.New(uint(p.graph.NumberOfEdges()))
-
-	newEdgeInfos := make([]datastructure.EdgeExtraInfo, len(oldEdgeInfos))
 
 	vId := datastructure.Index(0)
 

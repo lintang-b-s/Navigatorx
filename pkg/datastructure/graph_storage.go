@@ -141,11 +141,12 @@ func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinat
 		return edgePoints
 	}
 
-	if startIndex == 0 {
+	if startIndex <= 0 {
 		return make([]Coordinate, 0)
 	}
 
 	for i := startIndex - 1; i >= endIndex; i-- {
+
 		edgePoints = append(edgePoints, gs.osmNodePoints[i])
 	}
 
@@ -157,13 +158,6 @@ func (gs *GraphStorage) GetEdgeExtraInfo(edgeID Index, reverse bool) (EdgeExtraI
 
 	roundabout := gs.roundaboutFlag.Test(uint(edgeID))
 	return gs.edgeInfos[edgeID], roundabout
-}
-
-func (gs *GraphStorage) UpdateEdgePoints(edgeID Index, startIdx, endIdx Index) {
-	edge := gs.edgeInfos[edgeID]
-	edge.startPointsIndex = startIdx
-	edge.endPointsIndex = endIdx
-	gs.edgeInfos[edgeID] = edge
 }
 
 func (gs *GraphStorage) AppendOsmNodePoints(edgePoints []Coordinate) {

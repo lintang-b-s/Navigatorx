@@ -33,9 +33,13 @@ import (
 	"go.uber.org/zap"
 )
 
-// go run eval/crp_alt/online_map_matching/newsonkrumm/main.go
+//
 /*
+go run eval/crp_alt/online_map_matching/newsonkrumm/main.go
 
+pastikan downloaded file tidak corrupt.
+
+ref:
 [1] Taguchi, S., Koide, S. and Yoshimura, T. (2019) “Online Map Matching With Route
 Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), pp.
 338–347. Available at: https://doi.org/10.1109/TITS.2018.2812147.
@@ -310,12 +314,12 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 
 			graphEdges = append(graphEdges, graphEdge)
 
-			// reverse edge (two way)
+			// reversed edge (two way)
 			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 				0, 0, 0,
 				1,
 				da.Index(endPointsIndex), da.Index(startPointsIndex),
-				int64(e.eId),
+				int64(e.eId)*2,
 			))
 
 			graphRevE := osmparser.NewEdge(
@@ -584,8 +588,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		var deltaTime float64
-		var speed float64
+		var deltaTime float64 = 1
+		var speed float64 = 8.333
 
 		if hasPrev {
 			deltaTime = curGpsTime.Sub(prevTime).Seconds()
@@ -627,7 +631,8 @@ func main() {
 	}
 	brGroundTruth := bufio.NewReader(groundTruthFile)
 
-	traversedEdges := make(map[int64]float64, 576)
+	traversedEdgesLength := make(map[int64]float64, 576)
+	traversedEdges := make(map[int64]bool, 576) // kalau  true -> forward edge, else -> reversed edge
 	for {
 		line, err := util.ReadLine(brGroundTruth)
 		if err != nil && errors.Is(err, io.EOF) {
@@ -646,12 +651,17 @@ func main() {
 			panic(err)
 		}
 
-		traversedEdges[edgeId] = edgeLength[edgeId]
+		traversedEdgesLength[edgeId] = edgeLength[edgeId]
+		if ff[1] == "1" {
+			traversedEdges[edgeId] = true
+		} else {
+			traversedEdges[edgeId] = false
+		}
 	}
 
 	lengthOfCorrectRoute := 0.0
 
-	for _, eLength := range traversedEdges {
+	for _, eLength := range traversedEdgesLength {
 		lengthOfCorrectRoute += eLength
 	}
 
@@ -672,24 +682,33 @@ func main() {
 		matchedDataEId := g.GetOsmWayId(curMatchedEId)
 
 		matchedEdgeSet[matchedDataEId] = g.GetOutEdge(curMatchedEId).GetLength()
-		_, inGroundTruth := traversedEdges[matchedDataEId]
-		if inGroundTruth {
+		_, inGroundTruthReversed := traversedEdges[matchedDataEId]
+		_, inGroundTruthForward := traversedEdges[matchedDataEId/2]
+
+		if inGroundTruthForward {
+			numOfCorrectMatchedRoads++
+		} else if inGroundTruthReversed {
 			numOfCorrectMatchedRoads++
 		}
+
 		matchedCoords = append(matchedCoords, mapMatchPointResult[i].GetMatchedCoord())
 		numberOfRoadsOfMatchedTrips++
 	}
 
 	for matchedDataEId, eLength := range matchedEdgeSet {
-		_, inGroundTruth := traversedEdges[matchedDataEId]
-		if !inGroundTruth {
+		_, inGroundTruthReversed := traversedEdges[matchedDataEId]
+		_, inGroundTruthForward := traversedEdges[matchedDataEId/2]
+
+		if !inGroundTruthForward && !inGroundTruthReversed {
 			lengthOfErrorneouslyAdded += eLength
 		}
 	}
 
 	for eId, _ := range traversedEdges {
-		eLength, inMapMatchResult := matchedEdgeSet[eId]
-		if !inMapMatchResult {
+		eLengthForward, inMapMatchResultForward := matchedEdgeSet[eId]
+		eLengthReversed, inMapMatchResultReversed := matchedEdgeSet[eId*2]
+		eLength := util.MaxFloat(eLengthForward, eLengthReversed)
+		if !inMapMatchResultForward && !inMapMatchResultReversed {
 			lengthOfErrorneouslySubtracted += eLength
 		}
 	}
@@ -722,11 +741,9 @@ func main() {
 	//
 
 	/*
-	todo: di ground_truth.txt, edge dari to ke from (reversed) dibedain, buat indexing edge dari buildCRPGraph() utk reversed Edge *2
-		Route Mismatch Fraction (RMF): 0.07648581832758283
-		Correct Road Percentage (CRP) or accuracy: 0.9556499800823264
-		avg runtime per gpt point: 7.863630327977692 microseconds/gps point
-		matching efficiency: 100.41333333333333 points/ms
-
+		Route Mismatch Fraction (RMF): 0.07550066619400882
+		Correct Road Percentage (CRP) or accuracy: 0.9559155490638693
+		avg runtime per gpt point: 7.5892975700438186 microseconds/gps point
+		matching efficiency: 115.86153846153846 points/ms
 	*/
 }

@@ -495,7 +495,7 @@ func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) 
 }
 
 func SkipDummyEdge(e *OutEdge) bool {
-	if e.GetLength() == 0 { // dummy edge harus semua edge yang length == 0,gak cuma yang punya EDGE_ID invalid
+	if e.GetLength() == 0 || e.GetEdgeId() == INVALID_EDGE_ID { // dummy edge harus semua edge yang length == 0,gak cuma yang punya EDGE_ID invalid
 		return true // ini udah bener, jangan tambahin && EDGE_ID == INVALID_EDGE_ID
 	}
 
@@ -837,6 +837,7 @@ func (g *Graph) GetOsmWayId(edgeId Index) int64 {
 }
 
 func (g *Graph) GetEdgeGeometry(edgeID Index) []Coordinate {
+
 	return g.graphStorage.GetEdgeGeometry(edgeID)
 }
 

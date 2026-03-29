@@ -38,6 +38,10 @@ import (
 )
 
 /*
+go run eval/crp_alt/online_map_matching/hanwenhu/main.go
+
+pastikan downloaded file tidak corrupt.
+
 [1] Taguchi, S., Koide, S. and Yoshimura, T. (2019) “Online Map Matching With Route
 Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), pp.
 338–347. Available at: https://doi.org/10.1109/TITS.2018.2812147.
@@ -53,16 +57,17 @@ Available at: https://doi.org/10.1109/TITS.2023.3237519.
 // pakai dataset dari ref[2]: https://github.com/Hanwen-Hu/AMM/tree/main/MatchData/Shanghai
 
 const (
-	osmFile                         = "./data/eval/mapmatching/shanghai.osm.pbf"
-	graphFile                string = "./data/original_eval_mm_hh.graph"
-	overlayGraphFile         string = "./data/overlay_graph_eval_mm_hh.graph"
-	metricsFile              string = "./data/metrics_eval_mm_hh.txt"
-	transitionMatrixFilepath        = "./data/eval/mapmatching/omm_transition_history_id_hh.mm"
-	shanghaiDatasetDriveFile        = "https://drive.google.com/uc?export=download&id=1Ecaabtah1TXyx5T-QqAngPPSEMhUQwaV"
-	shanghaiOsmDriveFile            = "https://drive.google.com/uc?export=download&id=1J1-8UXBskgAziH90ss1UffpVQg5eL6k6"
-	shanghaiDataFilePath            = "./data/eval/mapmatching"
-	shanghaiTestDataFilePath        = "./data/eval/mapmatching/track"
-	mlpFile                         = "online_map_match_mlp_hanwenhu"
+	osmFile                            = "./data/eval/mapmatching/shanghai.osm.pbf"
+	graphFile                   string = "./data/original_eval_mm_hh.graph"
+	overlayGraphFile            string = "./data/overlay_graph_eval_mm_hh.graph"
+	metricsFile                 string = "./data/metrics_eval_mm_hh.txt"
+	transitionMatrixFilepath           = "./data/eval/mapmatching/omm_transition_history_id_hh.mm"
+	shanghaiDatasetDriveFile           = "https://drive.google.com/uc?export=download&id=1Ecaabtah1TXyx5T-QqAngPPSEMhUQwaV"
+	shanghaiOsmDriveFile               = "https://drive.google.com/uc?export=download&id=1cWnidrIprbzHiNxEq1zVgIDiawInqlVj"
+	shanghaiDataFilePath               = "./data/eval/mapmatching/shanghai.tar.gz"
+	shanghaiTestDataFilePath           = "./data/eval/mapmatching/Shanghai/track"
+	shanghaiGroundTruthFilepath        = "./data/eval/mapmatching/Shanghai/ground"
+	mlpFile                            = "online_map_match_mlp_hanwenhu"
 )
 
 var (
@@ -88,8 +93,10 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: log.New() failed %w", err)
 	}
 	op := osmparser.NewOSMParserV2()
-	download(osmFile, shanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
-
+	err = download(osmFile, shanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: download() failed %w", err)
+	}
 	graph, err := op.Parse(fmt.Sprintf(osmFile), logger, false)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: osmparse.Parse() failed: %v", err)
@@ -153,7 +160,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	logger.Sugar().Infof("building transition matrix....")
-	numQueries := math.Pow(10, 3) * 5
+	numQueries := math.Pow(10, 3)
 	i := 0
 	queries := make([]query, 0, n)
 
@@ -181,7 +188,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return edges
 	}
 
-	workers := concurrent.NewWorkerPool[query, []da.OutEdge](1, len(queries))
+	workers := concurrent.NewWorkerPool[query, []da.OutEdge](100, len(queries))
 
 	for _, qq := range queries {
 		workers.AddJob(qq)
@@ -325,18 +332,20 @@ func readAllCSVInDir(dirPath string) (map[string][]map[string]string, error) {
 }
 
 func unixTimestampToTime(ut int64) (time.Time, error) {
-	i, err := strconv.ParseInt("1405544146", 10, 64)
-	if err != nil {
-		return time.Now(), err
-	}
-	tm := time.Unix(i, 0)
-	return tm, err
+	tm := time.UnixMilli(ut)
+	return tm, nil
 }
 
 // Source - https://stackoverflow.com/a/57640231
 // Posted by Victor Rusnac
 // Retrieved 2026-03-25, License - CC BY-SA 4.0
 func extractTarGz(gzipStream io.Reader) error {
+	const destDir = "./data/eval/mapmatching/"
+	if _, err := os.Stat(destDir + "Shanghai"); err == nil {
+		// already extracted
+		return nil
+	}
+
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
 		return fmt.Errorf("extractTarGz: gzip NewReader failed: %v", err)
@@ -355,14 +364,18 @@ func extractTarGz(gzipStream io.Reader) error {
 			return fmt.Errorf("extractTarGz:  Next() failed: %v", err)
 
 		}
+		targetPath := filepath.Join(destDir, header.Name)
 
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.Mkdir(header.Name, 0755); err != nil {
+			if err := os.Mkdir(targetPath, 0755); err != nil {
 				return fmt.Errorf("extractTarGz: mkdir failed: %v", err)
 			}
 		case tar.TypeReg:
-			outFile, err := os.Create(header.Name)
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+				return fmt.Errorf("extractTarGz: mkdir for file failed: %v", err)
+			}
+			outFile, err := os.Create(targetPath)
 			if err != nil {
 				return fmt.Errorf("extractTarGz: Create failed: %v", err)
 			}
@@ -387,8 +400,12 @@ func main() {
 		panic(err)
 	}
 
-	download(shanghaiDataFilePath, shanghaiDatasetDriveFile, logger, "shanghai dataset")
-	gzFile, err := os.Open(shanghaiDataFilePath + "/shanghai.tar.gz")
+	err = download(shanghaiDataFilePath, shanghaiDatasetDriveFile, logger, "shanghai dataset")
+	if err != nil {
+		panic(err)
+	}
+
+	gzFile, err := os.Open(shanghaiDataFilePath)
 	if err != nil {
 		panic(err)
 	}
@@ -403,8 +420,8 @@ func main() {
 	}
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(graph, 0.05, logger)
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
+	rtree.Build(graph, 0.07, logger)
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.001, 4.07, 1.0, 0.000001,
 		0.06, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
 
 	avgRuntimePerGpsPointAll := 0.0
@@ -413,10 +430,9 @@ func main() {
 	totalRuntime := 0.0
 	matchingErrors := make([]float64, 0, len(gpsTrajectories))
 
-	for datasetName, gpsTraj := range gpsTrajectories {
+	for trajName, gpsTraj := range gpsTrajectories {
 		var (
 			prevLat, prevLon float64
-			prevTime         time.Time
 			hasPrev          bool
 			candidates       []*ma.Candidate
 			speedMeanK       float64 = 8.333
@@ -431,17 +447,18 @@ func main() {
 
 		nowDataset := time.Now()
 
+		locatetime, err := strconv.ParseInt(gpsTraj[0]["locatetime"], 10, 64)
+		if err != nil {
+			panic(err)
+		}
+		startTime, err := unixTimestampToTime(locatetime)
+		if err != nil {
+			panic(err)
+		}
+		curGpsTime := startTime
+
 		for i := 0; i < len(gpsTraj); i++ {
 			gps := gpsTraj[i]
-
-			locatetime, err := strconv.ParseInt(gps["locatetime"], 10, 64)
-			if err != nil {
-				panic(err)
-			}
-			curGpsTime, err := unixTimestampToTime(locatetime)
-			if err != nil {
-				panic(err)
-			}
 
 			lat, err := strconv.ParseFloat(gps["lat"], 64)
 			if err != nil {
@@ -453,11 +470,10 @@ func main() {
 				panic(err)
 			}
 
-			var deltaTime float64
-			var speed float64
+			var deltaTime float64 = 2 // in seconds
+			var speed float64 = 8.333
 
 			if hasPrev {
-				deltaTime = curGpsTime.Sub(prevTime).Seconds()
 
 				if util.Gt(deltaTime, 0) {
 					dist := geo.CalculateHaversineDistance(prevLat, prevLon, lat, lon)
@@ -468,7 +484,6 @@ func main() {
 			}
 
 			prevLat, prevLon = lat, lon
-			prevTime = curGpsTime
 
 			now := time.Now()
 			curGps := da.NewGPSPoint(lat, lon, curGpsTime, speed, deltaTime, false)
@@ -477,6 +492,8 @@ func main() {
 			lastBearing = matchedPoint.GetBearing()
 			mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
 			avgRuntimePerGpsPoint += float64(time.Now().Sub(now).Microseconds())
+
+			curGpsTime = curGpsTime.Add(2)
 		}
 
 		avgRuntimePerGpsPointAll += avgRuntimePerGpsPoint / float64(len(gpsTraj))
@@ -487,7 +504,7 @@ func main() {
 
 		// calc rmf
 		// buat rmf/matching error kita ngikut definisi matching error di implementasi paper [2]: https://github.com/Hanwen-Hu/AMM/blob/main/Algorithm/src/main/java/Matching.java
-		groundTruth, err := readCsv(datasetName)
+		groundTruth, err := readCsv(shanghaiGroundTruthFilepath + "/" + trajName)
 		if err != nil {
 			panic(err)
 		}
@@ -499,7 +516,7 @@ func main() {
 				panic(err)
 			}
 
-			prevLon, err := strconv.ParseFloat(prevGt["lat"], 64)
+			prevLon, err := strconv.ParseFloat(prevGt["lon"], 64)
 			if err != nil {
 				panic(err)
 			}
@@ -510,7 +527,7 @@ func main() {
 				panic(err)
 			}
 
-			lon, err := strconv.ParseFloat(gt["lat"], 64)
+			lon, err := strconv.ParseFloat(gt["lon"], 64)
 			if err != nil {
 				panic(err)
 			}
@@ -519,9 +536,20 @@ func main() {
 			groundTruthLength += dist
 		}
 
+		start := 0
+		var prevMp *da.MatchedGPSPoint = mapMatchPointResult[start]
+		if prevMp.GetEdgeId() == da.INVALID_EDGE_ID {
+			for q := start + 1; q < len(mapMatchPointResult); q++ {
+				if mapMatchPointResult[q].GetEdgeId() != da.INVALID_EDGE_ID {
+					prevMp = mapMatchPointResult[q]
+					start = q
+					break
+				}
+			}
+		}
+
 		matchLength := 0.0
-		for j := 1; j < len(mapMatchPointResult); j++ {
-			prevMp := mapMatchPointResult[j-1]
+		for j := start + 1; j < len(mapMatchPointResult); j++ {
 			prevLat := prevMp.GetMatchedCoord().GetLat()
 			prevLon := prevMp.GetMatchedCoord().GetLon()
 
@@ -529,29 +557,81 @@ func main() {
 			lat := mp.GetMatchedCoord().GetLat()
 			lon := mp.GetMatchedCoord().GetLon()
 
-			dist := util.KilometerToMeter(geo.CalculateHaversineDistance(
-				prevLat, prevLon, lat, lon,
-			))
-			matchLength += dist
+			if mp.GetEdgeId() != da.INVALID_EDGE_ID {
+				dist := util.KilometerToMeter(geo.CalculateHaversineDistance(
+					prevLat, prevLon, lat, lon,
+				))
+				matchLength += dist
+				prevMp = mp
+			}
+
 		}
 
-		matchingError := (matchLength - groundTruthLength) / groundTruthLength
+		matchingError := math.Abs(matchLength-groundTruthLength) / groundTruthLength
 		matchingErrors = append(matchingErrors, matchingError)
+		fmt.Printf("trajectory %v completed\n", trajName)
 	}
 
 	avgRuntimePerGpsPointAll /= float64(len(gpsTrajectories))
 	fmt.Printf("avg runtime per gpt point: %v microseconds\n", avgRuntimePerGpsPointAll)
 
-	fmt.Printf("matching efficiency: %v points/ms", totalPoints/totalRuntime)
+	fmt.Printf("matching efficiency: %v points/ms\n", totalPoints/totalRuntime)
 
 	sort.Float64s(matchingErrors)
 
 	fmt.Printf("%-15s %-10s\n", "Error", "CDF P(X<=x)")
 	fmt.Println("-------------------------")
-	for x := 0.02; util.Le(x, 0.32); x += 0.02 {
+	for x := 0.02; util.Le(x, 0.4); x += 0.01 {
 		y := stat.CDF(x, stat.Empirical, matchingErrors, nil)
 		fmt.Printf("%-15.4f %-10.4f\n", x, y)
 	}
 
-	
+	/*
+		avg runtime per gpt point: 12.199466181923274 microseconds
+		matching efficiency: 83.44114219114219 points/ms
+		Error           CDF P(X<=x)
+		-------------------------
+		0.0200          0.7000
+		0.0300          0.7500
+		0.0400          0.7800
+		0.0500          0.8350
+		0.0600          0.8800
+		0.0700          0.8900
+		0.0800          0.9050
+		0.0900          0.9200
+		0.1000          0.9250
+		0.1100          0.9350
+		0.1200          0.9500
+		0.1300          0.9550
+		0.1400          0.9600
+		0.1500          0.9650
+		0.1600          0.9650
+		0.1700          0.9650
+		0.1800          0.9650
+		0.1900          0.9750
+		0.2000          0.9750
+		0.2100          0.9800
+		0.2200          0.9800
+		0.2300          0.9850
+		0.2400          0.9850
+		0.2500          0.9850
+		0.2600          0.9850
+		0.2700          0.9850
+		0.2800          0.9850
+		0.2900          0.9850
+		0.3000          0.9850
+		0.3100          0.9900
+		0.3200          0.9900
+		0.3300          0.9900
+		0.3400          0.9900
+		0.3500          0.9950
+		0.3600          0.9950
+		0.3700          0.9950
+		0.3800          0.9950
+		0.3900          1.0000
+		0.4000          1.0000
+
+		buat perbandingan, see fig. 12 paper [2]
+	*/
+
 }
