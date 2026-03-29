@@ -146,7 +146,8 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 	return re, lm, logger
 }
 
-// todo: benerin logic snap origin destination, ada yang salah, ada nearby edge geometrynya terlalu jauh dari query
+// todo: benerin logic snap origin destination bug, ada yang salah, ada nearby edges yang geometrynya terlalu jauh dari query
+// kayake bug di graphStorage.edgeInfos (ada beberapa edges yang salah edge geometrynya) pas kita sortByCellNumber(), todo: debug & benerin ini
 // cd tests/snap && go test -run TestOriginDestinationSnap  -v -timeout=0  -count=1
 func TestOriginDestinationSnap(t *testing.T) {
 	eng, lm, logger := setup(t)
@@ -220,9 +221,8 @@ func TestOriginDestinationSnap(t *testing.T) {
 	}
 
 	for _, q := range queries {
-		var prevPairSet map[uint64]struct{} = make(map[uint64]struct{})
-		_, _, snappedOrig, snappedDst := routingService.SnapOrigDestToNearbyEdges(q.orig.GetLat(), q.orig.GetLon(),
-			q.dest.GetLat(), q.dest.GetLon(), 0.08, prevPairSet)
+		_, _, snappedOrig, snappedDst := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
+			q.dest.GetLat(), q.dest.GetLon())
 
 		distToOrig := geo.CalculateHaversineDistance(q.orig.GetLat(), q.orig.GetLon(), snappedOrig.GetLat(), snappedOrig.GetLon())
 		distToDest := geo.CalculateHaversineDistance(q.dest.GetLat(), q.dest.GetLon(), snappedDst.GetLat(), snappedDst.GetLon())

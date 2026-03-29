@@ -164,7 +164,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		if s == t {
 			continue
 		}
-		if !graph.VerticeUToVConnected(s, t) {
+		if !graph.PathExists(s, t) {
 			continue
 		}
 

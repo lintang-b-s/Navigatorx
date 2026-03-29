@@ -291,7 +291,11 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo da.Index, nj in
 	})
 	sumNej := 0.0
 	for _, j := range branch {
-		sumNej += float64(om.N.Get(int(eFrom), int(j)))
+		trans := float64(om.N.Get(int(eFrom), int(j)))
+		if trans == 0 {
+			trans = 1
+		}
+		sumNej += trans
 	}
 	return (1.0 + float64(om.N.Get(int(eFrom), int(eTo)))) / (sumNej + float64(nj))
 }

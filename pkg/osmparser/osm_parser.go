@@ -675,7 +675,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			graphStorage.AppendOsmNodePoints(simplifiedEdgePoints)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
+			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
 				(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
 				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
@@ -711,7 +711,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			graphStorage.AppendOsmNodePoints(simplifiedEdgePoints)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
+			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
 				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS]),
 				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
@@ -745,7 +745,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		graphStorage.AppendOsmNodePoints(simplifiedEdgePoints)
 		endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-		graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
+		graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
 			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS]),
 			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
@@ -773,7 +773,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 		*scannedEdges = append(*scannedEdges, e)
 
-		graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
+		graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
 			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS]),
 			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),

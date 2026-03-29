@@ -19,8 +19,9 @@ func (crp *CRPRoutingEngine) GetVertexCoordinatesFromInEdge(u datastructure.Inde
 	return crp.graph.GetVertexCoordinatesFromInEdge(u)
 }
 
-func (crp *CRPRoutingEngine) VerticeUToVConnected(u, v datastructure.Index) bool {
-	return crp.graph.VerticeUToVConnected(u, v)
+// PathExists. cek apakah ada path (tanpa costs) dari u ke v.
+func (crp *CRPRoutingEngine) PathExists(u, v datastructure.Index) bool {
+	return crp.graph.PathExists(u, v)
 }
 
 type target struct {
@@ -131,4 +132,3 @@ func initInfWeight(dist []float64) {
 		dist[i] = pkg.INF_WEIGHT
 	}
 }
-

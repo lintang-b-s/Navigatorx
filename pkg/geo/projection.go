@@ -28,3 +28,5 @@ func ProjectPointOnSegment(pointA Coordinate, pointB Coordinate,
 	snap := NewCoordinate(projectLatLng.Lat.Degrees(), projectLatLng.Lng.Degrees())
 	return snap
 }
+
+

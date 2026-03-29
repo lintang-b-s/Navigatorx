@@ -89,8 +89,8 @@ func main() {
 		}
 		src := RandomCoordinate(boundingBox, rd)
 		dst := RandomCoordinate(boundingBox, rd)
-		var prevPairSet map[uint64]struct{} = make(map[uint64]struct{})
-		as, at, _, _ := routingService.SnapOrigDestToNearbyEdges(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon(), *leafBoundingBoxRadius, prevPairSet)
+
+		as, at, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon())
 		// as = exit/outEdge index of origin
 		// at = entry/inEdge index of destination
 		if as == da.INVALID_EDGE_ID || at == da.INVALID_EDGE_ID {

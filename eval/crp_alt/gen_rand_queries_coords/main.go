@@ -66,7 +66,7 @@ func main() {
 			continue
 		}
 
-		if !g.VerticeUToVConnected(da.Index(s), da.Index(t)) {
+		if !g.PathExists(da.Index(s), da.Index(t)) {
 			continue
 		}
 

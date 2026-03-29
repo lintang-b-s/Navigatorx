@@ -169,9 +169,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	zero T, eq func(a, b T) bool) (*SparseMatrix[T], error) {
 	f, err := os.Open(filename)
 
-	if errors.Is(err, os.ErrNotExist) {
-		return NewSparseMatrix(0, 0, zero, eq), nil
-	} else if err != nil {
+	if err != nil {
 		return nil, err
 	}
 

@@ -175,18 +175,18 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// map edge infos
 
-	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.mapEdgeInfo))
+	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.edgeInfos))
 	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing g.graphStorage.mapEdgeInfo length", len(g.graphStorage.mapEdgeInfo))
+		return errors.Wrapf(err, "WriteGraph: failed writing g.graphStorage.edgeInfos length", len(g.graphStorage.edgeInfos))
 
 	}
-	for i := 0; i < len(g.graphStorage.mapEdgeInfo); i++ {
-		edgeInfo := g.graphStorage.mapEdgeInfo[i]
+	for i := 0; i < len(g.graphStorage.edgeInfos); i++ {
+		edgeInfo := g.graphStorage.edgeInfos[i]
 		_, err = fmt.Fprintf(w, "%d %d %d %d %d %d %d\n", edgeInfo.startPointsIndex, edgeInfo.endPointsIndex,
 			edgeInfo.streetName, edgeInfo.roadClass, edgeInfo.roadClassLink, edgeInfo.lanes,
 			edgeInfo.osmWayId)
 		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing mapEdgeInfo[%d]", i)
+			return errors.Wrapf(err, "WriteGraph: failed writing edgeInfos[%d]", i)
 		}
 	}
 
@@ -564,17 +564,17 @@ func ReadGraph(filename string) (*Graph, error) {
 	// map edge info flag
 	line, err = util.ReadLine(br)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine mapEdgeInfos headers")
+		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edgeInfos headers")
 	}
 
 	tokens = fields(line)
-	numMapEdgeInfos, err := parseInt(tokens[0])
+	numEdgeInfos, err := parseInt(tokens[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numMapEdgeInfos: %v", tokens[0])
+		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numEdgeInfos: %v", tokens[0])
 	}
 
-	mapEdgeInfos := make([]EdgeExtraInfo, numMapEdgeInfos)
-	for i := 0; i < numMapEdgeInfos; i++ {
+	edgeInfos := make([]EdgeExtraInfo, numEdgeInfos)
+	for i := 0; i < numEdgeInfos; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine mapEdgeInfo")
@@ -609,7 +609,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt osmWayId: %v", tokens[6])
 		}
-		mapEdgeInfos[i] = NewEdgeExtraInfo(streetName, roadClass,
+		edgeInfos[i] = NewEdgeExtraInfo(streetName, roadClass,
 			roadClassLink, uint8(lanes), Index(startsPointIndex), Index(endPointIndex),
 			int64(osmWayId))
 	}
@@ -721,7 +721,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	graphStorage := BuildGraphStorage(osmNodePoints,
-		roundaboutFlags, trafficLightFlags, mapEdgeInfos,
+		roundaboutFlags, trafficLightFlags, edgeInfos,
 		tagStringIdMap, stretDirectionsForward, stretDirectionsBackward)
 	graphStorage.tagStringIDMap.ToStringArray()
 

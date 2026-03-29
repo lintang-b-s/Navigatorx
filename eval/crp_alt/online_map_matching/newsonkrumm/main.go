@@ -292,7 +292,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 			graphStorage.AppendOsmNodePoints(eGeometry)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
+			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 				0, 0, 0,
 				1,
 				da.Index(startPointsIndex), da.Index(endPointsIndex),
@@ -311,7 +311,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 			graphEdges = append(graphEdges, graphEdge)
 
 			// reverse edge (two way)
-			graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
+			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 				0, 0, 0,
 				1,
 				da.Index(endPointsIndex), da.Index(startPointsIndex),
@@ -337,7 +337,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 			graphStorage.AppendOsmNodePoints(eGeometry)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendMapEdgeInfo(da.NewEdgeExtraInfo(
+			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 				0, 0, 0,
 				1,
 				da.Index(startPointsIndex), da.Index(endPointsIndex),
@@ -437,7 +437,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		if s == t {
 			continue
 		}
-		if !g.VerticeUToVConnected(s, t) {
+		if !g.PathExists(s, t) {
 			continue
 		}
 
@@ -528,9 +528,9 @@ func main() {
 	}
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(g, 0.05, logger)
+	rtree.Build(g, 0.08, logger)
 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(g, rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
-		0.06, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
+		0.05, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
 
 	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0644)
 	if err != nil {
@@ -722,11 +722,10 @@ func main() {
 	//
 
 	/*
-	   	Route Mismatch Fraction (RMF): 0.06885194640640466
+		Route Mismatch Fraction (RMF): 0.013109699849128293
+		Correct Road Percentage (CRP) or accuracy: 0.9846153846153847
+		avg runtime per gpt point: 19.093878634975436 microseconds/gps point
+		matching efficiency: 48.9025974025974 points/ms
 
-	   Correct Road Percentage (CRP) or accuracy: 0.9563139025361838
-	   avg runtime per gpt point: 8.464612933209402 microseconds
-
-	   polyline hasil map matching gak ngepas di osm karena emang dataset road networknya begitu (lihat line 269-273)
 	*/
 }

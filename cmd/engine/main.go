@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.06, "leaf node (r-tree) bounding box radius in km")
+	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.08, "leaf node (r-tree) bounding box radius in km")
 	transitionMHTFile     = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
 	cpuprofile            = flag.String("cpuprofile", "", "write cpu profile to file")
 )
@@ -87,7 +87,7 @@ func main() {
 
 	re := routingEngine.GetRoutingEngine()
 	altSearch := routing.NewAlternativeRouteSearch(re, lm)
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.08, true, true,
+	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true,
 		lm)
 	if err != nil {
 		panic(err)

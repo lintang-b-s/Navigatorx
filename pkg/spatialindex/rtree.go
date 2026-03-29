@@ -84,6 +84,10 @@ func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logg
 }
 
 // SearchWithinRadius search for all arc endpoints within radius (in km) from the query point (qLat, qLon)
+// let M=number of road segmnents/edges in the graph
+// R-tree search worst case is O(M), avg case is O(logM)
+// https://www2.cs.sfu.ca/CourseCentral/454/jpei/slides/R-Tree.pdf
+// https://dl.acm.org/doi/10.1145/971697.602266
 func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []ArcEndpoint {
 	lowerLat, lowerLon := geo.GetDestinationPoint(qLat, qLon, 225, radius)
 	upperLat, upperLon := geo.GetDestinationPoint(qLat, qLon, 45, radius)
@@ -95,7 +99,7 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []ArcEndpoint {
 	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},
 		func(min, max [2]float64, data ArcEndpoint) bool {
 			results = append(results, data)
-			if len(results) >= 15 {
+			if len(results) > MAX_CANDIDATES {
 				return false
 			}
 			return true

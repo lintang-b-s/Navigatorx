@@ -106,28 +106,14 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 	return rs, nil
 }
 
-func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
-	searchRad := rs.searchRadius
-	var (
-		as, at                  da.Index
-		snappedOrig, snappedDst da.Coordinate
-		prevPairSet             map[uint64]struct{} = make(map[uint64]struct{})
-	)
+func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
 
-	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
-		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
-		as, at, snappedOrig, snappedDst = rs.SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon, searchRad, prevPairSet)
-		if !rs.notFoundOriginDestinationWithinRadius(as, at) {
-			// break loop early if found connected origin and destination
-			break
-		}
-		searchRad *= SEARCH_RADIUS_MULTIPLIER
-	}
+	as, at, snappedOrig, snappedDst := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
 	if rs.notFoundOriginDestinationWithinRadius(as, at) {
-		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
+		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
 	}
@@ -143,7 +129,7 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
 
 	if !found {
-		errmsg := fmt.Sprintf("no route found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
+		errmsg := fmt.Sprintf("no route found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
 	}
@@ -166,28 +152,13 @@ func (rs *RoutingService) ShortestPath(origLat, origLon, dstLat, dstLon float64)
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }
 
-func (rs *RoutingService) AlternativeRouteSearch(origLat, origLon, dstLat, dstLon float64, k int) ([]*routing.AlternativeRoute, bool, error) {
-	searchRad := rs.searchRadius
-	var (
-		as, at                  da.Index
-		snappedOrig, snappedDst da.Coordinate
-
-		prevPairSet map[uint64]struct{} = make(map[uint64]struct{})
-	)
-
-	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
-		as, at, snappedOrig, snappedDst = rs.SnapOrigDestToNearbyEdges(origLat, origLon, dstLat, dstLon, searchRad, prevPairSet)
-		if !rs.notFoundOriginDestinationWithinRadius(as, at) {
-			// break loop early if found connected origin and destination
-			break
-		}
-		searchRad *= SEARCH_RADIUS_MULTIPLIER
-	}
+func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int) ([]*routing.AlternativeRoute, bool, error) {
+	as, at, snappedOrig, snappedDst := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
 	if rs.notFoundOriginDestinationWithinRadius(as, at) {
-		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", origLat, origLon, dstLat, dstLon)
+		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 		return []*routing.AlternativeRoute{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
 	}

@@ -202,7 +202,7 @@ func main() {
 		if s == t {
 			continue
 		}
-		if !g.VerticeUToVConnected(s, t) {
+		if !g.PathExists(s, t) {
 			continue
 		}
 		if _, ok := qset[bitpack(s, t)]; ok {

@@ -708,37 +708,47 @@ func (g *Graph) GetBoundingBox() *BoundingBox {
 	return g.boundingBox
 }
 
-func (g *Graph) CondensationGraphOrigintoDestinationConnected(u, v Index) bool {
+// PathExistsFromUToVUsingCondensationGraph. cek apakah ada path (tanpa costs) dari u ke v
+// worst case O(V_G + E_G), V_G=number of sccs of the graph/number of vertices in condensation graph, E_G=number of edges in condensation graph
+func (g *Graph) PathExistsFromUToVUsingCondensationGraph(u, v Index) bool {
 	sccOfU := g.sccs[u]
 	sccOfV := g.sccs[v]
 
-	connected := false
-	visited := make([]bool, len(g.sccs))
-	g.dfsCondensationGraph(sccOfU, sccOfV, visited, &connected)
-	return connected
+	uvPathExists := false
+	discovered := make([]bool, len(g.sccCondensationAdj))
+	g.dfsCondensationGraph(sccOfU, sccOfV, discovered, &uvPathExists)
+	return uvPathExists
 }
 
-// O(V_G + E_G), V_G=number of sccs/number of vertices in condensation graph^scc, E_G=number of edges in condensation graph^scc
-func (g *Graph) dfsCondensationGraph(u Index, t Index, visited []bool, connected *bool) {
+// dfsCondensationGraph. dfs di condesation graph
+// O(V_G + E_G), V_G=number of sccs in graph/number of vertices in condensation graph, E_G=number of edges in condensation graph
+func (g *Graph) dfsCondensationGraph(u Index, t Index, discovered []bool, uvPathExists *bool) {
 	if u == t {
-		*connected = true
+		*uvPathExists = true
+		return // gak perlu discover out neighbor dari t. discover u = discover vertex u sebelum adjacency listnya examined
 	}
-	if visited[u] {
+
+	if discovered[u] {
 		return
 	}
-	visited[u] = true
+	discovered[u] = true
 
 	for _, v := range g.sccCondensationAdj[u] {
-		g.dfsCondensationGraph(v, t, visited, connected)
+		if *uvPathExists {
+			// kita bisa return early karena uvPathExists=true
+			// gak perlu examine other out neighbor dari u
+			return
+		}
+		g.dfsCondensationGraph(v, t, discovered, uvPathExists)
 	}
 }
 
-func (g *Graph) GetMapEdgeInfo() []EdgeExtraInfo {
-	return g.graphStorage.mapEdgeInfo
+func (g *Graph) GetEdgeInfos() []EdgeExtraInfo {
+	return g.graphStorage.edgeInfos
 }
 
 func (g *Graph) SetEdgeInfo(id Index, edgeInfo EdgeExtraInfo) {
-	g.graphStorage.mapEdgeInfo[id] = edgeInfo
+	g.graphStorage.edgeInfos[id] = edgeInfo
 }
 
 func (g *Graph) GetRoundaboutFlag() *bitset.BitSet {
@@ -753,15 +763,21 @@ func (g *Graph) IsTrafficLight(vertexId Index) bool {
 	return g.graphStorage.GetTrafficLight(vertexId)
 }
 
-// O(V_G + E_G), V_G=number of sccs/number of vertices in condensation graph^scc, E_G=number of edges in condensation graph^scc
-func (g *Graph) VerticeUToVConnected(u, v Index) bool {
+// PathExists. cek apakah ada path (tanpa costs) dari u ke v .
+// kalau u dan v terdapat dalam scc yang sama, then its strongly connected atau ada path dari u ke v dan sebaliknya
+// kita sudah precompute condensation graph yang merupakan directed acyclic graph (DAG) dengan vertices nya adalah sccs dari graph
+// dan terdapat edge dari scc c1 ke scc c2 jika pada graph terdapat simpul in c1 yang memiliki edge dengan head in c2.
+// pas kita dfs di condensation graph dari c1, jika kita bisa reach/discover c2 maka terdapat path dari u ke v,
+// hal ini karena all vertices in c2 strongly connected.
+// O(V_G + E_G), V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
+func (g *Graph) PathExists(u, v Index) bool {
 	sccOfU := g.GetSCCOfAVertex(u)
 	sccOfV := g.GetSCCOfAVertex(v)
 	if sccOfU == sccOfV {
 		return true
 	}
 
-	return g.CondensationGraphOrigintoDestinationConnected(u, v) // O(V_G + E_G), V_G=number of sccs/number of vertices in condensation graph^scc, E_G=number of edges in condensation graph^scc
+	return g.PathExistsFromUToVUsingCondensationGraph(u, v)
 }
 
 func (g *Graph) GetNodeTrafficLight() *bitset.BitSet {

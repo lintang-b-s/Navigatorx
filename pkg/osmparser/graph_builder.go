@@ -60,7 +60,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 			0, 0, len(outEdges[v])-1, pkg.UNKNOWN)
 		inEdges[v] = append(inEdges[v], dummyIn)
 		inDegree[v]++
-		graphStorage.AppendMapEdgeInfo(
+		graphStorage.AppendEdgeInfos(
 			datastructure.NewEdgeExtraInfo(
 				p.tagStringIdMap.GetID(""),
 				p.tagStringIdMap.GetID(""),

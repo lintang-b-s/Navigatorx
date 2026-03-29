@@ -13,7 +13,7 @@ type RoutingEngine interface {
 	GetHaversineDistanceFromUtoV(u, v da.Index) float64
 	GetVertexCoordinatesFromOutEdge(u da.Index) (float64, float64)
 	GetVertexCoordinatesFromInEdge(u da.Index) (float64, float64)
-	VerticeUToVConnected(u, v da.Index) bool
+	PathExists(u, v da.Index) bool
 	DoneQuery(edgePath []da.OutEdge, path []da.Coordinate)
 }
 

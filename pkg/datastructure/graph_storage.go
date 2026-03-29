@@ -6,7 +6,7 @@ import (
 )
 
 type GraphStorage struct {
-	mapEdgeInfo    []EdgeExtraInfo
+	edgeInfos      []EdgeExtraInfo
 	osmNodePoints  []Coordinate
 	tagStringIDMap util.IDMap
 
@@ -21,7 +21,7 @@ func NewGraphStorage() *GraphStorage {
 	return &GraphStorage{
 		streetDirectionForward:  bitset.New(50000),
 		streetDirectionBackward: bitset.New(50000),
-		mapEdgeInfo:             make([]EdgeExtraInfo, 0),
+		edgeInfos:               make([]EdgeExtraInfo, 0),
 		tagStringIDMap:          util.NewIdMap(),
 		roundaboutFlag:          bitset.New(5000),
 		nodeTrafficLight:        bitset.New(5000),
@@ -30,9 +30,9 @@ func NewGraphStorage() *GraphStorage {
 }
 
 func BuildGraphStorage(osmNodePoints []Coordinate, roundaboutFlag, nodeTrafficLight *bitset.BitSet,
-	mapEdgeInfo []EdgeExtraInfo, tagStringIDMap util.IDMap, streetDirectionForward, streetDirectionBackward *bitset.BitSet) *GraphStorage {
+	edgeInfos []EdgeExtraInfo, tagStringIDMap util.IDMap, streetDirectionForward, streetDirectionBackward *bitset.BitSet) *GraphStorage {
 	return &GraphStorage{osmNodePoints: osmNodePoints, roundaboutFlag: roundaboutFlag,
-		nodeTrafficLight: nodeTrafficLight, mapEdgeInfo: mapEdgeInfo, tagStringIDMap: tagStringIDMap,
+		nodeTrafficLight: nodeTrafficLight, edgeInfos: edgeInfos, tagStringIDMap: tagStringIDMap,
 		streetDirectionForward: streetDirectionForward, streetDirectionBackward: streetDirectionBackward}
 }
 
@@ -40,7 +40,7 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 	return &GraphStorage{
 		streetDirectionForward:  bitset.New(uint(numberOfEdges)),
 		streetDirectionBackward: bitset.New(uint(numberOfEdges)),
-		mapEdgeInfo:             make([]EdgeExtraInfo, numberOfEdges),
+		edgeInfos:               make([]EdgeExtraInfo, numberOfEdges),
 		tagStringIDMap:          util.NewIdMap(),
 		roundaboutFlag:          bitset.New(uint(numberOfEdges)),
 		nodeTrafficLight:        bitset.New(uint(numberOfVertices)),
@@ -120,19 +120,19 @@ func (e *EdgeExtraInfo) GetEndPointsIndex() Index {
 }
 
 func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
-	edge := gs.mapEdgeInfo[edgeID]
-	var (
-		edgePoints []Coordinate
-	)
-	if edge.osmWayId == -1 {
+	edge := gs.edgeInfos[edgeID]
+	if edge.osmWayId == INVALID_OSM_WAY_ID {
 		return []Coordinate{}
 	}
 
+	var (
+		edgePoints []Coordinate
+	)
 	startIndex := edge.startPointsIndex
 	endIndex := edge.endPointsIndex
 	if startIndex < endIndex {
 		edgePoints = make([]Coordinate, endIndex-startIndex)
-		copy(edgePoints, gs.osmNodePoints[startIndex:endIndex])
+		copy(edgePoints, gs.osmNodePoints[startIndex:endIndex]) // kita harus copy, karena kita banyak operasi reverse edge geometry coords
 
 		return edgePoints
 	}
@@ -152,22 +152,22 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 func (gs *GraphStorage) GetEdgeExtraInfo(edgeID Index, reverse bool) (EdgeExtraInfo, bool) {
 
 	roundabout := gs.roundaboutFlag.Test(uint(edgeID))
-	return gs.mapEdgeInfo[edgeID], roundabout
+	return gs.edgeInfos[edgeID], roundabout
 }
 
 func (gs *GraphStorage) UpdateEdgePoints(edgeID Index, startIdx, endIdx Index) {
-	edge := gs.mapEdgeInfo[edgeID]
+	edge := gs.edgeInfos[edgeID]
 	edge.startPointsIndex = startIdx
 	edge.endPointsIndex = endIdx
-	gs.mapEdgeInfo[edgeID] = edge
+	gs.edgeInfos[edgeID] = edge
 }
 
 func (gs *GraphStorage) AppendOsmNodePoints(edgePoints []Coordinate) {
 	gs.osmNodePoints = append(gs.osmNodePoints, edgePoints...)
 }
 
-func (gs *GraphStorage) AppendMapEdgeInfo(edgeInfo EdgeExtraInfo) {
-	gs.mapEdgeInfo = append(gs.mapEdgeInfo, edgeInfo)
+func (gs *GraphStorage) AppendEdgeInfos(edgeInfo EdgeExtraInfo) {
+	gs.edgeInfos = append(gs.edgeInfos, edgeInfo)
 }
 
 func (gs *GraphStorage) GetOsmNodePointsCount() int {
