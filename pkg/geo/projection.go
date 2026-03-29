@@ -22,8 +22,8 @@ func ProjectPointOnSegment(pointA Coordinate, pointB Coordinate,
 
 	pointAS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(pointA.GetLat(), pointA.GetLon()))
 	pointBS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(pointB.GetLat(), pointB.GetLon()))
-	snapS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(qLat, qLon))
-	projection := s2.Project(snapS2, pointAS2, pointBS2)
+	queryPointS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(qLat, qLon))
+	projection := s2.Project(queryPointS2, pointAS2, pointBS2)
 	projectLatLng := s2.LatLngFromPoint(projection)
 	snap := NewCoordinate(projectLatLng.Lat.Degrees(), projectLatLng.Lng.Degrees())
 	return snap

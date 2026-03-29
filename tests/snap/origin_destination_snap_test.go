@@ -147,7 +147,8 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 }
 
 // todo: benerin logic snap origin destination bug, ada yang salah, ada nearby edges yang geometrynya terlalu jauh dari query
-// kayake bug di graphStorage.edgeInfos (ada beberapa edges yang salah edge geometrynya) pas kita sortByCellNumber(), todo: debug & benerin ini
+// kayake bug di graphStorage.edgeInfos (ada beberapa edges yang salah edge geometrynya) pas kita sortByCellNumber(), todo: debug & benerin ini 
+// (DONE)
 // cd tests/snap && go test -run TestOriginDestinationSnap  -v -timeout=0  -count=1
 func TestOriginDestinationSnap(t *testing.T) {
 	eng, lm, logger := setup(t)
@@ -158,7 +159,7 @@ func TestOriginDestinationSnap(t *testing.T) {
 	V := g.NumberOfVertices()
 
 	n := 10000
-	qset := make(map[da.Index]struct{})
+	qset := make(map[uint64]struct{})
 
 	type origDestPair struct {
 		orig, dest da.Coordinate
@@ -176,12 +177,13 @@ func TestOriginDestinationSnap(t *testing.T) {
 	i := 0
 	for i < n {
 		s := da.Index(rd.Intn(V))
+		target := da.Index(rd.Intn(V))
 
-		if _, ok := qset[s]; ok {
+		key := util.Bitpack(uint32(s), uint32(target))
+		if _, ok := qset[key]; ok {
 			continue
 		}
-
-		qset[s] = struct{}{}
+		qset[key] = struct{}{}
 
 		sCoord := g.GetVertex(s).GetCoordinate()
 
@@ -189,14 +191,6 @@ func TestOriginDestinationSnap(t *testing.T) {
 		rdBearing := rd.Float64() * 360.0
 
 		sCoordNLat, sCoordNLon := geo.GetDestinationPoint(sCoord.GetLat(), sCoord.GetLon(), rdBearing, rndDist)
-
-		target := da.Index(rd.Intn(V))
-
-		if _, ok := qset[target]; ok {
-			continue
-		}
-
-		qset[target] = struct{}{}
 
 		tCoord := g.GetVertex(target).GetCoordinate()
 

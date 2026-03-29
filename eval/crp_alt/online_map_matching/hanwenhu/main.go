@@ -38,7 +38,6 @@ import (
 )
 
 /*
-masih ada yang salah
 [1] Taguchi, S., Koide, S. and Yoshimura, T. (2019) “Online Map Matching With Route
 Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), pp.
 338–347. Available at: https://doi.org/10.1109/TITS.2018.2812147.
@@ -171,9 +170,6 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		queries = append(queries, newQuery(s, t))
 		i++
 	}
-
-	vv := graph.GetVertex(125204) // aneh query levelnya .. todo: debug
-	_ = vv
 
 	computeRoute := func(q query) []da.OutEdge {
 		s, t := q.s, q.t
@@ -557,4 +553,5 @@ func main() {
 		fmt.Printf("%-15.4f %-10.4f\n", x, y)
 	}
 
+	
 }

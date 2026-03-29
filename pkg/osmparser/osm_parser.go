@@ -59,6 +59,7 @@ type OsmParser struct {
 	ways               map[int64]osmWay
 	trafficEdges       []da.Index
 	osmWayDefaultSpeed map[int64]float64
+	edgeSet            *da.Set[uint64]
 	bb                 *da.BoundingBox
 }
 
@@ -74,6 +75,7 @@ func NewOSMParserV2() *OsmParser {
 		nodeToOsmId:        make(map[da.Index]int64),
 		trafficEdges:       make([]da.Index, 0),
 		osmWayDefaultSpeed: make(map[int64]float64),
+		edgeSet:            da.NewSet[uint64](1000),
 		bb:                 da.NewBoundingBoxEmpty(),
 	}
 }
@@ -670,6 +672,12 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	if wayExtraInfoData.oneWay {
 		if wayExtraInfoData.forward {
 
+			setKey := util.Bitpack(uint32(fromNId), uint32(toNId))
+			if p.edgeSet.Test(setKey) { // buat ngilangin parallel edge
+				return
+			}
+			p.edgeSet.Set(setKey)
+
 			startPointsIndex := graphStorage.GetOsmNodePointsCount()
 
 			graphStorage.AppendOsmNodePoints(simplifiedEdgePoints)
@@ -703,6 +711,12 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			*scannedEdges = append(*scannedEdges, e)
 
 		} else {
+
+			setKey := util.Bitpack(uint32(toNId), uint32(fromNId))
+			if p.edgeSet.Test(setKey) { // buat ngilangin parallel edge
+				return
+			}
+			p.edgeSet.Set(setKey)
 
 			util.ReverseG(simplifiedEdgePoints)
 
@@ -740,6 +754,13 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		}
 	} else {
 
+		setKey := util.Bitpack(uint32(fromNId), uint32(toNId))
+		if p.edgeSet.Test(setKey) { // buat ngilangin parallel edge
+			return
+		}
+		p.edgeSet.Set(setKey)
+
+		// add forward edge
 		startPointsIndex := graphStorage.GetOsmNodePointsCount()
 
 		graphStorage.AppendOsmNodePoints(simplifiedEdgePoints)
@@ -772,6 +793,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		e.SetOsmWayId(id)
 
 		*scannedEdges = append(*scannedEdges, e)
+
+		// add reversed edge
+
+		setKeyRev := util.Bitpack(uint32(toNId), uint32(fromNId))
+		if p.edgeSet.Test(setKeyRev) { // buat ngilangin parallel edge
+			return
+		}
+		p.edgeSet.Set(setKeyRev)
 
 		graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),

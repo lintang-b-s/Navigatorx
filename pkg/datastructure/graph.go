@@ -495,8 +495,8 @@ func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) 
 }
 
 func SkipDummyEdge(e *OutEdge) bool {
-	if e.GetLength() == 0 && e.GetEdgeId() == INVALID_EDGE_ID {
-		return true
+	if e.GetLength() == 0 { // dummy edge harus semua edge yang length == 0,gak cuma yang punya EDGE_ID invalid
+		return true // ini udah bener, jangan tambahin && EDGE_ID == INVALID_EDGE_ID
 	}
 
 	return false
@@ -751,6 +751,10 @@ func (g *Graph) SetEdgeInfo(id Index, edgeInfo EdgeExtraInfo) {
 	g.graphStorage.edgeInfos[id] = edgeInfo
 }
 
+func (g *Graph) SetEdgeInfos(edgeInfos []EdgeExtraInfo) {
+	g.graphStorage.edgeInfos = edgeInfos
+}
+
 func (g *Graph) GetRoundaboutFlag() *bitset.BitSet {
 	return g.graphStorage.roundaboutFlag
 }
@@ -864,6 +868,10 @@ func (g *Graph) GetVerticeIds() []Index {
 		nodeIds = append(nodeIds, Index(i))
 	}
 	return nodeIds
+}
+
+func (g *Graph) GetOsmNodePoints(startIndex, endIndex Index) []Coordinate {
+	return g.graphStorage.GetOsmNodePoints(startIndex, endIndex)
 }
 
 type VirtualOutEdge struct {

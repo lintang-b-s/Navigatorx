@@ -124,12 +124,16 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 	if edge.osmWayId == INVALID_OSM_WAY_ID {
 		return []Coordinate{}
 	}
+	startIndex := edge.startPointsIndex
+	endIndex := edge.endPointsIndex
+	return gs.GetOsmNodePoints(startIndex, endIndex)
+}
 
+func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinate {
 	var (
 		edgePoints []Coordinate
 	)
-	startIndex := edge.startPointsIndex
-	endIndex := edge.endPointsIndex
+
 	if startIndex < endIndex {
 		edgePoints = make([]Coordinate, endIndex-startIndex)
 		copy(edgePoints, gs.osmNodePoints[startIndex:endIndex]) // kita harus copy, karena kita banyak operasi reverse edge geometry coords
@@ -168,6 +172,10 @@ func (gs *GraphStorage) AppendOsmNodePoints(edgePoints []Coordinate) {
 
 func (gs *GraphStorage) AppendEdgeInfos(edgeInfo EdgeExtraInfo) {
 	gs.edgeInfos = append(gs.edgeInfos, edgeInfo)
+}
+
+func (gs *GraphStorage) SetEdgeInofs(edgeInfos []EdgeExtraInfo) {
+	gs.edgeInfos = edgeInfos
 }
 
 func (gs *GraphStorage) GetOsmNodePointsCount() int {

@@ -183,22 +183,21 @@ func (p *Preprocessor) SortByCellNumber() {
 	newInEdgeId := datastructure.Index(0)                            // new id for inEdges for each vertex for each cell
 	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
 
-	graphEdgeInfo := p.graph.GetEdgeInfos()
-	gsEdgeExtraInfos := make([]datastructure.EdgeExtraInfo, len(graphEdgeInfo))
-	copy(gsEdgeExtraInfos, graphEdgeInfo)
+	oldEdgeInfos := p.graph.GetEdgeInfos()
 
 	// create new roundabout flag
-	graphRoundaboutFlag := p.graph.GetRoundaboutFlag()
-	roundaboutFlags := bitset.New(graphRoundaboutFlag.Len())
+	oldRoundaboutFlag := p.graph.GetRoundaboutFlag()
+	newRoundaboutFlags := bitset.New(oldRoundaboutFlag.Len())
 
 	// create new traffic light flag
-	graphTrafficLight := p.graph.GetNodeTrafficLight()
-	nodeTrafficLight := bitset.New(graphTrafficLight.Len())
+	oldGraphTrafficLight := p.graph.GetNodeTrafficLight()
+	newNodeTrafficLight := bitset.New(oldGraphTrafficLight.Len())
 
 	// create new street direction flags
+	newStreetDirectionForward := bitset.New(uint(p.graph.NumberOfEdges()))
+	newStreetDirectionBackward := bitset.New(uint(p.graph.NumberOfEdges()))
 
-	streetDirectionForward := bitset.New(uint(p.graph.NumberOfEdges()))
-	streetDirectionBackward := bitset.New(uint(p.graph.NumberOfEdges()))
+	newEdgeInfos := make([]datastructure.EdgeExtraInfo, len(oldEdgeInfos))
 
 	vId := datastructure.Index(0)
 
@@ -220,15 +219,16 @@ func (p *Preprocessor) SortByCellNumber() {
 			newVertices[vId].SetId(vId)
 
 			// update trafic light flag
-			isTraficLight := graphTrafficLight.Test(uint(vOldId))
+			isTraficLight := oldGraphTrafficLight.Test(uint(vOldId))
 			if isTraficLight {
-				nodeTrafficLight.Set(uint(vId))
+				newNodeTrafficLight.Set(uint(vId))
 			}
 
 			// update outedges & inedges
 			for k := datastructure.Index(0); k < datastructure.Index(len(oEdges[vOldId])); k++ {
 
 				oldOutEdge := oEdges[vOldId][k]
+
 				newOutEdge := datastructure.NewOutEdge(
 					newOutEdgeId, oldOutEdge.GetHead(), oldOutEdge.GetWeight(),
 					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
@@ -236,33 +236,41 @@ func (p *Preprocessor) SortByCellNumber() {
 				newOutEdge.SetSimplifiedLength(oldOutEdge.GetSimplifiedLength())
 
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
-				p.graph.SetEdgeInfo(newOutEdgeId, gsEdgeExtraInfos[oldOutEdge.GetEdgeInfoId()]) // update edge extra info storage
-
-				// update roundabout flag
-				isRoundabout := graphRoundaboutFlag.Test(uint(oldOutEdge.GetEdgeInfoId()))
-				if isRoundabout {
-					roundaboutFlags.Set(uint(newOutEdgeId))
-				}
-
-				// update street direction flag
-				streetdir := p.graph.GetStreetDirection(oldOutEdge.GetEdgeId())
-				if streetdir[0] {
-					streetDirectionForward.Set(uint(newOutEdgeId))
-				}
-
-				if streetdir[1] {
-					streetDirectionBackward.Set(uint(newOutEdgeId))
-				}
 
 				outEdge := p.graph.GetOutEdge(newOutEdgeId)
 				outEdge.SetEdgeId(newOutEdgeId)
 				outEdge.SetHead(p.newVIdMap[oldOutEdge.GetHead()])
+
+				// update edge metadata
+
+				if oldOutEdge.GetHead() != vOldId {
+					oldEdgeInfo := oldEdgeInfos[oldOutEdge.GetEdgeInfoId()]
+
+					newEdgeInfos[newOutEdgeId] = oldEdgeInfo
+
+					// update roundabout flag
+					isRoundabout := oldRoundaboutFlag.Test(uint(oldOutEdge.GetEdgeInfoId()))
+					if isRoundabout {
+						newRoundaboutFlags.Set(uint(newOutEdgeId))
+					}
+
+					// update street direction flag
+					streetdir := p.graph.GetStreetDirection(oldOutEdge.GetEdgeId())
+					if streetdir[0] {
+						newStreetDirectionForward.Set(uint(newOutEdgeId))
+					}
+
+					if streetdir[1] {
+						newStreetDirectionBackward.Set(uint(newOutEdgeId))
+					}
+				}
 
 				newOutEdgeId++
 			}
 
 			for k := datastructure.Index(0); k < datastructure.Index(len(iEdges[vOldId])); k++ {
 				oldInEdge := iEdges[vOldId][k]
+
 				newInEdge := datastructure.NewInEdge(
 					newInEdgeId, oldInEdge.GetTail(), oldInEdge.GetWeight(),
 					oldInEdge.GetLength(), oldInEdge.GetExitPoint(),
@@ -284,9 +292,10 @@ func (p *Preprocessor) SortByCellNumber() {
 
 	newVertices[len(newVertices)-1] = lastVertex
 	p.graph.SetVertices(newVertices)
-	p.graph.SetRoundaboutFlags(roundaboutFlags)
-	p.graph.SetTrafficLightFlags(nodeTrafficLight)
-	p.graph.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
+	p.graph.SetRoundaboutFlags(newRoundaboutFlags)
+	p.graph.SetTrafficLightFlags(newNodeTrafficLight)
+	p.graph.SetStreetDirection(newStreetDirectionForward, newStreetDirectionBackward)
+	p.graph.SetEdgeInfos(newEdgeInfos)
 }
 
 func (p *Preprocessor) GetOldToNewVIdMap() []datastructure.Index {

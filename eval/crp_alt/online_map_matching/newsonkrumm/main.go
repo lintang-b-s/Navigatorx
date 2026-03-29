@@ -722,10 +722,11 @@ func main() {
 	//
 
 	/*
-		Route Mismatch Fraction (RMF): 0.013109699849128293
-		Correct Road Percentage (CRP) or accuracy: 0.9846153846153847
-		avg runtime per gpt point: 19.093878634975436 microseconds/gps point
-		matching efficiency: 48.9025974025974 points/ms
+	todo: di ground_truth.txt, edge dari to ke from (reversed) dibedain, buat indexing edge dari buildCRPGraph() utk reversed Edge *2
+		Route Mismatch Fraction (RMF): 0.07648581832758283
+		Correct Road Percentage (CRP) or accuracy: 0.9556499800823264
+		avg runtime per gpt point: 7.863630327977692 microseconds/gps point
+		matching efficiency: 100.41333333333333 points/ms
 
 	*/
 }

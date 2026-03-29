@@ -45,7 +45,8 @@ func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logg
 	log.Info("Building R-tree spatial index...")
 	graph.ForOutEdges(func(e *da.OutEdge, exitPoint, head, tail, entryId da.Index,
 		percentage float64, id da.Index) {
-		if da.SkipDummyEdge(e) {
+		
+		if da.SkipDummyEdge(e)  {
 			return
 		}
 
@@ -61,13 +62,13 @@ func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logg
 		upperToLat, upperToLon := geo.GetDestinationPoint(toLat, toLon, 45, boundingBoxRadius)
 
 		// use web mercator projected coordinate
-		lowerFromY := geo.CalcLatToYApprox(lowerFromLat)
-		upperFromY := geo.CalcLatToYApprox(upperFromLat)
+		lowerFromY := geo.CalcLatToY(lowerFromLat)
+		upperFromY := geo.CalcLatToY(upperFromLat)
 		lowerFromX := geo.CalcLonToX(lowerFromLon)
 		upperFromX := geo.CalcLonToX(upperFromLon)
 
-		lowerToY := geo.CalcLatToYApprox(lowerToLat)
-		upperToY := geo.CalcLatToYApprox(upperToLat)
+		lowerToY := geo.CalcLatToY(lowerToLat)
+		upperToY := geo.CalcLatToY(upperToLat)
 		lowerToX := geo.CalcLonToX(lowerToLon)
 		upperToX := geo.CalcLonToX(upperToLon)
 
@@ -92,8 +93,8 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []ArcEndpoint {
 	lowerLat, lowerLon := geo.GetDestinationPoint(qLat, qLon, 225, radius)
 	upperLat, upperLon := geo.GetDestinationPoint(qLat, qLon, 45, radius)
 
-	lowerY, lowerX := geo.CalcLatToYApprox(lowerLat), geo.CalcLonToX(lowerLon)
-	upperY, upperX := geo.CalcLatToYApprox(upperLat), geo.CalcLonToX(upperLon)
+	lowerY, lowerX := geo.CalcLatToY(lowerLat), geo.CalcLonToX(lowerLon)
+	upperY, upperX := geo.CalcLatToY(upperLat), geo.CalcLonToX(upperLon)
 
 	results := make([]ArcEndpoint, 0, 10)
 	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},
