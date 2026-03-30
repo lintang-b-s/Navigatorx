@@ -20,20 +20,20 @@ type QueryHeap[T comparable] struct {
 func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStorageType, preallocateMinHeap bool) *QueryHeap[T] {
 
 	minHeap := NewFourAryHeap[T]()
-	allocateHeapCapacity := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
+	approxMaxSearchSize := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
 
 	if preallocateMinHeap {
 		// buat clone queryHeap dari crpQuery di alternativeRoutes gak perlu preallocate heap
-		minHeap.Preallocate(allocateHeapCapacity)
+		minHeap.Preallocate(approxMaxSearchSize)
 	}
 
-	scanned := bitset.New(uint(allocateHeapCapacity))
+	scanned := bitset.New(uint(approxMaxSearchSize))
 
 	switch tipe {
 	case TWO_LEVEL_STORAGE:
 		return &QueryHeap[T]{
 			heap:           minHeap,
-			queryInfos:     make([]VertexInfo, 0, baseSize),
+			queryInfos:     make([]VertexInfo, 0, approxMaxSearchSize),
 			storage:        NewTwoLevelStorage(baseSize, maxEdgesInCell),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
@@ -42,7 +42,7 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStor
 	case ARRAY_STORAGE:
 		return &QueryHeap[T]{
 			heap:           minHeap,
-			queryInfos:     make([]VertexInfo, 0, baseSize),
+			queryInfos:     make([]VertexInfo, 0, approxMaxSearchSize),
 			storage:        NewArrayStorage(baseSize),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
@@ -51,7 +51,7 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStor
 	case MAP_STORAGE:
 		return &QueryHeap[T]{
 			heap:           minHeap,
-			queryInfos:     make([]VertexInfo, 0, baseSize),
+			queryInfos:     make([]VertexInfo, 0, approxMaxSearchSize),
 			storage:        NewMapStorage(baseSize),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
@@ -60,7 +60,7 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStor
 	default:
 		return &QueryHeap[T]{
 			heap:           minHeap,
-			queryInfos:     make([]VertexInfo, 0, baseSize),
+			queryInfos:     make([]VertexInfo, 0, approxMaxSearchSize),
 			storage:        NewTwoLevelStorage(baseSize, maxEdgesInCell),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,

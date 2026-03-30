@@ -65,15 +65,17 @@ func (crp *CRPRoutingEngine) GetMetrics() *met.Metric {
 
 func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 	maxEdgesInCell := crp.graph.GetMaxEdgesInCell()
-
+	numberOfOverlayVertices := crp.overlayGraph.NumberOfOverlayVertices()
+	maxSearchSize := int(maxEdgesInCell*2) + numberOfOverlayVertices
+	// crp query heap pool
 	crp.fHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 	crp.bHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
