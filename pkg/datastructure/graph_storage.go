@@ -145,6 +145,12 @@ func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinat
 		return make([]Coordinate, 0)
 	}
 
+	// reversed road segment
+	// di road network osm ada beberapa osm way yang two way
+	// nah ini edge geometry yang reversed direction
+	// daripada simpan edge geometry untuk setiap direction untuk edge yang sama, kita simpan satu edge geometry saja untuk kedua arah
+	// bisa hemat lebih banyak space
+	edgePoints = make([]Coordinate, 0, startIndex-endIndex)
 	for i := int(startIndex - 1); i >= int(endIndex); i-- { // harus int(), karena kalo gak, endIndex == 0, next iteration jd maxuint32
 		edgePoints = append(edgePoints, gs.osmNodePoints[i])
 	}
