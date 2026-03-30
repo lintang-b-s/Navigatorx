@@ -205,6 +205,8 @@ ngaruh ke load test
 todo2: optimize sampai p95 latency computeRoute ngalahin osrm
 */
 func BenchmarkCRPALTQuery(b *testing.B) {
+	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
+
 	eng, queries, g, lm := setup()
 	start := time.Now()
 	re := eng.GetRoutingEngine()

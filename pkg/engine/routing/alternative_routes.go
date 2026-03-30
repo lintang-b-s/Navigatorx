@@ -225,7 +225,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		extract-min at most O(m_p+n_o) operations
 	*/
 	now := time.Now()
-
+	
 	s := ars.engine.graph.GetOutEdge(asId).GetHead()
 	t := ars.engine.graph.GetInEdge(atId).GetTail()
 	param := ars.parameterByRequest(s, t)

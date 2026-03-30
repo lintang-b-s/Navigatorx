@@ -157,9 +157,9 @@ func (g *PartitionGraph) GetReversedEdgeId(u Index, idx int) int {
 	return g.adjacencyList[u][idx] ^ 1
 }
 
-func (g *PartitionGraph) ForEachVertexEdges(u Index, handle func(e MaxFlowEdge)) {
+func (g *PartitionGraph) ForEachVertexEdges(u Index, handle func(e MaxFlowEdge, artificial bool)) {
 	for _, edgeIdx := range g.adjacencyList[u] {
-		handle(g.edgeList[edgeIdx])
+		handle(g.edgeList[edgeIdx], false)
 	}
 }
 
@@ -227,7 +227,7 @@ func (g *PartitionGraph) ForEachDirectedEdgesOf(u Index, handle func(e MaxFlowEd
 	// karena partition graph bisa undirected
 	// fungsi ini hanya return directed edges
 	// di AddEdge() kita add direceted edge dengan id genap
-	g.ForEachVertexEdges(u, func(e MaxFlowEdge) {
+	g.ForEachVertexEdges(u, func(e MaxFlowEdge, artificial bool) {
 		edgeId := e.GetID()
 		if edgeId%2 == 0 {
 			handle(e, edgeId)
