@@ -1,5 +1,5 @@
 maxspeeds:
-  motorway: 100
+  motorway: 95
   trunk: 65
   primary: 50
   secondary: 40
@@ -9,11 +9,11 @@ maxspeeds:
   service: 15
   motorway_link: 45
   trunk_link: 40
-  primary_link: 30
-  secondary_link: 25
-  tertiary_link: 20
+  primary_link: 35
+  secondary_link: 30
+  tertiary_link: 25
   living_street: 10
-  road: 20
+  road: 30
   track: 15
   motorroad: 90
   default: 30

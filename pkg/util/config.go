@@ -16,3 +16,4 @@ func ReadConfig(wordkingDir string) error {
 	}
 	return nil
 }
+
