@@ -145,8 +145,7 @@ func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinat
 		return make([]Coordinate, 0)
 	}
 
-	for i := startIndex - 1; i >= endIndex; i-- {
-
+	for i := int(startIndex - 1); i >= int(endIndex); i-- { // harus int(), karena kalo gak, endIndex == 0, next iteration jd maxuint32
 		edgePoints = append(edgePoints, gs.osmNodePoints[i])
 	}
 

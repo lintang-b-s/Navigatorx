@@ -2,9 +2,10 @@ package datastructure
 
 import (
 	"bufio"
-	"fmt"
 	"math"
 	"os"
+
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // MultilevelPartition. store every cell information of each vertex on every level.
@@ -100,7 +101,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	if scanner.Scan() {
 		line := scanner.Text()
 		var numLevels int
-		_, err := fmt.Sscanf(line, "%d", &numLevels)
+		numLevels, err := util.ParseInt(line)
 		if err != nil {
 			return err
 		}
@@ -115,7 +116,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	for i := 0; i < len(mp.numCells); i++ {
 		if scanner.Scan() {
 			line := scanner.Text()
-			_, err := fmt.Sscanf(line, "%d", &mp.numCells[i])
+			mp.numCells[i], err = util.ParseUInt32(line)
 			if err != nil {
 				return err
 			}
@@ -131,7 +132,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	if scanner.Scan() {
 		line := scanner.Text()
 
-		_, err := fmt.Sscanf(line, "%d", &numVertices)
+		numVertices, err = util.ParseInt(line)
 		if err != nil {
 			return err
 		}
@@ -147,8 +148,8 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	for i := 0; i < mp.GetNumberOfVertices(); i++ {
 		if scanner.Scan() {
 			line := scanner.Text()
-			var cellNumber Pv
-			_, err := fmt.Sscanf(line, "%d", &cellNumber)
+			cellNumberUint, err := util.ParseUInt64(line)
+			cellNumber := Pv(cellNumberUint)
 			if err != nil {
 				return err
 			}

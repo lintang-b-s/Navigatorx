@@ -25,6 +25,20 @@ func ReadLine(br *bufio.Reader) (string, error) {
 	return strings.TrimRight(line, "\r\n"), nil
 }
 
+func ParseInt(s string) (int, error) {
+	return strconv.Atoi(s)
+}
+
+func ParseUInt32(s string) (uint32, error) {
+	num, err := strconv.ParseUint(s, 10, 32)
+	return uint32(num), err
+}
+
+func ParseUInt64(s string) (uint64, error) {
+	num, err := strconv.ParseUint(s, 10, 64)
+	return uint64(num), err
+}
+
 func Fields(s string) []string {
 
 	return strings.Fields(s)

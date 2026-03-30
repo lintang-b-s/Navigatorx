@@ -476,7 +476,7 @@ func main() {
 			if hasPrev {
 
 				if util.Gt(deltaTime, 0) {
-					dist := geo.CalculateHaversineDistance(prevLat, prevLon, lat, lon)
+					dist := geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon)
 					speed = util.KilometerToMeter(dist) / deltaTime
 				}
 			} else {
@@ -532,7 +532,7 @@ func main() {
 				panic(err)
 			}
 
-			dist := util.KilometerToMeter(geo.CalculateHaversineDistance(prevLat, prevLon, lat, lon))
+			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon))
 			groundTruthLength += dist
 		}
 
@@ -558,7 +558,7 @@ func main() {
 			lon := mp.GetMatchedCoord().GetLon()
 
 			if mp.GetEdgeId() != da.INVALID_EDGE_ID {
-				dist := util.KilometerToMeter(geo.CalculateHaversineDistance(
+				dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 					prevLat, prevLon, lat, lon,
 				))
 				matchLength += dist

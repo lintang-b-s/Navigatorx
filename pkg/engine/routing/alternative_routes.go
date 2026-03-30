@@ -984,11 +984,12 @@ func (ars *AlternativeRouteSearch) parameterByRequest(s, t da.Index) Alternative
 	tVertex := ars.engine.graph.GetVertex(t)
 	sCoord := sVertex.GetCoordinate()
 	tCoord := tVertex.GetCoordinate()
-	gcDist := geo.CalculateHaversineDistance(sCoord.GetLat(), sCoord.GetLon(),
+	gcDist := geo.CalculateGreatCircleDistance(sCoord.GetLat(), sCoord.GetLon(),
 		tCoord.GetLat(), tCoord.GetLon()) // in km
 
 	param := NewAlternativeRouteParameters(ars.defaultGamma, ars.defaultAlpha,
 		ars.defaultEpsilon, ars.defaultUpperbound, ars.defaultMaxCandidatesToUnpack)
+
 	param.setGamma(pickParam(ars.gammaMap, gcDist, ars.defaultGamma))
 
 	param.setAlpha(pickParam(ars.alphaMap, gcDist, ars.defaultAlpha))
@@ -1104,7 +1105,7 @@ func (ars *AlternativeRouteSearch) GetDiversity(candidates []*AlternativeRoute) 
 			jaccardSimiliarity := (intersection / unionSize)
 
 			jaccardDistance := 1 - jaccardSimiliarity
-			minJaccardDist = math.Min(minJaccardDist, jaccardDistance)
+			minJaccardDist = util.MinFloat(minJaccardDist, jaccardDistance)
 		}
 
 		for _, e := range altPath {

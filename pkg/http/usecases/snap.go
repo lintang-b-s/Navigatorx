@@ -207,7 +207,7 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 		dist := geo.CalculateEuclidianDistWebMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
 			lat, lon)
 
-		if dist < minDist {
+		if util.Lt(dist, minDist) {
 			minDist = dist
 			bestProjectedPoint = projectedPoint
 		}

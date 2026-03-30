@@ -67,7 +67,7 @@ func (h *HMM) MapMatch(gpsTraj []*da.GPSPoint) []*da.MatchedGPSPoint {
 			cand := candidates[i][j]
 			candProjection := cand.GetProjectedCoord()
 
-			gpsToCandDist := util.KilometerToMeter(geo.CalculateHaversineDistance(
+			gpsToCandDist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				candProjection.GetLat(), candProjection.GetLon(),
 				gps.Lat(), gps.Lon(),
 			))
@@ -88,7 +88,7 @@ func (h *HMM) MapMatch(gpsTraj []*da.GPSPoint) []*da.MatchedGPSPoint {
 
 		} else {
 			measurementDist := util.KilometerToMeter(
-				geo.CalculateHaversineDistance(prevObs.Lat(), prevObs.Lon(), gps.Lat(), gps.Lon()),
+				geo.CalculateGreatCircleDistance(prevObs.Lat(), prevObs.Lon(), gps.Lat(), gps.Lon()),
 			)
 
 			workers := concurrent.NewWorkerPool[calcTransitionProbParam, transitionWithProb](1,
@@ -286,13 +286,13 @@ func (h *HMM) projectAllGps(gpsTraj []*da.GPSPoint) ([][]*ma.Candidate, int) {
 
 		sumLength := 0.0
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := h.graph.GetOutEdge(arcEndpoint.GetId()).GetSimplifiedLength()
+			eLength := h.graph.GetOutEdge(arcEndpoint.GetId()).GetLength()
 			sumLength += eLength
 		}
 
 		for _, arcEndpoint := range nearbyArcs {
 
-			eLength := h.graph.GetOutEdge(arcEndpoint.GetId()).GetSimplifiedLength()
+			eLength := h.graph.GetOutEdge(arcEndpoint.GetId()).GetLength()
 
 			cand := ma.NewCandidate(arcEndpoint.GetId(), eLength/sumLength, eLength)
 			cand.SetStateId(stateId)
@@ -356,9 +356,9 @@ func (h *HMM) splitEdges(gpsTraj []*da.GPSPoint, candidates [][]*ma.Candidate) i
 		sort.Slice(eCands, func(i, j int) bool {
 			a := eCands[i]
 			b := eCands[j]
-			distA := geo.CalculateHaversineDistance(tailVertex.GetLat(), tailVertex.GetLon(),
+			distA := geo.CalculateGreatCircleDistance(tailVertex.GetLat(), tailVertex.GetLon(),
 				a.GetProjectedCoord().GetLat(), a.GetProjectedCoord().GetLon())
-			distB := geo.CalculateHaversineDistance(tailVertex.GetLat(), tailVertex.GetLon(),
+			distB := geo.CalculateGreatCircleDistance(tailVertex.GetLat(), tailVertex.GetLon(),
 				b.GetProjectedCoord().GetLat(), b.GetProjectedCoord().GetLon())
 
 			if distA < distB {
@@ -376,8 +376,8 @@ func (h *HMM) splitEdges(gpsTraj []*da.GPSPoint, candidates [][]*ma.Candidate) i
 			distFromTail := snap.GetDistr()
 			snap.SetDistanceFromTail(distFromTail)
 			snap.SetTravelTimeFromTail(distFromTail / eSpeed)
-			snap.SetDistanceFromHead(e.GetSimplifiedLength() - distFromTail)
-			snap.SetTravelTimeFromHead((e.GetSimplifiedLength() - distFromTail) / eSpeed)
+			snap.SetDistanceFromHead(e.GetLength() - distFromTail)
+			snap.SetTravelTimeFromHead((e.GetLength() - distFromTail) / eSpeed)
 		}
 	}
 
@@ -407,12 +407,12 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 				gpsCoord.ToGeoCoordinate(),
 			)
 
-			dist := util.KilometerToMeter(geo.CalculateHaversineDistance(
+			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				projectedPoint.GetLat(), projectedPoint.GetLon(),
 				gpsCoord.GetLat(), gpsCoord.GetLon(),
 			))
 
-			tailToProjectedDist := util.KilometerToMeter(geo.CalculateHaversineDistance(
+			tailToProjectedDist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				tail.GetLat(), tail.GetLon(),
 				projectedPoint.GetLat(), projectedPoint.GetLon(),
 			))
@@ -425,7 +425,7 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 				bestProjectedPoint = projectedPoint
 			}
 
-			cumLength += util.KilometerToMeter(geo.CalculateHaversineDistance(
+			cumLength += util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				tail.GetLat(), tail.GetLon(),
 				head.GetLat(), head.GetLon(),
 			))

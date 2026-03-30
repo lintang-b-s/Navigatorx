@@ -50,12 +50,12 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// out edges
 	for i, e := range g.outEdges {
-		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d %d %s\n",
+		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
 			e.edgeId, e.head,
 			strconv.FormatFloat(e.weight, 'f', -1, 64),
 			strconv.FormatFloat(e.dist, 'f', -1, 64),
 			e.entryPoint, e.edgeInfoId, e.hwType,
-			strconv.FormatFloat(e.simplifiedDist, 'f', -1, 64)); err != nil {
+		); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing outEdge[%d]", i)
 		}
 	}
@@ -284,21 +284,20 @@ func (g *Graph) WriteGraph(filename string) error {
 	return nil
 }
 
-func fields(s string) []string {
-
-	return strings.Fields(s)
-}
-
 func ParseIndex(s string) (Index, error) {
-	u, err := strconv.ParseUint(s, 10, 64)
+	u, err := strconv.ParseUint(s, 10, 32)
 	if err != nil {
 		return 0, errors.Wrapf(err, "ParseIndex strconv.ParseUint: error parsing string to integer %s", s)
 	}
 	if u > math.MaxUint32 {
-		return 0, fmt.Errorf("value %s overflows uint32", s)
+		return 0, fmt.Errorf("ParseIndex: value %s overflows uint32", s)
 	}
 	return Index(u), nil
 }
+
+const (
+	graphBufferSize = 4096 * 4
+)
 
 func ReadGraph(filename string) (*Graph, error) {
 	f, err := os.Open(filename)
@@ -313,14 +312,14 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, errors.Wrapf(err, "ReadGraph: failed creating s2.NewReader %s", filename)
 	}
 
-	br := bufio.NewReader(snp)
+	br := bufio.NewReaderSize(snp, graphBufferSize)
 
 	line, err := util.ReadLine(br)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed reading line: %s", filename)
 	}
 
-	tokens := fields(line)
+	tokens := util.Fields(line)
 	if len(tokens) != 4 {
 		return nil, errors.Newf("ReadGraph: number of graph headers is not correct, expected: %v, got: %v", 4, len(tokens))
 	}
@@ -398,7 +397,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read turntables string")
 	}
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	for _, token := range tokens {
 		tt, err := strconv.ParseUint(token, 10, 8)
 		if err != nil {
@@ -413,7 +412,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to read overlayLine")
 		}
-		tokens = fields(overlayLine)
+		tokens = util.Fields(overlayLine)
 		if len(tokens) != 4 {
 			return nil, fmt.Errorf("expected 4 overlayLine fields, got %d", len(tokens))
 		}
@@ -454,7 +453,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine numCellNumbers")
 	}
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	if len(tokens) != int(numCellNumbers) {
 		return nil, fmt.Errorf("expected %d numCellNumbers, got %d", numCellNumbers, len(tokens))
 	}
@@ -472,7 +471,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine numCellNumbers")
 	}
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	if len(tokens) != int(numCellNumbers) {
 		return nil, fmt.Errorf("expected %d numCellNumbers, got %d", numCellNumbers, len(tokens))
 	}
@@ -490,7 +489,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine sccs")
 	}
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	if len(tokens) != int(numVertices-1) {
 		return nil, fmt.Errorf("expected %d vertices, got %d", numVertices, len(tokens))
 	}
@@ -508,7 +507,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine bounding box")
 	}
-	tokens = fields(line)
+	tokens = util.Fields(line)
 
 	minLat, err := strconv.ParseFloat(tokens[0], 64)
 	if err != nil {
@@ -536,8 +535,8 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine osm way geometry points")
 	}
 
-	tokens = fields(line)
-	numOsmNodePoints, err := parseInt(tokens[0])
+	tokens = util.Fields(line)
+	numOsmNodePoints, err := util.ParseInt(tokens[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numOsmNodePoints: %v", tokens[0])
 	}
@@ -548,7 +547,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine osm way geometry point")
 		}
-		tokens = fields(line)
+		tokens = util.Fields(line)
 
 		lat, err := strconv.ParseFloat(tokens[0], 64)
 		if err != nil {
@@ -567,8 +566,8 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edgeInfos headers")
 	}
 
-	tokens = fields(line)
-	numEdgeInfos, err := parseInt(tokens[0])
+	tokens = util.Fields(line)
+	numEdgeInfos, err := util.ParseInt(tokens[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numEdgeInfos: %v", tokens[0])
 	}
@@ -579,33 +578,33 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine mapEdgeInfo")
 		}
-		tokens = fields(line)
-		startsPointIndex, err := parseInt(tokens[0])
+		tokens = util.Fields(line)
+		startsPointIndex, err := util.ParseInt(tokens[0])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt startsPointIndex: %v", tokens[0])
 		}
 
-		endPointIndex, err := parseInt(tokens[1])
+		endPointIndex, err := util.ParseInt(tokens[1])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt endPointIndex: %v", tokens[1])
 		}
-		streetName, err := parseInt(tokens[2])
+		streetName, err := util.ParseInt(tokens[2])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt streetName: %v", tokens[2])
 		}
-		roadClass, err := parseInt(tokens[3])
+		roadClass, err := util.ParseInt(tokens[3])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt roadClass: %v", tokens[3])
 		}
-		roadClassLink, err := parseInt(tokens[4])
+		roadClassLink, err := util.ParseInt(tokens[4])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt roadClassLink: %v", tokens[4])
 		}
-		lanes, err := parseInt(tokens[5])
+		lanes, err := util.ParseInt(tokens[5])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt lanes: %v", tokens[5])
 		}
-		osmWayId, err := parseInt(tokens[6])
+		osmWayId, err := util.ParseInt(tokens[6])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt osmWayId: %v", tokens[6])
 		}
@@ -657,9 +656,9 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine tagstring")
 	}
 
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	tagStringIdMap := util.NewIdMap()
-	numIdMapItems, err := parseInt(tokens[0])
+	numIdMapItems, err := util.ParseInt(tokens[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numIdMapItems: %v", tokens[0])
 	}
@@ -670,7 +669,7 @@ func ReadGraph(filename string) (*Graph, error) {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine idMapItem")
 		}
 
-		tokens = fields(line)
+		tokens = util.Fields(line)
 		if len(tokens) < 2 {
 			continue
 		}
@@ -687,7 +686,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
 		}
-		key, err := parseInt(tokens[0])
+		key, err := util.ParseInt(tokens[0])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt tagstring key: %v", tokens[0])
 		}
@@ -703,7 +702,7 @@ func ReadGraph(filename string) (*Graph, error) {
 			}
 			return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine sccCondensationAdj")
 		}
-		tokens = fields(line)
+		tokens = util.Fields(line)
 		if len(tokens) == 0 {
 			continue
 		}
@@ -740,7 +739,7 @@ func ReadGraph(filename string) (*Graph, error) {
 }
 
 func parseVertex(line string) (*Vertex, error) {
-	tokens := fields(line)
+	tokens := util.Fields(line)
 	if len(tokens) != 8 {
 		return nil, fmt.Errorf("expected 8 fields, got %d", len(tokens))
 	}
@@ -788,8 +787,8 @@ func parseVertex(line string) (*Vertex, error) {
 }
 
 func parseOutEdge(line string) (*OutEdge, error) {
-	tokens := fields(line)
-	if len(tokens) != 8 {
+	tokens := util.Fields(line)
+	if len(tokens) != 7 {
 		return nil, fmt.Errorf("expected 8 fields, got %d", len(tokens))
 	}
 	edgeId, err := ParseIndex(tokens[0])
@@ -824,19 +823,13 @@ func parseOutEdge(line string) (*OutEdge, error) {
 		return nil, err
 	}
 
-	simplifiedDist, err := strconv.ParseFloat(tokens[7], 64)
-	if err != nil {
-		return nil, err
-	}
-
 	e := NewOutEdge(edgeId, head, weight, dist, int(entryPoint), pkg.OsmHighwayType(hwType))
 	e.SetInfoEdgeId(edgeInfoId)
-	e.SetSimplifiedLength(simplifiedDist)
 	return e, nil
 }
 
 func parseInEdge(line string) (*InEdge, error) {
-	tokens := fields(line)
+	tokens := util.Fields(line)
 	if len(tokens) != 7 {
 		return nil, fmt.Errorf("expected 7 fields, got %d", len(tokens))
 	}

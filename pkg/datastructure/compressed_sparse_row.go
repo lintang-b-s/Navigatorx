@@ -188,32 +188,32 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 		return nil, err
 	}
 
-	tokens := fields(line)
+	tokens := util.Fields(line)
 	if len(tokens) != 5 {
 		return nil, err
 	}
 
-	m, err := parseInt(tokens[0])
+	m, err := util.ParseInt(tokens[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse m: %v", tokens[0])
 	}
 
-	n, err := parseInt(tokens[1])
+	n, err := util.ParseInt(tokens[1])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse n: %v", tokens[1])
 	}
 
-	valsLen, err := parseInt(tokens[2])
+	valsLen, err := util.ParseInt(tokens[2])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse valsLen: %v", tokens[2])
 	}
 
-	colsLen, err := parseInt(tokens[3])
+	colsLen, err := util.ParseInt(tokens[3])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse colsLen: %v", tokens[3])
 	}
 
-	rowsLen, err := parseInt(tokens[4])
+	rowsLen, err := util.ParseInt(tokens[4])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse rowsLen: %v", tokens[4])
 	}
@@ -229,7 +229,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 		return nil, err
 	}
 
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	if len(tokens) != valsLen {
 		return nil, err
 	}
@@ -254,7 +254,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 		return nil, err
 	}
 
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	if len(tokens) != colsLen {
 		return nil, err
 	}
@@ -262,7 +262,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	for i := 0; i < colsLen; i++ {
 		token := tokens[i]
 
-		val, err := parseInt(token)
+		val, err := util.ParseInt(token)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse cols[i]: %v", token)
 		}
@@ -275,7 +275,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 		return nil, err
 	}
 
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	if len(tokens) != rowsLen {
 		return nil, err
 	}
@@ -283,7 +283,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	for i := 0; i < rowsLen; i++ {
 		token := tokens[i]
 
-		val, err := parseInt(token)
+		val, err := util.ParseInt(token)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse rows[i]: %v", token)
 		}

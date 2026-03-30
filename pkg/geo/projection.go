@@ -10,7 +10,7 @@ func PointLinePerpendicularDistance(pointA Coordinate, pointB Coordinate,
 	snap Coordinate) float64 {
 	projectionPoint := ProjectPointOnSegment(pointA, pointB, snap)
 
-	dist := CalculateHaversineDistance(snap.GetLat(), snap.GetLon(), projectionPoint.GetLat(), projectionPoint.GetLon())
+	dist := CalculateGreatCircleDistance(snap.GetLat(), snap.GetLon(), projectionPoint.GetLat(), projectionPoint.GetLon())
 	return util.KilometerToMeter(dist)
 }
 
@@ -28,5 +28,3 @@ func ProjectPointOnSegment(pointA Coordinate, pointB Coordinate,
 	snap := NewCoordinate(projectLatLng.Lat.Degrees(), projectLatLng.Lng.Degrees())
 	return snap
 }
-
-

@@ -90,7 +90,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	maxCost := int64(1) << 27 // kalo ristretto ukurannya mb? 134.217728 MB
 	// max items in cache ~ 1.5jt
 	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
-		NumCounters: (maxCost / keyValByteApproxSize) * 10, // number of keys to track frequency of .
+		NumCounters: (maxCost / keyValByteApproxSize) * 4, // number of keys to track frequency of .
 		MaxCost:     maxCost,                              // maximum cost of cache .
 		BufferItems: 64,                                   // number of keys per Get buffer.
 	})

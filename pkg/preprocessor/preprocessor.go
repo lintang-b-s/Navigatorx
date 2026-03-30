@@ -125,7 +125,6 @@ func (p *Preprocessor) SortByCellNumber() {
 				oEdge.GetHighwayType(),
 			)
 			newOEdge.SetInfoEdgeId(oEdge.GetEdgeInfoId())
-			newOEdge.SetSimplifiedLength(oEdge.GetSimplifiedLength())
 			oEdges[i][k] = newOEdge
 			e++
 			k++
@@ -160,8 +159,8 @@ func (p *Preprocessor) SortByCellNumber() {
 			p.graph.SetMaxEdgesInCell(numInEdgesInCell[cell])
 		}
 
-		minLat = math.Min(minLat, p.graph.GetVertex(i).GetLat())
-		minLon = math.Min(minLon, p.graph.GetVertex(i).GetLon())
+		minLat = util.MinFloat(minLat, p.graph.GetVertex(i).GetLat())
+		minLon = util.MinFloat(minLon, p.graph.GetVertex(i).GetLon())
 		maxLat = util.MaxFloat(maxLat, p.graph.GetVertex(i).GetLat())
 		maxLon = util.MaxFloat(maxLon, p.graph.GetVertex(i).GetLon())
 	}
@@ -233,7 +232,6 @@ func (p *Preprocessor) SortByCellNumber() {
 					newOutEdgeId, oldOutEdge.GetHead(), oldOutEdge.GetWeight(),
 					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
 				)
-				newOutEdge.SetSimplifiedLength(oldOutEdge.GetSimplifiedLength())
 
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
 

@@ -5,7 +5,6 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/tidwall/rtree"
 	"go.uber.org/zap"
 )
@@ -45,37 +44,40 @@ func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logg
 	log.Info("Building R-tree spatial index...")
 	graph.ForOutEdges(func(e *da.OutEdge, exitPoint, head, tail, entryId da.Index,
 		percentage float64, id da.Index) {
-		
-		if da.SkipDummyEdge(e)  {
+
+		if da.SkipDummyEdge(e) {
 			return
 		}
 
-		from := tail
-		to := head
+		eGeom := graph.GetEdgeGeometry(id)
+		maxLat, maxLon := math.Inf(-1), math.Inf(-1)
+		minLat, minLon := math.MaxFloat64, math.MaxFloat64
+		for i := 0; i < len(eGeom); i++ {
+			point := eGeom[i]
+			if point.GetLat() > maxLat {
+				maxLat = point.GetLat()
+			}
 
-		fromLat, fromLon := graph.GetVertexCoordinates(from)
-		toLat, toLon := graph.GetVertexCoordinates(to)
-		lowerFromLat, lowerFromLon := geo.GetDestinationPoint(fromLat, fromLon, 225, boundingBoxRadius)
-		upperFromLat, upperFromLon := geo.GetDestinationPoint(fromLat, fromLon, 45, boundingBoxRadius)
+			if point.GetLon() > maxLon {
+				maxLon = point.GetLon()
+			}
 
-		lowerToLat, lowerToLon := geo.GetDestinationPoint(toLat, toLon, 225, boundingBoxRadius)
-		upperToLat, upperToLon := geo.GetDestinationPoint(toLat, toLon, 45, boundingBoxRadius)
+			if point.GetLat() < minLat {
+				minLat = point.GetLat()
+			}
+			if point.GetLon() < minLon {
+				minLon = point.GetLon()
+			}
+		}
+
+		minLat, minLon = geo.GetDestinationPoint(minLat, minLon, 225, boundingBoxRadius)
+		maxLat, maxLon = geo.GetDestinationPoint(maxLat, maxLon, 45, boundingBoxRadius)
 
 		// use web mercator projected coordinate
-		lowerFromY := geo.CalcLatToY(lowerFromLat)
-		upperFromY := geo.CalcLatToY(upperFromLat)
-		lowerFromX := geo.CalcLonToX(lowerFromLon)
-		upperFromX := geo.CalcLonToX(upperFromLon)
-
-		lowerToY := geo.CalcLatToY(lowerToLat)
-		upperToY := geo.CalcLatToY(upperToLat)
-		lowerToX := geo.CalcLonToX(lowerToLon)
-		upperToX := geo.CalcLonToX(upperToLon)
-
-		minY := math.Min(lowerFromY, lowerToY)
-		minX := math.Min(lowerFromX, lowerToX)
-		maxY := util.MaxFloat(upperFromY, upperToY)
-		maxX := util.MaxFloat(upperFromX, upperToX)
+		minY := geo.CalcLatToY(minLat)
+		maxY := geo.CalcLatToY(maxLat)
+		minX := geo.CalcLonToX(minLon)
+		maxX := geo.CalcLonToX(maxLon)
 
 		rt.tr.Insert([2]float64{minX, minY}, [2]float64{maxX, maxY},
 			newArcEndpoint(id))
@@ -93,8 +95,8 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []ArcEndpoint {
 	lowerLat, lowerLon := geo.GetDestinationPoint(qLat, qLon, 225, radius)
 	upperLat, upperLon := geo.GetDestinationPoint(qLat, qLon, 45, radius)
 
-	lowerY, lowerX := geo.CalcLatToY(lowerLat), geo.CalcLonToX(lowerLon)
-	upperY, upperX := geo.CalcLatToY(upperLat), geo.CalcLonToX(upperLon)
+	lowerY, lowerX := geo.CalcLatToYApprox(lowerLat), geo.CalcLonToX(lowerLon)
+	upperY, upperX := geo.CalcLatToYApprox(upperLat), geo.CalcLonToX(upperLon)
 
 	results := make([]ArcEndpoint, 0, 10)
 	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},

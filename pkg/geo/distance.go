@@ -44,8 +44,8 @@ func havFunction(angleRad float64) float64 {
 	return (1 - math.Cos(angleRad)) / 2.0
 }
 
-// CalculateHaversineDistance. calculate haversine distance in km
-func CalculateHaversineDistance(latOne, longOne, latTwo, longTwo float64) float64 {
+// CalculateGreatCircleDistance. calculate haversine distance in km
+func CalculateGreatCircleDistance(latOne, longOne, latTwo, longTwo float64) float64 {
 	latOne = util.DegreeToRadians(latOne)
 	longOne = util.DegreeToRadians(longOne)
 	latTwo = util.DegreeToRadians(latTwo)

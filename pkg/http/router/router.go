@@ -43,7 +43,7 @@ func NewAPI(log *zap.Logger) *API {
 
 //	@contact.name	Lintang Birda Saputra
 //	@contact.url	_
-//	@contact.email	lintang.birda.saputra@mail.ugm.ac.id
+//	@contact.email	lintangbirdasaputra23@gmail.com
 
 //	@license.name	BSD License
 //	@license.url	https://opensource.org/license/bsd-2-clause

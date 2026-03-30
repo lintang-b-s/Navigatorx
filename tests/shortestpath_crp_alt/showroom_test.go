@@ -3,7 +3,6 @@ package shortestpath
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -18,6 +17,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 /*
@@ -194,7 +194,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 		lock.Lock()
 		defer lock.Unlock()
-		minDist = math.Min(minDist, spLength)
+		minDist = util.MinFloat(minDist, spLength)
 		return nil
 	}
 	workers := concurrent.NewWorkerPool[pair, any](50, len(pintuUjungs))

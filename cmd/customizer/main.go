@@ -14,10 +14,11 @@ import (
 )
 
 const (
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	graphFile         string = "./data/original.graph"
+	overlayGraphFile  string = "./data/overlay_graph.graph"
+	metricsFile       string = "./data/metrics.txt"
+	landmarkFile      string = "./data/landmark.lm"
+	numberOfLandmarks        = 16
 )
 
 func main() {
@@ -45,7 +46,7 @@ func main() {
 	}
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, custom, logger)
+	err = lm.PreprocessALT(numberOfLandmarks, m, custom, logger)
 	if err != nil {
 		panic(err)
 	}

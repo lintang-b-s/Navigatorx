@@ -1,7 +1,6 @@
 package routing
 
 import (
-	"math"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -348,7 +347,7 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 		if val := bs.stallingEntry[otherUEntryId]; util.Eq(val, pkg.INF_WEIGHT) {
 			bs.stallingEntry[otherUEntryId] = bui
 		} else {
-			bs.stallingEntry[otherUEntryId] = math.Min(bs.stallingEntry[otherUEntryId], bui)
+			bs.stallingEntry[otherUEntryId] = util.MinFloat(bs.stallingEntry[otherUEntryId], bui)
 		}
 		otherUEntryId++
 	}
@@ -509,7 +508,7 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 		if val := bs.stallingExit[otherUExitId]; util.Eq(val, pkg.INF_WEIGHT) {
 			bs.stallingExit[otherUExitId] = bui
 		} else {
-			bs.stallingExit[otherUExitId] = math.Min(bs.stallingExit[otherUExitId], bui)
+			bs.stallingExit[otherUExitId] = util.MinFloat(bs.stallingExit[otherUExitId], bui)
 		}
 		otherUExitId++
 	}

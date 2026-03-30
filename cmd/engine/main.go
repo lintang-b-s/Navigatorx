@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.08, "leaf node (r-tree) bounding box radius in km")
+	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.06, "leaf node (r-tree) bounding box radius in km")
 	transitionMHTFile     = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
 	cpuprofile            = flag.String("cpuprofile", "", "write cpu profile to file")
 )
@@ -92,7 +92,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	
+
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine, offlineMapMatcherEngine)
 	ctx, cleanup, err := NewContext()
 	if err != nil {

@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	DOUGLAS_PEUCKER_THRESHOLDS = 0.02
+	DOUGLAS_PEUCKER_THRESHOLDS = 0.01
 )
 
 // https://cartography-playground.gitlab.io/playgrounds/douglas-peucker-algorithm/

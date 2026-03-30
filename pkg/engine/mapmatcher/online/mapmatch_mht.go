@@ -64,12 +64,12 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 		sumLength := 0.0
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := om.graph.GetOutEdge(arcEndpoint.GetId()).GetSimplifiedLength()
+			eLength := om.graph.GetOutEdge(arcEndpoint.GetId()).GetLength()
 			sumLength += eLength
 		}
 
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := om.graph.GetOutEdge(arcEndpoint.GetId()).GetSimplifiedLength()
+			eLength := om.graph.GetOutEdge(arcEndpoint.GetId()).GetLength()
 
 			candidates = append(candidates, ma.NewCandidate(arcEndpoint.GetId(), eLength/sumLength, eLength))
 		}
@@ -159,7 +159,7 @@ func (om *OnlineMapMatchMHT) recur(newCands []*ma.Candidate, w float64, tau []da
 	}
 	if cnew == nil {
 		newCands = append(newCands, ma.NewCandidate(tau[len(tau)-1], wprime,
-			om.graph.GetOutEdge(tau[len(tau)-1]).GetSimplifiedLength()))
+			om.graph.GetOutEdge(tau[len(tau)-1]).GetLength()))
 	} else {
 		cnew.SetWeight(cnew.Weight() + wprime)
 	}
@@ -227,7 +227,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 func (om *OnlineMapMatchMHT) needToReset(gps *da.GPSPoint, matchedSegment *da.MatchedGPSPoint) bool {
 	gpsLat, gpsLon := gps.Lat(), gps.Lon()
 	matchCoord := matchedSegment.GetMatchedCoord()
-	dist := convertKilometerToMeter(geo.CalculateHaversineDistance(
+	dist := convertKilometerToMeter(geo.CalculateGreatCircleDistance(
 		gpsLat, gpsLon,
 		matchCoord.Lat, matchCoord.Lon,
 	))
@@ -304,12 +304,12 @@ func (om *OnlineMapMatchMHT) computeHProb(tau []da.Index, speedMean, speedStd, d
 	tauLength := 0.0
 	for _, edgeId := range tau {
 		e := om.graph.GetOutEdge(edgeId)
-		tauLength += e.GetSimplifiedLength()
+		tauLength += e.GetLength()
 	}
 	firstEdge := om.graph.GetOutEdge(tau[0])
 
 	s := (math.Sqrt(3) * speedStd * deltaTime) / math.Pi
-	out := (1.0 / firstEdge.GetSimplifiedLength())
+	out := (1.0 / firstEdge.GetLength())
 
 	f := func(x float64) float64 {
 		numerator := speedMean*deltaTime - (tauLength - x)
@@ -319,7 +319,7 @@ func (om *OnlineMapMatchMHT) computeHProb(tau []da.Index, speedMean, speedStd, d
 		return s * log
 	}
 
-	return out * (f(firstEdge.GetSimplifiedLength()) - f(0))
+	return out * (f(firstEdge.GetLength()) - f(0))
 }
 
 func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate) {
@@ -344,12 +344,12 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 				head.ToGeoCoordinate(),
 				gpsCoord.ToGeoCoordinate(),
 			)
-			dist := util.KilometerToMeter(geo.CalculateHaversineDistance(
+			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				projectedPoint.Lat, projectedPoint.Lon,
 				gpsCoord.GetLat(), gpsCoord.GetLon(),
 			))
 
-			tailToProjectedDist := util.KilometerToMeter(geo.CalculateHaversineDistance(
+			tailToProjectedDist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				tail.GetLat(), tail.GetLon(),
 				projectedPoint.GetLat(), projectedPoint.GetLon(),
 			))
@@ -362,7 +362,7 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 				bestProjectedPoint = projectedPoint
 			}
 
-			cumLength += util.KilometerToMeter(geo.CalculateHaversineDistance(
+			cumLength += util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				tail.GetLat(), tail.GetLon(),
 				head.GetLat(), head.GetLon(),
 			))

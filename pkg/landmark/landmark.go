@@ -76,7 +76,7 @@ func (lm *Landmark) SelectLandmarksTwo(k int, cst *customizer.Customizer) []*da.
 	minMidDist := math.MaxFloat64
 	for _, v := range ivs {
 		// O(V)
-		dist := geo.CalculateHaversineDistance(v.GetLat(), v.GetLon(),
+		dist := geo.CalculateGreatCircleDistance(v.GetLat(), v.GetLon(),
 			centerLat, centerLon)
 		if dist < minMidDist {
 			minMidDist = dist
@@ -116,7 +116,7 @@ func (lm *Landmark) SelectLandmarksTwo(k int, cst *customizer.Customizer) []*da.
 		terjauhId := 0
 		maxDist := math.Inf(-1)
 		for j, v := range pie {
-			midToVDist := geo.CalculateHaversineDistance(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
+			midToVDist := geo.CalculateGreatCircleDistance(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
 			if midToVDist > maxDist {
 				maxDist = midToVDist
 				terjauhId = j
@@ -446,6 +446,10 @@ func (lm *Landmark) WriteLandmark(filename string, cst *customizer.Customizer) e
 	return nil
 }
 
+const (
+	landmarkBufferSize = 4096 * 2
+)
+
 func ReadLandmark(filename string) (*Landmark, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -457,7 +461,7 @@ func ReadLandmark(filename string) (*Landmark, error) {
 	if err != nil {
 		return nil, err
 	}
-	br := bufio.NewReader(snp)
+	br := bufio.NewReaderSize(snp, landmarkBufferSize)
 
 	line, err := util.ReadLine(br)
 	if err != nil {

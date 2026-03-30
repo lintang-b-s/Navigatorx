@@ -146,9 +146,6 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 	return re, lm, logger
 }
 
-// todo: benerin logic snap origin destination bug, ada yang salah, ada nearby edges yang geometrynya terlalu jauh dari query
-// kayake bug di graphStorage.edgeInfos (ada beberapa edges yang salah edge geometrynya) pas kita sortByCellNumber(), todo: debug & benerin ini 
-// (DONE)
 // cd tests/snap && go test -run TestOriginDestinationSnap  -v -timeout=0  -count=1
 func TestOriginDestinationSnap(t *testing.T) {
 	eng, lm, logger := setup(t)
@@ -218,8 +215,8 @@ func TestOriginDestinationSnap(t *testing.T) {
 		_, _, snappedOrig, snappedDst := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
 			q.dest.GetLat(), q.dest.GetLon())
 
-		distToOrig := geo.CalculateHaversineDistance(q.orig.GetLat(), q.orig.GetLon(), snappedOrig.GetLat(), snappedOrig.GetLon())
-		distToDest := geo.CalculateHaversineDistance(q.dest.GetLat(), q.dest.GetLon(), snappedDst.GetLat(), snappedDst.GetLon())
+		distToOrig := geo.CalculateGreatCircleDistance(q.orig.GetLat(), q.orig.GetLon(), snappedOrig.GetLat(), snappedOrig.GetLon())
+		distToDest := geo.CalculateGreatCircleDistance(q.dest.GetLat(), q.dest.GetLon(), snappedDst.GetLat(), snappedDst.GetLon())
 
 		if util.Gt(distToOrig, 0.5) || util.Gt(distToDest, 0.5) {
 			t.Errorf("snapped origin or destination too far from origin and destination query: %v, %v", distToOrig, distToDest)

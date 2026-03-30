@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
-	"strings"
+	"strconv"
 
 	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -268,6 +268,10 @@ func (met *Metric) WriteToFile(filename string) error {
 	return nil
 }
 
+const (
+	metricsBufferSize = 4096 * 2
+)
+
 func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.CostFunction) (*Metric, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -276,14 +280,14 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 
 	defer f.Close()
 
-	r := bufio.NewReader(f)
+	r := bufio.NewReaderSize(f, metricsBufferSize)
 
 	line, err := util.ReadLine(r)
 	if err != nil {
 		return nil, err
 	}
 
-	parts := fields(line)
+	parts := util.Fields(line)
 	if len(parts) != 3 {
 		return nil, errors.Errorf("metrics.ReadFromFile: expected 3 header fields, got %v", len(parts))
 	}
@@ -292,17 +296,17 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 	var numEntryStallingTables int
 	var numExitStallingTables int
 
-	_, err = fmt.Sscanf(parts[0], "%d", &numWeights)
+	numWeights, err = util.ParseUInt32(parts[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse numWeights: %v", parts[0])
 	}
 
-	_, err = fmt.Sscanf(parts[1], "%d", &numEntryStallingTables)
+	numEntryStallingTables, err = util.ParseInt(parts[1])
 	if err != nil {
 		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse numEntryStallingTables: %v", parts[1])
 	}
 
-	_, err = fmt.Sscanf(parts[2], "%d", &numExitStallingTables)
+	numExitStallingTables, err = util.ParseInt(parts[2])
 	if err != nil {
 		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse numExitStallingTables: %v", parts[2])
 	}
@@ -313,14 +317,14 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 	}
 
 	weights := make([]float64, numWeights)
-	parts = fields(line)
+	parts = util.Fields(line)
 
 	if uint32(len(parts)) != numWeights {
 		return nil, errors.Errorf("metrics.ReadFromFile: expected %v weights, got %v", numWeights, len(parts))
 	}
 
 	for i, weight := range parts {
-		_, err = fmt.Sscanf(weight, "%f", &weights[i])
+		weights[i], err = strconv.ParseFloat(weight, 64)
 		if err != nil {
 			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse weight[%d]: %v", i, weight)
 		}
@@ -335,7 +339,7 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 			return nil, err
 		}
 
-		parts = fields(line)
+		parts = util.Fields(line)
 		if len(parts) == 1 && parts[0] == "0" {
 			continue
 		}
@@ -345,7 +349,7 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 		}
 
 		var numElements int
-		_, err = fmt.Sscanf(parts[0], "%d", &numElements)
+		numElements, err = util.ParseInt(parts[0])
 		if err != nil {
 			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse entryStallingTables[%d] size: %v", i, parts[0])
 		}
@@ -356,7 +360,7 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 
 		stallingTable := make([]float64, numElements)
 		for j, val := range parts[1:] {
-			_, err = fmt.Sscanf(val, "%f", &stallingTable[j])
+			stallingTable[j], err = strconv.ParseFloat(val, 64)
 			if err != nil {
 				return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse entryStallingTables[%d][%d]: %v", i, j, val)
 			}
@@ -371,7 +375,7 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 			return nil, err
 		}
 
-		parts = fields(line)
+		parts = util.Fields(line)
 		if len(parts) == 1 && parts[0] == "0" {
 			continue
 		}
@@ -381,7 +385,7 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 		}
 
 		var numElements int
-		_, err = fmt.Sscanf(parts[0], "%d", &numElements)
+		numElements, err = util.ParseInt(parts[0])
 		if err != nil {
 			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse exitStallingTables[%d] size: %v", i, parts[0])
 		}
@@ -392,7 +396,7 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 
 		stallingTable := make([]float64, numElements)
 		for j, val := range parts[1:] {
-			_, err = fmt.Sscanf(val, "%f", &stallingTable[j])
+			stallingTable[j], err = strconv.ParseFloat(val, 64)
 			if err != nil {
 				return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse exitStallingTables[%d][%d]: %v", i, j, val)
 			}
@@ -410,8 +414,4 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 	metric.weights.SetWeights(weights)
 
 	return metric, nil
-}
-
-func fields(s string) []string {
-	return strings.Fields(s)
 }

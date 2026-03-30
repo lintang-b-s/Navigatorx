@@ -3,7 +3,6 @@ package osmparser
 import (
 	"context"
 	"io"
-	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -593,13 +592,13 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	maxLonft := util.MaxFloat(from.coord.lon, to.coord.lon)
 	maxLatft := util.MaxFloat(from.coord.lat, to.coord.lat)
 
-	minLonft := math.Min(from.coord.lon, to.coord.lon)
-	minLatft := math.Min(from.coord.lat, to.coord.lat)
+	minLonft := util.MinFloat(from.coord.lon, to.coord.lon)
+	minLatft := util.MinFloat(from.coord.lat, to.coord.lat)
 
 	p.bb.SetMaxLat(util.MaxFloat(p.bb.GetMaxLat(), maxLatft))
 	p.bb.SetMaxLon(util.MaxFloat(p.bb.GetMaxLon(), maxLonft))
-	p.bb.SetMinLat(math.Min(p.bb.GetMinLat(), minLatft))
-	p.bb.SetMinLon(math.Min(p.bb.GetMinLon(), minLonft))
+	p.bb.SetMinLat(util.MinFloat(p.bb.GetMinLat(), minLatft))
+	p.bb.SetMinLon(util.MinFloat(p.bb.GetMinLon(), minLonft))
 
 	if _, ok := p.nodeIDMap[from.id]; !ok {
 		p.nodeIDMap[from.id] = da.Index(len(p.nodeIDMap))
@@ -622,17 +621,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			segment[i].coord.lon,
 		))
 		if i > 0 {
-			distance += geo.CalculateHaversineDistance(segment[i-1].coord.lat, segment[i-1].coord.lon, segment[i].coord.lat, segment[i].coord.lon)
-		}
-	}
-
-	geoEdgePoints := geo.RamerDouglasPeucker(da.NewGeoCoordinates(edgePoints)) // simplify edge geometry
-	simplifiedEdgePoints := make([]da.Coordinate, len(geoEdgePoints))
-	simplifiedDistance := 0.0
-	for i, coord := range geoEdgePoints {
-		simplifiedEdgePoints[i] = da.NewCoordinate(coord.GetLat(), coord.GetLon())
-		if i > 0 {
-			simplifiedDistance += geo.CalculateHaversineDistance(geoEdgePoints[i-1].GetLat(), geoEdgePoints[i-1].GetLon(), geoEdgePoints[i].GetLat(), geoEdgePoints[i].GetLon())
+			distance += geo.CalculateGreatCircleDistance(segment[i-1].coord.lat, segment[i-1].coord.lon, segment[i].coord.lat, segment[i].coord.lon)
 		}
 	}
 
@@ -647,7 +636,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	}
 
 	distanceInMeter := util.KilometerToMeter(distance)
-	simplifiedDistanceInMeter := util.KilometerToMeter(simplifiedDistance)
 
 	travelTimeWeight := distanceInMeter / util.KMHToMMin(speed) // in minutes
 
@@ -680,7 +668,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 			startPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendOsmNodePoints(simplifiedEdgePoints)
+			graphStorage.AppendOsmNodePoints(edgePoints)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
 			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
@@ -700,7 +688,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				uint32(toNId),
 				travelTimeWeight,
 				distanceInMeter,
-				simplifiedDistanceInMeter,
 				hwType,
 			)
 
@@ -718,11 +705,11 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			}
 			p.edgeSet.Set(setKey)
 
-			util.ReverseG(simplifiedEdgePoints)
+			util.ReverseG(edgePoints)
 
 			startPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendOsmNodePoints(simplifiedEdgePoints)
+			graphStorage.AppendOsmNodePoints(edgePoints)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
 			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
@@ -742,7 +729,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				uint32(fromNId),
 				travelTimeWeight,
 				distanceInMeter,
-				simplifiedDistanceInMeter,
 				hwType,
 			)
 
@@ -763,7 +749,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		// add forward edge
 		startPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-		graphStorage.AppendOsmNodePoints(simplifiedEdgePoints)
+		graphStorage.AppendOsmNodePoints(edgePoints)
 		endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
 		graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
@@ -784,7 +770,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			uint32(toNId),
 			travelTimeWeight,
 			distanceInMeter,
-			simplifiedDistanceInMeter,
 			hwType,
 		)
 
@@ -818,7 +803,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			uint32(fromNId),
 			travelTimeWeight,
 			distanceInMeter,
-			simplifiedDistanceInMeter,
 			hwType,
 		)
 

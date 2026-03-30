@@ -605,6 +605,10 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 	return nil
 }
 
+const (
+	overlayBufferSize int = 4096 * 4
+)
+
 func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	f, err := os.Open(filename)
 	if err != nil {
@@ -618,17 +622,17 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 		return nil, errors.Wrapf(err, "ReadOvelayGraph: failed create new snappy reader: %v", filename)
 	}
 
-	br := bufio.NewReader(snp)
+	br := bufio.NewReaderSize(snp, overlayBufferSize)
 
 	line, err := util.ReadLine(br)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadOvelayGraph: failed readLine offsets: %v", filename)
 	}
-	tokens := fields(line)
+	tokens := util.Fields(line)
 	offsets := []uint8{}
 
 	for _, token := range tokens {
-		offset, err := parseInt(token)
+		offset, err := util.ParseInt(token)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed parseInt offset: %v", token)
 		}
@@ -638,10 +642,10 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	levelInfo := NewLevelInfo(offsets)
 
 	line, err = util.ReadLine(br)
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	vertexCountInLevel := make([]Index, 0, len(tokens))
 	for _, token := range tokens {
-		vv, err := parseInt(token)
+		vv, err := util.ParseInt(token)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed parseInt vertexCountInLevel: %v", token)
 		}
@@ -649,8 +653,8 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	}
 
 	line, err = util.ReadLine(br)
-	tokens = fields(line)
-	vertexCount, err := parseInt(tokens[0])
+	tokens = util.Fields(line)
+	vertexCount, err := util.ParseInt(tokens[0])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadOvelayGraph: failed parseInt vertexCount: %v", tokens[0])
 	}
@@ -661,33 +665,33 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 		if err != nil {
 			return nil, err
 		}
-		tokens = fields(line)
+		tokens = util.Fields(line)
 		var vertex *OverlayVertex = &OverlayVertex{}
-		vCellNumber, err := parseInt(tokens[0])
+		vCellNumber, err := util.ParseInt(tokens[0])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt vCellNumber: %v", tokens[0])
 		}
 		vertex.cellNumber = Pv(vCellNumber)
-		vneighbor, err := parseInt(tokens[1])
+		vneighbor, err := util.ParseInt(tokens[1])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt vneighbor: %v", tokens[1])
 		}
 		vertex.neighborOverlayVertex = Index(vneighbor)
 
-		oriVertex, err := parseInt(tokens[2])
+		oriVertex, err := util.ParseInt(tokens[2])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt oriVertex: %v", tokens[2])
 		}
 		vertex.originalVertex = Index(oriVertex)
 
-		oriEdge, err := parseInt(tokens[3])
+		oriEdge, err := util.ParseInt(tokens[3])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt oriEdge: %v", tokens[3])
 		}
 		vertex.originalEdge = Index(oriEdge)
 		vertex.entryExitPoint = make([]Index, 0, len(tokens)-4)
 		for j := 4; j < len(tokens); j++ {
-			entryExitPoint, err := parseInt(tokens[j])
+			entryExitPoint, err := util.ParseInt(tokens[j])
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt entryExitPoint: %v", tokens[j])
 			}
@@ -701,7 +705,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 		return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine weightVectorSize")
 	}
 
-	ww, err := parseInt(line)
+	ww, err := util.ParseInt(line)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt weightVectorSize: %v", line)
 	}
@@ -711,10 +715,10 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	if err != nil {
 		return nil, err
 	}
-	tokens = fields(line)
+	tokens = util.Fields(line)
 	overlayIdMapping := make([]Index, 0, len(tokens))
 	for _, token := range tokens {
-		tt, err := parseInt(token)
+		tt, err := util.ParseInt(token)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt overlayIdMapping: %v", token)
 		}
@@ -724,7 +728,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	cellMapping := make([]map[Pv]*Cell, levelInfo.GetLevelCount())
 	for i := 0; i < levelInfo.GetLevelCount(); i++ {
 		line, err = util.ReadLine(br)
-		cellsInLevel, err := parseInt(line)
+		cellsInLevel, err := util.ParseInt(line)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt cellsInLevel: %v", line)
 		}
@@ -733,37 +737,37 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine cellsInLevel")
 			}
-			tokens = fields(line)
+			tokens = util.Fields(line)
 			var cell *Cell = &Cell{}
-			ccn, err := parseInt(tokens[0])
+			ccn, err := util.ParseInt(tokens[0])
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine cellNumber: %v", tokens[0])
 			}
 			cellNumber := Pv(ccn)
-			numEntryExitPoint, err := parseInt(tokens[1])
+			numEntryExitPoint, err := util.ParseInt(tokens[1])
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine numEntryExitPoint: %v", tokens[1])
 			}
 			cell.numEntryPoints = Index(numEntryExitPoint)
-			numExitPoints, err := parseInt(tokens[2])
+			numExitPoints, err := util.ParseInt(tokens[2])
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine numExitPoints: %v", tokens[2])
 			}
 			cell.numExitPoints = Index(numExitPoints)
 
-			cellOffset, err := parseInt(tokens[3])
+			cellOffset, err := util.ParseInt(tokens[3])
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine cellOffset: %v", tokens[3])
 			}
 			cell.cellOffset = Index(cellOffset)
 
-			overlayIdOffset, err := parseInt(tokens[4])
+			overlayIdOffset, err := util.ParseInt(tokens[4])
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine overlayIdOffset: %v", tokens[4])
 			}
 			cell.overlayIdOffset = Index(overlayIdOffset)
 
-			numOverlayVertices, err := parseInt(tokens[5])
+			numOverlayVertices, err := util.ParseInt(tokens[5])
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine numOfOverlayVertices: %v", tokens[5])
 			}
@@ -779,10 +783,4 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	og := NewOverlayGraphComplete(vertices, vertexCountInLevel, cellMapping, overlayIdMapping, levelInfo, weightVectorSize)
 
 	return og, nil
-}
-
-func parseInt(s string) (int, error) {
-	var n int
-	_, err := fmt.Sscanf(s, "%d", &n)
-	return n, err
 }

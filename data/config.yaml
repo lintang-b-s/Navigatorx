@@ -1,6 +1,6 @@
 maxspeeds:
   motorway: 100
-  trunk: 65
+  trunk: 55
   primary: 50
   secondary: 40
   tertiary: 40
@@ -43,6 +43,11 @@ alternatives:
     50: 5
     100: 4
     default: 2
+
+
+
+
+
 
 
 

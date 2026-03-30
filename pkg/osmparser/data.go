@@ -6,15 +6,14 @@ import (
 )
 
 type Edge struct {
-	weight             float64
-	distance           float64
-	simplifiedDistance float64
-	fromOsmId          uint64
-	toOsmId            uint64
-	from               uint32
-	to                 uint32
-	osmwayId           int64
-	hwType             pkg.OsmHighwayType
+	weight    float64
+	distance  float64
+	fromOsmId uint64
+	toOsmId   uint64
+	from      uint32
+	to        uint32
+	osmwayId  int64
+	hwType    pkg.OsmHighwayType
 }
 
 func (e *Edge) GetFrom() datastructure.Index {
@@ -41,10 +40,6 @@ func (e *Edge) GetDistance() float64 {
 	return e.distance
 }
 
-func (e *Edge) GetSimplifiedDistance() float64 {
-	return e.simplifiedDistance
-}
-
 func (e *Edge) GetHighwayType() pkg.OsmHighwayType {
 	return e.hwType
 }
@@ -65,13 +60,12 @@ func (e *Edge) GetOsmWayId() int64 {
 	return e.osmwayId
 }
 
-func NewEdge(from, to uint32, weight, distance, simplifiedDistance float64, hwType pkg.OsmHighwayType) Edge {
+func NewEdge(from, to uint32, weight, distance float64, hwType pkg.OsmHighwayType) Edge {
 	return Edge{
-		from:               from,
-		to:                 to,
-		weight:             weight,
-		distance:           distance,
-		hwType:             hwType,
-		simplifiedDistance: simplifiedDistance,
+		from:     from,
+		to:       to,
+		weight:   weight,
+		distance: distance,
+		hwType:   hwType,
 	}
 }

@@ -123,6 +123,7 @@ func (v vertexEmb) getDotProd() float64 {
 	return v.dotProduct
 }
 
+// selectFirstLastKthVertices. sort vertices by linear kombinaasi latitude & longitude 
 func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]datastructure.Index, []datastructure.Index) {
 
 	vertices := dn.graph.GetVertices()
