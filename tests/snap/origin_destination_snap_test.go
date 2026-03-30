@@ -129,16 +129,16 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 	}
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, custom, logger)
+	err = lm.PreprocessALT(16, m, graph, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = lm.WriteLandmark(landmarkFile, custom)
+	err = lm.WriteLandmark(landmarkFile, graph)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -148,7 +148,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 
 // cd tests/snap && go test -run TestOriginDestinationSnap  -v -timeout=0  -count=1
 func TestOriginDestinationSnap(t *testing.T) {
-	eng, lm, logger := setup(t)
+	eng, _, logger := setup(t)
 	re := eng.GetRoutingEngine()
 	g := re.GetGraph()
 
@@ -203,10 +203,9 @@ func TestOriginDestinationSnap(t *testing.T) {
 	rtree := spatialindex.NewRtree()
 	rtree.Build(re.GetGraph(), 0.06, logger)
 
-	altSearch := routing.NewAlternativeRouteSearch(re, lm)
+	altSearch := routing.NewAlternativeRouteSearch(re)
 
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.08, true, true,
-		lm)
+	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.08, true, true)
 	if err != nil {
 		panic(err)
 	}

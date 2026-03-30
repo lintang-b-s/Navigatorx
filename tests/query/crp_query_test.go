@@ -241,18 +241,18 @@ func TestCRPQuerySimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 		lm := landmark.NewLandmark()
-		err = lm.PreprocessALT(util.MinInt(16, n), mt, custom, logger)
+		err = lm.PreprocessALT(util.MinInt(16, n), mt, g, logger)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = lm.WriteLandmark(landmarkFile, custom)
+		err = lm.WriteLandmark(landmarkFile, g)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		cf := costfunction.NewTimeCostFunctionEmpty()
 
-		re, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf)
+		re, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf, landmarkFile)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -263,7 +263,7 @@ func TestCRPQuerySimple(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			re, lm, newToOldVidMap, err := buildGraph(tc.filepath)
+			re, _, newToOldVidMap, err := buildGraph(tc.filepath)
 			graph := re.GetRoutingEngine().GetGraph()
 			n := graph.NumberOfVertices()
 
@@ -303,7 +303,7 @@ func TestCRPQuerySimple(t *testing.T) {
 				for target := da.Index(0); target < da.Index(n); target++ {
 					as := graph.GetDummyOutEdgeId(source)
 					at := graph.GetDummyInEdgeId(target)
-					crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+					crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 
 					spCost, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
@@ -412,16 +412,16 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	}
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, custom, logger)
+	err = lm.PreprocessALT(16, m, graph, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = lm.WriteLandmark(landmarkFile, custom)
+	err = lm.WriteLandmark(landmarkFile, graph)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -446,7 +446,7 @@ please run the test using command: "cd tests/query && go test -run TestCRPQueryS
 karena bakal time out kalau pakai vscode
 */
 func TestCRPQueryStressTest(t *testing.T) {
-	re, lm := setup(t)
+	re, _ := setup(t)
 	g := re.GetRoutingEngine().GetGraph()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -533,7 +533,7 @@ func TestCRPQueryStressTest(t *testing.T) {
 		id := q.id
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(target) + g.GetInDegree(target) - 1
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
 		expectedSp := expectedSPTravelTimes[i][target]

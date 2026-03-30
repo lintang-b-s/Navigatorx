@@ -34,22 +34,24 @@ export const options = {
 
 /*
 navigatorx:
-setelah ganti cache ke https://github.com/dgraph-io/ristretto
+900 vus (laptop tidak sambil dicharge & tdk low battery), setelah ganti cache ke https://github.com/dgraph-io/ristretto, pake ARRAY_STORAGE instead of TWO_LEVEL_STORAGE utk query heap,
+dan add profile guided optimization .pgo file:
+
 900vus:
 HTTP
-http_req_duration.......................................................: avg=5.6ms min=267.87µs med=4.46ms max=142.06ms p(90)=8.76ms p(95)=12.1ms
-{ expected_response:true }............................................: avg=5.6ms min=405.5µs  med=4.46ms max=142.06ms p(90)=8.76ms p(95)=12.1ms
-http_req_failed.........................................................: 0.00%  1 out of 20565
-http_reqs...............................................................: 20565  663.260696/s
+http_req_duration.......................................................: avg=4.2ms min=565.87µs med=3.64ms max=54.63ms p(90)=6.11ms p(95)=8.32ms
+  { expected_response:true }............................................: avg=4.2ms min=565.87µs med=3.64ms max=54.63ms p(90)=6.11ms p(95)=8.32ms
+http_req_failed.........................................................: 0.00%  0 out of 20612
+http_reqs...............................................................: 20612  664.566751/s
 
 EXECUTION
-iteration_duration......................................................: avg=1s    min=1s       med=1s     max=1.14s    p(90)=1s     p(95)=1.01s 
-iterations..............................................................: 20565  663.260696/s
-vus.....................................................................: 36     min=36         max=900
+iteration_duration......................................................: avg=1s    min=1s       med=1s     max=1.05s   p(90)=1s     p(95)=1s    
+iterations..............................................................: 20612  664.566751/s
+vus.....................................................................: 43     min=43         max=900
 vus_max.................................................................: 900    min=900        max=900
 
 NETWORK
-data_received...........................................................: 556 MB 18 MB/s
+data_received...........................................................: 567 MB 18 MB/s
 data_sent...............................................................: 5.0 MB 160 kB/s
 
 gokilll

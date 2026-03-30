@@ -15,6 +15,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"go.uber.org/zap"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 
@@ -45,7 +46,7 @@ type query struct {
 	s, t da.Index
 }
 
-func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
+func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logger) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		panic(err)
 	}
@@ -131,16 +132,16 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 	}
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, custom, logger)
+	err = lm.PreprocessALT(16, m, graph, logger)
 	if err != nil {
 		panic(err)
 	}
-	err = lm.WriteLandmark(landmarkFile, custom)
+	err = lm.WriteLandmark(landmarkFile, graph)
 	if err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -187,7 +188,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark) {
 
 	logger.Sugar().Infof("starting benchmark.....")
 
-	return re, queries, g, lm
+	return re, queries, g, lm, logger
 }
 
 /*
@@ -202,12 +203,12 @@ p2p query runtime match dengan hasil eksperimen ref [1], sekitar 1 ms
 todo: reduce memory space alloc / op lagi, now 56K B/op
 ngaruh ke load test
 
-todo2: optimize sampai p95 latency computeRoute ngalahin osrm
+todo2: optimize sampai p95 latency computeRoute ngalahin osrm  (DONE)
 */
 func BenchmarkCRPALTQuery(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
 
-	eng, queries, g, lm := setup()
+	eng, queries, g, _, _ := setup()
 	start := time.Now()
 	re := eng.GetRoutingEngine()
 
@@ -223,7 +224,7 @@ func BenchmarkCRPALTQuery(b *testing.B) {
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
 		_, _, path, edgePath, found := crpQuery.ShortestPathSearch(as, at)
 		if found {
 			re.DoneQuery(edgePath, path)

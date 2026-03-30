@@ -1,0 +1,56 @@
+package benchmark
+
+import (
+	"math/rand"
+	"testing"
+	"time"
+
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
+	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
+)
+
+/*
+cd tests/benchmark && go test -bench BenchmarkAlternativeRoutesService -benchmem -cpuprofile prof_alt_service.cpu -memprofile prof_alt_service.mem -benchtime=15s
+
+*/
+func BenchmarkAlternativeRoutesService(b *testing.B) {
+	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
+
+	eng, queries, g, _, logger := setup()
+	start := time.Now()
+	re := eng.GetRoutingEngine()
+
+	rtree := spatialindex.NewRtree()
+	rtree.Build(re.GetGraph(), 0.07, logger)
+	altSearch := routing.NewAlternativeRouteSearch(re)
+
+	rs, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true)
+	if err != nil {
+		b.Fatal(err)
+	}
+
+	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	n := len(queries)
+	for b.Loop() {
+		i := rd.Intn(n)
+		q := queries[i]
+
+		s := q.s
+		t := q.t
+
+		sCoord := g.GetVertex(s).GetCoordinate()
+		tCoord := g.GetVertex(t).GetCoordinate()
+
+		rs.AlternativeRouteSearch(sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(),
+			3)
+	}
+
+	now := time.Since(start)
+	msPerOp := float64(now.Milliseconds()) / float64(b.N)
+	throughput := float64(b.N) / b.Elapsed().Seconds()
+
+	b.ReportMetric(msPerOp, "ms/op")
+	b.ReportMetric(throughput, "ops/sec")
+
+}

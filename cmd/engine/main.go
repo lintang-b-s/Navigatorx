@@ -13,7 +13,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -56,12 +55,7 @@ func main() {
 		panic(err)
 	}
 
-	lm, err := landmark.ReadLandmark(landmarkFile)
-	if err != nil {
-		panic(err)
-	}
-
-	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -81,20 +75,19 @@ func main() {
 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
 		0.06, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
 
-	offlineMapMatcherEngine := offline.NewHiddenMarkovModelMapMatching(graph, routingEngine, rtree, lm) // speed in meter/minute, default sampling interval 1.0 seconds (using seatle dataset)
+	offlineMapMatcherEngine := offline.NewHiddenMarkovModelMapMatching(graph, routingEngine, rtree) // speed in meter/minute, default sampling interval 1.0 seconds (using seatle dataset)
 
 	api := http.NewServer(logger)
 
 	re := routingEngine.GetRoutingEngine()
-	altSearch := routing.NewAlternativeRouteSearch(re, lm)
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true,
-		lm)
+	altSearch := routing.NewAlternativeRouteSearch(re)
+	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true)
 	if err != nil {
 		panic(err)
 	}
 
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine, offlineMapMatcherEngine)
-	ctx, cleanup, err := NewContext()
+	ctx, cleanup, err := NewContext(re, routingService)
 	if err != nil {
 		panic(err)
 	}
@@ -108,9 +101,11 @@ func main() {
 	cleanup()
 }
 
-func NewContext() (context.Context, func(), error) {
+func NewContext(re *routing.CRPRoutingEngine, rs *usecases.RoutingService) (context.Context, func(), error) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cb := func() {
+		re.Close()
+		rs.Close()
 		cancel()
 	}
 

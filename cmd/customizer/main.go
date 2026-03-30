@@ -46,11 +46,11 @@ func main() {
 	}
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(numberOfLandmarks, m, custom, logger)
+	err = lm.PreprocessALT(numberOfLandmarks, m, custom.GetGraph(), logger)
 	if err != nil {
 		panic(err)
 	}
-	err = lm.WriteLandmark(landmarkFile, custom)
+	err = lm.WriteLandmark(landmarkFile, custom.GetGraph())
 	if err != nil {
 		panic(err)
 	}

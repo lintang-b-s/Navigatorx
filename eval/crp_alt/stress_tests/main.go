@@ -150,16 +150,16 @@ func main() {
 	}
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, custom, logger)
+	err = lm.PreprocessALT(16, m, graph, logger)
 	if err != nil {
 		panic(err)
 	}
-	err = lm.WriteLandmark(landmarkFile, custom)
+	err = lm.WriteLandmark(landmarkFile, graph)
 	if err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -261,7 +261,7 @@ func main() {
 		id := q.id
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
 		expectedSp := expectedSPTravelTimes[i][t]

@@ -109,6 +109,7 @@ const (
 	overlayGraphFile         string = "./data/overlay_graph_eval_mm.graph"
 	metricsFile              string = "./data/metrics_eval_mm.txt"
 	roadnetworkDriveFile            = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
+	landmarkFile                    = "./data/eval/mapmatching/landmark_nk.lm"
 )
 
 func download(filePath, url string, logger *zap.Logger, name string) error {
@@ -411,13 +412,18 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		return nil, nil, nil, nil, nil, err
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	lm := landmark.NewLandmark()
+	err = lm.PreprocessALT(2, m, g, logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
+	
+	err = lm.WriteLandmark(landmarkFile, g)
+	if err != nil {
+		panic(err)
+	}
 
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(2, m, cust, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -448,7 +454,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 
 	computeRoute := func(q query) []da.OutEdge {
 		s, t := q.s, q.t
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		as := g.GetDummyOutEdgeId(s)
 		at := g.GetDummyInEdgeId(t)
 

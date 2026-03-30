@@ -337,7 +337,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	if (2.0*float64(e))/math.Pow(float64(N)*2.0, 2) >= 0.00005 {
 		u1, u2, u3, u4 = 22, 23, 24, 25 // gak bikin partisi
 	} // jumlah shortcuts nya kebanyakan aowkwowk > 100jt kalau test case nya dense
-	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2, u3, u4}, true)
+	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2, u3, u4}, true)
 
 	t.Logf("calculating shortest path from P: %v, to: Q: %v\n", P+1, Q+1)
 
@@ -349,10 +349,10 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 	atTransit := g.GetEntryOffset(tidTransit) + g.GetInDegree(tidTransit) - 1
 
-	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
-	crpQuery2 := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+	crpQuery2 := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 	spLengthTransit, _, _, _, _ := crpQuery2.ShortestPathSearch(as, atTransit)
 
 	var ans float64

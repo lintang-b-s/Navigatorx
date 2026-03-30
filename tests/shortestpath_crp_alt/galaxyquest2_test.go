@@ -224,7 +224,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(planet.x+planet.z), float64(planet.y+planet.z)))
 	}
 
-	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, n, []int{7, 9, 11}, true)
+	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{7, 9, 11}, true)
 	s := 0
 	sid := oldToNewVIdMap[da.Index(s)]
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
@@ -246,7 +246,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	}
 
 	for _, at := range atIds {
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
 		target := atIdTotId[at]

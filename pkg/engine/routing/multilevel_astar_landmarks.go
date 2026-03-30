@@ -5,7 +5,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -21,7 +20,6 @@ type CRPALTBidirectionalSearch struct {
 	stallingEntry []float64
 	stallingExit  []float64
 
-	lm              *landmark.Landmark
 	activeLandmarks []da.Index
 
 	sCellNumber da.Pv
@@ -49,7 +47,7 @@ type CRPALTBidirectionalSearch struct {
 	viaVertices []*da.ViaVertex
 }
 
-func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, lm *landmark.Landmark) *CRPALTBidirectionalSearch {
+func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CRPALTBidirectionalSearch {
 	crpQuery := &CRPALTBidirectionalSearch{
 		engine: engine,
 
@@ -57,7 +55,6 @@ func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64, 
 		backwardMid: da.NewVertexEdgePair(0, 0, true),
 		upperBound:  upperBound,
 
-		lm:              lm,
 		activeLandmarks: make([]da.Index, 0),
 
 		numScannedVertices:        0,
@@ -260,7 +257,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	bs.forwardPq.Insert(sForwardId, 0, sVertexInfo, sQueryKey)
 	bs.backwardPq.Insert(tBackwardId, 0, tVertexInfo, tQueryKey)
 
-	bs.activeLandmarks = bs.lm.SelectBestQueryLandmarks(s, t)
+	bs.activeLandmarks = bs.engine.lm.SelectBestQueryLandmarks(s, t)
 
 	close := func(id da.Index, queryHeap *da.QueryHeap[da.CRPQueryKey]) {
 		// scan item (can be edgeId or overlay vertex id)
@@ -311,7 +308,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	dur := time.Since(now).Milliseconds()
 	bs.runtime = dur
 
-	unpacker := NewPathUnpackerALT(bs.engine, bs.engine.metrics, bs.engine.puCache, true, bs.lm)
+	unpacker := NewPathUnpackerALT(bs.engine, bs.engine.metrics, bs.engine.puCache, true, bs.engine.lm)
 	edgeIdPath, shortcutPathSet := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.shortcutPathSet = shortcutPathSet
 	bs.pathUnpackingRuntime = unpacker.GetStats()
@@ -368,7 +365,7 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 		}
 
 		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-		pfv, _ := bs.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
+		pfv, _ := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
@@ -533,7 +530,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 		}
 
 		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-		_, prv := bs.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
+		_, prv := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
 
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
 
@@ -684,7 +681,7 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 			bs.forwardPq.Scan(overlayVId)
 
 			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-			pfw, _ := bs.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
+			pfw, _ := bs.engine.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
 
 			newTravelTime = bs.forwardPq.GetPriority(overlayVId) + edgeWeight
 
@@ -852,7 +849,7 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 			bs.backwardPq.Scan(overlayVId)
 
 			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-			_, prw := bs.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
+			_, prw := bs.engine.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
 
 			newTravelTime = bs.backwardPq.GetPriority(overlayVId) + inEdgeWeight
 

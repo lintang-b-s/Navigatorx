@@ -14,7 +14,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -42,12 +41,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	lm, err := landmark.ReadLandmark(landmarkFile)
-	if err != nil {
-		panic(err)
-	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -119,7 +114,7 @@ func main() {
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
 		now := time.Now()
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		_, _, _, spEdges, _ := crpQuery.ShortestPathSearch(as, at)
 		dur := time.Since(now).Milliseconds()
 		durations += float64(dur)

@@ -99,6 +99,10 @@ func (db *DirectionBuilder) Reset() {
 func (db *DirectionBuilder) GetDrivingDirections(path []da.OutEdge, drivingDirections []da.DrivingDirection) []da.DrivingDirection {
 	defer db.done()
 
+	if len(path) == 0 {
+		return make([]da.DrivingDirection, 0)
+	}
+
 	for _, edge := range path {
 		db.buildInstruction(edge)
 	}

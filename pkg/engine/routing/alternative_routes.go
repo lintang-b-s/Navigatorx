@@ -11,7 +11,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 )
@@ -167,7 +166,6 @@ func (al *AlternativeRouteParameters) getMaxCandidatesToUnpack() int {
 
 type AlternativeRouteSearch struct {
 	engine *CRPRoutingEngine
-	lm     *landmark.Landmark
 
 	// parameter yang di init pakai read yml config
 	maxCandidatesToUnpackMap       map[float64]int
@@ -182,13 +180,11 @@ type AlternativeRouteSearch struct {
 	candidateFilterWorkers   int
 }
 
-func NewAlternativeRouteSearch(engine *CRPRoutingEngine, lm *landmark.Landmark,
+func NewAlternativeRouteSearch(engine *CRPRoutingEngine,
 
 ) *AlternativeRouteSearch {
 	alt := &AlternativeRouteSearch{
 		engine: engine,
-
-		lm: lm,
 	}
 	alt.initParameter()
 	return alt
@@ -225,7 +221,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		extract-min at most O(m_p+n_o) operations
 	*/
 	now := time.Now()
-	
+
 	s := ars.engine.graph.GetOutEdge(asId).GetHead()
 	t := ars.engine.graph.GetInEdge(atId).GetTail()
 	param := ars.parameterByRequest(s, t)
@@ -439,13 +435,14 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 			go func() {
 				defer wg.Done()
-				unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.lm)
+				unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.engine.lm)
 				unpacker.setForAlternativeRoutes()
+				
 				svEdgeIdPath, _ = unpacker.unpackPath(svPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 			}()
 			// backward
 
-			unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.lm)
+			unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.engine.lm)
 			unpacker.setForAlternativeRoutes()
 			vtEdgeIdPath, _ = unpacker.unpackPath(vtPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 		} else {
@@ -455,14 +452,14 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 			go func() {
 				defer wg.Done()
-				unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.lm)
+				unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.engine.lm)
 				unpacker.setForAlternativeRoutes()
 				svEdgeIdPath, _ = unpacker.unpackPath(svPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 			}()
 
 			// backward
 
-			unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.lm)
+			unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.engine.lm)
 			unpacker.setForAlternativeRoutes()
 
 			vtEdgeIdPath, _ = unpacker.unpackPath(vtPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)

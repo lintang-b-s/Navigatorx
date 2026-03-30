@@ -84,7 +84,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	}
 	cf := costfunction.NewTimeCostFunctionEmpty()
 
-	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf)
+	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, landmarkFile)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -93,7 +93,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	newToOldVidMap := prep.GetNewToOldVIdMap()
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(2, m, cust, logger)
+	err = lm.PreprocessALT(2, m, g, logger)
 	if err != nil {
 		panic(err)
 	}

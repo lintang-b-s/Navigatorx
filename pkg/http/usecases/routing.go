@@ -10,7 +10,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/guidance"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
@@ -22,7 +21,6 @@ type RoutingService struct {
 	altRouting                 AlternativeRouteAlgorithm
 	searchRadius               float64
 	clockwise, lefthandDriving bool
-	lm                         *landmark.Landmark
 
 	// sync pools
 	drivingInstructionPool *sync.Pool
@@ -35,7 +33,6 @@ type RoutingService struct {
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
 	searchRadius float64, clockwise, lefthandDriving bool,
-	lm *landmark.Landmark,
 ) (*RoutingService, error) {
 	rs := &RoutingService{
 		log:             log,
@@ -45,8 +42,6 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		clockwise:       clockwise,
 		lefthandDriving: lefthandDriving,
 		altRouting:      altRouting,
-
-		lm: lm,
 	}
 
 	rs.drivingInstructionPool = &sync.Pool{
@@ -88,7 +83,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		BufferItems: 64,                              // number of keys per Get buffer.
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v")
+		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v", maxCost)
 	}
 
 	rs.directionBuilderPool = &sync.Pool{
@@ -125,7 +120,7 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 		found            bool
 	)
 
-	crpQuery := routing.NewCRPALTBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0, rs.lm)
+	crpQuery := routing.NewCRPALTBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0)
 	travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
 
 	if !found {
@@ -143,10 +138,10 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 
 	drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
 	drivingDirection = drivingDirection[:0]
-	directionBuilder.Reset()
 
 	drivingDirection = directionBuilder.GetDrivingDirections(edgePath, drivingDirection)
 
+	directionBuilder.Reset()
 	rs.directionBuilderPool.Put(directionBuilder)
 	rs.engine.DoneQuery(edgePath, pathCoords)
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
@@ -176,7 +171,6 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 		pathPolyline := geo.PoylineFromCoords(da.NewGeoCoordinates(altPathCoords))
 		alt.SetPolylinePath(pathPolyline)
 		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
-		directionBuilder.Reset()
 		// todo: update kode driving direction buat improve performance
 
 		drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
@@ -184,6 +178,7 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 		drivingDirection = directionBuilder.GetDrivingDirections(alt.GetPath(), drivingDirection)
 		alt.SetDrivingDirections(drivingDirection)
 
+		directionBuilder.Reset()
 		rs.directionBuilderPool.Put(directionBuilder)
 		rs.engine.DoneQuery(alt.GetPath(), alt.GetCoords())
 	}
@@ -196,4 +191,8 @@ func (rs *RoutingService) GetEngine() RoutingEngine {
 
 func (rs *RoutingService) DoneDrivingDirection(drivingDirection []da.DrivingDirection) {
 	rs.drivingDirectionPool.Put(drivingDirection)
+}
+
+func (rs *RoutingService) Close() {
+	rs.turnSignCache.Close()
 }

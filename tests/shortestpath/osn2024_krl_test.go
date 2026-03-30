@@ -331,11 +331,11 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i-N), float64(i-N)))
 	}
 
-	u1, u2, u3, u4 := 7, 11, 14, 16
+	u1, u2, u3 := 7, 11, 14
 	if (2.0*float64(e))/math.Pow(float64(N)*2.0, 2) >= 0.00005 {
-		u1, u2, u3, u4 = 22, 23, 24, 25 // gak bikin partisi
+		u1, u2, u3 = 22, 23, 24 // gak bikin partisi
 	} // jumlah shortcuts nya kebanyakan aowkwowk > 100jt kalau test case nya dense
-	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2, u3, u4}, true)
+	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2, u3}, true)
 
 	t.Logf("calculating shortest path from P: %v, to: Q: %v\n", P+1, Q+1)
 

@@ -11,7 +11,6 @@ import (
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -22,19 +21,14 @@ type HMM struct {
 	re     *engine.Engine
 	rt     *spatialindex.Rtree
 	logger *zap.Logger
-
-	lm *landmark.Landmark
 }
 
 func NewHiddenMarkovModelMapMatching(graph *da.Graph, re *engine.Engine,
-	rt *spatialindex.Rtree,
-
-	lm *landmark.Landmark) *HMM {
+	rt *spatialindex.Rtree) *HMM {
 	return &HMM{
 		graph: graph,
 		re:    re,
 		rt:    rt,
-		lm:    lm,
 	}
 }
 
@@ -252,7 +246,7 @@ func (h *HMM) calcTransitionProb(param calcTransitionProbParam) transitionWithPr
 			msDist))
 	}
 
-	crpQuery := routing.NewCRPALTBidirectionalSearch(h.re.GetRoutingEngine(), 1.0, h.lm)
+	crpQuery := routing.NewCRPALTBidirectionalSearch(h.re.GetRoutingEngine(), 1.0)
 	crpQuery.OnMapMatching(handleRelaxOutEdge, handleRelaxInEdge)
 
 	_, routeDist, _, _, found := crpQuery.ShortestPathSearch(as, at)

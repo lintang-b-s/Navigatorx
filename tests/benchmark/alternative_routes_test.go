@@ -24,15 +24,12 @@ BenchmarkAlternativeRoutes-12               9158           1959775 ns/op        
 
 CRP alternative routes query runtime match dengan hasil eksperimen ref [1] table 8, sekitar 3 ms
 
-todo: reduce memory space alloc / op lagi, now 270k B/op
-ngaruh ke load test
-
-todo2: optimize sampai p95 latency alternative routes ngalahin osrm
+todo2: optimize sampai p95 latency alternative routes ngalahin osrm (DONE)
 */
 func BenchmarkAlternativeRoutes(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
 
-	eng, queries, g, lm := setup()
+	eng, queries, g, _, _ := setup()
 	start := time.Now()
 	re := eng.GetRoutingEngine()
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -47,7 +44,7 @@ func BenchmarkAlternativeRoutes(b *testing.B) {
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
-		crpQuery := routing.NewAlternativeRouteSearch(re, lm)
+		crpQuery := routing.NewAlternativeRouteSearch(re)
 		alts, _, _ := crpQuery.FindAlternativeRoutes(as, at, 3)
 		for j := 0; j < len(alts); j++ {
 			alt := alts[j]

@@ -151,7 +151,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(placei.x), float64(placei.y*placei.floor)))
 	}
 
-	re, g, oldToNewVIdMap, newToOldVidMap, lm := buildCRP(t, nodeCoords, adjList, N, []int{6, 7}, true)
+	re, g, oldToNewVIdMap, newToOldVidMap, _ := buildCRP(t, nodeCoords, adjList, N, []int{6, 7}, true)
 
 	line, err = readLine(br)
 	if err != nil {
@@ -195,7 +195,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 		at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		_, _, _, spEdges, _ := crpQuery.ShortestPathSearch(as, at)
 		path := make([]int, 0)
 		path = append(path, a)

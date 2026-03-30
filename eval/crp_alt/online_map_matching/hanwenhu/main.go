@@ -68,6 +68,7 @@ const (
 	shanghaiTestDataFilePath           = "./data/eval/mapmatching/Shanghai/track"
 	shanghaiGroundTruthFilepath        = "./data/eval/mapmatching/Shanghai/ground"
 	mlpFile                            = "online_map_match_mlp_hanwenhu"
+	landmarkFile                       = "./data/eval/mapmatching/landmark_hh.lm"
 )
 
 var (
@@ -143,15 +144,19 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: cust.Customize() failed: %v", err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: engine.NewEngine() failed: %v", err)
-	}
-
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(2, m, cust, logger)
+	err = lm.PreprocessALT(2, m, graph, logger)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph:  lm.PreprocessALT() failed: %v", err)
+	}
+	err = lm.WriteLandmark(landmarkFile, graph)
+	if err != nil {
+		panic(err)
+	}
+
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: engine.NewEngine() failed: %v", err)
 	}
 
 	logger.Sugar().Infof("customization phase of Customizable Route Planning (CRP) done....")
@@ -180,7 +185,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 
 	computeRoute := func(q query) []da.OutEdge {
 		s, t := q.s, q.t
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		as := graph.GetDummyOutEdgeId(s)
 		at := graph.GetDummyInEdgeId(t)
 

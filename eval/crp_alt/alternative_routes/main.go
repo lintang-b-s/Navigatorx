@@ -156,16 +156,16 @@ func main() {
 	}
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, custom, logger)
+	err = lm.PreprocessALT(16, m, custom.GetGraph(), logger)
 	if err != nil {
 		panic(err)
 	}
-	err = lm.WriteLandmark(landmarkFile, custom)
+	err = lm.WriteLandmark(landmarkFile, custom.GetGraph())
 	if err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -225,7 +225,7 @@ func main() {
 		s := queries[i].s
 		t := queries[i].t
 
-		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine(), lm)
+		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine())
 
 		alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(s, t, 4)
 

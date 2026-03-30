@@ -6,6 +6,7 @@ import (
 
 	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"go.uber.org/zap"
 )
@@ -14,6 +15,7 @@ type CRPRoutingEngine struct {
 	graph              *da.Graph
 	overlayGraph       *da.OverlayGraph
 	metrics            *met.Metric
+	lm                 *landmark.Landmark
 	logger             *zap.Logger
 	puCache            *ristretto.Cache[[]byte, []da.Index]
 	fHeapPool          sync.Pool
@@ -36,7 +38,7 @@ type CRPRoutingEngine struct {
 func NewCRPRoutingEngine(graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric,
 	logger *zap.Logger, puCache *ristretto.Cache[[]byte, []da.Index],
-	customizer Customizer, costFunction CostFunction) *CRPRoutingEngine {
+	customizer Customizer, costFunction CostFunction, lm *landmark.Landmark) *CRPRoutingEngine {
 	e := &CRPRoutingEngine{
 		graph:        graph,
 		metrics:      metrics,
@@ -45,6 +47,7 @@ func NewCRPRoutingEngine(graph *da.Graph,
 		puCache:      puCache,
 		customizer:   customizer,
 		costFunction: costFunction,
+		lm:           lm,
 	}
 	e.BuildQueryHeapPool()
 	e.initParameter()
@@ -142,4 +145,8 @@ func (crp *CRPRoutingEngine) initParameter() {
 
 func (crp *CRPRoutingEngine) GetMaxSpeed(e *da.OutEdge) float64 {
 	return crp.metrics.GetMaxSpeed(e)
+}
+
+func (crp *CRPRoutingEngine) Close() {
+	crp.puCache.Close()
 }

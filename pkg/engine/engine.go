@@ -7,6 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"go.uber.org/zap"
 )
@@ -19,8 +20,8 @@ func (e *Engine) GetRoutingEngine() *routing.CRPRoutingEngine {
 	return e.crpRoutingEngine
 }
 
-func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger) (*Engine, error) {
-	initializeRoutingEngine, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath,
+func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger) (*Engine, error) {
+	initializeRoutingEngine, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile,
 		logger)
 	if err != nil {
 		return nil, err
@@ -33,7 +34,7 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logg
 const keyValByteApproxSize = 9 + 4*5
 
 func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.Metric,
-	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction) (*Engine, error) {
+	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction, landmarkFile string) (*Engine, error) {
 	// customizable route planning in road networks section 7.2 (path retrieval)
 	// puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 524288
 
@@ -47,14 +48,20 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 		return nil, errors.Wrapf(err, "NewEngineDirect: failed to create new ristretto cache with capacity: %v")
 	}
 
-	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf)
+	lm := landmark.NewLandmark()
+	err = lm.PreprocessALT(4, m, graph, logger)
+	if err != nil {
+		panic(err)
+	}
+
+	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf, lm)
 
 	return &Engine{
 		crpRoutingEngine: re,
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath string, logger *zap.Logger,
+func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger,
 ) (*routing.CRPRoutingEngine,
 	error) {
 
@@ -85,7 +92,6 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	cst.SetOverlayWeight(m.GetWeights())
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
-	// puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 20) // 1048576
 
 	maxCost := int64(1) << 27 // kalo ristretto ukurannya mb? 134.217728 MB
 	// max items in cache ~ 1.5jt
@@ -98,5 +104,10 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v")
 	}
 
-	return routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf), nil
+	lm, err := landmark.ReadLandmark(landmarkFile)
+	if err != nil {
+		panic(err)
+	}
+
+	return routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf, lm), nil
 }

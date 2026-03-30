@@ -10,7 +10,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -40,7 +39,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+
+	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -67,16 +67,11 @@ func main() {
 	}
 
 	rd := rand.New(rand.NewSource(uint64(time.Now().UnixNano())))
-	lm, err := landmark.ReadLandmark(landmarkFile)
-	if err != nil {
-		panic(err)
-	}
 
 	re := routingEngine.GetRoutingEngine()
-	altSearch := routing.NewAlternativeRouteSearch(re, lm)
+	altSearch := routing.NewAlternativeRouteSearch(re)
 
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true, true,
-		lm)
+	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true, true)
 	if err != nil {
 		panic(err)
 	}
@@ -97,7 +92,7 @@ func main() {
 			continue
 		}
 
-		crpQuery := routing.NewCRPALTBidirectionalSearch(routingService.GetEngine().(*routing.CRPRoutingEngine), 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(routingService.GetEngine().(*routing.CRPRoutingEngine), 1.0)
 		_, _, _, edgePath, found := crpQuery.ShortestPathSearch(as, at)
 		if !found {
 			continue

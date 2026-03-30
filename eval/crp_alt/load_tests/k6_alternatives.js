@@ -34,24 +34,28 @@ export const options = {
 
 /*
 navigatorx:
-success rate (dari semua query ada berapa query yang berhasil return alternative routes): 81%  (didapat dari script eval/crp_alt/alternative_routes/main.go)
+success rate (dari semua query ada berapa query yang berhasil return alternative routes): 83%  (didapat dari script eval/crp_alt/alternative_routes/main.go)
 
-900 vus (laptop tidak sambil dicharge & tdk low battery), setelah ganti cache ke https://github.com/dgraph-io/ristretto:
+
+900 vus (laptop tidak sambil dicharge & tdk low battery), setelah ganti cache ke https://github.com/dgraph-io/ristretto, pake ARRAY_STORAGE instead of TWO_LEVEL_STORAGE utk query heap,
+dan add profile guided optimization .pgo file:
+
 HTTP
-http_req_duration.......................................................: avg=57.63ms min=582.51µs med=24.89ms max=727.14ms p(90)=148.93ms p(95)=192.74ms
-  { expected_response:true }............................................: avg=57.63ms min=582.51µs med=24.89ms max=727.14ms p(90)=148.93ms p(95)=192.74ms
-http_req_failed.........................................................: 0.00%  0 out of 19608
-http_reqs...............................................................: 19608  631.8059/s
+http_req_duration.......................................................: avg=27.38ms min=504.05µs med=11.44ms max=304.66ms p(90)=75.12ms p(95)=100.51ms
+{ expected_response:true }............................................: avg=27.38ms min=504.05µs med=11.44ms max=304.66ms p(90)=75.12ms p(95)=100.51ms
+http_req_failed.........................................................: 0.00%  0 out of 20144
+http_reqs...............................................................: 20144  649.279019/s
 
 EXECUTION
-iteration_duration......................................................: avg=1.05s   min=1s       med=1.02s   max=1.72s    p(90)=1.15s    p(95)=1.19s   
-iterations..............................................................: 19608  631.8059/s
-vus.....................................................................: 84     min=58         max=900
+iteration_duration......................................................: avg=1.02s   min=1s       med=1.01s   max=1.3s     p(90)=1.07s   p(95)=1.1s    
+iterations..............................................................: 20144  649.279019/s
+vus.....................................................................: 171    min=55         max=900
 vus_max.................................................................: 900    min=900        max=900
 
 NETWORK
-data_received...........................................................: 909 MB 29 MB/s
-data_sent...............................................................: 5.0 MB 162 kB/s
+data_received...........................................................: 922 MB 30 MB/s
+data_sent...............................................................: 5.2 MB 166 kB/s
+
 
 gokilll
 

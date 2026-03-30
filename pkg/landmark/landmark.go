@@ -14,7 +14,7 @@ import (
 	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
-	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
+	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -43,10 +43,10 @@ this is an implementation of planar landmark selection described in section 7 pa
 
 O(V*logV)
 */
-func (lm *Landmark) SelectLandmarksTwo(k int, cst *customizer.Customizer) []*da.Vertex {
+func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []*da.Vertex {
 
 	landmarks := make([]*da.Vertex, 0, k)
-	ivs := cst.GetGraph().GetVertices()
+	ivs := graph.GetVertices()
 
 	minLon := math.MaxFloat64
 	maxLon := math.Inf(-1)
@@ -70,7 +70,7 @@ func (lm *Landmark) SelectLandmarksTwo(k int, cst *customizer.Customizer) []*da.
 
 	centerLat := (maxLat + minLat) / 2.0
 	centerLon := (maxLon + minLon) / 2.0
-	n := cst.GetGraph().NumberOfVertices()
+	n := graph.NumberOfVertices()
 
 	midLandmark := &da.Vertex{}
 	minMidDist := math.MaxFloat64
@@ -84,7 +84,7 @@ func (lm *Landmark) SelectLandmarksTwo(k int, cst *customizer.Customizer) []*da.
 		}
 	}
 
-	vs := cst.GetGraph().GetVertices()
+	vs := graph.GetVertices()
 	vsCopy := make([]*da.Vertex, n)
 	copy(vsCopy, vs)
 
@@ -173,11 +173,11 @@ time complexity of ALT preprocessing:
 
 O(m*logm * k), m=number of edges,k=number of landmarks
 */
-func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Customizer, logger *zap.Logger) error {
+func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure.Graph, logger *zap.Logger) error {
 	if k > 64 {
 		return errors.New("too much landmarks!, the maximum number of landmarks is 64. ")
 	}
-	n := cst.GetGraph().NumberOfVertices()
+	n := graph.NumberOfVertices()
 
 	if n < k {
 		lm.lw = make([][]float64, 0)
@@ -197,10 +197,10 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 	for i := 0; i < k; i++ {
 		lm.lw[i] = make([]float64, n)
 	}
-	landmarks := lm.SelectLandmarksTwo(k, cst)
+	landmarks := lm.SelectLandmarksTwo(k, graph)
 
-	maxSearchSize := cst.GetGraph().NumberOfEdges()
-	maxEdgesInCell := cst.GetGraph().GetMaxEdgesInCell()
+	maxSearchSize := graph.NumberOfEdges()
+	maxEdgesInCell := graph.GetMaxEdgesInCell()
 
 	heapPool := sync.Pool{
 		New: func() any {
@@ -212,9 +212,9 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 		sid := qp.getSid()
 		il := qp.getIndex()
 
-		asl := cst.GetGraph().GetDummyOutEdgeId(sid)
+		asl := graph.GetDummyOutEdgeId(sid)
 
-		crpQuery := NewDijkstra(cst.GetGraph(), m, false) // O(mlogm). at most m items in pq (edge-based), decrease/insert key operation at most m times, extractMin operation at most m times
+		crpQuery := NewDijkstra(graph, m, false) // O(mlogm). at most m items in pq (edge-based), decrease/insert key operation at most m times, extractMin operation at most m times
 		sps := crpQuery.ShortestPath(asl, &heapPool)
 
 		return newQueryRet(il, sps)
@@ -223,8 +223,8 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, cst *customizer.Cust
 	calcDijkstraRev := func(qp queryParam) queryRet {
 		sid := qp.getSid()
 		il := qp.getIndex()
-		crpQuery := NewDijkstra(cst.GetGraph(), m, true) // O(mlogm)
-		at := cst.GetGraph().GetDummyInEdgeId(sid)       // dummy edge (s,s)
+		crpQuery := NewDijkstra(graph, m, true) // O(mlogm)
+		at := graph.GetDummyInEdgeId(sid)       // dummy edge (s,s)
 
 		sps := crpQuery.ShortestPath(at, &heapPool)
 		return newQueryRet(il, sps)
@@ -394,7 +394,7 @@ func (lm *Landmark) GetVerticesLandmarkWeights() [][]float64 {
 	return lm.vlw
 }
 
-func (lm *Landmark) WriteLandmark(filename string, cst *customizer.Customizer) error {
+func (lm *Landmark) WriteLandmark(filename string, graph *datastructure.Graph) error {
 	f, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -412,7 +412,7 @@ func (lm *Landmark) WriteLandmark(filename string, cst *customizer.Customizer) e
 
 	k := len(lm.landmarks)
 
-	n := cst.GetGraph().NumberOfVertices()
+	n := graph.NumberOfVertices()
 	fmt.Fprintf(w, "%d %d\n", k, n)
 
 	for i := 0; i < k; i++ {

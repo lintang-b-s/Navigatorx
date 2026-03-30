@@ -172,7 +172,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		}
 	}
 
-	re, g, oldToNewVIdMap, _, lm := buildCRP(t, nodeCoords, adjList, r*c, []int{7, 8, 14, 17}, true)
+	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, r*c, []int{7, 8, 14, 17}, true)
 
 	tnId := cellToNId(tx, ty)
 	tid := oldToNewVIdMap[datastructure.Index(tnId)]
@@ -189,7 +189,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 		as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0, lm)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
 		lock.Lock()

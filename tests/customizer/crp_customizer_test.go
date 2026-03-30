@@ -310,18 +310,18 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 		lm := landmark.NewLandmark()
-		err = lm.PreprocessALT(util.MinInt(16, n), mt, custom, logger)
+		err = lm.PreprocessALT(util.MinInt(16, n), mt, g, logger)
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = lm.WriteLandmark(landmarkFile, custom)
+		err = lm.WriteLandmark(landmarkFile, g)
 		if err != nil {
 			t.Fatal(err)
 		}
 
 		cf := costfunction.NewTimeCostFunctionEmpty()
 
-		re, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf)
+		re, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf, landmarkFile)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -556,16 +556,16 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	}
 
 	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, custom, logger)
+	err = lm.PreprocessALT(16, m, graph, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = lm.WriteLandmark(landmarkFile, custom)
+	err = lm.WriteLandmark(landmarkFile, graph)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
