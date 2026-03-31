@@ -95,12 +95,12 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	dstCoord := make([]da.Coordinate, len(dstCandidates))
 
 	for i, c := range origCandidates {
-		projectedLat, projectedLon, origDist[i] = rs.ProjectCoordinateToEdge(qOrigLat, qOrigLon, c.GetId())
+		projectedLat, projectedLon, origDist[i] = rs.ProjectCoordinateToEdge(qOrigLat, qOrigLon, c)
 		origCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
 	}
 
 	for i, c := range dstCandidates {
-		projectedLat, projectedLon, dstDist[i] = rs.ProjectCoordinateToEdge(qDstLat, qDstLon, c.GetId())
+		projectedLat, projectedLon, dstDist[i] = rs.ProjectCoordinateToEdge(qDstLat, qDstLon, c)
 		dstCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
 	}
 
@@ -122,8 +122,8 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 		return dstDist[sortedDstId[i]] < dstDist[sortedDstId[j]]
 	})
 
-	sortedOrig := make([]spatialindex.ArcEndpoint, len(origCandidates))
-	sortedDst := make([]spatialindex.ArcEndpoint, len(dstCandidates))
+	sortedOrig := make([]da.Index, len(origCandidates))
+	sortedDst := make([]da.Index, len(dstCandidates))
 	sortedOrigCoord := make([]da.Coordinate, len(origCandidates))
 	sortedDstCoord := make([]da.Coordinate, len(dstCandidates))
 
@@ -149,14 +149,14 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 		da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON), da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON))
 	for i, o := range sortedOrig {
 		for j, d := range sortedDst {
-			destinationTail, dstInEdge := g.GetTailOfOutedgeWithInEdge(d.GetId())
-			originHead := g.GetHeadOfOutEdge(o.GetId())
-			if rs.isPairAlreadyEvaluated(o.GetId(), d.GetId(), removedPrevPairSet) {
+			destinationTail, dstInEdge := g.GetTailOfOutedgeWithInEdge(d)
+			originHead := g.GetHeadOfOutEdge(o)
+			if rs.isPairAlreadyEvaluated(o, d, removedPrevPairSet) {
 				continue
 			}
 
 			// kita set (o,d) evaluated=true mau ada path atau gak ada path dari o ke d.
-			rs.evaluate(o.GetId(), d.GetId(), removedPrevPairSet)
+			rs.evaluate(o, d, removedPrevPairSet)
 
 			// O(V_G + E_G), V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
 			if !rs.engine.PathExists(originHead, destinationTail) {
@@ -167,7 +167,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 			if origDestSnapDist < minDist {
 				minDist = origDestSnapDist
-				bestPair = newOriginDestination(o.GetId(), dstInEdge.GetEdgeId(), sortedOrigCoord[i], sortedDstCoord[j])
+				bestPair = newOriginDestination(o, dstInEdge.GetEdgeId(), sortedOrigCoord[i], sortedDstCoord[j])
 			}
 		}
 	}

@@ -5,6 +5,9 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// TODO: use mmap for storing edgeInfos & osmNodePoints (https://man7.org/linux/man-pages/man2/mmap.2.html), baca linux programming inteface chap 49
+// bisa ngurangin banyak heap allocations 
+
 type GraphStorage struct {
 	edgeInfos      []EdgeExtraInfo
 	osmNodePoints  []Coordinate

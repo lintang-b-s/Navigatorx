@@ -10,7 +10,7 @@ import (
 )
 
 type Rtree struct {
-	tr *rtree.RTreeG[ArcEndpoint]
+	tr *rtree.RTreeG[da.Index]
 }
 
 // our query is turn-based multilevel bidirectional dijkstra
@@ -18,22 +18,9 @@ type Rtree struct {
 // as = entryOffset of source
 // at = exitOffset of target
 // so we need to know nearby as & at before run the query
-type ArcEndpoint struct {
-	id da.Index
-}
-
-func (ae ArcEndpoint) GetId() da.Index {
-	return ae.id
-}
-
-func newArcEndpoint(id da.Index) ArcEndpoint {
-	return ArcEndpoint{
-		id: id,
-	}
-}
 
 func NewRtree() *Rtree {
-	var tr rtree.RTreeG[ArcEndpoint]
+	var tr rtree.RTreeG[da.Index]
 	return &Rtree{
 		tr: &tr,
 	}
@@ -80,7 +67,7 @@ func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logg
 		maxX := geo.CalcLonToX(maxLon)
 
 		rt.tr.Insert([2]float64{minX, minY}, [2]float64{maxX, maxY},
-			newArcEndpoint(id))
+			id)
 	})
 
 	log.Info("R-tree spatial index built.")
@@ -91,16 +78,16 @@ func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logg
 // R-tree search worst case is O(M), avg case is O(logM)
 // https://www2.cs.sfu.ca/CourseCentral/454/jpei/slides/R-Tree.pdf
 // https://dl.acm.org/doi/10.1145/971697.602266
-func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []ArcEndpoint {
+func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []da.Index {
 	lowerLat, lowerLon := geo.GetDestinationPoint(qLat, qLon, 225, radius)
 	upperLat, upperLon := geo.GetDestinationPoint(qLat, qLon, 45, radius)
 
 	lowerY, lowerX := geo.CalcLatToYApprox(lowerLat), geo.CalcLonToX(lowerLon)
 	upperY, upperX := geo.CalcLatToYApprox(upperLat), geo.CalcLonToX(upperLon)
 
-	results := make([]ArcEndpoint, 0, 10)
+	results := make([]da.Index, 0, 10)
 	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},
-		func(min, max [2]float64, data ArcEndpoint) bool {
+		func(min, max [2]float64, data da.Index) bool {
 			results = append(results, data)
 			if len(results) > MAX_CANDIDATES {
 				return false

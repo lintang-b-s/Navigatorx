@@ -6,6 +6,8 @@ import (
 	"os"
 	"runtime"
 
+	goHttp "net/http"
+
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/offline"
@@ -49,6 +51,10 @@ func main() {
 		panic(err)
 	}
 
+	go func() { // pprof
+		goHttp.ListenAndServe("localhost:6868", nil)
+	}()
+
 	workingDir, err := os.Getwd()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
@@ -59,27 +65,24 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	re := routingEngine.GetRoutingEngine()
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), *leafBoundingBoxRadius, logger)
-	graph, err := da.ReadGraph(graphFile)
-	if err != nil {
-		panic(err)
-	}
 
 	N, err := da.ReadSparseMatrixFromFile[int](*transitionMHTFile, int(0),
 		func(a, b int) bool { return a == b })
 	if err != nil {
 		panic(err)
 	}
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
+
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(re.GetGraph(), rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
 		0.06, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
 
-	offlineMapMatcherEngine := offline.NewHiddenMarkovModelMapMatching(graph, routingEngine, rtree) // speed in meter/minute, default sampling interval 1.0 seconds (using seatle dataset)
+	offlineMapMatcherEngine := offline.NewHiddenMarkovModelMapMatching(re.GetGraph(), routingEngine, rtree) // speed in meter/minute, default sampling interval 1.0 seconds (using seatle dataset)
 
 	api := http.NewServer(logger)
 
-	re := routingEngine.GetRoutingEngine()
 	altSearch := routing.NewAlternativeRouteSearch(re)
 	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true)
 	if err != nil {

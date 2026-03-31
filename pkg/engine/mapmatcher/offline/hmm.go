@@ -280,15 +280,15 @@ func (h *HMM) projectAllGps(gpsTraj []*da.GPSPoint) ([][]*ma.Candidate, int) {
 
 		sumLength := 0.0
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := h.graph.GetOutEdge(arcEndpoint.GetId()).GetLength()
+			eLength := h.graph.GetOutEdge(arcEndpoint).GetLength()
 			sumLength += eLength
 		}
 
 		for _, arcEndpoint := range nearbyArcs {
 
-			eLength := h.graph.GetOutEdge(arcEndpoint.GetId()).GetLength()
+			eLength := h.graph.GetOutEdge(arcEndpoint).GetLength()
 
-			cand := ma.NewCandidate(arcEndpoint.GetId(), eLength/sumLength, eLength)
+			cand := ma.NewCandidate(arcEndpoint, eLength/sumLength, eLength)
 			cand.SetStateId(stateId)
 			candidates = append(candidates, cand)
 			stateId++

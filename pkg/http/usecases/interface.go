@@ -5,7 +5,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 )
 
 type RoutingEngine interface {
@@ -22,7 +21,7 @@ type AlternativeRouteAlgorithm interface {
 }
 
 type SpatialIndex interface {
-	SearchWithinRadius(qLat, qLon, radius float64) []spatialindex.ArcEndpoint
+	SearchWithinRadius(qLat, qLon, radius float64) []da.Index
 }
 
 type OnlineMapMatcherEngine interface {

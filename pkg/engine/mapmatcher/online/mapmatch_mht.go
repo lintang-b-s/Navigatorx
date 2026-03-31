@@ -64,14 +64,14 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 		sumLength := 0.0
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := om.graph.GetOutEdge(arcEndpoint.GetId()).GetLength()
+			eLength := om.graph.GetOutEdge(arcEndpoint).GetLength()
 			sumLength += eLength
 		}
 
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := om.graph.GetOutEdge(arcEndpoint.GetId()).GetLength()
+			eLength := om.graph.GetOutEdge(arcEndpoint).GetLength()
 
-			candidates = append(candidates, ma.NewCandidate(arcEndpoint.GetId(), eLength/sumLength, eLength))
+			candidates = append(candidates, ma.NewCandidate(arcEndpoint, eLength/sumLength, eLength))
 		}
 
 		om.projectAllCandidates(gps, candidates)
