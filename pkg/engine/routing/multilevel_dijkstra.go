@@ -171,6 +171,15 @@ kalau udha di scan -> kita bisa update \mu (shortest st-path estimate)
 search terminates ketika sum dari minimum keys of both priority queues exceeds \mu. (proof of correctness dari kriteria pemberhentian ini dapat dilihat pada ref[6])
 
 di implementasi multilevel-dijkstra ini, kita menggunakan bidirectional dijkstra with turn costs
+
+
+return:
+travelTime
+distance
+coordinates (in polyline see https://developers.google.com/maps/documentation/utilities/polylinealgorithm)
+edgeIds
+found shortest path or not
+
 */
 
 func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, []da.Index, bool) {

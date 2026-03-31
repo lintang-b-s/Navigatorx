@@ -99,8 +99,8 @@ func main() {
 		}
 
 		for j := 0; j < len(edgePath)-1; j++ {
-			e := int(edgePath[j].GetEdgeId())
-			eNext := int(edgePath[j+1].GetEdgeId())
+			e := int(edgePath[j])
+			eNext := int(edgePath[j+1])
 			N.Set(N.Get(e, eNext)+1, e, eNext)
 		}
 	}

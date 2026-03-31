@@ -200,7 +200,8 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		path := make([]int, 0)
 		path = append(path, a)
 
-		for _, e := range spEdges {
+		for _, eId := range spEdges {
+			e := g.GetOutEdge(eId)
 			v := newToOldVidMap[e.GetHead()]
 			path = append(path, int(v))
 		}

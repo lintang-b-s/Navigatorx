@@ -1,7 +1,5 @@
 package datastructure
 
-import "github.com/lintang-b-s/Navigatorx/pkg/geo"
-
 type Coordinate struct {
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
@@ -32,15 +30,10 @@ func NewCoordinates(lat, lon []float64) []Coordinate {
 	return coords
 }
 
-func NewGeoCoordinates(coords []Coordinate) []geo.Coordinate {
-	geoCoords := make([]geo.Coordinate, len(coords))
-	for i, coord := range coords {
-		geoCoords[i] = geo.NewCoordinate(coord.GetLat(), coord.GetLon())
+func NewPolylineCoordinates(path []Coordinate) [][]float64 {
+	pathCoords := make([][]float64, len(path))
+	for i, p := range path {
+		pathCoords[i] = []float64{p.GetLat(), p.GetLon()}
 	}
-	return geoCoords
-}
-
-func (c Coordinate) ToGeoCoordinate() geo.Coordinate {
-
-	return geo.NewCoordinate(c.GetLat(), c.GetLon())
+	return pathCoords
 }

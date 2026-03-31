@@ -60,7 +60,7 @@ extract-min at most O(m_p+n_o) operations
 if len(atIds) approaches n, u should use plain dijkstra in dijkstra.go
 */
 func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, atIds []da.Index) (map[da.Index]float64, map[da.Index]float64, map[da.Index][]da.Coordinate,
-	map[da.Index][]da.OutEdge) {
+	map[da.Index][]da.Index) {
 
 	us.Preallocate()
 
@@ -106,14 +106,14 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 
 	tdists := make(map[da.Index]float64, len(atIds))
 	tfinalPath := make(map[da.Index][]da.Coordinate, len(atIds))
-	tfinalEdgePath := make(map[da.Index][]da.OutEdge, len(atIds))
+	tfinalEdgePath := make(map[da.Index][]da.Index, len(atIds))
 
 	for t, tEntryId := range us.tEntryIds {
 		if t.getatId() == asId || t.gettId() == s {
 			tdists[t.getatId()] = 0
 
 			tfinalPath[t.getatId()] = make([]da.Coordinate, 0)
-			tfinalEdgePath[t.getatId()] = make([]da.OutEdge, 0)
+			tfinalEdgePath[t.getatId()] = make([]da.Index, 0)
 			continue
 		}
 		idPath := make([]da.VertexEdgePair, 0) // contains all outedges that make up the shortest path
@@ -151,10 +151,10 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 
 		unpacker := NewPathUnpacker(us.engine, us.engine.metrics, us.engine.puCache, true, true)
 		edgeIdPath, _ := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))
-		finalEdgePath, finalPath, totalDistance := us.engine.GetEdgePath(edgeIdPath)
+		finalPath, totalDistance := us.engine.GetEdgePath(edgeIdPath)
 		tdists[t.getatId()] = totalDistance
 		tfinalPath[t.getatId()] = finalPath
-		tfinalEdgePath[t.getatId()] = finalEdgePath
+		tfinalEdgePath[t.getatId()] = edgeIdPath
 	}
 
 	return us.shortestTravelTimes, tdists, tfinalPath, tfinalEdgePath

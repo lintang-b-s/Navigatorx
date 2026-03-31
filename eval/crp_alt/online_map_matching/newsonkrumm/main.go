@@ -16,7 +16,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
@@ -417,7 +416,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	
+
 	err = lm.WriteLandmark(landmarkFile, g)
 	if err != nil {
 		panic(err)
@@ -452,7 +451,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		i++
 	}
 
-	computeRoute := func(q query) []da.OutEdge {
+	computeRoute := func(q query) []da.Index {
 		s, t := q.s, q.t
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		as := g.GetDummyOutEdgeId(s)
@@ -462,7 +461,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		return edges
 	}
 
-	workers := concurrent.NewWorkerPool[query, []da.OutEdge](100, len(queries))
+	workers := concurrent.NewWorkerPool[query, []da.Index](100, len(queries))
 
 	for _, qq := range queries {
 		workers.AddJob(qq)
@@ -494,8 +493,8 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		}
 
 		for j := 0; j < len(spEdges)-1; j++ {
-			e := int(spEdges[j].GetEdgeId())
-			eNext := int(spEdges[j+1].GetEdgeId())
+			e := int(spEdges[j])
+			eNext := int(spEdges[j+1])
 			N.Set(N.Get(e, eNext)+1, e, eNext)
 		}
 		counter++
@@ -724,7 +723,7 @@ func main() {
 	fmt.Printf("avg runtime per gpt point: %v microseconds/gps point\n", avgRuntimePerGpsPoint)
 	fmt.Printf("matching efficiency: %v points/ms", totalPoints/totalRuntime)
 
-	polyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(matchedCoords))
+	polyline := da.PoylineFromCoords(matchedCoords)
 
 	polyFile, err := os.Create("polyline.txt")
 	if err != nil {

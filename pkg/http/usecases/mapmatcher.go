@@ -1,10 +1,8 @@
 package usecases
 
 import (
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
-	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"go.uber.org/zap"
 )
 
@@ -23,12 +21,12 @@ func NewMapMatcherService(log *zap.Logger, onlineEngine OnlineMapMatcherEngine,
 	}
 }
 
-func (ms *MapMatcherService) OnlineMapMatch(gps *datastructure.GPSPoint, k int,
-	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*datastructure.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
+func (ms *MapMatcherService) OnlineMapMatch(gps *da.GPSPoint, k int,
+	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 	return ms.onlineEngine.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
 }
 
-func (ms *MapMatcherService) OfflineMapMatch(gpsTraj []*da.GPSPoint) ([]*datastructure.MatchedGPSPoint, string) {
+func (ms *MapMatcherService) OfflineMapMatch(gpsTraj []*da.GPSPoint) ([]*da.MatchedGPSPoint, string) {
 	matchedPoints := ms.offlineEngine.MapMatch(gpsTraj)
 
 	matchedCoords := make([]da.Coordinate, len(matchedPoints))
@@ -36,6 +34,6 @@ func (ms *MapMatcherService) OfflineMapMatch(gpsTraj []*da.GPSPoint) ([]*datastr
 		matchedCoords[i] = matchedPoints[i].GetMatchedCoord()
 	}
 
-	polyline := geo.PoylineFromCoords(datastructure.NewGeoCoordinates(matchedCoords))
+	polyline := da.PoylineFromCoords(matchedCoords)
 	return matchedPoints, polyline
 }

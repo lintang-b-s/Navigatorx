@@ -2,20 +2,21 @@ package geo
 
 import (
 	"github.com/golang/geo/s2"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // return in meter
-func PointLinePerpendicularDistance(pointA Coordinate, pointB Coordinate,
-	snap Coordinate) float64 {
+func PointLinePerpendicularDistance(pointA da.Coordinate, pointB da.Coordinate,
+	snap da.Coordinate) float64 {
 	projectionPoint := ProjectPointOnSegment(pointA, pointB, snap)
 
 	dist := CalculateGreatCircleDistance(snap.GetLat(), snap.GetLon(), projectionPoint.GetLat(), projectionPoint.GetLon())
 	return util.KilometerToMeter(dist)
 }
 
-func ProjectPointOnSegment(pointA Coordinate, pointB Coordinate,
-	qCoord Coordinate) Coordinate {
+func ProjectPointOnSegment(pointA da.Coordinate, pointB da.Coordinate,
+	qCoord da.Coordinate) da.Coordinate {
 
 	qLat := qCoord.GetLat()
 	qLon := qCoord.GetLon()
@@ -25,6 +26,6 @@ func ProjectPointOnSegment(pointA Coordinate, pointB Coordinate,
 	queryPointS2 := s2.PointFromLatLng(s2.LatLngFromDegrees(qLat, qLon))
 	projection := s2.Project(queryPointS2, pointAS2, pointBS2)
 	projectLatLng := s2.LatLngFromPoint(projection)
-	snap := NewCoordinate(projectLatLng.Lat.Degrees(), projectLatLng.Lng.Degrees())
+	snap := da.NewCoordinate(projectLatLng.Lat.Degrees(), projectLatLng.Lng.Degrees())
 	return snap
 }

@@ -199,11 +199,11 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 
 		_, spEdgeIds, _ := crpQuery.ShortestPathSearch(as, at)
-		spEdges, _, _ := re.GetRoutingEngine().GetEdgePath(spEdgeIds)
 		path := make([]int, 0)
 		path = append(path, a)
 
-		for _, e := range spEdges {
+		for _, eId := range spEdgeIds {
+			e := g.GetOutEdge(eId)
 			v := newToOldVidMap[e.GetHead()]
 			path = append(path, int(v))
 		}

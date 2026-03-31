@@ -3,9 +3,7 @@ package routing
 const (
 	UNPACK_OVERLAY_OFFSET int = 31 // set 32-th bit on
 	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
+	PACKED_PATH_SIZE = 64
 
-	// 8 goroutines per alternative routes query
-	// 2 goroutines per sp route  query
-	// todo: worker pool size sesuain logical cpu cores pc yang run routing engine
-
+	UNPACKED_PATH_SIZE = 128
 )

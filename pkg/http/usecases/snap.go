@@ -193,15 +193,15 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 
 	eGeometry := rs.engine.GetGraph().GetEdgeGeometry(edgeId)
 	minDist := pkg.INF_WEIGHT
-	var bestProjectedPoint geo.Coordinate
+	var bestProjectedPoint da.Coordinate
 
 	for i := 0; i < len(eGeometry)-1; i++ {
 		tail := eGeometry[i]
 		head := eGeometry[i+1]
 		projectedPoint := geo.ProjectPointOnSegment(
-			tail.ToGeoCoordinate(),
-			head.ToGeoCoordinate(),
-			geo.Coordinate(da.NewCoordinate(lat, lon)),
+			tail,
+			head,
+			da.Coordinate(da.NewCoordinate(lat, lon)),
 		)
 
 		dist := geo.CalculateEuclidianDistWebMercatorProj(projectedPoint.Lat, projectedPoint.Lon,

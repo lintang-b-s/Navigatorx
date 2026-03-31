@@ -17,7 +17,7 @@ import (
 
 type AlternativeRoute struct {
 	path              []da.Coordinate
-	edges             []da.OutEdge
+	edges             []da.Index
 	edgeIdPath        []da.Index
 	objectiveValue    float64
 	drivingDirections []da.DrivingDirection
@@ -42,7 +42,7 @@ func (ar *AlternativeRoute) SetPolylinePath(pp string) {
 	ar.polylinePath = pp
 }
 
-func (ar *AlternativeRoute) GetPath() []da.OutEdge {
+func (ar *AlternativeRoute) GetPath() []da.Index {
 	return ar.edges
 }
 func (ar *AlternativeRoute) GetObjectiveValue() float64 {
@@ -80,7 +80,7 @@ func (ar *AlternativeRoute) GetEdgeIdPath() []da.Index {
 	return ar.edgeIdPath
 }
 
-func (ar *AlternativeRoute) SetEdgePath(edges []da.OutEdge) {
+func (ar *AlternativeRoute) SetEdgePath(edges []da.Index) {
 	ar.edges = edges
 }
 
@@ -93,7 +93,7 @@ func (ar *AlternativeRoute) SetDist(dist float64) {
 }
 
 func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
-	viaNode da.Index, path []da.Coordinate, edges []da.OutEdge, edgeIdPath []da.Index,
+	viaNode da.Index, path []da.Coordinate, edges []da.Index, edgeIdPath []da.Index,
 	viaVertex *da.ViaVertex) *AlternativeRoute {
 	return &AlternativeRoute{
 		objectiveValue: objectiveValue,
@@ -307,9 +307,6 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		svPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
 		vtPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
 
-		svPackedPath = svPackedPath[:0] // reset length , tapi capacity tetep sama, ngaruh ke latency load test
-		vtPackedPath = vtPackedPath[:0]
-
 		if !v.IsOverlay() {
 			// forward
 			svPackedPath = ars.engine.RetrieveForwardPackedPath(svPackedPath, da.NewVertexEdgePair(v.GetOriginalVId(), v.GetEntryId(), false),
@@ -330,6 +327,9 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		}
 
 		defer func() {
+			svPackedPath = svPackedPath[:0] // reset length , tapi capacity tetep sama, ngaruh ke latency load test
+			vtPackedPath = vtPackedPath[:0]
+
 			ars.engine.packedPathPool.Put(svPackedPath)
 			ars.engine.packedPathPool.Put(vtPackedPath)
 		}()
@@ -399,9 +399,6 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		svPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
 		vtPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
 
-		svPackedPath = svPackedPath[:0]
-		vtPackedPath = vtPackedPath[:0]
-
 		if !v.IsOverlay() {
 			// forward
 			svPackedPath = ars.engine.RetrieveForwardPackedPath(svPackedPath, da.NewVertexEdgePair(v.GetOriginalVId(), v.GetEntryId(), false),
@@ -422,6 +419,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		}
 
 		defer func() {
+			svPackedPath = svPackedPath[:0]
+			vtPackedPath = vtPackedPath[:0]
 			ars.engine.packedPathPool.Put(svPackedPath)
 			ars.engine.packedPathPool.Put(vtPackedPath)
 		}()
@@ -437,7 +436,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 				defer wg.Done()
 				unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.engine.lm)
 				unpacker.setForAlternativeRoutes()
-				
+
 				svEdgeIdPath, _ = unpacker.unpackPath(svPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 			}()
 			// backward
@@ -474,7 +473,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		lv := v.GetCost()
 		fv := 2*lv + sigmav - v.GetPlateau()
 
-		return NewAlternativeRoute(fv, 0, lv, sigmav, v.GetOriginalVId(), []da.Coordinate{}, []da.OutEdge{},
+		return NewAlternativeRoute(fv, 0, lv, sigmav, v.GetOriginalVId(), []da.Coordinate{}, []da.Index{},
 			append(svEdgeIdPath, vtEdgeIdPath...), v)
 	}
 
@@ -508,9 +507,9 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	res = res[:maxAltSize]
 	for i := 0; i < maxAltSize; i++ {
 
-		finalEdgePath, finalPath, totalDistance := ars.engine.GetEdgePath(res[i].GetEdgeIdPath())
+		finalPath, totalDistance := ars.engine.GetEdgePath(res[i].GetEdgeIdPath())
 		res[i].SetCoordPath(finalPath)
-		res[i].SetEdgePath(finalEdgePath)
+		res[i].SetEdgePath(res[i].GetEdgeIdPath())
 		res[i].SetDist(totalDistance)
 
 	}
@@ -943,7 +942,7 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 
 			setJ := set[j]
 			for _, e := range altPath {
-				if _, exists := setJ[e.GetEdgeId()]; exists {
+				if _, exists := setJ[e]; exists {
 					intersection++
 				}
 			}
@@ -967,7 +966,7 @@ func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
 
 			altSet := make(map[da.Index]struct{}, len(altPath))
 			for _, e := range altPath {
-				altSet[e.GetEdgeId()] = struct{}{}
+				altSet[e] = struct{}{}
 			}
 			set = append(set, altSet)
 		}
@@ -1090,7 +1089,7 @@ func (ars *AlternativeRouteSearch) GetDiversity(candidates []*AlternativeRoute) 
 
 			setJ := set[j]
 			for _, e := range altPath {
-				if _, exists := setJ[e.GetEdgeId()]; exists {
+				if _, exists := setJ[e]; exists {
 					intersection++
 				}
 			}
@@ -1107,7 +1106,7 @@ func (ars *AlternativeRouteSearch) GetDiversity(candidates []*AlternativeRoute) 
 
 		for _, e := range altPath {
 			// make alternative route path set
-			set[i][e.GetEdgeId()] = struct{}{}
+			set[i][e] = struct{}{}
 		}
 		if i == 0 {
 			continue

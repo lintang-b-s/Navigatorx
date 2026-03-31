@@ -387,7 +387,7 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 
 		var (
 			minDist, minDistr  float64 = math.MaxFloat64, math.MaxFloat64
-			bestProjectedPoint geo.Coordinate
+			bestProjectedPoint da.Coordinate
 		)
 
 		cumLength := 0.0
@@ -396,9 +396,9 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 			tail := eGeometry[i]
 			head := eGeometry[i+1]
 			projectedPoint := geo.ProjectPointOnSegment(
-				tail.ToGeoCoordinate(),
-				head.ToGeoCoordinate(),
-				gpsCoord.ToGeoCoordinate(),
+				tail,
+				head,
+				gpsCoord,
 			)
 
 			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(

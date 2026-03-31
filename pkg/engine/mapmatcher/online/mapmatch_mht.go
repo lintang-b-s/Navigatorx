@@ -331,7 +331,7 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 
 		var (
 			minDist, minDistr  float64 = math.MaxFloat64, math.MaxFloat64
-			bestProjectedPoint geo.Coordinate
+			bestProjectedPoint da.Coordinate
 		)
 
 		cumLength := 0.0
@@ -340,9 +340,9 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 			tail := eGeometry[i]
 			head := eGeometry[i+1]
 			projectedPoint := geo.ProjectPointOnSegment(
-				tail.ToGeoCoordinate(),
-				head.ToGeoCoordinate(),
-				gpsCoord.ToGeoCoordinate(),
+				tail,
+				head,
+				gpsCoord,
 			)
 			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				projectedPoint.Lat, projectedPoint.Lon,

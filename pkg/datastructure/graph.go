@@ -3,7 +3,6 @@ package datastructure
 import (
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 )
 
 type Index uint32
@@ -11,13 +10,13 @@ type Index uint32
 type Vertex struct {
 	lat          float64
 	lon          float64
+	osmId        uint64
 	pvPtr        Index // pointer index to cellNumbers slice
 	turnTablePtr Index // index of the first element of turnMatrices[v] in the flattened graph.turnTables array
 	// turnMatrices[v][i][j] = 1-D indexed array index of i-th incoming edge and j-th outgoing edge  = i*outDegree + j
 	firstOut Index // index of the first outEdge of this vertex in the flattened graph.outEdges array
 	firstIn  Index // index of the first inEdge of this vertex in the flattened graph.inEdges array
 	id       Index
-	osmId    uint64
 }
 
 func NewVertex(lat, lon float64, id Index, osmId uint64) *Vertex {
@@ -245,6 +244,7 @@ func (e *InEdge) GetEdgeInfoId() Index {
 	return e.edgeInfoId
 }
 
+// SubVertex. map dari (vId, entryExitPoint, exitFlag) ke vo
 type SubVertex struct {
 	originalID     Index // original vertex id
 	exitEntryOrder int   // entry/exit point order (from 0 to outDegree-1/inDegree-1)
@@ -327,6 +327,10 @@ func (g *Graph) GetEntryOffset(u Index) Index {
 
 func (g *Graph) GetOutEdge(e Index) *OutEdge {
 	return g.outEdges[e]
+}
+
+func (g *Graph) GetOutEdgeData(e Index) OutEdge {
+	return *g.outEdges[e]
 }
 
 func (g *Graph) GetHeadOfOutEdge(e Index) Index {
@@ -589,13 +593,6 @@ func (g *Graph) SetVertices(vs []*Vertex) {
 	g.vertices = vs
 }
 
-// for source point in query
-func (g *Graph) GetVertexCoordinatesFromOutEdge(u Index) (float64, float64) {
-	v := g.GetOutEdge(u)
-	vertex := g.GetVertex(v.GetHead())
-	return vertex.lat, vertex.lon
-}
-
 // for target point in query
 func (g *Graph) GetVertexCoordinatesFromInEdge(u Index) (float64, float64) {
 	v := g.GetInEdge(u)
@@ -785,12 +782,6 @@ func (g *Graph) SetNodeTrafficLight(vId Index, yes bool) {
 	g.graphStorage.SetTrafficLight(vId, yes)
 }
 
-func (g *Graph) GetHaversineDistanceFromUtoV(u, v Index) float64 {
-	uvertex := g.GetVertex(u)
-	vvertex := g.GetVertex(v)
-	return geo.CalculateGreatCircleDistance(uvertex.lat, uvertex.lon, vvertex.lat, vvertex.lon)
-}
-
 func (g *Graph) SetGraphStorage(gs *GraphStorage) {
 	g.graphStorage = gs
 }
@@ -830,7 +821,6 @@ func (g *Graph) GetOsmWayId(edgeId Index) int64 {
 }
 
 func (g *Graph) GetEdgeGeometry(edgeID Index) []Coordinate {
-
 	return g.graphStorage.GetEdgeGeometry(edgeID)
 }
 
@@ -862,10 +852,6 @@ func (g *Graph) GetVerticeIds() []Index {
 		nodeIds = append(nodeIds, Index(i))
 	}
 	return nodeIds
-}
-
-func (g *Graph) GetOsmNodePoints(startIndex, endIndex Index) []Coordinate {
-	return g.graphStorage.GetOsmNodePoints(startIndex, endIndex)
 }
 
 type VirtualOutEdge struct {

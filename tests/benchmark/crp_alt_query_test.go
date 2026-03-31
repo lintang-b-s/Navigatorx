@@ -225,9 +225,9 @@ func BenchmarkCRPALTQuery(b *testing.B) {
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
-		_, _, path, edgePath, found := crpQuery.ShortestPathSearch(as, at)
+		_, _, path, _, found := crpQuery.ShortestPathSearch(as, at)
 		if found {
-			re.DoneQuery(edgePath, path)
+			re.DoneQuery(path)
 		}
 	}
 

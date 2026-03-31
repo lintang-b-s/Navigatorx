@@ -540,7 +540,6 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 					newPar := da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false)
 					fpq.DecreaseKey(offVEntryId, priority, newTravelTime, newPar)
 				}
-
 			}
 
 			// check wether we already scannned an exit point of vId

@@ -8,7 +8,6 @@ import (
 	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/guidance"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -116,7 +115,7 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 	var (
 		travelTime, dist float64
 		pathCoords       []da.Coordinate
-		edgePath         []da.OutEdge
+		edgePath         []da.Index
 		found            bool
 	)
 
@@ -132,18 +131,17 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 	pathCoords = append([]da.Coordinate{snappedOrig}, pathCoords...)
 	pathCoords = append(pathCoords, snappedDst)
 
-	pathPolyline := geo.PoylineFromCoords(da.NewGeoCoordinates(pathCoords))
+	pathPolyline := da.PoylineFromCoords(pathCoords)
+	rs.engine.DoneQuery(pathCoords)
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 	// todo: update kode driving direction buat improve performance
 
 	drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
-	drivingDirection = drivingDirection[:0]
 
 	drivingDirection = directionBuilder.GetDrivingDirections(edgePath, drivingDirection)
 
 	directionBuilder.Reset()
 	rs.directionBuilderPool.Put(directionBuilder)
-	rs.engine.DoneQuery(edgePath, pathCoords)
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }
 
@@ -168,19 +166,17 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 		altPathCoords = append([]da.Coordinate{snappedOrig}, altPathCoords...)
 		altPathCoords = append(altPathCoords, snappedDst)
 
-		pathPolyline := geo.PoylineFromCoords(da.NewGeoCoordinates(altPathCoords))
+		pathPolyline := da.PoylineFromCoords(altPathCoords)
+		rs.engine.DoneQuery(altPathCoords)
 		alt.SetPolylinePath(pathPolyline)
 		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 		// todo: update kode driving direction buat improve performance
 
 		drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
-		drivingDirection = drivingDirection[:0]
 		drivingDirection = directionBuilder.GetDrivingDirections(alt.GetPath(), drivingDirection)
 		alt.SetDrivingDirections(drivingDirection)
-
 		directionBuilder.Reset()
 		rs.directionBuilderPool.Put(directionBuilder)
-		rs.engine.DoneQuery(alt.GetPath(), alt.GetCoords())
 	}
 	return alternatives, true, nil
 }
@@ -190,6 +186,7 @@ func (rs *RoutingService) GetEngine() RoutingEngine {
 }
 
 func (rs *RoutingService) DoneDrivingDirection(drivingDirection []da.DrivingDirection) {
+	drivingDirection = drivingDirection[:0] // reset length, tapi capacity tetep sama
 	rs.drivingDirectionPool.Put(drivingDirection)
 }
 

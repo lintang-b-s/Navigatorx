@@ -6,7 +6,9 @@ import (
 )
 
 // TODO: use mmap for storing edgeInfos & osmNodePoints (https://man7.org/linux/man-pages/man2/mmap.2.html), baca linux programming inteface chap 49
-// bisa ngurangin banyak heap allocations 
+// bisa ngurangin banyak heap allocations
+// ini pakai file osm diy_solo_jogja physical mem (RES): 1.9 gb
+// osrm pakai file osm diy_solo_jogja physical mem (RES): cuma 520 mb
 
 type GraphStorage struct {
 	edgeInfos      []EdgeExtraInfo
@@ -125,7 +127,7 @@ func (e *EdgeExtraInfo) GetEndPointsIndex() Index {
 func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 	edge := gs.edgeInfos[edgeID]
 	if edge.osmWayId == INVALID_OSM_WAY_ID {
-		return []Coordinate{}
+		return make([]Coordinate, 0)
 	}
 	startIndex := edge.startPointsIndex
 	endIndex := edge.endPointsIndex
@@ -133,12 +135,9 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 }
 
 func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinate {
-	var (
-		edgePoints []Coordinate
-	)
 
 	if startIndex < endIndex {
-		edgePoints = make([]Coordinate, endIndex-startIndex)
+		edgePoints := make([]Coordinate, endIndex-startIndex)
 		copy(edgePoints, gs.osmNodePoints[startIndex:endIndex]) // kita harus copy, karena kita banyak operasi reverse edge geometry coords
 
 		return edgePoints
@@ -153,7 +152,7 @@ func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinat
 	// nah ini edge geometry yang reversed direction
 	// daripada simpan edge geometry untuk setiap direction untuk edge yang sama, kita simpan satu edge geometry saja untuk kedua arah
 	// bisa hemat lebih banyak space
-	edgePoints = make([]Coordinate, 0, startIndex-endIndex)
+	edgePoints := make([]Coordinate, 0, startIndex-endIndex)
 	for i := int(startIndex - 1); i >= int(endIndex); i-- { // harus int(), karena kalo gak, endIndex == 0, next iteration jd maxuint32
 		edgePoints = append(edgePoints, gs.osmNodePoints[i])
 	}

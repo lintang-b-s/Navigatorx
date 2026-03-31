@@ -54,18 +54,12 @@ naik dari 41-45% -> 60-66% -> setelah benerin cara dapetin via vertices: 79%-81%
 osrm cuma 52-56%
 
 todo6: bikin cara agar bisa eliminate banyak via vertices sebelum di unpack path nya ... (DONE)
-todo: target p95 latency dengan 900vus endpoint alternative routes: 200ms dengan success rate alternative routes >= 80%
+todo: target p95 latency dengan 900vus endpoint alternative routes: 200ms dengan success rate alternative routes >= 80% (DONE)
 osrm  p95 latency 900vus: 230ms
 
-todo: optimize directionBuilder.GetDrivingDirections()
-
-tadi pakai:
-alt.SetDrivingDirections([]datastructure.DrivingDirection{})
-
-dapet p95 latency 900 vus alternative routes: 233ms, lets gooo
+todo: optimize directionBuilder.GetDrivingDirections() (DONE)
 
 todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , valhalla
-
 ....
 */
 func main() {

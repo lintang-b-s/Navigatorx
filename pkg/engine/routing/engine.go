@@ -25,9 +25,8 @@ type CRPRoutingEngine struct {
 	pufBaseHeapPool    sync.Pool
 	pubBaseHeapPool    sync.Pool
 	packedPathPool     sync.Pool
-	edgePathPool       sync.Pool
-	pathPool           sync.Pool
 	unpackedPathPool   sync.Pool
+	pathCoordsPool     sync.Pool
 	customizer         Customizer
 	costFunction       CostFunction
 
@@ -109,29 +108,22 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 
 	crp.packedPathPool = sync.Pool{
 		New: func() any {
-			s := make([]da.VertexEdgePair, 0, 1024)
+			s := make([]da.VertexEdgePair, 0, PACKED_PATH_SIZE)
 			return s
-		},
-	}
-
-	crp.edgePathPool = sync.Pool{
-		New: func() any {
-			edgePath := make([]da.OutEdge, 0, 1024)
-			return edgePath
-		},
-	}
-
-	crp.pathPool = sync.Pool{
-		New: func() any {
-			path := make([]da.Coordinate, 0, 1024)
-			return path
 		},
 	}
 
 	crp.unpackedPathPool = sync.Pool{
 		New: func() any {
-			s := make([]da.Index, 0, 1024)
+			s := make([]da.Index, 0, UNPACKED_PATH_SIZE)
 			return s
+		},
+	}
+
+	crp.pathCoordsPool = sync.Pool{
+		New: func() any {
+			pathCoords := make([]da.Coordinate, 0, UNPACKED_PATH_SIZE)
+			return pathCoords
 		},
 	}
 }
@@ -149,4 +141,9 @@ func (crp *CRPRoutingEngine) GetMaxSpeed(e *da.OutEdge) float64 {
 
 func (crp *CRPRoutingEngine) Close() {
 	crp.puCache.Close()
+}
+
+func (crp *CRPRoutingEngine) DoneQuery(pathCoords []da.Coordinate) {
+	pathCoords = pathCoords[:0] // reset length, tapi capacity tetep sama
+	crp.pathCoordsPool.Put(pathCoords)
 }

@@ -62,19 +62,22 @@ func NewDirectionBuilder(graph Graph, clockwise, lefthand bool, drivingInstructi
 }
 
 func (db *DirectionBuilder) reset() {
+	db.points = db.points[:0]
+	db.edgeIds = db.edgeIds[:0]
 	db.coordinatesPool.Put(db.points)
 	db.drivingEdgeIdsPool.Put(db.edgeIds)
 
 	db.points = db.coordinatesPool.Get().([]da.Coordinate)
-	db.points = db.points[:0]
 
 	db.edgeIds = db.drivingEdgeIdsPool.Get().([]da.Index)
-	db.edgeIds = db.edgeIds[:0]
 }
 
 func (db *DirectionBuilder) done() {
+	db.instructions = db.instructions[:0]
 	db.drivingInstructionPool.Put(db.instructions)
+	db.points = db.points[:0]
 	db.coordinatesPool.Put(db.points)
+	db.edgeIds = db.edgeIds[:0]
 	db.drivingEdgeIdsPool.Put(db.edgeIds)
 
 }
@@ -93,18 +96,17 @@ func (db *DirectionBuilder) Reset() {
 	db.doublePrevNode = 0
 
 	db.instructions = db.drivingInstructionPool.Get().([]*da.Instruction)
-	db.instructions = db.instructions[:0]
 }
 
-func (db *DirectionBuilder) GetDrivingDirections(path []da.OutEdge, drivingDirections []da.DrivingDirection) []da.DrivingDirection {
+func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, drivingDirections []da.DrivingDirection) []da.DrivingDirection {
 	defer db.done()
 
 	if len(path) == 0 {
 		return make([]da.DrivingDirection, 0)
 	}
 
-	for _, edge := range path {
-		db.buildInstruction(edge)
+	for _, edgeId := range path {
+		db.buildInstruction(edgeId)
 	}
 	db.buildFinalInstruction()
 
@@ -127,7 +129,7 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.OutEdge, drivingDirec
 			currStepDistance = db.instructions[i].GetCumulativeDistance() - db.instructions[i-1].GetCumulativeDistance()
 		}
 		way := *db.instructions[i]
-		currPolyline := geo.PoylineFromCoords(da.NewGeoCoordinates(way.GetPoints()))
+		currPolyline := da.PoylineFromCoords(way.GetPoints())
 		drivingDirections = append(drivingDirections, da.NewDrivingDirection(way, db.turnDescriptions[i],
 			currStepTravelTime, currStepDistance, way.GetEdgeIds(), currPolyline, ins.GetTurnBearing()))
 	}
@@ -135,21 +137,23 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.OutEdge, drivingDirec
 	return drivingDirections
 }
 
-func (db *DirectionBuilder) buildInstruction(edge da.OutEdge) {
+func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
+	edge := *db.graph.GetOutEdge(edgeId)
+
 	headId := edge.GetHead()
-	tailId := db.graph.GetTailOfOutedge(edge.GetEdgeId())
+	tailId := db.graph.GetTailOfOutedge(edgeId)
 
 	tail := db.graph.GetVertex(tailId)
 	head := db.graph.GetVertex(headId)
 
-	isRoundabout := db.graph.IsRoundabout(edge.GetEdgeId())
+	isRoundabout := db.graph.IsRoundabout(edgeId)
 
 	var prevNode da.Vertex
 	if db.prevNode != math.MaxUint32 {
 		prevNode = *db.graph.GetVertex(db.prevNode)
 	}
 
-	streetName := db.graph.GetStreetName(edge.GetEdgeId())
+	streetName := db.graph.GetStreetName(edgeId)
 	if db.prevInstruction == nil && !isRoundabout {
 		// start point dari shortetest path & bukan bundaran (roundabout)
 		sign := da.START
@@ -159,15 +163,13 @@ func (db *DirectionBuilder) buildInstruction(edge da.OutEdge) {
 		turnBearing := computeInitialBearing(tail.GetLat(), tail.GetLon(),
 			head.GetLat(), head.GetLon())
 		newIns := da.NewInstruction(sign, streetName, point, false,
-			[]da.Index{edge.GetEdgeId()}, db.cumulativeDistance, db.cumulativeTravelTime,
+			[]da.Index{edgeId}, db.cumulativeDistance, db.cumulativeTravelTime,
 			db.points, turnBearing, db.clockwise)
 		db.prevInstruction = newIns
 
 		db.points = db.coordinatesPool.Get().([]da.Coordinate)
-		db.points = db.points[:0]
 
 		db.edgeIds = db.drivingEdgeIdsPool.Get().([]da.Index)
-		db.edgeIds = db.edgeIds[:0]
 
 		db.prevInstruction.SetExtraInfo("heading", turnBearing)
 		db.instructions = append(db.instructions, db.prevInstruction)
@@ -214,7 +216,7 @@ func (db *DirectionBuilder) buildInstruction(edge da.OutEdge) {
 		roundaboutInstruction.SetExited()
 		db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge.GetEdgeId())
 	} else {
-		turnSign := db.getTurnSign(edge, tailId, db.prevNode, headId, streetName)
+		turnSign := db.getTurnSign(edge.GetEdgeId(), tailId, db.prevNode, headId, streetName)
 		if turnSign != da.IGNORE {
 			uTurn, uturnType := db.checkUTurn(turnSign, streetName, edge)
 			if uTurn {
@@ -329,15 +331,18 @@ prevNode----prevEdge----tail
 						head
 
 */ // nolint: gofmt
-func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, headId da.Index, name string) int {
+func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, headId da.Index, name string) int {
 
-	key := util.Bitpack(uint32(db.prevEdge.GetEdgeId()), uint32(edge.GetEdgeId()))
+	key := util.Bitpack(uint32(db.prevEdge.GetEdgeId()), uint32(edgeId))
 
 	if sign, ok := db.turnSignCache.Get(key); ok {
 		return sign
 	}
 
-	tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edge.GetEdgeId()))
+	edge := *db.graph.GetOutEdge(edgeId)
+
+	tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edgeId))
+
 	point := db.graph.GetVertex(edge.GetHead())
 	lat := point.GetLat()
 	lon := point.GetLon()
@@ -351,8 +356,8 @@ func (db *DirectionBuilder) getTurnSign(edge da.OutEdge, tailId, prevNodeId, hea
 
 	alternativeTurnsCount, alternativeTurns := db.GetAlternativeTurns(tailId, headId, prevNodeId)
 
-	currStreetName := db.graph.GetStreetName(edge.GetEdgeId())
-	currRoadClass := db.graph.GetRoadClass(edge.GetEdgeId())
+	currStreetName := db.graph.GetStreetName(edgeId)
+	currRoadClass := db.graph.GetRoadClass(edgeId)
 
 	prevStreetName := db.graph.GetStreetName(db.prevEdge.GetEdgeId())
 	prevRoadClass := db.graph.GetRoadClass(db.prevEdge.GetEdgeId())

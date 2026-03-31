@@ -5,6 +5,8 @@ import "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 type Graph interface {
 	GetTailOfOutedge(e datastructure.Index) datastructure.Index
 	GetVertex(u datastructure.Index) *datastructure.Vertex
+	GetOutEdge(eId datastructure.Index) *datastructure.OutEdge
+
 	IsRoundabout(edgeId datastructure.Index) bool
 	GetStreetName(edgeId datastructure.Index) string
 	ForOutEdgesOfWithId(u datastructure.Index, handle func(e *datastructure.OutEdge, id datastructure.Index))

@@ -9,11 +9,9 @@ import (
 
 type RoutingEngine interface {
 	GetGraph() *da.Graph
-	GetHaversineDistanceFromUtoV(u, v da.Index) float64
-	GetVertexCoordinatesFromOutEdge(u da.Index) (float64, float64)
 	GetVertexCoordinatesFromInEdge(u da.Index) (float64, float64)
 	PathExists(u, v da.Index) bool
-	DoneQuery(edgePath []da.OutEdge, path []da.Coordinate)
+	DoneQuery(pathCoords []da.Coordinate)
 }
 
 type AlternativeRouteAlgorithm interface {

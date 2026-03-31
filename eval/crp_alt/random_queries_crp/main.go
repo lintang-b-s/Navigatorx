@@ -116,12 +116,11 @@ func main() {
 		now := time.Now()
 		crpQuery := routing.NewCRPBidirectionalSearch(re, 1.0)
 		_, spEdgeIds, _ := crpQuery.ShortestPathSearch(as, at)
-		spEdges, _, _ := re.GetEdgePath(spEdgeIds)
 
 		dur := time.Since(now).Milliseconds()
 		durations += float64(dur)
 
-		eff, numScannedVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spEdges) + 1)
+		eff, numScannedVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spEdgeIds) + 1)
 		qRuntime += float64(queryRuntime)
 		puRuntime += float64(pathUnpackingRuntime)
 		efficiency += eff

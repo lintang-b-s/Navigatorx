@@ -685,28 +685,23 @@ func (pu *PathUnpacker) GetStats() int64 {
 	return pu.runtime
 }
 
-func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) ([]da.OutEdge, []da.Coordinate, float64) {
-
-	edgePath := re.edgePathPool.Get().([]da.OutEdge)
-	edgePath = edgePath[:0] // buat length jadi 0, capacity tetep sama
+// pas di profiling fungsi ini allocate banyak space, load test 900vus 
+// htop RES dari 1.9gb ke 3.5 gb, osrm cuma max 770mb pas di load test, 
+// alokasi gede di GetOsmNodePoints() 32 million allocs, ?
+// alokasi gede lain ada di polyline.EncodeCoords() 60 million allocs, todo: investigate ini
+func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) ([]da.Coordinate, float64) {
 
 	totalDistance := 0.0
 
-	finalPath := re.pathPool.Get().([]da.Coordinate)
-	finalPath = finalPath[:0] // buat length jadi 0, capacity tetep sama
+	finalPath := re.pathCoordsPool.Get().([]da.Coordinate)
 	for i := 0; i < len(edgeIdPath); i++ {
-		e := *re.graph.GetOutEdge(edgeIdPath[i])
-		edgePath = append(edgePath, e)
+		eId := edgeIdPath[i]
+		e := re.graph.GetOutEdge(eId)
 		totalDistance += e.GetLength()
 		finalPath = append(finalPath, re.graph.GetEdgeGeometry(edgeIdPath[i])...)
 	}
 
-	return edgePath, finalPath, totalDistance
-}
-
-func (re *CRPRoutingEngine) DoneQuery(edgePath []da.OutEdge, path []da.Coordinate) {
-	re.edgePathPool.Put(edgePath)
-	re.pathPool.Put(path)
+	return finalPath, totalDistance
 }
 
 func (pu *PathUnpacker) setForAlternativeRoutes() {

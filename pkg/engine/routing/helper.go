@@ -6,14 +6,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
-func (crp *CRPRoutingEngine) GetHaversineDistanceFromUtoV(u, v datastructure.Index) float64 {
-	return crp.graph.GetHaversineDistanceFromUtoV(u, v)
-}
-
-func (crp *CRPRoutingEngine) GetVertexCoordinatesFromOutEdge(u datastructure.Index) (float64, float64) {
-	return crp.graph.GetVertexCoordinatesFromOutEdge(u)
-}
-
 func (crp *CRPRoutingEngine) GetVertexCoordinatesFromInEdge(u datastructure.Index) (float64, float64) {
 
 	return crp.graph.GetVertexCoordinatesFromInEdge(u)

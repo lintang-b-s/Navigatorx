@@ -183,7 +183,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		i++
 	}
 
-	computeRoute := func(q query) []da.OutEdge {
+	computeRoute := func(q query) []da.Index {
 		s, t := q.s, q.t
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		as := graph.GetDummyOutEdgeId(s)
@@ -193,7 +193,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return edges
 	}
 
-	workers := concurrent.NewWorkerPool[query, []da.OutEdge](100, len(queries))
+	workers := concurrent.NewWorkerPool[query, []da.Index](100, len(queries))
 
 	for _, qq := range queries {
 		workers.AddJob(qq)
@@ -226,8 +226,8 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		}
 
 		for j := 0; j < len(spEdges)-1; j++ {
-			e := int(spEdges[j].GetEdgeId())
-			eNext := int(spEdges[j+1].GetEdgeId())
+			e := int(spEdges[j])
+			eNext := int(spEdges[j+1])
 			N.Set(N.Get(e, eNext)+1, e, eNext)
 		}
 		counter++
