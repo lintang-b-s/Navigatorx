@@ -97,7 +97,7 @@ type OutEdge struct {
 	dist               float64 // meter
 	edgeId, edgeInfoId Index   // edgeId = edgeId di graph.outEdges.
 	head               Index
-	entryPoint         int
+	entryPoint         Index
 	hwType             pkg.OsmHighwayType
 }
 
@@ -107,11 +107,11 @@ type InEdge struct {
 	dist               float64 // meter
 	edgeId, edgeInfoId Index   //edgeId = edgeId di graph.inEdges.
 	tail               Index
-	exitPoint          int
+	exitPoint          Index
 	hwType             pkg.OsmHighwayType
 }
 
-func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint int, hwType pkg.OsmHighwayType) *OutEdge {
+func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint Index, hwType pkg.OsmHighwayType) *OutEdge {
 	return &OutEdge{
 		edgeId:     edgeId,
 		head:       head,
@@ -122,7 +122,7 @@ func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint int, hwType
 	}
 }
 
-func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint int, hwType pkg.OsmHighwayType) *InEdge {
+func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint Index, hwType pkg.OsmHighwayType) *InEdge {
 	return &InEdge{
 		edgeId:    edgeId,
 		tail:      tail,
@@ -165,7 +165,7 @@ func (e *OutEdge) GetHead() Index {
 	return e.head
 }
 
-func (e *OutEdge) GetEntryPoint() int {
+func (e *OutEdge) GetEntryPoint() Index {
 	return e.entryPoint
 }
 
@@ -173,7 +173,7 @@ func (e *OutEdge) GetHighwayType() pkg.OsmHighwayType {
 	return e.hwType
 }
 
-func (e *OutEdge) SetEntryPoint(p int) {
+func (e *OutEdge) SetEntryPoint(p Index) {
 	e.entryPoint = p
 }
 
@@ -216,11 +216,11 @@ func (e *InEdge) GetTail() Index {
 	return e.tail
 }
 
-func (e *InEdge) GetExitPoint() int {
+func (e *InEdge) GetExitPoint() Index {
 	return e.exitPoint
 }
 
-func (e *InEdge) SetExitPoint(p int) {
+func (e *InEdge) SetExitPoint(p Index) {
 	e.exitPoint = p
 }
 
@@ -247,7 +247,7 @@ func (e *InEdge) GetEdgeInfoId() Index {
 // SubVertex. map dari (vId, entryExitPoint, exitFlag) ke vo
 type SubVertex struct {
 	originalID     Index // original vertex id
-	exitEntryOrder int   // entry/exit point order (from 0 to outDegree-1/inDegree-1)
+	exitEntryOrder Index // entry/exit point order (from 0 to outDegree-1/inDegree-1)
 	exit           bool  // is exit point
 }
 
@@ -257,16 +257,6 @@ type VertexIDPair struct {
 }
 
 type Pv uint64
-
-type ViaKey struct {
-	level      int
-	sourceCell Pv
-	targetCell Pv
-}
-
-func NewViaKey(level int, sourceCell, targetCell Pv) ViaKey {
-	return ViaKey{level, sourceCell, targetCell}
-}
 
 // main crp graph. static (i.e. can't add new edges)
 type Graph struct {
@@ -525,7 +515,7 @@ func (g *Graph) GetTailFromOutEdge(exitPoint Index) Index {
 }
 
 // GetOverlayVertex. return overlay vertex id
-func (g *Graph) GetOverlayVertex(u Index, exitEntryOrder int, exit bool) (Index, bool) {
+func (g *Graph) GetOverlayVertex(u Index, exitEntryOrder Index, exit bool) (Index, bool) {
 	subV := SubVertex{
 		originalID:     u,
 		exitEntryOrder: exitEntryOrder,
@@ -791,12 +781,12 @@ func (g *Graph) GetStreetName(edgeId Index) string {
 
 func (g *Graph) GetRoadClass(edgeId Index) string {
 	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.tagStringIDMap.GetStrFast(int(edgeInfo.roadClass))
+	return g.graphStorage.tagStringIDMap.GetStrFast(edgeInfo.roadClass)
 }
 
 func (g *Graph) GetRoadClassLink(edgeId Index) string {
 	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.tagStringIDMap.GetStrFast(int(edgeInfo.roadClassLink))
+	return g.graphStorage.tagStringIDMap.GetStrFast(edgeInfo.roadClassLink)
 }
 
 func (g *Graph) GetRoadLanes(edgeId Index) uint8 {
@@ -845,50 +835,6 @@ func (g *Graph) GetVerticeIds() []Index {
 		nodeIds = append(nodeIds, Index(i))
 	}
 	return nodeIds
-}
-
-type VirtualOutEdge struct {
-	exitPoint  int
-	outEdge    *OutEdge
-	cellNumber Pv
-}
-
-func NewVirtualOutEdge(exitPoint int, outEdge *OutEdge, cellNumber Pv) *VirtualOutEdge {
-	return &VirtualOutEdge{exitPoint: exitPoint, outEdge: outEdge, cellNumber: cellNumber}
-}
-
-func (vu *VirtualOutEdge) GetExitPoint() int {
-	return vu.exitPoint
-}
-
-func (vu *VirtualOutEdge) GetOutEdge() *OutEdge {
-	return vu.outEdge
-}
-
-func (vu *VirtualOutEdge) GetCellNumber() Pv {
-	return vu.cellNumber
-}
-
-type VirtualInEdge struct {
-	entryPoint int
-	inEdge     *InEdge
-	cellNumber Pv
-}
-
-func NewVirtualInEdge(entryPoint int, inEdge *InEdge, cellNumber Pv) *VirtualInEdge {
-	return &VirtualInEdge{entryPoint: entryPoint, inEdge: inEdge, cellNumber: cellNumber}
-}
-
-func (vu *VirtualInEdge) GetEntryPoint() int {
-	return vu.entryPoint
-}
-
-func (vu *VirtualInEdge) GetInEdge() *InEdge {
-	return vu.inEdge
-}
-
-func (vu *VirtualInEdge) GetCellNumber() Pv {
-	return vu.cellNumber
 }
 
 func NewEmptyOutEdge() OutEdge {

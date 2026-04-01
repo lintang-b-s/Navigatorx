@@ -223,7 +223,7 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// tag string
 
-	sortedKeys := make([]int, 0)
+	sortedKeys := make([]uint32, 0)
 	for key, _ := range g.graphStorage.tagStringIDMap.GetIdToStr() {
 
 		sortedKeys = append(sortedKeys, key)
@@ -420,7 +420,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseIndex origId: %v", tokens[0])
 		}
-		exitEntryOrder, err := strconv.ParseUint(tokens[1], 10, 8)
+		exitEntryOrder, err := strconv.ParseUint(tokens[1], 10, 32)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseUint exitEntryOrder: %v", tokens[1])
 		}
@@ -434,7 +434,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		}
 		subV := SubVertex{
 			originalID:     origID,
-			exitEntryOrder: int(exitEntryOrder),
+			exitEntryOrder: Index(exitEntryOrder),
 			exit:           exit,
 		}
 		overlayVertices[subV] = overlayId
@@ -588,17 +588,17 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt endPointIndex: %v", tokens[1])
 		}
-		streetName, err := util.ParseInt(tokens[2])
+		streetName, err := util.ParseUInt32(tokens[2])
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt streetName: %v", tokens[2])
+			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 streetName: %v", tokens[2])
 		}
-		roadClass, err := util.ParseInt(tokens[3])
+		roadClass, err := util.ParseUInt32(tokens[3])
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt roadClass: %v", tokens[3])
+			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 roadClass: %v", tokens[3])
 		}
-		roadClassLink, err := util.ParseInt(tokens[4])
+		roadClassLink, err := util.ParseUInt32(tokens[4])
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt roadClassLink: %v", tokens[4])
+			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 roadClassLink: %v", tokens[4])
 		}
 		lanes, err := util.ParseInt(tokens[5])
 		if err != nil {
@@ -686,7 +686,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
 		}
-		key, err := util.ParseInt(tokens[0])
+		key, err := util.ParseUInt32(tokens[0])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt tagstring key: %v", tokens[0])
 		}
@@ -808,7 +808,7 @@ func parseOutEdge(line string) (*OutEdge, error) {
 		return nil, err
 	}
 
-	entryPoint, err := strconv.ParseUint(tokens[4], 10, 8)
+	entryPoint, err := strconv.ParseUint(tokens[4], 10, 32)
 	if err != nil {
 		return nil, err
 	}
@@ -823,7 +823,7 @@ func parseOutEdge(line string) (*OutEdge, error) {
 		return nil, err
 	}
 
-	e := NewOutEdge(edgeId, head, weight, dist, int(entryPoint), pkg.OsmHighwayType(hwType))
+	e := NewOutEdge(edgeId, head, weight, dist, Index(entryPoint), pkg.OsmHighwayType(hwType))
 	e.SetInfoEdgeId(edgeInfoId)
 	return e, nil
 }
@@ -850,7 +850,7 @@ func parseInEdge(line string) (*InEdge, error) {
 		return nil, err
 	}
 
-	exitPoint, err := strconv.ParseUint(tokens[4], 10, 8)
+	exitPoint, err := strconv.ParseUint(tokens[4], 10, 32)
 	if err != nil {
 		return nil, err
 	}
@@ -864,7 +864,7 @@ func parseInEdge(line string) (*InEdge, error) {
 		return nil, err
 	}
 
-	e := NewInEdge(edgeId, tail, weight, dist, int(exitPoint), pkg.OsmHighwayType(hwType))
+	e := NewInEdge(edgeId, tail, weight, dist, Index(exitPoint), pkg.OsmHighwayType(hwType))
 	e.SetInfoEdgeId(edgeInfoId)
 	return e, nil
 }

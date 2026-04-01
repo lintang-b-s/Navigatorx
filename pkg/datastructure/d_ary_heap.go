@@ -9,7 +9,7 @@ import (
 type CRPQueryKey struct {
 	node           Index // nodeId or boundary/overlay nodeId
 	entryExitPoint Index // edgeId or node query level (if node is an overlay vertex)
-	outInEdgeId    Index // 
+	outInEdgeId    Index //
 	overlay        bool  // is node a boundary/overlay vertex
 }
 
@@ -42,10 +42,9 @@ func NewCRPQueryKeyWithOutInEdgeId(node, entryExitPoint, outInEdgeId Index) CRPQ
 }
 
 type PriorityQueueNode[T comparable] struct {
-	item        T       // max pake crpQueryKey  13 byte
-	rank        float64 // 8 byte
-	queryInfoId int
-	// total 21 byte
+	item        T
+	rank        float64
+	queryInfoId uint32
 }
 
 func (p *PriorityQueueNode[T]) GetItem() T {
@@ -60,18 +59,18 @@ func (p *PriorityQueueNode[T]) SetRank(rank float64) {
 	p.rank = rank
 }
 
-func (p *PriorityQueueNode[T]) getQueryInfoId() int {
+func (p *PriorityQueueNode[T]) getQueryInfoId() uint32 {
 	return p.queryInfoId
 }
 
-func NewPriorityQueueNode[T comparable](rank float64, item T, queryInfoId int) PriorityQueueNode[T] {
+func NewPriorityQueueNode[T comparable](rank float64, item T, queryInfoId uint32) PriorityQueueNode[T] {
 	return PriorityQueueNode[T]{rank: rank, item: item, queryInfoId: queryInfoId}
 }
 
 // DAryHeap binary heap priorityqueue
 type DAryHeap[T comparable] struct {
 	heap []PriorityQueueNode[T]
-	d    int
+	d    uint32
 }
 
 func NewBinaryHeap[T comparable]() *DAryHeap[T] {
@@ -85,21 +84,21 @@ func NewFourAryHeap[T comparable]() *DAryHeap[T] {
 func NewdAryHeap[T comparable](d int) *DAryHeap[T] {
 	return &DAryHeap[T]{
 		heap: make([]PriorityQueueNode[T], 0),
-		d:    d,
+		d:    uint32(d),
 	}
 }
 
-func (h *DAryHeap[T]) Preallocate(maxSearchSize int) {
+func (h *DAryHeap[T]) Preallocate(maxSearchSize uint32) {
 	h.heap = make([]PriorityQueueNode[T], 0, maxSearchSize)
 }
 
 // parent get index dari parent
-func (h *DAryHeap[T]) parent(index int) int {
+func (h *DAryHeap[T]) parent(index uint32) uint32 {
 	return (index - 1) / h.d
 }
 
 // heapifyUp mempertahankan heap property. check apakah parent dari index lebih besar kalau iya swap, then recursive ke parent.  O(logN) tree height.
-func (h *DAryHeap[T]) heapifyUp(index int, updatePos func(queryInfoId, newHeapNodeId int)) {
+func (h *DAryHeap[T]) heapifyUp(index uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
 	for index != 0 && h.heap[index].rank < h.heap[h.parent(index)].rank {
 		h.Swap(index, h.parent(index), updatePos)
 		index = h.parent(index)
@@ -107,16 +106,16 @@ func (h *DAryHeap[T]) heapifyUp(index int, updatePos func(queryInfoId, newHeapNo
 }
 
 // heapifyDown mempertahankan heap property. check apakah nilai salah satu children dari index lebih kecil kalau iya swap, then recursive ke children yang kecil tadi.  O(logN) tree height.
-func (h *DAryHeap[T]) heapifyDown(index int, updatePos func(queryInfoId, newHeapNodeId int)) {
+func (h *DAryHeap[T]) heapifyDown(index uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
 
 	leftMostChild := index*h.d + 1
-	if leftMostChild >= len(h.heap) {
+	if leftMostChild >= uint32(len(h.heap)) {
 		return
 	}
 
 	sentinel := leftMostChild + h.d
-	if sentinel > len(h.heap) {
-		sentinel = len(h.heap)
+	if sentinel > uint32(len(h.heap)) {
+		sentinel = uint32(len(h.heap))
 	}
 
 	smallest := leftMostChild
@@ -133,7 +132,7 @@ func (h *DAryHeap[T]) heapifyDown(index int, updatePos func(queryInfoId, newHeap
 	}
 }
 
-func (h *DAryHeap[T]) Swap(i, j int, updatePos func(queryInfoId, newHeapNodeId int)) {
+func (h *DAryHeap[T]) Swap(i, j uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
 	h.heap[i], h.heap[j] = h.heap[j], h.heap[i]
 
 	updatePos(h.heap[i].getQueryInfoId(), i)
@@ -151,8 +150,8 @@ func (h *DAryHeap[T]) IsEmpty() bool {
 }
 
 // size ukuran heap
-func (h *DAryHeap[T]) Size() int {
-	return len(h.heap)
+func (h *DAryHeap[T]) Size() uint32 {
+	return uint32(len(h.heap))
 }
 
 func (h *DAryHeap[T]) Clear() {
@@ -175,16 +174,16 @@ func (h *DAryHeap[T]) GetMinrank() float64 {
 }
 
 // insert item baru
-func (h *DAryHeap[T]) Insert(key PriorityQueueNode[T], queryInfoId int, updatePos func(queryInfoId, newHeapNodeId int)) {
+func (h *DAryHeap[T]) Insert(key PriorityQueueNode[T], queryInfoId uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
 	h.heap = append(h.heap, key)
-	index := h.Size() - 1
-	updatePos(queryInfoId, index)
+	index := uint32(h.Size() - 1)
+	updatePos(queryInfoId, uint32(index))
 
 	h.heapifyUp(index, updatePos)
 }
 
-// extractMin ambil nilai minimum dari min-heap (index 0) & pop dari heap. O(logN), heapifyDown(0) O(logN)
-func (h *DAryHeap[T]) ExtractMin(updatePos func(queryInfoId, newHeapNodeId int)) (PriorityQueueNode[T], error) {
+// extractMin ambil node dg nilai minimum dari min-heap (index 0) & pop dari heap. O(logN), heapifyDown(0) O(logN)
+func (h *DAryHeap[T]) ExtractMin(updatePos func(queryInfoId, newHeapNodeId uint32)) (PriorityQueueNode[T], error) {
 	if h.isEmpty() {
 		return PriorityQueueNode[T]{}, errors.New("heap is empty")
 	}
@@ -202,7 +201,7 @@ func (h *DAryHeap[T]) ExtractMin(updatePos func(queryInfoId, newHeapNodeId int))
 }
 
 // decreaseKey update rank dari item min-heap.   O(logN) heapify.
-func (h *DAryHeap[T]) DecreaseKey(itemPos int, rank float64, updatePos func(queryInfoId, newHeapNodeId int)) error {
+func (h *DAryHeap[T]) DecreaseKey(itemPos uint32, rank float64, updatePos func(queryInfoId, newHeapNodeId uint32)) error {
 	if itemPos < 0 || itemPos >= h.Size() || h.heap[itemPos].GetRank() < rank {
 		return errors.New("invalid index or new value")
 	}

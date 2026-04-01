@@ -204,7 +204,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 
 	heapPool := sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 

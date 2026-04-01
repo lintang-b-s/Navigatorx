@@ -43,7 +43,7 @@ func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapM
 
 func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
-	group.GET("/computeAlternativeRoutes", api.alternativeRoutes)
+	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes)
 	group.POST("/onlineMapMatch", api.onlineMapMatch)
 
 	group.POST("/offlineMapMatch", api.offlineMapMatch) // masih salah
@@ -108,7 +108,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 	}
 }
 
-func (api *routingAPI) alternativeRoutes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	var (
 		request alternativeRoutesRequest
 		err     error

@@ -12,12 +12,12 @@ type QueryHeap[T comparable] struct {
 	heap           *DAryHeap[T]     // 4-ary minheap
 	queryInfos     []VertexInfo     // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array), scanned dari node. node bisa berupa edgeId/overlayVertexId dari graph. ingat, this crp query impl. support turn costs
 	storage        QueryInfoStorage // map dari edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
-	maxEdgesInCell int
+	maxEdgesInCell uint32
 	storageType    QueryInfoStorageType
 	scanned        *bitset.BitSet // https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 }
 
-func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStorageType, preallocateMinHeap bool) *QueryHeap[T] {
+func NewQueryHeap[T comparable](baseSize, maxEdgesInCell uint32, tipe QueryInfoStorageType, preallocateMinHeap bool) *QueryHeap[T] {
 	minHeap := NewFourAryHeap[T]()
 	approxMaxSearchSize := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
 
@@ -69,14 +69,14 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStor
 }
 
 // updatePosition. buat update heapNodeId dari queryInfo (dipake pas heapifyUp dan heapifyDown)
-func (qh *QueryHeap[T]) updatePosition(queryInfoId, newHeapNodeId int) {
+func (qh *QueryHeap[T]) updatePosition(queryInfoId uint32, newHeapNodeId uint32) {
 	qh.queryInfos[queryInfoId].SetHeapNodeId(newHeapNodeId)
 }
 
 // Insert. insert node ke priority queue
 // node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T]) Insert(id Index, priority float64, vInfo VertexInfo, queryKey T) {
-	newQueryInfoid := len(qh.queryInfos)
+	newQueryInfoid := uint32(len(qh.queryInfos))
 
 	qh.queryInfos = append(qh.queryInfos, vInfo)
 
@@ -109,7 +109,7 @@ func (qh *QueryHeap[T]) DecreaseKey(id Index, newPriority, qInfoPriority float64
 // node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T]) GetPriority(id Index) float64 {
 	qInfoId := qh.storage.Get(id)
-	if qInfoId == math.MaxInt {
+	if qInfoId == math.MaxUint32 {
 		return pkg.INF_WEIGHT
 	}
 	return qh.queryInfos[qInfoId].GetTravelTime()
@@ -127,16 +127,16 @@ func (qh *QueryHeap[T]) Clear() {
 // node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T]) Get(id Index) VertexInfo {
 	qInfoId := qh.storage.Get(id)
-	util.AssertPanic(qInfoId != math.MaxInt, "qInfoId must not equal to math.MaxInt")
+	util.AssertPanic(qInfoId != math.MaxUint32, "qInfoId must not equal to math.MaxUint32")
 	return qh.queryInfos[qInfoId]
 }
 
 func (qh *QueryHeap[T]) PreallocateHeap(initHeapSize int) {
-	qh.heap.Preallocate(initHeapSize)
+	qh.heap.Preallocate(uint32(initHeapSize))
 }
 
 // Size. return heap size
-func (qh *QueryHeap[T]) Size() int {
+func (qh *QueryHeap[T]) Size() uint32 {
 	return qh.heap.Size()
 }
 
@@ -158,7 +158,7 @@ func (qh *QueryHeap[T]) SetFirstOverlayEntryExitId(id Index, firstEntryExitId In
 }
 
 func (qh *QueryHeap[T]) Set(id Index, vInfo VertexInfo, queryKey T) {
-	newQueryInfoid := len(qh.queryInfos)
+	newQueryInfoid := uint32(len(qh.queryInfos))
 
 	qh.queryInfos = append(qh.queryInfos, vInfo)
 	qh.storage.Set(id, newQueryInfoid)
@@ -175,7 +175,7 @@ func (qh *QueryHeap[T]) SetQueryLevel(id Index, qLevel uint8) {
 
 func (qh *QueryHeap[T]) IsScanned(id Index) bool {
 	qInfoId := qh.storage.Get(id)
-	if qInfoId == math.MaxInt { // belum ke label & ke scan
+	if qInfoId == math.MaxUint32 { // belum ke label & ke scan
 		return false
 	}
 	return qh.scanned.Test(uint(qInfoId))
@@ -183,7 +183,7 @@ func (qh *QueryHeap[T]) IsScanned(id Index) bool {
 
 func (qh *QueryHeap[T]) IsLabelled(id Index) bool {
 	qInfoId := qh.storage.Get(id)
-	if qInfoId == math.MaxInt { // belum ke label & ke scan
+	if qInfoId == math.MaxUint32 { // belum ke label & ke scan
 		return false
 	}
 	return true
@@ -193,8 +193,8 @@ func (qh *QueryHeap[T]) IsLabelled(id Index) bool {
 // karena kita support turn costs:
 // offsetedVId bisa berupa edgeId atau overlay vertex id.
 func (qh *QueryHeap[T]) ForLabelledItems(handle func(offsetedVId Index, vInfo VertexInfo)) {
-	qh.storage.ForAllItems(func(offsetedVId Index, queryInfoId int) {
-		if queryInfoId == math.MaxInt {
+	qh.storage.ForAllItems(func(offsetedVId Index, queryInfoId uint32) {
+		if queryInfoId == math.MaxUint32 {
 			return //  belum ke label & ke scan
 		}
 		handle(offsetedVId, qh.queryInfos[queryInfoId])

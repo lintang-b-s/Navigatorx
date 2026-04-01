@@ -71,13 +71,13 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 
 	c.lowestHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell), int(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxEdgesInCell), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	c.levelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](int(da.OVERLAY_INFO_SIZE), int(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -108,13 +108,13 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 
 	c.lowestHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell), int(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxEdgesInCell), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	c.levelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](int(da.OVERLAY_INFO_SIZE), int(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -270,7 +270,7 @@ func (c *Customizer) buildLowestLevel(
 						} else {
 							// found an exit vertex of the cell
 							// save this shortcut travelTime
-							exitOverlay, _ := c.graph.GetOverlayVertex(uId, int(exitPoint), true) // overlay vetex id of exit vertex c_1(u).
+							exitOverlay, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
 							ok := util.Lt(overlayTravelTime[exitOverlay], pkg.INF_WEIGHT)
 							if !ok || (ok && exitPointTravelTime < overlayTravelTime[exitOverlay]) {
 								overlayTravelTime[exitOverlay] = exitPointTravelTime

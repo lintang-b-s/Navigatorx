@@ -68,7 +68,7 @@ func (ve VertexEdgePair) GetOutInEdgeId() Index {
 type VertexInfo struct {
 	parent     VertexEdgePair // 13 byte
 	travelTime float64        // 8 byte
-	heapNodeId int            // 4 byte
+	heapNodeId uint32         // 4 byte
 }
 
 func NewVertexInfo(travelTime float64, parent VertexEdgePair) VertexInfo {
@@ -91,11 +91,11 @@ func (vi *VertexInfo) UpdateParent(par VertexEdgePair) {
 	vi.parent = par
 }
 
-func (vi *VertexInfo) SetHeapNodeId(id int) {
+func (vi *VertexInfo) SetHeapNodeId(id uint32) {
 	vi.heapNodeId = id
 }
 
-func (vi *VertexInfo) GetHeapNodeId() int {
+func (vi *VertexInfo) GetHeapNodeId() uint32 {
 	return vi.heapNodeId
 }
 

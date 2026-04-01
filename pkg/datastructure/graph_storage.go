@@ -97,13 +97,13 @@ type EdgeExtraInfo struct {
 	osmWayId         int64
 	startPointsIndex Index // edge geometry start index di gs.osmNodePoints
 	endPointsIndex   Index
-	streetName       int
-	roadClass        int
-	roadClassLink    int
+	streetName       uint32
+	roadClass        uint32
+	roadClassLink    uint32
 	lanes            uint8
 }
 
-func NewEdgeExtraInfo(streetName int, roadClass, roadClassLink int, lanes uint8, StartPointsIdx, EndPointsIdx Index,
+func NewEdgeExtraInfo(streetName uint32, roadClass, roadClassLink uint32, lanes uint8, StartPointsIdx, EndPointsIdx Index,
 	osmWayId int64) EdgeExtraInfo {
 	return EdgeExtraInfo{
 		streetName:       streetName,

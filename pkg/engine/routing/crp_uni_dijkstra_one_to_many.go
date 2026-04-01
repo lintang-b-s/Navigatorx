@@ -382,7 +382,7 @@ func (bs *CRPUniDijkstraOneToMany) Preallocate() {
 	maxEdgesInCell := bs.engine.graph.GetMaxEdgesInCell()
 
 	maxSearchSize := bs.engine.graph.NumberOfEdges() + bs.engine.overlayGraph.NumberOfOverlayVertices()
-	bs.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
+	bs.pq = da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearchSize), uint32(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
 	bs.pq.PreallocateHeap(maxSearchSize)
 	bs.stallingEntry = make([]float64, maxSearchSize)
 	bs.stallingExit = make([]float64, maxSearchSize)

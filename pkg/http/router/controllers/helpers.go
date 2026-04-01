@@ -1,8 +1,10 @@
 package controllers
 
 import (
+	"bytes"
 	"errors"
 	"net/http"
+	"sync"
 
 	json "github.com/bytedance/sonic"
 
@@ -10,26 +12,33 @@ import (
 	"go.uber.org/zap"
 )
 
+var bufPool = sync.Pool{
+	New: func() any {
+		return bytes.NewBuffer(make([]byte, 0, JSON_BUF_POOL_SIZE))
+	},
+}
+
 // writeJSON marshals data structure to encoded JSON response.
 func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data envelope,
 	headers http.Header) error {
-	js, err := json.MarshalIndent(data, "", "\t")
-	if err != nil {
+	buf := bufPool.Get().(*bytes.Buffer)
+	buf.Reset()
+	defer bufPool.Put(buf)
+
+	enc := json.ConfigDefault.NewEncoder(buf)
+	enc.SetIndent("", "\t")
+
+	if err := enc.Encode(data); err != nil {
 		return err
 	}
 
-	if err != nil {
-		return err
-	}
-
-	js = append(js, '\n')
 	for key, value := range headers {
 		w.Header()[key] = value
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if _, err := w.Write(js); err != nil {
+	if _, err := buf.WriteTo(w); err != nil {
 		api.log.Error("failed to write JSON response", zap.Error(err))
 		return err
 	}

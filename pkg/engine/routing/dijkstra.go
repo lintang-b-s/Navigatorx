@@ -283,6 +283,6 @@ func (us *Dijkstra) Preallocate() {
 	}
 	us.finalEdge = make([]da.Index, numberOfVerties)
 	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
-	us.pq = da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
+	us.pq = da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 	us.pq.PreallocateHeap(maxSearchSize)
 }

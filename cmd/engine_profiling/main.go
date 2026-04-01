@@ -5,6 +5,7 @@ import (
 	"flag"
 	"os"
 	"runtime"
+	"time"
 
 	goHttp "net/http"
 
@@ -58,7 +59,8 @@ func main() {
 		ServerAddress: "http://localhost:4040",
 
 		// you can disable logging by setting this to nil
-		Logger: pyroscope.StandardLogger,
+		Logger:     pyroscope.StandardLogger,
+		UploadRate: 10 * time.Second,
 
 		// by default all profilers are enabled,
 		// but you can select the ones you want to use:

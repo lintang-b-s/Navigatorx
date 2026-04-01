@@ -28,14 +28,14 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		vOsmId := e.GetToOsmId()
 
 		outEdge := datastructure.NewOutEdge(0,
-			v, e.GetWeight(), e.GetDistance(), len(inEdges[v]), e.GetHighwayType())
+			v, e.GetWeight(), e.GetDistance(), da.Index(len(inEdges[v])), e.GetHighwayType())
 		outEdge.SetInfoEdgeId(da.Index(eId))
 		outEdges[u] = append(outEdges[u], outEdge)
 
 		outDegree[u]++
 
 		inEdge := datastructure.NewInEdge(0,
-			u, e.GetWeight(), e.GetDistance(), len(outEdges[u])-1, e.GetHighwayType())
+			u, e.GetWeight(), e.GetDistance(), da.Index(len(outEdges[u])-1), e.GetHighwayType())
 		inEdge.SetInfoEdgeId(da.Index(eId))
 		inEdges[v] = append(inEdges[v], inEdge)
 		inDegree[v]++
@@ -51,12 +51,12 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *datastructure.
 		// we need to do this because crp query assume all vertex have at least one outEdge (at for target as source)
 
 		dummyOut := datastructure.NewOutEdge(da.INVALID_EDGE_ID, datastructure.Index(v),
-			0, 0, len(inEdges[v]), pkg.UNKNOWN)
+			0, 0, da.Index(len(inEdges[v])), pkg.UNKNOWN)
 		outEdges[v] = append(outEdges[v], dummyOut)
 		outDegree[v]++
 
 		dummyIn := datastructure.NewInEdge(da.INVALID_EDGE_ID, datastructure.Index(v),
-			0, 0, len(outEdges[v])-1, pkg.UNKNOWN)
+			0, 0, da.Index(len(outEdges[v])-1), pkg.UNKNOWN)
 		inEdges[v] = append(inEdges[v], dummyIn)
 		inDegree[v]++
 		graphStorage.AppendEdgeInfos(

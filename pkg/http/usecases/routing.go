@@ -45,33 +45,32 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 
 	rs.drivingInstructionPool = &sync.Pool{
 		New: func() any {
-			drinvingInstructions := make([]*da.Instruction, 0, 128)
+			drinvingInstructions := make([]*da.Instruction, 0, DRIVING_DIRECTION_POOL_SIZE)
 			return drinvingInstructions
 		},
 	}
 
 	rs.coordinatesPool = &sync.Pool{
 		New: func() any {
-			legCoordinates := make([]da.Coordinate, 0, 128)
+			legCoordinates := make([]da.Coordinate, 0, COORDINATES_POOL_SIZE)
 			return legCoordinates
 		},
 	}
 
 	rs.drivingEdgeIdsPool = &sync.Pool{
 		New: func() any {
-			legEdgeIds := make([]da.Index, 0, 128)
+			legEdgeIds := make([]da.Index, 0, DRIVING_DIRECTION_POOL_SIZE)
 			return legEdgeIds
 		},
 	}
 
 	rs.drivingDirectionPool = &sync.Pool{
 		New: func() any {
-			drivingDirections := make([]da.DrivingDirection, 0, 128)
+			drivingDirections := make([]da.DrivingDirection, 0, DRIVING_DIRECTION_POOL_SIZE)
 			return drivingDirections
 		},
 	}
 
-	// rs.turnSignCache, _ = lru.New[uint64, int](1 << 21)
 
 	var err error
 	const keyValByteSize = 12

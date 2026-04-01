@@ -71,41 +71,41 @@ func (crp *CRPRoutingEngine) GetMetrics() *met.Metric {
 func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 	maxEdgesInCell := crp.graph.GetMaxEdgesInCell()
 	numberOfOverlayVertices := crp.overlayGraph.NumberOfOverlayVertices()
-	maxSearchSize := int(maxEdgesInCell*2) + numberOfOverlayVertices
+	maxSearchSize := uint32(maxEdgesInCell*2) + uint32(numberOfOverlayVertices)
 	// crp query heap pool
 	crp.fHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 	crp.bHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	// path unpacking heap pool
 	crp.pufOverlayHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, int(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
 	crp.pubOverlayHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, int(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
 	crp.pufBaseHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxEdgesInCell)*2, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	crp.pubBaseHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](int(maxEdgesInCell)*2, int(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxEdgesInCell)*2, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 

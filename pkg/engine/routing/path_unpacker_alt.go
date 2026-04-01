@@ -147,7 +147,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 	if pu.useCache {
 		if overlayPath, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, level)); ok {
 			// buat tests, gak ambil dari cache
-			edgePath := make([]da.Index, 0, 32)
+			edgePath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 			for i := 0; i < len(overlayPath); i += 2 {
 				downLevelEdgePath := pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1)
 				edgePath = append(edgePath, downLevelEdgePath...)
@@ -351,7 +351,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 		})
 	}
 
-	overlayPath := make([]da.Index, 0, 8)
+	overlayPath := make([]da.Index, 0, UNPACKER_OVERLAY_PATH_SIZE)
 
 	overlayPath = append(overlayPath, mid)
 
@@ -381,7 +381,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 
 	done()
 
-	edgePath := make([]da.Index, 0, 32)
+	edgePath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 	for i := 0; i < len(overlayPath); i += 2 {
 		curV := overlayPath[i]
 		nextV := overlayPath[i+1]
@@ -627,7 +627,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 	}
 
-	edgeIdPath := make([]da.Index, 0, 10)
+	edgeIdPath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 
 	// u->mid
 	_, midOutEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(fMid)

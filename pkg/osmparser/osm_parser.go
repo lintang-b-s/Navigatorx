@@ -49,7 +49,7 @@ type OsmParser struct {
 	relationMemberMap  map[int64]struct{}
 	acceptedNodeMap    map[int64]NodeCoord
 	barrierNodes       map[int64]bool
-	nodeTag            map[int64]map[int]int
+	nodeTag            map[int64]map[uint32]uint32
 	tagStringIdMap     util.IDMap
 	nodeIDMap          map[int64]da.Index
 	nodeToOsmId        map[da.Index]int64
@@ -68,7 +68,7 @@ func NewOSMParserV2() *OsmParser {
 		relationMemberMap:  make(map[int64]struct{}),
 		acceptedNodeMap:    make(map[int64]NodeCoord),
 		barrierNodes:       make(map[int64]bool),
-		nodeTag:            make(map[int64]map[int]int),
+		nodeTag:            make(map[int64]map[uint32]uint32),
 		tagStringIdMap:     util.NewIdMap(),
 		nodeIDMap:          make(map[int64]da.Index),
 		nodeToOsmId:        make(map[da.Index]int64),
@@ -295,7 +295,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 					}
 					tagID := p.tagStringIdMap.GetID(tag.Key)
 					if _, ok := p.nodeTag[int64(node.ID)]; !ok {
-						p.nodeTag[int64(node.ID)] = make(map[int]int)
+						p.nodeTag[int64(node.ID)] = make(map[uint32]uint32)
 					}
 					p.nodeTag[int64(node.ID)][tagID] = p.tagStringIdMap.GetID(tag.Value)
 					if strings.Contains(tag.Value, "traffic_signals") {

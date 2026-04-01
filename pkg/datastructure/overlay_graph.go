@@ -55,11 +55,11 @@ pC = number of entry points (vertex that have at least one in edge that point to
 fC = poisition in OverlayWeights.weights where the first entry of C is represented
 */
 type Cell struct {
-	numEntryPoints       Index // p_c // number of entry points
-	numExitPoints        Index // q_c // number of exit points
-	cellOffset           Index // f_c (the position in W where the first entry of C’s matrix is represented)
-	overlayIdOffset      Index //  offset of first entry/exit point (overlay vertex) in og.overlayIdMapping for the each cell for each level
-	numOfOverlayVertices int   // number of overlay vertices in this cell + number of overlayVertices in all direct subcells (subcells in level-1) of this cell
+	numEntryPoints       Index  // p_c // number of entry points
+	numExitPoints        Index  // q_c // number of exit points
+	cellOffset           Index  // f_c (the position in W where the first entry of C’s matrix is represented)
+	overlayIdOffset      Index  //  offset of first entry/exit point (overlay vertex) in og.overlayIdMapping for the each cell for each level
+	numOfOverlayVertices uint32 // number of overlay vertices in this cell + number of overlayVertices in all direct subcells (subcells in level-1) of this cell
 }
 
 func (c *Cell) GetNumEntryPoints() Index {
@@ -156,7 +156,7 @@ func (og *OverlayGraph) OffUpperBit(cellNumber Pv, level uint8) Pv {
 }
 
 // level is 1-indexed
-func (og *OverlayGraph) GetNumOfOverlayVerticesOfCell(cellNumber Pv, level uint8) int {
+func (og *OverlayGraph) GetNumOfOverlayVerticesOfCell(cellNumber Pv, level uint8) uint32 {
 	truncatedCellNumber := og.levelInfo.TruncateToLevel(cellNumber, uint8(level))
 	cell, _ := og.cellMapping[level-1][truncatedCellNumber]
 	return cell.numOfOverlayVertices
@@ -316,11 +316,11 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			exitFlagsArray[i+int(vertexOffset)] = isExitPoint // index exitflagsArray dari 0 itu overlay vertex di level teringgi sampai di index terakhir  itu last overlay vertex di level terendah.
 
 			// order = offset/index of boundary outEdge/inEdge in outEdges/inEdges slice
-			var order int
+			var order Index
 			if isExitPoint {
-				order = int(g.GetExitOrder(vertex.originalVertex, vertex.originalEdge))
+				order = g.GetExitOrder(vertex.originalVertex, vertex.originalEdge)
 			} else {
-				order = int(g.GetEntryOrder(vertex.originalVertex, vertex.originalEdge))
+				order = g.GetEntryOrder(vertex.originalVertex, vertex.originalEdge)
 			}
 
 			// subVertex = (originalVertexId, offset of boundary outedge/inEdge, is vertex a exit point}
@@ -447,7 +447,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 
 		for _, subCellNumber := range subCellNumbers {
 			subCell := og.cellMapping[l][subCellNumber]
-			og.cellMapping[l][subCellNumber].numOfOverlayVertices += int(subCell.numEntryPoints) + int(subCell.numExitPoints)
+			og.cellMapping[l][subCellNumber].numOfOverlayVertices += uint32(subCell.numEntryPoints + subCell.numExitPoints)
 		}
 
 		for _, subCell := range subCells {
@@ -455,7 +455,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 			entryVertex := og.GetVertex(entry)
 			superCellNumber := entryVertex.GetCellNumber()
 			superCell := og.GetCell(superCellNumber, l+1)
-			superCell.numOfOverlayVertices += int(subCell.numEntryPoints) + int(subCell.numExitPoints)
+			superCell.numOfOverlayVertices += uint32(subCell.numEntryPoints) + uint32(subCell.numExitPoints)
 		}
 	}
 
@@ -771,7 +771,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine numOfOverlayVertices: %v", tokens[5])
 			}
-			cell.numOfOverlayVertices = numOverlayVertices
+			cell.numOfOverlayVertices = uint32(numOverlayVertices)
 
 			if cellMapping[i] == nil {
 				cellMapping[i] = make(map[Pv]*Cell)

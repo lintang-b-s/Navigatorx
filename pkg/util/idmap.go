@@ -3,46 +3,46 @@ package util
 import "sort"
 
 type IDMap struct {
-	strToId map[string]int
-	idToStr map[int]string
+	strToId map[string]uint32
+	idToStr map[uint32]string
 	strs    []string
 }
 
 func NewIdMap() IDMap {
 	return IDMap{
-		strToId: make(map[string]int),
-		idToStr: make(map[int]string),
+		strToId: make(map[string]uint32),
+		idToStr: make(map[uint32]string),
 	}
 }
 
-func (idMap *IDMap) GetID(str string) int {
+func (idMap *IDMap) GetID(str string) uint32 {
 	if id, ok := idMap.strToId[str]; ok {
 		return id
 	}
-	id := len(idMap.strToId)
+	id := uint32(len(idMap.strToId))
 	idMap.strToId[str] = id
 	idMap.idToStr[id] = str
 	return id
 }
 
-func (idMap *IDMap) SetID(id int, str string) {
+func (idMap *IDMap) SetID(id uint32, str string) {
 	idMap.strToId[str] = id
 	idMap.idToStr[id] = str
 }
 
-func (idMap *IDMap) GetStr(id int) string {
+func (idMap *IDMap) GetStr(id uint32) string {
 	if str, ok := idMap.idToStr[id]; ok {
 		return str
 	}
 	return ""
 }
 
-func (idMap *IDMap) GetIdToStr() map[int]string {
+func (idMap *IDMap) GetIdToStr() map[uint32]string {
 	return idMap.idToStr
 }
 
 func (idMap *IDMap) ToStringArray() {
-	keys := make([]int, 0, len(idMap.idToStr))
+	keys := make([]uint32, 0, len(idMap.idToStr))
 	for key, _ := range idMap.idToStr {
 		keys = append(keys, key)
 	}
@@ -52,11 +52,12 @@ func (idMap *IDMap) ToStringArray() {
 	})
 
 	idMap.strs = make([]string, len(keys))
-	for key := range keys {
+	for i := 0; i < len(keys); i++ {
+		key := keys[i]
 		idMap.strs[key] = idMap.GetStr(key)
 	}
 }
 
-func (idMap *IDMap) GetStrFast(id int) string {
+func (idMap *IDMap) GetStrFast(id uint32) string {
 	return idMap.strs[id]
 }

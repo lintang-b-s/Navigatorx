@@ -11,12 +11,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type PUCacheKey struct {
-	startOverlayId  da.Index
-	targetOverlayId da.Index
-	level           uint8
-}
-
 func NewPUCacheKey(start, target da.Index, level uint8) []byte {
 	buf := make([]byte, 9)
 	binary.LittleEndian.PutUint32(buf[:4], uint32(start))
@@ -142,7 +136,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId da.Index,
 	if pu.useCache {
 		if overlayPath, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, level)); ok {
 			// buat tests, gak ambil dari cache
-			edgePath := make([]da.Index, 0, 32)
+			edgePath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 			for i := 0; i < len(overlayPath); i += 2 {
 				downLevelEdgePath := pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1)
 				edgePath = append(edgePath, downLevelEdgePath...)
@@ -334,7 +328,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId da.Index,
 		})
 	}
 
-	overlayPath := make([]da.Index, 0, 8)
+	overlayPath := make([]da.Index, 0, UNPACKER_OVERLAY_PATH_SIZE)
 
 	overlayPath = append(overlayPath, mid)
 
@@ -362,7 +356,7 @@ func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId da.Index,
 		pu.puCache.Set(NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath, 1)
 	}
 
-	edgePath := make([]da.Index, 0, 32)
+	edgePath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 	for i := 0; i < len(overlayPath); i += 2 {
 		curV := overlayPath[i]
 		nextV := overlayPath[i+1]
@@ -601,7 +595,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 
 	}
 
-	edgeIdPath := make([]da.Index, 0, 10)
+	edgeIdPath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 
 	// u->mid
 	_, midOutEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(fMid)
@@ -666,9 +660,7 @@ func (pu *PathUnpacker) GetStats() int64 {
 func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates, float64) {
 
 	totalDistance := 0.0
- 
 
-	
 	finalPath := re.pathCoordsPool.Get().(*da.Coordinates)
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
