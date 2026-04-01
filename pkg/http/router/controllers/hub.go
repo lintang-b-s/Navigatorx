@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -9,6 +8,8 @@ import (
 	"sort"
 	"sync"
 	"time"
+
+	json "github.com/bytedance/sonic"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -42,7 +43,7 @@ func (u *User) readRequest() (*mapMatchRequest, error) {
 	}
 
 	req := &mapMatchRequest{}
-	decoder := json.NewDecoder(r)
+	decoder := json.ConfigDefault.NewDecoder(r)
 	if err := decoder.Decode(req); err != nil {
 		return nil, err
 	}
@@ -92,7 +93,7 @@ func (u *User) OnlineMapMatch() error {
 
 func (u *User) write(x interface{}) error {
 	w := wsutil.NewWriter(u.conn, ws.StateServerSide, ws.OpText)
-	encoder := json.NewEncoder(w)
+	encoder := json.ConfigDefault.NewEncoder(w)
 
 	u.io.Lock()
 	defer u.io.Unlock()

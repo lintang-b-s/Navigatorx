@@ -70,7 +70,6 @@ func breakToChunkAndDoOrOp(buf []byte, u uint) []byte {
 	}
 
 	buf = append(buf, byte(u)+63)
-
 	return buf
 }
 

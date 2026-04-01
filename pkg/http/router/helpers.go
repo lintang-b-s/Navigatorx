@@ -1,8 +1,9 @@
 package router
 
 import (
-	"encoding/json"
 	"net/http"
+
+	json "github.com/bytedance/sonic"
 
 	"go.uber.org/zap"
 )

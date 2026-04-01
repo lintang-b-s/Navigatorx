@@ -1,11 +1,12 @@
 package controllers
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+
+	json "github.com/bytedance/sonic"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -177,7 +178,7 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 		request mapMatchRequest
 		err     error
 	)
-	err = json.NewDecoder(r.Body).Decode(&request)
+	err = json.ConfigDefault.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		api.BadRequestResponse(w, r, err)
 		return
@@ -215,7 +216,7 @@ func (api *routingAPI) offlineMapMatch(w http.ResponseWriter, r *http.Request, p
 		request offlineMatchRequest
 		err     error
 	)
-	err = json.NewDecoder(r.Body).Decode(&request)
+	err = json.ConfigDefault.NewDecoder(r.Body).Decode(&request)
 	if err != nil {
 		api.BadRequestResponse(w, r, err)
 		return
