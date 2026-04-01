@@ -9,7 +9,6 @@ import (
 
 type RoutingEngine interface {
 	GetGraph() *da.Graph
-	GetVertexCoordinatesFromInEdge(u da.Index) (float64, float64)
 	PathExists(u, v da.Index) bool
 	DoneQuery(pathCoords []da.Coordinate)
 }

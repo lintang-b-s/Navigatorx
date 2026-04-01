@@ -20,13 +20,22 @@ type routingAPI struct {
 	routingService     RoutingService
 	log                *zap.Logger
 	mapmatchingService MapMatcherService
+	validate           *validator.Validate
+	trans              ut.Translator
 }
 
 func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapMatcherService) *routingAPI {
+	validate := validator.New()
+	english := en.New()
+	uni := ut.New(english, english)
+	trans, _ := uni.GetTranslator("en")
+	_ = enTranslations.RegisterDefaultTranslations(validate, trans)
+
 	return &routingAPI{
 		routingService:     routingService,
 		log:                log,
 		mapmatchingService: mapmatchingService,
+		validate:           validate,
 	}
 
 }
@@ -35,7 +44,8 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
 	group.GET("/computeAlternativeRoutes", api.alternativeRoutes)
 	group.POST("/onlineMapMatch", api.onlineMapMatch)
-	group.POST("/offlineMapMatch", api.offlineMapMatch)
+
+	group.POST("/offlineMapMatch", api.offlineMapMatch) // masih salah
 }
 
 func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -66,13 +76,9 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		api.BadRequestResponse(w, r, errors.New("destination_lon is required and must be a valid float"))
 		return
 	}
-	validate := validator.New()
-	if err := validate.Struct(request); err != nil {
-		english := en.New()
-		uni := ut.New(english, english)
-		trans, _ := uni.GetTranslator("en")
-		_ = enTranslations.RegisterDefaultTranslations(validate, trans)
-		vv := translateError(err, trans)
+	if err := api.validate.Struct(request); err != nil {
+
+		vv := translateError(err, api.trans)
 		vvString := []string{}
 		for _, v := range vv {
 			vvString = append(vvString, v.Error())
@@ -134,13 +140,9 @@ func (api *routingAPI) alternativeRoutes(w http.ResponseWriter, r *http.Request,
 		api.BadRequestResponse(w, r, errors.New("number of alternatives k is required and must be a valid int"))
 		return
 	}
-	validate := validator.New()
-	if err := validate.Struct(request); err != nil {
-		english := en.New()
-		uni := ut.New(english, english)
-		trans, _ := uni.GetTranslator("en")
-		_ = enTranslations.RegisterDefaultTranslations(validate, trans)
-		vv := translateError(err, trans)
+	if err := api.validate.Struct(request); err != nil {
+
+		vv := translateError(err, api.trans)
 		vvString := []string{}
 		for _, v := range vv {
 			vvString = append(vvString, v.Error())
@@ -185,14 +187,9 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 		return
 	}
 
-	validate := validator.New()
+	if err := api.validate.Struct(request); err != nil {
 
-	if err := validate.Struct(request); err != nil {
-		english := en.New()
-		uni := ut.New(english, english)
-		trans, _ := uni.GetTranslator("en")
-		_ = enTranslations.RegisterDefaultTranslations(validate, trans)
-		vv := translateError(err, trans)
+		vv := translateError(err, api.trans)
 		vvString := []string{}
 		for _, v := range vv {
 			vvString = append(vvString, v.Error())
@@ -228,14 +225,8 @@ func (api *routingAPI) offlineMapMatch(w http.ResponseWriter, r *http.Request, p
 		return
 	}
 
-	validate := validator.New()
-
-	if err := validate.Struct(request); err != nil {
-		english := en.New()
-		uni := ut.New(english, english)
-		trans, _ := uni.GetTranslator("en")
-		_ = enTranslations.RegisterDefaultTranslations(validate, trans)
-		vv := translateError(err, trans)
+	if err := api.validate.Struct(request); err != nil {
+		vv := translateError(err, api.trans)
 		vvString := []string{}
 		for _, v := range vv {
 			vvString = append(vvString, v.Error())

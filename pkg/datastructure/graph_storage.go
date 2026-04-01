@@ -137,10 +137,7 @@ func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinate {
 
 	if startIndex < endIndex {
-		edgePoints := make([]Coordinate, endIndex-startIndex)
-		copy(edgePoints, gs.osmNodePoints[startIndex:endIndex]) // kita harus copy, karena kita banyak operasi reverse edge geometry coords
-
-		return edgePoints
+		return gs.osmNodePoints[startIndex:endIndex]
 	}
 
 	if startIndex <= 0 {

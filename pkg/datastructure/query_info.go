@@ -69,7 +69,6 @@ type VertexInfo struct {
 	parent     VertexEdgePair // 13 byte
 	travelTime float64        // 8 byte
 	heapNodeId int            // 4 byte
-	// total 26 byte
 }
 
 func NewVertexInfo(travelTime float64, parent VertexEdgePair) VertexInfo {

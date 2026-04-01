@@ -34,6 +34,6 @@ func (ms *MapMatcherService) OfflineMapMatch(gpsTraj []*da.GPSPoint) ([]*da.Matc
 		matchedCoords[i] = matchedPoints[i].GetMatchedCoord()
 	}
 
-	polyline := da.PoylineFromCoords(matchedCoords)
+	polyline := da.GooglePoylineFromCoords(matchedCoords)
 	return matchedPoints, polyline
 }

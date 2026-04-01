@@ -1,7 +1,6 @@
 package routing
 
 import (
-	"bytes"
 	"encoding/binary"
 	"sync"
 	"time"
@@ -21,11 +20,11 @@ type PUCacheKey struct {
 }
 
 func NewPUCacheKey(start, target da.Index, level uint8) []byte {
-	key := PUCacheKey{start, target, level}
-
-	buf := new(bytes.Buffer)
-	binary.Write(buf, binary.LittleEndian, key)
-	return buf.Bytes()
+	buf := make([]byte, 10)
+	binary.LittleEndian.PutUint32(buf[:4], uint32(start))
+	binary.LittleEndian.PutUint32(buf[4:8], uint32(target))
+	binary.LittleEndian.PutUint16(buf[8:10], uint16(level))
+	return buf
 }
 
 type PathUnpacker struct {
@@ -685,10 +684,13 @@ func (pu *PathUnpacker) GetStats() int64 {
 	return pu.runtime
 }
 
-// pas di profiling fungsi ini allocate banyak space, load test 900vus 
-// htop RES dari 1.9gb ke 3.5 gb, osrm cuma max 770mb pas di load test, 
+// pas di profiling fungsi ini allocate banyak space, load test 900vus
+// htop RES dari 1.9gb ke 3.5 gb, osrm cuma max 770mb pas di load test,
 // alokasi gede di GetOsmNodePoints() 32 million allocs, ?
 // alokasi gede lain ada di polyline.EncodeCoords() 60 million allocs, todo: investigate ini
+// cara cek escape to heap:
+// go build -o ./bin/engine_profiling -pgo=./cmd/engine/engine.pgo -gcflags=-m   ./cmd/engine_profiling    2> escape_analysis.txt ;
+// di vs code > Source Action > see show compiler optimization
 func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) ([]da.Coordinate, float64) {
 
 	totalDistance := 0.0

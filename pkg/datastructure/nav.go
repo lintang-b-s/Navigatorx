@@ -29,11 +29,3 @@ func NewCoordinates(lat, lon []float64) []Coordinate {
 	}
 	return coords
 }
-
-func NewPolylineCoordinates(path []Coordinate) [][]float64 {
-	pathCoords := make([][]float64, len(path))
-	for i, p := range path {
-		pathCoords[i] = []float64{p.GetLat(), p.GetLon()}
-	}
-	return pathCoords
-}

@@ -593,13 +593,6 @@ func (g *Graph) SetVertices(vs []*Vertex) {
 	g.vertices = vs
 }
 
-// for target point in query
-func (g *Graph) GetVertexCoordinatesFromInEdge(u Index) (float64, float64) {
-	v := g.GetInEdge(u)
-	vertex := g.GetVertex(v.GetTail())
-	return vertex.lat, vertex.lon
-}
-
 func (g *Graph) GetMaxEdgesInCell() Index {
 	return g.maxEdgesInCell
 }

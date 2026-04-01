@@ -131,7 +131,7 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 	pathCoords = append([]da.Coordinate{snappedOrig}, pathCoords...)
 	pathCoords = append(pathCoords, snappedDst)
 
-	pathPolyline := da.PoylineFromCoords(pathCoords)
+	pathPolyline := da.GooglePoylineFromCoords(pathCoords)
 	rs.engine.DoneQuery(pathCoords)
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 	// todo: update kode driving direction buat improve performance
@@ -166,7 +166,7 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 		altPathCoords = append([]da.Coordinate{snappedOrig}, altPathCoords...)
 		altPathCoords = append(altPathCoords, snappedDst)
 
-		pathPolyline := da.PoylineFromCoords(altPathCoords)
+		pathPolyline := da.GooglePoylineFromCoords(altPathCoords)
 		rs.engine.DoneQuery(altPathCoords)
 		alt.SetPolylinePath(pathPolyline)
 		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)

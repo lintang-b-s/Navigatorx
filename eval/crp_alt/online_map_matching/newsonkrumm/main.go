@@ -723,7 +723,7 @@ func main() {
 	fmt.Printf("avg runtime per gpt point: %v microseconds/gps point\n", avgRuntimePerGpsPoint)
 	fmt.Printf("matching efficiency: %v points/ms", totalPoints/totalRuntime)
 
-	polyline := da.PoylineFromCoords(matchedCoords)
+	polyline := da.GooglePoylineFromCoords(matchedCoords)
 
 	polyFile, err := os.Create("polyline.txt")
 	if err != nil {

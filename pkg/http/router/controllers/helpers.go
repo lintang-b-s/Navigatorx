@@ -1,9 +1,10 @@
 package controllers
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
+
+	json "github.com/bytedance/sonic"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"

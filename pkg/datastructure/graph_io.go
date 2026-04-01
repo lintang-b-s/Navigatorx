@@ -177,7 +177,7 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.edgeInfos))
 	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing g.graphStorage.edgeInfos length", len(g.graphStorage.edgeInfos))
+		return errors.Wrapf(err, "WriteGraph: failed writing g.graphStorage.edgeInfos length %v", len(g.graphStorage.edgeInfos))
 
 	}
 	for i := 0; i < len(g.graphStorage.edgeInfos); i++ {

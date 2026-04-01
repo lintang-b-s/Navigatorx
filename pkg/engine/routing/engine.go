@@ -27,8 +27,11 @@ type CRPRoutingEngine struct {
 	packedPathPool     sync.Pool
 	unpackedPathPool   sync.Pool
 	pathCoordsPool     sync.Pool
-	customizer         Customizer
-	costFunction       CostFunction
+	stallingEntryPool      sync.Pool
+	stallingExitPool       sync.Pool
+
+	customizer   Customizer
+	costFunction CostFunction
 
 	unpackerWorkers                     int
 	unpackerForAlternativeRoutesWorkers int
@@ -124,6 +127,20 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 		New: func() any {
 			pathCoords := make([]da.Coordinate, 0, UNPACKED_PATH_SIZE)
 			return pathCoords
+		},
+	}
+
+	crp.stallingEntryPool = sync.Pool{
+		New: func() any {
+			stallingEntry := make([]float64, maxEdgesInCell*2)
+			return stallingEntry
+		},
+	}
+
+	crp.stallingExitPool = sync.Pool{
+		New: func() any {
+			stallingExit := make([]float64, maxEdgesInCell*2)
+			return stallingExit
 		},
 	}
 }

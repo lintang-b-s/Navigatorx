@@ -147,6 +147,7 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 
 		geom := bs.engine.graph.GetEdgeGeometry(outEdge.GetEdgeId())
 		revGeom := make([]da.Coordinate, len(geom))
+		copy(revGeom, geom)
 		util.ReverseG(revGeom)
 		finalPath = append(finalPath, revGeom...)
 		totalDistance += outEdge.GetLength()

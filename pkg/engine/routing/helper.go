@@ -6,11 +6,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
-func (crp *CRPRoutingEngine) GetVertexCoordinatesFromInEdge(u datastructure.Index) (float64, float64) {
-
-	return crp.graph.GetVertexCoordinatesFromInEdge(u)
-}
-
 // PathExists. cek apakah ada path (tanpa costs) dari u ke v.
 func (crp *CRPRoutingEngine) PathExists(u, v datastructure.Index) bool {
 	return crp.graph.PathExists(u, v)
@@ -34,32 +29,19 @@ func (t target) getatId() da.Index {
 }
 
 func removeDuplicates(arr []da.Index) []da.Index {
-	set := make(map[da.Index]struct{}, len(arr))
+	set := da.NewSet[da.Index](len(arr))
 	j := 0
 
 	for i := 0; i < len(arr); i++ {
 		v := arr[i]
-		if _, ok := set[v]; !ok {
-			set[v] = struct{}{}
+		if !set.Test(v) {
+			set.Set(v)
 			arr[j] = v
 			j++
 		}
 	}
 
 	return arr[:j]
-}
-
-func removeDuplicatesVias(arr []*da.ViaVertex) []*da.ViaVertex {
-	set := make(map[da.Index]struct{}, len(arr))
-	newarr := make([]*da.ViaVertex, 0, len(arr))
-
-	for _, v := range arr {
-		if _, ok := set[v.GetVId()]; !ok {
-			set[v.GetVId()] = struct{}{}
-			newarr = append(newarr, v)
-		}
-	}
-	return newarr
 }
 
 func (bs *CRPBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
