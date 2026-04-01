@@ -12,7 +12,6 @@ import (
 
 /*
 cd tests/benchmark && go test -bench BenchmarkAlternativeRoutesService -benchmem -cpuprofile prof_alt_service.cpu -memprofile prof_alt_service.mem -benchtime=15s
-
 */
 func BenchmarkAlternativeRoutesService(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
@@ -42,8 +41,12 @@ func BenchmarkAlternativeRoutesService(b *testing.B) {
 		sCoord := g.GetVertex(s).GetCoordinate()
 		tCoord := g.GetVertex(t).GetCoordinate()
 
-		rs.AlternativeRouteSearch(sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(),
+		alternatives, _, _ := rs.AlternativeRouteSearch(sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(),
 			3)
+
+		for _, alt := range alternatives {
+			rs.DoneDrivingDirection(alt.GetDrivingDirections())
+		}
 	}
 
 	now := time.Since(start)

@@ -5,5 +5,7 @@ const (
 	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
 	PACKED_PATH_SIZE = 64
 
-	UNPACKED_PATH_SIZE = 128
+	UNPACKED_PATH_SIZE = 1024
 )
+
+

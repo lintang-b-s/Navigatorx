@@ -1,6 +1,8 @@
 package routing
 
 import (
+	"sort"
+
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -29,19 +31,38 @@ func (t target) getatId() da.Index {
 }
 
 func removeDuplicates(arr []da.Index) []da.Index {
-	set := da.NewSet[da.Index](len(arr))
-	j := 0
 
-	for i := 0; i < len(arr); i++ {
-		v := arr[i]
-		if !set.Test(v) {
-			set.Set(v)
-			arr[j] = v
-			j++
+	n := len(arr)
+
+	arrIndices := make([]int, n)
+	for i := 0; i < n; i++ {
+		arrIndices[i] = i
+	}
+
+	// sort arrIndices by arr[arrIndices[i]] increasing
+	sort.Slice(arrIndices, func(i, j int) bool {
+		return arr[arrIndices[i]] < arr[arrIndices[j]]
+	})
+
+	isDuplicate := make([]bool, n)
+
+	for i := 1; i < n; i++ {
+		if arr[arrIndices[i]] == arr[arrIndices[i-1]] {
+			isDuplicate[arrIndices[i]] = true
 		}
 	}
 
-	return arr[:j]
+	l := 0
+
+	for r := 0; r < n; r++ {
+		v := arr[r]
+		if !isDuplicate[r] {
+			arr[l] = v
+			l++
+		}
+	}
+
+	return arr[:l]
 }
 
 func (bs *CRPBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {

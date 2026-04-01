@@ -2,12 +2,10 @@ package routing
 
 import (
 	"encoding/binary"
-	"sync"
 	"time"
 
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -37,7 +35,6 @@ type PathUnpacker struct {
 	useCache             bool
 	oneToMany            bool
 	runtime              int64
-	lock                 sync.RWMutex
 	forAlternativeRoutes bool
 }
 
@@ -51,7 +48,6 @@ func NewPathUnpacker(engine *CRPRoutingEngine, metrics *metrics.Metric,
 		useCache:  useCache,
 		oneToMany: oneToMany,
 		runtime:   0,
-		lock:      sync.RWMutex{},
 	}
 }
 
@@ -78,24 +74,20 @@ let L = highest level of multilevel partition
 time complexity of unpackPath: O(q * ( L *  (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p) ) )
 */
 func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Index, map[uint64]uint8) {
-	unpackedEdgePathComp := make([][]da.Index, len(packedPath))
+	unpackedEdgePath := make([]da.Index, 0, len(packedPath))
+
 	now := time.Now()
 
+	// todo: sebelumnya pakai worker pools di worker_pool.go, di benchmark ada additional 40000 B/op, bikin worker pool yang allocate less space ?
+
 	shortcutPathSet := make(map[uint64]uint8)
-
-	workerSize := pu.engine.unpackerWorkers
-	if pu.forAlternativeRoutes {
-		workerSize = pu.engine.unpackerForAlternativeRoutesWorkers
-	}
-
-	workers := concurrent.NewWorkerPool[pathUnpackingParam, any](workerSize, len(packedPath))
 
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
 		if !isBitOn(cur.GetEdge(), UNPACK_OVERLAY_OFFSET) {
 			// original vertex (non-overlay vertex)
 
-			unpackedEdgePathComp[i] = append(unpackedEdgePathComp[i], cur.GetEdge())
+			unpackedEdgePath = append(unpackedEdgePath, cur.GetEdge())
 
 			i++
 		} else {
@@ -120,29 +112,9 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 			exOriVId := exitVertex.GetOriginalVertex()
 			shortcutPathSet[util.Bitpack(uint32(enOriVId), uint32(exOriVId))] = queryLevel
 
-			workers.AddJob(NewPathUnpackingParam(entryOverlayId, exitOverlayId, queryLevel, &unpackedEdgePathComp[i]))
-
+			shortcutEdgeIdsPath := pu.unpackInLevelCell(entryOverlayId, exitOverlayId, queryLevel)
+			unpackedEdgePath = append(unpackedEdgePath, shortcutEdgeIdsPath...)
 			i += 2
-		}
-	}
-
-	workers.Close()
-	workers.Start(pu.unpackInLevelCell)
-	workers.WaitDirect()
-
-	size := 0
-
-	for i := 0; i < len(unpackedEdgePathComp); i++ {
-		size += len(unpackedEdgePathComp[i])
-	}
-
-	unpackedEdgePath := make([]da.Index, size)
-
-	id := 0
-	for i := 0; i < len(unpackedEdgePathComp); i++ {
-		for j := 0; j < len(unpackedEdgePathComp[i]); j++ {
-			unpackedEdgePath[id] = unpackedEdgePathComp[i][j]
-			id++
 		}
 	}
 
@@ -153,29 +125,30 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 	return unpackedEdgePath, shortcutPathSet
 }
 
-func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
-) any {
-	sourceOverlayId := param.getSourceOverlayId()
-	targetOverlayId := param.getTargetOverlayId()
-	level := param.getLevel()
-	unpackedEdgePath := param.getUnpackedEdgePath()
+func (pu *PathUnpacker) unpackInLevelCell(sourceOverlayId da.Index,
+	targetOverlayId da.Index,
+	level uint8,
+) []da.Index {
 	if level == 1 {
 		sourceEntryId := pu.engine.overlayGraph.GetVertex(sourceOverlayId).GetOriginalEdge()
 		neighborOfTarget := pu.engine.overlayGraph.GetVertex(targetOverlayId).GetNeighborOverlayVertex()
 		targetEntryId := pu.engine.overlayGraph.GetVertex(neighborOfTarget).GetOriginalEdge()
 
-		pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId, unpackedEdgePath,
+		edgePath := pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId,
 			sourceOverlayId, targetOverlayId)
-		return nil
+		return edgePath
 	}
 
 	if pu.useCache {
 		if overlayPath, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, level)); ok {
 			// buat tests, gak ambil dari cache
+			edgePath := make([]da.Index, 0, 32)
 			for i := 0; i < len(overlayPath); i += 2 {
-				pu.unpackInLevelCell(NewPathUnpackingParam(overlayPath[i], overlayPath[i+1], level-1, unpackedEdgePath))
+				downLevelEdgePath := pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1)
+				edgePath = append(edgePath, downLevelEdgePath...)
 			}
-			return nil
+
+			return edgePath
 		}
 	}
 
@@ -388,28 +361,27 @@ func (pu *PathUnpacker) unpackInLevelCell(param pathUnpackingParam,
 	if pu.useCache {
 		pu.puCache.Set(NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath, 1)
 	}
+
+	edgePath := make([]da.Index, 0, 32)
 	for i := 0; i < len(overlayPath); i += 2 {
 		curV := overlayPath[i]
 		nextV := overlayPath[i+1]
 
-		pu.unpackInLevelCell(NewPathUnpackingParam(curV, nextV, level-1, unpackedEdgePath))
+		downLevelEdgePath := pu.unpackInLevelCell(curV, nextV, level-1)
+		edgePath = append(edgePath, downLevelEdgePath...)
 	}
-	return nil
+
+	return edgePath
 }
 
 func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.Index,
-	unpackedEdgePath *[]da.Index,
-	sourceOverlayId, targetOverlayId da.Index) {
+	sourceOverlayId, targetOverlayId da.Index) []da.Index {
 
 	if pu.useCache {
 		if edgeIds, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1)); ok {
 			// fetch from cache
-			for _, edgeId := range edgeIds {
 
-				*unpackedEdgePath = append(*unpackedEdgePath, edgeId)
-			}
-
-			return
+			return edgeIds
 		}
 	}
 
@@ -667,10 +639,6 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 		uId = pEId
 	}
 
-	pu.lock.Lock()
-	*unpackedEdgePath = append(*unpackedEdgePath, edgeIdPath...)
-	pu.lock.Unlock()
-
 	fpq.Clear()
 	bpq.Clear()
 
@@ -678,6 +646,8 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 		// https://github.com/dgraph-io/ristretto is thread-safe is thread-safe
 		pu.puCache.Set(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1), edgeIdPath, 1)
 	}
+
+	return edgeIdPath
 }
 
 func (pu *PathUnpacker) GetStats() int64 {
@@ -686,7 +656,8 @@ func (pu *PathUnpacker) GetStats() int64 {
 
 // pas di profiling fungsi ini allocate banyak space, load test 900vus
 // htop RES dari 1.9gb ke 3.0 gb, osrm cuma max 770mb pas di load test, -> setelah pake slice pointer receiver: 1.9gb ke 2.8 gb utk sp query dan 3.2 gb untuk alternative routes query
-// 
+// -> setelah gak pake worker pool di pathUnpaker,  2.8gb alternative routes query
+//
 // alokasi gede di GetOsmNodePoints() 32 million allocs, ?
 // alokasi gede lain ada di polyline.EncodeCoords() 60 million allocs, todo: investigate ini
 // cara cek escape to heap:
@@ -695,13 +666,15 @@ func (pu *PathUnpacker) GetStats() int64 {
 func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates, float64) {
 
 	totalDistance := 0.0
+ 
 
+	
 	finalPath := re.pathCoordsPool.Get().(*da.Coordinates)
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
 		e := re.graph.GetOutEdge(eId)
 		totalDistance += e.GetLength()
-		finalPath.Append(re.graph.GetEdgeGeometry(edgeIdPath[i]))
+		finalPath.Append(re.graph.GetEdgeGeometry(edgeIdPath[i])) // todo: ini allocate banyak banget space di pprof alloc_space, cari cara buat kurangin
 	}
 
 	return finalPath, totalDistance
