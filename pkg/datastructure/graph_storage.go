@@ -7,7 +7,7 @@ import (
 
 // TODO: use mmap for storing edgeInfos & osmNodePoints (https://man7.org/linux/man-pages/man2/mmap.2.html), baca linux programming inteface chap 49
 // bisa ngurangin banyak heap allocations
-// ini pakai file osm diy_solo_jogja physical mem (RES): 1.9 gb
+// ini pakai file osm diy_solo_jogja physical mem (RES): 1.6 gb
 // osrm pakai file osm diy_solo_jogja physical mem (RES): cuma 520 mb
 
 type GraphStorage struct {

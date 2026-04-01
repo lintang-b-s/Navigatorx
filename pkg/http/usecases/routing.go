@@ -75,11 +75,12 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 
 	var err error
 	const keyValByteSize = 12
-	maxCost := int64(1) << 26
+	const maxCost = int64(1) << 25
+	const numCounters = (maxCost / keyValByteSize) * 3
 	rs.turnSignCache, err = ristretto.NewCache(&ristretto.Config[uint64, int]{
-		NumCounters: (maxCost / keyValByteSize) * 10, // number of keys to track frequency of .
-		MaxCost:     maxCost,                         // maximum cost of cache .
-		BufferItems: 64,                              // number of keys per Get buffer.
+		NumCounters: numCounters, // number of keys to track frequency of .
+		MaxCost:     maxCost,     // maximum cost of cache .
+		BufferItems: 64,          // number of keys per Get buffer.
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v", maxCost)
@@ -114,7 +115,7 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 
 	var (
 		travelTime, dist float64
-		pathCoords       []da.Coordinate
+		pathCoords       *da.Coordinates
 		edgePath         []da.Index
 		found            bool
 	)
@@ -128,10 +129,10 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 			errmsg)
 	}
 
-	pathCoords = append([]da.Coordinate{snappedOrig}, pathCoords...)
-	pathCoords = append(pathCoords, snappedDst)
+	pathCoords.Prepend([]da.Coordinate{snappedOrig})
+	pathCoords.Append([]da.Coordinate{snappedDst})
 
-	pathPolyline := da.GooglePoylineFromCoords(pathCoords)
+	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 	rs.engine.DoneQuery(pathCoords)
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 	// todo: update kode driving direction buat improve performance
@@ -145,36 +146,36 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }
 
-func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int) ([]*routing.AlternativeRoute, bool, error) {
+func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int) ([]routing.AlternativeRoute, bool, error) {
 	as, at, snappedOrig, snappedDst := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
 	if rs.notFoundOriginDestinationWithinRadius(as, at) {
 		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
-		return []*routing.AlternativeRoute{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
+		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
 	}
 
 	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(as, at, k)
 	if len(alternatives) == 0 {
-		return []*routing.AlternativeRoute{}, false, nil
+		return []routing.AlternativeRoute{}, false, nil
 	}
 
-	for _, alt := range alternatives {
+	for i, alt := range alternatives {
 		altPathCoords := alt.GetCoords()
-		altPathCoords = append([]da.Coordinate{snappedOrig}, altPathCoords...)
-		altPathCoords = append(altPathCoords, snappedDst)
+		altPathCoords.Prepend([]da.Coordinate{snappedOrig})
+		altPathCoords.Append([]da.Coordinate{snappedDst})
 
-		pathPolyline := da.GooglePoylineFromCoords(altPathCoords)
+		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
 		rs.engine.DoneQuery(altPathCoords)
-		alt.SetPolylinePath(pathPolyline)
+		alternatives[i].SetPolylinePath(pathPolyline)
 		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 		// todo: update kode driving direction buat improve performance
 
 		drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
 		drivingDirection = directionBuilder.GetDrivingDirections(alt.GetPath(), drivingDirection)
-		alt.SetDrivingDirections(drivingDirection)
+		alternatives[i].SetDrivingDirections(drivingDirection)
 		directionBuilder.Reset()
 		rs.directionBuilderPool.Put(directionBuilder)
 	}

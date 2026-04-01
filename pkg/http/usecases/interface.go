@@ -10,11 +10,11 @@ import (
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
-	DoneQuery(pathCoords []da.Coordinate)
+	DoneQuery(pathCoords *da.Coordinates)
 }
 
 type AlternativeRouteAlgorithm interface {
-	FindAlternativeRoutes(asId, atId da.Index, k int) ([]*routing.AlternativeRoute, float64, int64)
+	FindAlternativeRoutes(asId, atId da.Index, k int) ([]routing.AlternativeRoute, float64, int64)
 }
 
 type SpatialIndex interface {

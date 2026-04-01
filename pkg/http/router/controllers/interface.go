@@ -8,7 +8,7 @@ import (
 
 type RoutingService interface {
 	ShortestPath(origLat, origLon, dstLat, dstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error)
-	AlternativeRouteSearch(origLat, origLon, dstLat, dstLon float64, k int) ([]*routing.AlternativeRoute, bool, error)
+	AlternativeRouteSearch(origLat, origLon, dstLat, dstLon float64, k int) ([]routing.AlternativeRoute, bool, error)
 	DoneDrivingDirection(drivingDirection []da.DrivingDirection)
 }
 

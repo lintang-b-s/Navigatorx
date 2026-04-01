@@ -9,12 +9,12 @@ import (
 func TestGooglePolyline(t *testing.T) {
 	testCases := []struct {
 		name             string
-		coords           []Coordinate
+		coords           *Coordinates
 		expectedPolyline string
 	}{
 		{
 			name: "contoh polyline (https://developers.google.com/maps/documentation/utilities/polylinealgorithm)",
-			coords: []Coordinate{
+			coords: NewCoordinatesWithInitialValues([]Coordinate{
 				{
 					Lat: 38.5,
 					Lon: -120.2,
@@ -28,14 +28,14 @@ func TestGooglePolyline(t *testing.T) {
 					Lat: 43.252,
 					Lon: -126.453,
 				},
-			},
+			}),
 			expectedPolyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
 		},
 	}
 
 	for _, tc := range testCases {
-		expectedCap := capacity(tc.coords)
-		got := GooglePoylineFromCoords(tc.coords)
+		expectedCap := capacity(*tc.coords)
+		got := GooglePoylineFromCoords(*tc.coords)
 		if got != tc.expectedPolyline {
 			t.Errorf("expected %v, got %v", tc.expectedPolyline, got)
 		}
@@ -50,13 +50,13 @@ func TestGooglePolyline(t *testing.T) {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	bb := NewBoundingBox(-8.2618, 110.132, -6.888, 110.9221)
 	for i := 0; i < 10000; i++ {
-		coords := make([]Coordinate, 0, 1000)
+		coords := NewCoordinatesWithCap(1000)
 		for j := 0; j < 1000; j++ {
-			coords = append(coords, RandomCoordinate(bb, rd))
+			coords.Append([]Coordinate{RandomCoordinate(bb, rd)})
 		}
 
-		expectedCap := capacity(coords)
-		got := GooglePoylineFromCoords(coords)
+		expectedCap := capacity(*coords)
+		got := GooglePoylineFromCoords(*coords)
 
 		gotBytes := []byte(got)
 		gotCap := cap(gotBytes)

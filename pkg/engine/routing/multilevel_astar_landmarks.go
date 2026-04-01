@@ -198,7 +198,7 @@ misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path 
 
 */
 
-func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
+func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, *da.Coordinates,
 	[]da.Index, bool) {
 
 	defer bs.Done()
@@ -233,7 +233,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	}
 
 	if s == t {
-		return 0, 0, []da.Coordinate{}, []da.Index{}, true
+		return 0, 0, da.NewCoordinatesWithCap(0), []da.Index{}, true
 	}
 
 	bs.sCellNumber = bs.engine.graph.GetCellNumber(s)
@@ -299,7 +299,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 	}
 
 	if util.Eq(bs.shortestTravelTime, 2*pkg.INF_WEIGHT) {
-		return pkg.INF_WEIGHT, 2 * pkg.INF_WEIGHT, []da.Coordinate{}, []da.Index{}, false
+		return pkg.INF_WEIGHT, 2 * pkg.INF_WEIGHT, da.NewCoordinatesWithCap(0), []da.Index{}, false
 	}
 
 	packedPath := bs.engine.RetrievePackedPath(bs.forwardMid, bs.backwardMid,
@@ -972,8 +972,6 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 
 	bs.forwardPq = bs.engine.fHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
 	bs.backwardPq = bs.engine.bHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
-	bs.forwardPq.Clear()
-	bs.backwardPq.Clear()
 }
 
 func (bs *CRPALTBidirectionalSearch) Done() {
@@ -982,6 +980,8 @@ func (bs *CRPALTBidirectionalSearch) Done() {
 		return
 	}
 
+	bs.forwardPq.Clear()
+	bs.backwardPq.Clear()
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
 	bs.engine.stallingEntryPool.Put(bs.stallingEntry)

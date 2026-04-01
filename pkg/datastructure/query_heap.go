@@ -18,7 +18,6 @@ type QueryHeap[T comparable] struct {
 }
 
 func NewQueryHeap[T comparable](baseSize, maxEdgesInCell int, tipe QueryInfoStorageType, preallocateMinHeap bool) *QueryHeap[T] {
-
 	minHeap := NewFourAryHeap[T]()
 	approxMaxSearchSize := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
 
@@ -192,7 +191,7 @@ func (qh *QueryHeap[T]) IsLabelled(id Index) bool {
 
 // ForLabelledItems. get all items inserted to pq.
 // karena kita support turn costs:
-// offsetedVId berupa edgeId atau overlay vertex id.
+// offsetedVId bisa berupa edgeId atau overlay vertex id.
 func (qh *QueryHeap[T]) ForLabelledItems(handle func(offsetedVId Index, vInfo VertexInfo)) {
 	qh.storage.ForAllItems(func(offsetedVId Index, queryInfoId int) {
 		if queryInfoId == math.MaxInt {

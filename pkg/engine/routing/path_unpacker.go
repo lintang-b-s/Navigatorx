@@ -20,10 +20,10 @@ type PUCacheKey struct {
 }
 
 func NewPUCacheKey(start, target da.Index, level uint8) []byte {
-	buf := make([]byte, 10)
+	buf := make([]byte, 9)
 	binary.LittleEndian.PutUint32(buf[:4], uint32(start))
 	binary.LittleEndian.PutUint32(buf[4:8], uint32(target))
-	binary.LittleEndian.PutUint16(buf[8:10], uint16(level))
+	buf[8] = level
 	return buf
 }
 
@@ -685,22 +685,23 @@ func (pu *PathUnpacker) GetStats() int64 {
 }
 
 // pas di profiling fungsi ini allocate banyak space, load test 900vus
-// htop RES dari 1.9gb ke 3.5 gb, osrm cuma max 770mb pas di load test,
+// htop RES dari 1.9gb ke 3.0 gb, osrm cuma max 770mb pas di load test, -> setelah pake slice pointer receiver: 1.9gb ke 2.8 gb utk sp query dan 3.2 gb untuk alternative routes query
+// 
 // alokasi gede di GetOsmNodePoints() 32 million allocs, ?
 // alokasi gede lain ada di polyline.EncodeCoords() 60 million allocs, todo: investigate ini
 // cara cek escape to heap:
 // go build -o ./bin/engine_profiling -pgo=./cmd/engine/engine.pgo -gcflags=-m   ./cmd/engine_profiling    2> escape_analysis.txt ;
 // di vs code > Source Action > see show compiler optimization
-func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) ([]da.Coordinate, float64) {
+func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates, float64) {
 
 	totalDistance := 0.0
 
-	finalPath := re.pathCoordsPool.Get().([]da.Coordinate)
+	finalPath := re.pathCoordsPool.Get().(*da.Coordinates)
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
 		e := re.graph.GetOutEdge(eId)
 		totalDistance += e.GetLength()
-		finalPath = append(finalPath, re.graph.GetEdgeGeometry(edgeIdPath[i])...)
+		finalPath.Append(re.graph.GetEdgeGeometry(edgeIdPath[i]))
 	}
 
 	return finalPath, totalDistance

@@ -49,7 +49,7 @@ func BenchmarkAlternativeRoutes(b *testing.B) {
 		for j := 0; j < len(alts); j++ {
 			alt := alts[j]
 			path := alt.GetCoords()
-			if len(path) > 0 {
+			if len(*path) > 0 {
 				re.DoneQuery(path)
 			}
 		}

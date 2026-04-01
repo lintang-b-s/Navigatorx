@@ -93,12 +93,13 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
 
-	maxCost := int64(1) << 27 // kalo ristretto ukurannya mb? 134.217728 MB
-	// max items in cache ~ 1.5jt
+	const maxCost = int64(1) << 26 // kalo ristretto ukurannya mb? 67.108864 MB
+	const maxItems = (maxCost / keyValByteApproxSize)
+	const numCounters = maxItems * 3
 	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
-		NumCounters: (maxCost / keyValByteApproxSize) * 5, // number of keys to track frequency of .
-		MaxCost:     maxCost,                              // maximum cost of cache .
-		BufferItems: 64,                                   // number of keys per Get buffer.
+		NumCounters: numCounters, // number of keys to track frequency of .
+		MaxCost:     maxCost,     // maximum cost of cache .
+		BufferItems: 64,          // number of keys per Get buffer.
 	})
 	if err != nil {
 		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v")

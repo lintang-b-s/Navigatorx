@@ -38,7 +38,7 @@ type CRPBidirectionalSearch struct {
 	forAlternativeRoutes      bool
 
 	shortcutPathSet map[uint64]uint8
-	viaVertices     []*da.ViaVertex
+	viaVertices     []da.ViaVertex
 }
 
 func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CRPBidirectionalSearch {
@@ -57,7 +57,7 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CR
 		lastpqSum:                 0,
 		numScannedOverlayVertices: 0,
 		shortcutPathSet:           make(map[uint64]uint8),
-		viaVertices:               make([]*da.ViaVertex, 0, 100),
+		viaVertices:               make([]da.ViaVertex, 0, 32),
 	}
 	crpQuery.Preallocate()
 	return crpQuery
@@ -176,10 +176,9 @@ di implementasi multilevel-dijkstra ini, kita menggunakan bidirectional dijkstra
 return:
 travelTime
 distance
-coordinates (in polyline see https://developers.google.com/maps/documentation/utilities/polylinealgorithm)
+coordinates []da.Coordinate{}
 edgeIds
 found shortest path or not
-
 */
 
 func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, []da.Index, bool) {
@@ -485,8 +484,6 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 
 				vExitId = bs.engine.offsetBackward(uId, vExitId, vOverlay.GetCellNumber(), bs.sCellNumber)
 				vEntryId = bs.engine.offsetForward(vId, vEntryId, vOverlay.GetCellNumber(), bs.sCellNumber)
-				// originalVId := bs.engine.overlayGraph.GetVertex(v).GetOriginalVertex()
-				// bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayVId, 0, 0, originalVId, true))
 
 			}
 		}
@@ -630,8 +627,6 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 
 				vExitId = bs.engine.offsetBackward(vId, vExitId, vOverlay.GetCellNumber(), bs.sCellNumber)
 				vEntryId = bs.engine.offsetForward(uId, vEntryId, vOverlay.GetCellNumber(), bs.sCellNumber)
-				// originalVId := bs.engine.overlayGraph.GetVertex(v).GetOriginalVertex()
-				// bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayVId, 0, 0, originalVId, true))
 			}
 		}
 	})
@@ -797,7 +792,6 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 			vExitId = bs.engine.offsetBackward(originalVId, vExitId, vVertex.GetCellNumber(), bs.sCellNumber)
 			vEntryId = bs.engine.offsetForward(originalWId, vEntryId, vVertex.GetCellNumber(), bs.sCellNumber)
 
-			// bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayVId, 0, 0, originalVId, true))
 		}
 	})
 }
@@ -958,8 +952,6 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 			vExitId = bs.engine.offsetBackward(originalWId, vExitId, vVertex.GetCellNumber(), bs.sCellNumber)
 			vEntryId = bs.engine.offsetForward(originalVId, vEntryId, vVertex.GetCellNumber(), bs.sCellNumber)
 
-			// bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(overlayVId, 0, 0, originalVId, true))
-
 		}
 	})
 }
@@ -973,8 +965,7 @@ func (bs *CRPBidirectionalSearch) Preallocate() {
 
 	bs.forwardPq = bs.engine.fHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
 	bs.backwardPq = bs.engine.bHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
-	bs.forwardPq.Clear()
-	bs.backwardPq.Clear()
+
 }
 
 func (bs *CRPBidirectionalSearch) Done() {
@@ -983,6 +974,8 @@ func (bs *CRPBidirectionalSearch) Done() {
 		return
 	}
 
+	bs.forwardPq.Clear()
+	bs.backwardPq.Clear()
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
 	bs.engine.stallingEntryPool.Put(bs.stallingEntry)
@@ -990,7 +983,7 @@ func (bs *CRPBidirectionalSearch) Done() {
 
 }
 
-func (bs *CRPBidirectionalSearch) GetViaVertices() []*da.ViaVertex {
+func (bs *CRPBidirectionalSearch) GetViaVertices() []da.ViaVertex {
 	return bs.viaVertices
 }
 

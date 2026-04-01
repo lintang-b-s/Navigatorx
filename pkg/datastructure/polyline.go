@@ -65,15 +65,17 @@ func breakToChunkAndDoOrOp(buf []byte, u uint) []byte {
 	// Break the binary value out into 5-bit chunks (starting from the right hand side):
 	for u >= 32 {
 		// OR each value with 0x20 if another bit chunk follows:
+		// Add 63 to each value:
 		buf = append(buf, byte((u&31)|0x20)+63)
 		u >>= 5
 	}
 
+	// Add 63 to each value:
 	buf = append(buf, byte(u)+63)
 	return buf
 }
 
-func capacity(coords []Coordinate) int {
+func capacity(coords Coordinates) int {
 	total := 0
 	prevLat, prevLon := 0, 0
 	for _, c := range coords {
@@ -99,7 +101,7 @@ func encodedBytesLength(u uint) int {
 
 // https://developers.google.com/maps/documentation/utilities/polylinealgorithm
 // byte slice initialized using its exact capacity to prevent array doubling (https://go.dev/blog/slices-intro )
-func GooglePoylineFromCoords(path []Coordinate) string {
+func GooglePoylineFromCoords(path Coordinates) string {
 	return bytesToString(DeltaEncode(make([]byte, 0, capacity(path)), path))
 }
 

@@ -153,7 +153,7 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 		edgeIdPath, _ := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))
 		finalPath, totalDistance := us.engine.GetEdgePath(edgeIdPath)
 		tdists[t.getatId()] = totalDistance
-		tfinalPath[t.getatId()] = finalPath
+		tfinalPath[t.getatId()] = *finalPath
 		tfinalEdgePath[t.getatId()] = edgeIdPath
 	}
 

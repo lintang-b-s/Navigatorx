@@ -129,7 +129,7 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, drivingDirecti
 			currStepDistance = db.instructions[i].GetCumulativeDistance() - db.instructions[i-1].GetCumulativeDistance()
 		}
 		way := *db.instructions[i]
-		currPolyline := da.GooglePoylineFromCoords(way.GetPoints())
+		currPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(way.GetPoints()))
 		drivingDirections = append(drivingDirections, da.NewDrivingDirection(way, db.turnDescriptions[i],
 			currStepTravelTime, currStepDistance, way.GetEdgeIds(), currPolyline, ins.GetTurnBearing()))
 	}

@@ -111,12 +111,12 @@ func (s *ArrayStorage) Clear() {
 	}
 }
 
-func (s *ArrayStorage) Clone() QueryInfoStorage {
 
+func (s *ArrayStorage) Clone() QueryInfoStorage {
 	base := make([]int, len(s.base))
 	copy(base, s.base)
 
-	return &TwoLevelStorage{
+	return &ArrayStorage{
 		base: base}
 }
 
@@ -165,7 +165,7 @@ func (s *MapStorage) Clone() QueryInfoStorage {
 	overlayClone := make(map[Index]int, len(s.overlay))
 	maps.Copy(overlayClone, s.overlay)
 
-	return &TwoLevelStorage{overlay: overlayClone}
+	return &MapStorage{overlay: overlayClone}
 }
 
 func (s *MapStorage) ForAllItems(handle func(offsetedVId Index, queryInfoId int)) {

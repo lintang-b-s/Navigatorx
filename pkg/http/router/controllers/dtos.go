@@ -77,7 +77,7 @@ func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirec
 	}
 }
 
-func NewAlternativeRoutesResponse(alts []*routing.AlternativeRoute) alternativeRoutesResponse {
+func NewAlternativeRoutesResponse(alts []routing.AlternativeRoute) alternativeRoutesResponse {
 	altRes := alternativeRoutesResponse{}
 	for _, alt := range alts {
 		altRes.Routes = append(altRes.Routes, NewShortestPathResponse(

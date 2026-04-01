@@ -16,7 +16,7 @@ import (
 )
 
 type AlternativeRoute struct {
-	path              []da.Coordinate
+	path              *da.Coordinates
 	edges             []da.Index
 	edgeIdPath        []da.Index
 	objectiveValue    float64
@@ -27,10 +27,10 @@ type AlternativeRoute struct {
 	dist        float64
 	distSharing float64
 	viaNode     da.Index
-	viaVertex   *da.ViaVertex
+	viaVertex   da.ViaVertex
 }
 
-func (ar *AlternativeRoute) GetCoords() []da.Coordinate {
+func (ar *AlternativeRoute) GetCoords() *da.Coordinates {
 	return ar.path
 }
 
@@ -60,7 +60,7 @@ func (ar *AlternativeRoute) GetDrivingTravelTime() float64 {
 	return ar.travelTime
 }
 
-func (ar *AlternativeRoute) GetViaVertex() *da.ViaVertex {
+func (ar *AlternativeRoute) GetViaVertex() da.ViaVertex {
 	return ar.viaVertex
 }
 
@@ -84,7 +84,7 @@ func (ar *AlternativeRoute) SetEdgePath(edges []da.Index) {
 	ar.edges = edges
 }
 
-func (ar *AlternativeRoute) SetCoordPath(path []da.Coordinate) {
+func (ar *AlternativeRoute) SetCoordPath(path *da.Coordinates) {
 	ar.path = path
 }
 
@@ -93,9 +93,9 @@ func (ar *AlternativeRoute) SetDist(dist float64) {
 }
 
 func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
-	viaNode da.Index, path []da.Coordinate, edges []da.Index, edgeIdPath []da.Index,
-	viaVertex *da.ViaVertex) *AlternativeRoute {
-	return &AlternativeRoute{
+	viaNode da.Index, path *da.Coordinates, edges []da.Index, edgeIdPath []da.Index,
+	viaVertex da.ViaVertex) AlternativeRoute {
+	return AlternativeRoute{
 		objectiveValue: objectiveValue,
 		viaNode:        viaNode,
 		path:           path,
@@ -106,6 +106,14 @@ func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
 		distSharing:    distSharing,
 		edgeIdPath:     edgeIdPath,
 	}
+}
+
+func NewAEmptyAlternativeroute() AlternativeRoute {
+	return AlternativeRoute{viaNode: da.INVALID_VERTEX_ID}
+}
+
+func isEmptyAlternativeRoute(ar AlternativeRoute) bool {
+	return ar.viaNode == da.INVALID_VERTEX_ID
 }
 
 type AlternativeRouteParameters struct {
@@ -211,7 +219,7 @@ inti dari FindAlternativeRoutes:
 3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
 */
 
-func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k int) ([]*AlternativeRoute, float64, int64) {
+func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k int) ([]AlternativeRoute, float64, int64) {
 
 	/*
 		let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
@@ -236,7 +244,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 	optTravelTime, optEdgeIdPath, found := crpQuery.ShortestPathSearch(asId, atId)
 	if !found {
-		return []*AlternativeRoute{}, pkg.INF_WEIGHT, 0
+		return []AlternativeRoute{}, pkg.INF_WEIGHT, 0
 	}
 
 	fpq := crpQuery.GetForwardPQ()
@@ -252,7 +260,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 	shortcutPathSet := crpQuery.getShortcutPathSet()
 
-	filterCandidates := func(v *da.ViaVertex) *da.ViaVertex {
+	filterCandidates := func(v da.ViaVertex) da.ViaVertex {
 		var (
 			svTravelTime, vtTravelTime float64
 
@@ -286,7 +294,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 		if util.Ge(lv, (1+param.epsilon)*optTravelTime) {
 			// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak
-			return nil
+			return da.NewEmptyViaVertex()
 		}
 
 		var plv float64
@@ -301,7 +309,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 			// plateau = subpath dari Pv yang optimal (shortest path) dari first vertex ke last vertex dari subpath
 			// atau every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
 			// didnt pass t-test
-			return nil
+			return da.NewEmptyViaVertex()
 		}
 
 		svPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
@@ -339,7 +347,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 		// cek approximate limited sharing
 		if util.Ge(approxDistanceShare, param.gamma*lv) {
-			return nil
+			return da.NewEmptyViaVertex()
 		}
 
 		v.SetCost(lv)
@@ -351,7 +359,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 
 	workersSize := util.MinInt(ars.candidateFilterWorkers, len(viaVertices))
 
-	workers := concurrent.NewWorkerPool[*da.ViaVertex, *da.ViaVertex](workersSize, len(viaVertices))
+	workers := concurrent.NewWorkerPool[da.ViaVertex, da.ViaVertex](workersSize, len(viaVertices))
 
 	for _, v := range viaVertices {
 		workers.AddJob(v)
@@ -361,10 +369,10 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	workers.Start(filterCandidates)
 	workers.Wait()
 
-	filteredCandidates := make([]*da.ViaVertex, 0, len(viaVertices))
+	filteredCandidates := make([]da.ViaVertex, 0, len(viaVertices))
 
 	for filteredCand := range workers.CollectResults() {
-		if filteredCand == nil {
+		if da.IsEmptyViaVertex(filteredCand) {
 			continue
 		}
 		filteredCandidates = append(filteredCandidates, filteredCand)
@@ -378,7 +386,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	maxFilteredCandSize := util.MinInt(param.maxCandidatesToUnpack, len(filteredCandidates))
 	filteredCandidates = filteredCandidates[:maxFilteredCandSize]
 
-	computeAlternatives := func(v *da.ViaVertex) *AlternativeRoute {
+	computeAlternatives := func(v da.ViaVertex) AlternativeRoute {
 
 		/*
 			let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcuts within any partition
@@ -468,12 +476,12 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		sigmav := ars.calculateDistanceShare(svEdgeIdPath, vtEdgeIdPath, optPathSet)
 		// cek limited sharing
 		if sigmav >= param.gamma*optTravelTime {
-			return nil
+			return NewAEmptyAlternativeroute()
 		}
 		lv := v.GetCost()
 		fv := 2*lv + sigmav - v.GetPlateau()
 
-		return NewAlternativeRoute(fv, 0, lv, sigmav, v.GetOriginalVId(), []da.Coordinate{}, []da.Index{},
+		return NewAlternativeRoute(fv, 0, lv, sigmav, v.GetOriginalVId(), da.NewCoordinatesWithCap(0), []da.Index{},
 			append(svEdgeIdPath, vtEdgeIdPath...), v)
 	}
 
@@ -481,7 +489,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	// c = min(MAX_FILTERED_ALTERNATIVE_ROUTE_CANDIDATES, len(filteredCandidates))
 
 	workersSize = util.MinInt(ars.candidateUnpackerWorkers, len(filteredCandidates))
-	workersAlt := concurrent.NewWorkerPool[*da.ViaVertex, *AlternativeRoute](workersSize, len(filteredCandidates))
+	workersAlt := concurrent.NewWorkerPool[da.ViaVertex, AlternativeRoute](workersSize, len(filteredCandidates))
 
 	for _, v := range filteredCandidates {
 		workersAlt.AddJob(v)
@@ -491,9 +499,9 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	workersAlt.Start(computeAlternatives)
 	workersAlt.Wait()
 
-	res := make([]*AlternativeRoute, 0, maxFilteredCandSize)
+	res := make([]AlternativeRoute, 0, maxFilteredCandSize)
 	for alternativeRoute := range workersAlt.CollectResults() {
-		if alternativeRoute == nil {
+		if isEmptyAlternativeRoute(alternativeRoute) {
 			continue
 		}
 		res = append(res, alternativeRoute)
@@ -524,7 +532,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	return res, optTravelTime, runtime
 }
 
-func (ars *AlternativeRouteSearch) filterByUniqueId(vias []*da.ViaVertex) []*da.ViaVertex {
+func (ars *AlternativeRouteSearch) filterByUniqueId(vias []da.ViaVertex) []da.ViaVertex {
 	set := make(map[da.Index]struct{}, len(vias))
 	j := 0
 
@@ -927,10 +935,10 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 	return plateau
 }
 
-func removeSimiliarAlternatives(alts []*AlternativeRoute) []*AlternativeRoute {
+func removeSimiliarAlternatives(alts []AlternativeRoute) []AlternativeRoute {
 	set := make([]map[da.Index]struct{}, 0, len(alts))
 
-	res := make([]*AlternativeRoute, 0, len(alts))
+	res := make([]AlternativeRoute, 0, len(alts))
 	for _, alt := range alts {
 		// O(N^2 * M), N=len(alts), M=max{len(alts.edges[i])}, for each 0<=i<len(alts)
 		altPath := alt.GetPath()
@@ -1049,7 +1057,7 @@ func (ars *AlternativeRouteSearch) makePackedViaPathOverlayEven(svPackedPath, vt
 	return svPackedPath, vtPackedPath
 }
 
-func (ars *AlternativeRouteSearch) GetStretch(candidates []*AlternativeRoute, optimalTravelTime float64) float64 {
+func (ars *AlternativeRouteSearch) GetStretch(candidates []AlternativeRoute, optimalTravelTime float64) float64 {
 
 	if len(candidates) == 0 {
 		return -1 // gak ke count karena gak ada alternative routes
@@ -1065,7 +1073,7 @@ func (ars *AlternativeRouteSearch) GetStretch(candidates []*AlternativeRoute, op
 	return stretch
 }
 
-func (ars *AlternativeRouteSearch) GetDiversity(candidates []*AlternativeRoute) float64 {
+func (ars *AlternativeRouteSearch) GetDiversity(candidates []AlternativeRoute) float64 {
 
 	if len(candidates) == 0 {
 		return -1 // gak ke itung karena gak ada alternative routes

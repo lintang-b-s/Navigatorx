@@ -9,8 +9,16 @@ type ViaVertex struct {
 	plv, lv, approxSharedDist float64
 }
 
-func NewViaVertex(v, entryId, exitId, originalVId Index, overlay bool) *ViaVertex {
-	return &ViaVertex{v: v, entryId: entryId, exitId: exitId, originalVId: originalVId, overlay: overlay}
+func NewViaVertex(v, entryId, exitId, originalVId Index, overlay bool) ViaVertex {
+	return ViaVertex{v: v, entryId: entryId, exitId: exitId, originalVId: originalVId, overlay: overlay}
+}
+
+func NewEmptyViaVertex() ViaVertex {
+	return ViaVertex{v: INVALID_VERTEX_ID}
+}
+
+func IsEmptyViaVertex(v ViaVertex) bool {
+	return v.v == INVALID_VERTEX_ID
 }
 
 func (v *ViaVertex) GetEntryId() Index {
