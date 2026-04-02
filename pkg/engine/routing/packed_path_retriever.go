@@ -39,10 +39,11 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 		adjustedMidEdge := re.adjustForward(mid.GetVertex(), mid.GetEdge())
 		mid.SetEdge(adjustedMidEdge)
 
-		_, midOutEdge := re.graph.GetHeadOfInedgeWithOutEdge(mid.GetEdge())
-		mid.SetEdge(midOutEdge.GetEdgeId())
-		tail := re.graph.GetTailFromOutEdge(midOutEdge.GetEdgeId())
-		if tail != midOutEdge.GetHead() {
+		midOutHead, midOutEdgeId := re.graph.GetHeadOfInedgeWithOutEdge(mid.GetEdge())
+		mid.SetEdge(midOutEdgeId)
+
+		tail := re.graph.GetTailFromOutEdge(midOutEdgeId)
+		if tail != midOutHead {
 			svPackedPath = append(svPackedPath, mid)
 		}
 	}
@@ -68,8 +69,8 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 
 			// jadiin outEdge semua
 			inEdge := re.graph.GetInEdge(adjForwEdge)
-			_, outEdge := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-			parentCopy.SetEdge(outEdge.GetEdgeId())
+			_, outEdgeId := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+			parentCopy.SetEdge(outEdgeId)
 		}
 
 		svPackedPath = append(svPackedPath, parentCopy)
@@ -88,9 +89,9 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 			vEntryId := curInfo.GetParent().GetFirstOverlayEntryExitId()
 			// jadiin outEdge semua
 			inEdge := re.graph.GetInEdge(vEntryId)
-			_, outEdge := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+			_, outEdgeId := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 
-			firstOvArc := da.NewVertexEdgePair(v, outEdge.GetEdgeId(), true)
+			firstOvArc := da.NewVertexEdgePair(v, outEdgeId, true)
 			svPackedPath = append(svPackedPath, firstOvArc)
 
 		}
@@ -105,10 +106,10 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 
 		vEntryId := curInfo.GetParent().GetFirstOverlayEntryExitId()
 		inEdge := re.graph.GetInEdge(vEntryId)
-		_, outEdge := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+		_, outEdgeId := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 		v := lastParVertex
 
-		firstOvArc := da.NewVertexEdgePair(v, outEdge.GetEdgeId(), true)
+		firstOvArc := da.NewVertexEdgePair(v, outEdgeId, true)
 		svPackedPath = append(svPackedPath, firstOvArc)
 	}
 

@@ -128,11 +128,11 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 }
 
 type customizerCell struct {
-	cell       *da.Cell
+	cell       da.Cell
 	cellNumber da.Pv
 }
 
-func newCustomizerCell(cell *da.Cell, cellNumber da.Pv) customizerCell {
+func newCustomizerCell(cell da.Cell, cellNumber da.Pv) customizerCell {
 	return customizerCell{cell: cell, cellNumber: cellNumber}
 }
 
@@ -239,44 +239,46 @@ func (c *Customizer) buildLowestLevel(
 					uEntryId := uKey.GetEntryExitPoint()
 					uTravelTime := pqNode.GetRank()
 
-					c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryId+forwardCellOffset), func(
-						outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
-						// traverse all out edges
-						v := outArc.GetHead()
+					c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryId+forwardCellOffset),
+						func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+							hwType pkg.OsmHighwayType) {
+							// traverse all out edges
 
-						exitPointTravelTime := uTravelTime + costFunction.GetTurnCost(turnType)
-						outArcCost := costFunction.GetWeight(outArc)
+							v := head
+							
+							exitPointTravelTime := uTravelTime + costFunction.GetTurnCost(turnType)
+							outArcCost := costFunction.GetWeight(hwType, weight, length)
 
-						newTravelTime := exitPointTravelTime + outArcCost
+							newTravelTime := exitPointTravelTime + outArcCost
 
-						if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
-							return
-						}
+							if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+								return
+							}
 
-						vTruncatedCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
-						if vTruncatedCellNumber == cellNumber {
-							vEntryId := c.graph.GetEntryOffset(v) + da.Index(outArc.GetEntryPoint()) - forwardCellOffset
+							vTruncatedCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
+							if vTruncatedCellNumber == cellNumber {
+								vEntryId := c.graph.GetEntryOffset(v) + da.Index(entryPoint) - forwardCellOffset
 
-							ok := util.Lt(travelTime[vEntryId], pkg.INF_WEIGHT)
-							if oldvTT := travelTime[vEntryId]; !ok || (ok && newTravelTime < oldvTT) {
-								travelTime[vEntryId] = newTravelTime
-								if ok {
-									pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, noPar)
-								} else {
-									vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
-									pq.Insert(vEntryId, newTravelTime, vVertexInfo, da.NewDijkstraKey(v, vEntryId))
+								ok := util.Lt(travelTime[vEntryId], pkg.INF_WEIGHT)
+								if oldvTT := travelTime[vEntryId]; !ok || (ok && newTravelTime < oldvTT) {
+									travelTime[vEntryId] = newTravelTime
+									if ok {
+										pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, noPar)
+									} else {
+										vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
+										pq.Insert(vEntryId, newTravelTime, vVertexInfo, da.NewDijkstraKey(v, vEntryId))
+									}
+								}
+							} else {
+								// found an exit vertex of the cell
+								// save this shortcut travelTime
+								exitOverlay, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
+								ok := util.Lt(overlayTravelTime[exitOverlay], pkg.INF_WEIGHT)
+								if !ok || (ok && exitPointTravelTime < overlayTravelTime[exitOverlay]) {
+									overlayTravelTime[exitOverlay] = exitPointTravelTime
 								}
 							}
-						} else {
-							// found an exit vertex of the cell
-							// save this shortcut travelTime
-							exitOverlay, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
-							ok := util.Lt(overlayTravelTime[exitOverlay], pkg.INF_WEIGHT)
-							if !ok || (ok && exitPointTravelTime < overlayTravelTime[exitOverlay]) {
-								overlayTravelTime[exitOverlay] = exitPointTravelTime
-							}
-						}
-					})
+						})
 				}
 
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
@@ -392,7 +394,8 @@ func (c *Customizer) buildLevel(
 					uOverlayId := pqNode.GetItem()
 					uTravelTime := pqNode.GetRank()
 
-					uTruncatedLevel := c.overlayGraph.TruncateToLevel(c.overlayGraph.GetVertex(uOverlayId).GetCellNumber(), uint8(level))
+					uOverlayVertex := c.overlayGraph.GetVertex(uOverlayId)
+					uTruncatedLevel := c.overlayGraph.TruncateToLevel(uOverlayVertex.GetCellNumber(), uint8(level))
 					util.AssertPanic(uTruncatedLevel == cellNumber, "current truncated cell number and boundary vertex truncated cell number must be the same!")
 
 					c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit da.Index, wOffset da.Index) {
@@ -413,10 +416,11 @@ func (c *Customizer) buildLevel(
 							exitOverlayVertex := c.overlayGraph.GetVertex(exit)
 							neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
 							neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)
-							exitOriEdge := exitOverlayVertex.GetOriginalEdge()
+							exitOriEdgeId := exitOverlayVertex.GetOriginalEdge()
 
 							if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
-								boundaryArcWeight := costFunction.GetWeight(c.graph.GetOutEdge(exitOriEdge))
+								exOriEdge := c.graph.GetOutEdge(exitOriEdgeId)
+								boundaryArcWeight := costFunction.GetWeight(exOriEdge.GetHighwayType(), exOriEdge.GetWeight(), exOriEdge.GetLength())
 
 								newNeighborTravelTime := newTravelTime + boundaryArcWeight
 								oldNTravelTime := travelTime[neighborVertex]

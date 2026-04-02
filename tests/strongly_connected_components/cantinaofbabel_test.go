@@ -13,6 +13,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
+
 /*
 
 taken from: https://cs.baylor.edu/~hamerly/icpc/qualifier_2015/problemset-naq-2015.pdf
@@ -130,7 +131,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	op := osmparser.NewOSMParserV2()
 	gs := datastructure.NewGraphStorageWithSize(len(es), n)
-	g := op.BuildGraph(es, gs, uint32(n), true)
+	g, _ := op.BuildGraph(es, gs, uint32(n), true)
 
 	g.RunKosaraju()
 

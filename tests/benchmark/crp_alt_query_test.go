@@ -82,7 +82,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
 	if err != nil {
 		panic(err)
 	}
@@ -116,7 +116,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
+	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

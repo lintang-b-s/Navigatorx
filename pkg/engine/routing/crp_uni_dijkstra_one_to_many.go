@@ -64,19 +64,22 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 
 	us.Preallocate()
 
-	s := us.engine.graph.GetOutEdge(asId).GetHead()
+	asEdge := us.engine.graph.GetOutEdge(asId)
+	s := asEdge.GetHead()
+
 	us.sCellNumber = us.engine.graph.GetCellNumber(s)
 
 	ts := make([]target, 0, len(atIds))
 	us.tCellNumbers = make([]da.Pv, 0, len(atIds))
 	for _, atId := range atIds {
-		t := us.engine.graph.GetInEdge(atId).GetTail()
+		atEdge := us.engine.graph.GetInEdge(atId)
+		t := atEdge.GetTail()
 		ts = append(ts, newTarget(t, atId))
 		us.tCellNumbers = append(us.tCellNumbers, us.engine.graph.GetCellNumber(t))
 	}
 
 	// for iterating outEdges, we need entryOffset.
-	sForwardId := us.engine.graph.GetEntryOffset(s) + da.Index(us.engine.graph.GetOutEdge(asId).GetEntryPoint())
+	sForwardId := us.engine.graph.GetEntryOffset(s) + da.Index(asEdge.GetEntryPoint())
 
 	sQueryKey := da.NewCRPQueryKey(s, sForwardId, false)
 	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
@@ -120,7 +123,7 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 		curInfo := us.pq.Get(tEntryId)
 
 		_, tOutEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(tEntryId)
-		toutEdgeId := tOutEdge.GetEdgeId()
+		toutEdgeId := tOutEdge
 		tpair := da.NewVertexEdgePair(t.gettId(), toutEdgeId, true)
 		idPath = append(idPath, tpair)
 
@@ -139,7 +142,7 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 
 				inEdge := us.engine.graph.GetInEdge(parentCopy.GetEdge())
 				_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-				parentCopy.SetEdge(outEdge.GetEdgeId())
+				parentCopy.SetEdge(outEdge)
 			}
 
 			idPath = append(idPath, parentCopy)
@@ -185,9 +188,10 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 	uEntryPoint := uEntryId - us.engine.graph.GetEntryOffset(uId)
 
 	// traverse outEdges of u
-	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
+	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+		hwType pkg.OsmHighwayType) {
 
-		vId := outArc.GetHead()
+		vId := head
 
 		// get query level of v l_st(v)
 		lowestVQueryLevel := uint8(255)
@@ -200,7 +204,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			}
 		}
 
-		edgeWeight := us.engine.metrics.GetWeight(outArc)
+		edgeWeight := us.engine.metrics.GetWeight(hwType, weight, length)
 
 		turnCost := us.engine.metrics.GetTurnCost(turnType)
 		if uId == source {
@@ -214,7 +218,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			return
 		}
 
-		vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
+		vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(entryPoint)
 
 		if lowestVQueryLevel == 0 {
 			// if query level of v is 0, then v is in the same cell as s or t in the lowest level
@@ -252,7 +256,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			// v is in another cell on higher level
 
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
-			v, _ := us.engine.graph.GetOverlayVertex(vId, outArc.GetEntryPoint(), false)
+			v, _ := us.engine.graph.GetOverlayVertex(vId, entryPoint, false)
 			overlayVId := v + da.Index(us.engine.graph.NumberOfEdges())
 
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(overlayVId), pkg.INF_WEIGHT)
@@ -303,8 +307,8 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 
 			// traverse edge to next cell
 			vOriEdgeId := vVertex.GetOriginalEdge()
-			outEdge := us.engine.graph.GetOutEdge(vOriEdgeId)
-			edgeWeight := us.engine.metrics.GetWeight(outEdge)
+			vOriWeight, vOriLength, vOriHwType := us.engine.graph.GetOutEdgeTripleWeight(vOriEdgeId)
+			edgeWeight := us.engine.metrics.GetWeight(vOriHwType, vOriWeight, vOriLength)
 
 			// w is in the next cell from v cell
 			w := vVertex.GetNeighborOverlayVertex()
@@ -331,8 +335,8 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 
 			if lowestWQueryLevel == 0 {
 				// w is in the same cell as s or t
-
-				wEntryId := us.engine.graph.GetEntryOffset(originalW) + da.Index(outEdge.GetEntryPoint())
+				entryPoint := us.engine.graph.GetEntryPointOfOutEdge(vOriEdgeId)
+				wEntryId := us.engine.graph.GetEntryOffset(originalW) + entryPoint
 
 				// relax entry Edge of w
 				// update travelTime to reach entry point of w and insert entryPoint of w to forwardPq

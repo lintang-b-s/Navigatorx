@@ -1,5 +1,5 @@
 package spatialindex
 
 const (
-	MAX_CANDIDATES = 15
+	MAX_CANDIDATES = 30
 )

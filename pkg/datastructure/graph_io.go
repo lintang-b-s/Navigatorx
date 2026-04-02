@@ -50,11 +50,11 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// out edges
 	for i, e := range g.outEdges {
-		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
+		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d\n",
 			e.edgeId, e.head,
 			strconv.FormatFloat(e.weight, 'f', -1, 64),
 			strconv.FormatFloat(e.dist, 'f', -1, 64),
-			e.entryPoint, e.edgeInfoId, e.hwType,
+			e.entryPoint, e.hwType,
 		); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing outEdge[%d]", i)
 		}
@@ -62,11 +62,11 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// in edges
 	for i, e := range g.inEdges {
-		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
+		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d\n",
 			e.edgeId, e.tail,
 			strconv.FormatFloat(e.weight, 'f', -1, 64),
 			strconv.FormatFloat(e.dist, 'f', -1, 64),
-			e.exitPoint, e.edgeInfoId, e.hwType); err != nil {
+			e.exitPoint, e.hwType); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing inEdge[%d]", i)
 		}
 	}
@@ -342,7 +342,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, errors.Wrapf(err, "ReadGraph: failed parsing number of overlay mappings: %v", tokens[3])
 	}
 
-	vertices := make([]*Vertex, numVertices)
+	vertices := make([]Vertex, numVertices)
 
 	for i := 0; i < int(numVertices); i++ {
 		vertexLine, err := util.ReadLine(br)
@@ -355,7 +355,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		}
 	}
 
-	outEdges := make([]*OutEdge, numEdges)
+	outEdges := make([]OutEdge, numEdges)
 	for i := 0; i < int(numEdges); i++ {
 		outEdgeLine, err := util.ReadLine(br)
 		if err != nil {
@@ -367,7 +367,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		}
 	}
 
-	inEdges := make([]*InEdge, numEdges)
+	inEdges := make([]InEdge, numEdges)
 	for i := 0; i < int(numEdges); i++ {
 		inEdgeLine, err := util.ReadLine(br)
 		if err != nil {
@@ -659,6 +659,8 @@ func ReadGraph(filename string) (*Graph, error) {
 	tokens = util.Fields(line)
 	tagStringIdMap := util.NewIdMap()
 	numIdMapItems, err := util.ParseInt(tokens[0])
+	idToStr := make(map[uint32]string)
+
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numIdMapItems: %v", tokens[0])
 	}
@@ -690,7 +692,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt tagstring key: %v", tokens[0])
 		}
-		tagStringIdMap.SetID(key, unquotedVal)
+		idToStr[key] = unquotedVal
 	}
 
 	sccCondensationAdj := make([][]Index, 0)
@@ -722,7 +724,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	graphStorage := BuildGraphStorage(osmNodePoints,
 		roundaboutFlags, trafficLightFlags, edgeInfos,
 		tagStringIdMap, stretDirectionsForward, stretDirectionsBackward)
-	graphStorage.tagStringIDMap.ToStringArray()
+	graphStorage.tagStringIDMap.ToStringArray(idToStr)
 
 	graph := NewGraph(vertices, outEdges, inEdges, turnTables)
 	graph.SetGraphStorage(graphStorage)
@@ -738,133 +740,122 @@ func ReadGraph(filename string) (*Graph, error) {
 	return graph, nil
 }
 
-func parseVertex(line string) (*Vertex, error) {
+func parseVertex(line string) (Vertex, error) {
 	tokens := util.Fields(line)
 	if len(tokens) != 8 {
-		return nil, fmt.Errorf("expected 8 fields, got %d", len(tokens))
+		return NewEmptyVertex(), fmt.Errorf("expected 8 fields, got %d", len(tokens))
 	}
 	pvPtr, err := ParseIndex(tokens[0])
 	if err != nil {
-		return nil, err
+		return NewEmptyVertex(), err
 	}
 	ttPtr, err := ParseIndex(tokens[1])
 	if err != nil {
-		return nil, err
+		return NewEmptyVertex(), err
 	}
 	firstOut, err := ParseIndex(tokens[2])
 	if err != nil {
-		return nil, err
+		return NewEmptyVertex(), err
 	}
 	firstIn, err := ParseIndex(tokens[3])
 	if err != nil {
-		return nil, err
+		return NewEmptyVertex(), err
 	}
 
 	id, err := ParseIndex(tokens[4])
 	if err != nil {
-		return nil, err
+		return NewEmptyVertex(), err
 	}
 
 	lat, err := strconv.ParseFloat(tokens[5], 64)
 	if err != nil {
-		return nil, fmt.Errorf("lat: %w", err)
+		return NewEmptyVertex(), fmt.Errorf("lat: %w", err)
 	}
 	lon, err := strconv.ParseFloat(tokens[6], 64)
 	if err != nil {
-		return nil, fmt.Errorf("lon: %w", err)
+		return NewEmptyVertex(), fmt.Errorf("lon: %w", err)
 	}
 
 	osmId, err := strconv.ParseUint(tokens[7], 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("osmId: %w", err)
+		return NewEmptyVertex(), fmt.Errorf("osmId: %w", err)
 	}
 
-	return &Vertex{
+	return Vertex{
 		pvPtr: pvPtr, turnTablePtr: ttPtr,
 		firstOut: firstOut, firstIn: firstIn,
 		lat: lat, lon: lon, id: id, osmId: osmId,
 	}, nil
 }
 
-func parseOutEdge(line string) (*OutEdge, error) {
+func parseOutEdge(line string) (OutEdge, error) {
 	tokens := util.Fields(line)
-	if len(tokens) != 7 {
-		return nil, fmt.Errorf("expected 8 fields, got %d", len(tokens))
+	if len(tokens) != 6 {
+		return NewEmptyOutEdge(), fmt.Errorf("expected 6 fields, got %d", len(tokens))
 	}
 	edgeId, err := ParseIndex(tokens[0])
 	if err != nil {
-		return nil, err
+		return NewEmptyOutEdge(), err
 	}
 	head, err := ParseIndex(tokens[1])
 	if err != nil {
-		return nil, err
+		return NewEmptyOutEdge(), err
 	}
 	weight, err := strconv.ParseFloat(tokens[2], 64)
 	if err != nil {
-		return nil, err
+		return NewEmptyOutEdge(), err
 	}
 	dist, err := strconv.ParseFloat(tokens[3], 64)
 	if err != nil {
-		return nil, err
+		return NewEmptyOutEdge(), err
 	}
 
 	entryPoint, err := strconv.ParseUint(tokens[4], 10, 32)
 	if err != nil {
-		return nil, err
+		return NewEmptyOutEdge(), err
 	}
 
-	edgeInfoId, err := ParseIndex(tokens[5])
+	hwType, err := strconv.ParseUint(tokens[5], 10, 8)
 	if err != nil {
-		return nil, err
-	}
-
-	hwType, err := strconv.ParseUint(tokens[6], 10, 8)
-	if err != nil {
-		return nil, err
+		return NewEmptyOutEdge(), err
 	}
 
 	e := NewOutEdge(edgeId, head, weight, dist, Index(entryPoint), pkg.OsmHighwayType(hwType))
-	e.SetInfoEdgeId(edgeInfoId)
 	return e, nil
 }
 
-func parseInEdge(line string) (*InEdge, error) {
+func parseInEdge(line string) (InEdge, error) {
 	tokens := util.Fields(line)
-	if len(tokens) != 7 {
-		return nil, fmt.Errorf("expected 7 fields, got %d", len(tokens))
+	if len(tokens) != 6 {
+		return NewEmptyInEdge(), fmt.Errorf("expected 6 fields, got %d", len(tokens))
 	}
 	edgeId, err := ParseIndex(tokens[0])
 	if err != nil {
-		return nil, err
+		return NewEmptyInEdge(), err
 	}
 	tail, err := ParseIndex(tokens[1])
 	if err != nil {
-		return nil, err
+		return NewEmptyInEdge(), err
 	}
 	weight, err := strconv.ParseFloat(tokens[2], 64)
 	if err != nil {
-		return nil, err
+		return NewEmptyInEdge(), err
 	}
 	dist, err := strconv.ParseFloat(tokens[3], 64)
 	if err != nil {
-		return nil, err
+		return NewEmptyInEdge(), err
 	}
 
 	exitPoint, err := strconv.ParseUint(tokens[4], 10, 32)
 	if err != nil {
-		return nil, err
-	}
-	edgeInfoId, err := ParseIndex(tokens[5])
-	if err != nil {
-		return nil, err
+		return NewEmptyInEdge(), err
 	}
 
-	hwType, err := strconv.ParseUint(tokens[6], 10, 8)
+	hwType, err := strconv.ParseUint(tokens[5], 10, 8)
 	if err != nil {
-		return nil, err
+		return NewEmptyInEdge(), err
 	}
 
 	e := NewInEdge(edgeId, tail, weight, dist, Index(exitPoint), pkg.OsmHighwayType(hwType))
-	e.SetInfoEdgeId(edgeInfoId)
 	return e, nil
 }

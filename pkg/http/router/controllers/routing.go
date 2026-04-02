@@ -46,7 +46,6 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes)
 	group.POST("/onlineMapMatch", api.onlineMapMatch)
 
-	group.POST("/offlineMapMatch", api.offlineMapMatch) // masih salah
 }
 
 func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -209,38 +208,4 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 		return
 	}
 
-}
-
-func (api *routingAPI) offlineMapMatch(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	var (
-		request offlineMatchRequest
-		err     error
-	)
-	err = json.ConfigDefault.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		api.BadRequestResponse(w, r, err)
-		return
-	}
-	if err := r.Body.Close(); err != nil {
-		api.ServerErrorResponse(w, r, err)
-		return
-	}
-
-	if err := api.validate.Struct(request); err != nil {
-		vv := translateError(err, api.trans)
-		vvString := []string{}
-		for _, v := range vv {
-			vvString = append(vvString, v.Error())
-		}
-		api.BadRequestResponse(w, r, fmt.Errorf("validation error: %v", vvString))
-		return
-	}
-
-	mgpsPoints, polyline := api.mapmatchingService.OfflineMapMatch(request.ToDataGpsTraj())
-	headers := make(http.Header)
-
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewOfflineMapmatchingResponse(mgpsPoints, polyline)}, headers); err != nil {
-		api.ServerErrorResponse(w, r, err)
-		return
-	}
 }

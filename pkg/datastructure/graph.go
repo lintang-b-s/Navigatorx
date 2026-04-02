@@ -19,8 +19,8 @@ type Vertex struct {
 	id       Index
 }
 
-func NewVertex(lat, lon float64, id Index, osmId uint64) *Vertex {
-	return &Vertex{
+func NewVertex(lat, lon float64, id Index, osmId uint64) Vertex {
+	return Vertex{
 		lat:   lat,
 		lon:   lon,
 		id:    id,
@@ -28,11 +28,9 @@ func NewVertex(lat, lon float64, id Index, osmId uint64) *Vertex {
 	}
 }
 
-func NewVertexComplete(lat, lon float64, id, pvPtr, turnTablePtr, firstOut, firstIn Index) *Vertex {
-	return &Vertex{
-		lat: lat,
-		lon: lon,
-		id:  id,
+func NewEmptyVertex() Vertex {
+	return Vertex{
+		id: INVALID_VERTEX_ID,
 	}
 }
 
@@ -93,26 +91,26 @@ func (v *Vertex) GetTurnTablePtr() Index {
 
 // outedge enters vertex head at entryPoint
 type OutEdge struct {
-	weight             float64 // minute
-	dist               float64 // meter
-	edgeId, edgeInfoId Index   // edgeId = edgeId di graph.outEdges.
-	head               Index
-	entryPoint         Index
-	hwType             pkg.OsmHighwayType
+	weight     float64 // minute
+	dist       float64 // meter
+	edgeId     Index   // edgeId = edgeId di graph.outEdges.
+	head       Index
+	entryPoint Index
+	hwType     pkg.OsmHighwayType
 }
 
 // inedge exits vertex tail at exitPoint
 type InEdge struct {
-	weight             float64 // minute
-	dist               float64 // meter
-	edgeId, edgeInfoId Index   //edgeId = edgeId di graph.inEdges.
-	tail               Index
-	exitPoint          Index
-	hwType             pkg.OsmHighwayType
+	weight    float64 // minute
+	dist      float64 // meter
+	edgeId    Index   //edgeId = edgeId di graph.inEdges.
+	tail      Index
+	exitPoint Index
+	hwType    pkg.OsmHighwayType
 }
 
-func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint Index, hwType pkg.OsmHighwayType) *OutEdge {
-	return &OutEdge{
+func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint Index, hwType pkg.OsmHighwayType) OutEdge {
+	return OutEdge{
 		edgeId:     edgeId,
 		head:       head,
 		weight:     weight,
@@ -122,8 +120,8 @@ func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint Index, hwTy
 	}
 }
 
-func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint Index, hwType pkg.OsmHighwayType) *InEdge {
-	return &InEdge{
+func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint Index, hwType pkg.OsmHighwayType) InEdge {
+	return InEdge{
 		edgeId:    edgeId,
 		tail:      tail,
 		weight:    weight,
@@ -177,14 +175,6 @@ func (e *OutEdge) SetEntryPoint(p Index) {
 	e.entryPoint = p
 }
 
-func (e *OutEdge) SetInfoEdgeId(edgeInfoId Index) {
-	e.edgeInfoId = edgeInfoId
-}
-
-func (e *OutEdge) GetEdgeInfoId() Index {
-	return e.edgeInfoId
-}
-
 func (e *OutEdge) GetEdgeId() Index {
 	return e.edgeId
 }
@@ -236,14 +226,6 @@ func (e *InEdge) SetEdgeId(edgeId Index) {
 	e.edgeId = edgeId
 }
 
-func (e *InEdge) SetInfoEdgeId(edgeInfoId Index) {
-	e.edgeInfoId = edgeInfoId
-}
-
-func (e *InEdge) GetEdgeInfoId() Index {
-	return e.edgeInfoId
-}
-
 // SubVertex. map dari (vId, entryExitPoint, exitFlag) ke vo
 type SubVertex struct {
 	originalID     Index // original vertex id
@@ -261,15 +243,15 @@ type Pv uint64
 // main crp graph. static (i.e. can't add new edges)
 type Graph struct {
 	graphStorage      *GraphStorage
-	vertices          []*Vertex
-	outEdges          []*OutEdge
-	inEdges           []*InEdge           // reversed edges. setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v)
-	turnTables        []pkg.TurnType      // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
+	vertices          []Vertex
+	outEdges          []OutEdge
+	inEdges           []InEdge            // reversed edges. setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v)
+	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
 	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
 	maxEdgesInCell    Index               // maximum number of inEdges/outEdges in any cell
 	outEdgeCellOffset []Index             // offset of first outEdge for each cellNumber
 	inEdgeCellOffset  []Index             // offset of first inEdge for each cellNumber
-	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
+	turnTables        []pkg.TurnType      // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 
 	// strongly connected components
 	sccs               []Index   // verticeId -> sccId
@@ -278,7 +260,7 @@ type Graph struct {
 	boundingBox *BoundingBox
 }
 
-func NewGraph(vertices []*Vertex, forwardEdges []*OutEdge, inEdges []*InEdge, turnTables []pkg.TurnType) *Graph {
+func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnTables []pkg.TurnType) *Graph {
 	return &Graph{vertices: vertices, outEdges: forwardEdges, inEdges: inEdges, turnTables: turnTables, maxEdgesInCell: 0}
 }
 
@@ -316,19 +298,41 @@ func (g *Graph) GetEntryOffset(u Index) Index {
 }
 
 func (g *Graph) GetOutEdge(e Index) *OutEdge {
-	return g.outEdges[e]
-}
-
-func (g *Graph) GetOutEdgeData(e Index) OutEdge {
-	return *g.outEdges[e]
+	return &g.outEdges[e]
 }
 
 func (g *Graph) GetHeadOfOutEdge(e Index) Index {
 	return g.outEdges[e].GetHead()
 }
 
+func (g *Graph) GetTailOfInedge(e Index) Index {
+	return g.inEdges[e].tail
+}
+
 func (g *Graph) GetInEdge(e Index) *InEdge {
-	return g.inEdges[e]
+	return &g.inEdges[e]
+}
+
+func (g *Graph) GetOutEdgeLength(e Index) float64 {
+	return g.outEdges[e].GetLength()
+}
+
+func (g *Graph) GetOutEdgeWeight(e Index) float64 {
+	return g.outEdges[e].GetWeight()
+}
+
+func (g *Graph) GetOutEdgeHighwayType(e Index) pkg.OsmHighwayType {
+	return g.outEdges[e].hwType
+}
+
+// GetOutEdgeTripleWeight. return default weight, length, and highway type of out edge e
+func (g *Graph) GetOutEdgeTripleWeight(e Index) (float64, float64, pkg.OsmHighwayType) {
+	return g.outEdges[e].GetWeight(), g.outEdges[e].GetLength(), g.outEdges[e].hwType
+}
+
+// GetInEdgeTripleWeight. return default weight, length, and highway type of in edge e
+func (g *Graph) GetInEdgeTripleWeight(e Index) (float64, float64, pkg.OsmHighwayType) {
+	return g.inEdges[e].GetWeight(), g.inEdges[e].GetLength(), g.inEdges[e].hwType
 }
 
 func (g *Graph) GetCellNumbers() []Pv {
@@ -345,50 +349,51 @@ func (g *Graph) FindInEdge(u, v Index) (Index, bool) {
 }
 
 func (g *Graph) GetHeadOfInedge(e Index) Index {
-	inEdge := g.GetInEdge(e)
+	inEdge := g.inEdges[e]
 	tail := g.vertices[inEdge.tail]
-	outEdge := g.GetOutEdge(tail.firstOut + Index(inEdge.exitPoint))
-	return outEdge.head
+	return g.outEdges[tail.firstOut+Index(inEdge.exitPoint)].head
 }
 
-func (g *Graph) GetHeadOfInedgeWithOutEdge(e Index) (Index, *OutEdge) {
-	inEdge := g.GetInEdge(e)
+func (g *Graph) GetHeadOfInedgeWithOutEdge(e Index) (Index, Index) {
+	inEdge := g.inEdges[e]
 	tail := g.vertices[inEdge.tail]
-	outEdge := g.GetOutEdge(tail.firstOut + Index(inEdge.exitPoint))
-
-	return outEdge.head, outEdge
+	return g.outEdges[tail.firstOut+Index(inEdge.exitPoint)].head, tail.firstOut + Index(inEdge.exitPoint)
 }
 
 func (g *Graph) GetTailOfOutedge(e Index) Index {
-	outEdge := g.GetOutEdge(e)
+	outEdge := g.outEdges[e]
 	head := g.vertices[outEdge.head]
-	inEdge := g.GetInEdge(head.firstIn + Index(outEdge.entryPoint))
-	return inEdge.tail
+	return g.inEdges[head.firstIn+Index(outEdge.entryPoint)].tail
 }
 
-func (g *Graph) GetTailOfOutedgeWithInEdge(e Index) (Index, *InEdge) {
-	outEdge := g.GetOutEdge(e)
+func (g *Graph) GetTailOfOutedgeWithInEdge(e Index) (Index, Index) {
+	outEdge := g.outEdges[e]
 	head := g.vertices[outEdge.head]
-	inEdge := g.GetInEdge(head.firstIn + Index(outEdge.entryPoint))
-	return inEdge.tail, inEdge
+	return g.inEdges[head.firstIn+Index(outEdge.entryPoint)].tail, head.firstIn + Index(outEdge.entryPoint)
 }
 
-func (g *Graph) GetInEdgeOfOutEdge(e Index) *InEdge {
-	outEdge := g.GetOutEdge(e)
-	head := g.vertices[outEdge.head]
-	inEdge := g.GetInEdge(head.firstIn + Index(outEdge.entryPoint))
-	return inEdge
+func (g *Graph) GetEntryIdOfOutEdge(e Index) Index {
+	head := g.vertices[g.outEdges[e].head]
+	return head.firstIn + Index(g.outEdges[e].entryPoint)
+}
+
+func (g *Graph) GetEntryPointOfOutEdge(e Index) Index {
+	return Index(g.outEdges[e].entryPoint)
+}
+
+func (g *Graph) GetExitPointOfInEdge(e Index) Index {
+	return Index(g.inEdges[e].exitPoint)
 }
 
 // GetExitOrder. return Index of exit point of a out edge (u,v) at vertex u.
-func (g *Graph) GetExitOrder(u, outEdge Index) Index {
-	exitPoint := outEdge - g.vertices[u].firstOut
+func (g *Graph) GetExitOrder(u, outEdgeId Index) Index {
+	exitPoint := outEdgeId - g.vertices[u].firstOut
 	return exitPoint
 }
 
 // GetEntryOrder. return Index of entry point of a in edge (u,v) at vertex v.
-func (g *Graph) GetEntryOrder(v, InEdge Index) Index {
-	return InEdge - g.vertices[v].firstIn
+func (g *Graph) GetEntryOrder(v, inEdgeId Index) Index {
+	return inEdgeId - g.vertices[v].firstIn
 }
 
 // GetTurnType get turn type dari entryPoint->u->exitPoint
@@ -409,54 +414,22 @@ func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 	g.overlayVertices = overlayVertices
 }
 
-func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turnType pkg.TurnType)) {
+// langsung return OutEge copy structnya jadi lebih gede allocation  B/op pas di benchmark
+func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(eId, head Index, weight, length float64, exitPoint, entryPoint Index, turnType pkg.TurnType,
+	hwType pkg.OsmHighwayType)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 
-		handle(g.outEdges[e], g.GetExitOrder(u, e), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)))
+		handle(e, g.outEdges[e].head, g.outEdges[e].GetWeight(), g.outEdges[e].GetLength(), g.GetExitOrder(u, e), g.outEdges[e].GetEntryPoint(),
+			g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)), g.outEdges[e].hwType)
 	}
 }
 
-func (g *Graph) ForOutEdgesOfWithFilter(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turnType pkg.TurnType),
-	handleVirtOutEdgesof func(u Index, entryPoint Index, handle func(e *OutEdge, exitPoint Index, turnType pkg.TurnType)),
-	outEdgeFilter func(eId Index) bool) {
-
-	handleVirtOutEdgesof(u, entryPoint, handle)
-
-	if u >= Index(len(g.vertices)) {
-		return
-	}
-
-	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-		if outEdgeFilter(e) {
-			continue
-		}
-
-		handle(g.outEdges[e], g.GetExitOrder(u, e), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)))
-	}
-}
-
-func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType)) {
+func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(eId, tail Index, weight, length float64, exitPoint, entryPoint Index,
+	turnType pkg.TurnType, hwType pkg.OsmHighwayType)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
-		handle(g.inEdges[e], g.GetEntryOrder(v, e), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint))
-	}
-}
 
-func (g *Graph) ForInEdgesOfWithFilter(v Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType),
-	handleVirtInEdgesOf func(u Index, exitPoint Index, handle func(e *InEdge, entryPoint Index, turnType pkg.TurnType)),
-	inEdgeFilter func(eId Index) bool) {
-
-	handleVirtInEdgesOf(v, exitPoint, handle)
-
-	if v >= Index(len(g.vertices)) {
-		return
-	}
-
-	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
-		if inEdgeFilter(e) {
-			continue
-		}
-
-		handle(g.inEdges[e], g.GetEntryOrder(v, e), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint))
+		handle(e, g.inEdges[e].tail, g.inEdges[e].GetWeight(), g.inEdges[e].GetLength(), g.inEdges[e].GetExitPoint(), g.GetEntryOrder(v, e),
+			g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint), g.inEdges[e].hwType)
 	}
 }
 
@@ -474,44 +447,51 @@ func (g *Graph) GetNumberOfOutEdges(u Index) Index {
 	return g.vertices[u+1].firstOut - g.vertices[u].firstOut
 }
 
-func (g *Graph) ForOutEdgesOfWithId(u Index, handle func(e *OutEdge, id Index)) {
+func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-
-		handle(g.outEdges[e], e)
+		if g.SkipOutDummyEdge(u, g.outEdges[e].GetEdgeId()) {
+			continue
+		}
+		handle(e)
 	}
 }
 
-func SkipDummyEdge(e *OutEdge) bool {
-	if e.GetLength() == 0 || e.GetEdgeId() == INVALID_EDGE_ID { // dummy edge harus semua edge yang length == 0,gak cuma yang punya EDGE_ID invalid
-		return true // ini udah bener, jangan tambahin && EDGE_ID == INVALID_EDGE_ID
+func (g *Graph) SkipOutDummyEdge(u, eId Index) bool {
+	if g.outEdges[eId].head == u {
+		return true
 	}
 
 	return false
 }
 
-func (g *Graph) ForInEdgesOfWithId(v Index, handle func(e *InEdge, id Index)) {
+func (g *Graph) SkipInDummyEdge(u, eId Index) bool {
+	if g.inEdges[eId].tail == u {
+		return true
+	}
+
+	return false
+}
+
+func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
-		if g.inEdges[e].GetTail() == v {
+		if g.SkipInDummyEdge(v, g.inEdges[e].GetEdgeId()) {
 			continue
 		}
-
-		handle(g.inEdges[e], e)
+		handle(e)
 	}
 }
 
 func (g *Graph) GetHeadFromInEdge(entryPoint Index) Index {
-	sourceInEdge := g.GetInEdge(entryPoint)
-	tailAtSourceInEdge := g.GetVertex(sourceInEdge.GetTail())
-	outEdgeToSource := g.GetOutEdge(tailAtSourceInEdge.GetFirstOut() + Index(sourceInEdge.GetExitPoint()))
-	head := outEdgeToSource.GetHead()
+	InEdge := g.GetInEdge(entryPoint)
+	tailAtInEdge := g.GetVertex(InEdge.GetTail())
+	head := g.outEdges[tailAtInEdge.GetFirstOut()+Index(InEdge.GetExitPoint())].GetHead()
 	return head
 }
 
 func (g *Graph) GetTailFromOutEdge(exitPoint Index) Index {
-	sourceOutEdge := g.GetOutEdge(exitPoint)
-	headAtSourceOutEdge := g.GetVertex(sourceOutEdge.GetHead())
-	inEdgeFromSource := g.GetInEdge(headAtSourceOutEdge.GetFirstIn() + Index(sourceOutEdge.GetEntryPoint()))
-	return inEdgeFromSource.GetTail()
+	outEdge := &g.outEdges[exitPoint]
+	headAtOutEdge := g.GetVertex(outEdge.GetHead())
+	return g.inEdges[headAtOutEdge.GetFirstIn()+Index(outEdge.GetEntryPoint())].GetTail()
 }
 
 // GetOverlayVertex. return overlay vertex id
@@ -541,33 +521,44 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 	return len(g.cellNumbers)
 }
 
-func (g *Graph) ForOutEdges(handle func(e *OutEdge, exitPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
+func (g *Graph) ForOutEdges(handle func(exitPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
 	for idx, e := range g.outEdges {
+		tail := g.GetTailOfOutedge(Index(idx))
+		if g.SkipOutDummyEdge(tail, e.GetEdgeId()) {
+			continue
+		}
 
 		percentage := float64(idx) / float64(len(g.outEdges)) * 100
-		tail := g.GetTailOfOutedge(Index(idx))
 
-		entryId := g.GetVertex(e.head).GetFirstIn() + Index(e.GetEntryPoint())
+		entryId := g.vertices[e.head].GetFirstIn() + Index(e.GetEntryPoint())
 
-		handle(e, g.GetExitOrder(tail, Index(idx)), e.head, tail, entryId, percentage, Index(idx))
+		handle(g.GetExitOrder(tail, Index(idx)), e.head, tail, entryId, percentage, Index(idx))
 	}
 }
 
-func (g *Graph) ForInEdges(handle func(e *InEdge, entryPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
+func (g *Graph) ForInEdges(handle func(e InEdge, entryPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
 	for idx, e := range g.inEdges {
 		percentage := float64(idx) / float64(len(g.inEdges)) * 100
 		head := g.GetHeadOfInedge(Index(idx))
 
-		exitId := g.GetVertex(e.tail).GetFirstOut() + Index(e.GetExitPoint())
+		exitId := g.vertices[e.tail].GetFirstOut() + Index(e.GetExitPoint())
 
 		handle(e, g.GetEntryOrder(e.tail, Index(idx)), head, e.tail, exitId, percentage, Index(idx))
 	}
 }
 
-func (g *Graph) ForVertices(handle func(v *Vertex)) {
-	for _, v := range g.vertices {
-		handle(v)
+func (g *Graph) ForVertices(handle func(v Vertex, id Index)) {
+	for i, v := range g.vertices[:g.NumberOfVertices()] { // skip dummy vertex di  g.vertices[:len(g.vertices)-1]
+		handle(v, Index(i))
 	}
+}
+
+func (g *Graph) SetVertexPvPtr(id Index, pvPtr Index) {
+	g.vertices[id].SetPvPtr(pvPtr)
+}
+
+func (g *Graph) GetVertices() []Vertex {
+	return g.vertices[:g.NumberOfVertices()]
 }
 
 func (g *Graph) GetNumberOfOverlayVertexMapping() int {
@@ -579,7 +570,7 @@ func (g *Graph) GetVertexCoordinates(u Index) (float64, float64) {
 	return v.lat, v.lon
 }
 
-func (g *Graph) SetVertices(vs []*Vertex) {
+func (g *Graph) SetVertices(vs []Vertex) {
 	g.vertices = vs
 }
 
@@ -622,16 +613,16 @@ func (g *Graph) GetInEdgeCellOffsets() []Index {
 	return g.inEdgeCellOffset
 }
 
-func (g *Graph) GetVertices() []*Vertex {
-	vertices := make([]*Vertex, 0, g.NumberOfVertices())
-	for _, vertex := range g.vertices[:g.NumberOfVertices()] {
-		vertices = append(vertices, vertex)
-	}
-	return vertices
+func (g *Graph) GetVertex(u Index) Vertex {
+	return g.vertices[u]
 }
 
-func (g *Graph) GetVertex(u Index) *Vertex {
-	return g.vertices[u]
+func (g *Graph) GetVertexCoordinate(u Index) Coordinate {
+	return g.vertices[u].GetCoordinate()
+}
+
+func (g *Graph) GetVertexPvPtr(u Index) Index {
+	return g.vertices[u].GetPvPtr()
 }
 
 func (g *Graph) GetVertexFirstOut(u Index) Index {
@@ -642,7 +633,7 @@ func (g *Graph) GetVertexFirstIn(u Index) Index {
 	return g.vertices[u].GetFirstIn()
 }
 
-func (g *Graph) SetOutEdge(id Index, e *OutEdge) {
+func (g *Graph) SetOutEdge(id Index, e OutEdge) {
 	g.outEdges[id] = e
 }
 
@@ -650,7 +641,7 @@ func (g *Graph) GetNumberOfVerticesWithDummyVertex() int {
 	return len(g.vertices)
 }
 
-func (g *Graph) SetInEdge(id Index, e *InEdge) {
+func (g *Graph) SetInEdge(id Index, e InEdge) {
 	g.inEdges[id] = e
 }
 
@@ -819,13 +810,13 @@ func (g *Graph) SetStreetDirection(streetDirectionForward, streetDirectionBackwa
 	g.graphStorage.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
 }
 
-func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(e *OutEdge, exitPoint Index)) {
+func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(head, exitPoint Index, weight float64)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-		if g.outEdges[e].GetHead() == u {
+		if g.SkipOutDummyEdge(u, g.outEdges[e].GetEdgeId()) {
 			continue
 		}
 
-		handle(g.outEdges[e], g.GetExitOrder(u, e))
+		handle(g.outEdges[e].head, g.GetExitOrder(u, e), g.outEdges[e].weight)
 	}
 }
 

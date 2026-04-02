@@ -1,6 +1,8 @@
 package util
 
-import "sort"
+import (
+	"sort"
+)
 
 type IDMap struct {
 	strToId map[string]uint32
@@ -41,9 +43,9 @@ func (idMap *IDMap) GetIdToStr() map[uint32]string {
 	return idMap.idToStr
 }
 
-func (idMap *IDMap) ToStringArray() {
-	keys := make([]uint32, 0, len(idMap.idToStr))
-	for key, _ := range idMap.idToStr {
+func (idMap *IDMap) ToStringArray(idToStr map[uint32]string) {
+	keys := make([]uint32, 0, len(idToStr))
+	for key, _ := range idToStr {
 		keys = append(keys, key)
 	}
 
@@ -54,7 +56,7 @@ func (idMap *IDMap) ToStringArray() {
 	idMap.strs = make([]string, len(keys))
 	for i := 0; i < len(keys); i++ {
 		key := keys[i]
-		idMap.strs[key] = idMap.GetStr(key)
+		idMap.strs[key] = idToStr[key]
 	}
 }
 

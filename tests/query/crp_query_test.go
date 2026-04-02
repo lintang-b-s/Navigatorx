@@ -206,7 +206,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g := op.BuildGraph(es, gs, uint32(n), true)
+		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -226,7 +226,7 @@ func TestCRPQuerySimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile)
+		prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -304,14 +304,13 @@ func TestCRPQuerySimple(t *testing.T) {
 					as := graph.GetDummyOutEdgeId(source)
 					at := graph.GetDummyInEdgeId(target)
 					crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-
-					spCost, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
-
 					oldS := newToOldVidMap[source]
 					oldT := newToOldVidMap[target]
 
 					query := bitpack(oldS, oldT)
 					expectedSpCost := apsp[query]
+					spCost, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+
 					if !util.Eq(spCost, expectedSpCost) {
 						t.Errorf("expected shortest path cost from %v to %v: %v, got: %v", oldS, oldT, spCost, expectedSpCost)
 					}
@@ -362,7 +361,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -396,7 +395,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
+	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -437,7 +436,7 @@ untuk plain dijkstra find single source shortest paths (sssp), from s to all oth
 untuk alt query crp find point-to-point(p2p) shortest paths, untuk semua p2p sp queries diatas
 note that Customizable Route Planning (CRP) query/multilevel dijkstra (MLD) [https://github.com/Project-OSRM/osrm-backend]/ multilevel A*, landmarks, and triangle inequality (ALT) hanya mempercepat p2p sp query bukan mempercepat sssp query
 
-stress tests ini selesai dalam 5 menit
+stress tests ini selesai dalam 30 detik
 dan akan berhenti ketika ada counterexample
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphic #6 cpu cores #12 threads
 ram: 16gb

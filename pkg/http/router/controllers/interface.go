@@ -15,5 +15,4 @@ type RoutingService interface {
 type MapMatcherService interface {
 	OnlineMapMatch(gps *da.GPSPoint, k int,
 		candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64)
-	OfflineMapMatch(gpsTraj []*da.GPSPoint) ([]*da.MatchedGPSPoint, string)
 }

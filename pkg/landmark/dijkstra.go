@@ -57,14 +57,16 @@ func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 	s := da.Index(0)
 	sForwardId := da.Index(0)
 	if !us.useReverseGraph {
-		s = us.graph.GetOutEdge(asId).GetHead()
+		sOutEdge := us.graph.GetOutEdge(asId)
+		s = sOutEdge.GetHead()
 
 		// for iterating outEdges, we need entryOffset.
-		sForwardId = us.graph.GetEntryOffset(s) + da.Index(us.graph.GetOutEdge(asId).GetEntryPoint())
+		sForwardId = us.graph.GetEntryOffset(s) + da.Index(sOutEdge.GetEntryPoint())
 	} else {
-		s = us.graph.GetInEdge(asId).GetTail()
+		sInEdge := us.graph.GetInEdge(asId)
+		s = sInEdge.GetTail()
 
-		sForwardId = us.graph.GetExitOffset(s) + da.Index(us.graph.GetInEdge(asId).GetExitPoint())
+		sForwardId = us.graph.GetExitOffset(s) + da.Index(sInEdge.GetExitPoint())
 	}
 
 	noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
@@ -86,7 +88,7 @@ func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 	}
 
 	if !us.useReverseGraph {
-		us.graph.ForOutEdges(func(e *da.OutEdge, exitPoint, head, tail, entryId da.Index, percentage float64, idx da.Index) {
+		us.graph.ForOutEdges(func(exitPoint, head, tail, entryId da.Index, percentage float64, idx da.Index) {
 
 			// -vEntry->v
 			v := us.graph.GetHeadOfInedge(da.Index(entryId))
@@ -98,7 +100,7 @@ func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 			}
 		})
 	} else {
-		us.graph.ForInEdges(func(e *da.InEdge, entryPoint, head, tail, exitId da.Index, percentage float64, idx da.Index) {
+		us.graph.ForInEdges(func(e da.InEdge, entryPoint, head, tail, exitId da.Index, percentage float64, idx da.Index) {
 
 			// v-vExit->
 			v := us.graph.GetTailOfOutedge(da.Index(exitId))
@@ -131,11 +133,12 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 		uEntryPoint := uEntryId - us.graph.GetEntryOffset(uId)
 
 		// traverse outEdges of u
-		us.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
+		us.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+			hwType pkg.OsmHighwayType) {
 
-			vId := outArc.GetHead()
+			vId := head
 
-			edgeWeight := us.metrics.GetWeight(outArc)
+			edgeWeight := us.metrics.GetWeight(hwType, weight, length)
 
 			turnCost := us.metrics.GetTurnCost(turnType)
 			if uId == source {
@@ -149,7 +152,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 				return
 			}
 
-			vEntryId := us.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
+			vEntryId := us.graph.GetEntryOffset(vId) + da.Index(entryPoint)
 
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
 			if vAlreadyLabelled && util.Ge(newArrTime, us.pq.GetPriority(vEntryId)) {
@@ -180,11 +183,12 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 		uExitPoint := uExitId - us.graph.GetExitOffset(uId)
 
 		// traverse outEdges of u
-		us.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *da.InEdge, entryPoint da.Index, turnType pkg.TurnType) {
+		us.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
+			turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 
-			vId := inArc.GetTail()
+			vId := tail
 
-			edgeWeight := us.metrics.GetWeight(inArc)
+			edgeWeight := us.metrics.GetWeight(hwType, weight, length)
 
 			turnCost := us.metrics.GetTurnCost(turnType)
 			if uId == source {
@@ -198,7 +202,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 				return
 			}
 
-			vExitId := us.graph.GetExitOffset(vId) + da.Index(inArc.GetExitPoint())
+			vExitId := us.graph.GetExitOffset(vId) + da.Index(exitPoint)
 
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vExitId), pkg.INF_WEIGHT)
 			if vAlreadyLabelled && util.Ge(newArrTime, us.pq.GetPriority(vExitId)) {

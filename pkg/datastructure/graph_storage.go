@@ -5,11 +5,16 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// TODO: use mmap for storing edgeInfos & osmNodePoints (https://man7.org/linux/man-pages/man2/mmap.2.html), baca linux programming inteface chap 49
 // bisa ngurangin banyak heap allocations
-// ini pakai file osm diy_solo_jogja physical mem (RES): 1.6 gb
+// ini pakai file osm diy_solo_jogja physical mem (RES): 1.6 gb -> sekarang 1.1 gb setelah gak pake pointer  buat graph []Vertex, []OutEdge, []InEdge, overlay graph []OverlayVertex dll
 // osrm pakai file osm diy_solo_jogja physical mem (RES): cuma 520 mb
-
+// todo: coba implement packed_vector  osrm (bikin lebih simple) buat simpan osm node Ids dan osm way Ids : https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/packed_vector.md
+// https://wiki.openstreetmap.org/wiki/Stats: 2025 ada 10 billions osm node ids dan 500 jt osm way ids
+// bisa pake packed vector 34 bit untuk  store osm node id, dan 32 bit untuk osm way id ?
+// todo2: coba implement name table  osrm (bikin lebih simple): https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/osrm-toolchain-files/map.osrm.names.md
+// daripada slice of string di idmap.go, mungkin implement simplified name table bisa ngurangin space lebih banyak lagi, pakai single slice []byte/[]rune buat semua strings tapi ada offset & size utk setiap item?
+// buat edgeInfos juga mending jadiin slice setiap field daripada slice of struct
+// 
 type GraphStorage struct {
 	edgeInfos      []EdgeExtraInfo
 	osmNodePoints  []Coordinate
@@ -24,12 +29,12 @@ type GraphStorage struct {
 
 func NewGraphStorage() *GraphStorage {
 	return &GraphStorage{
-		streetDirectionForward:  bitset.New(50000),
-		streetDirectionBackward: bitset.New(50000),
+		streetDirectionForward:  bitset.New(INITIAL_BIT_VECTOR_SIZE),
+		streetDirectionBackward: bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		edgeInfos:               make([]EdgeExtraInfo, 0),
 		tagStringIDMap:          util.NewIdMap(),
-		roundaboutFlag:          bitset.New(5000),
-		nodeTrafficLight:        bitset.New(5000),
+		roundaboutFlag:          bitset.New(INITIAL_BIT_VECTOR_SIZE),
+		nodeTrafficLight:        bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		osmNodePoints:           make([]Coordinate, 0),
 	}
 }
@@ -126,9 +131,7 @@ func (e *EdgeExtraInfo) GetEndPointsIndex() Index {
 
 func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 	edge := gs.edgeInfos[edgeID]
-	if edge.osmWayId == INVALID_OSM_WAY_ID {
-		return make([]Coordinate, 0)
-	}
+
 	startIndex := edge.startPointsIndex
 	endIndex := edge.endPointsIndex
 	return gs.GetOsmNodePoints(startIndex, endIndex)
@@ -181,5 +184,5 @@ func (gs *GraphStorage) GetOsmNodePointsCount() int {
 }
 
 func (gs *GraphStorage) FlattenIdMap() {
-	gs.tagStringIDMap.ToStringArray()
+	gs.tagStringIDMap.ToStringArray(gs.tagStringIDMap.GetIdToStr())
 }

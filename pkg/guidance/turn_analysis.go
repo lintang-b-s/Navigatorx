@@ -22,21 +22,18 @@ GetAlternativeTurns. get jumlah belokan alternatif yang bisa dilakukan dari tail
 ada 4 belokan yang bisa dilakukan dari tail B.
 --- / | = jalan 2 arah
 */ // nolint: gofmt
-func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId da.Index) (int, []da.OutEdge) {
+func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId da.Index) (int, []da.Index) {
 	db.tempOutEdges = db.tempOutEdges[:0] // reset length, tapi capacity tetep sama
 
-	db.graph.ForOutEdgesOfWithId(tailId, func(e *da.OutEdge, id da.Index) {
-		if da.SkipDummyEdge(e) {
-			return
-		}
+	db.graph.ForOutEdgeIdsOf(tailId, func(eId da.Index) {
 
-		db.tempOutEdges = append(db.tempOutEdges, *e)
+		db.tempOutEdges = append(db.tempOutEdges, eId)
 	})
 
 	db.tempAltTurns = db.tempAltTurns[:0]
 
 	for _, edge := range db.tempOutEdges {
-		if edge.GetHead() != prevVertexId && edge.GetHead() != headId {
+		if edge != prevVertexId && edge != headId {
 			db.tempAltTurns = append(db.tempAltTurns, edge)
 		}
 	}
@@ -44,14 +41,14 @@ func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId da.
 	return 1 + len(db.tempAltTurns), db.tempAltTurns
 }
 
-func (db *DirectionBuilder) isLeavingCurrentStreet(prevStreetName, currentStreetName string, prevEdge, currEdge da.OutEdge) bool {
+func (db *DirectionBuilder) isLeavingCurrentStreet(prevStreetName, currentStreetName string, prevEdge, currEdge da.Index) bool {
 	if isSameName(currentStreetName, prevStreetName) {
 		// isSameName == false - bisa ketika nama street kosong di osm.
 		return false
 	}
 
-	prevEdgeRoadClass, prevEdgeRoadClassLink := db.graph.GetRoadClass(prevEdge.GetEdgeId()), db.graph.GetRoadClassLink(prevEdge.GetEdgeId())
-	currEdgeRoadClass, currEdgeRoadClassLink := db.graph.GetRoadClass(currEdge.GetEdgeId()), db.graph.GetRoadClassLink(currEdge.GetEdgeId())
+	prevEdgeRoadClass, prevEdgeRoadClassLink := db.graph.GetRoadClass(prevEdge), db.graph.GetRoadClassLink(prevEdge)
+	currEdgeRoadClass, currEdgeRoadClassLink := db.graph.GetRoadClass(currEdge), db.graph.GetRoadClassLink(currEdge)
 
 	if ok := isSameRoadClassAndLink(prevEdgeRoadClass, prevEdgeRoadClassLink,
 		currEdgeRoadClass, currEdgeRoadClassLink); !ok {
@@ -77,11 +74,12 @@ getOtherEdgeContinueDirection. get alternativeEdges lain dari tail yang arahnya 
 
 delta bearing antara currentEdge dan alternativeEdge mendekati 0°
 */ // nolint: gofmt
-func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prevInitialBearing float64, alternativeTurns []da.OutEdge) da.OutEdge {
+func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prevInitialBearing float64, alternativeTurns []da.Index) da.Index {
 	var tmpSign int
 	for _, edge := range alternativeTurns {
+		edgeHead := db.graph.GetHeadOfOutEdge(edge)
 
-		node := db.graph.GetVertex(edge.GetHead())
+		node := db.graph.GetVertex(edgeHead)
 		lat, lon := node.GetLat(), node.GetLon()
 
 		tmpSign = getTurnDirection(prevLat, prevLon, lat, lon, prevInitialBearing)
@@ -89,7 +87,7 @@ func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prev
 			return edge
 		}
 	}
-	return da.NewEmptyOutEdge()
+	return da.INVALID_EDGE_ID
 }
 
 /*
@@ -100,64 +98,65 @@ func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prev
 
 examplenya di jalan solo-semarang, A.Yani : -7.5533505900708455, 110.82338424980728
 */ // nolint: gofmt
-func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.OutEdge, currStreetName, prevEdgeStreetName string,
+func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.Index, currStreetName, prevEdgeStreetName string,
 	prevEdgeRoadClass, currRoadClass string) bool {
-	tail := db.graph.GetTailOfOutedge(currentEdge.GetEdgeId())
+	tail := db.graph.GetTailOfOutedge(currentEdge)
 
 	if currRoadClass != prevEdgeRoadClass {
 		return false
 	}
 
-	otherEdge := da.NewEmptyOutEdge() // outEdge dari tail selain PrevEdge yang mengarah dari tail
+	otherEdge := da.INVALID_EDGE_ID // outEdge dari tail selain PrevEdge yang mengarah dari tail
 
 	db.tempOutEdges = db.tempOutEdges[:0] // reset length, tapi capacity tetep sama
 
-	db.graph.ForOutEdgesOfWithId(tail, func(e *da.OutEdge, id da.Index) {
-		if da.SkipDummyEdge(e) {
-			return
-		}
-		db.tempOutEdges = append(db.tempOutEdges, *e)
+	db.graph.ForOutEdgeIdsOf(tail, func(eId da.Index) {
+
+		db.tempOutEdges = append(db.tempOutEdges, eId)
 	})
 
 	for _, edge := range db.tempOutEdges {
 
-		edgeStreetName := db.graph.GetStreetName(edge.GetEdgeId())
+		edgeStreetName := db.graph.GetStreetName(edge)
 
-		edgeRoadClass := db.graph.GetRoadClass(edge.GetEdgeId())
+		edgeRoadClass := db.graph.GetRoadClass(edge)
 
-		if edge.GetEdgeId() != currentEdge.GetEdgeId() && edge.GetEdgeId() != prevEdge.GetEdgeId() &&
-			edge.GetHead() != currentEdge.GetHead() && edge.GetHead() != db.graph.GetTailOfOutedge(prevEdge.GetEdgeId()) &&
+		currentEdgeHead := db.graph.GetHeadOfOutEdge(currentEdge)
+		edgeHead := db.graph.GetHeadOfOutEdge(edge)
+
+		if edge != currentEdge && edge != prevEdge &&
+			edgeHead != currentEdgeHead && edgeHead != db.graph.GetTailOfOutedge(prevEdge) &&
 			currRoadClass == edgeRoadClass &&
 			isSameName(currStreetName, edgeStreetName) {
-			if otherEdge.GetEdgeId() != da.INVALID_EDGE_ID {
+			if otherEdge != da.INVALID_EDGE_ID {
 				return false
 			}
 			otherEdge = edge
 		}
 	}
 
-	if otherEdge.GetEdgeId() == da.INVALID_EDGE_ID {
+	if otherEdge == da.INVALID_EDGE_ID {
 		return false
 	}
 
-	currentEdgeDirection := db.graph.GetStreetDirection(currentEdge.GetEdgeId()) // [0] forward, [1] reversed
+	currentEdgeDirection := db.graph.GetStreetDirection(currentEdge) // [0] forward, [1] reversed
 	if currentEdgeDirection[1] {
 
-		prevEdgeDirection := db.graph.GetStreetDirection(prevEdge.GetEdgeId())
+		prevEdgeDirection := db.graph.GetStreetDirection(prevEdge)
 		if prevEdgeDirection[1] {
 			// prevEdge harus tidak punya reversed direction
 			return false
 		}
 
-		otherEdgeLanes := db.graph.GetRoadLanes(otherEdge.GetEdgeId())
+		otherEdgeLanes := db.graph.GetRoadLanes(otherEdge)
 
-		otherEdgeDirection := db.graph.GetStreetDirection(otherEdge.GetEdgeId())
+		otherEdgeDirection := db.graph.GetStreetDirection(otherEdge)
 		if !otherEdgeDirection[0] || otherEdgeDirection[1] {
 			// otherEdge harus only forward edge (bukan bidirectional)
 			return false
 		}
 
-		laneDiff := db.graph.GetRoadLanes(currentEdge.GetEdgeId()) - db.graph.GetRoadLanes(prevEdge.GetEdgeId()) + otherEdgeLanes // setidaknya lane dari currentEdge 2. lane dari other & prev 1
+		laneDiff := db.graph.GetRoadLanes(currentEdge) - db.graph.GetRoadLanes(prevEdge) + otherEdgeLanes // setidaknya lane dari currentEdge 2. lane dari other & prev 1
 		return laneDiff <= 1
 	}
 	return false
@@ -171,53 +170,55 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.OutEdge, cur
 							   	<--otherEdge--
 		examplenya di -7.559777239220366, 110.83649946865347
 */ // nolint: gofmt
-func (db *DirectionBuilder) isStreetSplit(currentEdge, prevEdge da.OutEdge, currStreetName, prevEdgeStreetName string,
+func (db *DirectionBuilder) isStreetSplit(currentEdge, prevEdge da.Index, currStreetName, prevEdgeStreetName string,
 	prevEdgeRoadClass, currRoadClass string) bool {
-	tail := db.graph.GetTailOfOutedge(currentEdge.GetEdgeId())
+	tail := db.graph.GetTailOfOutedge(currentEdge)
 
 	if !isSameName(currStreetName, prevEdgeStreetName) || currRoadClass != prevEdgeRoadClass {
 		return false
 	}
 
-	otherEdge := da.NewEmptyInEdge() // inEdge dari tail selain PrevEdge yang mengarah ke tail
+	otherEdge := da.INVALID_EDGE_ID // inEdge dari tail selain PrevEdge yang mengarah ke tail
 
 	db.tempInEdges = db.tempInEdges[:0]
 
-	db.graph.ForInEdgesOfWithId(tail, func(e *da.InEdge, id da.Index) {
-		db.tempInEdges = append(db.tempInEdges, *e)
+	db.graph.ForInEdgeIdsOf(tail, func(eId da.Index) {
+		db.tempInEdges = append(db.tempInEdges, eId)
 	})
-	prevEdgeTail := db.graph.GetTailOfOutedge(prevEdge.GetEdgeId())
+	prevEdgeTail := db.graph.GetTailOfOutedge(prevEdge)
 
 	for _, inEdge := range db.tempInEdges {
 
-		edgeStreetName := db.graph.GetStreetName(inEdge.GetEdgeId())
-		edgeRoadClass := db.graph.GetRoadClass(inEdge.GetEdgeId())
+		edgeStreetName := db.graph.GetStreetName(inEdge)
+		edgeRoadClass := db.graph.GetRoadClass(inEdge)
+		currentEdgeHead := db.graph.GetHeadOfOutEdge(currentEdge)
+		inEdgeTail := db.graph.GetTailOfInedge(inEdge)
 
-		if inEdge.GetEdgeId() != currentEdge.GetEdgeId() && inEdge.GetEdgeId() != prevEdge.GetEdgeId() &&
-			inEdge.GetTail() != currentEdge.GetHead() && inEdge.GetTail() != prevEdgeTail &&
+		if inEdge != currentEdge && inEdge != prevEdge &&
+			inEdgeTail != currentEdgeHead && inEdgeTail != prevEdgeTail &&
 			currRoadClass == edgeRoadClass &&
 			isSameName(currStreetName, edgeStreetName) {
-			if otherEdge.GetEdgeId() != da.INVALID_EDGE_ID {
+			if otherEdge != da.INVALID_EDGE_ID {
 				return false
 			}
 			otherEdge = inEdge
 		}
 	}
 
-	if otherEdge.GetEdgeId() == da.INVALID_EDGE_ID {
+	if otherEdge == da.INVALID_EDGE_ID {
 		return false
 	}
 
-	otherEdgeLanes := db.graph.GetRoadLanes(otherEdge.GetEdgeId())
+	otherEdgeLanes := db.graph.GetRoadLanes(otherEdge)
 
-	prevEdgeDirection := db.graph.GetStreetDirection(prevEdge.GetEdgeId()) // [0] forward, [1] reversed
+	prevEdgeDirection := db.graph.GetStreetDirection(prevEdge) // [0] forward, [1] reversed
 	if !prevEdgeDirection[1] {
 		// jika prevEdge bukan bidirectional
 		return false
 	}
 
-	laneDiff := db.graph.GetRoadLanes(prevEdge.GetEdgeId()) -
-		(otherEdgeLanes + db.graph.GetRoadLanes(currentEdge.GetEdgeId())) // setidak nya lane dari PrevEdge 2. lane dari  otherEdge  & currentEdge cuma 1
+	laneDiff := db.graph.GetRoadLanes(prevEdge) -
+		(otherEdgeLanes + db.graph.GetRoadLanes(currentEdge)) // setidak nya lane dari PrevEdge 2. lane dari  otherEdge  & currentEdge cuma 1
 	return laneDiff <= 1
 }
 

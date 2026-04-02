@@ -91,12 +91,12 @@ func (o *OsmParser) GetTagStringIdMap() util.IDMap {
 	return o.tagStringIdMap
 }
 
-func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) (*da.Graph, error) {
+func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) (*da.Graph, [][]da.Index, error) {
 
 	f, err := os.Open(mapFile)
 
 	if err != nil {
-		return nil, err
+		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to Open file: %s", mapFile)
 	}
 
 	defer f.Close()
@@ -195,8 +195,9 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, err
+		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to Seek scanner: %s", mapFile)
 	}
+
 	scanner = osmpbf.New(context.Background(), f, 0)
 	//must not be parallel
 
@@ -334,7 +335,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 
 	logger.Sugar().Infof("building road network graph.... ")
 
-	graph := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false)
+	graph, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false)
 	graphStorage.FlattenIdMap()
 	graph.SetGraphStorage(graphStorage)
 	graph.SetBoundingBox(p.bb)
@@ -342,16 +343,19 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	streetDirectionForward := bitset.New(uint(graph.NumberOfEdges()))
 	streetDirectionBackward := bitset.New(uint(graph.NumberOfEdges()))
 
-	graph.ForOutEdges(func(e *da.OutEdge, exitPoint, head, tail, entryId da.Index, percentage float64, idx da.Index) {
-
-		eOsmWayId := graph.GetOsmWayId(e.GetEdgeInfoId())
+	graph.ForOutEdges(func(exitPoint, head, tail, entryId da.Index, percentage float64, eId da.Index) {
+		edgeInfoId := edgeInfoIds[tail][exitPoint]
+		if edgeInfoId == da.INVALID_EDGE_INFO_ID { // skip dummy edges
+			return
+		}
+		eOsmWayId := graph.GetOsmWayId(edgeInfoId)
 		direction := streetDirection[eOsmWayId]
 		if direction[0] {
-			streetDirectionForward.Set(uint(e.GetEdgeId()))
+			streetDirectionForward.Set(uint(eId))
 		}
 
 		if direction[1] {
-			streetDirectionBackward.Set(uint(e.GetEdgeId()))
+			streetDirectionBackward.Set(uint(eId))
 		}
 	})
 
@@ -361,10 +365,10 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	logger.Sugar().Infof("number of edges: %v\n", graph.NumberOfEdges())
 
 	if err = scanner.Close(); err != nil {
-		return nil, errors.Wrapf(err, "osmParser.Parse: failed to scanner: %s", mapFile)
+		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to Close scanner: %s", mapFile)
 	}
 
-	return graph, nil
+	return graph, edgeInfoIds, nil
 }
 
 type wayExtraInfo struct {

@@ -1,8 +1,6 @@
 package usecases
 
 import (
-	"sort"
-
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -31,20 +29,21 @@ worst case: O(q*(M + c^2 * (V_G+O_G)))
 */
 func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon float64,
 ) (da.Index,
-	da.Index, da.Coordinate, da.Coordinate) {
+	da.Index, da.Coordinate, da.Coordinate, []da.Coordinate, []da.Coordinate) {
 	searchRad := rs.searchRadius
 	var (
 		as, at                  da.Index      = da.INVALID_EDGE_ID, da.INVALID_EDGE_ID
 		snappedOrig, snappedDst da.Coordinate = da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON),
 			da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON)
-		pairSize           int             = spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES
-		removedPrevPairSet *da.Set[uint64] = da.NewSet[uint64](pairSize)
+		pairSize                                  int             = spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES
+		removedPrevPairSet                        *da.Set[uint64] = da.NewSet[uint64](pairSize)
+		snappedOrigNxtCoords, snappedDstNxtCoords []da.Coordinate
 	)
 
 	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
 		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 
-		as, at, snappedOrig, snappedDst = rs.SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet)
+		as, at, snappedOrig, snappedDst, snappedOrigNxtCoords, snappedDstNxtCoords = rs.SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet)
 		if !rs.notFoundOriginDestinationWithinRadius(as, at) {
 			// break loop early if found connected origin and destination
 			break
@@ -52,7 +51,7 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 		searchRad *= SEARCH_RADIUS_MULTIPLIER
 	}
 
-	return as, at, snappedOrig, snappedDst
+	return as, at, snappedOrig, snappedDst, snappedOrigNxtCoords, snappedDstNxtCoords
 }
 
 /*
@@ -74,7 +73,7 @@ worst case: O(M + c^2 * (V_G+O_G))
 */
 func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
 	removedPrevPairSet *da.Set[uint64]) (da.Index,
-	da.Index, da.Coordinate, da.Coordinate) {
+	da.Index, da.Coordinate, da.Coordinate, []da.Coordinate, []da.Coordinate) {
 	var (
 		projectedLat, projectedLon float64
 	)
@@ -87,54 +86,21 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	// find nearest dst edge (outEdgeOffset) to qDstLat, qDstLon
 	dstCandidates := rs.spatialIndex.SearchWithinRadius(qDstLat, qDstLon, searchRad)
 
-	// sort origCandidates by distance to qOrigLat, qOrigLon
-	// sort dstCandidates by distance to qDstLat, qDstLon
 	origDist := make([]float64, len(origCandidates))
 	dstDist := make([]float64, len(dstCandidates))
 	origCoord := make([]da.Coordinate, len(origCandidates))
+	origNextCoords := make([][]da.Coordinate, len(origCandidates))
 	dstCoord := make([]da.Coordinate, len(dstCandidates))
+	dstNextCoords := make([][]da.Coordinate, len(dstCandidates))
 
 	for i, c := range origCandidates {
-		projectedLat, projectedLon, origDist[i] = rs.ProjectCoordinateToEdge(qOrigLat, qOrigLon, c)
+		projectedLat, projectedLon, origDist[i], origNextCoords[i] = rs.ProjectCoordinateToEdge(qOrigLat, qOrigLon, c, true)
 		origCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
 	}
 
 	for i, c := range dstCandidates {
-		projectedLat, projectedLon, dstDist[i] = rs.ProjectCoordinateToEdge(qDstLat, qDstLon, c)
+		projectedLat, projectedLon, dstDist[i], dstNextCoords[i] = rs.ProjectCoordinateToEdge(qDstLat, qDstLon, c, false)
 		dstCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
-	}
-
-	sortedOrigId := make([]int, len(origCandidates))
-	for i := range sortedOrigId {
-		sortedOrigId[i] = i
-	}
-
-	sortedDstId := make([]int, len(dstCandidates))
-	for i := range sortedDstId {
-		sortedDstId[i] = i
-	}
-
-	sort.Slice(sortedOrigId, func(i, j int) bool {
-		return origDist[sortedOrigId[i]] < origDist[sortedOrigId[j]]
-	})
-
-	sort.Slice(sortedDstId, func(i, j int) bool {
-		return dstDist[sortedDstId[i]] < dstDist[sortedDstId[j]]
-	})
-
-	sortedOrig := make([]da.Index, len(origCandidates))
-	sortedDst := make([]da.Index, len(dstCandidates))
-	sortedOrigCoord := make([]da.Coordinate, len(origCandidates))
-	sortedDstCoord := make([]da.Coordinate, len(dstCandidates))
-
-	for i, oldId := range sortedOrigId {
-		sortedOrig[i] = origCandidates[oldId]
-		sortedOrigCoord[i] = origCoord[oldId]
-	}
-
-	for i, oldId := range sortedDstId {
-		sortedDst[i] = dstCandidates[oldId]
-		sortedDstCoord[i] = dstCoord[oldId]
 	}
 
 	g := rs.engine.GetGraph()
@@ -147,8 +113,11 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	minDist := pkg.INF_WEIGHT
 	bestPair := newOriginDestination(da.INVALID_EDGE_ID, da.INVALID_EDGE_ID,
 		da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON), da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON))
-	for i, o := range sortedOrig {
-		for j, d := range sortedDst {
+	bestOriginNextCoords := make([]da.Coordinate, 0)
+	bestDestNextCoords := make([]da.Coordinate, 0)
+
+	for i, o := range origCandidates {
+		for j, d := range dstCandidates {
 			destinationTail, dstInEdge := g.GetTailOfOutedgeWithInEdge(d)
 			originHead := g.GetHeadOfOutEdge(o)
 			if rs.isPairAlreadyEvaluated(o, d, removedPrevPairSet) {
@@ -163,16 +132,19 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 				continue
 			}
 
-			origDestSnapDist := origDist[sortedOrigId[i]] + dstDist[sortedDstId[j]]
+			origDestSnapDist := origDist[i] + dstDist[j]
 
 			if origDestSnapDist < minDist {
 				minDist = origDestSnapDist
-				bestPair = newOriginDestination(o, dstInEdge.GetEdgeId(), sortedOrigCoord[i], sortedDstCoord[j])
+				bestPair = newOriginDestination(o, dstInEdge, origCoord[i], dstCoord[j])
+				bestOriginNextCoords = origNextCoords[i]
+				bestDestNextCoords = dstNextCoords[j]
 			}
 		}
 	}
 
-	return bestPair.origEdgeId, bestPair.destEdgeId, bestPair.origCoord, bestPair.destCoord
+	return bestPair.origEdgeId, bestPair.destEdgeId, bestPair.origCoord, bestPair.destCoord,
+		bestOriginNextCoords, bestDestNextCoords
 }
 
 type originDestination struct {
@@ -189,12 +161,13 @@ func newOriginDestination(origEdgeId, destEdgeId da.Index, origCoord, destCoord 
 	}
 }
 
-func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.Index) (float64, float64, float64) {
+func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.Index, origin bool) (float64, float64, float64, []da.Coordinate) {
 
 	eGeometry := rs.engine.GetGraph().GetEdgeGeometry(edgeId)
 	minDist := pkg.INF_WEIGHT
 	var bestProjectedPoint da.Coordinate
 
+	lastIndex := 0
 	for i := 0; i < len(eGeometry)-1; i++ {
 		tail := eGeometry[i]
 		head := eGeometry[i+1]
@@ -210,10 +183,34 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 		if util.Lt(dist, minDist) {
 			minDist = dist
 			bestProjectedPoint = projectedPoint
+			lastIndex = i
 		}
 	}
 
-	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist
+	/*
+		misal untuk origin: out edge (u,v) paling dekat dengan origin
+			u - - - - - s - - - - - > v
+
+		kita juga harus return edge geometry dari setelah s ke v buat nampilin path dari origin
+
+		untuk destination: out edge (w,q) paling dekat dengan destination
+
+		   w - - - - - t - - - - - - > q
+
+		   karena kita query shortest path/rute alternatif dari s ke t, kita return edge geometry dari w ke t
+	*/
+
+	nextEdgeGeometry := make([]da.Coordinate, 0, len(eGeometry))
+	if !origin {
+		// kalau destination
+		nextEdgeGeometry = append(nextEdgeGeometry, eGeometry[:lastIndex]...)
+	} else {
+		// kalau origin
+		// range lastIndex [0,len(geometry)-2]
+		nextEdgeGeometry = append(nextEdgeGeometry, eGeometry[lastIndex+1:]...)
+	}
+
+	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist, nextEdgeGeometry
 }
 
 func (rs *RoutingService) notFoundOriginDestinationWithinRadius(seId, teId da.Index) bool {

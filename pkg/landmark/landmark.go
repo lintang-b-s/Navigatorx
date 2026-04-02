@@ -43,9 +43,9 @@ this is an implementation of planar landmark selection described in section 7 pa
 
 O(V*logV)
 */
-func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []*da.Vertex {
+func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []da.Vertex {
 
-	landmarks := make([]*da.Vertex, 0, k)
+	landmarks := make([]da.Vertex, 0, k)
 	ivs := graph.GetVertices()
 
 	minLon := math.MaxFloat64
@@ -72,7 +72,7 @@ func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []*da.
 	centerLon := (maxLon + minLon) / 2.0
 	n := graph.NumberOfVertices()
 
-	midLandmark := &da.Vertex{}
+	midLandmark := da.NewEmptyVertex()
 	minMidDist := math.MaxFloat64
 	for _, v := range ivs {
 		// O(V)
@@ -85,7 +85,7 @@ func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []*da.
 	}
 
 	vs := graph.GetVertices()
-	vsCopy := make([]*da.Vertex, n)
+	vsCopy := make([]da.Vertex, n)
 	copy(vsCopy, vs)
 
 	landmarks = append(landmarks, midLandmark)

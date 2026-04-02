@@ -1,20 +1,24 @@
 package guidance
 
-import "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+import da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 
 type Graph interface {
-	GetTailOfOutedge(e datastructure.Index) datastructure.Index
-	GetVertex(u datastructure.Index) *datastructure.Vertex
-	GetOutEdge(eId datastructure.Index) *datastructure.OutEdge
+	GetTailOfOutedge(e da.Index) da.Index
+	GetVertex(u da.Index) da.Vertex
+	GetOutEdge(eId da.Index) *da.OutEdge
 
-	IsRoundabout(edgeId datastructure.Index) bool
-	GetStreetName(edgeId datastructure.Index) string
-	ForOutEdgesOfWithId(u datastructure.Index, handle func(e *datastructure.OutEdge, id datastructure.Index))
-	GetRoadClass(edgeId datastructure.Index) string
-	GetRoadClassLink(edgeId datastructure.Index) string
-	GetStreetDirection(edgeId datastructure.Index) [2]bool
-	GetRoadLanes(edgeId datastructure.Index) uint8
-	ForInEdgesOfWithId(v datastructure.Index, handle func(e *datastructure.InEdge, id datastructure.Index))
-	GetHeadFromInEdge(entryPoint datastructure.Index) datastructure.Index
-	IsTrafficLight(vertexId datastructure.Index) bool
+	IsRoundabout(edgeId da.Index) bool
+	GetStreetName(edgeId da.Index) string
+	ForOutEdgeIdsOf(u da.Index, handle func(eId da.Index))
+	GetRoadClass(edgeId da.Index) string
+	GetRoadClassLink(edgeId da.Index) string
+	GetStreetDirection(edgeId da.Index) [2]bool
+	GetRoadLanes(edgeId da.Index) uint8
+	ForInEdgeIdsOf(v da.Index, handle func(eId da.Index))
+	GetHeadFromInEdge(entryPoint da.Index) da.Index
+	IsTrafficLight(vertexId da.Index) bool
+	GetHeadOfOutEdge(e da.Index) da.Index
+	GetTailOfInedge(e da.Index) da.Index
+	GetOutEdgeLength(e da.Index) float64
+	GetOutEdgeWeight(e da.Index) float64
 }

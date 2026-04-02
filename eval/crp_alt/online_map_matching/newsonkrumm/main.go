@@ -369,7 +369,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmId)
-	g := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true)
+	g, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true)
 	g.SetGraphStorage(graphStorage)
 
 	us := []int{8, 11, 14, 16}
@@ -399,7 +399,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		panic(err)
 	}
 
-	prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile)
+	prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -534,7 +534,7 @@ func main() {
 	}
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(g, 0.08, logger)
+	rtree.Build(g, logger)
 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(g, rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
 		0.05, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
 
@@ -683,7 +683,8 @@ func main() {
 		}
 		matchedDataEId := g.GetOsmWayId(curMatchedEId)
 
-		matchedEdgeSet[matchedDataEId] = g.GetOutEdge(curMatchedEId).GetLength()
+		curMatchedEdge := g.GetOutEdge(curMatchedEId)
+		matchedEdgeSet[matchedDataEId] = curMatchedEdge.GetLength()
 		_, inGroundTruthReversed := traversedEdges[matchedDataEId]
 		_, inGroundTruthForward := traversedEdges[matchedDataEId/2]
 

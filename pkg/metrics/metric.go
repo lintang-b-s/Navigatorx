@@ -141,8 +141,9 @@ func (met *Metric) GetWeights() *da.OverlayWeights {
 	return met.weights
 }
 
-func (met *Metric) GetWeight(e costfunction.EdgeAttributes) float64 {
-	return met.costFunction.GetWeight(e)
+func (met *Metric) GetWeight(eHighwayType pkg.OsmHighwayType,
+	eDefaultWeight float64, eLength float64) float64 {
+	return met.costFunction.GetWeight(eHighwayType, eDefaultWeight, eLength)
 
 }
 

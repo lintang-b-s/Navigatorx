@@ -8,7 +8,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -25,16 +25,16 @@ func (mj minCutJob) getLine() []float64 {
 }
 
 type inertialFlow struct {
-	graph      *datastructure.PartitionGraph
+	graph      *da.PartitionGraph
 	iterations int
 	directed   bool
 }
 
-func NewInertialFlow(graph *datastructure.PartitionGraph, iterations int, directed bool) *inertialFlow {
+func NewInertialFlow(graph *da.PartitionGraph, iterations int, directed bool) *inertialFlow {
 	return &inertialFlow{graph: graph, iterations: iterations, directed: directed}
 }
 
-func (inf *inertialFlow) getPartitionGraph() *datastructure.PartitionGraph {
+func (inf *inertialFlow) getPartitionGraph() *da.PartitionGraph {
 	return inf.graph
 }
 
@@ -80,8 +80,8 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	computeMinCut := func(input minCutJob) *MinCut {
 		dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true)
 		var (
-			sources []datastructure.Index
-			sinks   []datastructure.Index
+			sources []da.Index
+			sinks   []da.Index
 		)
 
 		sources, sinks = dn.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
@@ -124,7 +124,7 @@ func (v vertexEmb) getDotProd() float64 {
 }
 
 // selectFirstLastKthVertices. sort vertices by linear kombinaasi latitude & longitude
-func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]datastructure.Index, []datastructure.Index) {
+func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]da.Index, []da.Index) {
 
 	vertices := dn.graph.GetVertices()
 
@@ -142,8 +142,8 @@ func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) (
 		kth = 1
 	}
 
-	sourceNodes := make([]datastructure.Index, 0, kth)
-	sinkNodes := make([]datastructure.Index, 0, kth)
+	sourceNodes := make([]da.Index, 0, kth)
+	sinkNodes := make([]da.Index, 0, kth)
 
 	if USE_RANDOMIZED_SELECT {
 		// expected runtime O(n)
@@ -222,12 +222,12 @@ func (dn *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func
 	return i + 1
 }
 
-func (dn *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []datastructure.Index, directed bool) (datastructure.Index, datastructure.Index) {
-	artificialSource := datastructure.Index(dn.graph.NumberOfVertices())
-	artificialSink := datastructure.Index(dn.graph.NumberOfVertices() + 1)
+func (dn *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []da.Index, directed bool) (da.Index, da.Index) {
+	artificialSource := da.Index(dn.graph.NumberOfVertices())
+	artificialSink := da.Index(dn.graph.NumberOfVertices() + 1)
 
-	dn.AddArtificialVertex(datastructure.NewPartitionVertex(artificialSource, datastructure.Index(ARTIFICIAL_SOURCE_ID), 0.0, 0.0))
-	dn.AddArtificialVertex(datastructure.NewPartitionVertex(artificialSink, datastructure.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
+	dn.AddArtificialVertex(da.NewPartitionVertex(artificialSource, da.Index(ARTIFICIAL_SOURCE_ID), 0.0, 0.0))
+	dn.AddArtificialVertex(da.NewPartitionVertex(artificialSink, da.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
 
 	for _, s := range sourceNodes {
 		dn.AddArtificialEdge(artificialSource, s, pkg.INF_WEIGHT_INT, directed)

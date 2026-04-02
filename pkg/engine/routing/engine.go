@@ -152,8 +152,8 @@ func (crp *CRPRoutingEngine) initParameter() {
 	crp.unpackerForAlternativeRoutesWorkers = numCpu / 6
 }
 
-func (crp *CRPRoutingEngine) GetMaxSpeed(e *da.OutEdge) float64 {
-	return crp.metrics.GetMaxSpeed(e)
+func (crp *CRPRoutingEngine) GetMaxSpeed(e da.OutEdge) float64 {
+	return crp.metrics.GetMaxSpeed(&e)
 }
 
 func (crp *CRPRoutingEngine) Close() {

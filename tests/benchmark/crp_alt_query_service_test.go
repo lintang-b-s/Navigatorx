@@ -12,7 +12,6 @@ import (
 
 /*
 cd tests/benchmark && go test -bench BenchmarkShortestPathService -benchmem -cpuprofile prof_sp_service.cpu -memprofile prof_sp_service.mem -benchtime=15s
-
 */
 func BenchmarkShortestPathService(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
@@ -22,7 +21,7 @@ func BenchmarkShortestPathService(b *testing.B) {
 	re := eng.GetRoutingEngine()
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), 0.07, logger)
+	rtree.Build(re.GetGraph(), logger)
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
 	rs, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true)
@@ -39,8 +38,8 @@ func BenchmarkShortestPathService(b *testing.B) {
 		s := q.s
 		t := q.t
 
-		sCoord := g.GetVertex(s).GetCoordinate()
-		tCoord := g.GetVertex(t).GetCoordinate()
+		sCoord := g.GetVertexCoordinate(s)
+		tCoord := g.GetVertexCoordinate(t)
 
 		_, _, _, drivingDirections, _, _ := rs.ShortestPath(sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon())
 		rs.DoneDrivingDirection(drivingDirections)

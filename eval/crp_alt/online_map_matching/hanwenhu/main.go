@@ -98,7 +98,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: download() failed %w", err)
 	}
-	graph, err := op.Parse(fmt.Sprintf(osmFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf(osmFile), logger, false)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: osmparse.Parse() failed: %v", err)
 	}
@@ -132,7 +132,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: mlp.ReadMlpFile() failed: %v", err)
 	}
 
-	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
+	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: prep.PreProcessing() failed: %v", err)
@@ -425,7 +425,7 @@ func main() {
 	}
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(graph, 0.07, logger)
+	rtree.Build(graph, logger)
 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.001, 4.07, 1.0, 0.000001,
 		0.06, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
 

@@ -23,7 +23,7 @@ func BenchmarkAlternativeRoutesController(b *testing.B) {
 	g := re.GetGraph()
 	bb := g.GetBoundingBox()
 	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), 0.07, logger)
+	rtree.Build(re.GetGraph(), logger)
 	altSearch := routing.NewAlternativeRouteSearch(re)
 	start := time.Now()
 

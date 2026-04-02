@@ -71,7 +71,6 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		},
 	}
 
-
 	var err error
 	const keyValByteSize = 12
 	const maxCost = int64(1) << 25
@@ -102,7 +101,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 
 func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
 
-	as, at, snappedOrig, snappedDst := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
+	as, at, snappedOrig, snappedDst, snappedOrigNxtCoords, snappedDstNxtCoords := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
@@ -128,8 +127,8 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 			errmsg)
 	}
 
-	pathCoords.Prepend([]da.Coordinate{snappedOrig})
-	pathCoords.Append([]da.Coordinate{snappedDst})
+	pathCoords.Prepend(append(snappedOrigNxtCoords, snappedOrig))
+	pathCoords.Append(append(snappedDstNxtCoords, snappedDst))
 
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 	rs.engine.DoneQuery(pathCoords)
@@ -146,7 +145,7 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 }
 
 func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int) ([]routing.AlternativeRoute, bool, error) {
-	as, at, snappedOrig, snappedDst := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
+	as, at, snappedOrig, snappedDst, snappedOrigNxtCoords, snappedDstNxtCoords := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
@@ -163,8 +162,8 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 
 	for i, alt := range alternatives {
 		altPathCoords := alt.GetCoords()
-		altPathCoords.Prepend([]da.Coordinate{snappedOrig})
-		altPathCoords.Append([]da.Coordinate{snappedDst})
+		altPathCoords.Prepend(append(snappedOrigNxtCoords, snappedOrig))
+		altPathCoords.Append(append(snappedDstNxtCoords, snappedDst))
 
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
 		rs.engine.DoneQuery(altPathCoords)

@@ -275,7 +275,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g := op.BuildGraph(es, gs, uint32(n), true)
+		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -295,7 +295,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile)
+		prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -506,7 +506,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -540,7 +540,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
+	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

@@ -58,8 +58,10 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 
 	now := time.Now()
 
-	s := bs.engine.graph.GetOutEdge(asId).GetHead()
-	t := bs.engine.graph.GetInEdge(atId).GetTail()
+	asEdge := bs.engine.graph.GetOutEdge(asId)
+	s := asEdge.GetHead()
+	atEdge := bs.engine.graph.GetInEdge(atId)
+	t := atEdge.GetTail()
 
 	if s == t {
 		return 0, 0, []da.Coordinate{}, []da.OutEdge{}, true
@@ -68,8 +70,8 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 	// strategy: use outEdges for forward search, use inEdges for backward search
 	// for iterating outEdges, we need entryOffset. for iterating inEdges, we need exitOffset.
 
-	sForwardId := bs.engine.graph.GetEntryOffset(s) + da.Index(bs.engine.graph.GetOutEdge(asId).GetEntryPoint())
-	tBackwardId := bs.engine.graph.GetExitOffset(t) + da.Index(bs.engine.graph.GetInEdge(atId).GetExitPoint())
+	sForwardId := bs.engine.graph.GetEntryOffset(s) + da.Index(asEdge.GetEntryPoint())
+	tBackwardId := bs.engine.graph.GetExitOffset(t) + da.Index(atEdge.GetExitPoint())
 	bs.sForwardId = sForwardId
 	bs.tBackwardId = tBackwardId
 
@@ -117,18 +119,18 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 	mid := bs.forwardMid
 
 	totalDistance := 0.0
-	_, midOutEdge := bs.engine.graph.GetHeadOfInedgeWithOutEdge(mid.GetEdge())
-	mid.SetEdge(midOutEdge.GetEdgeId())
-	tail := bs.engine.graph.GetTailFromOutEdge(midOutEdge.GetEdgeId())
+	midHead, midOutEdge := bs.engine.graph.GetHeadOfInedgeWithOutEdge(mid.GetEdge())
+	mid.SetEdge(midOutEdge)
+	tail := bs.engine.graph.GetTailFromOutEdge(midOutEdge)
 
-	if tail != midOutEdge.GetHead() {
-		geom := bs.engine.graph.GetEdgeGeometry(midOutEdge.GetEdgeId())
+	if tail != midHead {
+		geom := bs.engine.graph.GetEdgeGeometry(midOutEdge)
 		revGeom := make([]da.Coordinate, len(geom))
 		copy(revGeom, geom)
 		util.ReverseG(revGeom)
 		finalPath = append(finalPath, revGeom...)
-		finalEdgePath = append(finalEdgePath, *midOutEdge)
-		totalDistance += midOutEdge.GetLength()
+		finalEdgePath = append(finalEdgePath, *bs.engine.graph.GetOutEdge(midOutEdge))
+		totalDistance += bs.engine.graph.GetOutEdgeLength(midOutEdge)
 	}
 
 	curInfo := bs.forwardPq.Get(bs.forwardMid.GetEdge())
@@ -141,16 +143,16 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 		// jadiin outEdge semua
 		inEdge := bs.engine.graph.GetInEdge(parentCopy.GetEdge())
 		_, outEdge := bs.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-		parentCopy.SetEdge(outEdge.GetEdgeId())
+		parentCopy.SetEdge(outEdge)
 
-		finalEdgePath = append(finalEdgePath, *outEdge)
+		finalEdgePath = append(finalEdgePath, *bs.engine.graph.GetOutEdge(outEdge))
 
-		geom := bs.engine.graph.GetEdgeGeometry(outEdge.GetEdgeId())
+		geom := bs.engine.graph.GetEdgeGeometry(outEdge)
 		revGeom := make([]da.Coordinate, len(geom))
 		copy(revGeom, geom)
 		util.ReverseG(revGeom)
 		finalPath = append(finalPath, revGeom...)
-		totalDistance += outEdge.GetLength()
+		totalDistance += bs.engine.graph.GetOutEdgeLength(outEdge)
 		curInfo = bs.forwardPq.Get(parentEdge)
 	}
 
@@ -160,13 +162,14 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 	mid = bs.backwardMid
 	curInfo = bs.backwardPq.Get(bs.backwardMid.GetEdge())
 
-	midOutEdge = bs.engine.graph.GetOutEdge(mid.GetEdge())
-	tail = bs.engine.graph.GetTailFromOutEdge(midOutEdge.GetEdgeId())
-	if tail != midOutEdge.GetHead() {
-		geom := bs.engine.graph.GetEdgeGeometry(midOutEdge.GetEdgeId())
+	midOutEdgeId := mid.GetEdge()
+	midOutEdgeHead := bs.engine.graph.GetHeadOfOutEdge(midOutEdgeId)
+	tail = bs.engine.graph.GetTailFromOutEdge(midOutEdgeId)
+	if tail != midOutEdgeHead {
+		geom := bs.engine.graph.GetEdgeGeometry(midOutEdgeId)
 		finalPath = append(finalPath, geom...)
-		finalEdgePath = append(finalEdgePath, *midOutEdge)
-		totalDistance += midOutEdge.GetLength()
+		finalEdgePath = append(finalEdgePath, *bs.engine.graph.GetOutEdge(midOutEdgeId))
+		totalDistance += bs.engine.graph.GetOutEdgeLength(midOutEdgeId)
 	}
 
 	for curInfo.GetParent().GetEdge() != tBackwardId {
@@ -174,8 +177,8 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float6
 		parentEdge := parent.GetEdge()
 		parentCopy := parent
 
-		outEdge := bs.engine.graph.GetOutEdge(parentCopy.GetEdge())
-		finalEdgePath = append(finalEdgePath, *outEdge)
+		outEdge := *bs.engine.graph.GetOutEdge(parentCopy.GetEdge())
+		finalEdgePath = append(finalEdgePath, outEdge)
 
 		geom := bs.engine.graph.GetEdgeGeometry(outEdge.GetEdgeId())
 		finalPath = append(finalPath, geom...)
@@ -217,10 +220,11 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 	}
 
 	// traverse outEdges of u
-	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
-		vId := outArc.GetHead()
+	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+		hwType pkg.OsmHighwayType) {
+		vId := head
 
-		edgeWeight := bs.engine.metrics.GetWeight(outArc)
+		edgeWeight := bs.engine.metrics.GetWeight(hwType, weight, length)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 		if uId == source {
@@ -233,7 +237,7 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
 		}
-		vEntryId := bs.engine.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
+		vEntryId := bs.engine.graph.GetEntryOffset(vId) + da.Index(entryPoint)
 
 		// if query level of v is 0, then v is in the same cell as s or t in the lowest level
 		// then, we just do edge relaxation as usual in turn-aware dijkstra
@@ -271,8 +275,8 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 
 		newVEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
 		// traverse outEdges of v
-		bs.engine.graph.ForOutEdgesOf(vId, da.Index(outArc.GetEntryPoint()), func(e2 *da.OutEdge,
-			exitPoint da.Index, turnType2 pkg.TurnType) {
+		bs.engine.graph.ForOutEdgesOf(vId, entryPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index, turnType2 pkg.TurnType,
+			_ pkg.OsmHighwayType) {
 
 			//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 			scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
@@ -321,10 +325,11 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 		otherUExitId++
 	}
 
-	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *da.InEdge, entryPoint da.Index, turnType pkg.TurnType) {
-		vId := inArc.GetTail()
+	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
+		turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+		vId := tail
 
-		edgeWeight := bs.engine.metrics.GetWeight(inArc)
+		edgeWeight := bs.engine.metrics.GetWeight(hwType, weight, length)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
@@ -337,7 +342,7 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 			return
 		}
 
-		vExitId := bs.engine.graph.GetExitOffset(vId) + da.Index(inArc.GetExitPoint())
+		vExitId := bs.engine.graph.GetExitOffset(vId) + da.Index(exitPoint)
 
 		// relax edge
 		oldVExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
@@ -366,8 +371,8 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 		vEntryId := entryOffset
 
 		newVExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-		bs.engine.graph.ForInEdgesOf(vId, da.Index(inArc.GetExitPoint()), func(inArc2 *da.InEdge,
-			entryPoint2 da.Index, turnType2 pkg.TurnType) {
+		bs.engine.graph.ForInEdgesOf(vId, exitPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index,
+			turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
 			scannedByForwardSearch := bs.forwardPq.IsScanned(vEntryId)
 
 			vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)

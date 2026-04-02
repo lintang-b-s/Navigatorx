@@ -1,5 +1,5 @@
 package landmark
 
 const (
-	WORKERS = 4
+	WORKERS = 2
 )

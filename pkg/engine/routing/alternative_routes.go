@@ -230,8 +230,11 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	*/
 	now := time.Now()
 
-	s := ars.engine.graph.GetOutEdge(asId).GetHead()
-	t := ars.engine.graph.GetInEdge(atId).GetTail()
+	asEdge := ars.engine.graph.GetOutEdge(asId)
+	s := asEdge.GetHead()
+	atEdge := ars.engine.graph.GetInEdge(atId)
+	t := atEdge.GetTail()
+
 	param := ars.parameterByRequest(s, t)
 
 	crpQuery := NewCRPBidirectionalSearch(ars.engine, param.upperBound)
@@ -554,18 +557,22 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(svPath, vtPath []da.In
 	distanceShare := 0.0
 
 	for _, eId := range svPath {
-		e := ars.engine.graph.GetOutEdge(eId)
-		if _, ok := optPathSet[e.GetHead()]; ok {
+
+		eWeight, eLength, eHwType := ars.engine.graph.GetOutEdgeTripleWeight(eId)
+		eHead := ars.engine.graph.GetHeadOfOutEdge(eId)
+		if _, ok := optPathSet[eHead]; ok {
 			// kualitas rute alternatif lebih bagus kalau length functionnya travel time
-			distanceShare += ars.engine.metrics.GetWeight(e)
+			distanceShare += ars.engine.metrics.GetWeight(eHwType, eWeight, eLength)
 		}
 	}
 
 	for _, eId := range vtPath {
-		e := ars.engine.graph.GetOutEdge(eId)
-		if _, ok := optPathSet[e.GetHead()]; ok {
+		eWeight, eLength, eHwType := ars.engine.graph.GetOutEdgeTripleWeight(eId)
+		eHead := ars.engine.graph.GetHeadOfOutEdge(eId)
+
+		if _, ok := optPathSet[eHead]; ok {
 			// kualitas rute alternatif lebih bagus kalau length functionnya travel time
-			distanceShare += ars.engine.metrics.GetWeight(e)
+			distanceShare += ars.engine.metrics.GetWeight(eHwType, eWeight, eLength)
 		}
 	}
 
@@ -645,10 +652,12 @@ func (ars *AlternativeRouteSearch) calculateApproxDistanceShare(svPackedPath, vt
 			}
 			i++
 		} else {
-			e := ars.engine.graph.GetOutEdge(pi.GetEdge())
-			if _, ok := optPathSet[e.GetHead()]; ok {
+			eHead := ars.engine.graph.GetHeadOfOutEdge(pi.GetEdge())
+			eWeight, eLength, eHighwayType := ars.engine.graph.GetOutEdgeTripleWeight(pi.GetEdge())
+
+			if _, ok := optPathSet[eHead]; ok {
 				// kualitas rute alternatif lebih bagus kalau length functionnya travel time
-				distanceShare += ars.engine.metrics.GetWeight(e)
+				distanceShare += ars.engine.metrics.GetWeight(eHighwayType, eWeight, eLength)
 			}
 		}
 	}
@@ -744,14 +753,12 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			// kalau u == entryId  dari edge, sedangkan di pb isinya exitId dari edge, shg u harus dijadiin exitId dari edgenya
 			vEntryId := ars.engine.adjustForward(uVId, u)
-			_, vOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vEntryId)
-			vExitId := vOutEdge.GetEdgeId()
+			_, vExitId := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vEntryId)
 
 			q := ars.engine.graph.GetTailOfOutedge(vExitId)
 			qInEdge := ps.Get(u).GetParent().GetEdge()
 			qEntryId := ars.engine.adjustForward(q, qInEdge)
-			_, qOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(qEntryId)
-			qExitId := qOutEdge.GetEdgeId()
+			_, qExitId := ars.engine.graph.GetHeadOfInedgeWithOutEdge(qEntryId)
 			qParent := ars.engine.graph.GetTailOfOutedge(qExitId)
 
 			offQExitId := ars.engine.offsetBackward(qParent, qExitId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
@@ -794,8 +801,8 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			vEntryId := ps.Get(u).GetParent().GetFirstOverlayEntryExitId()
 
-			_, vOutEdge := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vEntryId)
-			qExitId := vOutEdge.GetEdgeId()
+			_, qExitId := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vEntryId)
+
 			q := ars.engine.graph.GetTailOfOutedge(qExitId)
 
 			offQExitId := ars.engine.offsetBackward(q, qExitId, ars.engine.graph.GetCellNumber(q), sCellNumber)
@@ -852,13 +859,14 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			vExitId := ars.engine.adjustBackward(v, u)
 			_, qInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(vExitId)
 
-			q := ars.engine.graph.GetHeadOfInedge(qInEdge.GetEdgeId())
+			q := ars.engine.graph.GetHeadOfInedge(qInEdge)
 			offQExitId := pb.Get(u).GetParent().GetEdge()
 			qExitId := ars.engine.adjustBackward(q, offQExitId)
 
-			qParent := ars.engine.graph.GetOutEdge(qExitId).GetHead()
+			qExitEdge := ars.engine.graph.GetOutEdge(qExitId)
+			qParent := qExitEdge.GetHead()
 			_, qParentInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(qExitId)
-			qParentEntryId := qParentInEdge.GetEdgeId()
+			qParentEntryId := qParentInEdge
 
 			offQParentEntryId := ars.engine.offsetForward(qParent, qParentEntryId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
 			oki := util.Lt(ps.GetPriority(offQParentEntryId), pkg.INF_WEIGHT)
@@ -892,8 +900,7 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 			// vOverlay := u
 			vExitId := pb.Get(u).GetParent().GetFirstOverlayEntryExitId()
 
-			_, qInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(vExitId)
-			qEntryId := qInEdge.GetEdgeId()
+			_, qEntryId := ars.engine.graph.GetTailOfOutedgeWithInEdge(vExitId)
 			q := ars.engine.graph.GetHeadOfInedge(qEntryId)
 
 			offQEntryId := ars.engine.offsetForward(q, qEntryId, ars.engine.graph.GetCellNumber(q), sCellNumber)

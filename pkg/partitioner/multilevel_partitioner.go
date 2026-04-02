@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"go.uber.org/zap"
 )
@@ -13,9 +12,9 @@ type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
 	// best parameter for customizable route planning by delling et al:
 	// [2^8, 2^11, 2^14, 2^17, 2^20]
-	l                                 int                       // max level of overlay graph
-	cellVertices                      [][][]datastructure.Index // nodes in each cells in each level
-	graph                             *datastructure.Graph
+	l                                 int            // max level of overlay graph
+	cellVertices                      [][][]da.Index // nodes in each cells in each level
+	graph                             *da.Graph
 	logger                            *zap.Logger
 	unitCapacity, prePartitionWithSCC bool
 	minPrec                           int
@@ -23,7 +22,7 @@ type MultilevelPartitioner struct {
 	directed                          bool
 }
 
-func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *datastructure.Graph, logger *zap.Logger, unitCapacity, prePartitionWithSCC, directed bool) *MultilevelPartitioner {
+func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.Graph, logger *zap.Logger, unitCapacity, prePartitionWithSCC, directed bool) *MultilevelPartitioner {
 	if len(u) != l {
 		panic(fmt.Errorf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
@@ -31,7 +30,7 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *dat
 	return &MultilevelPartitioner{
 		u:                      u,
 		l:                      l,
-		cellVertices:           make([][][]datastructure.Index, l),
+		cellVertices:           make([][][]da.Index, l),
 		graph:                  graph,
 		logger:                 logger,
 		unitCapacity:           unitCapacity,
@@ -41,11 +40,11 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *dat
 	}
 }
 
-func (mpr *MultilevelPartitioner) GetCellVertices() [][][]datastructure.Index {
+func (mpr *MultilevelPartitioner) GetCellVertices() [][][]da.Index {
 	return mpr.cellVertices
 }
 
-func (mpr *MultilevelPartitioner) SetCellVertices(cellVertices [][][]datastructure.Index) {
+func (mpr *MultilevelPartitioner) SetCellVertices(cellVertices [][][]da.Index) {
 	mpr.cellVertices = cellVertices
 }
 
@@ -71,7 +70,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		inertialFlowPartitioner.Partition(nodeIDs)
 		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
 	} else {
-		mp.cellVertices[mp.l-1] = [][]datastructure.Index{nodeIDs}
+		mp.cellVertices[mp.l-1] = [][]da.Index{nodeIDs}
 	}
 	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.cellVertices[mp.l-1]))
 
@@ -110,18 +109,18 @@ func (mp *MultilevelPartitioner) SaveToFile(name string) error {
 	return mp.writeMLPToMLPFile(fmt.Sprintf("./data/crp_inertial_flow_%s.mlp", name))
 }
 
-func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]datastructure.Index {
+func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Index {
 	cellSet := make(map[int]struct{})
 	for _, cellId := range partition {
 		cellSet[cellId] = struct{}{}
 	}
-	cells := make([][]datastructure.Index, len(cellSet))
+	cells := make([][]da.Index, len(cellSet))
 
 	for nodeId, cellId := range partition {
 		if cellId == -1 {
 			continue
 		}
-		cells[cellId] = append(cells[cellId], datastructure.Index(nodeId))
+		cells[cellId] = append(cells[cellId], da.Index(nodeId))
 	}
 	return cells // cellId -> vertices Id
 }

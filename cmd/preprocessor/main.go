@@ -27,7 +27,7 @@ func main() {
 		panic(err)
 	}
 	op := osmparser.NewOSMParserV2()
-	graph, err := op.Parse(fmt.Sprintf("./data/%s", *osmFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("./data/%s", *osmFile), logger, false)
 	if err != nil {
 		panic(err)
 	}
@@ -37,7 +37,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
+	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

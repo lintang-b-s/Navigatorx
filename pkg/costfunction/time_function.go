@@ -51,22 +51,22 @@ const (
 	defaultSpeed = 30.0 // km/h
 )
 
-func (tf *TimeFunction) GetWeight(e EdgeAttributes) float64 {
+func (tf *TimeFunction) GetWeight(eHighwayType pkg.OsmHighwayType, eDefaultWeight, eLength float64) float64 {
 
 	maxspeed := defaultSpeed
 	if tf.maxspeeds != nil {
-		hwType := e.GetHighwayType()
+		hwType := eHighwayType
 		maxspeed = tf.maxspeeds[hwType]
 		if maxspeed == 0 {
 			maxspeed = defaultSpeed
 		}
 	} else {
-		return e.GetWeight()
+		return eDefaultWeight
 	}
 
 	// convert km/h to meter/minute
 	maxspeed = util.KMHToMMin(maxspeed)
-	return e.GetLength() / maxspeed
+	return eLength / maxspeed
 }
 
 func (tf *TimeFunction) GetMaxSpeed(e EdgeAttributes) float64 {

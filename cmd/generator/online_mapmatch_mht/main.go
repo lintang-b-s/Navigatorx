@@ -16,10 +16,6 @@ import (
 	"golang.org/x/exp/rand"
 )
 
-var (
-	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
-)
-
 const (
 	graphFile        string = "./data/original.graph"
 	overlayGraphFile string = "./data/overlay_graph.graph"
@@ -46,7 +42,7 @@ func main() {
 	}
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), *leafBoundingBoxRadius, logger)
+	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), logger)
 	graph, err := da.ReadGraph(graphFile)
 	if err != nil {
 		panic(err)
@@ -85,7 +81,7 @@ func main() {
 		src := RandomCoordinate(boundingBox, rd)
 		dst := RandomCoordinate(boundingBox, rd)
 
-		as, at, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon())
+		as, at, _, _, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon())
 		// as = exit/outEdge index of origin
 		// at = entry/inEdge index of destination
 		if as == da.INVALID_EDGE_ID || at == da.INVALID_EDGE_ID {

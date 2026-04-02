@@ -79,7 +79,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -113,7 +113,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile)
+	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -176,22 +176,25 @@ func TestOriginDestinationSnap(t *testing.T) {
 		s := da.Index(rd.Intn(V))
 		target := da.Index(rd.Intn(V))
 
+		if !g.PathExists(s, target) {
+			continue
+		}
+
 		key := util.Bitpack(uint32(s), uint32(target))
 		if _, ok := qset[key]; ok {
 			continue
 		}
 		qset[key] = struct{}{}
 
-		sCoord := g.GetVertex(s).GetCoordinate()
+		sCoord := g.GetVertexCoordinate(s)
 
-		rndDist := 0.002 + rd.Float64()*(0.02-0.002)
+		rndDist := 0.001 + rd.Float64()*(0.005-0.001)
 		rdBearing := rd.Float64() * 360.0
 
 		sCoordNLat, sCoordNLon := geo.GetDestinationPoint(sCoord.GetLat(), sCoord.GetLon(), rdBearing, rndDist)
+		tCoord := g.GetVertexCoordinate(target)
 
-		tCoord := g.GetVertex(target).GetCoordinate()
-
-		rndDist = 0.002 + rd.Float64()*(0.02-0.002)
+		rndDist = 0.001 + rd.Float64()*(0.005-0.001)
 		rdBearing = rd.Float64() * 360.0
 
 		tCoordNLat, tCoordNLon := geo.GetDestinationPoint(tCoord.GetLat(), tCoord.GetLon(), rdBearing, rndDist)
@@ -201,23 +204,23 @@ func TestOriginDestinationSnap(t *testing.T) {
 	}
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), 0.06, logger)
+	rtree.Build(re.GetGraph(), logger)
 
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.08, true, true)
+	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true)
 	if err != nil {
 		panic(err)
 	}
 
 	for _, q := range queries {
-		_, _, snappedOrig, snappedDst := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
+		_, _, snappedOrig, snappedDst, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
 			q.dest.GetLat(), q.dest.GetLon())
 
 		distToOrig := geo.CalculateGreatCircleDistance(q.orig.GetLat(), q.orig.GetLon(), snappedOrig.GetLat(), snappedOrig.GetLon())
 		distToDest := geo.CalculateGreatCircleDistance(q.dest.GetLat(), q.dest.GetLon(), snappedDst.GetLat(), snappedDst.GetLon())
 
-		if util.Gt(distToOrig, 0.5) || util.Gt(distToDest, 0.5) {
+		if util.Gt(distToOrig, 0.06) || util.Gt(distToDest, 0.06) { // karena search radius 50 m,
 			t.Errorf("snapped origin or destination too far from origin and destination query: %v, %v", distToOrig, distToDest)
 		}
 	}

@@ -5,14 +5,13 @@ import (
 	"sync"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
 type RecursiveBisection struct {
-	originalGraph          *datastructure.Graph
+	originalGraph          *da.Graph
 	maximumCellSize        int
 	finalPartition         []int // map from vertex id to partition id
 	partitionCount         int
@@ -26,7 +25,7 @@ type RecursiveBisection struct {
 	directed               bool
 }
 
-func NewRecursiveBisection(graph *datastructure.Graph, maximumCellSize int, logger *zap.Logger, k int, unitCapacity, prePartitionWithSCC bool,
+func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Logger, k int, unitCapacity, prePartitionWithSCC bool,
 	inertialFlowIterations int, directed bool,
 ) *RecursiveBisection {
 
@@ -65,7 +64,7 @@ T(n) = n^2 * \frac{n * (n-1)}{2} *c + T(n-1)
 base case: n-k = U
 T(n) = O(n^5)
 */
-func (rb *RecursiveBisection) Partition(initialVerticeIds []datastructure.Index) {
+func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 
 	initialPg := rb.buildInitialPartitionGraph(initialVerticeIds) // O(n+m), n = len(initialVerticeIds), m = number of edges that its tail vertex in initialVerticeIds
 
@@ -151,24 +150,24 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []datastructure.Index)
 }
 
 // applyBisection. bisect st-cut jadi partisi S dan T yang saling disjoint
-func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *datastructure.PartitionGraph) (*datastructure.PartitionGraph, *datastructure.PartitionGraph) {
+func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *da.PartitionGraph) (*da.PartitionGraph, *da.PartitionGraph) {
 	var (
-		partitionOne = datastructure.NewPartitionGraph(pg.NumberOfVertices() - cut.GetNumNodesInPartitionTwo())
-		partitionTwo = datastructure.NewPartitionGraph(cut.GetNumNodesInPartitionTwo())
+		partitionOne = da.NewPartitionGraph(pg.NumberOfVertices() - cut.GetNumNodesInPartitionTwo())
+		partitionTwo = da.NewPartitionGraph(cut.GetNumNodesInPartitionTwo())
 	)
 
 	// remap id untuk partisi S dan T
-	partOneId := datastructure.Index(0)
-	partTwoId := datastructure.Index(0)
+	partOneId := da.Index(0)
+	partTwoId := da.Index(0)
 
 	n := pg.NumberOfVertices()
-	partOneNewVIdMap := make([]datastructure.Index, n)
-	partTwoNewVIdMapMap := make([]datastructure.Index, n)
-	origVIdToPgVIdMap := make(map[datastructure.Index]datastructure.Index, n*2) // map from original vertex id to partition pg vertex id
+	partOneNewVIdMap := make([]da.Index, n)
+	partTwoNewVIdMapMap := make([]da.Index, n)
+	origVIdToPgVIdMap := make(map[da.Index]da.Index, n*2) // map from original vertex id to partition pg vertex id
 
-	pg.ForEachVertices(func(v datastructure.PartitionVertex) { // O(n), n=number of vertices in pg
-		if v.GetOriginalVertexID() == datastructure.Index(ARTIFICIAL_SOURCE_ID) ||
-			v.GetOriginalVertexID() == datastructure.Index(ARTIFICIAL_SINK_ID) {
+	pg.ForEachVertices(func(v da.PartitionVertex) { // O(n), n=number of vertices in pg
+		if v.GetOriginalVertexID() == da.Index(ARTIFICIAL_SOURCE_ID) ||
+			v.GetOriginalVertexID() == da.Index(ARTIFICIAL_SINK_ID) {
 			// skip artificial source and sink
 			return
 		}
@@ -177,14 +176,14 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *datastructure.Part
 		lat, lon := v.GetVertexCoordinate()
 		if cut.GetFlag(v.GetID()) {
 			// v in partisi S
-			newVertex := datastructure.NewPartitionVertex(partOneId, v.GetOriginalVertexID(),
+			newVertex := da.NewPartitionVertex(partOneId, v.GetOriginalVertexID(),
 				lat, lon)
 			partitionOne.AddVertex(newVertex)
 			partOneNewVIdMap[v.GetID()] = partOneId
 			partOneId++
 		} else {
 			// v in partisi T
-			newVertex := datastructure.NewPartitionVertex(partTwoId, v.GetOriginalVertexID(),
+			newVertex := da.NewPartitionVertex(partTwoId, v.GetOriginalVertexID(),
 				lat, lon)
 			partitionTwo.AddVertex(newVertex)
 			partTwoNewVIdMapMap[v.GetID()] = partTwoId
@@ -195,8 +194,8 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *datastructure.Part
 	for _, uVertex := range pg.GetVertices() { // O(n+m), m = number of edges in pgs
 		uOriVId := uVertex.GetOriginalVertexID()
 
-		rb.originalGraph.ForOutEdgesOfVertex(uOriVId, func(e *datastructure.OutEdge, exitPoint datastructure.Index) {
-			v, ok := origVIdToPgVIdMap[e.GetHead()] // get vertex id di current partition graph pg
+		rb.originalGraph.ForOutEdgesOfVertex(uOriVId, func(head, exitPoint da.Index, weight float64) {
+			v, ok := origVIdToPgVIdMap[head] // get vertex id di current partition graph pg
 			if !ok {
 				// v not in current partition Graph
 				return
@@ -205,10 +204,10 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *datastructure.Part
 			eWeight := int64(1)
 			if rb.unitCapacity {
 				eWeight = 1
-			} else if util.Eq(e.GetWeight(), 0) {
+			} else if util.Eq(weight, 0) {
 				eWeight = 1
 			} else {
-				eWeight = int64(e.GetWeight() * math.Pow(10, rb.k))
+				eWeight = int64(weight * math.Pow(10, rb.k))
 			}
 
 			if cut.GetFlag(u) && cut.GetFlag(v) {
@@ -229,11 +228,11 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *datastructure.Part
 }
 
 // assignFinalPartition. assign id partisi dari setiap vertices in partitionGraph
-func (rb *RecursiveBisection) assignFinalPartition(partitionGraph *datastructure.PartitionGraph) {
+func (rb *RecursiveBisection) assignFinalPartition(partitionGraph *da.PartitionGraph) {
 	rb.mu.Lock()
 	defer rb.mu.Unlock()
 	for i := 0; i < partitionGraph.NumberOfVertices(); i++ { // O(n), n=number of vertices in partitionGraph
-		v := partitionGraph.GetVertex(datastructure.Index(i))
+		v := partitionGraph.GetVertex(da.Index(i))
 		originalVId := v.GetOriginalVertexID()
 		rb.finalPartition[originalVId] = rb.partitionCount
 		rb.numVerticesAssigned++
@@ -262,26 +261,26 @@ return partitionGraph
 partitionGraph punya vertices sama dengan vertices di initialVerticeIds, tapi dengan id baru
 edges dari partitionGraph cuma include edges yang tail dan head dari edge satu partisi atau in initialVerticeIds
 */
-func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []datastructure.Index) *datastructure.PartitionGraph {
+func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []da.Index) *da.PartitionGraph {
 	n := len(initialVerticeIds)
-	pg := datastructure.NewPartitionGraph(n)
+	pg := da.NewPartitionGraph(n)
 	// initialVerticeIds = stil original vertex id
 
 	initialVerticeIdSet := makeNodeSet(initialVerticeIds) // O(n), n= len(initialVerticeIds)
 
-	newVid := datastructure.Index(0)
-	newMapVid := make(map[datastructure.Index]datastructure.Index, len(initialVerticeIds))
+	newVid := da.Index(0)
+	newMapVid := make(map[da.Index]da.Index, len(initialVerticeIds))
 	for _, vId := range initialVerticeIds { // O(n)
 		lat, lon := rb.originalGraph.GetVertexCoordinates(vId)
-		vertex := datastructure.NewPartitionVertex(newVid, vId, lat, lon)
+		vertex := da.NewPartitionVertex(newVid, vId, lat, lon)
 		newMapVid[vId] = newVid
 		pg.AddVertex(vertex)
 		newVid++
 	}
 
 	for _, vId := range initialVerticeIds { // O(n+m), m = number of edges that its tail vertex in initialVerticeIds
-		rb.originalGraph.ForOutEdgesOfVertex(vId, func(e *datastructure.OutEdge, exitPoint datastructure.Index) {
-			if _, headInSet := initialVerticeIdSet[e.GetHead()]; !headInSet {
+		rb.originalGraph.ForOutEdgesOfVertex(vId, func(head, exitPoint da.Index, weight float64) {
+			if _, headInSet := initialVerticeIdSet[head]; !headInSet {
 				// skip arc that its head outside current cell
 				return
 			}
@@ -289,14 +288,14 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []dat
 			eWeight := int64(1)
 			if rb.unitCapacity {
 				eWeight = 1
-			} else if util.Eq(e.GetWeight(), 0) {
+			} else if util.Eq(weight, 0) {
 				eWeight = 1
 			} else {
-				eWeight = int64(e.GetWeight() * math.Pow(10, rb.k))
+				eWeight = int64(weight * math.Pow(10, rb.k))
 			}
 
 			newV := newMapVid[vId]
-			newHead := newMapVid[e.GetHead()]
+			newHead := newMapVid[head]
 			pg.AddEdge(newV, newHead, eWeight, rb.directed)
 		})
 	}
@@ -308,8 +307,8 @@ func (rb *RecursiveBisection) GetFinalPartition() []int {
 	return rb.finalPartition
 }
 
-func makeNodeSet(nodeIds []datastructure.Index) map[datastructure.Index]struct{} {
-	set := make(map[datastructure.Index]struct{}, len(nodeIds)*2)
+func makeNodeSet(nodeIds []da.Index) map[da.Index]struct{} {
+	set := make(map[da.Index]struct{}, len(nodeIds)*2)
 	for _, nodeId := range nodeIds {
 		set[nodeId] = struct{}{}
 	}

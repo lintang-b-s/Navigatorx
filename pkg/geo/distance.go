@@ -34,9 +34,9 @@ const (
 // https://gis.stackexchange.com/questions/14528/better-distance-measurements-in-web-mercator-projection
 func CalculateEuclidianDistWebMercatorProj(latOne, longOne, latTwo, longTwo float64) float64 {
 	xOne := CalcLonToX(longOne)
-	yOne := CalcLatToYApprox(latOne)
+	yOne := CalcLatToY(latOne)
 	xTwo := CalcLonToX(longTwo)
-	yTwo := CalcLatToYApprox(latTwo)
+	yTwo := CalcLatToY(latTwo)
 
 	meanLat := (latOne + latTwo) / 2.0
 	meanLat = util.DegreeToRadians(meanLat)

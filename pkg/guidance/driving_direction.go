@@ -17,16 +17,16 @@ type DirectionBuilder struct {
 	instructions             []*da.Instruction
 	prevInstruction          *da.Instruction
 	turnDescriptions         []string
-	tempOutEdges             []da.OutEdge
-	tempInEdges              []da.InEdge
-	tempAltTurns             []da.OutEdge
+	tempOutEdges             []da.Index
+	tempInEdges              []da.Index
+	tempAltTurns             []da.Index
 	points                   []da.Coordinate
 	edgeIds                  []da.Index
 	drivingInstructionPool   *sync.Pool
 	coordinatesPool          *sync.Pool
 	drivingEdgeIdsPool       *sync.Pool
 	graph                    Graph
-	prevEdge                 da.OutEdge
+	prevEdge                 da.Index
 	doublePrevStreetName     string
 	prevInitialBearing       float64
 	doublePrevInitialBearing float64
@@ -52,9 +52,9 @@ func NewDirectionBuilder(graph Graph, clockwise, lefthand bool, drivingInstructi
 		coordinatesPool:          coordinatesPool,
 		drivingEdgeIdsPool:       drivingEdgeIdsPool,
 		turnDescriptions:         make([]string, 256),
-		tempOutEdges:             make([]da.OutEdge, 0, 8),
-		tempInEdges:              make([]da.InEdge, 0, 8),
-		tempAltTurns:             make([]da.OutEdge, 0, 8),
+		tempOutEdges:             make([]da.Index, 0, 8),
+		tempInEdges:              make([]da.Index, 0, 8),
+		tempAltTurns:             make([]da.Index, 0, 8),
 		turnSignCache:            turnSignCache,
 	}
 
@@ -87,7 +87,7 @@ func (db *DirectionBuilder) Reset() {
 	db.prevNode = math.MaxUint32
 	db.prevInRoundabout = false
 	db.prevInstruction = nil
-	db.prevEdge = da.OutEdge{}
+	db.prevEdge = da.Index(da.INVALID_EDGE_ID)
 	db.doublePrevStreetName = ""
 	db.prevInitialBearing = 0
 	db.doublePrevInitialBearing = 0
@@ -138,9 +138,9 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, drivingDirecti
 }
 
 func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
-	edge := *db.graph.GetOutEdge(edgeId)
 
-	headId := edge.GetHead()
+	headId := db.graph.GetHeadOfOutEdge(edgeId)
+
 	tailId := db.graph.GetTailOfOutedge(edgeId)
 
 	tail := db.graph.GetVertex(tailId)
@@ -150,7 +150,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 
 	var prevNode da.Vertex
 	if db.prevNode != math.MaxUint32 {
-		prevNode = *db.graph.GetVertex(db.prevNode)
+		prevNode = db.graph.GetVertex(db.prevNode)
 	}
 
 	streetName := db.graph.GetStreetName(edgeId)
@@ -200,11 +200,9 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 			db.instructions = append(db.instructions, db.prevInstruction)
 		}
 
-		db.graph.ForOutEdgesOfWithId(headId, func(e *da.OutEdge, id da.Index) {
-			if da.SkipDummyEdge(e) {
-				return
-			}
-			eIsRoundabout := db.graph.IsRoundabout(e.GetEdgeId())
+		db.graph.ForOutEdgeIdsOf(headId, func(eId da.Index) {
+
+			eIsRoundabout := db.graph.IsRoundabout(eId)
 			if !eIsRoundabout {
 				roundaboutInstruction := db.prevInstruction
 				roundaboutInstruction.IncrementExitNumber()
@@ -214,11 +212,11 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 		db.prevInstruction.SetStreetName(streetName)
 		roundaboutInstruction := db.prevInstruction
 		roundaboutInstruction.SetExited()
-		db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge.GetEdgeId())
+		db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge)
 	} else {
-		turnSign := db.getTurnSign(edge.GetEdgeId(), tailId, db.prevNode, headId, streetName)
+		turnSign := db.getTurnSign(edgeId, tailId, db.prevNode, headId, streetName)
 		if turnSign != da.IGNORE {
-			uTurn, uturnType := db.checkUTurn(turnSign, streetName, edge)
+			uTurn, uturnType := db.checkUTurn(turnSign, streetName, edgeId)
 			if uTurn {
 				db.prevInstruction.SetSign(uturnType)
 				db.prevInstruction.SetStreetName(streetName)
@@ -234,7 +232,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 				db.reset()
 
 				db.doublePrevInitialBearing = db.prevInitialBearing
-				db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge.GetEdgeId())
+				db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge)
 				db.instructions = append(db.instructions, prevIns)
 			}
 		}
@@ -243,10 +241,11 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 	db.doublePrevNode = db.prevNode
 	db.prevInRoundabout = isRoundabout
 	db.prevNode = tailId
-	db.prevEdge = edge
-	db.cumulativeDistance += edge.GetLength()
-	db.cumulativeTravelTime += edge.GetWeight()
-	db.edgeIds = append(db.edgeIds, edge.GetEdgeId())
+	db.prevEdge = edgeId
+
+	db.cumulativeDistance += db.graph.GetOutEdgeLength(edgeId)
+	db.cumulativeTravelTime += db.graph.GetOutEdgeWeight(edgeId) // todo: ganti metrics.GetWeight()
+	db.edgeIds = append(db.edgeIds, edgeId)
 	db.points = append(db.points,
 		da.NewCoordinate(tail.GetLat(), tail.GetLon()))
 	db.points = append(db.points,
@@ -262,15 +261,16 @@ func (db *DirectionBuilder) buildFinalInstruction() {
 
 	doublePrevNode := db.graph.GetVertex(db.doublePrevNode)
 
-	tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(db.prevEdge.GetEdgeId()))
+	tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(db.prevEdge))
 
-	node := db.graph.GetVertex(db.prevEdge.GetHead())
+	prevEdgeHead := db.graph.GetHeadOfOutEdge(db.prevEdge)
+	node := db.graph.GetVertex(prevEdgeHead)
 	point := da.NewCoordinate(node.GetLat(), node.GetLon())
 
 	prevNodeData := db.graph.GetVertex(db.prevNode)
 	turnBearing := computeFinalBearing(prevNodeData.GetLat(), prevNodeData.GetLon(), tail.GetLat(), tail.GetLon())
 
-	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(db.prevEdge.GetEdgeId()), point, false,
+	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(db.prevEdge), point, false,
 		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.points, turnBearing, db.clockwise)
 	finishInstruction.SetExtraInfo("heading", geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
 
@@ -291,19 +291,20 @@ D <--currentEdge---C
 
 If from A->B turn right, and from B->C turn right, and the delta bearing between A->B and C->D is close to 180 degrees, then it can be considered a U-turn.
 */ // nolint: gofmt
-func (db *DirectionBuilder) checkUTurn(sign int, name string, edge da.OutEdge) (bool, int) {
+func (db *DirectionBuilder) checkUTurn(sign int, name string, edgeId da.Index) (bool, int) {
 	isUTurn := false
 	uTurnType := da.U_TURN_UNKNOWN
 
+	head := db.graph.GetHeadOfOutEdge(edgeId)
 	if db.doublePrevInitialBearing != 0 && (sign > 0) == (db.prevInstruction.GetTurnSign() > 0) &&
 		((db.lefthand && (util.Abs(sign) == da.TURN_SLIGHT_RIGHT || util.Abs(sign) == da.TURN_RIGHT || util.Abs(sign) == da.TURN_SHARP_RIGHT)) ||
 			(!db.lefthand && (util.Abs(sign) == da.TURN_SLIGHT_LEFT || util.Abs(sign) == da.TURN_LEFT || util.Abs(sign) == da.TURN_SHARP_LEFT))) &&
 		((db.lefthand && util.Abs(db.prevInstruction.GetTurnSign()) == da.TURN_SLIGHT_RIGHT || util.Abs(db.prevInstruction.GetTurnSign()) == da.TURN_RIGHT || util.Abs(db.prevInstruction.GetTurnSign()) == da.TURN_SHARP_RIGHT) ||
 			(!db.lefthand && util.Abs(db.prevInstruction.GetTurnSign()) == da.TURN_SLIGHT_LEFT || util.Abs(db.prevInstruction.GetTurnSign()) == da.TURN_LEFT || util.Abs(db.prevInstruction.GetTurnSign()) == da.TURN_SHARP_LEFT)) &&
 		isSameName(db.doublePrevStreetName, name) {
-		head := db.graph.GetVertex(edge.GetHead())
+		head := db.graph.GetVertex(head)
 		headLat, headLon := head.GetLat(), head.GetLon()
-		tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edge.GetEdgeId()))
+		tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edgeId))
 		currentInitialBearing := computeInitialBearing(tail.GetLat(), tail.GetLon(), headLat, headLon)
 		diff := math.Abs(db.doublePrevInitialBearing - currentInitialBearing)
 		diffAngle := util.RadiansToDegree(diff)
@@ -333,17 +334,16 @@ prevNode----prevEdge----tail
 */ // nolint: gofmt
 func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, headId da.Index, name string) int {
 
-	key := util.Bitpack(uint32(db.prevEdge.GetEdgeId()), uint32(edgeId))
+	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
 
 	if sign, ok := db.turnSignCache.Get(key); ok {
 		return sign
 	}
 
-	edge := *db.graph.GetOutEdge(edgeId)
-
 	tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edgeId))
+	head := db.graph.GetHeadOfOutEdge(edgeId)
 
-	point := db.graph.GetVertex(edge.GetHead())
+	point := db.graph.GetVertex(head)
 	lat := point.GetLat()
 	lon := point.GetLon()
 
@@ -359,12 +359,12 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 	currStreetName := db.graph.GetStreetName(edgeId)
 	currRoadClass := db.graph.GetRoadClass(edgeId)
 
-	prevStreetName := db.graph.GetStreetName(db.prevEdge.GetEdgeId())
-	prevRoadClass := db.graph.GetRoadClass(db.prevEdge.GetEdgeId())
+	prevStreetName := db.graph.GetStreetName(db.prevEdge)
+	prevRoadClass := db.graph.GetRoadClass(db.prevEdge)
 
-	isStreetSplit := db.isStreetSplit(edge, db.prevEdge, currStreetName, prevStreetName, prevRoadClass, currRoadClass)
+	isStreetSplit := db.isStreetSplit(edgeId, db.prevEdge, currStreetName, prevStreetName, prevRoadClass, currRoadClass)
 
-	isStreetMerged := db.isStreetMerged(edge, db.prevEdge, currStreetName, prevStreetName, prevRoadClass, currRoadClass)
+	isStreetMerged := db.isStreetMerged(edgeId, db.prevEdge, currStreetName, prevStreetName, prevRoadClass, currRoadClass)
 
 	if alternativeTurnsCount == 1 {
 		// there are only one alternative turns (other than this current edge)
@@ -377,7 +377,7 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 		return da.IGNORE
 	}
 
-	prevEdgeStreetName := db.graph.GetStreetName(db.prevEdge.GetEdgeId())
+	prevEdgeStreetName := db.graph.GetStreetName(db.prevEdge)
 	if math.Abs(float64(sign)) > 1 {
 		if (isSameName(name, prevEdgeStreetName)) ||
 			isStreetMerged || isStreetSplit {
@@ -389,28 +389,29 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 		return sign
 	}
 
-	if db.prevEdge.GetWeight() == 0 {
+	if db.prevEdge == da.INVALID_EDGE_ID { // dummy edge
 		db.turnSignCache.Set(key, sign, 1)
 		return sign
 	}
 
 	// get another edge from the tail that have CONTINUE direction
 	otherContinueEdge := db.getOtherEdgeContinueDirection(tail.GetLat(), tail.GetLon(), db.prevInitialBearing, alternativeTurns)
-
 	prevCurrEdgeInitialBearingDiff := computeDeltaBearing(tail.GetLat(), tail.GetLon(), lat, lon, db.prevInitialBearing) // bearing difference antara prevNode->tail->head
-	if otherContinueEdge.GetEdgeId() != da.INVALID_EDGE_ID {
+	if otherContinueEdge != da.INVALID_EDGE_ID {
+		otherContinueEdgeHead := db.graph.GetHeadOfOutEdge(otherContinueEdge)
+
 		// there is another edge (connected to the tail) in the same direction and have CONTINUE direction.
 		if !isSameName(name, prevEdgeStreetName) {
 			// current Street Name != prevEdge Street Name
-			roadClass := db.graph.GetRoadClass(edge.GetEdgeId())
-			prevRoadClass := db.graph.GetRoadClass(db.prevEdge.GetEdgeId())
-			otherRoadClass := db.graph.GetRoadClass(otherContinueEdge.GetEdgeId())
+			roadClass := db.graph.GetRoadClass(edgeId)
+			prevRoadClass := db.graph.GetRoadClass(db.prevEdge)
+			otherRoadClass := db.graph.GetRoadClass(otherContinueEdge)
 
-			link := db.graph.GetRoadClassLink(edge.GetEdgeId())
-			prevLink := db.graph.GetRoadClassLink(db.prevEdge.GetEdgeId())
-			otherLink := db.graph.GetRoadClassLink(otherContinueEdge.GetEdgeId())
+			link := db.graph.GetRoadClassLink(edgeId)
+			prevLink := db.graph.GetRoadClassLink(db.prevEdge)
+			otherLink := db.graph.GetRoadClassLink(otherContinueEdge)
 
-			node := db.graph.GetVertex(otherContinueEdge.GetHead())
+			node := db.graph.GetVertex(otherContinueEdgeHead)
 			tmpLat, tmpLon := node.GetLat(), node.GetLon()
 
 			if isMajorRoad(roadClass) {
@@ -454,7 +455,7 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 		}
 	}
 
-	if ok := db.isLeavingCurrentStreet(prevEdgeStreetName, name, db.prevEdge, edge); !(isStreetMerged || isStreetSplit) &&
+	if ok := db.isLeavingCurrentStreet(prevEdgeStreetName, name, db.prevEdge, edgeId); !(isStreetMerged || isStreetSplit) &&
 		(util.RadiansToDegree(math.Abs(prevCurrEdgeInitialBearingDiff)) > 34 || ok) {
 		// current streetname != prev streetname & not street split & not street merged, so output sign other than CONTINUE_ON_STREET
 		db.turnSignCache.Set(key, sign, 1)

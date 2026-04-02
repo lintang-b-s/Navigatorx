@@ -49,9 +49,10 @@ func (g *Graph) RunKosaraju() {
 
 	condAdj := make([][]Index, n)
 	for v := Index(0); v < n; v++ {
-		g.ForOutEdgesOfWithId(v, func(e *OutEdge, id Index) {
-			if roots[e.GetHead()] != roots[v] {
-				condAdj[roots[v]] = append(condAdj[roots[v]], roots[e.GetHead()])
+		g.ForOutEdgeIdsOf(v, func(id Index) {
+			eHead := g.GetHeadOfOutEdge(id)
+			if roots[eHead] != roots[v] {
+				condAdj[roots[v]] = append(condAdj[roots[v]], roots[eHead])
 			}
 		})
 	}
@@ -78,15 +79,18 @@ func (g *Graph) dfs(v Index, output *[]Index, visited []bool,
 	visited[v] = true
 
 	if !reversed {
-		g.ForOutEdgesOfWithId(v, func(e *OutEdge, id Index) {
-			if !visited[e.GetHead()] {
-				g.dfs(e.GetHead(), output, visited, reversed)
+		g.ForOutEdgeIdsOf(v, func(id Index) {
+			eHead := g.GetHeadOfOutEdge(id)
+
+			if !visited[eHead] {
+				g.dfs(eHead, output, visited, reversed)
 			}
 		})
 	} else {
-		g.ForInEdgesOfWithId(v, func(e *InEdge, id Index) {
-			if !visited[e.GetTail()] {
-				g.dfs(e.GetTail(), output, visited, reversed)
+		g.ForInEdgeIdsOf(v, func(id Index) {
+			eTail := g.GetTailOfInedge(id)
+			if !visited[eTail] {
+				g.dfs(eTail, output, visited, reversed)
 			}
 		})
 	}

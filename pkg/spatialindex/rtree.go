@@ -26,15 +26,11 @@ func NewRtree() *Rtree {
 	}
 }
 
-// Build. build r-tree, with each leaf having bounding box with radius boundingBoxRadius (in km)
-func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logger) {
+// Build. build r-tree
+func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
 	log.Info("Building R-tree spatial index...")
-	graph.ForOutEdges(func(e *da.OutEdge, exitPoint, head, tail, entryId da.Index,
+	graph.ForOutEdges(func(exitPoint, head, tail, entryId da.Index,
 		percentage float64, id da.Index) {
-
-		if da.SkipDummyEdge(e) {
-			return
-		}
 
 		eGeom := graph.GetEdgeGeometry(id)
 		maxLat, maxLon := math.Inf(-1), math.Inf(-1)
@@ -56,9 +52,6 @@ func (rt *Rtree) Build(graph *da.Graph, boundingBoxRadius float64, log *zap.Logg
 				minLon = point.GetLon()
 			}
 		}
-
-		minLat, minLon = geo.GetDestinationPoint(minLat, minLon, 225, boundingBoxRadius)
-		maxLat, maxLon = geo.GetDestinationPoint(maxLat, maxLon, 45, boundingBoxRadius)
 
 		// use web mercator projected coordinate
 		minY := geo.CalcLatToY(minLat)

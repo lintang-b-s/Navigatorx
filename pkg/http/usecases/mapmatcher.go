@@ -7,33 +7,19 @@ import (
 )
 
 type MapMatcherService struct {
-	log           *zap.Logger
-	onlineEngine  OnlineMapMatcherEngine
-	offlineEngine OfflineMapMatcherEngine
+	log          *zap.Logger
+	onlineEngine OnlineMapMatcherEngine
 }
 
 func NewMapMatcherService(log *zap.Logger, onlineEngine OnlineMapMatcherEngine,
-	offlineEngine OfflineMapMatcherEngine) *MapMatcherService {
+) *MapMatcherService {
 	return &MapMatcherService{
-		log:           log,
-		onlineEngine:  onlineEngine,
-		offlineEngine: offlineEngine,
+		log:          log,
+		onlineEngine: onlineEngine,
 	}
 }
 
 func (ms *MapMatcherService) OnlineMapMatch(gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 	return ms.onlineEngine.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
-}
-
-func (ms *MapMatcherService) OfflineMapMatch(gpsTraj []*da.GPSPoint) ([]*da.MatchedGPSPoint, string) {
-	matchedPoints := ms.offlineEngine.MapMatch(gpsTraj)
-
-	matchedCoords := make([]da.Coordinate, len(matchedPoints))
-	for i := 0; i < len(matchedPoints); i++ {
-		matchedCoords[i] = matchedPoints[i].GetMatchedCoord()
-	}
-
-	polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
-	return matchedPoints, polyline
 }

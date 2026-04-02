@@ -64,12 +64,14 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 		sumLength := 0.0
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := om.graph.GetOutEdge(arcEndpoint).GetLength()
+			arc := om.graph.GetOutEdge(arcEndpoint)
+			eLength := arc.GetLength()
 			sumLength += eLength
 		}
 
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := om.graph.GetOutEdge(arcEndpoint).GetLength()
+			arc := om.graph.GetOutEdge(arcEndpoint)
+			eLength := arc.GetLength()
 
 			candidates = append(candidates, ma.NewCandidate(arcEndpoint, eLength/sumLength, eLength))
 		}
@@ -131,13 +133,14 @@ func (om *OnlineMapMatchMHT) recur(newCands []*ma.Candidate, w float64, tau []da
 	if w*hnew*ptau > om.lp {
 		eNext := make([]da.Index, 0, 5)
 		lastEdgeId := tau[len(tau)-1]
-		head := om.graph.GetOutEdge(lastEdgeId).GetHead()
+		lastEdge := om.graph.GetOutEdge(lastEdgeId)
+		head := lastEdge.GetHead()
 
-		om.graph.ForOutEdgesOfWithId(head, func(outArc *da.OutEdge, Id da.Index) {
-			if da.SkipDummyEdge(outArc) {
+		om.graph.ForOutEdgeIdsOf(head, func(eId da.Index) {
+			if om.graph.SkipOutDummyEdge(head, eId) {
 				return
 			}
-			eNext = append(eNext, Id)
+			eNext = append(eNext, eId)
 		})
 
 		for _, nextEdgeId := range eNext {
@@ -158,8 +161,9 @@ func (om *OnlineMapMatchMHT) recur(newCands []*ma.Candidate, w float64, tau []da
 		}
 	}
 	if cnew == nil {
+		lastTauEdge := om.graph.GetOutEdge(tau[len(tau)-1])
 		newCands = append(newCands, ma.NewCandidate(tau[len(tau)-1], wprime,
-			om.graph.GetOutEdge(tau[len(tau)-1]).GetLength()))
+			lastTauEdge.GetLength()))
 	} else {
 		cnew.SetWeight(cnew.Weight() + wprime)
 	}
@@ -283,11 +287,11 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo da.Index, nj in
 	branch := make([]da.Index, 0, 4)
 	e := om.graph.GetOutEdge(eFrom)
 	head := e.GetHead()
-	om.graph.ForOutEdgesOfWithId(head, func(e *da.OutEdge, id da.Index) {
-		if da.SkipDummyEdge(e) {
+	om.graph.ForOutEdgeIdsOf(head, func(eId da.Index) {
+		if om.graph.SkipOutDummyEdge(head, eId) {
 			return
 		}
-		branch = append(branch, id)
+		branch = append(branch, eId)
 	})
 	sumNej := 0.0
 	for _, j := range branch {

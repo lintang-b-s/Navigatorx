@@ -10,12 +10,11 @@ type EdgeAttributes interface {
 	GetEdgeSpeed() float64
 	GetLength() float64
 	GetEdgeId() datastructure.Index
-	GetEdgeInfoId() datastructure.Index
 	GetHighwayType() pkg.OsmHighwayType
 }
 
 type CostFunction interface {
-	GetWeight(e EdgeAttributes) float64
+	GetWeight(eHighwayType pkg.OsmHighwayType, eDefaultWeight, eLength float64) float64
 	GetMaxSpeed(e EdgeAttributes) float64
 
 	GetTurnCost(turnType pkg.TurnType) float64

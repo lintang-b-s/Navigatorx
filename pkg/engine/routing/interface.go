@@ -2,7 +2,6 @@ package routing
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
@@ -11,7 +10,7 @@ type Customizer interface {
 }
 
 type CostFunction interface {
-	GetWeight(e costfunction.EdgeAttributes) float64
+	GetWeight(eHWType pkg.OsmHighwayType, eWeight float64, eLength float64) float64
 	GetTurnCost(turnType pkg.TurnType) float64
 }
 

@@ -135,9 +135,12 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 ) []da.Index {
 
 	if level == 1 {
-		sourceEntryId := pu.engine.overlayGraph.GetVertex(sourceOverlayId).GetOriginalEdge()
-		neighborOfTarget := pu.engine.overlayGraph.GetVertex(targetOverlayId).GetNeighborOverlayVertex()
-		targetEntryId := pu.engine.overlayGraph.GetVertex(neighborOfTarget).GetOriginalEdge()
+		sourceOverlayVertex := pu.engine.overlayGraph.GetVertex(sourceOverlayId)
+		sourceEntryId := sourceOverlayVertex.GetOriginalEdge()
+		targetOverlayVertex := pu.engine.overlayGraph.GetVertex(targetOverlayId)
+		neighborOfTarget := targetOverlayVertex.GetNeighborOverlayVertex()
+		neighborOverlayVertex := pu.engine.overlayGraph.GetVertex(neighborOfTarget)
+		targetEntryId := neighborOverlayVertex.GetOriginalEdge()
 
 		edgePath := pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId,
 			sourceOverlayId, targetOverlayId)
@@ -238,7 +241,8 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 			}
 
 			// visit next cell neighbor
-			wNeighborId := pu.engine.overlayGraph.GetVertex(vOverlayId).GetNeighborOverlayVertex()
+			vOverlayVertex := pu.engine.overlayGraph.GetVertex(vOverlayId)
+			wNeighborId := vOverlayVertex.GetNeighborOverlayVertex()
 			wNeigborVertex := pu.engine.overlayGraph.GetVertex(wNeighborId)
 
 			wCellNumber := wNeigborVertex.GetCellNumber()
@@ -249,9 +253,8 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 			}
 
 			// get out edge that point to wEntryVertex from vOverlayId
-			vOverlayVertex := pu.engine.overlayGraph.GetVertex(vOverlayId)
-			vOutEdge := pu.engine.graph.GetOutEdge(vOverlayVertex.GetOriginalEdge())
-			newTravelTime += pu.metrics.GetWeight(vOutEdge)
+			vOutEdgeWeight, vOutEdgeLength, vOutEdgeHwType := pu.engine.graph.GetOutEdgeTripleWeight(vOverlayVertex.GetOriginalEdge())
+			newTravelTime += pu.metrics.GetWeight(vOutEdgeHwType, vOutEdgeWeight, vOutEdgeLength)
 
 			wOriginalId := wNeigborVertex.GetOriginalVertex()
 			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
@@ -311,7 +314,8 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 			}
 
 			// visit next cell neighbor
-			wNeighborId := pu.engine.overlayGraph.GetVertex(vOverlayId).GetNeighborOverlayVertex()
+			vOverlayVertex := pu.engine.overlayGraph.GetVertex(vOverlayId)
+			wNeighborId := vOverlayVertex.GetNeighborOverlayVertex()
 			wNeigborVertex := pu.engine.overlayGraph.GetVertex(wNeighborId)
 
 			wCellNumber := wNeigborVertex.GetCellNumber()
@@ -321,9 +325,8 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 				return
 			}
 
-			vOverlayVertex := pu.engine.overlayGraph.GetVertex(vOverlayId)
-			vInEdge := pu.engine.graph.GetInEdge(vOverlayVertex.GetOriginalEdge())
-			newTravelTime += pu.metrics.GetWeight(vInEdge)
+			vInEdgeWeight, vInEdgeLength, vInEdgeHwType := pu.engine.graph.GetInEdgeTripleWeight(vOverlayVertex.GetOriginalEdge())
+			newTravelTime += pu.metrics.GetWeight(vInEdgeHwType, vInEdgeWeight, vInEdgeLength)
 			wOriginalid := wNeigborVertex.GetOriginalVertex()
 
 			// relax edge
@@ -421,7 +424,8 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 	// get source vertex
 	sourceVertex := pu.engine.graph.GetVertex(pu.engine.graph.GetHeadFromInEdge(sourceEntryId))
-	t := pu.engine.graph.GetInEdge(targetEntryId).GetTail()
+	tInEdge := pu.engine.graph.GetInEdge(targetEntryId)
+	t := tInEdge.GetTail()
 	s := sourceVertex.GetID()
 
 	// s and t in same cell in level 1 and both are overlay vertices
@@ -435,16 +439,16 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 	offSourceEntryId := pu.engine.offsetForward(s, sourceEntryId, sourceCellNumber, sourceCellNumber)
 
-	tExitId := tOutEdge.GetEdgeId()
+	tExitId := tOutEdge
 	offTargetExitId := pu.engine.offsetBackward(t, tExitId, targetCellNumber, sourceCellNumber)
 
-	sQueryKey := da.NewCRPQueryKeyWithOutInEdgeId(s, offSourceEntryId, sOutEdge.GetEdgeId())
+	sQueryKey := da.NewCRPQueryKeyWithOutInEdgeId(s, offSourceEntryId, sOutEdge)
 	sInfo := da.NewVertexInfo(0, da.NewVertexEdgePairWithOutEdgeId(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID,
 		da.INVALID_EDGE_ID, false))
 
 	fpq.Insert(offSourceEntryId, 0, sInfo, sQueryKey)
 
-	tQueryKey := da.NewCRPQueryKeyWithOutInEdgeId(t, offTargetExitId, tOutEdge.GetEdgeId())
+	tQueryKey := da.NewCRPQueryKeyWithOutInEdgeId(t, offTargetExitId, tOutEdge)
 	tInfo := da.NewVertexInfo(0, da.NewVertexEdgePairWithOutEdgeId(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID,
 		da.INVALID_EDGE_ID, false))
 	bpq.Insert(offTargetExitId, 0, tInfo, tQueryKey)
@@ -479,11 +483,12 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 		adjuEntryId := pu.engine.adjustForward(uId, uEntryId)
 
 		// relax all out edges of u
-		pu.engine.graph.ForOutEdgesOf(uId, pu.engine.graph.GetEntryOrder(uId, adjuEntryId), func(e *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
-			vId := e.GetHead()
+		pu.engine.graph.ForOutEdgesOf(uId, pu.engine.graph.GetEntryOrder(uId, adjuEntryId), func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+			hwType pkg.OsmHighwayType) {
+			vId := head
 
-			vEntryId := pu.engine.graph.GetEntryOffset(vId) + da.Index(e.GetEntryPoint())
-			edgeWeight := pu.metrics.GetWeight(e)
+			vEntryId := pu.engine.graph.GetEntryOffset(vId) + entryPoint
+			edgeWeight := pu.metrics.GetWeight(hwType, weight, length)
 
 			newTravelTime := fpq.GetPriority(uEntryId) + edgeWeight + pu.metrics.GetTurnCost(turnType)
 
@@ -506,7 +511,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 				priority := newTravelTime + pfv
 
 				if !vAlreadyLabelled {
-					queryKey := da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, e.GetEdgeId())
+					queryKey := da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, eId)
 					vInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
 
 					fpq.Insert(offVEntryId, priority, vInfo, queryKey)
@@ -525,8 +530,8 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			offVExitId := exitOffset
 
 			// traverse outEdges of v
-			pu.engine.graph.ForOutEdgesOf(vId, da.Index(e.GetEntryPoint()), func(e2 *da.OutEdge,
-				exitPoint da.Index, turnType2 pkg.TurnType) {
+			pu.engine.graph.ForOutEdgesOf(vId, entryPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index, turnType2 pkg.TurnType,
+				_ pkg.OsmHighwayType) {
 
 				//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 				scannedByBackwardSearch := bpq.IsScanned(offVExitId)
@@ -559,11 +564,12 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 		adjuExitId := pu.engine.adjustBackward(uId, uExitId)
 
 		// relax all in edges of u
-		pu.engine.graph.ForInEdgesOf(uId, pu.engine.graph.GetExitOrder(uId, adjuExitId), func(e *da.InEdge, entryPoint da.Index, turnType pkg.TurnType) {
-			vId := e.GetTail()
+		pu.engine.graph.ForInEdgesOf(uId, pu.engine.graph.GetExitOrder(uId, adjuExitId), func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
+			turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+			vId := tail
 
-			vExitId := pu.engine.graph.GetExitOffset(vId) + da.Index(e.GetExitPoint())
-			edgeWeight := pu.metrics.GetWeight(e)
+			vExitId := pu.engine.graph.GetExitOffset(vId) + exitPoint
+			edgeWeight := pu.metrics.GetWeight(hwType, weight, length)
 
 			newTravelTime := bpq.GetPriority(uExitId) + edgeWeight + pu.metrics.GetTurnCost(turnType)
 
@@ -587,8 +593,8 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 				priority := newTravelTime + prv
 
 				if !vAlreadyLabelled {
-					_, outEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(e.GetEdgeId())
-					queryKey := da.NewCRPQueryKeyWithOutInEdgeId(vId, offVExitId, outEdge.GetEdgeId())
+					_, outEdgeId := pu.engine.graph.GetHeadOfInedgeWithOutEdge(eId)
+					queryKey := da.NewCRPQueryKeyWithOutInEdgeId(vId, offVExitId, outEdgeId)
 					vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePairWithOutEdgeId(uId, uExitId, uOutEdgeId, false))
 
 					bpq.Insert(offVExitId, priority, vertexInfo, queryKey)
@@ -606,8 +612,8 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			offVEntryId := entryOffset
 
 			// traverse outEdges of v
-			pu.engine.graph.ForInEdgesOf(vId, da.Index(e.GetExitPoint()), func(e2 *da.InEdge,
-				entryPoint da.Index, turnType2 pkg.TurnType) {
+			pu.engine.graph.ForInEdgesOf(vId, exitPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index,
+				turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
 				//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 				scannedByForwardSearch := fpq.IsScanned(offVEntryId)
 				if scannedByForwardSearch && util.Lt(fpq.GetPriority(offVEntryId)+pu.engine.metrics.GetTurnCost(turnType2)+
@@ -630,9 +636,10 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	edgeIdPath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 
 	// u->mid
-	_, midOutEdge := pu.engine.graph.GetHeadOfInedgeWithOutEdge(fMid)
-	if util.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
-		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+	_, midOutEdgeId := pu.engine.graph.GetHeadOfInedgeWithOutEdge(fMid)
+	midInEdgeWeight, midInEdgeLength, midInEdgeHwType := pu.engine.graph.GetInEdgeTripleWeight(fMid)
+	if util.Gt(pu.metrics.GetWeight(midInEdgeHwType, midInEdgeWeight, midInEdgeLength), 0) {
+		edgeIdPath = append(edgeIdPath, midOutEdgeId)
 	}
 
 	uId := offFMid
@@ -649,9 +656,11 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	util.ReverseG(edgeIdPath)
 
 	// mid<-v
-	midOutEdge = pu.engine.graph.GetOutEdge(bMid)
-	if util.Gt(pu.metrics.GetWeight(midOutEdge), 0) {
-		edgeIdPath = append(edgeIdPath, midOutEdge.GetEdgeId())
+
+	midOutEdgeWeight, midOutEdgeLength, midOutEdgeHwType := pu.engine.graph.GetInEdgeTripleWeight(bMid)
+
+	if util.Gt(pu.metrics.GetWeight(midOutEdgeHwType, midOutEdgeWeight, midOutEdgeLength), 0) {
+		edgeIdPath = append(edgeIdPath, bMid)
 	}
 
 	uId = offBMid

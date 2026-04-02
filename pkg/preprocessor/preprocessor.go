@@ -1,34 +1,38 @@
 package preprocesser
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
 type Preprocessor struct {
-	graph                               *datastructure.Graph
-	mlp                                 *datastructure.MultilevelPartition
-	overlayGraph                        *datastructure.OverlayGraph
+	graph                               *da.Graph
+	mlp                                 *da.MultilevelPartition
+	overlayGraph                        *da.OverlayGraph
 	logger                              *zap.Logger
-	newVIdMap                           []datastructure.Index
-	newToOldVIdMap                      map[datastructure.Index]datastructure.Index
+	newVIdMap                           []da.Index
+	newToOldVIdMap                      map[da.Index]da.Index
+	edgeInfoIds                         [][]da.Index
 	graphFilename, overlayGraphFilename string
 }
 
-func NewPreprocessor(graph *datastructure.Graph, mlp *datastructure.MultilevelPartition,
-	logger *zap.Logger, gFilename string, ogFilename string) *Preprocessor {
+func NewPreprocessor(graph *da.Graph, mlp *da.MultilevelPartition,
+	logger *zap.Logger, gFilename string, ogFilename string, edgeInfoIds [][]da.Index,
+) *Preprocessor {
 	return &Preprocessor{
 		graph:                graph,
 		mlp:                  mlp,
 		logger:               logger,
-		newVIdMap:            make([]datastructure.Index, graph.NumberOfVertices()),
-		newToOldVIdMap:       make(map[datastructure.Index]datastructure.Index, graph.NumberOfVertices()),
+		newVIdMap:            make([]da.Index, graph.NumberOfVertices()),
+		newToOldVIdMap:       make(map[da.Index]da.Index, graph.NumberOfVertices()),
 		graphFilename:        gFilename,
 		overlayGraphFilename: ogFilename,
+		edgeInfoIds:          edgeInfoIds,
 	}
 }
 
@@ -39,7 +43,7 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 	p.BuildCellNumber()
 	p.SortByCellNumber()
 
-	p.overlayGraph = datastructure.NewOverlayGraph(p.graph, p.mlp)
+	p.overlayGraph = da.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")
 	for l := p.overlayGraph.GetLevelInfo().GetLevelCount(); l >= 1; l-- {
 		p.logger.Sugar().Infof("overlay graph level %v: number of overlay vertices %v", l, p.overlayGraph.NumberOfVerticesInLevel(l))
@@ -62,20 +66,20 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 }
 
 func (p *Preprocessor) BuildCellNumber() {
-	cellNumbers := make([]datastructure.Pv, 0, p.mlp.GetNumberOfCellsInLevel(0))
-	pvMap := make(map[datastructure.Pv]datastructure.Index, p.mlp.GetNumberOfCellsInLevel(0))
+	cellNumbers := make([]da.Pv, 0, p.mlp.GetNumberOfCellsInLevel(0))
+	pvMap := make(map[da.Pv]da.Index, p.mlp.GetNumberOfCellsInLevel(0))
+	p.graph.ForVertices(func(_ da.Vertex, id da.Index) {
 
-	for _, v := range p.graph.GetVertices() {
-		cellNumber := p.mlp.GetCellNumber(v.GetID())
+		cellNumber := p.mlp.GetCellNumber(id)
 		if _, exists := pvMap[cellNumber]; !exists {
 			cellNumbers = append(cellNumbers, cellNumber)
 			cellPvPtr := len(cellNumbers) - 1
-			pvMap[cellNumber] = datastructure.Index(cellPvPtr)
-			v.SetPvPtr(datastructure.Index(cellPvPtr)) // set pointer to the index in cellNumbers slice
+			pvMap[cellNumber] = da.Index(cellPvPtr)
+			p.graph.SetVertexPvPtr(id, da.Index(cellPvPtr)) // set pointer to the index in cellNumbers slice
 		} else {
-			v.SetPvPtr(pvMap[cellNumber])
+			p.graph.SetVertexPvPtr(id, pvMap[cellNumber])
 		}
-	}
+	})
 
 	// cellNumbers contains all unique bitpacked cell numbers from level 0->L.
 	p.graph.SetCellNumbers(cellNumbers)
@@ -86,37 +90,37 @@ group vertices s.t. vertices within the same cell are adjacent to each other
 */
 func (p *Preprocessor) SortByCellNumber() {
 	cellVertices := make([][]struct {
-		vertex        *datastructure.Vertex
-		originalIndex datastructure.Index
+		vertex        da.Vertex
+		originalIndex da.Index
 	}, p.graph.GetNumberOfCellsNumbers()) // slice of slice of vertices in each cell
 
 	minLat, minLon := math.MaxFloat64, math.MaxFloat64
 	maxLat, maxLon := math.Inf(-1), math.Inf(-1)
 
-	numOutEdgesInCell := make([]datastructure.Index, p.graph.GetNumberOfCellsNumbers()) // number of outEdges in each cell
-	numInEdgesInCell := make([]datastructure.Index, p.graph.GetNumberOfCellsNumbers())
+	numOutEdgesInCell := make([]da.Index, p.graph.GetNumberOfCellsNumbers()) // number of outEdges in each cell
+	numInEdgesInCell := make([]da.Index, p.graph.GetNumberOfCellsNumbers())
 
-	oEdges := make([][]*datastructure.OutEdge, p.graph.NumberOfVertices()) // copy of original outEdges of each vertex
-	iEdges := make([][]*datastructure.InEdge, p.graph.NumberOfVertices())
+	oEdges := make([][]da.OutEdge, p.graph.NumberOfVertices()) // copy of original outEdges of each vertex
+	iEdges := make([][]da.InEdge, p.graph.NumberOfVertices())
 
-	p.graph.SetMaxEdgesInCell(datastructure.Index(0)) // maximum number of edges in any cell
-	for i := datastructure.Index(0); i < datastructure.Index(p.graph.NumberOfVertices()); i++ {
-		cell := p.graph.GetVertex(i).GetPvPtr() // cellNumber
+	p.graph.SetMaxEdgesInCell(da.Index(0)) // maximum number of edges in any cell
+	for i := da.Index(0); i < da.Index(p.graph.NumberOfVertices()); i++ {
+		cell := p.graph.GetVertexPvPtr(i) // cellNumber
 		v := p.graph.GetVertex(i)
 
 		cellVertices[cell] = append(cellVertices[cell], struct {
-			vertex        *datastructure.Vertex
-			originalIndex datastructure.Index
+			vertex        da.Vertex
+			originalIndex da.Index
 		}{vertex: v, originalIndex: i})
 
-		oEdges[i] = make([]*datastructure.OutEdge, p.graph.GetOutDegree(i))
-		iEdges[i] = make([]*datastructure.InEdge, p.graph.GetInDegree(i))
+		oEdges[i] = make([]da.OutEdge, p.graph.GetOutDegree(i))
+		iEdges[i] = make([]da.InEdge, p.graph.GetInDegree(i))
 
-		k := datastructure.Index(0)
-		e := p.graph.GetVertex(i).GetFirstOut()
-		for e < p.graph.GetVertex(i+1).GetFirstOut() {
+		k := da.Index(0)
+		e := p.graph.GetVertexFirstOut(i)
+		for e < p.graph.GetVertexFirstOut(i+1) {
 			oEdge := p.graph.GetOutEdge(e)
-			newOEdge := datastructure.NewOutEdge(
+			newOEdge := da.NewOutEdge(
 				oEdge.GetEdgeId(),
 				oEdge.GetHead(),
 				oEdge.GetWeight(),
@@ -124,17 +128,17 @@ func (p *Preprocessor) SortByCellNumber() {
 				oEdge.GetEntryPoint(),
 				oEdge.GetHighwayType(),
 			)
-			newOEdge.SetInfoEdgeId(oEdge.GetEdgeInfoId())
+
 			oEdges[i][k] = newOEdge
 			e++
 			k++
 		}
 
-		k = datastructure.Index(0)
-		e = p.graph.GetVertex(i).GetFirstIn()
-		for e < p.graph.GetVertex(i+1).GetFirstIn() {
+		k = da.Index(0)
+		e = p.graph.GetVertexFirstIn(i)
+		for e < p.graph.GetVertexFirstIn(i+1) {
 			inEdge := p.graph.GetInEdge(e)
-			newInEdge := datastructure.NewInEdge(
+			newInEdge := da.NewInEdge(
 				inEdge.GetEdgeId(),
 				inEdge.GetTail(),
 				inEdge.GetWeight(),
@@ -142,7 +146,6 @@ func (p *Preprocessor) SortByCellNumber() {
 				inEdge.GetExitPoint(),
 				inEdge.GetHighwayType(),
 			)
-			newInEdge.SetInfoEdgeId(inEdge.GetEdgeInfoId())
 			iEdges[i][k] = newInEdge
 			e++
 			k++
@@ -159,16 +162,16 @@ func (p *Preprocessor) SortByCellNumber() {
 			p.graph.SetMaxEdgesInCell(numInEdgesInCell[cell])
 		}
 
-		minLat = util.MinFloat(minLat, p.graph.GetVertex(i).GetLat())
-		minLon = util.MinFloat(minLon, p.graph.GetVertex(i).GetLon())
-		maxLat = util.MaxFloat(maxLat, p.graph.GetVertex(i).GetLat())
-		maxLon = util.MaxFloat(maxLon, p.graph.GetVertex(i).GetLon())
+		minLat = util.MinFloat(minLat, p.graph.GetVertexCoordinate(i).GetLat())
+		minLon = util.MinFloat(minLon, p.graph.GetVertexCoordinate(i).GetLon())
+		maxLat = util.MaxFloat(maxLat, p.graph.GetVertexCoordinate(i).GetLat())
+		maxLon = util.MaxFloat(maxLon, p.graph.GetVertexCoordinate(i).GetLon())
 	}
 
-	p.graph.SetBoundingBox(datastructure.NewBoundingBox(minLat, minLon, maxLat, maxLon))
+	p.graph.SetBoundingBox(da.NewBoundingBox(minLat, minLon, maxLat, maxLon))
 
-	p.newVIdMap = make([]datastructure.Index, p.graph.NumberOfVertices()) // new vertex id after sorting by cell number
-	newVid := datastructure.Index(0)                                      // new vertex id after sorting by cell number
+	p.newVIdMap = make([]da.Index, p.graph.NumberOfVertices()) // new vertex id after sorting by cell number
+	newVid := da.Index(0)                                      // new vertex id after sorting by cell number
 	for i := 0; i < len(cellVertices); i++ {
 		for v := 0; v < len(cellVertices[i]); v++ {
 			p.newVIdMap[cellVertices[i][v].originalIndex] = newVid
@@ -177,14 +180,14 @@ func (p *Preprocessor) SortByCellNumber() {
 		}
 	}
 
-	newOutEdgeId := datastructure.Index(0)                           // new id for outEdges for each vertex for each cell
+	newOutEdgeId := da.Index(0)                                      // new id for outEdges for each vertex for each cell
 	p.graph.MakeOutEdgeCellOffset(p.graph.GetNumberOfCellsNumbers()) // offset of first outEdge for each cell
-	newInEdgeId := datastructure.Index(0)                            // new id for inEdges for each vertex for each cell
+	newInEdgeId := da.Index(0)                                       // new id for inEdges for each vertex for each cell
 	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
 
 	// create new edge infos
 	oldEdgeInfos := p.graph.GetEdgeInfos()
-	newEdgeInfos := make([]datastructure.EdgeExtraInfo, len(oldEdgeInfos))
+	newEdgeInfos := make([]da.EdgeExtraInfo, len(oldEdgeInfos))
 
 	// create new roundabout flag
 	oldRoundaboutFlag := p.graph.GetRoundaboutFlag()
@@ -198,15 +201,15 @@ func (p *Preprocessor) SortByCellNumber() {
 	newStreetDirectionForward := bitset.New(uint(p.graph.NumberOfEdges()))
 	newStreetDirectionBackward := bitset.New(uint(p.graph.NumberOfEdges()))
 
-	vId := datastructure.Index(0)
+	vId := da.Index(0)
 
-	lastVertex := p.graph.GetVertex(datastructure.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
-	newVertices := make([]*datastructure.Vertex, p.graph.GetNumberOfVerticesWithDummyVertex())
-	for i := datastructure.Index(0); i < datastructure.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
+	lastVertex := p.graph.GetVertex(da.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
+	newVertices := make([]da.Vertex, p.graph.GetNumberOfVerticesWithDummyVertex())
+	for i := da.Index(0); i < da.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
 		p.graph.SetOutEdgeCellOffset(i, newOutEdgeId)
 		p.graph.SetInEdgeCellOffset(i, newInEdgeId)
 
-		for v := datastructure.Index(0); v < datastructure.Index(len(cellVertices[i])); v++ {
+		for v := da.Index(0); v < da.Index(len(cellVertices[i])); v++ {
 			// update vertex to use new vId
 			// in the end of the outer loop, graph vertices are sorted by cell number
 
@@ -224,30 +227,32 @@ func (p *Preprocessor) SortByCellNumber() {
 			}
 
 			// update outedges & inedges
-			for k := datastructure.Index(0); k < datastructure.Index(len(oEdges[vOldId])); k++ {
+			for k := da.Index(0); k < da.Index(len(oEdges[vOldId])); k++ {
 
 				oldOutEdge := oEdges[vOldId][k]
 
-				newOutEdge := datastructure.NewOutEdge(
-					newOutEdgeId, oldOutEdge.GetHead(), oldOutEdge.GetWeight(),
+				newOutEdgeHead := p.newVIdMap[oldOutEdge.GetHead()]
+				if newOutEdgeId == 186 {
+					fmt.Printf("debug")
+				}
+				newOutEdge := da.NewOutEdge(
+					newOutEdgeId, newOutEdgeHead, oldOutEdge.GetWeight(),
 					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
 				)
 
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
 
-				outEdge := p.graph.GetOutEdge(newOutEdgeId)
-				outEdge.SetEdgeId(newOutEdgeId)
-				outEdge.SetHead(p.newVIdMap[oldOutEdge.GetHead()])
-
 				// update edge metadata
 
-				if oldOutEdge.GetHead() != vOldId {
-					oldEdgeInfo := oldEdgeInfos[oldOutEdge.GetEdgeInfoId()]
+				if oldOutEdge.GetHead() != vOldId { // skip dummy edge (vOldI, vOldId)
+					vExitPoint := p.graph.GetExitOrder(vOldId, oldOutEdge.GetEdgeId())
+					oldEdgeInfoId := p.edgeInfoIds[vOldId][vExitPoint]
+					oldEdgeInfo := oldEdgeInfos[oldEdgeInfoId]
 
 					newEdgeInfos[newOutEdgeId] = oldEdgeInfo
 
 					// update roundabout flag
-					isRoundabout := oldRoundaboutFlag.Test(uint(oldOutEdge.GetEdgeInfoId()))
+					isRoundabout := oldRoundaboutFlag.Test(uint(oldEdgeInfoId))
 					if isRoundabout {
 						newRoundaboutFlags.Set(uint(newOutEdgeId))
 					}
@@ -266,20 +271,17 @@ func (p *Preprocessor) SortByCellNumber() {
 				newOutEdgeId++
 			}
 
-			for k := datastructure.Index(0); k < datastructure.Index(len(iEdges[vOldId])); k++ {
+			for k := da.Index(0); k < da.Index(len(iEdges[vOldId])); k++ {
 				oldInEdge := iEdges[vOldId][k]
 
-				newInEdge := datastructure.NewInEdge(
-					newInEdgeId, oldInEdge.GetTail(), oldInEdge.GetWeight(),
+				newInEdgeTail := p.newVIdMap[oldInEdge.GetTail()]
+				newInEdge := da.NewInEdge(
+					newInEdgeId, newInEdgeTail, oldInEdge.GetWeight(),
 					oldInEdge.GetLength(), oldInEdge.GetExitPoint(),
 					oldInEdge.GetHighwayType(),
 				)
 
 				p.graph.SetInEdge(newInEdgeId, newInEdge)
-
-				inEdge := p.graph.GetInEdge(newInEdgeId)
-				inEdge.SetEdgeId(newInEdgeId)
-				inEdge.SetTailId(p.newVIdMap[oldInEdge.GetTail()])
 
 				newInEdgeId++
 			}
@@ -296,18 +298,18 @@ func (p *Preprocessor) SortByCellNumber() {
 	p.graph.SetEdgeInfos(newEdgeInfos)
 }
 
-func (p *Preprocessor) GetOldToNewVIdMap() []datastructure.Index {
+func (p *Preprocessor) GetOldToNewVIdMap() []da.Index {
 	return p.newVIdMap
 }
 
-func (p *Preprocessor) GetNewToOldVIdMap() map[datastructure.Index]datastructure.Index {
+func (p *Preprocessor) GetNewToOldVIdMap() map[da.Index]da.Index {
 	return p.newToOldVIdMap
 }
 
-func (p *Preprocessor) GetOverlayGraph() *datastructure.OverlayGraph {
+func (p *Preprocessor) GetOverlayGraph() *da.OverlayGraph {
 	return p.overlayGraph
 }
 
-func (p *Preprocessor) GetGraph() *datastructure.Graph {
+func (p *Preprocessor) GetGraph() *da.Graph {
 	return p.graph
 }

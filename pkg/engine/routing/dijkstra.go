@@ -46,11 +46,13 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 	if !us.useReversedEdges {
 		asId = us.engine.graph.GetExitOffset(s) + us.engine.graph.GetOutDegree(s) - 1 // dummy edge (s,s)
 		// for iterating outEdges, we need entryOffset.
-		sForwardId = us.engine.graph.GetEntryOffset(s) + da.Index(us.engine.graph.GetOutEdge(asId).GetEntryPoint())
+		asOutEdge := us.engine.graph.GetOutEdge(asId)
+		sForwardId = us.engine.graph.GetEntryOffset(s) + da.Index(asOutEdge.GetEntryPoint())
 
 	} else {
 		asId = us.engine.graph.GetEntryOffset(s) + us.engine.graph.GetInDegree(s) - 1 // dummy edge (s,s)
-		sForwardId = us.engine.graph.GetExitOffset(s) + da.Index(us.engine.graph.GetInEdge(asId).GetExitPoint())
+		asInEdge := us.engine.graph.GetInEdge(asId)
+		sForwardId = us.engine.graph.GetExitOffset(s) + da.Index(asInEdge.GetExitPoint())
 	}
 
 	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
@@ -90,7 +92,7 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 			// jadiin outEdge semua
 			inEdge := us.engine.graph.GetInEdge(tEntryId)
 			_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-			spEdges[t] = append(spEdges[t], *outEdge)
+			spEdges[t] = append(spEdges[t], *us.engine.graph.GetOutEdge(outEdge))
 
 			for curInfo.GetParent().GetEdge() != sForwardId {
 				parent := curInfo.GetParent()
@@ -99,7 +101,7 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 				// jadiin outEdge semua
 				inEdge := us.engine.graph.GetInEdge(parentEdge)
 				_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-				spEdges[t] = append(spEdges[t], *outEdge)
+				spEdges[t] = append(spEdges[t], *us.engine.graph.GetOutEdge(outEdge))
 
 				curInfo = us.pq.Get(parentEdge)
 			}
@@ -172,11 +174,12 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 		uEntryPoint := uEntryId - us.engine.graph.GetEntryOffset(uId)
 
 		// traverse outEdges of u
-		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(outArc *da.OutEdge, exitPoint da.Index, turnType pkg.TurnType) {
+		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+			hwType pkg.OsmHighwayType) {
 
-			vId := outArc.GetHead()
+			vId := head
 
-			edgeWeight := us.engine.metrics.GetWeight(outArc)
+			edgeWeight := us.engine.metrics.GetWeight(hwType, weight, length)
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
 			if uId == source {
@@ -190,7 +193,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 				return
 			}
 
-			vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(outArc.GetEntryPoint())
+			vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(entryPoint)
 
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vEntryId)) {
@@ -227,11 +230,12 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 		uExitPoint := uExitId - us.engine.graph.GetExitOffset(uId)
 
 		// traverse inEdges of u
-		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(inArc *da.InEdge, exitPoint da.Index, turnType pkg.TurnType) {
+		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
+			turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 
-			vId := inArc.GetTail()
+			vId := tail
 
-			edgeWeight := us.engine.metrics.GetWeight(inArc)
+			edgeWeight := us.engine.metrics.GetWeight(hwType, weight, length)
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
 			if uId == source {
@@ -244,7 +248,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 				return
 			}
 
-			vExitId := us.engine.graph.GetExitOffset(vId) + da.Index(inArc.GetExitPoint())
+			vExitId := us.engine.graph.GetExitOffset(vId) + da.Index(exitPoint)
 
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vExitId), pkg.INF_WEIGHT)
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vExitId)) {

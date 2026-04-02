@@ -21,7 +21,7 @@ func BenchmarkAlternativeRoutesService(b *testing.B) {
 	re := eng.GetRoutingEngine()
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), 0.07, logger)
+	rtree.Build(re.GetGraph(), logger)
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
 	rs, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true)
@@ -38,8 +38,8 @@ func BenchmarkAlternativeRoutesService(b *testing.B) {
 		s := q.s
 		t := q.t
 
-		sCoord := g.GetVertex(s).GetCoordinate()
-		tCoord := g.GetVertex(t).GetCoordinate()
+		sCoord := g.GetVertexCoordinate(s)
+		tCoord := g.GetVertexCoordinate(t)
 
 		alternatives, _, _ := rs.AlternativeRouteSearch(sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(),
 			3)
