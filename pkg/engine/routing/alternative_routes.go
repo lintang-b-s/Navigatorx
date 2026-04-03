@@ -2,13 +2,11 @@ package routing
 
 import (
 	"math"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -177,10 +175,6 @@ type AlternativeRouteSearch struct {
 
 	defaultGamma, defaultAlpha, defaultEpsilon, defaultUpperbound float64
 	defaultMaxCandidatesToUnpack                                  int
-
-	// paremeter yang diset tergantung logical cpu pc yang run routing engine
-	candidateUnpackerWorkers int
-	candidateFilterWorkers   int
 }
 
 func NewAlternativeRouteSearch(engine *CRPRoutingEngine,
@@ -353,21 +347,11 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		return v
 	}
 
-	workersSize := util.MinInt(ars.candidateFilterWorkers, len(viaVertices))
-
-	workers := concurrent.NewWorkerPool[da.ViaVertex, da.ViaVertex](workersSize, len(viaVertices))
-
-	for _, v := range viaVertices {
-		workers.AddJob(v)
-	}
-
-	workers.Close()
-	workers.Start(filterCandidates)
-	workers.Wait()
-
 	filteredCandidates := make([]da.ViaVertex, 0, len(viaVertices))
 
-	for filteredCand := range workers.CollectResults() {
+	for _, v := range viaVertices {
+
+		filteredCand := filterCandidates(v)
 		if da.IsEmptyViaVertex(filteredCand) {
 			continue
 		}
@@ -470,19 +454,10 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	// worst case computeAlternatives for all via vertices: O(c * ( p + q * (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))
 	// c = min(MAX_FILTERED_ALTERNATIVE_ROUTE_CANDIDATES, len(filteredCandidates))
 
-	workersSize = util.MinInt(ars.candidateUnpackerWorkers, len(filteredCandidates))
-	workersAlt := concurrent.NewWorkerPool[da.ViaVertex, AlternativeRoute](workersSize, len(filteredCandidates))
+	res := make([]AlternativeRoute, 0, maxFilteredCandSize)
 
 	for _, v := range filteredCandidates {
-		workersAlt.AddJob(v)
-	}
-
-	workersAlt.Close()
-	workersAlt.Start(computeAlternatives)
-	workersAlt.Wait()
-
-	res := make([]AlternativeRoute, 0, maxFilteredCandSize)
-	for alternativeRoute := range workersAlt.CollectResults() {
+		alternativeRoute := computeAlternatives(v)
 		if isEmptyAlternativeRoute(alternativeRoute) {
 			continue
 		}
@@ -1030,10 +1005,6 @@ func (ars *AlternativeRouteSearch) initParameter() {
 	ars.upperBoundMap, ars.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
 	ars.maxCandidatesToUnpackMap, ars.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
 
-	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
-	numCpu := runtime.NumCPU()
-	ars.candidateFilterWorkers = numCpu / 6
-	ars.candidateUnpackerWorkers = numCpu / 6
 }
 
 func (ars *AlternativeRouteSearch) makePackedViaPathOverlayEven(svPackedPath, vtPackedPath []da.VertexEdgePair) ([]da.VertexEdgePair, []da.VertexEdgePair) {

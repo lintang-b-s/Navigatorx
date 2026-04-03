@@ -71,7 +71,7 @@ func main() {
 		panic(err)
 	}
 
-	workingDir, err := os.Getwd()
+	workingDir, err := util.FindProjectWorkingDir()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)

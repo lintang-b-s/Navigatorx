@@ -1,9 +1,11 @@
 package partitioner
 
 import (
+	"context"
 	"fmt"
+	"sync"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
+	"github.com/bytedance/gopkg/util/gopool"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"go.uber.org/zap"
 )
@@ -77,27 +79,39 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// next partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
+		numOfCellInLev := len(mp.cellVertices[level+1])
 
-		computeRecursiveBisection := func(cell []da.Index) [][]da.Index {
-			inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, k, mp.unitCapacity, mp.prePartitionWithSCC,
-				mp.inertialFlowIterations, mp.directed)
-			inertialFlowPartitioner.Partition(cell)
-			partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
-			return partitions
+		cellInChan := make(chan []da.Index, numOfCellInLev)
+		cellOutchan := make(chan [][]da.Index, numOfCellInLev)
+		wg := sync.WaitGroup{}
+		computeRecursiveBisection := func() {
+			for cell := range cellInChan {
+				inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, k, mp.unitCapacity, mp.prePartitionWithSCC,
+					mp.inertialFlowIterations, mp.directed)
+				inertialFlowPartitioner.Partition(cell)
+				partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
+				cellOutchan <- partitions
+				wg.Done()
+			}
 		}
 
-		numOfCellInLev := len(mp.cellVertices[level+1])
-		wpMlp := concurrent.NewWorkerPool[[]da.Index, [][]da.Index](LEVEL_WORKERS, numOfCellInLev)
+		for q := 0; q < LEVEL_WORKERS; q++ {
+			gopool.CtxGo(context.Background(), computeRecursiveBisection)
+		}
 
 		for _, cell := range mp.cellVertices[level+1] {
-			wpMlp.AddJob(cell)
+			wg.Add(1)
+			cellInChan <- cell
 		}
 
-		wpMlp.Close()
-		wpMlp.Start(computeRecursiveBisection)
-		wpMlp.Wait()
+		close(cellInChan)
 
-		for partitions := range wpMlp.CollectResults() {
+		go func() {
+			wg.Wait()
+			close(cellOutchan)
+		}()
+
+		for partitions := range cellOutchan {
 			mp.cellVertices[level] = append(mp.cellVertices[level], partitions...)
 		}
 

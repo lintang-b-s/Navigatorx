@@ -1,10 +1,11 @@
 package partitioner
 
 import (
+	"context"
 	"math"
 	"sync"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
+	"github.com/bytedance/gopkg/util/gopool"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -97,18 +98,24 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 
 	n := len(initialVerticeIds)
 
-	worstCaseNumOfOps := n - rb.maximumCellSize + 1
-	wpInertialFlowComp := concurrent.NewWorkerPool[*da.PartitionGraph, bisectionRes](BISECTION_WORKERS, worstCaseNumOfOps)
+	wg := sync.WaitGroup{}
 
-	computeIflow := func(pg *da.PartitionGraph) bisectionRes {
-		iflow := NewInertialFlow(pg, rb.inertialFlowIterations, rb.directed)
-		cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n^2 * m), n,m = number of vertices & edges in current partition graph pg
-		partOne, partTwo := rb.applyBisection(cut, pg)          // O(n+m)
-		return NewBisectionRes(partOne, partTwo)
+	worstCaseNumOfOps := n - rb.maximumCellSize + 1
+	iflowInChan := make(chan *da.PartitionGraph, worstCaseNumOfOps)
+	iflowOutChan := make(chan bisectionRes, worstCaseNumOfOps)
+
+	computeIflow := func() {
+		for pg := range iflowInChan {
+			iflow := NewInertialFlow(pg, rb.inertialFlowIterations, rb.directed)
+			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n^2 * m), n,m = number of vertices & edges in current partition graph pg
+			partOne, partTwo := rb.applyBisection(cut, pg)          // O(n+m)
+			iflowOutChan <- NewBisectionRes(partOne, partTwo)
+		}
 	}
 
-	wpInertialFlowComp.Start(computeIflow)
-	wpInertialFlowComp.Wait()
+	for i := 0; i < BISECTION_WORKERS; i++ {
+		gopool.CtxGo(context.Background(), computeIflow)
+	}
 
 	numJobs := 0
 	for _, component := range components {
@@ -116,25 +123,35 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 			rb.assignFinalPartition(component)
 			continue
 		}
-		wpInertialFlowComp.AddJob(component)
+		iflowInChan <- component
 		numJobs++
 	}
+	wg.Add(1)
 
 	if numJobs == 0 {
-		wpInertialFlowComp.Close()
+
+		close(iflowInChan)
+		wg.Done()
 	}
 
-	for res := range wpInertialFlowComp.CollectResults() {
+	go func() {
+		wg.Wait()
+		close(iflowOutChan)
+	}()
+
+	for res := range iflowOutChan {
 		// only stop when wp.jobQueue closed && wp.jobQueue empty -> wp.results closed -> this loop terminate
 		partOne := res.partOne
 		partTwo := res.partTwo
+
 		if !tooSmall(partOne.NumberOfVertices()) {
-			wpInertialFlowComp.AddJob(partOne)
+			iflowInChan <- partOne
+
 		} else {
 			rb.assignFinalPartition(partOne) // O(p), p = number of vertitices in partition one (partOne)
 		}
 		if !tooSmall(partTwo.NumberOfVertices()) {
-			wpInertialFlowComp.AddJob(partTwo)
+			iflowInChan <- partTwo
 		} else {
 			rb.assignFinalPartition(partTwo) // O(q), q = number of vertitices in partition two (partTwo)
 		}
@@ -143,7 +160,8 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 			// close wp.jobQueue, kita bisa close wp.jobQueue disini karena
 			// semua vertices in initialPg sudah di assign ke rb.finalPartition
 			// atau dengan kata lain setiap cells dari partisi dari initialPg berukuran kurang dari rb.maximumCellSize
-			wpInertialFlowComp.Close()
+			close(iflowInChan)
+			wg.Done()
 		}
 	}
 

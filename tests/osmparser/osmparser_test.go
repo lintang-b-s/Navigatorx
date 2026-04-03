@@ -40,7 +40,7 @@ func setup(t *testing.T, osmfFileTest, urlTest string) (*da.Graph, [][]da.Index,
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := os.Getwd()
+	workingDir, err := util.FindProjectWorkingDir()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		t.Fatal(err)

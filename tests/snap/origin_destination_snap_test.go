@@ -51,7 +51,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := os.Getwd()
+	workingDir, err := util.FindProjectWorkingDir()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		t.Fatal(err)

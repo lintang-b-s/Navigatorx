@@ -52,3 +52,7 @@ navigatorx*
 *.csv
 
 *.tar.gz
+
+**/config.yaml
+
+!data/config.yaml

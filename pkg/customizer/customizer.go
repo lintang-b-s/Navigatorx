@@ -1,11 +1,12 @@
 package customizer
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -184,156 +185,171 @@ func (c *Customizer) buildLowestLevel(
 
 	cellMapInLevelOne := c.overlayGraph.GetAllCellsInLevel(1)
 
-	buildCellClique := func(job customizerCell) []cellCustomizationRes {
-		cellNumber, cell := job.cellNumber, job.cell
+	cellCliqueOutChan := make(chan []cellCustomizationRes, len(cellMapInLevelOne))
+	cellCliqueInChan := make(chan customizerCell, len(cellMapInLevelOne))
 
-		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
-		dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
+	wg := sync.WaitGroup{}
 
-		dijkstra := func(entries <-chan da.Index) {
-			/*
-				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
-				let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
+	buildCellClique := func() {
+		for job := range cellCliqueInChan {
+			cell := job.cell
+			cellNumber := job.cellNumber
+
+			cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
+			dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
+
+			dijkstra := func(entries <-chan da.Index) {
+				/*
+					let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
+					let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
 
 
-				pq contains at most all edges in a cell level 1
-				extractMin at most m_p
-				decreaseKey and insert at most m_p
-				we do dijkstra for all entries in the cell, num of entries is at most n_op
-				worst case: O( n_op * (m_p* log(m_p)) )
+					pq contains at most all edges in a cell level 1
+					extractMin at most m_p
+					decreaseKey and insert at most m_p
+					we do dijkstra for all entries in the cell, num of entries is at most n_op
+					worst case: O( n_op * (m_p* log(m_p)) )
 
-			*/
-			for i := range entries {
-				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
-				overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
-				start := overlayVertex.GetOriginalVertex()
-				maxSearchSize := c.graph.GetMaxEdgesInCell()
+				*/
+				for i := range entries {
+					startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
+					overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
+					start := overlayVertex.GetOriginalVertex()
+					maxSearchSize := c.graph.GetMaxEdgesInCell()
 
-				pq := c.lowestHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
-				pq.Clear()
-				done := func() {
-					c.lowestHeapPool.Put(pq)
-				}
+					pq := c.lowestHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
+					pq.Clear()
+					done := func() {
+						c.lowestHeapPool.Put(pq)
+					}
 
-				travelTime := make([]float64, maxSearchSize)
-				overlayTravelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
-				for q := 0; q < len(travelTime); q++ {
-					travelTime[q] = pkg.INF_WEIGHT
-				}
-				for q := 0; q < len(overlayTravelTime); q++ {
-					overlayTravelTime[q] = pkg.INF_WEIGHT
-				}
-				forwardCellOffset := c.graph.GetInEdgeCellOffset(start)
-				startInEdgeOffset := overlayVertex.GetOriginalEdge() - forwardCellOffset
+					travelTime := make([]float64, maxSearchSize)
+					overlayTravelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
+					for q := 0; q < len(travelTime); q++ {
+						travelTime[q] = pkg.INF_WEIGHT
+					}
+					for q := 0; q < len(overlayTravelTime); q++ {
+						overlayTravelTime[q] = pkg.INF_WEIGHT
+					}
+					forwardCellOffset := c.graph.GetInEdgeCellOffset(start)
+					startInEdgeOffset := overlayVertex.GetOriginalEdge() - forwardCellOffset
 
-				travelTime[startInEdgeOffset] = 0
-				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
+					travelTime[startInEdgeOffset] = 0
+					noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
-				sVertexInfo := da.NewVertexInfo(0, noPar)
-				pq.Insert(startInEdgeOffset, 0, sVertexInfo, da.NewDijkstraKey(start, startInEdgeOffset))
+					sVertexInfo := da.NewVertexInfo(0, noPar)
+					pq.Insert(startInEdgeOffset, 0, sVertexInfo, da.NewDijkstraKey(start, startInEdgeOffset))
 
-				for !pq.IsEmpty() {
-					pqNode := pq.ExtractMin()
-					uKey := pqNode.GetItem()
-					uId := uKey.GetNode()
-					uEntryId := uKey.GetEntryExitPoint()
-					uTravelTime := pqNode.GetRank()
+					for !pq.IsEmpty() {
+						pqNode := pq.ExtractMin()
+						uKey := pqNode.GetItem()
+						uId := uKey.GetNode()
+						uEntryId := uKey.GetEntryExitPoint()
+						uTravelTime := pqNode.GetRank()
 
-					c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryId+forwardCellOffset),
-						func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
-							hwType pkg.OsmHighwayType) {
-							// traverse all out edges
+						c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryId+forwardCellOffset),
+							func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+								hwType pkg.OsmHighwayType) {
+								// traverse all out edges
 
-							v := head
-							
-							exitPointTravelTime := uTravelTime + costFunction.GetTurnCost(turnType)
-							outArcCost := costFunction.GetWeight(hwType, weight, length)
+								v := head
 
-							newTravelTime := exitPointTravelTime + outArcCost
+								exitPointTravelTime := uTravelTime + costFunction.GetTurnCost(turnType)
+								outArcCost := costFunction.GetWeight(hwType, weight, length)
 
-							if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
-								return
-							}
+								newTravelTime := exitPointTravelTime + outArcCost
 
-							vTruncatedCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
-							if vTruncatedCellNumber == cellNumber {
-								vEntryId := c.graph.GetEntryOffset(v) + da.Index(entryPoint) - forwardCellOffset
+								if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+									return
+								}
 
-								ok := util.Lt(travelTime[vEntryId], pkg.INF_WEIGHT)
-								if oldvTT := travelTime[vEntryId]; !ok || (ok && newTravelTime < oldvTT) {
-									travelTime[vEntryId] = newTravelTime
-									if ok {
-										pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, noPar)
-									} else {
-										vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
-										pq.Insert(vEntryId, newTravelTime, vVertexInfo, da.NewDijkstraKey(v, vEntryId))
+								vTruncatedCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
+								if vTruncatedCellNumber == cellNumber {
+									vEntryId := c.graph.GetEntryOffset(v) + da.Index(entryPoint) - forwardCellOffset
+
+									ok := util.Lt(travelTime[vEntryId], pkg.INF_WEIGHT)
+									if oldvTT := travelTime[vEntryId]; !ok || (ok && newTravelTime < oldvTT) {
+										travelTime[vEntryId] = newTravelTime
+										if ok {
+											pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, noPar)
+										} else {
+											vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
+											pq.Insert(vEntryId, newTravelTime, vVertexInfo, da.NewDijkstraKey(v, vEntryId))
+										}
+									}
+								} else {
+									// found an exit vertex of the cell
+									// save this shortcut travelTime
+									exitOverlay, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
+									ok := util.Lt(overlayTravelTime[exitOverlay], pkg.INF_WEIGHT)
+									if !ok || (ok && exitPointTravelTime < overlayTravelTime[exitOverlay]) {
+										overlayTravelTime[exitOverlay] = exitPointTravelTime
 									}
 								}
-							} else {
-								// found an exit vertex of the cell
-								// save this shortcut travelTime
-								exitOverlay, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
-								ok := util.Lt(overlayTravelTime[exitOverlay], pkg.INF_WEIGHT)
-								if !ok || (ok && exitPointTravelTime < overlayTravelTime[exitOverlay]) {
-									overlayTravelTime[exitOverlay] = exitPointTravelTime
-								}
-							}
-						})
-				}
-
-				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
-				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
-					ok := util.Lt(overlayTravelTime[exitOverlayVId], pkg.INF_WEIGHT)
-
-					if !ok {
-						dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
-					} else {
-						dijkstraResChan <- NewCellCustomizationResult(overlayTravelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+							})
 					}
+
+					// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
+					for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
+						exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
+						ok := util.Lt(overlayTravelTime[exitOverlayVId], pkg.INF_WEIGHT)
+
+						if !ok {
+							dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						} else {
+							dijkstraResChan <- NewCellCustomizationResult(overlayTravelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						}
+					}
+
+					done()
 				}
-
-				done()
 			}
+
+			entries := make(chan da.Index, cell.GetNumEntryPoints())
+			for worker := 1; worker <= CELL_WORKER; worker++ {
+				go dijkstra(entries)
+			}
+
+			for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
+				entries <- i
+			}
+
+			close(entries)
+
+			cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
+
+			for i := da.Index(0); i < cellWeightSize; i++ {
+				res := <-dijkstraResChan
+				cellWeights[i] = res
+			}
+
+			close(dijkstraResChan)
+
+			cellCliqueOutChan <- cellWeights
+			wg.Done()
 		}
-
-		entries := make(chan da.Index, cell.GetNumEntryPoints())
-		for worker := 1; worker <= CELL_WORKER; worker++ {
-			go dijkstra(entries)
-		}
-
-		for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
-			entries <- i
-		}
-
-		close(entries)
-
-		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
-
-		for i := da.Index(0); i < cellWeightSize; i++ {
-			res := <-dijkstraResChan
-			cellWeights[i] = res
-		}
-
-		close(dijkstraResChan)
-
-		return cellWeights
 	}
 
-	workers := concurrent.NewWorkerPool[customizerCell, []cellCustomizationRes](CUSTOMIZER_WORKER, len(cellMapInLevelOne))
+	for i := 0; i < CUSTOMIZER_WORKER; i++ {
+		gopool.CtxGo(context.Background(), buildCellClique)
+	}
 
 	for cellNumber, cell := range cellMapInLevelOne {
-		workers.AddJob(newCustomizerCell(cell, cellNumber))
+		wg.Add(1)
+		cellCliqueInChan <- newCustomizerCell(cell, cellNumber)
 	}
+	
+	close(cellCliqueInChan)
 
 	// let c_1 be the number of cells in level 1
 	// worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
 
-	workers.Close()
-	workers.Start(buildCellClique)
-	workers.Wait()
+	go func() {
+		wg.Wait()
+		close(cellCliqueOutChan)
+	}()
 
-	for cellWeights := range workers.CollectResults() {
+	for cellWeights := range cellCliqueOutChan {
 		for _, w := range cellWeights {
 			c.ow.SetWeight(w.getIndex(), w.getTravelTime())
 		}
@@ -348,156 +364,168 @@ func (c *Customizer) buildLevel(
 	costFunction costfunction.CostFunction, level int) {
 
 	levelInfo := c.overlayGraph.GetLevelInfo()
+	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
 
-	buildCellClique := func(job customizerCell) []cellCustomizationRes {
+	cellCliqueOutChan := make(chan []cellCustomizationRes, len(cellMapInLevel))
+	cellCliqueInChan := make(chan customizerCell, len(cellMapInLevel))
 
-		cell := job.cell
-		cellNumber := job.cellNumber
+	wg := sync.WaitGroup{}
 
-		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
-		dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
+	buildCellClique := func() {
+		for job := range cellCliqueInChan {
+			cell := job.cell
+			cellNumber := job.cellNumber
 
-		dijkstra := func(entries <-chan da.Index) {
-			/*
-				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
-				let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
+			cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
+			dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
+
+			dijkstra := func(entries <-chan da.Index) {
+				/*
+					let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
+					let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
 
 
-				pq contains at most all overlay vertices in all subcells of this cell in level-1
-				extractMin at most n_op
-				decreaseKey and insert at most \hat{m_p}
+					pq contains at most all overlay vertices in all subcells of this cell in level-1
+					extractMin at most n_op
+					decreaseKey and insert at most \hat{m_p}
 
-				we do dijkstra for all entries in the cell, num of entries is at most n_op
-				worst case: O( n_op * (n_op + \hat{m_p})* log(n_op) )
-			*/
-			for i := range entries {
+					we do dijkstra for all entries in the cell, num of entries is at most n_op
+					worst case: O( n_op * (n_op + \hat{m_p})* log(n_op) )
+				*/
+				for i := range entries {
 
-				pq := c.levelHeapPool.Get().(*da.QueryHeap[da.Index])
-				pq.Clear()
-				done := func() {
-					c.levelHeapPool.Put(pq)
-				}
+					pq := c.levelHeapPool.Get().(*da.QueryHeap[da.Index])
+					pq.Clear()
+					done := func() {
+						c.levelHeapPool.Put(pq)
+					}
 
-				travelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
-				for v := 0; v < c.overlayGraph.NumberOfOverlayVertices(); v++ {
-					travelTime[v] = pkg.INF_WEIGHT
-				}
-				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
+					travelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
+					for v := 0; v < c.overlayGraph.NumberOfOverlayVertices(); v++ {
+						travelTime[v] = pkg.INF_WEIGHT
+					}
+					startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 
-				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
-				sVertexInfo := da.NewVertexInfo(0, noPar)
+					noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
+					sVertexInfo := da.NewVertexInfo(0, noPar)
 
-				pq.Insert(startOverlayVertexId, 0, sVertexInfo, startOverlayVertexId)
+					pq.Insert(startOverlayVertexId, 0, sVertexInfo, startOverlayVertexId)
 
-				for !pq.IsEmpty() {
-					pqNode := pq.ExtractMin()
-					uOverlayId := pqNode.GetItem()
-					uTravelTime := pqNode.GetRank()
+					for !pq.IsEmpty() {
+						pqNode := pq.ExtractMin()
+						uOverlayId := pqNode.GetItem()
+						uTravelTime := pqNode.GetRank()
 
-					uOverlayVertex := c.overlayGraph.GetVertex(uOverlayId)
-					uTruncatedLevel := c.overlayGraph.TruncateToLevel(uOverlayVertex.GetCellNumber(), uint8(level))
-					util.AssertPanic(uTruncatedLevel == cellNumber, "current truncated cell number and boundary vertex truncated cell number must be the same!")
+						uOverlayVertex := c.overlayGraph.GetVertex(uOverlayId)
+						uTruncatedLevel := c.overlayGraph.TruncateToLevel(uOverlayVertex.GetCellNumber(), uint8(level))
+						util.AssertPanic(uTruncatedLevel == cellNumber, "current truncated cell number and boundary vertex truncated cell number must be the same!")
 
-					c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit da.Index, wOffset da.Index) {
-						// iterate all shortcuts (u, \cdot)
+						c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit da.Index, wOffset da.Index) {
+							// iterate all shortcuts (u, \cdot)
 
-						shortcutWeight := c.ow.GetWeight(wOffset)
+							shortcutWeight := c.ow.GetWeight(wOffset)
 
-						newTravelTime := uTravelTime + shortcutWeight
+							newTravelTime := uTravelTime + shortcutWeight
 
-						if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
-							return
-						}
+							if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+								return
+							}
 
-						oldExit := travelTime[exit]
-						exitAlreadyLabelled := util.Lt(travelTime[exit], pkg.INF_WEIGHT)
-						if !exitAlreadyLabelled || (exitAlreadyLabelled && newTravelTime < oldExit) {
-							travelTime[exit] = newTravelTime
-							exitOverlayVertex := c.overlayGraph.GetVertex(exit)
-							neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
-							neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)
-							exitOriEdgeId := exitOverlayVertex.GetOriginalEdge()
+							oldExit := travelTime[exit]
+							exitAlreadyLabelled := util.Lt(travelTime[exit], pkg.INF_WEIGHT)
+							if !exitAlreadyLabelled || (exitAlreadyLabelled && newTravelTime < oldExit) {
+								travelTime[exit] = newTravelTime
+								exitOverlayVertex := c.overlayGraph.GetVertex(exit)
+								neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
+								neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)
+								exitOriEdgeId := exitOverlayVertex.GetOriginalEdge()
 
-							if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
-								exOriEdge := c.graph.GetOutEdge(exitOriEdgeId)
-								boundaryArcWeight := costFunction.GetWeight(exOriEdge.GetHighwayType(), exOriEdge.GetWeight(), exOriEdge.GetLength())
+								if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
+									exOriEdge := c.graph.GetOutEdge(exitOriEdgeId)
+									boundaryArcWeight := costFunction.GetWeight(exOriEdge.GetHighwayType(), exOriEdge.GetWeight(), exOriEdge.GetLength())
 
-								newNeighborTravelTime := newTravelTime + boundaryArcWeight
-								oldNTravelTime := travelTime[neighborVertex]
-								nAlreadyLabelled := util.Lt(travelTime[neighborVertex], pkg.INF_WEIGHT)
+									newNeighborTravelTime := newTravelTime + boundaryArcWeight
+									oldNTravelTime := travelTime[neighborVertex]
+									nAlreadyLabelled := util.Lt(travelTime[neighborVertex], pkg.INF_WEIGHT)
 
-								if !nAlreadyLabelled ||
-									(nAlreadyLabelled && newNeighborTravelTime < oldNTravelTime) {
-									travelTime[neighborVertex] = newNeighborTravelTime
+									if !nAlreadyLabelled ||
+										(nAlreadyLabelled && newNeighborTravelTime < oldNTravelTime) {
+										travelTime[neighborVertex] = newNeighborTravelTime
 
-									if !nAlreadyLabelled {
-										vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
-										pq.Insert(neighborVertex, newNeighborTravelTime, vVertexInfo, neighborVertex)
-									} else {
-										pq.DecreaseKey(neighborVertex, newNeighborTravelTime,
-											newNeighborTravelTime, noPar)
+										if !nAlreadyLabelled {
+											vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
+											pq.Insert(neighborVertex, newNeighborTravelTime, vVertexInfo, neighborVertex)
+										} else {
+											pq.DecreaseKey(neighborVertex, newNeighborTravelTime,
+												newNeighborTravelTime, noPar)
+										}
 									}
 								}
 							}
-						}
-					})
-				}
-
-				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
-				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
-
-					ok := util.Lt(travelTime[exitOverlayVId], pkg.INF_WEIGHT)
-					if !ok {
-						dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
-					} else {
-						dijkstraResChan <- NewCellCustomizationResult(travelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						})
 					}
+
+					// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
+					for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
+						exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
+
+						ok := util.Lt(travelTime[exitOverlayVId], pkg.INF_WEIGHT)
+						if !ok {
+							dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						} else {
+							dijkstraResChan <- NewCellCustomizationResult(travelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						}
+					}
+
+					done()
 				}
-
-				done()
 			}
+
+			entries := make(chan da.Index, cell.GetNumEntryPoints())
+			for worker := 1; worker <= CELL_WORKER; worker++ {
+				go dijkstra(entries)
+			}
+
+			for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
+				entries <- i
+			}
+
+			close(entries)
+
+			cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
+
+			for i := da.Index(0); i < cellWeightSize; i++ {
+				res := <-dijkstraResChan
+				cellWeights[i] = res
+			}
+
+			close(dijkstraResChan)
+
+			cellCliqueOutChan <- cellWeights
+			wg.Done()
 		}
-
-		entries := make(chan da.Index, cell.GetNumEntryPoints())
-		for worker := 1; worker <= CELL_WORKER; worker++ {
-			go dijkstra(entries)
-		}
-
-		for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
-			entries <- i
-		}
-
-		close(entries)
-
-		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
-
-		for i := da.Index(0); i < cellWeightSize; i++ {
-			res := <-dijkstraResChan
-			cellWeights[i] = res
-		}
-
-		close(dijkstraResChan)
-
-		return cellWeights
 	}
 
-	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
-
-	workers := concurrent.NewWorkerPool[customizerCell, []cellCustomizationRes](CUSTOMIZER_WORKER, len(cellMapInLevel))
+	for i := 0; i < CUSTOMIZER_WORKER; i++ {
+		gopool.CtxGo(context.Background(), buildCellClique)
+	}
 
 	for pv, cell := range cellMapInLevel {
-		workers.AddJob(newCustomizerCell(cell, pv))
+		wg.Add(1)
+		cellCliqueInChan <- newCustomizerCell(cell, pv)
 	}
+
+	close(cellCliqueInChan)
 
 	// let c_l be the number of cells in level l
 	// worst case buildLevel:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
 
-	workers.Close()
-	workers.Start(buildCellClique)
-	workers.Wait()
+	go func() {
+		wg.Wait()
+		close(cellCliqueOutChan)
+	}()
 
-	for cellWeights := range workers.CollectResults() {
+	for cellWeights := range cellCliqueOutChan {
 		for _, w := range cellWeights {
 			c.ow.SetWeight(w.getIndex(), w.getTravelTime())
 		}

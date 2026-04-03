@@ -34,8 +34,8 @@ func NewWorkerPool[T any, G any](numWorkers, jobQueueSize int) *WorkerPool[T, G]
 	}
 }
 
-func (wp *WorkerPool[T, G]) Spawn(queueSize int) {
-	for i := 0; i < wp.numWorkers; i++ {
+func (wp *WorkerPool[T, G]) Spawn(initialWorkers int) {
+	for i := 0; i < initialWorkers; i++ {
 		wp.sem <- struct{}{}
 		go wp.worker2(func() {
 		})
@@ -56,14 +56,17 @@ func (wp *WorkerPool[T, G]) schedule(task JobFuncPlain, timeout <-chan time.Time
 		return ErrScheduleTimeout
 	case wp.workQueue <- task:
 		return nil
-	case wp.sem <- struct{}{}:
+	case wp.sem <- struct{}{}: // coba acquire semaphore. kalau gak full, spawn new worker
 		go wp.worker2(task)
 		return nil
 	}
 }
 
 func (wp *WorkerPool[T, G]) worker2(task JobFuncPlain) {
-	defer func() { <-wp.sem }()
+	defer func() {
+		// release the semaphore
+		<-wp.sem
+	}()
 
 	task()
 

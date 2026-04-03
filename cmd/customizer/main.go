@@ -2,7 +2,6 @@ package main
 
 import (
 	"flag"
-	"os"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
@@ -25,7 +24,7 @@ func main() {
 		panic(err)
 	}
 
-	workingDir, err := os.Getwd()
+	workingDir, err := util.FindProjectWorkingDir()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)

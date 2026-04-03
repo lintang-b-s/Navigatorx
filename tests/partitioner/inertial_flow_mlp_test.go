@@ -44,7 +44,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 	if err != nil {
 		panic(err)
 	}
-	workingDir, err := os.Getwd()
+	workingDir, err := util.FindProjectWorkingDir()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)

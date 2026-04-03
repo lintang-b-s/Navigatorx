@@ -2,6 +2,7 @@ package landmark
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"math"
 	"os"
@@ -9,11 +10,11 @@ import (
 	"strconv"
 	"sync"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/cockroachdb/errors"
 
 	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -208,69 +209,86 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 		},
 	}
 
-	calcDijkstra := func(qp queryParam) queryRet {
-		sid := qp.getSid()
-		il := qp.getIndex()
+	dijkstraInChan := make(chan queryParam, k)
+	dijkstraRevInChan := make(chan queryParam, k)
 
-		asl := graph.GetDummyOutEdgeId(sid)
+	dijkstraOutChan := make(chan queryRet, k)
+	dijkstraRevOutChan := make(chan queryRet, k)
 
-		crpQuery := NewDijkstra(graph, m, false) // O(mlogm). at most m items in pq (edge-based), decrease/insert key operation at most m times, extractMin operation at most m times
-		sps := crpQuery.ShortestPath(asl, &heapPool)
+	wg := sync.WaitGroup{}
 
-		return newQueryRet(il, sps)
+	calcDijkstra := func() {
+		for qp := range dijkstraInChan {
+			sid := qp.getSid()
+			il := qp.getIndex()
+
+			asl := graph.GetDummyOutEdgeId(sid)
+
+			crpQuery := NewDijkstra(graph, m, false) // O(mlogm). at most m items in pq (edge-based), decrease/insert key operation at most m times, extractMin operation at most m times
+			sps := crpQuery.ShortestPath(asl, &heapPool)
+			dijkstraOutChan <- newQueryRet(il, sps)
+			wg.Done()
+		}
 	}
 
-	calcDijkstraRev := func(qp queryParam) queryRet {
-		sid := qp.getSid()
-		il := qp.getIndex()
-		crpQuery := NewDijkstra(graph, m, true) // O(mlogm)
-		at := graph.GetDummyInEdgeId(sid)       // dummy edge (s,s)
+	calcDijkstraRev := func() {
+		for qp := range dijkstraRevInChan {
+			sid := qp.getSid()
+			il := qp.getIndex()
+			crpQuery := NewDijkstra(graph, m, true) // O(mlogm)
+			at := graph.GetDummyInEdgeId(sid)       // dummy edge (s,s)
 
-		sps := crpQuery.ShortestPath(at, &heapPool)
-		return newQueryRet(il, sps)
+			sps := crpQuery.ShortestPath(at, &heapPool)
+			dijkstraRevOutChan <- newQueryRet(il, sps)
+			wg.Done()
+		}
 	}
 
-	wpdijkstra := concurrent.NewWorkerPool[queryParam, queryRet](WORKERS, k)
-	wpdijkstraRev := concurrent.NewWorkerPool[queryParam, queryRet](WORKERS, k)
+	for i := 0; i < int(WORKERS); i++ {
+		gopool.CtxGo(context.Background(), calcDijkstra)
+		gopool.CtxGo(context.Background(), calcDijkstraRev)
+	}
+
 	for i := 0; i < k; i++ {
 		landmark := landmarks[i]
 		sid := landmark.GetID()
 		lm.landmarks[i] = sid
-
-		wpdijkstra.AddJob(newQueryparam(i, sid))
-		wpdijkstraRev.AddJob(newQueryparam(i, sid))
-
+		wg.Add(2)
+		dijkstraInChan <- newQueryparam(i, sid)
+		dijkstraRevInChan <- newQueryparam(i, sid)
 	}
 
-	wpdijkstra.Close()
-	wpdijkstra.Start(calcDijkstra)
-	wpdijkstra.Wait()
+	close(dijkstraInChan)
+	close(dijkstraRevInChan)
 
-	wpdijkstraRev.Close()
-	wpdijkstraRev.Start(calcDijkstraRev)
-	wpdijkstraRev.Wait()
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
 	go func() {
-		defer wg.Done()
-		for res := range wpdijkstra.CollectResults() {
+		wg.Wait()
+		close(dijkstraOutChan)
+		close(dijkstraRevOutChan)
+	}()
+
+	wgRev := sync.WaitGroup{}
+	wgRev.Add(1)
+
+	go func() {
+		defer wgRev.Done()
+
+		for res := range dijkstraRevOutChan {
 			il := res.getIndex()
 			sps := res.getSpCosts()
-			copy(lm.lw[il], sps)
+			for v := 0; v < n; v++ {
+				lm.vlw[v][il] = sps[v]
+			}
 		}
 	}()
 
-	for res := range wpdijkstraRev.CollectResults() {
+	for res := range dijkstraOutChan {
 		il := res.getIndex()
 		sps := res.getSpCosts()
-		for v := 0; v < n; v++ {
-			lm.vlw[v][il] = sps[v]
-		}
+		copy(lm.lw[il], sps)
 	}
 
-	wg.Wait()
-
+	wgRev.Wait()
 	logger.Info("done computing landmarks....")
 	return nil
 }

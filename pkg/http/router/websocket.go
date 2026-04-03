@@ -62,6 +62,10 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	}
 	api.log.Info(fmt.Sprintf("online map-matcher websocket API run on port %d", config.WebsocketPort))
 
+	// taken from: https://github.com/gobwas/ws-examples/tree/master/src
+
+	// Create netpoll descriptor for the listener.
+	// We use OneShot here to manually resume events stream when we want to.
 	acceptDesc := netpoll.Must(netpoll.HandleListener(
 		ln, netpoll.EventRead|netpoll.EventOneShot,
 	))
@@ -71,11 +75,12 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 		errChan <- err
 	}
 
-	api.pool = concurrent.NewWorkerPool[int, int](15, 10)
+	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
+	api.pool = concurrent.NewWorkerPool[int, int](3, 10)
 
 	api.hub = controllers.NewHub(api.pool, mapMatcherService)
 
-	api.pool.Spawn(10)
+	api.pool.Spawn(1)
 	// accept is a channel to signal about next incoming connection Accept()
 	// results.
 	accept := make(chan error, 1)
@@ -92,20 +97,20 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 			return information about multiple ready file descriptors.
 		*/
 		defer api.poller.Resume(acceptDesc)
-		err := api.pool.ScheduleTimeout(1000*time.Millisecond, func() {
+		err := api.pool.ScheduleTimeout(1*time.Millisecond, func() {
 			conn, err := ln.Accept()
 			if err != nil {
 				accept <- err
 				return
 			}
 
-			accept <- nil
-			api.handle(conn)
-			return
+			accept <- api.handle(conn)
 		})
+
 		if err == nil {
 			err = <-accept
 		}
+
 		if err != nil {
 			/*
 				if the goroutine pool is full for 1 ms and there are incoming connections,
@@ -113,17 +118,16 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 			*/
 			if err != concurrent.ErrScheduleTimeout {
 				delay := 5 * time.Millisecond
-				api.log.Sugar().Infof("accept error: %v; retrying in %s", err, delay)
+				api.log.Sugar().Error("accept error: %v; retrying in %s", err, delay)
 				time.Sleep(delay)
 			} else if ne, ok := err.(net.Error); ok && ne.Timeout() {
 				delay := 5 * time.Millisecond
-				api.log.Sugar().Infof("accept error: %v; retrying in %s", err, delay)
+				api.log.Sugar().Error("accept error: %v; retrying in %s", err, delay)
 				time.Sleep(delay)
 			} else {
-				api.log.Sugar().Fatalf("accept error: %v", err)
+				api.log.Sugar().Errorf("accept error: %v", err)
 			}
 		}
-
 	})
 
 	// Handle graceful shutdown
@@ -145,8 +149,13 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 }
 
 /*
+
+handle is a new incoming connection handler.
+It upgrades TCP connection to WebSocket, registers netpoll listener on
+it and stores it as a map matching user in Hub instance.
+
 handle. handle online map matching request
-use epoll api to reduce memory stack, ref: https://sergey.kamardin.org/articles/million-websocket-and-go/
+ref: https://sergey.kamardin.org/articles/million-websocket-and-go/
 
 the linux programming interface chapter 63:
 the epoll API allows a process to monitor multiple
@@ -155,7 +164,7 @@ the epoll API provides much better performance when monitoring large num-
 bers of file descriptors.
 */
 
-func (api *API) handle(conn net.Conn) {
+func (api *API) handle(conn net.Conn) error {
 
 	br := bufio.NewReader(conn)
 
@@ -166,9 +175,9 @@ func (api *API) handle(conn net.Conn) {
 
 	hs, err := ws.Upgrade(rw)
 	if err != nil {
-		api.log.Info("upgrade error", zap.Error(err), zap.String("connnection name ", nameConn(conn)))
+		api.log.Error("upgrade error", zap.Error(err), zap.String("connnection name ", nameConn(conn)))
 		conn.Close()
-		return
+		return err
 	}
 
 	api.log.Info("established websocket connection", zap.String("connnection name ", nameConn(conn)),
@@ -176,7 +185,10 @@ func (api *API) handle(conn net.Conn) {
 
 	user := api.hub.Register(conn)
 
-	desc := netpoll.Must(netpoll.HandleRead(conn))
+	desc, err := netpoll.HandleRead(conn)
+	if err != nil {
+		return err
+	}
 
 	api.poller.Start(desc, func(ev netpoll.Event) {
 		/*
@@ -218,8 +230,9 @@ func (api *API) handle(conn net.Conn) {
 			}
 			return
 		})
-
 	})
+
+	return nil
 }
 
 func nameConn(conn net.Conn) string {

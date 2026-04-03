@@ -62,14 +62,9 @@ func (u *User) OnlineMapMatch() error {
 		return nil
 	}
 
-	validate := validator.New()
+	if err := u.hub.validate.Struct(req); err != nil {
 
-	if err := validate.Struct(req); err != nil {
-		english := en.New()
-		uni := ut.New(english, english)
-		trans, _ := uni.GetTranslator("en")
-		_ = enTranslations.RegisterDefaultTranslations(validate, trans)
-		vv := translateError(err, trans)
+		vv := translateError(err, u.hub.trans)
 		vvString := []string{}
 		for _, v := range vv {
 			vvString = append(vvString, v.Error())
@@ -113,6 +108,9 @@ type Hub struct {
 	mapmatchingService MapMatcherService
 
 	pool *concurrent.WorkerPool[int, int]
+
+	validate *validator.Validate
+	trans    ut.Translator
 }
 
 func NewHub(pool *concurrent.WorkerPool[int, int], mmService MapMatcherService) *Hub {
@@ -122,11 +120,18 @@ func NewHub(pool *concurrent.WorkerPool[int, int], mmService MapMatcherService) 
 		us:                 make([]*User, 0),
 		mapmatchingService: mmService,
 	}
+	hub.validate = validator.New()
+
+	english := en.New()
+	uni := ut.New(english, english)
+	hub.trans, _ = uni.GetTranslator("en")
+	_ = enTranslations.RegisterDefaultTranslations(hub.validate, hub.trans)
 
 	return hub
 }
 
 func (h *Hub) Register(conn net.Conn) *User {
+
 	user := &User{
 		hub:  h,
 		conn: conn,

@@ -1,13 +1,15 @@
 package partitioner
 
 import (
+	"context"
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -59,7 +61,8 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 		iterations = INERTIAL_FLOW_ITERATION_LARGE_GRAPH
 	}
 
-	wpInertialFlow := concurrent.NewWorkerPool[minCutJob, *MinCut](INERTIAL_FLOW_WORKERS, iterations+2)
+	inertialFlowInChan := make(chan minCutJob, iterations+2)
+	inertialFlowOutChan := make(chan *MinCut, iterations+2)
 
 	balanceDelta := func(numPartTwoNodes int, numberOfVertices int) int {
 		diff := numberOfVertices/2 - numPartTwoNodes
@@ -69,34 +72,41 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 		return diff
 	}
 
+	wg := sync.WaitGroup{}
+
+	computeMinCut := func() {
+		for input := range inertialFlowInChan {
+			dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true)
+			sources, sinks := dn.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
+			s, t := dn.createArtificialSourceSink(sources, sinks, inf.directed)
+			inertialFlowOutChan <- dn.ComputeMaxflowMinCut(s, t) //  O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
+			wg.Done()
+		}
+	}
+
+	for i := 0; i < INERTIAL_FLOW_WORKERS; i++ {
+		gopool.CtxGo(context.Background(), computeMinCut)
+	}
+
 	for i := 0; i < iterations; i++ {
-		slope := -1 + float64(i)*float64(2/iterations)
-		wpInertialFlow.AddJob(newMinCutJob([]float64{slope, (1 - math.Abs(slope))})) //  (-1,0), ....., (0, 1)
+		slope := -1 + float64(i)*float64(2/iterations) //  (-1,0), ....., (0, 1)
+		wg.Add(1)
+		inertialFlowInChan <- newMinCutJob([]float64{slope, (1 - math.Abs(slope))})
 	}
 
-	wpInertialFlow.AddJob(newMinCutJob([]float64{1, 1}))
-	wpInertialFlow.AddJob(newMinCutJob([]float64{-1, 1}))
+	wg.Add(2)
+	inertialFlowInChan <- newMinCutJob([]float64{1, 1})
+	inertialFlowInChan <- newMinCutJob([]float64{-1, 1})
 
-	computeMinCut := func(input minCutJob) *MinCut {
-		dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true)
-		var (
-			sources []da.Index
-			sinks   []da.Index
-		)
+	close(inertialFlowInChan)
 
-		sources, sinks = dn.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
-
-		s, t := dn.createArtificialSourceSink(sources, sinks, inf.directed)
-		return dn.ComputeMaxflowMinCut(s, t) //  O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
-	}
-
-	wpInertialFlow.Close()
-	wpInertialFlow.Start(computeMinCut)
-	wpInertialFlow.Wait()
+	go func() {
+		wg.Wait()
+		close(inertialFlowOutChan)
+	}()
 
 	numberOfVertices := inf.graph.NumberOfVertices()
-	for minCut := range wpInertialFlow.CollectResults() {
-
+	for minCut := range inertialFlowOutChan {
 		if minCut.GetNumOfCutEdges() < bestNumberOfMinCutEdges ||
 			(bestNumberOfMinCutEdges == minCut.GetNumOfCutEdges() &&
 				balanceDelta(minCut.GetNumNodesInPartitionTwo(),

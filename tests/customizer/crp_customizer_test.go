@@ -478,7 +478,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := os.Getwd()
+	workingDir, err := util.FindProjectWorkingDir()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		t.Fatal(err)
@@ -576,7 +576,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 // todo: add test customizer & query pake file osm yang di gdrive
 // done test customizer
 // todo: add test preprocessor & query (DONE)
-// please run the test using command: "cd tests/customizer && go test -run TestCRPCustomizer  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/customizer  -run TestCRPCustomizer  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 func TestCRPCustomizer(t *testing.T) {
 	re, lm := setup(t)

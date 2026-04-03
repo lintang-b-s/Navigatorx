@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"flag"
-	"os"
 	"runtime"
 
 	goHttp "net/http"
@@ -53,7 +52,7 @@ func main() {
 		goHttp.ListenAndServe("localhost:6868", nil)
 	}()
 
-	workingDir, err := os.Getwd()
+	workingDir, err := util.FindProjectWorkingDir()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)

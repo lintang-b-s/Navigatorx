@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -279,4 +281,21 @@ func ToFloat64IntMap(input interface{}) (map[float64]int, int) {
 	}
 
 	return result, defaultVal
+}
+
+func FindProjectWorkingDir() (string, error) {
+	dir, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
+			return dir, nil
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", errors.Errorf("go.mod not found")
+		}
+		dir = parent
+	}
 }

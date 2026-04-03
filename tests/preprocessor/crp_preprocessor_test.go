@@ -773,7 +773,7 @@ func setup(t *testing.T, osmFileTest, urlTest string) *preprocesser.Preprocessor
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := os.Getwd()
+	workingDir, err := util.FindProjectWorkingDir()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		t.Fatal(err)

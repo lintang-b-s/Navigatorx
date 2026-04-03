@@ -1,7 +1,13 @@
 package pkg
 
+import "runtime"
+
 // enum of turn_type
 type TurnType uint8
+
+var (
+	NUM_CPU = runtime.NumCPU()
+)
 
 const (
 	LEFT_TURN TurnType = iota
