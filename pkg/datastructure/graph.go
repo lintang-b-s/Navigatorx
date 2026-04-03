@@ -472,6 +472,15 @@ func (g *Graph) SkipInDummyEdge(u, eId Index) bool {
 	return false
 }
 
+func (g *Graph) IsDummyOutEdge(eId Index) bool {
+	tail := g.GetTailOfOutedge(eId)
+	if g.outEdges[eId].head == tail {
+		return true
+	}
+
+	return false
+}
+
 func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
 		if g.SkipInDummyEdge(v, g.inEdges[e].GetEdgeId()) {
@@ -767,17 +776,17 @@ func (g *Graph) IsRoundabout(edgeId Index) bool {
 
 func (g *Graph) GetStreetName(edgeId Index) string {
 	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.tagStringIDMap.GetStrFast(edgeInfo.streetName)
+	return g.graphStorage.GetStr(edgeInfo.streetName)
 }
 
 func (g *Graph) GetRoadClass(edgeId Index) string {
 	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.tagStringIDMap.GetStrFast(edgeInfo.roadClass)
+	return g.graphStorage.GetStr(edgeInfo.roadClass)
 }
 
 func (g *Graph) GetRoadClassLink(edgeId Index) string {
 	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.tagStringIDMap.GetStrFast(edgeInfo.roadClassLink)
+	return g.graphStorage.GetStr(edgeInfo.roadClassLink)
 }
 
 func (g *Graph) GetRoadLanes(edgeId Index) uint8 {
@@ -796,6 +805,14 @@ func (g *Graph) GetOsmWayId(edgeId Index) int64 {
 
 func (g *Graph) GetEdgeGeometry(edgeID Index) []Coordinate {
 	return g.graphStorage.GetEdgeGeometry(edgeID)
+}
+
+func (g *Graph) AppendPathWithEdgeGeometry(path *Coordinates, edgeID Index) {
+	g.graphStorage.AppendPathWithEdgeGeometry(path, edgeID)
+}
+
+func (g *Graph) GetEdgeGeometryLength(edgeID Index) int {
+	return g.graphStorage.GetEdgeGeometryLength(edgeID)
 }
 
 func (g *Graph) SetRoundaboutFlags(roundaboutFlags *bitset.BitSet) {

@@ -17,6 +17,7 @@ type Graph interface {
 	ForInEdgeIdsOf(v da.Index, handle func(eId da.Index))
 	GetHeadFromInEdge(entryPoint da.Index) da.Index
 	IsTrafficLight(vertexId da.Index) bool
+	IsDummyOutEdge(eId da.Index) bool
 	GetHeadOfOutEdge(e da.Index) da.Index
 	GetTailOfInedge(e da.Index) da.Index
 	GetOutEdgeLength(e da.Index) float64

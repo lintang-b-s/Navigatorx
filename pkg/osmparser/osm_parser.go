@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/bits-and-blooms/bitset"
+	"github.com/bytedance/gopkg/collection/hashset"
 	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -58,7 +59,7 @@ type OsmParser struct {
 	ways               map[int64]osmWay
 	trafficEdges       []da.Index
 	osmWayDefaultSpeed map[int64]float64
-	edgeSet            *da.Set[uint64]
+	edgeSet            hashset.Uint64Set
 	bb                 *da.BoundingBox
 }
 
@@ -74,7 +75,7 @@ func NewOSMParserV2() *OsmParser {
 		nodeToOsmId:        make(map[da.Index]int64),
 		trafficEdges:       make([]da.Index, 0),
 		osmWayDefaultSpeed: make(map[int64]float64),
-		edgeSet:            da.NewSet[uint64](1000),
+		edgeSet:            hashset.NewUint64WithSize(1000),
 		bb:                 da.NewBoundingBoxEmpty(),
 	}
 }
@@ -312,8 +313,6 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 		}
 	}
 
-	graphStorage.SetTagStringIdMap(p.tagStringIdMap)
-
 	for nodeID, nodeIDX := range p.nodeIDMap {
 		if val, ok := p.nodeTag[int64(nodeID)][p.tagStringIdMap.GetID(TRAFFIC_LIGHT)]; ok && val == 1 {
 			graphStorage.SetTrafficLight(nodeIDX, true)
@@ -336,7 +335,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	logger.Sugar().Infof("building road network graph.... ")
 
 	graph, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false)
-	graphStorage.FlattenIdMap()
+	graphStorage.BuildNameTable(p.tagStringIdMap.GetIdToStr())
 	graph.SetGraphStorage(graphStorage)
 	graph.SetBoundingBox(p.bb)
 
@@ -665,10 +664,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		if wayExtraInfoData.forward {
 
 			setKey := util.Bitpack(uint32(fromNId), uint32(toNId))
-			if p.edgeSet.Test(setKey) { // buat ngilangin parallel edge
+			if p.edgeSet.Contains(setKey) { // buat ngilangin parallel edge
 				return
 			}
-			p.edgeSet.Set(setKey)
+			p.edgeSet.Add(setKey)
 
 			startPointsIndex := graphStorage.GetOsmNodePointsCount()
 
@@ -704,10 +703,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		} else {
 
 			setKey := util.Bitpack(uint32(toNId), uint32(fromNId))
-			if p.edgeSet.Test(setKey) { // buat ngilangin parallel edge
+			if p.edgeSet.Contains(setKey) { // buat ngilangin parallel edge
 				return
 			}
-			p.edgeSet.Set(setKey)
+			p.edgeSet.Add(setKey)
 
 			util.ReverseG(edgePoints)
 
@@ -745,10 +744,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	} else {
 
 		setKey := util.Bitpack(uint32(fromNId), uint32(toNId))
-		if p.edgeSet.Test(setKey) { // buat ngilangin parallel edge
+		if p.edgeSet.Contains(setKey) { // buat ngilangin parallel edge
 			return
 		}
-		p.edgeSet.Set(setKey)
+		p.edgeSet.Add(setKey)
 
 		// add forward edge
 		startPointsIndex := graphStorage.GetOsmNodePointsCount()
@@ -786,10 +785,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		// add reversed edge
 
 		setKeyRev := util.Bitpack(uint32(toNId), uint32(fromNId))
-		if p.edgeSet.Test(setKeyRev) { // buat ngilangin parallel edge
+		if p.edgeSet.Contains(setKeyRev) { // buat ngilangin parallel edge
 			return
 		}
-		p.edgeSet.Set(setKeyRev)
+		p.edgeSet.Add(setKeyRev)
 
 		graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
 			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),

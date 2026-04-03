@@ -1,7 +1,6 @@
 package preprocesser
 
 import (
-	"fmt"
 	"math"
 
 	"github.com/bits-and-blooms/bitset"
@@ -232,9 +231,7 @@ func (p *Preprocessor) SortByCellNumber() {
 				oldOutEdge := oEdges[vOldId][k]
 
 				newOutEdgeHead := p.newVIdMap[oldOutEdge.GetHead()]
-				if newOutEdgeId == 186 {
-					fmt.Printf("debug")
-				}
+
 				newOutEdge := da.NewOutEdge(
 					newOutEdgeId, newOutEdgeHead, oldOutEdge.GetWeight(),
 					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),

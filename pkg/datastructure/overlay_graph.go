@@ -488,9 +488,8 @@ func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Inde
 
 // ForInNeighborsOf. iterates over all incoming-neighbors of v
 func (og *OverlayGraph) ForInNeighborsOf(v Index, level int, handle func(v Index, wOffset Index)) {
-	vertex := og.GetVertex(v)
-	exitPoint := vertex.GetEntryExitPoint(level)
-	cell := og.GetCell(vertex.GetCellNumber(), level)
+	exitPoint := og.overlayVertices[v].GetEntryExitPoint(level)
+	cell := og.GetCell(og.overlayVertices[v].GetCellNumber(), level)
 	weightOffset := cell.GetCellOffset() + exitPoint
 	overlayIdOffset := cell.GetOverlayIdOffset()
 	for i := Index(0); i < Index(cell.GetNumEntryPoints()); i++ {

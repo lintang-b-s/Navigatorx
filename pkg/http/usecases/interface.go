@@ -10,7 +10,6 @@ import (
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
-	DoneQuery(pathCoords *da.Coordinates)
 }
 
 type AlternativeRouteAlgorithm interface {

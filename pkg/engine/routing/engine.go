@@ -26,7 +26,6 @@ type CRPRoutingEngine struct {
 	pubBaseHeapPool    sync.Pool
 	packedPathPool     sync.Pool
 	unpackedPathPool   sync.Pool
-	pathCoordsPool     sync.Pool
 	stallingEntryPool  sync.Pool
 	stallingExitPool   sync.Pool
 
@@ -123,13 +122,6 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 		},
 	}
 
-	crp.pathCoordsPool = sync.Pool{
-		New: func() any {
-			pathCoords := da.NewCoordinatesWithCap(UNPACKED_PATH_SIZE)
-			return pathCoords
-		},
-	}
-
 	crp.stallingEntryPool = sync.Pool{
 		New: func() any {
 			stallingEntry := make([]float64, maxEdgesInCell*2)
@@ -143,6 +135,7 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 			return stallingExit
 		},
 	}
+
 }
 
 func (crp *CRPRoutingEngine) initParameter() {
@@ -158,9 +151,4 @@ func (crp *CRPRoutingEngine) GetMaxSpeed(e da.OutEdge) float64 {
 
 func (crp *CRPRoutingEngine) Close() {
 	crp.puCache.Close()
-}
-
-func (crp *CRPRoutingEngine) DoneQuery(pathCoords *da.Coordinates) {
-	pathCoords.Reset() // reset length, tapi capacity tetep sama
-	crp.pathCoordsPool.Put(pathCoords)
 }

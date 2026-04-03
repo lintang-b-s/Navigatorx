@@ -34,9 +34,9 @@ func removeDuplicates(arr []da.Index) []da.Index {
 
 	n := len(arr)
 
-	arrIndices := make([]int, n)
+	arrIndices := make([]uint32, n)
 	for i := 0; i < n; i++ {
-		arrIndices[i] = i
+		arrIndices[i] = uint32(i)
 	}
 
 	// sort arrIndices by arr[arrIndices[i]] increasing

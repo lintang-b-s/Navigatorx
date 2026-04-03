@@ -33,7 +33,8 @@ func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId da.
 	db.tempAltTurns = db.tempAltTurns[:0]
 
 	for _, edge := range db.tempOutEdges {
-		if edge != prevVertexId && edge != headId {
+		edgeHead := db.graph.GetHeadOfOutEdge(edge)
+		if edgeHead != prevVertexId && edgeHead != headId {
 			db.tempAltTurns = append(db.tempAltTurns, edge)
 		}
 	}

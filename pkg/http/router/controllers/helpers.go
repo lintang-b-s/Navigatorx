@@ -22,8 +22,11 @@ var bufPool = sync.Pool{
 func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data envelope,
 	headers http.Header) error {
 	buf := bufPool.Get().(*bytes.Buffer)
-	buf.Reset()
-	defer bufPool.Put(buf)
+
+	defer func() {
+		bufPool.Put(buf)
+		buf.Reset()
+	}()
 
 	enc := json.ConfigDefault.NewEncoder(buf)
 	enc.SetIndent("", "\t")

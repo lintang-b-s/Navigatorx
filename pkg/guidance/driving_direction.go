@@ -79,7 +79,6 @@ func (db *DirectionBuilder) done() {
 	db.coordinatesPool.Put(db.points)
 	db.edgeIds = db.edgeIds[:0]
 	db.drivingEdgeIdsPool.Put(db.edgeIds)
-
 }
 
 func (db *DirectionBuilder) Reset() {
@@ -389,9 +388,9 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 		return sign
 	}
 
-	if db.prevEdge == da.INVALID_EDGE_ID { // dummy edge
+	if db.graph.IsDummyOutEdge(db.prevEdge) || db.graph.IsDummyOutEdge(edgeId) || db.prevEdge == da.INVALID_EDGE_ID { // dummy edge
 		db.turnSignCache.Set(key, sign, 1)
-		return sign
+		return da.IGNORE
 	}
 
 	// get another edge from the tail that have CONTINUE direction

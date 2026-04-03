@@ -1,8 +1,9 @@
 package datastructure
 
 import (
+	"sort"
+
 	"github.com/bits-and-blooms/bitset"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // bisa ngurangin banyak heap allocations
@@ -11,14 +12,14 @@ import (
 // todo: coba implement packed_vector  osrm (bikin lebih simple) buat simpan osm node Ids dan osm way Ids : https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/packed_vector.md
 // https://wiki.openstreetmap.org/wiki/Stats: 2025 ada 10 billions osm node ids dan 500 jt osm way ids
 // bisa pake packed vector 34 bit untuk  store osm node id, dan 32 bit untuk osm way id ?
-// todo2: coba implement name table  osrm (bikin lebih simple): https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/osrm-toolchain-files/map.osrm.names.md
+// todo2: coba implement name table osrm (bikin lebih simple): https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/osrm-toolchain-files/map.osrm.names.md
 // daripada slice of string di idmap.go, mungkin implement simplified name table bisa ngurangin space lebih banyak lagi, pakai single slice []byte/[]rune buat semua strings tapi ada offset & size utk setiap item?
 // buat edgeInfos juga mending jadiin slice setiap field daripada slice of struct
-// 
+
 type GraphStorage struct {
-	edgeInfos      []EdgeExtraInfo
-	osmNodePoints  []Coordinate
-	tagStringIDMap util.IDMap
+	edgeInfos     []EdgeExtraInfo
+	osmNodePoints []Coordinate
+	nameTable     []string // map dari integer ke string (tag name di osm way)
 
 	//  https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 	streetDirectionForward  *bitset.BitSet // kalau direction dari edgeId forward: bitset.Test(edgeId) return true
@@ -32,7 +33,6 @@ func NewGraphStorage() *GraphStorage {
 		streetDirectionForward:  bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		streetDirectionBackward: bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		edgeInfos:               make([]EdgeExtraInfo, 0),
-		tagStringIDMap:          util.NewIdMap(),
 		roundaboutFlag:          bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		nodeTrafficLight:        bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		osmNodePoints:           make([]Coordinate, 0),
@@ -40,9 +40,9 @@ func NewGraphStorage() *GraphStorage {
 }
 
 func BuildGraphStorage(osmNodePoints []Coordinate, roundaboutFlag, nodeTrafficLight *bitset.BitSet,
-	edgeInfos []EdgeExtraInfo, tagStringIDMap util.IDMap, streetDirectionForward, streetDirectionBackward *bitset.BitSet) *GraphStorage {
+	edgeInfos []EdgeExtraInfo, streetDirectionForward, streetDirectionBackward *bitset.BitSet) *GraphStorage {
 	return &GraphStorage{osmNodePoints: osmNodePoints, roundaboutFlag: roundaboutFlag,
-		nodeTrafficLight: nodeTrafficLight, edgeInfos: edgeInfos, tagStringIDMap: tagStringIDMap,
+		nodeTrafficLight: nodeTrafficLight, edgeInfos: edgeInfos,
 		streetDirectionForward: streetDirectionForward, streetDirectionBackward: streetDirectionBackward}
 }
 
@@ -51,7 +51,6 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 		streetDirectionForward:  bitset.New(uint(numberOfEdges)),
 		streetDirectionBackward: bitset.New(uint(numberOfEdges)),
 		edgeInfos:               make([]EdgeExtraInfo, numberOfEdges),
-		tagStringIDMap:          util.NewIdMap(),
 		roundaboutFlag:          bitset.New(uint(numberOfEdges)),
 		nodeTrafficLight:        bitset.New(uint(numberOfVertices)),
 		osmNodePoints:           make([]Coordinate, 1),
@@ -69,10 +68,6 @@ func (gs *GraphStorage) SetRoundabout(edgeID Index, isRoundabout bool) {
 func (gs *GraphStorage) SetStreetDirection(streetDirectionForward, streetDirectionBackward *bitset.BitSet) {
 	gs.streetDirectionForward = streetDirectionForward
 	gs.streetDirectionBackward = streetDirectionBackward
-}
-
-func (gs *GraphStorage) SetTagStringIdMap(tagStringIDMap util.IDMap) {
-	gs.tagStringIDMap = tagStringIDMap
 }
 
 func (gs *GraphStorage) GetStreetDirection(edgeId Index) [2]bool {
@@ -129,11 +124,44 @@ func (e *EdgeExtraInfo) GetEndPointsIndex() Index {
 	return e.endPointsIndex
 }
 
-func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
-	edge := gs.edgeInfos[edgeID]
+func (gs *GraphStorage) GetEdgeGeometryLength(edgeID Index) int {
 
-	startIndex := edge.startPointsIndex
-	endIndex := edge.endPointsIndex
+	startIndex := gs.edgeInfos[edgeID].startPointsIndex
+	endIndex := gs.edgeInfos[edgeID].endPointsIndex
+	if startIndex < endIndex {
+		return int(endIndex) - int(startIndex)
+	}
+	return int(startIndex) - int(endIndex)
+}
+
+func (gs *GraphStorage) AppendPathWithEdgeGeometry(path *Coordinates, edgeID Index) {
+
+	startIndex := gs.edgeInfos[edgeID].startPointsIndex
+	endIndex := gs.edgeInfos[edgeID].endPointsIndex
+	if startIndex < endIndex {
+		path.Append(gs.osmNodePoints[startIndex:endIndex])
+	}
+
+	if startIndex == 0 {
+		return
+	}
+
+	// reversed road segment
+	// di road network osm ada beberapa osm way yang two way
+	// nah ini edge geometry yang reversed direction
+	// daripada simpan edge geometry untuk setiap direction untuk edge yang sama, kita simpan satu edge geometry saja untuk kedua arah
+	// bisa hemat lebih banyak space
+	slice := *path
+	for i := int(startIndex - 1); i >= int(endIndex); i-- { // harus int(), karena kalo gak, endIndex == 0, next iteration jd maxuint32
+		slice = append(slice, gs.osmNodePoints[i])
+	}
+	*path = slice
+}
+
+func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
+
+	startIndex := gs.edgeInfos[edgeID].startPointsIndex
+	endIndex := gs.edgeInfos[edgeID].endPointsIndex
 	return gs.GetOsmNodePoints(startIndex, endIndex)
 }
 
@@ -143,7 +171,7 @@ func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinat
 		return gs.osmNodePoints[startIndex:endIndex]
 	}
 
-	if startIndex <= 0 {
+	if startIndex == 0 {
 		return make([]Coordinate, 0)
 	}
 
@@ -175,14 +203,27 @@ func (gs *GraphStorage) AppendEdgeInfos(edgeInfo EdgeExtraInfo) {
 	gs.edgeInfos = append(gs.edgeInfos, edgeInfo)
 }
 
-func (gs *GraphStorage) SetEdgeInofs(edgeInfos []EdgeExtraInfo) {
-	gs.edgeInfos = edgeInfos
-}
-
 func (gs *GraphStorage) GetOsmNodePointsCount() int {
 	return len(gs.osmNodePoints)
 }
 
-func (gs *GraphStorage) FlattenIdMap() {
-	gs.tagStringIDMap.ToStringArray(gs.tagStringIDMap.GetIdToStr())
+func (gs *GraphStorage) BuildNameTable(idToStr map[uint32]string) {
+	keys := make([]uint32, 0, len(idToStr))
+	for key, _ := range idToStr {
+		keys = append(keys, key)
+	}
+
+	sort.Slice(keys, func(i, j int) bool {
+		return i < j
+	})
+
+	gs.nameTable = make([]string, len(keys))
+	for i := 0; i < len(keys); i++ {
+		key := keys[i]
+		gs.nameTable[key] = idToStr[key]
+	}
+}
+
+func (gs *GraphStorage) GetStr(id uint32) string {
+	return gs.nameTable[id]
 }

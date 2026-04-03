@@ -57,7 +57,7 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CR
 		lastpqSum:                 0,
 		numScannedOverlayVertices: 0,
 		shortcutPathSet:           make(map[uint64]uint8),
-		viaVertices:               make([]da.ViaVertex, 0, 32),
+		viaVertices:               make([]da.ViaVertex, 0, VIA_VERTICES_INITIAL_CAPACITY),
 	}
 	crpQuery.Preallocate()
 	return crpQuery

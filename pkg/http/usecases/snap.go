@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"github.com/bytedance/gopkg/collection/hashset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -35,8 +36,8 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 		as, at                  da.Index      = da.INVALID_EDGE_ID, da.INVALID_EDGE_ID
 		snappedOrig, snappedDst da.Coordinate = da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON),
 			da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON)
-		pairSize                                  int             = spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES
-		removedPrevPairSet                        *da.Set[uint64] = da.NewSet[uint64](pairSize)
+		pairSize                                  int               = spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES
+		removedPrevPairSet                        hashset.Uint64Set = hashset.NewUint64WithSize(pairSize)
 		snappedOrigNxtCoords, snappedDstNxtCoords []da.Coordinate
 	)
 
@@ -72,7 +73,7 @@ let V_G=number of sccs of the graph/number of vertices in condensation graph scc
 worst case: O(M + c^2 * (V_G+O_G))
 */
 func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
-	removedPrevPairSet *da.Set[uint64]) (da.Index,
+	removedPrevPairSet hashset.Uint64Set) (da.Index,
 	da.Index, da.Coordinate, da.Coordinate, []da.Coordinate, []da.Coordinate) {
 	var (
 		projectedLat, projectedLon float64
@@ -221,13 +222,13 @@ func (rs *RoutingService) notFoundOriginDestinationWithinRadius(seId, teId da.In
 }
 
 // isPairAlreadyEvaluated. check (orig,dest) pair evaluated==true
-func (rs *RoutingService) isPairAlreadyEvaluated(orig, dest da.Index, removedPrevPairSet *da.Set[uint64]) bool {
+func (rs *RoutingService) isPairAlreadyEvaluated(orig, dest da.Index, removedPrevPairSet hashset.Uint64Set) bool {
 	pairKey := util.Bitpack(uint32(orig), uint32(dest))
-	return removedPrevPairSet.Test(pairKey)
+	return removedPrevPairSet.Contains(pairKey)
 }
 
 // evaluate. set (orig,dest) pair evaluated=true
-func (rs *RoutingService) evaluate(orig, dest da.Index, removedPrevPairSet *da.Set[uint64]) {
+func (rs *RoutingService) evaluate(orig, dest da.Index, removedPrevPairSet hashset.Uint64Set) {
 	pairKey := util.Bitpack(uint32(orig), uint32(dest))
-	removedPrevPairSet.Set(pairKey)
+	removedPrevPairSet.Add(pairKey)
 }

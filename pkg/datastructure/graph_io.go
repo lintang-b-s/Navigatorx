@@ -6,7 +6,6 @@ import (
 	"io"
 	"math"
 	"os"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -223,24 +222,13 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// tag string
 
-	sortedKeys := make([]uint32, 0)
-	for key, _ := range g.graphStorage.tagStringIDMap.GetIdToStr() {
-
-		sortedKeys = append(sortedKeys, key)
-	}
-
-	_, err = fmt.Fprintf(w, "%d\n", len(sortedKeys))
+	nameTableLength := len(g.graphStorage.nameTable)
+	_, err = fmt.Fprintf(w, "%d\n", nameTableLength)
 	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed to write tagString keys length: %v", len(sortedKeys))
+		return errors.Wrapf(err, "WriteGraph: failed to write tagString keys length: %v", nameTableLength)
 	}
 
-	sort.Slice(sortedKeys, func(i, j int) bool {
-		return sortedKeys[i] < sortedKeys[j]
-	})
-
-	for _, key := range sortedKeys {
-		val := g.graphStorage.tagStringIDMap.GetStr(key)
-
+	for key, val := range g.graphStorage.nameTable {
 		_, err = fmt.Fprintf(w, "%d %s\n", key, strconv.Quote(val))
 		if err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed to write key, strconv.Quote(val): %v, %v", key, strconv.Quote(val))
@@ -657,7 +645,6 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	tokens = util.Fields(line)
-	tagStringIdMap := util.NewIdMap()
 	numIdMapItems, err := util.ParseInt(tokens[0])
 	idToStr := make(map[uint32]string)
 
@@ -723,8 +710,8 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	graphStorage := BuildGraphStorage(osmNodePoints,
 		roundaboutFlags, trafficLightFlags, edgeInfos,
-		tagStringIdMap, stretDirectionsForward, stretDirectionsBackward)
-	graphStorage.tagStringIDMap.ToStringArray(idToStr)
+		stretDirectionsForward, stretDirectionsBackward)
+	graphStorage.BuildNameTable(idToStr)
 
 	graph := NewGraph(vertices, outEdges, inEdges, turnTables)
 	graph.SetGraphStorage(graphStorage)

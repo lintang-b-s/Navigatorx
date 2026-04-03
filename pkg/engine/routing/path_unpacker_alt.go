@@ -117,7 +117,7 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 			shortcutPathSet[util.Bitpack(uint32(enOriVId), uint32(exOriVId))] = queryLevel
 
 			shortcutEdgeIdsPath := pu.unpackInLevelCell(entryOverlayId, exitOverlayId, queryLevel)
-			unpackedEdgePath = append(unpackedEdgePath, shortcutEdgeIdsPath...)
+			unpackedEdgePath = append(unpackedEdgePath, shortcutEdgeIdsPath...) // golang slice append copy shortcutEdgeIdsPath ke unpackedEdgePath :https://go.dev/doc/effective_go#slices
 			i += 2
 		}
 	}
@@ -149,7 +149,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 
 	if pu.useCache {
 		if overlayPath, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, level)); ok {
-			// buat tests, gak ambil dari cache
+
 			edgePath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 			for i := 0; i < len(overlayPath); i += 2 {
 				downLevelEdgePath := pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1)
@@ -634,7 +634,6 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	}
 
 	edgeIdPath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
-
 	// u->mid
 	_, midOutEdgeId := pu.engine.graph.GetHeadOfInedgeWithOutEdge(fMid)
 	midInEdgeWeight, midInEdgeLength, midInEdgeHwType := pu.engine.graph.GetInEdgeTripleWeight(fMid)
