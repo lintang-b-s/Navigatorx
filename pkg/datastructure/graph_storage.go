@@ -9,7 +9,7 @@ import (
 // bisa ngurangin banyak heap allocations
 // ini pakai file osm diy_solo_jogja physical mem (RES): 1.6 gb -> sekarang 1.1 gb setelah gak pake pointer  buat graph []Vertex, []OutEdge, []InEdge, overlay graph []OverlayVertex dll
 // osrm pakai file osm diy_solo_jogja physical mem (RES): cuma 520 mb
-// todo: coba implement packed_vector  osrm (bikin lebih simple) buat simpan osm node Ids dan osm way Ids : https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/packed_vector.md
+// todo: coba implement packed_vector  osrm (bikin lebih simple) buat simpan osm node Ids dan osm way Ids: https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/packed_vector.md
 // https://wiki.openstreetmap.org/wiki/Stats: 2025 ada 10 billions osm node ids dan 500 jt osm way ids
 // bisa pake packed vector 34 bit untuk  store osm node id, dan 32 bit untuk osm way id ?
 // todo2: coba implement name table osrm (bikin lebih simple): https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/osrm-toolchain-files/map.osrm.names.md

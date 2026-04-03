@@ -690,6 +690,19 @@ func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates,
 	return path, totalDistance
 }
 
+func (re *CRPRoutingEngine) GetPathDistance(edgeIdPath []da.Index) float64 {
+
+	totalDistance := 0.0
+
+
+	for i := 0; i < len(edgeIdPath); i++ {
+		eId := edgeIdPath[i]
+		totalDistance += re.graph.GetOutEdgeLength(eId)
+	}
+
+	return totalDistance
+}
+
 func (pu *PathUnpacker) setForAlternativeRoutes() {
 	pu.forAlternativeRoutes = true
 }

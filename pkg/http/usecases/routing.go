@@ -170,7 +170,7 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 		// todo: update kode driving direction buat improve performance
 
 		drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
-		drivingDirection = directionBuilder.GetDrivingDirections(alt.GetPath(), drivingDirection)
+		drivingDirection = directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath(), drivingDirection)
 		alternatives[i].SetDrivingDirections(drivingDirection)
 		directionBuilder.Reset()
 		rs.directionBuilderPool.Put(directionBuilder)
