@@ -21,9 +21,7 @@ type CRPRoutingEngine struct {
 	fHeapPool          sync.Pool
 	bHeapPool          sync.Pool
 	pufOverlayHeapPool sync.Pool
-	pubOverlayHeapPool sync.Pool
 	pufBaseHeapPool    sync.Pool
-	pubBaseHeapPool    sync.Pool
 	packedPathPool     sync.Pool
 	unpackedPathPool   sync.Pool
 	stallingEntryPool  sync.Pool
@@ -90,19 +88,7 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 		},
 	}
 
-	crp.pubOverlayHeapPool = sync.Pool{
-		New: func() any {
-			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
-		},
-	}
-
 	crp.pufBaseHeapPool = sync.Pool{
-		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxEdgesInCell)*2, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
-		},
-	}
-
-	crp.pubBaseHeapPool = sync.Pool{
 		New: func() any {
 			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxEdgesInCell)*2, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},

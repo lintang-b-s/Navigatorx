@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/bits-and-blooms/bitset"
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -184,9 +185,17 @@ func (p *Preprocessor) SortByCellNumber() {
 	newInEdgeId := da.Index(0)                                       // new id for inEdges for each vertex for each cell
 	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
 
-	// create new edge infos
-	oldEdgeInfos := p.graph.GetEdgeInfos()
-	newEdgeInfos := make([]da.EdgeExtraInfo, len(oldEdgeInfos))
+	// create new edge metadatas
+	newOsmWayIds := da.NewPackedSlice(p.graph.GetOsmWayBitSize())
+	newEdgeStartPointsIndex := make([]da.Index, p.graph.NumberOfEdges())
+	newEdgeEndPointsIndex := make([]da.Index, p.graph.NumberOfEdges())
+	newStreetNameIds := make([]uint32, p.graph.NumberOfEdges())
+	newRoadClass := make([]pkg.OsmHighwayType, p.graph.NumberOfEdges())
+	newRoadClassLink := make([]pkg.OsmHighwayType, p.graph.NumberOfEdges())
+	newLanes := make([]uint8, p.graph.NumberOfEdges())
+
+	// create new vertices osm ids
+	newVerticesOsmIds := da.NewPackedSlice(da.BIT_SIZE_OSM_NODE_ID)
 
 	// create new roundabout flag
 	oldRoundaboutFlag := p.graph.GetRoundaboutFlag()
@@ -201,6 +210,7 @@ func (p *Preprocessor) SortByCellNumber() {
 	newStreetDirectionBackward := bitset.New(uint(p.graph.NumberOfEdges()))
 
 	vId := da.Index(0)
+	isRoadNetworkGraph := p.graph.IsRoadNetworkGraph()
 
 	lastVertex := p.graph.GetVertex(da.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
 	newVertices := make([]da.Vertex, p.graph.GetNumberOfVerticesWithDummyVertex())
@@ -218,6 +228,9 @@ func (p *Preprocessor) SortByCellNumber() {
 			newVertices[vId].SetFirstOut(newOutEdgeId)
 			newVertices[vId].SetFirstIn(newInEdgeId)
 			newVertices[vId].SetId(vId)
+
+			// update new vertex osm id
+			newVerticesOsmIds.Append(p.graph.GetVertexOsmId(vOldId))
 
 			// update trafic light flag
 			isTraficLight := oldGraphTrafficLight.Test(uint(vOldId))
@@ -240,13 +253,28 @@ func (p *Preprocessor) SortByCellNumber() {
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
 
 				// update edge metadata
+				vExitPoint := p.graph.GetExitOrder(vOldId, oldOutEdge.GetEdgeId())
+				oldEdgeInfoId := p.edgeInfoIds[vOldId][vExitPoint]
 
-				if oldOutEdge.GetHead() != vOldId { // skip dummy edge (vOldI, vOldId)
-					vExitPoint := p.graph.GetExitOrder(vOldId, oldOutEdge.GetEdgeId())
-					oldEdgeInfoId := p.edgeInfoIds[vOldId][vExitPoint]
-					oldEdgeInfo := oldEdgeInfos[oldEdgeInfoId]
+				if isRoadNetworkGraph && oldEdgeInfoId != da.INVALID_EDGE_INFO_ID { // skip dummy edge (vOldI, vOldId)
+					oldOsmWayId := p.graph.GetOsmWayId(oldEdgeInfoId)
+					newOsmWayIds.Append(uint64(oldOsmWayId))
 
-					newEdgeInfos[newOutEdgeId] = oldEdgeInfo
+					oldEdgePointsStartIndex, oldEdgePointsEndIndex := p.graph.GetEdgePointsIndices(oldEdgeInfoId)
+					newEdgeEndPointsIndex[newOutEdgeId] = oldEdgePointsEndIndex
+					newEdgeStartPointsIndex[newOutEdgeId] = oldEdgePointsStartIndex
+
+					oldStreetNameId := p.graph.GetStreetNameId(oldEdgeInfoId)
+					newStreetNameIds[newOutEdgeId] = oldStreetNameId
+
+					oldRoadClass := p.graph.GetRoadClass(oldEdgeInfoId)
+					newRoadClass[newOutEdgeId] = pkg.GetHighwayType(oldRoadClass)
+
+					oldRoadClassLink := p.graph.GetRoadClassLink(oldEdgeInfoId)
+					newRoadClassLink[newOutEdgeId] = pkg.GetHighwayType(oldRoadClassLink)
+
+					oldLanes := p.graph.GetRoadLanes(oldEdgeInfoId)
+					newLanes[newOutEdgeId] = oldLanes
 
 					// update roundabout flag
 					isRoundabout := oldRoundaboutFlag.Test(uint(oldEdgeInfoId))
@@ -263,6 +291,8 @@ func (p *Preprocessor) SortByCellNumber() {
 					if streetdir[1] {
 						newStreetDirectionBackward.Set(uint(newOutEdgeId))
 					}
+				} else if p.graph.IsRoadNetworkGraph() {
+					newOsmWayIds.Append(uint64(da.INVALID_OSM_WAY_ID))
 				}
 
 				newOutEdgeId++
@@ -292,7 +322,9 @@ func (p *Preprocessor) SortByCellNumber() {
 	p.graph.SetRoundaboutFlags(newRoundaboutFlags)
 	p.graph.SetTrafficLightFlags(newNodeTrafficLight)
 	p.graph.SetStreetDirection(newStreetDirectionForward, newStreetDirectionBackward)
-	p.graph.SetEdgeInfos(newEdgeInfos)
+	p.graph.SetNewEdgeMetadatas(newOsmWayIds, newEdgeStartPointsIndex, newEdgeEndPointsIndex,
+		newStreetNameIds, newRoadClass, newRoadClassLink, newLanes)
+	p.graph.SetVertexOsmIds(newVerticesOsmIds)
 }
 
 func (p *Preprocessor) GetOldToNewVIdMap() []da.Index {

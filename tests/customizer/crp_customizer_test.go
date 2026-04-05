@@ -275,7 +275,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true)
+		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true, false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -648,8 +648,8 @@ func TestCRPCustomizer(t *testing.T) {
 		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
 		sps, _ := dijkstraQuery.ShortestPath(s)
 		for v := 0; v < n; v++ {
-			spToV := sps[v] // sp dist dari landmark ke v
-			expectedSpToV := lw[i][v]
+			expectedSpToV := sps[v] // sp dist dari landmark ke v
+			spToV := lw[i][v]
 			if !util.Eq(expectedSpToV, spToV) {
 				t.Errorf("expected shortest path travel times: %v, got: %v", expectedSpToV, spToV)
 			}
@@ -658,8 +658,8 @@ func TestCRPCustomizer(t *testing.T) {
 		dijkstraQuery = routing.NewDijkstra(re.GetRoutingEngine(), true)
 		sps, _ = dijkstraQuery.ShortestPath(s)
 		for v := 0; v < n; v++ {
-			got := sps[v] // sp dist dari v ke landmark
-			expectedSPVToL := vlw[v][i]
+			expectedSPVToL := sps[v] // sp dist dari v ke landmark
+			got := vlw[v][i]
 			if !util.Eq(expectedSPVToL, got) {
 				t.Errorf("expected shortest path travel times: %v, got: %v", expectedSPVToL, got)
 			}

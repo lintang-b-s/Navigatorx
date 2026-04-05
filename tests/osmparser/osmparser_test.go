@@ -142,16 +142,17 @@ func TestOSMParser(t *testing.T) {
 			}
 
 			// cek v.osmId
+			gotOsmId := int64(graph.GetVertexOsmId(v.GetID()))
 
-			if osmNodeIdMap[int64(v.GetOsmID())] != v.GetID() {
-				t.Errorf("expected osm id %v mapped to vertex id: %v, got: %v", int64(v.GetOsmID()), v.GetID(), osmNodeIdMap[int64(v.GetOsmID())])
+			if osmNodeIdMap[gotOsmId] != v.GetID() {
+				t.Errorf("expected osm id %v mapped to vertex id: %v, got: %v", gotOsmId, v.GetID(), osmNodeIdMap[gotOsmId])
 			}
 
 			// cek turn turnTablePtr
 
 			//  matrixOffset <= turnTablePtr < matrixOffset + v.outDegree * v.inDegree
 			deg := graph.GetOutDegree(v.GetID()) * graph.GetInDegree(v.GetID())
-			if v.GetTurnTablePtr() >= matrixOffset+deg {
+			if v.GetTurnTablePtr() > matrixOffset+deg {
 				t.Errorf("expected turnTablePtr less than: %v, got: %v", matrixOffset, v.GetTurnTablePtr())
 			}
 

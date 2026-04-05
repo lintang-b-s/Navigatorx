@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -251,7 +252,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		edges = append(edges, e)
 
 	}
-	graphStorage := da.NewGraphStorage()
+	graphStorage := da.NewGraphStorage(64)
 
 	graphEdges := make([]osmparser.Edge, 0, len(edges))
 
@@ -296,37 +297,36 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 			graphStorage.AppendOsmNodePoints(eGeometry)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
+			graphStorage.AppendEdgeMetadata(
+				int64(e.eId),
+				da.Index(startPointsIndex), da.Index(endPointsIndex),
 				0, 0, 0,
 				1,
-				da.Index(startPointsIndex), da.Index(endPointsIndex),
-				int64(e.eId),
-			))
+			)
 
 			graphEdge := osmparser.NewEdge(
 				e.fromId,
 				e.toId,
 				travelTimeWeight,
 				distanceInMeter,
-				0,
+				pkg.MOTORWAY,
 			)
 
 			graphEdges = append(graphEdges, graphEdge)
 
 			// reversed edge (two way)
-			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
+			graphStorage.AppendEdgeMetadata(int64(e.eId)*2,
+				da.Index(endPointsIndex), da.Index(startPointsIndex),
 				0, 0, 0,
 				1,
-				da.Index(endPointsIndex), da.Index(startPointsIndex),
-				int64(e.eId)*2,
-			))
+			)
 
 			graphRevE := osmparser.NewEdge(
 				e.toId,
 				e.fromId,
 				travelTimeWeight,
 				distanceInMeter,
-				0,
+				pkg.MOTORWAY,
 			)
 
 			graphEdges = append(graphEdges, graphRevE)
@@ -339,19 +339,19 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 			graphStorage.AppendOsmNodePoints(eGeometry)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
+			graphStorage.AppendEdgeMetadata(
+				int64(e.eId),
+				da.Index(startPointsIndex), da.Index(endPointsIndex),
 				0, 0, 0,
 				1,
-				da.Index(startPointsIndex), da.Index(endPointsIndex),
-				int64(e.eId),
-			))
+			)
 
 			graphEdge := osmparser.NewEdge(
 				e.fromId,
 				e.toId,
 				travelTimeWeight,
 				distanceInMeter,
-				0,
+				pkg.MOTORWAY,
 			)
 			graphEdges = append(graphEdges, graphEdge)
 		}
@@ -369,7 +369,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmId)
-	g, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true)
+	g, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true, true)
 	g.SetGraphStorage(graphStorage)
 
 	us := []int{8, 11, 14, 16}
@@ -426,6 +426,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
+	g = re.GetRoutingEngine().GetGraph()
 
 	logger.Sugar().Infof("customization phase of Customizable Route Planning CRP done....")
 

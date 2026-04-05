@@ -254,10 +254,10 @@ func (c *Customizer) buildLowestLevel(
 
 								v := head
 
-								exitPointTravelTime := uTravelTime + costFunction.GetTurnCost(turnType)
+								uTravelTimeWithTurnCost := uTravelTime + costFunction.GetTurnCost(turnType)
 								outArcCost := costFunction.GetWeight(hwType, weight, length)
 
-								newTravelTime := exitPointTravelTime + outArcCost
+								newTravelTime := uTravelTimeWithTurnCost + outArcCost
 
 								if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 									return
@@ -280,10 +280,11 @@ func (c *Customizer) buildLowestLevel(
 								} else {
 									// found an exit vertex of the cell
 									// save this shortcut travelTime
-									exitOverlay, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
-									ok := util.Lt(overlayTravelTime[exitOverlay], pkg.INF_WEIGHT)
-									if !ok || (ok && exitPointTravelTime < overlayTravelTime[exitOverlay]) {
-										overlayTravelTime[exitOverlay] = exitPointTravelTime
+									exitVertexTravelTime := uTravelTimeWithTurnCost
+									exitOverlayVId, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
+									ok := util.Lt(overlayTravelTime[exitOverlayVId], pkg.INF_WEIGHT)
+									if !ok || (ok && exitVertexTravelTime < overlayTravelTime[exitOverlayVId]) {
+										overlayTravelTime[exitOverlayVId] = exitVertexTravelTime
 									}
 								}
 							})
@@ -338,7 +339,7 @@ func (c *Customizer) buildLowestLevel(
 		wg.Add(1)
 		cellCliqueInChan <- newCustomizerCell(cell, cellNumber)
 	}
-	
+
 	close(cellCliqueInChan)
 
 	// let c_1 be the number of cells in level 1
@@ -420,7 +421,7 @@ func (c *Customizer) buildLevel(
 						uTruncatedLevel := c.overlayGraph.TruncateToLevel(uOverlayVertex.GetCellNumber(), uint8(level))
 						util.AssertPanic(uTruncatedLevel == cellNumber, "current truncated cell number and boundary vertex truncated cell number must be the same!")
 
-						c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exit da.Index, wOffset da.Index) {
+						c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exitOverlayVertex da.Index, wOffset da.Index) {
 							// iterate all shortcuts (u, \cdot)
 
 							shortcutWeight := c.ow.GetWeight(wOffset)
@@ -431,13 +432,16 @@ func (c *Customizer) buildLevel(
 								return
 							}
 
-							oldExit := travelTime[exit]
-							exitAlreadyLabelled := util.Lt(travelTime[exit], pkg.INF_WEIGHT)
-							if !exitAlreadyLabelled || (exitAlreadyLabelled && newTravelTime < oldExit) {
-								travelTime[exit] = newTravelTime
-								exitOverlayVertex := c.overlayGraph.GetVertex(exit)
+							oldExitTravelTime := travelTime[exitOverlayVertex]
+							exitAlreadyLabelled := util.Lt(travelTime[exitOverlayVertex], pkg.INF_WEIGHT)
+							if !exitAlreadyLabelled || (exitAlreadyLabelled && newTravelTime < oldExitTravelTime) {
+								travelTime[exitOverlayVertex] = newTravelTime
+								// visit neighbor of exitOverlayVertex
+								// 
+								exitOverlayVertex := c.overlayGraph.GetVertex(exitOverlayVertex)
 								neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
 								neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)
+								// cut edge (exitOverlayVertex, neighborOverlayVertex)
 								exitOriEdgeId := exitOverlayVertex.GetOriginalEdge()
 
 								if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {

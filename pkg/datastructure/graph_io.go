@@ -40,9 +40,13 @@ func (g *Graph) WriteGraph(filename string) error {
 	for i, v := range g.vertices {
 		latF := strconv.FormatFloat(v.lat, 'f', -1, 64)
 		lonF := strconv.FormatFloat(v.lon, 'f', -1, 64)
+		var osmId uint64
+		if i < len(g.vertices)-1 {
+			osmId = g.GetVertexOsmId(Index(i))
+		}
 
 		if _, err = fmt.Fprintf(w, "%d %d %d %d %d %s %s %d\n",
-			v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, v.id, latF, lonF, v.osmId); err != nil {
+			v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, v.id, latF, lonF, osmId); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing vertex[%d]", i)
 		}
 	}
@@ -172,20 +176,27 @@ func (g *Graph) WriteGraph(filename string) error {
 		}
 	}
 
-	// map edge infos
+	// map edge metadatas
 
-	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.edgeInfos))
+	// osm way bit size
+	_, err = fmt.Fprintf(w, "%d\n", g.graphStorage.osmwayBitSize)
+
+	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.edgeStartPointsIndex))
 	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing g.graphStorage.edgeInfos length %v", len(g.graphStorage.edgeInfos))
-
+		return errors.Wrapf(err, "WriteGraph: failed writing edgeStartPointsIndex length %v", len(g.graphStorage.edgeStartPointsIndex))
 	}
-	for i := 0; i < len(g.graphStorage.edgeInfos); i++ {
-		edgeInfo := g.graphStorage.edgeInfos[i]
-		_, err = fmt.Fprintf(w, "%d %d %d %d %d %d %d\n", edgeInfo.startPointsIndex, edgeInfo.endPointsIndex,
-			edgeInfo.streetName, edgeInfo.roadClass, edgeInfo.roadClassLink, edgeInfo.lanes,
-			edgeInfo.osmWayId)
+	for i := 0; i < len(g.graphStorage.edgeStartPointsIndex); i++ {
+		_, err = fmt.Fprintf(w, "%d %d %d %d %d %d %d\n",
+			g.graphStorage.edgeStartPointsIndex[i],
+			g.graphStorage.edgeEndPointsIndex[i],
+			g.graphStorage.streetName[i],
+			g.graphStorage.roadClass[i],
+			g.graphStorage.roadClassLink[i],
+			g.graphStorage.lanes[i],
+			g.graphStorage.edgeOsmWayId.Get(uint64(i)),
+		)
 		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing edgeInfos[%d]", i)
+			return errors.Wrapf(err, "WriteGraph: failed writing edge metadata[%d]", i)
 		}
 	}
 
@@ -331,16 +342,18 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	vertices := make([]Vertex, numVertices)
-
+	var vertexOsmId uint64
+	verticesOsmIdsPs := NewPackedSlice(BIT_SIZE_OSM_NODE_ID)
 	for i := 0; i < int(numVertices); i++ {
 		vertexLine, err := util.ReadLine(br)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to read vertexLine")
 		}
-		vertices[i], err = parseVertex(vertexLine)
+		vertices[i], vertexOsmId, err = parseVertex(vertexLine)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parse vertex: %v", vertexLine)
 		}
+		verticesOsmIdsPs.Append(vertexOsmId)
 	}
 
 	outEdges := make([]OutEdge, numEdges)
@@ -549,56 +562,78 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	// map edge info flag
+
 	line, err = util.ReadLine(br)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edgeInfos headers")
 	}
-
-	tokens = util.Fields(line)
-	numEdgeInfos, err := util.ParseInt(tokens[0])
+	osmWayBitSize, err := util.ParseInt(line)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numEdgeInfos: %v", tokens[0])
+		return nil, errors.Wrapf(err, "ReadGraph: failed to read osmWayBitSize")
 	}
 
-	edgeInfos := make([]EdgeExtraInfo, numEdgeInfos)
-	for i := 0; i < numEdgeInfos; i++ {
+	line, err = util.ReadLine(br)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edgeInfos headers")
+	}
+	tokens = util.Fields(line)
+
+	numEdgeMetadatas, err := util.ParseInt(tokens[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numEdgeMetadatas: %v", tokens[0])
+	}
+
+	edgeStartPointsIndex := make([]Index, numEdgeMetadatas)
+	edgeEndPointsIndex := make([]Index, numEdgeMetadatas)
+	streetName := make([]uint32, numEdgeMetadatas)
+	roadClass := make([]pkg.OsmHighwayType, numEdgeMetadatas)
+	roadClassLink := make([]pkg.OsmHighwayType, numEdgeMetadatas)
+	lanes := make([]uint8, numEdgeMetadatas)
+	osmWayIds := NewPackedSlice(uint8(osmWayBitSize))
+
+	for i := 0; i < numEdgeMetadatas; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine mapEdgeInfo")
+			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edge metadata[%d]", i)
 		}
 		tokens = util.Fields(line)
-		startsPointIndex, err := util.ParseInt(tokens[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt startsPointIndex: %v", tokens[0])
-		}
 
+		startPointIndex, err := util.ParseInt(tokens[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt edgeStartPointsIndex[%d]: %v", i, tokens[0])
+		}
 		endPointIndex, err := util.ParseInt(tokens[1])
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt endPointIndex: %v", tokens[1])
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt edgeEndPointsIndex[%d]: %v", i, tokens[1])
 		}
-		streetName, err := util.ParseUInt32(tokens[2])
+		sName, err := util.ParseUInt32(tokens[2])
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 streetName: %v", tokens[2])
+			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 streetName[%d]: %v", i, tokens[2])
 		}
-		roadClass, err := util.ParseUInt32(tokens[3])
+		rClass, err := util.ParseUInt32(tokens[3])
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 roadClass: %v", tokens[3])
+			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 roadClass[%d]: %v", i, tokens[3])
 		}
-		roadClassLink, err := util.ParseUInt32(tokens[4])
+		rClassLink, err := util.ParseUInt32(tokens[4])
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 roadClassLink: %v", tokens[4])
+			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 roadClassLink[%d]: %v", i, tokens[4])
 		}
-		lanes, err := util.ParseInt(tokens[5])
+		l, err := util.ParseInt(tokens[5])
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt lanes: %v", tokens[5])
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt lanes[%d]: %v", i, tokens[5])
 		}
-		osmWayId, err := util.ParseInt(tokens[6])
+		osmWayId, err := util.ParseUInt64(tokens[6])
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt osmWayId: %v", tokens[6])
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt osmWayId[%d]: %v", i, tokens[6])
 		}
-		edgeInfos[i] = NewEdgeExtraInfo(streetName, roadClass,
-			roadClassLink, uint8(lanes), Index(startsPointIndex), Index(endPointIndex),
-			int64(osmWayId))
+
+		edgeStartPointsIndex[i] = Index(startPointIndex)
+		edgeEndPointsIndex[i] = Index(endPointIndex)
+		streetName[i] = sName
+		roadClass[i] = pkg.OsmHighwayType(rClass)
+		roadClassLink[i] = pkg.OsmHighwayType(rClassLink)
+		lanes[i] = uint8(l)
+		osmWayIds.Append(uint64(osmWayId))
 	}
 
 	// roundabout flag
@@ -709,11 +744,15 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	graphStorage := BuildGraphStorage(osmNodePoints,
-		roundaboutFlags, trafficLightFlags, edgeInfos,
+		roundaboutFlags, trafficLightFlags,
 		stretDirectionsForward, stretDirectionsBackward)
+
+	graphStorage.SetNewEdgeMetadata(osmWayIds, edgeStartPointsIndex, edgeEndPointsIndex,
+		streetName, roadClass, roadClassLink, lanes)
+
 	graphStorage.BuildNameTable(idToStr)
 
-	graph := NewGraph(vertices, outEdges, inEdges, turnTables)
+	graph := NewGraph(vertices, outEdges, inEdges, turnTables, true, verticesOsmIdsPs)
 	graph.SetGraphStorage(graphStorage)
 	graph.SetCellNumbers(cellNumbers)
 	graph.SetOverlayMapping(overlayVertices)
@@ -727,52 +766,52 @@ func ReadGraph(filename string) (*Graph, error) {
 	return graph, nil
 }
 
-func parseVertex(line string) (Vertex, error) {
+func parseVertex(line string) (Vertex, uint64, error) {
 	tokens := util.Fields(line)
 	if len(tokens) != 8 {
-		return NewEmptyVertex(), fmt.Errorf("expected 8 fields, got %d", len(tokens))
+		return NewEmptyVertex(), 0, fmt.Errorf("expected 8 fields, got %d", len(tokens))
 	}
 	pvPtr, err := ParseIndex(tokens[0])
 	if err != nil {
-		return NewEmptyVertex(), err
+		return NewEmptyVertex(), 0, err
 	}
 	ttPtr, err := ParseIndex(tokens[1])
 	if err != nil {
-		return NewEmptyVertex(), err
+		return NewEmptyVertex(), 0, err
 	}
 	firstOut, err := ParseIndex(tokens[2])
 	if err != nil {
-		return NewEmptyVertex(), err
+		return NewEmptyVertex(), 0, err
 	}
 	firstIn, err := ParseIndex(tokens[3])
 	if err != nil {
-		return NewEmptyVertex(), err
+		return NewEmptyVertex(), 0, err
 	}
 
 	id, err := ParseIndex(tokens[4])
 	if err != nil {
-		return NewEmptyVertex(), err
+		return NewEmptyVertex(), 0, err
 	}
 
 	lat, err := strconv.ParseFloat(tokens[5], 64)
 	if err != nil {
-		return NewEmptyVertex(), fmt.Errorf("lat: %w", err)
+		return NewEmptyVertex(), 0, fmt.Errorf("lat: %w", err)
 	}
 	lon, err := strconv.ParseFloat(tokens[6], 64)
 	if err != nil {
-		return NewEmptyVertex(), fmt.Errorf("lon: %w", err)
+		return NewEmptyVertex(), 0, fmt.Errorf("lon: %w", err)
 	}
 
 	osmId, err := strconv.ParseUint(tokens[7], 10, 64)
 	if err != nil {
-		return NewEmptyVertex(), fmt.Errorf("osmId: %w", err)
+		return NewEmptyVertex(), 0, fmt.Errorf("lon: %w", err)
 	}
 
 	return Vertex{
 		pvPtr: pvPtr, turnTablePtr: ttPtr,
 		firstOut: firstOut, firstIn: firstIn,
-		lat: lat, lon: lon, id: id, osmId: osmId,
-	}, nil
+		lat: lat, lon: lon, id: id,
+	}, osmId, nil
 }
 
 func parseOutEdge(line string) (OutEdge, error) {

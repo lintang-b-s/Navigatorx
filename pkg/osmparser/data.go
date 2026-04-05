@@ -2,7 +2,7 @@ package osmparser
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 type Edge struct {
@@ -16,12 +16,12 @@ type Edge struct {
 	hwType    pkg.OsmHighwayType
 }
 
-func (e *Edge) GetFrom() datastructure.Index {
-	return datastructure.Index(e.from)
+func (e *Edge) GetFrom() da.Index {
+	return da.Index(e.from)
 }
 
-func (e *Edge) GetTo() datastructure.Index {
-	return datastructure.Index(e.to)
+func (e *Edge) GetTo() da.Index {
+	return da.Index(e.to)
 }
 
 func (e *Edge) GetFromOsmId() uint64 {

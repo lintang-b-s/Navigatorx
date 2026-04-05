@@ -119,7 +119,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true)
+		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true, false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 

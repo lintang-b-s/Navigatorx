@@ -54,6 +54,10 @@ const (
 func (tf *TimeFunction) GetWeight(eHighwayType pkg.OsmHighwayType, eDefaultWeight, eLength float64) float64 {
 
 	maxspeed := defaultSpeed
+	if eHighwayType == pkg.INVALID_HIGHWAY {
+		return pkg.INF_WEIGHT // dummy edge
+	}
+
 	if tf.maxspeeds != nil {
 		hwType := eHighwayType
 		maxspeed = tf.maxspeeds[hwType]

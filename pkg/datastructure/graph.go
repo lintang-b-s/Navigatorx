@@ -10,7 +10,6 @@ type Index uint32
 type Vertex struct {
 	lat          float64
 	lon          float64
-	osmId        uint64
 	pvPtr        Index // pointer index to cellNumbers slice
 	turnTablePtr Index // index of the first element of turnMatrices[v] in the flattened graph.turnTables array
 	// turnMatrices[v][i][j] = 1-D indexed array index of i-th incoming edge and j-th outgoing edge  = i*outDegree + j
@@ -19,12 +18,11 @@ type Vertex struct {
 	id       Index
 }
 
-func NewVertex(lat, lon float64, id Index, osmId uint64) Vertex {
+func NewVertex(lat, lon float64, id Index) Vertex {
 	return Vertex{
-		lat:   lat,
-		lon:   lon,
-		id:    id,
-		osmId: osmId,
+		lat: lat,
+		lon: lon,
+		id:  id,
 	}
 }
 
@@ -55,10 +53,6 @@ func (v *Vertex) SetTurnTablePtr(turnTablePtr Index) {
 
 func (v *Vertex) GetID() Index {
 	return v.id
-}
-
-func (v *Vertex) GetOsmID() uint64 {
-	return v.osmId
 }
 
 func (v *Vertex) GetLat() float64 {
@@ -247,21 +241,24 @@ type Graph struct {
 	outEdges          []OutEdge
 	inEdges           []InEdge            // reversed edges. setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v)
 	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
-	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
-	maxEdgesInCell    Index               // maximum number of inEdges/outEdges in any cell
-	outEdgeCellOffset []Index             // offset of first outEdge for each cellNumber
-	inEdgeCellOffset  []Index             // offset of first inEdge for each cellNumber
-	turnTables        []pkg.TurnType      // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
+	verticesOsmIds    *PackedSlice
+	cellNumbers       []Pv           // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
+	outEdgeCellOffset []Index        // offset of first outEdge for each cellNumber
+	inEdgeCellOffset  []Index        // offset of first inEdge for each cellNumber
+	turnTables        []pkg.TurnType // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 
 	// strongly connected components
 	sccs               []Index   // verticeId -> sccId
 	sccCondensationAdj [][]Index // condensation connection of scc of u -> scc of v
 
-	boundingBox *BoundingBox
+	boundingBox    *BoundingBox
+	maxEdgesInCell Index // maximum number of inEdges/outEdges in any cell
+	roadNetwork    bool
 }
 
-func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnTables []pkg.TurnType) *Graph {
-	return &Graph{vertices: vertices, outEdges: forwardEdges, inEdges: inEdges, turnTables: turnTables, maxEdgesInCell: 0}
+func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnTables []pkg.TurnType, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
+	return &Graph{vertices: vertices, outEdges: forwardEdges, inEdges: inEdges, turnTables: turnTables, maxEdgesInCell: 0, roadNetwork: roadNetwork,
+		verticesOsmIds: verticesOsmIds}
 }
 
 func (g *Graph) NumberOfVertices() int {
@@ -278,6 +275,17 @@ func (g *Graph) NumberOfOutEdges() int {
 
 func (g *Graph) NumberOfInEdges() int {
 	return len(g.inEdges)
+}
+func (g *Graph) IsRoadNetworkGraph() bool {
+	return g.roadNetwork
+}
+
+func (g *Graph) GetVertexOsmId(vId Index) uint64 {
+	return g.verticesOsmIds.Get(uint64(vId))
+}
+
+func (g *Graph) SetVertexOsmIds(verticesOsmIds *PackedSlice) {
+	g.verticesOsmIds = verticesOsmIds
 }
 
 func (g *Graph) GetOutDegree(u Index) Index {
@@ -449,32 +457,24 @@ func (g *Graph) GetNumberOfOutEdges(u Index) Index {
 
 func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-		if g.SkipOutDummyEdge(u, g.outEdges[e].GetEdgeId()) {
+		if g.IsDummyOutEdge(e) {
 			continue
 		}
+
 		handle(e)
 	}
 }
 
-func (g *Graph) SkipOutDummyEdge(u, eId Index) bool {
-	if g.outEdges[eId].head == u {
-		return true
-	}
-
-	return false
-}
-
-func (g *Graph) SkipInDummyEdge(u, eId Index) bool {
-	if g.inEdges[eId].tail == u {
-		return true
-	}
-
-	return false
-}
-
 func (g *Graph) IsDummyOutEdge(eId Index) bool {
-	tail := g.GetTailOfOutedge(eId)
-	if g.outEdges[eId].head == tail {
+	if g.outEdges[eId].GetHighwayType() == pkg.INVALID_HIGHWAY {
+		return true
+	}
+
+	return false
+}
+
+func (g *Graph) IsDummyInEdge(eId Index) bool {
+	if g.inEdges[eId].GetHighwayType() == pkg.INVALID_HIGHWAY {
 		return true
 	}
 
@@ -483,7 +483,7 @@ func (g *Graph) IsDummyOutEdge(eId Index) bool {
 
 func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
-		if g.SkipInDummyEdge(v, g.inEdges[e].GetEdgeId()) {
+		if g.IsDummyInEdge(e) {
 			continue
 		}
 		handle(e)
@@ -532,10 +532,11 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 
 func (g *Graph) ForOutEdges(handle func(exitPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
 	for idx, e := range g.outEdges {
-		tail := g.GetTailOfOutedge(Index(idx))
-		if g.SkipOutDummyEdge(tail, e.GetEdgeId()) {
+		if g.IsDummyOutEdge(Index(idx)) {
 			continue
 		}
+
+		tail := g.GetTailOfOutedge(Index(idx))
 
 		percentage := float64(idx) / float64(len(g.outEdges)) * 100
 
@@ -716,18 +717,6 @@ func (g *Graph) dfsCondensationGraph(u Index, t Index, discovered []bool, uvPath
 	}
 }
 
-func (g *Graph) GetEdgeInfos() []EdgeExtraInfo {
-	return g.graphStorage.edgeInfos
-}
-
-func (g *Graph) SetEdgeInfo(id Index, edgeInfo EdgeExtraInfo) {
-	g.graphStorage.edgeInfos[id] = edgeInfo
-}
-
-func (g *Graph) SetEdgeInfos(edgeInfos []EdgeExtraInfo) {
-	g.graphStorage.edgeInfos = edgeInfos
-}
-
 func (g *Graph) GetRoundaboutFlag() *bitset.BitSet {
 	return g.graphStorage.roundaboutFlag
 }
@@ -770,28 +759,31 @@ func (g *Graph) SetGraphStorage(gs *GraphStorage) {
 }
 
 func (g *Graph) IsRoundabout(edgeId Index) bool {
-	_, roundabout := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return roundabout
+	return g.graphStorage.IsRoundabout(edgeId)
 }
 
 func (g *Graph) GetStreetName(edgeId Index) string {
-	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.GetStr(edgeInfo.streetName)
+	stNameId := g.graphStorage.streetName[edgeId]
+	return g.graphStorage.GetStr(stNameId)
+}
+
+func (g *Graph) GetStreetNameId(edgeId Index) uint32 {
+	stNameId := g.graphStorage.streetName[edgeId]
+	return stNameId
 }
 
 func (g *Graph) GetRoadClass(edgeId Index) string {
-	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.GetStr(edgeInfo.roadClass)
+	roadClassId := g.graphStorage.roadClass[edgeId]
+	return pkg.GetHighwayTypeString(roadClassId)
 }
 
 func (g *Graph) GetRoadClassLink(edgeId Index) string {
-	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return g.graphStorage.GetStr(edgeInfo.roadClassLink)
+	roadClassLinkId := g.graphStorage.roadClassLink[edgeId]
+	return pkg.GetHighwayTypeString(roadClassLinkId)
 }
 
 func (g *Graph) GetRoadLanes(edgeId Index) uint8 {
-	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return edgeInfo.lanes
+	return g.graphStorage.lanes[edgeId]
 }
 
 func (g *Graph) GetStreetDirection(edgeId Index) [2]bool {
@@ -799,8 +791,7 @@ func (g *Graph) GetStreetDirection(edgeId Index) [2]bool {
 }
 
 func (g *Graph) GetOsmWayId(edgeId Index) int64 {
-	edgeInfo, _ := g.graphStorage.GetEdgeExtraInfo(edgeId, false)
-	return edgeInfo.osmWayId
+	return int64(g.graphStorage.edgeOsmWayId.Get(uint64(edgeId)))
 }
 
 func (g *Graph) GetEdgeGeometry(edgeID Index) []Coordinate {
@@ -815,6 +806,10 @@ func (g *Graph) GetEdgeGeometryLength(edgeID Index) int {
 	return g.graphStorage.GetEdgeGeometryLength(edgeID)
 }
 
+func (g *Graph) GetOsmWayBitSize() uint8 {
+	return g.graphStorage.osmwayBitSize
+}
+
 func (g *Graph) SetRoundaboutFlags(roundaboutFlags *bitset.BitSet) {
 	g.graphStorage.roundaboutFlag = roundaboutFlags
 }
@@ -823,16 +818,29 @@ func (g *Graph) SetTrafficLightFlags(trafficLightFlags *bitset.BitSet) {
 	g.graphStorage.nodeTrafficLight = trafficLightFlags
 }
 
+func (g *Graph) SetNewEdgeMetadatas(osmWayIds *PackedSlice,
+	edgeStartPointsIndex, // edge geometry start index di gs.osmNodePoints
+	edgeEndPointsIndex []Index,
+	streetName []uint32,
+	roadClass, roadClassLink []pkg.OsmHighwayType,
+	lanes []uint8) {
+	g.graphStorage.SetNewEdgeMetadata(osmWayIds, edgeStartPointsIndex, edgeEndPointsIndex,
+		streetName, roadClass, roadClassLink, lanes)
+}
+
+func (g *Graph) GetEdgePointsIndices(edgeId Index) (Index, Index) {
+	return g.graphStorage.edgeStartPointsIndex[edgeId], g.graphStorage.edgeEndPointsIndex[edgeId]
+}
+
 func (g *Graph) SetStreetDirection(streetDirectionForward, streetDirectionBackward *bitset.BitSet) {
 	g.graphStorage.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
 }
 
 func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(head, exitPoint Index, weight float64)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-		if g.SkipOutDummyEdge(u, g.outEdges[e].GetEdgeId()) {
+		if g.IsDummyOutEdge(e) {
 			continue
 		}
-
 		handle(g.outEdges[e].head, g.GetExitOrder(u, e), g.outEdges[e].weight)
 	}
 }

@@ -3,6 +3,9 @@ package datastructure
 import (
 	"maps"
 	"math"
+
+	"github.com/bits-and-blooms/bitset"
+	"github.com/bytedance/gopkg/collection/hashset"
 )
 
 type TwoLevelStorage struct {
@@ -172,4 +175,36 @@ func (s *MapStorage) ForAllItems(handle func(offsetedVId Index, queryInfoId uint
 	for overlayVId, queryInfoId := range s.overlay {
 		handle(overlayVId, queryInfoId)
 	}
+}
+
+type ScannedBitsetStorage struct {
+	scanned *bitset.BitSet // https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
+}
+
+func NewScannedBitsetStorage(approxMaxSearchSize uint32) *ScannedBitsetStorage {
+	return &ScannedBitsetStorage{bitset.New(uint(approxMaxSearchSize))}
+}
+
+func (sc *ScannedBitsetStorage) Test(queryInfoId uint32) bool {
+	return sc.scanned.Test(uint(queryInfoId))
+}
+
+func (sc *ScannedBitsetStorage) Set(queryInfoId uint32) {
+	sc.scanned.Set(uint(queryInfoId))
+}
+
+type ScannedSettorage struct {
+	scanned hashset.Uint32Set
+}
+
+func NewScannedSettorage(approxMaxSearchSize uint32) *ScannedSettorage {
+	return &ScannedSettorage{hashset.NewUint32()}
+}
+
+func (sc *ScannedSettorage) Test(queryInfoId uint32) bool {
+	return sc.scanned.Contains(queryInfoId)
+}
+
+func (sc *ScannedSettorage) Set(queryInfoId uint32) {
+	sc.scanned.Add(queryInfoId)
 }

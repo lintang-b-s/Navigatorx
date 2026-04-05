@@ -43,7 +43,7 @@ func main() {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), logger)
-	graph, err := da.ReadGraph(graphFile)
+	graph, err := da.ReadGraph(graphFile, )
 	if err != nil {
 		panic(err)
 	}

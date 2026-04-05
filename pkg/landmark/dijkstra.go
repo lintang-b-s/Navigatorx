@@ -45,7 +45,7 @@ Single-destination shortest-paths problem: Find a shortest path to a given des-
 tination vertex t from each vertex v. By reversing the direction of each edge in
 the graph, we can reduce this problem to a single-source problem
 */
-func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
+func (us *Dijkstra) ShortestPath(s da.Index, heapPool *sync.Pool) []float64 {
 	us.pq = heapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
 	us.pq.Clear()
 
@@ -54,19 +54,15 @@ func (us *Dijkstra) ShortestPath(asId da.Index, heapPool *sync.Pool) []float64 {
 	}
 	defer done()
 
-	s := da.Index(0)
 	sForwardId := da.Index(0)
 	if !us.useReverseGraph {
-		sOutEdge := us.graph.GetOutEdge(asId)
-		s = sOutEdge.GetHead()
+		// v - sInEdge -> s
 
 		// for iterating outEdges, we need entryOffset.
-		sForwardId = us.graph.GetEntryOffset(s) + da.Index(sOutEdge.GetEntryPoint())
+		sForwardId = us.graph.GetEntryOffset(s) + us.graph.GetInDegree(s) - 1 // dummy edge
 	} else {
-		sInEdge := us.graph.GetInEdge(asId)
-		s = sInEdge.GetTail()
-
-		sForwardId = us.graph.GetExitOffset(s) + da.Index(sInEdge.GetExitPoint())
+		// s - sOutEdge -> w
+		sForwardId = us.graph.GetExitOffset(s) + us.graph.GetOutDegree(s) - 1 // dummy edge
 	}
 
 	noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
@@ -191,6 +187,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			edgeWeight := us.metrics.GetWeight(hwType, weight, length)
 
 			turnCost := us.metrics.GetTurnCost(turnType)
+
 			if uId == source {
 				turnCost = 0
 			}

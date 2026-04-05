@@ -259,8 +259,10 @@ func main() {
 		s := q.s
 		t := q.t
 		id := q.id
-		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
-		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
+		inEdgeToS := g.GetEntryOffset(s) + g.GetInDegree(s) - 1
+		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
+		outEdgeFromTarget := g.GetExitOffset(t) + g.GetOutDegree(t) - 1
+		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
@@ -297,7 +299,7 @@ func main() {
 		return newCounterExampleData(0, 0, nil, nil, false)
 	}
 
-	workers := concurrent.NewWorkerPool[query, counterExampleData](100, n*numberOfVertices)
+	workers := concurrent.NewWorkerPool[query, counterExampleData](12, n*numberOfVertices)
 
 	for i := 0; i < n; i++ {
 		s := queries[i]

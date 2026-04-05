@@ -129,7 +129,6 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 	wg.Add(1)
 
 	if numJobs == 0 {
-
 		close(iflowInChan)
 		wg.Done()
 	}

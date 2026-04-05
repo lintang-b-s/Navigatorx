@@ -79,7 +79,8 @@ func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []da.V
 		// O(V)
 		dist := geo.CalculateGreatCircleDistance(v.GetLat(), v.GetLon(),
 			centerLat, centerLon)
-		if dist < minMidDist {
+		validLandmark := graph.GetOutDegree(v.GetID()) != 0 && graph.GetInDegree(v.GetID()) != 0
+		if dist < minMidDist && validLandmark {
 			minMidDist = dist
 			midLandmark = v
 		}
@@ -118,7 +119,9 @@ func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []da.V
 		maxDist := math.Inf(-1)
 		for j, v := range pie {
 			midToVDist := geo.CalculateGreatCircleDistance(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
-			if midToVDist > maxDist {
+			validLandmark := graph.GetOutDegree(v.GetID()) != 0 && graph.GetInDegree(v.GetID()) != 0
+
+			if midToVDist > maxDist && validLandmark {
 				maxDist = midToVDist
 				terjauhId = j
 			}
@@ -222,10 +225,8 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 			sid := qp.getSid()
 			il := qp.getIndex()
 
-			asl := graph.GetDummyOutEdgeId(sid)
-
 			crpQuery := NewDijkstra(graph, m, false) // O(mlogm). at most m items in pq (edge-based), decrease/insert key operation at most m times, extractMin operation at most m times
-			sps := crpQuery.ShortestPath(asl, &heapPool)
+			sps := crpQuery.ShortestPath(sid, &heapPool)
 			dijkstraOutChan <- newQueryRet(il, sps)
 			wg.Done()
 		}
@@ -236,9 +237,8 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 			sid := qp.getSid()
 			il := qp.getIndex()
 			crpQuery := NewDijkstra(graph, m, true) // O(mlogm)
-			at := graph.GetDummyInEdgeId(sid)       // dummy edge (s,s)
 
-			sps := crpQuery.ShortestPath(at, &heapPool)
+			sps := crpQuery.ShortestPath(sid, &heapPool)
 			dijkstraRevOutChan <- newQueryRet(il, sps)
 			wg.Done()
 		}

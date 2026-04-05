@@ -40,25 +40,26 @@ type restriction struct {
 }
 
 type osmWay struct {
-	nodes  []da.Index
-	oneWay bool
-	hwTag  string
+	nodes      []int64    // osm  nodes dari osm way ini
+	graphNodes []da.Index // osm nodes yang jadi graph node dari osm way ini
+	oneWay     bool
+	hwTag      string
 }
 
 type OsmParser struct {
-	wayNodeMap         map[int64]NodeType
+	wayNodeMap         map[int64]NodeType // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END)
 	relationMemberMap  map[int64]struct{}
-	acceptedNodeMap    map[int64]NodeCoord
-	barrierNodes       map[int64]bool
+	acceptedNodeMap    map[int64]NodeCoord // osm node Id yang ada di osm way yang accepted (type dari osm waynya adalah highway) -> node coordinate
+	barrierNodes       map[int64]bool      // osm node Id -> barrier node flag
 	nodeTag            map[int64]map[uint32]uint32
 	tagStringIdMap     util.IDMap
-	nodeIDMap          map[int64]da.Index
-	nodeToOsmId        map[da.Index]int64
+	nodeIDMap          map[int64]da.Index // osm node Id -> graph nodeId
+	nodeToOsmId        map[da.Index]int64 // graph nodeId -> osm node Id
 	maxNodeID          int64
 	restrictions       map[int64][]restriction // wayId -> list of restrictions
-	ways               map[int64]osmWay
+	ways               map[int64]osmWay        // wayId -> osm way
 	trafficEdges       []da.Index
-	osmWayDefaultSpeed map[int64]float64
+	osmWayDefaultSpeed map[int64]float64 // wayId -> default max speed
 	edgeSet            hashset.Uint64Set
 	bb                 *da.BoundingBox
 }
@@ -192,7 +193,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 		}
 	}
 	scanner.Close()
-	graphStorage := da.NewGraphStorage()
+	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
@@ -257,10 +258,10 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 				} else {
 					wayExtraInfoData.forward = true
 				}
-				wNodes := make([]da.Index, 0, len(way.Nodes))
+				wNodes := make([]int64, 0, len(way.Nodes))
 				for _, node := range way.Nodes {
-					nodeID := p.nodeIDMap[int64(node.ID)]
-					wNodes = append(wNodes, nodeID)
+
+					wNodes = append(wNodes, int64(node.ID))
 				}
 				p.ways[int64(way.ID)] = osmWay{
 					nodes:  wNodes,
@@ -334,7 +335,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 
 	logger.Sugar().Infof("building road network graph.... ")
 
-	graph, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false)
+	graph, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false, true)
 	graphStorage.BuildNameTable(p.tagStringIdMap.GetIdToStr())
 	graph.SetGraphStorage(graphStorage)
 	graph.SetBoundingBox(p.bb)
@@ -357,6 +358,21 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 			streetDirectionBackward.Set(uint(eId))
 		}
 	})
+
+	for i, way := range p.ways {
+		graphNodes := make([]da.Index, 0)
+		for _, node := range way.nodes {
+			graphNodeId, exists := p.nodeIDMap[node]
+			if !exists {
+				continue
+			}
+			graphNodes = append(graphNodes, graphNodeId)
+		}
+
+		way := p.ways[i]
+		way.graphNodes = graphNodes
+		p.ways[i] = way
+	}
 
 	graphStorage.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
 
@@ -674,15 +690,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			graphStorage.AppendOsmNodePoints(edgePoints)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
-				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-				(p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])),
-				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
-				uint8(lanes),
-
-				da.Index(startPointsIndex), da.Index(endPointsIndex),
+			graphStorage.AppendEdgeMetadata(
 				id,
-			))
+				da.Index(startPointsIndex), da.Index(endPointsIndex),
+				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
+				pkg.GetHighwayType(tempMap[ROAD_CLASS]),
+				pkg.GetHighwayType(tempMap[ROAD_CLASS_LINK]),
+				uint8(lanes),
+			)
 
 			graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
 
@@ -715,15 +730,13 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			graphStorage.AppendOsmNodePoints(edgePoints)
 			endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-			graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
-				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS]),
-				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
-				uint8(lanes),
-
-				da.Index(startPointsIndex), da.Index(endPointsIndex),
+			graphStorage.AppendEdgeMetadata(
 				id,
-			),
+				da.Index(startPointsIndex), da.Index(endPointsIndex),
+				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
+				pkg.GetHighwayType(tempMap[ROAD_CLASS]),
+				pkg.GetHighwayType(tempMap[ROAD_CLASS_LINK]),
+				uint8(lanes),
 			)
 
 			graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
@@ -755,15 +768,13 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		graphStorage.AppendOsmNodePoints(edgePoints)
 		endPointsIndex := graphStorage.GetOsmNodePointsCount()
 
-		graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
-			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS]),
-			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
-			uint8(lanes),
-
-			da.Index(startPointsIndex), da.Index(endPointsIndex),
+		graphStorage.AppendEdgeMetadata(
 			id,
-		),
+			da.Index(startPointsIndex), da.Index(endPointsIndex),
+			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
+			pkg.GetHighwayType(tempMap[ROAD_CLASS]),
+			pkg.GetHighwayType(tempMap[ROAD_CLASS_LINK]),
+			uint8(lanes),
 		)
 
 		graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
@@ -790,14 +801,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		}
 		p.edgeSet.Add(setKeyRev)
 
-		graphStorage.AppendEdgeInfos(da.NewEdgeExtraInfo(
-			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS]),
-			p.tagStringIdMap.GetID(tempMap[ROAD_CLASS_LINK]),
-			uint8(lanes),
-			da.Index(endPointsIndex), da.Index(startPointsIndex),
+		graphStorage.AppendEdgeMetadata(
 			id,
-		))
+			da.Index(endPointsIndex), da.Index(startPointsIndex),
+			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
+			pkg.GetHighwayType(tempMap[ROAD_CLASS]),
+			pkg.GetHighwayType(tempMap[ROAD_CLASS_LINK]),
+			uint8(lanes),
+		)
 
 		graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
 

@@ -206,7 +206,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true)
+		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true, false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -459,6 +459,9 @@ func TestCRPQueryStressTest(t *testing.T) {
 	i := 0
 	for i < n {
 		s := da.Index(rd.Intn(V))
+		if g.GetOutDegree(s) == 0 || g.GetInDegree(s) == 0 {
+			continue
+		}
 
 		if _, ok := qset[s]; ok {
 			continue
@@ -530,8 +533,10 @@ func TestCRPQueryStressTest(t *testing.T) {
 		s := q.s
 		target := q.t
 		id := q.id
-		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
-		at := g.GetEntryOffset(target) + g.GetInDegree(target) - 1
+		inEdgeToS := g.GetEntryOffset(s) + g.GetInDegree(s) - 1
+		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
+		outEdgeFromTarget := g.GetExitOffset(target) + g.GetOutDegree(target) - 1
+		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 		sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
 
@@ -571,9 +576,8 @@ func TestCRPQueryStressTest(t *testing.T) {
 	for res := range workers.CollectResults() {
 		if res.counterexample {
 			t.Logf("found counterExample!!\n")
-			t.Errorf("found counter example!!, expected shortest path cost: %f, got: %f", res.crpALTSP, res.expectedSp)
+			t.Errorf("found counter example!!, expected shortest path cost: %f, got: %f", res.expectedSp, res.crpALTSP)
 
-			t.Logf("expected shortest path travel time: %f, got: %f\n", res.expectedSp, res.crpALTSP)
 			cancel()
 
 			t.Logf("\n")

@@ -7,7 +7,12 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
-func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorage, numV uint32, skipUTurn bool) (*da.Graph, [][]da.Index) {
+// BuildGraph. build graph data structure from list of edges.
+// roadNetwork = flag if the graph is a road network graph.
+// test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
+// jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph.
+// hal ini karena Customizable Route Planning (CRP) Query phase (support turn costs) mengasumsikan setiap vertices memiliki setidaknya satu edge.
+func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorage, numV uint32, skipUTurn bool, roadNetwork bool) (*da.Graph, [][]da.Index) {
 	var (
 		outEdges    [][]da.OutEdge = make([][]da.OutEdge, numV)
 		inEdges     [][]da.InEdge  = make([][]da.InEdge, numV)
@@ -18,8 +23,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	)
 
 	for v := 0; v < int(numV)+1; v++ {
-		vertices[v] = da.NewVertex(0, 0, da.Index(v), 0)
+		vertices[v] = da.NewVertex(0, 0, da.Index(v))
 	}
+
+	vertexOsmIds := make([]uint64, numV)
 
 	for eId, e := range scannedEdges {
 		u := da.Index(e.from)
@@ -43,36 +50,38 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		inDegree[v]++
 
 		uData := p.acceptedNodeMap[p.nodeToOsmId[da.Index(u)]]
-		vertices[u] = da.NewVertex(uData.lat, uData.lon, u, uOsmId)
+		vertices[u] = da.NewVertex(uData.lat, uData.lon, u)
 
 		vData := p.acceptedNodeMap[p.nodeToOsmId[da.Index(v)]]
-		vertices[v] = da.NewVertex(vData.lat, vData.lon, v, vOsmId)
+		vertices[v] = da.NewVertex(vData.lat, vData.lon, v)
+
+		vertexOsmIds[u] = uOsmId
+		vertexOsmIds[v] = vOsmId
 	}
 
 	for v := 0; v < len(vertices)-1; v++ {
-		// we need to do this because crp query assume all vertex have at least one outEdge (at for target as source)
+		// we need to do this because Customizable Route Planning (with turn costs) query assume all vertex have at least one outEdge (at for target as source)
+		if !roadNetwork || (roadNetwork && (outDegree[v] == 0 || inDegree[v] == 0)) {
+			dummyOut := da.NewOutEdge(da.INVALID_EDGE_ID, da.Index(v),
+				0, 0, da.Index(len(inEdges[v])), pkg.INVALID_HIGHWAY)
+			outEdges[v] = append(outEdges[v], dummyOut)
+			edgeInfoIds[v] = append(edgeInfoIds[v], da.INVALID_EDGE_INFO_ID)
+			outDegree[v]++
 
-		dummyOut := da.NewOutEdge(da.INVALID_EDGE_ID, da.Index(v),
-			0, 0, da.Index(len(inEdges[v])), pkg.UNKNOWN)
-		outEdges[v] = append(outEdges[v], dummyOut)
-		edgeInfoIds[v] = append(edgeInfoIds[v], da.INVALID_EDGE_INFO_ID)
-		outDegree[v]++
-
-		dummyIn := da.NewInEdge(da.INVALID_EDGE_ID, da.Index(v),
-			0, 0, da.Index(len(outEdges[v])-1), pkg.UNKNOWN)
-		inEdges[v] = append(inEdges[v], dummyIn)
-		inDegree[v]++
-		graphStorage.AppendEdgeInfos(
-			da.NewEdgeExtraInfo(
-				p.tagStringIdMap.GetID(""),
-				p.tagStringIdMap.GetID(""),
-				p.tagStringIdMap.GetID(""),
-				uint8(0),
-
-				da.Index(uint32(math.Pow(1, 30))), da.Index(uint32(math.Pow(1, 30))),
+			dummyIn := da.NewInEdge(da.INVALID_EDGE_ID, da.Index(v),
+				0, 0, da.Index(len(outEdges[v])-1), pkg.INVALID_HIGHWAY)
+			inEdges[v] = append(inEdges[v], dummyIn)
+			inDegree[v]++
+			graphStorage.AppendEdgeMetadata(
 				-1,
-			),
-		)
+				1, 1,
+				p.tagStringIdMap.GetID(""),
+				pkg.INVALID_HIGHWAY,
+				pkg.INVALID_HIGHWAY,
+				uint8(0),
+			)
+
+		}
 	}
 
 	turnMatrices := make([][]pkg.TurnType, len(vertices)-1)
@@ -87,67 +96,179 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		}
 	}
 
-	// store u_turn restrictions
-	if !skipUTurn {
-		for _, e := range scannedEdges {
-			// dont allow u_turns at (u,v) -> (v,u)
-			via := da.Index(e.from)
-			if inDegree[via] != 1 || outDegree[via] != 1 {
-				to := da.Index(e.to)
+	for wayID, way := range p.ways {
+		/*
+			misal osm way (twoway):
+				u1<->u2<->u3<->u4
 
-				entryId := -1
-				exitId := -1
-				for k := 0; k < len(outEdges[via]); k++ {
-					if outEdges[via][k].GetHead() == to {
-						exitId = k
-						break
-					}
-				}
+				kita harus diallow semua u_turn dari edges yanng menyusun twoway osm way tsb:
+				list u_turn:
+				u1->u2->u1
 
-				for k := 0; k < len(inEdges[via]); k++ {
-					if inEdges[via][k].GetTail() == to {
-						entryId = k
-						break
-					}
-				}
-				if entryId == -1 || exitId == -1 {
+				u2->u3->u2
+				u2->u1->u2
+
+				u3->u4->u3
+				u3->u2->u3
+
+				u4->u3->u4
+		*/
+		if !way.oneWay {
+
+			for i, via := range way.graphNodes {
+				if inDegree[via] == 1 && outDegree[via] == 1 {
 					continue
 				}
-				turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
-			}
 
-			// to
-			via = da.Index(e.to)
-			if inDegree[via] != 1 || outDegree[via] != 1 {
-				to := da.Index(e.from)
-
-				entryId := -1
-				exitId := -1
-				for k := 0; k < len(outEdges[via]); k++ {
-					if outEdges[via][k].GetHead() == to {
-						exitId = k
-						break
-					}
-				}
-
-				for k := 0; k < len(inEdges[via]); k++ {
-					if inEdges[via][k].GetTail() == to {
-						entryId = k
-						break
-					}
-				}
-
-				if entryId == -1 || exitId == -1 {
+				if len(way.graphNodes) <= 1 {
 					continue
 				}
-				turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
+
+				if i == 0 {
+					// store u_turn restrictions
+					// dont allow u_turn at (to, via)->(via, to)
+					to := way.graphNodes[1]
+					if to == via {
+						continue
+					}
+
+					entryId := -1
+					exitId := -1
+					for k := 0; k < len(outEdges[via]); k++ {
+						if outEdges[via][k].GetHead() == to {
+							exitId = k
+							break
+						}
+					}
+
+					for k := 0; k < len(inEdges[via]); k++ {
+						if inEdges[via][k].GetTail() == to {
+							entryId = k
+							break
+						}
+					}
+
+					if entryId == -1 || exitId == -1 {
+						continue
+					}
+
+					turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
+				} else if i < len(way.graphNodes)-1 {
+
+					// backward
+					to := way.graphNodes[i-1]
+					if to == via {
+						continue
+					}
+
+					entryId := -1
+					exitId := -1
+					for k := 0; k < len(outEdges[via]); k++ {
+						if outEdges[via][k].GetHead() == to {
+							exitId = k
+							break
+						}
+					}
+
+					for k := 0; k < len(inEdges[via]); k++ {
+						if inEdges[via][k].GetTail() == to {
+							entryId = k
+							break
+						}
+					}
+
+					if entryId != -1 && exitId != -1 {
+						turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
+					}
+
+					// forward
+					to = way.graphNodes[i+1]
+					if to == via {
+						continue
+					}
+
+					entryId = -1
+					exitId = -1
+					for k := 0; k < len(outEdges[via]); k++ {
+						if outEdges[via][k].GetHead() == to {
+							exitId = k
+							break
+						}
+					}
+
+					for k := 0; k < len(inEdges[via]); k++ {
+						if inEdges[via][k].GetTail() == to {
+							entryId = k
+							break
+						}
+					}
+
+					if entryId != -1 && exitId != -1 {
+						turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
+					}
+				} else {
+					// last node in way.graphNodes
+					to := way.graphNodes[i-1]
+
+					if to == via {
+						continue
+					}
+
+					entryId := -1
+					exitId := -1
+					for k := 0; k < len(outEdges[via]); k++ {
+						if outEdges[via][k].GetHead() == to {
+							exitId = k
+							break
+						}
+					}
+
+					for k := 0; k < len(inEdges[via]); k++ {
+						if inEdges[via][k].GetTail() == to {
+							entryId = k
+							break
+						}
+					}
+
+					if entryId == -1 || exitId == -1 {
+						continue
+					}
+
+					turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
+				}
 			}
 		}
 
-	}
-	// store turn restrictions
-	for wayID, way := range p.ways {
-		fromNodes := way.nodes
+		// store turn restrictions https://wiki.openstreetmap.org/wiki/Relation:restriction
+		/*
+				turn restriction berbentuk: {from-way, via-node, to-way}
+				di kode ini:
+				wayId/way: from-way
+				restriction.to: to-way
+
+				via-node berada di nodes nya from-way
+
+				contoh: https://www.openstreetmap.org/relation/19474168#map=19/-7.782550/110.375438
+				https://www.openstreetmap.org/api/0.6/relation/19474168
+				https://www.openstreetmap.org/relation/5710500
+
+			jadi kita pertama harus cari way.graphNodes yang jadi via-node
+
+			note that from-way ke to-way bisa terhubung karena ada via-node yang jadi node di kedua way
+			misal:
+			u1 -> u2->via -> w1 ->w2
+			from-way      to-way
+			nah via ini jadi node di from-way.graphNodes dan to-way.graphNodes
+
+			langkah kedua kita harus cari to-way.graphNodes yang == restriction.via
+
+			kita store turnTables as:
+			key (entryId, viaNode, exitId) -> tipe dari turn restrictionnya
+			entryId adalah inEdge yang headnya ke viaNode
+			exitId adalah outEdge yang tailnya dari viaNode
+
+		*/
+		fromNodes := way.graphNodes
 		fromRestrictions := p.restrictions[wayID]
 		for _, restriction := range fromRestrictions {
 			_, isAcceptedNode := p.nodeIDMap[int64(restriction.via)]
@@ -177,8 +298,9 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 					if predecessor == restriction.via {
 						continue
 					}
+
 					successor := da.Index(math.MaxUint32)
-					toNodes := p.ways[int64(restriction.to)].nodes
+					toNodes := p.ways[int64(restriction.to)].graphNodes
 					for j := 0; j < len(toNodes)-1; j++ {
 						if toNodes[j] == restriction.via {
 							if j == len(toNodes)-1 {
@@ -285,7 +407,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	inEdgeOffset := da.Index(0)
 
 	for i := 0; i < len(vertices)-1; i++ {
-		vertices[i].SetTurnTablePtr(vertices[i].GetTurnTablePtr())
 		vertices[i].SetFirstOut(outEdgeOffset) // index of the first outEdge of vertex i in the flattened outEdges array
 		vertices[i].SetFirstIn(inEdgeOffset)
 		outEdgeOffset += da.Index(len(outEdges[i]))
@@ -293,7 +414,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	}
 
 	// dummy update vertex
-	vertices[len(vertices)-1] = da.NewVertex(0, 0, da.Index(len(vertices)-1), 0)
+	vertices[len(vertices)-1] = da.NewVertex(0, 0, da.Index(len(vertices)-1))
 	vertices[len(vertices)-1].SetFirstOut(outEdgeOffset)
 	vertices[len(vertices)-1].SetFirstIn(inEdgeOffset)
 
@@ -308,7 +429,13 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		flattenInEdges[i].SetEdgeId(da.Index(i))
 	}
 
-	graph := da.NewGraph(vertices, flattenOutEdges, flattenInEdges, matrices)
+	verticesOsmIdsPs := da.NewPackedSlice(da.BIT_SIZE_OSM_NODE_ID)
+
+	for _, osmId := range vertexOsmIds {
+		verticesOsmIdsPs.Append(osmId)
+	}
+
+	graph := da.NewGraph(vertices, flattenOutEdges, flattenInEdges, matrices, roadNetwork, verticesOsmIdsPs)
 
 	return graph, edgeInfoIds
 }

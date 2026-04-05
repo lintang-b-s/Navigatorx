@@ -7,3 +7,8 @@ type QueryInfoStorage interface {
 	Clone() QueryInfoStorage
 	ForAllItems(handle func(offsetedVId Index, queryInfoId uint32))
 }
+
+type ScannedSetStorage interface {
+	Test(queryInfoId uint32) bool
+	Set(queryInfoId uint32)
+}

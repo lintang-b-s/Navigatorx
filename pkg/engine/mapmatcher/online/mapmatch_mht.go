@@ -16,10 +16,6 @@ Taguchi, S., Koide, S. and Yoshimura, T. (2019) “Online Map Matching With Rout
 Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), pp.
 338–347. Available at: https://doi.org/10.1109/TITS.2018.2812147.
 
-
-udah bisa dites pakai dataset "https://www.microsoft.com/en-us/research/publication/hidden-markov-map-matching-noise-sparseness/"
-see demo: "https://drive.google.com/file/d/1zfeQRon9ve5R2_PCEdQj1XL-mDmHvuD-/view?usp=sharing"
-datset: "https://drive.google.com/file/d/1vdKt78d2QoNej3jc0OR0ajSOFBXrGUYt/view?usp=sharing"
 */
 
 type OnlineMapMatchMHT struct {
@@ -137,7 +133,7 @@ func (om *OnlineMapMatchMHT) recur(newCands []*ma.Candidate, w float64, tau []da
 		head := lastEdge.GetHead()
 
 		om.graph.ForOutEdgeIdsOf(head, func(eId da.Index) {
-			if om.graph.SkipOutDummyEdge(head, eId) {
+			if om.graph.GetHeadOfOutEdge(head) == head {
 				return
 			}
 			eNext = append(eNext, eId)
@@ -288,7 +284,7 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo da.Index, nj in
 	e := om.graph.GetOutEdge(eFrom)
 	head := e.GetHead()
 	om.graph.ForOutEdgeIdsOf(head, func(eId da.Index) {
-		if om.graph.SkipOutDummyEdge(head, eId) {
+		if om.graph.GetHeadOfOutEdge(head) == head {
 			return
 		}
 		branch = append(branch, eId)

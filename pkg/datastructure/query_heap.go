@@ -3,7 +3,6 @@ package datastructure
 import (
 	"math"
 
-	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -14,7 +13,7 @@ type QueryHeap[T comparable] struct {
 	storage        QueryInfoStorage // map dari edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
 	maxEdgesInCell uint32
 	storageType    QueryInfoStorageType
-	scanned        *bitset.BitSet // https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
+	scanned        ScannedSetStorage
 }
 
 func NewQueryHeap[T comparable](baseSize, maxEdgesInCell uint32, tipe QueryInfoStorageType, preallocateMinHeap bool) *QueryHeap[T] {
@@ -26,10 +25,9 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell uint32, tipe QueryInfoS
 		minHeap.Preallocate(approxMaxSearchSize)
 	}
 
-	scanned := bitset.New(uint(approxMaxSearchSize))
-
 	switch tipe {
 	case TWO_LEVEL_STORAGE:
+		scanned := NewScannedBitsetStorage(approxMaxSearchSize)
 		return &QueryHeap[T]{
 			heap:           minHeap,
 			queryInfos:     make([]VertexInfo, 0, approxMaxSearchSize),
@@ -39,6 +37,8 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell uint32, tipe QueryInfoS
 			scanned:        scanned,
 		}
 	case ARRAY_STORAGE:
+		scanned := NewScannedBitsetStorage(approxMaxSearchSize)
+
 		return &QueryHeap[T]{
 			heap:           minHeap,
 			queryInfos:     make([]VertexInfo, 0, approxMaxSearchSize),
@@ -48,6 +48,8 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell uint32, tipe QueryInfoS
 			scanned:        scanned,
 		}
 	case MAP_STORAGE:
+		scanned := NewScannedSettorage(approxMaxSearchSize)
+
 		return &QueryHeap[T]{
 			heap:           minHeap,
 			queryInfos:     make([]VertexInfo, 0, approxMaxSearchSize),
@@ -57,6 +59,7 @@ func NewQueryHeap[T comparable](baseSize, maxEdgesInCell uint32, tipe QueryInfoS
 			scanned:        scanned,
 		}
 	default:
+		scanned := NewScannedBitsetStorage(approxMaxSearchSize)
 		return &QueryHeap[T]{
 			heap:           minHeap,
 			queryInfos:     make([]VertexInfo, 0, approxMaxSearchSize),
@@ -105,7 +108,7 @@ func (qh *QueryHeap[T]) DecreaseKey(id Index, newPriority, qInfoPriority float64
 	qh.heap.DecreaseKey(heapNodeId, newPriority, qh.updatePosition)
 }
 
-// Get. Get queryInfo dari node
+// Get. Get queryInfo travel time dari node
 // node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T]) GetPriority(id Index) float64 {
 	qInfoId := qh.storage.Get(id)
@@ -149,7 +152,7 @@ func (qh *QueryHeap[T]) GetMinrank() float64 {
 // node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T]) Scan(id Index) {
 	qInfoId := qh.storage.Get(id)
-	qh.scanned.Set(uint(qInfoId))
+	qh.scanned.Set(qInfoId)
 }
 
 func (qh *QueryHeap[T]) SetFirstOverlayEntryExitId(id Index, firstEntryExitId Index) {
@@ -158,10 +161,16 @@ func (qh *QueryHeap[T]) SetFirstOverlayEntryExitId(id Index, firstEntryExitId In
 }
 
 func (qh *QueryHeap[T]) Set(id Index, vInfo VertexInfo, queryKey T) {
-	newQueryInfoid := uint32(len(qh.queryInfos))
+	qInfoId := qh.storage.Get(id)
+	if qInfoId == math.MaxUint32 {
+		newQueryInfoid := uint32(len(qh.queryInfos))
+		qh.queryInfos = append(qh.queryInfos, vInfo)
+		qh.storage.Set(id, newQueryInfoid)
+		return
+	}
 
-	qh.queryInfos = append(qh.queryInfos, vInfo)
-	qh.storage.Set(id, newQueryInfoid)
+	qh.queryInfos[qInfoId].UpdateParent(vInfo.GetParent())
+	qh.queryInfos[qInfoId].UpdateTravelTime(vInfo.GetTravelTime())
 }
 
 func (qh *QueryHeap[T]) IsEmpty() bool {
@@ -178,7 +187,7 @@ func (qh *QueryHeap[T]) IsScanned(id Index) bool {
 	if qInfoId == math.MaxUint32 { // belum ke label & ke scan
 		return false
 	}
-	return qh.scanned.Test(uint(qInfoId))
+	return qh.scanned.Test(qInfoId)
 }
 
 func (qh *QueryHeap[T]) IsLabelled(id Index) bool {

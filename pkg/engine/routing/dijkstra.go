@@ -40,19 +40,13 @@ useReversedGraph = true -> buat cari sssp dari every vertices in graph to s
 */
 func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 	var (
-		asId, sForwardId da.Index
+		sForwardId da.Index
 	)
 
 	if !us.useReversedEdges {
-		asId = us.engine.graph.GetExitOffset(s) + us.engine.graph.GetOutDegree(s) - 1 // dummy edge (s,s)
-		// for iterating outEdges, we need entryOffset.
-		asOutEdge := us.engine.graph.GetOutEdge(asId)
-		sForwardId = us.engine.graph.GetEntryOffset(s) + da.Index(asOutEdge.GetEntryPoint())
-
+		sForwardId = us.engine.graph.GetEntryOffset(s) + us.engine.graph.GetInDegree(s) - 1
 	} else {
-		asId = us.engine.graph.GetEntryOffset(s) + us.engine.graph.GetInDegree(s) - 1 // dummy edge (s,s)
-		asInEdge := us.engine.graph.GetInEdge(asId)
-		sForwardId = us.engine.graph.GetExitOffset(s) + da.Index(asInEdge.GetExitPoint())
+		sForwardId = us.engine.graph.GetExitOffset(s) + us.engine.graph.GetOutDegree(s) - 1
 	}
 
 	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
@@ -182,6 +176,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 			edgeWeight := us.engine.metrics.GetWeight(hwType, weight, length)
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
+
 			if uId == source {
 				turnCost = 0
 			}
@@ -238,6 +233,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 			edgeWeight := us.engine.metrics.GetWeight(hwType, weight, length)
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
+
 			if uId == source {
 				turnCost = 0
 			}

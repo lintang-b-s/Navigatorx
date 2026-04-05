@@ -39,24 +39,25 @@ type OsmHighwayType uint8
 
 // enum buat osm highway buat routing: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
 const (
-	MOTORWAY       OsmHighwayType = 0
-	TRUNK          OsmHighwayType = 1
-	PRIMARY        OsmHighwayType = 2
-	SECONDARY      OsmHighwayType = 3
-	TERTIARY       OsmHighwayType = 4
-	RESIDENTIAL    OsmHighwayType = 5
-	SERVICE        OsmHighwayType = 6
-	UNCLASSIFIED   OsmHighwayType = 7
-	MOTORWAY_LINK  OsmHighwayType = 8
-	TRUNK_LINK     OsmHighwayType = 9
-	PRIMARY_LINK   OsmHighwayType = 10
-	SECONDARY_LINK OsmHighwayType = 11
-	TERTIARY_LINK  OsmHighwayType = 12
-	LIVING_STREET  OsmHighwayType = 13
-	ROAD           OsmHighwayType = 14
-	TRACK          OsmHighwayType = 15
-	MOTORROAD      OsmHighwayType = 16
-	UNKNOWN        OsmHighwayType = 17
+	MOTORWAY        OsmHighwayType = 0
+	TRUNK           OsmHighwayType = 1
+	PRIMARY         OsmHighwayType = 2
+	SECONDARY       OsmHighwayType = 3
+	TERTIARY        OsmHighwayType = 4
+	RESIDENTIAL     OsmHighwayType = 5
+	SERVICE         OsmHighwayType = 6
+	UNCLASSIFIED    OsmHighwayType = 7
+	MOTORWAY_LINK   OsmHighwayType = 8
+	TRUNK_LINK      OsmHighwayType = 9
+	PRIMARY_LINK    OsmHighwayType = 10
+	SECONDARY_LINK  OsmHighwayType = 11
+	TERTIARY_LINK   OsmHighwayType = 12
+	LIVING_STREET   OsmHighwayType = 13
+	ROAD            OsmHighwayType = 14
+	TRACK           OsmHighwayType = 15
+	MOTORROAD       OsmHighwayType = 16
+	UNKNOWN         OsmHighwayType = 17
+	INVALID_HIGHWAY OsmHighwayType = 255
 )
 
 func GetHighwayType(roadType string) OsmHighwayType {
@@ -97,5 +98,46 @@ func GetHighwayType(roadType string) OsmHighwayType {
 		return MOTORROAD
 	default:
 		return UNKNOWN
+	}
+}
+
+func GetHighwayTypeString(highwayType OsmHighwayType) string {
+	switch highwayType {
+	case MOTORWAY:
+		return "motorway"
+	case TRUNK:
+		return "trunk"
+	case PRIMARY:
+		return "primary"
+	case SECONDARY:
+		return "secondary"
+	case TERTIARY:
+		return "tertiary"
+	case UNCLASSIFIED:
+		return "unclassified"
+	case RESIDENTIAL:
+		return "residential"
+	case SERVICE:
+		return "service"
+	case MOTORWAY_LINK:
+		return "motorway_link"
+	case TRUNK_LINK:
+		return "trunk_link"
+	case PRIMARY_LINK:
+		return "primary_link"
+	case SECONDARY_LINK:
+		return "secondary_link"
+	case TERTIARY_LINK:
+		return "tertiary_link"
+	case LIVING_STREET:
+		return "living_street"
+	case ROAD:
+		return "road"
+	case TRACK:
+		return "track"
+	case MOTORROAD:
+		return "motorroad"
+	default:
+		return "unknown"
 	}
 }

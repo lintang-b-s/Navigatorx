@@ -4,20 +4,21 @@ import (
 	"sort"
 
 	"github.com/bits-and-blooms/bitset"
+	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
 // bisa ngurangin banyak heap allocations
 // ini pakai file osm diy_solo_jogja physical mem (RES): 1.6 gb -> sekarang 1.1 gb setelah gak pake pointer  buat graph []Vertex, []OutEdge, []InEdge, overlay graph []OverlayVertex dll
+// -> sekarang setelah implement da.PackedSlice + add dummy edge untuk vertex dengan outdegree/indegree = 0: cuma 906mb
 // osrm pakai file osm diy_solo_jogja physical mem (RES): cuma 520 mb
-// todo: coba implement packed_vector  osrm (bikin lebih simple) buat simpan osm node Ids dan osm way Ids: https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/packed_vector.md
-// https://wiki.openstreetmap.org/wiki/Stats: 2025 ada 10 billions osm node ids dan 500 jt osm way ids
-// bisa pake packed vector 34 bit untuk  store osm node id, dan 32 bit untuk osm way id ?
-// todo2: coba implement name table osrm (bikin lebih simple): https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/osrm-toolchain-files/map.osrm.names.md
+// todo: coba implement packed_vector  osrm (bikin lebih simple) buat simpan osm node Ids dan osm way Ids: https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/packed_vector.md (DONE)
+// https://wiki.openstreetmap.org/wiki/Stats: 2025 ada 10 billions osm node ids dan 500 jt osm way ids (DONE)
+// bisa pake packed vector 34 bit untuk  store osm node id, dan 33 bit untuk osm way id ?
+// todo2: coba implement name table osrm (bikin lebih simple): https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/osrm-toolchain-files/map.osrm.names.md (ini gak usah)
 // daripada slice of string di idmap.go, mungkin implement simplified name table bisa ngurangin space lebih banyak lagi, pakai single slice []byte/[]rune buat semua strings tapi ada offset & size utk setiap item?
-// buat edgeInfos juga mending jadiin slice setiap field daripada slice of struct
+// todo3: buat edgeInfos juga mending jadiin slice setiap field daripada slice of struct
 
 type GraphStorage struct {
-	edgeInfos     []EdgeExtraInfo
 	osmNodePoints []Coordinate
 	nameTable     []string // map dari integer ke string (tag name di osm way)
 
@@ -26,23 +27,41 @@ type GraphStorage struct {
 	streetDirectionBackward *bitset.BitSet
 	roundaboutFlag          *bitset.BitSet
 	nodeTrafficLight        *bitset.BitSet
+
+	// metadata dari edges
+	edgeStartPointsIndex []Index
+	edgeEndPointsIndex   []Index
+	streetName           []uint32
+	roadClass            []pkg.OsmHighwayType
+	roadClassLink        []pkg.OsmHighwayType
+	lanes                []uint8
+	edgeOsmWayId         *PackedSlice // map dari outEdgeId ke osm way id dari edge
+	osmwayBitSize        uint8
 }
 
-func NewGraphStorage() *GraphStorage {
+func NewGraphStorage(osmwayBitSize uint8) *GraphStorage {
+
 	return &GraphStorage{
 		streetDirectionForward:  bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		streetDirectionBackward: bitset.New(INITIAL_BIT_VECTOR_SIZE),
-		edgeInfos:               make([]EdgeExtraInfo, 0),
 		roundaboutFlag:          bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		nodeTrafficLight:        bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		osmNodePoints:           make([]Coordinate, 0),
+		edgeOsmWayId:            NewPackedSlice(osmwayBitSize), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
+		osmwayBitSize:           osmwayBitSize,
+		edgeStartPointsIndex:    make([]Index, 0),
+		edgeEndPointsIndex:      make([]Index, 0),
+		streetName:              make([]uint32, 0),
+		roadClass:               make([]pkg.OsmHighwayType, 0),
+		roadClassLink:           make([]pkg.OsmHighwayType, 0),
+		lanes:                   make([]uint8, 0),
 	}
 }
 
 func BuildGraphStorage(osmNodePoints []Coordinate, roundaboutFlag, nodeTrafficLight *bitset.BitSet,
-	edgeInfos []EdgeExtraInfo, streetDirectionForward, streetDirectionBackward *bitset.BitSet) *GraphStorage {
+	streetDirectionForward, streetDirectionBackward *bitset.BitSet) *GraphStorage {
 	return &GraphStorage{osmNodePoints: osmNodePoints, roundaboutFlag: roundaboutFlag,
-		nodeTrafficLight: nodeTrafficLight, edgeInfos: edgeInfos,
+		nodeTrafficLight:       nodeTrafficLight,
 		streetDirectionForward: streetDirectionForward, streetDirectionBackward: streetDirectionBackward}
 }
 
@@ -50,19 +69,32 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 	return &GraphStorage{
 		streetDirectionForward:  bitset.New(uint(numberOfEdges)),
 		streetDirectionBackward: bitset.New(uint(numberOfEdges)),
-		edgeInfos:               make([]EdgeExtraInfo, numberOfEdges),
 		roundaboutFlag:          bitset.New(uint(numberOfEdges)),
 		nodeTrafficLight:        bitset.New(uint(numberOfVertices)),
 		osmNodePoints:           make([]Coordinate, 1),
+		edgeOsmWayId:            NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID),
+		edgeStartPointsIndex:    make([]Index, 0),
+		edgeEndPointsIndex:      make([]Index, 0),
+		streetName:              make([]uint32, 0),
+		roadClass:               make([]pkg.OsmHighwayType, 0),
+		roadClassLink:           make([]pkg.OsmHighwayType, 0),
+		lanes:                   make([]uint8, 0)}
+}
+
+func (gs *GraphStorage) IsRoundabout(edgeId Index) bool {
+	return gs.roundaboutFlag.Test(uint(edgeId))
+
+}
+func (gs *GraphStorage) SetRoundabout(edgeId Index, isRoundabout bool) {
+	if isRoundabout {
+		gs.roundaboutFlag.Set(uint(edgeId))
+	} else {
+		gs.roundaboutFlag.Clear(uint(edgeId))
 	}
 }
 
-func (gs *GraphStorage) SetRoundabout(edgeID Index, isRoundabout bool) {
-	if isRoundabout {
-		gs.roundaboutFlag.Set(uint(edgeID))
-	} else {
-		gs.roundaboutFlag.Clear(uint(edgeID))
-	}
+func (gs *GraphStorage) GetOsmwayBitSize() uint8 {
+	return gs.osmwayBitSize
 }
 
 func (gs *GraphStorage) SetStreetDirection(streetDirectionForward, streetDirectionBackward *bitset.BitSet) {
@@ -93,41 +125,10 @@ func (gs *GraphStorage) GetTrafficLight(nodeID Index) bool {
 	return gs.nodeTrafficLight.Test(uint(nodeID))
 }
 
-type EdgeExtraInfo struct {
-	osmWayId         int64
-	startPointsIndex Index // edge geometry start index di gs.osmNodePoints
-	endPointsIndex   Index
-	streetName       uint32
-	roadClass        uint32
-	roadClassLink    uint32
-	lanes            uint8
-}
-
-func NewEdgeExtraInfo(streetName uint32, roadClass, roadClassLink uint32, lanes uint8, StartPointsIdx, EndPointsIdx Index,
-	osmWayId int64) EdgeExtraInfo {
-	return EdgeExtraInfo{
-		streetName:       streetName,
-		roadClass:        roadClass,
-		roadClassLink:    roadClassLink,
-		lanes:            lanes,
-		startPointsIndex: StartPointsIdx,
-		endPointsIndex:   EndPointsIdx,
-		osmWayId:         osmWayId,
-	}
-}
-
-func (e *EdgeExtraInfo) GetStartPointsIndex() Index {
-	return e.startPointsIndex
-}
-
-func (e *EdgeExtraInfo) GetEndPointsIndex() Index {
-	return e.endPointsIndex
-}
-
 func (gs *GraphStorage) GetEdgeGeometryLength(edgeID Index) int {
 
-	startIndex := gs.edgeInfos[edgeID].startPointsIndex
-	endIndex := gs.edgeInfos[edgeID].endPointsIndex
+	startIndex := gs.edgeStartPointsIndex[edgeID]
+	endIndex := gs.edgeEndPointsIndex[edgeID]
 	if startIndex < endIndex {
 		return int(endIndex) - int(startIndex)
 	}
@@ -136,8 +137,8 @@ func (gs *GraphStorage) GetEdgeGeometryLength(edgeID Index) int {
 
 func (gs *GraphStorage) AppendPathWithEdgeGeometry(path *Coordinates, edgeID Index) {
 
-	startIndex := gs.edgeInfos[edgeID].startPointsIndex
-	endIndex := gs.edgeInfos[edgeID].endPointsIndex
+	startIndex := gs.edgeStartPointsIndex[edgeID]
+	endIndex := gs.edgeEndPointsIndex[edgeID]
 	if startIndex < endIndex {
 		path.Append(gs.osmNodePoints[startIndex:endIndex])
 	}
@@ -160,8 +161,8 @@ func (gs *GraphStorage) AppendPathWithEdgeGeometry(path *Coordinates, edgeID Ind
 
 func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
 
-	startIndex := gs.edgeInfos[edgeID].startPointsIndex
-	endIndex := gs.edgeInfos[edgeID].endPointsIndex
+	startIndex := gs.edgeStartPointsIndex[edgeID]
+	endIndex := gs.edgeEndPointsIndex[edgeID]
 	return gs.GetOsmNodePoints(startIndex, endIndex)
 }
 
@@ -188,19 +189,38 @@ func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinat
 	return edgePoints
 }
 
-// return edgeExtraInfo, isRoundabout
-func (gs *GraphStorage) GetEdgeExtraInfo(edgeID Index, reverse bool) (EdgeExtraInfo, bool) {
-
-	roundabout := gs.roundaboutFlag.Test(uint(edgeID))
-	return gs.edgeInfos[edgeID], roundabout
-}
-
 func (gs *GraphStorage) AppendOsmNodePoints(edgePoints []Coordinate) {
 	gs.osmNodePoints = append(gs.osmNodePoints, edgePoints...)
 }
 
-func (gs *GraphStorage) AppendEdgeInfos(edgeInfo EdgeExtraInfo) {
-	gs.edgeInfos = append(gs.edgeInfos, edgeInfo)
+func (gs *GraphStorage) AppendEdgeMetadata(osmWayId int64,
+	startPointsIndex, // edge geometry start index di gs.osmNodePoints
+	endPointsIndex Index,
+	streetName uint32,
+	roadClass, roadClassLink pkg.OsmHighwayType,
+	lanes uint8) {
+	gs.edgeOsmWayId.Append(uint64(osmWayId))
+	gs.edgeStartPointsIndex = append(gs.edgeStartPointsIndex, startPointsIndex)
+	gs.edgeEndPointsIndex = append(gs.edgeEndPointsIndex, endPointsIndex)
+	gs.streetName = append(gs.streetName, streetName)
+	gs.roadClass = append(gs.roadClass, roadClass)
+	gs.roadClassLink = append(gs.roadClassLink, roadClassLink)
+	gs.lanes = append(gs.lanes, lanes)
+}
+
+func (gs *GraphStorage) SetNewEdgeMetadata(osmWayIds *PackedSlice,
+	edgeStartPointsIndex, // edge geometry start index di gs.osmNodePoints
+	edgeEndPointsIndex []Index,
+	streetName []uint32,
+	roadClass, roadClassLink []pkg.OsmHighwayType,
+	lanes []uint8) {
+	gs.edgeOsmWayId = osmWayIds
+	gs.edgeStartPointsIndex = edgeStartPointsIndex
+	gs.edgeEndPointsIndex = edgeEndPointsIndex
+	gs.streetName = streetName
+	gs.roadClass = roadClass
+	gs.roadClassLink = roadClassLink
+	gs.lanes = lanes
 }
 
 func (gs *GraphStorage) GetOsmNodePointsCount() int {

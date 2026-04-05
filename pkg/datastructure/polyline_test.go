@@ -34,15 +34,17 @@ func TestGooglePolyline(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		expectedCap := capacity(*tc.coords)
-		got := GooglePoylineFromCoords(*tc.coords)
-		if got != tc.expectedPolyline {
-			t.Errorf("expected %v, got %v", tc.expectedPolyline, got)
-		}
-		gotBytes := []byte(got)
-		if cap(gotBytes) != expectedCap {
-			t.Errorf("expected capacity %v, got %v", expectedCap, cap(gotBytes))
-		}
+		t.Run(tc.name, func(t *testing.T) {
+			expectedCap := capacity(*tc.coords)
+			got := GooglePoylineFromCoords(*tc.coords)
+			if got != tc.expectedPolyline {
+				t.Errorf("expected %v, got %v", tc.expectedPolyline, got)
+			}
+			gotBytes := []byte(got)
+			if cap(gotBytes) != expectedCap {
+				t.Errorf("expected capacity %v, got %v", expectedCap, cap(gotBytes))
+			}
+		})
 	}
 
 	// test random coordinate, cuma assert expected capacity
