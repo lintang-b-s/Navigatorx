@@ -20,7 +20,7 @@ func TestPackedSlice(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			ps := NewPackedSlice(33)
+			ps := NewPackedSlice(33, 4)
 			for _, val := range tc.input {
 				ps.Append(val)
 			}
@@ -46,10 +46,10 @@ func TestPackedSlice(t *testing.T) {
 		rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 		maxValUint34 := 2 ^ 34 - 1
+		const numInputs = int(1e8)
 
-		ps := NewPackedSlice(BIT_SIZE_OSM_NODE_ID)
+		ps := NewPackedSlice(BIT_SIZE_OSM_NODE_ID, uint64(numInputs))
 
-		numInputs := int(1e8)
 		randomInput := make([]uint64, numInputs)
 		for i := 0; i < numInputs; i++ {
 			randVal := uint64(rd.Int63n(int64(maxValUint34)))
@@ -63,6 +63,5 @@ func TestPackedSlice(t *testing.T) {
 				t.Errorf("expected: %v, got: %v", expected, got)
 			}
 		}
-
 	})
 }

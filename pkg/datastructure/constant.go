@@ -12,6 +12,7 @@ const (
 	INITIAL_BIT_VECTOR_SIZE           = 1000
 	DEFAULT_BIT_SIZE_OSM_WAY_ID       = 34
 	BIT_SIZE_OSM_NODE_ID              = 34
+	INITIAL_APPROX_EDGE_SIZE          = 1000
 )
 
 type QueryInfoStorageType int

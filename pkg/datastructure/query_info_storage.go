@@ -198,7 +198,7 @@ type ScannedSettorage struct {
 }
 
 func NewScannedSettorage(approxMaxSearchSize uint32) *ScannedSettorage {
-	return &ScannedSettorage{hashset.NewUint32()}
+	return &ScannedSettorage{hashset.NewUint32WithSize(int(approxMaxSearchSize))}
 }
 
 func (sc *ScannedSettorage) Test(queryInfoId uint32) bool {

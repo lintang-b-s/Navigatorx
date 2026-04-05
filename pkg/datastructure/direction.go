@@ -166,6 +166,7 @@ func (instr *Instruction) GetTurnDescription(clockwise bool) string {
 	case START:
 		if heading, ok := instr.extrainfo["heading"]; ok {
 			headingAngle := heading.(float64)
+			headingAngle = util.RadiansToDegree(headingAngle)
 			if headingAngle < 0.0 {
 				headingAngle += 360
 			}

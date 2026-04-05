@@ -10,6 +10,7 @@ import (
 
 // https://www.movable-type.co.uk/scripts/latlong.html
 // initial bearing (baering from a to b with meridian line crossing a)
+// return in radian
 func computeInitialBearing(lat1, lon1, lat2, lon2 float64) float64 {
 	bearing := geo.BearingTo(lat1, lon1, lat2, lon2)
 	bearing = util.DegreeToRadians(bearing)

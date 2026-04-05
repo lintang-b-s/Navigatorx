@@ -9,6 +9,7 @@ import (
 /*
 BearingTo. menghitung sudut initial bearing untuk edge (p1,p2).
 https://www.movable-type.co.uk/scripts/latlong.html
+return in degree
 */
 func BearingTo(p1Lat, p1Lon, p2Lat, p2Lon float64) float64 {
 

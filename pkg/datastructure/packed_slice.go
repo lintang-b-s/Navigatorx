@@ -1,7 +1,5 @@
 package datastructure
 
-import "math"
-
 /*
 PackedSlice. untuk store slice of unsigned integers dengan ukuran 33-63 bit efficiently (dari sisi space).
 misal buat simpan osmNodeId dari setiap graph node:
@@ -57,11 +55,12 @@ type PackedSlice struct {
 	numOfItems     uint64
 }
 
-func NewPackedSlice(numberOfBits uint8) *PackedSlice {
-	return &PackedSlice{data: make([]uint64, 1), numberOfBits: numberOfBits, lowerOffset: make([]uint8, 0), upperNumOfBits: make([]uint8, 0), numOfItems: 0}
+func NewPackedSlice(numberOfBits uint8, numberOfItems uint64) *PackedSlice {
+	ps := &PackedSlice{data: make([]uint64, 1), numberOfBits: numberOfBits, lowerOffset: make([]uint8, 0), upperNumOfBits: make([]uint8, 0), numOfItems: 0}
+	capacity := ps.getLowerIndex(numberOfItems) + 1
+	ps.data = make([]uint64, 1, capacity)
+	return ps
 }
-
-
 
 /*
 untuk ps.Append(val): val adalah value yang ingin diinsert ke PackedSlice
@@ -182,7 +181,7 @@ return ps.getLowerIndex(index)
 
 // getLowerIndex. get dataIndex of lower 64bit for index
 func (ps *PackedSlice) getLowerIndex(index uint64) uint64 {
-	return uint64(math.Floor((float64(index) * float64(ps.numberOfBits)) / 64))
+	return (index * uint64(ps.numberOfBits)) / 64
 }
 
 // getUpperIndex. get dataIndex of upper 64bit for index
@@ -283,5 +282,3 @@ func (ps *PackedSlice) Get(index uint64) uint64 {
 
 	return upper | lower
 }
-
-

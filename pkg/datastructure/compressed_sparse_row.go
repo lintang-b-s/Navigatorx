@@ -13,6 +13,8 @@ import (
 )
 
 /*
+https://netlib.org/linalg/html_templates/node91.html#SECTION00931100000000000000
+
 The Compressed Row Storage (CRS) format puts the subsequent nonzeros of the matrix rows in contiguous memory locations.
 Assuming we have a nonsymmetric sparse matrix A with n rows and n columns,
  we create  vectors: one for floating-point numbers (val), and the other two for integers (col_ind, row_ptr).

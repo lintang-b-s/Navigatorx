@@ -429,7 +429,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		flattenInEdges[i].SetEdgeId(da.Index(i))
 	}
 
-	verticesOsmIdsPs := da.NewPackedSlice(da.BIT_SIZE_OSM_NODE_ID)
+	verticesOsmIdsPs := da.NewPackedSlice(da.BIT_SIZE_OSM_NODE_ID, uint64(numV)+1)
 
 	for _, osmId := range vertexOsmIds {
 		verticesOsmIdsPs.Append(osmId)

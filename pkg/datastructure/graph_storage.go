@@ -13,10 +13,10 @@ import (
 // osrm pakai file osm diy_solo_jogja physical mem (RES): cuma 520 mb
 // todo: coba implement packed_vector  osrm (bikin lebih simple) buat simpan osm node Ids dan osm way Ids: https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/packed_vector.md (DONE)
 // https://wiki.openstreetmap.org/wiki/Stats: 2025 ada 10 billions osm node ids dan 500 jt osm way ids (DONE)
-// bisa pake packed vector 34 bit untuk  store osm node id, dan 33 bit untuk osm way id ?
+// bisa pake packed vector 34 bit untuk  store osm node id, dan 34 bit untuk osm way id ?
 // todo2: coba implement name table osrm (bikin lebih simple): https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/osrm-toolchain-files/map.osrm.names.md (ini gak usah)
 // daripada slice of string di idmap.go, mungkin implement simplified name table bisa ngurangin space lebih banyak lagi, pakai single slice []byte/[]rune buat semua strings tapi ada offset & size utk setiap item?
-// todo3: buat edgeInfos juga mending jadiin slice setiap field daripada slice of struct
+// todo3: buat edgeInfos juga mending jadiin slice setiap field daripada slice of struct (DONE)
 
 type GraphStorage struct {
 	osmNodePoints []Coordinate
@@ -47,7 +47,7 @@ func NewGraphStorage(osmwayBitSize uint8) *GraphStorage {
 		roundaboutFlag:          bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		nodeTrafficLight:        bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		osmNodePoints:           make([]Coordinate, 0),
-		edgeOsmWayId:            NewPackedSlice(osmwayBitSize), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
+		edgeOsmWayId:            NewPackedSlice(osmwayBitSize, INITIAL_APPROX_EDGE_SIZE), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
 		osmwayBitSize:           osmwayBitSize,
 		edgeStartPointsIndex:    make([]Index, 0),
 		edgeEndPointsIndex:      make([]Index, 0),
@@ -72,7 +72,7 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 		roundaboutFlag:          bitset.New(uint(numberOfEdges)),
 		nodeTrafficLight:        bitset.New(uint(numberOfVertices)),
 		osmNodePoints:           make([]Coordinate, 1),
-		edgeOsmWayId:            NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID),
+		edgeOsmWayId:            NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID, uint64(numberOfEdges)),
 		edgeStartPointsIndex:    make([]Index, 0),
 		edgeEndPointsIndex:      make([]Index, 0),
 		streetName:              make([]uint32, 0),

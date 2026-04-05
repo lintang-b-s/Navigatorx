@@ -186,7 +186,7 @@ func (p *Preprocessor) SortByCellNumber() {
 	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
 
 	// create new edge metadatas
-	newOsmWayIds := da.NewPackedSlice(p.graph.GetOsmWayBitSize())
+	newOsmWayIds := da.NewPackedSlice(p.graph.GetOsmWayBitSize(), uint64(p.graph.NumberOfEdges()))
 	newEdgeStartPointsIndex := make([]da.Index, p.graph.NumberOfEdges())
 	newEdgeEndPointsIndex := make([]da.Index, p.graph.NumberOfEdges())
 	newStreetNameIds := make([]uint32, p.graph.NumberOfEdges())
@@ -195,7 +195,7 @@ func (p *Preprocessor) SortByCellNumber() {
 	newLanes := make([]uint8, p.graph.NumberOfEdges())
 
 	// create new vertices osm ids
-	newVerticesOsmIds := da.NewPackedSlice(da.BIT_SIZE_OSM_NODE_ID)
+	newVerticesOsmIds := da.NewPackedSlice(da.BIT_SIZE_OSM_NODE_ID, uint64(p.graph.NumberOfVertices())+1)
 
 	// create new roundabout flag
 	oldRoundaboutFlag := p.graph.GetRoundaboutFlag()

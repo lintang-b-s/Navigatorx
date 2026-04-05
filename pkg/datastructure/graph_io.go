@@ -343,7 +343,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	vertices := make([]Vertex, numVertices)
 	var vertexOsmId uint64
-	verticesOsmIdsPs := NewPackedSlice(BIT_SIZE_OSM_NODE_ID)
+	verticesOsmIdsPs := NewPackedSlice(BIT_SIZE_OSM_NODE_ID, uint64(numEdges))
 	for i := 0; i < int(numVertices); i++ {
 		vertexLine, err := util.ReadLine(br)
 		if err != nil {
@@ -589,7 +589,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	roadClass := make([]pkg.OsmHighwayType, numEdgeMetadatas)
 	roadClassLink := make([]pkg.OsmHighwayType, numEdgeMetadatas)
 	lanes := make([]uint8, numEdgeMetadatas)
-	osmWayIds := NewPackedSlice(uint8(osmWayBitSize))
+	osmWayIds := NewPackedSlice(uint8(osmWayBitSize), uint64(numEdgeMetadatas))
 
 	for i := 0; i < numEdgeMetadatas; i++ {
 		line, err = util.ReadLine(br)
