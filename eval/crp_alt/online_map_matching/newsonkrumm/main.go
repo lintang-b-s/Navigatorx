@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -30,6 +31,7 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -111,6 +113,23 @@ const (
 	roadnetworkDriveFile            = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
 	landmarkFile                    = "./data/eval/mapmatching/landmark_nk.lm"
 )
+
+func init() {
+	flag.Parse()
+	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	err = util.ReadConfig(workingDir)
+	if err != nil {
+		panic(err)
+	}
+	vehicleType := viper.GetString("vehicle_type")
+	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicle = pkg.GetIsVehicle()
+	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+}
 
 func download(filePath, url string, logger *zap.Logger, name string) error {
 
@@ -384,7 +403,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps), 1,
-		g, logger, true, false, true,
+		g, logger, false, false,
 	)
 	mp.RunMultilevelPartitioning()
 
@@ -394,7 +413,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
+	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
 	if err != nil {
 		panic(err)
 	}

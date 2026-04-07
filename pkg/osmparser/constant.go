@@ -1,30 +1,37 @@
 package osmparser
 
-type NodeType int
+import (
+	"github.com/spf13/viper"
+)
+
+type NodeType uint8
 
 const (
+	// ini node yang merupakan endpoint dari osm way dan bukan JUNCTION_NODE
 	END_NODE NodeType = iota
+	// ini node yang berada di antaara endpoint dari osm way
+	// dan bukan merupakan JUNCTION_NODE
 	BETWEEN_NODE
+	// ini junction node dari osm way
+	// jadi ada setidaknya 2 way yang punya node yang sama
+	// nah node yang sama ini ditandain JUNCTION_NODE
 	JUNCTION_NODE
 )
 
 const (
-	NERF_MAXSPEED_OSM_REALISTIC = 0.8
-)
-
-const (
 	STREET_NAME     = "STREET_NAME"
-	STREET_REF      = "STREET_REF"
-	WAY_DISTANCE    = "WAY_DISTANCE"
+	STREET_REF      = "STREET_REF" // https://wiki.openstreetmap.org/wiki/Exit_Info
+	DESTINATION     = "DESTINATION"
+	DESTINATION_REF = "DESTINATION_REF"
 	JUNCTION        = "JUNCTION"
-	MAXSPEED        = "MAXSPEED"
 	ROAD_CLASS      = "ROAD_CLASS"
 	ROAD_CLASS_LINK = "ROAD_CLASS_LINK"
 	LANES           = "LANES"
+	DRIVING_LANE    = "DRIVING_LANE"
 	TRAFFIC_LIGHT   = "TRAFFIC_LIGHT"
 )
 
-type TurnRestriction int
+type TurnRestriction uint8
 
 const (
 	NO_LEFT_TURN TurnRestriction = iota
@@ -35,6 +42,7 @@ const (
 	ONLY_RIGHT_TURN
 	ONLY_STRAIGHT_ON
 	NO_ENTRY
+	NO_EXIT
 	INVALID
 	NONE
 )
@@ -57,6 +65,8 @@ func parseTurnRestriction(s string) TurnRestriction {
 		return ONLY_STRAIGHT_ON
 	case "no_entry":
 		return NO_ENTRY
+	case "no_exit":
+		return NO_EXIT
 	case "invalid":
 		return INVALID
 	default:
@@ -65,130 +75,48 @@ func parseTurnRestriction(s string) TurnRestriction {
 	}
 }
 
+type BarrierTypeT uint8
+
 const (
-	NUM_TURN_TYPES = 6
+	BOLLARD BarrierTypeT = iota
+	SWING_GATE
+	JERSEY_BARRIER
+	LIFT_GATE
+	BLOCK
+	GATE
+	REMOVABLE
+	NO_BARRIER
+	INVALID_BARRIER
 )
 
-var (
-	skipHighway = map[string]struct{}{
-		"footway":                struct{}{},
-		"construction":           struct{}{},
-		"cycleway":               struct{}{},
-		"path":                   struct{}{},
-		"pedestrian":             struct{}{},
-		"busway":                 struct{}{},
-		"steps":                  struct{}{},
-		"bridleway":              struct{}{},
-		"corridor":               struct{}{},
-		"street_lamp":            struct{}{},
-		"bus_stop":               struct{}{},
-		"crossing":               struct{}{},
-		"cyclist_waiting_aid":    struct{}{},
-		"elevator":               struct{}{},
-		"emergency_bay":          struct{}{},
-		"emergency_access_point": struct{}{},
-		"give_way":               struct{}{},
-		"phone":                  struct{}{},
-		"ladder":                 struct{}{},
-		"milestone":              struct{}{},
-		"passing_place":          struct{}{},
-		"platform":               struct{}{},
-		"speed_camera":           struct{}{},
-		"track":                  struct{}{},
-		"bus_guideway":           struct{}{},
-		"speed_display":          struct{}{},
-		"stop":                   struct{}{},
-		"toll_gantry":            struct{}{},
-		"traffic_mirror":         struct{}{},
-		"traffic_signals":        struct{}{},
-		"trailhead":              struct{}{},
-	}
-
-	// https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
-	acceptedHighway = map[string]struct{}{
-		"motorway":         struct{}{},
-		"motorway_link":    struct{}{},
-		"trunk":            struct{}{},
-		"trunk_link":       struct{}{},
-		"primary":          struct{}{},
-		"primary_link":     struct{}{},
-		"secondary":        struct{}{},
-		"secondary_link":   struct{}{},
-		"residential":      struct{}{},
-		"residential_link": struct{}{},
-		"service":          struct{}{},
-		"tertiary":         struct{}{},
-		"tertiary_link":    struct{}{},
-		"road":             struct{}{},
-		"track":            struct{}{},
-		"unclassified":     struct{}{},
-		"undefined":        struct{}{},
-		"unknown":          struct{}{},
-		"living_street":    struct{}{},
-		"private":          struct{}{},
-		"motorroad":        struct{}{},
-	}
-
-	//https://wiki.openstreetmap.org/wiki/Key:barrier
-	// for splitting street segment to 2 disconnected graph edge
-	// if the access tag of the barrier node is != "no" , we dont split the segment
-	// for example, at the barrier at the entrance to FMIPA UGM, where entry is only allowed after 16.00 WIB or before 8.00 wib. (https://www.openstreetmap.org/node/8837559088#map=19/-7.767125/110.375436&layers=N)
-
-	acceptedBarrierType = map[string]struct{}{
-		"bollard":    struct{}{},
-		"swing_gate": struct{}{},
-
-		"jersey_barrier": struct{}{},
-		"lift_gate":      struct{}{},
-		"block":          struct{}{},
-		"gate":           struct{}{},
-	}
-)
-
-func roadTypeSpeed(roadType string) float64 {
-	switch roadType {
+func getBarrierType(barrierStr string) BarrierTypeT {
+	switch barrierStr {
+	case "bollard":
+		return BOLLARD
+	case "swing_gate":
+		return SWING_GATE
+	case "jersey_barrier":
+		return JERSEY_BARRIER
+	case "lift_gate":
+		return LIFT_GATE
+	case "block":
+		return BLOCK
+	case "gate":
+		return GATE
+	case "removable":
+		return REMOVABLE
+	case "":
+		return NO_BARRIER
 	default:
-		return roadTypeMaxSpeedOsm(roadType) * NERF_MAXSPEED_OSM_REALISTIC
+		return INVALID_BARRIER
 	}
 }
 
-func roadTypeMaxSpeedOsm(roadType string) float64 {
-	switch roadType {
-	case "motorway":
-		return 100
-	case "trunk":
-		return 60
-	case "primary":
-		return 50
-	case "secondary":
-		return 40
-	case "tertiary":
-		return 40
-	case "unclassified":
-		return 40
-	case "residential":
-		return 30
-	case "service":
-		return 20
-	case "motorway_link":
-		return 70
-	case "trunk_link":
-		return 60
-	case "primary_link":
-		return 50
-	case "secondary_link":
-		return 40
-	case "tertiary_link":
-		return 40
-	case "living_street":
-		return 5
-	case "road":
-		return 20
-	case "track":
-		return 15
-	case "motorroad":
-		return 90
-	default:
-		return 30
+func initializeHighwayWhitelist() map[string]struct{} {
+	hwlist := viper.GetStringSlice("highway_whitelist")
+	hwlistSet := make(map[string]struct{}, len(hwlist))
+	for _, hw := range hwlist {
+		hwlistSet[hw] = struct{}{}
 	}
+	return hwlistSet
 }

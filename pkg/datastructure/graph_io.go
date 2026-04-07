@@ -6,6 +6,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -18,6 +19,13 @@ import (
 )
 
 func (g *Graph) WriteGraph(filename string) error {
+	dir := filepath.Dir(filename)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+
 	f, err := os.Create(filename)
 	if err != nil {
 		return errors.Wrapf(err, "WriteGraph: failed to create file: %s", filename)

@@ -17,6 +17,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -27,6 +28,7 @@ import (
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	"gonum.org/v1/gonum/stat"
 
@@ -75,6 +77,23 @@ var (
 	partitionSizes = []int{8, 11, 13, 14, 15}
 )
 
+func init() {
+	flag.Parse()
+	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	err = util.ReadConfig(workingDir)
+	if err != nil {
+		panic(err)
+	}
+	vehicleType := viper.GetString("vehicle_type")
+	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicle = pkg.GetIsVehicle()
+	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+}
+
 type query struct {
 	s, t da.Index
 }
@@ -98,7 +117,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: download() failed %w", err)
 	}
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf(osmFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf(osmFile), logger)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: osmparse.Parse() failed: %v", err)
 	}
@@ -114,11 +133,9 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		len(ps),
 		5,
 		graph, logger,
-		true,
 		false,
-		true,
-	) // i recommend u to use unit-capacity, because it faster, less shorctuts created, faster p2p query runtime
-
+		false,
+	)
 	mp.RunMultilevelPartitioning()
 
 	err = mp.SaveToFile(mlpFile)
@@ -127,9 +144,9 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
+	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
 	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: mlp.ReadMlpFile() failed: %v", err)
+		panic(err)
 	}
 
 	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)

@@ -1,6 +1,8 @@
 package datastructure
 
-import "github.com/lintang-b-s/Navigatorx/pkg/util"
+import (
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+)
 
 type LevelInfo struct {
 	offset []uint8 // offset of each level in the bitpacked cell numbers
@@ -21,7 +23,6 @@ func (li *LevelInfo) GetCellNumberOnLevel(l uint8, cellNumber Pv) Pv {
 }
 
 // GetHighestDifferingLevel. get the highest level(1-indexed) where two cell numbers differ
-// 
 func (li *LevelInfo) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 	diff := c1 ^ c2
 	if diff == 0 {
@@ -31,6 +32,7 @@ func (li *LevelInfo) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 	for l := len(li.offset) - 1; l > 0; l-- {
 		diffInLevel := diff >> Pv(li.offset[l-1])
 		if diffInLevel > 0 {
+
 			return uint8(l)
 		}
 	}
@@ -39,7 +41,6 @@ func (li *LevelInfo) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 
 /*
 highest level s.t. vertex v is not at the same cell as s or t.
-
 */
 func (li *LevelInfo) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
 	l_sv := li.GetHighestDifferingLevel(sCellNumber, vCellNumber)

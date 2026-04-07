@@ -62,8 +62,9 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps), 1,
-		g, logger, true, false, pgDirected,
+		g, logger, true, true,
 	)
+	
 	mp.RunMultilevelPartitioning()
 
 	mlp := mp.BuildMLP()

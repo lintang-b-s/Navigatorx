@@ -7,6 +7,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -298,4 +299,10 @@ func FindProjectWorkingDir() (string, error) {
 		}
 		dir = parent
 	}
+}
+
+// cleanHeap. buat nguragin heap allocation setelah read osm road network graph & overlay graph
+func CleanHeap() {
+	runtime.GC()
+	runtime.GC()
 }

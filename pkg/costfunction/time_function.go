@@ -40,6 +40,8 @@ func NewTimeCostFunction() *TimeFunction {
 			panic("unsupported type")
 		}
 	}
+	turnCosts[pkg.NONE] = 0
+	turnCosts[pkg.NO_ENTRY] = pkg.INF_WEIGHT
 	return &TimeFunction{maxspeeds: maxspeeds, turnCosts: turnCosts}
 }
 

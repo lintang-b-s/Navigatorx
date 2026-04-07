@@ -289,7 +289,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{int(math.Pow(2, 2)), int(math.Pow(2, 3))},
 			2, 1,
-			g, logger, true, false, true,
+			g, logger, false, false,
 		)
 		mp.SetCellVertices(cellVertices)
 
@@ -506,7 +506,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -525,7 +525,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, true, true, true,
+		graph, logger, false, false,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -536,9 +536,9 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
+	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)

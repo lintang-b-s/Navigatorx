@@ -43,7 +43,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	op.SetNodeToOsmId(nodeToOsmId)
 
 	gs := da.NewGraphStorageWithSize(len(es), n)
-	g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true,false)
+	g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true, false)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -64,7 +64,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps), 1,
-		g, logger, true, false, pgDirected,
+		g, logger, true, true,
 	)
 	mp.RunMultilevelPartitioning()
 

@@ -2,7 +2,9 @@ package geo
 
 import (
 	"math"
+	"math/rand"
 
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -27,7 +29,7 @@ const (
 
 	minLatDeg = -85.05112
 	maxLatDeg = 85.05112
-	maxError  = 0.1
+	maxError  = 0.04
 )
 
 // https://en.wikipedia.org/wiki/Web_Mercator_projection
@@ -48,18 +50,44 @@ func CalcLonToX(lon float64) float64 {
 	return util.DegreeToRadians(lon)
 }
 
-// invGudermanMaclaurinSeries. evaluate inverse gudemannian function at lat using its maclaurin series expansion with deg terms
+// https://rosettacode.org/wiki/Horner%27s_rule_for_polynomial_evaluation
+func horner(x float64, coeffs []float64, deg int) (acc float64) {
+	for i := deg - 1; i >= 0; i-- {
+		acc = acc*x + coeffs[i]
+	}
+
+	return acc
+}
+
+// invGudermanMaclaurinSeries. evaluate inverse gudemannian function at lat using its maclaurin series approximation with deg terms (radius of convergence is pi/2 rad)
 // https://mathworld.wolfram.com/InverseGudermannian.html
+// https://en.wikipedia.org/wiki/Gudermannian_function#Taylor_series
 // lat in radian
 func invGudermanMaclaurinSeries(lat float64, deg int) float64 {
-	approx := 0.0
-	for i := 1; i <= deg; i++ {
-		numerator := invGudermanMaclaurinNumerators[i-1] * math.Pow(lat, 2*float64(i)-1)
-		denominator := invGudermanMaclaurinDenominators[i-1]
-		term := numerator / denominator
-		approx += term
-	}
+	approx := horner(lat, invGudermanMaclaurinCoeffs, deg)
 	return approx
+}
+
+func factorial(n float64) float64 {
+	if util.Eq(n, 0) {
+		return 1
+	}
+
+	return n * factorial(n-1)
+}
+
+// horner rule coefficients  https://rosettacode.org/wiki/Horner%27s_rule_for_polynomial_evaluation
+// inverse guderman taylor series: https://en.wikipedia.org/wiki/Gudermannian_function#Taylor_series
+func invGudermanMaclaurinSeriesCoefficients() []float64 {
+	coeffs := make([]float64, maxNumMaclaurinTerms+1)
+	for i := 0; i < maxNumMaclaurinTerms; i++ {
+
+		numerator := eulerSecantNumbers[i]
+		denominator := factorial(float64(i + 1))
+		coeffs[i+1] = numerator / denominator
+	}
+
+	return coeffs
 }
 
 // calcLatToYApprox. calculate northing projected web mercator coordinate of lat using inverse guderman maclaurin series expansion
@@ -75,7 +103,7 @@ func calcBestNumsOfTermsInvGudermanMaclaurinSeries() int {
 
 	for deg := 1; deg <= maxNumMaclaurinTerms; deg++ {
 		maxRemainder := 0.0
-		for lat := minLatDeg; util.Lt(lat, maxLatDeg); lat += 0.01 {
+		for lat := minLatDeg; util.Lt(lat, maxLatDeg); lat += 0.001 {
 			approx := invGudermanMaclaurinSeries(util.DegreeToRadians(lat), deg)
 			exact := CalcLatToY(lat)
 			remainder := math.Abs(exact - approx)
@@ -88,4 +116,11 @@ func calcBestNumsOfTermsInvGudermanMaclaurinSeries() int {
 	}
 
 	return maxNumMaclaurinTerms
+}
+
+func RandomCoordinate(bb *da.BoundingBox, rd *rand.Rand) da.Coordinate {
+
+	lat := bb.GetMinLat() + rd.Float64()*(bb.GetMaxLat()-bb.GetMinLat())
+	lon := bb.GetMinLon() + rd.Float64()*(bb.GetMaxLon()-bb.GetMinLon())
+	return da.NewCoordinate(lat, lon)
 }

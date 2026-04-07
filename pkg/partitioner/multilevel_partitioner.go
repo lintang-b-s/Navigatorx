@@ -14,17 +14,16 @@ type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
 	// best parameter for customizable route planning by delling et al:
 	// [2^8, 2^11, 2^14, 2^17, 2^20]
-	l                                 int            // max level of overlay graph
-	cellVertices                      [][][]da.Index // nodes in each cells in each level
-	graph                             *da.Graph
-	logger                            *zap.Logger
-	unitCapacity, prePartitionWithSCC bool
-	minPrec                           int
-	inertialFlowIterations            int
-	directed                          bool
+	l                      int            // max level of overlay graph
+	cellVertices           [][][]da.Index // nodes in each cells in each level
+	graph                  *da.Graph
+	logger                 *zap.Logger
+	prePartitionWithSCC    bool
+	inertialFlowIterations int
+	directed               bool
 }
 
-func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.Graph, logger *zap.Logger, unitCapacity, prePartitionWithSCC, directed bool) *MultilevelPartitioner {
+func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.Graph, logger *zap.Logger, prePartitionWithSCC, directed bool) *MultilevelPartitioner {
 	if len(u) != l {
 		panic(fmt.Errorf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
@@ -35,7 +34,6 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.
 		cellVertices:           make([][][]da.Index, l),
 		graph:                  graph,
 		logger:                 logger,
-		unitCapacity:           unitCapacity,
 		prePartitionWithSCC:    prePartitionWithSCC,
 		inertialFlowIterations: inertialFlowIterations,
 		directed:               directed,
@@ -63,11 +61,10 @@ T(n, U1,...,UL) = O(n^5) + \sum_{l=2}^{L} O(U_l^5 * n/U_l) = O(n^5)
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
 	nodeIDs := mp.graph.GetVerticeIds()
-	k := 3
 	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l, mp.u[mp.l-1])
 	if len(nodeIDs) > mp.u[mp.l-1] {
 
-		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger, k, mp.unitCapacity,
+		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger,
 			mp.prePartitionWithSCC, mp.inertialFlowIterations, mp.directed)
 		inertialFlowPartitioner.Partition(nodeIDs)
 		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
@@ -86,7 +83,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		wg := sync.WaitGroup{}
 		computeRecursiveBisection := func() {
 			for cell := range cellInChan {
-				inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, k, mp.unitCapacity, mp.prePartitionWithSCC,
+				inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, mp.prePartitionWithSCC,
 					mp.inertialFlowIterations, mp.directed)
 				inertialFlowPartitioner.Partition(cell)
 				partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
@@ -120,7 +117,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 }
 
 func (mp *MultilevelPartitioner) SaveToFile(name string) error {
-	return mp.writeMLPToMLPFile(fmt.Sprintf("./data/crp_inertial_flow_%s.mlp", name))
+	return mp.writeMLPToMLPFile(fmt.Sprintf("./data/%s.mlp", name))
 }
 
 func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Index {
@@ -137,8 +134,4 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Inde
 		cells[cellId] = append(cells[cellId], da.Index(nodeId))
 	}
 	return cells // cellId -> vertices Id
-}
-
-func (mp *MultilevelPartitioner) SetMinPrec(k int) {
-	mp.minPrec = k
 }

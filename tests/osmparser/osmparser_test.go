@@ -1,21 +1,18 @@
 package osmparser
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"testing"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-)
-
-var (
-	partitionSizes = flag.String("us", "8,10,11,12,14", "Multilevel Partition Sizes")
+	"github.com/spf13/viper"
 )
 
 const (
@@ -32,6 +29,22 @@ type query struct {
 	s, t da.Index
 }
 
+func init() {
+	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	err = util.ReadConfig(workingDir)
+	if err != nil {
+		panic(err)
+	}
+	vehicleType := viper.GetString("vehicle_type")
+	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicle = pkg.GetIsVehicle()
+	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+}
+
 func setup(t *testing.T, osmfFileTest, urlTest string) (*da.Graph, [][]da.Index, *osmparser.OsmParser) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
@@ -40,11 +53,7 @@ func setup(t *testing.T, osmfFileTest, urlTest string) (*da.Graph, [][]da.Index,
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := util.FindProjectWorkingDir()
-	err = util.ReadConfig(workingDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	if _, err := os.Stat(osmfFileTest); os.IsNotExist(err) {
 		output, err := os.Create(osmfFileTest)
 		if err != nil {
@@ -68,7 +77,7 @@ func setup(t *testing.T, osmfFileTest, urlTest string) (*da.Graph, [][]da.Index,
 
 	osmParser := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := osmParser.Parse(fmt.Sprintf("%s", osmfFileTest), logger, false)
+	graph, edgeInfoIds, err := osmParser.Parse(fmt.Sprintf("%s", osmfFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}

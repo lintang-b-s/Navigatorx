@@ -389,7 +389,7 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 	}
 
 	if db.graph.IsDummyOutEdge(db.prevEdge) || db.graph.IsDummyOutEdge(edgeId) || db.prevEdge == da.INVALID_EDGE_ID { // dummy edge
-		db.turnSignCache.Set(key, sign, 1)
+		db.turnSignCache.Set(key, da.IGNORE, 1)
 		return da.IGNORE
 	}
 

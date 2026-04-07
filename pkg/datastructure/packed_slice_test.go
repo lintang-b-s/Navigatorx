@@ -58,10 +58,16 @@ func TestPackedSlice(t *testing.T) {
 		}
 		for i := 0; i < numInputs; i++ {
 			got := ps.Get(uint64(i))
-			expected := randomInput[i]
-			if got != expected {
-				t.Errorf("expected: %v, got: %v", expected, got)
+			want := randomInput[i]
+			if got != want {
+				t.Errorf("want value index %v: %v, got: %v", i, want, got)
 			}
+		}
+
+		wantLength := int(ps.getUpperIndex(uint64(numInputs)-1)) + 1
+		gotLength := len(ps.data)
+		if gotLength > wantLength {
+			t.Errorf("want data max length: %v, got: %v ", wantLength, gotLength)
 		}
 	})
 }

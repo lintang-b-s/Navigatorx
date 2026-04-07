@@ -1,3 +1,34 @@
+# example: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
+# example2: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla
+# example3: https://wiki.openstreetmap.org/wiki/Gojek/OSM_Tags_for_Routing
+# https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing
+highway_whitelist:
+  - motorway
+  - motorway_link
+  - trunk
+  - trunk_link
+  - primary
+  - primary_link
+  - secondary
+  - secondary_link
+  - residential
+  - residential_link
+  - service
+  - tertiary
+  - tertiary_link
+  - road
+  - track
+  - unclassified
+  - undefined
+  - unknown
+  - living_street
+  - private
+
+# see land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
+# supported: bicycle, foot, motorcycle, bus, hgv, goods, taxi, minibus
+vehicle_type: motorcar
+landmarks: 16
+
 maxspeeds:
   motorway: 100
   trunk: 65
@@ -24,7 +55,6 @@ turncosts:
   left_turn: 0
   right_turn: 0
   straight_on: 0
-  none: 0
 
 alternatives:
   alpha: # every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
@@ -43,11 +73,3 @@ alternatives:
     50: 5
     100: 2
     default: 2
-
-
-
-
-
-
-
-

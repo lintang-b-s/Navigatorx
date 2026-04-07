@@ -82,7 +82,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -101,7 +101,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 		ps,
 		len(ps),
 		25,
-		graph, logger, true, true, true,
+		graph, logger, false, false,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -112,10 +112,11 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
+	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
 	if err != nil {
 		panic(err)
 	}
+	
 	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {

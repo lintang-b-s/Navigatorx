@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 
 	"github.com/cockroachdb/errors"
@@ -234,7 +235,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			if overlayLevel > 0 {
 
 				// edge is a boundary edge in level=overlayLevel
-				// so save the two overlay vertices that are the endpoints of the edge in overlayVerticesByLevel[overlayLevel-1]
+				// so save inertialFlowIterationsthe two overlay vertices that are the endpoints of the edge in overlayVerticesByLevel[overlayLevel-1]
 				// neighborOverlayVertex of start vertex if the targetVertex in the overlay graph
 				// index target vertex in overlayVerticesByLevel[overlayLevel-1] is len(overlayVerticesByLevel[overlayLevel-1])+1
 				exitVertex := OverlayVertex{cellNumber: startPv, originalVertex: Index(start),
@@ -511,6 +512,13 @@ func (og *OverlayGraph) GetShortcutWeightId(entryVertexId, exitVertexId Index, q
 }
 
 func (og *OverlayGraph) WriteToFile(filename string) error {
+	dir := filepath.Dir(filename)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+
 	f, err := os.Create(filename)
 	if err != nil {
 		return errors.Wrapf(err, "WriteToFile: failed to create file: %s", filename)

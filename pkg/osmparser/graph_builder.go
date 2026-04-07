@@ -49,10 +49,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		inEdges[v] = append(inEdges[v], inEdge)
 		inDegree[v]++
 
-		uData := p.acceptedNodeMap[p.nodeToOsmId[da.Index(u)]]
+		uData := p.wayNodeMap[p.nodeToOsmId[da.Index(u)]].coord
 		vertices[u] = da.NewVertex(uData.lat, uData.lon, u)
 
-		vData := p.acceptedNodeMap[p.nodeToOsmId[da.Index(v)]]
+		vData := p.wayNodeMap[p.nodeToOsmId[da.Index(v)]].coord
 		vertices[v] = da.NewVertex(vData.lat, vData.lon, v)
 
 		vertexOsmIds[u] = uOsmId

@@ -5,7 +5,7 @@ import (
 	"math"
 	"os"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 func (mp *MultilevelPartitioner) writeMLPToMLPFile(filename string) error {
@@ -49,7 +49,7 @@ func (mp *MultilevelPartitioner) writeMLPToMLPFile(filename string) error {
 	return nil
 }
 
-func (mp *MultilevelPartitioner) BuildMLP() *datastructure.MultilevelPartition {
+func (mp *MultilevelPartitioner) BuildMLP() *da.MultilevelPartition {
 	numCells := make([]uint32, mp.l)
 	for i := 0; i < mp.l; i++ {
 		numCells[i] = uint32(len(mp.cellVertices[i]))
@@ -60,15 +60,15 @@ func (mp *MultilevelPartitioner) BuildMLP() *datastructure.MultilevelPartition {
 		pvOffset[i+1] = pvOffset[i] + uint8(math.Ceil(math.Log2(float64(numCells[i])))) // ceil(log2(numCells[i])) = number of bits needed to represent cell id in level-i
 	}
 
-	cellNumbers := make([]datastructure.Pv, mp.graph.NumberOfVertices()) // 64 bit integer. rightmost contain level 0 cellId, leftmost contain level l-1 cellId
+	cellNumbers := make([]da.Pv, mp.graph.NumberOfVertices()) // 64 bit integer. rightmost contain level 0 cellId, leftmost contain level l-1 cellId
 
 	for l := 0; l < mp.l; l++ {
 		for cellId, vertexIds := range mp.cellVertices[l] {
 			for _, vertexId := range vertexIds {
-				cellNumbers[vertexId] |= datastructure.Pv(cellId) << datastructure.Pv(pvOffset[l])
+				cellNumbers[vertexId] |= da.Pv(cellId) << da.Pv(pvOffset[l])
 			}
 		}
 	}
 
-	return datastructure.NewMultilevelPartition(cellNumbers, numCells, pvOffset)
+	return da.NewMultilevelPartition(cellNumbers, numCells, pvOffset)
 }

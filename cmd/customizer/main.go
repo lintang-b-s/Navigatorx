@@ -2,30 +2,50 @@ package main
 
 import (
 	"flag"
+	"fmt"
+	"path/filepath"
+	"strings"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/spf13/viper"
 )
 
-const (
-	graphFile         string = "./data/original.graph"
-	overlayGraphFile  string = "./data/overlay_graph.graph"
-	metricsFile       string = "./data/metrics.txt"
-	landmarkFile      string = "./data/landmark.lm"
-	numberOfLandmarks        = 16
+var (
+	profileFilePath = flag.String("profile", "./data/car.yaml", "profile file path")
 )
 
-func main() {
+var (
+	profileName      string = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
+	graphFile        string = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, profileName)
+	overlayGraphFile string = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, profileName)
+	metricsFile      string = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, profileName)
+	landmarkFile     string = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, profileName)
+)
+
+func init() {
 	flag.Parse()
-	logger, err := log.New()
+	workingDir, err := util.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
+	err = util.ReadProfileConfig(workingDir, profileName)
+	if err != nil {
+		panic(err)
+	}
+	pkg.ProfileName = profileName
+	vehicleType := viper.GetString("vehicle_type")
+	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicle = pkg.GetIsVehicle()
+	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+}
 
-	workingDir, err := util.FindProjectWorkingDir()
-	err = util.ReadConfig(workingDir)
+func main() {
+	logger, err := log.New()
 	if err != nil {
 		panic(err)
 	}
@@ -38,6 +58,8 @@ func main() {
 	}
 
 	lm := landmark.NewLandmark()
+	numberOfLandmarks := viper.GetInt("landmarks")
+
 	err = lm.PreprocessALT(numberOfLandmarks, m, custom.GetGraph(), logger)
 	if err != nil {
 		panic(err)

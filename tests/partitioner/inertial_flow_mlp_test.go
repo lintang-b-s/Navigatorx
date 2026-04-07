@@ -10,8 +10,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/spf13/viper"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
@@ -36,6 +38,23 @@ type query struct {
 	s, t da.Index
 }
 
+func init() {
+	flag.Parse()
+	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	err = util.ReadConfig(workingDir)
+	if err != nil {
+		panic(err)
+	}
+	vehicleType := viper.GetString("vehicle_type")
+	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicle = pkg.GetIsVehicle()
+	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+}
+
 func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		panic(err)
@@ -44,11 +63,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 	if err != nil {
 		panic(err)
 	}
-	workingDir, err := util.FindProjectWorkingDir()
-	err = util.ReadConfig(workingDir)
-	if err != nil {
-		panic(err)
-	}
+
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
 		output, err := os.Create(osmfFile)
 		if err != nil {
@@ -72,7 +87,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, _, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, _, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -91,7 +106,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, true, true, true,
+		graph, logger, true, true,
 	)
 
 	return graph, mp

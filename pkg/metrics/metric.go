@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/cockroachdb/errors"
@@ -173,6 +174,13 @@ func (met *Metric) GetTurnCost(t pkg.TurnType) float64 {
 }
 
 func (met *Metric) WriteToFile(filename string) error {
+	dir := filepath.Dir(filename)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+
 	f, err := os.Create(filename)
 	if err != nil {
 		return errors.Wrapf(err, "metrics.WriteToFile: failed to create file %v", filename)

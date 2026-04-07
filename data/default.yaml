@@ -1,0 +1,75 @@
+# example: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
+# example2: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla
+# example3: https://wiki.openstreetmap.org/wiki/Gojek/OSM_Tags_for_Routing
+# https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing
+highway_whitelist:
+  - motorway
+  - motorway_link
+  - trunk
+  - trunk_link
+  - primary
+  - primary_link
+  - secondary
+  - secondary_link
+  - residential
+  - residential_link
+  - service
+  - tertiary
+  - tertiary_link
+  - road
+  - track
+  - unclassified
+  - undefined
+  - unknown
+  - living_street
+  - private
+
+# see land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
+# supported: bicycle, foot, motorcycle, bus, hgv, goods, taxi, minibus
+vehicle_type: motorcar
+landmarks: 16
+
+maxspeeds:
+  motorway: 100
+  trunk: 65
+  primary: 50
+  secondary: 40
+  tertiary: 40
+  unclassified: 25
+  residential: 25
+  service: 15
+  motorway_link: 50
+  trunk_link: 40
+  primary_link: 35
+  secondary_link: 30
+  tertiary_link: 25
+  living_street: 10
+  road: 30
+  track: 15
+  motorroad: 90
+  default: 30
+
+turncosts:
+  u_turn: 1e9
+  no_entry: 1e9
+  left_turn: 0
+  right_turn: 0
+  straight_on: 0
+
+alternatives:
+  alpha: # every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
+    default: 0.25
+  gamma:
+    50: 0.8 # alternative routes with great circle distance between source and destination <= 50km  at least 20% different than the shortest path
+    default: 0.8 # alternative routes with great circle distance between source and destination > 50km  at least 20% different than the shortest path
+  epsilon:
+    default: 0.25 #  alternative routes at most 25% longer than the shortest path
+  upper_bound:
+    50: 1.25 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
+    default: 1.6 # untuk > 50 km, ini bagus buat rute alternative jarak jauh cnth: jogja solo
+  max_candidates_to_unpack:
+    10: 10 # great circle distance between source and destination <= 10km -> 10 via candidates to unpack
+    20: 8 # great circle distance between source and destination <= 20km  & > 10km -> 8 via candidates to unpack
+    50: 5
+    100: 2
+    default: 2

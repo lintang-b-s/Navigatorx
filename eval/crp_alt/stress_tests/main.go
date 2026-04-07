@@ -100,7 +100,7 @@ func main() {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -119,7 +119,7 @@ func main() {
 		ps,
 		len(ps),
 		25,
-		graph, logger, true, true, true,
+		graph, logger, false, false,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -130,7 +130,7 @@ func main() {
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
+	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
 	if err != nil {
 		panic(err)
 	}

@@ -3,10 +3,12 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"path/filepath"
 	"runtime"
+	"strings"
 
-	goHttp "net/http"
-
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
@@ -16,44 +18,48 @@ import (
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
 var (
-	transitionMHTFile = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
-	cpuprofile        = flag.String("cpuprofile", "", "write cpu profile to file")
+	profileFilePath = flag.String("profile", "./data/car.yaml", "profile file path")
+)
+
+var (
+	profileName      string = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
+	graphFile        string = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, profileName)
+	overlayGraphFile string = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, profileName)
+	metricsFile      string = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, profileName)
+	landmarkFile     string = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, profileName)
 )
 
 const (
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	transitionMHTFile string = "./data/omm_transition_history_id.mm"
 )
 
-// constants buat alternative routes
-const (
-	alpha      = 0.25 // every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
-	gamma      = 0.8  // alternative routes at least 20% different than the shortest path
-	epsilon    = 0.25 // alternative routes at most 25% longer than the shortest path
-	upperBound = 1.25 // stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
-)
+func init() {
+	flag.Parse()
+	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	err = util.ReadProfileConfig(workingDir, profileName)
+	if err != nil {
+		panic(err)
+	}
+	pkg.ProfileName = profileName
+	vehicleType := viper.GetString("vehicle_type")
+	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicle = pkg.GetIsVehicle()
+	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+}
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 
-	flag.Parse()
 	logger, err := log.New()
-	if err != nil {
-		panic(err)
-	}
-
-	go func() { // pprof
-		goHttp.ListenAndServe("localhost:6868", nil)
-	}()
-
-	workingDir, err := util.FindProjectWorkingDir()
-	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +73,7 @@ func main() {
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), logger)
 
-	N, err := da.ReadSparseMatrixFromFile[int](*transitionMHTFile, int(0),
+	N, err := da.ReadSparseMatrixFromFile[int](transitionMHTFile, int(0),
 		func(a, b int) bool { return a == b })
 	if err != nil {
 		panic(err)
@@ -90,7 +96,7 @@ func main() {
 		panic(err)
 	}
 
-	cleanHeap()
+	util.CleanHeap()
 
 	api.Use(ctx,
 		logger, false, routingService, mapmatcherService)
@@ -110,10 +116,4 @@ func NewContext(re *routing.CRPRoutingEngine, rs *usecases.RoutingService) (cont
 	}
 
 	return ctx, cb, nil
-}
-
-// cleanHeap. buat nguragin heap allocation setelah read osm road network graph & overlay graph
-func cleanHeap() {
-	runtime.GC()
-	runtime.GC()
 }

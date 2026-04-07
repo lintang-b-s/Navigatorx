@@ -2,12 +2,10 @@ package partitioner
 
 import (
 	"context"
-	"math"
 	"sync"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -19,14 +17,12 @@ type RecursiveBisection struct {
 	numVerticesAssigned    int
 	logger                 *zap.Logger
 	mu                     sync.Mutex
-	k                      float64
 	prePartitionWithSCC    bool
-	unitCapacity           bool
 	inertialFlowIterations int
 	directed               bool
 }
 
-func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Logger, k int, unitCapacity, prePartitionWithSCC bool,
+func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Logger, prePartitionWithSCC bool,
 	inertialFlowIterations int, directed bool,
 ) *RecursiveBisection {
 
@@ -37,13 +33,12 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 	}
 
 	return &RecursiveBisection{
-		originalGraph:          graph,
-		maximumCellSize:        maximumCellSize,
-		finalPartition:         finalPartitions,
-		partitionCount:         0,
-		logger:                 logger,
-		k:                      float64(k),
-		unitCapacity:           unitCapacity,
+		originalGraph:   graph,
+		maximumCellSize: maximumCellSize,
+		finalPartition:  finalPartitions,
+		partitionCount:  0,
+		logger:          logger,
+
 		prePartitionWithSCC:    prePartitionWithSCC,
 		inertialFlowIterations: inertialFlowIterations,
 		directed:               directed,
@@ -219,13 +214,6 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *da.PartitionGraph)
 			}
 			u := uVertex.GetID()
 			eWeight := int64(1)
-			if rb.unitCapacity {
-				eWeight = 1
-			} else if util.Eq(weight, 0) {
-				eWeight = 1
-			} else {
-				eWeight = int64(weight * math.Pow(10, rb.k))
-			}
 
 			if cut.GetFlag(u) && cut.GetFlag(v) {
 				// v in partisi S
@@ -248,6 +236,9 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *da.PartitionGraph)
 func (rb *RecursiveBisection) assignFinalPartition(partitionGraph *da.PartitionGraph) {
 	rb.mu.Lock()
 	defer rb.mu.Unlock()
+	if partitionGraph.NumberOfVertices() == 0 {
+		return
+	}
 	for i := 0; i < partitionGraph.NumberOfVertices(); i++ { // O(n), n=number of vertices in partitionGraph
 		v := partitionGraph.GetVertex(da.Index(i))
 		originalVId := v.GetOriginalVertexID()
@@ -303,13 +294,6 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []da.
 			}
 
 			eWeight := int64(1)
-			if rb.unitCapacity {
-				eWeight = 1
-			} else if util.Eq(weight, 0) {
-				eWeight = 1
-			} else {
-				eWeight = int64(weight * math.Pow(10, rb.k))
-			}
 
 			newV := newMapVid[vId]
 			newHead := newMapVid[head]

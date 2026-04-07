@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"sync"
@@ -413,6 +414,13 @@ func (lm *Landmark) GetVerticesLandmarkWeights() [][]float64 {
 }
 
 func (lm *Landmark) WriteLandmark(filename string, graph *datastructure.Graph) error {
+	dir := filepath.Dir(filename)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return err
+		}
+	}
+
 	f, err := os.Create(filename)
 	if err != nil {
 		return err

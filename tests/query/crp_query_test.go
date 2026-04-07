@@ -17,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
@@ -31,6 +32,7 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -220,8 +222,9 @@ func TestCRPQuerySimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{int(math.Pow(2, 2)), int(math.Pow(2, 3))},
 			2, 1,
-			g, logger, true, false, true,
+			g, logger, true, true,
 		)
+
 		mp.RunMultilevelPartitioning()
 
 		mlp := mp.BuildMLP()
@@ -325,6 +328,22 @@ type query struct {
 	s, t da.Index
 }
 
+func init() {
+	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	err = util.ReadConfig(workingDir)
+	if err != nil {
+		panic(err)
+	}
+	vehicleType := viper.GetString("vehicle_type")
+	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicle = pkg.GetIsVehicle()
+	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+}
+
 func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
@@ -333,11 +352,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := util.FindProjectWorkingDir()
-	err = util.ReadConfig(workingDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
 		output, err := os.Create(osmfFile)
 		if err != nil {
@@ -361,7 +376,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger, false)
+	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -380,7 +395,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, true, false, true,
+		graph, logger, false, false,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -391,9 +406,9 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s", "crp_inertial_flow_"+mlpFile+".mlp"))
+	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
 	if err != nil {
-		t.Fatal(err)
+		panic(err)
 	}
 	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)

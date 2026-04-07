@@ -2,10 +2,12 @@ package osmparser
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/bytedance/gopkg/collection/hashset"
@@ -16,6 +18,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/paulmach/osm"
 	"github.com/paulmach/osm/osmpbf"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -45,12 +48,15 @@ type osmWay struct {
 	oneWay     bool
 	hwTag      string
 }
+type nodeWithCoord struct {
+	tipe  NodeType
+	coord NodeCoord
+}
 
 type OsmParser struct {
-	wayNodeMap         map[int64]NodeType // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END)
+	wayNodeMap         map[int64]nodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
 	relationMemberMap  map[int64]struct{}
-	acceptedNodeMap    map[int64]NodeCoord // osm node Id yang ada di osm way yang accepted (type dari osm waynya adalah highway) -> node coordinate
-	barrierNodes       map[int64]bool      // osm node Id -> barrier node flag
+	barrierNodes       map[int64]bool // osm node Id -> barrier node flag
 	nodeTag            map[int64]map[uint32]uint32
 	tagStringIdMap     util.IDMap
 	nodeIDMap          map[int64]da.Index // osm node Id -> graph nodeId
@@ -62,13 +68,15 @@ type OsmParser struct {
 	osmWayDefaultSpeed map[int64]float64 // wayId -> default max speed
 	edgeSet            hashset.Uint64Set
 	bb                 *da.BoundingBox
+	maxspeeds          []float64
+	currentTime        time.Time
+	highwayWhitelist   map[string]struct{}
 }
 
 func NewOSMParserV2() *OsmParser {
-	return &OsmParser{
-		wayNodeMap:         make(map[int64]NodeType),
+	p := &OsmParser{
+		wayNodeMap:         make(map[int64]nodeWithCoord),
 		relationMemberMap:  make(map[int64]struct{}),
-		acceptedNodeMap:    make(map[int64]NodeCoord),
 		barrierNodes:       make(map[int64]bool),
 		nodeTag:            make(map[int64]map[uint32]uint32),
 		tagStringIdMap:     util.NewIdMap(),
@@ -78,11 +86,37 @@ func NewOSMParserV2() *OsmParser {
 		osmWayDefaultSpeed: make(map[int64]float64),
 		edgeSet:            hashset.NewUint64WithSize(1000),
 		bb:                 da.NewBoundingBoxEmpty(),
+		currentTime:        time.Now(),
+		highwayWhitelist:   initializeHighwayWhitelist(), // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
+
 	}
+	p.initializeMaxSpeed()
+	return p
+}
+
+func (o *OsmParser) initializeMaxSpeed() {
+	mapMaxSpeeds := viper.GetStringMap("maxspeeds")
+	maxspeeds := make([]float64, 18)
+	for roadType, speed := range mapMaxSpeeds {
+		highwayType := pkg.GetHighwayType(roadType)
+		switch v := speed.(type) {
+		case int:
+			maxspeeds[highwayType] = float64(v)
+		case float64:
+			maxspeeds[highwayType] = v
+		default:
+			panic("unsupported type")
+		}
+	}
+	o.maxspeeds = maxspeeds
 }
 
 func (o *OsmParser) SetAcceptedNodeMap(acceptedNodeMap map[int64]NodeCoord) {
-	o.acceptedNodeMap = acceptedNodeMap
+	wayNodeMap := make(map[int64]nodeWithCoord)
+	for id, val := range acceptedNodeMap {
+		wayNodeMap[id] = nodeWithCoord{JUNCTION_NODE, val}
+	}
+	o.wayNodeMap = wayNodeMap
 }
 
 func (o *OsmParser) SetNodeToOsmId(nodeToOsmId map[da.Index]int64) {
@@ -93,7 +127,7 @@ func (o *OsmParser) GetTagStringIdMap() util.IDMap {
 	return o.tagStringIdMap
 }
 
-func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) (*da.Graph, [][]da.Index, error) {
+func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da.Index, error) {
 
 	f, err := os.Open(mapFile)
 
@@ -109,10 +143,10 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 		to              int64
 	})
 	scanner := osmpbf.New(context.Background(), f, 0)
-	// must not be parallel
 	scannedWays := 0
-
 	logger.Sugar().Infof("parsing openstreetmap .pbf file......")
+	// scan osm ways and relations
+	// store relations and way.nodes
 
 	for scanner.Scan() {
 		o := scanner.Object()
@@ -127,7 +161,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 					continue
 				}
 
-				if !acceptOsmWay(way) {
+				if !p.acceptOsmWay(way) {
 					continue
 				}
 
@@ -136,12 +170,16 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 				for i, node := range way.Nodes {
 					if _, ok := p.wayNodeMap[int64(node.ID)]; !ok {
 						if i == 0 || i == len(way.Nodes)-1 {
-							p.wayNodeMap[int64(node.ID)] = END_NODE
+
+							p.wayNodeMap[int64(node.ID)] = nodeWithCoord{END_NODE, NewNodeCoord(node.Lat, node.Lon)}
 						} else {
-							p.wayNodeMap[int64(node.ID)] = BETWEEN_NODE
+							p.wayNodeMap[int64(node.ID)] = nodeWithCoord{BETWEEN_NODE, NewNodeCoord(node.Lat, node.Lon)}
 						}
 					} else {
-						p.wayNodeMap[int64(node.ID)] = JUNCTION_NODE
+						// ini junction node dari osm way
+						// jadi ada setidaknya 2 way yang punya node yang sama
+						// nah node yang sama ini ditandain JUNCTION_NODE
+						p.wayNodeMap[int64(node.ID)] = nodeWithCoord{JUNCTION_NODE, NewNodeCoord(node.Lat, node.Lon)}
 					}
 				}
 			}
@@ -165,6 +203,8 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 
 				tagVal := relation.Tags.Find("restriction")
 				if tagVal != "" {
+					// https://wiki.openstreetmap.org/wiki/Relation:restriction
+
 					from := int64(0)
 					via := int64(0)
 					to := int64(0)
@@ -174,10 +214,11 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 							from = member.Ref
 						} else if member.Role == "to" {
 							to = member.Ref
-						} else {
-							via = int64(member.Ref)
-						}
+						} else if member.Type == "node" && member.Role == "via" {
+							via = member.Ref
+						} // belum support via yang tipe nya way
 					}
+
 					rest := struct {
 						via             int64
 						turnRestriction TurnRestriction
@@ -193,7 +234,6 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 		}
 	}
 	scanner.Close()
-	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
@@ -201,91 +241,33 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 	}
 
 	scanner = osmpbf.New(context.Background(), f, 0)
-	//must not be parallel
 
-	scannedEdges := make([]Edge, 0)
-	p.ways = make(map[int64]osmWay, scannedWays)
-
-	streetDirection := make(map[int64][2]bool)
-
-	countWays := 0
-	countNodes := 0
-
-	logger.Sugar().Infof("processing openstreetmap .pbf file: 0%.... ")
-	outputEvery := 5
-	pg := make([]bool, 101)
-
+	// scan osm nodes
 	for scanner.Scan() {
 		o := scanner.Object()
 
 		tipe := o.ObjectID().Type()
 
 		switch tipe {
-		case osm.TypeWay:
-			{
-				way := o.(*osm.Way)
-				if len(way.Nodes) < 2 {
-					continue
-				}
-
-				if !acceptOsmWay(way) {
-					continue
-				}
-
-				progress := int(((float64(countWays) + 1) / float64(scannedWays)) * 100)
-				if progress > 0 && progress%outputEvery == 0 && !pg[progress] {
-					pg[progress] = true
-					logger.Sugar().Infof("processing openstreetmap .pbf file: %v %% .....  ", int(progress))
-				}
-
-				countWays++
-
-				hwTag, err := p.processWay(way, graphStorage, streetDirection, &scannedEdges, useMaxSpeed)
-				if err != nil {
-					continue
-				}
-
-				wayExtraInfoData := wayExtraInfo{}
-				okvf, okmvf, okvb, okmvb := getReversedOneWay(way)
-				if val := way.Tags.Find("oneway"); val == "yes" || val == "-1" || okvf || okmvf || okvb || okmvb {
-					wayExtraInfoData.oneWay = true
-				}
-
-				if way.Tags.Find("oneway") == "-1" || okvf || okmvf {
-					// okvf / omvf = restricted/not allowed forward.
-					wayExtraInfoData.forward = false
-
-				} else {
-					wayExtraInfoData.forward = true
-				}
-				wNodes := make([]int64, 0, len(way.Nodes))
-				for _, node := range way.Nodes {
-
-					wNodes = append(wNodes, int64(node.ID))
-				}
-				p.ways[int64(way.ID)] = osmWay{
-					nodes:  wNodes,
-					oneWay: wayExtraInfoData.oneWay,
-					hwTag:  hwTag,
-				}
-			}
 		case osm.TypeNode:
 			{
-				countNodes++
 				node := o.(*osm.Node)
 
 				p.maxNodeID = max(p.maxNodeID, int64(node.ID))
 
-				if _, ok := p.wayNodeMap[int64(node.ID)]; ok {
-					p.acceptedNodeMap[int64(node.ID)] = NodeCoord{
-						lat: node.Lat,
-						lon: node.Lon,
-					}
+				_, isUsedNode := p.wayNodeMap[int64(node.ID)]
+				if !isUsedNode {
+					continue
 				}
-				accessType := node.Tags.Find("access")
-				barrierType := node.Tags.Find("barrier")
+				oldNode := p.wayNodeMap[int64(node.ID)]
+				p.wayNodeMap[int64(node.ID)] = nodeWithCoord{tipe: oldNode.tipe, coord: NewNodeCoord(node.Lat, node.Lon)}
 
-				if _, ok := acceptedBarrierType[barrierType]; ok && accessType == "no" && barrierType != "" {
+				isBarrierAccessable, err := p.isBarrierNodeAccessable(node)
+				if err != nil {
+					return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: isBarrierNodeAccessable() failed to parse conditional accees node barrier: %s", mapFile)
+				}
+
+				if !isBarrierAccessable {
 					p.barrierNodes[int64(node.ID)] = true
 				}
 
@@ -311,6 +293,75 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger, useMaxSpeed bool) 
 			{
 
 			}
+		}
+	}
+
+	scanner.Close()
+	_, err = f.Seek(0, io.SeekStart)
+	if err != nil {
+		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to Seek scanner: %s", mapFile)
+	}
+
+	// scan osm way and store graph edges
+	scanner = osmpbf.New(context.Background(), f, 0)
+	scannedEdges := make([]Edge, 0)
+	p.ways = make(map[int64]osmWay, scannedWays)
+	streetDirection := make(map[int64][2]bool)
+	countWays := 0
+	logger.Sugar().Infof("processing openstreetmap .pbf file: 0%.... ")
+	outputEvery := 5
+	pg := make([]bool, 101)
+	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
+
+	for scanner.Scan() {
+		o := scanner.Object()
+
+		tipe := o.ObjectID().Type()
+
+		switch tipe {
+		case osm.TypeWay:
+			{
+				way := o.(*osm.Way)
+				if len(way.Nodes) < 2 {
+					continue
+				}
+
+				if !p.acceptOsmWay(way) {
+					continue
+				}
+
+				progress := int(((float64(countWays) + 1) / float64(scannedWays)) * 100)
+				if progress > 0 && progress%outputEvery == 0 && !pg[progress] {
+					pg[progress] = true
+					logger.Sugar().Infof("processing openstreetmap .pbf file: %v %% .....  ", int(progress))
+				}
+
+				countWays++
+				tempMap := make(map[string]string)
+
+				hwTag, err := p.processWay(way, graphStorage, streetDirection, &scannedEdges, tempMap)
+				if err != nil {
+					continue
+				}
+
+				oneWay := true
+				if streetDirection[int64(way.ID)][1] && streetDirection[int64(way.ID)][0] {
+					// (true,true)=two way road, not a one way road
+					oneWay = false
+				}
+
+				wNodes := make([]int64, 0, len(way.Nodes))
+				for _, node := range way.Nodes {
+
+					wNodes = append(wNodes, int64(node.ID))
+				}
+				p.ways[int64(way.ID)] = osmWay{
+					nodes:  wNodes,
+					oneWay: oneWay,
+					hwTag:  hwTag,
+				}
+			}
+
 		}
 	}
 
@@ -393,41 +444,14 @@ type wayExtraInfo struct {
 
 func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 	streetDirection map[int64][2]bool,
-	scannedEdges *[]Edge, useMaxSpeed bool) (string, error) {
-	tempMap := make(map[string]string)
-	name := way.Tags.Find("name")
+	scannedEdges *[]Edge, tempMap map[string]string) (string, error) {
 
-	tempMap[STREET_NAME] = name
-
-	refName := way.Tags.Find("ref")
-	tempMap[STREET_REF] = refName
+	getName(way, tempMap)
 
 	maxSpeed := 0.0
 	highwayTypeSpeed := 0.0
 
 	wayExtraInfoData := wayExtraInfo{}
-	okvf, okmvf, okvb, okmvb := getReversedOneWay(way)
-	if val := way.Tags.Find("oneway"); val == "yes" || val == "-1" || okvf || okmvf || okvb || okmvb {
-		wayExtraInfoData.oneWay = true
-	}
-
-	if way.Tags.Find("oneway") == "-1" || okvf || okmvf {
-		// okvf / omvf = restricted/not allowed forward.
-		wayExtraInfoData.forward = false
-
-	} else {
-		wayExtraInfoData.forward = true
-	}
-
-	if wayExtraInfoData.oneWay {
-		if wayExtraInfoData.forward {
-			streetDirection[int64(way.ID)] = [2]bool{true, false} // {forward, backward}
-		} else {
-			streetDirection[int64(way.ID)] = [2]bool{false, true}
-		}
-	} else {
-		streetDirection[int64(way.ID)] = [2]bool{true, true}
-	}
 
 	for _, tag := range way.Tags {
 		switch tag.Key {
@@ -437,11 +461,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 			}
 		case "highway":
 			{
-				if !useMaxSpeed {
-					highwayTypeSpeed = roadTypeSpeed(tag.Value)
-				} else {
-					highwayTypeSpeed = roadTypeMaxSpeedOsm(tag.Value) * pkg.NERF_MAXSPEED_OSM
-				}
+				highwayTypeSpeed = p.roadTypeSpeed(tag.Value)
 
 				if strings.Contains(tag.Value, "link") {
 					tempMap[ROAD_CLASS_LINK] = tag.Value
@@ -457,30 +477,36 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 			}
 		case "maxspeed":
 			{
-				if useMaxSpeed {
-					if strings.Contains(tag.Value, "mph") {
+				if strings.Contains(tag.Value, "mph") {
 
-						currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " mph", "", -1), 64)
-						if err != nil {
-							return "", err
-						}
-						maxSpeed = currSpeed * 1.60934
-					} else if strings.Contains(tag.Value, "km/h") {
-						currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " km/h", "", -1), 64)
-						if err != nil {
-							return "", err
-						}
-						maxSpeed = currSpeed
-					} else if strings.Contains(tag.Value, "knots") {
-						currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " knots", "", -1), 64)
-						if err != nil {
-							return "", err
-						}
-						maxSpeed = currSpeed * 1.852
-					} else {
-						// without unit
-						// dont use this
+					currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " mph", "", -1), 64)
+					if err != nil {
+						return "", err
 					}
+					maxSpeed = currSpeed * 1.60934
+				} else if strings.Contains(tag.Value, "km/h") {
+					currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " km/h", "", -1), 64)
+					if err != nil {
+						return "", err
+					}
+					maxSpeed = currSpeed
+				} else if strings.Contains(tag.Value, "knots") {
+					currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " knots", "", -1), 64)
+					if err != nil {
+						return "", err
+					}
+					maxSpeed = currSpeed * 1.852
+				} else {
+					// without unit, anggap km/h
+					// taken from: https://wiki.openstreetmap.org/wiki/Key:maxspeed
+					// The maximum fixed numeric speed limit,
+					// followed by the appropriate unit,
+					// if not measured in km/h. When the value is in km/h then no unit should be included. For example, maxspeed=60 for 60 km/h and maxspeed=50 mph for 50 mph (note the space between the value and the unit).
+					currSpeed, err := strconv.ParseFloat(tag.Value, 64)
+					if err != nil {
+						return "", err
+					}
+					maxSpeed = currSpeed
 				}
 
 			}
@@ -494,15 +520,80 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		maxSpeed = 30
 	}
 
+	// https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing
+	// https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right#Identifying_the_direction_of_a_way
+	// https://wiki.openstreetmap.org/wiki/Key:oneway
+	restrictedForward, restrictedBackward := getReversedOneWay(way, tempMap)
+	// see Land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
+	// vehicle is all type of vehicle (bicycle, car, bus, motorcycle, etc)
+	/*
+		taken from: https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right#Identifying_the_direction_of_a_way
+			On a street, such as highway=unclassified, highway=residential or highway=pedestrian, oneway=* can safely be interpreted as applying only to vehicles. It should not affect pedestrian routing.
+			, and is effectively a synonym for vehicle:backward=no.
+	*/
+
+	// pedestrian
+	/*
+		taken from: https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right#Identifying_the_direction_of_a_way
+		On highway=steps and highway=via_ferrata, the tag oneway=* can safely be interpreted as applying to pedestrians.
+		(the tag oneway=no has precedence over highway=motorway)
+
+	*/
+
+	vehicleType, ok := pkg.VehicleTypeTag[pkg.VehicleType]
+	vehicleTypeOneway := way.Tags.Find(fmt.Sprintf("oneway:%s", vehicleType))
+	val := way.Tags.Find("oneway")
+	if val == "yes" || val == "-1" || restrictedForward || restrictedBackward || (pkg.IsVehicle &&
+		(tempMap[ROAD_CLASS] == "unclassified" || tempMap[ROAD_CLASS] == "residential") && (val == "yes" || val == "-1")) ||
+		(!pkg.IsVehicle && (tempMap[ROAD_CLASS] == "via_ferrata" || tempMap[ROAD_CLASS] == "steps") && (val == "yes" || val == "-1")) ||
+		tempMap[JUNCTION] == "roundabout" || (tempMap[ROAD_CLASS] == "motorway" && val != "no" && val != "") || (ok && (vehicleTypeOneway == "yes" || vehicleTypeOneway == "-1")) {
+		wayExtraInfoData.oneWay = true
+
+		if way.Tags.Find("oneway") == "-1" || restrictedForward {
+			// restrictedForward = restricted/not allowed forward.
+			wayExtraInfoData.forward = false
+
+		} else {
+			// kalau gak restrictedForward berarti forward directionnya
+			// https://www.openstreetmap.org/way/141318123
+			wayExtraInfoData.forward = true
+		}
+	} else if val == "reversible" {
+		//  https://wiki.openstreetmap.org/wiki/Tag:oneway%3Dreversible
+		wayExtraInfoData.oneWay = true
+		reversibleVal := way.Tags.Find("oneway:conditional")
+		onewayReversible, err := getReversibleOneWay(reversibleVal, p.currentTime)
+		if err != nil {
+			return "", errors.Wrapf(err, "error parsing reversible oneway: %v", onewayReversible)
+		}
+		if onewayReversible == DIRECTION_FORWARD_REVERSIBLE {
+			wayExtraInfoData.forward = true
+		} else if onewayReversible == DIRECTION_BACKWARD_REVERSIBLE {
+			wayExtraInfoData.forward = false
+		}
+	}
+
+	if wayExtraInfoData.oneWay {
+		if wayExtraInfoData.forward {
+			streetDirection[int64(way.ID)] = [2]bool{true, false} // {forward, backward}
+		} else {
+			streetDirection[int64(way.ID)] = [2]bool{false, true}
+		}
+	} else {
+		streetDirection[int64(way.ID)] = [2]bool{true, true}
+	}
+
 	waySegment := []node{}
 	for _, wayNode := range way.Nodes {
-		nodeCoord := p.acceptedNodeMap[int64(wayNode.ID)]
+		nodeId := int64(wayNode.ID)
+		wayNodeData := p.wayNodeMap[nodeId]
+
+		nodeCoord := wayNodeData.coord
 		nodeData := node{
-			id:    int64(wayNode.ID),
+			id:    nodeId,
 			coord: nodeCoord,
 		}
-		if p.isJunctionNode(int64(nodeData.id)) {
-
+		if p.isJunctionNode(nodeId) {
 			waySegment = append(waySegment, nodeData)
 			p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraInfoData,
 				scannedEdges, int64(way.ID))
@@ -523,26 +614,11 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 	return hwTag, nil
 }
 
-func isRestricted(value string) bool {
-	if value == "no" || value == "restricted" {
-		return true
-	}
-	return false
-}
-
-func getReversedOneWay(way *osm.Way) (bool, bool, bool, bool) {
-	vehicleForward := way.Tags.Find("vehicle:forward")
-	motorVehicleForward := way.Tags.Find("motor_vehicle:forward")
-	vehicleBackward := way.Tags.Find("vehicle:backward")
-	motorVehicleBackward := way.Tags.Find("motor_vehicle:backward")
-	return isRestricted(vehicleForward), isRestricted(motorVehicleForward), isRestricted(vehicleBackward), isRestricted(motorVehicleBackward)
-}
-
 func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
 	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge, id int64) {
 
 	if len(segment) == 2 && segment[0].id == segment[1].id {
-		// skip
+		// skip loop edge
 		return
 	} else if len(segment) > 2 && segment[0].id == segment[len(segment)-1].id {
 		// loop
@@ -570,8 +646,8 @@ func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, s
 			}
 			// copy the barrier node but with different id so that previous edge (with barrier) not connected with the new edge
 
-			nodeData = p.copyNode(nodeData)
-			waySegment = append(waySegment, nodeData)
+			nodeDataCopy := p.copyNode(nodeData)
+			waySegment = append(waySegment, nodeDataCopy)
 
 		} else {
 			waySegment = append(waySegment, nodeData)
@@ -585,10 +661,11 @@ func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, s
 func (p *OsmParser) copyNode(nodeData node) node {
 	// use the same coordinate but different id & and the newID is not used
 	newMaxID := p.maxNodeID + 1
-	p.acceptedNodeMap[newMaxID] = NodeCoord{
-		lat: nodeData.coord.lat,
-		lon: nodeData.coord.lon,
+	p.wayNodeMap[newMaxID] = nodeWithCoord{
+		tipe: JUNCTION_NODE, coord: NodeCoord{lat: nodeData.coord.lat,
+			lon: nodeData.coord.lon},
 	}
+
 	p.maxNodeID++
 	return node{
 		id: newMaxID,
@@ -829,30 +906,83 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 }
 
 func (p *OsmParser) isJunctionNode(nodeID int64) bool {
-	return p.wayNodeMap[int64(nodeID)] == JUNCTION_NODE
+	return p.wayNodeMap[int64(nodeID)].tipe == JUNCTION_NODE
 }
 
-func acceptOsmWay(way *osm.Way) bool {
+func (p *OsmParser) acceptOsmWay(way *osm.Way) bool {
+
+	// see: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla , access tags (ways)
+
+	accessVal := way.Tags.Find("access")
+	// access=yes atau yang lainnya
+	if isAccessTagProhibited(accessVal) {
+		return false
+	}
+
+	// vehicle type accesss
+	vehicleTagVal := way.Tags.Find("vehicle")
+	vehicleProbhibited := isAccessTagProhibited(vehicleTagVal)
+	if pkg.IsVehicle && vehicleProbhibited {
+		return false
+	}
+
+	// motor vehicle type accesss
+	motorVehicleTagVal := way.Tags.Find("motor_vehicle")
+	motorizedVehicleProhibited := isAccessTagProhibited(motorVehicleTagVal)
+	if pkg.MotorizedVehicle && motorizedVehicleProhibited {
+		return false
+	}
+
+	// specific vehicle type accesss
+	specificVehicleTypeTagVal := way.Tags.Find(pkg.VehicleTypeTag[pkg.VehicleType])
+	vehicleTypeProhibited := isAccessTagProhibited(specificVehicleTypeTagVal)
+	if vehicleTypeProhibited {
+		return false
+	}
+
+	busPsvAccess := way.Tags.Find("bus:psv:forward")
+
+	busProhibited := isAccessTagProhibited(busPsvAccess)
+	if pkg.VehicleType == pkg.BUS && busProhibited {
+		return false
+	}
+
+	psvAccess := way.Tags.Find("psv:psv:forward")
+	lanePsvAccess := way.Tags.Find("lanes:psv:forward")
+
+	busProhibited = isAccessTagProhibited(psvAccess) || isAccessTagProhibited(lanePsvAccess)
+	if pkg.VehicleType == pkg.BUS && busProhibited {
+		return false
+	}
+
+	// pedestrian type accesss
+	footTagVal := way.Tags.Find("foot")
+	pedestrianProhibited := isAccessTagProhibited(footTagVal)
+	if pkg.VehicleType == pkg.FOOT && pedestrianProhibited {
+		return false
+	}
+
+	// bicycle type accesss
+	bicycleTagVal := way.Tags.Find("bicycle")
+	cyclewayTagVal := way.Tags.Find("cycleway")
+
+	bicycleProhibited := isAccessTagProhibited(bicycleTagVal) || isAccessTagProhibited(cyclewayTagVal)
+	if pkg.VehicleType == pkg.BICYCLE && bicycleProhibited {
+		return false
+	}
+
 	highway := way.Tags.Find("highway")
 	junction := way.Tags.Find("junction")
+
 	if highway != "" {
-		if _, ok := acceptedHighway[highway]; ok {
+		if _, ok := p.highwayWhitelist[highway]; ok {
 			return true
 		}
 	} else if junction != "" {
 		return true
 	}
+
 	return false
-}
-
-// return osm way length in meter
-func (p *OsmParser) GetRoadSpeed(osmWayId int64) float64 {
-	return roadTypeSpeed(p.ways[osmWayId].hwTag)
-}
-
-// return osm way length in meter
-func (p *OsmParser) GetOldRoadSpeed(osmWayId int64) float64 {
-	return p.osmWayDefaultSpeed[osmWayId]
 }
 
 func (p *OsmParser) GetNodeIdMap() map[int64]da.Index {

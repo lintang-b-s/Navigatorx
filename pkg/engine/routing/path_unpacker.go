@@ -434,18 +434,7 @@ func (pu *PathUnpacker) GetStats() int64 {
 	return pu.runtime
 }
 
-// pas di profiling fungsi ini allocate banyak space, load test 900vus
-// htop RES dari 1.9gb ke 3.0 gb, osrm cuma max 770mb pas di load test, -> setelah pake slice pointer receiver: 1.9gb ke 2.8 gb utk sp query dan 3.2 gb untuk alternative routes query
-// -> setelah gak pake worker pool di pathUnpaker,  2.8gb alternative routes query
-// -> setelah gak pake pointer buat graph []Vertex, []OutEdge, []InEdge, overlay graph []OverlayVertex: setelah read graph 1.1 gb,
-// load test 900vus alternative routes query naik ke 2.5 gb
-// -> sekarang setelah implement da.PackedSlice + add dummy edge untuk vertex dengan outdegree/indegree = 0: cuma 906mb pas initialize routing engine,
-// pas load tes 900vus alternative routes: 1.9gb, load test shortest path 900vus 1.8gb,
-// alokasi gede di GetOsmNodePoints() 32 million allocs, ?
-// alokasi gede lain ada di polyline.EncodeCoords() 60 million allocs, todo: investigate ini
-// cara cek escape to heap:
-// go build -o ./bin/engine_profiling -pgo=./cmd/engine/engine.pgo -gcflags=-m   ./cmd/engine_profiling    2> escape_analysis.txt ;
-// di vs code > Source Action > see show compiler optimization
+
 func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates, float64) {
 
 	totalDistance := 0.0
