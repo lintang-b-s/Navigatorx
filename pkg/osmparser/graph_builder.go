@@ -101,7 +101,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 			misal osm way (twoway):
 				u1<->u2<->u3<->u4
 
-				kita harus diallow semua u_turn dari edges yanng menyusun twoway osm way tsb:
+				kita harus store semua u_turn dari edges yanng menyusun twoway osm way tsb:
 				list u_turn:
 				u1->u2->u1
 

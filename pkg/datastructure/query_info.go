@@ -5,7 +5,6 @@ type VertexEdgePair struct {
 	edge        Index // 4 byte
 	outInEdgeId Index // 4 byte
 	queryLevel  uint8 // 1 byte
-	// total 13 byte
 }
 
 func (ve VertexEdgePair) GetEdge() Index {

@@ -45,3 +45,10 @@ func TestMercatorApprox(t *testing.T) {
 		}
 	}
 }
+
+func RandomCoordinate(bb *da.BoundingBox, rd *rand.Rand) da.Coordinate {
+
+	lat := bb.GetMinLat() + rd.Float64()*(bb.GetMaxLat()-bb.GetMinLat())
+	lon := bb.GetMinLon() + rd.Float64()*(bb.GetMaxLon()-bb.GetMinLon())
+	return da.NewCoordinate(lat, lon)
+}

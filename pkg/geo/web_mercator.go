@@ -2,9 +2,7 @@ package geo
 
 import (
 	"math"
-	"math/rand"
 
-	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -116,11 +114,4 @@ func calcBestNumsOfTermsInvGudermanMaclaurinSeries() int {
 	}
 
 	return maxNumMaclaurinTerms
-}
-
-func RandomCoordinate(bb *da.BoundingBox, rd *rand.Rand) da.Coordinate {
-
-	lat := bb.GetMinLat() + rd.Float64()*(bb.GetMaxLat()-bb.GetMinLat())
-	lon := bb.GetMinLon() + rd.Float64()*(bb.GetMaxLon()-bb.GetMinLon())
-	return da.NewCoordinate(lat, lon)
 }

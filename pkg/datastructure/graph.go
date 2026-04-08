@@ -249,7 +249,7 @@ type Graph struct {
 
 	// strongly connected components
 	sccs               []Index   // verticeId -> sccId
-	sccCondensationAdj [][]Index // condensation connection of scc of u -> scc of v
+	sccCondensationAdj [][]Index // condensation graph connection of scc of u -> scc of v
 
 	boundingBox    *BoundingBox
 	maxEdgesInCell Index // maximum number of inEdges/outEdges in any cell

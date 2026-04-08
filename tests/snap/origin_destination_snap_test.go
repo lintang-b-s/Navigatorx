@@ -213,15 +213,17 @@ func TestOriginDestinationSnap(t *testing.T) {
 		panic(err)
 	}
 
-	for _, q := range queries {
-		_, _, snappedOrig, snappedDst, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
-			q.dest.GetLat(), q.dest.GetLon())
+	t.Run("random input origin destination snap test", func(t *testing.T) {
+		for _, q := range queries {
+			_, _, snappedOrig, snappedDst, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
+				q.dest.GetLat(), q.dest.GetLon())
 
-		distToOrig := geo.CalculateGreatCircleDistance(q.orig.GetLat(), q.orig.GetLon(), snappedOrig.GetLat(), snappedOrig.GetLon())
-		distToDest := geo.CalculateGreatCircleDistance(q.dest.GetLat(), q.dest.GetLon(), snappedDst.GetLat(), snappedDst.GetLon())
+			distToOrig := geo.CalculateGreatCircleDistance(q.orig.GetLat(), q.orig.GetLon(), snappedOrig.GetLat(), snappedOrig.GetLon())
+			distToDest := geo.CalculateGreatCircleDistance(q.dest.GetLat(), q.dest.GetLon(), snappedDst.GetLat(), snappedDst.GetLon())
 
-		if util.Gt(distToOrig, 0.06) || util.Gt(distToDest, 0.06) { // karena search radius 50 m,
-			t.Errorf("snapped origin or destination too far from origin and destination query: %v, %v", distToOrig, distToDest)
+			if util.Gt(distToOrig, 0.06) || util.Gt(distToDest, 0.06) { // karena search radius 50 m,
+				t.Errorf("snapped origin or destination too far from origin and destination query: %v, %v", distToOrig, distToDest)
+			}
 		}
-	}
+	})
 }

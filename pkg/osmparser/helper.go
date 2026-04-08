@@ -32,13 +32,14 @@ func getName(way *osm.Way, tempMap map[string]string) {
 	name := findKeyNotEmpty(way,
 		"name",
 		"official_name",
+		"reg_name",
 		"nat_name",
+		"loc_name",
 		"name_alt",
 		"name_int",
-		"reg_name",
-		"loc_name",
 		"old_name",
 	)
+
 	tempMap[STREET_NAME] = name
 
 	// taken from: https://wiki.openstreetmap.org/wiki/Key:ref
@@ -158,8 +159,6 @@ func getReversedOneWay(way *osm.Way, tempMap map[string]string) (bool, bool) {
 		/*
 			taken from: https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right#Identifying_the_direction_of_a_way
 			On highway=steps and highway=via_ferrata, the tag oneway=* can safely be interpreted as applying to pedestrians.
-
-
 		*/
 
 		footForward := way.Tags.Find("foot:forward")
@@ -191,13 +190,8 @@ const (
 )
 
 // https://wiki.openstreetmap.org/wiki/Conditional_restrictions
-// parse Mo-Fr 07:00-09:00 or 23:00-05:00 or "23:00-05:00, 10:00-15:00" or "Mo-Fr,Su 22:00-06:00" or etc
+// parse "Mo-Fr 07:00-09:00" or "23:00-05:00" or "23:00-05:00, 10:00-15:00" or "Mo-Fr,Su 22:00-06:00" or etc
 func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inTimeRange bool, err error) {
-	var (
-		fromH, fromMin, toH, toMin                 int
-		fromHours, fromMinutes, toHours, toMinutes []int
-		days                                       []time.Weekday
-	)
 
 	// condTime = Mo-Fr 07:00-09:00 or 23:00-05:00 or "23:00-05:00, 10:00-15:00" or "Mo-Fr,Su 22:00-06:00" or
 	// "Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00" or "Mo-Fr 07:00-09:00,16:00-18:00" or etc
@@ -205,6 +199,11 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 	condTimeVals := strings.Split(condTime, ";")
 
 	for _, condTimeVal := range condTimeVals {
+		var (
+			fromH, fromMin, toH, toMin                 int
+			fromHours, fromMinutes, toHours, toMinutes []int
+			days                                       []time.Weekday
+		)
 		tokens := strings.Fields(condTimeVal)
 
 		switch len(tokens) {
@@ -263,6 +262,10 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 					end, okE := dayMap[parts[1]]
 					if !okS || !okE {
 						continue
+					}
+					if end == time.Sunday {
+						end = time.Saturday
+						days = append(days, time.Sunday)
 					}
 					for d := start; d <= end; d++ {
 						days = append(days, d)
@@ -328,6 +331,7 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 			}
 			if !dayMatch {
 				inTimeRange = false
+
 				continue
 			}
 		}
@@ -347,11 +351,6 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 			}
 		}
 
-		clear(fromHours)
-		clear(fromMinutes)
-		clear(toHours)
-		clear(toMinutes)
-		clear(days)
 	}
 
 	return
@@ -589,6 +588,82 @@ func (p *OsmParser) isBarrierNodeAccessable(node *osm.Node) (bool, error) {
 func isAccessTagProhibited(accessVal string) bool {
 	if accessVal == "no" || accessVal == "discouraged" || accessVal == "agricultural" ||
 		accessVal == "forestry" {
+		return true
+	}
+
+	return false
+}
+
+func (p *OsmParser) acceptOsmWay(way *osm.Way) bool {
+
+	// see: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla , access tags (ways)
+
+	accessVal := way.Tags.Find("access")
+	// access=yes atau yang lainnya
+	if isAccessTagProhibited(accessVal) {
+		return false
+	}
+
+	// vehicle type accesss
+	vehicleTagVal := way.Tags.Find("vehicle")
+	vehicleProbhibited := isAccessTagProhibited(vehicleTagVal)
+	if pkg.IsVehicle && vehicleProbhibited {
+		return false
+	}
+
+	// motor vehicle type accesss
+	motorVehicleTagVal := way.Tags.Find("motor_vehicle")
+	motorizedVehicleProhibited := isAccessTagProhibited(motorVehicleTagVal)
+	if pkg.MotorizedVehicle && motorizedVehicleProhibited {
+		return false
+	}
+
+	// specific vehicle type accesss
+	specificVehicleTypeTagVal := way.Tags.Find(pkg.VehicleTypeTag[pkg.VehicleType])
+	vehicleTypeProhibited := isAccessTagProhibited(specificVehicleTypeTagVal)
+	if vehicleTypeProhibited {
+		return false
+	}
+
+	busPsvAccess := way.Tags.Find("bus:psv:forward")
+
+	busProhibited := isAccessTagProhibited(busPsvAccess)
+	if pkg.VehicleType == pkg.BUS && busProhibited {
+		return false
+	}
+
+	psvAccess := way.Tags.Find("psv:psv:forward")
+	lanePsvAccess := way.Tags.Find("lanes:psv:forward")
+
+	busProhibited = isAccessTagProhibited(psvAccess) || isAccessTagProhibited(lanePsvAccess)
+	if pkg.VehicleType == pkg.BUS && busProhibited {
+		return false
+	}
+
+	// pedestrian type accesss
+	footTagVal := way.Tags.Find("foot")
+	pedestrianProhibited := isAccessTagProhibited(footTagVal)
+	if pkg.VehicleType == pkg.FOOT && pedestrianProhibited {
+		return false
+	}
+
+	// bicycle type accesss
+	bicycleTagVal := way.Tags.Find("bicycle")
+	cyclewayTagVal := way.Tags.Find("cycleway")
+
+	bicycleProhibited := isAccessTagProhibited(bicycleTagVal) || isAccessTagProhibited(cyclewayTagVal)
+	if pkg.VehicleType == pkg.BICYCLE && bicycleProhibited {
+		return false
+	}
+
+	highway := way.Tags.Find("highway")
+	junction := way.Tags.Find("junction")
+
+	if highway != "" {
+		if _, ok := p.highwayWhitelist[highway]; ok {
+			return true
+		}
+	} else if junction != "" {
 		return true
 	}
 

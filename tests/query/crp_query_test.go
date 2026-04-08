@@ -588,14 +588,16 @@ func TestCRPQueryStressTest(t *testing.T) {
 	workers.StartWithContext(ctx, calcSp)
 	workers.Wait()
 
-	for res := range workers.CollectResults() {
-		if res.counterexample {
-			t.Logf("found counterExample!!\n")
-			t.Errorf("found counter example!!, expected shortest path cost: %f, got: %f", res.expectedSp, res.crpALTSP)
+	t.Run("stress test crp query", func(t *testing.T) {
+		for res := range workers.CollectResults() {
+			if res.counterexample {
+				t.Logf("found counterExample!!\n")
+				t.Errorf("found counter example!!, expected shortest path cost: %f, got: %f", res.expectedSp, res.crpALTSP)
 
-			cancel()
+				cancel()
 
-			t.Logf("\n")
+				t.Logf("\n")
+			}
 		}
-	}
+	})
 }
