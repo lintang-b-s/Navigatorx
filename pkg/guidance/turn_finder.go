@@ -4,6 +4,7 @@ import (
 	"math"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -69,6 +70,7 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, p
 	db.nextStreetName = currStreetName
 
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
+	collinear := geo.IsPolylineCollinear(eGeom)
 	if len(eGeom) > 3 {
 		tailCoord = eGeom[1]
 		headCoord = eGeom[len(eGeom)-2]
@@ -100,8 +102,10 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, p
 
 	prevEdgeStreetName := db.graph.GetStreetName(db.prevEdge)
 	leavingPrevStreet := !isSameResidentialName(prevEdgeStreetName, currStreetName)
+	alternativeTurnsCount, alternativeTurns := db.GetAlternativeTurns(tailId, headId, prevNodeId)
+
 	if !da.IsTurnSlight(sign) {
-		if !leavingPrevStreet || streetMergedSkip || streetSplitSkip {
+		if streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && !collinear) {
 			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
 			return da.IGNORE
 		}
@@ -118,7 +122,6 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, p
 
 	// disini sign = TURN_SLIGHT_*/CONTINUE dan name == ""
 	// kita hanya output TURN_SLIGHT_* jika ada other edge yang signnya CONTINUE
-	_, alternativeTurns := db.GetAlternativeTurns(tailId, headId, prevNodeId)
 	otherContinueEdge := db.getOtherEdgeContinueDirection(tailCoord.GetLat(), tailCoord.GetLon(), db.prevInitialBearing, alternativeTurns)
 	if otherContinueEdge != da.INVALID_EDGE_ID {
 		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
@@ -155,7 +158,12 @@ func isSameNameByRoadClass(name1, name2, currRoadClass, currRoadClassLink string
 }
 
 func isSamePrimaryName(name1, name2 string) bool {
-
+	if name1 == "" || name2 == "" {
+		// seringkali di osm, nama street kosong "" (terutama di residential/living street/tertiary osm ways), better dianggap false
+		// biar kalo belok masih ada turn instructionnya
+		// contoh tertiary osm way yang gak ada namanya:  https://www.openstreetmap.org/way/332233207#map=17/-7.555473/110.769728
+		return false
+	}
 	return name1 == name2
 }
 
@@ -179,6 +187,8 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 	db.nextStreetName = currStreetName
 
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
+	collinear := geo.IsPolylineCollinear(eGeom)
+
 	if len(eGeom) > 3 {
 		tailCoord = eGeom[1]
 		headCoord = eGeom[len(eGeom)-2]
@@ -209,8 +219,10 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 	prevEdgeStreetName := db.graph.GetStreetName(db.prevEdge)
 	leavingPrevStreet := !isSamePrimaryName(prevEdgeStreetName, currStreetName)
+	alternativeTurnsCount, alternativeTurns := db.GetAlternativeTurns(tailId, headId, prevNodeId)
+
 	if !da.IsTurnSlight(sign) {
-		if !leavingPrevStreet || streetMergedSkip || streetSplitSkip {
+		if !leavingPrevStreet || streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && !collinear) {
 			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
 			return da.IGNORE
 		}
@@ -231,8 +243,10 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 			return sign
 		}
 
-		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
-		return sign
+		if alternativeTurnsCount >= 1 {
+			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
+			return sign
+		}
 	}
 
 	if (sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_SLIGHT_RIGHT) && (streetMergedSkip || streetSplitSkip) {
@@ -249,7 +263,6 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 	// kenapa??
 	// karena ada alternative turn yang sama sama TURN_SLIGHT_LEFT sign nya (yang ke arah MT Haryono)
 
-	_, alternativeTurns := db.GetAlternativeTurns(tailId, headId, prevNodeId)
 	otherContinueEdge := db.getOtherEdgeContinueDirection(tailCoord.GetLat(), tailCoord.GetLon(), db.prevInitialBearing, alternativeTurns)
 	if otherContinueEdge != da.INVALID_EDGE_ID {
 
@@ -302,7 +315,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 	// kalau gak ada otherContinueEdge
 	// kita cuma output CONTINUE_ON_STREET jika current edge street name beda dari street name prev edge
-	if leavingPrevStreet {
+	if leavingPrevStreet && currStreetName != "" {
 		db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, db.nextStreetName), 1)
 		return da.CONTINUE_ON_STREET
 	}
