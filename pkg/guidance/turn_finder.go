@@ -315,7 +315,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 // return forward edge di path dengan name != prevName, true jika ada, dan number of step lookForward.
 func (db *DirectionBuilder) lookForward(prevName string, maxStep int) (string, bool, int) {
 	step := 0
-	for i := db.lastPathId + 1; step < maxStep; i++ {
+	for i := db.lastPathId + 1; step < maxStep && i < len(db.path); i++ {
 		currEdgeStreetname := db.graph.GetStreetName(db.path[i])
 		step++
 		if currEdgeStreetname != prevName {

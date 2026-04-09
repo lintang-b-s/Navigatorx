@@ -347,15 +347,6 @@ func (g *Graph) GetCellNumbers() []Pv {
 	return g.cellNumbers
 }
 
-func (g *Graph) FindInEdge(u, v Index) (Index, bool) {
-	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
-		if g.inEdges[e].tail == u {
-			return e, true
-		}
-	}
-	return 0, false
-}
-
 func (g *Graph) GetHeadOfInedge(e Index) Index {
 	inEdge := g.inEdges[e]
 	tail := g.vertices[inEdge.tail]
@@ -384,7 +375,6 @@ func (g *Graph) GetEntryIdOfOutEdge(e Index) Index {
 	head := g.vertices[g.outEdges[e].head]
 	return head.firstIn + Index(g.outEdges[e].entryPoint)
 }
-
 
 func (g *Graph) GetExitIdOfInEdge(e Index) Index {
 	tail := g.vertices[g.inEdges[e].tail]
@@ -796,10 +786,9 @@ func (g *Graph) GetStreetDirection(edgeId Index) [2]bool {
 	return g.graphStorage.GetStreetDirection(edgeId)
 }
 
-
 func (g *Graph) IsStreetBidirectional(edgeId Index) bool {
 	edgeWayDirection := g.graphStorage.GetStreetDirection(edgeId) //
-	return  edgeWayDirection[0] && edgeWayDirection[1]
+	return edgeWayDirection[0] && edgeWayDirection[1]
 }
 
 func (g *Graph) GetOsmWayId(edgeId Index) int64 {

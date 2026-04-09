@@ -246,7 +246,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 				// neighborOverlayVertex of target vertex is the exitVertex in the overlay graph
 				// index start vertex in overlayVerticesByLevel[overlayLevel-1] is len(overlayVerticesByLevel[overlayLevel-1])-1
 				// because we just appended exitVertex to overlayVerticesByLevel[overlayLevel-1]
-				inEdgeId, _ := g.FindInEdge(Index(start), edge.GetHead())
+				inEdgeId := g.GetEntryIdOfOutEdge(e)
 				entryVertex := OverlayVertex{cellNumber: targetPv, originalVertex: edge.GetHead(),
 					originalEdge: inEdgeId, neighborOverlayVertex: Index(len(overlayVerticesByLevel[overlayLevel-1]) - 1),
 					entryExitPoint: make([]Index, overlayLevel)}
@@ -316,7 +316,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			}
 			exitFlagsArray[i+int(vertexOffset)] = isExitPoint // index exitflagsArray dari 0 itu overlay vertex di level teringgi sampai di index terakhir  itu last overlay vertex di level terendah.
 
-			// order = offset/index of boundary outEdge/inEdge in outEdges/inEdges slice
+			// order = offset/index of cut outEdge/inEdge in outEdges/inEdges slice
 			var order Index
 			if isExitPoint {
 				order = g.GetExitOrder(vertex.originalVertex, vertex.originalEdge)
@@ -324,7 +324,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 				order = g.GetEntryOrder(vertex.originalVertex, vertex.originalEdge)
 			}
 
-			// subVertex = (originalVertexId, offset of boundary outedge/inEdge, is vertex a exit point}
+			// subVertex = (originalVertexId, offset of cut outedge/inEdge, is vertex a exit point}
 			subVertex := SubVertex{originalID: vertex.originalVertex, exitEntryOrder: order, exit: isExitPoint}
 			originalToOverlayVertex[subVertex] = Index(i) + Index(vertexOffset)
 		}

@@ -41,7 +41,7 @@ func collinear(px, py, qx, qy, rx, ry float64) bool {
 	return math.Abs(cross(qx-px, qy-py, rx-px, ry-py)) < COLLINEAR_EPS
 }
 
-// PolylineCollinear. return true jika semua points diantara endpoint (tail,head) dari coords is on the same line as line (tail,head) 
+// PolylineCollinear. return true jika semua points diantara endpoint (tail,head) dari coords is on the same line as the line (tail,head) 
 func IsPolylineCollinear(coords da.Coordinates) bool {
 	if len(coords) == 2 {
 		return true

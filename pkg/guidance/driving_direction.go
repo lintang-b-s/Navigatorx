@@ -341,24 +341,3 @@ func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, edgeId da.
 	}
 	return isUTurn, uTurnType
 }
-
-// jalan tol/arteri
-func isHighImportanceRoad(roadClass string) bool {
-	return roadClass == "motorway" || roadClass == "trunk"
-}
-
-func isMajorRoad(roadClass string) bool {
-	return roadClass == "motorway" || roadClass == "trunk" || roadClass == "primary" || roadClass == "secondary" || roadClass == "tertiary"
-}
-
-// isVillageRoad. return true jika highwway type dari osm way nya edge adalah tipe highway yang sering ditemuin di pedesaan/perumahan/pemukiman
-func isVillageRoad(roadClass string) bool {
-	return roadClass == "living_street" || roadClass == "residential" || roadClass == "service" || roadClass == "track" || roadClass == "private"
-}
-
-func isMissingRoadName(prevRoadClass, roadClass, prevStreetName, streetName string) bool {
-	if prevRoadClass == roadClass && prevStreetName == "" && streetName != "" {
-		return true
-	}
-	return true
-}
