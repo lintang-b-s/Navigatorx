@@ -447,8 +447,10 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		lv := v.GetCost()
 		fv := 2*lv + sigmav - v.GetPlateau()
 
+		altEdgeIdPath := removeDuplicates(append(svEdgeIdPath, vtEdgeIdPath...))
+
 		return NewAlternativeRoute(fv, 0, lv, sigmav, v.GetOriginalVId(), da.NewCoordinatesWithCap(0),
-			append(svEdgeIdPath, vtEdgeIdPath...), v)
+			altEdgeIdPath, v)
 	}
 
 	// worst case computeAlternatives for all via vertices: O(c * ( p + q * (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))

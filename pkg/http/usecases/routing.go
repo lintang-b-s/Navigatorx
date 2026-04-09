@@ -22,12 +22,9 @@ type RoutingService struct {
 	clockwise, lefthandDriving bool
 
 	// sync pools
-	drivingInstructionPool *sync.Pool
-	coordinatesPool        *sync.Pool
-	drivingEdgeIdsPool     *sync.Pool
-	drivingDirectionPool   *sync.Pool
-	directionBuilderPool   *sync.Pool
-	turnSignCache          *ristretto.Cache[uint64, int]
+
+	directionBuilderPool *sync.Pool
+	turnSignCache        *ristretto.Cache[uint64, []byte]
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
@@ -43,39 +40,11 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		altRouting:      altRouting,
 	}
 
-	rs.drivingInstructionPool = &sync.Pool{
-		New: func() any {
-			drinvingInstructions := make([]*da.Instruction, 0, DRIVING_DIRECTION_POOL_SIZE)
-			return drinvingInstructions
-		},
-	}
-
-	rs.coordinatesPool = &sync.Pool{
-		New: func() any {
-			legCoordinates := make([]da.Coordinate, 0, COORDINATES_POOL_SIZE)
-			return legCoordinates
-		},
-	}
-
-	rs.drivingEdgeIdsPool = &sync.Pool{
-		New: func() any {
-			legEdgeIds := make([]da.Index, 0, DRIVING_DIRECTION_POOL_SIZE)
-			return legEdgeIds
-		},
-	}
-
-	rs.drivingDirectionPool = &sync.Pool{
-		New: func() any {
-			drivingDirections := make([]da.DrivingDirection, 0, DRIVING_DIRECTION_POOL_SIZE)
-			return drivingDirections
-		},
-	}
-
 	var err error
 	const keyValByteSize = 12
 	const maxCost = int64(1) << 25
 	const numCounters = (maxCost / keyValByteSize) * 3
-	rs.turnSignCache, err = ristretto.NewCache(&ristretto.Config[uint64, int]{
+	rs.turnSignCache, err = ristretto.NewCache(&ristretto.Config[uint64, []byte]{
 		NumCounters: numCounters, // number of keys to track frequency of .
 		MaxCost:     maxCost,     // maximum cost of cache .
 		BufferItems: 64,          // number of keys per Get buffer.
@@ -88,9 +57,6 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		New: func() any {
 			return guidance.NewDirectionBuilder(
 				rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving,
-				rs.drivingInstructionPool,
-				rs.coordinatesPool,
-				rs.drivingEdgeIdsPool,
 				rs.turnSignCache,
 			)
 		},
@@ -133,9 +99,7 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 
-	drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
-
-	drivingDirection = directionBuilder.GetDrivingDirections(edgePath, drivingDirection)
+	drivingDirection := directionBuilder.GetDrivingDirections(edgePath)
 
 	directionBuilder.Reset()
 	rs.directionBuilderPool.Put(directionBuilder)
@@ -167,8 +131,7 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 		alternatives[i].SetPolylinePath(pathPolyline)
 		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 
-		drivingDirection := rs.drivingDirectionPool.Get().([]da.DrivingDirection)
-		drivingDirection = directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath(), drivingDirection)
+		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath())
 		alternatives[i].SetDrivingDirections(drivingDirection)
 		directionBuilder.Reset()
 		rs.directionBuilderPool.Put(directionBuilder)
@@ -178,11 +141,6 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 
 func (rs *RoutingService) GetEngine() RoutingEngine {
 	return rs.engine
-}
-
-func (rs *RoutingService) DoneDrivingDirection(drivingDirection []da.DrivingDirection) {
-	drivingDirection = drivingDirection[:0] // reset length, tapi capacity tetep sama
-	rs.drivingDirectionPool.Put(drivingDirection)
 }
 
 func (rs *RoutingService) Close() {

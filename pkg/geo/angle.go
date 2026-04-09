@@ -3,6 +3,7 @@ package geo
 import (
 	"math"
 
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -24,4 +25,37 @@ func BearingTo(p1Lat, p1Lon, p2Lat, p2Lon float64) float64 {
 	brng := math.Mod(util.RadiansToDegree(math.Atan2(y, x))+360, 360.0)
 
 	return brng
+}
+
+const (
+	COLLINEAR_EPS = 1e-9
+)
+
+// cross. returns the cross product of two vectors a and b
+func cross(ax, ay, bx, by float64) float64 {
+	return ax*by - ay*bx
+}
+
+// collinear. returns true if point r is on the same line as the line pq
+func collinear(px, py, qx, qy, rx, ry float64) bool {
+	return math.Abs(cross(qx-px, qy-py, rx-px, ry-py)) < COLLINEAR_EPS
+}
+
+// PolylineCollinear. return true jika semua points diantara endpoint (tail,head) dari coords is on the same line as line (tail,head) 
+func IsPolylineCollinear(coords da.Coordinates) bool {
+	if len(coords) == 2 {
+		return true
+	}
+	tailX, tailY := CalcLonToX(coords[0].GetLon()), CalcLatToYApprox(coords[0].GetLat())
+	headX, headY := CalcLonToX(coords[len(coords)-1].GetLon()), CalcLatToYApprox(coords[len(coords)-1].GetLat())
+
+	isCollinear := true
+	for i := 1; i < len(coords)-1; i++ {
+		rx, ry := CalcLonToX(coords[i].GetLon()), CalcLatToYApprox(coords[i].GetLat())
+		if !collinear(tailX, tailY, headX, headY, rx, ry) {
+			isCollinear = false
+		}
+	}
+
+	return isCollinear
 }

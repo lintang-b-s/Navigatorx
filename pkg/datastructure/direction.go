@@ -7,26 +7,39 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+type TurnType uint8
+
 const (
-	UNKNOWN            = -9999
-	U_TURN_UNKNOWN     = -999
-	U_TURN_LEFT        = -8
-	KEEP_LEFT          = -7
-	LEAVE_ROUNDABOUT   = -6
-	TURN_SHARP_LEFT    = -3
-	TURN_LEFT          = -2
-	TURN_SLIGHT_LEFT   = -1
-	CONTINUE_ON_STREET = 0
-	TURN_SLIGHT_RIGHT  = 1
-	TURN_RIGHT         = 2
-	TURN_SHARP_RIGHT   = 3
-	FINISH             = 4
-	USE_ROUNDABOUT     = 6
-	IGNORE             = 9999999
-	KEEP_RIGHT         = 7
-	U_TURN_RIGHT       = 8
-	START              = 101
+	UNKNOWN TurnType = iota
+	U_TURN_UNKNOWN
+	U_TURN_LEFT
+	KEEP_LEFT
+	LEAVE_ROUNDABOUT
+	TURN_SHARP_LEFT
+	TURN_LEFT
+	TURN_SLIGHT_LEFT
+	CONTINUE_ON_STREET
+	MERGE_ONTO
+	TURN_SLIGHT_RIGHT
+	TURN_RIGHT
+	TURN_SHARP_RIGHT
+	FINISH
+	USE_ROUNDABOUT
+	IGNORE
+	KEEP_RIGHT
+	U_TURN_RIGHT
+	START
 )
+
+// IsContinue. return true if tt is CONTINUE_ON_STREET
+func IsContinue(tt TurnType) bool {
+	return tt == CONTINUE_ON_STREET
+}
+
+// IsTurnSlight. return true if tt is TURN_SLIGHT_* or CONTINUE_ON_STREET
+func IsTurnSlight(tt TurnType) bool {
+	return tt == TURN_SLIGHT_LEFT || tt == TURN_SLIGHT_RIGHT || tt == CONTINUE_ON_STREET
+}
 
 type Instruction struct {
 	points               []Coordinate
@@ -40,11 +53,11 @@ type Instruction struct {
 	edgeSpeed            float64
 	turnBearing          float64
 	turnType             string
-	turnSign             int
+	turnSign             TurnType
 	isRoundabout         bool
 }
 
-func NewInstruction(sign int, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
+func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
 	cumulativeDist, cumulativeTravelTime float64, points []Coordinate, turnBearing float64, clockwise bool) *Instruction {
 	var roundabout *RoundaboutInstruction
 	var ins *Instruction
@@ -68,7 +81,7 @@ func NewInstruction(sign int, name string, p Coordinate, isRoundAbout bool, edge
 	return ins
 }
 
-func NewInstructionWithRoundabout(sign int, name string, p Coordinate, isRoundAbout bool, roundabout *RoundaboutInstruction,
+func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRoundAbout bool, roundabout *RoundaboutInstruction,
 	cumulativeDistance, cumulativeTravelTime float64, edgeIDs []Index, turnBearing float64) Instruction {
 	ins := Instruction{
 		turnSign:             sign,
@@ -94,7 +107,7 @@ func (ins *Instruction) SetExtraInfo(key string, val interface{}) {
 	ins.extrainfo[key] = val
 }
 
-func (ins *Instruction) SetSign(sign int) {
+func (ins *Instruction) SetSign(sign TurnType) {
 	ins.turnSign = sign
 }
 
@@ -102,7 +115,7 @@ func (ins *Instruction) SetStreetName(streetName string) {
 	ins.streetname = streetName
 }
 
-func (ins *Instruction) GetTurnSign() int {
+func (ins *Instruction) GetTurnSign() TurnType {
 	return ins.turnSign
 }
 
@@ -193,7 +206,6 @@ func (instr *Instruction) GetTurnDescription(clockwise bool) string {
 
 				default:
 					description = fmt.Sprintf("%s onto %s", dir, streetName)
-
 				}
 			}
 		}
@@ -206,7 +218,7 @@ func isEmpty(str string) bool {
 	return strings.TrimSpace(str) == ""
 }
 
-func getDirectionDescription(sign int, instruction *Instruction, clockwise bool) (string, string) {
+func getDirectionDescription(sign TurnType, instruction *Instruction, clockwise bool) (string, string) {
 	switch sign {
 	case U_TURN_UNKNOWN:
 		return "Make U-turn", "U_TURN_RIGHT"
@@ -230,6 +242,8 @@ func getDirectionDescription(sign int, instruction *Instruction, clockwise bool)
 		return "Turn sharp right", "TURN_SHARP_RIGHT"
 	case KEEP_RIGHT:
 		return "Keep right", "KEEP_RIGHT"
+	case MERGE_ONTO:
+		return "Merge onto", "MERGE_ONTO"
 	case USE_ROUNDABOUT:
 		if !instruction.roundabout.exited {
 			return "Enter the roundabout", "USE_ROUNDABOUT"

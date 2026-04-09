@@ -96,10 +96,6 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 
 	headers := make(http.Header)
 
-	defer func() {
-		api.routingService.DoneDrivingDirection(drivingDirections)
-	}()
-
 	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewShortestPathResponse(travelTime, dist, pathPolyline,
 		NewDrivingDirections(drivingDirections))}, headers); err != nil {
 		api.ServerErrorResponse(w, r, err)
@@ -157,12 +153,6 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 		api.getStatusCode(w, r, err)
 		return
 	}
-
-	defer func() {
-		for _, alt := range alternatives {
-			api.routingService.DoneDrivingDirection(alt.GetDrivingDirections())
-		}
-	}()
 
 	headers := make(http.Header)
 

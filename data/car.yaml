@@ -37,7 +37,7 @@ maxspeeds:
   tertiary: 40
   unclassified: 25
   residential: 25
-  service: 15
+  service: 25
   motorway_link: 50
   trunk_link: 40
   primary_link: 35

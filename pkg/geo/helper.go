@@ -4,6 +4,7 @@ import (
 	"container/list"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 const (
@@ -68,4 +69,8 @@ func RamerDouglasPeucker(coords []da.Coordinate) []da.Coordinate {
 		}
 	}
 	return simplifiedGeometry
+}
+
+func IsSameCoordinate(p, q da.Coordinate) bool {
+	return util.Eq(p.GetLat(), q.GetLat()) && util.Eq(p.GetLon(), q.GetLon())
 }

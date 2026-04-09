@@ -41,8 +41,7 @@ func BenchmarkShortestPathService(b *testing.B) {
 		sCoord := g.GetVertexCoordinate(s)
 		tCoord := g.GetVertexCoordinate(t)
 
-		_, _, _, drivingDirections, _, _ := rs.ShortestPath(sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon())
-		rs.DoneDrivingDirection(drivingDirections)
+		rs.ShortestPath(sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon())
 	}
 
 	now := time.Since(start)

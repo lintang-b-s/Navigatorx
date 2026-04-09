@@ -67,7 +67,7 @@ func NewPriorityQueueNode[T comparable](rank float64, item T, queryInfoId uint32
 	return PriorityQueueNode[T]{rank: rank, item: item, queryInfoId: queryInfoId}
 }
 
-// DAryHeap binary heap priorityqueue
+// DAryHeap d-ary heap priorityqueue
 type DAryHeap[T comparable] struct {
 	heap []PriorityQueueNode[T]
 	d    uint32

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/bytedance/gopkg/collection/hashset"
 	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -53,6 +52,10 @@ type nodeWithCoord struct {
 	coord NodeCoord
 }
 
+// note: di road network graph osm, wajar ada parallel edge,
+// lihat tail dari parallel edge: https://www.openstreetmap.org/node/8445770719#map=19/-7.568382/110.816289
+// lihat head dari parallel edge: https://www.openstreetmap.org/node/8445759311#map=19/-7.568314/110.815814
+
 type OsmParser struct {
 	wayNodeMap         map[int64]nodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
 	relationMemberMap  map[int64]struct{}
@@ -66,7 +69,6 @@ type OsmParser struct {
 	ways               map[int64]osmWay        // wayId -> osm way
 	trafficEdges       []da.Index
 	osmWayDefaultSpeed map[int64]float64 // wayId -> default max speed
-	edgeSet            hashset.Uint64Set
 	bb                 *da.BoundingBox
 	maxspeeds          []float64
 	currentTime        time.Time
@@ -84,7 +86,6 @@ func NewOSMParserV2() *OsmParser {
 		nodeToOsmId:        make(map[da.Index]int64),
 		trafficEdges:       make([]da.Index, 0),
 		osmWayDefaultSpeed: make(map[int64]float64),
-		edgeSet:            hashset.NewUint64WithSize(1000),
 		bb:                 da.NewBoundingBoxEmpty(),
 		currentTime:        time.Now(),
 		highwayWhitelist:   initializeHighwayWhitelist(), // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
@@ -477,6 +478,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 			}
 		case "maxspeed":
 			{
+
 				if strings.Contains(tag.Value, "mph") {
 
 					currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " mph", "", -1), 64)
@@ -513,7 +515,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		}
 	}
 
-	if maxSpeed == 0 {
+	if maxSpeed == 0 || tempMap[ROAD_CLASS] == "service" {
 		maxSpeed = highwayTypeSpeed
 	}
 	if maxSpeed == 0 {
@@ -678,13 +680,18 @@ func (p *OsmParser) copyNode(nodeData node) node {
 
 func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
 	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge, id int64) {
+	var (
+		lanes int
+	)
+
 	from := segment[0]
 
 	to := segment[len(segment)-1]
 
-	if from == to {
+	if from.id == to.id {
 		return
 	}
+
 	maxLonft := util.MaxFloat(from.coord.lon, to.coord.lon)
 	maxLatft := util.MaxFloat(from.coord.lat, to.coord.lat)
 
@@ -737,9 +744,11 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 	p.osmWayDefaultSpeed[id] = speed
 
-	lanes, err := strconv.Atoi(tempMap[LANES])
-	if err != nil {
+	lanesString, exists := tempMap[LANES]
+	if !exists {
 		lanes = 1
+	} else {
+		lanes, _ = strconv.Atoi(lanesString)
 	}
 
 	fromNId := p.nodeIDMap[from.id]
@@ -755,12 +764,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 	if wayExtraInfoData.oneWay {
 		if wayExtraInfoData.forward {
-
-			setKey := util.Bitpack(uint32(fromNId), uint32(toNId))
-			if p.edgeSet.Contains(setKey) { // buat ngilangin parallel edge
-				return
-			}
-			p.edgeSet.Add(setKey)
 
 			startPointsIndex := graphStorage.GetOsmNodePointsCount()
 
@@ -793,12 +796,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			*scannedEdges = append(*scannedEdges, e)
 
 		} else {
-
-			setKey := util.Bitpack(uint32(toNId), uint32(fromNId))
-			if p.edgeSet.Contains(setKey) { // buat ngilangin parallel edge
-				return
-			}
-			p.edgeSet.Add(setKey)
 
 			util.ReverseG(edgePoints)
 
@@ -833,12 +830,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		}
 	} else {
 
-		setKey := util.Bitpack(uint32(fromNId), uint32(toNId))
-		if p.edgeSet.Contains(setKey) { // buat ngilangin parallel edge
-			return
-		}
-		p.edgeSet.Add(setKey)
-
 		// add forward edge
 		startPointsIndex := graphStorage.GetOsmNodePointsCount()
 
@@ -872,12 +863,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 		// add reversed edge
 
-		setKeyRev := util.Bitpack(uint32(toNId), uint32(fromNId))
-		if p.edgeSet.Contains(setKeyRev) { // buat ngilangin parallel edge
-			return
-		}
-		p.edgeSet.Add(setKeyRev)
-
 		graphStorage.AppendEdgeMetadata(
 			id,
 			da.Index(endPointsIndex), da.Index(startPointsIndex),
@@ -908,7 +893,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 func (p *OsmParser) isJunctionNode(nodeID int64) bool {
 	return p.wayNodeMap[int64(nodeID)].tipe == JUNCTION_NODE
 }
-
 
 func (p *OsmParser) GetNodeIdMap() map[int64]da.Index {
 	return p.nodeIDMap

@@ -385,6 +385,12 @@ func (g *Graph) GetEntryIdOfOutEdge(e Index) Index {
 	return head.firstIn + Index(g.outEdges[e].entryPoint)
 }
 
+
+func (g *Graph) GetExitIdOfInEdge(e Index) Index {
+	tail := g.vertices[g.inEdges[e].tail]
+	return tail.firstOut + Index(g.inEdges[e].exitPoint)
+}
+
 func (g *Graph) GetEntryPointOfOutEdge(e Index) Index {
 	return Index(g.outEdges[e].entryPoint)
 }
@@ -490,8 +496,8 @@ func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {
 	}
 }
 
-func (g *Graph) GetHeadFromInEdge(entryPoint Index) Index {
-	InEdge := g.GetInEdge(entryPoint)
+func (g *Graph) GetHeadFromInEdge(entryId Index) Index {
+	InEdge := g.GetInEdge(entryId)
 	tailAtInEdge := g.GetVertex(InEdge.GetTail())
 	head := g.outEdges[tailAtInEdge.GetFirstOut()+Index(InEdge.GetExitPoint())].GetHead()
 	return head
@@ -788,6 +794,12 @@ func (g *Graph) GetRoadLanes(edgeId Index) uint8 {
 
 func (g *Graph) GetStreetDirection(edgeId Index) [2]bool {
 	return g.graphStorage.GetStreetDirection(edgeId)
+}
+
+
+func (g *Graph) IsStreetBidirectional(edgeId Index) bool {
+	edgeWayDirection := g.graphStorage.GetStreetDirection(edgeId) //
+	return  edgeWayDirection[0] && edgeWayDirection[1]
 }
 
 func (g *Graph) GetOsmWayId(edgeId Index) int64 {

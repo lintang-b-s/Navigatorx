@@ -92,6 +92,7 @@ func (gs *GraphStorage) SetStreetDirection(streetDirectionForward, streetDirecti
 	gs.streetDirectionBackward = streetDirectionBackward
 }
 
+// GetStreetDirection. get drection dari osm way nya edgeId
 func (gs *GraphStorage) GetStreetDirection(edgeId Index) [2]bool {
 	var direction [2]bool
 	forward := gs.streetDirectionForward.Test(uint(edgeId))

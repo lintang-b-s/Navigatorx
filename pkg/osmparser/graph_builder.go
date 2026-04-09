@@ -63,13 +63,13 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		// we need to do this because Customizable Route Planning (with turn costs) query assume all vertex have at least one outEdge (at for target as source)
 		if !roadNetwork || (roadNetwork && (outDegree[v] == 0 || inDegree[v] == 0)) {
 			dummyOut := da.NewOutEdge(da.INVALID_EDGE_ID, da.Index(v),
-				0, 0, da.Index(len(inEdges[v])), pkg.INVALID_HIGHWAY)
+				pkg.INF_WEIGHT, pkg.INF_WEIGHT, da.Index(len(inEdges[v])), pkg.INVALID_HIGHWAY)
 			outEdges[v] = append(outEdges[v], dummyOut)
 			edgeInfoIds[v] = append(edgeInfoIds[v], da.INVALID_EDGE_INFO_ID)
 			outDegree[v]++
 
 			dummyIn := da.NewInEdge(da.INVALID_EDGE_ID, da.Index(v),
-				0, 0, da.Index(len(outEdges[v])-1), pkg.INVALID_HIGHWAY)
+				pkg.INF_WEIGHT, pkg.INF_WEIGHT, da.Index(len(outEdges[v])-1), pkg.INVALID_HIGHWAY)
 			inEdges[v] = append(inEdges[v], dummyIn)
 			inDegree[v]++
 			graphStorage.AppendEdgeMetadata(
