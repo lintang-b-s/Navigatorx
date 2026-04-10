@@ -11,8 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
@@ -240,15 +240,21 @@ func solve(t *testing.T, filepath string) {
 
 	crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 
-	sid := oldToNewVIdMap[datastructure.Index(source)]
-	tid := oldToNewVIdMap[datastructure.Index(target)]
+	sid := oldToNewVIdMap[da.Index(source)]
+	tid := oldToNewVIdMap[da.Index(target)]
 
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
 	t.Logf("calculating shortest path...\n")
 
-	spLength, _, _ := crpQuery.ShortestPathSearch(as, at)
+	sVertex := g.GetVertex(sid)
+	tVertex := g.GetVertex(tid)
+	emptyCoords := make([]da.Coordinate, 0)
+	sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+	tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
+	spLength, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 	// assert expected output dari test cases soal
 

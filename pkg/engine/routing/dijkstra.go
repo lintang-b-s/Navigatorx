@@ -173,7 +173,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 
 			vId := head
 
-			edgeWeight := us.engine.metrics.GetWeight(hwType, weight, length)
+			edgeWeight := us.engine.GetWeight(eId, true)
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
 
@@ -230,7 +230,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) bool {
 
 			vId := tail
 
-			edgeWeight := us.engine.metrics.GetWeight(hwType, weight, length)
+			edgeWeight := us.engine.GetWeight(eId, false)
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
 

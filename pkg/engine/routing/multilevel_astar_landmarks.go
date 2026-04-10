@@ -198,7 +198,7 @@ misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path 
 
 */
 
-func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, float64, *da.Coordinates,
+func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (float64, float64, *da.Coordinates,
 	[]da.Index, bool) {
 
 	defer bs.Done()
@@ -210,8 +210,10 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (fl
 		atExitPoint  da.Index
 	)
 
-	// asId: Id of outEdge u->s
-	// atId: Id of inEdge  v->t
+	asId := sp.GetOutEdgeId()
+	atId := tp.GetInEdgeId()
+	// asId: Id of outEdge u->s  (head dari outEdge = s, tail dari outEdge = u )
+	// atId: Id of inEdge  t->v  (head dari inEdge = v, tail dari inEdge = t )
 	asEntryPoint = bs.engine.graph.GetEntryPointOfOutEdge(asId)
 	s = bs.engine.graph.GetHeadOfOutEdge(asId)
 	atExitPoint = bs.engine.graph.GetExitPointOfInEdge(atId)
@@ -343,7 +345,7 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(vId))
 
-		edgeWeight := bs.engine.metrics.GetWeight(hwType, weight, length)
+		edgeWeight := bs.engine.GetWeight(eId, true)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 		if uId == source {
@@ -508,7 +510,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(vId))
 
-		edgeWeight := bs.engine.metrics.GetWeight(hwType, weight, length)
+		edgeWeight := bs.engine.GetWeight(eId, false)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
@@ -647,8 +649,7 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 
 		// traverse edge to next cell
 		vOriEdgeId := vVertex.GetOriginalEdge()
-		vOriWeight, vOriLength, vOriHwType := bs.engine.graph.GetOutEdgeTripleWeight(vOriEdgeId)
-		edgeWeight := bs.engine.metrics.GetWeight(vOriHwType, vOriWeight, vOriLength)
+		edgeWeight := bs.engine.GetWeight(vOriEdgeId, true)
 
 		w := vVertex.GetNeighborOverlayVertex()
 		wVertex := bs.engine.overlayGraph.GetVertex(w)
@@ -816,9 +817,7 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 		overlayVId := bs.engine.offsetOverlay(v)
 		// traverse edge to next cell
 		vOriEdgeId := vVertex.GetOriginalEdge()
-		vOriWeight, vOriLength, vOriHwType := bs.engine.graph.GetInEdgeTripleWeight(vOriEdgeId)
-
-		inEdgeWeight := bs.engine.metrics.GetWeight(vOriHwType, vOriWeight, vOriLength)
+		inEdgeWeight := bs.engine.GetWeight(vOriEdgeId, false)
 
 		w := vVertex.GetNeighborOverlayVertex()
 		wVertex := bs.engine.overlayGraph.GetVertex(w)

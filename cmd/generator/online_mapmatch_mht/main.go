@@ -43,7 +43,7 @@ func main() {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), logger)
-	graph, err := da.ReadGraph(graphFile, )
+	graph, err := da.ReadGraph(graphFile)
 	if err != nil {
 		panic(err)
 	}
@@ -81,15 +81,15 @@ func main() {
 		src := RandomCoordinate(boundingBox, rd)
 		dst := RandomCoordinate(boundingBox, rd)
 
-		as, at, _, _, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon())
+		sp, tp := routingService.SnapOrigDestQueryToNearbyRoadSegments(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon())
 		// as = exit/outEdge index of origin
 		// at = entry/inEdge index of destination
-		if as == da.INVALID_EDGE_ID || at == da.INVALID_EDGE_ID {
+		if sp.GetOutEdgeId() == da.INVALID_EDGE_ID && sp.GetInEdgeId() == da.INVALID_EDGE_ID {
 			continue
 		}
 
 		crpQuery := routing.NewCRPALTBidirectionalSearch(routingService.GetEngine().(*routing.CRPRoutingEngine), 1.0)
-		_, _, _, edgePath, found := crpQuery.ShortestPathSearch(as, at)
+		_, _, _, edgePath, found := crpQuery.ShortestPathSearch(sp, tp)
 		if !found {
 			continue
 		}

@@ -5,7 +5,7 @@ PackedSlice. untuk store slice of unsigned integers dengan ukuran 33-63 bit effi
 misal buat simpan osmNodeId dari setiap graph node:
 Untuk osm node: https://wiki.openstreetmap.org/wiki/Stats 2025 ada sekitar 10 billion osm nodeids, jadi 34 bit dengan max value unsigned integer 34bit: 2^34-1 = 17179869183 biar aman untuk beberapa tahun kedepan
 
-adapted/inspired from:
+adapted/inspired by:
 https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/packed_vector.md
 
 

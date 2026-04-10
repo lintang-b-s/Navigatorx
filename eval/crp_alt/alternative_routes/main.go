@@ -234,13 +234,21 @@ func main() {
 
 	foundAltCount := 0
 
+	emptyCoords := make([]da.Coordinate, 0)
+
 	for i := 0; i < len(queries); i++ {
 		s := queries[i].s
 		t := queries[i].t
 
+		sVertex := g.GetVertex(s)
+		tVertex := g.GetVertex(t)
+
+		sp := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, sVertex.GetFirstOut(), sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+		tp := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), tVertex.GetFirstIn(), emptyCoords, emptyCoords)
+
 		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine())
 
-		alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(s, t, 4)
+		alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(sp,tp, 4)
 
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)

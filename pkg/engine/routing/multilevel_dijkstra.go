@@ -181,11 +181,15 @@ edgeIds
 found shortest path or not
 */
 
-func (bs *CRPBidirectionalSearch) ShortestPathSearch(asId, atId da.Index) (float64, []da.Index, bool) {
+func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (float64, []da.Index, bool) {
 
 	defer bs.Done()
 	now := time.Now()
 
+	asId := sp.GetOutEdgeId()
+	atId := tp.GetInEdgeId()
+	// asId: Id of outEdge u->s  (head dari outEdge = s, tail dari outEdge = u )
+	// atId: Id of inEdge  t->v  (head dari inEdge = v, tail dari inEdge = t )
 	asOutEdge := bs.engine.graph.GetOutEdge(asId)
 	s := asOutEdge.GetHead()
 	atInEdge := bs.engine.graph.GetInEdge(atId)
@@ -372,7 +376,7 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(vId))
 
-		edgeWeight := bs.engine.metrics.GetWeight(hwType, weight, length)
+		edgeWeight := bs.engine.GetWeight(eId, true)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 		if uId == source {
@@ -530,7 +534,7 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(vId))
 
-		edgeWeight := bs.engine.metrics.GetWeight(hwType, weight, length)
+		edgeWeight := bs.engine.GetWeight(eId, false)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
@@ -664,8 +668,8 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 
 		// traverse edge to next cell
 		vOriEdgeId := vVertex.GetOriginalEdge()
-		vOriWeight, vOriLength, vOriHwType := bs.engine.graph.GetOutEdgeTripleWeight(vOriEdgeId)
-		edgeWeight := bs.engine.metrics.GetWeight(vOriHwType, vOriWeight, vOriLength)
+
+		edgeWeight := bs.engine.GetWeight(vOriEdgeId, true)
 
 		w := vVertex.GetNeighborOverlayVertex()
 		wVertex := bs.engine.overlayGraph.GetVertex(w)
@@ -829,9 +833,8 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 		overlayVId := bs.engine.offsetOverlay(v)
 		// traverse edge to next cell
 		vOriEdgeId := vVertex.GetOriginalEdge()
-		vOriWeight, vOriLength, vOriHwType := bs.engine.graph.GetInEdgeTripleWeight(vOriEdgeId)
 
-		inEdgeWeight := bs.engine.metrics.GetWeight(vOriHwType, vOriWeight, vOriLength)
+		inEdgeWeight := bs.engine.GetWeight(vOriEdgeId, false)
 
 		w := vVertex.GetNeighborOverlayVertex()
 		wVertex := bs.engine.overlayGraph.GetVertex(w)

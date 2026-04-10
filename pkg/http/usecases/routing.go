@@ -67,11 +67,11 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 
 func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
 
-	as, at, snappedOrig, snappedDst, snappedOrigNxtCoords, snappedDstNxtCoords := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
+	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
-	if rs.notFoundOriginDestinationWithinRadius(as, at) {
+	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
@@ -85,7 +85,7 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 	)
 
 	crpQuery := routing.NewCRPALTBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0)
-	travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(as, at)
+	travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(sp, tp)
 
 	if !found {
 		errmsg := fmt.Sprintf("no route found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
@@ -93,13 +93,15 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 			errmsg)
 	}
 
-	pathCoords.Prepend(append(snappedOrigNxtCoords, snappedOrig))
-	pathCoords.Append(append(snappedDstNxtCoords, snappedDst))
+	pathCoords.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
+	pathCoords.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
 
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 
 	drivingDirection := directionBuilder.GetDrivingDirections(edgePath)
+
+	travelTime += sp.GetForwardTravelTime() + tp.GetReverseTravelTime()
 
 	directionBuilder.Reset()
 	rs.directionBuilderPool.Put(directionBuilder)
@@ -107,25 +109,25 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 }
 
 func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int) ([]routing.AlternativeRoute, bool, error) {
-	as, at, snappedOrig, snappedDst, snappedOrigNxtCoords, snappedDstNxtCoords := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
+	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	// as = exit/outEdge index of origin
 	// at = entry/inEdge index of destination
-	if rs.notFoundOriginDestinationWithinRadius(as, at) {
+	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
 	}
 
-	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(as, at, k)
+	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp, tp, k)
 	if len(alternatives) == 0 {
 		return []routing.AlternativeRoute{}, false, nil
 	}
 
 	for i, alt := range alternatives {
 		altPathCoords := alt.GetCoords()
-		altPathCoords.Prepend(append(snappedOrigNxtCoords, snappedOrig))
-		altPathCoords.Append(append(snappedDstNxtCoords, snappedDst))
+		altPathCoords.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
+		altPathCoords.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
 
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
 		alternatives[i].SetPolylinePath(pathPolyline)
@@ -133,6 +135,9 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 
 		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath())
 		alternatives[i].SetDrivingDirections(drivingDirection)
+
+		newTravelTime := sp.GetForwardTravelTime() + tp.GetReverseTravelTime() + alternatives[i].GetDrivingTravelTime()
+		alternatives[i].SetDrivingTravelTime(newTravelTime)
 		directionBuilder.Reset()
 		rs.directionBuilderPool.Put(directionBuilder)
 	}

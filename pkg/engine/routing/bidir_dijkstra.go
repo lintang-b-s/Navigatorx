@@ -53,11 +53,13 @@ https://kam.mff.cuni.cz/~spring/media/papers/5/bidirectional_dijkstra.pdf
 
 bidirectional dijkstra, support turn costs
 */
-func (bs *BidirectionalDijkstra) ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
+func (bs *BidirectionalDijkstra) ShortestPathSearch(sp, tp da.PhantomNode) (float64, float64, []da.Coordinate,
 	[]da.OutEdge, bool) {
 
 	now := time.Now()
 
+	asId := sp.GetOutEdgeId()
+	atId := tp.GetInEdgeId()
 	asEdge := bs.engine.graph.GetOutEdge(asId)
 	s := asEdge.GetHead()
 	atEdge := bs.engine.graph.GetInEdge(atId)
@@ -224,7 +226,7 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 		hwType pkg.OsmHighwayType) {
 		vId := head
 
-		edgeWeight := bs.engine.metrics.GetWeight(hwType, weight, length)
+		edgeWeight := bs.engine.GetWeight(eId, true)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 		if uId == source {
@@ -329,7 +331,7 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 		turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 		vId := tail
 
-		edgeWeight := bs.engine.metrics.GetWeight(hwType, weight, length)
+		edgeWeight := bs.engine.GetWeight(eId, false)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 

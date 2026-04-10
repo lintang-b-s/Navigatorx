@@ -1,5 +1,7 @@
 package datastructure
 
+import "github.com/lintang-b-s/Navigatorx/pkg"
+
 type Coordinate struct {
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
@@ -19,6 +21,13 @@ func NewCoordinate(lat, lon float64) Coordinate {
 	return Coordinate{
 		Lat: lat,
 		Lon: lon,
+	}
+}
+
+func NewInvalidCoordinate() Coordinate {
+	return Coordinate{
+		Lat: pkg.INVALID_LAT,
+		Lon: pkg.INVALID_LON,
 	}
 }
 
@@ -55,4 +64,3 @@ func (cs *Coordinates) Reset() {
 	slice = slice[:0]
 	*cs = slice
 }
-

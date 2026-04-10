@@ -10,10 +10,11 @@ import (
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
+	GetWeight(eId da.Index, outEdge bool) float64
 }
 
 type AlternativeRouteAlgorithm interface {
-	FindAlternativeRoutes(asId, atId da.Index, k int) ([]routing.AlternativeRoute, float64, int64)
+	FindAlternativeRoutes(sp, tp da.PhantomNode, k int) ([]routing.AlternativeRoute, float64, int64)
 }
 
 type SpatialIndex interface {

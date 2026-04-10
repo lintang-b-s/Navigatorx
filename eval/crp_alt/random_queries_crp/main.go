@@ -105,6 +105,7 @@ func main() {
 	qRuntime := 0.0
 	puRuntime := 0.0
 	totScannedVertices := 0
+
 	calcsSP := func(i int, p spParam) any {
 
 		s := p.s
@@ -113,9 +114,15 @@ func main() {
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
+		sVertex := g.GetVertex(s)
+		tVertex := g.GetVertex(t)
+		emptyCoords := make([]da.Coordinate, 0)
+		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
 		now := time.Now()
 		crpQuery := routing.NewCRPBidirectionalSearch(re, 1.0)
-		_, spEdgeIds, _ := crpQuery.ShortestPathSearch(as, at)
+		_, spEdgeIds, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 		dur := time.Since(now).Milliseconds()
 		durations += float64(dur)

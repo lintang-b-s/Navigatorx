@@ -54,6 +54,10 @@ func (ar *AlternativeRoute) GetDrivingTravelTime() float64 {
 	return ar.travelTime
 }
 
+func (ar *AlternativeRoute) SetDrivingTravelTime(travelTime float64) {
+	ar.travelTime = travelTime
+}
+
 func (ar *AlternativeRoute) GetViaVertex() da.ViaVertex {
 	return ar.viaVertex
 }
@@ -208,7 +212,7 @@ inti dari FindAlternativeRoutes:
 3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
 */
 
-func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k int) ([]AlternativeRoute, float64, int64) {
+func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, k int) ([]AlternativeRoute, float64, int64) {
 
 	/*
 		let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
@@ -219,6 +223,8 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 	*/
 	now := time.Now()
 
+	asId := sp.GetOutEdgeId()
+	atId := tp.GetInEdgeId()
 	asEdge := ars.engine.graph.GetOutEdge(asId)
 	s := asEdge.GetHead()
 	atEdge := ars.engine.graph.GetInEdge(atId)
@@ -234,7 +240,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(asId, atId da.Index, k 
 		crpQuery.Done()
 	}()
 
-	optTravelTime, optEdgeIdPath, found := crpQuery.ShortestPathSearch(asId, atId)
+	optTravelTime, optEdgeIdPath, found := crpQuery.ShortestPathSearch(sp, tp)
 	if !found {
 		return []AlternativeRoute{}, pkg.INF_WEIGHT, 0
 	}
@@ -512,20 +518,18 @@ func (ars *AlternativeRouteSearch) calculateDistanceShare(svPath, vtPath []da.In
 
 	for _, eId := range svPath {
 
-		eWeight, eLength, eHwType := ars.engine.graph.GetOutEdgeTripleWeight(eId)
 		eHead := ars.engine.graph.GetHeadOfOutEdge(eId)
 		if _, ok := optPathSet[eHead]; ok {
 			// kualitas rute alternatif lebih bagus kalau length functionnya travel time
-			distanceShare += ars.engine.metrics.GetWeight(eHwType, eWeight, eLength)
+			distanceShare += ars.engine.GetWeight(eId, true)
 		}
 	}
 
 	for _, eId := range vtPath {
-		eWeight, eLength, eHwType := ars.engine.graph.GetOutEdgeTripleWeight(eId)
 		eHead := ars.engine.graph.GetHeadOfOutEdge(eId)
 		if _, ok := optPathSet[eHead]; ok {
 			// kualitas rute alternatif lebih bagus kalau length functionnya travel time
-			distanceShare += ars.engine.metrics.GetWeight(eHwType, eWeight, eLength)
+			distanceShare += ars.engine.GetWeight(eId, true)
 		}
 	}
 
@@ -621,8 +625,7 @@ func (ars *AlternativeRouteSearch) calculateApproxDistanceShare(svPackedPath, vt
 			i++
 		} else {
 			eHead := ars.engine.graph.GetHeadOfOutEdge(pi.GetEdge())
-			eDefWeight, eLength, eHighwayType := ars.engine.graph.GetOutEdgeTripleWeight(pi.GetEdge())
-			eWeight := ars.engine.metrics.GetWeight(eHighwayType, eDefWeight, eLength)
+			eWeight := ars.engine.GetWeight(pi.GetEdge(), true)
 			if _, ok := optPathSet[eHead]; ok {
 				// kualitas rute alternatif lebih bagus kalau length functionnya travel time
 				distanceShare += eWeight

@@ -35,33 +35,28 @@ snapped point (proyeksi titik query source ke road segment terdekat) of source.
 snapped point (proyeksi titik query destination ke road segment terdekat) of destination.
 edgeGeometry dari source road segment setelah snappedPoint of destination.
 edgeGeometry dari source road segment sebelum snappedPoint of destination.
-
-*/ 
+*/
 func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon float64,
-) (da.Index,
-	da.Index, da.Coordinate, da.Coordinate, []da.Coordinate, []da.Coordinate) {
+) (da.PhantomNode, da.PhantomNode) {
 	searchRad := rs.searchRadius
 	var (
-		as, at                  da.Index      = da.INVALID_EDGE_ID, da.INVALID_EDGE_ID
-		snappedOrig, snappedDst da.Coordinate = da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON),
-			da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON)
-		pairSize                                  int               = spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES
-		removedPrevPairSet                        hashset.Uint64Set = hashset.NewUint64WithSize(pairSize)
-		snappedOrigNxtCoords, snappedDstNxtCoords []da.Coordinate
+		sp, tp             da.PhantomNode    = da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
+		pairSize           int               = spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES
+		removedPrevPairSet hashset.Uint64Set = hashset.NewUint64WithSize(pairSize)
 	)
 
 	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
 		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 
-		as, at, snappedOrig, snappedDst, snappedOrigNxtCoords, snappedDstNxtCoords = rs.SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet)
-		if !rs.notFoundOriginDestinationWithinRadius(as, at) {
+		sp, tp = rs.SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet)
+		if !rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 			// break loop early if found connected origin and destination
 			break
 		}
 		searchRad *= SEARCH_RADIUS_MULTIPLIER
 	}
 
-	return as, at, snappedOrig, snappedDst, snappedOrigNxtCoords, snappedDstNxtCoords
+	return sp, tp
 }
 
 /*
@@ -82,8 +77,7 @@ let V_G=number of sccs of the graph/number of vertices in condensation graph scc
 worst case: O(M + c^2 * (V_G+O_G))
 */
 func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
-	removedPrevPairSet hashset.Uint64Set) (da.Index,
-	da.Index, da.Coordinate, da.Coordinate, []da.Coordinate, []da.Coordinate) {
+	removedPrevPairSet hashset.Uint64Set) (da.PhantomNode, da.PhantomNode) {
 	var (
 		projectedLat, projectedLon float64
 	)
@@ -124,7 +118,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	bestPair := newOriginDestination(da.INVALID_EDGE_ID, da.INVALID_EDGE_ID,
 		da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON), da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON))
 	bestOriginNextCoords := make([]da.Coordinate, 0)
-	bestDestNextCoords := make([]da.Coordinate, 0)
+	bestDestBefCoords := make([]da.Coordinate, 0)
 
 	for i, o := range origCandidates {
 		for j, d := range dstCandidates {
@@ -148,13 +142,24 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 				minDist = origDestSnapDist
 				bestPair = newOriginDestination(o, dstInEdge, origCoord[i], dstCoord[j])
 				bestOriginNextCoords = origNextCoords[i]
-				bestDestNextCoords = dstNextCoords[j]
+				bestDestBefCoords = dstNextCoords[j]
 			}
 		}
 	}
 
-	return bestPair.origEdgeId, bestPair.destEdgeId, bestPair.origCoord, bestPair.destCoord,
-		bestOriginNextCoords, bestDestNextCoords
+	// return bestPair.origEdgeId, bestPair.destEdgeId, bestPair.origCoord, bestPair.destCoord,
+	// 	bestOriginNextCoords, bestDestBefCoords
+	sForwardTravelTime := rs.engine.GetWeight(bestPair.origEdgeId, true)
+
+	sp := da.NewPhantomNode(bestPair.origCoord, sForwardTravelTime, 0, bestPair.origEdgeId, da.INVALID_EDGE_ID, bestOriginNextCoords,
+		make([]da.Coordinate, 0))
+
+	tReverseTravelTime := rs.engine.GetWeight(bestPair.destEdgeId, true)
+
+	tp := da.NewPhantomNode(bestPair.destCoord, 0.0, tReverseTravelTime, da.INVALID_EDGE_ID, bestPair.destEdgeId, make([]da.Coordinate, 0),
+		bestDestBefCoords)
+
+	return sp, tp
 }
 
 type originDestination struct {
@@ -223,8 +228,8 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist, nextEdgeGeometry
 }
 
-func (rs *RoutingService) notFoundOriginDestinationWithinRadius(seId, teId da.Index) bool {
-	if seId == da.INVALID_EDGE_ID && teId == da.INVALID_EDGE_ID {
+func (rs *RoutingService) notFoundOriginDestinationWithinRadius(sp, tp da.PhantomNode) bool {
+	if da.IsPhantomNodeInvalid(sp) || da.IsPhantomNodeInvalid(tp) {
 		return true
 	}
 	return false

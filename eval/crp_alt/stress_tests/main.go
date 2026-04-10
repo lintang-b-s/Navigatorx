@@ -264,7 +264,14 @@ func main() {
 		outEdgeFromTarget := g.GetExitOffset(t) + g.GetOutDegree(t) - 1
 		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-		sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+
+		sVertex := g.GetVertex(s)
+		tVertex := g.GetVertex(t)
+		emptyCoords := make([]da.Coordinate, 0)
+		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
+		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 		expectedSp := expectedSPTravelTimes[i][t]
 		// expectedSPEdges := expectedShortestPaths[i][t]

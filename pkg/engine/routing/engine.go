@@ -138,3 +138,13 @@ func (crp *CRPRoutingEngine) GetMaxSpeed(e da.OutEdge) float64 {
 func (crp *CRPRoutingEngine) Close() {
 	crp.puCache.Close()
 }
+
+// GetWeight. get weight of outEdge/inEdge
+func (crp *CRPRoutingEngine) GetWeight(eId da.Index, outEdge bool) float64 {
+	if outEdge {
+		eDefaultWeight, eLength, eHighwayType := crp.graph.GetOutEdgeTripleWeight(eId)
+		return crp.metrics.GetWeight(eHighwayType, eDefaultWeight, eLength)
+	}
+	eDefaultWeight, eLength, eHighwayType := crp.graph.GetInEdgeTripleWeight(eId)
+	return crp.metrics.GetWeight(eHighwayType, eDefaultWeight, eLength)
+}

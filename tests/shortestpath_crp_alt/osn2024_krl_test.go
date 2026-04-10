@@ -350,10 +350,20 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	atTransit := g.GetEntryOffset(tidTransit) + g.GetInDegree(tidTransit) - 1
 
 	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+
+	sVertex := g.GetVertex(sid)
+	tVertex := g.GetVertex(tid)
+	emptyCoords := make([]da.Coordinate, 0)
+	sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+	tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
+	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 	crpQuery2 := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-	spLengthTransit, _, _, _, _ := crpQuery2.ShortestPathSearch(as, atTransit)
+
+	tTransitPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), atTransit, emptyCoords, emptyCoords)
+
+	spLengthTransit, _, _, _, _ := crpQuery2.ShortestPathSearch(sPhantomNode, tTransitPhantomNode)
 
 	var ans float64
 	if util.Lt(spLength, spLengthTransit) {

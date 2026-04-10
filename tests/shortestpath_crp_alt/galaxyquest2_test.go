@@ -247,7 +247,13 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 
 	for _, at := range atIds {
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-		sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+
+		sVertex := g.GetVertex(sid)
+		emptyCoords := make([]da.Coordinate, 0)
+		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+		tPhantomNode := da.NewPhantomNode(da.NewInvalidCoordinate(), 0, 0, 0, at, emptyCoords, emptyCoords)
+
+		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 		target := atIdTotId[at]
 

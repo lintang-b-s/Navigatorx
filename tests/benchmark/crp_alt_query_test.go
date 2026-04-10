@@ -116,7 +116,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 	if err != nil {
 		panic(err)
 	}
-	
+
 	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
@@ -225,8 +225,14 @@ func BenchmarkCRPALTQuery(b *testing.B) {
 		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
 		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
 
+		sVertex := g.GetVertex(s)
+		tVertex := g.GetVertex(t)
+		emptyCoords := make([]da.Coordinate, 0)
+		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
-		crpQuery.ShortestPathSearch(as, at)
+		crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 	}
 

@@ -204,7 +204,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			}
 		}
 
-		edgeWeight := us.engine.metrics.GetWeight(hwType, weight, length)
+		edgeWeight := us.engine.GetWeight(eId, true)
 
 		turnCost := us.engine.metrics.GetTurnCost(turnType)
 		if uId == source {
@@ -307,9 +307,8 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 
 			// traverse edge to next cell
 			vOriEdgeId := vVertex.GetOriginalEdge()
-			vOriWeight, vOriLength, vOriHwType := us.engine.graph.GetOutEdgeTripleWeight(vOriEdgeId)
-			edgeWeight := us.engine.metrics.GetWeight(vOriHwType, vOriWeight, vOriLength)
 
+			edgeWeight := us.engine.GetWeight(vOriEdgeId, true)
 			// w is in the next cell from v cell
 			w := vVertex.GetNeighborOverlayVertex()
 			wVertex := us.engine.overlayGraph.GetVertex(w)

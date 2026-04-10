@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
@@ -87,7 +88,13 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 
 	t.Logf("calculating shortest path...  \n")
 
-	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+	sVertex := g.GetVertex(sid)
+	tVertex := g.GetVertex(tid)
+	emptyCoords := make([]da.Coordinate, 0)
+	sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+	tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
+	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 	// assert expected output dari test cases soal
 

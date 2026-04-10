@@ -14,7 +14,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -175,7 +175,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, r*c, []int{7, 8, 14, 17}, true)
 
 	tnId := cellToNId(tx, ty)
-	tid := oldToNewVIdMap[datastructure.Index(tnId)]
+	tid := oldToNewVIdMap[da.Index(tnId)]
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
 	t.Log("calculating shortest paths...\n")
@@ -185,12 +185,19 @@ func SolveShowroom(t *testing.T, filepath string) {
 	lock := sync.Mutex{}
 	calcSp := func(p pair) any {
 		snId := cellToNId(p.first, p.second)
-		sid := oldToNewVIdMap[datastructure.Index(snId)]
+		sid := oldToNewVIdMap[da.Index(snId)]
 
 		as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 
 		crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-		spLength, _, _ := crpQuery.ShortestPathSearch(as, at)
+
+		sVertex := g.GetVertex(sid)
+		tVertex := g.GetVertex(tid)
+		emptyCoords := make([]da.Coordinate, 0)
+		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
+		spLength, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 		lock.Lock()
 		defer lock.Unlock()

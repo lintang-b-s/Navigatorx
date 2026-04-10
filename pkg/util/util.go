@@ -12,6 +12,8 @@ import (
 	"strings"
 
 	"github.com/cockroachdb/errors"
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/spf13/viper"
 
 	"time"
 )
@@ -305,4 +307,37 @@ func FindProjectWorkingDir() (string, error) {
 func CleanHeap() {
 	runtime.GC()
 	runtime.GC()
+}
+
+func InitConfig() {
+	workingDir, err := FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	err = ReadConfig(workingDir)
+	if err != nil {
+		panic(err)
+	}
+	vehicleType := viper.GetString("vehicle_type")
+	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicle = pkg.GetIsVehicle()
+	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+}
+
+func InitProfileConfig(profileName string) {
+	workingDir, err := FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	err = ReadProfileConfig(workingDir, profileName)
+	if err != nil {
+		panic(err)
+	}
+	pkg.ProfileName = profileName
+	vehicleType := viper.GetString("vehicle_type")
+	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicle = pkg.GetIsVehicle()
+	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
 }

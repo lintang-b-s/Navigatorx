@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
@@ -28,20 +27,7 @@ var (
 
 func init() {
 	flag.Parse()
-	workingDir, err := util.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	err = util.ReadProfileConfig(workingDir, profileName)
-	if err != nil {
-		panic(err)
-	}
-	pkg.ProfileName = profileName
-	vehicleType := viper.GetString("vehicle_type")
-	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicle = pkg.GetIsVehicle()
-	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+	util.InitProfileConfig(profileName)
 }
 
 func main() {

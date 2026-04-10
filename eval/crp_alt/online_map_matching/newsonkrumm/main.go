@@ -477,7 +477,13 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		as := g.GetDummyOutEdgeId(s)
 		at := g.GetDummyInEdgeId(t)
 
-		_, _, _, edges, _ := crpQuery.ShortestPathSearch(as, at)
+		sVertex := g.GetVertex(s)
+		tVertex := g.GetVertex(t)
+		emptyCoords := make([]da.Coordinate, 0)
+		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
+		_, _, _, edges, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 		return edges
 	}
 

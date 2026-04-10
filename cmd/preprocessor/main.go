@@ -8,14 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -33,20 +31,7 @@ var (
 
 func init() {
 	flag.Parse()
-	workingDir, err := util.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	err = util.ReadProfileConfig(workingDir, profileName)
-	if err != nil {
-		panic(err)
-	}
-	pkg.ProfileName = profileName
-	vehicleType := viper.GetString("vehicle_type")
-	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicle = pkg.GetIsVehicle()
-	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+	util.InitProfileConfig(profileName)
 }
 
 func main() {

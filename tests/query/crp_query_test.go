@@ -17,7 +17,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
@@ -32,7 +31,6 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -312,7 +310,14 @@ func TestCRPQuerySimple(t *testing.T) {
 
 					query := bitpack(oldS, oldT)
 					expectedSpCost := apsp[query]
-					spCost, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+
+					sVertex := graph.GetVertex(source)
+					tVertex := graph.GetVertex(target)
+					emptyCoords := make([]da.Coordinate, 0)
+					sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+					tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
+					spCost, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 					if !util.Eq(spCost, expectedSpCost) {
 						t.Errorf("expected shortest path cost from %v to %v: %v, got: %v", oldS, oldT, spCost, expectedSpCost)
@@ -329,19 +334,7 @@ type query struct {
 }
 
 func init() {
-	workingDir, err := util.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	err = util.ReadConfig(workingDir)
-	if err != nil {
-		panic(err)
-	}
-	vehicleType := viper.GetString("vehicle_type")
-	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicle = pkg.GetIsVehicle()
-	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+	util.InitConfig()
 }
 
 func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
@@ -466,7 +459,7 @@ func TestCRPQueryStressTest(t *testing.T) {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := 2
+	n := 5
 	qset := make(map[da.Index]struct{})
 
 	queries := make([]da.Index, 0, n)
@@ -553,7 +546,14 @@ func TestCRPQueryStressTest(t *testing.T) {
 		outEdgeFromTarget := g.GetExitOffset(target) + g.GetOutDegree(target) - 1
 		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-		sp, _, _, _, _ := crpQuery.ShortestPathSearch(as, at)
+
+		sVertex := g.GetVertex(s)
+		tVertex := g.GetVertex(target)
+		emptyCoords := make([]da.Coordinate, 0)
+		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
+		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+
+		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 		expectedSp := expectedSPTravelTimes[i][target]
 

@@ -261,12 +261,12 @@ func TestOriginDestinationSnap(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			sourceExitId, destinationEntryId, _, _, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(tc.queryOriginCoord.GetLat(), tc.queryOriginCoord.GetLon(),
+			sp, tp := routingService.SnapOrigDestQueryToNearbyRoadSegments(tc.queryOriginCoord.GetLat(), tc.queryOriginCoord.GetLon(),
 				tc.queryDestinationCoord.GetLat(), tc.queryDestinationCoord.GetLon())
 
-			sourceRoadSegmentName := g.GetStreetName(sourceExitId)
+			sourceRoadSegmentName := g.GetStreetName(sp.GetOutEdgeId())
 
-			destinationExitId := g.GetExitIdOfInEdge(destinationEntryId)
+			destinationExitId := g.GetExitIdOfInEdge(tp.GetInEdgeId())
 			destinationRoadSegmentName := g.GetStreetName(destinationExitId)
 			if sourceRoadSegmentName != tc.wantOrigin {
 				t.Errorf("want origin road segment: %v, got: %v", tc.wantOrigin, sourceRoadSegmentName)
@@ -280,8 +280,11 @@ func TestOriginDestinationSnap(t *testing.T) {
 
 	t.Run("random input origin destination snap test", func(t *testing.T) {
 		for _, q := range queries {
-			_, _, snappedOrig, snappedDst, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
+			sp, tp := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
 				q.dest.GetLat(), q.dest.GetLon())
+
+			snappedOrig := sp.GetSnappedCoord()
+			snappedDst := tp.GetSnappedCoord()
 
 			distToOrig := geo.CalculateGreatCircleDistance(q.orig.GetLat(), q.orig.GetLon(), snappedOrig.GetLat(), snappedOrig.GetLon())
 			distToDest := geo.CalculateGreatCircleDistance(q.dest.GetLat(), q.dest.GetLon(), snappedDst.GetLat(), snappedDst.GetLon())

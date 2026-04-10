@@ -255,8 +255,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 				}
 
 				// get out edge that point to wEntryVertex from vOverlayId
-				vOutEdgeWeight, vOutEdgeLength, vOutEdgeHwType := pu.engine.graph.GetOutEdgeTripleWeight(vOverlayVertex.GetOriginalEdge())
-				newTravelTime += pu.metrics.GetWeight(vOutEdgeHwType, vOutEdgeWeight, vOutEdgeLength)
+				newTravelTime += pu.engine.GetWeight(vOverlayVertex.GetOriginalEdge(), true)
 
 				wOriginalId := wNeigborVertex.GetOriginalVertex()
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
@@ -386,7 +385,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			vId := head
 
 			vEntryId := pu.engine.graph.GetEntryOffset(vId) + entryPoint
-			edgeWeight := pu.metrics.GetWeight(hwType, weight, length)
+			edgeWeight := pu.engine.GetWeight(eId, true)
 
 			newTravelTime := pq.GetPriority(uEntryId) + edgeWeight + pu.metrics.GetTurnCost(turnType)
 
@@ -424,8 +423,8 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	edgeIdPath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 
 	_, midOutEdgeId := pu.engine.graph.GetHeadOfInedgeWithOutEdge(targetEntryId)
-	midInEdgeWeight, midInEdgeLength, midInEdgeHwType := pu.engine.graph.GetOutEdgeTripleWeight(midOutEdgeId)
-	if util.Gt(pu.metrics.GetWeight(midInEdgeHwType, midInEdgeWeight, midInEdgeLength), 0) {
+
+	if util.Gt(pu.engine.GetWeight(midOutEdgeId, true), 0) {
 		edgeIdPath = append(edgeIdPath, midOutEdgeId)
 	}
 
