@@ -93,15 +93,12 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 			errmsg)
 	}
 
-	pathCoords.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
-	pathCoords.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
+	travelTime = rs.AppendPhantomNodesToPath(pathCoords, sp, tp, travelTime)
 
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 
 	drivingDirection := directionBuilder.GetDrivingDirections(edgePath)
-
-	travelTime += sp.GetForwardTravelTime() + tp.GetReverseTravelTime()
 
 	directionBuilder.Reset()
 	rs.directionBuilderPool.Put(directionBuilder)
@@ -126,8 +123,9 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 
 	for i, alt := range alternatives {
 		altPathCoords := alt.GetCoords()
-		altPathCoords.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
-		altPathCoords.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
+
+		newTravelTime := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alternatives[i].GetDrivingTravelTime())
+		alternatives[i].SetDrivingTravelTime(newTravelTime)
 
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
 		alternatives[i].SetPolylinePath(pathPolyline)
@@ -136,8 +134,6 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath())
 		alternatives[i].SetDrivingDirections(drivingDirection)
 
-		newTravelTime := sp.GetForwardTravelTime() + tp.GetReverseTravelTime() + alternatives[i].GetDrivingTravelTime()
-		alternatives[i].SetDrivingTravelTime(newTravelTime)
 		directionBuilder.Reset()
 		rs.directionBuilderPool.Put(directionBuilder)
 	}
@@ -150,4 +146,11 @@ func (rs *RoutingService) GetEngine() RoutingEngine {
 
 func (rs *RoutingService) Close() {
 	rs.turnSignCache.Close()
+}
+
+func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64) float64 {
+	path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
+	path.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
+	travelTime += sp.GetForwardTravelTime() + tp.GetReverseTravelTime()
+	return travelTime
 }
