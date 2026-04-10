@@ -149,8 +149,13 @@ func (rs *RoutingService) Close() {
 }
 
 func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64) float64 {
-	path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
-	path.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
-	travelTime += sp.GetForwardTravelTime() + tp.GetReverseTravelTime()
+	if !rs.engine.IsDummyOutEdge(sp.GetOutEdgeId()) {
+		path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
+		travelTime += sp.GetForwardTravelTime()
+	}
+	if !rs.engine.IsDummyInEdge(tp.GetInEdgeId()) {
+		path.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
+		travelTime += tp.GetReverseTravelTime()
+	}
 	return travelTime
 }
