@@ -147,8 +147,10 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 		}
 	}
 
-	// return bestPair.origEdgeId, bestPair.destEdgeId, bestPair.origCoord, bestPair.destCoord,
-	// 	bestOriginNextCoords, bestDestBefCoords
+	if bestPair.origEdgeId == da.INVALID_EDGE_ID && bestPair.destEdgeId == da.INVALID_EDGE_ID {
+		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
+	}
+
 	sForwardTravelTime := rs.engine.GetWeight(bestPair.origEdgeId, true)
 
 	sp := da.NewPhantomNode(bestPair.origCoord, sForwardTravelTime, 0, bestPair.origEdgeId, da.INVALID_EDGE_ID, bestOriginNextCoords,
