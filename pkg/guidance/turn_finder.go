@@ -12,7 +12,7 @@ import (
 todo1: tambahin motorway handler (jalan toll)
 todo2: tambahin destination di driving direction (https://wiki.openstreetmap.org/wiki/Key:destination)
 todo3: pake tag osm way ini: https://wiki.openstreetmap.org/wiki/Key:turn
-
+todo4: add test expected outputnya pake driving direction google map (dengan rute yang sama).
 */
 
 func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, headId da.Index, name string) da.TurnType {
@@ -70,7 +70,7 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, p
 	db.nextStreetName = currStreetName
 
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
-	collinear := geo.IsPolylineCollinear(eGeom)
+	curved := geo.IsPolylineCurved(eGeom)
 	if len(eGeom) > 3 {
 		tailCoord = eGeom[1]
 		headCoord = eGeom[len(eGeom)-2]
@@ -105,7 +105,7 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, p
 	alternativeTurnsCount, alternativeTurns := db.GetAlternativeTurns(tailId, headId, prevNodeId)
 
 	if !da.IsTurnSlight(sign) {
-		if streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && !collinear) {
+		if streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && curved) {
 			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
 			return da.IGNORE
 		}
@@ -187,7 +187,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 	db.nextStreetName = currStreetName
 
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
-	collinear := geo.IsPolylineCollinear(eGeom)
+	curved := geo.IsPolylineCurved(eGeom)
 
 	if len(eGeom) > 3 {
 		tailCoord = eGeom[1]
@@ -222,7 +222,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 	alternativeTurnsCount, alternativeTurns := db.GetAlternativeTurns(tailId, headId, prevNodeId)
 
 	if !da.IsTurnSlight(sign) {
-		if !leavingPrevStreet || streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && !collinear) {
+		if !leavingPrevStreet || streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && curved) {
 			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
 			return da.IGNORE
 		}

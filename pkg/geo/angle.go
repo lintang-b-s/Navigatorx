@@ -28,7 +28,7 @@ func BearingTo(p1Lat, p1Lon, p2Lat, p2Lon float64) float64 {
 }
 
 const (
-	COLLINEAR_EPS = 1e-10
+	COLLINEAR_EPS = 1e-11
 )
 
 // cross. returns the cross product of two vectors a and b
@@ -42,10 +42,10 @@ func collinear(px, py, qx, qy, rx, ry float64) bool {
 	return cp < COLLINEAR_EPS
 }
 
-// PolylineCollinear. return true jika semua points diantara endpoint (tail,head) dari coords is on the same line as the line (tail,head)
-func IsPolylineCollinear(coords da.Coordinates) bool {
+// IsPolylineCurved. return false jika semua points diantara endpoint (tail,head) dari coords is on the same line as the line (tail,head)
+func IsPolylineCurved(coords da.Coordinates) bool {
 	if len(coords) == 2 {
-		return true
+		return false
 	}
 	tailX, tailY := CalcLonToX(coords[0].GetLon()), CalcLatToYApprox(coords[0].GetLat())
 	headX, headY := CalcLonToX(coords[len(coords)-1].GetLon()), CalcLatToYApprox(coords[len(coords)-1].GetLat())
@@ -53,9 +53,9 @@ func IsPolylineCollinear(coords da.Coordinates) bool {
 	for i := 1; i < len(coords)-1; i++ {
 		rx, ry := CalcLonToX(coords[i].GetLon()), CalcLatToYApprox(coords[i].GetLat())
 		if !collinear(tailX, tailY, headX, headY, rx, ry) {
-			return false
+			return true
 		}
 	}
 
-	return true
+	return false
 }

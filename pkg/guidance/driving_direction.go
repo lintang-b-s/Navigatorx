@@ -246,9 +246,9 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 	db.doublePrevPoint = db.prevPoint
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
 
-	collinear := geo.IsPolylineCollinear(eGeom)
+	curved := geo.IsPolylineCurved(eGeom)
 	if len(eGeom) > 3 {
-		if !collinear {
+		if curved {
 			db.prevPoint = eGeom[len(eGeom)-2]
 		} else {
 			db.prevPoint = eGeom[0]
