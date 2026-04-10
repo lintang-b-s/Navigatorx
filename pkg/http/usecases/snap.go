@@ -27,7 +27,16 @@ let M=number of road segments/edges in the graph
 let c=max number of road segments/edges returned by rtree spatial index
 let V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
 worst case: O(q*(M + c^2 * (V_G+O_G)))
-*/
+
+return:
+outEdgeId dari source road segment.
+inEdgeId dari destination road segment.
+snapped point (proyeksi titik query source ke road segment terdekat) of source.
+snapped point (proyeksi titik query destination ke road segment terdekat) of destination.
+edgeGeometry dari source road segment setelah snappedPoint of destination.
+edgeGeometry dari source road segment sebelum snappedPoint of destination.
+
+*/ 
 func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon float64,
 ) (da.Index,
 	da.Index, da.Coordinate, da.Coordinate, []da.Coordinate, []da.Coordinate) {

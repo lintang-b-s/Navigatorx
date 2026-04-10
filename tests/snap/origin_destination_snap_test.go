@@ -213,6 +213,71 @@ func TestOriginDestinationSnap(t *testing.T) {
 		panic(err)
 	}
 
+	testCases := []struct {
+		name                  string
+		queryOriginCoord      da.Coordinate
+		queryDestinationCoord da.Coordinate
+
+		wantOrigin, wantDestination string
+	}{
+		{
+			name:                  "Kebab Morgan Jl. Pandega Marta https://www.openstreetmap.org/way/132780420  -> Jalan Malioboro (openstreetmap.org/way/357658484)",
+			queryOriginCoord:      da.NewCoordinate(-7.755813, 110.376565),
+			queryDestinationCoord: da.NewCoordinate(-7.795240, 110.365404),
+			wantOrigin:            "Jalan Pandega Marta",
+			wantDestination:       "Jalan Malioboro",
+		},
+		{
+			name:                  "Kebab Morgan Jl. Pandega Marta https://www.openstreetmap.org/way/132780420  -> jalan Sains FMIPA UGM https://www.openstreetmap.org/way/194146659",
+			queryOriginCoord:      da.NewCoordinate(-7.755813, 110.376565),
+			queryDestinationCoord: da.NewCoordinate(-7.767826, 110.376570),
+			wantOrigin:            "Jalan Pandega Marta",
+			wantDestination:       "Jalan Sains",
+		},
+
+		{
+			name:                  "Kebab Morgan Jl. Pandega Marta https://www.openstreetmap.org/way/132780420  -> jalan Lempuyangan https://www.openstreetmap.org/way/301793294",
+			queryOriginCoord:      da.NewCoordinate(-7.755813, 110.376565),
+			queryDestinationCoord: da.NewCoordinate(-7.790425, 110.375894),
+			wantOrigin:            "Jalan Pandega Marta",
+			wantDestination:       "Jalan Lempuyangan",
+		},
+
+		{
+			name:                  "Jalan Malioboro (openstreetmap.org/way/357658484)  -> Jalan Affandi https://www.openstreetmap.org/way/701751480",
+			queryOriginCoord:      da.NewCoordinate(-7.795240, 110.365404),
+			queryDestinationCoord: da.NewCoordinate(-7.759672, 110.395024),
+			wantOrigin:            "Jalan Malioboro",
+			wantDestination:       "Jalan Affandi",
+		},
+		{
+			name:                  "Gang Suroyodo (https://www.openstreetmap.org/way/133584571)  -> Jalan Bandara Adisucipto https://www.openstreetmap.org/way/357836542",
+			queryOriginCoord:      da.NewCoordinate(-7.764687, 110.381876),
+			queryDestinationCoord: da.NewCoordinate(-7.784079, 110.437843),
+			wantOrigin:            "Gang Suroyodo",
+			wantDestination:       "Jalan Bandara Adisucipto",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			sourceExitId, destinationEntryId, _, _, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(tc.queryOriginCoord.GetLat(), tc.queryOriginCoord.GetLon(),
+				tc.queryDestinationCoord.GetLat(), tc.queryDestinationCoord.GetLon())
+
+			sourceRoadSegmentName := g.GetStreetName(sourceExitId)
+
+			destinationExitId := g.GetExitIdOfInEdge(destinationEntryId)
+			destinationRoadSegmentName := g.GetStreetName(destinationExitId)
+			if sourceRoadSegmentName != tc.wantOrigin {
+				t.Errorf("want origin road segment: %v, got: %v", tc.wantOrigin, sourceRoadSegmentName)
+			}
+
+			if destinationRoadSegmentName != tc.wantDestination {
+				t.Errorf("want destination road segment: %v, got: %v", tc.wantDestination, destinationRoadSegmentName)
+			}
+		})
+	}
+
 	t.Run("random input origin destination snap test", func(t *testing.T) {
 		for _, q := range queries {
 			_, _, snappedOrig, snappedDst, _, _ := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),

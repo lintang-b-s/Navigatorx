@@ -254,7 +254,11 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 			db.prevPoint = eGeom[0]
 		}
 	} else {
-		db.prevPoint = eGeom[0]
+		if curved {
+			db.prevPoint = eGeom[len(eGeom)-1]
+		} else {
+			db.prevPoint = eGeom[0]
+		}
 	}
 
 	db.doublePrevNode = db.prevNode

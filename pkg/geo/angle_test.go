@@ -42,7 +42,7 @@ func TestCurvedPolyline(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "Jalan Kapten Pierre Tandean curved https://www.openstreetmap.org/node/5591315981#map=17/-7.549272/110.824521",
+			name: "Jalan Kapten Pierre Tandean curved https://www.openstreetmap.org/way/103762969",
 			coords: []da.Coordinate{
 				da.NewCoordinate(-7.5461981, 110.8206405),
 				da.NewCoordinate(-7.5458928, 110.8205551),
@@ -117,6 +117,20 @@ func TestCurvedPolyline(t *testing.T) {
 				da.NewCoordinate(-7.5540497, 110.8064313),
 			},
 			want: false,
+		},
+		{
+			name: "Jalan Fly Over Manahan https://www.openstreetmap.org/way/763555609",
+			coords: []da.Coordinate{
+				da.NewCoordinate(-7.5587959, 110.8077397),
+				da.NewCoordinate(-7.5587272, 110.8077395),
+				da.NewCoordinate(-7.5586540, 110.8077183),
+				da.NewCoordinate(-7.5585832, 110.8076763),
+				da.NewCoordinate(-7.5585239, 110.8076233),
+				da.NewCoordinate(-7.5584718, 110.8075624),
+				da.NewCoordinate(-7.5583975, 110.8074507),
+				da.NewCoordinate(-7.5578310, 110.8065238),
+			},
+			want: true,
 		},
 	}
 
