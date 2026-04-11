@@ -64,8 +64,8 @@ func (api *API) Run(
 	mapMatcherService controllers.MapMatcherService,
 	shutdownPeriod time.Duration,
 ) error {
-	ctx, cancel := NewContext(routingService.GetRoutingEngine(), routingService)
-	defer cancel()
+	ctx, cleanup := NewContext(routingService.GetRoutingEngine(), routingService)
+	defer cleanup()
 	log.Info("Run httprouter API")
 
 	router := httprouter.New()
@@ -90,8 +90,8 @@ func (api *API) Run(
 	navigatorRoutes.Routes(group)
 
 	var (
-		errChan      chan error = make(chan error)
-		errProxyChan chan error = make(chan error)
+		errChan      chan error = make(chan error, 1)
+		errProxyChan chan error = make(chan error, 1)
 		wsServer     *http.Server
 	)
 
@@ -163,14 +163,17 @@ func (api *API) Run(
 	select {
 	case err := <-errChan:
 		log.Error("Websocket error, shutting down server", zap.Error(err))
+		isShuttingDown.Store(true)
 		shutdown()
 		return err
 	case err := <-errProxyChan:
 		log.Error("Websocket Proxy error, shutting down server", zap.Error(err))
+		isShuttingDown.Store(true)
 		shutdown()
 		return err
 	case err := <-serverErr:
 		log.Info("HTTP server stopped", zap.Error(err))
+		isShuttingDown.Store(true)
 		if wsServer != nil {
 			if err := wsServer.Shutdown(shutdownCtx); err != nil {
 				log.Error("WebSocket proxy shutdown error", zap.Error(err))
@@ -179,9 +182,11 @@ func (api *API) Run(
 		return err
 	case <-ctx.Done():
 		log.Info("Context canceled, shutting down server")
+		isShuttingDown.Store(true)
 		shutdown()
 		return ctx.Err()
 	case sig := <-GracefulShutdown():
+		isShuttingDown.Store(true)
 		util.Sleep(ctx, readinessDrainDelay)
 		shutdown()
 		logger.Info("Navigatorx Routing Engine Server Stopped", zap.String("signal", sig.String()))
