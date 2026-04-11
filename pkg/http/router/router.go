@@ -4,25 +4,30 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
+	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/NYTimes/gziphandler"
+	"github.com/bytedance/gopkg/util/logger"
+	"github.com/julienschmidt/httprouter"
+	"github.com/justinas/alice"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	router_helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	http_server "github.com/lintang-b-s/Navigatorx/pkg/http/server"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/mailru/easygo/netpoll"
-	"github.com/spf13/viper"
-
-	"github.com/julienschmidt/httprouter"
-	"github.com/justinas/alice"
 	"github.com/rs/cors"
+	"github.com/spf13/viper"
+	_ "github.com/swaggo/http-swagger"
+	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
 
-	_ "github.com/swaggo/http-swagger"
-
-	httpSwagger "github.com/swaggo/http-swagger"
+	"net/http"
 	_ "net/http/pprof"
 )
 
@@ -51,14 +56,16 @@ func NewAPI(log *zap.Logger) *API {
 // @host		localhost
 // @BasePath	/api
 func (api *API) Run(
-	ctx context.Context,
 	config http_server.Config,
 	log *zap.Logger,
 
 	useRateLimit bool,
 	routingService controllers.RoutingService,
 	mapMatcherService controllers.MapMatcherService,
+	shutdownPeriod time.Duration,
 ) error {
+	ctx, cancel := NewContext(routingService.GetRoutingEngine(), routingService)
+	defer cancel()
 	log.Info("Run httprouter API")
 
 	router := httprouter.New()
@@ -134,29 +141,78 @@ func (api *API) Run(
 		serverErr <- srv.ListenAndServe()
 	}()
 
+	// https://victoriametrics.com/blog/go-graceful-shutdown/
+	shutdownCtx, cancelShutdownCtx := context.WithTimeout(context.Background(), shutdownPeriod)
+	defer cancelShutdownCtx()
+	shutdown := func() {
+		err := srv.Shutdown(shutdownCtx)
+		if err != nil {
+			// dari docs nya:  Make sure the program doesn't exit and waits instead for Shutdown to return.
+			log.Error("Failed to wait for ongoing requests to finish, waiting for forced cancellation.")
+			shutdownHardCtx, cancelShutdownHardCtx := context.WithTimeout(context.Background(), shutdownPeriod)
+			defer cancelShutdownHardCtx()
+			util.Sleep(shutdownHardCtx, shutdownHardPeriod)
+		}
+		if wsServer != nil {
+			if err := wsServer.Shutdown(shutdownCtx); err != nil {
+				log.Error("WebSocket proxy shutdown error", zap.Error(err))
+			}
+		}
+	}
+
 	select {
 	case err := <-errChan:
 		log.Error("Websocket error, shutting down server", zap.Error(err))
-		_ = srv.Shutdown(ctx)
-		wsServer.Shutdown(ctx)
+		shutdown()
 		return err
 	case err := <-errProxyChan:
-		log.Error("Websocket error, shutting down server", zap.Error(err))
-		_ = srv.Shutdown(ctx)
-		wsServer.Shutdown(ctx)
+		log.Error("Websocket Proxy error, shutting down server", zap.Error(err))
+		shutdown()
 		return err
 	case err := <-serverErr:
 		log.Info("HTTP server stopped", zap.Error(err))
-		wsServer.Shutdown(ctx)
+		if wsServer != nil {
+			if err := wsServer.Shutdown(shutdownCtx); err != nil {
+				log.Error("WebSocket proxy shutdown error", zap.Error(err))
+			}
+		}
 		return err
 	case <-ctx.Done():
 		log.Info("Context canceled, shutting down server")
-		_ = srv.Shutdown(context.Background())
-		wsServer.Shutdown(ctx)
+		shutdown()
 		return ctx.Err()
+	case sig := <-GracefulShutdown():
+		util.Sleep(ctx, readinessDrainDelay)
+		shutdown()
+		logger.Info("Navigatorx Routing Engine Server Stopped", zap.String("signal", sig.String()))
+		return nil
 	}
 }
 
 func swaggerHandler(res http.ResponseWriter, req *http.Request, p httprouter.Params) {
 	httpSwagger.WrapHandler(res, req)
+}
+
+func NewContext(re *routing.CRPRoutingEngine, rs controllers.RoutingService) (context.Context, func()) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cb := func() {
+		re.Close()
+		rs.Close()
+		cancel()
+	}
+
+	return ctx, cb
+}
+
+func GracefulShutdown() <-chan os.Signal {
+	shutdownSignals := make(chan os.Signal, 1)
+
+	signal.Notify(
+		shutdownSignals,
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+		syscall.SIGTERM,
+	)
+
+	return shutdownSignals
 }

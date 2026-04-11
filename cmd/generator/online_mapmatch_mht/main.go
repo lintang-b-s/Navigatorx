@@ -98,7 +98,7 @@ func main() {
 			continue
 		}
 
-		crpQuery := routing.NewCRPALTBidirectionalSearch(routingService.GetEngine().(*routing.CRPRoutingEngine), 1.0)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(routingService.GetRoutingEngine(), 1.0)
 		_, _, _, edgePath, found := crpQuery.ShortestPathSearch(sp, tp)
 		if !found {
 			continue

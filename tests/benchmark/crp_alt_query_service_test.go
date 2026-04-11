@@ -1,6 +1,7 @@
 package benchmark
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 	"time"
@@ -41,7 +42,7 @@ func BenchmarkShortestPathService(b *testing.B) {
 		sCoord := g.GetVertexCoordinate(s)
 		tCoord := g.GetVertexCoordinate(t)
 
-		rs.ShortestPath(sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon())
+		rs.ShortestPath(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon())
 	}
 
 	now := time.Since(start)

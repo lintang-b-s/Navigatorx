@@ -1,7 +1,7 @@
 package http
 
 import (
-	"context"
+	"time"
 
 	http_router "github.com/lintang-b-s/Navigatorx/pkg/http/router"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
@@ -20,24 +20,25 @@ func NewServer(log *zap.Logger) *Server {
 }
 
 func (s *Server) Use(
-	ctx context.Context,
 	log *zap.Logger,
 
 	useRateLimit bool,
 	routingService controllers.RoutingService,
 	mapMatcherService controllers.MapMatcherService,
+	shutdownPeriod time.Duration,
 
-) (*Server, error) {
-	viper.SetDefault("API_PORT", 6060)
-	viper.SetDefault("WEBSOCKET_PORT", 6666)
+) error {
+	viper.SetDefault("http_port", 6060)
+	viper.SetDefault("websocket_port", 6666)
+	viper.SetDefault("proxy_port", 6767)
 
-	viper.SetDefault("API_TIMEOUT", "1000s")
+	viper.SetDefault("server.api_timeout", "2s")
 
 	config := http_server.Config{
-		Port:          viper.GetInt("API_PORT"),
-		WebsocketPort: viper.GetInt("WEBSOCKET_PORT"),
-		Timeout:       viper.GetDuration("API_TIMEOUT"),
-		ProxyPort:     6767,
+		Port:          viper.GetInt("http_port"),
+		WebsocketPort: viper.GetInt("websocket_port"),
+		Timeout:       viper.GetDuration("server.api_timeout"),
+		ProxyPort:     viper.GetInt("proxy_port"),
 	}
 
 	server := http_router.NewAPI(log)
@@ -46,10 +47,11 @@ func (s *Server) Use(
 
 	g.Go(func() error {
 		return server.Run(
-			ctx, config, log,
+			config, log,
 			useRateLimit, routingService, mapMatcherService,
+			shutdownPeriod,
 		)
 	})
 
-	return s, nil
+	return g.Wait()
 }

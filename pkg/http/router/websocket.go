@@ -8,9 +8,6 @@ import (
 	"log"
 	"net"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/gobwas/ws"
@@ -59,6 +56,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	ln, err := net.Listen("tcp", srv.Addr)
 	if err != nil {
 		errChan <- err
+		return
 	}
 	api.log.Info(fmt.Sprintf("online map-matcher websocket API run on port %d", config.WebsocketPort))
 
@@ -73,6 +71,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	api.poller, err = netpoll.New(nil)
 	if err != nil {
 		errChan <- err
+		return
 	}
 
 	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
@@ -131,10 +130,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	})
 
 	// Handle graceful shutdown
-	sig := make(chan os.Signal, 1)
-	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
-
-	<-sig
+	<-ctx.Done()
 
 	ln.Close()
 

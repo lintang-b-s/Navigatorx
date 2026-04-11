@@ -1,12 +1,12 @@
 package main
 
 import (
-	"context"
 	"flag"
 	"fmt"
 	"path/filepath"
 	"runtime"
 	"strings"
+	"time"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -17,17 +17,22 @@ import (
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
 var (
-	profileFilePath  = flag.String("profile", "./data/car.yaml", "profile file path")
-	profileName      string
-	regionName       = flag.String("region", "diy_solo_semarang", "region name")
-	graphFile        string
-	overlayGraphFile string
-	metricsFile      string
-	landmarkFile     string
+	profileFilePath        = flag.String("profile", "./data/car.yaml", "profile file path")
+	profileName            string
+	regionName             = flag.String("region", "diy_solo_semarang", "region name")
+	graphFile              string
+	overlayGraphFile       string
+	metricsFile            string
+	landmarkFile           string
+	httpPort               = flag.Int("http_port", 6060, "http port")
+	websocketPort          = flag.Int("websocket_port", 6666, "websocket port")
+	proxyPort              = flag.Int("proxy_port", 6767, "proxy port")
+	gracefulShutdownPeriod = flag.Int("graceful_shutdown_period", 3, "graceful shutdown period") // see https://victoriametrics.com/blog/go-graceful-shutdown/
 )
 
 const (
@@ -36,6 +41,9 @@ const (
 
 func init() {
 	flag.Parse()
+	viper.Set("http_port", *httpPort)
+	viper.Set("websocket_port", *websocketPort)
+	viper.Set("proxy_port", *proxyPort)
 
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
 	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
@@ -80,29 +88,16 @@ func main() {
 	}
 
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
-	ctx, cleanup, err := NewContext(re, routingService)
-	if err != nil {
-		panic(err)
-	}
 
 	util.CleanHeap()
 
-	api.Use(ctx,
-		logger, false, routingService, mapmatcherService)
+	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
 
-	signal := http.GracefulShutdown()
+	serverErr := api.Use(
+		logger, false, routingService, mapmatcherService, shutdownPeriod*time.Second)
 
-	logger.Info("Navigatorx Routing Engine Server Stopped", zap.String("signal", signal.String()))
-	cleanup()
-}
-
-func NewContext(re *routing.CRPRoutingEngine, rs *usecases.RoutingService) (context.Context, func(), error) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cb := func() {
-		re.Close()
-		rs.Close()
-		cancel()
+	if serverErr != nil {
+		logger.Error("server exited unexpectedly", zap.Error(err))
 	}
-
-	return ctx, cb, nil
+	logger.Info("Navigatorx Routing Engine Server Stopped")
 }

@@ -18,6 +18,16 @@ import (
 	"time"
 )
 
+
+func Sleep(ctx context.Context, duration time.Duration) error {
+	select {
+	case <-time.After(duration):
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 func Bitpack(i, j uint32) uint64 {
 	return uint64(i) | (uint64(j) << 32)
 }
@@ -96,6 +106,7 @@ var (
 	ErrNotFound            = errors.New("your requested Item is not found")
 	ErrConflict            = errors.New("your Item already exist")
 	ErrBadParamInput       = errors.New("given Param is not valid")
+	ErrContextDeadline     = errors.New("request timeout")
 )
 
 var MessageInternalServerError string = "internal server error"

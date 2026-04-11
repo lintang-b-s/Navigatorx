@@ -1,10 +1,12 @@
 package controllers
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	json "github.com/bytedance/sonic"
 
@@ -76,6 +78,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		api.BadRequestResponse(w, r, errors.New("destination_lon is required and must be a valid float"))
 		return
 	}
+
 	if err := api.validate.Struct(request); err != nil {
 
 		vv := translateError(err, api.trans)
@@ -87,7 +90,10 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		return
 	}
 
-	travelTime, dist, pathPolyline, drivingDirections, _, err := api.routingService.ShortestPath(request.OriginLat, request.OriginLon,
+	newCtx, cancel := ExtractDeadline(r.Context(), r)
+	defer cancel()
+
+	travelTime, dist, pathPolyline, drivingDirections, _, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
 		request.DestinationLat, request.DestinationLon)
 	if err != nil {
 		api.getStatusCode(w, r, err)
@@ -147,7 +153,10 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	alternatives, _, err := api.routingService.AlternativeRouteSearch(request.OriginLat, request.OriginLon,
+	newCtx, cancel := ExtractDeadline(r.Context(), r)
+	defer cancel()
+
+	alternatives, _, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
 		request.DestinationLat, request.DestinationLon, int(request.K))
 	if err != nil {
 		api.getStatusCode(w, r, err)
@@ -188,9 +197,16 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 		return
 	}
 
-	mgpsPoint, cands, speedMeanK, speedStdK := api.mapmatchingService.OnlineMapMatch(request.Gps.ToDataGPS(), request.K, ToOnlineCandidates(request.Candidates),
+	newCtx, cancel := ExtractDeadline(r.Context(), r)
+	defer cancel()
+
+	mgpsPoint, cands, speedMeanK, speedStdK, err := api.mapmatchingService.OnlineMapMatch(newCtx, request.Gps.ToDataGPS(), request.K, ToOnlineCandidates(request.Candidates),
 		request.SpeedMeanK, request.SpeedStdK, request.LastBearing)
 	headers := make(http.Header)
+	if err != nil {
+		api.getStatusCode(w, r, err)
+		return
+	}
 
 	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewMapmatchingResponse(mgpsPoint, cands, speedMeanK,
 		speedStdK, mgpsPoint.GetBearing())}, headers); err != nil {
@@ -198,4 +214,22 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 		return
 	}
 
+}
+
+// inspired by: https://engineering.grab.com/context-deadlines-and-how-to-set-them
+// taken from: https://oneuptime.com/blog/post/2026-02-01-go-context-propagation-microservices/view
+func ExtractDeadline(ctx context.Context, r *http.Request) (context.Context, context.CancelFunc) {
+	deadlineStr := r.Header.Get("X-Request-Deadline")
+	if deadlineStr == "" {
+		// No deadline specified, return context as-is with a no-op cancel
+		return ctx, func() {}
+	}
+
+	deadlineMs, err := strconv.ParseInt(deadlineStr, 10, 64)
+	if err != nil {
+		return ctx, func() {}
+	}
+
+	deadline := time.UnixMilli(deadlineMs)
+	return context.WithDeadline(ctx, deadline)
 }

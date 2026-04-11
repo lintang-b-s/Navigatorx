@@ -75,6 +75,10 @@ func Heartbeat(endpoint string) func(http.Handler) http.Handler {
 	f := func(h http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			if (r.Method == "GET" || r.Method == "HEAD") && strings.EqualFold(r.URL.Path, endpoint) {
+				if isShuttingDown.Load() { // https://victoriametrics.com/blog/go-graceful-shutdown/
+					http.Error(w, "Shutting down", http.StatusServiceUnavailable)
+					return
+				}
 				w.Header().Set("Content-Type", "text/plain")
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte("."))

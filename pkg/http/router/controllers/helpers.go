@@ -79,6 +79,9 @@ func (api *routingAPI) getStatusCode(w http.ResponseWriter, r *http.Request, err
 		case util.ErrBadParamInput:
 			errMsg := errors.New(err.Error())
 			api.BadRequestResponse(w, r, errMsg)
+		case util.ErrContextDeadline:
+			errMsg := errors.New(err.Error())
+			api.TimeoutResponse(w, r, errMsg.Error())
 		default:
 			api.ServerErrorResponse(w, r, err)
 		}

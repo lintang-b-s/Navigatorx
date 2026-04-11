@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"context"
 	"fmt"
 	"sync"
 
@@ -67,7 +68,12 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 	return rs, nil
 }
 
-func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
+func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
+	select { // https://engineering.grab.com/context-deadlines-and-how-to-set-them
+	case <-ctx.Done(): // https://go.dev/blog/context#TOC_5
+		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+	default:
+	}
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
@@ -77,6 +83,12 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
 			errmsg)
+	}
+
+	select {
+	case <-ctx.Done():
+		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+	default:
 	}
 
 	var (
@@ -95,6 +107,12 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 			errmsg)
 	}
 
+	select {
+	case <-ctx.Done():
+		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+	default:
+	}
+
 	travelTime, dist = rs.AppendPhantomNodesToPath(pathCoords, sp, tp, travelTime, dist)
 
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
@@ -107,7 +125,13 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }
 
-func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int) ([]routing.AlternativeRoute, bool, error) {
+func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int) ([]routing.AlternativeRoute, bool, error) {
+	select {
+	case <-ctx.Done():
+		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+	default:
+	}
+
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	// as = exit/outEdge index of origin
@@ -118,9 +142,21 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 			errmsg)
 	}
 
+	select {
+	case <-ctx.Done():
+		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+	default:
+	}
+
 	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp, tp, k)
 	if len(alternatives) == 0 {
 		return []routing.AlternativeRoute{}, false, nil
+	}
+
+	select {
+	case <-ctx.Done():
+		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+	default:
 	}
 
 	for i, alt := range alternatives {
@@ -143,10 +179,6 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 	return alternatives, true, nil
 }
 
-func (rs *RoutingService) GetEngine() RoutingEngine {
-	return rs.engine
-}
-
 func (rs *RoutingService) Close() {
 	rs.turnSignCache.Close()
 }
@@ -163,4 +195,8 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 		dist += sp.GetReverseDistance()
 	}
 	return travelTime, dist
+}
+
+func (rs *RoutingService) GetRoutingEngine() *routing.CRPRoutingEngine {
+	return rs.engine.(*routing.CRPRoutingEngine)
 }

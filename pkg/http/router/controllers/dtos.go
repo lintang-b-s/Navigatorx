@@ -116,7 +116,7 @@ func (g *gps) ToDataGPS() *da.GPSPoint {
 type Candidate struct {
 	EdgeId da.Index `json:"edge_id" validate:"min=0"`
 	Weight float64  `json:"weight"`
-	Length float64  `json:"length"`
+	Length float64  `json:"length" validate:"min=0"`
 }
 
 func NewCandidate(eId da.Index, weight float64, length float64) Candidate {

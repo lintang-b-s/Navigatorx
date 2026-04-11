@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -76,7 +77,8 @@ func (u *User) OnlineMapMatch() error {
 		return u.write(errResp)
 	}
 
-	mgpsPoint, cands, speedMeanK, speedStdK := u.hub.mapmatchingService.OnlineMapMatch(
+	mgpsPoint, cands, speedMeanK, speedStdK, _ := u.hub.mapmatchingService.OnlineMapMatch(
+		context.Background(),
 		req.Gps.ToDataGPS(),
 		req.K, ToOnlineCandidates(req.Candidates),
 		req.SpeedMeanK, req.SpeedStdK, req.LastBearing)
