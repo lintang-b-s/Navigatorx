@@ -243,12 +243,12 @@ func main() {
 		sVertex := g.GetVertex(s)
 		tVertex := g.GetVertex(t)
 
-		sp := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, sVertex.GetFirstOut(), sVertex.GetFirstIn(), emptyCoords, emptyCoords)
-		tp := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), tVertex.GetFirstIn(), emptyCoords, emptyCoords)
+		sp := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, sVertex.GetFirstOut(), sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
+		tp := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), tVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
 
 		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine())
 
-		alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(sp,tp, 4)
+		alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(sp, tp, 4)
 
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)

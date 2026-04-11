@@ -95,22 +95,20 @@ contoh2:
 
 prevInitialBearing 90°
 --------
-
-	\
-	 \
-	  \
-	   \ initialBearing 120°
+		\
+		 \
+	  	  \
+	  	   \ initialBearing 120°
 
 deltaBearing = 30°
 turn slight right
 
 contoh3:
 
-	   / initialBearing 75°
-	  /
-	 /
-	/
-
+		   / initialBearing 75°
+		  /
+		 /
+		/
 --------
 
 prevInitialBearing 90°
@@ -130,7 +128,7 @@ contoh4:
 
 deltaBearing = -20°
 turn slight left
-*/
+*/ // nolint: gofmt
 func getTurnDirection(prevLat, prevLon, lat, long, prevInitialBearing float64) da.TurnType {
 	delta := computeDeltaBearing(prevLat, prevLon, lat, long, prevInitialBearing)
 	absDelta := math.Abs(delta)

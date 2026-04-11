@@ -245,21 +245,8 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 
 	db.doublePrevPoint = db.prevPoint
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
-
-	curved := geo.IsPolylineCurved(eGeom)
-	if len(eGeom) > 3 {
-		if curved {
-			db.prevPoint = eGeom[len(eGeom)-2]
-		} else {
-			db.prevPoint = eGeom[0]
-		}
-	} else {
-		if curved {
-			db.prevPoint = eGeom[len(eGeom)-1]
-		} else {
-			db.prevPoint = eGeom[0]
-		}
-	}
+	n := len(eGeom)
+	db.prevPoint = db.GetPrevPoint(eGeom, eGeom[n-1], 25)
 
 	db.doublePrevNode = db.prevNode
 	db.prevInRoundabout = isRoundabout
@@ -299,4 +286,3 @@ func (db *DirectionBuilder) buildFinalInstruction() {
 
 	db.instructions = append(db.instructions, finishInstruction)
 }
-

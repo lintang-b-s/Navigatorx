@@ -3,12 +3,12 @@ package partitioner
 import (
 	"context"
 	"math"
-	"math/rand"
+
 	"sort"
 	"sync"
-	"time"
 
 	"github.com/bytedance/gopkg/util/gopool"
+	rd "github.com/bytedance/gopkg/lang/fastrand"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -216,7 +216,6 @@ func (dn *DinicMaxFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func
 
 func (dn *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
 	i := p - 1
-	rd := rand.New(rand.NewSource(time.Now().UnixNano())) // gak thread-safe
 
 	pivotId := p + rd.Intn(r-p+1)
 	arr[pivotId], arr[r] = arr[r], arr[pivotId]

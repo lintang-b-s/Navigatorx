@@ -325,6 +325,10 @@ func (g *Graph) GetOutEdgeLength(e Index) float64 {
 	return g.outEdges[e].GetLength()
 }
 
+func (g *Graph) GetInEdgeLength(e Index) float64 {
+	return g.inEdges[e].GetLength()
+}
+
 func (g *Graph) GetOutEdgeWeight(e Index) float64 {
 	return g.outEdges[e].GetWeight()
 }

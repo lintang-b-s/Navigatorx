@@ -42,6 +42,8 @@ type PhantomNode struct {
 	snappedCoordinate Coordinate
 	forwardTravelTime float64
 	reverseTravelTime float64
+	forwardDistance   float64
+	reverseDistance   float64
 	outEdgeId         Index
 	inEdgeid          Index
 	forwardGeometry   []Coordinate
@@ -52,11 +54,12 @@ func NewPhantomNode(snappedCoordinate Coordinate,
 	forwardTravelTime float64,
 	reverseTravelTime float64,
 	outEdgeId Index,
-	inEdgeid Index,
+	inEdgeid Index, forwardDistance float64,
+	reverseDistance float64,
 	forwardGeometry []Coordinate,
 	reverseGeometry []Coordinate) PhantomNode {
 	return PhantomNode{snappedCoordinate: snappedCoordinate, forwardTravelTime: forwardTravelTime, reverseTravelTime: reverseTravelTime,
-		outEdgeId: outEdgeId, inEdgeid: inEdgeid, forwardGeometry: forwardGeometry, reverseGeometry: reverseGeometry}
+		outEdgeId: outEdgeId, inEdgeid: inEdgeid, forwardGeometry: forwardGeometry, reverseGeometry: reverseGeometry, forwardDistance: forwardDistance, reverseDistance: reverseDistance}
 }
 
 func NewInvalidPhantomNode() PhantomNode {
@@ -77,6 +80,16 @@ func (p *PhantomNode) GetForwardTravelTime() float64 {
 
 func (p *PhantomNode) GetReverseTravelTime() float64 {
 	return p.reverseTravelTime
+}
+
+
+
+func (p *PhantomNode) GetForwardDistance() float64 {
+	return p.forwardDistance
+}
+
+func (p *PhantomNode) GetReverseDistance() float64 {
+	return p.reverseDistance
 }
 
 func (p *PhantomNode) GetOutEdgeId() Index {

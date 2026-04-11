@@ -197,12 +197,12 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
 		crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-		
+
 		sVertex := g.GetVertex(sid)
 		tVertex := g.GetVertex(tid)
 		emptyCoords := make([]da.Coordinate, 0)
-		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
-		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
+		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
 
 		_, spEdgeIds, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 		path := make([]int, 0)

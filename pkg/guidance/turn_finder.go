@@ -11,7 +11,7 @@ import (
 /*
 todo1: tambahin motorway handler (jalan toll)
 todo2: tambahin destination di driving direction (https://wiki.openstreetmap.org/wiki/Key:destination)
-todo3: pake tag osm way ini: https://wiki.openstreetmap.org/wiki/Key:turn
+todo3: pake tag osm way ini: https://wiki.openstreetmap.org/wiki/Key:turn , https://wiki.openstreetmap.org/wiki/Key:turn:lanes
 todo4: add test expected outputnya pake driving direction google map (dengan rute yang sama).
 */
 
@@ -63,21 +63,15 @@ prevNode----prevEdge----tail
 						head
 */ // nolint: gofmt
 func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, prevNodeId, headId da.Index, currStreetName string) da.TurnType {
-	var (
-		tailCoord, headCoord da.Coordinate
-	)
+
 	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
 	db.nextStreetName = currStreetName
 
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
 	curved := geo.IsPolylineCurved(eGeom)
-	if len(eGeom) > 3 {
-		tailCoord = eGeom[1]
-		headCoord = eGeom[len(eGeom)-2]
-	} else {
-		tailCoord = eGeom[0]
-		headCoord = eGeom[len(eGeom)-1]
-	}
+
+	tailCoord := eGeom[0]
+	headCoord := db.GetHeadPoint(eGeom, tailCoord, 25)
 
 	headLat := headCoord.GetLat()
 	headLon := headCoord.GetLon()
@@ -179,9 +173,7 @@ https://www.google.com/maps/dir/-7.5501666,110.7820614/Kasunanan+Palace,+Surakar
 
 */ // nolint: gofmt
 func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevNodeId, headId da.Index, currStreetName string) da.TurnType {
-	var (
-		tailCoord, headCoord da.Coordinate
-	)
+
 	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
 
 	db.nextStreetName = currStreetName
@@ -189,13 +181,9 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
 	curved := geo.IsPolylineCurved(eGeom)
 
-	if len(eGeom) > 3 {
-		tailCoord = eGeom[1]
-		headCoord = eGeom[len(eGeom)-2]
-	} else {
-		tailCoord = eGeom[0]
-		headCoord = eGeom[len(eGeom)-1]
-	}
+	tailCoord := eGeom[0]
+	headCoord := db.GetHeadPoint(eGeom, tailCoord, 25)
+
 	headLat := headCoord.GetLat()
 	headLon := headCoord.GetLon()
 
@@ -310,33 +298,17 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 				return da.KEEP_LEFT
 			}
 		}
-
 	}
 
 	// kalau gak ada otherContinueEdge
 	// kita cuma output CONTINUE_ON_STREET jika current edge street name beda dari street name prev edge
-	if leavingPrevStreet && currStreetName != "" {
+	if leavingPrevStreet && currStreetName != "" && prevStreetName != "" {
 		db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, db.nextStreetName), 1)
 		return da.CONTINUE_ON_STREET
 	}
 
 	db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
 	return da.IGNORE
-}
-
-// lookForward. traverse dari db.path[lastPathId] ke beberapa next db.path[lastPathId+1:...] until found edge dengan name != prevName.
-// return forward edge di path dengan name != prevName, true jika ada, dan number of step lookForward.
-func (db *DirectionBuilder) lookForward(prevName string, maxStep int) (string, bool, int) {
-	step := 0
-	for i := db.lastPathId + 1; step < maxStep && i < len(db.path); i++ {
-		currEdgeStreetname := db.graph.GetStreetName(db.path[i])
-		step++
-		if currEdgeStreetname != prevName {
-			return currEdgeStreetname, true, step
-		}
-	}
-
-	return "", false, 0
 }
 
 func makeCacheVal(sign da.TurnType, streetName string) []byte {

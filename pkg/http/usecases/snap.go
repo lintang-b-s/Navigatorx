@@ -107,7 +107,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 		dstCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
 	}
 
-	g := rs.engine.GetGraph()
+	g := rs.graph
 
 	// origDestination
 
@@ -151,14 +151,16 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
 	}
 
-	sForwardTravelTime := rs.engine.GetWeight(bestPair.origEdgeId, true)
+	sEdgeLength := rs.graph.GetOutEdgeLength(bestPair.origEdgeId)
+	sForwardTravelTime := rs.engine.GetWeightFromLength(bestPair.origEdgeId, sEdgeLength, true)
 
-	sp := da.NewPhantomNode(bestPair.origCoord, sForwardTravelTime, 0, bestPair.origEdgeId, da.INVALID_EDGE_ID, bestOriginNextCoords,
+	sp := da.NewPhantomNode(bestPair.origCoord, sForwardTravelTime, 0, bestPair.origEdgeId, da.INVALID_EDGE_ID, sEdgeLength, 0, bestOriginNextCoords,
 		make([]da.Coordinate, 0))
 
-	tReverseTravelTime := rs.engine.GetWeight(bestPair.destEdgeId, false)
+	tEdgeLength := rs.graph.GetInEdgeLength(bestPair.destEdgeId)
+	tReverseTravelTime := rs.engine.GetWeightFromLength(bestPair.destEdgeId, tEdgeLength, false)
 
-	tp := da.NewPhantomNode(bestPair.destCoord, 0.0, tReverseTravelTime, da.INVALID_EDGE_ID, bestPair.destEdgeId, make([]da.Coordinate, 0),
+	tp := da.NewPhantomNode(bestPair.destCoord, 0.0, tReverseTravelTime, da.INVALID_EDGE_ID, bestPair.destEdgeId, 0, tEdgeLength, make([]da.Coordinate, 0),
 		bestDestBefCoords)
 
 	return sp, tp
@@ -180,7 +182,7 @@ func newOriginDestination(origEdgeId, destEdgeId da.Index, origCoord, destCoord 
 
 func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.Index, origin bool) (float64, float64, float64, []da.Coordinate) {
 
-	eGeometry := rs.engine.GetGraph().GetEdgeGeometry(edgeId)
+	eGeometry := rs.graph.GetEdgeGeometry(edgeId)
 	minDist := pkg.INF_WEIGHT
 	var bestProjectedPoint da.Coordinate
 
@@ -194,7 +196,7 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 			da.Coordinate(da.NewCoordinate(lat, lon)),
 		)
 
-		dist := geo.CalculateEuclidianDistWebMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+		dist := geo.CalculateEuclidianDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
 			lat, lon)
 
 		if util.Lt(dist, minDist) {

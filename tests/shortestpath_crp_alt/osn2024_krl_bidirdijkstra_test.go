@@ -192,14 +192,14 @@ func SolveOSN2024KRLBidirDijkstra(t *testing.T, filepath string) {
 	sVertex := g.GetVertex(sid)
 	tVertex := g.GetVertex(tid)
 	emptyCoords := make([]da.Coordinate, 0)
-	sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), emptyCoords, emptyCoords)
-	tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, emptyCoords, emptyCoords)
+	sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
+	tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
 
 	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 	crpQuery2 := routing.NewBidirectionalDijkstra(re.GetRoutingEngine(), 1.0)
 
-	tTransitPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), atTransit, emptyCoords, emptyCoords)
+	tTransitPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), atTransit, 0, 0, emptyCoords, emptyCoords)
 
 	spLengthTransit, _, _, _, _ := crpQuery2.ShortestPathSearch(sPhantomNode, tTransitPhantomNode)
 

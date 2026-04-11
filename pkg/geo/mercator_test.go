@@ -52,3 +52,23 @@ func RandomCoordinate(bb *da.BoundingBox, rd *rand.Rand) da.Coordinate {
 	lon := bb.GetMinLon() + rd.Float64()*(bb.GetMaxLon()-bb.GetMinLon())
 	return da.NewCoordinate(lat, lon)
 }
+
+func TestMercatorDistance(t *testing.T) {
+	numItems := 1e6
+	boundingBox := da.NewBoundingBox(-8.2618, 110.132, -6.888, 110.9221)
+	rd := rand.New(rand.NewSource((time.Now().UnixNano())))
+
+	for i := 0; i < int(numItems); i++ {
+		scoord := RandomCoordinate(boundingBox, rd)
+
+		tcoord := RandomCoordinate(boundingBox, rd)
+
+		gcDist := CalculateGreatCircleDistance(scoord.GetLat(), scoord.GetLon(), tcoord.GetLat(), tcoord.GetLon())
+
+		ecDist := CalculateEuclidianDistMercatorProj(scoord.GetLat(), scoord.GetLon(), tcoord.GetLat(), tcoord.GetLon())
+
+		if util.EqEps(gcDist, ecDist, 1e-13) {
+			t.Errorf("gcDist: %v, ecDist: %v differ", gcDist, ecDist)
+		}
+	}
+}

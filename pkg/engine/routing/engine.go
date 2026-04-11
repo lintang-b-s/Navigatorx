@@ -149,6 +149,15 @@ func (crp *CRPRoutingEngine) GetWeight(eId da.Index, outEdge bool) float64 {
 	return crp.metrics.GetWeight(eHighwayType, eDefaultWeight, eLength)
 }
 
+func (crp *CRPRoutingEngine) GetWeightFromLength(eId da.Index, eLength float64, outEdge bool) float64 {
+	if outEdge {
+		eDefaultWeight, _, eHighwayType := crp.graph.GetOutEdgeTripleWeight(eId)
+		return crp.metrics.GetWeight(eHighwayType, eDefaultWeight, eLength)
+	}
+	eDefaultWeight, _, eHighwayType := crp.graph.GetInEdgeTripleWeight(eId)
+	return crp.metrics.GetWeight(eHighwayType, eDefaultWeight, eLength)
+}
+
 func (crp *CRPRoutingEngine) IsDummyOutEdge(eId da.Index) bool {
 	return crp.graph.IsDummyOutEdge(eId)
 }

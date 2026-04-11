@@ -16,6 +16,7 @@ import (
 type RoutingService struct {
 	log                        *zap.Logger
 	engine                     RoutingEngine
+	graph                      *da.Graph
 	spatialIndex               SpatialIndex
 	altRouting                 AlternativeRouteAlgorithm
 	searchRadius               float64
@@ -37,6 +38,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 		searchRadius:    searchRadius,
 		clockwise:       clockwise,
 		lefthandDriving: lefthandDriving,
+		graph:           engine.GetGraph(),
 		altRouting:      altRouting,
 	}
 
@@ -93,7 +95,7 @@ func (rs *RoutingService) ShortestPath(qOrigLat, qOrigLon, qDstLat, qDstLon floa
 			errmsg)
 	}
 
-	travelTime = rs.AppendPhantomNodesToPath(pathCoords, sp, tp, travelTime)
+	travelTime, dist = rs.AppendPhantomNodesToPath(pathCoords, sp, tp, travelTime, dist)
 
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
@@ -124,8 +126,9 @@ func (rs *RoutingService) AlternativeRouteSearch(qOrigLat, qOrigLon, qDstLat, qD
 	for i, alt := range alternatives {
 		altPathCoords := alt.GetCoords()
 
-		newTravelTime := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alternatives[i].GetDrivingTravelTime())
+		newTravelTime, dist := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alt.GetDrivingTravelTime(), alt.GetDist())
 		alternatives[i].SetDrivingTravelTime(newTravelTime)
+		alternatives[i].SetDist(dist)
 
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
 		alternatives[i].SetPolylinePath(pathPolyline)
@@ -148,14 +151,16 @@ func (rs *RoutingService) Close() {
 	rs.turnSignCache.Close()
 }
 
-func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64) float64 {
+func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64, dist float64) (float64, float64) {
 	if !rs.engine.IsDummyOutEdge(sp.GetOutEdgeId()) {
 		path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
 		travelTime += sp.GetForwardTravelTime()
+		dist += sp.GetForwardDistance()
 	}
 	if !rs.engine.IsDummyInEdge(tp.GetInEdgeId()) {
 		path.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
 		travelTime += tp.GetReverseTravelTime()
+		dist += sp.GetReverseDistance()
 	}
-	return travelTime
+	return travelTime, dist
 }

@@ -7,20 +7,19 @@ import (
 )
 
 /*
-web mercator projected coordinate reference system
+mercator
 project  wgs84 ellipsoidal datum  (lon, lat) coord to (x,y) cartesian coord
-not-conformal
-faster than spherical mercator & ellipsoidal mercator
+nconformal
 
 ref:
 [1] https://www.hydrometronics.com/downloads/Web%20Mercator%20-%20Non-Conformal,%20Non-Mercator%20%28notes%29.pdf
-[2] https://en.wikipedia.org/wiki/Web_Mercator_projection
+[2] https://en.wikipedia.org/wiki/Mercator_projection#Properties
 [3] https://proj.org/en/stable/operations/projections/webmerc.html
 
 */
 
 const (
-	// taken from: https://en.wikipedia.org/wiki/Web_Mercator_projection
+	// taken from: https://en.wikipedia.org/wiki/Mercator_projection#Properties
 	//	Because the Mercator projects the poles at infinity,
 	//  a map using the Web Mercator projection cannot show the poles.
 	//  Services such as Google Maps cut off coverage at 85.051129° north and south.
@@ -28,9 +27,10 @@ const (
 	minLatDeg = -85.05112
 	maxLatDeg = 85.05112
 	maxError  = 0.04
+	R         = 6371.0
 )
 
-// https://en.wikipedia.org/wiki/Web_Mercator_projection
+// https://en.wikipedia.org/wiki/Mercator_projection#Properties
 func clampLat(lat float64) float64 {
 	return util.MaxFloat(util.MinFloat(maxLatDeg, lat), minLatDeg)
 }
@@ -40,12 +40,12 @@ func clampLat(lat float64) float64 {
 func CalcLatToY(lat float64) float64 {
 	lat = clampLat(lat)
 	lat = util.DegreeToRadians(lat)
-	return math.Log(math.Tan(math.Pi/4 + lat/2))
+	return R * math.Log(math.Tan(math.Pi/4+lat/2))
 }
 
 // calcLatToYExact. calculate easting projected web mercator coordinate of lat
 func CalcLonToX(lon float64) float64 {
-	return util.DegreeToRadians(lon)
+	return R * util.DegreeToRadians(lon)
 }
 
 // https://rosettacode.org/wiki/Horner%27s_rule_for_polynomial_evaluation
@@ -92,7 +92,7 @@ func invGudermanMaclaurinSeriesCoefficients() []float64 {
 // lat in wgs84 ellipsoidal datum coordinates
 func CalcLatToYApprox(lat float64) float64 {
 	lat = clampLat(lat)
-	return invGudermanMaclaurinSeries(util.DegreeToRadians(lat), bestNumMaclaurinTerms)
+	return R * invGudermanMaclaurinSeries(util.DegreeToRadians(lat), bestNumMaclaurinTerms)
 }
 
 // calcBestNumsOfTermsInvGudermanMaclaurinSeries. compute number of terms in inv guderman maclaurin series exp s.t
