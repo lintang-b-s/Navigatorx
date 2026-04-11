@@ -43,25 +43,6 @@ func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId da.
 	return len(tempAltTurns), tempAltTurns
 }
 
-// isLeavingPrevStreetClass. return true if prevStreetName != currentStreetName && roadClass/roadClassLink dari prevEdge dan curEdge beda
-func (db *DirectionBuilder) isLeavingPrevStreetClass(prevStreetName, currentStreetName string, prevEdge, currEdge da.Index,
-	isSameName func(currStreetName, prevEdgeStreetName string) bool) bool {
-	if isSameName(currentStreetName, prevStreetName) {
-		// isSameName == false - bisa ketika nama street kosong di osm.
-		return false
-	}
-
-	prevEdgeRoadClass, prevEdgeRoadClassLink := db.graph.GetRoadClass(prevEdge), db.graph.GetRoadClassLink(prevEdge)
-	currEdgeRoadClass, currEdgeRoadClassLink := db.graph.GetRoadClass(currEdge), db.graph.GetRoadClassLink(currEdge)
-
-	if ok := isSameRoadClassAndLink(prevEdgeRoadClass, prevEdgeRoadClassLink,
-		currEdgeRoadClass, currEdgeRoadClassLink); !ok {
-		// leave current street jika prevStreetName  != currentStreetName && roadclass/roadclassLink prevEdge,currentEdge beda.
-		return true
-	}
-	return false
-}
-
 func isSameRoadClassAndLink(prevEdgeRoadClass, prevEdgeRoadClassLink string,
 	currEdgeRoadClass, currEdgeRoadClassLink string) bool {
 	return prevEdgeRoadClass == currEdgeRoadClass && prevEdgeRoadClassLink == currEdgeRoadClassLink

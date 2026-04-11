@@ -17,20 +17,26 @@ import (
 )
 
 var (
-	profileFilePath               = flag.String("profile", "./data/car.yaml", "profile file path")
-	osmFile                       = flag.String("osm_file", "diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
-	mlpFile                       = flag.String("mlp_file", "crp_inertial_flow_diy_solo_semarang", "Multilevel partition filename")
-	partitionSizes                = flag.String("us", "8,11,14,17,18", "Multilevel Partition Sizes")
-	directed                      = flag.Bool("directed_graph", true, "directed/undirected graph")
-	prePartitionWithSCC           = flag.Bool("prepartition_with_scc", false, "prepartition graph with strongly connected components")
-	inertialFlowIterations        = flag.Int("iflow_iterations", 5, "number of iterations of the inertial flow algorithm")
-	graphFile              string = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, profileName)
-	overlayGraphFile       string = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, profileName)
-	profileName            string = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
+	profileFilePath        = flag.String("profile", "./data/car.yaml", "profile file path")
+	osmFile                = flag.String("osm_file", "diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
+	mlpFile                = flag.String("mlp_file", "crp_inertial_flow_diy_solo_semarang", "Multilevel partition filename")
+	regionName             = flag.String("region", "diy_solo_semarang", "region name")
+	partitionSizes         = flag.String("us", "8,11,14,17,18", "Multilevel Partition Sizes")
+	directed               = flag.Bool("directed_graph", true, "directed/undirected graph")
+	prePartitionWithSCC    = flag.Bool("prepartition_with_scc", false, "prepartition graph with strongly connected components")
+	inertialFlowIterations = flag.Int("iflow_iterations", 5, "number of iterations of the inertial flow algorithm")
+	graphFile              string
+	overlayGraphFile       string
+	profileName            string
 )
 
 func init() {
 	flag.Parse()
+	
+	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
+	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
+	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
+
 	util.InitProfileConfig(profileName)
 }
 

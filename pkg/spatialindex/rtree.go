@@ -54,7 +54,7 @@ func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
 			}
 		}
 
-		// use web mercator projected coordinate
+		// use mercator projected coordinate
 		minY := geo.CalcLatToY(minLat)
 		maxY := geo.CalcLatToY(maxLat)
 		minX := geo.CalcLonToX(minLon)

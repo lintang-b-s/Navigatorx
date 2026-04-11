@@ -9,7 +9,7 @@ import (
 /*
 mercator
 project  wgs84 ellipsoidal datum  (lon, lat) coord to (x,y) cartesian coord
-nconformal
+conformal
 
 ref:
 [1] https://www.hydrometronics.com/downloads/Web%20Mercator%20-%20Non-Conformal,%20Non-Mercator%20%28notes%29.pdf
@@ -21,7 +21,7 @@ ref:
 const (
 	// taken from: https://en.wikipedia.org/wiki/Mercator_projection#Properties
 	//	Because the Mercator projects the poles at infinity,
-	//  a map using the Web Mercator projection cannot show the poles.
+	//  a map using the Mercator projection cannot show the poles.
 	//  Services such as Google Maps cut off coverage at 85.051129° north and south.
 
 	minLatDeg = -85.05112
@@ -35,7 +35,7 @@ func clampLat(lat float64) float64 {
 	return util.MaxFloat(util.MinFloat(maxLatDeg, lat), minLatDeg)
 }
 
-// calcLatToYExact. calculate northing projected web mercator coordinate of lat using the formula
+// calcLatToYExact. calculate northing projected mercator coordinate of lat using the formula
 // https://proj.org/en/stable/operations/projections/webmerc.html
 func CalcLatToY(lat float64) float64 {
 	lat = clampLat(lat)
@@ -43,7 +43,7 @@ func CalcLatToY(lat float64) float64 {
 	return R * math.Log(math.Tan(math.Pi/4+lat/2))
 }
 
-// calcLatToYExact. calculate easting projected web mercator coordinate of lat
+// calcLatToYExact. calculate easting projected mercator coordinate of lat
 func CalcLonToX(lon float64) float64 {
 	return R * util.DegreeToRadians(lon)
 }
@@ -88,7 +88,7 @@ func invGudermanMaclaurinSeriesCoefficients() []float64 {
 	return coeffs
 }
 
-// calcLatToYApprox. calculate northing projected web mercator coordinate of lat using inverse guderman maclaurin series expansion
+// calcLatToYApprox. calculate northing projected mercator coordinate of lat using inverse guderman maclaurin series expansion
 // lat in wgs84 ellipsoidal datum coordinates
 func CalcLatToYApprox(lat float64) float64 {
 	lat = clampLat(lat)

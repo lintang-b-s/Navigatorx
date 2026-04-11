@@ -14,19 +14,23 @@ import (
 )
 
 var (
+	profileName     string
 	profileFilePath = flag.String("profile", "./data/car.yaml", "profile file path")
-)
-
-var (
-	profileName      string = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	graphFile        string = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, profileName)
-	overlayGraphFile string = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, profileName)
-	metricsFile      string = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, profileName)
-	landmarkFile     string = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, profileName)
+	regionName       = flag.String("region", "diy_solo_semarang", "region name")
+	graphFile        string
+	overlayGraphFile string
+	metricsFile      string
+	landmarkFile     string
 )
 
 func init() {
 	flag.Parse()
+
+	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
+	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
+	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
+	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, *regionName)
+	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
 	util.InitProfileConfig(profileName)
 }
 

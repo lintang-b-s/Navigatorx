@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"math"
@@ -31,10 +30,6 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-)
-
-var (
-	partitionSizes = flag.String("us", "8,10,11,12,14", "Multilevel Partition Sizes")
 )
 
 const (
@@ -374,7 +369,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		t.Fatal(err)
 	}
 
-	pss := strings.Split(*partitionSizes, ",")
+	pss := strings.Split("8,10,11,12,14", ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
 		pow, err := strconv.Atoi(pss[i])
