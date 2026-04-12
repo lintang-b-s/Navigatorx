@@ -26,23 +26,27 @@ func NewTimeCostFunction() *TimeFunction {
 		}
 	}
 
-	mapTurnCosts := viper.GetStringMap("turncosts")
-	turnCosts := make([]float64, 6)
-	for turnTypeStr, cost := range mapTurnCosts {
+	if pkg.WITH_TURN_COSTS {
+		mapTurnCosts := viper.GetStringMap("turncosts")
+		turnCosts := make([]float64, 6)
+		for turnTypeStr, cost := range mapTurnCosts {
 
-		turnType := getTurnType(turnTypeStr)
-		switch v := cost.(type) {
-		case int:
-			turnCosts[turnType] = float64(v)
-		case float64:
-			turnCosts[turnType] = v
-		default:
-			panic("unsupported type")
+			turnType := getTurnType(turnTypeStr)
+			switch v := cost.(type) {
+			case int:
+				turnCosts[turnType] = float64(v)
+			case float64:
+				turnCosts[turnType] = v
+			default:
+				panic("unsupported type")
+			}
 		}
+		turnCosts[pkg.NONE] = 0
+		turnCosts[pkg.NO_ENTRY] = pkg.INF_WEIGHT
+		return &TimeFunction{maxspeeds: maxspeeds, turnCosts: turnCosts}
 	}
-	turnCosts[pkg.NONE] = 0
-	turnCosts[pkg.NO_ENTRY] = pkg.INF_WEIGHT
-	return &TimeFunction{maxspeeds: maxspeeds, turnCosts: turnCosts}
+
+	return &TimeFunction{maxspeeds: maxspeeds}
 }
 
 func NewTimeCostFunctionEmpty() *TimeFunction {

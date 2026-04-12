@@ -11,6 +11,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"go.uber.org/zap"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -22,21 +23,21 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-const (
-	mlpFile                 = "stress_test_yogyakarta"
-	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_query_test.graph"
-	overlayGraphFile string = "./data/overlay_graph_query_test.graph"
-	metricsFile      string = "./data/metrics_query_test.txt"
-	landmarkFile     string = "./data/landmark_query_test.lm"
-)
-
 func init() {
 	util.InitConfig()
 }
 
-func Setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
+func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.Logger, *landmark.Landmark) {
+	var ( //
+		mlpFile                 = fmt.Sprintf("stress_test_%s", fileName)
+		url                     = fileUrl
+		osmfFile                = fmt.Sprintf("./data/%s.osm.pbf", fileName)
+		graphFile        string = fmt.Sprintf("./data/original_%s_test.graph", fileName)
+		overlayGraphFile string = fmt.Sprintf("./data/overlay_graph_%s_test.graph", fileName)
+		metricsFile      string = fmt.Sprintf("./data/metrics_%s_test.txt", fileName)
+		landmarkFile     string = fmt.Sprintf("./data/landmark_%s_test.lm", fileName)
+	)
+
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -132,5 +133,5 @@ func Setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		t.Fatal(err)
 	}
 
-	return re, lm
+	return re, logger, lm
 }

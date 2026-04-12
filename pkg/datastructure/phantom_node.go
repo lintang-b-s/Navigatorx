@@ -82,8 +82,6 @@ func (p *PhantomNode) GetReverseTravelTime() float64 {
 	return p.reverseTravelTime
 }
 
-
-
 func (p *PhantomNode) GetForwardDistance() float64 {
 	return p.forwardDistance
 }

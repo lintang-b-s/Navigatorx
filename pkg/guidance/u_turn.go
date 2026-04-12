@@ -26,15 +26,13 @@ func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, edgeId da.
 	uTurnType := da.U_TURN_UNKNOWN
 
 	head := db.graph.GetHeadOfOutEdge(edgeId)
-	currRoadClass := db.graph.GetRoadClass(edgeId)
-	currRoadClassLink := db.graph.GetRoadClassLink(edgeId)
 
 	if db.doublePrevInitialBearing != 0 && (sign > 0) == (db.prevInstruction.GetTurnSign() > 0) &&
 		((db.lefthand && (sign == da.TURN_SLIGHT_RIGHT || sign == da.TURN_RIGHT || sign == da.TURN_SHARP_RIGHT)) ||
 			(!db.lefthand && (sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_LEFT || sign == da.TURN_SHARP_LEFT))) &&
 		((db.lefthand && db.prevInstruction.GetTurnSign() == da.TURN_SLIGHT_RIGHT || db.prevInstruction.GetTurnSign() == da.TURN_RIGHT || db.prevInstruction.GetTurnSign() == da.TURN_SHARP_RIGHT) ||
 			(!db.lefthand && db.prevInstruction.GetTurnSign() == da.TURN_SLIGHT_LEFT || db.prevInstruction.GetTurnSign() == da.TURN_LEFT || db.prevInstruction.GetTurnSign() == da.TURN_SHARP_LEFT)) &&
-		isSameNameByRoadClass(db.doublePrevStreetName, name, currRoadClass, currRoadClassLink) {
+		isSamePrimaryName(name, db.doublePrevStreetName) {
 		head := db.graph.GetVertex(head)
 		headLat, headLon := head.GetLat(), head.GetLon()
 		tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edgeId))

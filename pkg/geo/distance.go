@@ -26,7 +26,7 @@ func CalculateGreatCircleDistance(latOne, longOne, latTwo, longTwo float64) floa
 	return earthRadiusKM * c
 }
 
-// CalculateEuclidianDistMercatorProj. calculate euclidian distance (in km) using web mercator projected coordinates
+// CalculateEuclidianDistMercatorProj. calculate euclidian distance (in km) using mercator projected coordinates
 // https://gis.stackexchange.com/questions/14528/better-distance-measurements-in-web-mercator-projection
 func CalculateEuclidianDistMercatorProj(latOne, longOne, latTwo, longTwo float64) float64 {
 	xOne := CalcLonToX(longOne)

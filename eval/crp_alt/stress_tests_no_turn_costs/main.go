@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -43,7 +44,7 @@ const (
 )
 
 /*
-go run eval/crp_alt/stress_tests/main.go
+go run eval/crp_alt/stress_tests_no_turn_costs/main.go
 
 stress test ini bertujuan untuk mencari apakah ada counterexample (output dari ALT CRP query bukan shortest path) dari implementasi  A*, landmarks, and triangle inequality (ALT) untuk query Customizable Route Planning (CRP) pada file
 multilevel_astar_landmarks.go
@@ -97,6 +98,8 @@ func main() {
 		}
 		logger.Sugar().Infof("download complete")
 	}
+
+	pkg.WITH_TURN_COSTS = false
 
 	op := osmparser.NewOSMParserV2()
 
@@ -202,7 +205,7 @@ func main() {
 	calcSpDijkstra := func(i int) any {
 		s := queries[i]
 
-		dijkstraQuery := routing.NewDijkstraWithTurnCost(re.GetRoutingEngine(), false)
+		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
 
 		sps, _ := dijkstraQuery.ShortestPath(s)
 
@@ -344,3 +347,6 @@ func main() {
 
 	logger.Sugar().Infof("done")
 }
+
+
+

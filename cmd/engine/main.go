@@ -68,7 +68,7 @@ func main() {
 	re := routingEngine.GetRoutingEngine()
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), logger)
+	rtree.Build(re.GetGraph(), logger)
 
 	N, err := da.ReadSparseMatrixFromFile[int](transitionMHTFile, int(0),
 		func(a, b int) bool { return a == b })

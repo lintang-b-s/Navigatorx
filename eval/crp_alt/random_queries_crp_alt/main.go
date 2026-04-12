@@ -24,10 +24,10 @@ var (
 )
 
 const (
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	graphFile        string = "./data/profiles/car/diy_solo_semarang_original.graph"
+	overlayGraphFile string = "./data/profiles/car/diy_solo_semarang_overlay_graph.graph"
+	metricsFile      string = "./data/profiles/car/diy_solo_semarang_metrics.txt"
+	landmarkFile     string = "./data/profiles/car/diy_solo_semarang_landmark.lm"
 )
 
 func main() {
@@ -36,6 +36,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+
 	workingDir, err := util.FindProjectWorkingDir()
 	err = util.ReadConfig(workingDir)
 	if err != nil {
@@ -52,6 +53,7 @@ func main() {
 		s   da.Index
 		t   da.Index
 	}
+
 	newSPParam := func(row int, s, t da.Index) spParam {
 		return spParam{row, s, t}
 	}

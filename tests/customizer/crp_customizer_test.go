@@ -645,7 +645,7 @@ func TestCRPCustomizer(t *testing.T) {
 	for i := 0; i < len(landmarks); i++ {
 		landmarkVId := landmarks[i]
 		s := landmarkVId
-		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
+		dijkstraQuery := routing.NewDijkstraWithTurnCost(re.GetRoutingEngine(), false)
 		sps, _ := dijkstraQuery.ShortestPath(s)
 		for v := 0; v < n; v++ {
 			expectedSpToV := sps[v] // sp dist dari landmark ke v
@@ -655,7 +655,7 @@ func TestCRPCustomizer(t *testing.T) {
 			}
 		}
 
-		dijkstraQuery = routing.NewDijkstra(re.GetRoutingEngine(), true)
+		dijkstraQuery = routing.NewDijkstraWithTurnCost(re.GetRoutingEngine(), true)
 		sps, _ = dijkstraQuery.ShortestPath(s)
 		for v := 0; v < n; v++ {
 			expectedSPVToL := sps[v] // sp dist dari v ke landmark

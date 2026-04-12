@@ -184,7 +184,11 @@ func (instr *Instruction) GetTurnDescription(clockwise bool) string {
 				headingAngle += 360
 			}
 			compassDir := bearingToCompass(headingAngle)
-			description = fmt.Sprintf("Head %s toward %s", compassDir, streetName)
+			if streetName != "" {
+				description = fmt.Sprintf("Head %s toward %s", compassDir, streetName)
+			} else {
+				description = fmt.Sprintf("Head %s", compassDir)
+			}
 		} else {
 			description = fmt.Sprintf("Head toward %s", streetName)
 		}

@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
@@ -444,10 +445,163 @@ dan akan berhenti ketika ada counterexample
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphic #6 cpu cores #12 threads
 ram: 16gb
 
-please run the test using command: "cd tests/query && go test -run TestCRPQueryStressTest  -v -timeout=0  -count=1"
+please run the test using command: "cd tests/query && go test -run TestCRPQueryStressNoTurnCostTest  -v -timeout=0  -count=1"
 karena bakal time out kalau pakai vscode
 */
-func TestCRPQueryStressTest(t *testing.T) {
+
+func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
+	re, _ := setup(t)
+	g := re.GetRoutingEngine().GetGraph()
+
+	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	V := g.NumberOfVertices()
+
+	n := 5
+	qset := make(map[da.Index]struct{})
+
+	queries := make([]da.Index, 0, n)
+
+	i := 0
+	for i < n {
+		s := da.Index(rd.Intn(V))
+		if g.GetOutDegree(s) == 0 || g.GetInDegree(s) == 0 {
+			continue
+		}
+
+		if _, ok := qset[s]; ok {
+			continue
+		}
+
+		qset[s] = struct{}{}
+		queries = append(queries, da.Index(s))
+		i++
+	}
+	numberOfVertices := g.NumberOfVertices()
+
+	pkg.WITH_TURN_COSTS = false
+
+	expectedSPTravelTimes := make([][]float64, n)
+
+	t.Logf("start dijkstra query for all sources...")
+
+	lock := sync.Mutex{}
+
+	calcSpDijkstra := func(i int) any {
+		s := queries[i]
+
+		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
+
+		sps, _ := dijkstraQuery.ShortestPath(s)
+
+		lock.Lock()
+
+		expectedSPTravelTimes[i] = sps
+
+		if (i+1)%5 == 0 {
+			t.Logf("done query from source number: %v\n", i+1)
+		}
+		lock.Unlock()
+
+		return nil
+	}
+
+	workersDijkstra := concurrent.NewWorkerPool[int, any](7, n)
+
+	for i := 0; i < n; i++ {
+		workersDijkstra.AddJob(i)
+	}
+
+	workersDijkstra.Close()
+	workersDijkstra.Start(calcSpDijkstra)
+	workersDijkstra.WaitDirect()
+
+	type query struct {
+		i, s, t da.Index
+		id      da.Index
+	}
+
+	newQuery := func(i, s, t, id da.Index) query {
+		return query{i, s, t, id}
+	}
+
+	type counterExampleData struct {
+		expectedSp, crpALTSP           float64
+		expectedSpEdges, crpALTSPEdges []da.Index
+		counterexample                 bool
+	}
+
+	newCounterExampleData := func(expectedSp, crpALTSP float64, expectedSpEdges, crpALTSPEdges []da.Index, cx bool) counterExampleData {
+		return counterExampleData{expectedSp: expectedSp, crpALTSP: crpALTSP, expectedSpEdges: expectedSpEdges, crpALTSPEdges: crpALTSPEdges,
+			counterexample: cx}
+	}
+
+	calcSp := func(q query) counterExampleData {
+		i := q.i
+		s := q.s
+		target := q.t
+		id := q.id
+		inEdgeToS := g.GetEntryOffset(s) + g.GetInDegree(s) - 1
+		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
+		outEdgeFromTarget := g.GetExitOffset(target) + g.GetOutDegree(target) - 1
+		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+
+		sVertex := g.GetVertex(s)
+		tVertex := g.GetVertex(target)
+		emptyCoords := make([]da.Coordinate, 0)
+		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
+		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
+
+		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+
+		expectedSp := expectedSPTravelTimes[i][target]
+
+		counterexample := false
+		if !util.EqEps(expectedSp, sp, 1e-5) { // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
+			counterexample = true
+		}
+
+		if (id+1)%5000 == 0 {
+			t.Logf("done query id: %v\n", id+1)
+		}
+		if counterexample {
+			return newCounterExampleData(expectedSp, sp, []da.Index{}, []da.Index{}, true)
+		}
+
+		return newCounterExampleData(0, 0, nil, nil, false)
+	}
+
+	workers := concurrent.NewWorkerPool[query, counterExampleData](100, n*numberOfVertices)
+
+	for i := 0; i < n; i++ {
+		s := queries[i]
+
+		for t := da.Index(0); t < da.Index(numberOfVertices); t++ {
+			workers.AddJob(newQuery(da.Index(i), s, t, da.Index(i)*da.Index(numberOfVertices)+t))
+		}
+	}
+	t.Logf("start crp query...")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	workers.Close()
+	workers.StartWithContext(ctx, calcSp)
+	workers.Wait()
+
+	t.Run("stress test crp query", func(t *testing.T) {
+		for res := range workers.CollectResults() {
+			if res.counterexample {
+				t.Logf("found counterExample!!\n")
+				t.Errorf("found counter example!!, expected shortest path cost: %f, got: %f", res.expectedSp, res.crpALTSP)
+
+				cancel()
+
+				t.Logf("\n")
+			}
+		}
+	})
+}
+
+func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 	re, _ := setup(t)
 	g := re.GetRoutingEngine().GetGraph()
 
@@ -485,7 +639,7 @@ func TestCRPQueryStressTest(t *testing.T) {
 	calcSpDijkstra := func(i int) any {
 		s := queries[i]
 
-		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
+		dijkstraQuery := routing.NewDijkstraWithTurnCost(re.GetRoutingEngine(), false)
 
 		sps, _ := dijkstraQuery.ShortestPath(s)
 
