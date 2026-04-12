@@ -97,23 +97,39 @@ func (db *DirectionBuilder) Reset() {
 	db.path = make([]da.Index, 0)
 }
 
-func (db *DirectionBuilder) GetDrivingDirections(path []da.Index) []da.DrivingDirection {
+func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.PhantomNode) []da.DrivingDirection {
 	defer db.done()
 
 	if len(path) == 0 {
 		return make([]da.DrivingDirection, 0)
 	}
 
+	if !db.graph.IsDummyOutEdge(sp.GetOutEdgeId()) {
+		firstEdgeId := sp.GetOutEdgeId()
+		path = append([]da.Index{firstEdgeId}, path...)
+	}
+
+	if !db.graph.IsDummyOutEdge(tp.GetOutEdgeId()) {
+		lastEdgeId := tp.GetOutEdgeId()
+		path = append(path, lastEdgeId)
+	}
+
 	db.path = path
 
-	for db.lastPathId < len(db.path) {
+	m := len(db.path)
+	for db.lastPathId < m {
 		edgeId := db.path[db.lastPathId]
 
-		db.buildInstruction(edgeId)
+		db.buildInstruction(edgeId, sp)
 		db.lastPathId++
 	}
 
-	db.buildFinalInstruction()
+	if !db.graph.IsDummyOutEdge(tp.GetOutEdgeId()) {
+		lastEdgeId := tp.GetOutEdgeId()
+		db.buildFinalInstruction(lastEdgeId, tp)
+	} else {
+		db.buildFinalInstruction(db.path[m-1], tp)
+	}
 
 	n := len(db.instructions)
 	if len(db.turnDescriptions) < n {
@@ -143,7 +159,7 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.Index) []da.DrivingDi
 	return drivingDirections
 }
 
-func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
+func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode) {
 
 	headId := db.graph.GetHeadOfOutEdge(edgeId)
 
@@ -163,10 +179,12 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 	if db.prevInstruction == nil && !isRoundabout {
 		// start point dari shortetest path & bukan bundaran (roundabout)
 		sign := da.START
+		tailCoord := sp.GetSnappedCoord()
 		point := da.NewCoordinate(
-			tail.GetLat(), tail.GetLon(),
+			tailCoord.GetLat(), tailCoord.GetLon(),
 		)
-		turnBearing := computeInitialBearing(tail.GetLat(), tail.GetLon(),
+
+		turnBearing := computeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(),
 			head.GetLat(), head.GetLon())
 		newIns := da.NewInstruction(sign, streetName, point, false,
 			[]da.Index{edgeId}, db.cumulativeDistance, db.cumulativeTravelTime,
@@ -267,20 +285,25 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index) {
 	}
 }
 
-func (db *DirectionBuilder) buildFinalInstruction() {
+func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.PhantomNode) {
 
 	doublePrevNode := db.graph.GetVertex(db.doublePrevNode)
 
-	tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(db.prevEdge))
+	tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edgeId))
 
-	prevEdgeHead := db.graph.GetHeadOfOutEdge(db.prevEdge)
-	node := db.graph.GetVertex(prevEdgeHead)
-	point := da.NewCoordinate(node.GetLat(), node.GetLon())
+	var head da.Coordinate
+	if !db.graph.IsDummyOutEdge(tp.GetOutEdgeId()) {
+		head = tp.GetSnappedCoord()
+	} else {
+		headId := db.graph.GetHeadOfOutEdge(edgeId)
+		head = db.graph.GetVertexCoordinate(headId)
+	}
 
-	prevNodeData := db.graph.GetVertex(db.prevNode)
-	turnBearing := computeFinalBearing(prevNodeData.GetLat(), prevNodeData.GetLon(), tail.GetLat(), tail.GetLon())
+	point := da.NewCoordinate(head.GetLat(), head.GetLon())
 
-	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(db.prevEdge), point, false,
+	turnBearing := computeFinalBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
+
+	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(edgeId), point, false,
 		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.points, turnBearing, db.clockwise)
 	finishInstruction.SetExtraInfo("heading", geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
 

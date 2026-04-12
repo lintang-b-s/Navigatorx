@@ -31,7 +31,6 @@ func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
 	log.Info("Building R-tree spatial index...")
 	graph.ForOutEdges(func(exitPoint, head, tail, entryId da.Index,
 		percentage float64, id da.Index) {
-		
 
 		eGeom := graph.GetEdgeGeometry(id)
 		maxLat, maxLon := math.Inf(-1), math.Inf(-1)

@@ -34,7 +34,7 @@ landmarks: 16
 
 maxspeeds:
   motorway: 100
-  trunk: 60
+  trunk: 65
   primary: 50
   secondary: 40
   tertiary: 40
@@ -46,7 +46,7 @@ maxspeeds:
   primary_link: 35
   secondary_link: 30
   tertiary_link: 25
-  living_street: 10
+  living_street: 25
   road: 30
   track: 15
   motorroad: 90
@@ -54,7 +54,6 @@ maxspeeds:
 
 turncosts:
   u_turn: *INF_COST
-  no_entry: *INF_COST
   left_turn: 0
   right_turn: 0
   straight_on: 0

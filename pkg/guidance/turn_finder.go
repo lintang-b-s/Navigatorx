@@ -273,7 +273,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 		if util.Lt(currDeltaBearingDeg, CONTINUE_ALT_CURRENT_DELTA_BEARING) && util.Gt(alternativeTurnDeltaBearingDeg, CONTINUE_ALT_TURN_DELTA_BEARING) {
 			// bearing difference antara prevEdge dan currentEDge < 7° (CONTINUE Direction), Edge otherContinueEdge > 8.6 (TURN SLIGHT or more direction).
-			if db.nextStreetName == "" {
+			if db.nextStreetName == "" || !leavingPrevStreet {
 				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
 				return da.IGNORE
 			}
@@ -302,10 +302,13 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 		}
 	}
 
+	// lagi karena di if diatas kita update leavingPrevStreet = leavingPrevStreet || foundNextTurn
+	leavingPrevStreet = !isSamePrimaryName(prevEdgeStreetName, currStreetName)
+
 	// kalau gak ada otherContinueEdge
 	// kita cuma output CONTINUE_ON_STREET jika current edge street name beda dari street name prev edge
 	if leavingPrevStreet && currStreetName != "" && prevStreetName != "" {
-		db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, db.nextStreetName), 1)
+		db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, currStreetName), 1)
 		return da.CONTINUE_ON_STREET
 	}
 

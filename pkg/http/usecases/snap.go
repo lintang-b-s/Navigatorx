@@ -97,13 +97,16 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	dstCoord := make([]da.Coordinate, len(dstCandidates))
 	dstNextCoords := make([][]da.Coordinate, len(dstCandidates))
 
+	origToEndpointDist := make([]float64, len(origCandidates))
+	destToEndpointDist := make([]float64, len(dstCandidates))
+
 	for i, c := range origCandidates {
-		projectedLat, projectedLon, origDist[i], origNextCoords[i] = rs.ProjectCoordinateToEdge(qOrigLat, qOrigLon, c, true)
+		projectedLat, projectedLon, origDist[i], origToEndpointDist[i], origNextCoords[i] = rs.ProjectCoordinateToEdge(qOrigLat, qOrigLon, c, true)
 		origCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
 	}
 
 	for i, c := range dstCandidates {
-		projectedLat, projectedLon, dstDist[i], dstNextCoords[i] = rs.ProjectCoordinateToEdge(qDstLat, qDstLon, c, false)
+		projectedLat, projectedLon, dstDist[i], destToEndpointDist[i], dstNextCoords[i] = rs.ProjectCoordinateToEdge(qDstLat, qDstLon, c, false)
 		dstCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
 	}
 
@@ -115,6 +118,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 	// worst case of this loop: O(c^2 * (V_G+O_G)), V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
 	minDist := pkg.INF_WEIGHT
+	minDistToEndpoint := pkg.INF_WEIGHT
 	bestPair := newOriginDestination(da.INVALID_EDGE_ID, da.INVALID_EDGE_ID,
 		da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON), da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON))
 	bestOriginNextCoords := make([]da.Coordinate, 0)
@@ -138,8 +142,17 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 			origDestSnapDist := origDist[i] + dstDist[j]
 
-			if origDestSnapDist < minDist {
+			origDestSnapToEndpointDist := origToEndpointDist[i] + destToEndpointDist[j]
+
+			if util.Lt(origDestSnapDist, minDist) {
 				minDist = origDestSnapDist
+				minDistToEndpoint = origDestSnapToEndpointDist
+				bestPair = newOriginDestination(o, dstInEdge, origCoord[i], dstCoord[j])
+				bestOriginNextCoords = origNextCoords[i]
+				bestDestBefCoords = dstNextCoords[j]
+			} else if util.Eq(origDestSnapDist, minDist) && util.Lt(origDestSnapToEndpointDist, minDistToEndpoint) {
+				minDist = origDestSnapDist
+				minDistToEndpoint = origDestSnapToEndpointDist
 				bestPair = newOriginDestination(o, dstInEdge, origCoord[i], dstCoord[j])
 				bestOriginNextCoords = origNextCoords[i]
 				bestDestBefCoords = dstNextCoords[j]
@@ -160,7 +173,9 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	tEdgeLength := rs.graph.GetInEdgeLength(bestPair.destEdgeId)
 	tReverseTravelTime := rs.engine.GetWeightFromLength(bestPair.destEdgeId, tEdgeLength, false)
 
-	tp := da.NewPhantomNode(bestPair.destCoord, 0.0, tReverseTravelTime, da.INVALID_EDGE_ID, bestPair.destEdgeId, 0, tEdgeLength, make([]da.Coordinate, 0),
+	destExitId := rs.graph.GetExitIdOfInEdge(bestPair.destEdgeId) // outEdgeId of destination road segment
+
+	tp := da.NewPhantomNode(bestPair.destCoord, 0.0, tReverseTravelTime, destExitId, bestPair.destEdgeId, 0, tEdgeLength, make([]da.Coordinate, 0),
 		bestDestBefCoords)
 
 	return sp, tp
@@ -180,14 +195,19 @@ func newOriginDestination(origEdgeId, destEdgeId da.Index, origCoord, destCoord 
 	}
 }
 
-func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.Index, origin bool) (float64, float64, float64, []da.Coordinate) {
+func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.Index, origin bool) (float64, float64, float64, float64, []da.Coordinate) {
 
 	eGeometry := rs.graph.GetEdgeGeometry(edgeId)
 	minDist := pkg.INF_WEIGHT
 	var bestProjectedPoint da.Coordinate
+	n := len(eGeometry)
+
+	edgeHeadCoord := eGeometry[n-1]
+	edgeTailCoord := eGeometry[0]
+	distToEdgeEndpoint := pkg.INF_WEIGHT //  dist dari titik proyeksi ke head dari edge (kalau origin = true), else dist: dari titik proyeksi ke tail dari edge
 
 	lastIndex := 0
-	for i := 0; i < len(eGeometry)-1; i++ {
+	for i := 0; i < n-1; i++ {
 		tail := eGeometry[i]
 		head := eGeometry[i+1]
 		projectedPoint := geo.ProjectPointOnSegment(
@@ -197,12 +217,19 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 		)
 
 		dist := geo.CalculateEuclidianDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
-			lat, lon)
+			lat, lon) // dist dari (lat,lon) ke titik proyeksi
 
 		if util.Lt(dist, minDist) {
 			minDist = dist
 			bestProjectedPoint = projectedPoint
 			lastIndex = i
+			if origin {
+				distToEdgeEndpoint = geo.CalculateEuclidianDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+					edgeHeadCoord.GetLat(), edgeHeadCoord.GetLon())
+			} else {
+				distToEdgeEndpoint = geo.CalculateEuclidianDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+					edgeTailCoord.GetLat(), edgeTailCoord.GetLon())
+			}
 		}
 	}
 
@@ -219,6 +246,19 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 		   karena kita query shortest path/rute alternatif dari s ke t, kita return edge geometry dari w ke t
 	*/
 
+	/*
+		harusnya kalau openstreetmap bisa support lane level routing (geometry dari setiap osm way yang two-way dibedain jadi dua sesuai arah dan lanenya ):
+		kita bisa snap ke edge yang lane osm way nya lebih deket ke titik query, kaya di gmaps berikut (lihat road segment destination):
+
+		https://www.google.com/maps/dir/Sans+Guest+House+2,+Jl.+Mulwo,+Karangasem,+Kec.+Laweyan,+Kota+Surakarta,+Jawa+Tengah+57145/-7.5541728,110.8270471/@-7.5542505,110.8247047,18.47z/data=!4m9!4m8!1m5!1m1!1s0x2e7a14403c5830dd:0x5a2e99d453ee8b46!2m2!1d110.7819826!2d-7.5504398!1m0!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+		tapi di osrm juga gak support beginian sih (lihat road segment destination):
+		https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.550317%2C110.782131%3B-7.554244%2C110.827106
+		
+		karena osm way yang two-way edge geometry untuk arah forward dan backward sama di openstreetmap. 
+	*/
+
 	nextEdgeGeometry := make([]da.Coordinate, 0, len(eGeometry))
 	if !origin {
 		// kalau destination
@@ -229,7 +269,7 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 		nextEdgeGeometry = append(nextEdgeGeometry, eGeometry[lastIndex+1:]...)
 	}
 
-	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist, nextEdgeGeometry
+	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist, distToEdgeEndpoint, nextEdgeGeometry
 }
 
 func (rs *RoutingService) notFoundOriginDestinationWithinRadius(sp, tp da.PhantomNode) bool {

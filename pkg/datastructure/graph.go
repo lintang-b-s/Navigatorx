@@ -375,11 +375,13 @@ func (g *Graph) GetTailOfOutedgeWithInEdge(e Index) (Index, Index) {
 	return g.inEdges[head.firstIn+Index(outEdge.entryPoint)].tail, head.firstIn + Index(outEdge.entryPoint)
 }
 
+// get inEdgeId of outEdgeId e
 func (g *Graph) GetEntryIdOfOutEdge(e Index) Index {
 	head := g.vertices[g.outEdges[e].head]
 	return head.firstIn + Index(g.outEdges[e].entryPoint)
 }
 
+// get outEdgeId of inEdgeId e
 func (g *Graph) GetExitIdOfInEdge(e Index) Index {
 	tail := g.vertices[g.inEdges[e].tail]
 	return tail.firstOut + Index(g.inEdges[e].exitPoint)
@@ -764,7 +766,7 @@ func (g *Graph) IsRoundabout(edgeId Index) bool {
 
 func (g *Graph) GetStreetName(edgeId Index) string {
 	stNameId := g.graphStorage.streetName[edgeId]
-	
+
 	return g.graphStorage.GetStr(stNameId)
 }
 

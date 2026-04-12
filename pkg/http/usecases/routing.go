@@ -69,10 +69,9 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 }
 
 func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
-	select { // https://engineering.grab.com/context-deadlines-and-how-to-set-them
-	case <-ctx.Done(): // https://go.dev/blog/context#TOC_5
+
+	if util.IsTimeout(ctx) { // https://engineering.grab.com/context-deadlines-and-how-to-set-them
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
-	default:
 	}
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
@@ -85,10 +84,8 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 			errmsg)
 	}
 
-	select {
-	case <-ctx.Done():
+	if util.IsTimeout(ctx) {
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
-	default:
 	}
 
 	var (
@@ -107,10 +104,8 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 			errmsg)
 	}
 
-	select {
-	case <-ctx.Done():
+	if util.IsTimeout(ctx) {
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
-	default:
 	}
 
 	travelTime, dist = rs.AppendPhantomNodesToPath(pathCoords, sp, tp, travelTime, dist)
@@ -118,7 +113,7 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 
-	drivingDirection := directionBuilder.GetDrivingDirections(edgePath)
+	drivingDirection := directionBuilder.GetDrivingDirections(edgePath, sp, tp)
 
 	directionBuilder.Reset()
 	rs.directionBuilderPool.Put(directionBuilder)
@@ -126,10 +121,8 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 }
 
 func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int) ([]routing.AlternativeRoute, bool, error) {
-	select {
-	case <-ctx.Done():
+	if util.IsTimeout(ctx) {
 		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
-	default:
 	}
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
@@ -142,10 +135,8 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 			errmsg)
 	}
 
-	select {
-	case <-ctx.Done():
+	if util.IsTimeout(ctx) {
 		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
-	default:
 	}
 
 	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp, tp, k)
@@ -153,10 +144,8 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 		return []routing.AlternativeRoute{}, false, nil
 	}
 
-	select {
-	case <-ctx.Done():
+	if util.IsTimeout(ctx) {
 		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
-	default:
 	}
 
 	for i, alt := range alternatives {
@@ -170,7 +159,7 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 		alternatives[i].SetPolylinePath(pathPolyline)
 		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
 
-		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath())
+		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath(), sp, tp)
 		alternatives[i].SetDrivingDirections(drivingDirection)
 
 		directionBuilder.Reset()

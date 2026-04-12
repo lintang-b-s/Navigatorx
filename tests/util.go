@@ -24,7 +24,7 @@ import (
 )
 
 func init() {
-	util.InitConfig()
+	util.InitProfileConfig("car")
 }
 
 func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.Logger, *landmark.Landmark) {
@@ -74,7 +74,7 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 		t.Fatal(err)
 	}
 
-	pss := strings.Split("8,10,11,12,14", ",")
+	pss := strings.Split("8,10,11,12,15", ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
 		pow, err := strconv.Atoi(pss[i])

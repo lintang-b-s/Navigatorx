@@ -18,7 +18,6 @@ import (
 	"time"
 )
 
-
 func Sleep(ctx context.Context, duration time.Duration) error {
 	select {
 	case <-time.After(duration):
@@ -351,4 +350,13 @@ func InitProfileConfig(profileName string) {
 	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
 	pkg.IsVehicle = pkg.GetIsVehicle()
 	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+}
+
+func IsTimeout(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
 }

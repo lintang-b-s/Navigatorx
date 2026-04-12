@@ -25,10 +25,9 @@ func NewMapMatcherService(log *zap.Logger, onlineEngine OnlineMapMatcherEngine,
 
 func (ms *MapMatcherService) OnlineMapMatch(ctx context.Context, gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64, error) {
-	select {
-	case <-ctx.Done():
+
+	if util.IsTimeout(ctx) {
 		return nil, make([]*ma.Candidate, 0), 0, 0, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
-	default:
 	}
 
 	matchedPoint, cands, speedMean, speedStd := ms.onlineEngine.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
