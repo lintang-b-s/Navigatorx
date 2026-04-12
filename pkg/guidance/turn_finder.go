@@ -268,8 +268,10 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 			db.nextStreetName = nextStreetName
 			db.lastPathId = db.lastPathId + step - 1
 		}
+		alternativeTurnDeltaBearingDeg := util.RadiansToDegree(math.Abs(alternativeTurnDeltaBearing))
+		currDeltaBearingDeg := util.RadiansToDegree(math.Abs(currDeltaBearing))
 
-		if util.RadiansToDegree(math.Abs(currDeltaBearing)) < 7 && util.RadiansToDegree(math.Abs(alternativeTurnDeltaBearing)) > 8.6 {
+		if util.Lt(currDeltaBearingDeg, CONTINUE_ALT_CURRENT_DELTA_BEARING) && util.Gt(alternativeTurnDeltaBearingDeg, CONTINUE_ALT_TURN_DELTA_BEARING) {
 			// bearing difference antara prevEdge dan currentEDge < 7° (CONTINUE Direction), Edge otherContinueEdge > 8.6 (TURN SLIGHT or more direction).
 			if db.nextStreetName == "" {
 				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
@@ -279,7 +281,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 			return da.CONTINUE_ON_STREET
 		}
 
-		if util.RadiansToDegree(math.Abs(alternativeTurnDeltaBearing)) < 40 {
+		if util.Lt(alternativeTurnDeltaBearingDeg, KEEP_LEFT_RIGHT_ALT_TURN_DELTA_BEARING) {
 			/*
 				jika dari tail ada 2 jalan yang arahnya sama sama lurus/sedikit belok, tambah turn instruction KEEP_LEFT/KEEP_RIGHT ke currEdge. Example:
 

@@ -31,7 +31,7 @@ single-source shortest paths, from s to all other vertices.
 with no turn costs.
 ini implementasi dijkstra yang biasa anda lihat di internet / competitive programming template.
 
-useReversedGraph = true -> buat cari sssp dari every vertices in graph to s
+useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 */
 func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.Index) {
 
@@ -70,10 +70,6 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
-				return
-			}
-
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
 				// newTravelTime is not better, do nothing
@@ -109,10 +105,6 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
-				return
-			}
-
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
 				// newTravelTime is not better, do nothing
@@ -120,7 +112,6 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			}
 
 			// newTravelTime is better, update the forwardInfo
-
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, eId, false)
 				// is key already in the priority queue, decrease its key

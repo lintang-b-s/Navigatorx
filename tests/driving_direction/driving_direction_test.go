@@ -59,6 +59,45 @@ func TestDrivingDirection(t *testing.T) {
 				"you have arrived at your destination",
 			},
 		},
+		{
+			// https://maps.apple.com/directions?source=-7.550136%2C110.782070&destination=Masjid+Sheikh+Zayed%2C+Jl.+Ahmad+Yani+No.128+Gilingan%2C+Banjarsari%2C+Surakarta+Central+Java+57134+Indonesia&destination-place-id=I4D74262B5960A144&mode=driving
+			//
+			name:              "Fastest path Karangasem -> Masjid Syekh Zayed ",
+			qOriginCoord:      da.NewCoordinate(-7.550422162941061, 110.78207364612717),
+			qDestinationCoord: da.NewCoordinate(-7.55461264938715, 110.82680209044477),
+			wantDirections: []string{
+				"Head West",
+				"Turn sharp right",
+				"Turn right",
+				"Turn left",
+				"Turn right onto Jalan Adi Sucipto",
+				"At Roundabout, take the exit point 1 clockwise onto Jalan Jenderal Achmad Yani",
+				"Continue onto Jalan Jenderal Achmad Yani",
+				"Continue onto Jalan Jenderal Achmad Yani",
+				"Continue onto Jalan Jenderal Achmad Yani",
+				"Turn right",
+				"you have arrived at your destination",
+			},
+		},
+		{
+			// https://www.google.com/maps/dir/Sans+Guest+House+2,+Jl.+Mulwo,+Karangasem,+Kec.+Laweyan,+Kota+Surakarta,+Jawa+Tengah+57145/Pusat+Bersejarah+Yahudi+Solo,+FR43%2B5X9,+Jl.+Kutai+Utara,+Sumber,+Kec.+Banjarsari,+Kota+Surakarta,+Jawa+Tengah+57138/@-7.5479247,110.7887684,16z/am=t/data=!3m1!4b1!4m15!4m14!1m5!1m1!1s0x2e7a14403c5830dd:0x5a2e99d453ee8b46!2m2!1d110.7819826!2d-7.5504398!1m5!1m1!1s0x2e7a150057096b2b:0xdd08bc5e5019dae!2m2!1d110.8049463!2d-7.5444278!3e0!5i1?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+			//
+			name:              "Fastest path Karangasem -> Tembok Ratapan Solo / Pusat Bersejarah Yahudi Solo  ",
+			qOriginCoord:      da.NewCoordinate(-7.550422162941061, 110.78207364612717),
+			qDestinationCoord: da.NewCoordinate(-7.5444294067121405, 110.8049490158092),
+			wantDirections: []string{
+				"Head West",
+				"Turn sharp right",
+				"Turn right",
+				"Turn left",
+				"Turn right onto Jalan Adi Sucipto",
+				"At Roundabout, take the exit point 1 clockwise onto Jalan Jenderal Achmad Yani",
+				"Continue onto Jalan Letnan Jenderal Suprapto",
+				"Turn slight left onto Jalan Letnan Jenderal Suprapto",
+				"Turn left onto Jalan Pleret Raya",
+				"you have arrived at your destination",
+			},
+		},
 	}
 
 	for _, tc := range testCases {
@@ -69,6 +108,12 @@ func TestDrivingDirection(t *testing.T) {
 				dest.GetLat(), dest.GetLon())
 			if len(drivingDirections) != len(tc.wantDirections) {
 				t.Errorf("expected driving directions length: %v, got: %v", len(tc.wantDirections), len(drivingDirections))
+			}
+
+			for i := 0; i < len(drivingDirections); i++ {
+				if drivingDirections[i].GetInstruction() != tc.wantDirections[i] {
+					t.Errorf("expected ith driving direction instruction: %v, got: %v", drivingDirections[i].GetInstruction(), tc.wantDirections[i])
+				}
 			}
 		})
 	}

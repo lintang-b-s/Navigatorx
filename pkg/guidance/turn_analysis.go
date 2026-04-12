@@ -296,7 +296,7 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.Index, currS
 		isOtherEdgeBidirectional := db.graph.IsStreetBidirectional(outEdgeId)
 
 		if outEdgeId != currentEdge &&
-			outEdgeHead == tail && outEdgeTail != tailOfPrevEdge && deltaBearing < DELTA_BEARING_U_TURN &&
+			outEdgeHead == tail && outEdgeTail != tailOfPrevEdge && deltaBearing < MERGE_DELTA_BEARING &&
 			isSameName(currStreetName, edgeStreetName) && !isOtherEdgeBidirectional {
 			otherEdge = outEdgeId
 		}

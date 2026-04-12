@@ -36,7 +36,7 @@ func NewDijkstraWithTurnCost(engine *CRPRoutingEngine, useReversedEdges bool) Di
 single-source shortest paths, from s to all other vertices
 edge-based graph, support turn-costs
 
-useReversedGraph = true -> buat cari sssp dari every vertices in graph to s
+useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 */
 func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
 	var (
