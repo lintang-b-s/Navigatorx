@@ -1,3 +1,6 @@
+vars:
+  INF_COST: &INF_COST 1e15
+
 # example: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
 # example2: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla
 # example3: https://wiki.openstreetmap.org/wiki/Gojek/OSM_Tags_for_Routing
@@ -31,7 +34,7 @@ landmarks: 16
 
 maxspeeds:
   motorway: 100
-  trunk: 65
+  trunk: 60
   primary: 50
   secondary: 40
   tertiary: 40
@@ -50,8 +53,8 @@ maxspeeds:
   default: 30
 
 turncosts:
-  u_turn: 1e9
-  no_entry: 1e9
+  u_turn: *INF_COST
+  no_entry: *INF_COST
   left_turn: 0
   right_turn: 0
   straight_on: 0
@@ -65,7 +68,7 @@ alternatives:
   epsilon:
     default: 0.25 #  alternative routes at most 25% longer than the shortest path
   upper_bound:
-    50: 1.25 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
+    50: 1.28 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
     default: 1.6 # untuk > 50 km, ini bagus buat rute alternative jarak jauh cnth: jogja solo
   max_candidates_to_unpack:
     10: 10 # great circle distance between source and destination <= 10km -> 10 via candidates to unpack
@@ -73,3 +76,6 @@ alternatives:
     50: 5
     100: 2
     default: 2
+
+server:
+  api_timeout: 2s

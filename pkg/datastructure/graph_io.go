@@ -722,6 +722,9 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt tagstring key: %v", tokens[0])
 		}
+
+		unquotedVal = strings.ReplaceAll(unquotedVal, "\x00", "")
+
 		idToStr[key] = unquotedVal
 	}
 

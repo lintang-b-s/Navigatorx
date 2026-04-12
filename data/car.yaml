@@ -1,7 +1,6 @@
 vars:
   INF_COST: &INF_COST 1e15
 
-
 # example: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
 # example2: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla
 # example3: https://wiki.openstreetmap.org/wiki/Gojek/OSM_Tags_for_Routing
@@ -35,13 +34,13 @@ landmarks: 16
 
 maxspeeds:
   motorway: 100
-  trunk: 55
-  primary: 45
+  trunk: 60
+  primary: 50
   secondary: 40
   tertiary: 40
   unclassified: 25
   residential: 25
-  service: 25
+  service: 15
   motorway_link: 50
   trunk_link: 40
   primary_link: 35
@@ -78,7 +77,5 @@ alternatives:
     100: 2
     default: 2
 
-
-server: 
+server:
   api_timeout: 2s
-  

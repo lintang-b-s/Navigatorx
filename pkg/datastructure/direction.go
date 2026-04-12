@@ -166,6 +166,8 @@ func (instr *Instruction) GetTurnBearing() float64 {
 func (instr *Instruction) GetTurnDescription(clockwise bool) string {
 
 	streetName := instr.GetStreetName()
+	streetName = strings.ReplaceAll(streetName, "\x00", "")
+
 	sign := instr.GetTurnSign()
 	var description string
 
@@ -209,6 +211,7 @@ func (instr *Instruction) GetTurnDescription(clockwise bool) string {
 					description = fmt.Sprintf("%s continue on %s", dir, streetName)
 
 				default:
+
 					description = fmt.Sprintf("%s onto %s", dir, streetName)
 				}
 			}

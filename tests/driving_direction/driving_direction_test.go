@@ -75,16 +75,16 @@ func TestDrivingDirection(t *testing.T) {
 				"Continue onto Jalan Jenderal Achmad Yani",
 				"Continue onto Jalan Jenderal Achmad Yani",
 				"Continue onto Jalan Jenderal Achmad Yani",
-				"Turn right",
+				"Continue onto Jalan Jenderal Achmad Yani",
 				"you have arrived at your destination",
 			},
 		},
 		{
 			// https://www.google.com/maps/dir/Sans+Guest+House+2,+Jl.+Mulwo,+Karangasem,+Kec.+Laweyan,+Kota+Surakarta,+Jawa+Tengah+57145/Pusat+Bersejarah+Yahudi+Solo,+FR43%2B5X9,+Jl.+Kutai+Utara,+Sumber,+Kec.+Banjarsari,+Kota+Surakarta,+Jawa+Tengah+57138/@-7.5479247,110.7887684,16z/am=t/data=!3m1!4b1!4m15!4m14!1m5!1m1!1s0x2e7a14403c5830dd:0x5a2e99d453ee8b46!2m2!1d110.7819826!2d-7.5504398!1m5!1m1!1s0x2e7a150057096b2b:0xdd08bc5e5019dae!2m2!1d110.8049463!2d-7.5444278!3e0!5i1?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
 			//
-			name:              "Fastest path Karangasem -> Tembok Ratapan Solo / Pusat Bersejarah Yahudi Solo  ",
+			name:              "Fastest path Karangasem -> Tembok Ratapan Solo ",
 			qOriginCoord:      da.NewCoordinate(-7.550422162941061, 110.78207364612717),
-			qDestinationCoord: da.NewCoordinate(-7.5444294067121405, 110.8049490158092),
+			qDestinationCoord: da.NewCoordinate(-7.544482918882859, 110.80498053177885),
 			wantDirections: []string{
 				"Head West",
 				"Turn sharp right",
@@ -92,9 +92,8 @@ func TestDrivingDirection(t *testing.T) {
 				"Turn left",
 				"Turn right onto Jalan Adi Sucipto",
 				"At Roundabout, take the exit point 1 clockwise onto Jalan Jenderal Achmad Yani",
-				"Continue onto Jalan Letnan Jenderal Suprapto",
 				"Turn slight left onto Jalan Letnan Jenderal Suprapto",
-				"Turn left onto Jalan Pleret Raya",
+				"Turn left onto Jalan Kutai Utara",
 				"you have arrived at your destination",
 			},
 		},

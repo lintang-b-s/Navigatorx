@@ -764,6 +764,7 @@ func (g *Graph) IsRoundabout(edgeId Index) bool {
 
 func (g *Graph) GetStreetName(edgeId Index) string {
 	stNameId := g.graphStorage.streetName[edgeId]
+	
 	return g.graphStorage.GetStr(stNameId)
 }
 
