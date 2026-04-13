@@ -53,7 +53,7 @@ maxspeeds:
   default: 30
 
 turncosts:
-  u_turn: *INF_COST
+  u_turn: *INF_COST # ini adalah cost dari u-turn di two-way road (two-way road example: https://www.openstreetmap.org/way/1360292077)
   left_turn: 0
   right_turn: 0
   straight_on: 0

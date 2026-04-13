@@ -26,15 +26,15 @@ func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, edgeId da.
 	isUTurn := false
 	uTurnType := da.U_TURN_UNKNOWN
 
-	head := db.graph.GetHeadOfOutEdge(edgeId)
+	headId := db.graph.GetHeadOfOutEdge(edgeId)
 
-	if db.doublePrevInitialBearing != 0 && (sign > 0) == (db.prevInstruction.GetTurnSign() > 0) &&
+	if db.doublePrevInitialBearing != 0 && (db.prevSign != da.IGNORE) &&
 		((db.lefthand && (sign == da.TURN_SLIGHT_RIGHT || sign == da.TURN_RIGHT || sign == da.TURN_SHARP_RIGHT)) ||
 			(!db.lefthand && (sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_LEFT || sign == da.TURN_SHARP_LEFT))) &&
-		((db.lefthand && db.prevInstruction.GetTurnSign() == da.TURN_SLIGHT_RIGHT || db.prevInstruction.GetTurnSign() == da.TURN_RIGHT || db.prevInstruction.GetTurnSign() == da.TURN_SHARP_RIGHT) ||
-			(!db.lefthand && db.prevInstruction.GetTurnSign() == da.TURN_SLIGHT_LEFT || db.prevInstruction.GetTurnSign() == da.TURN_LEFT || db.prevInstruction.GetTurnSign() == da.TURN_SHARP_LEFT)) &&
-		isSamePrimaryName(name, db.doublePrevStreetName) {
-		head := db.graph.GetVertex(head)
+		((db.lefthand && db.prevSign == da.TURN_SLIGHT_RIGHT || db.prevSign == da.TURN_RIGHT || db.prevSign == da.TURN_SHARP_RIGHT) ||
+			(!db.lefthand && db.prevSign == da.TURN_SLIGHT_LEFT || db.prevSign == da.TURN_LEFT || db.prevSign == da.TURN_SHARP_LEFT)) &&
+		isSamePrimaryName(db.doublePrevStreetName, name) {
+		head := db.graph.GetVertex(headId)
 		headLat, headLon := head.GetLat(), head.GetLon()
 		tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edgeId))
 		currentInitialBearing := geo.ComputeInitialBearing(tail.GetLat(), tail.GetLon(), headLat, headLon)

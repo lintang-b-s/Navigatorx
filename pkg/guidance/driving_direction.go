@@ -40,6 +40,7 @@ type DirectionBuilder struct {
 	prevNode                 da.Index
 	prevPoint                da.Coordinate
 	doublePrevPoint          da.Coordinate
+	prevSign                 da.TurnType
 	clockwise                bool // clockwise roundabout (like in indonesia) or counter-clockwise roundabout
 	lefthand                 bool // left hand traffic (like in indonesia) or right hand traffic
 	prevInRoundabout         bool
@@ -69,6 +70,7 @@ func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 		edgeIds:                  make([]da.Index, 0),
 		lastPathId:               0,
 		turnSignCache:            turnSignCache,
+		prevSign:                 da.IGNORE,
 	}
 
 	return db
@@ -102,6 +104,7 @@ func (db *DirectionBuilder) Reset() {
 	db.lastPathId = 0
 	db.nextStreetName = da.INVALID_STREET_NAME_ID
 	db.path = make([]da.Index, 0)
+	db.prevSign = da.IGNORE
 }
 
 func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.PhantomNode) []da.DrivingDirection {
@@ -271,6 +274,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 				db.instructions = append(db.instructions, prevIns)
 			}
 		}
+		db.prevSign = turnSign
 	}
 
 	if !turn {

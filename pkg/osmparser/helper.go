@@ -669,3 +669,15 @@ func (p *OsmParser) acceptOsmWay(way *osm.Way) bool {
 
 	return false
 }
+
+// isRoundaboutByName. cek osm way is roundabout or not by the name.
+// example: https://www.openstreetmap.org/way/1350609078 , namane bundaran tapi gak ada tag junction=roundabout.
+func (p *OsmParser) isRoundaboutByName(name string) bool {
+	nameLower := strings.ToLower(name)
+
+	if stringx.ContainsAnySubstrings(nameLower, roundaboutSubName) {
+		return true
+	}
+
+	return false
+}

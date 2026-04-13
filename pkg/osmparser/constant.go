@@ -120,3 +120,7 @@ func initializeHighwayWhitelist() map[string]struct{} {
 	}
 	return hwlistSet
 }
+
+var (
+	roundaboutSubName []string = []string{"roundabout", "bundaran"}
+)

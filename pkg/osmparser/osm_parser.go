@@ -517,7 +517,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		}
 	}
 
-	if maxSpeed == 0 || tempMap[ROAD_CLASS] == "service" {
+	if maxSpeed == 0 {
 		maxSpeed = highwayTypeSpeed
 	}
 	if maxSpeed == 0 {
@@ -731,6 +731,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	}
 
 	isRoundabout := false
+	streetName := tempMap[STREET_NAME]
 	if val, ok := tempMap[JUNCTION]; ok {
 		if val == "roundabout" {
 			isRoundabout = true
@@ -738,6 +739,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		if val == "circular" {
 			isRoundabout = true
 		}
+	} else if p.isRoundaboutByName(streetName) {
+		isRoundabout = true
 	}
 
 	distanceInMeter := util.KilometerToMeter(distance)

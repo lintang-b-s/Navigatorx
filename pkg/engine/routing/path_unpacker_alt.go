@@ -382,6 +382,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 		// relax all out edges of u
 		pu.engine.graph.ForOutEdgesOf(uId, pu.engine.graph.GetEntryOrder(uId, adjuEntryId), func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
 			hwType pkg.OsmHighwayType) {
+
 			vId := head
 
 			vEntryId := pu.engine.graph.GetEntryOffset(vId) + entryPoint

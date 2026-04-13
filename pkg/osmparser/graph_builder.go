@@ -124,6 +124,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	}
 
 	for wayID, way := range p.ways {
+
 		/*
 			misal osm way (twoway):
 				u1<->u2<->u3<->u4
@@ -143,9 +144,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		if !way.oneWay {
 
 			for i, via := range way.graphNodes {
-				if inDegree[via] == 1 && outDegree[via] == 1 {
-					continue
-				}
 
 				if len(way.graphNodes) <= 1 {
 					continue
@@ -303,7 +301,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				continue
 			}
 
-			toWay, acceptedWay := p.ways[int64(restriction.to)]
+			_, acceptedWay := p.ways[int64(restriction.to)]
 			if !acceptedWay {
 				continue
 			}
@@ -373,8 +371,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 							tail := vertices[via].GetCoordinate()
 							headPoint := vertices[outEdge.GetHead()].GetCoordinate()
 
-							if restriction.turnRestriction == ONLY_LEFT_TURN && !toWay.oneWay {
-								// initialize all turn ke NO_ENTRY dulu,
+							if restriction.turnRestriction == ONLY_LEFT_TURN {
 								/*
 										. = restriction.via node
 

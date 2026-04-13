@@ -948,5 +948,12 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 			})
 		}
 	}
+	
+
+	// cek turn restriction
+	// example: https://www.openstreetmap.org/relation/19474168#map=19/-7.782285/110.375082
+	// 
+
+	
 
 }
