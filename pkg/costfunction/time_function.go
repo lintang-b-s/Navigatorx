@@ -100,6 +100,7 @@ func (tf *TimeFunction) GetTurnCost(turnType pkg.TurnType) float64 {
 	if tf.turnCosts == nil {
 		return 0
 	}
+
 	return tf.turnCosts[turnType]
 }
 

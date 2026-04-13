@@ -4,6 +4,7 @@ import (
 	"math"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -67,7 +68,7 @@ func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prev
 		node := db.graph.GetVertex(edgeHead)
 		lat, lon := node.GetLat(), node.GetLon()
 
-		tmpSign := getTurnDirection(prevLat, prevLon, lat, lon, prevInitialBearing)
+		tmpSign := geo.GetTurnDirection(prevLat, prevLon, lat, lon, prevInitialBearing)
 		if da.IsTurnSlight(da.TurnType(tmpSign)) {
 			return edge
 		}
@@ -126,7 +127,7 @@ func (db *DirectionBuilder) isStreetMergedSkip(currentEdge, prevEdge da.Index, c
 
 	tailCoord := db.graph.GetVertexCoordinate(tail)
 
-	prevInitialBearing := computeInitialBearing(tailOfPrevEdgeCoord.GetLat(), tailOfPrevEdgeCoord.GetLon(), tailCoord.GetLat(),
+	prevInitialBearing := geo.ComputeInitialBearing(tailOfPrevEdgeCoord.GetLat(), tailOfPrevEdgeCoord.GetLon(), tailCoord.GetLat(),
 		tailCoord.GetLon())
 
 	for _, outEdgeId := range outEdgesFromTail {
@@ -135,13 +136,13 @@ func (db *DirectionBuilder) isStreetMergedSkip(currentEdge, prevEdge da.Index, c
 		edgeHead := db.graph.GetHeadOfOutEdge(outEdgeId)
 		edgeHeadCoord := db.graph.GetVertexCoordinate(edgeHead)
 
-		relativeBearing := util.RadiansToDegree(math.Abs(computeRelativeBearing(tailCoord.GetLat(),
+		relativeBearing := util.RadiansToDegree(math.Abs(geo.ComputeRelativeBearing(tailCoord.GetLat(),
 			tailCoord.GetLon(), edgeHeadCoord.GetLat(), edgeHeadCoord.GetLon(), prevInitialBearing)))
 
 		isOtherEdgeBidirectional := db.graph.IsStreetBidirectional(outEdgeId)
 
 		if outEdgeId != currentEdge &&
-			edgeHead != currHead && edgeHead != tailOfPrevEdge && relativeBearing > DELTA_BEARING_U_TURN &&
+			edgeHead != currHead && edgeHead != tailOfPrevEdge && relativeBearing > RELATIVE_BEARING_U_TURN &&
 			isSameName(currStreetName, edgeStreetName) && !isOtherEdgeBidirectional {
 			otherEdge = outEdgeId
 		}
@@ -201,7 +202,7 @@ func (db *DirectionBuilder) isStreetSplitSkip(currentEdge, prevEdge da.Index, cu
 	tailCoord := db.graph.GetVertexCoordinate(tail)
 	currHeadCoord := db.graph.GetVertexCoordinate(currHead)
 
-	prevInitialBearing := computeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(), currHeadCoord.GetLat(),
+	prevInitialBearing := geo.ComputeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(), currHeadCoord.GetLat(),
 		currHeadCoord.GetLon())
 
 	for _, inEdgeId := range inEdgesFromTail {
@@ -211,13 +212,13 @@ func (db *DirectionBuilder) isStreetSplitSkip(currentEdge, prevEdge da.Index, cu
 		inEdgeStreetName := db.graph.GetStreetName(outEdgeId)
 		inEdgeTail := db.graph.GetTailOfOutedge(outEdgeId)
 
-		relativeBearing := util.RadiansToDegree(math.Abs(computeRelativeBearing(currHeadCoord.GetLat(),
+		relativeBearing := util.RadiansToDegree(math.Abs(geo.ComputeRelativeBearing(currHeadCoord.GetLat(),
 			currHeadCoord.GetLon(), tailCoord.GetLat(), tailCoord.GetLon(), prevInitialBearing)))
 
 		isOtherEdgeBidirectional := db.graph.IsStreetBidirectional(outEdgeId)
 
 		if inEdgeTail != currHead && inEdgeTail != prevEdgeTail &&
-			isSameName(currStreetName, inEdgeStreetName) && relativeBearing > DELTA_BEARING_U_TURN &&
+			isSameName(currStreetName, inEdgeStreetName) && relativeBearing > RELATIVE_BEARING_U_TURN &&
 			!isOtherEdgeBidirectional {
 
 			otherEdge = outEdgeId
@@ -276,7 +277,7 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.Index, currS
 
 	tailCoord := db.graph.GetVertexCoordinate(tail)
 
-	prevInitialBearing := computeInitialBearing(tailOfPrevEdgeCoord.GetLat(), tailOfPrevEdgeCoord.GetLon(), tailCoord.GetLat(),
+	prevInitialBearing := geo.ComputeInitialBearing(tailOfPrevEdgeCoord.GetLat(), tailOfPrevEdgeCoord.GetLon(), tailCoord.GetLat(),
 		tailCoord.GetLon())
 
 	for _, inEdgeId := range inEdgesFromTail {
@@ -290,13 +291,13 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.Index, currS
 		outEdgeHeadCoord := db.graph.GetVertexCoordinate(outEdgeHead)
 		outEdgeTailCoord := db.graph.GetVertexCoordinate(outEdgeTail)
 
-		relativeBearing := util.RadiansToDegree(math.Abs(computeRelativeBearing(outEdgeTailCoord.GetLat(),
+		relativeBearing := util.RadiansToDegree(math.Abs(geo.ComputeRelativeBearing(outEdgeTailCoord.GetLat(),
 			outEdgeTailCoord.GetLon(), outEdgeHeadCoord.GetLat(), outEdgeHeadCoord.GetLon(), prevInitialBearing)))
 
 		isOtherEdgeBidirectional := db.graph.IsStreetBidirectional(outEdgeId)
 
 		if outEdgeId != currentEdge &&
-			outEdgeHead == tail && outEdgeTail != tailOfPrevEdge && relativeBearing < MERGE_DELTA_BEARING &&
+			outEdgeHead == tail && outEdgeTail != tailOfPrevEdge && relativeBearing < MERGE_RELATIVE_BEARING &&
 			isSameName(currStreetName, edgeStreetName) && !isOtherEdgeBidirectional {
 			otherEdge = outEdgeId
 		}

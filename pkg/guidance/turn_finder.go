@@ -81,10 +81,10 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, p
 	headLat := headCoord.GetLat()
 	headLon := headCoord.GetLon()
 
-	db.prevInitialBearing = computeInitialBearing(db.prevPoint.GetLat(), db.prevPoint.GetLon(),
+	db.prevInitialBearing = geo.ComputeInitialBearing(db.prevPoint.GetLat(), db.prevPoint.GetLon(),
 		tailCoord.GetLat(), tailCoord.GetLon())
 
-	sign := getTurnDirection(tailCoord.GetLat(), tailCoord.GetLon(), headLat, headLon, db.prevInitialBearing)
+	sign := geo.GetTurnDirection(tailCoord.GetLat(), tailCoord.GetLon(), headLat, headLon, db.prevInitialBearing)
 
 	currRoadClass := db.graph.GetRoadClass(edgeId)
 	currRoadClassLink := db.graph.GetRoadClassLink(edgeId)
@@ -195,10 +195,10 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 	headLat := headCoord.GetLat()
 	headLon := headCoord.GetLon()
 
-	db.prevInitialBearing = computeInitialBearing(db.prevPoint.GetLat(), db.prevPoint.GetLon(),
+	db.prevInitialBearing = geo.ComputeInitialBearing(db.prevPoint.GetLat(), db.prevPoint.GetLon(),
 		tailCoord.GetLat(), tailCoord.GetLon())
 
-	sign := getTurnDirection(tailCoord.GetLat(), tailCoord.GetLon(), headLat, headLon, db.prevInitialBearing)
+	sign := geo.GetTurnDirection(tailCoord.GetLat(), tailCoord.GetLon(), headLat, headLon, db.prevInitialBearing)
 
 	currRoadClass := db.graph.GetRoadClass(edgeId)
 
@@ -281,23 +281,24 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 		otherHeadCoord := db.graph.GetVertexCoordinate(otherContinueEdgeHead)
 		otherHeadLat, otherHeadLon := otherHeadCoord.GetLat(), otherHeadCoord.GetLon()
 
-		currRelativeBearing := computeRelativeBearing(tailCoord.GetLat(), tailCoord.GetLon(), headLat, headLon, db.prevInitialBearing)
-		alternativeTurnRelativeBearing := computeRelativeBearing(tailCoord.GetLat(), tailCoord.GetLon(), otherHeadLat, otherHeadLon, db.prevInitialBearing) // bearing difference antara prevPoint->tail->otherContinueEdge.GetHead()
+		currRelativeBearing := geo.ComputeRelativeBearing(tailCoord.GetLat(), tailCoord.GetLon(), headLat, headLon, db.prevInitialBearing)
+		alternativeTurnRelativeBearing := geo.ComputeRelativeBearing(tailCoord.GetLat(), tailCoord.GetLon(), otherHeadLat, otherHeadLon, db.prevInitialBearing) // bearing difference antara prevPoint->tail->otherContinueEdge.GetHead()
 
 		alternativeTurnRelativeBearingDeg := util.RadiansToDegree(math.Abs(alternativeTurnRelativeBearing))
 		currRelativeBearingDeg := util.RadiansToDegree(math.Abs(currRelativeBearing))
 
-		if util.Lt(currRelativeBearingDeg, CONTINUE_ALT_CURRENT_DELTA_BEARING) && util.Gt(alternativeTurnRelativeBearingDeg, CONTINUE_ALT_TURN_DELTA_BEARING) {
+		if util.Lt(currRelativeBearingDeg, CONTINUE_ALT_CURRENT_RELATIVE_BEARING) && util.Gt(alternativeTurnRelativeBearingDeg, CONTINUE_ALT_TURN_RELATIVE_BEARING) {
 			// bearing difference antara prevEdge dan currentEDge < 7° (CONTINUE Direction), Edge otherContinueEdge > 8.6 (TURN SLIGHT or more direction).
 			if db.nextStreetName == da.INVALID_STREET_NAME_ID || !leavingPrevStreet {
 				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID), 1)
 				return da.IGNORE
 			}
+
 			db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, db.nextStreetName), 1)
 			return da.CONTINUE_ON_STREET
 		}
 
-		if util.Lt(alternativeTurnRelativeBearingDeg, KEEP_LEFT_RIGHT_ALT_TURN_DELTA_BEARING) {
+		if util.Lt(alternativeTurnRelativeBearingDeg, KEEP_LEFT_RIGHT_ALT_TURN_RELATIVE_BEARING) {
 			nextEdgeIds, foundNextTurn, step := db.lookForward(currStreetName, 2)
 
 			if foundNextTurn {
@@ -353,6 +354,12 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 	// kalau gak ada otherContinueEdge
 	// kita cuma output CONTINUE_ON_STREET jika current edge street name beda dari street name prev edge
 	if leavingPrevStreet && currStreetName != "" && prevStreetName != "" {
+		if db.isStreetMerged(edgeId, db.prevEdge, currStreetName, prevStreetName, isSamePrimaryName) {
+			sign = da.MERGE_ONTO
+			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
+			return sign
+		}
+
 		db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, currStreetNameId), 1)
 		return da.CONTINUE_ON_STREET
 	}

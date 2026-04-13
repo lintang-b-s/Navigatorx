@@ -1,38 +1,37 @@
-package guidance
+package geo
 
 import (
 	"math"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // https://www.movable-type.co.uk/scripts/latlong.html
 // initial bearing (bearing from a to b with meridian line crossing a).
 // return in radian.
-func computeInitialBearing(lat1, lon1, lat2, lon2 float64) float64 {
-	bearing := geo.BearingTo(lat1, lon1, lat2, lon2)
+func ComputeInitialBearing(lat1, lon1, lat2, lon2 float64) float64 {
+	bearing := BearingTo(lat1, lon1, lat2, lon2)
 	bearing = util.DegreeToRadians(bearing)
 	return bearing
 }
 
 // final bearing (bearing from a to b with meridian line crossing b)
-func computeFinalBearing(lat1, lon1, lat2, lon2 float64) float64 {
-	bearing := geo.BearingTo(lat2, lon2, lat1, lon1)
+func ComputeFinalBearing(lat1, lon1, lat2, lon2 float64) float64 {
+	bearing := BearingTo(lat2, lon2, lat1, lon1)
 	bearing = math.Mod(bearing+180, 360)
 	bearing = util.DegreeToRadians(bearing)
 	return bearing
 }
 
-// computeRelativeBearing. compute  relative bearing = (current edge initial bearing - prev edge initial bearing) . output in radians.
+// ComputeRelativeBearing. compute  relative bearing = (current edge initial bearing - prev edge initial bearing) . output in radians.
 // current edge initial bearing = initialBearing dari titik prev ke titik current (curLat, curLon)
 // prevInitialBearing = prev edge initial bearing dari titik doublePrev ke titik prev.
 // prevInitialBearing in radians.
-// https://en.wikipedia.org/wiki/Bearing_(navigation)#Relative 
+// https://en.wikipedia.org/wiki/Bearing_(navigation)#Relative
 // https://i0.wp.com/blog.mytimezero.com/wp-content/uploads/2017/12/art-blog-course-heading-fr.png?resize=636%2C471&ssl=1
-func computeRelativeBearing(prevLat, prevLon, curLat, curLon, prevInitialBearing float64) float64 {
-	initialBearing := computeInitialBearing(prevLat, prevLon, curLat, curLon)
+func ComputeRelativeBearing(prevLat, prevLon, curLat, curLon, prevInitialBearing float64) float64 {
+	initialBearing := ComputeInitialBearing(prevLat, prevLon, curLat, curLon)
 	relativeBearing := alignRelativeBearing(initialBearing - prevInitialBearing)
 	return relativeBearing
 }
@@ -130,8 +129,8 @@ contoh4:
 relativeBearing = -20°
 turn slight left
 */ // nolint: gofmt
-func getTurnDirection(prevLat, prevLon, lat, long, prevInitialBearing float64) da.TurnType {
-	delta := computeRelativeBearing(prevLat, prevLon, lat, long, prevInitialBearing)
+func GetTurnDirection(prevLat, prevLon, lat, long, prevInitialBearing float64) da.TurnType {
+	delta := ComputeRelativeBearing(prevLat, prevLon, lat, long, prevInitialBearing)
 	absDelta := math.Abs(delta)
 	deltaDegree := util.RadiansToDegree(absDelta)
 	if deltaDegree < 12 {

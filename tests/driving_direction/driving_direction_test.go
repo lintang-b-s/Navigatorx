@@ -167,6 +167,29 @@ func TestDrivingDirection(t *testing.T) {
 				"you have arrived at your destination",
 			},
 		},
+		{
+			// https://maps.apple.com/directions?source=-7.550175%2C110.782069&destination=The+Park%2C+Jalan+Insinyur+Soekarno%2C+Kabupaten+Sukoharjo%2C+Central+Java+57552%2C+Indonesia&destination-place-id=IB89DDAE45E8F0167&mode=driving
+			// https://valhalla.github.io/demos/polyline/?unescape=true&polyline6=false#%60uam%40ybdcTA%40CN%3F%3Fs%40OKESEeAa%40%5BM%3F%3FMZ%3F%3F%7BDoA%3F%3FKC%3F%3FME%3F%3FFW%3F%3FR_A%3F%3FJa%40%3F%3FNu%40%3F%3FNs%40%3F%3FJm%40%3F%3FLk%40%3F%3FLm%40%3F%3FDM%3F%3FJe%40%3F%3FJa%40%3F%3FFY%3F%3FDS%3F%3FLm%40%3F%3FVoA%3F%3FXkA%3F%3F%5C%5C_B%3F%3FJg%40%3F%3FJa%40%3F%3FPs%40%3F%3FLo%40%3F%3FH%5D%3F%3FJe%40%3F%3FNq%40Lk%40%3F%3FH%5D%3F%3FPw%40%3F%3F%60%40iB%3F%3FJc%40%3F%3FR%7B%40%3F%3FHY%3F%3FFY%3F%3FLc%40%3F%3FF%5B%3F%3FHc%40%3F%3F%5C%5CsA%3F%3FLs%40%3F%3FNi%40%3F%3F%40G%3F%3F%5C%5CwA%3F%3FR%7B%40%3F%3Fz%40%7BDTgA%7C%40yD%3F%3Fd%40sB%3F%3FT%7B%40%3F%3FXkA%3F%3FH%5DDU%3F%3FRy%40%3F%3FTgA%3F%3FFY%3F%3FPs%40%40E%3F%3FXgA%3F%3FZeA%3F%3Ff%40_B%3F%3FVu%40%3F%3F%5C%5CqA%3F%3FVu%40Le%40%3F%3F%3FC%3F%3FAC%40E%40CBCDC%3F%3F%40%3FB%3F%3F%3FPs%40b%40gB%3F%3F%7C%40gC%3F%3FJE%3F%3F%40EDKZ_A%3F%3F%5EmA%3F%3F%5Ey%40%3F%3FN_%40%3F%3FFK%3F%3FVk%40%3F%3FLY%3F%3F%5E%7B%40%3F%3FBO%3F%3F%7C%40oB%3F%3FpB%7BD%3F%3FvCmFpAeC%3F%3FT_%40%3F%3F%40%3F%40ABA%3F%3F%3F%3F%3F%3FpAeC%5Es%40LUHKJKLGNCL%3F%3F%3FZBbBVtHpA%3F%3F%40%3F%3F%3F%5C%5C%40%3F%3FfFbA%3F%3FhEz%40%3F%3FjB%5C%5CzAV%3F%3FlDf%40DBDB%3F%3FH%40%3F%3Fb%40qBd%40yB%3F%3FDU%40E%5C%5C_B%40I%3F%3F%40C%3F%3FZwA%3F%3FFY%3F%3Fh%40eCTiA%3F%3FJm%40%3F%3FDM%3F%3F%60%40wB%3F%3Fh%40eC%3F%3FJ%40%3F%3FD%3F%40%40N%40z%40J%5EF%3F%3FfAL%3F%3FdCV%3F%3F%60%40D%3F%3FjD%5C%5C%3F%3FtCX%3F%3FzAL%3F%3FlCX%3F%3FPB%3F%3FxAL%3F%3FjBR%3F%3FdAJ%3F%3FJ%40%3F%3FXB%3F%3FH%40P%40%3F%3Fp%40H%3F%3FJ%40D%3F%3F%3Fp%40H%3F%3FTD%3F%3FtBV%3F%3FnAN%3F%3FNB%3F%3FvAP%3F%3FdBR%3F%3F%60AJ%3F%3FfEd%40%3F%3FfCX%3F%3FdAL%3F%3FVB%3F%3FXB%3F%3Fx%40L%3F%3FBOF%5B%3F%3FVwA%3F%3FJi%40RoAPgA%3F%3FRgA%3F%3F%60%40_C%3F%3FF%5B%3F%3FBK%3F%3FBM%3F%3FDW%3F%3FLs%40%3F%3FDW%3F%3FR_A%3F%3FFe%40%3F%3FTeA%3F%3FBM%3F%3FVyA%3F%3F%5E%7BBDW%40C%3F%3FJ%7B%40%3F%3F%40EJq%40%3F%3FPeA%3F%3FF%5D%3F%3Fd%40yB%3F%3FDU%3F%3FRaA%3F%3FLm%40%3F%3FXqA%3F%3FPs%40%3F%3FBM%3F%3FX%7DA%3F%3Fb%40%7DB%3F%3F%40G%3F%3FXyA%3F%3F%40I%3F%3F%5EeB%3F%3FDQ%3F%3FRaAHa%40Jk%40%3F%3FFS%3F%3FjEhA%3F%3FnBd%40%3F%3FpEdA%3F%3FtAZ%3F%3FTF%3F%3Fx%40R%3F%3FRH%40%3F%3F%3FTH%3F%3F%40%3F%7C%40ZbA%5C%5C%3F%3FbBj%40%3F%3F%60Ct%40LFND%3F%3FvDvA%3F%3FVL%3F%3Fl%40T%3F%3Fj%40Vj%40R%3F%3Fj%40Rd%40N%3F%3FJD%3F%3Fb%40HPBPBT%3F%3F%3Fp%40%40T%40R%40%60%40Dr%40H%3F%3Fj%40Jl%40J%3F%3FNF%3F%3FJB%3F%3FLF%3F%3FPDND%3F%3FVFb%40J%3F%3F%60B%60%40%60B%5E%3F%3F%7CBf%40%3F%3F%60Dr%40%3F%3F~%40R%3F%3F%60B%5C%5C%3F%3FLB%3F%3FjBb%40%3F%3Fh%40J%3F%3FtAX%3F%3F%60AT%3F%3FND%3F%3Fv%40P%3F%3FVD%3F%3FPD%3F%3F%5C%5CH%3F%3Ff%40J%3F%3FDU%3F%3FBS%3F%3FF%40%3F%3FRB%3F%3FXDD%3F%3F%3FJcA%3F%3FLeA%3F%3FUC%3F%3F%40O%3F%3FBM%3F%3FHQ
+			name:              "Fastest path Kadipiro -> Baki ",
+			qOriginCoord:      da.NewCoordinate(-7.537023007244571, 110.82098936812662),
+			qDestinationCoord: da.NewCoordinate(-7.583231191626372, 110.76239048514628),
+			wantDirections: []string{
+				"Head North",
+				"Turn sharp left",
+				"Turn right onto Jalan Ki Hadjar Dewantara",
+				"Turn left",
+				"Turn right onto Jalan Insinyur Sutami",
+				"At Roundabout, take the exit point 1 clockwise onto Jalan Kolonel Sutarto",
+				"Continue onto Jalan Jenderal Achmad Yani",
+				"Keep right continue on Jalan Jenderal Achmad Yani",
+				"At Roundabout, take the exit point 2 clockwise onto Jalan Jenderal Achmad Yani",
+				"Continue onto Jalan Jenderal Ahmad Yani", // https://www.openstreetmap.org/way/1431922009 (version #2), namanya cuma ganti dari Achmad ke Ahmad wkwk
+				"Turn right onto Jalan Brigadir Jenderal Slamet Riyadi",
+				"Continue onto Jalan Jenderal Ahmad Yani",
+				"Enter the roundabout",
+				"you have arrived at your destination",
+			},
+		},
 	}
 
 	for _, tc := range testCases {

@@ -4,6 +4,7 @@ import (
 	"math"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -36,10 +37,10 @@ func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, edgeId da.
 		head := db.graph.GetVertex(head)
 		headLat, headLon := head.GetLat(), head.GetLon()
 		tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edgeId))
-		currentInitialBearing := computeInitialBearing(tail.GetLat(), tail.GetLon(), headLat, headLon)
-		diff := math.Abs(db.doublePrevInitialBearing - currentInitialBearing)
-		diffAngle := util.RadiansToDegree(diff)
-		if diffAngle > 155 && diffAngle < 205 {
+		currentInitialBearing := geo.ComputeInitialBearing(tail.GetLat(), tail.GetLon(), headLat, headLon)
+		relativeBearing := math.Abs(db.doublePrevInitialBearing - currentInitialBearing)
+		relativeBearingDeg := util.RadiansToDegree(relativeBearing)
+		if relativeBearingDeg > U_TURN_RELATIVE_BEARING_MIN && relativeBearingDeg < U_TURN_RELATIVE_BEARING_MAX {
 			isUTurn = true
 			if sign < 0 {
 				uTurnType = da.U_TURN_LEFT

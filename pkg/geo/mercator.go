@@ -21,7 +21,7 @@ ref:
 const (
 	// taken from: https://en.wikipedia.org/wiki/Web_Mercator_projection
 	//	Because the Mercator projects the poles at infinity,
-	//  a map using the Mercator projection cannot show the poles.
+	//  a map using the Web Mercator projection cannot show the poles.
 	//  Services such as Google Maps cut off coverage at 85.051129° north and south.
 
 	minLatDeg = -85.05112

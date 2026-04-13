@@ -52,7 +52,7 @@ func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 	if lefthand {
 		clockwise = true
 	}
-	
+
 	db := &DirectionBuilder{
 		engine:                   engine,
 		graph:                    graph,
@@ -193,7 +193,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 			tailCoord.GetLat(), tailCoord.GetLon(),
 		)
 
-		turnBearing := computeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(),
+		turnBearing := geo.ComputeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(),
 			head.GetLat(), head.GetLon())
 		newIns := da.NewInstruction(sign, streetName, point, false,
 			[]da.Index{edgeId}, db.cumulativeDistance, db.cumulativeTravelTime,
@@ -214,14 +214,14 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 
 			db.doublePrevInitialBearing = db.prevInitialBearing
 			if db.prevInstruction != nil {
-				db.prevInitialBearing = computeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(), tail.GetLon())
+				db.prevInitialBearing = geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(), tail.GetLon())
 
 			} else {
 				// start point dari shortetest path & dan bundaran (roundabout)
-				db.prevInitialBearing = computeInitialBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
+				db.prevInitialBearing = geo.ComputeInitialBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
 			}
 
-			turnBearing := computeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(), tail.GetLon())
+			turnBearing := geo.ComputeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(), tail.GetLon())
 			prevIns := da.NewInstructionWithRoundabout(sign, streetName, point, true, roundaboutInstruction, db.cumulativeDistance,
 				db.cumulativeTravelTime, db.edgeIds, turnBearing)
 			db.prevInstruction = &prevIns
@@ -257,7 +257,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 			} else {
 				// bukan U-turn -> continue/right/left
 				tailCoord := tail.GetCoordinate()
-				turnBearing := computeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(),
+				turnBearing := geo.ComputeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(),
 					tail.GetLat(), tail.GetLon())
 				nextStreetName := db.graph.GetStrFromId(db.nextStreetName)
 				prevIns := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
@@ -296,7 +296,7 @@ func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.Phantom
 
 	point := da.NewCoordinate(head.GetLat(), head.GetLon())
 
-	turnBearing := computeFinalBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
+	turnBearing := geo.ComputeFinalBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
 
 	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(edgeId), point, false,
 		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.points, turnBearing, db.clockwise)

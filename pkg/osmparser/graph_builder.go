@@ -5,6 +5,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 )
 
 // BuildGraph. build graph data structure from list of edges.
@@ -88,12 +89,38 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	// T_u[i*outDegree[u]+j] = turn type from inEdge i to outEdge j at vertex u
 
 	// init turn matrices
-	for i := 0; i < len(turnMatrices); i++ {
-		turnMatrices[i] = make([]pkg.TurnType, outDegree[i]*inDegree[i])
+	for via := 0; via < len(turnMatrices); via++ {
+		turnMatrices[via] = make([]pkg.TurnType, outDegree[via]*inDegree[via])
 
-		for j := 0; j < len(turnMatrices[i]); j++ {
-			turnMatrices[i][j] = pkg.NONE
+		for j := 0; j < len(turnMatrices[via]); j++ {
+			turnMatrices[via][j] = pkg.NONE
 		}
+
+		// tambahin turn type buat turn left/ turn right
+
+		for entryId := 0; entryId < len(inEdges[via]); entryId++ {
+			inEdge := inEdges[via][entryId]
+			rowOffset := entryId * outDegree[via]
+
+			for exitId := 0; exitId < len(outEdges[via]); exitId++ {
+				outEdge := outEdges[via][exitId]
+
+				prevPoint := vertices[inEdge.GetTail()].GetCoordinate()
+				tail := vertices[via].GetCoordinate()
+				headPoint := vertices[outEdge.GetHead()].GetCoordinate()
+
+				prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
+					tail.GetLon())
+				turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
+					headPoint.GetLon(), prevInitialBearing)
+				if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT {
+					turnMatrices[via][rowOffset+exitId] = pkg.LEFT_TURN
+				} else if turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
+					turnMatrices[via][rowOffset+exitId] = pkg.RIGHT_TURN
+				}
+			}
+		}
+
 	}
 
 	for wayID, way := range p.ways {
@@ -271,12 +298,12 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		fromNodes := way.graphNodes
 		fromRestrictions := p.restrictions[wayID]
 		for _, restriction := range fromRestrictions {
-			_, isAcceptedNode := p.nodeIDMap[int64(restriction.via)]
-			if wayID == int64(restriction.to) || !isAcceptedNode {
+
+			if wayID == int64(restriction.to) { // ignore restrictions from wayId == restriction.to
 				continue
 			}
 
-			_, acceptedWay := p.ways[int64(restriction.to)]
+			toWay, acceptedWay := p.ways[int64(restriction.to)]
 			if !acceptedWay {
 				continue
 			}
@@ -288,7 +315,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						continue
 					}
 
-					var predecessor da.Index
+					var predecessor da.Index // predecessor dari via nya turn restriction
 					if i == 0 {
 						predecessor = fromNodes[i+1]
 					} else {
@@ -299,7 +326,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						continue
 					}
 
-					successor := da.Index(math.MaxUint32)
+					successor := da.Index(math.MaxUint32) // successor dari via nya turn restriction
 					toNodes := p.ways[int64(restriction.to)].graphNodes
 					for j := 0; j < len(toNodes)-1; j++ {
 						if toNodes[j] == restriction.via {
@@ -314,6 +341,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 					if successor != da.Index(math.MaxUint32) && successor != restriction.via {
 
+						// (from, via, to) nodes dari turn restriction
 						from := da.Index(predecessor)
 						via := da.Index(restriction.via)
 						to := da.Index(successor)
@@ -321,9 +349,11 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						entryID := da.Index(math.MaxUint32)
 						exitID := da.Index(math.MaxUint32)
 
+						inEdge := da.InEdge{}
 						for k := 0; k < len(inEdges[via]); k++ {
 							if inEdges[via][k].GetTail() == from {
 								entryID = da.Index(k)
+								inEdge = inEdges[via][k]
 								break
 							}
 						}
@@ -334,13 +364,67 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 						rowOffset := entryID * da.Index(outDegree[via])
 						for k := 0; k < len(outEdges[via]); k++ {
-							if outEdges[via][k].GetHead() == to {
+							outEdge := outEdges[via][k]
+							if outEdge.GetHead() == to {
 								exitID = da.Index(k)
 							}
 
-							if restriction.turnRestriction == ONLY_LEFT_TURN || restriction.turnRestriction == ONLY_RIGHT_TURN ||
-								restriction.turnRestriction == ONLY_STRAIGHT_ON {
-								turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+							prevPoint := vertices[inEdge.GetTail()].GetCoordinate()
+							tail := vertices[via].GetCoordinate()
+							headPoint := vertices[outEdge.GetHead()].GetCoordinate()
+
+							if restriction.turnRestriction == ONLY_LEFT_TURN && !toWay.oneWay {
+								// initialize all turn ke NO_ENTRY dulu,
+								/*
+										. = restriction.via node
+
+									--------.--------- restriction.to way (two-way)
+											|
+											|
+											|
+											|
+											|
+											restriction.from  way
+
+										misal ONLY_LEFT_TURN:
+										berarti kita harus dissalow semua turn right...
+										cara taunya cuma bisa dari relative bearing dari restriction.from ke restriction.to....
+
+								*/
+
+								prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
+									tail.GetLon())
+								turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
+									headPoint.GetLon(), prevInitialBearing)
+								if turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
+									// dissallow semua turn right...
+
+									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+								}
+
+							} else if restriction.turnRestriction == ONLY_RIGHT_TURN {
+
+								prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
+									tail.GetLon())
+								turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
+									headPoint.GetLon(), prevInitialBearing)
+								if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT {
+									// dissallow semua turn left...
+									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+								}
+
+							} else if restriction.turnRestriction == ONLY_STRAIGHT_ON {
+								prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
+									tail.GetLon())
+								turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
+									headPoint.GetLon(), prevInitialBearing)
+								if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT ||
+									turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
+									// dissallow semua turn right dan turn left...
+									// contoh: http://openstreetmap.org/relation/19474168
+									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+								}
+
 							}
 						}
 
@@ -356,13 +440,13 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						case NO_LEFT_TURN:
 							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
 
-						case NO_RIGHT_TURN:
+						case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
 							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
 
 						case NO_STRAIGHT_ON:
 							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
 
-						case NO_U_TURN:
+						case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
 							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
 
 						case NO_ENTRY:
@@ -374,8 +458,8 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						case ONLY_RIGHT_TURN:
 							turnMatrices[via][rowOffset+exitID] = pkg.RIGHT_TURN
 
-						case ONLY_STRAIGHT_ON:
-							turnMatrices[via][rowOffset+exitID] = pkg.STRAIGHT_ON
+						case ONLY_STRAIGHT_ON: // udah kita dissalow semua right & left turn di loc diatas
+							turnMatrices[via][rowOffset+exitID] = pkg.NONE
 
 						default:
 							turnMatrices[via][rowOffset+exitID] = pkg.NONE

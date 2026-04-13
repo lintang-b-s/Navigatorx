@@ -210,6 +210,8 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 					via := int64(0)
 					to := int64(0)
 					// https://www.openstreetmap.org/api/0.6/relation/5710500
+					// example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455  or https://www.openstreetmap.org/api/0.6/relation/10732316
+					//
 					for _, member := range relation.Members {
 						if member.Role == "from" {
 							from = member.Ref
@@ -373,7 +375,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 	}
 
 	p.restrictions = make(map[int64][]restriction, len(restrictions))
-	for key, val := range restrictions {
+	for from, val := range restrictions {
 		savedRest := make([]restriction, len(val))
 		for i := range val {
 			savedRest[i] = restriction{
@@ -382,10 +384,25 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 				turnRestriction: val[i].turnRestriction,
 			}
 		}
-		p.restrictions[key] = savedRest
+		p.restrictions[from] = savedRest
 	}
 
 	logger.Sugar().Infof("building road network graph.... ")
+
+	for wayId, way := range p.ways {
+		graphNodes := make([]da.Index, 0)
+		for _, node := range way.nodes {
+			graphNodeId, exists := p.nodeIDMap[node]
+			if !exists {
+				continue
+			}
+			graphNodes = append(graphNodes, graphNodeId)
+		}
+
+		way := p.ways[wayId]
+		way.graphNodes = graphNodes
+		p.ways[wayId] = way
+	}
 
 	graph, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false, true)
 	graphStorage.BuildNameTable(p.tagStringIdMap.GetIdToStr())
@@ -410,21 +427,6 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 			streetDirectionBackward.Set(uint(eId))
 		}
 	})
-
-	for i, way := range p.ways {
-		graphNodes := make([]da.Index, 0)
-		for _, node := range way.nodes {
-			graphNodeId, exists := p.nodeIDMap[node]
-			if !exists {
-				continue
-			}
-			graphNodes = append(graphNodes, graphNodeId)
-		}
-
-		way := p.ways[i]
-		way.graphNodes = graphNodes
-		p.ways[i] = way
-	}
 
 	graphStorage.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
 
