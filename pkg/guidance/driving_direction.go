@@ -44,6 +44,7 @@ type DirectionBuilder struct {
 	clockwise                bool // clockwise roundabout (like in indonesia) or counter-clockwise roundabout
 	lefthand                 bool // left hand traffic (like in indonesia) or right hand traffic
 	prevInRoundabout         bool
+	useLookForward           bool
 }
 
 func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
@@ -105,6 +106,7 @@ func (db *DirectionBuilder) Reset() {
 	db.nextStreetName = da.INVALID_STREET_NAME_ID
 	db.path = make([]da.Index, 0)
 	db.prevSign = da.IGNORE
+	db.useLookForward = false
 }
 
 func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.PhantomNode) []da.DrivingDirection {
@@ -185,8 +187,6 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 		prevPoint = db.prevPoint
 	}
 
-	turn := false
-
 	streetName := db.graph.GetStreetName(edgeId)
 	if db.prevInstruction == nil && !isRoundabout {
 		// start point dari shortetest path & bukan bundaran (roundabout)
@@ -250,7 +250,6 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 		db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge)
 	} else {
 		turnSign := db.getTurnSign(edgeId, tailId, db.prevNode, headId, streetName)
-		turn = true
 
 		if turnSign != da.IGNORE {
 			uTurn, uturnType := db.checkUTurn(turnSign, streetName, edgeId)
@@ -269,19 +268,16 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 
 				db.reset()
 
-				db.doublePrevInitialBearing = db.prevInitialBearing
-				db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge)
 				db.instructions = append(db.instructions, prevIns)
 			}
 		}
 		db.prevSign = turnSign
 	}
 
-	if !turn {
+	if !db.useLookForward {
 		eGeom := db.graph.GetEdgeGeometry(edgeId)
 		db.updateState(eGeom, edgeId, isRoundabout)
 	}
-
 }
 
 func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.PhantomNode) {

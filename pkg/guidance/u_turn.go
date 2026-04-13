@@ -29,10 +29,7 @@ func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, edgeId da.
 	headId := db.graph.GetHeadOfOutEdge(edgeId)
 
 	if db.doublePrevInitialBearing != 0 && (db.prevSign != da.IGNORE) &&
-		((db.lefthand && (sign == da.TURN_SLIGHT_RIGHT || sign == da.TURN_RIGHT || sign == da.TURN_SHARP_RIGHT)) ||
-			(!db.lefthand && (sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_LEFT || sign == da.TURN_SHARP_LEFT))) &&
-		((db.lefthand && db.prevSign == da.TURN_SLIGHT_RIGHT || db.prevSign == da.TURN_RIGHT || db.prevSign == da.TURN_SHARP_RIGHT) ||
-			(!db.lefthand && db.prevSign == da.TURN_SLIGHT_LEFT || db.prevSign == da.TURN_LEFT || db.prevSign == da.TURN_SHARP_LEFT)) &&
+		db.isSameConsecutiveTurn(db.prevSign, sign) &&
 		isSamePrimaryName(db.doublePrevStreetName, name) {
 		head := db.graph.GetVertex(headId)
 		headLat, headLon := head.GetLat(), head.GetLon()
@@ -50,4 +47,14 @@ func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, edgeId da.
 		}
 	}
 	return isUTurn, uTurnType
+}
+
+func (db *DirectionBuilder) isSameConsecutiveTurn(prevSign, sign da.TurnType) bool {
+	if ((db.lefthand && (sign == da.TURN_SLIGHT_RIGHT || sign == da.TURN_RIGHT || sign == da.TURN_SHARP_RIGHT)) ||
+		(!db.lefthand && (sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_LEFT || sign == da.TURN_SHARP_LEFT))) &&
+		((db.lefthand && prevSign == da.TURN_SLIGHT_RIGHT || prevSign == da.TURN_RIGHT || prevSign == da.TURN_SHARP_RIGHT) ||
+			(!db.lefthand && prevSign == da.TURN_SLIGHT_LEFT || prevSign == da.TURN_LEFT || prevSign == da.TURN_SHARP_LEFT)) {
+		return true
+	}
+	return false
 }

@@ -65,7 +65,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 ) (*routing.CRPRoutingEngine,
 	error) {
 
-	logger.Info("Starting query engine of Customizable Route Planning...")
+	logger.Info("Starting query engine....")
 
 	logger.Info("Reading graph....")
 	graph, err := da.ReadGraph(graphFilePath)

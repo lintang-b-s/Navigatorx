@@ -761,9 +761,6 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	toNId := p.nodeIDMap[to.id]
 
 	roadClass := tempMap[ROAD_CLASS]
-	if roadClass == "" {
-		roadClass = tempMap[ROAD_CLASS_LINK]
-	}
 
 	hwType := pkg.GetHighwayType(roadClass)
 
