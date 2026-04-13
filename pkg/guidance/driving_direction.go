@@ -7,7 +7,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // https://wiki.openstreetmap.org/wiki/Sample_driving_instructions/template_TEMPLATE
@@ -29,6 +28,7 @@ type DirectionBuilder struct {
 	lastPathId     int
 	nextStreetName string
 
+	engine                   RoutingEngine
 	graph                    Graph
 	prevEdge                 da.Index
 	doublePrevStreetName     string
@@ -45,9 +45,10 @@ type DirectionBuilder struct {
 	prevInRoundabout         bool
 }
 
-func NewDirectionBuilder(graph Graph, clockwise, lefthand bool,
+func NewDirectionBuilder(engine RoutingEngine, graph Graph, clockwise, lefthand bool,
 	turnSignCache *ristretto.Cache[uint64, []byte]) *DirectionBuilder {
 	db := &DirectionBuilder{
+		engine:                   engine,
 		graph:                    graph,
 		prevNode:                 math.MaxUint32,
 		prevInRoundabout:         false,
@@ -175,6 +176,8 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 		prevPoint = db.prevPoint
 	}
 
+	turn := false
+
 	streetName := db.graph.GetStreetName(edgeId)
 	if db.prevInstruction == nil && !isRoundabout {
 		// start point dari shortetest path & bukan bundaran (roundabout)
@@ -238,6 +241,8 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 		db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge)
 	} else {
 		turnSign := db.getTurnSign(edgeId, tailId, db.prevNode, headId, streetName)
+		turn = true
+
 		if turnSign != da.IGNORE {
 			uTurn, uturnType := db.checkUTurn(turnSign, streetName, edgeId)
 			if uTurn {
@@ -261,28 +266,11 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 		}
 	}
 
-	db.doublePrevPoint = db.prevPoint
-	eGeom := db.graph.GetEdgeGeometry(edgeId)
-	n := len(eGeom)
-	db.prevPoint = db.GetPrevPoint(eGeom, eGeom[n-1], 25)
-
-	db.doublePrevNode = db.prevNode
-	db.prevInRoundabout = isRoundabout
-	db.prevNode = tailId
-	db.prevEdge = edgeId
-
-	db.cumulativeDistance += db.graph.GetOutEdgeLength(edgeId)
-	db.cumulativeTravelTime += db.graph.GetOutEdgeWeight(edgeId) // todo: ganti metrics.GetWeight()
-	db.edgeIds = append(db.edgeIds, edgeId)
-	db.points = append(db.points,
-		da.NewCoordinate(tail.GetLat(), tail.GetLon()))
-	db.points = append(db.points,
-		da.NewCoordinate(head.GetLat(), head.GetLon()))
-
-	isHeadTrafficLight := db.graph.IsTrafficLight(headId)
-	if isHeadTrafficLight {
-		db.cumulativeTravelTime += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND)
+	if !turn {
+		eGeom := db.graph.GetEdgeGeometry(edgeId)
+		db.updateState(eGeom, edgeId, isRoundabout)
 	}
+
 }
 
 func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.PhantomNode) {

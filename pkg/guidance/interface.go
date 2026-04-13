@@ -26,4 +26,14 @@ type Graph interface {
 	GetOutEdgeWeight(e da.Index) float64
 	IsStreetBidirectional(edgeId da.Index) bool
 	GetExitIdOfInEdge(e da.Index) da.Index
+	GetOsmWayId(edgeId da.Index) int64
+}
+
+type RoutingEngine interface {
+	GetGraph() *da.Graph
+	PathExists(u, v da.Index) bool
+	GetWeight(eId da.Index, outEdge bool) float64
+	GetWeightFromLength(eId da.Index, eLength float64, outEdge bool) float64
+	IsDummyOutEdge(eId da.Index) bool
+	IsDummyInEdge(eId da.Index) bool
 }

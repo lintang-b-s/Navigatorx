@@ -58,7 +58,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 
 	rs.directionBuilderPool = &sync.Pool{
 		New: func() any {
-			return guidance.NewDirectionBuilder(
+			return guidance.NewDirectionBuilder(rs.engine,
 				rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving,
 				rs.turnSignCache,
 			)

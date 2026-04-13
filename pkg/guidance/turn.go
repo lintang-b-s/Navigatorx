@@ -9,8 +9,8 @@ import (
 )
 
 // https://www.movable-type.co.uk/scripts/latlong.html
-// initial bearing (bearing from a to b with meridian line crossing a)
-// return in radian
+// initial bearing (bearing from a to b with meridian line crossing a).
+// return in radian.
 func computeInitialBearing(lat1, lon1, lat2, lon2 float64) float64 {
 	bearing := geo.BearingTo(lat1, lon1, lat2, lon2)
 	bearing = util.DegreeToRadians(bearing)
@@ -25,18 +25,20 @@ func computeFinalBearing(lat1, lon1, lat2, lon2 float64) float64 {
 	return bearing
 }
 
-// computeDeltaBearing. compute  (current edge initial bearing - prev edge initial bearing) . output in radians.
+// computeRelativeBearing. compute  relative bearing = (current edge initial bearing - prev edge initial bearing) . output in radians.
 // current edge initial bearing = initialBearing dari titik prev ke titik current (curLat, curLon)
 // prevInitialBearing = prev edge initial bearing dari titik doublePrev ke titik prev.
 // prevInitialBearing in radians.
-func computeDeltaBearing(prevLat, prevLon, curLat, curLon, prevInitialBearing float64) float64 {
+// https://en.wikipedia.org/wiki/Bearing_(navigation)#Relative 
+// https://i0.wp.com/blog.mytimezero.com/wp-content/uploads/2017/12/art-blog-course-heading-fr.png?resize=636%2C471&ssl=1
+func computeRelativeBearing(prevLat, prevLon, curLat, curLon, prevInitialBearing float64) float64 {
 	initialBearing := computeInitialBearing(prevLat, prevLon, curLat, curLon)
-	prevInitialBearing, initialBearing = alignInitialBearing(prevInitialBearing, initialBearing)
-	return initialBearing - prevInitialBearing
+	relativeBearing := alignRelativeBearing(initialBearing - prevInitialBearing)
+	return relativeBearing
 }
 
 /*
-alignInitialBearing. handle case ketika initialBearing-prevInitialBearing > 180° atau  initialBearing-prevInitialBearing < -180°.
+alignRelativeBearing. handle case ketika initialBearing-prevInitialBearing > 180° atau  initialBearing-prevInitialBearing < -180°.
 
 misal:
 
@@ -47,9 +49,9 @@ misal:
 			   /		prevInitialBearing (20°)
 			  /
 
-harusnya belok kiri, tapi karena initialBearing-prevInitialBearing = 330° > 180° jadi belok kanan.
-how to fix: prevInitialBearing + 360°.
-setelah fix:  karena initialBearing-prevInitialBearing = -30° turn slight left
+harusnya belok kiri, tapi relativeBearing = 330° > 180° jadi belok kanan.
+
+setelah fix:  relativeBearing = -30° turn slight left
 
 misal:
 
@@ -63,19 +65,18 @@ misal:
 
 dif = initialBearing - prevInitialBearing = 10° - 340° = -330° < -180°
 harusnya belok kanan, tapi karena < -180° jadi belok kiri.
-how to fix: initialBearing + 360°.
-setelah fix:  karena initialBearing-prevInitialBearing = 370° - 340° = 30°  turn slight right
 
-prevInitialBearing, initialBearing  in radians
+setelah fix:  relativeBearing  = 30°  turn slight right
+
+relativeBearing in radians
 */
-func alignInitialBearing(prevInitialBearing, initialBearing float64) (float64, float64) {
-	dif := util.RadiansToDegree(initialBearing) - util.RadiansToDegree(prevInitialBearing)
-	if dif > 180 {
-		prevInitialBearing += 2 * math.Pi
-	} else if dif < -180 {
-		initialBearing += 2 * math.Pi
+func alignRelativeBearing(relativeBearing float64) float64 {
+	if util.RadiansToDegree(relativeBearing) > 180 {
+		relativeBearing -= 2 * math.Pi
+	} else if util.RadiansToDegree(relativeBearing) < -180 {
+		relativeBearing += 2 * math.Pi
 	}
-	return prevInitialBearing, initialBearing
+	return relativeBearing
 }
 
 /*
@@ -88,7 +89,7 @@ contoh1:
 	|
 	| prevInitialBearing 0°
 
-deltaBearing = 90°
+relativeBearing = 90°
 turn right
 
 contoh2:
@@ -100,7 +101,7 @@ prevInitialBearing 90°
 	  	  \
 	  	   \ initialBearing 120°
 
-deltaBearing = 30°
+relativeBearing = 30°
 turn slight right
 
 contoh3:
@@ -113,7 +114,7 @@ contoh3:
 
 prevInitialBearing 90°
 
-deltaBearing = -15°
+relativeBearing = -15°
 turn slight left
 
 contoh4:
@@ -126,11 +127,11 @@ contoh4:
 		/
 	   /	initialBearing 250°
 
-deltaBearing = -20°
+relativeBearing = -20°
 turn slight left
 */ // nolint: gofmt
 func getTurnDirection(prevLat, prevLon, lat, long, prevInitialBearing float64) da.TurnType {
-	delta := computeDeltaBearing(prevLat, prevLon, lat, long, prevInitialBearing)
+	delta := computeRelativeBearing(prevLat, prevLon, lat, long, prevInitialBearing)
 	absDelta := math.Abs(delta)
 	deltaDegree := util.RadiansToDegree(absDelta)
 	if deltaDegree < 12 {

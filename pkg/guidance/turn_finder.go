@@ -3,6 +3,7 @@ package guidance
 import (
 	"math"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -16,14 +17,14 @@ todo4: add test expected outputnya pake driving direction google map (dengan rut
 */
 
 func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, headId da.Index, name string) da.TurnType {
-	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
+	// key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
 
-	if sign, ok := db.turnSignCache.Get(key); ok {
+	// if sign, ok := db.turnSignCache.Get(key); ok {
 
-		db.nextStreetName = string(sign[1:])
-		turn := da.TurnType(sign[0])
-		return turn
-	}
+	// 	db.nextStreetName = string(sign[1:])
+	// 	turn := da.TurnType(sign[0])
+	// 	return turn
+	// }
 
 	edgeRoadClass := db.graph.GetRoadClass(edgeId)
 	edgeRoadClassLink := db.graph.GetRoadClassLink(edgeId)
@@ -40,7 +41,6 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 		case "primary_link", "secondary_link", "trunk_link":
 			return db.handlePrimaryRoadTurn(edgeId, tailId, prevNodeId, headId, name)
 		}
-
 	}
 
 	return da.IGNORE
@@ -54,21 +54,24 @@ contoh directions: https://www.google.com/maps/dir/-7.5505556,110.7819106/-7.553
 contoh osm way "tertiary" yang gak ada namanya: https://www.openstreetmap.org/way/332233207#map=17/-7.555473/110.769728.
 
 contoh turn right:
-prevNode----prevEdge----tail
+prevPoint----prevEdge----tail
 						|
 						|
 						currentEdge
 						|
 						|
-						head
+						headPoint
 */ // nolint: gofmt
 func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, prevNodeId, headId da.Index, currStreetName string) da.TurnType {
 
 	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
-	db.nextStreetName = currStreetName
 
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
 	curved := geo.IsPolylineCurved(eGeom)
+
+	defer func() {
+		db.updateState(eGeom, edgeId, false)
+	}()
 
 	tailCoord := eGeom[0]
 	headCoord := db.GetHeadPoint(eGeom, tailCoord, 25)
@@ -115,9 +118,9 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, p
 	}
 
 	// disini sign = TURN_SLIGHT_*/CONTINUE dan name == ""
-	// kita hanya output TURN_SLIGHT_* jika ada other edge yang signnya CONTINUE
+	// kita hanya output TURN_SLIGHT_* jika ada other edge dari tail yang signnya CONTINUE/TURN_SLIGHT_*
 	otherContinueEdge := db.getOtherEdgeContinueDirection(tailCoord.GetLat(), tailCoord.GetLon(), db.prevInitialBearing, alternativeTurns)
-	if otherContinueEdge != da.INVALID_EDGE_ID {
+	if otherContinueEdge != da.INVALID_EDGE_ID && leavingPrevStreet {
 		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
 		return sign
 	}
@@ -173,16 +176,21 @@ https://www.google.com/maps/dir/-7.5501666,110.7820614/Kasunanan+Palace,+Surakar
 
 */ // nolint: gofmt
 func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevNodeId, headId da.Index, currStreetName string) da.TurnType {
+	eGeom := db.graph.GetEdgeGeometry(edgeId)
 
 	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
 
-	db.nextStreetName = currStreetName
-
-	eGeom := db.graph.GetEdgeGeometry(edgeId)
 	curved := geo.IsPolylineCurved(eGeom)
 
 	tailCoord := eGeom[0]
 	headCoord := db.GetHeadPoint(eGeom, tailCoord, 25)
+
+	useLookForwad := false
+	defer func() {
+		if !useLookForwad {
+			db.updateState(eGeom, edgeId, false)
+		}
+	}()
 
 	headLat := headCoord.GetLat()
 	headLon := headCoord.GetLon()
@@ -258,20 +266,13 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 		otherHeadCoord := db.graph.GetVertexCoordinate(otherContinueEdgeHead)
 		otherHeadLat, otherHeadLon := otherHeadCoord.GetLat(), otherHeadCoord.GetLon()
 
-		currDeltaBearing := computeDeltaBearing(tailCoord.GetLat(), tailCoord.GetLon(), headLat, headLon, db.prevInitialBearing)
-		alternativeTurnDeltaBearing := computeDeltaBearing(tailCoord.GetLat(), tailCoord.GetLon(), otherHeadLat, otherHeadLon, db.prevInitialBearing) // bearing difference antara prevNode->tail->otherContinueEdge.GetHead()
+		currRelativeBearing := computeRelativeBearing(tailCoord.GetLat(), tailCoord.GetLon(), headLat, headLon, db.prevInitialBearing)
+		alternativeTurnRelativeBearing := computeRelativeBearing(tailCoord.GetLat(), tailCoord.GetLon(), otherHeadLat, otherHeadLon, db.prevInitialBearing) // bearing difference antara prevPoint->tail->otherContinueEdge.GetHead()
 
-		nextStreetName, foundNextTurn, step := db.lookForward(currStreetName, 2)
-		leavingPrevStreet = leavingPrevStreet || foundNextTurn
+		alternativeTurnRelativeBearingDeg := util.RadiansToDegree(math.Abs(alternativeTurnRelativeBearing))
+		currRelativeBearingDeg := util.RadiansToDegree(math.Abs(currRelativeBearing))
 
-		if foundNextTurn {
-			db.nextStreetName = nextStreetName
-			db.lastPathId = db.lastPathId + step - 1
-		}
-		alternativeTurnDeltaBearingDeg := util.RadiansToDegree(math.Abs(alternativeTurnDeltaBearing))
-		currDeltaBearingDeg := util.RadiansToDegree(math.Abs(currDeltaBearing))
-
-		if util.Lt(currDeltaBearingDeg, CONTINUE_ALT_CURRENT_DELTA_BEARING) && util.Gt(alternativeTurnDeltaBearingDeg, CONTINUE_ALT_TURN_DELTA_BEARING) {
+		if util.Lt(currRelativeBearingDeg, CONTINUE_ALT_CURRENT_DELTA_BEARING) && util.Gt(alternativeTurnRelativeBearingDeg, CONTINUE_ALT_TURN_DELTA_BEARING) {
 			// bearing difference antara prevEdge dan currentEDge < 7° (CONTINUE Direction), Edge otherContinueEdge > 8.6 (TURN SLIGHT or more direction).
 			if db.nextStreetName == "" || !leavingPrevStreet {
 				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
@@ -281,18 +282,40 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 			return da.CONTINUE_ON_STREET
 		}
 
-		if util.Lt(alternativeTurnDeltaBearingDeg, KEEP_LEFT_RIGHT_ALT_TURN_DELTA_BEARING) {
+		if util.Lt(alternativeTurnRelativeBearingDeg, KEEP_LEFT_RIGHT_ALT_TURN_DELTA_BEARING) {
+			nextEdgeIds, foundNextTurn, step := db.lookForward(currStreetName, 2)
+
+			if foundNextTurn {
+				useLookForwad = true
+				db.lastPathId = db.lastPathId + step
+				for _, nexteId := range nextEdgeIds {
+					nextEGeom := db.graph.GetEdgeGeometry(nexteId)
+					db.updateState(nextEGeom, nexteId, false)
+				}
+			}
+
+			isOtherHeadOntheSameWay := db.lookForwardSameOsmWay(edgeId, otherContinueEdgeHead, 4)
+
+			if isOtherHeadOntheSameWay {
+				// 2 edge searah tapi gak pindah jalan
+				// contoh dari tail: https://www.openstreetmap.org/node/11294649720
+				// dari tail osm node diatas ada 2 edge ke head: https://www.openstreetmap.org/node/11294649718
+				// dan edge satunya ke head: https://www.openstreetmap.org/node/11294649719  (dari jalan curved/uturn ke kanan)
+				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
+				return da.IGNORE
+			}
+
 			/*
 				jika dari tail ada 2 jalan yang arahnya sama sama lurus/sedikit belok, tambah turn instruction KEEP_LEFT/KEEP_RIGHT ke currEdge. Example:
 
 									-----currentEdge---------
 				---prevEdge--- tail
 									-----otherContinueEdge---
-				pada case diatas karena currDeltaBearing <= prevOtherEdgeInitialBearing, output keep left
+				pada case diatas karena currRelativeBearing <= prevOtherEdgeInitialBearing, output keep left
 
 
 			*/ // nolint: gofmt
-			if currDeltaBearing > alternativeTurnDeltaBearing {
+			if currRelativeBearing > alternativeTurnRelativeBearing {
 				db.turnSignCache.Set(key, makeCacheVal(da.KEEP_RIGHT, db.nextStreetName), 1)
 				return da.KEEP_RIGHT
 			} else {
@@ -314,6 +337,51 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 	db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, ""), 1)
 	return da.IGNORE
+}
+
+/*
+updateState. update state dari DirectionBuilder.
+
+contoh:
+prevPoint----prevEdge----tail
+							|
+							|
+							currentEdge
+							|
+							|
+							headPoint
+
+setelah evaluate turn dari currentEdge:
+kita update prevPoint, doublePrevPoint, prevNode, prevEdge, doublePrevNode, etc..
+*/ // nolint: gofmt
+func (db *DirectionBuilder) updateState(eGeom da.Coordinates, edgeId da.Index, isInRoundabout bool) {
+
+	headId := db.graph.GetHeadOfOutEdge(edgeId)
+	tailId := db.graph.GetTailOfOutedge(edgeId)
+	head := db.graph.GetVertexCoordinate(headId)
+
+	n := len(eGeom)
+	db.doublePrevPoint = db.prevPoint
+	db.prevPoint = db.GetPrevPoint(eGeom, eGeom[n-1], 25)
+
+	db.doublePrevNode = db.prevNode
+	db.prevInRoundabout = isInRoundabout
+	db.prevNode = tailId
+	db.prevEdge = edgeId
+
+	db.cumulativeDistance += db.graph.GetOutEdgeLength(edgeId)
+	db.cumulativeTravelTime += db.engine.GetWeight(edgeId, true)
+
+	db.edgeIds = append(db.edgeIds, edgeId)
+	db.points = append(db.points,
+		da.NewCoordinate(head.GetLat(), head.GetLon()))
+
+	db.nextStreetName = db.graph.GetStreetName(edgeId)
+
+	isHeadTrafficLight := db.graph.IsTrafficLight(headId)
+	if isHeadTrafficLight {
+		db.cumulativeTravelTime += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND)
+	}
 }
 
 func makeCacheVal(sign da.TurnType, streetName string) []byte {

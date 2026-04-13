@@ -9,17 +9,19 @@ import (
 // lookForward. traverse dari db.path[lastPathId] ke beberapa next db.path[lastPathId+1:...] until found edge dengan name != prevName.
 // return forward edge di path dengan name != prevName, true jika ada, dan number of step lookForward.
 // todo: ini bisa dipake buat kasus Dual carriageway intersections yang dijelasin di: https://wiki.openstreetmap.org/wiki/Junctions
-func (db *DirectionBuilder) lookForward(prevName string, maxStep int) (string, bool, int) {
+func (db *DirectionBuilder) lookForward(prevName string, maxStep int) ([]da.Index, bool, int) {
 	step := 0
+	nextEdgeIds := make([]da.Index, 0, maxStep)
 	for i := db.lastPathId + 1; step < maxStep && i < len(db.path); i++ {
 		currEdgeStreetname := db.graph.GetStreetName(db.path[i])
 		step++
+		nextEdgeIds = append(nextEdgeIds, db.path[i])
 		if currEdgeStreetname != prevName {
-			return currEdgeStreetname, true, step
+			return nextEdgeIds, true, step
 		}
 	}
 
-	return "", false, 0
+	return make([]da.Index, 0), false, 0
 }
 
 //
@@ -28,21 +30,21 @@ GetPrevPoint. ini buat get prevPoint, point sebelum tail vertex/intersection ver
 
 ingat bentuk turn adalah seperti ini:
 
-prevNode----prevEdge----tail
+prevPoint----prevEdge----tail
 						|
 						|
 						currentEdge
 						|
 						|
-						head
+						headPoint
 
 ada dua kasus untuk getPrevPoint:
 1. geometry dari prevEdge gak ngecurve (contoh Jalan Brigadir Jenderal Slamet Riyadi: openstreetmap.org/way/300751601), untuk kasus ini kita bisa return point pertama dari geometrynya prevEdge sebagai prevPoint.
 
 2. geometry dari prevEdge ngecurve (contoh: Jalan Yos Sudarso https://www.openstreetmap.org/way/357667665) ,  ini agak ribet,
 perhatikan saat kita pakai commercial maps (gmaps, apple maps, etc), panduan turn right/turn left itu saat posisi kita dekat dari titik intersection,
-kita dapat tipe turn dari delta bearing dari currentEdge (tail, head) dengan prevEdge (prevNode, tail) (lihat getTurnDirection() di turn.go).
-yang berarti kita harus pakai prevNode yang sangat dekat dengan titik intersection (tail), yang mana kalo prevEdgenya ngecurve kita gak bisa langsung return point pertama
+kita dapat tipe turn dari delta bearing dari currentEdge (tail, head) dengan prevEdge (prevPoint, tail) (lihat getTurnDirection() di turn.go).
+yang berarti kita harus pakai prevPoint yang sangat dekat dengan titik intersection (tail), yang mana kalo prevEdgenya ngecurve kita gak bisa langsung return point pertama
 dari geometry prevEdge.
 
 untuk curved prevEdge, kita bisa pakai point dari geometry yang jaraknya atleast 25m
@@ -75,7 +77,7 @@ func (db *DirectionBuilder) GetPrevPoint(eGeom da.Coordinates, tailCoord da.Coor
 	return v
 }
 
-// GetHeadPoint. ini buat get prevPoint, point setelah tail vertex/intersection vertex.
+// GetHeadPoint. ini buat get headPoint, point setelah tail vertex/intersection vertex.
 // mirip kaya GetPrevPoint, tapi pakai geometry dari currentEdge.
 func (db *DirectionBuilder) GetHeadPoint(eGeom da.Coordinates, tailCoord da.Coordinate, atLeastDist float64) da.Coordinate {
 
@@ -96,4 +98,25 @@ func (db *DirectionBuilder) GetHeadPoint(eGeom da.Coordinates, tailCoord da.Coor
 	}
 
 	return v
+}
+
+// lookForwardSameOsmWay. cek apakah edge dengan id eIdOne dan head vertex dengan id headId berada di osm way yang sama.
+// contoh dari tail: https://www.openstreetmap.org/node/11294649720
+// dari tail osm node diatas ada 2 edge ke head: https://www.openstreetmap.org/node/11294649718
+// dan edge satunya ke head: https://www.openstreetmap.org/node/11294649719  (dari jalan curved/uturn ke kanan)
+func (db *DirectionBuilder) lookForwardSameOsmWay(eIdOne da.Index, headId da.Index, maxStep int) bool {
+	step := 0
+	nextEdgeIds := make([]da.Index, 0, maxStep)
+	osmWayOne := db.graph.GetOsmWayId(eIdOne)
+	for i := db.lastPathId + 1; step < maxStep && i < len(db.path); i++ {
+		currEdgeOsmWay := db.graph.GetOsmWayId(db.path[i])
+		currEdgeHeadId := db.graph.GetHeadOfOutEdge(db.path[i])
+		step++
+		nextEdgeIds = append(nextEdgeIds, db.path[i])
+		if currEdgeOsmWay == osmWayOne && currEdgeHeadId == headId {
+			return true
+		}
+	}
+
+	return false
 }

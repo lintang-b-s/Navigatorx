@@ -135,13 +135,13 @@ func (db *DirectionBuilder) isStreetMergedSkip(currentEdge, prevEdge da.Index, c
 		edgeHead := db.graph.GetHeadOfOutEdge(outEdgeId)
 		edgeHeadCoord := db.graph.GetVertexCoordinate(edgeHead)
 
-		deltaBearing := util.RadiansToDegree(math.Abs(computeDeltaBearing(tailCoord.GetLat(),
+		relativeBearing := util.RadiansToDegree(math.Abs(computeRelativeBearing(tailCoord.GetLat(),
 			tailCoord.GetLon(), edgeHeadCoord.GetLat(), edgeHeadCoord.GetLon(), prevInitialBearing)))
 
 		isOtherEdgeBidirectional := db.graph.IsStreetBidirectional(outEdgeId)
 
 		if outEdgeId != currentEdge &&
-			edgeHead != currHead && edgeHead != tailOfPrevEdge && deltaBearing > DELTA_BEARING_U_TURN &&
+			edgeHead != currHead && edgeHead != tailOfPrevEdge && relativeBearing > DELTA_BEARING_U_TURN &&
 			isSameName(currStreetName, edgeStreetName) && !isOtherEdgeBidirectional {
 			otherEdge = outEdgeId
 		}
@@ -211,13 +211,13 @@ func (db *DirectionBuilder) isStreetSplitSkip(currentEdge, prevEdge da.Index, cu
 		inEdgeStreetName := db.graph.GetStreetName(outEdgeId)
 		inEdgeTail := db.graph.GetTailOfOutedge(outEdgeId)
 
-		deltaBearing := util.RadiansToDegree(math.Abs(computeDeltaBearing(currHeadCoord.GetLat(),
+		relativeBearing := util.RadiansToDegree(math.Abs(computeRelativeBearing(currHeadCoord.GetLat(),
 			currHeadCoord.GetLon(), tailCoord.GetLat(), tailCoord.GetLon(), prevInitialBearing)))
 
 		isOtherEdgeBidirectional := db.graph.IsStreetBidirectional(outEdgeId)
 
 		if inEdgeTail != currHead && inEdgeTail != prevEdgeTail &&
-			isSameName(currStreetName, inEdgeStreetName) && deltaBearing > DELTA_BEARING_U_TURN &&
+			isSameName(currStreetName, inEdgeStreetName) && relativeBearing > DELTA_BEARING_U_TURN &&
 			!isOtherEdgeBidirectional {
 
 			otherEdge = outEdgeId
@@ -250,7 +250,7 @@ contoh2:
 https://www.google.com/maps/dir/-7.568126,110.8386365/-7.5752331,110.8287711/@-7.5696958,110.8304612,20.45z/am=t/data=!4m7!4m6!3e0!5i2!6m3!1i0!2i0!3i2?entry=ttu&g_ep=EgoyMDI2MDQwNy4wIKXMDSoASAFQAw%3D%3D
 
 di tail node -7.569596062971082, 110.83036862554624 , turn instruction gmaps  "Merge onto Jl. Jend. Sudirman"
-meskipun sign dari deltaBearing nya TURN_SLIGHT_LEFT
+meskipun sign dari relativeBearing nya TURN_SLIGHT_LEFT
 
 */ // nolint: gofmt
 func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.Index, currStreetName, prevEdgeStreetName string,
@@ -290,13 +290,13 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.Index, currS
 		outEdgeHeadCoord := db.graph.GetVertexCoordinate(outEdgeHead)
 		outEdgeTailCoord := db.graph.GetVertexCoordinate(outEdgeTail)
 
-		deltaBearing := util.RadiansToDegree(math.Abs(computeDeltaBearing(outEdgeTailCoord.GetLat(),
+		relativeBearing := util.RadiansToDegree(math.Abs(computeRelativeBearing(outEdgeTailCoord.GetLat(),
 			outEdgeTailCoord.GetLon(), outEdgeHeadCoord.GetLat(), outEdgeHeadCoord.GetLon(), prevInitialBearing)))
 
 		isOtherEdgeBidirectional := db.graph.IsStreetBidirectional(outEdgeId)
 
 		if outEdgeId != currentEdge &&
-			outEdgeHead == tail && outEdgeTail != tailOfPrevEdge && deltaBearing < MERGE_DELTA_BEARING &&
+			outEdgeHead == tail && outEdgeTail != tailOfPrevEdge && relativeBearing < MERGE_DELTA_BEARING &&
 			isSameName(currStreetName, edgeStreetName) && !isOtherEdgeBidirectional {
 			otherEdge = outEdgeId
 		}
