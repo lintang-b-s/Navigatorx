@@ -19,7 +19,7 @@ A --doublePrevEdge-->B
 					|
 D <--currentEdge---C
 
-If from A->B turn right, and from B->C turn right, and the delta bearing between A->B and C->D is close to 180 degrees, then it can be considered a U-turn.
+If from A->B turn right, and from B->C turn right, and the relative bearing between A->B and C->D is close to 180 degrees, then it can be considered a U-turn.
 */ // nolint: gofmt
 func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, edgeId da.Index) (bool, da.TurnType) {
 	isUTurn := false

@@ -27,6 +27,8 @@ type Graph interface {
 	IsStreetBidirectional(edgeId da.Index) bool
 	GetExitIdOfInEdge(e da.Index) da.Index
 	GetOsmWayId(edgeId da.Index) int64
+	GetStrFromId(stNameId uint32) string
+	GetStreetNameId(edgeId da.Index) uint32
 }
 
 type RoutingEngine interface {

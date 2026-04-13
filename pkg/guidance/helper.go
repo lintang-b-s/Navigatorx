@@ -43,7 +43,7 @@ ada dua kasus untuk getPrevPoint:
 
 2. geometry dari prevEdge ngecurve (contoh: Jalan Yos Sudarso https://www.openstreetmap.org/way/357667665) ,  ini agak ribet,
 perhatikan saat kita pakai commercial maps (gmaps, apple maps, etc), panduan turn right/turn left itu saat posisi kita dekat dari titik intersection,
-kita dapat tipe turn dari delta bearing dari currentEdge (tail, head) dengan prevEdge (prevPoint, tail) (lihat getTurnDirection() di turn.go).
+kita dapat tipe turn dari relative bearing dari currentEdge (tail, head) dengan prevEdge (prevPoint, tail) (lihat getTurnDirection() di turn.go).
 yang berarti kita harus pakai prevPoint yang sangat dekat dengan titik intersection (tail), yang mana kalo prevEdgenya ngecurve kita gak bisa langsung return point pertama
 dari geometry prevEdge.
 

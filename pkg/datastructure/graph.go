@@ -772,7 +772,16 @@ func (g *Graph) GetStreetName(edgeId Index) string {
 
 func (g *Graph) GetStreetNameId(edgeId Index) uint32 {
 	stNameId := g.graphStorage.streetName[edgeId]
+
 	return stNameId
+}
+
+func (g *Graph) GetStrFromId(stNameId uint32) string {
+	if stNameId == INVALID_STREET_NAME_ID {
+		return ""
+	}
+
+	return g.graphStorage.GetStr(stNameId)
 }
 
 func (g *Graph) GetRoadClass(edgeId Index) string {

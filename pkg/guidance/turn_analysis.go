@@ -57,7 +57,7 @@ getOtherEdgeContinueDirection. get alternativeEdges lain dari tail yang arahnya 
 
 				----alternativeEdge-----
 
-delta bearing antara currentEdge dan alternativeEdge mendekati 0° atau alternativeEdge punya tipe turn CONTINUE or TURN_SLIGHT_*
+relative bearing antara currentEdge dan alternativeEdge mendekati 0° atau alternativeEdge punya tipe turn CONTINUE or TURN_SLIGHT_*
 contoh: https://www.google.com/maps/dir/-7.5484714,110.7825683/-7.7560503,110.3762651/@-7.5446759,110.7824839,17z/am=t/data=!4m6!4m5!3e0!6m3!1i0!2i0!3i2?entry=ttu&g_ep=EgoyMDI2MDQwNS4wIKXMDSoASAFQAw%3D%3D
 */ // nolint: gofmt
 func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prevInitialBearing float64, alternativeTurns []da.Index) da.Index {
@@ -86,7 +86,7 @@ atau -7.554690293226057, 110.80098414699525
 
 kalau streetMrged == true dan nama jalan dari prevEdge == nama jalan currentEdge, kita gak perlu tambahin turn instruction buat ke currentEdge
 
-delta bearing prevEdge dan otherEdge haruslah > 150 degree, jadi semacam arah nya berkebalikan
+relative bearing prevEdge dan otherEdge haruslah > 150 degree, jadi semacam arah nya berkebalikan
 note that forward/backward direction dari osm way hanyalah direction dari nodes di simpan di osm way (https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right)
 
 contoh:

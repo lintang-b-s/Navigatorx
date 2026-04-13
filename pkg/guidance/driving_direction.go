@@ -26,7 +26,7 @@ type DirectionBuilder struct {
 	edgeIds        []da.Index
 	path           []da.Index
 	lastPathId     int
-	nextStreetName string
+	nextStreetName uint32 // streetName Id
 
 	engine                   RoutingEngine
 	graph                    Graph
@@ -94,7 +94,7 @@ func (db *DirectionBuilder) Reset() {
 	db.cumulativeTravelTime = 0
 	db.doublePrevNode = 0
 	db.lastPathId = 0
-	db.nextStreetName = ""
+	db.nextStreetName = da.INVALID_STREET_NAME_ID
 	db.path = make([]da.Index, 0)
 }
 
@@ -250,10 +250,11 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 				db.prevInstruction.SetStreetName(streetName)
 			} else {
 				// bukan U-turn -> continue/right/left
-				tail := da.NewCoordinate(tail.GetLat(), tail.GetLon())
+				tailCoord := tail.GetCoordinate()
 				turnBearing := computeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(),
 					tail.GetLat(), tail.GetLon())
-				prevIns := da.NewInstruction(turnSign, db.nextStreetName, tail, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
+				nextStreetName := db.graph.GetStrFromId(db.nextStreetName)
+				prevIns := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
 					db.points, turnBearing, db.clockwise)
 				db.prevInstruction = prevIns
 
