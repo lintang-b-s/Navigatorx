@@ -47,7 +47,7 @@ kita dapat tipe turn dari relative bearing dari currentEdge (tail, head) dengan 
 yang berarti kita harus pakai prevPoint yang sangat dekat dengan titik intersection (tail), yang mana kalo prevEdgenya ngecurve kita gak bisa langsung return point pertama
 dari geometry prevEdge.
 
-untuk curved prevEdge, kita bisa pakai point dari geometry yang jaraknya atleast 25m
+untuk curved prevEdge, kita bisa pakai point dari geometry prevEdge yang jaraknya atleast 25m dari intersection (tail).
 
 kenapa gak pake last point dari prevEdge geometry?? karena last point coord nya equal to tail coord
 

@@ -67,8 +67,6 @@ prevPoint----prevEdge----tail
 */ // nolint: gofmt
 func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, prevNodeId, headId da.Index, currStreetName string) da.TurnType {
 
-	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
-
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
 	curved := geo.IsPolylineCurved(eGeom)
 
@@ -107,17 +105,14 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, p
 
 	if !da.IsTurnSlight(sign) {
 		if streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && curved) {
-			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID), 1)
 			return da.IGNORE
 		}
 
 		// sign is not CONTINUE/TURN_SLIGHT_* & street name berubah dari prev edge ke curr edge & not split/merged street -> output sign
-		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
 		return sign
 	} else if leavingPrevStreet && currStreetName != "" && prevEdgeStreetName != "" && !streetMergedSkip && !streetSplitSkip {
 		//  sign CONTINUE/TURN_SLIGHT_* & street name berubah dari prev edge ke curr edge & not split/merged street -> output sign
 		// dan ada nama street dari prevEdge dan currentEdge
-		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
 		return sign
 	}
 
@@ -125,11 +120,9 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, p
 	// kita hanya output TURN_SLIGHT_* jika ada other edge dari tail yang signnya CONTINUE/TURN_SLIGHT_*
 	otherContinueEdge := db.getOtherEdgeContinueDirection(tailCoord.GetLat(), tailCoord.GetLon(), db.prevInitialBearing, alternativeTurns)
 	if otherContinueEdge != da.INVALID_EDGE_ID && leavingPrevStreet {
-		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
 		return sign
 	}
 
-	db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID), 1)
 	return da.IGNORE
 }
 
@@ -228,6 +221,21 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 		if !leavingPrevStreet || streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && curved) {
 			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID), 1)
 			return da.IGNORE
+		}
+
+		if currStreetName == "" {
+			// buat handle case Dual carriageway intersections: https://wiki.openstreetmap.org/wiki/Junctions
+			nextEdgeIds, foundNextTurn, step := db.lookForward(currStreetName, 3)
+
+			if foundNextTurn {
+
+				useLookForwad = true
+				db.lastPathId = db.lastPathId + step
+				for _, nexteId := range nextEdgeIds {
+					nextEGeom := db.graph.GetEdgeGeometry(nexteId)
+					db.updateState(nextEGeom, nexteId, false)
+				}
+			}
 		}
 
 		// sign is not CONTINUE/TURN_SLIGHT_* & street name berubah dari prev edge ke curr edge & not split/merged street -> output sign

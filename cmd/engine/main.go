@@ -82,7 +82,9 @@ func main() {
 	api := http.NewServer(logger)
 
 	altSearch := routing.NewAlternativeRouteSearch(re)
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true)
+
+	leftHandTraffic := viper.GetBool("guidance.left_hand")
+	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, leftHandTraffic)
 	if err != nil {
 		panic(err)
 	}

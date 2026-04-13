@@ -77,7 +77,7 @@ func main() {
 	re := routingEngine.GetRoutingEngine()
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true, true)
+	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.04, true)
 	if err != nil {
 		panic(err)
 	}

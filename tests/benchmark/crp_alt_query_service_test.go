@@ -25,7 +25,7 @@ func BenchmarkShortestPathService(b *testing.B) {
 	rtree.Build(re.GetGraph(), logger)
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
-	rs, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true, true)
+	rs, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true)
 	if err != nil {
 		b.Fatal(err)
 	}

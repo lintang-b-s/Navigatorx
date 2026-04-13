@@ -15,13 +15,13 @@ import (
 )
 
 type RoutingService struct {
-	log                        *zap.Logger
-	engine                     RoutingEngine
-	graph                      *da.Graph
-	spatialIndex               SpatialIndex
-	altRouting                 AlternativeRouteAlgorithm
-	searchRadius               float64
-	clockwise, lefthandDriving bool
+	log             *zap.Logger
+	engine          RoutingEngine
+	graph           *da.Graph
+	spatialIndex    SpatialIndex
+	altRouting      AlternativeRouteAlgorithm
+	searchRadius    float64
+	lefthandDriving bool
 
 	// sync pools
 
@@ -30,14 +30,13 @@ type RoutingService struct {
 }
 
 func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
-	searchRadius float64, clockwise, lefthandDriving bool,
+	searchRadius float64, lefthandDriving bool,
 ) (*RoutingService, error) {
 	rs := &RoutingService{
 		log:             log,
 		engine:          engine,
 		spatialIndex:    spatialindex,
 		searchRadius:    searchRadius,
-		clockwise:       clockwise,
 		lefthandDriving: lefthandDriving,
 		graph:           engine.GetGraph(),
 		altRouting:      altRouting,
@@ -59,7 +58,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 	rs.directionBuilderPool = &sync.Pool{
 		New: func() any {
 			return guidance.NewDirectionBuilder(rs.engine,
-				rs.engine.GetGraph(), rs.clockwise, rs.lefthandDriving,
+				rs.engine.GetGraph(), rs.lefthandDriving,
 				rs.turnSignCache,
 			)
 		},

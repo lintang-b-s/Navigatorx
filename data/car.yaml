@@ -78,3 +78,7 @@ alternatives:
 
 server:
   api_timeout: 2s
+
+guidance:  
+  left_hand: true # https://en.wikipedia.org/wiki/Left-_and_right-hand_traffic  , example: Inonesia is left-hand traffic
+
