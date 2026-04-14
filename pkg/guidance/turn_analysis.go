@@ -69,7 +69,7 @@ func (db *DirectionBuilder) getOtherEdgeContinueDirection(prevLat, prevLon, prev
 		lat, lon := node.GetLat(), node.GetLon()
 
 		tmpSign := geo.GetTurnDirection(prevLat, prevLon, lat, lon, prevInitialBearing)
-		if da.IsTurnSlight(da.TurnType(tmpSign)) {
+		if da.IsTurnSlight(tmpSign) {
 			return edge
 		}
 	}

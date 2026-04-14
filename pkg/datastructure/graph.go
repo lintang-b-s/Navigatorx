@@ -532,7 +532,7 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 	return len(g.cellNumbers)
 }
 
-func (g *Graph) ForOutEdges(handle func(exitPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
+func (g *Graph) ForOutEdges(handle func(exitPoint, head Index, tail, entryId, entryPoint Index, percentage float64, idx Index)) {
 	for idx, e := range g.outEdges {
 		if g.IsDummyOutEdge(Index(idx)) {
 			continue
@@ -544,7 +544,7 @@ func (g *Graph) ForOutEdges(handle func(exitPoint, head Index, tail, entryId Ind
 
 		entryId := g.vertices[e.head].GetFirstIn() + Index(e.GetEntryPoint())
 
-		handle(g.GetExitOrder(tail, Index(idx)), e.head, tail, entryId, percentage, Index(idx))
+		handle(g.GetExitOrder(tail, Index(idx)), e.head, tail, entryId, Index(e.GetEntryPoint()), percentage, Index(idx))
 	}
 }
 

@@ -29,7 +29,7 @@ func NewRtree() *Rtree {
 // Build. build r-tree
 func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
 	log.Info("Building R-tree spatial index...")
-	graph.ForOutEdges(func(exitPoint, head, tail, entryId da.Index,
+	graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index,
 		percentage float64, id da.Index) {
 
 		eGeom := graph.GetEdgeGeometry(id)

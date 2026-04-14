@@ -226,12 +226,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 				if step == 1 {
 
-					// useLookForward = true
-					// db.lastPathId = db.lastPathId + step
-
 					nextEdgeId := nextEdgeIds[0]
-					// nextEGeom := db.graph.GetEdgeGeometry(nextEdgeId)
-					// db.updateState(nextEGeom, nextEdgeId, false)
 
 					nextTail := db.graph.GetTailOfOutedge(nextEdgeId)
 					nextHead := db.graph.GetHeadOfOutEdge(nextEdgeId)

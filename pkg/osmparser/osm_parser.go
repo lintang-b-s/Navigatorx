@@ -412,7 +412,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 	streetDirectionForward := bitset.New(uint(graph.NumberOfEdges()))
 	streetDirectionBackward := bitset.New(uint(graph.NumberOfEdges()))
 
-	graph.ForOutEdges(func(exitPoint, head, tail, entryId da.Index, percentage float64, eId da.Index) {
+	graph.ForOutEdges(func(exitPoint, head, tail, entryId,entryPoint da.Index, percentage float64, eId da.Index) {
 		edgeInfoId := edgeInfoIds[tail][exitPoint]
 		if edgeInfoId == da.INVALID_EDGE_INFO_ID { // skip dummy edges
 			return

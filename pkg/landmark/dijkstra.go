@@ -84,7 +84,7 @@ func (us *Dijkstra) ShortestPath(s da.Index, heapPool *sync.Pool) []float64 {
 	}
 
 	if !us.useReverseGraph {
-		us.graph.ForOutEdges(func(exitPoint, head, tail, entryId da.Index, percentage float64, idx da.Index) {
+		us.graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, idx da.Index) {
 
 			// -vEntry->v
 			v := us.graph.GetHeadOfInedge(da.Index(entryId))

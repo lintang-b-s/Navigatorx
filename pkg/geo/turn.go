@@ -67,7 +67,7 @@ harusnya belok kanan, tapi karena < -180° jadi belok kiri.
 
 setelah fix:  relativeBearing  = 30°  turn slight right
 
-relativeBearing in radians
+relativeBearing in radians.
 */
 func alignRelativeBearing(relativeBearing float64) float64 {
 	if util.RadiansToDegree(relativeBearing) > 180 {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/spf13/viper"
 
@@ -948,12 +949,286 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 			})
 		}
 	}
-	
 
-	// cek turn restriction
-	// example: https://www.openstreetmap.org/relation/19474168#map=19/-7.782285/110.375082
-	// 
+}
 
-	
+func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
+	prep := setup(t, osmfFile, url)
+	graph := prep.GetGraph()
 
+	type turnRes struct {
+		resType string
+		fromWay int64
+		viaNode int64
+		toWay   int64
+	}
+	newResTurn := func(resType string, fromWay int64, viaNode int64, toWay int64) turnRes {
+		return turnRes{resType: resType, fromWay: fromWay, viaNode: viaNode, toWay: toWay}
+	}
+	testCases := []struct {
+		name                 string
+		turnRestriction      turnRes
+		wantAllowedLeftTurn  bool
+		wantAllowedRightTurn bool
+		wantAllowedUTurn     bool
+		wantAllowedContinue  bool
+	}{
+		{
+			name:                 "only_straight_on Jl. Cik di tiro -> Jl. Suroto https://www.openstreetmap.org/relation/19474168",
+			turnRestriction:      turnRes{resType: "only_straight_on", fromWay: 1001303581, viaNode: 1664585451, toWay: 1001305074},
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: false,
+			wantAllowedUTurn:     false,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_left_turn https://www.openstreetmap.org/relation/5710500",
+			turnRestriction:      turnRes{resType: "no_left_turn", fromWay: 358464188, viaNode: 1664585451, toWay: 1001305074},
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_left_turn https://www.openstreetmap.org/relation/5710501",
+			turnRestriction:      newResTurn("no_left_turn", 1347054637, 271845942, 131706287),
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_left_turn https://www.openstreetmap.org/relation/5710501 (duplicate)",
+			turnRestriction:      newResTurn("no_left_turn", 1347054637, 271845942, 131706287),
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_right_turn https://www.openstreetmap.org/relation/5710502",
+			turnRestriction:      newResTurn("no_right_turn", 1347054637, 271845942, 179907371),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: false,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_right_turn https://www.openstreetmap.org/relation/5710504",
+			turnRestriction:      newResTurn("no_right_turn", 179907368, 1903473346, 131706287),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: false,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_right_turn https://www.openstreetmap.org/relation/5710505",
+			turnRestriction:      newResTurn("no_right_turn", 131706287, 1903473346, 179907373),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: false,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_u_turn https://www.openstreetmap.org/relation/13427535",
+			turnRestriction:      newResTurn("no_u_turn", 153821715, 1001303583, 1001303581),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     false,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_u_turn https://www.openstreetmap.org/relation/16312684",
+			turnRestriction:      newResTurn("no_u_turn", 385235940, 3885907857, 179907370),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     false,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_u_turn https://www.openstreetmap.org/relation/13632293",
+			turnRestriction:      newResTurn("no_u_turn", 1464214756, 385235941, 1018193254),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     false,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_right_turn https://www.openstreetmap.org/relation/4522827",
+			turnRestriction:      newResTurn("no_right_turn", 561138356, 3309091961, 323932428),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: false,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_right_turn https://www.openstreetmap.org/relation/4537948",
+			turnRestriction:      newResTurn("no_right_turn", 323932428, 3309091961, 131706976),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: false,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_u_turn https://www.openstreetmap.org/relation/4763181",
+			turnRestriction:      newResTurn("no_u_turn", 561138356, 323932428, 323932427),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     false,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_left_turn https://www.openstreetmap.org/relation/11616497",
+			turnRestriction:      newResTurn("no_left_turn", 957436016, 263358674, 118880320),
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_left_turn https://www.openstreetmap.org/relation/6954969",
+			turnRestriction:      newResTurn("no_left_turn", 358306863, 1720272207, 159959995),
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "no_left_turn https://www.openstreetmap.org/relation/6954968",
+			turnRestriction:      newResTurn("no_left_turn", 701751480, 262855939, 358306864),
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     true,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "only_right_turn https://www.openstreetmap.org/relation/19514925",
+			turnRestriction:      newResTurn("only_right_turn", 279514949, 2881132754, 43202088),
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     false,
+			wantAllowedContinue:  false,
+		},
+		{
+
+			name:                 "only_straight_on https://www.openstreetmap.org/relation/19516443",
+			turnRestriction:      newResTurn("only_straight_on", 814045726, 5625991672, 729792830),
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: false,
+			wantAllowedUTurn:     false,
+			wantAllowedContinue:  true,
+		},
+		{
+
+			name:                 "only_left_turn https://www.openstreetmap.org/relation/19516441",
+			turnRestriction:      newResTurn("only_left_turn", 589139073, 5625991674, 1424495012),
+			wantAllowedLeftTurn:  true,
+			wantAllowedRightTurn: false,
+			wantAllowedUTurn:     false,
+			wantAllowedContinue:  false,
+		},
+		{
+
+			name:                 "only_right_turn https://www.openstreetmap.org/relation/16511713",
+			turnRestriction:      newResTurn("only_right_turn", 1471816327, 11261989595, 1216387248),
+			wantAllowedLeftTurn:  false,
+			wantAllowedRightTurn: true,
+			wantAllowedUTurn:     false,
+			wantAllowedContinue:  false,
+		},
+	}
+
+	isCorrect := func(turnSign da.TurnType, turnType pkg.TurnType, wantAllowedLeftTurn, wantAllowedRightTurn, wantAllowedUTurn, wantAllowedContinue bool, restrictionType string) (string, bool) {
+		switch turnSign {
+		case da.TURN_RIGHT, da.TURN_SHARP_RIGHT, da.TURN_SLIGHT_RIGHT:
+			if restrictionType == "only_straight_on" && turnSign == da.TURN_SLIGHT_RIGHT && turnType == pkg.NONE {
+				return "", true
+			}
+			if !wantAllowedRightTurn && turnType != pkg.NO_ENTRY {
+				return "no_right_turn", false
+			}
+		case da.TURN_LEFT, da.TURN_SHARP_LEFT, da.TURN_SLIGHT_LEFT:
+			if restrictionType == "only_straight_on" && turnSign == da.TURN_SLIGHT_LEFT && turnType == pkg.NONE {
+				return "", true
+			}
+
+			if !wantAllowedLeftTurn && turnType != pkg.NO_ENTRY {
+				return "no_left_turn", false
+			}
+		case da.CONTINUE_ON_STREET:
+			if !wantAllowedContinue && turnType != pkg.NO_ENTRY {
+				return "no_straight_on", false
+			}
+		// skip u_turn dulu karena via nya way (belum support)
+		default:
+			return "", true
+		}
+		return "", true
+	}
+
+	turnSignToDesc := func(turnSign da.TurnType) string {
+		switch turnSign {
+		case da.TURN_RIGHT, da.TURN_SHARP_RIGHT, da.TURN_SLIGHT_RIGHT:
+			return "right"
+		case da.TURN_LEFT, da.TURN_SHARP_LEFT, da.TURN_SLIGHT_LEFT:
+			return "left"
+
+		case da.CONTINUE_ON_STREET:
+			return "continue"
+		}
+		return ""
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			rest := tc.turnRestriction
+			graph.ForOutEdges(func(exitPoint, head, tail, entryId, fromEntryPoint da.Index, percentage float64, idx da.Index) {
+				fromEdgeWayId := graph.GetOsmWayId(idx)
+				if rest.fromWay == fromEdgeWayId {
+					headOsmNodeId := graph.GetVertexOsmId(head)
+					if headOsmNodeId == uint64(rest.viaNode) {
+						// traverse ke semua outedges of head
+						// fromEntryPoint := entryId - graph.GetVertexFirstIn(head)
+						graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+							toEdgeWayId := graph.GetOsmWayId(eIdTo)
+							if rest.toWay == toEdgeWayId {
+								// cek turnSign dari:
+								// tail -fromEdge-> head -toEdge-> headTo
+
+								tailCoord := graph.GetVertexCoordinate(tail)
+								headCoord := graph.GetVertexCoordinate(head)
+								headToCoord := graph.GetVertexCoordinate(headTo)
+
+								prevInitialBearing := geo.ComputeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(), headCoord.GetLat(),
+									headCoord.GetLon())
+								turnSign := geo.GetTurnDirection(headCoord.GetLat(), headCoord.GetLon(), headToCoord.GetLat(),
+									headToCoord.GetLon(), prevInitialBearing)
+
+								if reason, correct := isCorrect(turnSign, turnType, tc.wantAllowedLeftTurn, tc.wantAllowedRightTurn, tc.wantAllowedUTurn, tc.wantAllowedContinue, tc.turnRestriction.resType); !correct {
+									t.Errorf("want: %s, got: allowed %s", reason, turnSignToDesc(turnSign))
+								}
+							}
+						})
+					}
+				}
+			})
+
+		})
+	}
 }

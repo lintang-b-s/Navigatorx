@@ -326,7 +326,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 					successor := da.Index(math.MaxUint32) // successor dari via nya turn restriction
 					toNodes := p.ways[int64(restriction.to)].graphNodes
-					for j := 0; j < len(toNodes)-1; j++ {
+					for j := 0; j < len(toNodes); j++ {
 						if toNodes[j] == restriction.via {
 							if j == len(toNodes)-1 {
 								successor = toNodes[j-1]
@@ -393,9 +393,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 									tail.GetLon())
 								turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
 									headPoint.GetLon(), prevInitialBearing)
-								if turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
+								if turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT || turn == da.CONTINUE_ON_STREET {
 									// dissallow semua turn right...
-
+									// https://www.openstreetmap.org/relation/19516441#map=18/-7.774471/110.380569
+									// https://www.openstreetmap.org/relation/19514924
 									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
 								}
 
@@ -405,8 +406,9 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 									tail.GetLon())
 								turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
 									headPoint.GetLon(), prevInitialBearing)
-								if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT {
+								if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT || turn == da.CONTINUE_ON_STREET {
 									// dissallow semua turn left...
+									// https://www.openstreetmap.org/relation/19514925
 									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
 								}
 
@@ -415,8 +417,14 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 									tail.GetLon())
 								turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
 									headPoint.GetLon(), prevInitialBearing)
-								if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT ||
-									turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
+								if turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT ||
+									turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
+									// contoh2: openstreetmap.org/relation/19516443 , (only_straight_on) ini kedetect nya TURN_SLIGHT_LEFT buat ke arah UNY...
+									// padahal continue ..
+									// how to fix?? gak usah include TURN_SLIGHT_LEFT buat NO_ENTRY nya only_straight_on
+									// tapi yang lebih serem kalau ada case only_straight_on tapi ada belokan slight_left/slight_right yang diallow sama kode ini....
+									// udah debugging and test pakai file osm yang include solo,diy,semarang,salatiga gak ada kasus gini sih
+
 									// dissallow semua turn right dan turn left...
 									// contoh: http://openstreetmap.org/relation/19474168
 									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
