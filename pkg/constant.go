@@ -280,7 +280,10 @@ func GetHighwayTypeString(highwayType OsmHighwayType) string {
 	}
 }
 
-
 var (
 	WITH_TURN_COSTS bool = true
 )
+
+func OffTurnCost() {
+	WITH_TURN_COSTS = false
+}

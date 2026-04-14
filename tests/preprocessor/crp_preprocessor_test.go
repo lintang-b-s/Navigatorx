@@ -957,14 +957,16 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 	graph := prep.GetGraph()
 
 	type turnRes struct {
-		resType string
-		fromWay int64
-		viaNode int64
-		toWay   int64
+		resType  string
+		fromWay  int64
+		via      int64
+		toWay    int64
+		isViaway bool
 	}
-	newResTurn := func(resType string, fromWay int64, viaNode int64, toWay int64) turnRes {
-		return turnRes{resType: resType, fromWay: fromWay, viaNode: viaNode, toWay: toWay}
+	newResTurn := func(resType string, fromWay int64, via int64, toWay int64, isViaway bool) turnRes {
+		return turnRes{resType: resType, fromWay: fromWay, via: via, toWay: toWay, isViaway: isViaway}
 	}
+
 	testCases := []struct {
 		name                 string
 		turnRestriction      turnRes
@@ -975,7 +977,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 	}{
 		{
 			name:                 "only_straight_on Jl. Cik di tiro -> Jl. Suroto https://www.openstreetmap.org/relation/19474168",
-			turnRestriction:      turnRes{resType: "only_straight_on", fromWay: 1001303581, viaNode: 1664585451, toWay: 1001305074},
+			turnRestriction:      turnRes{resType: "only_straight_on", fromWay: 1001303581, via: 1664585451, toWay: 1001305074},
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     false,
@@ -984,7 +986,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_left_turn https://www.openstreetmap.org/relation/5710500",
-			turnRestriction:      turnRes{resType: "no_left_turn", fromWay: 358464188, viaNode: 1664585451, toWay: 1001305074},
+			turnRestriction:      turnRes{resType: "no_left_turn", fromWay: 358464188, via: 1664585451, toWay: 1001305074},
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     true,
@@ -993,25 +995,17 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_left_turn https://www.openstreetmap.org/relation/5710501",
-			turnRestriction:      newResTurn("no_left_turn", 1347054637, 271845942, 131706287),
+			turnRestriction:      newResTurn("no_left_turn", 1347054637, 271845942, 131706287, false),
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     true,
 			wantAllowedContinue:  true,
 		},
-		{
 
-			name:                 "no_left_turn https://www.openstreetmap.org/relation/5710501 (duplicate)",
-			turnRestriction:      newResTurn("no_left_turn", 1347054637, 271845942, 131706287),
-			wantAllowedLeftTurn:  false,
-			wantAllowedRightTurn: true,
-			wantAllowedUTurn:     true,
-			wantAllowedContinue:  true,
-		},
 		{
 
 			name:                 "no_right_turn https://www.openstreetmap.org/relation/5710502",
-			turnRestriction:      newResTurn("no_right_turn", 1347054637, 271845942, 179907371),
+			turnRestriction:      newResTurn("no_right_turn", 1347054637, 271845942, 179907371, false),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     true,
@@ -1020,7 +1014,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_right_turn https://www.openstreetmap.org/relation/5710504",
-			turnRestriction:      newResTurn("no_right_turn", 179907368, 1903473346, 131706287),
+			turnRestriction:      newResTurn("no_right_turn", 179907368, 1903473346, 131706287, false),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     true,
@@ -1029,7 +1023,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_right_turn https://www.openstreetmap.org/relation/5710505",
-			turnRestriction:      newResTurn("no_right_turn", 131706287, 1903473346, 179907373),
+			turnRestriction:      newResTurn("no_right_turn", 131706287, 1903473346, 179907373, false),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     true,
@@ -1038,7 +1032,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/13427535",
-			turnRestriction:      newResTurn("no_u_turn", 153821715, 1001303583, 1001303581),
+			turnRestriction:      newResTurn("no_u_turn", 153821715, 1001303583, 1001303581, true), // ini via nya osm way
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1047,7 +1041,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/16312684",
-			turnRestriction:      newResTurn("no_u_turn", 385235940, 3885907857, 179907370),
+			turnRestriction:      newResTurn("no_u_turn", 385235940, 3885907857, 179907370, false), // ini via nya osm node
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1056,7 +1050,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/13632293",
-			turnRestriction:      newResTurn("no_u_turn", 1464214756, 385235941, 1018193254),
+			turnRestriction:      newResTurn("no_u_turn", 1464214756, 385235941, 1018193254, true),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1065,7 +1059,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_right_turn https://www.openstreetmap.org/relation/4522827",
-			turnRestriction:      newResTurn("no_right_turn", 561138356, 3309091961, 323932428),
+			turnRestriction:      newResTurn("no_right_turn", 561138356, 3309091961, 323932428, false),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     true,
@@ -1074,7 +1068,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_right_turn https://www.openstreetmap.org/relation/4537948",
-			turnRestriction:      newResTurn("no_right_turn", 323932428, 3309091961, 131706976),
+			turnRestriction:      newResTurn("no_right_turn", 323932428, 3309091961, 131706976, false),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     true,
@@ -1083,7 +1077,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/4763181",
-			turnRestriction:      newResTurn("no_u_turn", 561138356, 323932428, 323932427),
+			turnRestriction:      newResTurn("no_u_turn", 561138356, 323932428, 323932427, true),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1092,7 +1086,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_left_turn https://www.openstreetmap.org/relation/11616497",
-			turnRestriction:      newResTurn("no_left_turn", 957436016, 263358674, 118880320),
+			turnRestriction:      newResTurn("no_left_turn", 957436016, 263358674, 118880320, false),
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     true,
@@ -1101,7 +1095,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_left_turn https://www.openstreetmap.org/relation/6954969",
-			turnRestriction:      newResTurn("no_left_turn", 358306863, 1720272207, 159959995),
+			turnRestriction:      newResTurn("no_left_turn", 358306863, 1720272207, 159959995, false),
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     true,
@@ -1110,7 +1104,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_left_turn https://www.openstreetmap.org/relation/6954968",
-			turnRestriction:      newResTurn("no_left_turn", 701751480, 262855939, 358306864),
+			turnRestriction:      newResTurn("no_left_turn", 701751480, 262855939, 358306864, false),
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     true,
@@ -1119,7 +1113,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "only_right_turn https://www.openstreetmap.org/relation/19514925",
-			turnRestriction:      newResTurn("only_right_turn", 279514949, 2881132754, 43202088),
+			turnRestriction:      newResTurn("only_right_turn", 279514949, 2881132754, 43202088, false),
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1128,7 +1122,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "only_straight_on https://www.openstreetmap.org/relation/19516443",
-			turnRestriction:      newResTurn("only_straight_on", 814045726, 5625991672, 729792830),
+			turnRestriction:      newResTurn("only_straight_on", 814045726, 5625991672, 729792830, false),
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     false,
@@ -1137,7 +1131,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "only_left_turn https://www.openstreetmap.org/relation/19516441",
-			turnRestriction:      newResTurn("only_left_turn", 589139073, 5625991674, 1424495012),
+			turnRestriction:      newResTurn("only_left_turn", 589139073, 5625991674, 1424495012, false),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     false,
@@ -1146,7 +1140,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "only_right_turn https://www.openstreetmap.org/relation/16511713",
-			turnRestriction:      newResTurn("only_right_turn", 1471816327, 11261989595, 1216387248),
+			turnRestriction:      newResTurn("only_right_turn", 1471816327, 11261989595, 1216387248, false),
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1164,8 +1158,11 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 				return "no_right_turn", false
 			}
 		case da.TURN_LEFT, da.TURN_SHARP_LEFT, da.TURN_SLIGHT_LEFT:
+
 			if restrictionType == "only_straight_on" && turnSign == da.TURN_SLIGHT_LEFT && turnType == pkg.NONE {
 				return "", true
+			} else if restrictionType == "no_u_turn" && turnSign == da.TURN_SHARP_RIGHT && !wantAllowedUTurn && turnType != pkg.NO_ENTRY {
+				return "no_u_turn", false
 			}
 
 			if !wantAllowedLeftTurn && turnType != pkg.NO_ENTRY {
@@ -1175,6 +1172,11 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 			if !wantAllowedContinue && turnType != pkg.NO_ENTRY {
 				return "no_straight_on", false
 			}
+		case da.U_TURN_RIGHT:
+			if !wantAllowedUTurn && turnType != pkg.NO_ENTRY {
+				return "no_u_turn", false
+			}
+
 		// skip u_turn dulu karena via nya way (belum support)
 		default:
 			return "", true
@@ -1191,6 +1193,8 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 
 		case da.CONTINUE_ON_STREET:
 			return "continue"
+		case da.U_TURN_RIGHT:
+			return "u_turn_right"
 		}
 		return ""
 	}
@@ -1198,16 +1202,50 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			rest := tc.turnRestriction
-			graph.ForOutEdges(func(exitPoint, head, tail, entryId, fromEntryPoint da.Index, percentage float64, idx da.Index) {
-				fromEdgeWayId := graph.GetOsmWayId(idx)
+			graph.ForOutEdges(func(_, head, tail, entryId, fromEntryPoint da.Index, _ float64, fromEId da.Index) {
+				fromEdgeWayId := graph.GetOsmWayId(fromEId)
 				if rest.fromWay == fromEdgeWayId {
+
 					headOsmNodeId := graph.GetVertexOsmId(head)
-					if headOsmNodeId == uint64(rest.viaNode) {
+					if !tc.turnRestriction.isViaway {
+						if headOsmNodeId == uint64(rest.via) {
+							// traverse ke semua outedges of head
+							graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, _ float64, _, headToEntryPoint da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
+								toEdgeWayId := graph.GetOsmWayId(eIdTo)
+								if rest.toWay == toEdgeWayId {
+									// cek turnSign dari:
+									// tail -fromEdge-> head -toEdge-> headTo
+
+									tailCoord := graph.GetVertexCoordinate(tail)
+									headCoord := graph.GetVertexCoordinate(head)
+									headToCoord := graph.GetVertexCoordinate(headTo)
+
+									prevInitialBearing := geo.ComputeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(), headCoord.GetLat(),
+										headCoord.GetLon())
+									turnSign := geo.GetTurnDirection(headCoord.GetLat(), headCoord.GetLon(), headToCoord.GetLat(),
+										headToCoord.GetLon(), prevInitialBearing)
+
+									if reason, correct := isCorrect(turnSign, turnType, tc.wantAllowedLeftTurn, tc.wantAllowedRightTurn, tc.wantAllowedUTurn, tc.wantAllowedContinue, tc.turnRestriction.resType); !correct {
+										t.Errorf("want: %s, got: allowed %s", reason, turnSignToDesc(turnSign))
+									}
+								}
+							})
+						}
+					} else if tc.turnRestriction.isViaway {
+
+						// cek turn-restriction yang via-nya berupa osm way
+
+						// cek u-turn restriction..
+						// contoh: https://www.openstreetmap.org/relation/13427535#map=18/-7.781940/110.375137
+						// dia dari from-way -> via-way -> to-way...
+						// kita udah map ke from-edge -> via-edge -> to-edge di corresponding u-turn nya...
+						// T[e][t_i][h_j] = is turn type at entryPoint i ke tail dari edge e -> e -> exitPoint j dari head dari edge e.
+
 						// traverse ke semua outedges of head
-						// fromEntryPoint := entryId - graph.GetVertexFirstIn(head)
-						graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
-							toEdgeWayId := graph.GetOsmWayId(eIdTo)
-							if rest.toWay == toEdgeWayId {
+						prevTurnSign := da.UNKNOWN
+						graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, _ float64, _, headToEntryPoint da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
+							viaWayId := graph.GetOsmWayId(eIdTo)
+							if rest.via == viaWayId {
 								// cek turnSign dari:
 								// tail -fromEdge-> head -toEdge-> headTo
 
@@ -1220,15 +1258,61 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 								turnSign := geo.GetTurnDirection(headCoord.GetLat(), headCoord.GetLon(), headToCoord.GetLat(),
 									headToCoord.GetLon(), prevInitialBearing)
 
-								if reason, correct := isCorrect(turnSign, turnType, tc.wantAllowedLeftTurn, tc.wantAllowedRightTurn, tc.wantAllowedUTurn, tc.wantAllowedContinue, tc.turnRestriction.resType); !correct {
-									t.Errorf("want: %s, got: allowed %s", reason, turnSignToDesc(turnSign))
-								}
+								prevTurnSign = turnSign
+
+								graph.ForOutEdgesOf(headTo, headToEntryPoint, func(eIdTo2, headTo2 da.Index, _, _ float64, headTo2ExitPoint, _ da.Index, turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
+									// eidTo2 adlah to-edge di u-turn restriction....
+									// eIdTo adalah via-edge  di u-turn restriction....
+									// fromEId adalah from-edge
+									toWayId := graph.GetOsmWayId(eIdTo2)
+									if toWayId == tc.turnRestriction.toWay {
+										prevPoint := graph.GetVertexCoordinate(head)
+										tailCoord := graph.GetVertexCoordinate(headTo)
+										headPoint := graph.GetVertexCoordinate(headTo2)
+
+										prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tailCoord.GetLat(),
+											tailCoord.GetLon())
+										nextTurnSign := geo.GetTurnDirection(tailCoord.GetLat(), tailCoord.GetLon(), headPoint.GetLat(),
+											headPoint.GetLon(), prevInitialBearing)
+
+										uTurnSign := da.UNKNOWN
+
+										if isSameConsecutiveTurn(prevTurnSign, nextTurnSign) {
+											uTurnSign = da.U_TURN_RIGHT
+										}
+
+										viaWayTurnType := graph.GetTurnTypeViaWay(eIdTo, fromEntryPoint, headTo2ExitPoint)
+
+										if reason, correct := isCorrect(uTurnSign, viaWayTurnType, tc.wantAllowedLeftTurn, tc.wantAllowedRightTurn, tc.wantAllowedUTurn, tc.wantAllowedContinue, tc.turnRestriction.resType); tc.turnRestriction.isViaway &&
+											!correct {
+											t.Errorf("want: %s, got: allowed %s", reason, turnSignToDesc(uTurnSign))
+										}
+									}
+
+								})
 							}
+
 						})
+
 					}
+
 				}
 			})
 
 		})
 	}
 }
+
+// todo: incorporate u-turn restriction yang via nya osm way di routing algorithm (multilevel-dijkstra & multilevel-ALT (A*, landmarks, and triangle inequality))
+// contoh u-turn restriction yang via nya osm way: https://www.openstreetmap.org/relation/15268026,  https://www.openstreetmap.org/relation/13427535  ,  
+// 
+
+func isSameConsecutiveTurn(prevSign, sign da.TurnType) bool {
+	if (sign == da.TURN_SLIGHT_RIGHT || sign == da.TURN_RIGHT || sign == da.TURN_SHARP_RIGHT) ||
+		(prevSign == da.TURN_SLIGHT_RIGHT || prevSign == da.TURN_RIGHT || prevSign == da.TURN_SHARP_RIGHT) {
+		return true
+	}
+	return false
+}
+
+

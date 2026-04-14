@@ -247,6 +247,11 @@ type Graph struct {
 	inEdgeCellOffset  []Index        // offset of first inEdge for each cellNumber
 	turnTables        []pkg.TurnType // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 
+	// T[e][t_i][h_j] = is turn type  at entryPoint i ke tail dari edge e -> e -> exitPoint j dari head dari edge e.
+	// buat via yang tipenya osm way: https://wiki.openstreetmap.org/wiki/Relation:restriction .
+	// only support via-way yang cuma punya dua nodes
+	turnTablesViaWay [][][]pkg.TurnType
+
 	// strongly connected components
 	sccs               []Index   // verticeId -> sccId
 	sccCondensationAdj [][]Index // condensation graph connection of scc of u -> scc of v
@@ -263,6 +268,22 @@ func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnT
 
 func (g *Graph) NumberOfVertices() int {
 	return len(g.vertices) - 1
+}
+
+func (g *Graph) SetTurnTableViaway(turnTablesViaWay [][][]pkg.TurnType) {
+	g.turnTablesViaWay = turnTablesViaWay
+}
+
+func (g *Graph) GetTurnTableViaway() [][][]pkg.TurnType {
+	return g.turnTablesViaWay
+}
+
+func (g *Graph) SetTurnTableViaEdge(eId Index, turnTable [][]pkg.TurnType) {
+	g.turnTablesViaWay[eId] = turnTable
+}
+
+func (g *Graph) GetTurnTypeViaWay(eId Index, tailEntryPoint, headExitPoint Index) pkg.TurnType {
+	return g.turnTablesViaWay[eId][tailEntryPoint][headExitPoint]
 }
 
 func (g *Graph) NumberOfEdges() int {
@@ -286,6 +307,10 @@ func (g *Graph) GetVertexOsmId(vId Index) uint64 {
 
 func (g *Graph) SetVertexOsmIds(verticesOsmIds *PackedSlice) {
 	g.verticesOsmIds = verticesOsmIds
+}
+
+func (g *Graph) SetNewTurnTables(turnTables []pkg.TurnType) {
+	g.turnTables = turnTables
 }
 
 func (g *Graph) GetOutDegree(u Index) Index {
@@ -859,6 +884,15 @@ func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(head, exitPoint Index, 
 			continue
 		}
 		handle(g.outEdges[e].head, g.GetExitOrder(u, e), g.outEdges[e].weight)
+	}
+}
+
+func (g *Graph) ForInEdgesOfVertex(u Index, handle func(tail, entryPoint Index, weight float64)) {
+	for e := g.vertices[u].firstIn; e < g.vertices[u+1].firstIn; e++ {
+		if g.IsDummyOutEdge(e) {
+			continue
+		}
+		handle(g.inEdges[e].tail, g.GetEntryOrder(u, e), g.inEdges[e].weight)
 	}
 }
 

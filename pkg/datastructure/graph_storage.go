@@ -238,3 +238,7 @@ func (gs *GraphStorage) BuildNameTable(idToStr map[uint32]string) {
 func (gs *GraphStorage) GetStr(id uint32) string {
 	return gs.nameTable[id]
 }
+
+func (gs *GraphStorage) GetOsmWayId(edgeId Index) uint64 {
+	return gs.edgeOsmWayId.Get(uint64(edgeId))
+}

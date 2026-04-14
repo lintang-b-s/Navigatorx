@@ -117,9 +117,9 @@ func (p *Preprocessor) SortByCellNumber() {
 		iEdges[i] = make([]da.InEdge, p.graph.GetInDegree(i))
 
 		k := da.Index(0)
-		e := p.graph.GetVertexFirstOut(i)
-		for e < p.graph.GetVertexFirstOut(i+1) {
-			oEdge := p.graph.GetOutEdge(e)
+		eOut := p.graph.GetVertexFirstOut(i)
+		for eOut < p.graph.GetVertexFirstOut(i+1) {
+			oEdge := p.graph.GetOutEdge(eOut)
 			newOEdge := da.NewOutEdge(
 				oEdge.GetEdgeId(),
 				oEdge.GetHead(),
@@ -130,14 +130,14 @@ func (p *Preprocessor) SortByCellNumber() {
 			)
 
 			oEdges[i][k] = newOEdge
-			e++
+			eOut++
 			k++
 		}
 
 		k = da.Index(0)
-		e = p.graph.GetVertexFirstIn(i)
-		for e < p.graph.GetVertexFirstIn(i+1) {
-			inEdge := p.graph.GetInEdge(e)
+		eIn := p.graph.GetVertexFirstIn(i)
+		for eIn < p.graph.GetVertexFirstIn(i+1) {
+			inEdge := p.graph.GetInEdge(eIn)
 			newInEdge := da.NewInEdge(
 				inEdge.GetEdgeId(),
 				inEdge.GetTail(),
@@ -147,7 +147,7 @@ func (p *Preprocessor) SortByCellNumber() {
 				inEdge.GetHighwayType(),
 			)
 			iEdges[i][k] = newInEdge
-			e++
+			eIn++
 			k++
 		}
 
@@ -212,8 +212,14 @@ func (p *Preprocessor) SortByCellNumber() {
 	vId := da.Index(0)
 	isRoadNetworkGraph := p.graph.IsRoadNetworkGraph()
 
+	oldTurnTableViaWay := p.graph.GetTurnTableViaway()
+	oldTurnTableViaWayCopy := make([][][]pkg.TurnType, len(oldTurnTableViaWay))
+	copy(oldTurnTableViaWayCopy, oldTurnTableViaWay)
+
 	lastVertex := p.graph.GetVertex(da.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
 	newVertices := make([]da.Vertex, p.graph.GetNumberOfVerticesWithDummyVertex())
+
+	newVIdToOldVId := make([]da.Index, p.graph.NumberOfVertices())
 	for i := da.Index(0); i < da.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
 		p.graph.SetOutEdgeCellOffset(i, newOutEdgeId)
 		p.graph.SetInEdgeCellOffset(i, newInEdgeId)
@@ -223,6 +229,8 @@ func (p *Preprocessor) SortByCellNumber() {
 			// in the end of the outer loop, graph vertices are sorted by cell number
 
 			newVertices[vId] = cellVertices[i][v].vertex
+
+			newVIdToOldVId[vId] = cellVertices[i][v].originalIndex
 
 			vOldId := cellVertices[i][v].originalIndex
 			newVertices[vId].SetFirstOut(newOutEdgeId)
@@ -251,6 +259,9 @@ func (p *Preprocessor) SortByCellNumber() {
 				)
 
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
+
+				oldTurnTableVia := oldTurnTableViaWayCopy[oldOutEdge.GetEdgeId()]
+				p.graph.SetTurnTableViaEdge(newOutEdgeId, oldTurnTableVia)
 
 				// update edge metadata
 				vExitPoint := p.graph.GetExitOrder(vOldId, oldOutEdge.GetEdgeId())
@@ -325,6 +336,7 @@ func (p *Preprocessor) SortByCellNumber() {
 	p.graph.SetNewEdgeMetadatas(newOsmWayIds, newEdgeStartPointsIndex, newEdgeEndPointsIndex,
 		newStreetNameIds, newRoadClass, newRoadClassLink, newLanes)
 	p.graph.SetVertexOsmIds(newVerticesOsmIds)
+
 }
 
 func (p *Preprocessor) GetOldToNewVIdMap() []da.Index {

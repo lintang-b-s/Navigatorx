@@ -333,13 +333,17 @@ func init() {
 	util.InitConfig()
 }
 
-func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
+func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if !turnCost {
+		pkg.OffTurnCost()
 	}
 
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
@@ -450,7 +454,7 @@ karena bakal time out kalau pakai vscode
 */
 
 func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
-	re, _ := setup(t)
+	re, _ := setup(t, false)
 	g := re.GetRoutingEngine().GetGraph()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -477,8 +481,6 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		i++
 	}
 	numberOfVertices := g.NumberOfVertices()
-
-	pkg.WITH_TURN_COSTS = false
 
 	expectedSPTravelTimes := make([][]float64, n)
 
@@ -602,7 +604,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 }
 
 func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
-	re, _ := setup(t)
+	re, _ := setup(t, true)
 	g := re.GetRoutingEngine().GetGraph()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))

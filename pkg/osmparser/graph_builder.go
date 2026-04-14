@@ -29,6 +29,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 	vertexOsmIds := make([]uint64, numV)
 
+	// O(E)
 	for eId, e := range scannedEdges {
 		u := da.Index(e.from)
 		v := da.Index(e.to)
@@ -60,6 +61,9 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		vertexOsmIds[v] = vOsmId
 	}
 
+	numberOfEdges := len(scannedEdges)
+
+	// O(V)
 	for v := 0; v < len(vertices)-1; v++ {
 		// we need to do this because Customizable Route Planning (with turn costs) query assume all vertex have at least one outEdge (at for target as source)
 		if !roadNetwork || (roadNetwork && (outDegree[v] == 0 || inDegree[v] == 0)) {
@@ -82,11 +86,13 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				uint8(0),
 			)
 
+			numberOfEdges++
 		}
 	}
 
+	// T[u][i*outDegree[u]+j] = turn type from entryPoint i (inEdge ke-i dari vertex u) to exitPoint j  (outEdge ke-j dari vertex u)  at vertex u.
+	// buat via yang tipe nya osm node: https://wiki.openstreetmap.org/wiki/Relation:restriction .
 	turnMatrices := make([][]pkg.TurnType, len(vertices)-1)
-	// T_u[i*outDegree[u]+j] = turn type from inEdge i to outEdge j at vertex u
 
 	// init turn matrices
 	for via := 0; via < len(turnMatrices); via++ {
@@ -98,12 +104,12 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 		// tambahin turn type buat turn left/ turn right
 
-		for entryId := 0; entryId < len(inEdges[via]); entryId++ {
-			inEdge := inEdges[via][entryId]
-			rowOffset := entryId * outDegree[via]
+		for entryPoint := 0; entryPoint < len(inEdges[via]); entryPoint++ {
+			inEdge := inEdges[via][entryPoint]
+			rowOffset := entryPoint * outDegree[via]
 
-			for exitId := 0; exitId < len(outEdges[via]); exitId++ {
-				outEdge := outEdges[via][exitId]
+			for exitPoint := 0; exitPoint < len(outEdges[via]); exitPoint++ {
+				outEdge := outEdges[via][exitPoint]
 
 				prevPoint := vertices[inEdge.GetTail()].GetCoordinate()
 				tail := vertices[via].GetCoordinate()
@@ -114,16 +120,17 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
 					headPoint.GetLon(), prevInitialBearing)
 				if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT {
-					turnMatrices[via][rowOffset+exitId] = pkg.LEFT_TURN
+					turnMatrices[via][rowOffset+exitPoint] = pkg.LEFT_TURN
 				} else if turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
-					turnMatrices[via][rowOffset+exitId] = pkg.RIGHT_TURN
+					turnMatrices[via][rowOffset+exitPoint] = pkg.RIGHT_TURN
 				}
 			}
 		}
-
 	}
 
-	for wayID, way := range p.ways {
+	// let m=number of ways , q = max number of nodes of any osm ways, r = max number of restrictions of any osm ways
+	// O(m*r*q^2)
+	for wayId, way := range p.ways {
 
 		/*
 			misal osm way (twoway):
@@ -142,162 +149,135 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				u4->u3->u4
 		*/
 		if !way.oneWay {
+			// ada yang salah....
+			// for i, via := range way.graphNodes {
 
-			for i, via := range way.graphNodes {
+			// 	if len(way.graphNodes) <= 1 {
+			// 		continue
+			// 	}
 
-				if len(way.graphNodes) <= 1 {
-					continue
-				}
+			// 	if i == 0 {
+			// 		// store u_turn restrictions
+			// 		// dont allow u_turn at (to, via)->(via, to)
+			// 		to := way.graphNodes[1]
+			// 		if to == via {
+			// 			continue
+			// 		}
 
-				if i == 0 {
-					// store u_turn restrictions
-					// dont allow u_turn at (to, via)->(via, to)
-					to := way.graphNodes[1]
-					if to == via {
-						continue
-					}
+			// 		entryPoint := -1
+			// 		exitPoint := -1
+			// 		for k := 0; k < len(outEdges[via]); k++ {
+			// 			if outEdges[via][k].GetHead() == to {
+			// 				exitPoint = k
+			// 				break
+			// 			}
+			// 		}
 
-					entryId := -1
-					exitId := -1
-					for k := 0; k < len(outEdges[via]); k++ {
-						if outEdges[via][k].GetHead() == to {
-							exitId = k
-							break
-						}
-					}
+			// 		for k := 0; k < len(inEdges[via]); k++ {
+			// 			if inEdges[via][k].GetTail() == to {
+			// 				entryPoint = k
+			// 				break
+			// 			}
+			// 		}
 
-					for k := 0; k < len(inEdges[via]); k++ {
-						if inEdges[via][k].GetTail() == to {
-							entryId = k
-							break
-						}
-					}
+			// 		if entryPoint == -1 || exitPoint == -1 {
+			// 			continue
+			// 		}
 
-					if entryId == -1 || exitId == -1 {
-						continue
-					}
+			// 		turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
+			// 	} else if i < len(way.graphNodes)-1 {
 
-					turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
-				} else if i < len(way.graphNodes)-1 {
+			// 		// backward
+			// 		to := way.graphNodes[i-1]
+			// 		if to == via {
+			// 			continue
+			// 		}
 
-					// backward
-					to := way.graphNodes[i-1]
-					if to == via {
-						continue
-					}
+			// 		entryPoint := -1
+			// 		exitPoint := -1
+			// 		for k := 0; k < len(outEdges[via]); k++ {
+			// 			if outEdges[via][k].GetHead() == to {
+			// 				exitPoint = k
+			// 				break
+			// 			}
+			// 		}
 
-					entryId := -1
-					exitId := -1
-					for k := 0; k < len(outEdges[via]); k++ {
-						if outEdges[via][k].GetHead() == to {
-							exitId = k
-							break
-						}
-					}
+			// 		for k := 0; k < len(inEdges[via]); k++ {
+			// 			if inEdges[via][k].GetTail() == to {
+			// 				entryPoint = k
+			// 				break
+			// 			}
+			// 		}
 
-					for k := 0; k < len(inEdges[via]); k++ {
-						if inEdges[via][k].GetTail() == to {
-							entryId = k
-							break
-						}
-					}
+			// 		if entryPoint != -1 && exitPoint != -1 {
+			// 			turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
+			// 		}
 
-					if entryId != -1 && exitId != -1 {
-						turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
-					}
+			// 		// forward
+			// 		to = way.graphNodes[i+1]
+			// 		if to == via {
+			// 			continue
+			// 		}
 
-					// forward
-					to = way.graphNodes[i+1]
-					if to == via {
-						continue
-					}
+			// 		entryPoint = -1
+			// 		exitPoint = -1
+			// 		for k := 0; k < len(outEdges[via]); k++ {
+			// 			if outEdges[via][k].GetHead() == to {
+			// 				exitPoint = k
+			// 				break
+			// 			}
+			// 		}
 
-					entryId = -1
-					exitId = -1
-					for k := 0; k < len(outEdges[via]); k++ {
-						if outEdges[via][k].GetHead() == to {
-							exitId = k
-							break
-						}
-					}
+			// 		for k := 0; k < len(inEdges[via]); k++ {
+			// 			if inEdges[via][k].GetTail() == to {
+			// 				entryPoint = k
+			// 				break
+			// 			}
+			// 		}
 
-					for k := 0; k < len(inEdges[via]); k++ {
-						if inEdges[via][k].GetTail() == to {
-							entryId = k
-							break
-						}
-					}
+			// 		if entryPoint != -1 && exitPoint != -1 {
+			// 			turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
+			// 		}
+			// 	} else {
+			// 		// last node in way.graphNodes
+			// 		to := way.graphNodes[i-1]
 
-					if entryId != -1 && exitId != -1 {
-						turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
-					}
-				} else {
-					// last node in way.graphNodes
-					to := way.graphNodes[i-1]
+			// 		if to == via {
+			// 			continue
+			// 		}
 
-					if to == via {
-						continue
-					}
+			// 		entryPoint := -1
+			// 		exitPoint := -1
+			// 		for k := 0; k < len(outEdges[via]); k++ {
+			// 			if outEdges[via][k].GetHead() == to {
+			// 				exitPoint = k
+			// 				break
+			// 			}
+			// 		}
 
-					entryId := -1
-					exitId := -1
-					for k := 0; k < len(outEdges[via]); k++ {
-						if outEdges[via][k].GetHead() == to {
-							exitId = k
-							break
-						}
-					}
+			// 		for k := 0; k < len(inEdges[via]); k++ {
+			// 			if inEdges[via][k].GetTail() == to {
+			// 				entryPoint = k
+			// 				break
+			// 			}
+			// 		}
 
-					for k := 0; k < len(inEdges[via]); k++ {
-						if inEdges[via][k].GetTail() == to {
-							entryId = k
-							break
-						}
-					}
+			// 		if entryPoint == -1 || exitPoint == -1 {
+			// 			continue
+			// 		}
 
-					if entryId == -1 || exitId == -1 {
-						continue
-					}
-
-					turnMatrices[via][entryId*int(outDegree[via])+exitId] = pkg.U_TURN
-				}
-			}
+			// 		turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
+			// 	}
+			// }
 		}
 
 		// store turn restrictions https://wiki.openstreetmap.org/wiki/Relation:restriction
-		/*
-				turn restriction berbentuk: {from-way, via-node, to-way}
-				di kode ini:
-				wayId/way: from-way
-				restriction.to: to-way
 
-				via-node berada di nodes nya from-way
-
-				contoh: https://www.openstreetmap.org/relation/19474168#map=19/-7.782550/110.375438
-				https://www.openstreetmap.org/api/0.6/relation/19474168
-				https://www.openstreetmap.org/relation/5710500
-
-			jadi kita pertama harus cari way.graphNodes yang jadi via-node
-
-			note that from-way ke to-way bisa terhubung karena ada via-node yang jadi node di kedua way
-			misal:
-			u1 -> u2->via -> w1 ->w2
-			from-way      to-way
-			nah via ini jadi node di from-way.graphNodes dan to-way.graphNodes
-
-			langkah kedua kita harus cari to-way.graphNodes yang == restriction.via
-
-			kita store turnTables as:
-			key (entryId, viaNode, exitId) -> tipe dari turn restrictionnya
-			entryId adalah inEdge yang headnya ke viaNode
-			exitId adalah outEdge yang tailnya dari viaNode
-
-		*/
 		fromNodes := way.graphNodes
-		fromRestrictions := p.restrictions[wayID]
+		fromRestrictions := p.restrictions[wayId]
 		for _, restriction := range fromRestrictions {
 
-			if wayID == int64(restriction.to) { // ignore restrictions from wayId == restriction.to
+			if wayId == int64(restriction.to) { // ignore restrictions from wayId == restriction.to
 				continue
 			}
 
@@ -306,172 +286,211 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				continue
 			}
 
-			for i := 0; i < len(fromNodes); i++ {
-				if fromNodes[i] == restriction.via {
-					if i == 0 && way.oneWay {
-						// no predecessor
-						continue
-					}
+			if !restriction.isWay {
+				/*
+						turn restriction berbentuk: {from-way, via-node, to-way}
+						di kode ini:
+						wayId/way: from-way
+						restriction.to: to-way
 
-					var predecessor da.Index // predecessor dari via nya turn restriction
-					if i == 0 {
-						predecessor = fromNodes[i+1]
-					} else {
-						predecessor = fromNodes[i-1]
-					}
+						via-node berada di nodes nya from-way
 
-					if predecessor == restriction.via {
-						continue
-					}
+						contoh: https://www.openstreetmap.org/relation/19474168#map=19/-7.782550/110.375438
+						https://www.openstreetmap.org/api/0.6/relation/19474168
+						https://www.openstreetmap.org/relation/5710500
 
-					successor := da.Index(math.MaxUint32) // successor dari via nya turn restriction
-					toNodes := p.ways[int64(restriction.to)].graphNodes
-					for j := 0; j < len(toNodes); j++ {
-						if toNodes[j] == restriction.via {
-							if j == len(toNodes)-1 {
-								successor = toNodes[j-1]
-							} else {
-								successor = toNodes[j+1]
-							}
-							break
+					jadi kita pertama harus cari way.graphNodes yang jadi via-node
+
+					note that from-way ke to-way bisa terhubung karena ada via-node yang jadi node di kedua way
+					misal:
+					u1 -> u2->via -> w1 ->w2
+					from-way      to-way
+					nah via ini jadi node di from-way.graphNodes dan to-way.graphNodes
+
+					langkah kedua kita harus cari to-way.graphNodes yang == restriction.via
+
+					kita store turnTable as:
+					key (entryPoint, viaNode, exitPoint) -> tipe dari turn restrictionnya
+					entryPoint adalah inEdge yang headnya ke viaNode
+					exitPoint adalah outEdge yang tailnya dari viaNode
+
+				*/
+
+				for i := 0; i < len(fromNodes); i++ {
+					if fromNodes[i] == restriction.via {
+						if i == 0 && way.oneWay {
+							// no predecessor
+							continue
 						}
-					}
 
-					if successor != da.Index(math.MaxUint32) && successor != restriction.via {
+						var predecessor da.Index // predecessor dari via nya turn restriction
+						if i == 0 {
+							// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+							// kalau via node dari turn restriction di first node dari from-way..
+							// berarti predecessor nya ada di next node (i+1).. ke arah forward..
+							// from-way nodes: via<->u2<->u3<->-.....<->un
 
-						// (from, via, to) nodes dari turn restriction
-						from := da.Index(predecessor)
-						via := da.Index(restriction.via)
-						to := da.Index(successor)
+							predecessor = fromNodes[i+1]
+						} else {
+							predecessor = fromNodes[i-1]
+						}
 
-						entryID := da.Index(math.MaxUint32)
-						exitID := da.Index(math.MaxUint32)
+						if predecessor == restriction.via {
+							continue
+						}
 
-						inEdge := da.InEdge{}
-						for k := 0; k < len(inEdges[via]); k++ {
-							if inEdges[via][k].GetTail() == from {
-								entryID = da.Index(k)
-								inEdge = inEdges[via][k]
+						successor := da.Index(math.MaxUint32) // successor dari via nya turn restriction
+						toNodes := p.ways[int64(restriction.to)].graphNodes
+						for j := 0; j < len(toNodes); j++ {
+							if toNodes[j] == restriction.via {
+								if j == len(toNodes)-1 {
+									// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+									// kalau via node dari turn restriction di last node dari to-way..
+									// berarti predecessor nya ada di next node (i-1).. ke arah backward
+									// to-way nodes: u1<->u2<->u3<->-.....<->via
+
+									successor = toNodes[j-1]
+								} else {
+									successor = toNodes[j+1]
+								}
 								break
 							}
 						}
 
-						if entryID == da.Index(math.MaxUint32) {
-							continue
-						}
+						if successor != da.Index(math.MaxUint32) && successor != restriction.via {
 
-						rowOffset := entryID * da.Index(outDegree[via])
-						for k := 0; k < len(outEdges[via]); k++ {
-							outEdge := outEdges[via][k]
-							if outEdge.GetHead() == to {
-								exitID = da.Index(k)
+							// (from, via, to) nodes dari turn restriction
+							via := da.Index(restriction.via)
+
+							entryPoint := da.Index(math.MaxUint32)
+							exitPoint := da.Index(math.MaxUint32)
+
+							inEdge := da.InEdge{}
+							for k := 0; k < len(inEdges[via]); k++ {
+								if inEdges[via][k].GetTail() == predecessor {
+									entryPoint = da.Index(k)
+									inEdge = inEdges[via][k]
+									break
+								}
 							}
 
-							prevPoint := vertices[inEdge.GetTail()].GetCoordinate()
-							tail := vertices[via].GetCoordinate()
-							headPoint := vertices[outEdge.GetHead()].GetCoordinate()
+							if entryPoint == da.Index(math.MaxUint32) {
+								continue
+							}
 
-							if restriction.turnRestriction == ONLY_LEFT_TURN {
-								/*
-										. = restriction.via node
-
-									--------.--------- restriction.to way (two-way)
-											|
-											|
-											|
-											|
-											|
-											restriction.from  way
-
-										misal ONLY_LEFT_TURN:
-										berarti kita harus dissalow semua turn right...
-										cara taunya cuma bisa dari relative bearing dari restriction.from ke restriction.to....
-
-								*/
-
-								prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
-									tail.GetLon())
-								turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
-									headPoint.GetLon(), prevInitialBearing)
-								if turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT || turn == da.CONTINUE_ON_STREET {
-									// dissallow semua turn right...
-									// https://www.openstreetmap.org/relation/19516441#map=18/-7.774471/110.380569
-									// https://www.openstreetmap.org/relation/19514924
-									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+							rowOffset := entryPoint * da.Index(outDegree[via])
+							for k := 0; k < len(outEdges[via]); k++ {
+								outEdge := outEdges[via][k]
+								if outEdge.GetHead() == successor {
+									exitPoint = da.Index(k)
 								}
 
-							} else if restriction.turnRestriction == ONLY_RIGHT_TURN {
+								prevPoint := vertices[inEdge.GetTail()].GetCoordinate()
+								tail := vertices[via].GetCoordinate()
+								headPoint := vertices[outEdge.GetHead()].GetCoordinate()
 
-								prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
-									tail.GetLon())
-								turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
-									headPoint.GetLon(), prevInitialBearing)
-								if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT || turn == da.CONTINUE_ON_STREET {
-									// dissallow semua turn left...
-									// https://www.openstreetmap.org/relation/19514925
-									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+								if restriction.turnRestriction == ONLY_LEFT_TURN {
+									/*
+											. = restriction.via node
+
+										--------.--------- restriction.to way (two-way)
+												|
+												|
+												|
+												|
+												|
+												restriction.from  way
+
+											misal ONLY_LEFT_TURN:
+											berarti kita harus dissalow semua turn right...
+											cara taunya cuma bisa dari relative bearing dari restriction.from ke restriction.to....
+
+									*/
+
+									prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
+										tail.GetLon())
+									turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
+										headPoint.GetLon(), prevInitialBearing)
+									if turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT || turn == da.CONTINUE_ON_STREET {
+										// dissallow semua turn right...
+										// https://www.openstreetmap.org/relation/19516441#map=18/-7.774471/110.380569
+										// https://www.openstreetmap.org/relation/19514924
+										turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+									}
+
+								} else if restriction.turnRestriction == ONLY_RIGHT_TURN {
+
+									prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
+										tail.GetLon())
+									turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
+										headPoint.GetLon(), prevInitialBearing)
+									if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT || turn == da.CONTINUE_ON_STREET {
+										// dissallow semua turn left...
+										// https://www.openstreetmap.org/relation/19514925
+										turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+									}
+
+								} else if restriction.turnRestriction == ONLY_STRAIGHT_ON {
+									prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
+										tail.GetLon())
+									turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
+										headPoint.GetLon(), prevInitialBearing)
+									if turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT ||
+										turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
+										// contoh2: openstreetmap.org/relation/19516443 , (only_straight_on) ini kedetect nya TURN_SLIGHT_LEFT buat ke arah UNY...
+										// padahal continue ..
+										// how to fix?? gak usah include TURN_SLIGHT_LEFT buat NO_ENTRY nya only_straight_on
+										// tapi yang lebih serem kalau ada case only_straight_on tapi ada belokan slight_left/slight_right yang diallow sama kode ini....
+										// udah debugging and test pakai file osm yang include solo,diy,semarang,salatiga gak ada kasus gini sih
+
+										// dissallow semua turn right dan turn left...
+										// contoh: http://openstreetmap.org/relation/19474168
+										turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+									}
+
 								}
+							}
 
-							} else if restriction.turnRestriction == ONLY_STRAIGHT_ON {
-								prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
-									tail.GetLon())
-								turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
-									headPoint.GetLon(), prevInitialBearing)
-								if turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT ||
-									turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
-									// contoh2: openstreetmap.org/relation/19516443 , (only_straight_on) ini kedetect nya TURN_SLIGHT_LEFT buat ke arah UNY...
-									// padahal continue ..
-									// how to fix?? gak usah include TURN_SLIGHT_LEFT buat NO_ENTRY nya only_straight_on
-									// tapi yang lebih serem kalau ada case only_straight_on tapi ada belokan slight_left/slight_right yang diallow sama kode ini....
-									// udah debugging and test pakai file osm yang include solo,diy,semarang,salatiga gak ada kasus gini sih
+							if exitPoint == da.Index(math.MaxUint32) {
+								continue
+							}
 
-									// dissallow semua turn right dan turn left...
-									// contoh: http://openstreetmap.org/relation/19474168
-									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
-								}
+							if rowOffset+exitPoint >= da.Index(len(turnMatrices[via])) {
+								continue
+							}
+
+							switch restriction.turnRestriction {
+							case NO_LEFT_TURN:
+								turnMatrices[via][rowOffset+exitPoint] = pkg.NO_ENTRY
+
+							case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
+								turnMatrices[via][rowOffset+exitPoint] = pkg.NO_ENTRY
+
+							case NO_STRAIGHT_ON:
+								turnMatrices[via][rowOffset+exitPoint] = pkg.NO_ENTRY
+
+							case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
+								turnMatrices[via][rowOffset+exitPoint] = pkg.NO_ENTRY
+
+							case NO_ENTRY:
+								turnMatrices[via][rowOffset+exitPoint] = pkg.NO_ENTRY
+
+							case ONLY_LEFT_TURN:
+								turnMatrices[via][rowOffset+exitPoint] = pkg.LEFT_TURN
+
+							case ONLY_RIGHT_TURN:
+								turnMatrices[via][rowOffset+exitPoint] = pkg.RIGHT_TURN
+
+							case ONLY_STRAIGHT_ON: // udah kita dissalow semua right & left turn di loc diatas
+								turnMatrices[via][rowOffset+exitPoint] = pkg.NONE
+
+							default:
+								turnMatrices[via][rowOffset+exitPoint] = pkg.NONE
 
 							}
 						}
-
-						if exitID == da.Index(math.MaxUint32) {
-							continue
-						}
-
-						if rowOffset+exitID >= da.Index(len(turnMatrices[via])) {
-							continue
-						}
-
-						switch restriction.turnRestriction {
-						case NO_LEFT_TURN:
-							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-
-						case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
-							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-
-						case NO_STRAIGHT_ON:
-							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-
-						case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
-							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-
-						case NO_ENTRY:
-							turnMatrices[via][rowOffset+exitID] = pkg.NO_ENTRY
-
-						case ONLY_LEFT_TURN:
-							turnMatrices[via][rowOffset+exitID] = pkg.LEFT_TURN
-
-						case ONLY_RIGHT_TURN:
-							turnMatrices[via][rowOffset+exitID] = pkg.RIGHT_TURN
-
-						case ONLY_STRAIGHT_ON: // udah kita dissalow semua right & left turn di loc diatas
-							turnMatrices[via][rowOffset+exitID] = pkg.NONE
-
-						default:
-							turnMatrices[via][rowOffset+exitID] = pkg.NONE
-
-						}
+						break
 					}
-					break
 				}
 			}
 		}
@@ -525,6 +544,235 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	}
 
 	graph := da.NewGraph(vertices, flattenOutEdges, flattenInEdges, matrices, roadNetwork, verticesOsmIdsPs)
+	graphStorage.BuildNameTable(p.tagStringIdMap.GetIdToStr())
+	graph.SetGraphStorage(graphStorage)
+
+	// T[e][t_i][h_j] = is turn type  at entryPoint i ke tail dari edge e -> e -> exitPoint j dari head dari edge e.
+	// buat via yang tipenya osm way: https://wiki.openstreetmap.org/wiki/Relation:restriction .
+	// only support via-way yang cuma punya dua nodes
+	turnMatricesViaway := make([][][]pkg.TurnType, numberOfEdges)
+
+	// initialize turnMatricesViaway
+	graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, idx da.Index) {
+		turnMatricesViaway[idx] = make([][]pkg.TurnType, graph.GetInDegree(tail))
+
+		for i := 0; i < int(graph.GetInDegree(tail)); i++ {
+			turnMatricesViaway[idx][i] = make([]pkg.TurnType, graph.GetOutDegree(head))
+
+			for j := 0; j < int(graph.GetOutDegree(head)); j++ {
+				turnMatricesViaway[idx][i][j] = pkg.NONE
+			}
+		}
+	})
+
+	for wayId, way := range p.ways {
+
+		fromRestrictions := p.restrictions[wayId]
+		for _, restriction := range fromRestrictions {
+			if restriction.isWay {
+				/*
+					turn restriction berbentuk: {from-way, via-way, to-way}
+					di kode ini:
+					wayId/way: from-way
+					restriction.to: to-way
+					restriction.viaWay: via-way
+
+
+					contoh: https://www.openstreetmap.org/relation/15268026
+					saat ini kita cuma support viaway yang cuma punya 2 nodes (biasanya yang tipe restriction nya u-turn kaya contoh diatas).
+
+					masalahnya:
+					Turn Table nya Customizable Route Planning (CRP): https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+					cuma suppport turn cost dari entryPoint i dari vertex u ke exitPoint j, atau
+					T[u][i,j] = turn cost dari via vertex u dari entryPoint i (inEdge yang head nya u) ke exitPoint j (outEdge yang tailnya u).
+
+					kalau dari contoh diatas, misal kita add NO_ENTRY dari https://www.openstreetmap.org/way/1131069658 ke https://www.openstreetmap.org/way/1131069655 ..
+					nanti dari jalan Subali Raya ke https://www.openstreetmap.org/way/1131069655 juga not allowed, padahal harusnya yang u-turn dari jalan siliwangi ke timur ke jalan siliwangi ke barat yang gaboleh...
+
+
+					contoh route gmaps dari contoh diatas:
+					dari subali raya: https://www.google.com/maps/dir/-6.9873908,110.3664021/-6.9881226,110.3659578/@-6.9878269,110.3658884,19.47z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+					dari jl. siliwangi ke arah timur: https://www.google.com/maps/dir/-6.9876072,110.3661405/-6.9881226,110.3659578/@-6.9878269,110.3658884,19z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+					contoh2: https://www.openstreetmap.org/relation/12570723#map=19/-7.729927/110.547100
+					gmaps boleh u-turn: https://www.google.com/maps/dir/1st+State+Vocational+High+School,+Jogonalan,+Jl.+Raya+Solo+-+Yogyakarta+Jl.+Raya+Jogjakarta+Solo+No.313,+Tegalmas,+Prawatan,+Jogonalan,+Klaten+Regency,+Central+Java+57452/-7.7296566,110.5468658/@-7.7298901,110.5466694,19.54z/data=!4m9!4m8!1m5!1m1!1s0x2e7a41027753afb7:0x93394c25131d12eb!2m2!1d110.547994!2d-7.729615!1m0!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+					contoh3: https://www.openstreetmap.org/relation/12845704#map=18/-7.702438/110.350628
+					gmaps gaboleh u-turn di sini: https://www.google.com/maps/dir/-7.7035756,110.3503142/-7.7037607,110.3501331/@-7.7039124,110.3500935,19.14z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+					idk mungkin solusi sementara kita bikin U-turn Table:
+					T[e_u][e_i, e_j] = NO_ENTRY : gaboleh u-turn dari edge e_i -> e_u -> e_j...
+					bisa pakai array 3 dimensi... T[e_u][e_i][e_j] tapi size nya kegedean kalau banyak graph edges nya....
+					jangan pakai hashmap karena probingnya bikin routing lemot...
+
+					solusi:
+					T[e_u][t_i, h_j] = NO_ENTRY: gaboleh u-turn dari entryPoint i dari tail nya e_u -> e_u -> exitPoint j dari headnya e_u... (kita cuma support restrictions yang via way yang cuma punya 2 nodes)..
+					bisa pakai array 3 dimensi lagi tapi size dari dim 2 adlh jumlah entryPoint dari tailnya e_u dan size dari dim 3 adlh jumlah exitPoint dari headnya e_u....
+
+
+					pertama kita harus cari node (tail) dari via-way yang jadi JUNCTION dengan from-way
+					kedua kita cari node (head) dari via-way yang jadi JUNCTION dengan to-way
+
+					tinggal append ke uTurn table nya
+				*/
+
+				viaWay := restriction.viaWay
+				viaWayNodes := p.ways[viaWay].graphNodes
+
+				viaWayNodesSet := make(map[da.Index]struct{}, len(viaWayNodes))
+				for i := 0; i < len(viaWayNodes); i++ {
+					viaWayNodesSet[viaWayNodes[i]] = struct{}{}
+				}
+
+				fromNodes := way.graphNodes
+				toNodes := p.ways[restriction.to].graphNodes
+
+				tail := da.Index(math.MaxUint32)
+				head := da.Index(math.MaxUint32)
+
+				for i := 0; i < len(fromNodes); i++ {
+					if _, ok := viaWayNodesSet[fromNodes[i]]; ok {
+						tail = fromNodes[i]
+						break
+					}
+				}
+
+				for i := 0; i < len(toNodes); i++ {
+					if _, ok := viaWayNodesSet[toNodes[i]]; ok {
+						head = toNodes[i]
+						break
+					}
+				}
+
+				viaWayEdgeId := da.Index(math.MaxUint32)
+
+				tailExitPoint := 0
+
+				graph.ForOutEdgeIdsOf(tail, func(eId da.Index) {
+					eHead := graph.GetHeadOfOutEdge(eId)
+					eInfoId := edgeInfoIds[tail][tailExitPoint]
+
+					if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head {
+						viaWayEdgeId = eId
+					}
+					tailExitPoint++
+				})
+
+				if viaWayEdgeId == math.MaxUint32 {
+					continue
+				}
+
+				for i := 0; i < len(fromNodes); i++ {
+					if fromNodes[i] == tail {
+						if i == 0 && way.oneWay {
+							// no predecessor
+							continue
+						}
+
+						var predecessor da.Index // predecessor dari tail dari edge via nya turn restriction
+						if i == 0 {
+							// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+							// kalau via node dari turn restriction di first node dari from-way..
+							// berarti predecessor nya ada di next node (i+1).. ke arah forward..
+							// from-way nodes: via<->u2<->u3<->-.....<->un
+							predecessor = fromNodes[i+1]
+						} else {
+							predecessor = fromNodes[i-1]
+						}
+
+						if predecessor == head {
+							continue
+						}
+
+						successor := da.Index(math.MaxUint32) // successor dari head dari edge via nya turn restriction
+
+						for j := 0; j < len(toNodes); j++ {
+							if toNodes[j] == head {
+								if j == len(toNodes)-1 {
+									// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+									// kalau via node dari turn restriction di last node dari to-way..
+									// berarti predecessor nya ada di next node (i-1).. ke arah backward
+									// to-way nodes: u1<->u2<->u3<->-.....<->via
+
+									successor = toNodes[j-1]
+								} else {
+									successor = toNodes[j+1]
+								}
+								break
+							}
+						}
+
+						if successor != da.Index(math.MaxUint32) && successor != restriction.via {
+
+							tailEntryPoint := da.Index(math.MaxUint32)
+							headExitPoint := da.Index(math.MaxUint32)
+
+							for k := 0; k < len(inEdges[tail]); k++ {
+								if inEdges[tail][k].GetTail() == predecessor {
+									tailEntryPoint = da.Index(k)
+									break
+								}
+							}
+
+							if tailEntryPoint == da.Index(math.MaxUint32) {
+								continue
+							}
+
+							for k := 0; k < len(outEdges[head]); k++ {
+								outEdge := outEdges[head][k]
+								if outEdge.GetHead() == successor {
+									headExitPoint = da.Index(k)
+									break
+								}
+							}
+
+							if headExitPoint == da.Index(math.MaxUint32) {
+								continue
+							}
+
+							switch restriction.turnRestriction {
+							case NO_LEFT_TURN:
+								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
+
+							case NO_RIGHT_TURN:
+								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
+
+							case NO_STRAIGHT_ON:
+								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
+
+							case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn:  https://www.openstreetmap.org/relation/13427535#map=18/-7.781940/110.375138
+								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
+
+							case NO_ENTRY:
+								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
+
+							// case ONLY_LEFT_TURN: todo: handle tiga case ini... (masih belum nemu contoh relation)
+							// 	turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.LEFT_TURN
+
+							// case ONLY_RIGHT_TURN:
+							// 	turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.RIGHT_TURN
+
+							// case ONLY_STRAIGHT_ON:
+							// 	turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NONE
+
+							default:
+								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NONE
+
+							}
+
+							break
+						}
+					}
+
+				}
+			}
+		}
+	}
+
+	graph.SetTurnTableViaway(turnMatricesViaway)
 
 	return graph, edgeInfoIds
 }
