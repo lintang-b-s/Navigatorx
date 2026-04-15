@@ -21,7 +21,7 @@ inEdgeId: id dari inEdge segmen jalan terdekat
 forwardCoords: edgeGeometry dari snappedCoordinate ke head dari edge
 reverseCoords: edgeGeometry dari tail ke snappedCoordinate dari edge
 
-note that outEdge dan inEdge merepresentasikan segment jalan yang sama hanya tail dan head nya dibalik..
+note that outEdge dan inEdge merepresentasikan segment jalan yang sama hanya traverse edge nya dari head ke tail (dibalik)..
 misal outEdge (u,v) dengan tail u dan head v, inEdgenya adalah (v,u) dengan tail v dan head u.
 
 

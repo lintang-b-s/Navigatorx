@@ -254,7 +254,9 @@ func (c *Customizer) buildLowestLevel(
 
 								v := head
 
-								uTravelTimeWithTurnCost := uTravelTime + costFunction.GetTurnCost(turnType)
+								turnCost := costFunction.GetTurnCost(turnType)
+
+								uTravelTimeWithTurnCost := uTravelTime + turnCost
 								outArcCost := costFunction.GetWeight(hwType, weight, length)
 
 								newTravelTime := uTravelTimeWithTurnCost + outArcCost
@@ -437,7 +439,7 @@ func (c *Customizer) buildLevel(
 							if !exitAlreadyLabelled || (exitAlreadyLabelled && newTravelTime < oldExitTravelTime) {
 								travelTime[exitOverlayVertex] = newTravelTime
 								// visit neighbor of exitOverlayVertex
-								// 
+								//
 								exitOverlayVertex := c.overlayGraph.GetVertex(exitOverlayVertex)
 								neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
 								neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)

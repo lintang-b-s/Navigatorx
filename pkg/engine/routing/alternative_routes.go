@@ -314,20 +314,20 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 		if !v.IsOverlay() {
 			// forward
 			svPackedPath = ars.engine.RetrieveForwardPackedPath(svPackedPath, da.NewVertexEdgePair(v.GetOriginalVId(), v.GetEntryId(), false),
-				fpq, crpQuery.sForwardId, crpQuery.sCellNumber)
+				fpq, crpQuery.sForwardId, crpQuery.sCellNumber, s)
 
 			// backward
 			vtPackedPath = ars.engine.RetrieveBackwardPackedPath(vtPackedPath, da.NewVertexEdgePair(v.GetOriginalVId(), v.GetExitId(), true),
-				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber)
+				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber, t)
 
 		} else {
 			// forward
 			svPackedPath = ars.engine.RetrieveForwardPackedPath(svPackedPath, da.NewVertexEdgePair(v.GetOriginalVId(), v.GetVId(), false),
-				fpq, crpQuery.sForwardId, crpQuery.sCellNumber)
+				fpq, crpQuery.sForwardId, crpQuery.sCellNumber, s)
 
 			// backward
 			vtPackedPath = ars.engine.RetrieveBackwardPackedPath(vtPackedPath, da.NewVertexEdgePair(v.GetOriginalVId(), v.GetVId(), false),
-				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber)
+				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber, t)
 		}
 
 		defer func() {
@@ -380,20 +380,20 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 		if !v.IsOverlay() {
 			// forward
 			svPackedPath = ars.engine.RetrieveForwardPackedPath(make([]da.VertexEdgePair, 0), da.NewVertexEdgePair(v.GetOriginalVId(), v.GetEntryId(), false),
-				fpq, crpQuery.sForwardId, crpQuery.sCellNumber)
+				fpq, crpQuery.sForwardId, crpQuery.sCellNumber, s)
 
 			// backward
 			vtPackedPath = ars.engine.RetrieveBackwardPackedPath(make([]da.VertexEdgePair, 0), da.NewVertexEdgePair(v.GetOriginalVId(), v.GetExitId(), true),
-				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber)
+				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber, t)
 
 		} else {
 			// forward
 			svPackedPath = ars.engine.RetrieveForwardPackedPath(make([]da.VertexEdgePair, 0), da.NewVertexEdgePair(v.GetOriginalVId(), v.GetVId(), false),
-				fpq, crpQuery.sForwardId, crpQuery.sCellNumber)
+				fpq, crpQuery.sForwardId, crpQuery.sCellNumber, s)
 
 			// backward
 			vtPackedPath = ars.engine.RetrieveBackwardPackedPath(make([]da.VertexEdgePair, 0), da.NewVertexEdgePair(v.GetOriginalVId(), v.GetVId(), false),
-				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber)
+				bpq, crpQuery.tBackwardId, crpQuery.sCellNumber, t)
 		}
 
 		// unpack packed path

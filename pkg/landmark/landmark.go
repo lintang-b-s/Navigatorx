@@ -91,8 +91,6 @@ func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []da.V
 	vsCopy := make([]da.Vertex, n)
 	copy(vsCopy, vs)
 
-	landmarks = append(landmarks, midLandmark)
-
 	// mirip algoritma graham scan buat bikin convex hull
 	// graham scan: sort Points by their polar angles around a p0 (bottomost point or rightmost & bottomost point if tie)
 	// ini: sort Points by their initial bearing angles around a p0 (center point/coordinate)
@@ -383,16 +381,21 @@ func (lm *Landmark) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 [2] https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 [3] Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
 
+https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
+
 implementation of consistent/feasible potential function in 5.2 Consistent Approach ref [1]
-calc \pi_f(u)=\frac{h_f(u)-h_r(u)}{2} and \pi_r(u)=\frac{h_r(u)-h_f(u)}{2}
+calc \pi_f(u)=\frac{h_f(u)-h_r(u)}{2} + h_r(t)  and \pi_r(u)=\frac{h_r(u)-h_f(u)}{2} + h_f(s)/2
 h_f(u) adalah estimate sp cost dari u ke t
 h_r(u) adalah estimate sp cost dari s ke u
 */
 func (lm *Landmark) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index) (float64, float64) {
 	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks) // estimate on dist(u,t)
 	piru := lm.FindTighestLowerBound(s, u, activeLandmarks) // estimate on dist(s,u)
-	pfu := (pifu - piru) / 2.0
-	pru := -pfu
+	pifs := lm.FindTighestLowerBound(s, t, activeLandmarks) // estimate on dist(s,t)
+	pirt := lm.FindTighestLowerBound(s, t, activeLandmarks) // estimate on dist(s,t)
+
+	pfu := ((pifu - piru) / 2.0) + pirt/2
+	pru := ((piru - pifu) / 2.0) + pifs/2
 
 	return pfu, pru
 }

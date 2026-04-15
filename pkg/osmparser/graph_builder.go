@@ -149,126 +149,131 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				u4->u3->u4
 		*/
 		if !way.oneWay {
-			// ada yang salah....
-			// for i, via := range way.graphNodes {
+			// // ada yang salah....
+			for i, via := range way.graphNodes {
 
-			// 	if len(way.graphNodes) <= 1 {
-			// 		continue
-			// 	}
+				if len(way.graphNodes) <= 1 {
+					continue
+				}
 
-			// 	if i == 0 {
-			// 		// store u_turn restrictions
-			// 		// dont allow u_turn at (to, via)->(via, to)
-			// 		to := way.graphNodes[1]
-			// 		if to == via {
-			// 			continue
-			// 		}
+				if i == 0 {
+					// store u_turn restrictions
+					// dont allow u_turn at (to, via)->(via, to)
+					to := way.graphNodes[1]
+					if to == via {
+						continue
+					}
 
-			// 		entryPoint := -1
-			// 		exitPoint := -1
-			// 		for k := 0; k < len(outEdges[via]); k++ {
-			// 			if outEdges[via][k].GetHead() == to {
-			// 				exitPoint = k
-			// 				break
-			// 			}
-			// 		}
+					entryPoint := -1
+					exitPoint := -1
+					for k := 0; k < len(outEdges[via]); k++ {
+						if outEdges[via][k].GetHead() == to {
 
-			// 		for k := 0; k < len(inEdges[via]); k++ {
-			// 			if inEdges[via][k].GetTail() == to {
-			// 				entryPoint = k
-			// 				break
-			// 			}
-			// 		}
+							exitPoint = k
+							break
+						}
+					}
 
-			// 		if entryPoint == -1 || exitPoint == -1 {
-			// 			continue
-			// 		}
+					for k := 0; k < len(inEdges[via]); k++ {
+						if inEdges[via][k].GetTail() == to {
 
-			// 		turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
-			// 	} else if i < len(way.graphNodes)-1 {
+							entryPoint = k
+							break
+						}
+					}
 
-			// 		// backward
-			// 		to := way.graphNodes[i-1]
-			// 		if to == via {
-			// 			continue
-			// 		}
+					if entryPoint == -1 || exitPoint == -1 {
+						continue
+					}
 
-			// 		entryPoint := -1
-			// 		exitPoint := -1
-			// 		for k := 0; k < len(outEdges[via]); k++ {
-			// 			if outEdges[via][k].GetHead() == to {
-			// 				exitPoint = k
-			// 				break
-			// 			}
-			// 		}
+					turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
+				} else if i < len(way.graphNodes)-1 {
 
-			// 		for k := 0; k < len(inEdges[via]); k++ {
-			// 			if inEdges[via][k].GetTail() == to {
-			// 				entryPoint = k
-			// 				break
-			// 			}
-			// 		}
+					// backward
+					to := way.graphNodes[i-1]
+					if to != via {
+						entryPoint := -1
+						exitPoint := -1
+						for k := 0; k < len(outEdges[via]); k++ {
+							if outEdges[via][k].GetHead() == to {
 
-			// 		if entryPoint != -1 && exitPoint != -1 {
-			// 			turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
-			// 		}
+								exitPoint = k
+								break
+							}
+						}
 
-			// 		// forward
-			// 		to = way.graphNodes[i+1]
-			// 		if to == via {
-			// 			continue
-			// 		}
+						for k := 0; k < len(inEdges[via]); k++ {
+							if inEdges[via][k].GetTail() == to {
 
-			// 		entryPoint = -1
-			// 		exitPoint = -1
-			// 		for k := 0; k < len(outEdges[via]); k++ {
-			// 			if outEdges[via][k].GetHead() == to {
-			// 				exitPoint = k
-			// 				break
-			// 			}
-			// 		}
+								entryPoint = k
+								break
+							}
+						}
 
-			// 		for k := 0; k < len(inEdges[via]); k++ {
-			// 			if inEdges[via][k].GetTail() == to {
-			// 				entryPoint = k
-			// 				break
-			// 			}
-			// 		}
+						if entryPoint != -1 && exitPoint != -1 {
+							turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
+						}
+					}
 
-			// 		if entryPoint != -1 && exitPoint != -1 {
-			// 			turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
-			// 		}
-			// 	} else {
-			// 		// last node in way.graphNodes
-			// 		to := way.graphNodes[i-1]
+					// forward
+					to = way.graphNodes[i+1]
+					if to != via {
+						entryPoint := -1
+						exitPoint := -1
+						for k := 0; k < len(outEdges[via]); k++ {
+							if outEdges[via][k].GetHead() == to {
 
-			// 		if to == via {
-			// 			continue
-			// 		}
+								exitPoint = k
+								break
+							}
+						}
 
-			// 		entryPoint := -1
-			// 		exitPoint := -1
-			// 		for k := 0; k < len(outEdges[via]); k++ {
-			// 			if outEdges[via][k].GetHead() == to {
-			// 				exitPoint = k
-			// 				break
-			// 			}
-			// 		}
+						for k := 0; k < len(inEdges[via]); k++ {
+							if inEdges[via][k].GetTail() == to {
 
-			// 		for k := 0; k < len(inEdges[via]); k++ {
-			// 			if inEdges[via][k].GetTail() == to {
-			// 				entryPoint = k
-			// 				break
-			// 			}
-			// 		}
+								entryPoint = k
+								break
+							}
+						}
 
-			// 		if entryPoint == -1 || exitPoint == -1 {
-			// 			continue
-			// 		}
+						if entryPoint != -1 && exitPoint != -1 {
+							turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
+						}
+					}
 
-			// 		turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
-			// 	}
-			// }
+				} else {
+					// last node in way.graphNodes
+					to := way.graphNodes[i-1]
+
+					if to == via {
+						continue
+					}
+
+					entryPoint := -1
+					exitPoint := -1
+					for k := 0; k < len(outEdges[via]); k++ {
+						if outEdges[via][k].GetHead() == to {
+
+							exitPoint = k
+							break
+						}
+					}
+
+					for k := 0; k < len(inEdges[via]); k++ {
+						if inEdges[via][k].GetTail() == to {
+
+							entryPoint = k
+							break
+						}
+					}
+
+					if entryPoint == -1 || exitPoint == -1 {
+						continue
+					}
+
+					turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.U_TURN
+				}
+			}
 		}
 
 		// store turn restrictions https://wiki.openstreetmap.org/wiki/Relation:restriction
@@ -325,7 +330,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 						var predecessor da.Index // predecessor dari via nya turn restriction
 						if i == 0 {
-							// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+							// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
 							// kalau via node dari turn restriction di first node dari from-way..
 							// berarti predecessor nya ada di next node (i+1).. ke arah forward..
 							// from-way nodes: via<->u2<->u3<->-.....<->un
@@ -344,7 +349,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						for j := 0; j < len(toNodes); j++ {
 							if toNodes[j] == restriction.via {
 								if j == len(toNodes)-1 {
-									// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+									// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
 									// kalau via node dari turn restriction di last node dari to-way..
 									// berarti predecessor nya ada di next node (i-1).. ke arah backward
 									// to-way nodes: u1<->u2<->u3<->-.....<->via
@@ -674,7 +679,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 						var predecessor da.Index // predecessor dari tail dari edge via nya turn restriction
 						if i == 0 {
-							// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+							// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
 							// kalau via node dari turn restriction di first node dari from-way..
 							// berarti predecessor nya ada di next node (i+1).. ke arah forward..
 							// from-way nodes: via<->u2<->u3<->-.....<->un
@@ -692,7 +697,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						for j := 0; j < len(toNodes); j++ {
 							if toNodes[j] == head {
 								if j == len(toNodes)-1 {
-									// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+									// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
 									// kalau via node dari turn restriction di last node dari to-way..
 									// berarti predecessor nya ada di next node (i-1).. ke arah backward
 									// to-way nodes: u1<->u2<->u3<->-.....<->via

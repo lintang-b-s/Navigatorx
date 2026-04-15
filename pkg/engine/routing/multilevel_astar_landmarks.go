@@ -28,8 +28,6 @@ type CRPALTBidirectionalSearch struct {
 	sForwardId  da.Index
 	tBackwardId da.Index
 
-	upperBound float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
-
 	numScannedVertices        int
 	numScannedOverlayVertices int
 	runtime                   int64
@@ -53,7 +51,6 @@ func NewCRPALTBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) 
 
 		forwardMid:  da.NewVertexEdgePair(0, 0, false),
 		backwardMid: da.NewVertexEdgePair(0, 0, true),
-		upperBound:  upperBound,
 
 		activeLandmarks: make([]da.Index, 0),
 
@@ -81,7 +78,7 @@ https://doi.org/10.1287/trsc.2014.0579.
 5. consistent heuristic for A* & optimality of A*: Hart, P.E., Nilsson, N.J. and Raphael, B. (1968) “A Formal Basis for the Heuristic Determination of Minimum Cost Paths,” IEEE Transactions on Systems Science and Cybernetics, 4(2), pp. 100–107. Available at: https://doi.org/10.1109/TSSC.1968.300136.
 6. Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
 7. Cormen, T.H. et al. (2009) Introduction to Algorithms. 3th ed. Cambridge, MA, USA: MIT Press
-
+8. https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
 let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
@@ -190,12 +187,18 @@ diberikan fungsi potensial \pi, kita mendefinisikan reduced cost dari sebuah edg
 fungsi potensial \pi dikakan konsisten atau feasible jika l_{\pi} >= 0 untuk semua edges
 
 pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat konsisten. misal \pi_t(v) adalah estimate sp distance dari v ke t dan \pi_s(v) estimate sp distance dari s ke v
-[4] dan [3], kita menggunakan fungsi potensial p_t(v)=\frac{\pi_t(v)-\pi_s(v)}{2} untuk forward search dan p_s(v)=-p_t(v) untuk backward search
-[4] dan [3] membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(w)-p_t(v)=l(v,w)-p_s(w)+p_s(v) >= 0
+[4],[3], dan [8], kita menggunakan fungsi potensial p_t(v)=\frac{\pi_t(v)-\pi_s(v)}{2} untuk forward search dan p_s(v)=-p_t(v) untuk backward search
+[4], [3]  membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(w)-p_t(v)=l(v,w)-p_s(w)+p_s(v) >= 0
 dari Lemma 25.1 (Reweighting does not change shortest paths) pada ref 7:
 misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path from v0 to vk with weight function l if and only if it is a shortest path with weight function l_p
 
+Multilevel-ALT dibawah menggunakan fungsi potensial Bidirectional A* p_f(v)=\frac{\pi_f(v)-\pi_r(v)}{2} + \pi_r(t)/2  dan  p_r(v)=\frac{\pi_r(v)-\pi_f(v)}{2} + \pi_f(s)/2
+yang dijelaskan pada: https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
+dan  https://www.microsoft.com/en-us/research/wp-content/uploads/2004/07/tr-2004-24.pdf
+serta memanfaaatkan shortcuts dari multilevel overlay graph hasil preprocessing dan customization phase dari Customizable Route Planning (CRP) yang
+dijelaskan pada https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
+kode ini terinspirasi oleh kode implementasi Customizable Route Planning (CRP) yang dibuat oleh Michael Wegner: https://github.com/michaelwegner/CRP
 */
 
 func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (float64, float64, *da.Coordinates,
@@ -251,10 +254,13 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (
 		queryHeap.Scan(id)
 	}
 
+	_, prt := bs.engine.lm.FindTighestConsistentLowerBound(t, s, t, bs.activeLandmarks) // estimate on dist(s,u)
+
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
-		if util.Ge(minForward+minBackward, (bs.shortestTravelTime)*(bs.upperBound)) {
+		if util.Ge(minForward+minBackward, bs.shortestTravelTime+prt) {
+			// see stopping criterion of Bidirectional A*: https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 			bs.lastpqSum = minForward + minBackward
 			break
 		}
@@ -290,7 +296,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (
 	}
 
 	packedPath := bs.engine.RetrievePackedPath(bs.forwardMid, bs.backwardMid,
-		bs.forwardPq, bs.backwardPq, bs.sForwardId, bs.tBackwardId, bs.sCellNumber)
+		bs.forwardPq, bs.backwardPq, bs.sForwardId, bs.tBackwardId, bs.sCellNumber, s, t)
 
 	dur := time.Since(now).Milliseconds()
 	bs.runtime = dur
@@ -320,22 +326,20 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 	otherUEntryId := bs.engine.offsetForward(uId, bs.engine.graph.GetEntryOffset(uId), bs.engine.graph.GetCellNumber(uId), bs.sCellNumber)
 
 	uEntryIdTravelTime := bs.forwardPq.GetPriority(uEntryId)
-	if !bs.mapmatching {
-		for j := da.Index(0); j < uInDeg; j++ {
+	for j := da.Index(0); j < uInDeg; j++ {
 
-			stallingOffset := uInDeg*uEntryPoint + j
-			bui := util.MaxFloat(0, uEntryIdTravelTime+
-				bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset))
+		stallingOffset := uInDeg*uEntryPoint + j
+		bui := util.MaxFloat(0, uEntryIdTravelTime+
+			bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset))
 
-			if val := bs.stallingEntry[otherUEntryId]; util.Eq(val, pkg.INF_WEIGHT) {
-				bs.stallingEntry[otherUEntryId] = bui
-			} else {
-				bs.stallingEntry[otherUEntryId] = util.MinFloat(bs.stallingEntry[otherUEntryId], bui)
-			}
-			otherUEntryId++
+		if val := bs.stallingEntry[otherUEntryId]; util.Eq(val, pkg.INF_WEIGHT) {
+			bs.stallingEntry[otherUEntryId] = bui
+		} else {
+			bs.stallingEntry[otherUEntryId] = util.MinFloat(bs.stallingEntry[otherUEntryId], bui)
 		}
+		otherUEntryId++
 	}
-	
+
 	// traverse outEdges of u
 	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
 		hwType pkg.OsmHighwayType) {
@@ -349,7 +353,8 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 		edgeWeight := bs.engine.GetWeight(eId, true)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
-		if uId == source {
+
+		if uId == source && uEntryId == bs.sForwardId {
 			turnCost = 0
 		}
 
@@ -358,14 +363,15 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
-
-		priority := newTravelTime + pfv
+		newTravelTimeWithoutTurnCost := uEntryIdTravelTime + edgeWeight
 
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
 		}
+
 		vEntryId := bs.engine.graph.GetEntryOffset(vId) + da.Index(entryPoint)
 		if vQueryLevel == 0 {
+			priority := newTravelTime + pfv
 
 			vEntryId = bs.engine.offsetForward(vId, vEntryId, bs.engine.graph.GetCellNumber(vId), bs.sCellNumber)
 
@@ -410,13 +416,30 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 				_ pkg.OsmHighwayType) {
 
 				// check if forward and backward search already scanned entry point and  exit point of v. if so, check whether we can improve the shortest path
+
+				/*
+					s->.....-vInEdge->v-vOutEdge->.... -> t
+				*/
+
 				scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
 				vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-				if scannedByBackwardSearch && util.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
-					vExitIdTravelTime, bs.shortestTravelTime) {
 
-					bs.shortestTravelTime = newVEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnType2) +
-						vExitIdTravelTime
+				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
+
+				if vExitId == bs.tBackwardId {
+					/*
+						untuk handle case:
+							s->.....-tInEdge->t-tOutEdge->
+							t=v
+					*/
+					midTurnCost = 0
+				}
+
+				newPathTravelTime := newVEntryIdTravelTime + midTurnCost +
+					vExitIdTravelTime
+				if scannedByBackwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
+
+					bs.shortestTravelTime = newPathTravelTime
 
 					bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
 					bs.backwardMid = da.NewVertexEdgePair(vId, vExitId, true)
@@ -426,6 +449,8 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 			})
 
 		} else {
+			priority := newTravelTimeWithoutTurnCost + pfv
+
 			// v is in another cell on higher level
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
 			v, _ := bs.engine.graph.GetOverlayVertex(vId, entryPoint, false)
@@ -488,20 +513,19 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 		bs.engine.graph.GetCellNumber(uId), bs.sCellNumber)
 
 	uExitIdTravelTime := bs.backwardPq.GetPriority(uExitId)
-	if !bs.mapmatching {
-		for j := da.Index(0); j < uOutDeg; j++ {
 
-			stallingOffset := uOutDeg*uExitPoint + j
-			bui := util.MaxFloat(0, uExitIdTravelTime+
-				bs.engine.metrics.GetExitStallingTableCost(uId, stallingOffset))
+	for j := da.Index(0); j < uOutDeg; j++ {
 
-			if val := bs.stallingExit[otherUExitId]; util.Eq(val, pkg.INF_WEIGHT) {
-				bs.stallingExit[otherUExitId] = bui
-			} else {
-				bs.stallingExit[otherUExitId] = util.MinFloat(bs.stallingExit[otherUExitId], bui)
-			}
-			otherUExitId++
+		stallingOffset := uOutDeg*uExitPoint + j
+		bui := util.MaxFloat(0, uExitIdTravelTime+
+			bs.engine.metrics.GetExitStallingTableCost(uId, stallingOffset))
+
+		if val := bs.stallingExit[otherUExitId]; util.Eq(val, pkg.INF_WEIGHT) {
+			bs.stallingExit[otherUExitId] = bui
+		} else {
+			bs.stallingExit[otherUExitId] = util.MinFloat(bs.stallingExit[otherUExitId], bui)
 		}
+		otherUExitId++
 	}
 
 	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
@@ -516,7 +540,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
-		if uId == target {
+		if uId == target && uExitId == bs.tBackwardId {
 			turnCost = 0
 		}
 
@@ -524,8 +548,8 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 		_, prv := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
 
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
+		newTravelTimeWithoutTurnCost := uExitIdTravelTime + edgeWeight
 
-		priority := newTravelTime + prv
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
 		}
@@ -533,6 +557,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 		vExitId := bs.engine.graph.GetExitOffset(vId) + exitPoint
 
 		if vQueryLevel == 0 {
+			priority := newTravelTime + prv
 
 			vExitId = bs.engine.offsetBackward(vId, vExitId, bs.engine.graph.GetCellNumber(vId), bs.sCellNumber)
 
@@ -568,11 +593,22 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 				turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
 				scannedByForwardSearch := bs.forwardPq.IsScanned(vEntryId)
 				vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
-				if scannedByForwardSearch && util.Lt(vEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
-					newVExitIdTravelTime, bs.shortestTravelTime) {
 
-					bs.shortestTravelTime = vEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnType2) +
-						newVExitIdTravelTime
+				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
+
+				if vEntryId == bs.sForwardId {
+					/*
+						untuk handle case:
+							-sInEdge->s-sOutEdge->.....->t
+							s=v
+					*/
+					midTurnCost = 0
+				}
+
+				newPathTravelTime := vEntryIdTravelTime + midTurnCost + newVExitIdTravelTime
+				if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
+
+					bs.shortestTravelTime = newPathTravelTime
 
 					bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
 					bs.backwardMid = da.NewVertexEdgePair(vId, vExitId, true)
@@ -582,6 +618,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 			})
 
 		} else {
+			priority := newTravelTimeWithoutTurnCost + prv
 			// v is in another cell on higher level
 			// Note that a level transition occurs when u and v have different query levels.
 			// i.e. if v not in the same cell as s and t then v query level is different from u query level.
@@ -717,11 +754,16 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 					// check if forward and backward search already scanned exit point of w. if so, check whether we can improve the shortest path
 					scannedByBackwardSearch := bs.backwardPq.IsScanned(wExitId)
 					wExitIdTravelTime := bs.backwardPq.GetPriority(wExitId)
-					if scannedByBackwardSearch && util.Lt(newWEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turn)+
-						wExitIdTravelTime, bs.shortestTravelTime) {
 
-						bs.shortestTravelTime = newWEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turn) +
-							wExitIdTravelTime
+					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
+
+					if wExitId == bs.tBackwardId {
+						midTurnCost = 0
+					}
+					newPathTravelTime := newWEntryIdTravelTime + midTurnCost + wExitIdTravelTime
+					if scannedByBackwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
+
+						bs.shortestTravelTime = newPathTravelTime
 
 						bs.forwardMid = da.NewVertexEdgePair(originalWId, wEntryId, false)
 						bs.backwardMid = da.NewVertexEdgePair(originalWId, wExitId, true)
@@ -884,11 +926,17 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 					turn pkg.TurnType, _ pkg.OsmHighwayType) {
 					scannedByForwardSearch := bs.forwardPq.IsScanned(wEntryId)
 					wEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
-					if scannedByForwardSearch && util.Lt(wEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turn)+
-						newWExitIdTravelTime, bs.shortestTravelTime) {
 
-						bs.shortestTravelTime = wEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turn) +
-							newWExitIdTravelTime
+					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
+
+					if wEntryId == bs.sForwardId {
+						midTurnCost = 0
+					}
+					newPathTravelTime := wEntryIdTravelTime + midTurnCost +
+						newWExitIdTravelTime
+					if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
+
+						bs.shortestTravelTime = newPathTravelTime
 
 						bs.forwardMid = da.NewVertexEdgePair(originalWId, wEntryId, false)
 						bs.backwardMid = da.NewVertexEdgePair(originalWId, wExitId, true)
@@ -958,11 +1006,15 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 
 	bs.stallingEntry = bs.engine.stallingEntryPool.Get().([]float64)
 	bs.stallingExit = bs.engine.stallingExitPool.Get().([]float64)
+
 	initInfWeight(bs.stallingEntry)
 	initInfWeight(bs.stallingExit)
 
 	bs.forwardPq = bs.engine.fHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
 	bs.backwardPq = bs.engine.bHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
+
+	bs.forwardPq.Clear()
+	bs.backwardPq.Clear()
 }
 
 func (bs *CRPALTBidirectionalSearch) Done() {
@@ -971,8 +1023,6 @@ func (bs *CRPALTBidirectionalSearch) Done() {
 		return
 	}
 
-	bs.forwardPq.Clear()
-	bs.backwardPq.Clear()
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
 	bs.engine.stallingEntryPool.Put(bs.stallingEntry)

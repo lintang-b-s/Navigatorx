@@ -573,7 +573,7 @@ func (g *Graph) ForOutEdges(handle func(exitPoint, head Index, tail, entryId, en
 	}
 }
 
-func (g *Graph) ForInEdges(handle func(e InEdge, entryPoint, head Index, tail, entryId Index, percentage float64, idx Index)) {
+func (g *Graph) ForInEdges(handle func(e InEdge, entryPoint, head Index, tail, exitId Index, percentage float64, idx Index)) {
 	for idx, e := range g.inEdges {
 		percentage := float64(idx) / float64(len(g.inEdges)) * 100
 		head := g.GetHeadOfInedge(Index(idx))

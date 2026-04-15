@@ -15,6 +15,8 @@ type DijkstraWithTurnCost struct {
 
 	pq *da.QueryHeap[da.CRPQueryKey]
 
+	sForwardId da.Index
+
 	numSettledNodes  int
 	useReversedEdges bool
 }
@@ -38,7 +40,7 @@ edge-based graph, support turn-costs
 
 useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 */
-func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.OutEdge) {
+func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Index) {
 	var (
 		sForwardId da.Index
 	)
@@ -49,24 +51,22 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.OutE
 		sForwardId = us.engine.graph.GetExitOffset(s) + us.engine.graph.GetOutDegree(s) - 1
 	}
 
+	us.sForwardId = sForwardId
+
 	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
 	djKey := da.NewDijkstraKey(s, sForwardId)
 	us.pq.Insert(sForwardId, 0, sVertexInfo, djKey)
 
-	finish := false
 	for !us.pq.IsEmpty() {
-		if finish {
-			break
-		}
 
-		finish = us.graphSearchUni(s)
+		us.graphSearchUni(s)
 		us.numSettledNodes++
 	}
 
 	n := us.engine.graph.NumberOfVertices()
 
-	spEdges := make([][]da.OutEdge, n)
+	spEdges := make([][]da.Index, n)
 	sps := make([]float64, n)
 	if !us.useReversedEdges {
 
@@ -86,7 +86,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.OutE
 			// jadiin outEdge semua
 			inEdge := us.engine.graph.GetInEdge(tEntryId)
 			_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-			spEdges[t] = append(spEdges[t], *us.engine.graph.GetOutEdge(outEdge))
+			spEdges[t] = append(spEdges[t], outEdge)
 
 			for curInfo.GetParent().GetEdge() != sForwardId {
 				parent := curInfo.GetParent()
@@ -95,7 +95,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.OutE
 				// jadiin outEdge semua
 				inEdge := us.engine.graph.GetInEdge(parentEdge)
 				_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-				spEdges[t] = append(spEdges[t], *us.engine.graph.GetOutEdge(outEdge))
+				spEdges[t] = append(spEdges[t], outEdge)
 
 				curInfo = us.pq.Get(parentEdge)
 			}
@@ -120,7 +120,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.OutE
 
 			// jadiin outEdge semua
 			outEdge := us.engine.graph.GetOutEdge(tExitId)
-			spEdges[t] = append(spEdges[t], *outEdge)
+			spEdges[t] = append(spEdges[t], outEdge.GetEdgeId())
 
 			for curInfo.GetParent().GetEdge() != sForwardId {
 				parent := curInfo.GetParent()
@@ -128,7 +128,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.OutE
 
 				// jadiin outEdge semua
 				outEdge := us.engine.graph.GetOutEdge(parentEdge)
-				spEdges[t] = append(spEdges[t], *outEdge)
+				spEdges[t] = append(spEdges[t], outEdge.GetEdgeId())
 
 				curInfo = us.pq.Get(parentEdge)
 			}
@@ -147,7 +147,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.OutE
 }
 
 func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
-	// taken from Delling, D. et al. (2015) “Customizable Route Planning in Road Networks,” Transportation Science [Preprint]. Available at: https://doi.org/10.1287/trsc.2014.0579 : 
+	// taken from Delling, D. et al. (2015) “Customizable Route Planning in Road Networks,” Transportation Science [Preprint]. Available at: https://doi.org/10.1287/trsc.2014.0579 :
 	// The query algorithm maintains a distance label d(u) for each entry u which can either be a vertex on the overlay or a pair (u, i) corresponding to the i-th entry point of u in the original graph.
 	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
 	// we need to store entryPoint because we need to know turnType & turn cost when traversing from inEdge to outEdge of vertex u.
@@ -177,7 +177,7 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
 
-			if uId == source {
+			if uId == source && uEntryId == us.sForwardId {
 				turnCost = 0
 			}
 
@@ -234,7 +234,7 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
 
-			if uId == source {
+			if uId == source && uExitId == us.sForwardId {
 				turnCost = 0
 			}
 

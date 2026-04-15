@@ -7,14 +7,14 @@ import (
 
 func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
 	backwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
-	bpq *da.QueryHeap[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv) []da.VertexEdgePair {
+	bpq *da.QueryHeap[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv, s, t da.Index) []da.VertexEdgePair {
 
 	svPackedPath := make([]da.VertexEdgePair, 0, 32)
 	vtPackedPath := make([]da.VertexEdgePair, 0, 32)
 
-	forwardPackedPath := re.RetrieveForwardPackedPath(svPackedPath, forwardMid, fpq, sForwardId, sCellNumber)
+	forwardPackedPath := re.RetrieveForwardPackedPath(svPackedPath, forwardMid, fpq, sForwardId, sCellNumber, s)
 
-	backwardPackedPath := re.RetrieveBackwardPackedPath(vtPackedPath, backwardMid, bpq, tBackwardId, sCellNumber)
+	backwardPackedPath := re.RetrieveBackwardPackedPath(vtPackedPath, backwardMid, bpq, tBackwardId, sCellNumber, t)
 
 	return append(forwardPackedPath, backwardPackedPath...)
 }
@@ -29,7 +29,7 @@ func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
 // kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya
 // sehingga untuk unpacking shortcut edges ada tahapan di CRP bernama Path Unpacking (path_unpacker_alt.go)
 func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEdgePair, forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
-	sForwardId da.Index, sCellNumber da.Pv) []da.VertexEdgePair {
+	sForwardId da.Index, sCellNumber da.Pv, s da.Index) []da.VertexEdgePair {
 
 	// let n = number of edges in shortest path from s to mid, (from forward search)
 	// O(n)
@@ -115,12 +115,19 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 
 	util.ReverseG[da.VertexEdgePair](svPackedPath)
 
+	if len(svPackedPath) == 1 {
+		tail := re.graph.GetTailFromOutEdge(svPackedPath[0].GetEdge())
+		if tail != s {
+			return make([]da.VertexEdgePair, 0)
+		}
+	}
+
 	return svPackedPath
 }
 
 // RetrieveBackwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari mid ke t.
 func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(vtPackedPath []da.VertexEdgePair, backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey],
-	tBackwardId da.Index, sCellNumber da.Pv) []da.VertexEdgePair {
+	tBackwardId da.Index, sCellNumber da.Pv, t da.Index) []da.VertexEdgePair {
 	// let n = number of edges in shortest path from mid to t, (from backward search)
 	// worst: case O(n)
 
@@ -194,5 +201,12 @@ func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(vtPackedPath []da.VertexE
 
 	}
 
+	if len(vtPackedPath) == 1 {
+		head := re.graph.GetHeadOfOutEdge(vtPackedPath[0].GetEdge())
+		if head != t {
+			return make([]da.VertexEdgePair, 0)
+		}
+	}
+	
 	return vtPackedPath
 }

@@ -48,6 +48,7 @@ https://doi.org/10.1287/trsc.2014.0579.
 [4] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [5] bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
 [6] Cormen, T.H. et al. (2009) Introduction to Algorithms. 3th ed. Cambridge, MA, USA: MIT Press
+[7] https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 
 unpackPath. unpack a level-i shortcut (v, w) by running  ALT (A* algorithm, landmarks, and triangle inequality ) [4] between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
 jika level i-1 >= 1, kita menggunakan shortcut edges (dari subcells dari level-i cell containing the shortcut) di overlay graph level i-1
@@ -209,7 +210,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 			newTravelTime := pq.GetPriority(uOverlayId) + shortcutOutEdgeWeight
 			originalVId := vOverlayVertex.GetOriginalVertex()
 			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-			pfv, _ := pu.lm.FindTighestConsistentLowerBound(originalVId, s, t, activeLandmarks)
+			pfv := pu.lm.FindTighestLowerBound(originalVId, t, activeLandmarks)
 
 			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
@@ -259,7 +260,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 
 				wOriginalId := wNeigborVertex.GetOriginalVertex()
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-				pfw, _ := pu.lm.FindTighestConsistentLowerBound(wOriginalId, s, t, activeLandmarks)
+				pfw := pu.lm.FindTighestLowerBound(wOriginalId, t, activeLandmarks)
 				priority = newTravelTime + pfw
 
 				// relax edge
@@ -405,7 +406,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			vAlreadyLabelled := util.Lt(pq.GetPriority(offVEntryId), pkg.INF_WEIGHT)
 			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(offVEntryId))) {
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-				pfv, _ := pu.lm.FindTighestConsistentLowerBound(vId, s, t, activeLandmarks)
+				pfv := pu.lm.FindTighestLowerBound(vId, t, activeLandmarks)
 				priority := newTravelTime + pfv
 
 				if !vAlreadyLabelled {

@@ -1305,7 +1305,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 
 // todo: incorporate u-turn restriction yang via nya osm way di routing algorithm (multilevel-dijkstra & multilevel-ALT (A*, landmarks, and triangle inequality))
 // contoh u-turn restriction yang via nya osm way: https://www.openstreetmap.org/relation/15268026,  https://www.openstreetmap.org/relation/13427535  ,  
-// 
+// todo2: add barrier node tests, contoh:  
 
 func isSameConsecutiveTurn(prevSign, sign da.TurnType) bool {
 	if (sign == da.TURN_SLIGHT_RIGHT || sign == da.TURN_RIGHT || sign == da.TURN_SHARP_RIGHT) ||

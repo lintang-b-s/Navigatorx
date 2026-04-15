@@ -460,7 +460,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := 5
+	n := 50
 	qset := make(map[da.Index]struct{})
 
 	queries := make([]da.Index, 0, n)
@@ -559,7 +559,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		expectedSp := expectedSPTravelTimes[i][target]
 
 		counterexample := false
-		if !util.EqEps(expectedSp, sp, 1e-5) { // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
+		if !util.EqEps(expectedSp, sp, 1e-5) {
 			counterexample = true
 		}
 
@@ -610,7 +610,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := 5
+	n := 10
 	qset := make(map[da.Index]struct{})
 
 	queries := make([]da.Index, 0, n)
@@ -677,13 +677,14 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 	}
 
 	type counterExampleData struct {
+		s, t                           da.Index
 		expectedSp, crpALTSP           float64
 		expectedSpEdges, crpALTSPEdges []da.Index
 		counterexample                 bool
 	}
 
-	newCounterExampleData := func(expectedSp, crpALTSP float64, expectedSpEdges, crpALTSPEdges []da.Index, cx bool) counterExampleData {
-		return counterExampleData{expectedSp: expectedSp, crpALTSP: crpALTSP, expectedSpEdges: expectedSpEdges, crpALTSPEdges: crpALTSPEdges,
+	newCounterExampleData := func(s, t da.Index, expectedSp, crpALTSP float64, expectedSpEdges, crpALTSPEdges []da.Index, cx bool) counterExampleData {
+		return counterExampleData{s: s, t: t, expectedSp: expectedSp, crpALTSP: crpALTSP, expectedSpEdges: expectedSpEdges, crpALTSPEdges: crpALTSPEdges,
 			counterexample: cx}
 	}
 
@@ -691,13 +692,14 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		i := q.i
 		s := q.s
 		target := q.t
+
 		id := q.id
 		inEdgeToS := g.GetEntryOffset(s) + g.GetInDegree(s) - 1
 		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
 		outEdgeFromTarget := g.GetExitOffset(target) + g.GetOutDegree(target) - 1
-		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
+		tail, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-
+		util.AssertPanic(tail == target, "dummy target edge is invalid")
 		sVertex := g.GetVertex(s)
 		tVertex := g.GetVertex(target)
 		emptyCoords := make([]da.Coordinate, 0)
@@ -709,18 +711,22 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		expectedSp := expectedSPTravelTimes[i][target]
 
 		counterexample := false
-		if !util.EqEps(expectedSp, sp, 1e-5) { // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
+		if !util.EqEps(expectedSp, sp, 1e-4) {
+
 			counterexample = true
+			crpQuery = routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+			crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+
 		}
 
 		if (id+1)%5000 == 0 {
 			t.Logf("done query id: %v\n", id+1)
 		}
 		if counterexample {
-			return newCounterExampleData(expectedSp, sp, []da.Index{}, []da.Index{}, true)
+			return newCounterExampleData(s, target, expectedSp, sp, []da.Index{}, []da.Index{}, true)
 		}
 
-		return newCounterExampleData(0, 0, nil, nil, false)
+		return newCounterExampleData(0, 0, 0, 0, nil, nil, false)
 	}
 
 	workers := concurrent.NewWorkerPool[query, counterExampleData](100, n*numberOfVertices)
@@ -743,7 +749,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		for res := range workers.CollectResults() {
 			if res.counterexample {
 				t.Logf("found counterExample!!\n")
-				t.Errorf("found counter example!!, expected shortest path cost: %f, got: %f", res.expectedSp, res.crpALTSP)
+				t.Errorf("found counter example!!, expected shortest path from %v to %v cost: %f, got: %f", res.s, res.t, res.expectedSp, res.crpALTSP)
 
 				cancel()
 

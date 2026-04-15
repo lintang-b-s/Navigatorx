@@ -70,6 +70,10 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
+			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+				return
+			}
+
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
 				// newTravelTime is not better, do nothing
@@ -104,6 +108,10 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			edgeWeight := us.engine.GetWeight(eId, false)
 
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
+
+			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+				return
+			}
 
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {

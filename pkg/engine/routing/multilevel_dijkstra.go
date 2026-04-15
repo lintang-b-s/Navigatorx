@@ -172,6 +172,8 @@ search terminates ketika sum dari minimum keys of both priority queues exceeds \
 
 di implementasi multilevel-dijkstra ini, kita menggunakan bidirectional dijkstra with turn costs
 
+kode ini terinspirasi oleh kode implementasi Customizable Route Planning (CRP) yang dibuat oleh Michael Wegner: https://github.com/michaelwegner/CRP
+
 
 return:
 travelTime
@@ -325,7 +327,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (flo
 	}
 
 	packedPath := bs.engine.RetrievePackedPath(bs.forwardMid, bs.backwardMid,
-		bs.forwardPq, bs.backwardPq, bs.sForwardId, bs.tBackwardId, bs.sCellNumber)
+		bs.forwardPq, bs.backwardPq, bs.sForwardId, bs.tBackwardId, bs.sCellNumber, s, t)
 
 	dur := time.Since(now).Milliseconds()
 	bs.runtime = dur
@@ -437,11 +439,17 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 				// check if forward and backward search already scanned entry point and  exit point of v. if so, check whether we can improve the shortest path
 				scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
 				vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-				if scannedByBackwardSearch && util.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
-					vExitIdTravelTime, bs.shortestTravelTime) {
 
-					bs.shortestTravelTime = newVEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnType2) +
-						vExitIdTravelTime
+				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
+				if vExitId == bs.tBackwardId {
+					midTurnCost = 0
+				}
+
+				newPathTravelTime := newVEntryIdTravelTime + midTurnCost +
+					vExitIdTravelTime
+				if scannedByBackwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
+
+					bs.shortestTravelTime = newPathTravelTime
 
 					bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
 					bs.backwardMid = da.NewVertexEdgePair(vId, vExitId, true)
@@ -586,11 +594,16 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 				turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
 				scannedByForwardSearch := bs.forwardPq.IsScanned(vEntryId)
 				vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
-				if scannedByForwardSearch && util.Lt(vEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
-					newVExitIdTravelTime, bs.shortestTravelTime) {
 
-					bs.shortestTravelTime = vEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnType2) +
-						newVExitIdTravelTime
+				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
+				if vEntryId == bs.sForwardId {
+					midTurnCost = 0
+				}
+				newPathTravelTime := vEntryIdTravelTime + midTurnCost +
+					newVExitIdTravelTime
+				if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
+
+					bs.shortestTravelTime = newPathTravelTime
 
 					bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
 					bs.backwardMid = da.NewVertexEdgePair(vId, vExitId, true)
@@ -731,11 +744,17 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 					// check if forward and backward search already scanned exit point of w. if so, check whether we can improve the shortest path
 					scannedByBackwardSearch := bs.backwardPq.IsScanned(wExitId)
 					wExitIdTravelTime := bs.backwardPq.GetPriority(wExitId)
-					if scannedByBackwardSearch && util.Lt(newWEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turn)+
-						wExitIdTravelTime, bs.shortestTravelTime) {
 
-						bs.shortestTravelTime = newWEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turn) +
-							wExitIdTravelTime
+					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
+					if wExitId == bs.tBackwardId {
+						midTurnCost = 0
+					}
+
+					newPathTravelTime := newWEntryIdTravelTime + midTurnCost +
+						wExitIdTravelTime
+					if scannedByBackwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
+
+						bs.shortestTravelTime = newPathTravelTime
 
 						bs.forwardMid = da.NewVertexEdgePair(originalWId, wEntryId, false)
 						bs.backwardMid = da.NewVertexEdgePair(originalWId, wExitId, true)
@@ -894,12 +913,15 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 					turn pkg.TurnType, _ pkg.OsmHighwayType) {
 					scannedByForwardSearch := bs.forwardPq.IsScanned(wEntryId)
 					wEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
-					if scannedByForwardSearch && util.Lt(wEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turn)+
-						newWExitIdTravelTime, bs.shortestTravelTime) {
+					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
+					if wEntryId == bs.sForwardId {
+						midTurnCost = 0
+					}
+					newPathTravelTime := wEntryIdTravelTime + midTurnCost +
+						newWExitIdTravelTime
+					if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
 
-						bs.shortestTravelTime = wEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turn) +
-							newWExitIdTravelTime
-
+						bs.shortestTravelTime = newPathTravelTime
 						bs.forwardMid = da.NewVertexEdgePair(originalWId, wEntryId, false)
 						bs.backwardMid = da.NewVertexEdgePair(originalWId, wExitId, true)
 

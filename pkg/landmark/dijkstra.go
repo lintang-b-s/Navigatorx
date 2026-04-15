@@ -13,8 +13,6 @@ type Dijkstra struct {
 	graph   *da.Graph
 	metrics *met.Metric
 
-	shortestTravelTimes []float64
-
 	pq *da.QueryHeap[da.CRPQueryKey]
 
 	useReverseGraph bool
@@ -24,11 +22,11 @@ type Dijkstra struct {
 
 func NewDijkstra(graph *da.Graph, metrics *met.Metric, useReverseGraph bool) *Dijkstra {
 	dj := &Dijkstra{
-		graph:               graph,
-		useReverseGraph:     useReverseGraph,
-		numSettledNodes:     0,
-		shortestTravelTimes: make([]float64, 0),
-		metrics:             metrics,
+		graph:           graph,
+		useReverseGraph: useReverseGraph,
+		numSettledNodes: 0,
+
+		metrics: metrics,
 	}
 
 	return dj
@@ -43,7 +41,10 @@ Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, US
 MIT Press (CLRS).:
 Single-destination shortest-paths problem: Find a shortest path to a given des-
 tination vertex t from each vertex v. By reversing the direction of each edge in
-the graph, we can reduce this problem to a single-source problem
+the graph, we can reduce this problem to a single-source problem..
+
+buat precalculated landmark sp distances (untuk potential/heuristic ALT (A*, landmarks, and triangle inequality) algorithm)
+kita gak perlu pakai turn costs karena kalau misal pake turn costs di fase query Customizable Route Planning (CRP), potential/heuristic nya masih underestimate true sp dist dan masih memenuhi sifat konsisten/feasible...
 */
 func (us *Dijkstra) ShortestPath(s da.Index, heapPool *sync.Pool) []float64 {
 	us.pq = heapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
@@ -54,21 +55,11 @@ func (us *Dijkstra) ShortestPath(s da.Index, heapPool *sync.Pool) []float64 {
 	}
 	defer done()
 
-	sForwardId := da.Index(0)
-	if !us.useReverseGraph {
-		// v - sInEdge -> s
-
-		// for iterating outEdges, we need entryOffset.
-		sForwardId = us.graph.GetEntryOffset(s) + us.graph.GetInDegree(s) - 1 // dummy edge
-	} else {
-		// s - sOutEdge -> w
-		sForwardId = us.graph.GetExitOffset(s) + us.graph.GetOutDegree(s) - 1 // dummy edge
-	}
-
 	noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
-	us.pq.Insert(sForwardId, 0, da.NewVertexInfo(0,
-		noPar), da.NewDijkstraKey(s, sForwardId))
+	djKey := da.NewDijkstraKey(s, s)
+	us.pq.Insert(s, 0, da.NewVertexInfo(0,
+		noPar), djKey)
 
 	for !us.pq.IsEmpty() {
 		// search on graph level 1
@@ -76,151 +67,132 @@ func (us *Dijkstra) ShortestPath(s da.Index, heapPool *sync.Pool) []float64 {
 		us.numSettledNodes++
 	}
 
-	n := us.graph.NumberOfVertices()
-	us.shortestTravelTimes = make([]float64, n)
+	sps := us.constructShortestPath(s)
 
-	for v := 0; v < n; v++ {
-		us.shortestTravelTimes[v] = pkg.INF_WEIGHT
-	}
-
-	if !us.useReverseGraph {
-		us.graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, idx da.Index) {
-
-			// -vEntry->v
-			v := us.graph.GetHeadOfInedge(da.Index(entryId))
-
-			sp := us.pq.GetPriority(entryId)
-
-			if util.Lt(sp, us.shortestTravelTimes[v]) {
-				us.shortestTravelTimes[v] = sp
-			}
-		})
-	} else {
-		us.graph.ForInEdges(func(e da.InEdge, entryPoint, head, tail, exitId da.Index, percentage float64, idx da.Index) {
-
-			// v-vExit->
-			v := us.graph.GetTailOfOutedge(da.Index(exitId))
-
-			sp := us.pq.GetPriority(exitId)
-
-			if util.Lt(sp, us.shortestTravelTimes[v]) {
-				us.shortestTravelTimes[v] = sp
-			}
-		})
-	}
-
-	us.shortestTravelTimes[s] = 0
-	return us.shortestTravelTimes
+	return sps
 }
 
 func (us *Dijkstra) graphSearchUni(source da.Index) {
-	// taken from Delling, D. et al. (2015) “Customizable Route Planning in Road Networks,” Transportation Science [Preprint]. Available at: https://doi.org/10.1287/trsc.2014.0579 :
-	//The query algorithm maintains a distance label d(u) for each entry u which can either be a vertex on the overlay or a pair (u, i) corresponding to the i-th entry point of u in the original graph.
-	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
-	// we need to store entryPoint because we need to know turnType & turn cost when traversing from inEdge to outEdge of vertex u.
 	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
-
 	uId := uItem.GetNode()
+
 	if !us.useReverseGraph {
 
-		uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
-
-		uEntryPoint := uEntryId - us.graph.GetEntryOffset(uId)
-
 		// traverse outEdges of u
-		us.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
-			hwType pkg.OsmHighwayType) {
+		us.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
+			head := us.graph.GetHeadOfOutEdge(eId)
 
 			vId := head
 
+			weight, length, hwType := us.graph.GetOutEdgeTripleWeight(eId)
+
 			edgeWeight := us.metrics.GetWeight(hwType, weight, length)
 
-			turnCost := us.metrics.GetTurnCost(turnType)
-			if uId == source {
-				turnCost = 0
-			}
-
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
-			newArrTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost
+			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
-			if util.Ge(newArrTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
 			}
 
-			vEntryId := us.graph.GetEntryOffset(vId) + da.Index(entryPoint)
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
+			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
+				// newTravelTime is not better, do nothing
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && util.Ge(newArrTime, us.pq.GetPriority(vEntryId)) {
-				// newArrTime is not better, do nothing
 				return
 			}
 
-			// newArrTime is better, update the forwardInfo
+			// newTravelTime is better, update the forwardInfo
 
-			noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 			if vAlreadyLabelled {
-
+				newPar := da.NewVertexEdgePair(uId, eId, false)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vEntryId, newArrTime, newArrTime,
-					noPar)
+				us.pq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
+
 			} else if !vAlreadyLabelled {
+				queryKey := da.NewDijkstraKey(vId, vId)
+				vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+
 				// is key not in the priority queue, insert it
-
-				us.pq.Insert(vEntryId, newArrTime,
-					da.NewVertexInfo(newArrTime, noPar), da.NewDijkstraKey(vId, vEntryId))
+				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
 			}
-
 		})
 	} else {
+		// use reversed edges
 
-		uExitId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
-
-		uExitPoint := uExitId - us.graph.GetExitOffset(uId)
-
-		// traverse outEdges of u
-		us.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
-			turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+		// traverse inEdges of u
+		us.graph.ForInEdgeIdsOf(uId, func(eId da.Index) {
+			tail := us.graph.GetTailOfInedge(eId)
 
 			vId := tail
 
+			weight, length, hwType := us.graph.GetInEdgeTripleWeight(eId)
+
 			edgeWeight := us.metrics.GetWeight(hwType, weight, length)
 
-			turnCost := us.metrics.GetTurnCost(turnType)
+			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
-			if uId == source {
-				turnCost = 0
-			}
-
-			// get cost to reach v through u + turn cost from inEdge to outEdge of u
-			newArrTime := us.pq.GetPriority(uExitId) + edgeWeight + turnCost
-
-			if util.Ge(newArrTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
 			}
 
-			vExitId := us.graph.GetExitOffset(vId) + da.Index(exitPoint)
-
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vExitId), pkg.INF_WEIGHT)
-			if vAlreadyLabelled && util.Ge(newArrTime, us.pq.GetPriority(vExitId)) {
-				// newArrTime is not better, do nothing
-
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
+			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
+				// newTravelTime is not better, do nothing
 				return
 			}
 
-			// newArrTime is better, update the forwardInfo
-			noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
-
+			// newTravelTime is better, update the forwardInfo
 			if vAlreadyLabelled {
+				newPar := da.NewVertexEdgePair(uId, eId, false)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vExitId, newArrTime, newArrTime, noPar)
+				us.pq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
+
 			} else if !vAlreadyLabelled {
+				queryKey := da.NewDijkstraKey(vId, vId)
+				vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+
 				// is key not in the priority queue, insert it
-
-				us.pq.Insert(vExitId, newArrTime, da.NewVertexInfo(newArrTime, noPar),
-					da.NewDijkstraKey(vId, vExitId))
+				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
 			}
-
 		})
 	}
+}
+
+func (us *Dijkstra) constructShortestPath(s da.Index) []float64 {
+	n := us.graph.NumberOfVertices()
+	sps := make([]float64, n)
+	if !us.useReverseGraph {
+
+		for t := da.Index(0); t < da.Index(n); t++ {
+			sp := us.pq.GetPriority(t)
+
+			if s == t {
+				continue // sp == 0
+			}
+
+			sps[t] = sp
+			if util.Ge(sp, pkg.INF_WEIGHT) {
+				continue
+			}
+		}
+
+	} else {
+		//  use reversed edges
+		for t := da.Index(0); t < da.Index(n); t++ {
+			sp := us.pq.GetPriority(t)
+
+			if s == t {
+				continue // sp == 0
+			}
+			sps[t] = sp
+			if util.Ge(sp, pkg.INF_WEIGHT) {
+				continue
+			}
+
+		}
+
+	}
+	return sps
 }
