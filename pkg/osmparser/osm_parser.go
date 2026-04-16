@@ -412,7 +412,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 				}
 			} else {
 				savedRest[i] = restriction{
-					viaWay:             val[i].via,
+					viaWay:          val[i].via,
 					to:              val[i].to,
 					turnRestriction: val[i].turnRestriction,
 					isWay:           val[i].isWay,
@@ -441,7 +441,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 	}
 
 	graph, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), false, true)
-	
+
 	graph.SetBoundingBox(p.bb)
 
 	streetDirectionForward := bitset.New(uint(graph.NumberOfEdges()))
@@ -796,6 +796,9 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	toNId := p.nodeIDMap[to.id]
 
 	roadClass := tempMap[ROAD_CLASS]
+	if roadClass == "" {
+		roadClass = tempMap[ROAD_CLASS_LINK]
+	}
 
 	hwType := pkg.GetHighwayType(roadClass)
 

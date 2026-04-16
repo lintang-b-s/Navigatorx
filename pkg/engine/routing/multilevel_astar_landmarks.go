@@ -1013,8 +1013,6 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 	bs.forwardPq = bs.engine.fHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
 	bs.backwardPq = bs.engine.bHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
 
-	bs.forwardPq.Clear()
-	bs.backwardPq.Clear()
 }
 
 func (bs *CRPALTBidirectionalSearch) Done() {
@@ -1023,6 +1021,8 @@ func (bs *CRPALTBidirectionalSearch) Done() {
 		return
 	}
 
+	bs.forwardPq.Clear()
+	bs.backwardPq.Clear()
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
 	bs.engine.stallingEntryPool.Put(bs.stallingEntry)
