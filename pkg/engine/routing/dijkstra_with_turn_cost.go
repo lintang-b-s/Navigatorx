@@ -11,6 +11,7 @@ type DijkstraWithTurnCost struct {
 
 	finalDist           []da.VertexInfo
 	finalEdge           []da.Index
+	targetEntryIds      []da.Index
 	shortestTravelTimes []float64
 
 	pq *da.QueryHeap[da.CRPQueryKey]
@@ -36,7 +37,8 @@ func NewDijkstraWithTurnCost(engine *CRPRoutingEngine, useReversedEdges bool) Di
 
 /*
 single-source shortest paths, from s to all other vertices
-edge-based graph, support turn-costs
+edge-based graph, support turn-costs..
+see section 4.2 (Dijkstra's Algorithm on the Compact Graph): https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
 useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 */
@@ -46,10 +48,12 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 	)
 
 	if !us.useReversedEdges {
-		sForwardId = us.engine.graph.GetEntryOffset(s) + us.engine.graph.GetInDegree(s) - 1
+		sForwardId = us.engine.graph.GetDummyInEdgeId(s)
 	} else {
 		sForwardId = us.engine.graph.GetExitOffset(s) + us.engine.graph.GetOutDegree(s) - 1
 	}
+
+	n := us.engine.graph.NumberOfVertices()
 
 	us.sForwardId = sForwardId
 
@@ -63,8 +67,6 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 		us.graphSearchUni(s)
 		us.numSettledNodes++
 	}
-
-	n := us.engine.graph.NumberOfVertices()
 
 	spEdges := make([][]da.Index, n)
 	sps := make([]float64, n)
@@ -155,12 +157,13 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
 	uId := uItem.GetNode()
+	uCost := queryKey.GetRank()
 
 	if !us.useReversedEdges {
 		uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
 		// -uEntry> u
 
-		if util.Eq(us.finalDist[uId].GetTravelTime(), pkg.INF_WEIGHT) || util.Lt(us.pq.GetPriority(uEntryId), us.finalDist[uId].GetTravelTime()) {
+		if util.Eq(us.finalDist[uId].GetTravelTime(), pkg.INF_WEIGHT) || util.Lt(uCost, us.finalDist[uId].GetTravelTime()) {
 			us.finalDist[uId] = us.pq.Get(uEntryId)
 			us.finalEdge[uId] = uEntryId
 		}
@@ -177,12 +180,8 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
 
-			if uId == source && uEntryId == us.sForwardId {
-				turnCost = 0
-			}
-
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
-			newTravelTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost
+			newTravelTime := uCost + edgeWeight + turnCost
 
 			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
@@ -233,10 +232,6 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 			edgeWeight := us.engine.GetWeight(eId, false)
 
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
-
-			if uId == source && uExitId == us.sForwardId {
-				turnCost = 0
-			}
 
 			newTravelTime := us.pq.GetPriority(uExitId) + edgeWeight + turnCost
 

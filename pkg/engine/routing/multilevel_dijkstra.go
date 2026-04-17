@@ -381,9 +381,6 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 		edgeWeight := bs.engine.GetWeight(eId, true)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
-		if uId == source {
-			turnCost = 0
-		}
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
@@ -441,9 +438,6 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 				vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
 
 				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
-				if vExitId == bs.tBackwardId {
-					midTurnCost = 0
-				}
 
 				newPathTravelTime := newVEntryIdTravelTime + midTurnCost +
 					vExitIdTravelTime
@@ -546,7 +540,7 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
-		if uId == target {
+		if uId == target && uExitId == bs.tBackwardId && bs.engine.IsIgnoreTargetTurnCost() {
 			turnCost = 0
 		}
 
@@ -596,9 +590,7 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 				vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
 
 				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
-				if vEntryId == bs.sForwardId {
-					midTurnCost = 0
-				}
+
 				newPathTravelTime := vEntryIdTravelTime + midTurnCost +
 					newVExitIdTravelTime
 				if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
@@ -746,9 +738,6 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 					wExitIdTravelTime := bs.backwardPq.GetPriority(wExitId)
 
 					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
-					if wExitId == bs.tBackwardId {
-						midTurnCost = 0
-					}
 
 					newPathTravelTime := newWEntryIdTravelTime + midTurnCost +
 						wExitIdTravelTime
@@ -914,9 +903,7 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 					scannedByForwardSearch := bs.forwardPq.IsScanned(wEntryId)
 					wEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
 					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
-					if wEntryId == bs.sForwardId {
-						midTurnCost = 0
-					}
+
 					newPathTravelTime := wEntryIdTravelTime + midTurnCost +
 						newWExitIdTravelTime
 					if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {

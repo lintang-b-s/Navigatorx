@@ -91,6 +91,7 @@ type OutEdge struct {
 	head       Index
 	entryPoint Index
 	hwType     pkg.OsmHighwayType
+	dummyEdge  uint8 // dummy edge (for phantom node) or parallel edge (for OSM turn restriction via-way)
 }
 
 // inedge exits vertex tail at exitPoint
@@ -101,6 +102,8 @@ type InEdge struct {
 	tail      Index
 	exitPoint Index
 	hwType    pkg.OsmHighwayType
+	dummyEdge uint8 // dummy edge (for phantom node)  or parallel edge (for OSM turn restriction via-way)
+
 }
 
 func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint Index, hwType pkg.OsmHighwayType) OutEdge {
@@ -111,6 +114,7 @@ func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint Index, hwTy
 		dist:       dist,
 		entryPoint: entryPoint,
 		hwType:     hwType,
+		dummyEdge:  0,
 	}
 }
 
@@ -122,7 +126,24 @@ func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint Index, hwType
 		dist:      dist,
 		exitPoint: exitPoint,
 		hwType:    hwType,
+		dummyEdge: 0,
 	}
+}
+
+func (e *OutEdge) SetDummyEdge() {
+	e.dummyEdge |= 1
+}
+
+func (e *InEdge) SetDummyEdge() {
+	e.dummyEdge |= 1
+}
+
+func (e *OutEdge) SetParallelEdge() {
+	e.dummyEdge |= 1
+}
+
+func (e *InEdge) SetParallelEdge() {
+	e.dummyEdge |= 1
 }
 
 func (e *OutEdge) GetWeight() float64 {
@@ -234,7 +255,7 @@ type VertexIDPair struct {
 
 type Pv uint64
 
-// main crp graph. static (i.e. can't add new edges)
+// main Customizable Route Planning (CRP) graph. adjacency arrays & compact graph representation. see section 4.1 & 4.3: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 type Graph struct {
 	graphStorage      *GraphStorage
 	vertices          []Vertex
@@ -247,18 +268,14 @@ type Graph struct {
 	inEdgeCellOffset  []Index        // offset of first inEdge for each cellNumber
 	turnTables        []pkg.TurnType // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 
-	// T[e][t_i][h_j] = is turn type  at entryPoint i ke tail dari edge e -> e -> exitPoint j dari head dari edge e.
-	// buat via yang tipenya osm way: https://wiki.openstreetmap.org/wiki/Relation:restriction .
-	// only support via-way yang cuma punya dua nodes
-	turnTablesViaWay [][][]pkg.TurnType
-
 	// strongly connected components
 	sccs               []Index   // verticeId -> sccId
 	sccCondensationAdj [][]Index // condensation graph connection of scc of u -> scc of v
 
 	boundingBox    *BoundingBox
 	maxEdgesInCell Index // maximum number of inEdges/outEdges in any cell
-	roadNetwork    bool
+
+	roadNetwork bool
 }
 
 func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnTables []pkg.TurnType, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
@@ -268,22 +285,6 @@ func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnT
 
 func (g *Graph) NumberOfVertices() int {
 	return len(g.vertices) - 1
-}
-
-func (g *Graph) SetTurnTableViaway(turnTablesViaWay [][][]pkg.TurnType) {
-	g.turnTablesViaWay = turnTablesViaWay
-}
-
-func (g *Graph) GetTurnTableViaway() [][][]pkg.TurnType {
-	return g.turnTablesViaWay
-}
-
-func (g *Graph) SetTurnTableViaEdge(eId Index, turnTable [][]pkg.TurnType) {
-	g.turnTablesViaWay[eId] = turnTable
-}
-
-func (g *Graph) GetTurnTypeViaWay(eId Index, tailEntryPoint, headExitPoint Index) pkg.TurnType {
-	return g.turnTablesViaWay[eId][tailEntryPoint][headExitPoint]
 }
 
 func (g *Graph) NumberOfEdges() int {
@@ -470,12 +471,23 @@ func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(eId, tail Ind
 
 // GetDummyOutEdgeId. return dummy outEdge (u,u)
 func (g *Graph) GetDummyOutEdgeId(u Index) Index {
-	return g.GetExitOffset(u) + g.GetOutDegree(u) - 1
+	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
+		if g.outEdges[e].dummyEdge&1 != 0 {
+			return e
+		}
+	}
+	return g.vertices[u].firstOut
+
 }
 
 // GetDummyOutEdgeId. return dummy inEdge (u,u)
 func (g *Graph) GetDummyInEdgeId(u Index) Index {
-	return g.GetEntryOffset(u) + g.GetInDegree(u) - 1
+	for e := g.vertices[u].firstIn; e < g.vertices[u+1].firstIn; e++ {
+		if g.inEdges[e].dummyEdge&1 != 0 {
+			return e
+		}
+	}
+	return g.vertices[u].firstIn
 }
 
 func (g *Graph) GetNumberOfOutEdges(u Index) Index {
@@ -493,7 +505,7 @@ func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 }
 
 func (g *Graph) IsDummyOutEdge(eId Index) bool {
-	if g.outEdges[eId].GetHighwayType() == pkg.INVALID_HIGHWAY {
+	if g.outEdges[eId].dummyEdge&2 != 0 || g.outEdges[eId].GetHighwayType() == pkg.INVALID_HIGHWAY {
 		return true
 	}
 
@@ -884,15 +896,6 @@ func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(head, exitPoint Index, 
 			continue
 		}
 		handle(g.outEdges[e].head, g.GetExitOrder(u, e), g.outEdges[e].weight)
-	}
-}
-
-func (g *Graph) ForInEdgesOfVertex(u Index, handle func(tail, entryPoint Index, weight float64)) {
-	for e := g.vertices[u].firstIn; e < g.vertices[u+1].firstIn; e++ {
-		if g.IsDummyOutEdge(e) {
-			continue
-		}
-		handle(g.inEdges[e].tail, g.GetEntryOrder(u, e), g.inEdges[e].weight)
 	}
 }
 

@@ -150,11 +150,17 @@ func (gs *GraphStorage) AppendPathWithEdgeGeometry(path *Coordinates, edgeID Ind
 	*path = slice
 }
 
-func (gs *GraphStorage) GetEdgeGeometry(edgeID Index) []Coordinate {
+func (gs *GraphStorage) GetEdgeGeometry(edgeId Index) []Coordinate {
 
-	startIndex := gs.edgeStartPointsIndex[edgeID]
-	endIndex := gs.edgeEndPointsIndex[edgeID]
+	startIndex := gs.edgeStartPointsIndex[edgeId]
+	endIndex := gs.edgeEndPointsIndex[edgeId]
 	return gs.GetOsmNodePoints(startIndex, endIndex)
+}
+
+func (gs *GraphStorage) GetEdgeGeometryEndpoints(edgeId Index) (Index, Index) {
+	startIndex := gs.edgeStartPointsIndex[edgeId]
+	endIndex := gs.edgeEndPointsIndex[edgeId]
+	return startIndex, endIndex
 }
 
 func (gs *GraphStorage) GetOsmNodePoints(startIndex, endIndex Index) []Coordinate {
@@ -241,4 +247,25 @@ func (gs *GraphStorage) GetStr(id uint32) string {
 
 func (gs *GraphStorage) GetOsmWayId(edgeId Index) uint64 {
 	return gs.edgeOsmWayId.Get(uint64(edgeId))
+}
+
+func (gs *GraphStorage) GetStreetName(edgeId Index) string {
+	return gs.nameTable[gs.streetName[edgeId]]
+}
+func (gs *GraphStorage) GetStreetNameId(edgeId Index) uint32 {
+	return gs.streetName[edgeId]
+}
+
+func (g *GraphStorage) GetRoadClass(edgeId Index) pkg.OsmHighwayType {
+	roadClassId := g.roadClass[edgeId]
+	return roadClassId
+}
+
+func (g *GraphStorage) GetRoadClassLink(edgeId Index) pkg.OsmHighwayType {
+	roadClassLinkId := g.roadClassLink[edgeId]
+	return roadClassLinkId
+}
+
+func (g *GraphStorage) GetRoadLanes(edgeId Index) uint8 {
+	return g.lanes[edgeId]
 }

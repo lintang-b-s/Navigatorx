@@ -291,8 +291,8 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (
 		bs.numScannedVertices += 2
 	}
 
-	if util.Eq(bs.shortestTravelTime, 2*pkg.INF_WEIGHT) {
-		return pkg.INF_WEIGHT, 2 * pkg.INF_WEIGHT, da.NewCoordinatesWithCap(0), []da.Index{}, false
+	if util.Ge(bs.shortestTravelTime, pkg.INF_WEIGHT) {
+		return pkg.INF_WEIGHT, pkg.INF_WEIGHT, da.NewCoordinatesWithCap(0), []da.Index{}, false
 	}
 
 	packedPath := bs.engine.RetrievePackedPath(bs.forwardMid, bs.backwardMid,
@@ -353,10 +353,6 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 		edgeWeight := bs.engine.GetWeight(eId, true)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
-
-		if uId == source && uEntryId == bs.sForwardId {
-			turnCost = 0
-		}
 
 		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 		pfv, _ := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
@@ -425,15 +421,6 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 				vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
 
 				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
-
-				if vExitId == bs.tBackwardId {
-					/*
-						untuk handle case:
-							s->.....-tInEdge->t-tOutEdge->
-							t=v
-					*/
-					midTurnCost = 0
-				}
 
 				newPathTravelTime := newVEntryIdTravelTime + midTurnCost +
 					vExitIdTravelTime
@@ -540,7 +527,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
-		if uId == target && uExitId == bs.tBackwardId {
+		if uId == target && uExitId == bs.tBackwardId && bs.engine.IsIgnoreTargetTurnCost() {
 			turnCost = 0
 		}
 
@@ -595,15 +582,6 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 				vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
 
 				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
-
-				if vEntryId == bs.sForwardId {
-					/*
-						untuk handle case:
-							-sInEdge->s-sOutEdge->.....->t
-							s=v
-					*/
-					midTurnCost = 0
-				}
 
 				newPathTravelTime := vEntryIdTravelTime + midTurnCost + newVExitIdTravelTime
 				if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
@@ -757,9 +735,6 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 
 					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
 
-					if wExitId == bs.tBackwardId {
-						midTurnCost = 0
-					}
 					newPathTravelTime := newWEntryIdTravelTime + midTurnCost + wExitIdTravelTime
 					if scannedByBackwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
 
@@ -929,9 +904,6 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 
 					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
 
-					if wEntryId == bs.sForwardId {
-						midTurnCost = 0
-					}
 					newPathTravelTime := wEntryIdTravelTime + midTurnCost +
 						newWExitIdTravelTime
 					if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {

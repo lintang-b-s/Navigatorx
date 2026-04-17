@@ -20,14 +20,14 @@ func (e *Engine) GetRoutingEngine() *routing.CRPRoutingEngine {
 	return e.crpRoutingEngine
 }
 
-func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger) (*Engine, error) {
-	initializeRoutingEngine, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile,
-		logger)
+func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger, ignoreTargetTurnCost bool) (*Engine, error) {
+	re, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile,
+		logger, ignoreTargetTurnCost)
 	if err != nil {
 		return nil, err
 	}
 	return &Engine{
-		crpRoutingEngine: initializeRoutingEngine,
+		crpRoutingEngine: re,
 	}, nil
 }
 
@@ -55,13 +55,13 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 	}
 
 	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf, lm)
-
+	re.SetIgnoreTargetTurnCost()
 	return &Engine{
 		crpRoutingEngine: re,
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger,
+func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger, ignoreTargetTurnCost bool,
 ) (*routing.CRPRoutingEngine,
 	error) {
 
@@ -93,7 +93,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
 
-	const maxCost = int64(1) << 26 // kalo ristretto ukurannya mb? 67.108864 MB
+	const maxCost = int64(1) << 26 
 	const maxItems = (maxCost / keyValByteApproxSize)
 	const numCounters = maxItems * 3
 	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
@@ -110,5 +110,10 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		panic(err)
 	}
 
-	return routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf, lm), nil
+	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf, lm)
+	if ignoreTargetTurnCost {
+		re.SetIgnoreTargetTurnCost()
+	}
+
+	return re, nil
 }

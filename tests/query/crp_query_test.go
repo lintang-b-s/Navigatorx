@@ -202,7 +202,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true, false)
+		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -368,7 +368,6 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark) {
 	}
 
 	op := osmparser.NewOSMParserV2()
-
 	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
 	if err != nil {
 		t.Fatal(err)
@@ -428,7 +427,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark) {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, true)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -573,7 +572,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		return newCounterExampleData(0, 0, nil, nil, false)
 	}
 
-	workers := concurrent.NewWorkerPool[query, counterExampleData](100, n*numberOfVertices)
+	workers := concurrent.NewWorkerPool[query, counterExampleData](12, n*numberOfVertices)
 
 	for i := 0; i < n; i++ {
 		s := queries[i]
@@ -694,11 +693,12 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		target := q.t
 
 		id := q.id
-		inEdgeToS := g.GetEntryOffset(s) + g.GetInDegree(s) - 1
+		inEdgeToS := g.GetDummyInEdgeId(s)
 		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
-		outEdgeFromTarget := g.GetExitOffset(target) + g.GetOutDegree(target) - 1
+		outEdgeFromTarget := g.GetDummyOutEdgeId(target)
 		tail, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+
 		util.AssertPanic(tail == target, "dummy target edge is invalid")
 		sVertex := g.GetVertex(s)
 		tVertex := g.GetVertex(target)
@@ -729,7 +729,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		return newCounterExampleData(0, 0, 0, 0, nil, nil, false)
 	}
 
-	workers := concurrent.NewWorkerPool[query, counterExampleData](100, n*numberOfVertices)
+	workers := concurrent.NewWorkerPool[query, counterExampleData](12, n*numberOfVertices)
 
 	for i := 0; i < n; i++ {
 		s := queries[i]
