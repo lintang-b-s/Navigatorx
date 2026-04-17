@@ -207,9 +207,6 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 		edgeWeight := us.engine.GetWeight(eId, true)
 
 		turnCost := us.engine.metrics.GetTurnCost(turnType)
-		if uId == source {
-			turnCost = 0
-		}
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost

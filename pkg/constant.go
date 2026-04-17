@@ -109,12 +109,12 @@ func GetIsVehicle() bool {
 }
 
 const (
-	LEFT_TURN TurnType = iota
+	NONE TurnType = iota
+	LEFT_TURN
 	RIGHT_TURN
 	STRAIGHT_ON
 	U_TURN
 	NO_ENTRY
-	NONE
 )
 
 const (

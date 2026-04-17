@@ -13,7 +13,7 @@ import (
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
 // jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph.
 // hal ini karena Customizable Route Planning (CRP) Query phase (support turn costs) mengasumsikan setiap vertices memiliki setidaknya satu edge.
-func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorage, numV uint32, skipUTurn bool, roadNetwork bool) (*da.Graph, [][]da.Index) {
+func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, [][]da.Index) {
 	var (
 		outEdges    [][]da.OutEdge = make([][]da.OutEdge, numV)
 		inEdges     [][]da.InEdge  = make([][]da.InEdge, numV)
@@ -61,7 +61,178 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		vertexOsmIds[v] = vOsmId
 	}
 
-	numberOfEdges := len(scannedEdges)
+	newEInfoId := len(scannedEdges)
+
+	for wayId, way := range p.ways {
+
+		fromRestrictions := p.restrictions[wayId]
+		for fromResId, restriction := range fromRestrictions {
+			if restriction.isWay {
+				/*
+									turn restriction berbentuk: {from-way, via-way, to-way}
+									di kode ini:
+									wayId/way: from-way
+									restriction.to: to-way
+									restriction.viaWay: via-way
+
+
+									contoh: https://www.openstreetmap.org/relation/15268026
+									saat ini kita cuma support viaway yang cuma punya 2 nodes (biasanya yang tipe restriction nya u-turn kaya contoh diatas).
+
+									masalahnya:
+									Turn Table nya Customizable Route Planning (CRP): https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+									cuma suppport turn cost dari entryPoint i dari vertex u ke exitPoint j, atau
+									T[u][i,j] = turn cost dari via vertex u dari entryPoint i (inEdge yang head nya u) ke exitPoint j (outEdge yang tailnya u).
+
+									kalau dari contoh diatas, misal kita add NO_ENTRY dari https://www.openstreetmap.org/way/1131069658 ke https://www.openstreetmap.org/way/1131069655 ..
+									nanti dari jalan Subali Raya ke https://www.openstreetmap.org/way/1131069655 juga not allowed, padahal harusnya yang u-turn dari jalan siliwangi ke timur ke jalan siliwangi ke barat yang gaboleh...
+
+
+									contoh route gmaps dari contoh diatas:
+									dari subali raya: https://www.google.com/maps/dir/-6.9873908,110.3664021/-6.9881226,110.3659578/@-6.9878269,110.3658884,19.47z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+									dari jl. siliwangi ke arah timur: https://www.google.com/maps/dir/-6.9876072,110.3661405/-6.9881226,110.3659578/@-6.9878269,110.3658884,19z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+									contoh2: https://www.openstreetmap.org/relation/12570723#map=19/-7.729927/110.547100
+									gmaps boleh u-turn: https://www.google.com/maps/dir/1st+State+Vocational+High+School,+Jogonalan,+Jl.+Raya+Solo+-+Yogyakarta+Jl.+Raya+Jogjakarta+Solo+No.313,+Tegalmas,+Prawatan,+Jogonalan,+Klaten+Regency,+Central+Java+57452/-7.7296566,110.5468658/@-7.7298901,110.5466694,19.54z/data=!4m9!4m8!1m5!1m1!1s0x2e7a41027753afb7:0x93394c25131d12eb!2m2!1d110.547994!2d-7.729615!1m0!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+									contoh3: https://www.openstreetmap.org/relation/12845704#map=18/-7.702438/110.350628
+									gmaps gaboleh u-turn di sini: https://www.google.com/maps/dir/-7.7035756,110.3503142/-7.7037607,110.3501331/@-7.7039124,110.3500935,19.14z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+									idk mungkin solusi sementara kita bikin U-turn Table:
+									T[e_u][e_i, e_j] = NO_ENTRY : gaboleh u-turn dari edge e_i -> e_u -> e_j...
+									bisa pakai array 3 dimensi... T[e_u][e_i][e_j] tapi size nya kegedean kalau banyak graph edges nya....
+									jangan pakai hashmap karena probingnya bikin routing lemot...
+
+									solusi:
+									T[e_u][t_i, h_j] = NO_ENTRY: gaboleh u-turn dari entryPoint i dari tail nya e_u -> e_u -> exitPoint j dari headnya e_u... (kita cuma support restrictions yang via way yang cuma punya 2 nodes)..
+									bisa pakai array 3 dimensi lagi tapi size dari dim 2 adlh jumlah entryPoint dari tailnya e_u dan size dari dim 3 adlh jumlah exitPoint dari headnya e_u....
+
+
+									pertama kita harus cari node (tail) dari via-way yang jadi JUNCTION dengan from-way
+									kedua kita cari node (head) dari via-way yang jadi JUNCTION dengan to-way
+
+									tinggal append ke uTurn table nya
+
+
+									updated SOLUTION:
+									ternyata udah di mention di paper CRP: see page 7 polyvalent turn: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+									kita bikin parallel edge dari via-way dan from-way, contoh:
+									https://www.openstreetmap.org/relation/15268026
+									tambah 1 edge dari via-way: https://www.openstreetmap.org/way/1131069658
+									jadi ada dua edge parallel dari via-way dan from-way diatas...
+									yang satu khusus diakses oleh from-way dari u-turn restriction dan satunya bisa diakses oleh other edges kecuali edge dari from-way....
+
+									ilustrasi:
+
+										|
+										| Jalan Subali Raya
+										|
+									    \/
+									 _________   from-edge 2 (parallel dengan from-edge 1)
+									/         \
+									----------->		 Jalan Siliwangi ke arah timur (from-edge 1)
+											   |\
+								via-edge 1	   | \ via-edge 2 (parallel dengan via-edge 1)
+											   |  |
+											   | /
+											   |/
+											   \/
+					      		   <------------ Jalan Siliwangi ke arah barat (to-edge)
+
+
+
+
+									nah dari from-edge 2 (https://www.openstreetmap.org/way/1131069660) ke via-edge 1 dikasih turn cost INF dan ke via-edge 2 dikasih turn cost 0...
+									dari from-edge 1 (selain from-way, misalnya Jalan Subali Raya)  ke via-edge 2 dikasih turn cost INF dan via-edge 1 dikasih turn cost 0...
+									dari edge Jalan Subali Raya ke from-edge 2 dikasih turn cost INF, tapi ke from-edge 1 dikasih turn cost 0...
+									dari via-edge 2 ke to-edge dikasih turn cost INF (karena OSM u-turn restriction diatas).. biar dari  Jalan Siliwangi ke arah timur (from-edge 2) -> via-edge 2 -> to-edge gabisa lewat...
+									dari via-edge 1 ke to-edge dikasih turn cost 0... biar dari jalan subali raya  -> from-edge 1 -> via-edge 1 -> to-edge bisa lewat ...
+
+									kayake gak perlu bikin parallel edge buat from-edge, cuma perlu parallel edge buat via-edge, dari rute osrm dibawah:
+									https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-6.987043%2C110.366592%3B-6.988103%2C110.366536#map=19/-6.987536/110.367400
+									https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-6.98786%2C110.366571%3B-6.988103%2C110.366536#map=19/-6.987839/110.367400
+
+
+									inspired by how to handle polyvalent turn dari paper CRP dan https://github.com/Project-OSRM/osrm-backend/issues/2681
+				*/ //  nolint: gofmt
+
+				viaWay := restriction.viaWay
+				viaWayNodes := p.ways[viaWay].graphNodes
+
+				viaWayNodesSet := make(map[da.Index]struct{}, len(viaWayNodes))
+				for i := 0; i < len(viaWayNodes); i++ {
+					viaWayNodesSet[viaWayNodes[i]] = struct{}{}
+				}
+
+				fromNodes := way.graphNodes
+				toNodes := p.ways[restriction.to].graphNodes
+
+				tail := da.Index(math.MaxUint32)
+				head := da.Index(math.MaxUint32)
+
+				for i := 0; i < len(fromNodes); i++ {
+					if _, ok := viaWayNodesSet[fromNodes[i]]; ok {
+						tail = fromNodes[i]
+						break
+					}
+				}
+
+				for i := 0; i < len(toNodes); i++ {
+					if _, ok := viaWayNodesSet[toNodes[i]]; ok {
+						head = toNodes[i]
+						break
+					}
+				}
+
+				viaWayEdge := da.NewEmptyOutEdge()
+
+				viaWayEInfoId := da.Index(da.INVALID_EDGE_ID)
+				for tailExitPoint, outEdge := range outEdges[tail] {
+					eInfoId := edgeInfoIds[tail][tailExitPoint]
+					eHead := outEdge.GetHead()
+					if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head {
+						viaWayEInfoId = eInfoId
+						viaWayEdge = outEdge
+						break
+					}
+				}
+
+				if viaWayEInfoId == da.INVALID_EDGE_ID {
+					continue
+				}
+
+				viaHead := viaWayEdge.GetHead()
+				viaHeadNewEdgeEntryPoint := da.Index(len(inEdges[viaHead]))
+				viaParallelOutEdge := da.NewOutEdge(da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId), viaHead,
+					viaWayEdge.GetWeight(), viaWayEdge.GetLength(), viaHeadNewEdgeEntryPoint, viaWayEdge.GetHighwayType())
+				viaParallelOutEdge.SetParallelEdge()
+				outEdges[tail] = append(outEdges[tail], viaParallelOutEdge)
+				edgeInfoIds[tail] = append(edgeInfoIds[tail], da.Index(newEInfoId))
+				outDegree[tail]++
+
+				tailNewEdgeExitPoint := da.Index(len(outEdges[tail]) - 1)
+				viaParallelInEdge := da.NewInEdge(da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId), tail,
+					viaWayEdge.GetWeight(), viaWayEdge.GetLength(), tailNewEdgeExitPoint, viaWayEdge.GetHighwayType())
+				viaParallelInEdge.SetParallelEdge()
+				inEdges[viaHead] = append(inEdges[viaHead], viaParallelInEdge)
+				inDegree[viaHead]++
+				startPointId, endPointId := graphStorage.GetEdgeGeometryEndpoints(viaWayEInfoId)
+				graphStorage.AppendEdgeMetadata(
+					int64(graphStorage.GetOsmWayId(viaWayEInfoId)),
+					startPointId, endPointId,
+					graphStorage.GetStreetNameId(viaWayEInfoId),
+					graphStorage.GetRoadClass(viaWayEInfoId),
+					graphStorage.GetRoadClassLink(viaWayEInfoId),
+					graphStorage.GetRoadLanes(viaWayEInfoId),
+				)
+				newEInfoId++
+			}
+		}
+	}
 
 	// O(V)
 	for v := 0; v < len(vertices)-1; v++ {
@@ -69,14 +240,17 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		if !roadNetwork || (roadNetwork && (outDegree[v] == 0 || inDegree[v] == 0)) {
 			dummyOut := da.NewOutEdge(da.INVALID_EDGE_ID, da.Index(v),
 				pkg.INF_WEIGHT, pkg.INF_WEIGHT, da.Index(len(inEdges[v])), pkg.INVALID_HIGHWAY)
+			dummyOut.SetDummyEdge()
 			outEdges[v] = append(outEdges[v], dummyOut)
 			edgeInfoIds[v] = append(edgeInfoIds[v], da.INVALID_EDGE_INFO_ID)
 			outDegree[v]++
 
 			dummyIn := da.NewInEdge(da.INVALID_EDGE_ID, da.Index(v),
 				pkg.INF_WEIGHT, pkg.INF_WEIGHT, da.Index(len(outEdges[v])-1), pkg.INVALID_HIGHWAY)
+			dummyIn.SetDummyEdge()
 			inEdges[v] = append(inEdges[v], dummyIn)
 			inDegree[v]++
+
 			graphStorage.AppendEdgeMetadata(
 				-1,
 				1, 1,
@@ -85,8 +259,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				pkg.INVALID_HIGHWAY,
 				uint8(0),
 			)
-
-			numberOfEdges++
 		}
 	}
 
@@ -280,7 +452,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 		fromNodes := way.graphNodes
 		fromRestrictions := p.restrictions[wayId]
-		for _, restriction := range fromRestrictions {
+		for fromResId, restriction := range fromRestrictions {
 
 			if wayId == int64(restriction.to) { // ignore restrictions from wayId == restriction.to
 				continue
@@ -497,6 +669,263 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						break
 					}
 				}
+			} else if restriction.isWay {
+				/*
+									turn restriction berbentuk: {from-way, via-way, to-way}
+									di kode ini:
+									wayId/way: from-way
+									restriction.to: to-way
+									restriction.viaWay: via-way
+
+
+									contoh: https://www.openstreetmap.org/relation/15268026
+									saat ini kita cuma support viaway yang cuma punya 2 nodes (biasanya yang tipe restriction nya u-turn kaya contoh diatas).
+
+									masalahnya:
+									Turn Table nya Customizable Route Planning (CRP): https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+									cuma suppport turn cost dari entryPoint i dari vertex u ke exitPoint j, atau
+									T[u][i,j] = turn cost dari via vertex u dari entryPoint i (inEdge yang head nya u) ke exitPoint j (outEdge yang tailnya u).
+
+									kalau dari contoh diatas, misal kita add NO_ENTRY dari https://www.openstreetmap.org/way/1131069658 ke https://www.openstreetmap.org/way/1131069655 ..
+									nanti dari jalan Subali Raya ke https://www.openstreetmap.org/way/1131069655 juga not allowed, padahal harusnya yang u-turn dari jalan siliwangi ke timur ke jalan siliwangi ke barat yang gaboleh...
+
+
+									contoh route gmaps dari contoh diatas:
+									dari subali raya: https://www.google.com/maps/dir/-6.9873908,110.3664021/-6.9881226,110.3659578/@-6.9878269,110.3658884,19.47z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+									dari jl. siliwangi ke arah timur: https://www.google.com/maps/dir/-6.9876072,110.3661405/-6.9881226,110.3659578/@-6.9878269,110.3658884,19z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+									contoh2: https://www.openstreetmap.org/relation/12570723#map=19/-7.729927/110.547100
+									gmaps boleh u-turn: https://www.google.com/maps/dir/1st+State+Vocational+High+School,+Jogonalan,+Jl.+Raya+Solo+-+Yogyakarta+Jl.+Raya+Jogjakarta+Solo+No.313,+Tegalmas,+Prawatan,+Jogonalan,+Klaten+Regency,+Central+Java+57452/-7.7296566,110.5468658/@-7.7298901,110.5466694,19.54z/data=!4m9!4m8!1m5!1m1!1s0x2e7a41027753afb7:0x93394c25131d12eb!2m2!1d110.547994!2d-7.729615!1m0!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+									contoh3: https://www.openstreetmap.org/relation/12845704#map=18/-7.702438/110.350628
+									gmaps gaboleh u-turn di sini: https://www.google.com/maps/dir/-7.7035756,110.3503142/-7.7037607,110.3501331/@-7.7039124,110.3500935,19.14z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+									updated SOLUTION:
+									ternyata udah di mention di paper CRP: see page 7 polyvalent turn: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+									kita bikin parallel edge dari via-way dan from-way, contoh:
+									https://www.openstreetmap.org/relation/15268026
+									tambah 1 edge dari via-way: https://www.openstreetmap.org/way/1131069658
+									jadi ada dua edge parallel dari via-way dan from-way diatas...
+									yang satu khusus diakses oleh from-way dari u-turn restriction dan satunya bisa diakses oleh other edges kecuali edge dari from-way....
+
+									ilustrasi:
+
+										|
+										| Jalan Subali Raya
+										|
+									    \/
+									 _________   from-edge 2 (parallel dengan from-edge 1)
+									/         \
+									----------->		 Jalan Siliwangi ke arah timur (from-edge 1)
+											   |\
+								via-edge 1	   | \ via-edge 2 (parallel dengan via-edge 1)
+											   |  |
+											   | /
+											   |/
+											   \/
+					      		   <------------ Jalan Siliwangi ke arah barat (to-edge)
+
+
+
+
+									nah dari from-edge 2 (https://www.openstreetmap.org/way/1131069660) ke via-edge 1 dikasih turn cost INF dan ke via-edge 2 dikasih turn cost 0...
+									dari from-edge 1 (selain from-way, misalnya Jalan Subali Raya)  ke via-edge 2 dikasih turn cost INF dan via-edge 1 dikasih turn cost 0...
+									dari edge Jalan Subali Raya ke from-edge 2 dikasih turn cost INF, tapi ke from-edge 1 dikasih turn cost 0...
+									dari via-edge 2 ke to-edge dikasih turn cost INF (karena OSM u-turn restriction diatas).. biar dari  Jalan Siliwangi ke arah timur (from-edge 2) -> via-edge 2 -> to-edge gabisa lewat...
+									dari via-edge 1 ke to-edge dikasih turn cost 0... biar dari jalan subali raya  -> from-edge 1 -> via-edge 1 -> to-edge bisa lewat ...
+
+									kayake gak perlu bikin parallel edge buat from-edge, cuma perlu parallel edge buat via-edge, dari rute osrm dibawah:
+									https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-6.987043%2C110.366592%3B-6.988103%2C110.366536#map=19/-6.987536/110.367400
+									https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-6.98786%2C110.366571%3B-6.988103%2C110.366536#map=19/-6.987839/110.367400
+
+
+									inspired by how to handle polyvalent turn dari paper CRP dan https://github.com/Project-OSRM/osrm-backend/issues/2681
+
+									todo: add testCases turn restriction with via-way
+
+				*/ //  nolint: gofmt
+
+				viaWay := restriction.viaWay
+				viaWayNodes := p.ways[viaWay].graphNodes
+
+				viaWayNodesSet := make(map[da.Index]struct{}, len(viaWayNodes))
+				for i := 0; i < len(viaWayNodes); i++ {
+					viaWayNodesSet[viaWayNodes[i]] = struct{}{}
+				}
+
+				fromNodes := way.graphNodes
+				toNodes := p.ways[restriction.to].graphNodes
+
+				tail := da.Index(math.MaxUint32) // tail dari via-edge
+				head := da.Index(math.MaxUint32) // head dari via-edge
+
+				for i := 0; i < len(fromNodes); i++ {
+					if _, ok := viaWayNodesSet[fromNodes[i]]; ok {
+						tail = fromNodes[i]
+						break
+					}
+				}
+
+				for i := 0; i < len(toNodes); i++ {
+					if _, ok := viaWayNodesSet[toNodes[i]]; ok {
+						head = toNodes[i]
+						break
+					}
+				}
+
+				tailNewViaEdgeExitPoint := da.Index(0)
+
+				eInfoId := da.Index(da.INVALID_EDGE_ID)
+				for i := 0; i < len(outEdges[tail]); i++ {
+					eInfoId = edgeInfoIds[tail][i]
+					outEdge := outEdges[tail][i]
+					if outEdge.GetHighwayType() == pkg.INVALID_HIGHWAY {
+						// skip dummy edges
+						continue
+					}
+					eHead := outEdge.GetHead()
+					if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head && outEdge.GetEdgeId() == da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId) {
+						tailNewViaEdgeExitPoint = da.Index(i)
+					}
+				}
+
+				headNewViaEdgeEntryPoint := da.Index(0)
+				for i := 0; i < len(inEdges[head]); i++ {
+					inEdge := inEdges[head][i]
+					eTail := inEdge.GetTail()
+					if eTail == tail && inEdge.GetEdgeId() == da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId) {
+						headNewViaEdgeEntryPoint = da.Index(i)
+					}
+				}
+
+				for i := 0; i < len(fromNodes); i++ {
+					if fromNodes[i] == tail {
+						if i == 0 && way.oneWay {
+							// no predecessor
+							continue
+						}
+
+						var predecessor da.Index // predecessor dari tail dari edge via nya turn restriction
+						if i == 0 {
+							// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+							// kalau via node dari turn restriction di first node dari from-way..
+							// berarti predecessor nya ada di next node (i+1).. ke arah forward..
+							// from-way nodes: via<->u2<->u3<->-.....<->un
+							predecessor = fromNodes[i+1]
+						} else {
+							predecessor = fromNodes[i-1]
+						}
+
+						if predecessor == head {
+							continue
+						}
+
+						successor := da.Index(math.MaxUint32) // successor dari head dari edge via nya turn restriction
+
+						for j := 0; j < len(toNodes); j++ {
+							if toNodes[j] == head {
+								if j == len(toNodes)-1 {
+									// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+									// kalau via node dari turn restriction di last node dari to-way..
+									// berarti predecessor nya ada di next node (i-1).. ke arah backward
+									// to-way nodes: u1<->u2<->u3<->-.....<->via
+
+									successor = toNodes[j-1]
+								} else {
+									successor = toNodes[j+1]
+								}
+								break
+							}
+						}
+
+						if successor != da.Index(math.MaxUint32) && successor != restriction.via {
+
+							tailEntryPoint := da.Index(math.MaxUint32)
+
+							for k := da.Index(0); k < da.Index(len(inEdges[tail])); k++ {
+								if inEdges[tail][k].GetTail() == predecessor {
+									tailEntryPoint = k
+								} else {
+									// kasih turn cost INF buat transisi dari  all other inEdges dari tail (selain from-edge) -> tail -> via-edge 2
+									turnMatrices[tail][k*da.Index(outDegree[tail])+tailNewViaEdgeExitPoint] = pkg.NO_ENTRY
+								}
+							}
+
+							if tailEntryPoint == da.Index(math.MaxUint32) {
+								continue
+							}
+
+							tailViaEdgeExitPoint := da.Index(math.MaxUint32)
+
+							for k := 0; k < len(outEdges[tail]); k++ {
+								outEdge := outEdges[tail][k]
+								if outEdge.GetHead() == head && outEdge.GetEdgeId() < da.INVALID_PARALLEL_EDGE_ID {
+									tailViaEdgeExitPoint = da.Index(k)
+									break
+								}
+							}
+
+							if tailViaEdgeExitPoint == da.Index(math.MaxUint32) {
+								continue
+							}
+
+							rowOffset := tailEntryPoint * da.Index(outDegree[tail])
+
+							// kasih turn cost 0 buat transisi dari from-edge -> tail -> via-edge 2
+							turnMatrices[tail][rowOffset+tailNewViaEdgeExitPoint] = pkg.NONE
+
+							// kasih turn cost INF buat transisi dari from-edge -> tail -> via-edge 1
+							turnMatrices[tail][rowOffset+tailViaEdgeExitPoint] = pkg.NO_ENTRY
+
+							// dari via-edge 2 ke to-edge dikasih turn cost INF (karena OSM u-turn restriction diatas).. biar dari  Jalan Siliwangi ke arah timur (from-edge 2) -> via-edge 2 -> to-edge gabisa lewat...
+							// dari via-edge 1 ke to-edge dikasih turn cost 0... biar dari jalan subali raya  -> from-edge 1 -> via-edge 1 -> to-edge bisa lewat ...
+
+							headExitPoint := da.Index(math.MaxUint32)
+							for k := 0; k < len(outEdges[head]); k++ {
+								outEdge := outEdges[head][k]
+								if outEdge.GetHead() == successor {
+									headExitPoint = da.Index(k)
+
+									break
+								}
+							}
+
+							if headExitPoint == da.Index(math.MaxUint32) {
+								continue
+							}
+
+							rowOffset = headNewViaEdgeEntryPoint * da.Index(outDegree[head])
+
+							switch restriction.turnRestriction {
+							case NO_LEFT_TURN:
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+							case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+							case NO_STRAIGHT_ON:
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+							case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+							case NO_ENTRY:
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+							default:
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NONE
+
+							}
+
+							break
+						}
+					}
+
+				}
 			}
 		}
 	}
@@ -551,233 +980,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	graph := da.NewGraph(vertices, flattenOutEdges, flattenInEdges, matrices, roadNetwork, verticesOsmIdsPs)
 	graphStorage.BuildNameTable(p.tagStringIdMap.GetIdToStr())
 	graph.SetGraphStorage(graphStorage)
-
-	// T[e][t_i][h_j] = is turn type  at entryPoint i ke tail dari edge e -> e -> exitPoint j dari head dari edge e.
-	// buat via yang tipenya osm way: https://wiki.openstreetmap.org/wiki/Relation:restriction .
-	// only support via-way yang cuma punya dua nodes
-	turnMatricesViaway := make([][][]pkg.TurnType, numberOfEdges)
-
-	// initialize turnMatricesViaway
-	graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, idx da.Index) {
-		turnMatricesViaway[idx] = make([][]pkg.TurnType, graph.GetInDegree(tail))
-
-		for i := 0; i < int(graph.GetInDegree(tail)); i++ {
-			turnMatricesViaway[idx][i] = make([]pkg.TurnType, graph.GetOutDegree(head))
-
-			for j := 0; j < int(graph.GetOutDegree(head)); j++ {
-				turnMatricesViaway[idx][i][j] = pkg.NONE
-			}
-		}
-	})
-
-	for wayId, way := range p.ways {
-
-		fromRestrictions := p.restrictions[wayId]
-		for _, restriction := range fromRestrictions {
-			if restriction.isWay {
-				/*
-					turn restriction berbentuk: {from-way, via-way, to-way}
-					di kode ini:
-					wayId/way: from-way
-					restriction.to: to-way
-					restriction.viaWay: via-way
-
-
-					contoh: https://www.openstreetmap.org/relation/15268026
-					saat ini kita cuma support viaway yang cuma punya 2 nodes (biasanya yang tipe restriction nya u-turn kaya contoh diatas).
-
-					masalahnya:
-					Turn Table nya Customizable Route Planning (CRP): https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-					cuma suppport turn cost dari entryPoint i dari vertex u ke exitPoint j, atau
-					T[u][i,j] = turn cost dari via vertex u dari entryPoint i (inEdge yang head nya u) ke exitPoint j (outEdge yang tailnya u).
-
-					kalau dari contoh diatas, misal kita add NO_ENTRY dari https://www.openstreetmap.org/way/1131069658 ke https://www.openstreetmap.org/way/1131069655 ..
-					nanti dari jalan Subali Raya ke https://www.openstreetmap.org/way/1131069655 juga not allowed, padahal harusnya yang u-turn dari jalan siliwangi ke timur ke jalan siliwangi ke barat yang gaboleh...
-
-
-					contoh route gmaps dari contoh diatas:
-					dari subali raya: https://www.google.com/maps/dir/-6.9873908,110.3664021/-6.9881226,110.3659578/@-6.9878269,110.3658884,19.47z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
-					dari jl. siliwangi ke arah timur: https://www.google.com/maps/dir/-6.9876072,110.3661405/-6.9881226,110.3659578/@-6.9878269,110.3658884,19z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
-
-
-					contoh2: https://www.openstreetmap.org/relation/12570723#map=19/-7.729927/110.547100
-					gmaps boleh u-turn: https://www.google.com/maps/dir/1st+State+Vocational+High+School,+Jogonalan,+Jl.+Raya+Solo+-+Yogyakarta+Jl.+Raya+Jogjakarta+Solo+No.313,+Tegalmas,+Prawatan,+Jogonalan,+Klaten+Regency,+Central+Java+57452/-7.7296566,110.5468658/@-7.7298901,110.5466694,19.54z/data=!4m9!4m8!1m5!1m1!1s0x2e7a41027753afb7:0x93394c25131d12eb!2m2!1d110.547994!2d-7.729615!1m0!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
-
-
-					contoh3: https://www.openstreetmap.org/relation/12845704#map=18/-7.702438/110.350628
-					gmaps gaboleh u-turn di sini: https://www.google.com/maps/dir/-7.7035756,110.3503142/-7.7037607,110.3501331/@-7.7039124,110.3500935,19.14z/data=!4m2!4m1!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
-
-
-					idk mungkin solusi sementara kita bikin U-turn Table:
-					T[e_u][e_i, e_j] = NO_ENTRY : gaboleh u-turn dari edge e_i -> e_u -> e_j...
-					bisa pakai array 3 dimensi... T[e_u][e_i][e_j] tapi size nya kegedean kalau banyak graph edges nya....
-					jangan pakai hashmap karena probingnya bikin routing lemot...
-
-					solusi:
-					T[e_u][t_i, h_j] = NO_ENTRY: gaboleh u-turn dari entryPoint i dari tail nya e_u -> e_u -> exitPoint j dari headnya e_u... (kita cuma support restrictions yang via way yang cuma punya 2 nodes)..
-					bisa pakai array 3 dimensi lagi tapi size dari dim 2 adlh jumlah entryPoint dari tailnya e_u dan size dari dim 3 adlh jumlah exitPoint dari headnya e_u....
-
-
-					pertama kita harus cari node (tail) dari via-way yang jadi JUNCTION dengan from-way
-					kedua kita cari node (head) dari via-way yang jadi JUNCTION dengan to-way
-
-					tinggal append ke uTurn table nya
-				*/
-
-				viaWay := restriction.viaWay
-				viaWayNodes := p.ways[viaWay].graphNodes
-
-				viaWayNodesSet := make(map[da.Index]struct{}, len(viaWayNodes))
-				for i := 0; i < len(viaWayNodes); i++ {
-					viaWayNodesSet[viaWayNodes[i]] = struct{}{}
-				}
-
-				fromNodes := way.graphNodes
-				toNodes := p.ways[restriction.to].graphNodes
-
-				tail := da.Index(math.MaxUint32)
-				head := da.Index(math.MaxUint32)
-
-				for i := 0; i < len(fromNodes); i++ {
-					if _, ok := viaWayNodesSet[fromNodes[i]]; ok {
-						tail = fromNodes[i]
-						break
-					}
-				}
-
-				for i := 0; i < len(toNodes); i++ {
-					if _, ok := viaWayNodesSet[toNodes[i]]; ok {
-						head = toNodes[i]
-						break
-					}
-				}
-
-				viaWayEdgeId := da.Index(math.MaxUint32)
-
-				tailExitPoint := 0
-
-				graph.ForOutEdgeIdsOf(tail, func(eId da.Index) {
-					eHead := graph.GetHeadOfOutEdge(eId)
-					eInfoId := edgeInfoIds[tail][tailExitPoint]
-
-					if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head {
-						viaWayEdgeId = eId
-					}
-					tailExitPoint++
-				})
-
-				if viaWayEdgeId == math.MaxUint32 {
-					continue
-				}
-
-				for i := 0; i < len(fromNodes); i++ {
-					if fromNodes[i] == tail {
-						if i == 0 && way.oneWay {
-							// no predecessor
-							continue
-						}
-
-						var predecessor da.Index // predecessor dari tail dari edge via nya turn restriction
-						if i == 0 {
-							// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
-							// kalau via node dari turn restriction di first node dari from-way..
-							// berarti predecessor nya ada di next node (i+1).. ke arah forward..
-							// from-way nodes: via<->u2<->u3<->-.....<->un
-							predecessor = fromNodes[i+1]
-						} else {
-							predecessor = fromNodes[i-1]
-						}
-
-						if predecessor == head {
-							continue
-						}
-
-						successor := da.Index(math.MaxUint32) // successor dari head dari edge via nya turn restriction
-
-						for j := 0; j < len(toNodes); j++ {
-							if toNodes[j] == head {
-								if j == len(toNodes)-1 {
-									// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
-									// kalau via node dari turn restriction di last node dari to-way..
-									// berarti predecessor nya ada di next node (i-1).. ke arah backward
-									// to-way nodes: u1<->u2<->u3<->-.....<->via
-
-									successor = toNodes[j-1]
-								} else {
-									successor = toNodes[j+1]
-								}
-								break
-							}
-						}
-
-						if successor != da.Index(math.MaxUint32) && successor != restriction.via {
-
-							tailEntryPoint := da.Index(math.MaxUint32)
-							headExitPoint := da.Index(math.MaxUint32)
-
-							for k := 0; k < len(inEdges[tail]); k++ {
-								if inEdges[tail][k].GetTail() == predecessor {
-									tailEntryPoint = da.Index(k)
-									break
-								}
-							}
-
-							if tailEntryPoint == da.Index(math.MaxUint32) {
-								continue
-							}
-
-							for k := 0; k < len(outEdges[head]); k++ {
-								outEdge := outEdges[head][k]
-								if outEdge.GetHead() == successor {
-									headExitPoint = da.Index(k)
-									break
-								}
-							}
-
-							if headExitPoint == da.Index(math.MaxUint32) {
-								continue
-							}
-
-							switch restriction.turnRestriction {
-							case NO_LEFT_TURN:
-								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
-
-							case NO_RIGHT_TURN:
-								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
-
-							case NO_STRAIGHT_ON:
-								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
-
-							case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn:  https://www.openstreetmap.org/relation/13427535#map=18/-7.781940/110.375138
-								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
-
-							case NO_ENTRY:
-								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NO_ENTRY
-
-							// case ONLY_LEFT_TURN: todo: handle tiga case ini... (masih belum nemu contoh relation)
-							// 	turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.LEFT_TURN
-
-							// case ONLY_RIGHT_TURN:
-							// 	turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.RIGHT_TURN
-
-							// case ONLY_STRAIGHT_ON:
-							// 	turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NONE
-
-							default:
-								turnMatricesViaway[viaWayEdgeId][tailEntryPoint][headExitPoint] = pkg.NONE
-
-							}
-
-							break
-						}
-					}
-
-				}
-			}
-		}
-	}
-
-	graph.SetTurnTableViaway(turnMatricesViaway)
 
 	return graph, edgeInfoIds
 }

@@ -42,7 +42,7 @@ func main() {
 		panic(err)
 	}
 
-	eng, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	eng, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, false)
 	if err != nil {
 		panic(err)
 	}

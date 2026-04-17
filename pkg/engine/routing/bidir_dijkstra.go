@@ -229,9 +229,6 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 		edgeWeight := bs.engine.GetWeight(eId, true)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
-		if uId == source {
-			turnCost = 0
-		}
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
@@ -335,10 +332,7 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
-		if uId == target {
-			turnCost = 0
-		}
-
+	
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return

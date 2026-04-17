@@ -212,10 +212,6 @@ func (p *Preprocessor) SortByCellNumber() {
 	vId := da.Index(0)
 	isRoadNetworkGraph := p.graph.IsRoadNetworkGraph()
 
-	oldTurnTableViaWay := p.graph.GetTurnTableViaway()
-	oldTurnTableViaWayCopy := make([][][]pkg.TurnType, len(oldTurnTableViaWay))
-	copy(oldTurnTableViaWayCopy, oldTurnTableViaWay)
-
 	lastVertex := p.graph.GetVertex(da.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
 	newVertices := make([]da.Vertex, p.graph.GetNumberOfVerticesWithDummyVertex())
 
@@ -260,9 +256,6 @@ func (p *Preprocessor) SortByCellNumber() {
 
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
 
-				oldTurnTableVia := oldTurnTableViaWayCopy[oldOutEdge.GetEdgeId()]
-				p.graph.SetTurnTableViaEdge(newOutEdgeId, oldTurnTableVia)
-
 				// update edge metadata
 				vExitPoint := p.graph.GetExitOrder(vOldId, oldOutEdge.GetEdgeId())
 				oldEdgeInfoId := p.edgeInfoIds[vOldId][vExitPoint]
@@ -302,7 +295,7 @@ func (p *Preprocessor) SortByCellNumber() {
 					if streetdir[1] {
 						newStreetDirectionBackward.Set(uint(newOutEdgeId))
 					}
-				} else if p.graph.IsRoadNetworkGraph() {
+				} else if isRoadNetworkGraph {
 					newOsmWayIds.Append(uint64(da.INVALID_OSM_WAY_ID))
 				}
 

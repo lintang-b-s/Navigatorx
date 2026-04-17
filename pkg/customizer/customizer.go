@@ -138,6 +138,10 @@ func newCustomizerCell(cell da.Cell, cellNumber da.Pv) customizerCell {
 }
 
 /*
+
+Customization Phase of Customizable Route Planning (CRP) by delling et al. see section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+
 let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
 
 worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )

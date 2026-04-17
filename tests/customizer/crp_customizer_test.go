@@ -275,7 +275,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), true, false)
+		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -565,7 +565,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, false)
 	if err != nil {
 		t.Fatal(err)
 	}

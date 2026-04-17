@@ -388,7 +388,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmId)
-	g, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true, true)
+	g, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true)
 	g.SetGraphStorage(graphStorage)
 
 	us := []int{8, 11, 14, 16}
@@ -441,7 +441,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, false)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}

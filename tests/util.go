@@ -128,7 +128,7 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, false)
 	if err != nil {
 		t.Fatal(err)
 	}
