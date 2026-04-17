@@ -39,6 +39,15 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		vEntryPoint := da.Index(len(inEdges[v]))
 		outEdge := da.NewOutEdge(0,
 			v, e.GetWeight(), e.GetDistance(), vEntryPoint, e.GetHighwayType())
+
+		if e.IsJunctionHead() {
+			outEdge.SetJunctionHead()
+		}
+
+		if e.IsJunctionTail() {
+			outEdge.SetJunctionTail()
+		}
+
 		outEdges[u] = append(outEdges[u], outEdge)
 
 		edgeInfoIds[u] = append(edgeInfoIds[u], da.Index(eId))
@@ -48,6 +57,15 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		uExitPoint := da.Index(len(outEdges[u]) - 1)
 		inEdge := da.NewInEdge(0,
 			u, e.GetWeight(), e.GetDistance(), uExitPoint, e.GetHighwayType())
+
+		if e.IsJunctionHead() {
+			inEdge.SetJunctionHead()
+		}
+
+		if e.IsJunctionTail() {
+			inEdge.SetJunctionTail()
+		}
+
 		inEdges[v] = append(inEdges[v], inEdge)
 		inDegree[v]++
 

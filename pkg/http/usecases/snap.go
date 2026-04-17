@@ -85,10 +85,10 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	// let M=number of road segments/edges in the graph
 	// R-tree search worst case is O(M), avg case is O(logM)
 	// find nearest orig edge (inEdgeOffset) to qOrigLat, qOrigLon
-	origCandidates := rs.spatialIndex.SearchWithinRadius(qOrigLat, qOrigLon, searchRad)
+	origCandidates := rs.spatialIndex.SearchWithinRadius(qOrigLat, qOrigLon, searchRad, 0)
 
 	// find nearest dst edge (outEdgeOffset) to qDstLat, qDstLon
-	dstCandidates := rs.spatialIndex.SearchWithinRadius(qDstLat, qDstLon, searchRad)
+	dstCandidates := rs.spatialIndex.SearchWithinRadius(qDstLat, qDstLon, searchRad, 1)
 
 	origDist := make([]float64, len(origCandidates))
 	dstDist := make([]float64, len(dstCandidates))
@@ -255,8 +255,8 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 
 		tapi di osrm juga gak support beginian sih (lihat road segment destination):
 		https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.550317%2C110.782131%3B-7.554244%2C110.827106
-		
-		karena osm way yang two-way edge geometry untuk arah forward dan backward sama di openstreetmap. 
+
+		karena osm way yang two-way edge geometry untuk arah forward dan backward sama di openstreetmap.
 	*/
 
 	nextEdgeGeometry := make([]da.Coordinate, 0, len(eGeometry))

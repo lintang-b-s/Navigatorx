@@ -27,3 +27,10 @@ const (
 	ARRAY_STORAGE
 	MAP_STORAGE
 )
+
+const (
+	FlagDummy uint8 = 1 << iota
+	FlagParallel
+	FlagJunctionHead // flag yang nandain kalo head dari edge adalah junction node 
+	FlagJunctionTail // flag yang nandain kalo tail dari edge adalah junction node
+)

@@ -128,7 +128,7 @@ func (p *Preprocessor) SortByCellNumber() {
 				oEdge.GetEntryPoint(),
 				oEdge.GetHighwayType(),
 			)
-
+			newOEdge.SetFlag(oEdge.GetFlag())
 			oEdges[i][k] = newOEdge
 			eOut++
 			k++
@@ -146,6 +146,7 @@ func (p *Preprocessor) SortByCellNumber() {
 				inEdge.GetExitPoint(),
 				inEdge.GetHighwayType(),
 			)
+			newInEdge.SetFlag(inEdge.GetFlag())
 			iEdges[i][k] = newInEdge
 			eIn++
 			k++
@@ -253,6 +254,7 @@ func (p *Preprocessor) SortByCellNumber() {
 					newOutEdgeId, newOutEdgeHead, oldOutEdge.GetWeight(),
 					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
 				)
+				newOutEdge.SetFlag(oldOutEdge.GetFlag())
 
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
 
@@ -311,6 +313,8 @@ func (p *Preprocessor) SortByCellNumber() {
 					oldInEdge.GetLength(), oldInEdge.GetExitPoint(),
 					oldInEdge.GetHighwayType(),
 				)
+				
+				newInEdge.SetFlag(oldInEdge.GetFlag())
 
 				p.graph.SetInEdge(newInEdgeId, newInEdge)
 

@@ -61,11 +61,11 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// out edges
 	for i, e := range g.outEdges {
-		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d\n",
+		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
 			e.edgeId, e.head,
 			strconv.FormatFloat(e.weight, 'f', -1, 64),
 			strconv.FormatFloat(e.dist, 'f', -1, 64),
-			e.entryPoint, e.hwType,
+			e.entryPoint, e.hwType, e.flag,
 		); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing outEdge[%d]", i)
 		}
@@ -73,11 +73,11 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// in edges
 	for i, e := range g.inEdges {
-		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d\n",
+		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
 			e.edgeId, e.tail,
 			strconv.FormatFloat(e.weight, 'f', -1, 64),
 			strconv.FormatFloat(e.dist, 'f', -1, 64),
-			e.exitPoint, e.hwType); err != nil {
+			e.exitPoint, e.hwType, e.flag); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing inEdge[%d]", i)
 		}
 	}
@@ -827,8 +827,8 @@ func parseVertex(line string) (Vertex, uint64, error) {
 
 func parseOutEdge(line string) (OutEdge, error) {
 	tokens := util.Fields(line)
-	if len(tokens) != 6 {
-		return NewEmptyOutEdge(), fmt.Errorf("expected 6 fields, got %d", len(tokens))
+	if len(tokens) != 7 {
+		return NewEmptyOutEdge(), fmt.Errorf("expected 7 fields, got %d", len(tokens))
 	}
 	edgeId, err := ParseIndex(tokens[0])
 	if err != nil {
@@ -857,14 +857,20 @@ func parseOutEdge(line string) (OutEdge, error) {
 		return NewEmptyOutEdge(), err
 	}
 
+	flag, err := strconv.ParseUint(tokens[6], 10, 8)
+	if err != nil {
+		return NewEmptyOutEdge(), err
+	}
+
 	e := NewOutEdge(edgeId, head, weight, dist, Index(entryPoint), pkg.OsmHighwayType(hwType))
+	e.SetFlag(uint8(flag))
 	return e, nil
 }
 
 func parseInEdge(line string) (InEdge, error) {
 	tokens := util.Fields(line)
-	if len(tokens) != 6 {
-		return NewEmptyInEdge(), fmt.Errorf("expected 6 fields, got %d", len(tokens))
+	if len(tokens) != 7 {
+		return NewEmptyInEdge(), fmt.Errorf("expected 7 fields, got %d", len(tokens))
 	}
 	edgeId, err := ParseIndex(tokens[0])
 	if err != nil {
@@ -893,6 +899,12 @@ func parseInEdge(line string) (InEdge, error) {
 		return NewEmptyInEdge(), err
 	}
 
+	flag, err := strconv.ParseUint(tokens[6], 10, 8)
+	if err != nil {
+		return NewEmptyInEdge(), err
+	}
+
 	e := NewInEdge(edgeId, tail, weight, dist, Index(exitPoint), pkg.OsmHighwayType(hwType))
+	e.SetFlag(uint8(flag))
 	return e, nil
 }

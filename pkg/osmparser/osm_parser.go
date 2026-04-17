@@ -833,6 +833,13 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			e.SetToOSMId(uint64(to.id))
 			e.SetOsmWayId(id)
 
+			if p.isJunctionNode(from.id) {
+				e.SetJunctionTail()
+			}
+			if p.isJunctionNode(to.id) {
+				e.SetJunctionHead()
+			}
+
 			*scannedEdges = append(*scannedEdges, e)
 
 		} else {
@@ -865,6 +872,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			e.SetFromOSMId(uint64(to.id))
 			e.SetToOSMId(uint64(from.id))
 			e.SetOsmWayId(id)
+
+			if p.isJunctionNode(to.id) {
+				e.SetJunctionTail()
+			}
+
+			if p.isJunctionNode(from.id) {
+				e.SetJunctionHead()
+			}
 
 			*scannedEdges = append(*scannedEdges, e)
 		}
@@ -899,6 +914,13 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		e.SetToOSMId(uint64(to.id))
 		e.SetOsmWayId(id)
 
+		if p.isJunctionNode(from.id) {
+			e.SetJunctionTail()
+		}
+		if p.isJunctionNode(to.id) {
+			e.SetJunctionHead()
+		}
+
 		*scannedEdges = append(*scannedEdges, e)
 
 		// add reversed edge
@@ -925,6 +947,14 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		e.SetFromOSMId(uint64(to.id))
 		e.SetToOSMId(uint64(from.id))
 		e.SetOsmWayId(id)
+
+		if p.isJunctionNode(to.id) {
+			e.SetJunctionTail()
+		}
+		
+		if p.isJunctionNode(from.id) {
+			e.SetJunctionHead()
+		}
 
 		*scannedEdges = append(*scannedEdges, e)
 	}

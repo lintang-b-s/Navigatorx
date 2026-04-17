@@ -10,7 +10,7 @@ import (
 )
 
 type Rtree struct {
-	tr *rtree.RTreeG[da.Index]
+	tr *rtree.RTreeG[uint64]
 }
 
 // our query is turn-based multilevel bidirectional dijkstra
@@ -20,7 +20,7 @@ type Rtree struct {
 // so we need to know nearby as & at before run the query
 
 func NewRtree() *Rtree {
-	var tr rtree.RTreeG[da.Index]
+	var tr rtree.RTreeG[uint64]
 	return &Rtree{
 		tr: &tr,
 	}
@@ -30,9 +30,9 @@ func NewRtree() *Rtree {
 func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
 	log.Info("Building R-tree spatial index...")
 	graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index,
-		percentage float64, id da.Index) {
+		percentage float64, eId da.Index) {
 
-		eGeom := graph.GetEdgeGeometry(id)
+		eGeom := graph.GetEdgeGeometry(eId)
 		maxLat, maxLon := math.Inf(-1), math.Inf(-1)
 		minLat, minLon := math.MaxFloat64, math.MaxFloat64
 		for i := 0; i < len(eGeom); i++ {
@@ -59,6 +59,7 @@ func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
 		minX := geo.CalcLonToX(minLon)
 		maxX := geo.CalcLonToX(maxLon)
 
+		id := rt.addFlag(graph, eId)
 		rt.tr.Insert([2]float64{minX, minY}, [2]float64{maxX, maxY},
 			id)
 	})
@@ -71,7 +72,9 @@ func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
 // R-tree search worst case is O(M), avg case is O(logM)
 // https://www2.cs.sfu.ca/CourseCentral/454/jpei/slides/R-Tree.pdf
 // https://dl.acm.org/doi/10.1145/971697.602266
-func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []da.Index {
+// mode=0  origin, mode=1 destination, mode=2 not both
+func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da.Index {
+
 	lowerLat, lowerLon := geo.GetDestinationPoint(qLat, qLon, 225, radius)
 	upperLat, upperLon := geo.GetDestinationPoint(qLat, qLon, 45, radius)
 
@@ -80,12 +83,46 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64) []da.Index {
 
 	results := make([]da.Index, 0, 10)
 	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},
-		func(min, max [2]float64, data da.Index) bool {
-			results = append(results, data)
+		func(min, max [2]float64, data uint64) bool {
+			if mode == 0 && !rt.IsJunctionHead(data) {
+				// skip edge yang head nya gak junction
+				return true
+			} else if mode == 1 && !rt.IsJunctionTail(data) {
+				// skip edge yang tail nya gak junction
+				return true
+			}
+
+			eId := rt.GetEdgeId(data)
+			results = append(results, eId)
 			if len(results) > MAX_CANDIDATES {
 				return false
 			}
 			return true
 		})
 	return results
+}
+
+func (rt *Rtree) addFlag(graph *da.Graph, eId da.Index) uint64 {
+	id := uint64(eId)
+	if graph.IsJunctionHead(eId) {
+		id |= JUNCTION_HEAD_FLAG
+	}
+	if graph.IsJunctionTail(eId) {
+		id |= JUNCTION_TAIL_FLAG
+	}
+	return id
+}
+
+func (rt *Rtree) IsJunctionHead(id uint64) bool {
+	return id&JUNCTION_HEAD_FLAG != 0
+}
+
+func (rt *Rtree) IsJunctionTail(id uint64) bool {
+	return id&JUNCTION_TAIL_FLAG != 0
+}
+
+func (rt *Rtree) GetEdgeId(id uint64) da.Index {
+	id &^= JUNCTION_HEAD_FLAG
+	id &^= JUNCTION_TAIL_FLAG
+	return da.Index(id)
 }

@@ -21,7 +21,7 @@ type AlternativeRouteAlgorithm interface {
 }
 
 type SpatialIndex interface {
-	SearchWithinRadius(qLat, qLon, radius float64) []da.Index
+	SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da.Index
 }
 
 type OnlineMapMatcherEngine interface {

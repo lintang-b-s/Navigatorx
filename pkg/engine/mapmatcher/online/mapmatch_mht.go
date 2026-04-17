@@ -56,7 +56,7 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 
 	if k == 1 || len(candidates) == 0 {
-		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc)
+		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc, 2)
 		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 		sumLength := 0.0
 		for _, arcEndpoint := range nearbyArcs {

@@ -6,14 +6,15 @@ import (
 )
 
 type Edge struct {
-	weight    float64
-	distance  float64
-	fromOsmId uint64
-	toOsmId   uint64
-	from      uint32
-	to        uint32
-	osmwayId  int64
-	hwType    pkg.OsmHighwayType
+	weight                     float64
+	distance                   float64
+	fromOsmId                  uint64
+	toOsmId                    uint64
+	from                       uint32
+	to                         uint32
+	osmwayId                   int64
+	junctionTail, junctionHead bool
+	hwType                     pkg.OsmHighwayType
 }
 
 func (e *Edge) GetFrom() da.Index {
@@ -54,6 +55,22 @@ func (e *Edge) SetToOSMId(toOsmId uint64) {
 
 func (e *Edge) SetOsmWayId(osmWayId int64) {
 	e.osmwayId = osmWayId
+}
+
+func (e *Edge) SetJunctionHead() {
+	e.junctionHead = true
+}
+
+func (e *Edge) SetJunctionTail() {
+	e.junctionTail = true
+}
+
+func (e *Edge) IsJunctionHead() bool {
+	return e.junctionHead
+}
+
+func (e *Edge) IsJunctionTail() bool {
+	return e.junctionTail
 }
 
 func (e *Edge) GetOsmWayId() int64 {

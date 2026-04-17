@@ -91,7 +91,7 @@ type OutEdge struct {
 	head       Index
 	entryPoint Index
 	hwType     pkg.OsmHighwayType
-	dummyEdge  uint8 // dummy edge (for phantom node) or parallel edge (for OSM turn restriction via-way)
+	flag       uint8 // dummy edge (for phantom node) or parallel edge (for OSM turn restriction via-way)
 }
 
 // inedge exits vertex tail at exitPoint
@@ -102,7 +102,7 @@ type InEdge struct {
 	tail      Index
 	exitPoint Index
 	hwType    pkg.OsmHighwayType
-	dummyEdge uint8 // dummy edge (for phantom node)  or parallel edge (for OSM turn restriction via-way)
+	flag      uint8 // dummy edge (for phantom node)  or parallel edge (for OSM turn restriction via-way)
 
 }
 
@@ -114,7 +114,7 @@ func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint Index, hwTy
 		dist:       dist,
 		entryPoint: entryPoint,
 		hwType:     hwType,
-		dummyEdge:  0,
+		flag:       0,
 	}
 }
 
@@ -126,24 +126,72 @@ func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint Index, hwType
 		dist:      dist,
 		exitPoint: exitPoint,
 		hwType:    hwType,
-		dummyEdge: 0,
+		flag:      0,
 	}
 }
 
+func (e *OutEdge) SetFlag(flag uint8) {
+	e.flag = flag
+}
+
 func (e *OutEdge) SetDummyEdge() {
-	e.dummyEdge |= 1
+	e.flag |= FlagDummy
+}
+
+func (e *OutEdge) SetJunctionHead() {
+	e.flag |= FlagJunctionHead
+}
+
+func (e *OutEdge) SetJunctionTail() {
+	e.flag |= FlagJunctionTail
+}
+
+func (e *OutEdge) IsJunctionHead() bool {
+	return e.flag&FlagJunctionHead != 0
+}
+
+func (e *OutEdge) IsJunctionTail() bool {
+	return e.flag&FlagJunctionTail != 0
 }
 
 func (e *InEdge) SetDummyEdge() {
-	e.dummyEdge |= 1
+	e.flag |= FlagDummy
 }
 
 func (e *OutEdge) SetParallelEdge() {
-	e.dummyEdge |= 1
+	e.flag |= FlagParallel
 }
 
 func (e *InEdge) SetParallelEdge() {
-	e.dummyEdge |= 1
+	e.flag |= FlagParallel
+}
+
+func (e *InEdge) SetJunctionHead() {
+	e.flag |= FlagJunctionHead
+}
+
+func (e *InEdge) SetJunctionTail() {
+	e.flag |= FlagJunctionTail
+}
+
+func (e *InEdge) IsJunctionHead() bool {
+	return e.flag&FlagJunctionHead != 0
+}
+
+func (e *InEdge) IsJunctionTail() bool {
+	return e.flag&FlagJunctionTail != 0
+}
+
+func (e *InEdge) SetFlag(flag uint8) {
+	e.flag = flag
+}
+
+func (e *OutEdge) GetFlag() uint8 {
+	return e.flag
+}
+
+func (e *InEdge) GetFlag() uint8 {
+	return e.flag
 }
 
 func (e *OutEdge) GetWeight() float64 {
@@ -472,7 +520,7 @@ func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(eId, tail Ind
 // GetDummyOutEdgeId. return dummy outEdge (u,u)
 func (g *Graph) GetDummyOutEdgeId(u Index) Index {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-		if g.outEdges[e].dummyEdge&1 != 0 {
+		if g.outEdges[e].flag&FlagDummy != 0 {
 			return e
 		}
 	}
@@ -483,7 +531,7 @@ func (g *Graph) GetDummyOutEdgeId(u Index) Index {
 // GetDummyOutEdgeId. return dummy inEdge (u,u)
 func (g *Graph) GetDummyInEdgeId(u Index) Index {
 	for e := g.vertices[u].firstIn; e < g.vertices[u+1].firstIn; e++ {
-		if g.inEdges[e].dummyEdge&1 != 0 {
+		if g.inEdges[e].flag&FlagDummy != 0 {
 			return e
 		}
 	}
@@ -505,11 +553,19 @@ func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 }
 
 func (g *Graph) IsDummyOutEdge(eId Index) bool {
-	if g.outEdges[eId].dummyEdge&2 != 0 || g.outEdges[eId].GetHighwayType() == pkg.INVALID_HIGHWAY {
+	if g.outEdges[eId].flag&FlagParallel != 0 || g.outEdges[eId].flag&FlagDummy != 0 {
 		return true
 	}
 
 	return false
+}
+
+func (g *Graph) IsJunctionHead(eId Index) bool {
+	return g.outEdges[eId].IsJunctionHead()
+}
+
+func (g *Graph) IsJunctionTail(eId Index) bool {
+	return g.outEdges[eId].IsJunctionTail()
 }
 
 func (g *Graph) IsDummyInEdge(eId Index) bool {
