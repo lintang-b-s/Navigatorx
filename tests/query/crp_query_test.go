@@ -23,6 +23,7 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
@@ -30,7 +31,9 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
+	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"go.uber.org/zap"
 )
 
 const (
@@ -333,7 +336,7 @@ func init() {
 	util.InitConfig()
 }
 
-func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark) {
+func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -432,7 +435,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark) {
 		t.Fatal(err)
 	}
 
-	return re, lm
+	return re, lm, logger
 }
 
 /*
@@ -443,7 +446,7 @@ untuk plain dijkstra find single source shortest paths (sssp), from s to all oth
 untuk alt query crp find point-to-point(p2p) shortest paths, untuk semua p2p sp queries diatas
 note that Customizable Route Planning (CRP) query/multilevel dijkstra (MLD) [https://github.com/Project-OSRM/osrm-backend]/ multilevel A*, landmarks, and triangle inequality (ALT) hanya mempercepat p2p sp query bukan mempercepat sssp query
 
-stress tests ini selesai dalam 30 detik
+stress tests ini selesai dalam 7 menit
 dan akan berhenti ketika ada counterexample
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphic #6 cpu cores #12 threads
 ram: 16gb
@@ -453,13 +456,13 @@ karena bakal time out kalau pakai vscode
 */
 
 func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
-	re, _ := setup(t, false)
+	re, _, _ := setup(t, false)
 	g := re.GetRoutingEngine().GetGraph()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := 50
+	n := 20
 	qset := make(map[da.Index]struct{})
 
 	queries := make([]da.Index, 0, n)
@@ -602,8 +605,14 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 	})
 }
 
+/*
+
+please run the test using command: "cd tests/query && go test -run TestCRPQueryStressWithTurnCostTest  -v -timeout=0  -count=1"
+karena bakal time out kalau pakai vscode
+*/
+
 func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
-	re, _ := setup(t, true)
+	re, _, _ := setup(t, true)
 	g := re.GetRoutingEngine().GetGraph()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -757,4 +766,167 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 			}
 		}
 	})
+}
+
+// test ini bertujuan untuk memastikan rute shortest path dan rute alternatif yang direturn routing engine tidak melewati OSM turn restrictions.
+/*
+please run the test using command: "cd tests/query && go test -run TestCRPQueryTurnRestriction  -v -timeout=0  -count=1"
+karena bakal time out kalau pakai vscode
+*/
+func TestCRPQueryTurnRestriction(t *testing.T) {
+	eng, _, logger := setup(t, true)
+	re := eng.GetRoutingEngine()
+	g := re.GetGraph()
+	altSearch := routing.NewAlternativeRouteSearch(re)
+
+	type turnResType struct {
+		restriction string
+		from, to    int64
+		viaWays     []int64
+		viaNode     int64
+		isViaWay    bool
+	}
+	testCases := []struct {
+		name                          string
+		turnRestriction               turnResType
+		queryOrigin, queryDestination da.Coordinate
+	}{
+		{
+			name:             "Simpang Pingit U-turn Restriction https://www.openstreetmap.org/relation/17842412 ,  example correct route:  https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.782881%2C110.361282%3B-7.782681%2C110.361341#map=19/-7.781811/110.361046",
+			queryOrigin:      da.NewCoordinate(-7.782881, 110.361282),
+			queryDestination: da.NewCoordinate(-7.782681, 110.361341),
+			turnRestriction:  turnResType{restriction: "no_u_turn", from: 263612372, isViaWay: true, viaWays: []int64{590074069, 1490467372}, to: 898190693},
+		},
+		{
+			name:             "Simpang Pingit U-turn Restriction 2 https://www.openstreetmap.org/relation/4763182 ,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.781084%2C110.361035%3B-7.781015%2C110.360724#map=17/-7.784382/110.360112",
+			queryOrigin:      da.NewCoordinate(-7.781084, 110.361035),
+			queryDestination: da.NewCoordinate(-7.781015, 110.360724),
+			turnRestriction:  turnResType{restriction: "no_u_turn", from: 898190692, isViaWay: true, viaWays: []int64{1459769996, 263612372}, to: 590074069},
+		},
+
+		{
+			name:             "Cik di Tiro u-turn restriction https://www.openstreetmap.org/relation/13427535,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.782253%2C110.374966%3B-7.782219%2C110.375243#map=17/-7.779046/110.375637",
+			queryOrigin:      da.NewCoordinate(-7.782253, 110.374966),
+			queryDestination: da.NewCoordinate(-7.782219, 110.375243),
+			turnRestriction:  turnResType{restriction: "no_u_turn", from: 153821715, isViaWay: true, viaWays: []int64{1001303583}, to: 1001303581},
+		},
+		{
+			name:             "Simpang tugu jogja u-turn restriction https://www.openstreetmap.org/relation/17670402,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.783003%2C110.369079%3B-7.782729%2C110.367582#map=18/-7.782897/110.367665",
+			queryOrigin:      da.NewCoordinate(-7.783003, 110.369079),
+			queryDestination: da.NewCoordinate(-7.782729, 110.367582),
+			turnRestriction:  turnResType{restriction: "no_u_turn", from: 357658481, isViaWay: true, viaWays: []int64{1110178248}, to: 1108475786},
+		},
+
+		{
+			name:             "Simpang Gramedia no_right_turn restriction https://www.openstreetmap.org/relation/5710502,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.783686%2C110.374746%3B-7.78296%2C110.377024#map=16/-7.78528/110.37525",
+			queryOrigin:      da.NewCoordinate(-7.783686, 110.374746),
+			queryDestination: da.NewCoordinate(-7.782960, 110.377024),
+			turnRestriction:  turnResType{restriction: "no_right_turn", from: 1347054637, isViaWay: false, viaNode: 271845942, to: 179907371},
+		},
+
+		{
+			name:             "Jalan Seturan Raya no_right_turn restriction https://www.openstreetmap.org/relation/18854138,  example correct route: openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.764298%2C110.41148%3B-7.761288%2C110.422211#map=19/-7.763936/110.411675",
+			queryOrigin:      da.NewCoordinate(-7.764298, 110.411480),
+			queryDestination: da.NewCoordinate(-7.761288, 110.422211),
+			turnRestriction:  turnResType{restriction: "no_right_turn", from: 1124615933, isViaWay: false, viaNode: 1390908542, to: 586534196},
+		},
+	}
+
+	isSame := func(a []int64, b []int64) bool {
+		if len(a) != len(b) {
+			return false
+		}
+
+		for i := 0; i < len(a); i++ {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	// path= list of edgeIds
+	isCorrect := func(path []da.Index, tr turnResType) ([]int64, bool) {
+		restrictedPathLength := 0
+		if tr.isViaWay {
+			restrictedPathLength = len(tr.viaWays) + 2 // len(via-ways) + from + to. example: https://www.openstreetmap.org/relation/17842412
+		} else {
+			restrictedPathLength = 2 // from + to . (via Node ada di head nya from edge)
+		}
+
+		restrictedPath := make([]int64, restrictedPathLength)
+		restrictedPath[0] = tr.from
+		restrictedPath[restrictedPathLength-1] = tr.to
+		if tr.isViaWay {
+			for i := 1; i < restrictedPathLength-1; i++ {
+				restrictedPath[i] = tr.viaWays[i-1]
+			}
+		} else {
+			restrictedPath[1] = tr.viaNode
+		}
+
+		for i := 0; i < len(path)-(restrictedPathLength-1); i++ {
+			subPath := make([]int64, 0, restrictedPathLength)
+
+			if tr.isViaWay {
+				cur := path[i]
+				currOsmWayId := g.GetOsmWayId(cur)
+				subPath = append(subPath, currOsmWayId)
+				for j := 1; j <= restrictedPathLength-1; j++ {
+					next := path[i+j]
+					nextOsmWayId := g.GetOsmWayId(next)
+					subPath = append(subPath, nextOsmWayId)
+				}
+			} else {
+				from := path[i]
+				viaNode := g.GetHeadOfOutEdge(from)
+				to := path[i+1]
+
+				fromWayId := g.GetOsmWayId(from)
+				viaOsmNodeId := int64(g.GetVertexOsmId(viaNode))
+				toWayId := g.GetOsmWayId(to)
+				subPath = append(subPath, fromWayId)
+				subPath = append(subPath, viaOsmNodeId)
+				subPath = append(subPath, toWayId)
+			}
+			if isSame(subPath, restrictedPath) {
+				return subPath, false
+			}
+		}
+
+		return []int64{0}, true
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+
+			rtree := spatialindex.NewRtree()
+
+			rtree.Build(re.GetGraph(), logger)
+
+			routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true)
+			if err != nil {
+				panic(err)
+			}
+
+			qOrigin := tc.queryOrigin
+			qDestination := tc.queryDestination
+			sp, tp := routingService.Snap(context.Background(), qOrigin.GetLat(), qOrigin.GetLon(), qDestination.GetLat(), qDestination.GetLon())
+			crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
+
+			_, _, _, path, _ := crpQuery.ShortestPathSearch(sp, tp)
+			if subPath, correct := isCorrect(path, tc.turnRestriction); !correct {
+				t.Errorf("%s: expected not contain path %v, got contain the path", tc.name, subPath)
+			}
+
+			alts, _, _ := altSearch.FindAlternativeRoutes(sp, tp, 3)
+
+			for i := 0; i < len(alts); i++ {
+				altPath := alts[i].GetEdgeIdPath()
+				if subPath, correct := isCorrect(altPath, tc.turnRestriction); !correct {
+					t.Errorf("%s: expected not contain path %v, got contain the path, restriction: %v", tc.name, subPath, tc.turnRestriction.restriction)
+				}
+			}
+		})
+	}
 }

@@ -1209,8 +1209,12 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 					headOsmNodeId := graph.GetVertexOsmId(head)
 					if !tc.turnRestriction.isViaway {
 						if headOsmNodeId == uint64(rest.via) {
+						
 							// traverse ke semua outedges of head
 							graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, _ float64, _, headToEntryPoint da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
+								if graph.IsDummyOutEdge(eIdTo) {
+									return 
+								}
 								toEdgeWayId := graph.GetOsmWayId(eIdTo)
 								if rest.toWay == toEdgeWayId {
 									// cek turnSign dari:

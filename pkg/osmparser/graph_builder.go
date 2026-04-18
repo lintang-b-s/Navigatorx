@@ -12,7 +12,7 @@ import (
 // roadNetwork = flag if the graph is a road network graph.
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
 // jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph.
-// hal ini karena Customizable Route Planning (CRP) Query phase (support turn costs) mengasumsikan setiap vertices memiliki setidaknya satu edge.
+// karena Customizable Route Planning (CRP) Query phase (support turn costs) mengasumsikan setiap vertices memiliki setidaknya satu edge.
 func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, [][]da.Index) {
 	var (
 		outEdges    [][]da.OutEdge = make([][]da.OutEdge, numV)
@@ -81,8 +81,8 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 	newEInfoId := len(scannedEdges)
 
+	// tambahin parallel edges dulu buat via-way turn restrictions
 	for wayId, way := range p.ways {
-
 		fromRestrictions := p.restrictions[wayId]
 		for fromResId, restriction := range fromRestrictions {
 			if restriction.isWay {
@@ -178,80 +178,88 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 									inspired by how to handle polyvalent turn dari paper CRP dan https://github.com/Project-OSRM/osrm-backend/issues/2681
 				*/ //  nolint: gofmt
 
-				viaWay := restriction.viaWay
-				viaWayNodes := p.ways[viaWay].graphNodes
-
-				viaWayNodesSet := make(map[da.Index]struct{}, len(viaWayNodes))
-				for i := 0; i < len(viaWayNodes); i++ {
-					viaWayNodesSet[viaWayNodes[i]] = struct{}{}
-				}
-
 				fromNodes := way.graphNodes
-				toNodes := p.ways[restriction.to].graphNodes
+				viaWays := restriction.viaWays // bisa aja via-way turn restriction, via-way nya ada lebih dari 1: https://www.openstreetmap.org/relation/17842412
+				for q, viaWay := range viaWays {
+					var toNodes []da.Index
 
-				tail := da.Index(math.MaxUint32)
-				head := da.Index(math.MaxUint32)
-
-				for i := 0; i < len(fromNodes); i++ {
-					if _, ok := viaWayNodesSet[fromNodes[i]]; ok {
-						tail = fromNodes[i]
-						break
+					if q == len(viaWays)-1 {
+						toNodes = p.ways[restriction.to].graphNodes
+					} else {
+						toNodes = p.ways[viaWays[q+1]].graphNodes
 					}
-				}
 
-				for i := 0; i < len(toNodes); i++ {
-					if _, ok := viaWayNodesSet[toNodes[i]]; ok {
-						head = toNodes[i]
-						break
+					viaWayNodes := p.ways[viaWay].graphNodes
+					viaWayNodesSet := make(map[da.Index]struct{}, len(viaWayNodes))
+					for i := 0; i < len(viaWayNodes); i++ {
+						viaWayNodesSet[viaWayNodes[i]] = struct{}{}
 					}
-				}
 
-				if tail == da.Index(math.MaxUint32) || head == math.MaxUint32 {
-					continue
-				}
+					tail := da.Index(math.MaxUint32)
+					head := da.Index(math.MaxUint32)
 
-				viaWayEdge := da.NewEmptyOutEdge()
-
-				viaWayEInfoId := da.Index(da.INVALID_EDGE_ID)
-				for tailExitPoint, outEdge := range outEdges[tail] {
-					eInfoId := edgeInfoIds[tail][tailExitPoint]
-					eHead := outEdge.GetHead()
-					if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head {
-						viaWayEInfoId = eInfoId
-						viaWayEdge = outEdge
-						break
+					for i := 0; i < len(fromNodes); i++ {
+						if _, ok := viaWayNodesSet[fromNodes[i]]; ok {
+							tail = fromNodes[i]
+							break
+						}
 					}
+
+					for i := 0; i < len(toNodes); i++ {
+						if _, ok := viaWayNodesSet[toNodes[i]]; ok {
+							head = toNodes[i]
+							break
+						}
+					}
+
+					if tail == da.Index(math.MaxUint32) || head == math.MaxUint32 {
+						continue
+					}
+
+					viaWayEdge := da.NewEmptyOutEdge()
+
+					viaWayEInfoId := da.Index(da.INVALID_EDGE_ID)
+					for tailExitPoint, outEdge := range outEdges[tail] {
+						eInfoId := edgeInfoIds[tail][tailExitPoint]
+						eHead := outEdge.GetHead()
+						if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head {
+							viaWayEInfoId = eInfoId
+							viaWayEdge = outEdge
+							break
+						}
+					}
+
+					if viaWayEInfoId == da.INVALID_EDGE_ID {
+						continue
+					}
+
+					viaHead := viaWayEdge.GetHead()
+					viaHeadNewEdgeEntryPoint := da.Index(len(inEdges[viaHead]))
+					viaParallelOutEdge := da.NewOutEdge(da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId)*da.Index(q), viaHead,
+						viaWayEdge.GetWeight(), viaWayEdge.GetLength(), viaHeadNewEdgeEntryPoint, viaWayEdge.GetHighwayType())
+					viaParallelOutEdge.SetParallelEdge()
+					outEdges[tail] = append(outEdges[tail], viaParallelOutEdge)
+					edgeInfoIds[tail] = append(edgeInfoIds[tail], da.Index(newEInfoId))
+					outDegree[tail]++
+
+					tailNewEdgeExitPoint := da.Index(len(outEdges[tail]) - 1)
+					viaParallelInEdge := da.NewInEdge(da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId)*da.Index(q), tail,
+						viaWayEdge.GetWeight(), viaWayEdge.GetLength(), tailNewEdgeExitPoint, viaWayEdge.GetHighwayType())
+					viaParallelInEdge.SetParallelEdge()
+					inEdges[viaHead] = append(inEdges[viaHead], viaParallelInEdge)
+					inDegree[viaHead]++
+					startPointId, endPointId := graphStorage.GetEdgeGeometryEndpoints(viaWayEInfoId)
+					graphStorage.AppendEdgeMetadata(
+						int64(graphStorage.GetOsmWayId(viaWayEInfoId)),
+						startPointId, endPointId,
+						graphStorage.GetStreetNameId(viaWayEInfoId),
+						graphStorage.GetRoadClass(viaWayEInfoId),
+						graphStorage.GetRoadClassLink(viaWayEInfoId),
+						graphStorage.GetRoadLanes(viaWayEInfoId),
+					)
+					newEInfoId++
+					fromNodes = viaWayNodes
 				}
-
-				if viaWayEInfoId == da.INVALID_EDGE_ID {
-					continue
-				}
-
-				viaHead := viaWayEdge.GetHead()
-				viaHeadNewEdgeEntryPoint := da.Index(len(inEdges[viaHead]))
-				viaParallelOutEdge := da.NewOutEdge(da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId), viaHead,
-					viaWayEdge.GetWeight(), viaWayEdge.GetLength(), viaHeadNewEdgeEntryPoint, viaWayEdge.GetHighwayType())
-				viaParallelOutEdge.SetParallelEdge()
-				outEdges[tail] = append(outEdges[tail], viaParallelOutEdge)
-				edgeInfoIds[tail] = append(edgeInfoIds[tail], da.Index(newEInfoId))
-				outDegree[tail]++
-
-				tailNewEdgeExitPoint := da.Index(len(outEdges[tail]) - 1)
-				viaParallelInEdge := da.NewInEdge(da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId), tail,
-					viaWayEdge.GetWeight(), viaWayEdge.GetLength(), tailNewEdgeExitPoint, viaWayEdge.GetHighwayType())
-				viaParallelInEdge.SetParallelEdge()
-				inEdges[viaHead] = append(inEdges[viaHead], viaParallelInEdge)
-				inDegree[viaHead]++
-				startPointId, endPointId := graphStorage.GetEdgeGeometryEndpoints(viaWayEInfoId)
-				graphStorage.AppendEdgeMetadata(
-					int64(graphStorage.GetOsmWayId(viaWayEInfoId)),
-					startPointId, endPointId,
-					graphStorage.GetStreetNameId(viaWayEInfoId),
-					graphStorage.GetRoadClass(viaWayEInfoId),
-					graphStorage.GetRoadClassLink(viaWayEInfoId),
-					graphStorage.GetRoadLanes(viaWayEInfoId),
-				)
-				newEInfoId++
 			}
 		}
 	}
@@ -320,6 +328,16 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				}
 			}
 		}
+	}
+
+	isParallelEdge := func(eId, fromResId, q da.Index) bool {
+		if eId < da.INVALID_PARALLEL_EDGE_ID {
+			return false
+		}
+		if eId == da.INVALID_PARALLEL_EDGE_ID+fromResId*q {
+			return true
+		}
+		return false
 	}
 
 	// let m=number of ways , q = max number of nodes of any osm ways, r = max number of restrictions of any osm ways
@@ -663,6 +681,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 								turnMatrices[via][rowOffset+exitPoint] = pkg.NO_ENTRY
 
 							case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
+
 								turnMatrices[via][rowOffset+exitPoint] = pkg.NO_ENTRY
 
 							case NO_STRAIGHT_ON:
@@ -771,194 +790,227 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 				*/ //  nolint: gofmt
 
-				viaWay := restriction.viaWay
-				viaWayNodes := p.ways[viaWay].graphNodes
+				// bisa aja via-way turn restriction, via-way nya ada lebih dari 1: https://www.openstreetmap.org/relation/17842412
 
-				viaWayNodesSet := make(map[da.Index]struct{}, len(viaWayNodes))
-				for i := 0; i < len(viaWayNodes); i++ {
-					viaWayNodesSet[viaWayNodes[i]] = struct{}{}
-				}
+				viaWays := restriction.viaWays
+				moreThanOneViaWays := len(viaWays) > 1
+				for q, viaWay := range viaWays {
 
-				fromNodes := way.graphNodes
-				toNodes := p.ways[restriction.to].graphNodes
+					var (
+						toNodes                   []da.Index
+						lastViaway                bool
+						tailInEdgeInParallelEdges bool
+					)
+					if q == len(viaWays)-1 {
+						toNodes = p.ways[restriction.to].graphNodes
+						lastViaway = true
 
-				tail := da.Index(math.MaxUint32) // tail dari via-edge
-				head := da.Index(math.MaxUint32) // head dari via-edge
+						if moreThanOneViaWays {
+							tailInEdgeInParallelEdges = true
+						}
+					} else {
+						toNodes = p.ways[viaWays[q+1]].graphNodes
 
-				for i := 0; i < len(fromNodes); i++ {
-					if _, ok := viaWayNodesSet[fromNodes[i]]; ok {
-						tail = fromNodes[i]
-						break
-					}
-				}
-
-				for i := 0; i < len(toNodes); i++ {
-					if _, ok := viaWayNodesSet[toNodes[i]]; ok {
-						head = toNodes[i]
-						break
-					}
-				}
-				if tail == da.Index(math.MaxUint32) || head == math.MaxUint32 {
-					continue
-				}
-
-				tailNewViaEdgeExitPoint := da.Index(0)
-
-				viaWayEInfoId := da.Index(da.INVALID_EDGE_ID)
-				for i := 0; i < len(outEdges[tail]); i++ {
-					eInfoId := edgeInfoIds[tail][i]
-					outEdge := outEdges[tail][i]
-					if outEdge.GetHighwayType() == pkg.INVALID_HIGHWAY {
-						// skip dummy edges
-						continue
-					}
-					eHead := outEdge.GetHead()
-					if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head && outEdge.GetEdgeId() == da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId) {
-						tailNewViaEdgeExitPoint = da.Index(i)
-						viaWayEInfoId = eInfoId
-					}
-				}
-
-				if viaWayEInfoId == da.INVALID_EDGE_ID {
-					continue
-				}
-
-				headNewViaEdgeEntryPoint := da.Index(math.MaxUint32)
-				for i := 0; i < len(inEdges[head]); i++ {
-					inEdge := inEdges[head][i]
-					eTail := inEdge.GetTail()
-					if eTail == tail && inEdge.GetEdgeId() == da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId) {
-						headNewViaEdgeEntryPoint = da.Index(i)
-					}
-				}
-
-				if headNewViaEdgeEntryPoint == math.MaxUint32 {
-					continue
-				}
-
-				for i := 0; i < len(fromNodes); i++ {
-					if fromNodes[i] == tail {
-						if i == 0 && way.oneWay {
-							// no predecessor
-							continue
+						if q > 0 {
+							tailInEdgeInParallelEdges = true
 						}
 
-						var predecessor da.Index // predecessor dari tail dari edge via nya turn restriction
-						if i == 0 {
-							// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
-							// kalau via node dari turn restriction di first node dari from-way..
-							// berarti predecessor nya ada di next node (i+1).. ke arah forward..
-							// from-way nodes: via<->u2<->u3<->-.....<->un
-							predecessor = fromNodes[i+1]
-						} else {
-							predecessor = fromNodes[i-1]
-						}
+					}
 
-						if predecessor == head {
-							continue
-						}
+					viaWayNodes := p.ways[viaWay].graphNodes
 
-						successor := da.Index(math.MaxUint32) // successor dari head dari edge via nya turn restriction
+					viaWayNodesSet := make(map[da.Index]struct{}, len(viaWayNodes))
+					for i := 0; i < len(viaWayNodes); i++ {
+						viaWayNodesSet[viaWayNodes[i]] = struct{}{}
+					}
 
-						for j := 0; j < len(toNodes); j++ {
-							if toNodes[j] == head {
-								if j == len(toNodes)-1 {
-									// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
-									// kalau via node dari turn restriction di last node dari to-way..
-									// berarti predecessor nya ada di next node (i-1).. ke arah backward
-									// to-way nodes: u1<->u2<->u3<->-.....<->via
+					tail := da.Index(math.MaxUint32) // tail dari via-edge
+					head := da.Index(math.MaxUint32) // head dari via-edge
 
-									successor = toNodes[j-1]
-								} else {
-									successor = toNodes[j+1]
-								}
-								break
-							}
-						}
-
-						if successor != da.Index(math.MaxUint32) && successor != restriction.via {
-
-							tailEntryPoint := da.Index(math.MaxUint32)
-
-							for k := da.Index(0); k < da.Index(len(inEdges[tail])); k++ {
-								if inEdges[tail][k].GetTail() == predecessor {
-									tailEntryPoint = k
-								} else {
-									// kasih turn cost INF buat transisi dari  all other inEdges dari tail (selain from-edge) -> tail -> via-edge 2
-									turnMatrices[tail][k*da.Index(outDegree[tail])+tailNewViaEdgeExitPoint] = pkg.NO_ENTRY
-								}
-							}
-
-							if tailEntryPoint == da.Index(math.MaxUint32) {
-								continue
-							}
-
-							tailViaEdgeExitPoint := da.Index(math.MaxUint32)
-
-							for k := 0; k < len(outEdges[tail]); k++ {
-								outEdge := outEdges[tail][k]
-								if outEdge.GetHead() == head && outEdge.GetEdgeId() < da.INVALID_PARALLEL_EDGE_ID {
-									tailViaEdgeExitPoint = da.Index(k)
-									break
-								}
-							}
-
-							if tailViaEdgeExitPoint == da.Index(math.MaxUint32) {
-								continue
-							}
-
-							rowOffset := tailEntryPoint * da.Index(outDegree[tail])
-
-							// kasih turn cost 0 buat transisi dari from-edge -> tail -> via-edge 2
-							turnMatrices[tail][rowOffset+tailNewViaEdgeExitPoint] = pkg.NONE
-
-							// kasih turn cost INF buat transisi dari from-edge -> tail -> via-edge 1
-							turnMatrices[tail][rowOffset+tailViaEdgeExitPoint] = pkg.NO_ENTRY
-
-							// dari via-edge 2 ke to-edge dikasih turn cost INF (karena OSM u-turn restriction diatas).. biar dari  Jalan Siliwangi ke arah timur (from-edge 2) -> via-edge 2 -> to-edge gabisa lewat...
-							// dari via-edge 1 ke to-edge dikasih turn cost 0... biar dari jalan subali raya  -> from-edge 1 -> via-edge 1 -> to-edge bisa lewat ...
-
-							headExitPoint := da.Index(math.MaxUint32)
-							for k := 0; k < len(outEdges[head]); k++ {
-								outEdge := outEdges[head][k]
-								if outEdge.GetHead() == successor {
-									headExitPoint = da.Index(k)
-
-									break
-								}
-							}
-
-							if headExitPoint == da.Index(math.MaxUint32) {
-								continue
-							}
-
-							rowOffset = headNewViaEdgeEntryPoint * da.Index(outDegree[head])
-
-							switch restriction.turnRestriction {
-							case NO_LEFT_TURN:
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-							case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-							case NO_STRAIGHT_ON:
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-							case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-							case NO_ENTRY:
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-							default:
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NONE
-
-							}
-
+					for i := 0; i < len(fromNodes); i++ {
+						if _, ok := viaWayNodesSet[fromNodes[i]]; ok {
+							tail = fromNodes[i]
 							break
 						}
 					}
 
+					for i := 0; i < len(toNodes); i++ {
+						if _, ok := viaWayNodesSet[toNodes[i]]; ok {
+							head = toNodes[i]
+							break
+						}
+					}
+					if tail == da.Index(math.MaxUint32) || head == math.MaxUint32 {
+						continue
+					}
+
+					tailNewViaEdgeExitPoint := da.Index(0)
+
+					viaWayEInfoId := da.Index(da.INVALID_EDGE_ID)
+					for i := 0; i < len(outEdges[tail]); i++ {
+						eInfoId := edgeInfoIds[tail][i]
+						outEdge := outEdges[tail][i]
+						if outEdge.GetHighwayType() == pkg.INVALID_HIGHWAY {
+							// skip dummy edges
+							continue
+						}
+						eHead := outEdge.GetHead()
+						if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head &&
+							isParallelEdge(outEdge.GetEdgeId(), da.Index(fromResId), da.Index(q)) {
+							tailNewViaEdgeExitPoint = da.Index(i)
+							viaWayEInfoId = eInfoId
+						}
+					}
+
+					if viaWayEInfoId == da.INVALID_EDGE_ID {
+						continue
+					}
+
+					headNewViaEdgeEntryPoint := da.Index(math.MaxUint32)
+					for i := 0; i < len(inEdges[head]); i++ {
+						inEdge := inEdges[head][i]
+						eTail := inEdge.GetTail()
+						if eTail == tail && isParallelEdge(inEdge.GetEdgeId(), da.Index(fromResId), da.Index(q)) {
+							headNewViaEdgeEntryPoint = da.Index(i)
+						}
+					}
+
+					if headNewViaEdgeEntryPoint == math.MaxUint32 {
+						continue
+					}
+
+					for i := 0; i < len(fromNodes); i++ {
+						if fromNodes[i] == tail {
+							if i == 0 && way.oneWay {
+								// no predecessor
+								continue
+							}
+
+							var predecessor da.Index // predecessor dari tail dari edge via nya turn restriction
+							if i == 0 {
+								// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+								// kalau via node dari turn restriction di first node dari from-way..
+								// berarti predecessor nya ada di next node (i+1).. ke arah forward..
+								// from-way nodes: via<->u2<->u3<->-.....<->un
+								predecessor = fromNodes[i+1]
+							} else {
+								predecessor = fromNodes[i-1]
+							}
+
+							if predecessor == head {
+								continue
+							}
+
+							successor := da.Index(math.MaxUint32) // successor dari head dari edge via nya turn restriction
+
+							for j := 0; j < len(toNodes); j++ {
+								if toNodes[j] == head {
+									if j == len(toNodes)-1 {
+										// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
+										// kalau via node dari turn restriction di last node dari to-way..
+										// berarti predecessor nya ada di next node (i-1).. ke arah backward
+										// to-way nodes: u1<->u2<->u3<->-.....<->via
+
+										successor = toNodes[j-1]
+									} else {
+										successor = toNodes[j+1]
+									}
+									break
+								}
+							}
+
+							if successor != da.Index(math.MaxUint32) {
+
+								tailEntryPoint := da.Index(math.MaxUint32)
+
+								for k := da.Index(0); k < da.Index(len(inEdges[tail])); k++ {
+									tailInEdge := inEdges[tail][k]
+									validInEdge := ((tailInEdgeInParallelEdges && isParallelEdge(tailInEdge.GetEdgeId(), da.Index(fromResId), da.Index(q-1))) ||
+										!tailInEdgeInParallelEdges && !isParallelEdge(tailInEdge.GetEdgeId(), da.Index(fromResId), da.Index(q-1)))
+									if tailInEdge.GetTail() == predecessor && validInEdge {
+										tailEntryPoint = k
+									} else {
+										// kasih turn cost INF buat transisi dari  all other inEdges dari tail (selain from-edge) -> tail -> via-edge 2
+										turnMatrices[tail][k*da.Index(outDegree[tail])+tailNewViaEdgeExitPoint] = pkg.NO_ENTRY
+									}
+								}
+
+								if tailEntryPoint == da.Index(math.MaxUint32) {
+									continue
+								}
+
+								tailViaEdgeExitPoint := da.Index(math.MaxUint32)
+
+								for k := 0; k < len(outEdges[tail]); k++ {
+									outEdge := outEdges[tail][k]
+									validOutEdge := !isParallelEdge(outEdge.GetEdgeId(), da.Index(fromResId), da.Index(q))
+									if outEdge.GetHead() == head && validOutEdge {
+										tailViaEdgeExitPoint = da.Index(k)
+										break
+									}
+								}
+
+								if tailViaEdgeExitPoint == da.Index(math.MaxUint32) {
+									continue
+								}
+
+								rowOffset := tailEntryPoint * da.Index(outDegree[tail])
+
+								// kasih turn cost 0 buat transisi dari from-edge -> tail -> via-edge 2
+								turnMatrices[tail][rowOffset+tailNewViaEdgeExitPoint] = pkg.NONE
+
+								// kasih turn cost INF buat transisi dari from-edge -> tail -> via-edge 1
+								turnMatrices[tail][rowOffset+tailViaEdgeExitPoint] = pkg.NO_ENTRY
+
+								if lastViaway {
+
+									// dari via-edge 2 ke to-edge dikasih turn cost INF (karena OSM u-turn restriction diatas).. biar dari  Jalan Siliwangi ke arah timur (from-edge 2) -> via-edge 2 -> to-edge gabisa lewat...
+									// dari via-edge 1 ke to-edge dikasih turn cost 0... biar dari jalan subali raya  -> from-edge 1 -> via-edge 1 -> to-edge bisa lewat ...
+
+									headExitPoint := da.Index(math.MaxUint32)
+									for k := 0; k < len(outEdges[head]); k++ {
+										outEdge := outEdges[head][k]
+										if outEdge.GetHead() == successor && !isParallelEdge(outEdge.GetEdgeId(), da.Index(fromResId), da.Index(q)) {
+											headExitPoint = da.Index(k)
+
+											break
+										}
+									}
+
+									if headExitPoint == da.Index(math.MaxUint32) {
+										continue
+									}
+
+									rowOffset = headNewViaEdgeEntryPoint * da.Index(outDegree[head])
+
+									switch restriction.turnRestriction {
+									case NO_LEFT_TURN:
+										turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+									case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
+										turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+									case NO_STRAIGHT_ON:
+										turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+									case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
+										turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+									case NO_ENTRY:
+										turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
+
+									default:
+										turnMatrices[head][rowOffset+headExitPoint] = pkg.NONE
+
+									}
+								}
+
+								break
+							}
+						}
+					}
+
+					fromNodes = viaWayNodes
 				}
 			}
 		}
@@ -968,6 +1020,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	matrixOffset := 0
 
 	for v := 0; v < len(vertices)-1; v++ {
+
 		// set the turnTablePtr of vertex v to the current matrixOffset
 		// matrix offset is index of the first element of turnMatrices[v] in the flattened matrices array
 		vertices[v].SetTurnTablePtr(da.Index(matrixOffset))
@@ -989,7 +1042,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		inEdgeOffset += da.Index(len(inEdges[i]))
 	}
 
-	// dummy update vertex
+	// dummy vertex
 	vertices[len(vertices)-1] = da.NewVertex(0, 0, da.Index(len(vertices)-1))
 	vertices[len(vertices)-1].SetFirstOut(outEdgeOffset)
 	vertices[len(vertices)-1].SetFirstIn(inEdgeOffset)
