@@ -56,9 +56,9 @@ eGeom prevEdge geometry
 tailCoord tail node coordinate
 atLeastDist in meter
 */ // nolint: gofmt
-func (db *DirectionBuilder) GetPrevPoint(eGeom da.Coordinates, tailCoord da.Coordinate, atLeastDist float64) da.Coordinate {
+func (db *DirectionBuilder) GetPrevPoint(eId da.Index, eGeom da.Coordinates, tailCoord da.Coordinate, atLeastDist float64) da.Coordinate {
 
-	curved := geo.IsPolylineCurved(eGeom)
+	curved := db.graph.IsCurved(eId)
 	n := len(eGeom)
 	if !curved || n == 2 {
 		return eGeom[0]
@@ -79,9 +79,9 @@ func (db *DirectionBuilder) GetPrevPoint(eGeom da.Coordinates, tailCoord da.Coor
 
 // GetHeadPoint. ini buat get headPoint, point setelah tail vertex/intersection vertex.
 // mirip kaya GetPrevPoint, tapi pakai geometry dari currentEdge.
-func (db *DirectionBuilder) GetHeadPoint(eGeom da.Coordinates, tailCoord da.Coordinate, atLeastDist float64) da.Coordinate {
+func (db *DirectionBuilder) GetHeadPoint(eId da.Index, eGeom da.Coordinates, tailCoord da.Coordinate, atLeastDist float64) da.Coordinate {
 
-	curved := geo.IsPolylineCurved(eGeom)
+	curved := db.graph.IsCurved(eId)
 	n := len(eGeom)
 	if !curved || n == 2 {
 		return eGeom[1]

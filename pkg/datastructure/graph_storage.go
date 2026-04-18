@@ -15,6 +15,7 @@ type GraphStorage struct {
 	//  https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 	streetDirectionForward  *bitset.BitSet // kalau direction dari edgeId forward: bitset.Test(edgeId) return true
 	streetDirectionBackward *bitset.BitSet
+	isCurvedFlag            *bitset.BitSet // is geometry/polyline dari edge curved or not
 	roundaboutFlag          *bitset.BitSet
 	nodeTrafficLight        *bitset.BitSet
 	edgeOsmWayId            *PackedSlice // map dari outEdgeId ke osm way id dari edge
@@ -36,6 +37,7 @@ func NewGraphStorage(osmwayBitSize uint8) *GraphStorage {
 		streetDirectionBackward: bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		roundaboutFlag:          bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		nodeTrafficLight:        bitset.New(INITIAL_BIT_VECTOR_SIZE),
+		isCurvedFlag:            bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		osmNodePoints:           make([]Coordinate, 0),
 		edgeOsmWayId:            NewPackedSlice(osmwayBitSize, INITIAL_APPROX_EDGE_SIZE), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
 		osmwayBitSize:           osmwayBitSize,
@@ -49,10 +51,10 @@ func NewGraphStorage(osmwayBitSize uint8) *GraphStorage {
 }
 
 func BuildGraphStorage(osmNodePoints []Coordinate, roundaboutFlag, nodeTrafficLight *bitset.BitSet,
-	streetDirectionForward, streetDirectionBackward *bitset.BitSet) *GraphStorage {
+	streetDirectionForward, streetDirectionBackward, isCurvedFlag *bitset.BitSet) *GraphStorage {
 	return &GraphStorage{osmNodePoints: osmNodePoints, roundaboutFlag: roundaboutFlag,
 		nodeTrafficLight:       nodeTrafficLight,
-		streetDirectionForward: streetDirectionForward, streetDirectionBackward: streetDirectionBackward}
+		streetDirectionForward: streetDirectionForward, streetDirectionBackward: streetDirectionBackward, isCurvedFlag: isCurvedFlag}
 }
 
 func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStorage {
@@ -73,14 +75,26 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 
 func (gs *GraphStorage) IsRoundabout(edgeId Index) bool {
 	return gs.roundaboutFlag.Test(uint(edgeId))
-
 }
+
 func (gs *GraphStorage) SetRoundabout(edgeId Index, isRoundabout bool) {
 	if isRoundabout {
 		gs.roundaboutFlag.Set(uint(edgeId))
 	} else {
 		gs.roundaboutFlag.Clear(uint(edgeId))
 	}
+}
+
+func (gs *GraphStorage) SetIsCurved(edgeId Index, isCurved bool) {
+	if isCurved {
+		gs.isCurvedFlag.Set(uint(edgeId))
+	} else {
+		gs.isCurvedFlag.Clear(uint(edgeId))
+	}
+}
+
+func (gs *GraphStorage) IsCurved(edgeId Index) bool {
+	return gs.isCurvedFlag.Test(uint(edgeId))
 }
 
 func (gs *GraphStorage) GetOsmwayBitSize() uint8 {

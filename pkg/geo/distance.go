@@ -42,17 +42,6 @@ func CalculateEuclidianDistMercatorProj(latOne, longOne, latTwo, longTwo float64
 	return math.Sqrt(xx*xx+yy*yy) * math.Cos(meanLat)
 }
 
-func CalculateEuclidianDistanceEquirectangularProj(latOne, longOne, latTwo, longTwo float64) float64 {
-	latOne = util.DegreeToRadians(latOne)
-	longOne = util.DegreeToRadians(longOne)
-	latTwo = util.DegreeToRadians(latTwo)
-	longTwo = util.DegreeToRadians(longTwo)
-
-	x := (longTwo - longOne) * math.Cos((latOne+latTwo)/2)
-	y := latTwo - latOne
-	return math.Sqrt(x*x+y*y) * earthRadiusKM
-}
-
 func radToDeg(r float64) float64 {
 	return 180.0 * r / math.Pi
 }

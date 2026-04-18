@@ -210,6 +210,10 @@ func (p *Preprocessor) SortByCellNumber() {
 	newStreetDirectionForward := bitset.New(uint(p.graph.NumberOfEdges()))
 	newStreetDirectionBackward := bitset.New(uint(p.graph.NumberOfEdges()))
 
+	// create new is curved flags
+	oldIsCurvedFlag := p.graph.GetIsCurvedFlag()
+	newIsCurvedFlag := bitset.New(oldIsCurvedFlag.Len())
+
 	vId := da.Index(0)
 	isRoadNetworkGraph := p.graph.IsRoadNetworkGraph()
 
@@ -297,6 +301,13 @@ func (p *Preprocessor) SortByCellNumber() {
 					if streetdir[1] {
 						newStreetDirectionBackward.Set(uint(newOutEdgeId))
 					}
+
+					// update is curved flag
+					isCurved := oldIsCurvedFlag.Test(uint(oldEdgeInfoId))
+					if isCurved {
+						newIsCurvedFlag.Set(uint(newOutEdgeId))
+					}
+
 				} else if isRoadNetworkGraph {
 					newOsmWayIds.Append(uint64(da.INVALID_OSM_WAY_ID))
 				}
@@ -313,7 +324,7 @@ func (p *Preprocessor) SortByCellNumber() {
 					oldInEdge.GetLength(), oldInEdge.GetExitPoint(),
 					oldInEdge.GetHighwayType(),
 				)
-				
+
 				newInEdge.SetFlag(oldInEdge.GetFlag())
 
 				p.graph.SetInEdge(newInEdgeId, newInEdge)
@@ -333,7 +344,8 @@ func (p *Preprocessor) SortByCellNumber() {
 	p.graph.SetNewEdgeMetadatas(newOsmWayIds, newEdgeStartPointsIndex, newEdgeEndPointsIndex,
 		newStreetNameIds, newRoadClass, newRoadClassLink, newLanes)
 	p.graph.SetVertexOsmIds(newVerticesOsmIds)
-
+	p.graph.SetIsCurvedFlags(newIsCurvedFlag)
+	
 }
 
 func (p *Preprocessor) GetOldToNewVIdMap() []da.Index {

@@ -70,12 +70,13 @@ prevPoint----prevEdge----tail
 func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, prevNodeId, headId da.Index, currStreetName string) da.TurnType {
 
 	eGeom := db.graph.GetEdgeGeometry(edgeId)
-	curved := geo.IsPolylineCurved(eGeom)
+
+	curved := db.graph.IsCurved(edgeId)
 
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
 
 	tailCoord := eGeom[0]
-	headCoord := db.GetHeadPoint(eGeom, tailCoord, 25)
+	headCoord := db.GetHeadPoint(edgeId, eGeom, tailCoord, 25)
 
 	headLat := headCoord.GetLat()
 	headLon := headCoord.GetLon()
@@ -176,10 +177,10 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
 
-	curved := geo.IsPolylineCurved(eGeom)
+	curved := db.graph.IsCurved(edgeId)
 
 	tailCoord := eGeom[0]
-	headCoord := db.GetHeadPoint(eGeom, tailCoord, 25)
+	headCoord := db.GetHeadPoint(edgeId, eGeom, tailCoord, 25)
 
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
 
@@ -411,7 +412,7 @@ func (db *DirectionBuilder) updateState(eGeom da.Coordinates, edgeId da.Index, i
 
 	n := len(eGeom)
 	db.doublePrevPoint = db.prevPoint
-	db.prevPoint = db.GetPrevPoint(eGeom, eGeom[n-1], 25)
+	db.prevPoint = db.GetPrevPoint(edgeId, eGeom, eGeom[n-1], 25)
 
 	db.doublePrevNode = db.prevNode
 	db.prevInRoundabout = isInRoundabout

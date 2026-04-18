@@ -801,6 +801,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	}
 
 	hwType := pkg.GetHighwayType(roadClass)
+	isCurved := geo.IsPolylineCurved(edgePoints)
 
 	if wayExtraInfoData.oneWay {
 		if wayExtraInfoData.forward {
@@ -839,6 +840,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			if p.isJunctionNode(to.id) {
 				e.SetJunctionHead()
 			}
+
+			graphStorage.SetIsCurved(da.Index(len(*scannedEdges)), isCurved)
 
 			*scannedEdges = append(*scannedEdges, e)
 
@@ -881,6 +884,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				e.SetJunctionHead()
 			}
 
+			graphStorage.SetIsCurved(da.Index(len(*scannedEdges)), isCurved)
+
 			*scannedEdges = append(*scannedEdges, e)
 		}
 	} else {
@@ -921,6 +926,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			e.SetJunctionHead()
 		}
 
+		graphStorage.SetIsCurved(da.Index(len(*scannedEdges)), isCurved)
+
 		*scannedEdges = append(*scannedEdges, e)
 
 		// add reversed edge
@@ -951,10 +958,12 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		if p.isJunctionNode(to.id) {
 			e.SetJunctionTail()
 		}
-		
+
 		if p.isJunctionNode(from.id) {
 			e.SetJunctionHead()
 		}
+
+		graphStorage.SetIsCurved(da.Index(len(*scannedEdges)), isCurved)
 
 		*scannedEdges = append(*scannedEdges, e)
 	}

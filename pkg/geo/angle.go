@@ -28,7 +28,7 @@ func BearingTo(p1Lat, p1Lon, p2Lat, p2Lon float64) float64 {
 }
 
 const (
-	COLLINEAR_EPS = 1e-11
+	COLLINEAR_EPS = 1e-3
 )
 
 // cross. returns the cross product of two vectors a and b
@@ -47,11 +47,11 @@ func IsPolylineCurved(coords da.Coordinates) bool {
 	if len(coords) == 2 {
 		return false
 	}
-	tailX, tailY := CalcLonToX(coords[0].GetLon()), CalcLatToYApprox(coords[0].GetLat())
-	headX, headY := CalcLonToX(coords[len(coords)-1].GetLon()), CalcLatToYApprox(coords[len(coords)-1].GetLat())
+	tailX, tailY := CalcLonToX(coords[0].GetLon()), CalcLatToY(coords[0].GetLat())
+	headX, headY := CalcLonToX(coords[len(coords)-1].GetLon()), CalcLatToY(coords[len(coords)-1].GetLat())
 
 	for i := 1; i < len(coords)-1; i++ {
-		rx, ry := CalcLonToX(coords[i].GetLon()), CalcLatToYApprox(coords[i].GetLat())
+		rx, ry := CalcLonToX(coords[i].GetLon()), CalcLatToY(coords[i].GetLat())
 		if !collinear(tailX, tailY, headX, headY, rx, ry) {
 			return true
 		}

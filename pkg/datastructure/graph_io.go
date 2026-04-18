@@ -239,6 +239,14 @@ func (g *Graph) WriteGraph(filename string) error {
 		return errors.Wrapf(err, "WriteGraph: failed writid new line")
 	}
 
+	if _, err := g.graphStorage.isCurvedFlag.WriteTo(w); err != nil {
+		return errors.Wrapf(err, "WriteGraph: failed writing isCurvedFlag")
+	}
+
+	if _, err := fmt.Fprintf(w, "\n"); err != nil {
+		return errors.Wrapf(err, "WriteGraph: failed writid new line")
+	}
+
 	// tag string
 
 	nameTableLength := len(g.graphStorage.nameTable)
@@ -681,6 +689,16 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after streetDirectionsBackward")
 	}
 
+	// is curved flag
+	isCurvedFlag := bitset.New(uint(numEdges))
+	if _, err = isCurvedFlag.ReadFrom(br); err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset isCurvedFlag")
+	}
+
+	if _, err = br.ReadByte(); err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after isCurvedFlag")
+	}
+
 	// tagstring idmap flag
 	line, err = util.ReadLine(br)
 	if err != nil {
@@ -756,7 +774,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	graphStorage := BuildGraphStorage(osmNodePoints,
 		roundaboutFlags, trafficLightFlags,
-		stretDirectionsForward, stretDirectionsBackward)
+		stretDirectionsForward, stretDirectionsBackward, isCurvedFlag)
 
 	graphStorage.SetNewEdgeMetadata(osmWayIds, edgeStartPointsIndex, edgeEndPointsIndex,
 		streetName, roadClass, roadClassLink, lanes)

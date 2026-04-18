@@ -16,7 +16,7 @@ import (
 // https://wiki.openstreetmap.org/wiki/Highway_link
 
 type DirectionBuilder struct {
-	turnSignCache *ristretto.Cache[uint64, []byte]
+	turnSignCache *ristretto.Cache[uint64, []byte] // cache untuk turn sign dari (prevEdgeId, currEdgeId) untuk di jalan Nasional, Jalan provinsi, dan Jalan kabupaten 
 
 	instructions     []*da.Instruction
 	prevInstruction  *da.Instruction

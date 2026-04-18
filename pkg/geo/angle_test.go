@@ -12,16 +12,7 @@ func TestCurvedPolyline(t *testing.T) {
 		coords da.Coordinates
 		want   bool
 	}{
-		{
-			name: "Jalan Tentara Rakyat Mataram not curved https://www.openstreetmap.org/way/153857844",
-			coords: []da.Coordinate{
-				da.NewCoordinate(-7.7878482, 110.3589005),
-				da.NewCoordinate(-7.7879126, 110.3587503),
-				da.NewCoordinate(-7.7879722, 110.3585639),
-				da.NewCoordinate(-7.7880526, 110.3582849),
-			},
-			want: false,
-		},
+
 		{
 			name: "Jalan Tentara Rakyat Mataram curved https://www.openstreetmap.org/way/153857844",
 			coords: []da.Coordinate{
@@ -40,6 +31,16 @@ func TestCurvedPolyline(t *testing.T) {
 				da.NewCoordinate(-7.7893485, 110.3575253),
 			},
 			want: true,
+		},
+		{
+			name: "Jalan Tentara Rakyat Mataram not curved https://www.openstreetmap.org/way/153857844",
+			coords: []da.Coordinate{
+				da.NewCoordinate(-7.7878482, 110.3589005),
+				da.NewCoordinate(-7.7879126, 110.3587503),
+				da.NewCoordinate(-7.7879722, 110.3585639),
+				da.NewCoordinate(-7.7880526, 110.3582849),
+			},
+			want: false,
 		},
 		{
 			name: "Jalan Kapten Pierre Tandean curved https://www.openstreetmap.org/way/103762969",

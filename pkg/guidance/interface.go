@@ -29,6 +29,7 @@ type Graph interface {
 	GetOsmWayId(edgeId da.Index) int64
 	GetStrFromId(stNameId uint32) string
 	GetStreetNameId(edgeId da.Index) uint32
+	IsCurved(edgeId da.Index) bool
 }
 
 type RoutingEngine interface {

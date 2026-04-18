@@ -816,8 +816,16 @@ func (g *Graph) GetRoundaboutFlag() *bitset.BitSet {
 	return g.graphStorage.roundaboutFlag
 }
 
+func (g *Graph) GetIsCurvedFlag() *bitset.BitSet {
+	return g.graphStorage.isCurvedFlag
+}
+
 func (g *Graph) SetRoundabout(edgeID Index, isRoundabout bool) {
 	g.graphStorage.SetRoundabout(edgeID, isRoundabout)
+}
+
+func (g *Graph) IsCurved(edgeId Index) bool {
+	return g.graphStorage.IsCurved(edgeId)
 }
 
 func (g *Graph) IsTrafficLight(vertexId Index) bool {
@@ -922,6 +930,10 @@ func (g *Graph) GetOsmWayBitSize() uint8 {
 
 func (g *Graph) SetRoundaboutFlags(roundaboutFlags *bitset.BitSet) {
 	g.graphStorage.roundaboutFlag = roundaboutFlags
+}
+
+func (g *Graph) SetIsCurvedFlags(isCurvedFlag *bitset.BitSet) {
+	g.graphStorage.isCurvedFlag = isCurvedFlag
 }
 
 func (g *Graph) SetTrafficLightFlags(trafficLightFlags *bitset.BitSet) {
