@@ -32,7 +32,7 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 	edgeRoadClassLink := db.graph.GetRoadClassLink(edgeId)
 
 	switch edgeRoadClass {
-	case "tertiary", "residential", "living_street", "service", "private", "road", "track", "unclassified", "undefined":
+	case "tertiary", "residential", "living_street", "service", "private", "road", "track":
 		return db.handleResidentialRoadTurn(edgeId, tailId, prevNodeId, headId, name)
 	case "primary", "secondary", "trunk":
 		return db.handlePrimaryRoadTurn(edgeId, tailId, prevNodeId, headId, name)
@@ -43,8 +43,7 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 		case "primary_link", "secondary_link", "trunk_link":
 			return db.handlePrimaryRoadTurn(edgeId, tailId, prevNodeId, headId, name)
 		}
-
-		if edgeRoadClass == "unknown" {
+		if edgeRoadClass == "unknown" || edgeRoadClass == "unclassified" || edgeRoadClass == "undefined" {
 			return db.handleResidentialRoadTurn(edgeId, tailId, prevNodeId, headId, name)
 		}
 	}

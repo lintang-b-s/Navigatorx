@@ -7,20 +7,40 @@ import (
 	"math"
 	"math/rand"
 	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+)
+
+var (
+	profileFilePath  = flag.String("profile", "./data/car.yaml", "profile file path")
+	profileName      string
+	regionName       = flag.String("region", "diy_solo_semarang", "region name")
+	graphFile        string
+	overlayGraphFile string
+	metricsFile      string
+	landmarkFile     string
 )
 
 const (
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	transitionMHTFile string = "./data/omm_transition_history_id.mm"
 )
 
+func init() {
+	flag.Parse()
+
+	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
+	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
+	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
+	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, *regionName)
+	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
+	util.InitProfileConfig(profileName)
+}
 func main() {
 	flag.Parse()
 	logger, err := log.New()
