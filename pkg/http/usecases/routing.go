@@ -188,3 +188,11 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 func (rs *RoutingService) GetRoutingEngine() *routing.CRPRoutingEngine {
 	return rs.engine.(*routing.CRPRoutingEngine)
 }
+
+func (rs *RoutingService) Snap(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64) (da.PhantomNode, da.PhantomNode) {
+	if util.IsTimeout(ctx) { // https://engineering.grab.com/context-deadlines-and-how-to-set-them
+		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
+	}
+
+	return rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
+}

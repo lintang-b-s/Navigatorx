@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -37,7 +38,7 @@ func NewNodeCoord(lat, lon float64) NodeCoord {
 
 type restriction struct {
 	via             da.Index
-	viaWay          int64
+	viaWays         []int64
 	to              int64
 	turnRestriction TurnRestriction
 	isWay           bool
@@ -142,6 +143,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 
 	restrictions := make(map[int64][]struct {
 		via             int64
+		viaWays         []int64
 		turnRestriction TurnRestriction
 		to              int64
 		isWay           bool
@@ -181,7 +183,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 						}
 					} else {
 						// ini junction node dari osm way
-						// jadi ada setidaknya 2 way yang punya node yang sama
+						// jadi ada setidaknya 2 osm way yang punya node yang sama
 						// nah node yang sama ini ditandain JUNCTION_NODE
 						p.wayNodeMap[int64(node.ID)] = nodeWithCoord{JUNCTION_NODE, NewNodeCoord(node.Lat, node.Lon)}
 					}
@@ -210,17 +212,13 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 					// https://wiki.openstreetmap.org/wiki/Relation:restriction
 
 					from := int64(0)
-					via := int64(0)
+					via := int64(math.MaxInt64)
 					to := int64(0)
 					// https://www.openstreetmap.org/api/0.6/relation/5710500
 					// example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455  or https://www.openstreetmap.org/api/0.6/relation/10732316
 
-					if len(relation.Members) > 3 {
-						// sementara gak support restrictions yang via nya lebih dari 1.
-						// example: https://www.openstreetmap.org/relation/4763182#map=19/-7.783071/110.360767
-						// masih gak tau cara incorporate di routing algorithm nya gmn
-						continue
-					}
+					viaways := make([]int64, 0)
+					// turn restriction dengan via-way bisa aja via-way nya lebih dari 1, example:  example: https://www.openstreetmap.org/relation/4763182#map=19/-7.783071/110.360767
 
 					isWay := false
 					for _, member := range relation.Members {
@@ -233,11 +231,12 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 							isWay = false
 						} else if member.Type == "way" && member.Role == "via" {
 							// example: https://www.openstreetmap.org/relation/13427535
-							via = member.Ref
+							viaways = append(viaways, member.Ref)
 							isWay = true
 						}
 					}
-					if via == 0 {
+
+					if via == math.MaxInt64 && len(viaways) == 0 {
 						// skip adding restriction yang gak sesuai rule restriction osm:
 						// example: https://www.openstreetmap.org/relation/12868204/history/2 (version 2) gak ada via nya...
 						// padahal di version 1 bener (ada via nya): https://www.openstreetmap.org/relation/12868204/history/1
@@ -247,6 +246,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 
 					rest := struct {
 						via             int64
+						viaWays         []int64
 						turnRestriction TurnRestriction
 						to              int64
 						isWay           bool
@@ -255,6 +255,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 						to:              to,
 						turnRestriction: parseTurnRestriction(tagVal),
 						isWay:           isWay,
+						viaWays:         viaways,
 					}
 					restrictions[from] = append(restrictions[from], rest)
 				}
@@ -403,6 +404,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 	for from, val := range restrictions {
 		savedRest := make([]restriction, len(val))
 		for i := range val {
+
 			if !val[i].isWay {
 				savedRest[i] = restriction{
 					via:             p.nodeIDMap[val[i].via],
@@ -412,7 +414,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 				}
 			} else {
 				savedRest[i] = restriction{
-					viaWay:          val[i].via,
+					viaWays:         val[i].viaWays,
 					to:              val[i].to,
 					turnRestriction: val[i].turnRestriction,
 					isWay:           val[i].isWay,
@@ -420,6 +422,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 			}
 
 		}
+
 		p.restrictions[from] = savedRest
 	}
 
