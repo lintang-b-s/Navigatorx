@@ -49,7 +49,9 @@ func (mpr *MultilevelPartitioner) SetCellVertices(cellVertices [][][]da.Index) {
 }
 
 /*
-RunMultilevelPartitioning. run L-level mutltilevel partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
+RunMultilevelPartitioning. Partitioning phase of Customizable Route Planning (CRP) By Delling et al. see section 5.1 Metric Independent Preprocessing (Partitioning) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+ run L-level mutltilevel partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
 pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} untuk mendapatkan cells level L.
 cells di level bawahnya didapatkan dengan menjalankan algoritma inertial flow pada individual cells of the level immediately above.
 

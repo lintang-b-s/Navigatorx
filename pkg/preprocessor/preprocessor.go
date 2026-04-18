@@ -36,6 +36,7 @@ func NewPreprocessor(graph *da.Graph, mlp *da.MultilevelPartition,
 	}
 }
 
+// Preprocesssing. Preprocessing (building Overlay Graph) phase. see section 5.1 Metric Independent Preprocessing (Overlay Topology) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 func (p *Preprocessor) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Starting preprocessing step of Customizable Route Planning...")
 
