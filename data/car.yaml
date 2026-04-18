@@ -1,5 +1,3 @@
-vars:
-  INF_COST: &INF_COST 1e15
 
 # example: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
 # example2: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla
@@ -53,7 +51,8 @@ maxspeeds:
   default: 30
 
 turncosts: # (see section 4.1 and 7: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf)
-  u_turn: *INF_COST # ini adalah cost dari u-turn di two-way road (two-way road example: https://www.openstreetmap.org/way/1360292077) 
+  # in seconds
+  u_turn: 300 # ini adalah cost dari u-turn di two-way road (two-way road example: https://www.openstreetmap.org/way/1360292077)
   left_turn: 0
   right_turn: 0
   straight_on: 0
@@ -79,7 +78,6 @@ alternatives:
 server:
   api_timeout: 5s
 
-guidance:  
+guidance:
   left_hand: true # https://en.wikipedia.org/wiki/Left-_and_right-hand_traffic  , example: Inonesia is left-hand traffic
-
 

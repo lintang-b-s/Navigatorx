@@ -34,9 +34,9 @@ func NewTimeCostFunction() *TimeFunction {
 			turnType := getTurnType(turnTypeStr)
 			switch v := cost.(type) {
 			case int:
-				turnCosts[turnType] = float64(v)
+				turnCosts[turnType] = util.SecondsToMinutes(float64(v))
 			case float64:
-				turnCosts[turnType] = v
+				turnCosts[turnType] = util.SecondsToMinutes(float64(v))
 			default:
 				panic("unsupported type")
 			}
@@ -57,6 +57,7 @@ const (
 	defaultSpeed = 30.0 // km/h
 )
 
+// GetWeight. Get travel time dari edge (in minutes).
 func (tf *TimeFunction) GetWeight(eHighwayType pkg.OsmHighwayType, eDefaultWeight, eLength float64) float64 {
 
 	maxspeed := defaultSpeed
@@ -65,8 +66,7 @@ func (tf *TimeFunction) GetWeight(eHighwayType pkg.OsmHighwayType, eDefaultWeigh
 	}
 
 	if tf.maxspeeds != nil {
-		hwType := eHighwayType
-		maxspeed = tf.maxspeeds[hwType]
+		maxspeed = tf.maxspeeds[eHighwayType]
 		if maxspeed == 0 {
 			maxspeed = defaultSpeed
 		}
