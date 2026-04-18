@@ -63,6 +63,7 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 		streetDirectionBackward: bitset.New(uint(numberOfEdges)),
 		roundaboutFlag:          bitset.New(uint(numberOfEdges)),
 		nodeTrafficLight:        bitset.New(uint(numberOfVertices)),
+		isCurvedFlag:            bitset.New(uint(numberOfEdges)),
 		osmNodePoints:           make([]Coordinate, 1),
 		edgeOsmWayId:            NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID, uint64(numberOfEdges)),
 		edgeStartPointsIndex:    make([]Index, 0),
