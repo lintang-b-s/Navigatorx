@@ -45,7 +45,7 @@ func TestPackedSlice(t *testing.T) {
 
 		rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-		maxValUint34 := (uint64(1) << 34) - 1
+		const maxValUint34 = (uint64(1) << 34) - 1
 		const numInputs = int(1e8)
 
 		ps := NewPackedSlice(BIT_SIZE_OSM_NODE_ID, uint64(numInputs))

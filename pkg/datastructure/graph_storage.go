@@ -17,6 +17,7 @@ type GraphStorage struct {
 	streetDirectionBackward *bitset.BitSet
 	roundaboutFlag          *bitset.BitSet
 	nodeTrafficLight        *bitset.BitSet
+	edgeOsmWayId            *PackedSlice // map dari outEdgeId ke osm way id dari edge
 
 	// metadata dari edges
 	edgeStartPointsIndex []Index
@@ -25,7 +26,6 @@ type GraphStorage struct {
 	roadClass            []pkg.OsmHighwayType
 	roadClassLink        []pkg.OsmHighwayType
 	lanes                []uint8
-	edgeOsmWayId         *PackedSlice // map dari outEdgeId ke osm way id dari edge
 	osmwayBitSize        uint8
 }
 

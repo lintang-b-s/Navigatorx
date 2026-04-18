@@ -206,6 +206,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 					}
 				}
 
+				if tail == da.Index(math.MaxUint32) || head == math.MaxUint32 {
+					continue
+				}
+
 				viaWayEdge := da.NewEmptyOutEdge()
 
 				viaWayEInfoId := da.Index(da.INVALID_EDGE_ID)
@@ -794,12 +798,15 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						break
 					}
 				}
+				if tail == da.Index(math.MaxUint32) || head == math.MaxUint32 {
+					continue
+				}
 
 				tailNewViaEdgeExitPoint := da.Index(0)
 
-				eInfoId := da.Index(da.INVALID_EDGE_ID)
+				viaWayEInfoId := da.Index(da.INVALID_EDGE_ID)
 				for i := 0; i < len(outEdges[tail]); i++ {
-					eInfoId = edgeInfoIds[tail][i]
+					eInfoId := edgeInfoIds[tail][i]
 					outEdge := outEdges[tail][i]
 					if outEdge.GetHighwayType() == pkg.INVALID_HIGHWAY {
 						// skip dummy edges
@@ -808,16 +815,25 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 					eHead := outEdge.GetHead()
 					if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head && outEdge.GetEdgeId() == da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId) {
 						tailNewViaEdgeExitPoint = da.Index(i)
+						viaWayEInfoId = eInfoId
 					}
 				}
 
-				headNewViaEdgeEntryPoint := da.Index(0)
+				if viaWayEInfoId == da.INVALID_EDGE_ID {
+					continue
+				}
+
+				headNewViaEdgeEntryPoint := da.Index(math.MaxUint32)
 				for i := 0; i < len(inEdges[head]); i++ {
 					inEdge := inEdges[head][i]
 					eTail := inEdge.GetTail()
 					if eTail == tail && inEdge.GetEdgeId() == da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId) {
 						headNewViaEdgeEntryPoint = da.Index(i)
 					}
+				}
+
+				if headNewViaEdgeEntryPoint == math.MaxUint32 {
+					continue
 				}
 
 				for i := 0; i < len(fromNodes); i++ {

@@ -240,7 +240,7 @@ func (db *DirectionBuilder) isStreetSplitSkip(currentEdge, prevEdge da.Index, cu
 /*
 isStreetMerged. cek apakah 2 street (prevEdge, otherEdge) (yang satu arah) merged ke 1 street. Misal kalau jalan di indo:
 --prevEdge-->
-				tail <--currentEdge-->
+				tail --currentEdge-->
 --otherEdge-->
 
 contohnya di tail node: https://www.openstreetmap.org/node/7298595963
