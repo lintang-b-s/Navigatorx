@@ -721,11 +721,9 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 		counterexample := false
 		if !util.EqEps(expectedSp, sp, 1e-4) {
-
 			counterexample = true
 			crpQuery = routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 			crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-
 		}
 
 		if (id+1)%5000 == 0 {
@@ -756,7 +754,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 	t.Run("stress test crp query", func(t *testing.T) {
 		for res := range workers.CollectResults() {
-			if res.counterexample {
+			if res.counterexample {// todo: aneh setelah tambahin multiple via-way turn restrictions jadi gak pass
 				t.Logf("found counterExample!!\n")
 				t.Errorf("found counter example!!, expected shortest path from %v to %v cost: %f, got: %f", res.s, res.t, res.expectedSp, res.crpALTSP)
 

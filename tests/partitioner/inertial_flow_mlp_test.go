@@ -1,7 +1,6 @@
 package partitioner
 
 import (
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,10 +19,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-var (
-	partitionSizes = flag.String("us", "8,10,11,12,14", "Multilevel Partition Sizes")
-)
-
 const (
 	mlpFile                 = "stress_test_yogyakarta"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
@@ -39,7 +34,7 @@ type query struct {
 }
 
 func init() {
-	flag.Parse()
+
 	workingDir, err := util.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
@@ -92,7 +87,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 		panic(err)
 	}
 
-	pss := strings.Split(*partitionSizes, ",")
+	pss := strings.Split("8,10,11,12,14", ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
 		pow, err := strconv.Atoi(pss[i])

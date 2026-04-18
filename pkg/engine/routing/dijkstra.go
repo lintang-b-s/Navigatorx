@@ -62,12 +62,9 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 		// traverse outEdges of u
 		us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
 			head := us.engine.graph.GetHeadOfOutEdge(eId)
-
 			vId := head
-
 			edgeWeight := us.engine.GetWeight(eId, true)
-
-			// get cost to reach v through u + turn cost from inEdge to outEdge of u
+			// get cost to reach v through u
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
 			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
@@ -77,21 +74,17 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
 				// newTravelTime is not better, do nothing
-
 				return
 			}
 
 			// newTravelTime is better, update the forwardInfo
-
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, eId, false)
 				// is key already in the priority queue, decrease its key
 				us.pq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
-
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
 				vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
-
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
 			}
