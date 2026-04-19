@@ -199,6 +199,25 @@ serta memanfaaatkan shortcuts dari multilevel overlay graph hasil preprocessing 
 dijelaskan pada https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
 kode ini terinspirasi oleh kode implementasi Customizable Route Planning (CRP) yang dibuat oleh Michael Wegner: https://github.com/michaelwegner/CRP
+
+karena di multilevel-dijkstra/multilevel-alt kita query dari origin phantom node ke destination phantom node (lihat phantom_node.go):
+
+q -originPhantomEdge->s->....................... -t-destPhantomEdge->z
+
+originPhantomEdge:						destPhantomEdge:
+q------originPhantomNode----->s    t------destPhantomNode----->z
+
+shortest path di multilevel-dijkstra/multilevel alt adalah shortest path dari s ke t + turn cost dari originPhantomEdge ke outEdge dari s +
+turn cost dari inEdge dari t ke destPhantomEdge ..
+kita udah include turn cost dari originPhantomEdge ke other outEdge dari s di awal forward search dan cost dari inEdge dari t ke destPhantomEdge di awal backward search
+sebenarnya setelah multilevel-dijkstra selesai (di routing.go), kita tambahin sp cost nya dengan travelTime(originPhantomNode, s) + travelTime(t, destPhantomNode)
+
+untuk referensi lain implementasi routing with turn cost di road network dapat dilihat di:
+1. https://dl.acm.org/doi/10.5555/2008623.2008634
+2. https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp
+
+
 */
 
 func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (float64, float64, *da.Coordinates,
@@ -254,13 +273,10 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (
 		queryHeap.Scan(id)
 	}
 
-	_, prt := bs.engine.lm.FindTighestConsistentLowerBound(t, s, t, bs.activeLandmarks) // estimate on dist(s,u)
-
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
-		if util.Ge(minForward+minBackward, bs.shortestTravelTime+prt) {
-			// see stopping criterion of Bidirectional A*: https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
+		if util.Ge(minForward+minBackward, bs.shortestTravelTime) {
 			bs.lastpqSum = minForward + minBackward
 			break
 		}

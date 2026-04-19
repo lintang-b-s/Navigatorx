@@ -549,6 +549,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		outEdgeFromTarget := g.GetExitOffset(target) + g.GetOutDegree(target) - 1
 		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
 		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		// crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 
 		sVertex := g.GetVertex(s)
 		tVertex := g.GetVertex(target)
@@ -557,7 +558,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
 
 		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-
+		// sp, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 		expectedSp := expectedSPTravelTimes[i][target]
 
 		counterexample := false
@@ -612,8 +613,9 @@ karena bakal time out kalau pakai vscode
 */
 
 func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
-	re, _, _ := setup(t, true)
-	g := re.GetRoutingEngine().GetGraph()
+	eng, _, _ := setup(t, true)
+	re := eng.GetRoutingEngine()
+	g := re.GetGraph()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
@@ -646,15 +648,18 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 	lock := sync.Mutex{}
 
+	expectedSpPaths := make([][][]da.Index, numberOfVertices)
+
 	calcSpDijkstra := func(i int) any {
 		s := queries[i]
 
-		dijkstraQuery := routing.NewDijkstraWithTurnCost(re.GetRoutingEngine(), false)
+		dijkstraQuery := routing.NewDijkstraWithTurnCost(re, false)
 
-		sps, _ := dijkstraQuery.ShortestPath(s)
+		sps, spPath := dijkstraQuery.ShortestPath(s)
 
 		lock.Lock()
 
+		expectedSpPaths[s] = spPath
 		expectedSPTravelTimes[i] = sps
 
 		if (i+1)%5 == 0 {
@@ -696,6 +701,19 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 			counterexample: cx}
 	}
 
+	isSame := func(a []da.Index, b []da.Index) bool {
+		if len(a) != len(b) {
+			return false
+		}
+
+		for i := 0; i < len(a); i++ {
+			if a[i] != b[i] {
+				return false
+			}
+		}
+		return true
+	}
+
 	calcSp := func(q query) counterExampleData {
 		i := q.i
 		s := q.s
@@ -706,7 +724,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
 		outEdgeFromTarget := g.GetDummyOutEdgeId(target)
 		tail, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0) // salah kalau u-turn cost > 0
 
 		util.AssertPanic(tail == target, "dummy target edge is invalid")
 		sVertex := g.GetVertex(s)
@@ -714,16 +732,25 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		emptyCoords := make([]da.Coordinate, 0)
 		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
 		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
+		// crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0) // bener
 
-		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-
+		sp, _, pathCoords, spPath, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+		// sp, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 		expectedSp := expectedSPTravelTimes[i][target]
+		expectedSpPath := expectedSpPaths[s][target]
 
+		gotPolyline := da.GooglePoylineFromCoords(*pathCoords)
+
+		expectedpathCoords, _ := re.GetEdgePath(expectedSpPath)
+		expectedPolyline := da.GooglePoylineFromCoords(*expectedpathCoords)
 		counterexample := false
 		if !util.EqEps(expectedSp, sp, 1e-4) {
 			counterexample = true
-			crpQuery = routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-			crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+			_ = !isSame(expectedSpPath, spPath) // buat debug
+			_ = gotPolyline != expectedPolyline
+			crpQuery2 := routing.NewCRPBidirectionalSearch(re, 1.0)
+			sp2, spPath2, _ := crpQuery2.ShortestPathSearch(sPhantomNode, tPhantomNode)
+			_, _ = sp2, spPath2
 		}
 
 		if (id+1)%5000 == 0 {
@@ -754,7 +781,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 	t.Run("stress test crp query", func(t *testing.T) {
 		for res := range workers.CollectResults() {
-			if res.counterexample {// todo: aneh setelah tambahin multiple via-way turn restrictions jadi gak pass
+			if res.counterexample { // todo: aneh setelah tambahin multiple via-way turn restrictions jadi gak pass
 				t.Logf("found counterExample!!\n")
 				t.Errorf("found counter example!!, expected shortest path from %v to %v cost: %f, got: %f", res.s, res.t, res.expectedSp, res.crpALTSP)
 

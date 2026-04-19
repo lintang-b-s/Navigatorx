@@ -181,6 +181,26 @@ distance
 coordinates []da.Coordinate{}
 edgeIds
 found shortest path or not
+
+
+karena di multilevel-dijkstra/multilevel-alt kita query dari origin phantom node ke destination phantom node (lihat phantom_node.go):
+
+q -originPhantomEdge->s->....................... -t-destPhantomEdge->z
+
+originPhantomEdge:						destPhantomEdge:
+q------originPhantomNode----->s    t------destPhantomNode----->z
+
+shortest path di multilevel-dijkstra/multilevel alt adalah shortest path dari s ke t + turn cost dari originPhantomEdge ke outEdge dari s +
+turn cost dari inEdge dari t ke destPhantomEdge ..
+kita udah include turn cost dari originPhantomEdge ke other outEdge dari s di awal forward search dan cost dari inEdge dari t ke destPhantomEdge di awal backward search
+sebenarnya setelah multilevel-dijkstra selesai (di routing.go), kita tambahin sp cost nya dengan travelTime(originPhantomNode, s) + travelTime(t, destPhantomNode)
+
+untuk referensi lain implementasi routing with turn cost di road network dapat dilihat di:
+1. https://dl.acm.org/doi/10.5555/2008623.2008634
+2. https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp
+
+
 */
 
 func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (float64, []da.Index, bool) {
