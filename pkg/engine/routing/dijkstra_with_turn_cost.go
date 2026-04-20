@@ -44,7 +44,6 @@ see section 4.2 (Dijkstra's Algorithm on the Compact Graph): https://www.microso
 
 useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 
-
 karena di multilevel-dijkstra/multilevel-alt kita query dari origin phantom node ke destination phantom node (lihat phantom_node.go):
 
 q -originPhantomEdge->s->....................... -t-destPhantomEdge->z
@@ -61,7 +60,6 @@ untuk referensi lain implementasi routing with turn cost di road network dapat d
 1. https://dl.acm.org/doi/10.5555/2008623.2008634
 2. https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp
-
 */
 func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Index) {
 	var (
@@ -76,6 +74,9 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 
 	n := us.engine.graph.NumberOfVertices()
 	us.finalCost = make([]float64, n)
+	for v := 0; v < n; v++ {
+		us.finalCost[v] = pkg.INF_WEIGHT
+	}
 	us.sForwardId = sForwardId
 
 	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
@@ -96,7 +97,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 		for t := da.Index(0); t < da.Index(n); t++ {
 			curInfo := us.finalQueryKey[t]
 			tEntryId := us.finalEdge[t]
-			sp := curInfo.GetTravelTime()
+			sp := us.finalCost[t]
 
 			if s == t {
 				continue // sp == 0
@@ -132,7 +133,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 		for t := da.Index(0); t < da.Index(n); t++ {
 			curInfo := us.finalQueryKey[t]
 			tExitId := us.finalEdge[t]
-			sp := curInfo.GetTravelTime()
+			sp := us.finalCost[t]
 
 			if s == t {
 				continue // sp == 0
@@ -204,11 +205,19 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 
 		*/
 
+		exitIdFromTarget := us.engine.graph.GetDummyOutEdgeId(uId)
+		_, at := us.engine.graph.GetTailOfOutedgeWithInEdge(exitIdFromTarget)
+
 		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
 			newCost := uCost + turnCost
 
-			if util.Eq(us.finalQueryKey[uId].GetTravelTime(), pkg.INF_WEIGHT) || util.Lt(newCost, us.finalQueryKey[uId].GetTravelTime()) {
+			headEntryId := us.engine.graph.GetEntryOffset(head) + da.Index(entryPoint)
+			if headEntryId != at {
+				return
+			}
+
+			if util.Eq(us.finalCost[uId], pkg.INF_WEIGHT) || util.Lt(newCost, us.finalCost[uId]) {
 				us.finalQueryKey[uId] = us.pq.Get(uEntryId)
 				us.finalEdge[uId] = uEntryId
 				us.finalCost[uId] = newCost
@@ -267,7 +276,7 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 			turnCost := us.engine.metrics.GetTurnCost(turnType)
 			newCost := uCost + turnCost
 
-			if util.Eq(us.finalQueryKey[uId].GetTravelTime(), pkg.INF_WEIGHT) || util.Lt(newCost, us.finalQueryKey[uId].GetTravelTime()) {
+			if util.Eq(us.finalCost[uId], pkg.INF_WEIGHT) || util.Lt(newCost, us.finalCost[uId]) {
 				us.finalQueryKey[uId] = us.pq.Get(uExitId)
 				us.finalEdge[uId] = uExitId
 				us.finalCost[uId] = newCost

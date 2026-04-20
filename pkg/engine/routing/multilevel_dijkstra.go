@@ -560,10 +560,6 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
-		if uId == target && uExitId == bs.tBackwardId && bs.engine.IsIgnoreTargetTurnCost() {
-			turnCost = 0
-		}
-
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
 
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {

@@ -345,8 +345,8 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 	for j := da.Index(0); j < uInDeg; j++ {
 
 		stallingOffset := uInDeg*uEntryPoint + j
-		bui := util.MaxFloat(0, uEntryIdTravelTime+
-			bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset))
+		bui := util.MaxFloat(uEntryIdTravelTime+
+			bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset), 0)
 
 		if val := bs.stallingEntry[otherUEntryId]; util.Eq(val, pkg.INF_WEIGHT) {
 			bs.stallingEntry[otherUEntryId] = bui
@@ -359,7 +359,6 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 	// traverse outEdges of u
 	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
 		hwType pkg.OsmHighwayType) {
-
 		vId := head
 
 		// get query level of v l_st(v)
@@ -370,20 +369,18 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
-		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-		pfv, _ := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
-
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
-		newTravelTimeWithoutTurnCost := uEntryIdTravelTime + edgeWeight
 
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
 		}
 
+		pfv, _ := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
+		priority := newTravelTime + pfv
+
 		vEntryId := bs.engine.graph.GetEntryOffset(vId) + da.Index(entryPoint)
 		if vQueryLevel == 0 {
-			priority := newTravelTime + pfv
 
 			vEntryId = bs.engine.offsetForward(vId, vEntryId, bs.engine.graph.GetCellNumber(vId), bs.sCellNumber)
 
@@ -428,11 +425,6 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 				_ pkg.OsmHighwayType) {
 
 				// check if forward and backward search already scanned entry point and  exit point of v. if so, check whether we can improve the shortest path
-
-				/*
-					s->.....-vInEdge->v-vOutEdge->.... -> t
-				*/
-
 				scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
 				vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
 
@@ -452,8 +444,6 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 			})
 
 		} else {
-			priority := newTravelTimeWithoutTurnCost + pfv
-
 			// v is in another cell on higher level
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
 			v, _ := bs.engine.graph.GetOverlayVertex(vId, entryPoint, false)
@@ -516,7 +506,6 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 		bs.engine.graph.GetCellNumber(uId), bs.sCellNumber)
 
 	uExitIdTravelTime := bs.backwardPq.GetPriority(uExitId)
-
 	for j := da.Index(0); j < uOutDeg; j++ {
 
 		stallingOffset := uOutDeg*uExitPoint + j
@@ -533,7 +522,6 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 
 	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
 		turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
-
 		vId := tail
 
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
@@ -543,15 +531,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
-		if uId == target && uExitId == bs.tBackwardId && bs.engine.IsIgnoreTargetTurnCost() {
-			turnCost = 0
-		}
-
-		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-		_, prv := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
-
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
-		newTravelTimeWithoutTurnCost := uExitIdTravelTime + edgeWeight
 
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
@@ -559,8 +539,11 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 
 		vExitId := bs.engine.graph.GetExitOffset(vId) + exitPoint
 
+		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+		_, prv := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
+		priority := newTravelTime + prv
+
 		if vQueryLevel == 0 {
-			priority := newTravelTime + prv
 
 			vExitId = bs.engine.offsetBackward(vId, vExitId, bs.engine.graph.GetCellNumber(vId), bs.sCellNumber)
 
@@ -599,7 +582,8 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 
 				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
 
-				newPathTravelTime := vEntryIdTravelTime + midTurnCost + newVExitIdTravelTime
+				newPathTravelTime := vEntryIdTravelTime + midTurnCost +
+					newVExitIdTravelTime
 				if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
 
 					bs.shortestTravelTime = newPathTravelTime
@@ -612,7 +596,6 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 			})
 
 		} else {
-			priority := newTravelTimeWithoutTurnCost + prv
 			// v is in another cell on higher level
 			// Note that a level transition occurs when u and v have different query levels.
 			// i.e. if v not in the same cell as s and t then v query level is different from u query level.
@@ -673,7 +656,6 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 		vVertex := bs.engine.overlayGraph.GetVertex(v)
 
 		newTravelTime := bs.forwardPq.GetPriority(uId) + shortcutOutEdgeWeight
-		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return
@@ -682,6 +664,7 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 
 		// traverse edge to next cell
 		vOriEdgeId := vVertex.GetOriginalEdge()
+
 		edgeWeight := bs.engine.GetWeight(vOriEdgeId, true)
 
 		w := vVertex.GetNeighborOverlayVertex()
@@ -701,16 +684,15 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 			// karena kita langsung scan v & traverse to its neighbor (exit vertex dari suatu cell), kita harus tandain kalau v udah di scan
 			bs.forwardPq.Scan(overlayVId)
 
-			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-			pfw, _ := bs.engine.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
-
 			newTravelTime = bs.forwardPq.GetPriority(overlayVId) + edgeWeight
 
-			priority := newTravelTime + pfw
 			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
 			}
 
+			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+			pfw, _ := bs.engine.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
+			priority := newTravelTime + pfw
 			if wQueryLevel == 0 {
 				// w is in the same cell as s or t
 
@@ -751,7 +733,8 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 
 					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
 
-					newPathTravelTime := newWEntryIdTravelTime + midTurnCost + wExitIdTravelTime
+					newPathTravelTime := newWEntryIdTravelTime + midTurnCost +
+						wExitIdTravelTime
 					if scannedByBackwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
 
 						bs.shortestTravelTime = newPathTravelTime
@@ -852,6 +835,7 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 		overlayVId := bs.engine.offsetOverlay(v)
 		// traverse edge to next cell
 		vOriEdgeId := vVertex.GetOriginalEdge()
+
 		inEdgeWeight := bs.engine.GetWeight(vOriEdgeId, false)
 
 		w := vVertex.GetNeighborOverlayVertex()
@@ -871,16 +855,15 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 
 			bs.backwardPq.Scan(overlayVId)
 
-			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-			_, prw := bs.engine.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
-
 			newTravelTime = bs.backwardPq.GetPriority(overlayVId) + inEdgeWeight
-
-			priority := newTravelTime + prw
 
 			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 				return
 			}
+
+			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+			_, prw := bs.engine.lm.FindTighestConsistentLowerBound(originalWId, source, target, bs.activeLandmarks)
+			priority := newTravelTime + prw
 
 			if wQueryLevel == 0 {
 
@@ -917,7 +900,6 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 					turn pkg.TurnType, _ pkg.OsmHighwayType) {
 					scannedByForwardSearch := bs.forwardPq.IsScanned(wEntryId)
 					wEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
-
 					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
 
 					newPathTravelTime := wEntryIdTravelTime + midTurnCost +
@@ -925,7 +907,6 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 					if scannedByForwardSearch && util.Lt(newPathTravelTime, bs.shortestTravelTime) {
 
 						bs.shortestTravelTime = newPathTravelTime
-
 						bs.forwardMid = da.NewVertexEdgePair(originalWId, wEntryId, false)
 						bs.backwardMid = da.NewVertexEdgePair(originalWId, wExitId, true)
 

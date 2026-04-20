@@ -55,7 +55,7 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 	}
 
 	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf, lm)
-	re.SetIgnoreTargetTurnCost()
+
 	return &Engine{
 		crpRoutingEngine: re,
 	}, nil
@@ -93,7 +93,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
 
-	const maxCost = int64(1) << 26 
+	const maxCost = int64(1) << 26
 	const maxItems = (maxCost / keyValByteApproxSize)
 	const numCounters = maxItems * 3
 	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
@@ -111,9 +111,6 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	}
 
 	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf, lm)
-	if ignoreTargetTurnCost {
-		re.SetIgnoreTargetTurnCost()
-	}
 
 	return re, nil
 }

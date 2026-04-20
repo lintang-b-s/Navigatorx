@@ -32,7 +32,6 @@ type CRPRoutingEngine struct {
 
 	unpackerWorkers                     int
 	unpackerForAlternativeRoutesWorkers int
-	ignoreTargetTurnCost bool 
 }
 
 func NewCRPRoutingEngine(graph *da.Graph,
@@ -48,7 +47,6 @@ func NewCRPRoutingEngine(graph *da.Graph,
 		customizer:   customizer,
 		costFunction: costFunction,
 		lm:           lm,
-		ignoreTargetTurnCost: false,
 	}
 	e.BuildQueryHeapPool()
 	e.initParameter()
@@ -66,15 +64,6 @@ func (crp *CRPRoutingEngine) GetOverlayGraph() *da.OverlayGraph {
 func (crp *CRPRoutingEngine) GetMetrics() *met.Metric {
 	return crp.metrics
 }
-
-func (crp *CRPRoutingEngine) SetIgnoreTargetTurnCost() {
-	crp.ignoreTargetTurnCost = true
-}
-
-func (crp *CRPRoutingEngine) IsIgnoreTargetTurnCost() bool {
-	return crp.ignoreTargetTurnCost
-}
-
 
 func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 	maxEdgesInCell := crp.graph.GetMaxEdgesInCell()

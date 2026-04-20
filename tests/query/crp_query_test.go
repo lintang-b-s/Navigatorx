@@ -377,6 +377,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *za
 	}
 
 	pss := strings.Split("8,10,11,12,14", ",")
+	// pss := strings.Split("30,31,32,33,34", ",") // tanpa partisi & tanpa bikin shortcuts
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
 		pow, err := strconv.Atoi(pss[i])
@@ -620,7 +621,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := 10
+	n := 20
 	qset := make(map[da.Index]struct{})
 
 	queries := make([]da.Index, 0, n)
@@ -648,7 +649,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 	lock := sync.Mutex{}
 
-	expectedSpPaths := make([][][]da.Index, numberOfVertices)
+	expectedSpPaths := make([][]string, numberOfVertices)
 
 	calcSpDijkstra := func(i int) any {
 		s := queries[i]
@@ -659,7 +660,12 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 		lock.Lock()
 
-		expectedSpPaths[s] = spPath
+		expectedSpPaths[s] = make([]string, numberOfVertices)
+		for target := 0; target < numberOfVertices; target++ {
+			expectedpathCoords, _ := re.GetEdgePath(spPath[target])
+			expectedPolyline := da.GooglePoylineFromCoords(*expectedpathCoords)
+			expectedSpPaths[s][target] = expectedPolyline
+		}
 		expectedSPTravelTimes[i] = sps
 
 		if (i+1)%5 == 0 {
@@ -670,7 +676,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		return nil
 	}
 
-	workersDijkstra := concurrent.NewWorkerPool[int, any](7, n)
+	workersDijkstra := concurrent.NewWorkerPool[int, any](6, n)
 
 	for i := 0; i < n; i++ {
 		workersDijkstra.AddJob(i)
@@ -701,18 +707,18 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 			counterexample: cx}
 	}
 
-	isSame := func(a []da.Index, b []da.Index) bool {
-		if len(a) != len(b) {
-			return false
-		}
+	// isSame := func(a []da.Index, b []da.Index) bool {
+	// 	if len(a) != len(b) {
+	// 		return false
+	// 	}
 
-		for i := 0; i < len(a); i++ {
-			if a[i] != b[i] {
-				return false
-			}
-		}
-		return true
-	}
+	// 	for i := 0; i < len(a); i++ {
+	// 		if a[i] != b[i] {
+	// 			return false
+	// 		}
+	// 	}
+	// 	return true
+	// }
 
 	calcSp := func(q query) counterExampleData {
 		i := q.i
@@ -732,22 +738,20 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		emptyCoords := make([]da.Coordinate, 0)
 		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
 		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-		// crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0) // bener
 
-		sp, _, pathCoords, spPath, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-		// sp, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+		sp, _, _, _, found := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+
 		expectedSp := expectedSPTravelTimes[i][target]
-		expectedSpPath := expectedSpPaths[s][target]
+		// expectedPolyline := expectedSpPaths[s][target]
 
-		gotPolyline := da.GooglePoylineFromCoords(*pathCoords)
+		// gotPolyline := da.GooglePoylineFromCoords(*pathCoords)
 
-		expectedpathCoords, _ := re.GetEdgePath(expectedSpPath)
-		expectedPolyline := da.GooglePoylineFromCoords(*expectedpathCoords)
 		counterexample := false
-		if !util.EqEps(expectedSp, sp, 1e-4) {
+		expectedFound := util.Lt(expectedSp, pkg.INF_WEIGHT)
+
+		notValid := (!util.EqEps(expectedSp, sp, 1e-4) && found && expectedFound) || (found && !expectedFound) || (!found && expectedFound)
+		if notValid {
 			counterexample = true
-			_ = !isSame(expectedSpPath, spPath) // buat debug
-			_ = gotPolyline != expectedPolyline
 			crpQuery2 := routing.NewCRPBidirectionalSearch(re, 1.0)
 			sp2, spPath2, _ := crpQuery2.ShortestPathSearch(sPhantomNode, tPhantomNode)
 			_, _ = sp2, spPath2
