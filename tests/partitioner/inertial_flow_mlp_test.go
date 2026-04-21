@@ -20,7 +20,7 @@ import (
 )
 
 const (
-	mlpFile                 = "stress_test_yogyakarta"
+	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original.graph"
@@ -111,7 +111,7 @@ const (
 	invalidCellId int = -1
 )
 
-// todo: add test customizer & query pake file osm yang di gdrive
+// todo: add test customizer & query pake file osm yang di gdrive (DONE)
 // please run the test using command: "cd tests/partitioner &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=part_coverage.out  -v -timeout=0  -count=1"
 // go tool cover -func=part_coverage.out
 // go tool cover -html=part_coverage.out

@@ -8,7 +8,7 @@ import (
 
 // lookForward. traverse dari db.path[lastPathId] ke beberapa next db.path[lastPathId+1:...] until found edge dengan name != prevName.
 // return forward edge di path dengan name != prevName, true jika ada, dan number of step lookForward.
-// todo: ini bisa dipake buat kasus Dual carriageway intersections yang dijelasin di: https://wiki.openstreetmap.org/wiki/Junctions
+// todo: ini bisa dipake buat kasus Dual carriageway intersections yang dijelasin di: https://wiki.openstreetmap.org/wiki/Junctions  (DONE)
 func (db *DirectionBuilder) lookForward(prevName string, maxStep int) ([]da.Index, bool, int) {
 	step := 0
 	nextEdgeIds := make([]da.Index, 0, maxStep)

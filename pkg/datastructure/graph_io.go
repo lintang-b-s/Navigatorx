@@ -38,9 +38,9 @@ func (g *Graph) WriteGraph(filename string) error {
 	w := bufio.NewWriter(snp)
 
 	// graph header
-	if _, err = fmt.Fprintf(w, "%d %d %d %d\n",
+	if _, err = fmt.Fprintf(w, "%d %d %d %d %t\n",
 		len(g.vertices), g.NumberOfEdges(),
-		g.GetNumberOfCellsNumbers(), g.GetNumberOfOverlayVertexMapping()); err != nil {
+		g.GetNumberOfCellsNumbers(), g.GetNumberOfOverlayVertexMapping(), g.roadNetwork); err != nil {
 		return errors.Wrapf(err, "WriteGraph: failed writing graph headers")
 	}
 
@@ -194,6 +194,10 @@ func (g *Graph) WriteGraph(filename string) error {
 		return errors.Wrapf(err, "WriteGraph: failed writing edgeStartPointsIndex length %v", len(g.graphStorage.edgeStartPointsIndex))
 	}
 	for i := 0; i < len(g.graphStorage.edgeStartPointsIndex); i++ {
+		osmWayId := uint64(0)
+		if g.roadNetwork {
+			osmWayId = g.graphStorage.edgeOsmWayId.Get(uint64(i))
+		}
 		_, err = fmt.Fprintf(w, "%d %d %d %d %d %d %d\n",
 			g.graphStorage.edgeStartPointsIndex[i],
 			g.graphStorage.edgeEndPointsIndex[i],
@@ -201,7 +205,7 @@ func (g *Graph) WriteGraph(filename string) error {
 			g.graphStorage.roadClass[i],
 			g.graphStorage.roadClassLink[i],
 			g.graphStorage.lanes[i],
-			g.graphStorage.edgeOsmWayId.Get(uint64(i)),
+			osmWayId,
 		)
 		if err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing edge metadata[%d]", i)
@@ -335,8 +339,8 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	tokens := util.Fields(line)
-	if len(tokens) != 4 {
-		return nil, errors.Newf("ReadGraph: number of graph headers is not correct, expected: %v, got: %v", 4, len(tokens))
+	if len(tokens) != 5 {
+		return nil, errors.Newf("ReadGraph: number of graph headers is not correct, expected: %v or %v, got: %v", 4, 5, len(tokens))
 	}
 
 	numVertices, err := ParseIndex(tokens[0])
@@ -355,6 +359,12 @@ func ReadGraph(filename string) (*Graph, error) {
 	numOverlayMappings, err := ParseIndex(tokens[3])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed parsing number of overlay mappings: %v", tokens[3])
+	}
+
+	roadNetwork := true
+	roadNetwork, err = strconv.ParseBool(tokens[4])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed parsing roadNetwork flag: %v", tokens[4])
 	}
 
 	vertices := make([]Vertex, numVertices)
@@ -781,7 +791,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	graphStorage.BuildNameTable(idToStr)
 
-	graph := NewGraph(vertices, outEdges, inEdges, turnTables, true, verticesOsmIdsPs)
+	graph := NewGraph(vertices, outEdges, inEdges, turnTables, roadNetwork, verticesOsmIdsPs)
 	graph.SetGraphStorage(graphStorage)
 	graph.SetCellNumbers(cellNumbers)
 	graph.SetOverlayMapping(overlayVertices)

@@ -33,7 +33,7 @@ var (
 )
 
 const (
-	mlpFile                 = "stress_test_yogyakarta"
+	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_benchmark.graph"
@@ -112,7 +112,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
+	err = mlp.ReadMlpFile(mlpFile)
 	if err != nil {
 		panic(err)
 	}
@@ -142,7 +142,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, false)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		panic(err)
 	}

@@ -69,7 +69,7 @@ const (
 	shanghaiDataFilePath               = "./data/eval/mapmatching/shanghai.tar.gz"
 	shanghaiTestDataFilePath           = "./data/eval/mapmatching/Shanghai/track"
 	shanghaiGroundTruthFilepath        = "./data/eval/mapmatching/Shanghai/ground"
-	mlpFile                            = "online_map_match_mlp_hanwenhu"
+	mlpFile                            = "./data/eval/mapmatching/online_map_match_mlp_hanwenhu.mlp"
 	landmarkFile                       = "./data/eval/mapmatching/landmark_hh.lm"
 )
 
@@ -144,7 +144,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
+	err = mlp.ReadMlpFile(mlpFile)
 	if err != nil {
 		panic(err)
 	}
@@ -171,7 +171,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, false)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: engine.NewEngine() failed: %v", err)
 	}

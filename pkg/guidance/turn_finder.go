@@ -14,7 +14,7 @@ import (
 todo1: tambahin motorway handler (jalan toll)
 todo2: tambahin destination di driving direction (https://wiki.openstreetmap.org/wiki/Key:destination)
 todo3: pake tag osm way ini: https://wiki.openstreetmap.org/wiki/Key:turn , https://wiki.openstreetmap.org/wiki/Key:turn:lanes
-todo4: add test expected outputnya pake driving direction google map (dengan rute yang sama).
+todo4: add test expected outputnya pake driving direction google map (dengan rute yang sama) (DONE).
 */
 
 func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, headId da.Index, name string) da.TurnType {

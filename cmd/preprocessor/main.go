@@ -19,7 +19,7 @@ import (
 var (
 	profileFilePath        = flag.String("profile", "./data/car.yaml", "profile file path")
 	osmFile                = flag.String("osm_file", "diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
-	mlpFile                = flag.String("mlp_file", "crp_inertial_flow_diy_solo_semarang", "Multilevel partition filename")
+	mlpFile                = flag.String("mlp_file", "./data/crp_inertial_flow_diy_solo_semarang.mlp", "Multilevel partition filepath")
 	regionName             = flag.String("region", "diy_solo_semarang", "region name")
 	partitionSizes         = flag.String("us", "8,11,14,17,18", "Multilevel Partition Sizes")
 	directed               = flag.Bool("directed_graph", true, "directed/undirected graph")
@@ -32,7 +32,7 @@ var (
 
 func init() {
 	flag.Parse()
-	
+
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
 	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
 	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
@@ -75,7 +75,8 @@ func main() {
 
 	mp.RunMultilevelPartitioning()
 
-	err = mp.SaveToFile(*mlpFile)
+	mlpPath := *mlpFile
+	err = mp.SaveToFile(mlpPath)
 	if err != nil {
 		panic(err)
 	}
@@ -84,7 +85,7 @@ func main() {
 	logger.Sugar().Infof("done partitioning... time taken: %v s", duration.Seconds())
 
 	mlp := datastructure.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", *mlpFile))
+	err = mlp.ReadMlpFile(mlpPath)
 	if err != nil {
 		panic(err)
 	}

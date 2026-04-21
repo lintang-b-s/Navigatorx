@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
@@ -11,6 +12,10 @@ import (
 func (mp *MultilevelPartitioner) writeMLPToMLPFile(filename string) error {
 
 	mlp := mp.BuildMLP()
+
+	if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
+		return err
+	}
 
 	f, err := os.Create(filename)
 	if err != nil {

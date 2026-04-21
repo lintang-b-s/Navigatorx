@@ -35,7 +35,7 @@ var (
 )
 
 const (
-	mlpFile                 = "stress_test_yogyakarta"
+	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_customizer_test.graph"
@@ -536,7 +536,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
+	err = mlp.ReadMlpFile(mlpFile)
 	if err != nil {
 		panic(err)
 	}
@@ -565,7 +565,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, false)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -645,7 +645,7 @@ func TestCRPCustomizer(t *testing.T) {
 	for i := 0; i < len(landmarks); i++ {
 		landmarkVId := landmarks[i]
 		s := landmarkVId
-		dijkstraQuery := routing.NewDijkstraWithTurnCost(re.GetRoutingEngine(), false)
+		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
 		sps, _ := dijkstraQuery.ShortestPath(s)
 		for v := 0; v < n; v++ {
 			expectedSpToV := sps[v] // sp dist dari landmark ke v
@@ -655,7 +655,7 @@ func TestCRPCustomizer(t *testing.T) {
 			}
 		}
 
-		dijkstraQuery = routing.NewDijkstraWithTurnCost(re.GetRoutingEngine(), true)
+		dijkstraQuery = routing.NewDijkstra(re.GetRoutingEngine(), true)
 		sps, _ = dijkstraQuery.ShortestPath(s)
 		for v := 0; v < n; v++ {
 			expectedSPVToL := sps[v] // sp dist dari v ke landmark

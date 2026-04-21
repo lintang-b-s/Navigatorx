@@ -29,7 +29,7 @@ func init() {
 
 func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.Logger, *landmark.Landmark) {
 	var ( //
-		mlpFile                 = fmt.Sprintf("stress_test_%s", fileName)
+		mlpFile                 = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
 		url                     = fileUrl
 		osmfFile                = fmt.Sprintf("./data/%s.osm.pbf", fileName)
 		graphFile        string = fmt.Sprintf("./data/original_%s_test.graph", fileName)
@@ -99,7 +99,7 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
+	err = mlp.ReadMlpFile(mlpFile)
 	if err != nil {
 		panic(err)
 	}
@@ -128,7 +128,7 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, false)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

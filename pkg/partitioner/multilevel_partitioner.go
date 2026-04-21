@@ -118,8 +118,8 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	}
 }
 
-func (mp *MultilevelPartitioner) SaveToFile(name string) error {
-	return mp.writeMLPToMLPFile(fmt.Sprintf("./data/%s.mlp", name))
+func (mp *MultilevelPartitioner) SaveToFile(filename string) error {
+	return mp.writeMLPToMLPFile(filename)
 }
 
 func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Index {

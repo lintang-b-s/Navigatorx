@@ -20,9 +20,9 @@ func (e *Engine) GetRoutingEngine() *routing.CRPRoutingEngine {
 	return e.crpRoutingEngine
 }
 
-func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger, ignoreTargetTurnCost bool) (*Engine, error) {
+func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger) (*Engine, error) {
 	re, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile,
-		logger, ignoreTargetTurnCost)
+		logger)
 	if err != nil {
 		return nil, err
 	}
@@ -61,7 +61,7 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger, ignoreTargetTurnCost bool,
+func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger,
 ) (*routing.CRPRoutingEngine,
 	error) {
 
@@ -80,7 +80,8 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	}
 
 	logger.Info("Reading stalling tables & metrics...")
-	cf := costfunction.NewTimeCostFunction()
+	roadNetwork := graph.IsRoadNetworkGraph()
+	cf := costfunction.NewTimeCostFunction(roadNetwork)
 	m, err := metrics.ReadFromFile(metricsFilePath, graph, cf)
 	if err != nil {
 		return nil, err

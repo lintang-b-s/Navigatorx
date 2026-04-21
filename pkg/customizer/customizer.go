@@ -66,7 +66,8 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 	var m *metrics.Metric
-	costFunction := costfunction.NewTimeCostFunction()
+	roadNetwork := c.graph.IsRoadNetworkGraph()
+	costFunction := costfunction.NewTimeCostFunction(roadNetwork)
 
 	maxEdgesInCell := c.graph.GetMaxEdgesInCell()
 
@@ -138,9 +139,7 @@ func newCustomizerCell(cell da.Cell, cellNumber da.Pv) customizerCell {
 }
 
 /*
-
 Customization Phase of Customizable Route Planning (CRP) by delling et al. see section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-
 
 let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
 

@@ -58,3 +58,11 @@ navigatorx*
 !data/config.yaml
 
 
+
+*.co
+*.gr
+*.p2p
+*.chk
+
+*.ss
+

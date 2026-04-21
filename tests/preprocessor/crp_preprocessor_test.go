@@ -31,7 +31,7 @@ var (
 )
 
 const (
-	mlpFile                 = "stress_test_yogyakarta"
+	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_preprocessor_test.graph"
@@ -846,7 +846,7 @@ func setup(t *testing.T, osmFileTest, urlTest string) *preprocesser.Preprocessor
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
+	err = mlp.ReadMlpFile(mlpFile)
 	if err != nil {
 		panic(err)
 	}
@@ -1209,11 +1209,11 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 					headOsmNodeId := graph.GetVertexOsmId(head)
 					if !tc.turnRestriction.isViaway {
 						if headOsmNodeId == uint64(rest.via) {
-						
+
 							// traverse ke semua outedges of head
 							graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, _ float64, _, headToEntryPoint da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
 								if graph.IsDummyOutEdge(eIdTo) {
-									return 
+									return
 								}
 								toEdgeWayId := graph.GetOsmWayId(eIdTo)
 								if rest.toWay == toEdgeWayId {
@@ -1237,6 +1237,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 						}
 					} else if tc.turnRestriction.isViaway {
 
+						// ini gak jadi, jadinya pakai turn tables buat polyvalent turn (u-turn dengan via-way, turn restrictions dengan multiple via-ways, etc..)
 						// cek turn-restriction yang via-nya berupa osm way
 
 						// cek u-turn restriction..

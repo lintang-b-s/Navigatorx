@@ -251,6 +251,8 @@ func getDirectionDescription(sign TurnType, instruction *Instruction, clockwise 
 		return "Keep right", "KEEP_RIGHT"
 	case MERGE_ONTO:
 		return "Merge onto", "MERGE_ONTO"
+	case CONTINUE_ON_STREET:
+		return "Continue onto", "CONTINUE_ONTO"
 	case USE_ROUNDABOUT:
 		if !instruction.roundabout.exited {
 			return "Enter the roundabout", "USE_ROUNDABOUT"

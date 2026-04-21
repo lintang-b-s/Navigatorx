@@ -233,6 +233,8 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						continue
 					}
 
+					isRoundabout := graphStorage.IsRoundabout(viaWayEInfoId)
+					graphStorage.SetRoundabout(da.Index(newEInfoId), isRoundabout)
 					viaHead := viaWayEdge.GetHead()
 					viaHeadNewEdgeEntryPoint := da.Index(len(inEdges[viaHead]))
 					viaParallelOutEdge := da.NewOutEdge(da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId)*da.Index(q), viaHead,

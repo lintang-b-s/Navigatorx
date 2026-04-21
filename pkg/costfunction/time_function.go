@@ -7,11 +7,16 @@ import (
 )
 
 type TimeFunction struct {
-	maxspeeds []float64 // map from pkg.OsmHighwayType to maxspeed in km/h
-	turnCosts []float64 // map from pkg.TurnType to turn cost in seconds
+	maxspeeds     []float64 // map from pkg.OsmHighwayType to maxspeed in km/h
+	turnCosts     []float64 // map from pkg.TurnType to turn cost in seconds
+	isRoadNetwork bool
 }
 
-func NewTimeCostFunction() *TimeFunction {
+func NewTimeCostFunction(roadNetwork bool) *TimeFunction {
+	if !roadNetwork {
+
+		return &TimeFunction{isRoadNetwork: false}
+	}
 	mapMaxSpeeds := viper.GetStringMap("maxspeeds")
 	maxspeeds := make([]float64, 18)
 	for roadType, speed := range mapMaxSpeeds {
@@ -43,10 +48,10 @@ func NewTimeCostFunction() *TimeFunction {
 		}
 		turnCosts[pkg.NONE] = 0
 		turnCosts[pkg.NO_ENTRY] = pkg.INF_WEIGHT
-		return &TimeFunction{maxspeeds: maxspeeds, turnCosts: turnCosts}
+		return &TimeFunction{maxspeeds: maxspeeds, turnCosts: turnCosts, isRoadNetwork: true}
 	}
 
-	return &TimeFunction{maxspeeds: maxspeeds}
+	return &TimeFunction{maxspeeds: maxspeeds, isRoadNetwork: true}
 }
 
 func NewTimeCostFunctionEmpty() *TimeFunction {
@@ -59,13 +64,12 @@ const (
 
 // GetWeight. Get travel time dari edge (in minutes).
 func (tf *TimeFunction) GetWeight(eHighwayType pkg.OsmHighwayType, eDefaultWeight, eLength float64) float64 {
-
 	maxspeed := defaultSpeed
-	if eHighwayType == pkg.INVALID_HIGHWAY {
-		return pkg.INF_WEIGHT // dummy edge
-	}
+	if tf.isRoadNetwork {
+		if eHighwayType == pkg.INVALID_HIGHWAY {
+			return pkg.INF_WEIGHT // dummy edge
+		}
 
-	if tf.maxspeeds != nil {
 		maxspeed = tf.maxspeeds[eHighwayType]
 		if maxspeed == 0 {
 			maxspeed = defaultSpeed
@@ -82,7 +86,7 @@ func (tf *TimeFunction) GetWeight(eHighwayType pkg.OsmHighwayType, eDefaultWeigh
 func (tf *TimeFunction) GetMaxSpeed(e EdgeAttributes) float64 {
 
 	maxspeed := defaultSpeed
-	if tf.maxspeeds != nil {
+	if tf.isRoadNetwork {
 		hwType := e.GetHighwayType()
 		maxspeed = tf.maxspeeds[hwType]
 		if maxspeed == 0 {

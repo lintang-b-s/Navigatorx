@@ -107,7 +107,7 @@ const (
 	transitionMatrixFilepath        = "./data/eval/mapmatching/omm_transition_history_id.mm"
 	roadnetworkFilepath             = "./data/eval/mapmatching/road_network.txt"
 	graphFile                string = "./data/original_eval_mm.graph"
-	mlpFile                         = "online_map_match_mlp_newsonkrumm"
+	mlpFile                         = "./data/eval/mapmatching/online_map_match_mlp_newsonkrumm.mlp"
 	overlayGraphFile         string = "./data/overlay_graph_eval_mm.graph"
 	metricsFile              string = "./data/metrics_eval_mm.txt"
 	roadnetworkDriveFile            = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
@@ -413,7 +413,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
+	err = mlp.ReadMlpFile(mlpFile)
 	if err != nil {
 		panic(err)
 	}
@@ -441,7 +441,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, false)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}

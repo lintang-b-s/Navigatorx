@@ -37,7 +37,7 @@ import (
 )
 
 const (
-	mlpFile                 = "stress_test_yogyakarta"
+	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_query_test.graph"
@@ -402,7 +402,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *za
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(fmt.Sprintf("./data/%s.mlp", mlpFile))
+	err = mlp.ReadMlpFile(mlpFile)
 	if err != nil {
 		panic(err)
 	}
@@ -431,7 +431,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *za
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger, true)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -487,7 +487,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 
 	expectedSPTravelTimes := make([][]float64, n)
 
-	t.Logf("start dijkstra query for all sources...")
+	t.Logf("start dijkstra query for some sources to all other vertices...")
 
 	lock := sync.Mutex{}
 
