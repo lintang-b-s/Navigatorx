@@ -251,6 +251,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 			wg.Done()
 		}
 	}()
+	
 	go func() {
 		for res := range dijkstraOutChan {
 			il := res.getIndex()

@@ -44,7 +44,7 @@ tapi pas update pastikan pakai write lock. dan read ke edgeSpeeds pakai read loc
 setelah itu kita tinggal jalanin customizer.Build()
 
 4. karena hasil dari customize diwrite ke file metrics...
-kita harus bikin background worker (goroutine dengan inf for loop) yang ngeread apakah file metrics berubah (dari computed checksum nya, pakai sha256)..
+kita harus bikin background worker (goroutine dengan inf for loop) yang ngeread apakah file metrics berubah (dari modified time nya)..
 kalau berubah kita read dan swap metrics (shortcuts weight) yang ada di memory + ada write lock nya
 
 oke gitu doang

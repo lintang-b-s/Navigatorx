@@ -322,7 +322,7 @@ func (dmf *DinicMaxFlow) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
 		// for general capacity graph:
 		// by lemma 3.1 in ref1, for each iteration of this loop, shortest path distance from s to t (or level) using unit distance (bfs) is increased by at least 1.
 		// shortest path ditance from s to any vertices using unit distance (bfs) is at most n-1.
-		// thus, num of iterations of  this loop is at in O(n)
+		// thus, num of iterations of  this loop is O(n)
 		// time complexity of dinic algorithm: O(n^2*m)
 		dmf.resetCurrentEdges()
 		blockingFlowVal := dmf.blockingFlow(s, t) // O(nm)

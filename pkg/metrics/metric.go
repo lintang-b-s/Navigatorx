@@ -6,6 +6,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"sync"
+	"sync/atomic"
 
 	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -16,12 +18,12 @@ import (
 )
 
 type Metric struct {
-	weights *da.OverlayWeights
-
-	entryStallingTables            [][]float64 // stallingTables for vertice-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
-	exitStallingTables             [][]float64
-	costFunction                   costfunction.CostFunction
+	weights                        atomic.Pointer[da.OverlayWeights]
+	entryStallingTables            atomic.Value // stallingTables for vertice-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
+	exitStallingTables             atomic.Value
+	costFunction                   atomic.Pointer[costfunction.TimeFunction]
 	filepath, timeFunctionFilePath string
+	lock                           sync.Mutex
 }
 
 func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *da.OverlayWeights,
@@ -39,14 +41,17 @@ func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *d
 		tf = cf.NewTimeCostFunctionEmpty()
 	}
 
-	return &Metric{
-		weights:              overlayWeights,
-		entryStallingTables:  make([][]float64, numOfVertices),
-		exitStallingTables:   make([][]float64, numOfVertices),
-		costFunction:         tf,
+	m := &Metric{
+
 		filepath:             "",
 		timeFunctionFilePath: timeFunctionFilePath,
+		lock:                 sync.Mutex{},
 	}
+	m.weights.Store(overlayWeights)
+	m.entryStallingTables.Store(make([][]float64, numOfVertices))
+	m.exitStallingTables.Store(make([][]float64, numOfVertices))
+	m.costFunction.Store(tf)
+	return m
 }
 
 /*
@@ -96,15 +101,16 @@ karena kita incorporate turn costs, kita menggunakan turn-aware dijkstra (see re
 di implementasi ini kita pakai edgeId sebagai item dari priority queue node
 */
 func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.Graph) {
-
+	entryStallingtables := met.entryStallingTables.Load().([][]float64)
+	exitStallingTables := met.exitStallingTables.Load().([][]float64)
 	for vId := da.Index(0); vId < da.Index(graph.NumberOfVertices()); vId++ {
 
 		n := graph.GetInDegree(vId)
 		m := graph.GetOutDegree(vId)
 
 		if n == 0 && m == 0 {
-			met.entryStallingTables[vId] = make([]float64, 0)
-			met.exitStallingTables[vId] = make([]float64, 0)
+			entryStallingtables[vId] = make([]float64, 0)
+			exitStallingTables[vId] = make([]float64, 0)
 			continue
 		}
 
@@ -141,50 +147,48 @@ func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.
 			}
 		}
 
-		met.entryStallingTables[vId] = entryStallingTable
-		met.exitStallingTables[vId] = exitStallingTable
+		entryStallingtables[vId] = entryStallingTable
+		exitStallingTables[vId] = exitStallingTable
 	}
-
+	met.entryStallingTables.Store(entryStallingtables)
+	met.exitStallingTables.Store(exitStallingTables)
 }
 
 func (met *Metric) GetWeights() *da.OverlayWeights {
-	return met.weights
+	return met.weights.Load()
 }
 
 // GetWeight. get weight dari outEdge dengan id eId
 // eId adalah id/index dari outEdge yang ingin didapat weightnya
 func (met *Metric) GetWeight(eId da.Index,
 	eDefaultWeight float64, eLength float64) float64 {
-	// met.lock.RLock() tambahin rlock jadi ngelag banget njir load test nya
-	// defer met.lock.RUnlock()
-	return met.costFunction.GetWeight(eId, eDefaultWeight, eLength)
+	cf := met.costFunction.Load()
+	return cf.GetWeight(eId, eDefaultWeight, eLength)
 
 }
 
 // GetEntryStallingTableCost. get precomputed max_k{T_v[i,k] - T_v[j,k]}
 func (met *Metric) GetEntryStallingTableCost(uId da.Index, offset da.Index) float64 {
-	// met.lock.RLock()
-	// defer met.lock.RUnlock()
-	return met.entryStallingTables[uId][offset]
+
+	entryStallingTable := met.entryStallingTables.Load().([][]float64)
+	return entryStallingTable[uId][offset]
 }
 
 // GetExitStallingTableCost. get precomputed  max_k{T_v[k,i] - T_v[k,j]}
 func (met *Metric) GetExitStallingTableCost(uId da.Index, offset da.Index) float64 {
-	// met.lock.RLock()
-	// defer met.lock.RUnlock()
-	return met.exitStallingTables[uId][offset]
+
+	exitStallingTable := met.exitStallingTables.Load().([][]float64)
+	return exitStallingTable[uId][offset]
 }
 
 func (met *Metric) GetShortcutWeight(offset da.Index) float64 {
-	// met.lock.RLock()
-	// defer met.lock.RUnlock()
-	return met.weights.GetWeight(offset)
+	weights := met.weights.Load()
+	return weights.GetWeight(offset)
 }
 
 func (met *Metric) GetTurnCost(t pkg.TurnType) float64 {
-	// met.lock.RLock()
-	// defer met.lock.RUnlock()
-	return met.costFunction.GetTurnCost(t)
+	cf := met.costFunction.Load()
+	return cf.GetTurnCost(t)
 }
 
 func (met *Metric) GetFilePath() string {
@@ -207,14 +211,17 @@ func (met *Metric) WriteToFile(filename string) error {
 
 	w := bufio.NewWriter(f)
 
-	fmt.Fprintf(w, "%d %d %d\n", len(met.weights.GetWeights()), len(met.entryStallingTables), len(met.exitStallingTables))
-	for i, weight := range met.weights.GetWeights() {
+	weights := met.weights.Load().GetWeights()
+	entryStallingTables := met.entryStallingTables.Load().([][]float64)
+	exitStallingTables := met.exitStallingTables.Load().([][]float64)
+	fmt.Fprintf(w, "%d %d %d\n", len(weights), len(entryStallingTables), len(exitStallingTables))
+	for i, weight := range weights {
 
 		_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(weight, 'f', -1, 64))
 		if err != nil {
 			return errors.Wrapf(err, "metrics.WriteToFile: failed to write metrics weight %v", weight)
 		}
-		if i < len(met.weights.GetWeights())-1 {
+		if i < len(weights)-1 {
 			_, err := fmt.Fprintf(w, " ")
 			if err != nil {
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write metrics weight")
@@ -226,8 +233,8 @@ func (met *Metric) WriteToFile(filename string) error {
 		return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
 	}
 
-	for i := range met.entryStallingTables {
-		if met.entryStallingTables[i] == nil {
+	for i := range entryStallingTables {
+		if entryStallingTables[i] == nil {
 			_, err = fmt.Fprintf(w, "0\n")
 			if err != nil {
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write 0\n")
@@ -235,17 +242,17 @@ func (met *Metric) WriteToFile(filename string) error {
 
 			continue
 		}
-		_, err = fmt.Fprintf(w, "%d ", len(met.entryStallingTables[i]))
+		_, err = fmt.Fprintf(w, "%d ", len(entryStallingTables[i]))
 		if err != nil {
-			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(met.entryStallingTables[i]): %v", len(met.entryStallingTables[i]))
+			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(entryStallingTables[i]): %v", len(entryStallingTables[i]))
 		}
-		for j, val := range met.entryStallingTables[i] {
+		for j, val := range entryStallingTables[i] {
 			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
 			if err != nil {
-				return errors.Wrapf(err, "metrics.WriteToFile: failed to write met.entryStallingTables[i]: %v", met.entryStallingTables[i])
+				return errors.Wrapf(err, "metrics.WriteToFile: failed to write entryStallingTables[i]: %v", entryStallingTables[i])
 			}
 
-			if j < len(met.entryStallingTables[i])-1 {
+			if j < len(entryStallingTables[i])-1 {
 				_, err = fmt.Fprintf(w, " ")
 				if err != nil {
 					return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
@@ -258,24 +265,24 @@ func (met *Metric) WriteToFile(filename string) error {
 		}
 	}
 
-	for i := range met.exitStallingTables {
-		if met.exitStallingTables[i] == nil {
+	for i := range exitStallingTables {
+		if exitStallingTables[i] == nil {
 			_, err = fmt.Fprintf(w, "0\n")
 			if err != nil {
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write 0\n")
 			}
 			continue
 		}
-		_, err = fmt.Fprintf(w, "%d ", len(met.exitStallingTables[i]))
+		_, err = fmt.Fprintf(w, "%d ", len(exitStallingTables[i]))
 		if err != nil {
-			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(met.exitStallingTables[i]): %v", len(met.exitStallingTables[i]))
+			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(exitStallingTables[i]): %v", len(exitStallingTables[i]))
 		}
-		for j, val := range met.exitStallingTables[i] {
+		for j, val := range exitStallingTables[i] {
 			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
 			if err != nil {
-				return errors.Wrapf(err, "metrics.WriteToFile: failed to write met.exitStallingTables[i]: %v", met.exitStallingTables[i])
+				return errors.Wrapf(err, "metrics.WriteToFile: failed to write exitStallingTables[i]: %v", exitStallingTables[i])
 			}
-			if j < len(met.exitStallingTables[i])-1 {
+			if j < len(exitStallingTables[i])-1 {
 				_, err = fmt.Fprintf(w, " ")
 				if err != nil {
 					return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
@@ -437,34 +444,31 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 		panic(fmt.Errorf("NewMetric: failed to read time function: %w", err))
 	}
 	metric := &Metric{
-		weights:             da.NewOverlayWeights(numWeights),
-		entryStallingTables: entryStallingTables,
-		exitStallingTables:  exitStallingTables,
-		costFunction:        tf,
-		filepath:            filename,
+		filepath: filename,
 	}
-	metric.weights.SetWeights(weights)
+
+	ovWeights := da.NewOverlayWeights(numWeights)
+	ovWeights.SetWeights(weights)
+	metric.weights.Store(ovWeights)
+	metric.entryStallingTables.Store(entryStallingTables)
+	metric.exitStallingTables.Store(exitStallingTables)
+	metric.costFunction.Store(tf)
 	return metric, nil
 }
 
 func (met *Metric) UpdateMetrics() error {
-
-	cf, err := costfunction.ReadFromFile(met.timeFunctionFilePath)
-	if err != nil {
-		return err
-	}
-
 	newMet, err := ReadFromFile(met.filepath, met.timeFunctionFilePath)
 	if err != nil {
 		return errors.Wrapf(err, "error reading new metrics, filepath: %s", met.filepath)
 	}
 
-	// met.lock.Lock()
-	// defer met.lock.Unlock()
-	met.costFunction = cf
-	met.entryStallingTables = newMet.entryStallingTables
-	met.exitStallingTables = newMet.exitStallingTables
-	met.weights = newMet.weights
+	met.lock.Lock()
+	defer met.lock.Unlock()
+
+	met.weights.Store(newMet.weights.Load())
+	met.entryStallingTables.Store(newMet.entryStallingTables.Load())
+	met.exitStallingTables.Store(newMet.exitStallingTables.Load())
+	met.costFunction.Store(newMet.costFunction.Load())
 
 	return nil
 }

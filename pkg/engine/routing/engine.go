@@ -134,14 +134,13 @@ func (crp *CRPRoutingEngine) initParameter() {
 }
 
 func (crp *CRPRoutingEngine) InitBackgroundWorker(ctx context.Context) {
-
 	go crp.checkCustomizerUpdate(crp.metrics.GetFilePath(), ctx)
 }
 
 func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx context.Context) {
 	lastModifiedTime, err := isFileUpdated(metricsFilePath)
 	if err != nil {
-		crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read & compute checksum : %v\n", err)
+		crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time : %v\n", err)
 	}
 
 	ticker := time.NewTicker(CUSTOMIZER_UPDATER_TIMER_SECONDS)
@@ -153,12 +152,12 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 		case <-ticker.C:
 			currModifiedTime, err := isFileUpdated(metricsFilePath)
 			if err != nil {
-				crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read & compute checksum: %v\n", err)
+				crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time: %v\n", err)
 				continue
 			}
 
 			if currModifiedTime != lastModifiedTime {
-				crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: checksum changed  old=%s  new=%s\n, updating the metrics and timeFunction....", lastModifiedTime, currModifiedTime)
+				crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: file modification time changed  old=%s  new=%s\n, updating the metrics and timeFunction....", lastModifiedTime, currModifiedTime)
 				lastModifiedTime = currModifiedTime
 				crp.metrics.UpdateMetrics()
 			}

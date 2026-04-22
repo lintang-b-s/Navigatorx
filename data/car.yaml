@@ -64,7 +64,7 @@ alternatives:
   epsilon:
     default: 0.25 #  alternative routes at most 25% longer than the shortest path
   upper_bound:
-    50: 1.28 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
+    50: 1.26 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
     default: 1.6 # untuk > 50 km, ini bagus buat rute alternative jarak jauh cnth: jogja solo
   max_candidates_to_unpack:
     10: 10 # great circle distance between source and destination <= 10km -> 10 via candidates to unpack

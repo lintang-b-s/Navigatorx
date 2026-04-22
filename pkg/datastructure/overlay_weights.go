@@ -1,8 +1,6 @@
 package datastructure
 
 import (
-	"sync"
-
 	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
@@ -16,13 +14,10 @@ shortcut betweeb i-th entry point and the j-th exit point of C will be stored in
 */
 type OverlayWeights struct {
 	weights []float64
-	lock    *sync.RWMutex
 }
 
 func (ow *OverlayWeights) GetWeight(i Index) float64 {
-	ow.lock.RLock()
 	shortcutWeight := ow.weights[i]
-	ow.lock.RUnlock()
 	return shortcutWeight
 }
 
@@ -31,7 +26,6 @@ func (ow *OverlayWeights) GetWeights() []float64 {
 }
 
 func (ow *OverlayWeights) SetWeights(weights []float64) {
-
 	copy(ow.weights, weights)
 }
 
@@ -40,9 +34,7 @@ func (ow *OverlayWeights) GetNumberOfShortcuts() int {
 }
 
 func (ow *OverlayWeights) SetWeight(index int, weight float64) {
-	ow.lock.Lock()
 	ow.weights[index] = weight
-	ow.lock.Unlock()
 }
 
 func NewOverlayWeights(weightVectorSize uint32) *OverlayWeights {
@@ -50,5 +42,5 @@ func NewOverlayWeights(weightVectorSize uint32) *OverlayWeights {
 	for i := range weights {
 		weights[i] = pkg.INF_WEIGHT
 	}
-	return &OverlayWeights{weights: weights, lock: &sync.RWMutex{}}
+	return &OverlayWeights{weights: weights}
 }
