@@ -13,6 +13,7 @@ type RoutingService interface {
 	AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int) ([]routing.AlternativeRoute, bool, error)
 	GetRoutingEngine() *routing.CRPRoutingEngine
 	Close()
+	InitBackgroundWorker(ctx context.Context)
 }
 
 type MapMatcherService interface {

@@ -33,6 +33,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		metricsFile      string = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.txt", name))
 		landmarkFile     string = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.lm", name))
 		mlpFile                 = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s.mlp", name))
+		timeFunctionFile string = filepath.Join(outputDir, fmt.Sprintf("timefunction_dimacs_%s.txt", name))
 		prep             *preprocesser.Preprocessor
 	)
 
@@ -99,7 +100,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 			panic(err)
 		}
 
-		cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+		cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 		m, err := cust.Customize()
 		if err != nil {
 			panic(err)
@@ -130,7 +131,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		}
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}

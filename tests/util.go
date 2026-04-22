@@ -36,6 +36,7 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 		overlayGraphFile string = fmt.Sprintf("./data/overlay_graph_%s_test.graph", fileName)
 		metricsFile      string = fmt.Sprintf("./data/metrics_%s_test.txt", fileName)
 		landmarkFile     string = fmt.Sprintf("./data/landmark_%s_test.lm", fileName)
+		timeFunctionFile string = fmt.Sprintf("./data/timefunction_%s_test.txt", fileName)
 	)
 
 	if err := os.MkdirAll("./data", 0755); err != nil {
@@ -111,7 +112,7 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 
 	m, err := custom.Customize()
 	if err != nil {
@@ -128,7 +129,7 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -3,6 +3,7 @@ package main
 import (
 	"archive/tar"
 	"compress/gzip"
+	"context"
 	"encoding/csv"
 	"errors"
 	"flag"
@@ -71,6 +72,7 @@ const (
 	shanghaiGroundTruthFilepath        = "./data/eval/mapmatching/Shanghai/ground"
 	mlpFile                            = "./data/eval/mapmatching/online_map_match_mlp_hanwenhu.mlp"
 	landmarkFile                       = "./data/eval/mapmatching/landmark_hh.lm"
+	timeFunctionFile            string = "./data/timefunction_eval_mm_hh.txt"
 )
 
 var (
@@ -155,7 +157,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: prep.PreProcessing() failed: %v", err)
 	}
 
-	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 	m, err := cust.Customize()
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: cust.Customize() failed: %v", err)
@@ -171,7 +173,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: engine.NewEngine() failed: %v", err)
 	}
@@ -216,15 +218,9 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return edges
 	}
 
-	workers := concurrent.NewWorkerPool[query, []da.Index](100, len(queries))
-
-	for _, qq := range queries {
-		workers.AddJob(qq)
-	}
-
-	workers.Close()
-	workers.Start(computeRoute)
-	workers.Wait()
+	workers := concurrent.NewWorkerPool[query, []da.Index](100, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	workers.StartWithContext(ctx, computeRoute)
 
 	var N *da.SparseMatrix[int]
 	_, err = os.Stat(transitionMatrixFilepath)
@@ -241,25 +237,34 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 			0, func(a, b int) bool { return a == b })
 	}
 
-	counter := 0
+	go func() {
+		counter := 0
+		for spEdges := range workers.CollectResults() {
+			if len(spEdges) == 0 {
+				continue
+			}
 
-	for spEdges := range workers.CollectResults() {
-		if len(spEdges) == 0 {
-			continue
-		}
+			for j := 0; j < len(spEdges)-1; j++ {
+				e := int(spEdges[j])
+				eNext := int(spEdges[j+1])
+				N.Set(N.Get(e, eNext)+1, e, eNext)
+			}
+			counter++
 
-		for j := 0; j < len(spEdges)-1; j++ {
-			e := int(spEdges[j])
-			eNext := int(spEdges[j+1])
-			N.Set(N.Get(e, eNext)+1, e, eNext)
+			if counter%1e2 == 0 {
+				fmt.Printf("completed query: %v\n", counter)
+				N.WriteToFile(transitionMatrixFilepath)
+			}
 		}
-		counter++
+	}()
 
-		if counter%1e2 == 0 {
-			fmt.Printf("completed query: %v\n", counter)
-			N.WriteToFile(transitionMatrixFilepath)
-		}
+	for _, qq := range queries {
+		workers.AddJob(qq)
 	}
+
+	workers.Close()
+	workers.Wait()
+	cancel()
 
 	logger.Sugar().Infof(" transition matrix built....")
 

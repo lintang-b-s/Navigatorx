@@ -28,6 +28,7 @@ const (
 	overlayGraphFile string = "./data/profiles/car/diy_solo_semarang_overlay_graph.graph"
 	metricsFile      string = "./data/profiles/car/diy_solo_semarang_metrics.txt"
 	landmarkFile     string = "./data/profiles/car/diy_solo_semarang_landmark.lm"
+	timeFunctionFile string = "./data/profiles/car/diy_solo_semarang_timefunction.txt"
 )
 
 func main() {
@@ -43,7 +44,7 @@ func main() {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}

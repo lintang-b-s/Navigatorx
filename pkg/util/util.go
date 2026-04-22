@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -110,8 +111,8 @@ var (
 
 var MessageInternalServerError string = "internal server error"
 
-func KMHToMMin(speedKmh float64) float64 {
-	return speedKmh * 1000 / 60
+func KMHToMSeconds(speedKmh float64) float64 {
+	return speedKmh * 1000 / (60 * 60)
 }
 
 func KilometerToMeter(d float64) float64 {
@@ -313,10 +314,10 @@ func FindProjectWorkingDir() (string, error) {
 	}
 }
 
-// cleanHeap. buat nguragin heap allocation setelah read osm road network graph & overlay graph
-func CleanHeap() {
+// FreeMemory. buat nguragin heap allocation setelah read osm road network graph & overlay graph.
+func FreeMemory() {
 	runtime.GC()
-	runtime.GC()
+	debug.FreeOSMemory()
 }
 
 func InitConfig() {

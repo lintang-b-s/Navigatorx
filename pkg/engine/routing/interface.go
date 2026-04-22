@@ -10,7 +10,7 @@ type Customizer interface {
 }
 
 type CostFunction interface {
-	GetWeight(eHWType pkg.OsmHighwayType, eWeight float64, eLength float64) float64
+	GetWeight(eId da.Index, eWeight float64, eLength float64) float64
 	GetTurnCost(turnType pkg.TurnType) float64
 }
 

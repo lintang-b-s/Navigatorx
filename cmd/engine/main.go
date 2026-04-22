@@ -29,6 +29,7 @@ var (
 	overlayGraphFile       string
 	metricsFile            string
 	landmarkFile           string
+	timeFunctionFile       string
 	httpPort               = flag.Int("http_port", 6060, "http port")
 	websocketPort          = flag.Int("websocket_port", 6666, "websocket port")
 	proxyPort              = flag.Int("proxy_port", 6767, "proxy port")
@@ -50,6 +51,8 @@ func init() {
 	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
 	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, *regionName)
 	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
+	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
+
 	util.InitProfileConfig(profileName)
 }
 
@@ -61,7 +64,7 @@ func main() {
 		panic(err)
 	}
 
-	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -91,7 +94,7 @@ func main() {
 
 	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
 
-	util.CleanHeap()
+	util.FreeMemory()
 
 	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
 

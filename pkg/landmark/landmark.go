@@ -211,11 +211,11 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 		},
 	}
 
-	dijkstraInChan := make(chan queryParam, k)
-	dijkstraRevInChan := make(chan queryParam, k)
+	dijkstraInChan := make(chan queryParam, 6)
+	dijkstraRevInChan := make(chan queryParam, 6)
 
-	dijkstraOutChan := make(chan queryRet, k)
-	dijkstraRevOutChan := make(chan queryRet, k)
+	dijkstraOutChan := make(chan queryRet, 6)
+	dijkstraRevOutChan := make(chan queryRet, 6)
 
 	wg := sync.WaitGroup{}
 
@@ -227,7 +227,6 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 			crpQuery := NewDijkstra(graph, m, false) // O(mlogm). at most m items in pq (edge-based), decrease/insert key operation at most m times, extractMin operation at most m times
 			sps := crpQuery.ShortestPath(sid, &heapPool)
 			dijkstraOutChan <- newQueryRet(il, sps)
-			wg.Done()
 		}
 	}
 
@@ -239,9 +238,27 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 
 			sps := crpQuery.ShortestPath(sid, &heapPool)
 			dijkstraRevOutChan <- newQueryRet(il, sps)
-			wg.Done()
 		}
 	}
+
+	go func() {
+		for res := range dijkstraRevOutChan {
+			il := res.getIndex()
+			sps := res.getSpCosts()
+			for v := 0; v < n; v++ {
+				lm.vlw[v][il] = sps[v]
+			}
+			wg.Done()
+		}
+	}()
+	go func() {
+		for res := range dijkstraOutChan {
+			il := res.getIndex()
+			sps := res.getSpCosts()
+			copy(lm.lw[il], sps)
+			wg.Done()
+		}
+	}()
 
 	for i := 0; i < int(WORKERS); i++ {
 		gopool.CtxGo(context.Background(), calcDijkstra)
@@ -260,34 +277,10 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 	close(dijkstraInChan)
 	close(dijkstraRevInChan)
 
-	go func() {
-		wg.Wait()
-		close(dijkstraOutChan)
-		close(dijkstraRevOutChan)
-	}()
+	wg.Wait()
+	close(dijkstraOutChan)
+	close(dijkstraRevOutChan)
 
-	wgRev := sync.WaitGroup{}
-	wgRev.Add(1)
-
-	go func() {
-		defer wgRev.Done()
-
-		for res := range dijkstraRevOutChan {
-			il := res.getIndex()
-			sps := res.getSpCosts()
-			for v := 0; v < n; v++ {
-				lm.vlw[v][il] = sps[v]
-			}
-		}
-	}()
-
-	for res := range dijkstraOutChan {
-		il := res.getIndex()
-		sps := res.getSpCosts()
-		copy(lm.lw[il], sps)
-	}
-
-	wgRev.Wait()
 	logger.Info("done computing landmarks....")
 	return nil
 }

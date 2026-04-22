@@ -22,9 +22,9 @@ var (
 	mlpFile                = flag.String("mlp_file", "./data/crp_inertial_flow_diy_solo_semarang.mlp", "Multilevel partition filepath")
 	regionName             = flag.String("region", "diy_solo_semarang", "region name")
 	partitionSizes         = flag.String("us", "8,11,14,17,18", "Multilevel Partition Sizes")
-	directed               = flag.Bool("directed_graph", true, "directed/undirected graph")
+	directed               = flag.Bool("directed_graph", true, "directed/undirected partition graph")
 	prePartitionWithSCC    = flag.Bool("prepartition_with_scc", false, "prepartition graph with strongly connected components")
-	inertialFlowIterations = flag.Int("iflow_iterations", 5, "number of iterations of the inertial flow algorithm")
+	inertialFlowIterations = flag.Int("iflow_iterations", 10, "number of iterations of the inertial flow algorithm")
 	graphFile              string
 	overlayGraphFile       string
 	profileName            string

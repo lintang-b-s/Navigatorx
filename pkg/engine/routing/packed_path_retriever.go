@@ -207,6 +207,6 @@ func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(vtPackedPath []da.VertexE
 			return make([]da.VertexEdgePair, 0)
 		}
 	}
-	
+
 	return vtPackedPath
 }

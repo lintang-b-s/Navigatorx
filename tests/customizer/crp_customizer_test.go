@@ -42,6 +42,7 @@ const (
 	overlayGraphFile string = "./data/overlay_graph_customizer_test.graph"
 	metricsFile      string = "./data/metrics_customizer_test.txt"
 	landmarkFile     string = "./data/landmark_customizer_test.lm"
+	timeFunctionFile string = "./data/timefunction_customizer_test.txt"
 )
 
 type query struct {
@@ -321,7 +322,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 		cf := costfunction.NewTimeCostFunctionEmpty()
 
-		re, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf, landmarkFile)
+		re, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf, landmarkFile, timeFunctionFile)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -548,7 +549,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 
 	m, err := custom.Customize()
 	if err != nil {
@@ -565,7 +566,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

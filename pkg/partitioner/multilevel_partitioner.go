@@ -78,10 +78,9 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// next partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
-		numOfCellInLev := len(mp.cellVertices[level+1])
 
-		cellInChan := make(chan []da.Index, numOfCellInLev)
-		cellOutchan := make(chan [][]da.Index, numOfCellInLev)
+		cellInChan := make(chan []da.Index, 50)
+		cellOutchan := make(chan [][]da.Index, 50)
 		wg := sync.WaitGroup{}
 		computeRecursiveBisection := func() {
 			for cell := range cellInChan {
@@ -90,9 +89,15 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 				inertialFlowPartitioner.Partition(cell)
 				partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
 				cellOutchan <- partitions
-				wg.Done()
 			}
 		}
+
+		go func() {
+			for partitions := range cellOutchan {
+				mp.cellVertices[level] = append(mp.cellVertices[level], partitions...)
+				wg.Done()
+			}
+		}()
 
 		for q := 0; q < LEVEL_WORKERS; q++ {
 			gopool.CtxGo(context.Background(), computeRecursiveBisection)
@@ -105,14 +110,8 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 
 		close(cellInChan)
 
-		go func() {
-			wg.Wait()
-			close(cellOutchan)
-		}()
-
-		for partitions := range cellOutchan {
-			mp.cellVertices[level] = append(mp.cellVertices[level], partitions...)
-		}
+		wg.Wait()
+		close(cellOutchan)
 
 		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.cellVertices[level]))
 	}

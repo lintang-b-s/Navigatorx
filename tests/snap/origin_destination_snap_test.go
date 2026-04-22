@@ -41,6 +41,7 @@ const (
 	overlayGraphFile string = "./data/overlay_graph_query_test.graph"
 	metricsFile      string = "./data/metrics_query_test.txt"
 	landmarkFile     string = "./data/landmark_query_test.lm"
+	timeFunctionFile string = "./data/timefunction_od_test.txt"
 )
 
 func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
@@ -121,7 +122,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 
 	m, err := custom.Customize()
 	if err != nil {
@@ -138,7 +139,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

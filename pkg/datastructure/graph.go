@@ -350,8 +350,26 @@ func (g *Graph) IsRoadNetworkGraph() bool {
 	return g.roadNetwork
 }
 
+func (g *Graph) GetEdgeSpeeds() []float64 {
+	m := Index(g.NumberOfEdges())
+	eSpeeds := make([]float64, m)
+	for eId := Index(0); eId < m; eId++ {
+		eSpeeds[eId] = g.outEdges[eId].GetLength() / g.outEdges[eId].GetWeight() // in m/s
+	}
+
+	return eSpeeds
+}
+
 func (g *Graph) GetVertexOsmId(vId Index) uint64 {
 	return g.verticesOsmIds.Get(uint64(vId))
+}
+
+func (g *Graph) GetVertexOsmIds() []uint64 {
+	osmNodeIds := make([]uint64, len(g.vertices))
+	for v := 0; v < g.NumberOfVertices(); v++ {
+		osmNodeIds[v] = g.verticesOsmIds.Get(uint64(v))
+	}
+	return osmNodeIds
 }
 
 func (g *Graph) SetVertexOsmIds(verticesOsmIds *PackedSlice) {
@@ -411,14 +429,17 @@ func (g *Graph) GetOutEdgeHighwayType(e Index) pkg.OsmHighwayType {
 	return g.outEdges[e].hwType
 }
 
-// GetOutEdgeTripleWeight. return default weight, length, and highway type of out edge e
-func (g *Graph) GetOutEdgeTripleWeight(e Index) (float64, float64, pkg.OsmHighwayType) {
-	return g.outEdges[e].GetWeight(), g.outEdges[e].GetLength(), g.outEdges[e].hwType
+// GetOutEdgeTripleWeightKey. return default weight, length, and speed of outEdge e
+func (g *Graph) GetOutEdgeTripleWeightKey(e Index) (float64, float64, float64) {
+	speed := g.outEdges[e].GetWeight() / g.outEdges[e].GetLength()
+
+	return g.outEdges[e].GetWeight(), g.outEdges[e].GetLength(), speed
 }
 
-// GetInEdgeTripleWeight. return default weight, length, and highway type of in edge e
-func (g *Graph) GetInEdgeTripleWeight(e Index) (float64, float64, pkg.OsmHighwayType) {
-	return g.inEdges[e].GetWeight(), g.inEdges[e].GetLength(), g.inEdges[e].hwType
+// GetInEdgeTripleWeightKey. return default weight, length, and speed of inEdge e
+func (g *Graph) GetInEdgeTripleWeightKey(e Index) (float64, float64, float64) {
+	speed := g.inEdges[e].GetWeight() / g.inEdges[e].GetLength()
+	return g.inEdges[e].GetWeight(), g.inEdges[e].GetLength(), speed
 }
 
 func (g *Graph) GetCellNumbers() []Pv {
@@ -544,7 +565,7 @@ func (g *Graph) GetNumberOfOutEdges(u Index) Index {
 
 func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-		if g.IsDummyOutEdge(e) {
+		if g.IsDummyOutEdge(e) || g.IsParallelOutEdge(e) {
 			continue
 		}
 
@@ -553,10 +574,32 @@ func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 }
 
 func (g *Graph) IsDummyOutEdge(eId Index) bool {
-	if g.outEdges[eId].flag&FlagParallel != 0 || g.outEdges[eId].flag&FlagDummy != 0 {
+	if g.outEdges[eId].flag&FlagDummy != 0 {
 		return true
 	}
 
+	return false
+}
+
+func (g *Graph) IsDummyInEdge(eId Index) bool {
+	if g.inEdges[eId].flag&FlagDummy != 0 {
+		return true
+	}
+
+	return false
+}
+
+func (g *Graph) IsParallelOutEdge(eId Index) bool {
+	if g.outEdges[eId].flag&FlagParallel != 0 {
+		return true
+	}
+	return false
+}
+
+func (g *Graph) IsParallelInlEdge(eId Index) bool {
+	if g.inEdges[eId].flag&FlagParallel != 0 {
+		return true
+	}
 	return false
 }
 
@@ -568,17 +611,9 @@ func (g *Graph) IsJunctionTail(eId Index) bool {
 	return g.outEdges[eId].IsJunctionTail()
 }
 
-func (g *Graph) IsDummyInEdge(eId Index) bool {
-	if g.inEdges[eId].GetHighwayType() == pkg.INVALID_HIGHWAY {
-		return true
-	}
-
-	return false
-}
-
 func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
-		if g.IsDummyInEdge(e) {
+		if g.IsDummyInEdge(e) || g.IsParallelInlEdge(e) {
 			continue
 		}
 		handle(e)
@@ -627,7 +662,7 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 
 func (g *Graph) ForOutEdges(handle func(exitPoint, head Index, tail, entryId, entryPoint Index, percentage float64, idx Index)) {
 	for idx, e := range g.outEdges {
-		if g.IsDummyOutEdge(Index(idx)) {
+		if g.IsDummyOutEdge(Index(idx)) || g.IsParallelOutEdge(Index(idx)) {
 			continue
 		}
 
@@ -960,7 +995,7 @@ func (g *Graph) SetStreetDirection(streetDirectionForward, streetDirectionBackwa
 
 func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(head, exitPoint Index, weight float64)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
-		if g.IsDummyOutEdge(e) {
+		if g.IsDummyOutEdge(e) || g.IsParallelOutEdge(e) {
 			continue
 		}
 		handle(g.outEdges[e].head, g.GetExitOrder(u, e), g.outEdges[e].weight)

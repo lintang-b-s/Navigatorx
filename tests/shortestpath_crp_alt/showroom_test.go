@@ -2,6 +2,7 @@ package shortestpath
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -205,16 +206,22 @@ func SolveShowroom(t *testing.T, filepath string) {
 		minDist = util.MinFloat(minDist, spLength)
 		return nil
 	}
-	workers := concurrent.NewWorkerPool[pair, any](50, len(pintuUjungs))
+	
+	workers := concurrent.NewWorkerPool[pair, any](50, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	workers.StartWithContext(ctx, calcSp)
+	go func() {
+		for _ = range workers.CollectResults() {
+		}
+	}()
 
-	// TODO: add many-to-many crp query biar cepet, ref: https://patentimages.storage.googleapis.com/00/16/32/08bc539e7761fd/US20140107921A1.pdf
 	for _, p := range pintuUjungs {
 		workers.AddJob(p)
 	}
 
 	workers.Close()
-	workers.Start(calcSp)
-	workers.WaitDirect()
+	workers.Wait()
+	cancel()
 
 	ans := minDist
 	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)

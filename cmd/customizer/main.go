@@ -16,11 +16,14 @@ import (
 var (
 	profileName     string
 	profileFilePath = flag.String("profile", "./data/car.yaml", "profile file path")
-	regionName       = flag.String("region", "diy_solo_semarang", "region name")
+	regionName      = flag.String("region", "diy_solo_semarang", "region name")
+	edgeSpeedsFile  = flag.String("segment-speed-file", "", "segment speed csv file.")
+
 	graphFile        string
 	overlayGraphFile string
 	metricsFile      string
 	landmarkFile     string
+	timeFunctionFile string
 )
 
 func init() {
@@ -31,6 +34,8 @@ func init() {
 	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
 	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, *regionName)
 	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
+	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
+
 	util.InitProfileConfig(profileName)
 }
 
@@ -40,8 +45,8 @@ func main() {
 		panic(err)
 	}
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
-
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
+	custom.SetEdgeSpeedsFilePath(*edgeSpeedsFile)
 	m, err := custom.Customize()
 	if err != nil {
 		panic(err)

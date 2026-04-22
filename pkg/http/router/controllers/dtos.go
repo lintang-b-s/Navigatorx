@@ -6,6 +6,7 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type shortestPathRequest struct {
@@ -68,9 +69,11 @@ func NewDrivingDirections(d []da.DrivingDirection) []drivingDirection {
 	return drivingDirections
 }
 
+// NewShortestPathResponse. create new sp response
+// travelTime in seconds we need to convert it in minutes
 func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirections []drivingDirection) shortestPathResponse {
 	return shortestPathResponse{
-		TravelTime:        travelTime,
+		TravelTime:        util.SecondsToMinutes(travelTime), // in
 		Path:              path,
 		Dist:              dist,
 		DrivingDirections: drivingDirections,

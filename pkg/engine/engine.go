@@ -1,10 +1,11 @@
 package engine
 
 import (
+	"context"
+
 	"github.com/cockroachdb/errors"
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
-	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
@@ -20,8 +21,8 @@ func (e *Engine) GetRoutingEngine() *routing.CRPRoutingEngine {
 	return e.crpRoutingEngine
 }
 
-func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger) (*Engine, error) {
-	re, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile,
+func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath string, logger *zap.Logger) (*Engine, error) {
+	re, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath,
 		logger)
 	if err != nil {
 		return nil, err
@@ -34,7 +35,7 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFil
 const keyValByteApproxSize = 9 + 4*5
 
 func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.Metric,
-	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction, landmarkFile string) (*Engine, error) {
+	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction, landmarkFile, timeFunctionFilePath string) (*Engine, error) {
 	// customizable route planning in road networks section 7.2 (path retrieval)
 	// puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 524288
 
@@ -54,14 +55,14 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 		panic(err)
 	}
 
-	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf, lm)
+	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, lm)
 
 	return &Engine{
 		crpRoutingEngine: re,
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile string, logger *zap.Logger,
+func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath string, logger *zap.Logger,
 ) (*routing.CRPRoutingEngine,
 	error) {
 
@@ -80,17 +81,15 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	}
 
 	logger.Info("Reading stalling tables & metrics...")
-	roadNetwork := graph.IsRoadNetworkGraph()
-	cf := costfunction.NewTimeCostFunction(roadNetwork)
-	m, err := metrics.ReadFromFile(metricsFilePath, graph, cf)
+
+	cf, err := costfunction.ReadFromFile(timeFunctionFilePath)
 	if err != nil {
 		return nil, err
 	}
-
-	cst := customizer.NewCustomizer(graphFilePath, overlayGraphFilePath, metricsFilePath, logger)
-	cst.SetGraph(graph)
-	cst.SetOverlayGraph(overlayGraph)
-	cst.SetOverlayWeight(m.GetWeights())
+	m, err := metrics.ReadFromFile(metricsFilePath, timeFunctionFilePath)
+	if err != nil {
+		return nil, err
+	}
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
 
@@ -111,7 +110,11 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		panic(err)
 	}
 
-	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cst, cf, lm)
+	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, lm)
 
 	return re, nil
+}
+
+func (e *Engine) InitBackgroundWorker(ctx context.Context) {
+	e.crpRoutingEngine.InitBackgroundWorker(ctx)
 }

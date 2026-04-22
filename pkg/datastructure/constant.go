@@ -12,7 +12,7 @@ const (
 
 	OVERLAY_INFO_SIZE                  = 32 // 2 ini kecil aja, biar gak consume memory banyak pas load test
 	OVERLAY_CELL_INFO_SIZE             = 16
-	INVALID_OSM_WAY_ID          int64  = 2 ^ 34 - 1
+	INVALID_OSM_WAY_ID          int64  = 1<<34 - 1
 	INITIAL_BIT_VECTOR_SIZE            = 1000
 	DEFAULT_BIT_SIZE_OSM_WAY_ID        = 34
 	BIT_SIZE_OSM_NODE_ID               = 34
@@ -31,6 +31,6 @@ const (
 const (
 	FlagDummy uint8 = 1 << iota
 	FlagParallel
-	FlagJunctionHead // flag yang nandain kalo head dari edge adalah junction node 
+	FlagJunctionHead // flag yang nandain kalo head dari edge adalah junction node
 	FlagJunctionTail // flag yang nandain kalo tail dari edge adalah junction node
 )

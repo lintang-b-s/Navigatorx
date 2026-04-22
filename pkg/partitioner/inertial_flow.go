@@ -7,8 +7,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/bytedance/gopkg/util/gopool"
 	rd "github.com/bytedance/gopkg/lang/fastrand"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -74,13 +74,27 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 
 	wg := sync.WaitGroup{}
 
+	go func() {
+		numberOfVertices := inf.graph.NumberOfVertices()
+		for minCut := range inertialFlowOutChan {
+			if minCut.GetNumOfCutEdges() < bestNumberOfMinCutEdges ||
+				(bestNumberOfMinCutEdges == minCut.GetNumOfCutEdges() &&
+					balanceDelta(minCut.GetNumNodesInPartitionTwo(),
+						numberOfVertices) < balanceDelta(best.GetNumNodesInPartitionTwo(),
+						numberOfVertices)) {
+				best = minCut
+				bestNumberOfMinCutEdges = minCut.GetNumOfCutEdges()
+			}
+			wg.Done()
+		}
+	}()
+
 	computeMinCut := func() {
 		for input := range inertialFlowInChan {
 			dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true)
 			sources, sinks := dn.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
 			s, t := dn.createArtificialSourceSink(sources, sinks, inf.directed)
 			inertialFlowOutChan <- dn.ComputeMaxflowMinCut(s, t) //  O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
-			wg.Done()
 		}
 	}
 
@@ -100,22 +114,8 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 
 	close(inertialFlowInChan)
 
-	go func() {
-		wg.Wait()
-		close(inertialFlowOutChan)
-	}()
-
-	numberOfVertices := inf.graph.NumberOfVertices()
-	for minCut := range inertialFlowOutChan {
-		if minCut.GetNumOfCutEdges() < bestNumberOfMinCutEdges ||
-			(bestNumberOfMinCutEdges == minCut.GetNumOfCutEdges() &&
-				balanceDelta(minCut.GetNumNodesInPartitionTwo(),
-					numberOfVertices) < balanceDelta(best.GetNumNodesInPartitionTwo(),
-					numberOfVertices)) {
-			best = minCut
-			bestNumberOfMinCutEdges = minCut.GetNumOfCutEdges()
-		}
-	}
+	wg.Wait()
+	close(inertialFlowOutChan)
 
 	return best
 }

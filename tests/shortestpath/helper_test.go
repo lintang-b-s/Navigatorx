@@ -23,6 +23,7 @@ const (
 	overlayGraphFile string = "./data/overlay_graph_sp_test.graph"
 	metricsFile      string = "./data/metrics_sp_test.txt"
 	landmarkFile     string = "./data/landmark_sp_test.lm"
+	timeFunctionFile string = "./data/timefunction_sp_test.txt"
 )
 
 func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEdge, n int, Us []int, pgDirected bool) (*engine.Engine, *da.Graph,
@@ -83,7 +84,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	}
 	cf := costfunction.NewTimeCostFunctionEmpty()
 
-	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, landmarkFile)
+	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, landmarkFile, timeFunctionFile)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
