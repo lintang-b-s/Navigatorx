@@ -483,6 +483,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 		finalPath, totalDistance := ars.engine.GetEdgePath(res[i].GetEdgeIdPath())
 		res[i].SetCoordPath(finalPath)
 		res[i].SetDist(totalDistance)
+		
 	}
 
 	res = removeSimiliarAlternatives(res)

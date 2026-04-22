@@ -44,7 +44,7 @@ func NewAPI(log *zap.Logger) *API {
 
 //	@title			Navigatorx API
 //	@version		1.0
-//	@description	This is an traffic aware routing engine for openstreetmap server.
+//	@description	This is arouting engine for openstreetmap server.
 
 //	@contact.name	Lintang Birda Saputra
 //	@contact.url	_
@@ -68,6 +68,7 @@ func (api *API) Run(
 	defer cleanup()
 	log.Info("Run httprouter API")
 
+	routingService.InitBackgroundWorker(ctx)
 	router := httprouter.New()
 
 	corsHandler := cors.New(cors.Options{ //nolint:gocritic // ignore

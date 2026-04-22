@@ -44,6 +44,7 @@ const (
 	overlayGraphFile string = "./data/overlay_graph_query_test.graph"
 	metricsFile      string = "./data/metrics_query_test.txt"
 	landmarkFile     string = "./data/landmark_query_test.lm"
+	timeFunctionFile string = "./data/timefunction_query_test.txt"
 )
 
 // there is also tests for crp query using test cases taken from
@@ -133,7 +134,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		},
 	}
 
-	buildGraph := func(filepath string) (*engine.Engine, *landmark.Landmark, map[da.Index]da.Index, error) {
+	buildGraph := func(filepath string) (*routing.CRPRoutingEngine, *landmark.Landmark, map[da.Index]da.Index, error) {
 		var (
 			err  error
 			line string
@@ -252,19 +253,19 @@ func TestCRPQuerySimple(t *testing.T) {
 
 		cf := costfunction.NewTimeCostFunctionEmpty()
 
-		re, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf, landmarkFile)
+		eng, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf, landmarkFile, timeFunctionFile)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
 		newToOldVidMap := prep.GetNewToOldVIdMap()
-		return re, lm, newToOldVidMap, err
+		return eng.GetRoutingEngine(), lm, newToOldVidMap, err
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			re, _, newToOldVidMap, err := buildGraph(tc.filepath)
-			graph := re.GetRoutingEngine().GetGraph()
+			graph := re.GetGraph()
 			n := graph.NumberOfVertices()
 
 			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0644)
@@ -303,7 +304,7 @@ func TestCRPQuerySimple(t *testing.T) {
 				for target := da.Index(0); target < da.Index(n); target++ {
 					as := graph.GetDummyOutEdgeId(source)
 					at := graph.GetDummyInEdgeId(target)
-					crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+					crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
 					oldS := newToOldVidMap[source]
 					oldT := newToOldVidMap[target]
 
@@ -343,6 +344,12 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *za
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	workingDir, err := util.FindProjectWorkingDir()
+	err = util.ReadConfig(workingDir)
+	if err != nil {
+		panic(err)
 	}
 
 	if !turnCost {
@@ -414,7 +421,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *za
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 
 	m, err := custom.Customize()
 	if err != nil {
@@ -431,7 +438,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *za
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -457,8 +464,9 @@ karena bakal time out kalau pakai vscode
 */
 
 func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
-	re, _, _ := setup(t, false)
-	g := re.GetRoutingEngine().GetGraph()
+	eng, _, _ := setup(t, false)
+	re := eng.GetRoutingEngine()
+	g := re.GetGraph()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
@@ -494,7 +502,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 	calcSpDijkstra := func(i int) any {
 		s := queries[i]
 
-		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
+		dijkstraQuery := routing.NewDijkstra(re, false)
 
 		sps, _ := dijkstraQuery.ShortestPath(s)
 
@@ -510,15 +518,21 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		return nil
 	}
 
-	workersDijkstra := concurrent.NewWorkerPool[int, any](7, n)
+	workersDijkstra := concurrent.NewWorkerPool[int, any](6, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	workersDijkstra.StartWithContext(ctx, calcSpDijkstra)
+	go func() {
+		for _ = range workersDijkstra.CollectResults() {
+		}
+	}()
 
 	for i := 0; i < n; i++ {
 		workersDijkstra.AddJob(i)
 	}
-
 	workersDijkstra.Close()
-	workersDijkstra.Start(calcSpDijkstra)
-	workersDijkstra.WaitDirect()
+	workersDijkstra.Wait()
+
+	cancel()
 
 	type query struct {
 		i, s, t da.Index
@@ -549,8 +563,8 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
 		outEdgeFromTarget := g.GetExitOffset(target) + g.GetOutDegree(target) - 1
 		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-		// crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
+		// crpQuery := routing.NewCRPBidirectionalSearch(re, 1.0)
 
 		sVertex := g.GetVertex(s)
 		tVertex := g.GetVertex(target)
@@ -577,21 +591,29 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		return newCounterExampleData(0, 0, nil, nil, false)
 	}
 
-	workers := concurrent.NewWorkerPool[query, counterExampleData](12, n*numberOfVertices)
+	workers := concurrent.NewWorkerPool[query, counterExampleData](12, 5)
 
-	for i := 0; i < n; i++ {
-		s := queries[i]
+	ctx, cancel = context.WithCancel(context.Background())
+	workers.StartWithContext(ctx, calcSp)
 
-		for t := da.Index(0); t < da.Index(numberOfVertices); t++ {
-			workers.AddJob(newQuery(da.Index(i), s, t, da.Index(i)*da.Index(numberOfVertices)+t))
+	done := make(chan struct{}, 1)
+	go func() {
+		for i := 0; i < n; i++ {
+			s := queries[i]
+
+			for t := da.Index(0); t < da.Index(numberOfVertices); t++ {
+				workers.AddJob(newQuery(da.Index(i), s, t, da.Index(i)*da.Index(numberOfVertices)+t))
+			}
 		}
-	}
+		done <- struct{}{}
+	}()
 	t.Logf("start crp query...")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	workers.Close()
-	workers.StartWithContext(ctx, calcSp)
-	workers.Wait()
+	go func() {
+		<-done
+		workers.Close()
+		workers.Wait()
+	}()
 
 	t.Run("stress test crp query", func(t *testing.T) {
 		for res := range workers.CollectResults() {
@@ -676,15 +698,21 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		return nil
 	}
 
-	workersDijkstra := concurrent.NewWorkerPool[int, any](6, n)
+	workersDijkstra := concurrent.NewWorkerPool[int, any](6, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	workersDijkstra.StartWithContext(ctx, calcSpDijkstra)
+	go func() {
+		for _ = range workersDijkstra.CollectResults() {
+		}
+	}()
 
 	for i := 0; i < n; i++ {
 		workersDijkstra.AddJob(i)
 	}
-
 	workersDijkstra.Close()
-	workersDijkstra.Start(calcSpDijkstra)
-	workersDijkstra.WaitDirect()
+	workersDijkstra.Wait()
+	cancel()
+	
 
 	type query struct {
 		i, s, t da.Index
@@ -767,21 +795,28 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		return newCounterExampleData(0, 0, 0, 0, nil, nil, false)
 	}
 
-	workers := concurrent.NewWorkerPool[query, counterExampleData](12, n*numberOfVertices)
+	workers := concurrent.NewWorkerPool[query, counterExampleData](12, 5)
+	ctx, cancel = context.WithCancel(context.Background())
+	workers.StartWithContext(ctx, calcSp)
 
-	for i := 0; i < n; i++ {
-		s := queries[i]
+	done := make(chan struct{}, 1)
+	go func() {
+		for i := 0; i < n; i++ {
+			s := queries[i]
 
-		for t := da.Index(0); t < da.Index(numberOfVertices); t++ {
-			workers.AddJob(newQuery(da.Index(i), s, t, da.Index(i)*da.Index(numberOfVertices)+t))
+			for t := da.Index(0); t < da.Index(numberOfVertices); t++ {
+				workers.AddJob(newQuery(da.Index(i), s, t, da.Index(i)*da.Index(numberOfVertices)+t))
+			}
 		}
-	}
+		done <- struct{}{}
+	}()
 	t.Logf("start crp query...")
 
-	ctx, cancel := context.WithCancel(context.Background())
-	workers.Close()
-	workers.StartWithContext(ctx, calcSp)
-	workers.Wait()
+	go func() {
+		<-done
+		workers.Close()
+		workers.Wait()
+	}()
 
 	t.Run("stress test crp query", func(t *testing.T) {
 		for res := range workers.CollectResults() {

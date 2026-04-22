@@ -160,13 +160,13 @@ untuk base graph:
 (misal untuk forwardGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah vertex) dengan entry point i, kita cek semua possible turns pada vertex v
 kita cek semua exit point dari v dan cek apakah salah satu (exit point, v) sudah di scan di backward search
 kalau sudah discan  -> kita bisa update \mu (shortest st-path estimate)
-\mu diupdate kalau sum dari shortest path estimate dari s ke v melalui entry point i + sp estimate dari t ke v (melalui exit point yang discan backward search) kurang dari \mu
+\mu diupdate kalau sum dari shortest path estimate dari s ke v melalui entry point i + sp estimate dari v ke t (melalui exit point yang discan backward search) kurang dari \mu
 
 untuk overlay graph:
 (misal untuk forwardOverlayGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah overlay vertex)
 kita cek apakah overlay vertex v udah di scan oleh backward search
 kalau udha di scan -> kita bisa update \mu (shortest st-path estimate)
-\mu diupdate kalau sum dari shortest path estimate dari s ke v + sp estimate dari t ke v kurang dari \mu.
+\mu diupdate kalau sum dari shortest path estimate dari s ke v + sp estimate dari v ke t kurang dari \mu.
 
 search terminates ketika sum dari minimum keys of both priority queues exceeds \mu. (proof of correctness dari kriteria pemberhentian ini dapat dilihat pada ref[6])
 

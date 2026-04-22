@@ -10,6 +10,7 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
+	cf "github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -17,30 +18,38 @@ import (
 type Metric struct {
 	weights *da.OverlayWeights
 
-	entryStallingTables [][]float64 // stallingTables for vertice-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
-	exitStallingTables  [][]float64
-	costFunction        costfunction.CostFunction
+	entryStallingTables            [][]float64 // stallingTables for vertice-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
+	exitStallingTables             [][]float64
+	costFunction                   costfunction.CostFunction
+	filepath, timeFunctionFilePath string
 }
 
-func NewMetric(graph *da.Graph, costFunction costfunction.CostFunction, overlayWeights *da.OverlayWeights,
+func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *da.OverlayWeights,
 ) *Metric {
+	var (
+		err error
+		tf  *cf.TimeFunction
+	)
+	if timeFunctionFilePath != "" {
+		tf, err = cf.ReadFromFile(timeFunctionFilePath)
+		if err != nil {
+			panic(fmt.Errorf("NewMetric: failed to read time function: %w", err))
+		}
+	} else {
+		tf = cf.NewTimeCostFunctionEmpty()
+	}
 
 	return &Metric{
-		weights:             overlayWeights,
-		entryStallingTables: make([][]float64, graph.NumberOfVertices()),
-		exitStallingTables:  make([][]float64, graph.NumberOfVertices()),
-		costFunction:        costFunction,
+		weights:              overlayWeights,
+		entryStallingTables:  make([][]float64, numOfVertices),
+		exitStallingTables:   make([][]float64, numOfVertices),
+		costFunction:         tf,
+		filepath:             "",
+		timeFunctionFilePath: timeFunctionFilePath,
 	}
 }
 
 /*
-To determine quickly whether a distance label at an entry point can improve the implicit distance labels
-of the exit points, we keep an array of size p (the number of entry points) for each vertex v, with each entry
-denoted by b_v[i]. We initialize all values in the array with ∞. Whenever we scan an entry point i at a vertex
-v with a distance d, we set each b_v[k] to min{b_v[k], d + max_j {Tv [i, j] − Tv [k, j]}}, with j denoting the exit
-points of v. However, to properly deal with turn restrictions, we must not update  b_v[k] if there exists an exit
-point that can be reached from k, but not from i. We then prune the search as follows: when processing an
-element (u, i, d), we only insert it into the heap if d ≤ bu [i].
 1. query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
@@ -142,35 +151,44 @@ func (met *Metric) GetWeights() *da.OverlayWeights {
 	return met.weights
 }
 
-func (met *Metric) GetWeight(eHighwayType pkg.OsmHighwayType,
+// GetWeight. get weight dari outEdge dengan id eId
+// eId adalah id/index dari outEdge yang ingin didapat weightnya
+func (met *Metric) GetWeight(eId da.Index,
 	eDefaultWeight float64, eLength float64) float64 {
-	return met.costFunction.GetWeight(eHighwayType, eDefaultWeight, eLength)
-
-}
-
-func (met *Metric) GetMaxSpeed(e costfunction.EdgeAttributes) float64 {
-	return met.costFunction.GetMaxSpeed(e)
+	// met.lock.RLock() tambahin rlock jadi ngelag banget njir load test nya
+	// defer met.lock.RUnlock()
+	return met.costFunction.GetWeight(eId, eDefaultWeight, eLength)
 
 }
 
 // GetEntryStallingTableCost. get precomputed max_k{T_v[i,k] - T_v[j,k]}
 func (met *Metric) GetEntryStallingTableCost(uId da.Index, offset da.Index) float64 {
+	// met.lock.RLock()
+	// defer met.lock.RUnlock()
 	return met.entryStallingTables[uId][offset]
 }
 
 // GetExitStallingTableCost. get precomputed  max_k{T_v[k,i] - T_v[k,j]}
 func (met *Metric) GetExitStallingTableCost(uId da.Index, offset da.Index) float64 {
+	// met.lock.RLock()
+	// defer met.lock.RUnlock()
 	return met.exitStallingTables[uId][offset]
 }
 
 func (met *Metric) GetShortcutWeight(offset da.Index) float64 {
-
+	// met.lock.RLock()
+	// defer met.lock.RUnlock()
 	return met.weights.GetWeight(offset)
-
 }
 
 func (met *Metric) GetTurnCost(t pkg.TurnType) float64 {
+	// met.lock.RLock()
+	// defer met.lock.RUnlock()
 	return met.costFunction.GetTurnCost(t)
+}
+
+func (met *Metric) GetFilePath() string {
+	return met.filepath
 }
 
 func (met *Metric) WriteToFile(filename string) error {
@@ -192,7 +210,7 @@ func (met *Metric) WriteToFile(filename string) error {
 	fmt.Fprintf(w, "%d %d %d\n", len(met.weights.GetWeights()), len(met.entryStallingTables), len(met.exitStallingTables))
 	for i, weight := range met.weights.GetWeights() {
 
-		_, err := fmt.Fprintf(w, "%f", weight)
+		_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(weight, 'f', -1, 64))
 		if err != nil {
 			return errors.Wrapf(err, "metrics.WriteToFile: failed to write metrics weight %v", weight)
 		}
@@ -222,7 +240,7 @@ func (met *Metric) WriteToFile(filename string) error {
 			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(met.entryStallingTables[i]): %v", len(met.entryStallingTables[i]))
 		}
 		for j, val := range met.entryStallingTables[i] {
-			_, err = fmt.Fprintf(w, "%f", val)
+			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
 			if err != nil {
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write met.entryStallingTables[i]: %v", met.entryStallingTables[i])
 			}
@@ -253,7 +271,7 @@ func (met *Metric) WriteToFile(filename string) error {
 			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(met.exitStallingTables[i]): %v", len(met.exitStallingTables[i]))
 		}
 		for j, val := range met.exitStallingTables[i] {
-			_, err = fmt.Fprintf(w, "%f", val)
+			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
 			if err != nil {
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write met.exitStallingTables[i]: %v", met.exitStallingTables[i])
 			}
@@ -281,7 +299,7 @@ const (
 	metricsBufferSize = 4096 * 2
 )
 
-func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.CostFunction) (*Metric, error) {
+func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to open file %v", filename)
@@ -293,7 +311,7 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 
 	line, err := util.ReadLine(r)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to util.ReadLine(r)")
 	}
 
 	parts := util.Fields(line)
@@ -322,7 +340,8 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 
 	line, err = util.ReadLine(r)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to util.ReadLine(r)")
+
 	}
 
 	weights := make([]float64, numWeights)
@@ -345,7 +364,7 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 	for i := 0; i < numEntryStallingTables; i++ {
 		line, err = util.ReadLine(r)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to util.ReadLine(r)")
 		}
 
 		parts = util.Fields(line)
@@ -381,7 +400,7 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 	for i := 0; i < numExitStallingTables; i++ {
 		line, err = util.ReadLine(r)
 		if err != nil {
-			return nil, err
+			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to util.ReadLine(r)")
 		}
 
 		parts = util.Fields(line)
@@ -413,14 +432,39 @@ func ReadFromFile(filename string, graph *da.Graph, costFunction costfunction.Co
 
 		exitStallingTables[i] = stallingTable
 	}
-
+	tf, err := cf.ReadFromFile(timeFunctionFilePath)
+	if err != nil {
+		panic(fmt.Errorf("NewMetric: failed to read time function: %w", err))
+	}
 	metric := &Metric{
 		weights:             da.NewOverlayWeights(numWeights),
 		entryStallingTables: entryStallingTables,
 		exitStallingTables:  exitStallingTables,
-		costFunction:        costFunction,
+		costFunction:        tf,
+		filepath:            filename,
 	}
 	metric.weights.SetWeights(weights)
-
 	return metric, nil
+}
+
+func (met *Metric) UpdateMetrics() error {
+
+	cf, err := costfunction.ReadFromFile(met.timeFunctionFilePath)
+	if err != nil {
+		return err
+	}
+
+	newMet, err := ReadFromFile(met.filepath, met.timeFunctionFilePath)
+	if err != nil {
+		return errors.Wrapf(err, "error reading new metrics, filepath: %s", met.filepath)
+	}
+
+	// met.lock.Lock()
+	// defer met.lock.Unlock()
+	met.costFunction = cf
+	met.entryStallingTables = newMet.entryStallingTables
+	met.exitStallingTables = newMet.exitStallingTables
+	met.weights = newMet.weights
+
+	return nil
 }

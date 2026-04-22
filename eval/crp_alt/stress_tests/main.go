@@ -14,6 +14,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -40,10 +41,11 @@ const (
 	overlayGraphFile string = "./data/overlay_graph_stress_test.graph"
 	metricsFile      string = "./data/metrics_stress_test.txt"
 	landmarkFile     string = "./data/landmark_stress_test.lm"
+	timeFunctionFile string = "./data/timefunction_stress_test.txt"
 )
 
 /*
-go run eval/crp_alt/stress_tests/main.go
+go run eval/crp_alt/stress_tests_no_turn_costs/main.go
 
 stress test ini bertujuan untuk mencari apakah ada counterexample (output dari ALT CRP query bukan shortest path) dari implementasi  A*, landmarks, and triangle inequality (ALT) untuk query Customizable Route Planning (CRP) pada file
 multilevel_astar_landmarks.go
@@ -98,6 +100,8 @@ func main() {
 		logger.Sugar().Infof("download complete")
 	}
 
+	pkg.WITH_TURN_COSTS = false
+
 	op := osmparser.NewOSMParserV2()
 
 	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
@@ -142,7 +146,7 @@ func main() {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 
 	m, err := custom.Customize()
 	if err != nil {
@@ -159,7 +163,7 @@ func main() {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -195,14 +199,14 @@ func main() {
 	// 	expectedShortestPaths[i] = make([][]da.Index, numberOfVertices)
 	// }
 
-	logger.Sugar().Infof("start dijkstra query for all sources...")
+	logger.Sugar().Infof("start dijkstra query for some sources...")
 
 	lock := sync.Mutex{}
 
 	calcSpDijkstra := func(i int) any {
 		s := queries[i]
 
-		dijkstraQuery := routing.NewDijkstraWithTurnCost(re.GetRoutingEngine(), false)
+		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
 
 		sps, _ := dijkstraQuery.ShortestPath(s)
 
@@ -224,15 +228,20 @@ func main() {
 		return nil
 	}
 
-	workersDijkstra := concurrent.NewWorkerPool[int, any](7, n)
+	workersDijkstra := concurrent.NewWorkerPool[int, any](6, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	workersDijkstra.StartWithContext(ctx, calcSpDijkstra)
+	go func() {
+		for _ = range workersDijkstra.CollectResults() {
+		}
+	}()
 
 	for i := 0; i < n; i++ {
 		workersDijkstra.AddJob(i)
 	}
-
 	workersDijkstra.Close()
-	workersDijkstra.Start(calcSpDijkstra)
-	workersDijkstra.WaitDirect()
+	workersDijkstra.Wait()
+	cancel()
 
 	type query struct {
 		i, s, t da.Index
@@ -307,40 +316,31 @@ func main() {
 	}
 
 	workers := concurrent.NewWorkerPool[query, counterExampleData](12, n*numberOfVertices)
+	ctx, cancel = context.WithCancel(context.Background())
+	workers.StartWithContext(ctx, calcSp)
+	logger.Sugar().Infof("start crp query...")
+
+	go func() {
+		for res := range workers.CollectResults() {
+			if res.counterexample {
+				logger.Sugar().Infof("found counterExample!!\n")
+
+				logger.Sugar().Infof("expected shortest path travel time: %f, got: %f\n", res.expectedSp, res.crpALTSP)
+				cancel()
+
+				logger.Sugar().Infof("\n")
+			}
+		}
+	}()
 
 	for i := 0; i < n; i++ {
 		s := queries[i]
-
 		for t := da.Index(0); t < da.Index(numberOfVertices); t++ {
 			workers.AddJob(newQuery(da.Index(i), s, t, da.Index(i)*da.Index(numberOfVertices)+t))
 		}
 	}
-	logger.Sugar().Infof("start crp query...")
-
-	ctx, cancel := context.WithCancel(context.Background())
 	workers.Close()
-	workers.StartWithContext(ctx, calcSp)
 	workers.Wait()
-
-	for res := range workers.CollectResults() {
-		if res.counterexample {
-			logger.Sugar().Infof("found counterExample!!\n")
-
-			logger.Sugar().Infof("expected shortest path travel time: %f, got: %f\n", res.expectedSp, res.crpALTSP)
-			cancel()
-			// logger.Sugar().Infof("\n expected shortest path vertex ids:\n")
-			// for j := 0; j < len(res.expectedSpEdges); j++ {
-			// 	logger.Sugar().Infof("%v, ", res.expectedSpEdges[j])
-			// }
-
-			// logger.Sugar().Infof("\n got shortest path vertex ids:\n")
-			// for j := 0; j < len(res.crpALTSPEdges); j++ {
-			// 	logger.Sugar().Infof("%v, ", res.crpALTSPEdges[j])
-			// }
-
-			logger.Sugar().Infof("\n")
-		}
-	}
 
 	logger.Sugar().Infof("done")
 }

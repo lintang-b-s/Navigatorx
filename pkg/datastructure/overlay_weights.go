@@ -20,7 +20,9 @@ type OverlayWeights struct {
 }
 
 func (ow *OverlayWeights) GetWeight(i Index) float64 {
+	ow.lock.RLock()
 	shortcutWeight := ow.weights[i]
+	ow.lock.RUnlock()
 	return shortcutWeight
 }
 
@@ -40,14 +42,6 @@ func (ow *OverlayWeights) GetNumberOfShortcuts() int {
 func (ow *OverlayWeights) SetWeight(index int, weight float64) {
 	ow.lock.Lock()
 	ow.weights[index] = weight
-	ow.lock.Unlock()
-}
-
-func (ow *OverlayWeights) Lock() {
-	ow.lock.Lock()
-}
-
-func (ow *OverlayWeights) Unlock() {
 	ow.lock.Unlock()
 }
 

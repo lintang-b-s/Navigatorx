@@ -68,6 +68,12 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 }
 
 func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
+	var (
+		travelTime, dist float64
+		pathCoords       *da.Coordinates
+		edgePath         []da.Index
+		found            bool
+	)
 
 	if util.IsTimeout(ctx) { // https://engineering.grab.com/context-deadlines-and-how-to-set-them
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
@@ -75,8 +81,6 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
-	// as = exit/outEdge index of origin
-	// at = entry/inEdge index of destination
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
@@ -86,13 +90,6 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	if util.IsTimeout(ctx) {
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
 	}
-
-	var (
-		travelTime, dist float64
-		pathCoords       *da.Coordinates
-		edgePath         []da.Index
-		found            bool
-	)
 
 	crpQuery := routing.NewCRPALTBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0)
 	travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(sp, tp)
@@ -126,8 +123,6 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
-	// as = exit/outEdge index of origin
-	// at = entry/inEdge index of destination
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
@@ -151,7 +146,7 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 		altPathCoords := alt.GetCoords()
 
 		newTravelTime, dist := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alt.GetDrivingTravelTime(), alt.GetDist())
-		alternatives[i].SetDrivingTravelTime(newTravelTime)
+		alternatives[i].SetDrivingTravelTime(newTravelTime) // in seconds
 		alternatives[i].SetDist(dist)
 
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
@@ -190,9 +185,13 @@ func (rs *RoutingService) GetRoutingEngine() *routing.CRPRoutingEngine {
 }
 
 func (rs *RoutingService) Snap(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64) (da.PhantomNode, da.PhantomNode) {
-	if util.IsTimeout(ctx) { 
+	if util.IsTimeout(ctx) {
 		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
 	}
 
 	return rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
+}
+
+func (rs *RoutingService) InitBackgroundWorker(ctx context.Context) {
+	rs.engine.InitBackgroundWorker(ctx)
 }

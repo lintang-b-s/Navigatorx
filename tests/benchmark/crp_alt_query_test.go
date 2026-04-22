@@ -40,6 +40,7 @@ const (
 	overlayGraphFile string = "./data/overlay_graph_benchmark.graph"
 	metricsFile      string = "./data/metrics_benchmark.txt"
 	landmarkFile     string = "./data/landmark_benchmark.lm"
+	timeFunctionFile string = "./data/timeFunctionFile_benchmark.txt"
 )
 
 type query struct {
@@ -125,7 +126,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 
 	m, err := custom.Customize()
 	if err != nil {
@@ -142,7 +143,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}

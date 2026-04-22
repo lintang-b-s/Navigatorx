@@ -1,8 +1,14 @@
 package routing
 
 import (
+	"context"
+	"crypto/sha256"
+	"fmt"
+	"io"
+	"os"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -12,12 +18,13 @@ import (
 )
 
 type CRPRoutingEngine struct {
-	graph              *da.Graph
-	overlayGraph       *da.OverlayGraph
-	metrics            *met.Metric
-	lm                 *landmark.Landmark
-	logger             *zap.Logger
-	puCache            *ristretto.Cache[[]byte, []da.Index]
+	graph        *da.Graph
+	overlayGraph *da.OverlayGraph
+	metrics      *met.Metric
+	lm           *landmark.Landmark
+	logger       *zap.Logger
+	puCache      *ristretto.Cache[[]byte, []da.Index]
+
 	fHeapPool          sync.Pool
 	bHeapPool          sync.Pool
 	pufOverlayHeapPool sync.Pool
@@ -26,9 +33,7 @@ type CRPRoutingEngine struct {
 	unpackedPathPool   sync.Pool
 	stallingEntryPool  sync.Pool
 	stallingExitPool   sync.Pool
-
-	customizer   Customizer
-	costFunction CostFunction
+	costFunction       CostFunction
 
 	unpackerWorkers                     int
 	unpackerForAlternativeRoutesWorkers int
@@ -37,14 +42,13 @@ type CRPRoutingEngine struct {
 func NewCRPRoutingEngine(graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric,
 	logger *zap.Logger, puCache *ristretto.Cache[[]byte, []da.Index],
-	customizer Customizer, costFunction CostFunction, lm *landmark.Landmark) *CRPRoutingEngine {
+	costFunction CostFunction, lm *landmark.Landmark) *CRPRoutingEngine {
 	e := &CRPRoutingEngine{
 		graph:        graph,
 		metrics:      metrics,
 		overlayGraph: overlayGraph,
 		logger:       logger,
 		puCache:      puCache,
-		customizer:   customizer,
 		costFunction: costFunction,
 		lm:           lm,
 	}
@@ -131,8 +135,52 @@ func (crp *CRPRoutingEngine) initParameter() {
 	crp.unpackerForAlternativeRoutesWorkers = numCpu / 6
 }
 
-func (crp *CRPRoutingEngine) GetMaxSpeed(e da.OutEdge) float64 {
-	return crp.metrics.GetMaxSpeed(&e)
+func (crp *CRPRoutingEngine) InitBackgroundWorker(ctx context.Context) {
+
+	go crp.checkCustomizerUpdate(crp.metrics.GetFilePath(), ctx)
+}
+
+func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx context.Context) {
+	lastHash, err := checksumFile(metricsFilePath)
+	if err != nil {
+		crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read & compute checksum : %v\n", err)
+	}
+	
+	ticker := time.NewTicker(CUSTOMIZER_UPDATER_TIMER_SECONDS)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			currentHash, err := checksumFile(metricsFilePath)
+			if err != nil {
+				crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read & compute checksum: %v\n", err)
+				continue
+			}
+
+			if currentHash != lastHash {
+				crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: checksum changed  old=%s  new=%s\n, updating the metrics and timeFunction....", lastHash, currentHash)
+				lastHash = currentHash
+				crp.metrics.UpdateMetrics()
+			}
+		}
+	}
+}
+
+func checksumFile(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+
+	return fmt.Sprintf("%x", h.Sum(nil)), nil
 }
 
 func (crp *CRPRoutingEngine) Close() {
@@ -142,20 +190,23 @@ func (crp *CRPRoutingEngine) Close() {
 // GetWeight. get weight of outEdge/inEdge
 func (crp *CRPRoutingEngine) GetWeight(eId da.Index, outEdge bool) float64 {
 	if outEdge {
-		eDefaultWeight, eLength, eHighwayType := crp.graph.GetOutEdgeTripleWeight(eId)
-		return crp.metrics.GetWeight(eHighwayType, eDefaultWeight, eLength)
+		eDefaultWeight, eLength, _ := crp.graph.GetOutEdgeTripleWeightKey(eId)
+		return crp.metrics.GetWeight(eId, eDefaultWeight, eLength)
 	}
-	eDefaultWeight, eLength, eHighwayType := crp.graph.GetInEdgeTripleWeight(eId)
-	return crp.metrics.GetWeight(eHighwayType, eDefaultWeight, eLength)
+
+	eDefaultWeight, eLength, _ := crp.graph.GetInEdgeTripleWeightKey(eId)
+	eExitId := crp.graph.GetExitIdOfInEdge(eId)
+	return crp.metrics.GetWeight(eExitId, eDefaultWeight, eLength)
 }
 
 func (crp *CRPRoutingEngine) GetWeightFromLength(eId da.Index, eLength float64, outEdge bool) float64 {
 	if outEdge {
-		eDefaultWeight, _, eHighwayType := crp.graph.GetOutEdgeTripleWeight(eId)
-		return crp.metrics.GetWeight(eHighwayType, eDefaultWeight, eLength)
+		eDefaultWeight, _, _ := crp.graph.GetOutEdgeTripleWeightKey(eId)
+		return crp.metrics.GetWeight(eId, eDefaultWeight, eLength)
 	}
-	eDefaultWeight, _, eHighwayType := crp.graph.GetInEdgeTripleWeight(eId)
-	return crp.metrics.GetWeight(eHighwayType, eDefaultWeight, eLength)
+	eDefaultWeight, _, _ := crp.graph.GetInEdgeTripleWeightKey(eId)
+	eExitId := crp.graph.GetExitIdOfInEdge(eId)
+	return crp.metrics.GetWeight(eExitId, eDefaultWeight, eLength)
 }
 
 func (crp *CRPRoutingEngine) IsDummyOutEdge(eId da.Index) bool {

@@ -30,8 +30,6 @@ import (
 // untuk saat ini cuma shopping_malls.go buat cek correctness path unpacking
 // buat routing with turn restrictions gak ada dataset nya kucari diinternet, jadi cukup pakai dijkstra_with_turn_costs.go aja buat cek correctnessnya
 
-
-
 var (
 	partitionSizes         = flag.String("us", "8,10,11,12,14", "Multilevel Partition Sizes")
 	inputCoordFilePath     = flag.String("input_nodes", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-d.CAL.co", "path ke file .co dimacs 9th shortest path challnge")
@@ -42,8 +40,8 @@ var (
 )
 
 const (
-	queryWorkers           = 100
-	queryChannelSize       = 50000
+	queryWorkers           = 200
+	queryChannelSize       = 100000
 	dimacsModulo     int64 = 1 << 62
 	progress               = 5000
 )
@@ -320,8 +318,34 @@ func main() {
 		return newQueryRes(sp)
 	}
 
-	// write to ss correctness output file. see: https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk
+	logger.Sugar().Infof("start crp query...")
 
+	sourceChecksums := make([]int64, n+1)
+	ctx := context.Background()
+
+	for i, s := range sources {
+		workers := concurrent.NewWorkerPool[crpalt.QueryParam, queryRes](queryWorkers, queryChannelSize)
+		workers.StartWithContext(ctx, calcSp)
+		ssspCost := int64(0)
+		go func() {
+			for res := range workers.CollectResults() {
+				qSpCost := int64(res.spcost)
+				ssspCost = (ssspCost + qSpCost) % dimacsModulo
+			}
+		}()
+
+		for t := 1; t < n+1; t++ {
+			workers.AddJob(crpalt.NewQueryParam(da.Index((i*n)+(t-1)), s, da.Index(t)))
+		}
+		
+		workers.Close()
+		workers.Wait()
+
+		sourceChecksums[s] = ssspCost
+		logger.Sugar().Infof("done source %d/%d: %d", i+1, len(sources), s)
+	}
+
+	// write to ss correctness output file. see: https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk
 	fOut, err = os.Create(outputPath)
 	if err != nil {
 		panic(fmt.Errorf("err: %w", err))
@@ -349,39 +373,6 @@ func main() {
 	fmt.Fprintf(w, "g %d %d %d %d\n", n, m, minWeight, maxWeight)
 	fmt.Fprintf(w, "c\n")
 	fmt.Fprintf(w, "c distances for point-to-point queries:\n")
-
-	logger.Sugar().Infof("start crp query...")
-
-	sourceChecksums := make([]int64, n+1)
-	ctx := context.Background()
-
-	for i, s := range sources {
-		workers := concurrent.NewWorkerPool[crpalt.QueryParam, queryRes](queryWorkers, queryChannelSize)
-		workers.StartWithContext(ctx, calcSp)
-
-		jobsSubmitted := make(chan struct{})
-		go func(source da.Index, sourceIdx int) {
-			defer close(jobsSubmitted)
-			for t := 1; t < n+1; t++ {
-				workers.AddJob(crpalt.NewQueryParam(da.Index((sourceIdx*n)+(t-1)), source, da.Index(t)))
-			}
-			workers.Close()
-		}(s, i)
-
-		go func() {
-			<-jobsSubmitted
-			workers.WaitDirect()
-		}()
-
-		ssspCost := int64(0)
-		for res := range workers.CollectResults() {
-			qSpCost := int64(res.spcost)
-			ssspCost = (ssspCost + qSpCost) % dimacsModulo
-		}
-
-		sourceChecksums[s] = ssspCost
-		logger.Sugar().Infof("done source %d/%d: %d", i+1, len(sources), s)
-	}
 
 	for s, ssspCost := range sourceChecksums {
 		fmt.Fprintf(w, "d %d %d\n", s, ssspCost)

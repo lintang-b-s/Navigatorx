@@ -25,14 +25,14 @@ highway_whitelist:
   - private
 
 # see land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
-# supported: bicycle, foot, motorcycle, bus, hgv, goods, taxi, minibus
+# supported: motorcycle, car. todo: ( bicycle, foot, , bus, hgv, goods, taxi, minibus)
 vehicle_type: motorcar
 landmarks: 16
 
 maxspeeds:
   motorway: 100
-  trunk: 65
-  primary: 50
+  trunk: 55
+  primary: 45
   secondary: 40
   tertiary: 40
   unclassified: 25
@@ -54,7 +54,6 @@ turncosts: # (see section 4.1 and 7: https://www.microsoft.com/en-us/research/wp
   u_turn: 300 # ini adalah cost dari u-turn di two-way road (two-way road example: https://www.openstreetmap.org/way/1360292077)
   left_turn: 0
   right_turn: 0
-  straight_on: 0
 
 alternatives:
   alpha: # every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path

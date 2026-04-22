@@ -37,6 +37,8 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.Index) {
 
 	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
+
+
 	djKey := da.NewDijkstraKey(s, s)
 	us.pq.Insert(s, 0, sVertexInfo, djKey)
 

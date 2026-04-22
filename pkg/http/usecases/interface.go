@@ -1,6 +1,8 @@
 package usecases
 
 import (
+	"context"
+
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
@@ -14,6 +16,7 @@ type RoutingEngine interface {
 	GetWeightFromLength(eId da.Index, eLength float64, outEdge bool) float64
 	IsDummyOutEdge(eId da.Index) bool
 	IsDummyInEdge(eId da.Index) bool
+	InitBackgroundWorker(ctx context.Context)
 }
 
 type AlternativeRouteAlgorithm interface {

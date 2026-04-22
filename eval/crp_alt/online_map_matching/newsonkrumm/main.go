@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"flag"
 	"fmt"
@@ -112,6 +113,7 @@ const (
 	metricsFile              string = "./data/metrics_eval_mm.txt"
 	roadnetworkDriveFile            = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
 	landmarkFile                    = "./data/eval/mapmatching/landmark_nk.lm"
+	timeFunctionFile         string = "./data/timefunction_eval_mm.txt"
 )
 
 func init() {
@@ -271,7 +273,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		edges = append(edges, e)
 
 	}
-	graphStorage := da.NewGraphStorage(64)
+	graphStorage := da.NewGraphStorage(54)
 
 	graphEdges := make([]osmparser.Edge, 0, len(edges))
 
@@ -290,13 +292,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 
 		distance := 0.0
 		for i := 0; i < len(eGeometry); i++ {
-			pp := eGeometry[i]
-			ddist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(47.641583540898786, -122.26548052661369, pp.GetLat(), pp.GetLon()))
-			if util.Lt(ddist, 500) {
-				// ternyata emang koordinat edge geometry di evergreen point floating bridge gak ngepas di jembatannya
-				// pantes polyline hasil map matchingnya gak ngepas di jembatannya
-				// pasang breakpoint debugger disini buat lihat edge geometry nya
-			}
+
 			if i > 0 {
 				distance += geo.CalculateGreatCircleDistance(eGeometry[i-1].GetLat(), eGeometry[i-1].GetLon(),
 					eGeometry[i].GetLat(), eGeometry[i].GetLon())
@@ -304,7 +300,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		}
 
 		distanceInMeter := util.KilometerToMeter(distance)
-		speed := e.speed * 60 // m/s ke m/min
+		speed := e.speed
 		travelTimeWeight := distanceInMeter / speed
 
 		edgeLength[e.eId] = distanceInMeter
@@ -424,7 +420,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		return nil, nil, nil, nil, nil, err
 	}
 
-	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 	m, err := cust.Customize()
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -441,7 +437,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -487,15 +483,9 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		return edges
 	}
 
-	workers := concurrent.NewWorkerPool[query, []da.Index](100, len(queries))
-
-	for _, qq := range queries {
-		workers.AddJob(qq)
-	}
-	workers.Close()
-	workers.Start(computeRoute)
-	workers.Wait()
-
+	workers := concurrent.NewWorkerPool[query, []da.Index](100, 5)
+	ctx, cancel := context.WithCancel(context.Background())
+	workers.StartWithContext(ctx, computeRoute)
 	var N *da.SparseMatrix[int]
 	_, err = os.Stat(transitionMatrixFilepath)
 	if err == nil {
@@ -511,25 +501,32 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 			0, func(a, b int) bool { return a == b })
 	}
 
-	counter := 0
+	go func() {
+		counter := 0
+		for spEdges := range workers.CollectResults() {
+			if len(spEdges) == 0 {
+				continue
+			}
 
-	for spEdges := range workers.CollectResults() {
-		if len(spEdges) == 0 {
-			continue
+			for j := 0; j < len(spEdges)-1; j++ {
+				e := int(spEdges[j])
+				eNext := int(spEdges[j+1])
+				N.Set(N.Get(e, eNext)+1, e, eNext)
+			}
+			counter++
+			if counter%1e2 == 0 {
+				fmt.Printf("completed query: %v\n", counter)
+				N.WriteToFile(transitionMatrixFilepath)
+			}
 		}
+	}()
 
-		for j := 0; j < len(spEdges)-1; j++ {
-			e := int(spEdges[j])
-			eNext := int(spEdges[j+1])
-			N.Set(N.Get(e, eNext)+1, e, eNext)
-		}
-		counter++
-
-		if counter%1e2 == 0 {
-			fmt.Printf("completed query: %v\n", counter)
-			N.WriteToFile(transitionMatrixFilepath)
-		}
+	for _, qq := range queries {
+		workers.AddJob(qq)
 	}
+	workers.Close()
+	workers.Wait()
+	cancel()
 
 	logger.Sugar().Infof(" transition matrix built....")
 

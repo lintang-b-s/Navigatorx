@@ -75,21 +75,6 @@ func (wp *WorkerPool[T, G]) worker2(task JobFuncPlain) {
 	}
 }
 
-func (wp *WorkerPool[T, G]) worker(jobFunc JobFunc[T, G]) {
-	defer wp.wg.Done()
-	for job := range wp.jobQueue {
-		res := jobFunc(job)
-		wp.results <- res
-	}
-}
-
-func (wp *WorkerPool[T, G]) Start(jobFunc JobFunc[T, G]) {
-	for i := 1; i <= wp.numWorkers; i++ {
-		wp.wg.Add(1)
-		go wp.worker(jobFunc)
-	}
-}
-
 func (wp *WorkerPool[T, G]) workerWithContext(ctx context.Context, jobFunc JobFunc[T, G]) {
 	defer wp.wg.Done()
 
@@ -121,13 +106,6 @@ func (wp *WorkerPool[T, G]) StartWithContext(ctx context.Context, jobFunc JobFun
 }
 
 func (wp *WorkerPool[T, G]) Wait() {
-	go func() {
-		wp.wg.Wait()
-		close(wp.results)
-	}()
-}
-
-func (wp *WorkerPool[T, G]) WaitDirect() {
 	wp.wg.Wait()
 	close(wp.results)
 }

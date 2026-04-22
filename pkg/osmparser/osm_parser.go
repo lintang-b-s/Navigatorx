@@ -783,7 +783,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 
 	distanceInMeter := util.KilometerToMeter(distance)
 
-	travelTimeWeight := distanceInMeter / util.KMHToMMin(speed) // in minutes
+	travelTimeWeight := distanceInMeter / util.KMHToMSeconds(speed) // in seconds
 
 	p.osmWayDefaultSpeed[id] = speed
 

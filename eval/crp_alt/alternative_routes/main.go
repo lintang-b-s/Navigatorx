@@ -39,6 +39,7 @@ const (
 	overlayGraphFile string = "./data/overlay_graph_eval_alt.graph"
 	metricsFile      string = "./data/metrics_eval_alt.txt"
 	landmarkFile     string = "./data/landmark_eval_alt.lm"
+	timeFunctionFile string = "./data/timefunction_eval_alt.txt"
 )
 
 func init() {
@@ -161,7 +162,7 @@ func main() {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
 
 	m, err := custom.Customize()
 	if err != nil {
@@ -178,7 +179,7 @@ func main() {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, logger)
+	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}
