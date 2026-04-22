@@ -66,6 +66,7 @@ func (tf *TimeFunction) GetWeight(eId da.Index, eDefaultWeight, eLength float64)
 		}
 		return eLength / maxspeed
 	}
+	// ini buat correctness test
 	return eDefaultWeight
 }
 

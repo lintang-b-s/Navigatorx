@@ -2,9 +2,7 @@ package routing
 
 import (
 	"context"
-	"crypto/sha256"
 	"fmt"
-	"io"
 	"os"
 	"runtime"
 	"sync"
@@ -141,11 +139,11 @@ func (crp *CRPRoutingEngine) InitBackgroundWorker(ctx context.Context) {
 }
 
 func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx context.Context) {
-	lastHash, err := checksumFile(metricsFilePath)
+	lastModifiedTime, err := isFileUpdated(metricsFilePath)
 	if err != nil {
 		crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read & compute checksum : %v\n", err)
 	}
-	
+
 	ticker := time.NewTicker(CUSTOMIZER_UPDATER_TIMER_SECONDS)
 	defer ticker.Stop()
 	for {
@@ -153,34 +151,29 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			currentHash, err := checksumFile(metricsFilePath)
+			currModifiedTime, err := isFileUpdated(metricsFilePath)
 			if err != nil {
 				crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read & compute checksum: %v\n", err)
 				continue
 			}
 
-			if currentHash != lastHash {
-				crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: checksum changed  old=%s  new=%s\n, updating the metrics and timeFunction....", lastHash, currentHash)
-				lastHash = currentHash
+			if currModifiedTime != lastModifiedTime {
+				crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: checksum changed  old=%s  new=%s\n, updating the metrics and timeFunction....", lastModifiedTime, currModifiedTime)
+				lastModifiedTime = currModifiedTime
 				crp.metrics.UpdateMetrics()
 			}
 		}
 	}
 }
 
-func checksumFile(path string) (string, error) {
-	f, err := os.Open(path)
+func isFileUpdated(path string) (int64, error) {
+
+	info, err := os.Stat(path)
 	if err != nil {
-		return "", err
+		return 0, fmt.Errorf("")
 	}
-	defer f.Close()
-
-	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return "", err
-	}
-
-	return fmt.Sprintf("%x", h.Sum(nil)), nil
+	lastModTime := info.ModTime().Unix()
+	return lastModTime, nil
 }
 
 func (crp *CRPRoutingEngine) Close() {
