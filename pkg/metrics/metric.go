@@ -20,7 +20,7 @@ import (
 // NOTE: sebelum tambahin atomic.Value dan atomic.Pointer di metrics.go dan landmark.go, live heap (HTOP RES) setelah server initialize (setelah read graph, overlayGraph, landmarks, metrics, dll..) cuma 800-840 mb
 // tapi setelah tambahin atomic.Value dan atomic.Point, live head (HTOP RES) jadi 1.7 GB
 // masalah kedua kalau pakai RWMutex RLock() buat sinkronisasi updateMetrics, p95,avg latency dari load test jadi jauh lebih lambat (lebih dari 10x)....
-// TODO: investigate ini dan optimize buat live heap sama seperti semula
+// TODO: investigate ini dan optimize buat live heap sama seperti semula (DONE). ternyata gara gara lupa kasih * time.Second di durasi ticker engine_background_worker.go
 type Metric struct {
 	// https://go101.org/article/concurrent-atomic-operation.html   https://pkg.go.dev/sync/atomic#Pointer.Load   https://go.dev/ref/mem#atomic
 	weights                              atomic.Pointer[da.OverlayWeights]
