@@ -18,16 +18,17 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 		crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time : %v\n", err)
 	}
 
-	ticker := time.NewTicker(CUSTOMIZER_UPDATER_TIMER_SECONDS)
-	defer ticker.Stop()
+	timer := time.NewTicker(CUSTOMIZER_UPDATER_TIMER_SECONDS)
+	defer timer.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
+		case <-timer.C:
 			currModifiedTime, err := isFileUpdated(metricsFilePath)
 			if err != nil {
 				crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time: %v\n", err)
+
 				continue
 			}
 
@@ -70,6 +71,8 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 					lastModifiedTime = currModifiedTime
 				}
 			}
+
+
 		}
 	}
 }

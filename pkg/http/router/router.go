@@ -65,7 +65,13 @@ func (api *API) Run(
 	shutdownPeriod time.Duration,
 ) error {
 	ctx, cleanup := NewContext(routingService.GetRoutingEngine(), routingService)
-	defer cleanup()
+	defer func() {
+		cleanup()
+		ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		util.Sleep(ctxWithTimeout, readinessDrainDelay)
+		cancel()
+	}()
+	
 	log.Info("Run httprouter API")
 
 	routingService.InitBackgroundWorker(ctx)

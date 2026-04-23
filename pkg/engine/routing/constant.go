@@ -1,5 +1,7 @@
 package routing
 
+import "time"
+
 const (
 	UNPACK_OVERLAY_OFFSET int = 31 // set 32-th bit on
 	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
@@ -12,6 +14,6 @@ const (
 	VIA_VERTICES_INITIAL_CAPACITY = 16
 	MOTORWAY_PENALTY              = 1
 
-	CUSTOMIZER_UPDATER_TIMER_SECONDS = 1
-	MAX_RETRY = 5
+	CUSTOMIZER_UPDATER_TIMER_SECONDS = 1 * time.Second
+	MAX_RETRY                        = 5
 )
