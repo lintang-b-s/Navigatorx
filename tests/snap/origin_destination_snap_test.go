@@ -22,7 +22,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
@@ -44,7 +43,7 @@ const (
 	timeFunctionFile string = "./data/timefunction_od_test.txt"
 )
 
-func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
+func setup(t *testing.T) (*engine.Engine, *zap.Logger) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -122,19 +121,9 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 
-	m, err := custom.Customize()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, graph, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = lm.WriteLandmark(landmarkFile, graph)
+	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -144,12 +133,12 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
 		t.Fatal(err)
 	}
 
-	return re, lm, logger
+	return re, logger
 }
 
 // cd tests/snap && go test -run TestOriginDestinationSnap  -v -timeout=0  -count=1
 func TestOriginDestinationSnap(t *testing.T) {
-	eng, _, logger := setup(t)
+	eng, logger := setup(t)
 	re := eng.GetRoutingEngine()
 	g := re.GetGraph()
 

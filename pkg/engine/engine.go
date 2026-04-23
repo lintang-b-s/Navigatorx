@@ -55,7 +55,7 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 		panic(err)
 	}
 
-	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, lm)
+	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, landmarkFile)
 
 	return &Engine{
 		crpRoutingEngine: re,
@@ -105,12 +105,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v")
 	}
 
-	lm, err := landmark.ReadLandmark(landmarkFile)
-	if err != nil {
-		panic(err)
-	}
-
-	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, lm)
+	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, landmarkFile)
 
 	return re, nil
 }

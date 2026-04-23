@@ -25,7 +25,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
@@ -420,21 +419,10 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		return nil, nil, nil, nil, nil, err
 	}
 
-	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
-	m, err := cust.Customize()
+	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	_, err = cust.Customize()
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
-	}
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(2, m, g, logger)
-	if err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-
-	err = lm.WriteLandmark(landmarkFile, g)
-	if err != nil {
-		panic(err)
 	}
 
 	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)

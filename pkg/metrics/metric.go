@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -17,16 +18,21 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// NOTE: sebelum tambahin atomic.Value dan atomic.Pointer di metrics.go dan landmark.go, live heap (HTOP RES) setelah server initialize (setelah read graph, overlayGraph, landmarks, metrics, dll..) cuma 800-840 mb
+// tapi setelah tambahin atomic.Value dan atomic.Point, live head (HTOP RES) jadi 1.7 GB
+// masalah kedua kalau pakai RWMutex RLock() buat sinkronisasi updateMetrics, p95,avg latency dari load test jadi jauh lebih lambat (lebih dari 10x)....
+// TODO: investigate ini dan optimize buat live heap sama seperti semula
 type Metric struct {
-	weights                        atomic.Pointer[da.OverlayWeights]
-	entryStallingTables            atomic.Value // stallingTables for vertice-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
-	exitStallingTables             atomic.Value
-	costFunction                   atomic.Pointer[costfunction.TimeFunction]
-	filepath, timeFunctionFilePath string
-	lock                           sync.Mutex
+	// https://go101.org/article/concurrent-atomic-operation.html   https://pkg.go.dev/sync/atomic#Pointer.Load   https://go.dev/ref/mem#atomic
+	weights                              atomic.Pointer[da.OverlayWeights]
+	entryStallingTables                  atomic.Value // stallingTables for vertex-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
+	exitStallingTables                   atomic.Value
+	costFunction                         atomic.Pointer[costfunction.TimeFunction]
+	metricFilepath, timeFunctionFilePath string
+	lock                                 sync.Mutex
 }
 
-func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *da.OverlayWeights,
+func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *da.OverlayWeights, metricFilepath string,
 ) *Metric {
 	var (
 		err error
@@ -35,15 +41,14 @@ func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *d
 	if timeFunctionFilePath != "" {
 		tf, err = cf.ReadFromFile(timeFunctionFilePath)
 		if err != nil {
-			panic(fmt.Errorf("NewMetric: failed to read time function: %w", err))
+			panic(fmt.Errorf("NewMetric: failed to read time function: %v", err))
 		}
 	} else {
 		tf = cf.NewTimeCostFunctionEmpty()
 	}
 
 	m := &Metric{
-
-		filepath:             "",
+		metricFilepath:       metricFilepath,
 		timeFunctionFilePath: timeFunctionFilePath,
 		lock:                 sync.Mutex{},
 	}
@@ -169,16 +174,12 @@ func (met *Metric) GetWeight(eId da.Index,
 
 // GetEntryStallingTableCost. get precomputed max_k{T_v[i,k] - T_v[j,k]}
 func (met *Metric) GetEntryStallingTableCost(uId da.Index, offset da.Index) float64 {
-
-	entryStallingTable := met.entryStallingTables.Load().([][]float64)
-	return entryStallingTable[uId][offset]
+	return met.entryStallingTables.Load().([][]float64)[uId][offset]
 }
 
 // GetExitStallingTableCost. get precomputed  max_k{T_v[k,i] - T_v[k,j]}
 func (met *Metric) GetExitStallingTableCost(uId da.Index, offset da.Index) float64 {
-
-	exitStallingTable := met.exitStallingTables.Load().([][]float64)
-	return exitStallingTable[uId][offset]
+	return met.exitStallingTables.Load().([][]float64)[uId][offset]
 }
 
 func (met *Metric) GetShortcutWeight(offset da.Index) float64 {
@@ -192,7 +193,7 @@ func (met *Metric) GetTurnCost(t pkg.TurnType) float64 {
 }
 
 func (met *Metric) GetFilePath() string {
-	return met.filepath
+	return met.metricFilepath
 }
 
 func (met *Metric) WriteToFile(filename string) error {
@@ -441,10 +442,11 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 	}
 	tf, err := cf.ReadFromFile(timeFunctionFilePath)
 	if err != nil {
-		panic(fmt.Errorf("NewMetric: failed to read time function: %w", err))
+		panic(fmt.Errorf("NewMetric: failed to read time function: %v", err))
 	}
 	metric := &Metric{
-		filepath: filename,
+		metricFilepath:       filename,
+		timeFunctionFilePath: timeFunctionFilePath,
 	}
 
 	ovWeights := da.NewOverlayWeights(numWeights)
@@ -457,9 +459,11 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 }
 
 func (met *Metric) UpdateMetrics() error {
-	newMet, err := ReadFromFile(met.filepath, met.timeFunctionFilePath)
+	// nunggu ke flush dulu writer nya, ini kalau gak pakai sleep bakal error ReadFromFile nya karena belum keflush semua data metricsnya ke file
+	time.Sleep(2 * time.Second)
+	newMet, err := ReadFromFile(met.metricFilepath, met.timeFunctionFilePath)
 	if err != nil {
-		return errors.Wrapf(err, "error reading new metrics, filepath: %s", met.filepath)
+		return errors.Wrapf(err, "UpdateMetrics: failed to read new metrics, filepath: %s", met.metricFilepath)
 	}
 
 	met.lock.Lock()

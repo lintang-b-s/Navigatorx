@@ -1,12 +1,9 @@
 package routing
 
 import (
-	"context"
 	"fmt"
-	"os"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -32,6 +29,7 @@ type CRPRoutingEngine struct {
 	stallingEntryPool  sync.Pool
 	stallingExitPool   sync.Pool
 	costFunction       CostFunction
+	landmarkFile       string
 
 	unpackerWorkers                     int
 	unpackerForAlternativeRoutesWorkers int
@@ -40,7 +38,11 @@ type CRPRoutingEngine struct {
 func NewCRPRoutingEngine(graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric,
 	logger *zap.Logger, puCache *ristretto.Cache[[]byte, []da.Index],
-	costFunction CostFunction, lm *landmark.Landmark) *CRPRoutingEngine {
+	costFunction CostFunction, landmarkFile string) *CRPRoutingEngine {
+	lm, err := landmark.ReadLandmark(landmarkFile)
+	if err != nil {
+		panic(fmt.Errorf("NewCRPRoutingEngine: failed to read precomputed landmark distances: %v", err))
+	}
 	e := &CRPRoutingEngine{
 		graph:        graph,
 		metrics:      metrics,
@@ -49,6 +51,7 @@ func NewCRPRoutingEngine(graph *da.Graph,
 		puCache:      puCache,
 		costFunction: costFunction,
 		lm:           lm,
+		landmarkFile: landmarkFile,
 	}
 	e.BuildQueryHeapPool()
 	e.initParameter()
@@ -131,48 +134,6 @@ func (crp *CRPRoutingEngine) initParameter() {
 	numCpu := runtime.NumCPU()
 	crp.unpackerWorkers = numCpu / 6
 	crp.unpackerForAlternativeRoutesWorkers = numCpu / 6
-}
-
-func (crp *CRPRoutingEngine) InitBackgroundWorker(ctx context.Context) {
-	go crp.checkCustomizerUpdate(crp.metrics.GetFilePath(), ctx)
-}
-
-func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx context.Context) {
-	lastModifiedTime, err := isFileUpdated(metricsFilePath)
-	if err != nil {
-		crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time : %v\n", err)
-	}
-
-	ticker := time.NewTicker(CUSTOMIZER_UPDATER_TIMER_SECONDS)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			currModifiedTime, err := isFileUpdated(metricsFilePath)
-			if err != nil {
-				crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time: %v\n", err)
-				continue
-			}
-
-			if currModifiedTime != lastModifiedTime {
-				crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: file modification time changed  old=%s  new=%s\n, updating the metrics and timeFunction....", lastModifiedTime, currModifiedTime)
-				lastModifiedTime = currModifiedTime
-				crp.metrics.UpdateMetrics()
-			}
-		}
-	}
-}
-
-func isFileUpdated(path string) (int64, error) {
-
-	info, err := os.Stat(path)
-	if err != nil {
-		return 0, fmt.Errorf("")
-	}
-	lastModTime := info.ModTime().Unix()
-	return lastModTime, nil
 }
 
 func (crp *CRPRoutingEngine) Close() {

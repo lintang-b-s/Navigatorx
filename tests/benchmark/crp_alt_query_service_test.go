@@ -17,7 +17,7 @@ cd tests/benchmark && go test -bench BenchmarkShortestPathService -benchmem -cpu
 func BenchmarkShortestPathService(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
 
-	eng, queries, g, _, logger := setup()
+	eng, queries, g, logger := setup()
 	start := time.Now()
 	re := eng.GetRoutingEngine()
 

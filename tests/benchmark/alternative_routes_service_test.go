@@ -17,7 +17,7 @@ cd tests/benchmark && go test -bench BenchmarkAlternativeRoutesService -benchmem
 func BenchmarkAlternativeRoutesService(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
 
-	eng, queries, g, _, logger := setup()
+	eng, queries, g, logger := setup()
 	start := time.Now()
 	re := eng.GetRoutingEngine()
 

@@ -17,7 +17,7 @@ import (
 )
 
 func BenchmarkAlternativeRoutesController(b *testing.B) {
-	eng, _, _, _, logger := setup()
+	eng, _, _, logger := setup()
 	re := eng.GetRoutingEngine()
 
 	g := re.GetGraph()

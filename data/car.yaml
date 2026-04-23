@@ -31,8 +31,8 @@ landmarks: 16
 
 maxspeeds:
   motorway: 100
-  trunk: 55
-  primary: 45
+  trunk: 60
+  primary: 50
   secondary: 40
   tertiary: 40
   unclassified: 25

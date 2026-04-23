@@ -17,7 +17,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
@@ -162,19 +161,9 @@ func main() {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 
-	m, err := custom.Customize()
-	if err != nil {
-		panic(err)
-	}
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, custom.GetGraph(), logger)
-	if err != nil {
-		panic(err)
-	}
-	err = lm.WriteLandmark(landmarkFile, custom.GetGraph())
+	_, err = custom.Customize()
 	if err != nil {
 		panic(err)
 	}

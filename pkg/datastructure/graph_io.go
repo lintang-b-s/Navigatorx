@@ -834,16 +834,16 @@ func parseVertex(line string) (Vertex, uint64, error) {
 
 	lat, err := strconv.ParseFloat(tokens[5], 64)
 	if err != nil {
-		return NewEmptyVertex(), 0, fmt.Errorf("lat: %w", err)
+		return NewEmptyVertex(), 0, fmt.Errorf("lat: %v", err)
 	}
 	lon, err := strconv.ParseFloat(tokens[6], 64)
 	if err != nil {
-		return NewEmptyVertex(), 0, fmt.Errorf("lon: %w", err)
+		return NewEmptyVertex(), 0, fmt.Errorf("lon: %v", err)
 	}
 
 	osmId, err := strconv.ParseUint(tokens[7], 10, 64)
 	if err != nil {
-		return NewEmptyVertex(), 0, fmt.Errorf("lon: %w", err)
+		return NewEmptyVertex(), 0, fmt.Errorf("lon: %v", err)
 	}
 
 	return Vertex{

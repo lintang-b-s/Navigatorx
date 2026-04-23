@@ -2,9 +2,11 @@ package customizer
 
 import (
 	"encoding/csv"
+	"fmt"
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
 	"github.com/cockroachdb/errors"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -48,6 +50,9 @@ kita harus bikin background worker (goroutine dengan inf for loop) yang ngeread 
 kalau berubah kita read dan swap metrics (shortcuts weight) yang ada di memory + ada write lock nya
 
 oke gitu doang
+
+todo: add background worker buat update conditional turn restriction & conditional barrier restriction 
+contoh conditional barrier restriction: https://www.openstreetmap.org/node/10303116750
 */
 
 // LookupTable. buat simpan mapping dari osmNodeId -> graph vertexId
@@ -121,26 +126,30 @@ func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []floa
 	}
 
 	n := len(data)
-	updatedEdges := make([]da.Index, n)
-	updatedEdgeSpeeds := make([]float64, n)
+	updatedEdges := make([]da.Index, 0, n)
+	updatedEdgeSpeeds := make([]float64, 0, n)
 	for rowId := 0; rowId < n; rowId++ {
 		row := data[rowId]
-		fromOsmId, err := util.ParseUInt64(row[0])
+		fromOsmIdString := strings.TrimSpace(row[0])
+		fromOsmId, err := util.ParseUInt64(fromOsmIdString)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readEdgeSpeedsFile: failed to parse uint64 fromOsmId")
+			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readEdgeSpeedsFile: failed to parse uint64 fromOsmId: %s", fromOsmIdString)
 		}
-		toOsmId, err := util.ParseUInt64(row[1])
+		toOsmIdString := strings.TrimSpace(row[1])
+		toOsmId, err := util.ParseUInt64(toOsmIdString)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readEdgeSpeedsFile: failed to parse uint64 toOsmId")
+			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readEdgeSpeedsFile: failed to parse uint64 toOsmId: %s", toOsmIdString)
 		}
 
 		fromVId := c.verticesLookupTable.Get(fromOsmId)
 		if fromVId == INVALID_LOOKUPTABLE_VAL_ID {
 			c.logger.Sugar().Warnf("no edge found from %v to %v", fromOsmId, toOsmId)
+			continue
 		}
 		toVId := c.verticesLookupTable.Get(toOsmId)
 		if toVId == INVALID_LOOKUPTABLE_VAL_ID {
 			c.logger.Sugar().Warnf("no edge found from %v to %v", fromOsmId, toOsmId)
+			continue
 		}
 
 		updatedEId := da.INVALID_EDGE_ID
@@ -154,12 +163,51 @@ func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []floa
 
 		if updatedEId == da.INVALID_EDGE_ID {
 			c.logger.Sugar().Warnf("no edge found from %v to %v ", fromOsmId, toOsmId)
+			continue
 		}
 
-		updatedEdgeSpeed, err := strconv.ParseFloat(row[2], 64)
+		updatedEdgeSpeedString := strings.TrimSpace(row[2])
+		updatedEdgeSpeed, err := strconv.ParseFloat(updatedEdgeSpeedString, 64)
+		if err != nil {
+			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readEdgeSpeedsFile: failed to parse segent speed: %s", updatedEdgeSpeedString)
+		}
+
 		updatedEdges = append(updatedEdges, updatedEId)
+		updatedEdgeSpeed = util.KMHToMSeconds(updatedEdgeSpeed) // convert to m/s
 		updatedEdgeSpeeds = append(updatedEdgeSpeeds, updatedEdgeSpeed)
 	}
 
 	return updatedEdges, updatedEdgeSpeeds, nil
+}
+
+// updatedSegment. satu row di segment speed csv file
+// fromOsmId, toOsmId, speed (in km/h).
+type UpdatedSegment struct {
+	fromOsmId int64
+	toOsmId   int64
+	speed     float64 // in km/h
+}
+
+func NewUpdatedSegment(fromOsmId, toOsmId int64, speed float64) UpdatedSegment {
+	return UpdatedSegment{fromOsmId: fromOsmId, toOsmId: toOsmId, speed: speed}
+}
+
+// WriteUpdatedSegmentsToCSV. write segment csv file
+func WriteUpdatedSegmentsToCSV(filepath string, segments []UpdatedSegment) error {
+	f, err := os.Create(filepath)
+	if err != nil {
+		return errors.Wrapf(err, "WriteUpdatedSegmentsToCSV: failed to create file %v", filepath)
+	}
+	defer f.Close()
+
+	for _, seg := range segments {
+		speedStr := strconv.FormatFloat(seg.speed, 'f', -1, 64)
+		_, err := fmt.Fprintf(f, "%d, %d, %s\n", seg.fromOsmId, seg.toOsmId, speedStr)
+		if err != nil {
+			return errors.Wrapf(err, "WriteUpdatedSegmentsToCSV: failed to write row for segment (%d,%d)",
+				seg.fromOsmId, seg.toOsmId)
+		}
+	}
+
+	return nil
 }

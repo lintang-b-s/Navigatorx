@@ -7,10 +7,8 @@ import (
 	"strings"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/spf13/viper"
 )
 
 var (
@@ -45,21 +43,9 @@ func main() {
 		panic(err)
 	}
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 	custom.SetEdgeSpeedsFilePath(*edgeSpeedsFile)
-	m, err := custom.Customize()
-	if err != nil {
-		panic(err)
-	}
-
-	lm := landmark.NewLandmark()
-	numberOfLandmarks := viper.GetInt("landmarks")
-
-	err = lm.PreprocessALT(numberOfLandmarks, m, custom.GetGraph(), logger)
-	if err != nil {
-		panic(err)
-	}
-	err = lm.WriteLandmark(landmarkFile, custom.GetGraph())
+	_, err = custom.Customize()
 	if err != nil {
 		panic(err)
 	}
