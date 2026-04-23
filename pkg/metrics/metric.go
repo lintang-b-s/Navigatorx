@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -204,13 +203,20 @@ func (met *Metric) WriteToFile(filename string) error {
 		}
 	}
 
-	f, err := os.Create(filename)
+	tmpFile, err := os.CreateTemp(dir, ".metrics_tmp_*")
 	if err != nil {
-		return errors.Wrapf(err, "metrics.WriteToFile: failed to create file %v", filename)
+		return errors.Wrapf(err, "metrics.WriteToFile: failed to create temp file in %v", dir)
 	}
-	defer f.Close()
+	tmpName := tmpFile.Name()
 
-	w := bufio.NewWriter(f)
+	succeeded := false
+	defer func() {
+		if !succeeded {
+			os.Remove(tmpName)
+		}
+	}()
+
+	w := bufio.NewWriter(tmpFile)
 
 	weights := met.weights.Load().GetWeights()
 	entryStallingTables := met.entryStallingTables.Load().([][]float64)
@@ -220,17 +226,20 @@ func (met *Metric) WriteToFile(filename string) error {
 
 		_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(weight, 'f', -1, 64))
 		if err != nil {
+			tmpFile.Close()
 			return errors.Wrapf(err, "metrics.WriteToFile: failed to write metrics weight %v", weight)
 		}
 		if i < len(weights)-1 {
 			_, err := fmt.Fprintf(w, " ")
 			if err != nil {
+				tmpFile.Close()
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write metrics weight")
 			}
 		}
 	}
 	_, err = fmt.Fprintf(w, "\n")
 	if err != nil {
+		tmpFile.Close()
 		return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
 	}
 
@@ -238,6 +247,7 @@ func (met *Metric) WriteToFile(filename string) error {
 		if entryStallingTables[i] == nil {
 			_, err = fmt.Fprintf(w, "0\n")
 			if err != nil {
+				tmpFile.Close()
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write 0\n")
 			}
 
@@ -245,23 +255,27 @@ func (met *Metric) WriteToFile(filename string) error {
 		}
 		_, err = fmt.Fprintf(w, "%d ", len(entryStallingTables[i]))
 		if err != nil {
+			tmpFile.Close()
 			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(entryStallingTables[i]): %v", len(entryStallingTables[i]))
 		}
 		for j, val := range entryStallingTables[i] {
 			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
 			if err != nil {
+				tmpFile.Close()
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write entryStallingTables[i]: %v", entryStallingTables[i])
 			}
 
 			if j < len(entryStallingTables[i])-1 {
 				_, err = fmt.Fprintf(w, " ")
 				if err != nil {
+					tmpFile.Close()
 					return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
 				}
 			}
 		}
 		_, err = fmt.Fprintf(w, "\n")
 		if err != nil {
+			tmpFile.Close()
 			return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
 		}
 	}
@@ -270,36 +284,56 @@ func (met *Metric) WriteToFile(filename string) error {
 		if exitStallingTables[i] == nil {
 			_, err = fmt.Fprintf(w, "0\n")
 			if err != nil {
+				tmpFile.Close()
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write 0\n")
 			}
 			continue
 		}
 		_, err = fmt.Fprintf(w, "%d ", len(exitStallingTables[i]))
 		if err != nil {
+			tmpFile.Close()
 			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(exitStallingTables[i]): %v", len(exitStallingTables[i]))
 		}
 		for j, val := range exitStallingTables[i] {
 			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
 			if err != nil {
+				tmpFile.Close()
 				return errors.Wrapf(err, "metrics.WriteToFile: failed to write exitStallingTables[i]: %v", exitStallingTables[i])
 			}
 			if j < len(exitStallingTables[i])-1 {
 				_, err = fmt.Fprintf(w, " ")
 				if err != nil {
+					tmpFile.Close()
 					return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
 				}
 			}
 		}
 		_, err = fmt.Fprintf(w, "\n")
 		if err != nil {
+			tmpFile.Close()
 			return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
 		}
 	}
 
 	if err = w.Flush(); err != nil {
+		tmpFile.Close()
 		return errors.Wrapf(err, "metric.WriteToFile: failed to flush bufio writer")
 	}
 
+	if err = tmpFile.Sync(); err != nil {
+		tmpFile.Close()
+		return errors.Wrapf(err, "metric.WriteToFile: failed to sync temp file")
+	}
+
+	if err = tmpFile.Close(); err != nil {
+		return errors.Wrapf(err, "metric.WriteToFile: failed to close temp file")
+	}
+
+	if err = os.Rename(tmpName, filename); err != nil {
+		return errors.Wrapf(err, "metric.WriteToFile: failed to rename temp file to %v", filename)
+	}
+
+	succeeded = true
 	return nil
 }
 
@@ -459,8 +493,6 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 }
 
 func (met *Metric) UpdateMetrics() error {
-	// nunggu ke flush dulu writer nya, ini kalau gak pakai sleep bakal error ReadFromFile nya karena belum keflush semua data metricsnya ke file
-	time.Sleep(2 * time.Second)
 	newMet, err := ReadFromFile(met.metricFilepath, met.timeFunctionFilePath)
 	if err != nil {
 		return errors.Wrapf(err, "UpdateMetrics: failed to read new metrics, filepath: %s", met.metricFilepath)

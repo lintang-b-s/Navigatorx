@@ -33,11 +33,11 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 
 			if currModifiedTime != lastModifiedTime {
 				crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: file modification time changed  old=%d  new=%d\n, updating the metrics and costFunction....", lastModifiedTime, currModifiedTime)
-				err := crp.updateMetrics(lastModifiedTime, currModifiedTime)
+				err := crp.updateMetrics()
 				if err != nil {
 					success := false
 					for attempts := 0; attempts < MAX_RETRY; attempts++ {
-						// exponential backoff:M 1s, 2s, 4s, 8s, ...
+						// exponential backoff: 1s, 2s, 4s, 8s, ...
 						delay := time.Duration(1<<attempts) * time.Second
 
 						log.Printf("Scheduling retry for updating metrics job in %v", delay)
@@ -48,7 +48,7 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 							case <-ctx.Done():
 								return
 							default:
-								err := crp.updateMetrics(lastModifiedTime, currModifiedTime)
+								err := crp.updateMetrics()
 								if err != nil {
 									continue
 								} else {
@@ -74,7 +74,7 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 	}
 }
 
-func (crp *CRPRoutingEngine) updateMetrics(lastModifiedTime, currModifiedTime int64) (err error) {
+func (crp *CRPRoutingEngine) updateMetrics() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic recovered: %v", r)

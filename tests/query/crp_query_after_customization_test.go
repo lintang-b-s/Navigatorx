@@ -64,7 +64,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 			updatedSegmentSpeeds: []segmentSpeedData{
 				// jalan margo mulyo
 				{
-					fromOsmId: 2601239374,
+					fromOsmId: 2601239374, // https://www.openstreetmap.org/node/2601239374
 					toOsmId:   1472574635,
 					speed:     0.1, // 0.1 km/h
 				},
@@ -323,7 +323,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 			}
 
 			logger.Sugar().Infof("waiting for the routing engine to update its metrics...")
-			time.Sleep(5 * time.Second) // biarkan crp_query_after_customization_test.go bekerja dulu
+			time.Sleep(2 * time.Second) // biarkan  engine_background_worker.go bekerja dulu
 			// setelah kustomisasi, rute yang direturn harus gak lewat jalan jalan yang diblokade (tc.updatedSegments)
 
 			// cek shortest path route
