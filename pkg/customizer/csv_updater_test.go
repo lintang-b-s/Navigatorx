@@ -2,39 +2,39 @@ package customizer
 
 import (
 	"math/rand"
+	"sort"
 	"testing"
 	"time"
-
-	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 func TestLookupTable(t *testing.T) {
 	t.Run("test lookup table", func(t *testing.T) {
 		rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
-		const maxValUint34 = (uint64(1) << 34) - 1
+		const maxValUint34 = (int(1) << 34) - 1
 		const numInputs = int(2e6)
 
-		ps := da.NewPackedSlice(34, uint64(numInputs))
+		set := make(map[int]struct{})
 
-		set := make(map[uint64]struct{})
-
-		randomInput := make([]uint64, numInputs)
+		randomInput := make([]int, numInputs)
 		for i := 0; i < numInputs; {
-			randVal := uint64(rd.Int63n(int64(maxValUint34)))
+			randVal := int(rd.Int63n(int64(maxValUint34)))
 			_, ok := set[randVal]
 			if !ok {
 				randomInput[i] = randVal
-				ps.Append(randVal)
-				
+
 				set[randVal] = struct{}{}
 				i++
 			}
 		}
 
-		vOsmNodeIdLookupTable := NewLookupTable[uint64](randomInput, func(a, b uint64) bool {
+		vOsmNodeIdLookupTable := NewLookupTable[int](randomInput, func(a, b int) bool {
 			return a < b
 		})
+
+		if !sort.IntsAreSorted(vOsmNodeIdLookupTable.data) {
+			t.Errorf("expected lookupTable.data sorted, got not sorted")
+		}
 
 		for expectedVId := 0; expectedVId < numInputs; expectedVId++ {
 			ithOsmNodeId := randomInput[expectedVId]

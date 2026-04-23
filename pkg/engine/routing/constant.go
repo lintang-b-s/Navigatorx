@@ -13,4 +13,5 @@ const (
 	MOTORWAY_PENALTY              = 1
 
 	CUSTOMIZER_UPDATER_TIMER_SECONDS = 1
+	MAX_RETRY = 5
 )

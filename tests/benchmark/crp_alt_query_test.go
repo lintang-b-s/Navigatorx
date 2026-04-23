@@ -21,7 +21,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
@@ -47,7 +46,7 @@ type query struct {
 	s, t da.Index
 }
 
-func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logger) {
+func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		panic(err)
 	}
@@ -126,19 +125,9 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 
-	m, err := custom.Customize()
-	if err != nil {
-		panic(err)
-	}
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, graph, logger)
-	if err != nil {
-		panic(err)
-	}
-	err = lm.WriteLandmark(landmarkFile, graph)
+	_, err = custom.Customize()
 	if err != nil {
 		panic(err)
 	}
@@ -190,7 +179,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *landmark.Landmark, *zap.Logge
 
 	logger.Sugar().Infof("starting benchmark.....")
 
-	return re, queries, g, lm, logger
+	return re, queries, g, logger
 }
 
 /*
@@ -210,7 +199,7 @@ todo2: optimize sampai p95 latency computeRoute ngalahin osrm  (DONE)
 func BenchmarkCRPALTQuery(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
 
-	eng, queries, g, _, _ := setup()
+	eng, queries, g, _ := setup()
 	start := time.Now()
 	re := eng.GetRoutingEngine()
 

@@ -25,7 +25,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -157,20 +156,10 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: prep.PreProcessing() failed: %v", err)
 	}
 
-	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
-	m, err := cust.Customize()
+	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	_, err = cust.Customize()
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: cust.Customize() failed: %v", err)
-	}
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(2, m, graph, logger)
-	if err != nil {
-		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph:  lm.PreprocessALT() failed: %v", err)
-	}
-	err = lm.WriteLandmark(landmarkFile, graph)
-	if err != nil {
-		panic(err)
 	}
 
 	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)

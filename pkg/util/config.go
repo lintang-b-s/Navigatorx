@@ -12,7 +12,7 @@ func ReadConfig(wordkingDir string) error {
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		return fmt.Errorf("fatal error config file: %w", err)
+		return fmt.Errorf("fatal error config file: %v", err)
 	}
 	return nil
 }
@@ -23,7 +23,7 @@ func ReadProfileConfig(wordkingDir string, profile string) error {
 
 	err := viper.ReadInConfig()
 	if err != nil {
-		return fmt.Errorf("fatal error config file: %w", err)
+		return fmt.Errorf("fatal error config file: %v", err)
 	}
 	return nil
 }

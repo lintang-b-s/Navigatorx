@@ -246,7 +246,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = lm.WriteLandmark(landmarkFile, g)
+		err = lm.WriteLandmark(landmarkFile, g.NumberOfVertices())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -337,7 +337,7 @@ func init() {
 	util.InitConfig()
 }
 
-func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *zap.Logger) {
+func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -421,19 +421,9 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *za
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 
-	m, err := custom.Customize()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, graph, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = lm.WriteLandmark(landmarkFile, graph)
+	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -443,7 +433,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *landmark.Landmark, *za
 		t.Fatal(err)
 	}
 
-	return re, lm, logger
+	return re, logger
 }
 
 /*
@@ -464,7 +454,7 @@ karena bakal time out kalau pakai vscode
 */
 
 func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
-	eng, _, _ := setup(t, false)
+	eng, _ := setup(t, false)
 	re := eng.GetRoutingEngine()
 	g := re.GetGraph()
 
@@ -636,7 +626,7 @@ karena bakal time out kalau pakai vscode
 */
 
 func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
-	eng, _, _ := setup(t, true)
+	eng, _ := setup(t, true)
 	re := eng.GetRoutingEngine()
 	g := re.GetGraph()
 
@@ -712,7 +702,6 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 	workersDijkstra.Close()
 	workersDijkstra.Wait()
 	cancel()
-	
 
 	type query struct {
 		i, s, t da.Index
@@ -838,7 +827,7 @@ please run the test using command: "cd tests/query && go test -run TestCRPQueryT
 karena bakal time out kalau pakai vscode
 */
 func TestCRPQueryTurnRestriction(t *testing.T) {
-	eng, _, logger := setup(t, true)
+	eng, logger := setup(t, true)
 	re := eng.GetRoutingEngine()
 	g := re.GetGraph()
 	altSearch := routing.NewAlternativeRouteSearch(re)
@@ -910,6 +899,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 	}
 
 	// path= list of edgeIds
+	// cek palo path contain turn restriction (from-way,via-node/via-ways,to-way)
 	isCorrect := func(path []da.Index, tr turnResType) ([]int64, bool) {
 		restrictedPathLength := 0
 		if tr.isViaWay {
@@ -994,3 +984,5 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 		})
 	}
 }
+
+

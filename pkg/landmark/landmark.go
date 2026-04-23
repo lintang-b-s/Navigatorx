@@ -10,6 +10,7 @@ import (
 	"sort"
 	"strconv"
 	"sync"
+	"sync/atomic"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/cockroachdb/errors"
@@ -25,17 +26,21 @@ import (
 )
 
 type Landmark struct {
-	lw        [][]float64 // distance from each landmarks to every vertices in graph
-	vlw       [][]float64 // distance from all vertices to each landmarks
-	landmarks []da.Index  // landmark vertex ids
+	lw        atomic.Value // distance from each landmarks to every vertices in graph
+	vlw       atomic.Value // distance from all vertices to each landmarks
+	landmarks atomic.Value // landmark vertex ids
 
 }
 
 func NewLandmark() *Landmark {
-	return &Landmark{
-		lw:        make([][]float64, 0),
-		landmarks: make([]da.Index, 0),
-	}
+	lm := &Landmark{}
+	lw := make([][]float64, 0)
+	lm.lw.Store(lw)
+	vlw := make([][]float64, 0)
+	lm.vlw.Store(vlw)
+	landmarks := make([]da.Index, 0)
+	lm.landmarks.Store(landmarks)
+	return lm
 }
 
 /*
@@ -183,24 +188,24 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 	n := graph.NumberOfVertices()
 
 	if n < k {
-		lm.lw = make([][]float64, 0)
-		lm.landmarks = make([]da.Index, 0)
+		lm.lw.Store(make([][]float64, 0))
+		lm.landmarks.Store(make([]da.Index, 0))
 		return nil
 	}
 
 	logger.Info("computing landmarks....")
-	lm.lw = make([][]float64, k)
-	lm.landmarks = make([]da.Index, k)
+	lw := make([][]float64, k)
+	landmarks := make([]da.Index, k)
 
-	lm.vlw = make([][]float64, n)
+	vlw := make([][]float64, n)
 	for i := 0; i < n; i++ {
-		lm.vlw[i] = make([]float64, k)
+		vlw[i] = make([]float64, k)
 	}
 
 	for i := 0; i < k; i++ {
-		lm.lw[i] = make([]float64, n)
+		lw[i] = make([]float64, n)
 	}
-	landmarks := lm.SelectLandmarksTwo(k, graph)
+	landmarksVertices := lm.SelectLandmarksTwo(k, graph)
 
 	maxSearchSize := graph.NumberOfEdges()
 	maxEdgesInCell := graph.GetMaxEdgesInCell()
@@ -246,17 +251,17 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 			il := res.getIndex()
 			sps := res.getSpCosts()
 			for v := 0; v < n; v++ {
-				lm.vlw[v][il] = sps[v]
+				vlw[v][il] = sps[v]
 			}
 			wg.Done()
 		}
 	}()
-	
+
 	go func() {
 		for res := range dijkstraOutChan {
 			il := res.getIndex()
 			sps := res.getSpCosts()
-			copy(lm.lw[il], sps)
+			copy(lw[il], sps)
 			wg.Done()
 		}
 	}()
@@ -267,9 +272,9 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 	}
 
 	for i := 0; i < k; i++ {
-		landmark := landmarks[i]
+		landmark := landmarksVertices[i]
 		sid := landmark.GetID()
-		lm.landmarks[i] = sid
+		landmarks[i] = sid
 		wg.Add(2)
 		dijkstraInChan <- newQueryparam(i, sid)
 		dijkstraRevInChan <- newQueryparam(i, sid)
@@ -281,6 +286,10 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 	wg.Wait()
 	close(dijkstraOutChan)
 	close(dijkstraRevOutChan)
+
+	lm.landmarks.Store(landmarks)
+	lm.lw.Store(lw)
+	lm.vlw.Store(vlw)
 
 	logger.Info("done computing landmarks....")
 	return nil
@@ -304,11 +313,13 @@ activeLandmarks berisi list index dari active query landmark (list index dari lm
 func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) float64 {
 	// O(k), k = number of landmarks
 	tighestLowerBound := -pkg.INF_WEIGHT
+	vlw := lm.vlw.Load().([][]float64)
+	lw := lm.lw.Load().([][]float64)
 	for i := 0; i < len(activeLandmarks); i++ {
 		landmarkId := activeLandmarks[i]
 
-		lbOne := lm.vlw[u][landmarkId] - lm.vlw[t][landmarkId]
-		lbTwo := lm.lw[landmarkId][t] - lm.lw[landmarkId][u]
+		lbOne := vlw[u][landmarkId] - vlw[t][landmarkId]
+		lbTwo := lw[landmarkId][t] - lw[landmarkId][u]
 
 		betterLb := 0.0
 		if util.Gt(lbOne, lbTwo) {
@@ -345,15 +356,16 @@ Use only an active subset:  (page 6)
 – prefer landmarks that give the best lower bound on dist(s, t).
 */
 func (lm *Landmark) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
-	bestLandmarks := make([]da.Index, 0, len(lm.landmarks))
+	landmarks := lm.landmarks.Load().([]da.Index)
+	bestLandmarks := make([]da.Index, 0, len(landmarks))
 
-	oriLandmarks := make([]da.Index, len(lm.landmarks))
-	for i := 0; i < len(lm.landmarks); i++ {
+	oriLandmarks := make([]da.Index, len(landmarks))
+	for i := 0; i < len(landmarks); i++ {
 		oriLandmarks[i] = da.Index(i)
 	}
 
-	lowerBounds := make([]activeLandmark, len(lm.landmarks))
-	for i := 0; i < len(lm.landmarks); i++ {
+	lowerBounds := make([]activeLandmark, len(landmarks))
+	for i := 0; i < len(landmarks); i++ {
 		lb, _ := lm.FindTighestConsistentLowerBound(s, s, t, oriLandmarks)
 		lowerBounds[i] = newActiveLandmark(da.Index(i), lb)
 	}
@@ -393,22 +405,22 @@ func (lm *Landmark) FindTighestConsistentLowerBound(u, s, t da.Index, activeLand
 }
 
 func (lm *Landmark) GetLandmarkVId(i da.Index) da.Index {
-	return lm.landmarks[i]
+	return lm.landmarks.Load().([]da.Index)[i]
 }
 
 func (lm *Landmark) GetLandmarkVIds() []da.Index {
-	return lm.landmarks
+	return lm.landmarks.Load().([]da.Index)
 }
 
 func (lm *Landmark) GetLandmarkVWeights() [][]float64 {
-	return lm.lw
+	return lm.lw.Load().([][]float64)
 }
 
 func (lm *Landmark) GetVerticesLandmarkWeights() [][]float64 {
-	return lm.vlw
+	return lm.vlw.Load().([][]float64)
 }
 
-func (lm *Landmark) WriteLandmark(filename string, graph *datastructure.Graph) error {
+func (lm *Landmark) WriteLandmark(filename string, n int) error {
 	dir := filepath.Dir(filename)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
 		if err := os.MkdirAll(dir, 0755); err != nil {
@@ -431,17 +443,19 @@ func (lm *Landmark) WriteLandmark(filename string, graph *datastructure.Graph) e
 
 	w := bufio.NewWriter(snp)
 
-	k := len(lm.landmarks)
+	landmarks := lm.landmarks.Load().([]da.Index)
+	k := len(landmarks)
+	lw := lm.lw.Load().([][]float64)
+	vlw := lm.vlw.Load().([][]float64)
 
-	n := graph.NumberOfVertices()
 	fmt.Fprintf(w, "%d %d\n", k, n)
 
 	for i := 0; i < k; i++ {
-		landmarkvId := lm.landmarks[i]
+		landmarkvId := landmarks[i]
 		fmt.Fprintf(w, "%d ", landmarkvId)
 
 		for v := 0; v < n; v++ {
-			sp := strconv.FormatFloat(lm.lw[i][v], 'f', -1, 64)
+			sp := strconv.FormatFloat(lw[i][v], 'f', -1, 64)
 			fmt.Fprintf(w, "%s", sp)
 			if v < n-1 {
 				fmt.Fprintf(w, " ")
@@ -451,7 +465,7 @@ func (lm *Landmark) WriteLandmark(filename string, graph *datastructure.Graph) e
 		fmt.Fprintf(w, "\n")
 
 		for v := 0; v < n; v++ {
-			sp := strconv.FormatFloat(lm.vlw[v][i], 'f', -1, 64)
+			sp := strconv.FormatFloat(vlw[v][i], 'f', -1, 64)
 			fmt.Fprintf(w, "%s", sp)
 			if v < n-1 {
 				fmt.Fprintf(w, " ")
@@ -474,13 +488,13 @@ const (
 func ReadLandmark(filename string) (*Landmark, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "ReadLandmark: failed to open file: %s", filename)
 	}
 
 	snp := s2.NewReader(f)
 
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrapf(err, "ReadLandmark: failed to create new s2 reader for file: %s", filename)
 	}
 	br := bufio.NewReaderSize(snp, landmarkBufferSize)
 
@@ -550,9 +564,21 @@ func ReadLandmark(filename string) (*Landmark, error) {
 	}
 
 	lm := NewLandmark()
-	lm.lw = lw
-	lm.vlw = vlw
-	lm.landmarks = landmarks
+	lm.lw.Store(lw)
+	lm.vlw.Store(vlw)
+	lm.landmarks.Store(landmarks)
 
 	return lm, nil
+}
+
+func (lm *Landmark) UpdateLandmarks(landmarkFilePath string) error {
+	newLandmark, err := ReadLandmark(landmarkFilePath)
+	if err != nil {
+		return errors.Wrapf(err, "UpdateLandmarks: failed to read new precalculated landmark distances: %v", err)
+	}
+
+	lm.landmarks.Store(newLandmark.landmarks.Load())
+	lm.lw.Store(newLandmark.lw.Load())
+	lm.vlw.Store(newLandmark.vlw.Load())
+	return nil
 }

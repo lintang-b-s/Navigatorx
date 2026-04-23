@@ -518,9 +518,8 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 			}
 		case "maxspeed":
 			{
-
+				
 				if strings.Contains(tag.Value, "mph") {
-
 					currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " mph", "", -1), 64)
 					if err != nil {
 						return "", err
@@ -608,9 +607,10 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		if err != nil {
 			return "", errors.Wrapf(err, "error parsing reversible oneway: %v", onewayReversible)
 		}
-		if onewayReversible == DIRECTION_FORWARD_REVERSIBLE {
+		switch onewayReversible {
+		case DIRECTION_FORWARD_REVERSIBLE:
 			wayExtraInfoData.forward = true
-		} else if onewayReversible == DIRECTION_BACKWARD_REVERSIBLE {
+		case DIRECTION_BACKWARD_REVERSIBLE:
 			wayExtraInfoData.forward = false
 		}
 	}

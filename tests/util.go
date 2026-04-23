@@ -15,7 +15,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
@@ -27,7 +26,7 @@ func init() {
 	util.InitProfileConfig("car")
 }
 
-func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.Logger, *landmark.Landmark) {
+func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.Logger, *customizer.Customizer) {
 	var ( //
 		mlpFile                 = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
 		url                     = fileUrl
@@ -112,19 +111,9 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 
-	m, err := custom.Customize()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, graph, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = lm.WriteLandmark(landmarkFile, graph)
+	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -134,5 +123,5 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 		t.Fatal(err)
 	}
 
-	return re, logger, lm
+	return re, logger, custom
 }

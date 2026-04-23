@@ -10,13 +10,11 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/spf13/viper"
 )
 
 func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine, *da.Graph,
@@ -100,23 +98,12 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 			panic(err)
 		}
 
-		cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
-		m, err := cust.Customize()
+		cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+		_, err := cust.Customize()
 		if err != nil {
 			panic(err)
 		}
 
-		lm := landmark.NewLandmark()
-		numberOfLandmarks := viper.GetInt("landmarks")
-
-		err = lm.PreprocessALT(numberOfLandmarks, m, cust.GetGraph(), logger)
-		if err != nil {
-			panic(err)
-		}
-		err = lm.WriteLandmark(landmarkFile, cust.GetGraph())
-		if err != nil {
-			panic(err)
-		}
 	} else {
 
 		mlp := datastructure.NewPlainMLP()

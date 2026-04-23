@@ -46,7 +46,7 @@ benchmark.test
 navigatorx*
 
 *coverage*
-
+*.cache
 
 
 *.csv

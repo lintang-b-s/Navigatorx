@@ -192,7 +192,7 @@ pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat kon
 dari Lemma 25.1 (Reweighting does not change shortest paths) pada ref 7:
 misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path from v0 to vk with weight function l if and only if it is a shortest path with weight function l_p
 
-Multilevel-ALT dibawah menggunakan fungsi potensial Bidirectional A* p_f(v)=\frac{\pi_f(v)-\pi_r(v)}{2} + \pi_r(t)/2  dan  p_r(v)=\frac{\pi_r(v)-\pi_f(v)}{2} + \pi_f(s)/2
+Multilevel-ALT dibawah menggunakan fungsi potensial Bidirectional A* p_f(v)=\frac{\pi_f(v)-\pi_r(v)}{2}  dan  p_r(v)=\frac{\pi_r(v)-\pi_f(v)}{2} 
 yang dijelaskan pada: https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 dan  https://www.microsoft.com/en-us/research/wp-content/uploads/2004/07/tr-2004-24.pdf
 serta memanfaaatkan shortcuts dari multilevel overlay graph hasil preprocessing dan customization phase dari Customizable Route Planning (CRP) yang

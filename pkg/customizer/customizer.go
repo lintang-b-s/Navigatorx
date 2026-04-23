@@ -9,8 +9,10 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -27,9 +29,10 @@ type Customizer struct {
 	overlayGraphFilePath string
 	metricOutputFilePath string
 	timefunctionFilePath string
+	landmarkFile         string
 }
 
-func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, timefunctionFilePath string,
+func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, timefunctionFilePath, landmarkFile string,
 	logger *zap.Logger) *Customizer {
 	cst := &Customizer{
 		graphFilePath:        graphFilePath,
@@ -37,6 +40,7 @@ func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, ti
 		metricOutputFilePath: metricOutputFilePath,
 		logger:               logger,
 		timefunctionFilePath: timefunctionFilePath,
+		landmarkFile:         landmarkFile,
 	}
 
 	return cst
@@ -56,8 +60,9 @@ func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, logger 
 
 func (c *Customizer) Customize() (*metrics.Metric, error) {
 
-	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 	var err error
+
+	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
 	c.graph, err = da.ReadGraph(c.graphFilePath)
 	if err != nil {
@@ -115,15 +120,28 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 
 	c.Build(costFunction)
 	c.logger.Sugar().Infof("Building stalling tables...")
-	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow)
+	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, c.metricOutputFilePath)
 
 	m.BuildStallingTables(c.overlayGraph, c.graph)
+
+	c.logger.Sugar().Infof("Customization step completed successfully.")
+
+	lm := landmark.NewLandmark()
+	numberOfLandmarks := viper.GetInt("landmarks")
+	err = lm.PreprocessALT(numberOfLandmarks, m, c.graph, c.logger)
+	if err != nil {
+		panic(err)
+	}
+	err = lm.WriteLandmark(c.landmarkFile, c.graph.NumberOfVertices())
+	if err != nil {
+		panic(err)
+	}
+
+	// ini write metrics harus terakhir karena bakal di update background worker
 	err = m.WriteToFile(c.metricOutputFilePath)
 	if err != nil {
 		return nil, err
 	}
-	c.logger.Sugar().Infof("Customization step completed successfully.")
-
 	return m, nil
 }
 
@@ -152,13 +170,15 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 
 	c.Build(costFunction)
 	c.logger.Sugar().Infof("Building stalling tables...")
-	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow)
+	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, "")
 	m.BuildStallingTables(c.overlayGraph, c.graph)
 	c.logger.Sugar().Infof("Customization step completed successfully.")
 
 	return m, nil
 }
 
+// makeEdgeMaxSpeeds. bikin map dari edgeId -> edge max speed (in m/s)
+// updatedEdgeMaxSpeeds in m/s.
 func (c *Customizer) makeEdgeMaxSpeeds(updatedEdgeIds []da.Index, updatedEdgeMaxSpeeds []float64) []float64 {
 
 	numOfEdges := c.graph.NumberOfOutEdges()

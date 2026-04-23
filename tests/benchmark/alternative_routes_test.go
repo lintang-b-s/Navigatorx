@@ -30,7 +30,7 @@ todo2: optimize sampai p95 latency alternative routes ngalahin osrm (DONE)
 func BenchmarkAlternativeRoutes(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
 
-	eng, queries, g, _, _ := setup()
+	eng, queries, g, _ := setup()
 	start := time.Now()
 	re := eng.GetRoutingEngine()
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))

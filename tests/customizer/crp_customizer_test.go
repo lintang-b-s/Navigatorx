@@ -315,7 +315,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		err = lm.WriteLandmark(landmarkFile, g)
+		err = lm.WriteLandmark(landmarkFile, g.NumberOfVertices())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -549,19 +549,9 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, logger)
+	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 
-	m, err := custom.Customize()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(16, m, graph, logger)
-	if err != nil {
-		t.Fatal(err)
-	}
-	err = lm.WriteLandmark(landmarkFile, graph)
+	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -571,20 +561,24 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		t.Fatal(err)
 	}
 
+	lm, err := landmark.ReadLandmark(landmarkFile)
+	if err != nil {
+		t.Fatal(err)
+	}
 	return re, lm
 }
 
-// todo: add test customizer & query pake file osm yang di gdrive
+// todo: add test customizer & query pake file osm yang di gdrive (DONE)
 // done test customizer
 // todo: add test preprocessor & query (DONE)
 // please run the test using command: "go test ./tests/customizer  -run TestCRPCustomizer  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 func TestCRPCustomizer(t *testing.T) {
-	re, lm := setup(t)
-
-	og := re.GetRoutingEngine().GetOverlayGraph()
-	m := re.GetRoutingEngine().GetMetrics()
-	g := re.GetRoutingEngine().GetGraph()
+	eng, lm := setup(t)
+	re := eng.GetRoutingEngine()
+	og := re.GetOverlayGraph()
+	m := re.GetMetrics()
+	g := re.GetGraph()
 	cellMapInLevelOne := og.GetAllCellsInLevel(1)
 
 	// validating shortcut weights di level 1
@@ -646,7 +640,7 @@ func TestCRPCustomizer(t *testing.T) {
 	for i := 0; i < len(landmarks); i++ {
 		landmarkVId := landmarks[i]
 		s := landmarkVId
-		dijkstraQuery := routing.NewDijkstra(re.GetRoutingEngine(), false)
+		dijkstraQuery := routing.NewDijkstra(re, false)
 		sps, _ := dijkstraQuery.ShortestPath(s)
 		for v := 0; v < n; v++ {
 			expectedSpToV := sps[v] // sp dist dari landmark ke v
@@ -656,7 +650,7 @@ func TestCRPCustomizer(t *testing.T) {
 			}
 		}
 
-		dijkstraQuery = routing.NewDijkstra(re.GetRoutingEngine(), true)
+		dijkstraQuery = routing.NewDijkstra(re, true)
 		sps, _ = dijkstraQuery.ShortestPath(s)
 		for v := 0; v < n; v++ {
 			expectedSPVToL := sps[v] // sp dist dari v ke landmark
@@ -666,5 +660,5 @@ func TestCRPCustomizer(t *testing.T) {
 			}
 		}
 	}
-
 }
+
