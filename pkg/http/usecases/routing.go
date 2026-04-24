@@ -192,6 +192,10 @@ func (rs *RoutingService) Snap(ctx context.Context, qOrigLat, qOrigLon, qDstLat,
 	return rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 }
 
+func (rs *RoutingService) GetBoundingBox(ctx context.Context) da.BoundingBox {
+	return *rs.graph.GetBoundingBox()
+}
+
 func (rs *RoutingService) InitBackgroundWorker(ctx context.Context) {
 	rs.engine.InitBackgroundWorker(ctx)
 }

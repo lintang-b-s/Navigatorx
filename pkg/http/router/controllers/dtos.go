@@ -35,6 +35,13 @@ type alternativeRoutesResponse struct {
 	Routes []shortestPathResponse `json:"alternative_routes"`
 }
 
+type boundingBoxResponse struct {
+	MinLat float64 `json:"min_lat"`
+	MinLon float64 `json:"min_lon"`
+	MaxLat float64 `json:"max_lat"`
+	MaxLon float64 `json:"max_lon"`
+}
+
 type drivingDirection struct {
 	Instruction string        `json:"instruction"`
 	Point       da.Coordinate `json:"turn_point"`
@@ -91,6 +98,10 @@ func NewAlternativeRoutesResponse(alts []routing.AlternativeRoute) alternativeRo
 	return altRes
 }
 
+func NewBoundingBox(bb da.BoundingBox) boundingBoxResponse {
+	return boundingBoxResponse{MinLat: bb.GetMinLat(), MinLon: bb.GetMinLon(), MaxLat: bb.GetMaxLat(), MaxLon: bb.GetMaxLon()}
+}
+
 type errorResponse struct {
 	Error struct {
 		Code    string `json:"code"`
@@ -102,7 +113,7 @@ type gps struct {
 	Lon           float64   `json:"lon" validate:"required,min=-180,max=180"`
 	Lat           float64   `json:"lat" validate:"required,min=-90,max=90"`
 	Time          time.Time `json:"time"`
-	Speed         float64   `json:"speed" validate:"min=0"` // 0 if time step k=0
+	Speed         float64   `json:"speed" validate:"min=0"` // 0 if time step k=0  m/s
 	DeltaTime     float64   `json:"delta_time" validate:"min=0"`
 	DeadReckoning bool      `json:"dead_reckoning"`
 }
@@ -139,8 +150,8 @@ type mapMatchRequest struct {
 	Gps         gps          `json:"gps_point"`
 	K           int          `json:"k" validate:"min=1"`
 	Candidates  []*Candidate `json:"candidates"`
-	SpeedMeanK  float64      `json:"speed_mean_k" validate:"min=0"`
-	SpeedStdK   float64      `json:"speed_std_k" validate:"min=0"`
+	SpeedMeanK  float64      `json:"speed_mean_k" validate:"min=0"` // m/s
+	SpeedStdK   float64      `json:"speed_std_k" validate:"min=0"`  // m/s
 	LastBearing float64      `json:"last_bearing" validate:"min=0"`
 }
 

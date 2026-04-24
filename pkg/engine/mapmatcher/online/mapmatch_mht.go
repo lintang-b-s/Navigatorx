@@ -185,6 +185,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 		posterior := (obsLogLikelihood + math.Log(cand.Weight())) - (allCandsWeightLSE)
 		candidates[i] = ma.NewCandidate(cand.EdgeId(), math.Exp(posterior), cand.Length())
 		candidates[i].SetProjectedCoord(cand.GetProjectedCoord().GetLat(), cand.GetProjectedCoord().GetLon())
+		candidates[i].SetEdgeBearing(cand.GetEdgeBearing())
 		sumPosterior += math.Exp(posterior)
 	}
 
@@ -206,10 +207,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 		if cand.Weight() > maxWeight {
 
 			projectedPointCoord := cand.GetProjectedCoord()
-			e := om.graph.GetOutEdge(cand.EdgeId())
-			tail := om.graph.GetVertex(om.graph.GetTailOfOutedge(e.GetEdgeId()))
-			head := om.graph.GetVertex(e.GetHead())
-			eInitialBearing := geo.BearingTo(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
+			eInitialBearing := cand.GetEdgeBearing()
 			matchedSegment = da.NewMatchedGPSPoint(gps, cand.EdgeId(), projectedPointCoord, eInitialBearing)
 			maxWeight = cand.Weight()
 		}
@@ -326,7 +324,7 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 	for _, cand := range candidates {
 
 		gpsCoord := da.NewCoordinate(gps.Lat(), gps.Lon())
-
+		candEdgeBearing := 0.0
 		eGeometry := om.graph.GetEdgeGeometry(cand.EdgeId())
 
 		var (
@@ -360,6 +358,8 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 				minDist = dist
 				minDistr = distr
 				bestProjectedPoint = projectedPoint
+				eInitialBearing := geo.BearingTo(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
+				candEdgeBearing = eInitialBearing
 			}
 
 			cumLength += util.KilometerToMeter(geo.CalculateGreatCircleDistance(
@@ -371,5 +371,6 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 		cand.SetProjectedCoord(bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon())
 		cand.SetDist(minDist)
 		cand.SetDistr(minDistr)
+		cand.SetEdgeBearing(candEdgeBearing)
 	}
 }

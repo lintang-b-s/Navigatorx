@@ -71,8 +71,6 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 					lastModifiedTime = currModifiedTime
 				}
 			}
-
-
 		}
 	}
 }

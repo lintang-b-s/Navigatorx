@@ -104,7 +104,7 @@ func (api *API) Run(
 
 	go func() {
 		mux := http.NewServeMux()
-		mux.HandleFunc("/ws", api.upstream("online map matcher", "tcp", "localhost"+":"+strconv.Itoa(config.WebsocketPort)))
+		mux.HandleFunc("/ws", api.upstream("online map matcher", "tcp", "127.0.0.1"+":"+strconv.Itoa(config.WebsocketPort)))
 
 		wsServer = &http.Server{
 			Addr:    fmt.Sprintf(":%d", config.ProxyPort),

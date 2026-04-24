@@ -14,6 +14,7 @@ type RoutingService interface {
 	GetRoutingEngine() *routing.CRPRoutingEngine
 	Close()
 	InitBackgroundWorker(ctx context.Context)
+	GetBoundingBox(ctx context.Context) da.BoundingBox
 }
 
 type MapMatcherService interface {

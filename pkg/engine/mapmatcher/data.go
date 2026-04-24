@@ -10,6 +10,7 @@ type Candidate struct {
 	distanceFromHead   float64
 	travelTimeFromTail float64
 	travelTimeFromHead float64
+	edgeBearing        float64 // in degrees
 
 	weight                     float64
 	length                     float64
@@ -60,6 +61,14 @@ func (c *Candidate) SetProjectedCoord(lat, lon float64) {
 	c.projectedLat, c.projectedLon = lat, lon
 }
 
+func (c *Candidate) SetEdgeBearing(edgeBearingDeg float64) {
+	c.edgeBearing = edgeBearingDeg
+}
+
+func (c *Candidate) GetEdgeBearing() float64 {
+	return c.edgeBearing
+}
+
 func (c *Candidate) GetProjectedCoord() da.Coordinate {
 	return da.NewCoordinate(c.projectedLat, c.projectedLon)
 }
@@ -103,7 +112,6 @@ func (c *Candidate) SetDistanceFromHead(dist float64) {
 func (c *Candidate) GetDistanceFromHead() float64 {
 	return c.distanceFromHead
 }
-
 
 func (c *Candidate) SetTravelTimeFromTail(dist float64) {
 	c.travelTimeFromTail = dist

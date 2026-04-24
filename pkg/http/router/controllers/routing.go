@@ -46,6 +46,7 @@ func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapM
 func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
 	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes)
+	group.GET("/boundingBox", api.GetBoundingBox)
 	group.POST("/onlineMapMatch", api.onlineMapMatch)
 
 }
@@ -166,6 +167,21 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 	headers := make(http.Header)
 
 	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewAlternativeRoutesResponse(alternatives)}, headers); err != nil {
+		api.ServerErrorResponse(w, r, err)
+		return
+	}
+}
+
+func (api *routingAPI) GetBoundingBox(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+
+	newCtx, cancel := ExtractDeadline(r.Context(), r)
+	defer cancel()
+
+	bb := api.routingService.GetBoundingBox(newCtx)
+
+	headers := make(http.Header)
+
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewBoundingBox(bb)}, headers); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}
