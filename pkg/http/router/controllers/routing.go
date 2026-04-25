@@ -15,6 +15,7 @@ import (
 	"github.com/go-playground/validator/v10"
 	enTranslations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/julienschmidt/httprouter"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	"go.uber.org/zap"
 )
@@ -81,7 +82,6 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 	}
 
 	if err := api.validate.Struct(request); err != nil {
-
 		vv := translateError(err, api.trans)
 		vvString := []string{}
 		for _, v := range vv {
@@ -91,11 +91,28 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		return
 	}
 
+	startEdgeId := da.INVALID_EDGE_ID
+	rerouteStr := query.Get("reroute")
+	reroute := false
+	if rerouteStr != "" {
+		reroute, err = strconv.ParseBool(rerouteStr)
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("reroute must be boolean"))
+			return
+		}
+
+		startEdgeId, err = da.ParseIndex(query.Get("start_edge_id"))
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("edgeId must be unsigned integer 32 bit"))
+			return
+		}
+	}
+
 	newCtx, cancel := ExtractDeadline(r.Context(), r)
 	defer cancel()
 
 	travelTime, dist, pathPolyline, drivingDirections, _, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
-		request.DestinationLat, request.DestinationLon)
+		request.DestinationLat, request.DestinationLon, reroute, startEdgeId)
 	if err != nil {
 		api.getStatusCode(w, r, err)
 		return
@@ -157,8 +174,25 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 	newCtx, cancel := ExtractDeadline(r.Context(), r)
 	defer cancel()
 
+	startEdgeId := da.INVALID_EDGE_ID
+	rerouteStr := query.Get("reroute")
+	reroute := false
+	if rerouteStr != "" {
+		reroute, err = strconv.ParseBool(rerouteStr)
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("reroute must be boolean"))
+			return
+		}
+
+		startEdgeId, err = da.ParseIndex(query.Get("start_edge_id"))
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("edgeId must be unsigned integer 32 bit"))
+			return
+		}
+	}
+
 	alternatives, _, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
-		request.DestinationLat, request.DestinationLon, int(request.K))
+		request.DestinationLat, request.DestinationLon, int(request.K), reroute, startEdgeId)
 	if err != nil {
 		api.getStatusCode(w, r, err)
 		return

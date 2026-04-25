@@ -39,7 +39,7 @@ func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, edgeId da.
 		relativeBearingDeg := util.RadiansToDegree(relativeBearing)
 		if relativeBearingDeg > U_TURN_RELATIVE_BEARING_MIN && relativeBearingDeg < U_TURN_RELATIVE_BEARING_MAX {
 			isUTurn = true
-			if sign < 0 {
+			if sign == da.TURN_LEFT || sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_SHARP_LEFT {
 				uTurnType = da.U_TURN_LEFT
 			} else {
 				uTurnType = da.U_TURN_RIGHT

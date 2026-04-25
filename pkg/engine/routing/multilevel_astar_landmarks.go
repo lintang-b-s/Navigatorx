@@ -32,7 +32,9 @@ type CRPALTBidirectionalSearch struct {
 	numScannedOverlayVertices int
 	runtime                   int64
 	pathUnpackingRuntime      int64
+	startEdgeId               da.Index
 	forAlternativeRoutes      bool
+	reroute                   bool
 
 	lastpqSum float64
 
@@ -82,7 +84,7 @@ https://doi.org/10.1287/trsc.2014.0579.
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
 let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
-let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, partitioning depth, and number of overlay vertices respectively.
+let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
 time complexity of CRP query is: O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o)), in this implementation, priority queue (4-ary heap) contains at most all edges in lowest level cell that containing s or t and all overlay vertices in all cell other than cell that containing s or t
 decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately scan v and add neighbor of v (vertex w) to priority queue
 extract-min at most O(m_p+n_o) operations
@@ -192,7 +194,7 @@ pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat kon
 dari Lemma 25.1 (Reweighting does not change shortest paths) pada ref 7:
 misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path from v0 to vk with weight function l if and only if it is a shortest path with weight function l_p
 
-Multilevel-ALT dibawah menggunakan fungsi potensial Bidirectional A* p_f(v)=\frac{\pi_f(v)-\pi_r(v)}{2}  dan  p_r(v)=\frac{\pi_r(v)-\pi_f(v)}{2} 
+Multilevel-ALT dibawah menggunakan fungsi potensial Bidirectional A* p_f(v)=\frac{\pi_f(v)-\pi_r(v)}{2}  dan  p_r(v)=\frac{\pi_r(v)-\pi_f(v)}{2}
 yang dijelaskan pada: https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 dan  https://www.microsoft.com/en-us/research/wp-content/uploads/2004/07/tr-2004-24.pdf
 serta memanfaaatkan shortcuts dari multilevel overlay graph hasil preprocessing dan customization phase dari Customizable Route Planning (CRP) yang
@@ -212,11 +214,35 @@ turn cost dari inEdge dari t ke destPhantomEdge ..
 kita udah include turn cost dari originPhantomEdge ke other outEdge dari s di awal forward search dan cost dari inEdge dari t ke destPhantomEdge di awal backward search
 sebenarnya setelah multilevel-dijkstra selesai (di routing.go), kita tambahin sp cost nya dengan travelTime(originPhantomNode, s) + travelTime(t, destPhantomNode)
 
+
+
+inti dari multilevel-ALT (A*, landmarks, and triangle inequality) [1] dan [2]:
+- ketika kita scan vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra -> est cost dari s to v udah equal to shortest path cost
+- ketika kita scan vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra -> est cost dari v to t udah equal to shortest path cost, kenapa??
+karena di backward search kita pakai reversed edges: semua edges (v,u) dengan (u,v)\in E, l(v,u)=l(u,v)  (see Single-destination shortest-paths problem in ref[7])
+- setelah forward search keluar dari cell level 1 dari s (sebelum masuk ke cell level 1 nya t), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
+- setelah backward search keluar dari cell level 1 dari t (sebelum masuk ke cell level 1 nya s), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
+- saat forward search masuk ke cell level 1 dari t, kita relax original edges (yang contained in cell level 1 dari t) dari graph nya.
+- saat backward search masuk ke cell level 1 dari s, kita relax reversed edges (yang contained in cell level 1 dari s) dari graph nya.
+- karena bidirectional search, kita pakai kriteria pemberhentian dari algoritma 2 [6] dan update esimated sp cost dari s ke t (\mu) setiap kali relax edge(u,v) yang head nya (v) udah di scan (extracted from pq) oleh another search seperti pada ref [6]: https://kam.mff.cuni.cz/~spring/media/papers/5/bidirectional_dijkstra.pdf
+- karena pakai turn cost pakai trik dijskstra with turn cost on compact graph yang dijelaskan pada section 4.2 ref[1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+- di graph_builder.go kita tambahkan dummy Outedge/InEdge (dengan turn cost ke other edge dari headnya/tailnya sama dengan 0) pada vertex yang outDegree/inDegree nya 0 agar saat kita tetap bisa compute shortest path dari s (yang inDegre nya 0) ke t (yang outDegree nya 0) (tested on tests/shortestpath dan tests/shortestpath_crp_alt)
+misal:
+ s -> v - > t
+inDegre(s)=0
+outDegree(t)=0
+kita tambahin dummy inEdge ke s dan dummy OUtEdge ke t
+q -> s -> v -> t -> z
+
+turnCost(q->s->v) = 0
+turnCost(v->t->z) = 0
+- karena kita apply Bidirectional-ALT, priority dari v di pq kita tambahin consistent potential function nya Bidirectional-ALT [3]:  https://www.microsoft.com/en-us/research/wp-content/uploads/2004/07/tr-2004-24.pdf
+
+
 untuk referensi lain implementasi routing with turn cost di road network dapat dilihat di:
 1. https://dl.acm.org/doi/10.5555/2008623.2008634
 2. https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp
-
+2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp  also see osrm graph representation: https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
 
 */
 
@@ -234,6 +260,9 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (
 
 	asId := sp.GetOutEdgeId()
 	atId := tp.GetInEdgeId()
+	if bs.reroute {
+		asId = bs.startEdgeId
+	}
 	// asId: Id of outEdge u->s  (head dari outEdge = s, tail dari outEdge = u )
 	// atId: Id of inEdge  t->v  (head dari inEdge = v, tail dari inEdge = t )
 	asEntryPoint = bs.engine.graph.GetEntryPointOfOutEdge(asId)
@@ -366,6 +395,10 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 			bs.engine.graph.GetCellNumber(vId))
 
 		edgeWeight := bs.engine.GetWeight(eId, true)
+
+		if bs.reroute && turnType == pkg.U_TURN {
+			return
+		}
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
@@ -528,6 +561,10 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 			bs.engine.graph.GetCellNumber(vId))
 
 		edgeWeight := bs.engine.GetWeight(eId, false)
+
+		if bs.reroute && turnType == pkg.U_TURN {
+			return
+		}
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
@@ -987,6 +1024,9 @@ func (bs *CRPALTBidirectionalSearch) Preallocate() {
 func (bs *CRPALTBidirectionalSearch) Done() {
 
 	if bs.forAlternativeRoutes {
+		// ingat: reslicing slice gak bakal bikin slice baru/resliced slices tetep refer ke original slice (https://go.dev/blog/slices-intro)
+		// karena kita pake isi dari queryHeap.heap buat cek est cost di alternative_routes.go, kita gak boleh clear queryHeap
+		// kalau queryHeap masih dipake buat algoritma buat find alternative routes....
 		return
 	}
 
@@ -1032,4 +1072,9 @@ func (bs *CRPALTBidirectionalSearch) OnMapMatching(handleRelaxOutEdge func(e *da
 	bs.mapmatching = true
 	bs.handleRelaxOutEdge = handleRelaxOutEdge
 	bs.handleRelaxInEdge = handleRelaxInEdge
+}
+
+func (bs *CRPALTBidirectionalSearch) SetReroute(startEdgeId da.Index) {
+	bs.reroute = true
+	bs.startEdgeId = startEdgeId
 }

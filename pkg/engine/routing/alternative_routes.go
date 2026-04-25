@@ -212,11 +212,11 @@ inti dari FindAlternativeRoutes:
 3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
 */
 
-func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, k int) ([]AlternativeRoute, float64, int64) {
+func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, k int, reroute bool, startEdgeId da.Index) ([]AlternativeRoute, float64, int64) {
 
 	/*
 		let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
-		let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, partitioning depth, and number of overlay vertices respectively.
+		let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
 		time complexity of CRP query is: O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o)), in this implementation, priority queue (4-ary heap) contains at most all edges in lowest level cell that containing s or t and all overlay vertices in all cell other than cell that containing s or t
 		decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately scan v and add neighbor of v (vertex w) to priority queue
 		extract-min at most O(m_p+n_o) operations
@@ -234,6 +234,9 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 
 	crpQuery := NewCRPBidirectionalSearch(ars.engine, param.upperBound)
 	crpQuery.SetForAlternativeRoutes(true)
+	if reroute {
+		crpQuery.SetReroute(startEdgeId)
+	}
 
 	defer func() {
 		crpQuery.SetForAlternativeRoutes(false)
@@ -434,7 +437,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 
 		/*
 			let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcuts within any partition
-			let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, partitioning depth, and number of overlay vertices respectively.
+			let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
 			lowest level cell: O(m_p*log(m_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most m_p (turn-based graph), decrease-key and insert at most O(m_p) operations, extract-min at-most O(m_p) operations
 			cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
 			let q = number of shorcut edges in packedPath
@@ -483,7 +486,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 		finalPath, totalDistance := ars.engine.GetEdgePath(res[i].GetEdgeIdPath())
 		res[i].SetCoordPath(finalPath)
 		res[i].SetDist(totalDistance)
-		
+
 	}
 
 	res = removeSimiliarAlternatives(res)

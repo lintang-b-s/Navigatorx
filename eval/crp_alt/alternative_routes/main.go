@@ -238,7 +238,7 @@ func main() {
 
 		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine())
 
-		alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(sp, tp, 4)
+		alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(sp, tp, 4, false, 0)
 
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)

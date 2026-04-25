@@ -66,7 +66,7 @@ misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path 
 
 time complexity:
 let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcuts within any partition
-let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, partitioning depth, and number of overlay vertices respectively.
+let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
 lowest level cell: O(m_p*log(m_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most m_p (turn-based graph), decrease-key and insert at most O(m_p) operations, extract-min at-most O(m_p) operations
 cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
 let q = number of shorcut edges in packedPath
@@ -81,7 +81,7 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 
 	// todo: sebelumnya pakai worker pools di worker_pool.go, di benchmark ada additional 40000 B/op, bikin worker pool yang allocate less space ?
 	// DONE: ternyata tanpa worker pool buat path unpacking lebih less space dan lebih bagus hasil load testnya
-	
+
 	shortcutPathSet := make(map[uint64]uint8)
 
 	for i := 0; i < len(packedPath); {

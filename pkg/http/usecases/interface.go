@@ -20,7 +20,7 @@ type RoutingEngine interface {
 }
 
 type AlternativeRouteAlgorithm interface {
-	FindAlternativeRoutes(sp, tp da.PhantomNode, k int) ([]routing.AlternativeRoute, float64, int64)
+	FindAlternativeRoutes(sp, tp da.PhantomNode, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, float64, int64)
 }
 
 type SpatialIndex interface {

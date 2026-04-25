@@ -287,7 +287,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 
 			// cek shortest path route
 			_, _, spPolyline, drivingDirections, _, _ := routingService.ShortestPath(context.Background(), q.originLat, q.originLon,
-				q.destLat, q.destLon)
+				q.destLat, q.destLon, false, 0)
 
 			spPathEdgeIds := make([]da.Index, 0, len(drivingDirections))
 			for _, dd := range drivingDirections {
@@ -328,7 +328,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 
 			// cek shortest path route
 			_, _, _, drivingDirections, _, _ = routingService.ShortestPath(context.Background(), q.originLat, q.originLon,
-				q.destLat, q.destLon)
+				q.destLat, q.destLon, false, 0)
 
 			spPathEdgeIdsAfterCustomization := make([]da.Index, 0, len(drivingDirections))
 			for _, dd := range drivingDirections {

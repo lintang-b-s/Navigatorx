@@ -125,6 +125,7 @@ func (qh *QueryHeap[T]) GetPriority(id Index) float64 {
 func (qh *QueryHeap[T]) Clear() {
 	qh.storage.Clear()
 	qh.queryInfos = qh.queryInfos[:0] //  buat slice length jadi 0, tapi capacity tetep sama, buat prevent array doubling dari dynamic array (slice)
+	// ingat: reslicing slice gak bakal bikin slice baru/resliced slices tetep refer ke original slice (https://go.dev/blog/slices-intro)
 	qh.heap.Clear()
 }
 

@@ -546,9 +546,8 @@ func main() {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(g, logger)
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(g, rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
-		0.05, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
-
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(g, rtree, 8.33333, 8.3333, 0.0001, 4.07, 0.0000001,
+		0.05, 3, N) // speed in meter/s,
 	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0644)
 	if err != nil {
 		panic(err)

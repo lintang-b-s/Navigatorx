@@ -443,9 +443,8 @@ func main() {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(graph, logger)
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.001, 4.07, 1.0, 0.000001,
-		0.06, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
-
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.001, 4.07, 0.000001,
+		0.06, 3, N) // speed in meter/s,
 	avgRuntimePerGpsPointAll := 0.0
 
 	totalPoints := 0.0

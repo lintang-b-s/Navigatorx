@@ -52,7 +52,7 @@ func BenchmarkAlternativeRoutes(b *testing.B) {
 		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
 
 		crpQuery := routing.NewAlternativeRouteSearch(re)
-		crpQuery.FindAlternativeRoutes(sPhantomNode, tPhantomNode, 3)
+		crpQuery.FindAlternativeRoutes(sPhantomNode, tPhantomNode, 3, false, 0)
 	}
 
 	now := time.Since(start)

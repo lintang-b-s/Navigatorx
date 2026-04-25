@@ -326,8 +326,8 @@ type Graph struct {
 	roadNetwork bool
 }
 
-func NewGraph(vertices []Vertex, forwardEdges []OutEdge, inEdges []InEdge, turnTables []pkg.TurnType, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
-	return &Graph{vertices: vertices, outEdges: forwardEdges, inEdges: inEdges, turnTables: turnTables, maxEdgesInCell: 0, roadNetwork: roadNetwork,
+func NewGraph(vertices []Vertex, outEdges []OutEdge, inEdges []InEdge, turnTables []pkg.TurnType, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
+	return &Graph{vertices: vertices, outEdges: outEdges, inEdges: inEdges, turnTables: turnTables, maxEdgesInCell: 0, roadNetwork: roadNetwork,
 		verticesOsmIds: verticesOsmIds}
 }
 
@@ -662,7 +662,7 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 
 func (g *Graph) ForOutEdges(handle func(exitPoint, head Index, tail, entryId, entryPoint Index, percentage float64, idx Index)) {
 	for idx, e := range g.outEdges {
-		if g.IsDummyOutEdge(Index(idx)) || g.IsParallelOutEdge(Index(idx)) {
+		if g.IsDummyOutEdge(Index(idx)) { // jangan skip parallel edges disini, karena masih kepake di map matching
 			continue
 		}
 

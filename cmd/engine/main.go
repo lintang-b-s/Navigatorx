@@ -79,9 +79,9 @@ func main() {
 		panic(err)
 	}
 
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(re.GetGraph(), rtree, 8.33333, 8.3333, 0.0001, 4.07, 1.0, 0.0000001,
-		0.06, 3, N) // speed in meter/s, default sampling interval 1.0 seconds (using seatle dataset)
-
+	graph := re.GetGraph()
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.0001, 4.07, 0.0000001,
+		0.06, 3, N) // speed in meter/s,
 	api := http.NewServer(logger)
 
 	altSearch := routing.NewAlternativeRouteSearch(re)

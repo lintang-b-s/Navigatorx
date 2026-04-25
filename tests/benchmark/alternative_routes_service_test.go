@@ -43,7 +43,7 @@ func BenchmarkAlternativeRoutesService(b *testing.B) {
 		tCoord := g.GetVertexCoordinate(t)
 
 		rs.AlternativeRouteSearch(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(),
-			3)
+			3, false,0)
 
 	}
 

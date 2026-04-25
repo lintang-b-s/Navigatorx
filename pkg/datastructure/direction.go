@@ -62,6 +62,11 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 	var roundabout *RoundaboutInstruction
 	var ins *Instruction
 	roundabout = NewRoundaboutInstruction()
+
+	edgeIdsCopy := make([]Index, len(edgeIds)) // https://go.dev/blog/slices-intro
+	// ingat: reslicing slice gak bakal bikin slice baru/resliced slices tetep refer ke original slice (https://go.dev/blog/slices-intro)
+	// karena kita reuse db.edgeIds dari DirectionBuilder dengan reslice [:0], kita harus copy db.edgeIds biar last instructionnya gak corrupt
+	copy(edgeIdsCopy, edgeIds)
 	ins = &Instruction{
 		turnSign:             sign,
 		streetname:           name,
@@ -71,7 +76,7 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 		isRoundabout:         isRoundAbout,
 		cumulativeTravelTime: cumulativeTravelTime,
 		cumulativeDistance:   cumulativeDist,
-		edgeIds:              edgeIds,
+		edgeIds:              edgeIdsCopy,
 		points:               points,
 		turnBearing:          turnBearing,
 	}
@@ -82,7 +87,10 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 }
 
 func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRoundAbout bool, roundabout *RoundaboutInstruction,
-	cumulativeDistance, cumulativeTravelTime float64, edgeIDs []Index, turnBearing float64) Instruction {
+	cumulativeDistance, cumulativeTravelTime float64, edgeIds []Index, turnBearing float64) Instruction {
+
+	edgeIdsCopy := make([]Index, len(edgeIds))
+	copy(edgeIdsCopy, edgeIds)
 	ins := Instruction{
 		turnSign:             sign,
 		streetname:           name,
@@ -92,7 +100,7 @@ func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRo
 		isRoundabout:         isRoundAbout,
 		cumulativeDistance:   cumulativeDistance,
 		cumulativeTravelTime: cumulativeTravelTime,
-		edgeIds:              edgeIDs,
+		edgeIds:              edgeIdsCopy,
 		turnBearing:          turnBearing,
 	}
 	ins.turnType = "ROUNDABOUT"
@@ -304,15 +312,17 @@ type DrivingDirection struct {
 	turnType    string
 }
 
-func NewDrivingDirection(ins Instruction, description string, prevETA, prevDist float64,
+func NewDrivingDirection(ins Instruction, description string, prevTravelTime, prevDist float64,
 	edgeIds []Index, polyline string, turnBearing float64) DrivingDirection {
+	edgeIdsCopy := make([]Index, len(edgeIds))
+	copy(edgeIdsCopy, edgeIds)
 	return DrivingDirection{
 		instruction: description,
 		point:       ins.point,
 		streetName:  ins.streetname,
-		travelTime:  util.RoundFloat(prevETA, 2),
+		travelTime:  util.RoundFloat(prevTravelTime, 2),
 		distance:    util.RoundFloat(prevDist, 2),
-		edgeIds:     edgeIds,
+		edgeIds:     edgeIdsCopy,
 		polyline:    polyline,
 		turnBearing: util.RoundFloat(turnBearing, 2),
 		turnType:    ins.turnType,

@@ -120,3 +120,19 @@ func (db *DirectionBuilder) lookForwardSameOsmWay(eIdOne da.Index, headId da.Ind
 
 	return false
 }
+
+func (db *DirectionBuilder) GetEdgePoints(lastEdgeId da.Index) da.Coordinates {
+	coords := make([]da.Coordinate, 0)
+	if len(db.edgeIds) > 0 {
+		firstVertexId := db.graph.GetTailOfOutedge(db.edgeIds[0])
+		firstVertex := db.graph.GetVertex(firstVertexId)
+		coords = append(coords, firstVertex.GetCoordinate())
+		for i := 0; i < len(db.edgeIds); i++ {
+			headVId := db.graph.GetHeadOfOutEdge(db.edgeIds[i])
+			headVertex := db.graph.GetVertex(headVId)
+			coords = append(coords, headVertex.GetCoordinate())
+		}
+	}
+
+	return *da.NewCoordinatesWithInitialValues(coords)
+}

@@ -4,7 +4,6 @@ import (
 	"encoding/binary"
 	"math"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -246,11 +245,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 				}
 
 				db.useLookForward = true
-				db.lastPathId = db.lastPathId + step
-				for _, nexteId := range nextEdgeIds {
-					nextEGeom := db.graph.GetEdgeGeometry(nexteId)
-					db.updateState(nextEGeom, nexteId, false)
-				}
+				db.lookForwardStep = step
 			}
 		}
 
@@ -315,16 +310,12 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 		}
 
 		if util.Lt(alternativeTurnRelativeBearingDeg, KEEP_LEFT_RIGHT_ALT_TURN_RELATIVE_BEARING) {
-			nextEdgeIds, foundNextTurn, step := db.lookForward(currStreetName, 2)
+			_, foundNextTurn, step := db.lookForward(currStreetName, 2)
 
 			if foundNextTurn {
 
 				db.useLookForward = true
-				db.lastPathId = db.lastPathId + step
-				for _, nexteId := range nextEdgeIds {
-					nextEGeom := db.graph.GetEdgeGeometry(nexteId)
-					db.updateState(nextEGeom, nexteId, false)
-				}
+				db.lookForwardStep = step
 			}
 
 			otherHeadOntheSameWay := db.lookForwardSameOsmWay(edgeId, otherContinueEdgeHead, 4)
@@ -400,15 +391,15 @@ prevPoint----prevEdge----tail
 setelah evaluate turn dari currentEdge:
 kita update prevPoint, doublePrevPoint, prevNode, prevEdge, doublePrevNode, etc..
 */ // nolint: gofmt
-func (db *DirectionBuilder) updateState(eGeom da.Coordinates, edgeId da.Index, isInRoundabout bool) {
+func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
+	eGeom := db.graph.GetEdgeGeometry(edgeId)
+
 	if db.prevEdge != da.INVALID_EDGE_ID {
 		db.doublePrevInitialBearing = db.prevInitialBearing
 		db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge)
 	}
 
-	headId := db.graph.GetHeadOfOutEdge(edgeId)
 	tailId := db.graph.GetTailOfOutedge(edgeId)
-	head := db.graph.GetVertexCoordinate(headId)
 
 	n := len(eGeom)
 	db.doublePrevPoint = db.prevPoint
@@ -423,15 +414,13 @@ func (db *DirectionBuilder) updateState(eGeom da.Coordinates, edgeId da.Index, i
 	db.cumulativeTravelTime += db.engine.GetWeight(edgeId, true)
 
 	db.edgeIds = append(db.edgeIds, edgeId)
-	db.points = append(db.points,
-		da.NewCoordinate(head.GetLat(), head.GetLon()))
 
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
 
-	isHeadTrafficLight := db.graph.IsTrafficLight(headId)
-	if isHeadTrafficLight {
-		db.cumulativeTravelTime += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND)
-	}
+	// isHeadTrafficLight := db.graph.IsTrafficLight(headId)
+	// if isHeadTrafficLight {
+	// 	db.cumulativeTravelTime += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND)
+	// }
 }
 
 func makeCacheVal(sign da.TurnType, streetName uint32) []byte {

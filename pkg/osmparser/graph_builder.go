@@ -323,9 +323,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 					tail.GetLon())
 				turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
 					headPoint.GetLon(), prevInitialBearing)
-				if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT {
+				switch turn {
+				case da.TURN_SLIGHT_LEFT, da.TURN_LEFT, da.TURN_SHARP_LEFT:
 					turnMatrices[via][rowOffset+exitPoint] = pkg.LEFT_TURN
-				} else if turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
+				case da.TURN_SLIGHT_RIGHT, da.TURN_RIGHT, da.TURN_SHARP_RIGHT:
 					turnMatrices[via][rowOffset+exitPoint] = pkg.RIGHT_TURN
 				}
 			}
@@ -608,7 +609,8 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 								tail := vertices[via].GetCoordinate()
 								headPoint := vertices[outEdge.GetHead()].GetCoordinate()
 
-								if restriction.turnRestriction == ONLY_LEFT_TURN {
+								switch restriction.turnRestriction {
+								case ONLY_LEFT_TURN:
 									/*
 											. = restriction.via node
 
@@ -637,7 +639,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 										turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
 									}
 
-								} else if restriction.turnRestriction == ONLY_RIGHT_TURN {
+								case ONLY_RIGHT_TURN:
 
 									prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
 										tail.GetLon())
@@ -649,7 +651,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 										turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
 									}
 
-								} else if restriction.turnRestriction == ONLY_STRAIGHT_ON {
+								case ONLY_STRAIGHT_ON:
 									prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
 										tail.GetLon())
 									turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
