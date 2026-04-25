@@ -67,7 +67,7 @@ func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex Spati
 	return rs, nil
 }
 
-func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64) (float64, float64, string, []da.DrivingDirection, bool, error) {
+func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, reroute bool, startEdgeId da.Index) (float64, float64, string, []da.DrivingDirection, bool, error) {
 	var (
 		travelTime, dist float64
 		pathCoords       *da.Coordinates
@@ -88,10 +88,13 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	}
 
 	if util.IsTimeout(ctx) {
-		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	crpQuery := routing.NewCRPALTBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0)
+	if reroute {
+		crpQuery.SetReroute(startEdgeId)
+	}
 	travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(sp, tp)
 
 	if !found {
@@ -101,14 +104,16 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	}
 
 	if util.IsTimeout(ctx) {
-		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	travelTime, dist = rs.AppendPhantomNodesToPath(pathCoords, sp, tp, travelTime, dist)
 
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
-
+	if reroute {
+		directionBuilder.SetReroute(startEdgeId)
+	}
 	drivingDirection := directionBuilder.GetDrivingDirections(edgePath, sp, tp)
 
 	directionBuilder.Reset()
@@ -116,9 +121,9 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }
 
-func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int) ([]routing.AlternativeRoute, bool, error) {
+func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, bool, error) {
 	if util.IsTimeout(ctx) {
-		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
@@ -133,7 +138,7 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
 	}
 
-	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp, tp, k)
+	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp, tp, k, reroute, startEdgeId)
 	if len(alternatives) == 0 {
 		return []routing.AlternativeRoute{}, false, nil
 	}
@@ -152,7 +157,9 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
 		alternatives[i].SetPolylinePath(pathPolyline)
 		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
-
+		if reroute {
+			directionBuilder.SetReroute(startEdgeId)
+		}
 		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath(), sp, tp)
 		alternatives[i].SetDrivingDirections(drivingDirection)
 

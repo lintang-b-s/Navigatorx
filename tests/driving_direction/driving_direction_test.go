@@ -184,9 +184,9 @@ func TestDrivingDirection(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			orig := tc.qOriginCoord
-			dest := tc.qDestinationCoord // todo: aneh setelah tambahin multiple via-way turn restrictions jadi gak kedetect turn instruction buat roundabout manahan
+			dest := tc.qDestinationCoord // todo: aneh setelah tambahin multiple via-way turn restrictions jadi gak kedetect turn instruction buat roundabout manahan (DONE)
 			_, _, _, drivingDirections, _, _ := routingService.ShortestPath(context.Background(), orig.GetLat(), orig.GetLon(),
-				dest.GetLat(), dest.GetLon())
+				dest.GetLat(), dest.GetLon(), false, 0)
 			if len(drivingDirections) != len(tc.wantDirections) {
 				t.Errorf("expected driving directions length: %v, got: %v", len(tc.wantDirections), len(drivingDirections))
 			}

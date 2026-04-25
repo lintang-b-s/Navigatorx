@@ -71,10 +71,10 @@ kenapa??
 1. karena kita tahu evaluated candidate pairs di all previous rounds gak ada path (dari w ke q).
 2. masih ada kemungkinan terdapat path dari old origCandidates ke new dstCandidates
 
-let M=number of road segments/edges in the graph
+let M=number of road segments/edges in the graph, MAX_CANDIDATES (see spatial_index/constant.go dan rtree.go) adalah jumlah leafs data maksimum yang direturn oleh Search() nya r-tree
 let c=max number of road segments/edges returned by rtree spatial index
 let V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
-worst case: O(M + c^2 * (V_G+O_G))
+worst case: O(min(M, MAX_CANDIDATES) + c^2 * (V_G+O_G))
 */
 func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
 	removedPrevPairSet hashset.Uint64Set) (da.PhantomNode, da.PhantomNode) {
@@ -82,8 +82,8 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 		projectedLat, projectedLon float64
 	)
 
-	// let M=number of road segments/edges in the graph
-	// R-tree search worst case is O(M), avg case is O(logM)
+	// let M=number of road segments/edges in the graph, MAX_CANDIDATES (see spatial_index/constant.go dan rtree.go) adalah jumlah leafs data maksimum yang direturn oleh Search() nya r-tree
+	// SearchWithinRadius worst case is O(min(M, MAX_CANDIDATES))
 	// find nearest orig edge (inEdgeOffset) to qOrigLat, qOrigLon
 	origCandidates := rs.spatialIndex.SearchWithinRadius(qOrigLat, qOrigLon, searchRad, 0)
 

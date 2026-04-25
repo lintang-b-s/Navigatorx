@@ -12,51 +12,51 @@ import (
 
 /*
 implementation of:
-Taguchi, S., Koide, S. and Yoshimura, T. (2019) “Online Map Matching With Route
+[1] Taguchi, S., Koide, S. and Yoshimura, T. (2019) “Online Map Matching With Route
 Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), pp.
 338–347. Available at: https://doi.org/10.1109/TITS.2018.2812147.
 
 */
 
 type OnlineMapMatchMHT struct {
-	graph                   *da.Graph
-	rt                      *spatialindex.Rtree
-	initialSpeedMean        float64 // \overline{v}
-	initialSpeedStd         float64 // \sigma_{v}
-	posteriorThresold       float64 // L_u
-	gpsStd                  float64
-	defaultSamplingInterval float64
-	accelerationStd         float64
-	lp                      float64 // L_p
-	lc                      float64 // L_c
-	N                       *da.SparseMatrix[int]
+	graph             *da.Graph
+	rt                *spatialindex.Rtree
+	initialSpeedMean  float64 // \overline{v}
+	initialSpeedStd   float64 // \sigma_{v}
+	posteriorThresold float64 // L_u
+	gpsStd            float64
+	accelerationStd   float64
+	lp                float64 // L_p
+	lc                float64 // L_c
+	N                 *da.SparseMatrix[int]
 }
 
 func NewOnlineMapMatchMHT(graph *da.Graph, rt *spatialindex.Rtree, initialSpeedMean, initialSpeedStd float64,
-	posteriorThresold, gpsStd, defaultSamplingInterval, lp, lc, accelerationStd float64,
+	posteriorThresold, gpsStd, lp, lc, accelerationStd float64,
 	N *da.SparseMatrix[int]) *OnlineMapMatchMHT {
 	return &OnlineMapMatchMHT{
-		graph:                   graph,
-		rt:                      rt,
-		initialSpeedMean:        initialSpeedMean,
-		initialSpeedStd:         initialSpeedStd,
-		posteriorThresold:       posteriorThresold,
-		gpsStd:                  gpsStd,
-		defaultSamplingInterval: defaultSamplingInterval,
-		lp:                      lp,
-		accelerationStd:         accelerationStd,
-		lc:                      lc,
-		N:                       N,
+		graph:             graph,
+		rt:                rt,
+		initialSpeedMean:  initialSpeedMean,
+		initialSpeedStd:   initialSpeedStd,
+		posteriorThresold: posteriorThresold,
+		gpsStd:            gpsStd,
+		lp:                lp,
+		accelerationStd:   accelerationStd,
+		lc:                lc,
+		N:                 N,
 	}
 }
 
 // OnlineMapMatch. perform online map matching using Multiple Hypothesis Technique
 // speed in meter/s, arc length in meter, k is current time step (1-based)
+// Algorithm 1 in ref[1]
+// O(min(M, MAX_CANDIDATES) + b^{d_p}), M=number of edges, MAX_CANDIDATES=max number of r-tree leafs data to return, b=max number of outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
 func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 
 	if k == 1 || len(candidates) == 0 {
-		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc, 2)
+		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc, 2) // O(min(M, MAX_CANDIDATES))
 		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 		sumLength := 0.0
 		for _, arcEndpoint := range nearbyArcs {
@@ -123,6 +123,7 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 }
 
 // recur. prediction step of multiple hypothesis technique (compute prior)
+// Algorithm 2 in ref[1]
 func (om *OnlineMapMatchMHT) recur(newCands []*ma.Candidate, w float64, tau []da.Index, ptau float64,
 	speedMean, hpre, speedStd, deltaTime float64) []*ma.Candidate {
 	hnew := om.computeHProb(tau, speedMean, speedStd, deltaTime)
@@ -205,7 +206,6 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 	maxWeight := -1.0
 	for _, cand := range filteredCands {
 		if cand.Weight() > maxWeight {
-
 			projectedPointCoord := cand.GetProjectedCoord()
 			eInitialBearing := cand.GetEdgeBearing()
 			matchedSegment = da.NewMatchedGPSPoint(gps, cand.EdgeId(), projectedPointCoord, eInitialBearing)
@@ -225,7 +225,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 func (om *OnlineMapMatchMHT) needToReset(gps *da.GPSPoint, matchedSegment *da.MatchedGPSPoint) bool {
 	gpsLat, gpsLon := gps.Lat(), gps.Lon()
 	matchCoord := matchedSegment.GetMatchedCoord()
-	dist := convertKilometerToMeter(geo.CalculateGreatCircleDistance(
+	dist := convertKilometerToMeter(geo.CalculateEuclidianDistMercatorProj(
 		gpsLat, gpsLon,
 		matchCoord.Lat, matchCoord.Lon,
 	))
@@ -253,19 +253,21 @@ func logSumExp(ps []float64) float64 {
 	return maxP + math.Log(sumExp)
 }
 
+// logarithm of equation 21 ref[1]
 func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(cand *ma.Candidate) float64 {
 
-	f := func(x float64) float64 {
+	xi := func(x float64) float64 {
 		return (1 / (1 + math.Exp(-(math.Pi*(x-cand.GetDistr()))/(math.Sqrt(3)*om.gpsStd))))
 	}
 
 	zeroMeanGaussianLog := -(math.Pow(cand.GetDist(), 2) / (2 * math.Pow(om.gpsStd, 2)))
 
 	left := math.Log((1 / cand.Length())) + zeroMeanGaussianLog
-	right := math.Log(f(cand.Length()) - f(0))
+	right := math.Log(xi(cand.Length()) - xi(0))
 	return left + right
 }
 
+// equation 23 & 24 in ref[1]
 func (om *OnlineMapMatchMHT) kalmanFilter(speedMeanKprev, speedStdKprev, gpsSpeed, deltaTime float64) (float64, float64) {
 	speedMeanK := speedMeanKprev
 	speedStdK := math.Sqrt(speedStdKprev*speedStdKprev + math.Pow(om.accelerationStd, 2)*math.Pow(deltaTime, 2))
@@ -277,6 +279,7 @@ func (om *OnlineMapMatchMHT) kalmanFilter(speedMeanKprev, speedStdKprev, gpsSpee
 	return speedMean, speedStdK
 }
 
+// equation 3 in ref[1]
 func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo da.Index, nj int) float64 {
 	branch := make([]da.Index, 0, 4)
 	e := om.graph.GetOutEdge(eFrom)
@@ -298,6 +301,7 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo da.Index, nj in
 	return (1.0 + float64(om.N.Get(int(eFrom), int(eTo)))) / (sumNej + float64(nj))
 }
 
+// equation 20 in ref[1]
 func (om *OnlineMapMatchMHT) computeHProb(tau []da.Index, speedMean, speedStd, deltaTime float64) float64 {
 	tauLength := 0.0
 	for _, edgeId := range tau {
@@ -342,12 +346,12 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 				head,
 				gpsCoord,
 			)
-			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
+			dist := util.KilometerToMeter(geo.CalculateEuclidianDistMercatorProj(
 				projectedPoint.Lat, projectedPoint.Lon,
 				gpsCoord.GetLat(), gpsCoord.GetLon(),
 			))
 
-			tailToProjectedDist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
+			tailToProjectedDist := util.KilometerToMeter(geo.CalculateEuclidianDistMercatorProj(
 				tail.GetLat(), tail.GetLon(),
 				projectedPoint.GetLat(), projectedPoint.GetLon(),
 			))
@@ -362,7 +366,7 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 				candEdgeBearing = eInitialBearing
 			}
 
-			cumLength += util.KilometerToMeter(geo.CalculateGreatCircleDistance(
+			cumLength += util.KilometerToMeter(geo.CalculateEuclidianDistMercatorProj(
 				tail.GetLat(), tail.GetLon(),
 				head.GetLat(), head.GetLon(),
 			))

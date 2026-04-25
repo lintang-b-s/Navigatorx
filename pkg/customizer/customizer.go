@@ -270,7 +270,7 @@ func (c *Customizer) buildLowestLevel(
 		dijkstra := func(entries <-chan da.Index) {
 			/*
 				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
-				let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
+				let n,m,k denote the number vertices,edges, and number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), respectively.
 
 
 				pq contains at most all edges in a cell level 1
@@ -446,7 +446,7 @@ func (c *Customizer) buildLevel(
 		dijkstra := func(entries <-chan da.Index) {
 			/*
 				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
-				let n,m,k denote the number vertices,edges, and partitioning depth, respectively.
+				let n,m,k denote the number vertices,edges, and number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), respectively.
 
 
 				pq contains at most all overlay vertices in all subcells of this cell in level-1

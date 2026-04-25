@@ -29,7 +29,7 @@ highway_whitelist:
 vehicle_type: motorcar
 landmarks: 16
 
-maxspeeds:
+maxspeeds: # in km/h
   motorway: 100
   trunk: 60
   primary: 50

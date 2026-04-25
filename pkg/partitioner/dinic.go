@@ -110,6 +110,10 @@ func (dmf *DinicMaxFlow) AddSinks(u da.Index) {
 	dmf.sinks.Set(uint(u))
 }
 
+// 
+// alasan saya gak menambahkan artificial/super source/sink (untuk handle multi-sources multi-sinks network flow) pada PartitionGraph serta flow dari setiap edge saya taruh di dmf.edgeFlows adalah
+// karena di inertial_flow.go PartitionGraph dipakai oleh beberapa goroutine, shgg perlu di lock/copy setiap partitionGraph untuk setiap goroutine agar tidak race condition
+// sebelum pakai solusi saat ini, saya pakai solusi copy setiap partitionGraph dan space/memory nya meledak ketika number of worker di worker pool nya inertial_flow.go gede
 func (dmf *DinicMaxFlow) AddArtificialEdge(u, v da.Index, w int64, directed bool) {
 	if u == v {
 		return

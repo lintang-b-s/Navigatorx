@@ -16,13 +16,12 @@ import (
 // https://wiki.openstreetmap.org/wiki/Highway_link
 
 type DirectionBuilder struct {
-	turnSignCache *ristretto.Cache[uint64, []byte] // cache untuk turn sign dari (prevEdgeId, currEdgeId) untuk di jalan Nasional, Jalan provinsi, dan Jalan kabupaten 
+	turnSignCache *ristretto.Cache[uint64, []byte] // cache untuk turn sign dari (prevEdgeId, currEdgeId) untuk di jalan Nasional, Jalan provinsi, dan Jalan kabupaten
 
 	instructions     []*da.Instruction
 	prevInstruction  *da.Instruction
 	turnDescriptions []string
 
-	points         []da.Coordinate
 	edgeIds        []da.Index
 	path           []da.Index
 	lastPathId     int
@@ -45,6 +44,11 @@ type DirectionBuilder struct {
 	lefthand                 bool // left hand traffic (like in indonesia) or right hand traffic
 	prevInRoundabout         bool
 	useLookForward           bool
+	lookForwardStep          int
+
+	// reroute
+	reroute     bool
+	startEdgeId da.Index
 }
 
 func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
@@ -66,7 +70,6 @@ func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 		prevPoint:                da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON),
 		prevEdge:                 da.Index(da.INVALID_EDGE_ID),
 		turnDescriptions:         make([]string, 256),
-		points:                   make([]da.Coordinate, 0),
 		instructions:             make([]*da.Instruction, 0),
 		edgeIds:                  make([]da.Index, 0),
 		lastPathId:               0,
@@ -78,13 +81,11 @@ func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 }
 
 func (db *DirectionBuilder) reset() {
-	db.points = db.points[:0]
 	db.edgeIds = db.edgeIds[:0]
 }
 
 func (db *DirectionBuilder) done() {
 	db.instructions = db.instructions[:0]
-	db.points = db.points[:0]
 	db.edgeIds = db.edgeIds[:0]
 }
 
@@ -107,6 +108,14 @@ func (db *DirectionBuilder) Reset() {
 	db.path = make([]da.Index, 0)
 	db.prevSign = da.IGNORE
 	db.useLookForward = false
+	db.lookForwardStep = 0
+	db.startEdgeId = da.INVALID_EDGE_ID
+	db.reroute = false
+}
+
+func (db *DirectionBuilder) SetReroute(startEdgeId da.Index) {
+	db.reroute = true
+	db.startEdgeId = startEdgeId
 }
 
 func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.PhantomNode) []da.DrivingDirection {
@@ -116,8 +125,11 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.Phan
 		return make([]da.DrivingDirection, 0)
 	}
 
-	if !db.graph.IsDummyOutEdge(sp.GetOutEdgeId()) {
+	if !db.graph.IsDummyOutEdge(sp.GetOutEdgeId()) && !db.reroute {
 		firstEdgeId := sp.GetOutEdgeId()
+		path = append([]da.Index{firstEdgeId}, path...)
+	} else if db.reroute {
+		firstEdgeId := db.startEdgeId
 		path = append([]da.Index{firstEdgeId}, path...)
 	}
 
@@ -198,12 +210,12 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 
 		turnBearing := geo.ComputeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(),
 			head.GetLat(), head.GetLon())
+
 		newIns := da.NewInstruction(sign, streetName, point, false,
 			[]da.Index{edgeId}, db.cumulativeDistance, db.cumulativeTravelTime,
-			db.points, turnBearing, db.clockwise)
+			db.GetEdgePoints(edgeId), turnBearing, db.clockwise)
 		db.prevInstruction = newIns
 
-		db.points = make([]da.Coordinate, 0)
 		db.edgeIds = make([]da.Index, 0)
 
 		db.prevInstruction.SetExtraInfo("heading", turnBearing)
@@ -262,21 +274,30 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 				turnBearing := geo.ComputeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(),
 					tail.GetLat(), tail.GetLon())
 				nextStreetName := db.graph.GetStrFromId(db.nextStreetName)
-				prevIns := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
-					db.points, turnBearing, db.clockwise)
-				db.prevInstruction = prevIns
+				ins := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
+					db.GetEdgePoints(edgeId), turnBearing, db.clockwise)
+				db.prevInstruction = ins
 
 				db.reset()
 
-				db.instructions = append(db.instructions, prevIns)
+				db.instructions = append(db.instructions, ins)
 			}
 		}
 		db.prevSign = turnSign
 	}
 
-	if !db.useLookForward {
-		eGeom := db.graph.GetEdgeGeometry(edgeId)
-		db.updateState(eGeom, edgeId, isRoundabout)
+	if db.useLookForward {
+		db.updateState(edgeId, isRoundabout)
+
+		for i := 0; i < db.lookForwardStep; i++ {
+			db.lastPathId++
+			nextEdgeId := db.path[db.lastPathId]
+			db.updateState(nextEdgeId, false)
+		}
+		db.useLookForward = false
+		db.lookForwardStep = 0
+	} else {
+		db.updateState(edgeId, isRoundabout)
 	}
 }
 
@@ -299,7 +320,7 @@ func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.Phantom
 	turnBearing := geo.ComputeFinalBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
 
 	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(edgeId), point, false,
-		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.points, turnBearing, db.clockwise)
+		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.GetEdgePoints(edgeId), turnBearing, db.clockwise)
 	finishInstruction.SetExtraInfo("heading", geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
 
 	db.instructions = append(db.instructions, finishInstruction)

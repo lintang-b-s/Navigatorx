@@ -35,7 +35,10 @@ type CRPBidirectionalSearch struct {
 	runtime                   int64
 	pathUnpackingRuntime      int64
 	lastpqSum                 float64
-	forAlternativeRoutes      bool
+	startEdgeId               da.Index
+
+	forAlternativeRoutes bool
+	reroute              bool
 
 	shortcutPathSet map[uint64]uint8
 	viaVertices     []da.ViaVertex
@@ -69,11 +72,17 @@ implementation of:
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 2. query phase: Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
+3. ALT query phase: Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+4. bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
+5. consistent heuristic for A* & optimality of A*: Hart, P.E., Nilsson, N.J. and Raphael, B. (1968) “A Formal Basis for the Heuristic Determination of Minimum Cost Paths,” IEEE Transactions on Systems Science and Cybernetics, 4(2), pp. 100–107. Available at: https://doi.org/10.1109/TSSC.1968.300136.
+6. Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
+7. Cormen, T.H. et al. (2009) Introduction to Algorithms. 3th ed. Cambridge, MA, USA: MIT Press
+8. https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
 let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any partition
-let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, partitioning depth, and number of overlay vertices respectively.
+let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
 time complexity of CRP query is: O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o)), in this implementation, priority queue (4-ary heap) contains at most all edges in lowest level cell that containing s or t and all overlay vertices in all cell other than cell that containing s or t
 decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately scan v and add neighbor of v (vertex w) to priority queue
 extract-min at most O(m_p+n_o) operations
@@ -195,10 +204,31 @@ turn cost dari inEdge dari t ke destPhantomEdge ..
 kita udah include turn cost dari originPhantomEdge ke other outEdge dari s di awal forward search dan cost dari inEdge dari t ke destPhantomEdge di awal backward search
 sebenarnya setelah multilevel-dijkstra selesai (di routing.go), kita tambahin sp cost nya dengan travelTime(originPhantomNode, s) + travelTime(t, destPhantomNode)
 
+inti dari multilevel-dijkstra [1]:
+- ketika kita scan vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra -> est cost dari s to v udah equal to shortest path cost
+- ketika kita scan vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra -> est cost dari v to t udah equal to shortest path cost, kenapa??
+karena di backward search kita pakai reversed edges: semua edges (v,u) dengan (u,v)\in E, l(v,u)=l(u,v)  (see Single-destination shortest-paths problem in ref[7])
+- setelah forward search keluar dari cell level 1 dari s (sebelum masuk ke cell level 1 nya t), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t 
+- setelah backward search keluar dari cell level 1 dari t (sebelum masuk ke cell level 1 nya s), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
+- saat forward search masuk ke cell level 1 dari t, kita relax original edges (yang contained in cell level 1 dari t) dari graph nya.
+- saat backward search masuk ke cell level 1 dari s, kita relax reversed edges (yang contained in cell level 1 dari s) dari graph nya.
+- karena bidirectional search, kita pakai kriteria pemberhentian dari algoritma 2 [6] dan update esimated sp cost dari s ke t (\mu) setiap kali relax edge(u,v) yang head nya (v) udah di scan (extracted from pq) oleh another search seperti pada ref [6]: https://kam.mff.cuni.cz/~spring/media/papers/5/bidirectional_dijkstra.pdf 
+- karena pakai turn cost pakai trik dijskstra with turn cost on compact graph yang dijelaskan pada section 4.2 ref[1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+- di graph_builder.go kita tambahkan dummy Outedge/InEdge (dengan turn cost ke other edge dari headnya/tailnya sama dengan 0) pada vertex yang outDegree/inDegree nya 0 agar saat kita tetap bisa compute shortest path dari s (yang inDegre nya 0) ke t (yang outDegree nya 0) (tested on tests/shortestpath dan tests/shortestpath_crp_alt)
+misal:
+ s -> v - > t
+inDegre(s)=0
+outDegree(t)=0
+kita tambahin dummy inEdge ke s dan dummy OUtEdge ke t
+q -> s -> v -> t -> z
+
+turnCost(q->s->v) = 0
+turnCost(v->t->z) = 0
+
 untuk referensi lain implementasi routing with turn cost di road network dapat dilihat di:
 1. https://dl.acm.org/doi/10.5555/2008623.2008634
 2. https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp
+2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp    also see osrm graph representation: https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
 
 
 */
@@ -210,6 +240,9 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (flo
 
 	asId := sp.GetOutEdgeId()
 	atId := tp.GetInEdgeId()
+	if bs.reroute {
+		asId = bs.startEdgeId
+	}
 	// asId: Id of outEdge u->s  (head dari outEdge = s, tail dari outEdge = u )
 	// atId: Id of inEdge  t->v  (head dari inEdge = v, tail dari inEdge = t )
 	asOutEdge := bs.engine.graph.GetOutEdge(asId)
@@ -400,6 +433,10 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 
 		edgeWeight := bs.engine.GetWeight(eId, true)
 
+		if bs.reroute && turnType == pkg.U_TURN {
+			return
+		}
+
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
@@ -557,6 +594,10 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 			bs.engine.graph.GetCellNumber(vId))
 
 		edgeWeight := bs.engine.GetWeight(eId, false)
+
+		if bs.reroute && turnType == pkg.U_TURN {
+			return
+		}
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
@@ -1038,4 +1079,9 @@ func (bs *CRPBidirectionalSearch) SetForAlternativeRoutes(yes bool) {
 
 func (bs *CRPBidirectionalSearch) getShortcutPathSet() map[uint64]uint8 {
 	return bs.shortcutPathSet
+}
+
+func (bs *CRPBidirectionalSearch) SetReroute(startEdgeId da.Index) {
+	bs.reroute = true
+	bs.startEdgeId = startEdgeId
 }

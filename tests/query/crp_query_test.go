@@ -973,7 +973,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 				t.Errorf("%s: expected not contain path %v, got contain the path", tc.name, subPath)
 			}
 
-			alts, _, _ := altSearch.FindAlternativeRoutes(sp, tp, 3)
+			alts, _, _ := altSearch.FindAlternativeRoutes(sp, tp, 3, false, 0)
 
 			for i := 0; i < len(alts); i++ {
 				altPath := alts[i].GetEdgeIdPath()
@@ -984,5 +984,3 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 		})
 	}
 }
-
-

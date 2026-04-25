@@ -28,7 +28,6 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 			currModifiedTime, err := isFileUpdated(metricsFilePath)
 			if err != nil {
 				crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time: %v\n", err)
-
 				continue
 			}
 
