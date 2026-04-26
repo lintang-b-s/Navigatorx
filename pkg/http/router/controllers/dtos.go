@@ -60,7 +60,7 @@ func NewDrivingDirection(d da.DrivingDirection) drivingDirection {
 		Instruction:         d.GetInstruction(),
 		Point:               d.GetPoint(),
 		StreetName:          d.GetStreetName(),
-		TravelTime:          d.GetTravelTime(),
+		TravelTime:          util.SecondsToMinutes(d.GetTravelTime()),
 		Distance:            d.GetDistance(),
 		EdgeIds:             d.GetEdgesIds(),
 		Polyline:            d.GetPolyline(),

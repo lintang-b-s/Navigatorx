@@ -225,7 +225,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 func (om *OnlineMapMatchMHT) needToReset(gps *da.GPSPoint, matchedSegment *da.MatchedGPSPoint) bool {
 	gpsLat, gpsLon := gps.Lat(), gps.Lon()
 	matchCoord := matchedSegment.GetMatchedCoord()
-	dist := convertKilometerToMeter(geo.CalculateEuclidianDistMercatorProj(
+	dist := convertKilometerToMeter(geo.CalculateGreatCircleDistance(
 		gpsLat, gpsLon,
 		matchCoord.Lat, matchCoord.Lon,
 	))
@@ -346,12 +346,12 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 				head,
 				gpsCoord,
 			)
-			dist := util.KilometerToMeter(geo.CalculateEuclidianDistMercatorProj(
+			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				projectedPoint.Lat, projectedPoint.Lon,
 				gpsCoord.GetLat(), gpsCoord.GetLon(),
 			))
 
-			tailToProjectedDist := util.KilometerToMeter(geo.CalculateEuclidianDistMercatorProj(
+			tailToProjectedDist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				tail.GetLat(), tail.GetLon(),
 				projectedPoint.GetLat(), projectedPoint.GetLon(),
 			))
@@ -366,7 +366,7 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 				candEdgeBearing = eInitialBearing
 			}
 
-			cumLength += util.KilometerToMeter(geo.CalculateEuclidianDistMercatorProj(
+			cumLength += util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 				tail.GetLat(), tail.GetLon(),
 				head.GetLat(), head.GetLon(),
 			))

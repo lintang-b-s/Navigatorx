@@ -1,10 +1,8 @@
 package router
 
 import (
-	"bufio"
 	"context"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -74,12 +72,11 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 		return
 	}
 
-	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
-	api.pool = concurrent.NewWorkerPool[int, int](3, 10)
+	api.pool = concurrent.NewWorkerPool[int, int](4, 10)
 
 	api.hub = controllers.NewHub(api.pool, mapMatcherService)
 
-	api.pool.Spawn(1)
+	api.pool.Spawn(2)
 	// accept is a channel to signal about next incoming connection Accept()
 	// results.
 	accept := make(chan error, 1)
@@ -145,7 +142,6 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 }
 
 /*
-
 handle is a new incoming connection handler.
 It upgrades TCP connection to WebSocket, registers netpoll listener on
 it and stores it as a map matching user in Hub instance.
@@ -159,17 +155,22 @@ file descriptors to see if I/O is possible on any of them. Like signal-driven I/
 the epoll API provides much better performance when monitoring large num-
 bers of file descriptors.
 */
+type deadliner struct {
+	net.Conn
+	t time.Duration
+}
+
+const (
+	ioTimeout = time.Millisecond * 100
+)
 
 func (api *API) handle(conn net.Conn) error {
 
-	br := bufio.NewReader(conn)
+	safeConn := deadliner{conn, ioTimeout}
 
-	rw := struct {
-		io.Reader
-		io.Writer
-	}{br, conn}
+	// Zero-copy upgrade to WebSocket connection.
+	hs, err := ws.Upgrade(safeConn)
 
-	hs, err := ws.Upgrade(rw)
 	if err != nil {
 		api.log.Error("upgrade error", zap.Error(err), zap.String("connnection name ", nameConn(conn)))
 		conn.Close()
@@ -224,7 +225,7 @@ func (api *API) handle(conn net.Conn) error {
 				api.poller.Stop(desc)
 				api.hub.Remove(user)
 			}
-			return
+
 		})
 	})
 
