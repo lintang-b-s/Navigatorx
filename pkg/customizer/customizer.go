@@ -153,7 +153,7 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 
 	var m *metrics.Metric
-	costFunction := costfunction.NewTimeCostFunctionEmpty()
+	emptyCf := costfunction.NewTimeCostFunctionEmpty()
 	maxEdgesInCell := c.graph.GetMaxEdgesInCell()
 
 	c.lowestHeapPool = sync.Pool{
@@ -168,7 +168,7 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 		},
 	}
 
-	c.Build(costFunction)
+	c.Build(emptyCf)
 	c.logger.Sugar().Infof("Building stalling tables...")
 	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, "")
 	m.BuildStallingTables(c.overlayGraph, c.graph)

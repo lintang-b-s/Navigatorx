@@ -176,6 +176,7 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to util.ReadLine(r) untuk edge max speeds")
 	}
+	
 	edgeMaxSpeeds := make([]float64, numOfEdges)
 	ff := util.Fields(line)
 	for eId := 0; eId < numOfEdges; eId++ {

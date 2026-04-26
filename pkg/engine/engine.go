@@ -45,7 +45,7 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 		BufferItems: 64,                                   // number of keys per Get buffer.
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "NewEngineDirect: failed to create new ristretto cache with capacity: %v")
+		return nil, errors.Wrapf(err, "NewEngineDirect: failed to create new ristretto cache with capacity: %v", maxCost)
 	}
 
 	lm := landmark.NewLandmark()
@@ -101,7 +101,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		BufferItems: 64,          // number of keys per Get buffer.
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v")
+		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v", maxCost)
 	}
 
 	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, landmarkFile)

@@ -31,7 +31,7 @@ import (
 // buat routing with turn restrictions gak ada dataset nya kucari diinternet, jadi cukup pakai dijkstra_with_turn_costs.go aja buat cek correctnessnya
 
 var (
-	partitionSizes         = flag.String("us", "8,10,11,12,14", "Multilevel Partition Sizes")
+	partitionSizes         = flag.String("us", "9,11,13,15,16", "Multilevel Partition Sizes")
 	inputCoordFilePath     = flag.String("input_nodes", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-d.CAL.co", "path ke file .co dimacs 9th shortest path challnge")
 	inputEdgesFilePath     = flag.String("input_edges", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-t.CAL.gr", "path ke file .gr dimacs 9th shortest path challnge")
 	inputSSQueriesFilePath = flag.String("input_queries", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-t.CAL.ss", "path ke file .ss dimacs 9th shortest path challnge")
@@ -337,7 +337,7 @@ func main() {
 		for t := 1; t < n+1; t++ {
 			workers.AddJob(crpalt.NewQueryParam(da.Index((i*n)+(t-1)), s, da.Index(t)))
 		}
-		
+
 		workers.Close()
 		workers.Wait()
 

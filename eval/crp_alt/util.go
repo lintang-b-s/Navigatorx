@@ -2,14 +2,15 @@ package crpalt
 
 import (
 	"fmt"
-	"math/rand"
 	"os"
 	"path/filepath"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
@@ -31,7 +32,6 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		metricsFile      string = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.txt", name))
 		landmarkFile     string = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.lm", name))
 		mlpFile                 = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s.mlp", name))
-		timeFunctionFile string = filepath.Join(outputDir, fmt.Sprintf("timefunction_dimacs_%s.txt", name))
 		prep             *preprocesser.Preprocessor
 	)
 
@@ -98,12 +98,6 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 			panic(err)
 		}
 
-		cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
-		_, err := cust.Customize()
-		if err != nil {
-			panic(err)
-		}
-
 	} else {
 
 		mlp := datastructure.NewPlainMLP()
@@ -118,7 +112,21 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		}
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	cust := customizer.NewCustomizerDirect(g, prep.GetOverlayGraph(), logger)
+	met, err := cust.CustomizeDirect()
+	if err != nil {
+		panic(err)
+	}
+	emptyCf := costfunction.NewTimeCostFunctionEmpty()
+
+	lm := landmark.NewLandmark()
+	err = lm.PreprocessALT(1, met, g, logger)
+	if err != nil {
+		panic(err)
+	}
+	lm.WriteLandmark(landmarkFile, g.NumberOfVertices())
+
+	re, err := engine.NewEngineDirect(g, prep.GetOverlayGraph(), met, logger, cust, emptyCf, landmarkFile, "")
 	if err != nil {
 		panic(err)
 	}
@@ -171,11 +179,4 @@ func (q *QueryParam) GetTarget() da.Index {
 
 func NewQueryParam(i, s, t da.Index) QueryParam {
 	return QueryParam{i, s, t}
-}
-
-func RandomCoordinate(bb *da.BoundingBox, rd *rand.Rand) da.Coordinate {
-
-	lat := bb.GetMinLat() + rd.Float64()*(bb.GetMaxLat()-bb.GetMinLat())
-	lon := bb.GetMinLon() + rd.Float64()*(bb.GetMaxLon()-bb.GetMinLon())
-	return da.NewCoordinate(lat, lon)
 }
