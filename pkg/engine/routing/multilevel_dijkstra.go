@@ -205,14 +205,14 @@ kita udah include turn cost dari originPhantomEdge ke other outEdge dari s di aw
 sebenarnya setelah multilevel-dijkstra selesai (di routing.go), kita tambahin sp cost nya dengan travelTime(originPhantomNode, s) + travelTime(t, destPhantomNode)
 
 inti dari multilevel-dijkstra [1]:
-- ketika kita scan vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra -> est cost dari s to v udah equal to shortest path cost
-- ketika kita scan vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra -> est cost dari v to t udah equal to shortest path cost, kenapa??
+- ketika kita scan vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra [7] (impl. with decreaseKey() pq && without turn cost) -> est cost dari s to v udah equal to shortest path cost
+- ketika kita scan vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra [7] (impl. with decreaseKey() pq && without turn cost) -> est cost dari v to t udah equal to shortest path cost, kenapa??
 karena di backward search kita pakai reversed edges: semua edges (v,u) dengan (u,v)\in E, l(v,u)=l(u,v)  (see Single-destination shortest-paths problem in ref[7])
-- setelah forward search keluar dari cell level 1 dari s (sebelum masuk ke cell level 1 nya t), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t 
+- setelah forward search keluar dari cell level 1 dari s (sebelum masuk ke cell level 1 nya t), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
 - setelah backward search keluar dari cell level 1 dari t (sebelum masuk ke cell level 1 nya s), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
 - saat forward search masuk ke cell level 1 dari t, kita relax original edges (yang contained in cell level 1 dari t) dari graph nya.
 - saat backward search masuk ke cell level 1 dari s, kita relax reversed edges (yang contained in cell level 1 dari s) dari graph nya.
-- karena bidirectional search, kita pakai kriteria pemberhentian dari algoritma 2 [6] dan update esimated sp cost dari s ke t (\mu) setiap kali relax edge(u,v) yang head nya (v) udah di scan (extracted from pq) oleh another search seperti pada ref [6]: https://kam.mff.cuni.cz/~spring/media/papers/5/bidirectional_dijkstra.pdf 
+- karena bidirectional search, kita pakai kriteria pemberhentian dari algoritma 2 [6] dan update esimated sp cost dari s ke t (\mu) setiap kali relax edge(u,v) yang head nya (v) udah di scan (extracted from pq) oleh another search seperti pada ref [6]: https://kam.mff.cuni.cz/~spring/media/papers/5/bidirectional_dijkstra.pdf
 - karena pakai turn cost pakai trik dijskstra with turn cost on compact graph yang dijelaskan pada section 4.2 ref[1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 - di graph_builder.go kita tambahkan dummy Outedge/InEdge (dengan turn cost ke other edge dari headnya/tailnya sama dengan 0) pada vertex yang outDegree/inDegree nya 0 agar saat kita tetap bisa compute shortest path dari s (yang inDegre nya 0) ke t (yang outDegree nya 0) (tested on tests/shortestpath dan tests/shortestpath_crp_alt)
 misal:
@@ -224,6 +224,7 @@ q -> s -> v -> t -> z
 
 turnCost(q->s->v) = 0
 turnCost(v->t->z) = 0
+
 
 untuk referensi lain implementasi routing with turn cost di road network dapat dilihat di:
 1. https://dl.acm.org/doi/10.5555/2008623.2008634
@@ -594,10 +595,6 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 			bs.engine.graph.GetCellNumber(vId))
 
 		edgeWeight := bs.engine.GetWeight(eId, false)
-
-		if bs.reroute && turnType == pkg.U_TURN {
-			return
-		}
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 

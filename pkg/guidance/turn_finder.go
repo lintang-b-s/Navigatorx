@@ -161,7 +161,7 @@ func isSamePrimaryName(name1, name2 string) bool {
 }
 
 /*
-handleResidentialRoadTurn. get turn instruction untuk edge dengan highway type (osm way) yang biasanya ada di Jalan nasional, Jalan provinsi (jalan yang menghubungkan ibukota provinsi ke ibukota kabupaten/kota atau antarpusat pemerintahan kabupaten/kota),
+handlePrimaryRoadTurn. get turn instruction untuk edge dengan highway type (osm way) yang biasanya ada di Jalan nasional, Jalan provinsi (jalan yang menghubungkan ibukota provinsi ke ibukota kabupaten/kota atau antarpusat pemerintahan kabupaten/kota),
 Jalan kabupaten (menghubungkan pusat pemerintahan kota/kabupaten dengan kecamatan di sekelilingnya atau antarkecamatan).
 see: https://wiki.openstreetmap.org/wiki/Template:Id:Map_Features:highway?hl=id-ID
 

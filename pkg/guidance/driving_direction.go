@@ -118,6 +118,8 @@ func (db *DirectionBuilder) SetReroute(startEdgeId da.Index) {
 	db.startEdgeId = startEdgeId
 }
 
+// GetDrivingDirections. generate driving directions dairi path (list of edgeIds)
+// worst case: O(n*q + n*l), n = number of edgeIds in path arr, q=max outDegree of any vertex in the graph, l=maximum length of any edge geometry
 func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.PhantomNode) []da.DrivingDirection {
 	defer db.done()
 
@@ -174,10 +176,10 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.Phan
 			currStepTravelTime = db.instructions[i].GetCumulativeTravelTime() - db.instructions[i-1].GetCumulativeTravelTime()
 			currStepDistance = db.instructions[i].GetCumulativeDistance() - db.instructions[i-1].GetCumulativeDistance()
 		}
-		way := *db.instructions[i]
-		currPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(way.GetPoints()))
-		drivingDirections = append(drivingDirections, da.NewDrivingDirection(way, db.turnDescriptions[i],
-			currStepTravelTime, currStepDistance, way.GetEdgeIds(), currPolyline, ins.GetTurnBearing()))
+
+		currPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(ins.GetPoints()))
+		drivingDirections = append(drivingDirections, da.NewDrivingDirection(*ins, db.turnDescriptions[i],
+			currStepTravelTime, currStepDistance, ins.GetEdgeIds(), currPolyline, ins.GetTurnBearing()))
 	}
 
 	return drivingDirections
@@ -274,8 +276,11 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 				turnBearing := geo.ComputeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(),
 					tail.GetLat(), tail.GetLon())
 				nextStreetName := db.graph.GetStrFromId(db.nextStreetName)
+				suggestAlternatives := db.IsSuggestAlternatives(edgeId)
 				ins := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
 					db.GetEdgePoints(edgeId), turnBearing, db.clockwise)
+				ins.SetSuggestAlternatives(suggestAlternatives)
+				
 				db.prevInstruction = ins
 
 				db.reset()

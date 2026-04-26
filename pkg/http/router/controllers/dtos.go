@@ -43,28 +43,30 @@ type boundingBoxResponse struct {
 }
 
 type drivingDirection struct {
-	Instruction string        `json:"instruction"`
-	Point       da.Coordinate `json:"turn_point"`
-	StreetName  string        `json:"street_name"`
-	TravelTime  float64       `json:"travel_time"`
-	Distance    float64       `json:"distance"`
-	EdgeIds     []da.Index    `json:"edge_ids"`
-	Polyline    string        `json:"polyline"`
-	TurnBearing float64       `json:"turn_bearing"`
-	TurnType    string        `json:"turn_type"`
+	Instruction         string        `json:"instruction"`
+	Point               da.Coordinate `json:"turn_point"`
+	StreetName          string        `json:"street_name"`
+	TravelTime          float64       `json:"travel_time"`
+	Distance            float64       `json:"distance"`
+	EdgeIds             []da.Index    `json:"edge_ids"`
+	Polyline            string        `json:"polyline"`
+	TurnBearing         float64       `json:"turn_bearing"`
+	TurnType            string        `json:"turn_type"`
+	SuggestAlternatives bool          `json:"suggest_alternatives"`
 }
 
 func NewDrivingDirection(d da.DrivingDirection) drivingDirection {
 	return drivingDirection{
-		Instruction: d.GetInstruction(),
-		Point:       d.GetPoint(),
-		StreetName:  d.GetStreetName(),
-		TravelTime:  d.GetTravelTime(),
-		Distance:    d.GetDistance(),
-		EdgeIds:     d.GetEdgesIds(),
-		Polyline:    d.GetPolyline(),
-		TurnBearing: d.GetTurnBearing(),
-		TurnType:    d.GetTurnType(),
+		Instruction:         d.GetInstruction(),
+		Point:               d.GetPoint(),
+		StreetName:          d.GetStreetName(),
+		TravelTime:          d.GetTravelTime(),
+		Distance:            d.GetDistance(),
+		EdgeIds:             d.GetEdgesIds(),
+		Polyline:            d.GetPolyline(),
+		TurnBearing:         d.GetTurnBearing(),
+		TurnType:            d.GetTurnType(),
+		SuggestAlternatives: d.GetSuggestAlternatives(),
 	}
 }
 

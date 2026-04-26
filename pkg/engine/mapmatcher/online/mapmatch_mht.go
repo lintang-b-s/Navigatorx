@@ -51,12 +51,12 @@ func NewOnlineMapMatchMHT(graph *da.Graph, rt *spatialindex.Rtree, initialSpeedM
 // OnlineMapMatch. perform online map matching using Multiple Hypothesis Technique
 // speed in meter/s, arc length in meter, k is current time step (1-based)
 // Algorithm 1 in ref[1]
-// O(min(M, MAX_CANDIDATES) + b^{d_p}), M=number of edges, MAX_CANDIDATES=max number of r-tree leafs data to return, b=max number of outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
+// O(M + b^{d_p}), M=number of edges, MAX_CANDIDATES=max number of r-tree leafs data to return, b=max outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
 func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 
 	if k == 1 || len(candidates) == 0 {
-		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc, 2) // O(min(M, MAX_CANDIDATES))
+		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc, 2) // O(M)
 		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 		sumLength := 0.0
 		for _, arcEndpoint := range nearbyArcs {
@@ -205,7 +205,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 	var matchedSegment *da.MatchedGPSPoint
 	maxWeight := -1.0
 	for _, cand := range filteredCands {
-		if cand.Weight() > maxWeight {
+		if util.Gt(cand.Weight(), maxWeight) {
 			projectedPointCoord := cand.GetProjectedCoord()
 			eInitialBearing := cand.GetEdgeBearing()
 			matchedSegment = da.NewMatchedGPSPoint(gps, cand.EdgeId(), projectedPointCoord, eInitialBearing)

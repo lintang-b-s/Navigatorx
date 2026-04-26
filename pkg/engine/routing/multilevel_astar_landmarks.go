@@ -217,8 +217,8 @@ sebenarnya setelah multilevel-dijkstra selesai (di routing.go), kita tambahin sp
 
 
 inti dari multilevel-ALT (A*, landmarks, and triangle inequality) [1] dan [2]:
-- ketika kita scan vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra -> est cost dari s to v udah equal to shortest path cost
-- ketika kita scan vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra -> est cost dari v to t udah equal to shortest path cost, kenapa??
+- ketika kita scan vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra [7] (impl. with decreaseKey() pq && without turn cost) -> est cost dari s to v udah equal to shortest path cost
+- ketika kita scan vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra [7] (impl. with decreaseKey() pq && without turn cost) -> est cost dari v to t udah equal to shortest path cost, kenapa??
 karena di backward search kita pakai reversed edges: semua edges (v,u) dengan (u,v)\in E, l(v,u)=l(u,v)  (see Single-destination shortest-paths problem in ref[7])
 - setelah forward search keluar dari cell level 1 dari s (sebelum masuk ke cell level 1 nya t), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
 - setelah backward search keluar dari cell level 1 dari t (sebelum masuk ke cell level 1 nya s), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
@@ -561,10 +561,6 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 			bs.engine.graph.GetCellNumber(vId))
 
 		edgeWeight := bs.engine.GetWeight(eId, false)
-
-		if bs.reroute && turnType == pkg.U_TURN {
-			return
-		}
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 

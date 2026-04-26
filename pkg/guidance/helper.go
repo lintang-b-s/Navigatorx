@@ -136,3 +136,28 @@ func (db *DirectionBuilder) GetEdgePoints(lastEdgeId da.Index) da.Coordinates {
 
 	return *da.NewCoordinatesWithInitialValues(coords)
 }
+
+// IsSuggestAlternatives. cek apakah tipe highway dari edgeId in "primary", "secondary", "trunk"
+// biasanya kalau kita pakai google map, ketika kita di dekat persimpangan jalan besar, gmaps ngasih rute alternatives
+// nah ini tujuannya buat nandain routeStep (kumpulan segmen jalan sebelum titik belok) bisa disuggest alternative routes
+// ingat kita menambahkan turnSign && routeStep ketika turnSign dari edgeId yang diproses buildInstruction(edgeId) bukan IGNORE
+// kalau edgeId tipenya "primary", "secondary", "trunk" (yang biasanya jadi Jalan nasional, Jalan provinsi, Jalan kabupaten/kota)
+// kita set suggestAlternative=true untuk current routeStep...
+// ntar di frontend nya ketika ketika hasil matched_edge_id dari online map matchingnya ada di last 3 edgeIds dari currentRouteStep (routeStep yang next beloknya ke jalan dari ketiga tipe diatas)
+// request ke endpoint alternativeRoutes, tambahin polyline alternative routes ke map
+func (db *DirectionBuilder) IsSuggestAlternatives(edgeId da.Index) bool {
+
+	edgeRoadClass := db.graph.GetRoadClass(edgeId)
+	edgeRoadClassLink := db.graph.GetRoadClassLink(edgeId)
+
+	switch edgeRoadClass {
+	case "primary", "secondary", "trunk":
+		return true
+	default:
+		switch edgeRoadClassLink {
+		case "primary_link", "secondary_link", "trunk_link":
+			return true
+		}
+	}
+	return false
+}

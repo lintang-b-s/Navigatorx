@@ -55,6 +55,7 @@ type Instruction struct {
 	turnType             string
 	turnSign             TurnType
 	isRoundabout         bool
+	suggestAlternatives  bool
 }
 
 func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
@@ -109,6 +110,14 @@ func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRo
 
 func (ins *Instruction) GetStreetName() string {
 	return ins.streetname
+}
+
+func (ins *Instruction) SetSuggestAlternatives(suggestAlternatives bool) {
+	ins.suggestAlternatives = suggestAlternatives
+}
+
+func (ins *Instruction) GetSuggestAlternatives() bool {
+	return ins.suggestAlternatives
 }
 
 func (ins *Instruction) SetExtraInfo(key string, val interface{}) {
@@ -301,15 +310,16 @@ func (i *Instruction) SetExited() {
 }
 
 type DrivingDirection struct {
-	instruction string
-	edgeIds     []Index
-	polyline    string
-	streetName  string
-	point       Coordinate
-	travelTime  float64
-	distance    float64
-	turnBearing float64
-	turnType    string
+	instruction         string
+	edgeIds             []Index
+	polyline            string
+	streetName          string
+	point               Coordinate
+	travelTime          float64
+	distance            float64
+	turnBearing         float64
+	turnType            string
+	suggestAlternatives bool
 }
 
 func NewDrivingDirection(ins Instruction, description string, prevTravelTime, prevDist float64,
@@ -317,15 +327,16 @@ func NewDrivingDirection(ins Instruction, description string, prevTravelTime, pr
 	edgeIdsCopy := make([]Index, len(edgeIds))
 	copy(edgeIdsCopy, edgeIds)
 	return DrivingDirection{
-		instruction: description,
-		point:       ins.point,
-		streetName:  ins.streetname,
-		travelTime:  util.RoundFloat(prevTravelTime, 2),
-		distance:    util.RoundFloat(prevDist, 2),
-		edgeIds:     edgeIdsCopy,
-		polyline:    polyline,
-		turnBearing: util.RoundFloat(turnBearing, 2),
-		turnType:    ins.turnType,
+		instruction:         description,
+		point:               ins.point,
+		streetName:          ins.streetname,
+		travelTime:          util.RoundFloat(prevTravelTime, 2),
+		distance:            util.RoundFloat(prevDist, 2),
+		edgeIds:             edgeIdsCopy,
+		polyline:            polyline,
+		turnBearing:         util.RoundFloat(turnBearing, 2),
+		turnType:            ins.turnType,
+		suggestAlternatives: ins.suggestAlternatives,
 	}
 }
 
@@ -363,4 +374,8 @@ func (d *DrivingDirection) GetTurnBearing() float64 {
 
 func (d *DrivingDirection) GetTurnType() string {
 	return d.turnType
+}
+
+func (d *DrivingDirection) GetSuggestAlternatives() bool {
+	return d.suggestAlternatives
 }

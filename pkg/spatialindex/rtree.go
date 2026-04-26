@@ -69,9 +69,9 @@ func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
 
 // SearchWithinRadius search for all arc endpoints within radius (in km) from the query point (qLat, qLon)
 // let M=number of road segmnents/edges in the graph
-// R-tree search worst case is O(M) ketika MBR dari query include overlap semua mbr leafs data
+// R-tree search worst case is O(M) ketika MBR dari query overlap semua mbr leafs data
 // tapi karena kita limit leaf data yang kita return sebanyak MAX_CANDIDATES
-// SearchWithinRadius worst case is O(min(M, MAX_CANDIDATES))
+// SearchWithinRadius worst case is O(M)
 // https://www2.cs.sfu.ca/CourseCentral/454/jpei/slides/R-Tree.pdf
 // https://dl.acm.org/doi/10.1145/971697.602266
 // mode=0  origin, mode=1 destination, mode=2 not both
