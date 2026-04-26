@@ -37,9 +37,8 @@ const keyValByteApproxSize = 9 + 4*5
 func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.Metric,
 	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction, landmarkFile, timeFunctionFilePath string) (*Engine, error) {
 	// customizable route planning in road networks section 7.2 (path retrieval)
-	// puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 524288
 
-	const maxCost = int64(1) << 27
+	const maxCost = int64(1) << 20
 	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
 		NumCounters: (maxCost / keyValByteApproxSize) * 5, // number of keys to track frequency of .
 		MaxCost:     maxCost,                              // maximum cost of cache .
@@ -93,7 +92,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
 
-	const maxCost = int64(1) << 26
+	const maxCost = int64(1) << 27
 	const maxItems = (maxCost / keyValByteApproxSize)
 	const numCounters = maxItems * 3
 	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
@@ -113,4 +112,3 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 func (e *Engine) InitBackgroundWorker(ctx context.Context) {
 	e.crpRoutingEngine.InitBackgroundWorker(ctx)
 }
-
