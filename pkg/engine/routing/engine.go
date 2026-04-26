@@ -39,9 +39,13 @@ func NewCRPRoutingEngine(graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric,
 	logger *zap.Logger, puCache *ristretto.Cache[[]byte, []da.Index],
 	costFunction CostFunction, landmarkFile string) *CRPRoutingEngine {
-	lm, err := landmark.ReadLandmark(landmarkFile)
-	if err != nil {
-		panic(fmt.Errorf("NewCRPRoutingEngine: failed to read precomputed landmark distances: %v", err))
+	var err error
+	lm := landmark.NewLandmark()
+	if landmarkFile != "" {
+		lm, err = landmark.ReadLandmark(landmarkFile)
+		if err != nil {
+			panic(fmt.Errorf("NewCRPRoutingEngine: failed to read precomputed landmark distances: %v", err))
+		}
 	}
 	e := &CRPRoutingEngine{
 		graph:        graph,

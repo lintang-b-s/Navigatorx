@@ -22,7 +22,7 @@ const (
 	graphFile        string = "./data/original_sp_test.graph"
 	overlayGraphFile string = "./data/overlay_graph_sp_test.graph"
 	metricsFile      string = "./data/metrics_sp_test.txt"
-	landmarkFile     string = "./data/landmark_sp_test.lm"
+	landmarkFile     string = ""
 	timeFunctionFile string = "./data/timefunction_sp_test.txt"
 )
 
