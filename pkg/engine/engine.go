@@ -39,7 +39,7 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 	// customizable route planning in road networks section 7.2 (path retrieval)
 	// puCache, _ := lru.New[routing.PUCacheKey, []da.Index](1 << 21) // 524288
 
-	maxCost := int64(1) << 15
+	const maxCost = int64(1) << 27
 	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
 		NumCounters: (maxCost / keyValByteApproxSize) * 5, // number of keys to track frequency of .
 		MaxCost:     maxCost,                              // maximum cost of cache .

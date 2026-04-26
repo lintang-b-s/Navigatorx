@@ -27,7 +27,7 @@ const (
 	minLatDeg = -85.05112
 	maxLatDeg = 85.05112
 	maxError  = 0.04
-	R         = 6371.0
+	R         = 6378.0
 )
 
 // https://en.wikipedia.org/wiki/Mercator_projection#Properties

@@ -205,8 +205,8 @@ kita udah include turn cost dari originPhantomEdge ke other outEdge dari s di aw
 sebenarnya setelah multilevel-dijkstra selesai (di routing.go), kita tambahin sp cost nya dengan travelTime(originPhantomNode, s) + travelTime(t, destPhantomNode)
 
 inti dari multilevel-dijkstra [1]:
-- ketika kita scan vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra [7] (impl. with decreaseKey() pq && without turn cost) -> est cost dari s to v udah equal to shortest path cost
-- ketika kita scan vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra [7] (impl. with decreaseKey() pq && without turn cost) -> est cost dari v to t udah equal to shortest path cost, kenapa??
+- ketika kita scan vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra [7] ( without turn cost) -> est cost dari s to v udah equal to shortest path cost
+- ketika kita scan vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra [7] ( without turn cost) -> est cost dari v to t udah equal to shortest path cost, kenapa??
 karena di backward search kita pakai reversed edges: semua edges (v,u) dengan (u,v)\in E, l(v,u)=l(u,v)  (see Single-destination shortest-paths problem in ref[7])
 - setelah forward search keluar dari cell level 1 dari s (sebelum masuk ke cell level 1 nya t), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
 - setelah backward search keluar dari cell level 1 dari t (sebelum masuk ke cell level 1 nya s), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
