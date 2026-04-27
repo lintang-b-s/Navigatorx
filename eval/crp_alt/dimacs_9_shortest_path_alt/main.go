@@ -326,12 +326,14 @@ func main() {
 	for i, s := range sources {
 		workers := concurrent.NewWorkerPool[crpalt.QueryParam, queryRes](queryWorkers, queryChannelSize)
 		workers.StartWithContext(ctx, calcSp)
-		ssspCost := int64(0)
+		ssspCostChan := make(chan float64)
 		go func() {
+			ssspCost := int64(0)
 			for res := range workers.CollectResults() {
 				qSpCost := int64(res.spcost)
 				ssspCost = (ssspCost + qSpCost) % dimacsModulo
 			}
+			ssspCostChan <- float64(ssspCost)
 		}()
 
 		for t := 1; t < n+1; t++ {
@@ -340,8 +342,9 @@ func main() {
 
 		workers.Close()
 		workers.Wait()
+		ssspCostTot := <-ssspCostChan
 
-		sourceChecksums[s] = ssspCost
+		sourceChecksums[s] = int64(ssspCostTot)
 		logger.Sugar().Infof("done source %d/%d: %d", i+1, len(sources), s)
 	}
 
