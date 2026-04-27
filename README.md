@@ -24,6 +24,7 @@ go test ./... -v -timeout=0  --cover -coverpkg=./pkg/... -coverprofile=coverage.
 
 #### Load Test
 ```
+go run eval/crp_alt/gen_rand_queries_coords/main.go
 k6 run eval/crp_alt/load_tests/k6_sp.js
 k6 run eval/crp_alt/load_tests/k6_alternatives.js
 ```
