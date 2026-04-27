@@ -10,6 +10,12 @@ BENCH_DIR="$ROOT_DIR/tests/benchmark"
 ENGINE_CMD_DIR="$ROOT_DIR/bin"
 PGO_OUTPUT="$ENGINE_CMD_DIR/default.pgo"
 
+# Ensure the bin directory exists with 755 permissions
+if [ ! -d "$ENGINE_CMD_DIR" ]; then
+    echo "Creating directory $ENGINE_CMD_DIR with 755 permissions..."
+    mkdir -m 755 -p "$ENGINE_CMD_DIR"
+fi
+
 echo "Starting PGO profile collection..."
 
 # Move to benchmark directory to ensure data paths (./data) are correct for benchmarks
