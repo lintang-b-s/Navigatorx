@@ -148,6 +148,8 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.Phan
 
 		db.buildInstruction(edgeId, sp)
 		db.lastPathId++
+		db.useLookForward = false
+		db.lookForwardStep = 0
 	}
 
 	if !db.graph.IsDummyOutEdge(tp.GetOutEdgeId()) {
@@ -280,7 +282,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 				ins := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
 					db.GetEdgePoints(edgeId), turnBearing, db.clockwise)
 				ins.SetSuggestAlternatives(suggestAlternatives)
-				
+
 				db.prevInstruction = ins
 
 				db.reset()
@@ -291,17 +293,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 		db.prevSign = turnSign
 	}
 
-	if db.useLookForward {
-		db.updateState(edgeId, isRoundabout)
-
-		for i := 0; i < db.lookForwardStep; i++ {
-			db.lastPathId++
-			nextEdgeId := db.path[db.lastPathId]
-			db.updateState(nextEdgeId, false)
-		}
-		db.useLookForward = false
-		db.lookForwardStep = 0
-	} else {
+	if !db.useLookForward {
 		db.updateState(edgeId, isRoundabout)
 	}
 }
@@ -309,7 +301,6 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.PhantomNode) {
 
 	doublePrevNode := db.graph.GetVertex(db.doublePrevNode)
-
 	tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edgeId))
 
 	var head da.Coordinate

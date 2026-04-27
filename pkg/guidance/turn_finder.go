@@ -17,7 +17,7 @@ todo4: add test expected outputnya pake driving direction google map (dengan rut
 */
 
 func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, headId da.Index, name string) da.TurnType {
-	db.useLookForward = false
+
 	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
 
 	if sign, ok := db.turnSignCache.Get(key); ok {
@@ -135,21 +135,6 @@ func isSameResidentialName(name1, name2 string) bool {
 	return name1 == name2
 }
 
-func isSameNameByRoadClass(name1, name2, currRoadClass, currRoadClassLink string) bool {
-
-	switch currRoadClass {
-	case "tertiary", "residential", "living_street", "service", "private", "road", "track", "unclassified", "unknown", "undefined":
-		return isSameResidentialName(name1, name2)
-	default:
-		switch currRoadClassLink {
-		case "tertiary_link", "residential_link":
-			return isSameResidentialName(name1, name2)
-		}
-
-		return name1 == name2
-	}
-}
-
 func isSamePrimaryName(name1, name2 string) bool {
 	if name1 == "" || name2 == "" {
 		// seringkali di osm, nama street kosong "" (terutama di residential/living street/tertiary osm ways), better dianggap false
@@ -246,6 +231,12 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 				db.useLookForward = true
 				db.lookForwardStep = step
+				db.updateState(edgeId, false)
+				for i := 0; i < db.lookForwardStep; i++ {
+					db.lastPathId++
+					nextEdgeId := db.path[db.lastPathId]
+					db.updateState(nextEdgeId, false)
+				}
 			}
 		}
 
@@ -313,9 +304,14 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 			_, foundNextTurn, step := db.lookForward(currStreetName, 2)
 
 			if foundNextTurn {
-
 				db.useLookForward = true
 				db.lookForwardStep = step
+				db.updateState(edgeId, false)
+				for i := 0; i < db.lookForwardStep; i++ {
+					db.lastPathId++
+					nextEdgeId := db.path[db.lastPathId]
+					db.updateState(nextEdgeId, false)
+				}
 			}
 
 			otherHeadOntheSameWay := db.lookForwardSameOsmWay(edgeId, otherContinueEdgeHead, 4)

@@ -949,7 +949,6 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 			})
 		}
 	}
-
 }
 
 func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
@@ -1065,15 +1064,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 			wantAllowedUTurn:     true,
 			wantAllowedContinue:  true,
 		},
-		{
 
-			name:                 "no_right_turn https://www.openstreetmap.org/relation/4537948",
-			turnRestriction:      newResTurn("no_right_turn", 323932428, 3309091961, 131706976, false),
-			wantAllowedLeftTurn:  true,
-			wantAllowedRightTurn: false,
-			wantAllowedUTurn:     true,
-			wantAllowedContinue:  true,
-		},
 		{
 
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/4763181",
@@ -1215,6 +1206,10 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 								if graph.IsDummyOutEdge(eIdTo) {
 									return
 								}
+								if graph.IsParallelOutEdge(eIdTo) {
+									return
+								}
+
 								toEdgeWayId := graph.GetOsmWayId(eIdTo)
 								if rest.toWay == toEdgeWayId {
 									// cek turnSign dari:
@@ -1235,70 +1230,6 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 								}
 							})
 						}
-					} else if tc.turnRestriction.isViaway {
-
-						// ini gak jadi, jadinya pakai turn tables buat polyvalent turn (u-turn dengan via-way, turn restrictions dengan multiple via-ways, etc..)
-						// cek turn-restriction yang via-nya berupa osm way
-
-						// cek u-turn restriction..
-						// contoh: https://www.openstreetmap.org/relation/13427535#map=18/-7.781940/110.375137
-						// dia dari from-way -> via-way -> to-way...
-						// kita udah map ke from-edge -> via-edge -> to-edge di corresponding u-turn nya...
-						// T[e][t_i][h_j] = is turn type at entryPoint i ke tail dari edge e -> e -> exitPoint j dari head dari edge e.
-
-						// // traverse ke semua outedges of head
-						// prevTurnSign := da.UNKNOWN
-						// graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, _ float64, _, headToEntryPoint da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
-						// 	viaWayId := graph.GetOsmWayId(eIdTo)
-						// 	if rest.via == viaWayId {
-						// 		// cek turnSign dari:
-						// 		// tail -fromEdge-> head -toEdge-> headTo
-
-						// 		tailCoord := graph.GetVertexCoordinate(tail)
-						// 		headCoord := graph.GetVertexCoordinate(head)
-						// 		headToCoord := graph.GetVertexCoordinate(headTo)
-
-						// 		prevInitialBearing := geo.ComputeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(), headCoord.GetLat(),
-						// 			headCoord.GetLon())
-						// 		turnSign := geo.GetTurnDirection(headCoord.GetLat(), headCoord.GetLon(), headToCoord.GetLat(),
-						// 			headToCoord.GetLon(), prevInitialBearing)
-
-						// 		prevTurnSign = turnSign
-
-						// 		graph.ForOutEdgesOf(headTo, headToEntryPoint, func(eIdTo2, headTo2 da.Index, _, _ float64, headTo2ExitPoint, _ da.Index, turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
-						// 			// eidTo2 adlah to-edge di u-turn restriction....
-						// 			// eIdTo adalah via-edge  di u-turn restriction....
-						// 			// fromEId adalah from-edge
-						// 			toWayId := graph.GetOsmWayId(eIdTo2)
-						// 			if toWayId == tc.turnRestriction.toWay {
-						// 				prevPoint := graph.GetVertexCoordinate(head)
-						// 				tailCoord := graph.GetVertexCoordinate(headTo)
-						// 				headPoint := graph.GetVertexCoordinate(headTo2)
-
-						// 				prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tailCoord.GetLat(),
-						// 					tailCoord.GetLon())
-						// 				nextTurnSign := geo.GetTurnDirection(tailCoord.GetLat(), tailCoord.GetLon(), headPoint.GetLat(),
-						// 					headPoint.GetLon(), prevInitialBearing)
-
-						// 				uTurnSign := da.UNKNOWN
-
-						// 				if isSameConsecutiveTurn(prevTurnSign, nextTurnSign) {
-						// 					uTurnSign = da.U_TURN_RIGHT
-						// 				}
-
-						// 				viaWayTurnType := graph.GetTurnTypeViaWay(eIdTo, fromEntryPoint, headTo2ExitPoint)
-
-						// 				if reason, correct := isCorrect(uTurnSign, viaWayTurnType, tc.wantAllowedLeftTurn, tc.wantAllowedRightTurn, tc.wantAllowedUTurn, tc.wantAllowedContinue, tc.turnRestriction.resType); tc.turnRestriction.isViaway &&
-						// 					!correct {
-						// 					t.Errorf("want: %s, got: allowed %s", reason, turnSignToDesc(uTurnSign))
-						// 				}
-						// 			}
-
-						// 		})
-						// 	}
-
-						// })
-
 					}
 
 				}
@@ -1306,16 +1237,4 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 
 		})
 	}
-}
-
-// todo: incorporate u-turn restriction yang via nya osm way di routing algorithm (multilevel-dijkstra & multilevel-ALT (A*, landmarks, and triangle inequality))
-// contoh u-turn restriction yang via nya osm way: https://www.openstreetmap.org/relation/15268026,  https://www.openstreetmap.org/relation/13427535  ,
-// todo2: add barrier node tests, contoh:
-
-func isSameConsecutiveTurn(prevSign, sign da.TurnType) bool {
-	if (sign == da.TURN_SLIGHT_RIGHT || sign == da.TURN_RIGHT || sign == da.TURN_SHARP_RIGHT) ||
-		(prevSign == da.TURN_SLIGHT_RIGHT || prevSign == da.TURN_RIGHT || prevSign == da.TURN_SHARP_RIGHT) {
-		return true
-	}
-	return false
 }

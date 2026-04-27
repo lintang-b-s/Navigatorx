@@ -364,7 +364,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				u4->u3->u4
 		*/
 		if !way.oneWay {
-			// // ada yang salah....
+
 			for i, via := range way.graphNodes {
 
 				if len(way.graphNodes) <= 1 {
@@ -601,8 +601,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 							rowOffset := entryPoint * da.Index(outDegree[via])
 							for k := 0; k < len(outEdges[via]); k++ {
 								outEdge := outEdges[via][k]
-								if outEdge.GetHead() == successor {
+								if outEdge.GetHead() == successor && !isParallelEdge(outEdge.GetEdgeId(), da.Index(fromResId), 0) {
+
 									exitPoint = da.Index(k)
+
 								}
 
 								prevPoint := vertices[inEdge.GetTail()].GetCoordinate()
@@ -685,7 +687,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 								turnMatrices[via][rowOffset+exitPoint] = pkg.NO_ENTRY
 
 							case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
-
 								turnMatrices[via][rowOffset+exitPoint] = pkg.NO_ENTRY
 
 							case NO_STRAIGHT_ON:
@@ -1030,6 +1031,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		vertices[v].SetTurnTablePtr(da.Index(matrixOffset))
 		// flatten the turnMatrices
 		for i := 0; i < len(turnMatrices[v]); i++ {
+
 			matrices = append(matrices, turnMatrices[v][i])
 		}
 
