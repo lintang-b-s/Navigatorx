@@ -2,6 +2,7 @@
 
 todo: add readme
 
+#### Quick Start
 ```
 sh scripts/build_pgo.sh
 pip install gdown
@@ -14,6 +15,17 @@ go build -o ./bin/customizer ./cmd/customizer
 
 go build -o ./bin/engine -pgo=auto  ./cmd/engine
 ./bin/engine
+```
+
+#### Tests
+```
+cd tests && go test ./... -v -timeout=0  --cover -coverpkg=../../pkg/... -coverprofile=coverage.out
+```
+
+#### Load Test
+```
+k6 run eval/crp_alt/load_tests/k6_sp.js
+k6 run eval/crp_alt/load_tests/k6_alternatives.js
 ```
 
 

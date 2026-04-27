@@ -13,7 +13,7 @@ type Rtree struct {
 	tr *rtree.RTreeG[uint64]
 }
 
-// our query is turn-based multilevel bidirectional dijkstra
+// our query is compact graph CRP multilevel bidirectional dijkstra
 // query input = (as,s, at,t)
 // as = entryOffset of source
 // at = exitOffset of target

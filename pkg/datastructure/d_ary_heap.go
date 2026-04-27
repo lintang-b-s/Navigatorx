@@ -202,7 +202,7 @@ func (h *DAryHeap[T]) ExtractMin(updatePos func(queryInfoId, newHeapNodeId uint3
 
 // decreaseKey update rank dari item min-heap.   O(logN) heapify.
 func (h *DAryHeap[T]) DecreaseKey(itemPos uint32, rank float64, updatePos func(queryInfoId, newHeapNodeId uint32)) error {
-	if itemPos < 0 || itemPos >= h.Size() || h.heap[itemPos].GetRank() < rank {
+	if itemPos >= h.Size() || h.heap[itemPos].GetRank() < rank {
 		return errors.New("invalid index or new value")
 	}
 

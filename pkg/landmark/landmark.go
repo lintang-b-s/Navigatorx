@@ -229,7 +229,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 			sid := qp.getSid()
 			il := qp.getIndex()
 
-			crpQuery := NewDijkstra(graph, m, false) // O(mlogm). at most m items in pq (edge-based), decrease/insert key operation at most m times, extractMin operation at most m times
+			crpQuery := NewDijkstra(graph, m, false) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
 			sps := crpQuery.ShortestPath(sid, &heapPool)
 			dijkstraOutChan <- newQueryRet(il, sps)
 		}
@@ -239,7 +239,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure
 		for qp := range dijkstraRevInChan {
 			sid := qp.getSid()
 			il := qp.getIndex()
-			crpQuery := NewDijkstra(graph, m, true) // O(mlogm)
+			crpQuery := NewDijkstra(graph, m, true) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
 
 			sps := crpQuery.ShortestPath(sid, &heapPool)
 			dijkstraRevOutChan <- newQueryRet(il, sps)
