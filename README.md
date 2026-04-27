@@ -19,7 +19,7 @@ go build -o ./bin/engine -pgo=auto  ./cmd/engine
 
 #### Tests
 ```
-cd tests && go test ./... -v -timeout=0  --cover -coverpkg=../../pkg/... -coverprofile=coverage.out
+go test ./... -v -timeout=0  --cover -coverpkg=./pkg/... -coverprofile=coverage.out
 ```
 
 #### Load Test
