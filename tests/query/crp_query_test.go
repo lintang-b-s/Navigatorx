@@ -481,7 +481,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		return nil
 	}
 
-	workersDijkstra := concurrent.NewWorkerPool[int, any](6, 5)
+	workersDijkstra := concurrent.NewWorkerPool[int, any](30, 20000)
 	ctx, cancel := context.WithCancel(context.Background())
 	workersDijkstra.StartWithContext(ctx, calcSpDijkstra)
 	go func() {
@@ -554,7 +554,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		return newCounterExampleData(0, 0, nil, nil, false)
 	}
 
-	workers := concurrent.NewWorkerPool[query, counterExampleData](12, 5)
+	workers := concurrent.NewWorkerPool[query, counterExampleData](30, 20000)
 
 	ctx, cancel = context.WithCancel(context.Background())
 	workers.StartWithContext(ctx, calcSp)
