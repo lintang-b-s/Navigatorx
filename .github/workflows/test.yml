@@ -6,19 +6,109 @@ permissions:
   contents: write
   pull-requests: write
 jobs:
-  check-coverage:
-    name: Go test coverage check
-    runs-on: ubuntu-latest
+  test:
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ ubuntu-latest, macos-latest ]
+
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-go@v3
+      - name: checkout
+        uses: actions/checkout@v6
+      - name: setup go
+        uses: actions/setup-go@v6
         with:
-          go-version: '1.26.1' 
+          go-version-file: go.mod
 
-      - name: generate test coverage
-        run: sh ./scripts/run_test.sh
+      - name: test
+        env:
+          GITHUB_TOKEN: ${{ matrix.os == 'ubuntu-latest' && secrets.GITHUB_TOKEN || '' }} # Needed for GitHub badge storer integration test
+        run: go test -p 1 ./... -v -timeout=0  -count=1 -coverpkg=./pkg/...  -coverprofile=${{ matrix.os }}-profile  -skip "^TestOSN2024KRL$" # skip test yang lama selesainya
 
-      - name: check test coverage
-        uses: vladopajic/go-test-coverage@v2
+      - name: upload cover profile artifact
+        uses: actions/upload-artifact@v7
         with:
-          config: ./.github/.testcoverage.yml
+          name: ${{ matrix.os }}-profile
+          path: ${{ matrix.os }}-profile
+          if-no-files-found: error
+
+
+  check-coverage:
+      runs-on: ubuntu-latest
+      needs: test
+
+      steps:
+        - name: checkout
+          uses: actions/checkout@v6
+
+        - name: download ubuntu-latest-profile
+          uses: actions/download-artifact@v8
+          with:
+            name: ubuntu-latest-profile
+        - name: download macos-latest-profile
+          uses: actions/download-artifact@v8
+          with:
+            name: macos-latest-profile
+       
+        - name: download artifact (main.breakdown)
+          id: download-main-breakdown
+          uses: dawidd6/action-download-artifact@v20
+          with:
+            branch: main
+            workflow_conclusion: success
+            name: main.breakdown
+            if_no_artifact_found: warn
+
+        - name: check test coverage
+          id: coverage
+          uses: vladopajic/go-test-coverage@v2
+          continue-on-error: true # Should fail after coverage comment is posted
+          with:
+            config: ./.github/.testcoverage.yml
+            profile: ubuntu-latest-profile,macos-latest-profile
+            git-branch: badges
+            git-token: ${{ github.ref_name == 'main' && secrets.GITHUB_TOKEN || '' }}
+            breakdown-file-name: ${{ github.ref_name == 'main' && 'main.breakdown' || '' }}
+            diff-base-breakdown-file-name: ${{ steps.download-main-breakdown.outputs.found_artifact == 'true' && 'main.breakdown' || '' }}
+  
+        - name: upload artifact (main.breakdown)
+          uses: actions/upload-artifact@v7
+          if: github.ref_name == 'main'
+          with:
+            name: main.breakdown
+            path: main.breakdown
+            if-no-files-found: error
+
+        - name: find pull request ID
+          run: |
+            if [ "${{ github.event_name }}" == "pull_request" ]; then
+              echo "pull_request_id=${{ github.event.pull_request.number }}" >> $GITHUB_ENV
+            else
+              PR_DATA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/pulls?head=${{ github.repository_owner }}:${{ github.ref_name }}&state=open")
+              PR_ID=$(echo "$PR_DATA" | jq -r '.[0].number')
+              if [ "$PR_ID" != "null" ]; then
+                echo "pull_request_id=$PR_ID" >> $GITHUB_ENV
+              else
+                echo "No open pull request found for this branch."
+              fi
+            fi
+        - name: post coverage report
+          if: env.pull_request_id
+          uses: thollander/actions-comment-pull-request@v3
+          with:
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            comment-tag: coverage-report
+            pr-number: ${{ env.pull_request_id }}
+            message: |
+              go-test-coverage report:
+              ``` 
+              ${{ fromJSON(steps.coverage.outputs.report) }}```
+  
+        - name: "finally check coverage"
+          if: steps.coverage.outcome == 'failure'
+          shell: bash
+          run: echo "coverage check failed" && exit 1
+
+

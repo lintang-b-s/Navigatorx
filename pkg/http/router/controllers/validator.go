@@ -13,7 +13,7 @@ func translateError(err error, trans ut.Translator) (errs []error) {
 	}
 	validatorErrs := err.(validator.ValidationErrors)
 	for _, e := range validatorErrs {
-		translatedErr := fmt.Errorf(e.Translate(trans))
+		translatedErr := fmt.Errorf("%s", e.Translate(trans))
 		errs = append(errs, translatedErr)
 	}
 	return errs

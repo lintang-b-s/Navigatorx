@@ -47,7 +47,7 @@ func (api *routingAPI) MethodNotAllowedResponse(w http.ResponseWriter, r *http.R
 }
 
 func (api *routingAPI) TimeoutResponse(w http.ResponseWriter, r *http.Request, errMsg string) {
-	message := fmt.Sprint("The server did not respond in time. Please try again later: %s", errMsg)
+	message := fmt.Sprintf("The server did not respond in time. Please try again later: %s", errMsg)
 	api.errorResponse(w, r, http.StatusGatewayTimeout, message)
 }
 

@@ -1,8 +1,13 @@
 # Navigatorx
 
-todo: add readme
+[![test](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml)
+[![lint](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml)
+[![coverage](https://raw.githubusercontent.com/vladopajic/go-test-coverage/badges/.badges/main/coverage.svg)](/.github/.testcoverage.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/lintang-b-s/Navigatorx?cache=v1)](https://goreportcard.com/report/github.com/lintang-b-s/Navigatorx)
+
 
 #### Quick Start
+
 ```
 sh scripts/build_pgo.sh
 pip install gdown
@@ -18,17 +23,15 @@ go build -o ./bin/engine -pgo=auto  ./cmd/engine
 ```
 
 #### Tests
+
 ```
 sh ./scripts/run_test.sh
 ```
 
 #### Load Test
+
 ```
 go run eval/crp_alt/gen_rand_queries_coords/main.go
 k6 run eval/crp_alt/load_tests/k6_sp.js
 k6 run eval/crp_alt/load_tests/k6_alternatives.js
 ```
-
-
-
-

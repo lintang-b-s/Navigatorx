@@ -76,7 +76,7 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	)
 
 	if util.IsTimeout(ctx) { // https://engineering.grab.com/context-deadlines-and-how-to-set-them
-		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
@@ -135,7 +135,7 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 	}
 
 	if util.IsTimeout(ctx) {
-		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp, tp, k, reroute, startEdgeId)
@@ -144,7 +144,7 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 	}
 
 	if util.IsTimeout(ctx) {
-		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	for i, alt := range alternatives {

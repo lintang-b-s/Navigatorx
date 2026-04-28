@@ -407,7 +407,7 @@ func extractTarGz(gzipStream io.Reader) error {
 			outFile.Close()
 
 		default:
-			return fmt.Errorf("extractTarGz: uknown type: %s in %s",
+			return fmt.Errorf("extractTarGz: uknown type: %v in %s",
 				header.Typeflag,
 				header.Name)
 		}

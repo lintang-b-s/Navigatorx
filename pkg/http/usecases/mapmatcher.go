@@ -2,7 +2,6 @@ package usecases
 
 import (
 	"context"
-	"fmt"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
@@ -27,7 +26,7 @@ func (ms *MapMatcherService) OnlineMapMatch(ctx context.Context, gps *da.GPSPoin
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64, error) {
 
 	if util.IsTimeout(ctx) {
-		return nil, make([]*ma.Candidate, 0), 0, 0, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, fmt.Sprintf("request timeout"))
+		return nil, make([]*ma.Candidate, 0), 0, 0, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	matchedPoint, cands, speedMean, speedStd := ms.onlineEngine.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
