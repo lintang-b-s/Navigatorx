@@ -14,10 +14,9 @@ import (
 // cd tests/driving_direction &&  go test -v .
 func TestDrivingDirection(t *testing.T) {
 
-	const fileUrl = "https://docs.google.com/uc?export=download&id=1mO1xPsFrGwYrT4DQFMtN5ajvvQOgP0M7"
 	const filename = "solo"
 
-	eng, logger, _ := tests.Setup(t, filename, fileUrl)
+	eng, logger, _ := tests.Setup(t, filename)
 	re := eng.GetRoutingEngine()
 	rtree := spatialindex.NewRtree()
 	altSearch := routing.NewAlternativeRouteSearch(re)

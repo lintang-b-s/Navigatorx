@@ -59,7 +59,7 @@ Available at: https://doi.org/10.1109/TITS.2023.3237519.
 // pakai dataset dari ref[2]: https://github.com/Hanwen-Hu/AMM/tree/main/MatchData/Shanghai
 
 const (
-	osmFile                            = "./data/eval/mapmatching/shanghai.osm.pbf"
+	osmFile                            = "../../../data/eval/mapmatching/shanghai.osm.pbf"
 	graphFile                   string = "./data/original_eval_mm_hh.graph"
 	overlayGraphFile            string = "./data/overlay_graph_eval_mm_hh.graph"
 	metricsFile                 string = "./data/metrics_eval_mm_hh.txt"

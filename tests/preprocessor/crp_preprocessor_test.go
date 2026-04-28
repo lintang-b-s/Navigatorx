@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
-	"io"
 	"math"
-	"net/http"
 	"strings"
 	"testing"
 
@@ -31,13 +29,11 @@ var (
 )
 
 const (
-	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "./data/yogyakarta.osm.pbf"
+	mlpFile = "./data/stress_test_yogyakarta.mlp"
+
+	osmfFile                = "../../data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_preprocessor_test.graph"
 	overlayGraphFile string = "./data/overlay_graph_preprocessor_test.graph"
-	metricsFile      string = "./data/metrics_preprocessor_test.txt"
-	landmarkFile     string = "./data/landmark_preprocessor_test.lm"
 )
 
 type query struct {
@@ -784,34 +780,13 @@ func init() {
 	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
 }
 
-func setup(t *testing.T, osmFileTest, urlTest string) *preprocesser.Preprocessor {
+func setup(t *testing.T, osmFileTest string) *preprocesser.Preprocessor {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if _, err := os.Stat(osmFileTest); os.IsNotExist(err) {
-		output, err := os.Create(osmFileTest)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer output.Close()
-
-		logger.Sugar().Infof("downloading osm file......")
-		response, err := http.Get(urlTest)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer response.Body.Close()
-
-		_, err = io.Copy(output, response.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		logger.Sugar().Infof("download complete")
 	}
 
 	op := osmparser.NewOSMParserV2()
@@ -864,15 +839,14 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 	testCases := []struct {
 		name string
 
-		urlTest, osmfFileTest string
-		roundAboutWay         map[int64]struct{}
-		streetNameWay         map[int64]string
-		highwayTypeWay        map[int64]string
-		roadLanes             map[int64]uint8
+		osmfFileTest   string
+		roundAboutWay  map[int64]struct{}
+		streetNameWay  map[int64]string
+		highwayTypeWay map[int64]string
+		roadLanes      map[int64]uint8
 	}{
 		{
 			name:         "file osm yogyakarta",
-			urlTest:      url,
 			osmfFileTest: osmfFile,
 			roundAboutWay: map[int64]struct{}{
 				1460805468: struct{}{},
@@ -896,7 +870,7 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 
 	for _, tc := range testCases {
 
-		prep := setup(t, tc.osmfFileTest, tc.urlTest)
+		prep := setup(t, tc.osmfFileTest)
 		// di preprocessor kita melakukan:
 		// 1. build g.cellNumbers
 		// 2. set cellNumber index dari setiap vertices
@@ -952,7 +926,7 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 }
 
 func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
-	prep := setup(t, osmfFile, url)
+	prep := setup(t, osmfFile)
 	graph := prep.GetGraph()
 
 	type turnRes struct {

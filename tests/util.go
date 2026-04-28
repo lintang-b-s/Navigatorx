@@ -2,8 +2,6 @@ package tests
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -26,11 +24,11 @@ func init() {
 	util.InitProfileConfig("car")
 }
 
-func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.Logger, *customizer.Customizer) {
+func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customizer.Customizer) {
 	var ( //
-		mlpFile                 = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
-		url                     = fileUrl
-		osmfFile                = fmt.Sprintf("./data/%s.osm.pbf", fileName)
+		mlpFile = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
+		// url                     = fileUrl
+		osmfFile                = fmt.Sprintf("../../data/%s.osm.pbf", fileName)
 		graphFile        string = fmt.Sprintf("./data/original_%s_test.graph", fileName)
 		overlayGraphFile string = fmt.Sprintf("./data/overlay_graph_%s_test.graph", fileName)
 		metricsFile      string = fmt.Sprintf("./data/metrics_%s_test.txt", fileName)
@@ -44,27 +42,6 @@ func Setup(t *testing.T, fileName string, fileUrl string) (*engine.Engine, *zap.
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
-		output, err := os.Create(osmfFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer output.Close()
-
-		t.Logf("downloading osm file......")
-		response, err := http.Get(url)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer response.Body.Close()
-
-		_, err = io.Copy(output, response.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Logf("download complete")
 	}
 
 	op := osmparser.NewOSMParserV2()

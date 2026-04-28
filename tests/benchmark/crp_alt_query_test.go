@@ -3,10 +3,8 @@ package benchmark
 import (
 	"flag"
 	"fmt"
-	"io"
 	"math"
 	"math/rand"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -33,8 +31,7 @@ var (
 
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "./data/yogyakarta.osm.pbf"
+	osmfFile                = "../../data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_benchmark.graph"
 	overlayGraphFile string = "./data/overlay_graph_benchmark.graph"
 	metricsFile      string = "./data/metrics_benchmark.txt"
@@ -58,26 +55,6 @@ func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
-	}
-	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
-		output, err := os.Create(osmfFile)
-		if err != nil {
-			panic(err)
-		}
-		defer output.Close()
-
-		logger.Sugar().Infof("downloading osm file......")
-		response, err := http.Get(url)
-		if err != nil {
-			panic(err)
-		}
-		defer response.Body.Close()
-
-		_, err = io.Copy(output, response.Body)
-		if err != nil {
-			panic(err)
-		}
-		logger.Sugar().Infof("download complete")
 	}
 
 	op := osmparser.NewOSMParserV2()

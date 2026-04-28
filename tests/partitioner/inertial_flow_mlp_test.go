@@ -2,8 +2,6 @@ package partitioner
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -20,13 +18,7 @@ import (
 )
 
 const (
-	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	osmfFile = "../../data/yogyakarta.osm.pbf"
 )
 
 type query struct {
@@ -57,27 +49,6 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 	logger, err := log.New()
 	if err != nil {
 		panic(err)
-	}
-
-	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
-		output, err := os.Create(osmfFile)
-		if err != nil {
-			panic(err)
-		}
-		defer output.Close()
-
-		logger.Sugar().Infof("downloading osm file......")
-		response, err := http.Get(url)
-		if err != nil {
-			panic(err)
-		}
-		defer response.Body.Close()
-
-		_, err = io.Copy(output, response.Body)
-		if err != nil {
-			panic(err)
-		}
-		logger.Sugar().Infof("download complete")
 	}
 
 	op := osmparser.NewOSMParserV2()

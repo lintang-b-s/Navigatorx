@@ -68,3 +68,6 @@ navigatorx*
 
 cover.out
 coverage.out
+!solo.osm.pbf
+!yogyakarta.osm.pbf
+

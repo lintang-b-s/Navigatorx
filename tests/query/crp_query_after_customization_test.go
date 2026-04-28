@@ -21,9 +21,8 @@ const (
 
 // cd tests/query &&  go test -v -run TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile
 func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
-	const fileUrl = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	const filename = "yogyakarta"
-	eng, logger, cust := tests.Setup(t, filename, fileUrl)
+	eng, logger, cust := tests.Setup(t, filename)
 	re := eng.GetRoutingEngine()
 
 	rtree := spatialindex.NewRtree()

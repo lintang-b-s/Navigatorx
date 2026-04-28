@@ -2,8 +2,6 @@ package osmparser
 
 import (
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"testing"
 
@@ -16,13 +14,7 @@ import (
 )
 
 const (
-	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original.graph"
-	overlayGraphFile string = "./data/overlay_graph.graph"
-	metricsFile      string = "./data/metrics.txt"
-	landmarkFile     string = "./data/landmark.lm"
+	osmfFile = "../../data/yogyakarta.osm.pbf"
 )
 
 type query struct {
@@ -45,34 +37,13 @@ func init() {
 	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
 }
 
-func setup(t *testing.T, osmfFileTest, urlTest string) (*da.Graph, [][]da.Index, *osmparser.OsmParser) {
+func setup(t *testing.T, osmfFileTest string) (*da.Graph, [][]da.Index, *osmparser.OsmParser) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
-	}
-
-	if _, err := os.Stat(osmfFileTest); os.IsNotExist(err) {
-		output, err := os.Create(osmfFileTest)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer output.Close()
-
-		logger.Sugar().Infof("downloading osm file......")
-		response, err := http.Get(urlTest)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer response.Body.Close()
-
-		_, err = io.Copy(output, response.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		logger.Sugar().Infof("download complete")
 	}
 
 	osmParser := osmparser.NewOSMParserV2()
@@ -90,15 +61,14 @@ func TestOSMParser(t *testing.T) {
 	testCases := []struct {
 		name string
 
-		urlTest, osmfFileTest string
-		roundAboutWay         map[int64]struct{}
-		streetNameWay         map[int64]string
-		highwayTypeWay        map[int64]string
-		roadLanes             map[int64]uint8
+		osmfFileTest   string
+		roundAboutWay  map[int64]struct{}
+		streetNameWay  map[int64]string
+		highwayTypeWay map[int64]string
+		roadLanes      map[int64]uint8
 	}{
 		{
 			name:         "file osm yogyakarta",
-			urlTest:      url,
 			osmfFileTest: osmfFile,
 			roundAboutWay: map[int64]struct{}{
 				1460805468: struct{}{},
@@ -121,7 +91,7 @@ func TestOSMParser(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		graph, edgeInfoIds, op := setup(t, tc.osmfFileTest, tc.urlTest)
+		graph, edgeInfoIds, op := setup(t, tc.osmfFileTest)
 		bb := graph.GetBoundingBox()
 		n := graph.NumberOfVertices()
 		osmNodeIdMap := op.GetNodeIdMap()

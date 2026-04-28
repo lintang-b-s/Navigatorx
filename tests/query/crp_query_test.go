@@ -8,7 +8,6 @@ import (
 	"io"
 	"math"
 	"math/rand"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -38,8 +37,7 @@ import (
 
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "./data/yogyakarta.osm.pbf"
+	osmfFile                = "../../data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_query_test.graph"
 	overlayGraphFile string = "./data/overlay_graph_query_test.graph"
 	metricsFile      string = "./data/metrics_query_test.txt"
@@ -350,27 +348,6 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
 
 	if !turnCost {
 		pkg.OffTurnCost()
-	}
-
-	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
-		output, err := os.Create(osmfFile)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer output.Close()
-
-		t.Logf("downloading osm file......")
-		response, err := http.Get(url)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer response.Body.Close()
-
-		_, err = io.Copy(output, response.Body)
-		if err != nil {
-			t.Fatal(err)
-		}
-		t.Logf("download complete")
 	}
 
 	op := osmparser.NewOSMParserV2()
