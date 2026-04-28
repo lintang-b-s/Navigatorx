@@ -2,7 +2,6 @@ package usecases
 
 import (
 	"context"
-	"fmt"
 	"sync"
 
 	"github.com/cockroachdb/errors"
@@ -82,9 +81,9 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
-		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
+
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
-			errmsg)
+			"no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 
 	if util.IsTimeout(ctx) {
@@ -98,9 +97,8 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(sp, tp)
 
 	if !found {
-		errmsg := fmt.Sprintf("no route found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
-			errmsg)
+			"no route found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 
 	if util.IsTimeout(ctx) {
@@ -129,9 +127,9 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
-		errmsg := fmt.Sprintf("no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
+
 		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ERRPATHNOTFOND, util.ErrBadParamInput,
-			errmsg)
+			"no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 
 	if util.IsTimeout(ctx) {
