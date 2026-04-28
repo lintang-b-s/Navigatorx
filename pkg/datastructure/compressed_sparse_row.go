@@ -3,7 +3,6 @@ package datastructure
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 
@@ -173,7 +172,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	f, err := os.Open(filename)
 
 	if err != nil {
-		if errors.Is(err, io.EOF) {
+		if errors.Is(err, os.ErrNotExist) {
 			return NewSparseMatrix[T](0, 0, zero, eq), nil
 		}
 		return nil, err
