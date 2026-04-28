@@ -1,11 +1,14 @@
 package customizer
 
-import "github.com/lintang-b-s/Navigatorx/pkg"
+import (
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+)
 
 var (
 	/// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
-	CELL_WORKER       = pkg.NUM_CPU / 6
-	CUSTOMIZER_WORKER = pkg.NUM_CPU / 3
+	CELL_WORKER       = util.ClampMin(pkg.NUM_CPU/6, 1)
+	CUSTOMIZER_WORKER = util.ClampMin(pkg.NUM_CPU/3, 1)
 )
 
 const (

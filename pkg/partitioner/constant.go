@@ -1,6 +1,9 @@
 package partitioner
 
-import "github.com/lintang-b-s/Navigatorx/pkg"
+import (
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+)
 
 const (
 	INVALID_LEVEL        = 9e9
@@ -16,7 +19,7 @@ const (
 
 var (
 	// 	https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
-	INERTIAL_FLOW_WORKERS = pkg.NUM_CPU / 4
-	BISECTION_WORKERS     = pkg.NUM_CPU / 6
-	LEVEL_WORKERS         = pkg.NUM_CPU / 6
+	INERTIAL_FLOW_WORKERS = util.ClampMin(pkg.NUM_CPU/4, 1)
+	BISECTION_WORKERS     = util.ClampMin(pkg.NUM_CPU/6, 1)
+	LEVEL_WORKERS         = util.ClampMin(pkg.NUM_CPU/6, 1)
 )
