@@ -45,10 +45,6 @@ const (
 	timeFunctionFile string = "./data/timefunction_customizer_test.txt"
 )
 
-type query struct {
-	s, t da.Index
-}
-
 const (
 	CUST_WORKERS = 10
 	CELL_WORKERS = 5
@@ -661,4 +657,3 @@ func TestCRPCustomizer(t *testing.T) {
 		}
 	}
 }
-

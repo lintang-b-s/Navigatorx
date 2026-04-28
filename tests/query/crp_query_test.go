@@ -329,10 +329,6 @@ func TestCRPQuerySimple(t *testing.T) {
 	}
 }
 
-type query struct {
-	s, t da.Index
-}
-
 func init() {
 	util.InitConfig()
 }
@@ -391,7 +387,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		ps[i] = 1 << pow // 2^pow
+		ps[i] = 1 << pow // 2^powosmfFile
 	}
 
 	mp := partitioner.NewMultilevelPartitioner(
