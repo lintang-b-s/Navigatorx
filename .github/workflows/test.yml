@@ -24,7 +24,7 @@ jobs:
       - name: test
         env:
           GITHUB_TOKEN: ${{ matrix.os == 'ubuntu-latest' && secrets.GITHUB_TOKEN || '' }} # Needed for GitHub badge storer integration test
-        run: go test -p 1 ./... -v -timeout=0  -count=1 -coverpkg=./pkg/...  -coverprofile=${{ matrix.os }}-profile  -skip "^TestOSN2024KRL$" # skip test yang lama selesainya
+        run: go test -p 1 ./...  -timeout=0  -count=1 -coverpkg=./pkg/...  -coverprofile=${{ matrix.os }}-profile  -skip "^TestOSN2024KRL$" # skip test yang lama selesainya
 
       - name: upload cover profile artifact
         uses: actions/upload-artifact@v7
