@@ -61,7 +61,7 @@ func main() {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	fout, err := os.Create("random_queries_1mil_sp_crp_alt_coords.txt")
+	fout, err := os.Create("./data/random_queries_1mil_sp_crp_alt_coords.txt")
 	if err != nil {
 		panic(err)
 	}
