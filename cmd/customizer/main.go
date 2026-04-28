@@ -1,10 +1,11 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	flag "github.com/spf13/pflag"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
@@ -15,7 +16,7 @@ var (
 	profileName     string
 	profileFilePath = flag.String("profile", "./data/car.yaml", "profile file path")
 	regionName      = flag.String("region", "diy_solo_semarang", "region name")
-	edgeSpeedsFile  = flag.String("segment-speed-file", "", "segment speed csv file.")
+	edgeSpeedsFile  = flag.StringSlice("segment-speed-file", []string{}, "segment speed csv file. example usage -segment-speed-file=blokade.csv,traffic_solo.csv")
 
 	graphFile        string
 	overlayGraphFile string

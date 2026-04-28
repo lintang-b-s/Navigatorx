@@ -465,7 +465,8 @@ func (p *OsmParser) isBarrierNodeAccessable(node *osm.Node) (bool, error) {
 			// see https://wiki.openstreetmap.org/wiki/Key:access , section Transport mode restrictions
 			// see https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla , access tags for routing (nodes)
 
-			if pkg.VehicleType == pkg.BUS {
+			switch pkg.VehicleType {
+			case pkg.BUS:
 				busAllowed := node.Tags.Find("bus") != "no"
 				if busAllowed {
 					return true, nil
@@ -474,12 +475,12 @@ func (p *OsmParser) isBarrierNodeAccessable(node *osm.Node) (bool, error) {
 				psvAllowed := node.Tags.Find("psv") != "no"
 				return psvAllowed, nil
 
-			} else if pkg.VehicleType == pkg.FOOT {
+			case pkg.FOOT:
 
 				pedestrianAccessVal := node.Tags.Find("foot")
 				pedestrianAllowed := pedestrianAccessVal != "no" && pedestrianAccessVal != "discouraged"
 				return pedestrianAllowed, nil
-			} else if pkg.VehicleType == pkg.BICYCLE {
+			case pkg.BICYCLE:
 				bicycleAccessVal := node.Tags.Find("bicycle")
 				bicycleAllowed := bicycleAccessVal != "no" && bicycleAccessVal != "none"
 				if bicycleAllowed {

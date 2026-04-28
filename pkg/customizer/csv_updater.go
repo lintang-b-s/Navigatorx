@@ -51,7 +51,7 @@ kalau berubah kita read dan swap metrics (shortcuts weight) yang ada di memory +
 
 oke gitu doang
 
-todo: add background worker buat update conditional turn restriction & conditional barrier restriction 
+todo: add background worker buat update conditional turn restriction & conditional barrier restriction
 contoh conditional barrier restriction: https://www.openstreetmap.org/node/10303116750
 */
 
@@ -172,6 +172,10 @@ func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []floa
 			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readEdgeSpeedsFile: failed to parse segent speed: %s", updatedEdgeSpeedString)
 		}
 
+		if util.Eq(updatedEdgeSpeed, 0) {
+			updatedEdgeSpeed = 0.1
+		}
+		
 		updatedEdges = append(updatedEdges, updatedEId)
 		updatedEdgeSpeed = util.KMHToMSeconds(updatedEdgeSpeed) // convert to m/s
 		updatedEdgeSpeeds = append(updatedEdgeSpeeds, updatedEdgeSpeed)

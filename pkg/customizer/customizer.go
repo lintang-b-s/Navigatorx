@@ -24,7 +24,7 @@ type Customizer struct {
 	levelHeapPool        sync.Pool
 	verticesLookupTable  *LookupTable[uint64]
 	logger               *zap.Logger
-	edgeSpeedsFilePath   string
+	edgeSpeedsFilePath   []string
 	graphFilePath        string
 	overlayGraphFilePath string
 	metricOutputFilePath string
@@ -46,7 +46,7 @@ func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, ti
 	return cst
 }
 
-func (c *Customizer) SetEdgeSpeedsFilePath(filePath string) {
+func (c *Customizer) SetEdgeSpeedsFilePath(filePath []string) {
 	c.edgeSpeedsFilePath = filePath
 }
 
@@ -90,10 +90,14 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	updatedEdgeIds := make([]da.Index, 0)
 	updatedEdgeMaxSpeeds := make([]float64, 0)
 
-	if c.edgeSpeedsFilePath != "" {
-		updatedEdgeIds, updatedEdgeMaxSpeeds, err = c.readEdgeSpeedsFromFile(c.edgeSpeedsFilePath)
-		if err != nil {
-			return nil, err
+	if len(c.edgeSpeedsFilePath) != 0 {
+		for _, currFilePath := range c.edgeSpeedsFilePath {
+			currEdgeIds, currEdgeMaxSpeeds, err := c.readEdgeSpeedsFromFile(currFilePath)
+			if err != nil {
+				return nil, err
+			}
+			updatedEdgeIds = append(updatedEdgeIds, currEdgeIds...)
+			updatedEdgeMaxSpeeds = append(updatedEdgeMaxSpeeds, currEdgeMaxSpeeds...)
 		}
 	}
 
@@ -377,10 +381,23 @@ func (c *Customizer) buildLowestLevel(
 			}
 		}
 
-		entries := make(chan da.Index, cell.GetNumEntryPoints())
+		entries := make(chan da.Index, CELL_ENTRIES_CHAN_SIZE)
 		for worker := 1; worker <= CELL_WORKER; worker++ {
 			go dijkstra(entries)
 		}
+
+		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
+
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			for i := da.Index(0); i < cellWeightSize; i++ {
+				res := <-dijkstraResChan
+				cellWeights[i] = res
+			}
+		}()
 
 		for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
 			entries <- i
@@ -388,13 +405,7 @@ func (c *Customizer) buildLowestLevel(
 
 		close(entries)
 
-		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
-
-		for i := da.Index(0); i < cellWeightSize; i++ {
-			res := <-dijkstraResChan
-			cellWeights[i] = res
-		}
-
+		wg.Wait()
 		close(dijkstraResChan)
 
 		cellCliqueOutChan <- cellWeights
@@ -548,10 +559,23 @@ func (c *Customizer) buildLevel(
 			}
 		}
 
-		entries := make(chan da.Index, cell.GetNumEntryPoints())
+		entries := make(chan da.Index, CELL_ENTRIES_CHAN_SIZE)
 		for worker := 1; worker <= CELL_WORKER; worker++ {
 			go dijkstra(entries)
 		}
+
+		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
+
+		wg := sync.WaitGroup{}
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+			for i := da.Index(0); i < cellWeightSize; i++ {
+				res := <-dijkstraResChan
+				cellWeights[i] = res
+			}
+		}()
 
 		for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
 			entries <- i
@@ -559,17 +583,10 @@ func (c *Customizer) buildLevel(
 
 		close(entries)
 
-		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
-
-		for i := da.Index(0); i < cellWeightSize; i++ {
-			res := <-dijkstraResChan
-			cellWeights[i] = res
-		}
-
+		wg.Wait()
 		close(dijkstraResChan)
 
 		cellCliqueOutChan <- cellWeights
-
 	}
 
 	go func() {

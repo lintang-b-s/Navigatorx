@@ -174,9 +174,7 @@ func (us *Dijkstra) constructShortestPath(s da.Index) []float64 {
 			}
 
 			sps[t] = sp
-			if util.Ge(sp, pkg.INF_WEIGHT) {
-				continue
-			}
+			
 		}
 
 	} else {
@@ -188,10 +186,7 @@ func (us *Dijkstra) constructShortestPath(s da.Index) []float64 {
 				continue // sp == 0
 			}
 			sps[t] = sp
-			if util.Ge(sp, pkg.INF_WEIGHT) {
-				continue
-			}
-
+			
 		}
 
 	}

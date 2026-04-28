@@ -793,7 +793,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	} else {
 		lanes, _ = strconv.Atoi(lanesString)
 	}
-
+	
 	fromNId := p.nodeIDMap[from.id]
 
 	toNId := p.nodeIDMap[to.id]

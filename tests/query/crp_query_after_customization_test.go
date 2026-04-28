@@ -265,7 +265,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 	}
 
 	resetSegmentSpeeds := func() {
-		cust.SetEdgeSpeedsFilePath("")
+		cust.SetEdgeSpeedsFilePath([]string{})
 		_, err = cust.Customize()
 		if err != nil {
 			t.Fatal(err)
@@ -316,7 +316,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			cust.SetEdgeSpeedsFilePath(segmentFile)
+			cust.SetEdgeSpeedsFilePath([]string{segmentFile})
 			_, err = cust.Customize()
 			if err != nil {
 				t.Fatal(err)
