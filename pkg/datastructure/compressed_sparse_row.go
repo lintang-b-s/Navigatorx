@@ -172,12 +172,13 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 	f, err := os.Open(filename)
 
 	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
+		if os.IsNotExist(err) {
 			return NewSparseMatrix[T](0, 0, zero, eq), nil
 		}
 		return nil, err
 	}
 
+	
 	defer f.Close()
 
 	snp := s2.NewReader(f)
