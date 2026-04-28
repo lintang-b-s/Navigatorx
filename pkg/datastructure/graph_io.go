@@ -187,7 +187,9 @@ func (g *Graph) WriteGraph(filename string) error {
 	// map edge metadatas
 
 	// osm way bit size
-	_, err = fmt.Fprintf(w, "%d\n", g.graphStorage.osmwayBitSize)
+	if _, err = fmt.Fprintf(w, "%d\n", g.graphStorage.osmwayBitSize); err != nil {
+		return errors.Wrapf(err, "WriteGraph: failed writing osmwayBitSize")
+	}
 
 	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.edgeStartPointsIndex))
 	if err != nil {

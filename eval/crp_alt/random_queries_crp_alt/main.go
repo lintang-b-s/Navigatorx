@@ -18,10 +18,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-var (
-	leafBoundingBoxRadius = flag.Float64("leaf_bounding_box_radius", 0.05, "leaf node (r-tree) bounding box radius in km")
-	transitionMHTFile     = flag.String("transmht_file", "./data/omm_transition_history_id.mm", "transition matrix for online map-matching Multiple Hypothesis Technique filepath")
-)
 
 const (
 	graphFile        string = "./data/profiles/car/diy_solo_semarang_original.graph"
@@ -39,6 +35,9 @@ func main() {
 	}
 
 	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)

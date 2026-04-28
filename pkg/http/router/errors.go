@@ -64,11 +64,6 @@ func (api *API) EditConflictResponse(w http.ResponseWriter, r *http.Request) {
 	api.errorResponse(w, r, http.StatusConflict, message)
 }
 
-func (api *API) rateLimitExceededResponse(w http.ResponseWriter, r *http.Request) {
-	message := "rate limited exceeded"
-	api.errorResponse(w, r, http.StatusTooManyRequests, message)
-}
-
 func (api *API) InvalidCredentialsResponse(w http.ResponseWriter, r *http.Request) {
 	message := "invalid authentication credentials"
 	api.errorResponse(w, r, http.StatusUnauthorized, message)
@@ -79,14 +74,4 @@ func (api *API) InvalidAuthenticationTokenResponse(w http.ResponseWriter, r *htt
 
 	message := "invalid or missing authentication token"
 	api.errorResponse(w, r, http.StatusUnauthorized, message)
-}
-
-func (api *API) authenticationRequiredResponse(w http.ResponseWriter, r *http.Request) {
-	message := "you must be authenticated to access this resource"
-	api.errorResponse(w, r, http.StatusUnauthorized, message)
-}
-
-func (api *API) notPermittedResponse(w http.ResponseWriter, r *http.Request) {
-	message := "your user account doesn't have the necessary permissions to access this resource"
-	api.errorResponse(w, r, http.StatusForbidden, message)
 }

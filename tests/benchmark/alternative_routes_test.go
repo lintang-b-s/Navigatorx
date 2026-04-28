@@ -9,12 +9,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 )
 
-const (
-	alpha      = 0.25 // every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
-	gamma      = 0.8  // alternative routes at least 20% different than the shortest path
-	epsilon    = 0.25 // alternative routes at most 25% longer than the shortest path
-	upperBound = 1.2
-)
 
 /*
 cd tests/benchmark && go test -bench BenchmarkAlternativeRoutes -benchmem -cpuprofile prof_alt.cpu -memprofile prof_alt.mem -benchtime=15s

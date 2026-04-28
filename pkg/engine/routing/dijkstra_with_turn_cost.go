@@ -12,7 +12,6 @@ type DijkstraWithTurnCost struct {
 	finalCost           []float64
 	finalQueryKey       []da.VertexInfo
 	finalEdge           []da.Index
-	targetEntryIds      []da.Index
 	shortestTravelTimes []float64
 
 	pq *da.QueryHeap[da.CRPQueryKey]

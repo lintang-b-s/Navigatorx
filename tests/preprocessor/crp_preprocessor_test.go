@@ -36,10 +36,6 @@ const (
 	overlayGraphFile string = "./data/overlay_graph_preprocessor_test.graph"
 )
 
-type query struct {
-	s, t da.Index
-}
-
 // cd tests/preprocessor &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=prep_coverage.out
 // go tool cover -func=prep_coverage.out
 // go tool cover -html=prep_coverage.out

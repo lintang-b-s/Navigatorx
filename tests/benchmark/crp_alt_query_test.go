@@ -52,6 +52,9 @@ func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 		panic(err)
 	}
 	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)

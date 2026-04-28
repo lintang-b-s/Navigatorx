@@ -296,10 +296,6 @@ type SubVertex struct {
 	exit           bool  // is exit point
 }
 
-type VertexIDPair struct {
-	originalVertexID Index // original vertex id
-	id               Index
-}
 
 type Pv uint64
 

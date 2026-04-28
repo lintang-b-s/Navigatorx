@@ -21,15 +21,10 @@ type BidirectionalDijkstra struct {
 	runtime            int64
 	sForwardId         da.Index
 	tBackwardId        da.Index
-	sCellNumber        da.Pv
-	tCellNumber        da.Pv
 
 	upperBound float64
-	clonePq    bool
-	pq         *da.QueryHeap[da.CRPQueryKey]
 
 	numSettledNodes  int
-	useReversedEdges bool
 }
 
 func NewBidirectionalDijkstra(engine *CRPRoutingEngine, upperBound float64) BidirectionalDijkstra {

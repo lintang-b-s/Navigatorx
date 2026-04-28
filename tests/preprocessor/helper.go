@@ -25,10 +25,6 @@ type pairEdge struct {
 	weight float64
 }
 
-func newPairEdge(to int, weight float64) pairEdge {
-	return pairEdge{to, weight}
-}
-
 func flattenEdges(es [][]pairEdge) []osmparser.Edge {
 	flatten := make([]osmparser.Edge, 0, len(es))
 

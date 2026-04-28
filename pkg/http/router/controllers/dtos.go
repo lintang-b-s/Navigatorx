@@ -104,13 +104,6 @@ func NewBoundingBox(bb da.BoundingBox) boundingBoxResponse {
 	return boundingBoxResponse{MinLat: bb.GetMinLat(), MinLon: bb.GetMinLon(), MaxLat: bb.GetMaxLat(), MaxLon: bb.GetMaxLon()}
 }
 
-type errorResponse struct {
-	Error struct {
-		Code    string `json:"code"`
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
 type gps struct {
 	Lon           float64   `json:"lon" validate:"required,min=-180,max=180"`
 	Lat           float64   `json:"lat" validate:"required,min=-90,max=90"`
@@ -201,38 +194,5 @@ func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.C
 		SpeedMeanK:      speedMeanK,
 		SpeedStdK:       speedStdK,
 		Bearing:         bearing,
-	}
-}
-
-type offlineMatchRequest struct {
-	GpsTraj []gps `json:"gps_points"`
-}
-
-func (of *offlineMatchRequest) ToDataGpsTraj() []*da.GPSPoint {
-	gpsTraj := make([]*da.GPSPoint, len(of.GpsTraj))
-	for i := 0; i < len(of.GpsTraj); i++ {
-		gpsTraj[i] = of.GpsTraj[i].ToDataGPS()
-	}
-
-	return gpsTraj
-}
-
-type offlineMapmatchingResponse struct {
-	MatchedGpsPoint      []*MatchedGPSPoint `json:"matched_gps_points"`
-	MatchedRoutePolyline string             `json:"matched_route_polyline"`
-}
-
-func NewOfflineMapmatchingResponse(matchedPoints []*da.MatchedGPSPoint, polyline string) *offlineMapmatchingResponse {
-	matchedGpsResp := make([]*MatchedGPSPoint, len(matchedPoints))
-	for i := 0; i < len(matchedPoints); i++ {
-		matchedPoint := matchedPoints[i]
-		mgps := matchedPoint.GetGpsPoint()
-		matchedGpsPoint := NewMatchedGPSPoint(newGPS(mgps.Lat(), mgps.Lon(), mgps.Time(), mgps.Speed(),
-			mgps.DeltaTime()), matchedPoint.GetEdgeId(), matchedPoint.GetMatchedCoord(), matchedPoint.GetPredictedGpsCoord(), matchedPoint.GetBearing())
-		matchedGpsResp = append(matchedGpsResp, matchedGpsPoint)
-	}
-	return &offlineMapmatchingResponse{
-		MatchedGpsPoint:      matchedGpsResp,
-		MatchedRoutePolyline: polyline,
 	}
 }

@@ -73,6 +73,9 @@ func main() {
 	}
 
 	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
@@ -221,7 +224,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	workersDijkstra.StartWithContext(ctx, calcSpDijkstra)
 	go func() {
-		for _ = range workersDijkstra.CollectResults() {
+		for range workersDijkstra.CollectResults() {
 		}
 	}()
 

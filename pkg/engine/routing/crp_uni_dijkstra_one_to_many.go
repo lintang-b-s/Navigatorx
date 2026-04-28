@@ -21,7 +21,6 @@ type CRPUniDijkstraOneToMany struct {
 
 	targetsSettled map[da.Index]struct{}
 
-	upperBound float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
 
 	numSettledNodes int
 }

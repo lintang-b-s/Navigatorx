@@ -58,12 +58,6 @@ func init() {
 	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
 }
 
-const (
-	alpha      = 0.25 // every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
-	gamma      = 0.8  // alternative routes at least 20% different than the shortest path
-	epsilon    = 0.25 // alternative routes at most 25% longer than the shortest path
-	upperBound = 1.25
-)
 
 /*
 go run eval/crp_alt/alternative_routes/main.go
@@ -90,6 +84,9 @@ func main() {
 		panic(err)
 	}
 	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
@@ -100,19 +97,27 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		defer output.Close()
 
 		logger.Sugar().Infof("downloading osm file......")
 		response, err := http.Get(url)
 		if err != nil {
 			panic(err)
 		}
-		defer response.Body.Close()
+		
 
 		_, err = io.Copy(output, response.Body)
 		if err != nil {
 			panic(err)
 		}
+
+		if err = output.Close(); err != nil {
+			panic(err)
+		}
+		
+		if err = response.Body.Close(); err != nil {
+			panic(err)
+		}
+
 		logger.Sugar().Infof("download complete")
 	}
 

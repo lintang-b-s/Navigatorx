@@ -211,7 +211,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	workers.StartWithContext(ctx, calcSp)
 	go func() {
-		for _ = range workers.CollectResults() {
+		for range workers.CollectResults() {
 		}
 	}()
 

@@ -19,10 +19,9 @@ type PathUnpackerALT struct {
 	puCache *ristretto.Cache[[]byte, []da.Index]
 	lm      *landmark.Landmark
 
-	useCache             bool
-	oneToMany            bool
-	runtime              int64
-	forAlternativeRoutes bool
+	useCache  bool
+	oneToMany bool
+	runtime   int64
 }
 
 func NewPathUnpackerALT(engine *CRPRoutingEngine, metrics *metrics.Metric,
@@ -453,8 +452,4 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 
 func (pu *PathUnpackerALT) GetStats() int64 {
 	return pu.runtime
-}
-
-func (pu *PathUnpackerALT) setForAlternativeRoutes() {
-	pu.forAlternativeRoutes = true
 }

@@ -100,10 +100,6 @@ func eq(a, b float64) bool {
 	return math.Abs(a-b) <= EPS
 }
 
-func lt(a, b float64) bool {
-	return a+EPS < b
-}
-
 func readLine(br *bufio.Reader) (string, error) {
 	line, err := br.ReadString('\n')
 	if err != nil {

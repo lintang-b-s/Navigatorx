@@ -16,7 +16,6 @@ type DinicMaxFlow struct {
 	artificialAdjList        [][]int          // edges from artificial-source to sources , edges from sinks to artificial-sink
 	artificialEdgeList       []da.MaxFlowEdge // edge lists  artificial-source to sources, edge lists from sinks to artificial-sink
 	numberOfOriginalEdges    int
-	numberOfOriginalVertices int
 	debug                    bool
 	multSourcesSinks         bool
 	sinks                    *bitset.BitSet

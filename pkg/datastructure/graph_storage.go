@@ -241,7 +241,7 @@ func (gs *GraphStorage) GetOsmNodePointsCount() int {
 
 func (gs *GraphStorage) BuildNameTable(idToStr map[uint32]string) {
 	keys := make([]uint32, 0, len(idToStr))
-	for key, _ := range idToStr {
+	for key := range idToStr {
 		keys = append(keys, key)
 	}
 

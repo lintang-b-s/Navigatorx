@@ -44,11 +44,6 @@ func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId da.
 	return len(tempAltTurns), tempAltTurns
 }
 
-func isSameRoadClassAndLink(prevEdgeRoadClass, prevEdgeRoadClassLink string,
-	currEdgeRoadClass, currEdgeRoadClassLink string) bool {
-	return prevEdgeRoadClass == currEdgeRoadClass && prevEdgeRoadClassLink == currEdgeRoadClassLink
-}
-
 /*
 getOtherEdgeContinueDirection. get alternativeEdges lain dari tail yang arahnya continue. Misalkan
 

@@ -288,3 +288,7 @@ var (
 func OffTurnCost() {
 	WITH_TURN_COSTS = false
 }
+
+func OnTurnCost() {
+	WITH_TURN_COSTS = true
+}

@@ -5,8 +5,6 @@ import (
 	"errors"
 	"io"
 	"strings"
-
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 )
 
 func readLine(br *bufio.Reader) (string, error) {
@@ -32,19 +30,4 @@ type pairEdge struct {
 
 func newPairEdge(to int, weight float64) pairEdge {
 	return pairEdge{to, weight}
-}
-
-func flattenEdges(es [][]pairEdge) []osmparser.Edge {
-	flatten := make([]osmparser.Edge, 0, len(es))
-
-	eid := 0
-
-	for from, edges := range es {
-		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, e.weight, 0))
-			eid++
-		}
-	}
-
-	return flatten
 }

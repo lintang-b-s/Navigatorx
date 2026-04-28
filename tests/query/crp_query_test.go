@@ -263,6 +263,9 @@ func TestCRPQuerySimple(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			re, _, newToOldVidMap, err := buildGraph(tc.filepath)
+			if err != nil {
+				t.Fatal(err)
+			}
 			graph := re.GetGraph()
 			n := graph.NumberOfVertices()
 
@@ -338,6 +341,9 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
+	if err != nil {
+		t.Fatal(err)
+	}
 	}
 
 	workingDir, err := util.FindProjectWorkingDir()
@@ -348,6 +354,8 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
 
 	if !turnCost {
 		pkg.OffTurnCost()
+	} else {
+		pkg.OnTurnCost()
 	}
 
 	op := osmparser.NewOSMParserV2()
@@ -485,7 +493,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	workersDijkstra.StartWithContext(ctx, calcSpDijkstra)
 	go func() {
-		for _ = range workersDijkstra.CollectResults() {
+		for range workersDijkstra.CollectResults() {
 		}
 	}()
 
@@ -665,7 +673,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	workersDijkstra.StartWithContext(ctx, calcSpDijkstra)
 	go func() {
-		for _ = range workersDijkstra.CollectResults() {
+		for range workersDijkstra.CollectResults() {
 		}
 	}()
 

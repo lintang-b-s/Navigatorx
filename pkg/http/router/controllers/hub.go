@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"sort"
 	"sync"
-	"time"
 
 	json "github.com/bytedance/sonic"
 
@@ -22,9 +21,8 @@ import (
 )
 
 type User struct {
-	io         sync.Mutex
-	conn       io.ReadWriteCloser
-	lastActive time.Time
+	io   sync.Mutex
+	conn io.ReadWriteCloser
 
 	id  uint
 	hub *Hub

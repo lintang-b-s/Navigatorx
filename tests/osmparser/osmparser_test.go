@@ -17,10 +17,6 @@ const (
 	osmfFile = "../../data/yogyakarta.osm.pbf"
 )
 
-type query struct {
-	s, t da.Index
-}
-
 func init() {
 	workingDir, err := util.FindProjectWorkingDir()
 	if err != nil {

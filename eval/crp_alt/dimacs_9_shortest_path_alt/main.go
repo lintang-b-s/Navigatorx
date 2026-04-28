@@ -95,6 +95,9 @@ func main() {
 	flag.Parse()
 
 	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
@@ -115,7 +118,7 @@ func main() {
 
 	// read comments gak penting
 	for i := 0; i < 4; i++ {
-		line, err = util.ReadLine(br)
+		_, err = util.ReadLine(br)
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
@@ -134,7 +137,7 @@ func main() {
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
-		line, err = util.ReadLine(br)
+		_, err = util.ReadLine(br)
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
@@ -172,7 +175,7 @@ func main() {
 
 	// read comments gak penting
 	for i := 0; i < 4; i++ {
-		line, err = util.ReadLine(br)
+		_, err = util.ReadLine(br)
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
@@ -191,7 +194,7 @@ func main() {
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
-		line, err = util.ReadLine(br)
+		_, err = util.ReadLine(br)
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
@@ -239,7 +242,7 @@ func main() {
 
 	// read comments gak penting
 	for i := 0; i < 5; i++ {
-		line, err = util.ReadLine(br)
+		_, err = util.ReadLine(br)
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
@@ -258,7 +261,7 @@ func main() {
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
-		line, err = util.ReadLine(br)
+		_, err = util.ReadLine(br)
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}

@@ -159,7 +159,7 @@ func (og *OverlayGraph) OffUpperBit(cellNumber Pv, level uint8) Pv {
 // level is 1-indexed
 func (og *OverlayGraph) GetNumOfOverlayVerticesOfCell(cellNumber Pv, level uint8) uint32 {
 	truncatedCellNumber := og.levelInfo.TruncateToLevel(cellNumber, uint8(level))
-	cell, _ := og.cellMapping[level-1][truncatedCellNumber]
+	cell := og.cellMapping[level-1][truncatedCellNumber]
 	return cell.numOfOverlayVertices
 }
 
@@ -202,7 +202,7 @@ func (og *OverlayGraph) GetCell(cellNumber Pv, level int) Cell {
 }
 
 func (og *OverlayGraph) GetCellFromTruncatedCellNumber(truncatedCellNumber Pv, level int) Cell {
-	cell, _ := og.cellMapping[level-1][truncatedCellNumber]
+	cell := og.cellMapping[level-1][truncatedCellNumber]
 	return cell
 }
 
@@ -456,7 +456,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 			entryVertex := og.GetVertex(entry)
 			superCellNumber := entryVertex.GetCellNumber()
 			truncatedCellNumber := og.levelInfo.TruncateToLevel(superCellNumber, uint8(l+1))
-			superCell, _ := cellMapping[l][truncatedCellNumber]
+			superCell := cellMapping[l][truncatedCellNumber]
 			superCell.numOfOverlayVertices += uint32(subCell.numEntryPoints) + uint32(subCell.numExitPoints)
 		}
 	}
@@ -658,6 +658,9 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	levelInfo := NewLevelInfo(offsets)
 
 	line, err = util.ReadLine(br)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadOvelayGraph: failed readLine vertexCountInLevel")
+	}
 	tokens = util.Fields(line)
 	vertexCountInLevel := make([]Index, 0, len(tokens))
 	for _, token := range tokens {
@@ -669,6 +672,9 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	}
 
 	line, err = util.ReadLine(br)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadOvelayGraph: failed readLine vertexCount")
+	}
 	tokens = util.Fields(line)
 	vertexCount, err := util.ParseInt(tokens[0])
 	if err != nil {
@@ -744,6 +750,9 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	cellMapping := make([]map[Pv]Cell, levelInfo.GetLevelCount())
 	for i := 0; i < levelInfo.GetLevelCount(); i++ {
 		line, err = util.ReadLine(br)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed readLine cellsInLevel count")
+		}
 		cellsInLevel, err := util.ParseInt(line)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt cellsInLevel: %v", line)

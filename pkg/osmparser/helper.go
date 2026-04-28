@@ -240,13 +240,25 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 				}
 
 				fromH, err = util.ParseInt(fromTime[0])
+				if err != nil {
+					return false, err
+				}
 				fromHours = append(fromHours, fromH)
 				fromMin, err = util.ParseInt(fromTime[1])
+				if err != nil {
+					return false, err
+				}
 				fromMinutes = append(fromMinutes, fromMin)
 
 				toH, err = util.ParseInt(toTime[0])
+				if err != nil {
+					return false, err
+				}
 				toHours = append(toHours, toH)
 				toMin, err = util.ParseInt(toTime[1])
+				if err != nil {
+					return false, err
+				}
 				toMinutes = append(toMinutes, toMin)
 			}
 
@@ -309,13 +321,25 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 				}
 
 				fromH, err = util.ParseInt(fromTime[0])
+				if err != nil {
+					return false, err
+				}
 				fromHours = append(fromHours, fromH)
 				fromMin, err = util.ParseInt(fromTime[1])
+				if err != nil {
+					return false, err
+				}
 				fromMinutes = append(fromMinutes, fromMin)
 
 				toH, err = util.ParseInt(toTime[0])
+				if err != nil {
+					return false, err
+				}
 				toHours = append(toHours, toH)
 				toMin, err = util.ParseInt(toTime[1])
+				if err != nil {
+					return false, err
+				}
 				toMinutes = append(toMinutes, toMin)
 			}
 		}
@@ -405,6 +429,9 @@ func getReversibleOneWay(val string, currentTime time.Time) (direction uint8, er
 			condTime := strings.Trim(strings.TrimSpace(parts[1]), "()")
 
 			isInTimeRange, err = isConditionalAccessInTimerange(condTime, currentTime)
+			if err != nil {
+				return NO_ROUTE_REVERSIBLE, err
+			}
 		}
 
 		if !isInTimeRange {

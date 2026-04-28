@@ -50,7 +50,6 @@ type Instruction struct {
 	streetname           string
 	cumulativeDistance   float64
 	cumulativeTravelTime float64
-	edgeSpeed            float64
 	turnBearing          float64
 	turnType             string
 	turnSign             TurnType

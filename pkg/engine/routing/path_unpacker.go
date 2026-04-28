@@ -26,10 +26,9 @@ type PathUnpacker struct {
 
 	puCache *ristretto.Cache[[]byte, []da.Index]
 
-	useCache             bool
-	oneToMany            bool
-	runtime              int64
-	forAlternativeRoutes bool
+	useCache  bool
+	oneToMany bool
+	runtime   int64
 }
 
 func NewPathUnpacker(engine *CRPRoutingEngine, metrics *metrics.Metric,
@@ -463,8 +462,4 @@ func (re *CRPRoutingEngine) GetPathDistance(edgeIdPath []da.Index) float64 {
 	}
 
 	return totalDistance
-}
-
-func (pu *PathUnpacker) setForAlternativeRoutes() {
-	pu.forAlternativeRoutes = true
 }

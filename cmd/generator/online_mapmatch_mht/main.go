@@ -89,7 +89,10 @@ func main() {
 	for i := 0; i < 1e3; i++ {
 		if (i+1)%1e2 == 0 {
 			fmt.Printf("completed query: %v\n", i+1)
-			N.WriteToFile("./data/omm_transition_history_id.mm")
+			err := N.WriteToFile("./data/omm_transition_history_id.mm")
+			if err != nil {
+				panic(err)
+			}
 		}
 		src := RandomCoordinate(boundingBox, rd)
 		dst := RandomCoordinate(boundingBox, rd)

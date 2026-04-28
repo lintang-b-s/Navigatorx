@@ -232,7 +232,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 
 	param := ars.parameterByRequest(s, t)
 
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, param.upperBound)
+	crpQuery := NewCRPBidirectionalSearch(ars.engine, param.getUpperbound())
 	crpQuery.SetForAlternativeRoutes(true)
 	if reroute {
 		crpQuery.SetReroute(startEdgeId)
@@ -291,7 +291,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 		// stretch
 		lv := svTravelTime + vtTravelTime
 
-		if util.Ge(lv, (1+param.epsilon)*optTravelTime) {
+		if util.Ge(lv, (1+param.getEpsilon())*optTravelTime) {
 			// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak
 			return da.NewEmptyViaVertex()
 		}
@@ -300,7 +300,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 		plv = ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
 			fpq, bpq, sCellNumber, lv, v.IsOverlay())
 
-		T := param.alpha * optTravelTime
+		T := param.getAlpha() * optTravelTime
 
 		if util.Le(plv, T) {
 			// T-test dengan T=\alpha*l(Opt) , v-w path adalah plateau dari P_v
@@ -345,7 +345,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 			sCellNumber, tCellNumber, motorwaySet)
 
 		// cek approximate limited sharing
-		if util.Ge(approxDistanceShare, param.gamma*optTravelTime) {
+		if util.Ge(approxDistanceShare, param.getGamma()*optTravelTime) {
 			return da.NewEmptyViaVertex()
 		}
 
@@ -372,7 +372,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 			filteredCandidates[j].GetApproxObjectiveValue()
 	})
 
-	maxFilteredCandSize := util.MinInt(param.maxCandidatesToUnpack, len(filteredCandidates))
+	maxFilteredCandSize := util.MinInt(param.getMaxCandidatesToUnpack(), len(filteredCandidates))
 	filteredCandidates = filteredCandidates[:maxFilteredCandSize]
 
 	unpackViaPath := func(v da.ViaVertex) ([]da.Index, []da.Index) {
@@ -404,14 +404,13 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 			// forward
 
 			unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.engine.lm)
-			unpacker.setForAlternativeRoutes()
 
 			svEdgeIdPath, _ = unpacker.unpackPath(svPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 
 			// backward
 
 			unpacker = NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.engine.lm)
-			unpacker.setForAlternativeRoutes()
+
 			vtEdgeIdPath, _ = unpacker.unpackPath(vtPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 		} else {
 			// forward
@@ -419,13 +418,12 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 			svPackedPath, vtPackedPath = ars.makePackedViaPathOverlayEven(svPackedPath, vtPackedPath)
 
 			unpacker := NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.engine.lm)
-			unpacker.setForAlternativeRoutes()
+
 			svEdgeIdPath, _ = unpacker.unpackPath(svPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 
 			// backward
 
 			unpacker = NewPathUnpackerALT(crpQuery.engine, crpQuery.engine.metrics, crpQuery.engine.puCache, true, ars.engine.lm)
-			unpacker.setForAlternativeRoutes()
 
 			vtEdgeIdPath, _ = unpacker.unpackPath(vtPackedPath, crpQuery.sCellNumber, crpQuery.tCellNumber)
 		}
@@ -642,21 +640,6 @@ func (ars *AlternativeRouteSearch) calculateApproxDistanceShare(svPackedPath, vt
 	return distanceShare
 }
 
-func (ars *AlternativeRouteSearch) viaVertexInOptimalPath(optPathSet map[da.Index]struct{}, via *da.ViaVertex) bool {
-	if via.IsOverlay() {
-
-		if _, ok := optPathSet[via.GetOriginalVId()]; ok {
-			return true
-		}
-		return false
-	}
-
-	if _, ok := optPathSet[via.GetVId()]; ok {
-		return true
-	}
-	return false
-}
-
 // calculatePlateau. calculate plateau pl(v)
 // pada CRP query, kita build shortest path trees dari s dan ke t
 // forward search membuat shortest path tree dari s ke every scanned vertices di forward search
@@ -740,8 +723,6 @@ func (ars *AlternativeRouteSearch) calculatePlateau(vId, oriVId, viaEntryId, via
 
 			offQExitId := ars.engine.offsetBackward(qParent, qExitId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
 			oki := util.Lt(pb.GetPriority(offQExitId), pkg.INF_WEIGHT)
-
-			q = ars.engine.graph.GetTailOfOutedge(vExitId)
 
 			if !oki {
 				break

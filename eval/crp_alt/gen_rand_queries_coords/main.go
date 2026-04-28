@@ -28,9 +28,6 @@ var (
 	timeFunctionFile string
 )
 
-const (
-	transitionMHTFile string = "./data/omm_transition_history_id.mm"
-)
 
 func init() {
 	flag.Parse()
