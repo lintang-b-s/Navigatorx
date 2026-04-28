@@ -35,7 +35,7 @@ var (
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "../../../data/yogyakarta.osm.pbf"
+	osmfFile                = "../../data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_stress_test.graph"
 	overlayGraphFile string = "./data/overlay_graph_stress_test.graph"
 	metricsFile      string = "./data/metrics_stress_test.txt"

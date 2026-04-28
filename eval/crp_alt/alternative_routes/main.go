@@ -33,7 +33,7 @@ var (
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "../../../data/yogyakarta.osm.pbf"
+	osmfFile                = "../../data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_eval_alt.graph"
 	overlayGraphFile string = "./data/overlay_graph_eval_alt.graph"
 	metricsFile      string = "./data/metrics_eval_alt.txt"
@@ -57,7 +57,6 @@ func init() {
 	pkg.IsVehicle = pkg.GetIsVehicle()
 	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
 }
-
 
 /*
 go run eval/crp_alt/alternative_routes/main.go
@@ -103,7 +102,6 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		
 
 		_, err = io.Copy(output, response.Body)
 		if err != nil {
@@ -113,7 +111,7 @@ func main() {
 		if err = output.Close(); err != nil {
 			panic(err)
 		}
-		
+
 		if err = response.Body.Close(); err != nil {
 			panic(err)
 		}
