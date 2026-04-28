@@ -302,6 +302,9 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 
 			var expectedAns float64 = 0
 			_, err = fmt.Sscanf(line, "%f", &expectedAns)
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
 			if !eq(ans, expectedAns) {
 				t.Fatalf("FAIL: Expected fuel: %v, got: %v", expectedAns, ans)
 			}

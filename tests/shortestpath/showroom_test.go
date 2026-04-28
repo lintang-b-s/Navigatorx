@@ -209,7 +209,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	workers.StartWithContext(ctx, calcSp)
 	go func() {
-		for _ = range workers.CollectResults() {
+		for range workers.CollectResults() {
 		}
 	}()
 
@@ -237,6 +237,9 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 	var expectedSPLength float64 = 0
 	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
 	if !eq(ans, expectedSPLength) {
 		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, ans)
 	}

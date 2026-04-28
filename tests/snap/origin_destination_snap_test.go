@@ -49,6 +49,9 @@ func setup(t *testing.T) (*engine.Engine, *zap.Logger) {
 		t.Fatal(err)
 	}
 	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		t.Fatal(err)

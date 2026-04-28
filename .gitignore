@@ -45,6 +45,7 @@ benchmark.test
 navigatorx*
 
 *coverage*
+!.github/.testcoverage.yml
 *.cache
 
 
@@ -66,8 +67,10 @@ navigatorx*
 *.ss
 *.pgo
 
-cover.out
-coverage.out
+
 !solo.osm.pbf
 !yogyakarta.osm.pbf
+
+cover.out
+coverage.out 
 

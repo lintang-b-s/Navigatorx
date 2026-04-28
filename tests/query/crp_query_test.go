@@ -341,12 +341,12 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
-	if err != nil {
-		t.Fatal(err)
-	}
 	}
 
 	workingDir, err := util.FindProjectWorkingDir()
+	if err != nil {
+		t.Fatal(err)
+	}
 	err = util.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)

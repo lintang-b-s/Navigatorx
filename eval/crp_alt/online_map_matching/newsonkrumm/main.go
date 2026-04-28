@@ -717,7 +717,7 @@ func main() {
 		}
 	}
 
-	for eId, _ := range traversedEdges {
+	for eId := range traversedEdges {
 		eLengthForward, inMapMatchResultForward := matchedEdgeSet[eId]
 		eLengthReversed, inMapMatchResultReversed := matchedEdgeSet[eId*2]
 		eLength := util.MaxFloat(eLengthForward, eLengthReversed)
