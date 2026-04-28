@@ -14,5 +14,4 @@ var (
 const (
 	CELL_ENTRIES_CHAN_SIZE         = 4096 * 4
 	INVALID_LOOKUPTABLE_VAL_ID int = -1
-	defaultMaxSpeedDummyEdge       = pkg.INF_WEIGHT
 )
