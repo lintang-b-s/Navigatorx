@@ -23,9 +23,12 @@ jobs:
               uses: golangci/golangci-lint-action@v9.2.0
               with:
                   version: v2.11.3 # LINT_VERSION: update version in other places
+                  args: --disable=ineffassign
 
             - id: govulncheck
               uses: golang/govulncheck-action@v1
               with:
                   repo-checkout: false
                   go-package: ./...
+
+

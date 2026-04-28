@@ -113,7 +113,7 @@ func setup(t *testing.T) (*engine.Engine, *zap.Logger) {
 	return re, logger
 }
 
-// cd tests/snap && go test -run TestOriginDestinationSnap  -v -timeout=0  -count=1
+// go test ./tests/snap -run  TestOriginDestinationSnap  -v -timeout=0  -count=1
 func TestOriginDestinationSnap(t *testing.T) {
 	eng, logger := setup(t)
 	re := eng.GetRoutingEngine()
