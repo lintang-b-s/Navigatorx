@@ -58,10 +58,10 @@ func NewTimeCostFunctionEmpty() *TimeFunction {
 // eId adalah id dari outEdge yang ingin didapat weightnya
 func (tf *TimeFunction) GetWeight(eId da.Index, eDefaultWeight, eLength float64) float64 {
 	if tf.isRoadNetwork {
-		if util.Eq(eDefaultWeight, pkg.INF_WEIGHT) {
+		maxspeed := tf.edgeMaxSpeeds[eId] // m/s
+		if util.Eq(eDefaultWeight, pkg.INF_WEIGHT) || util.Eq(maxspeed, 0) {
 			return eDefaultWeight
 		}
-		maxspeed := tf.edgeMaxSpeeds[eId] // m/s
 		if eDefaultWeight == 0 || math.IsNaN(maxspeed) {
 			return 0
 		}

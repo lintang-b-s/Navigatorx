@@ -54,11 +54,7 @@ navigatorx*
 *.tar.gz
 
 **/config.yaml
-
 !data/config.yaml
-
-
-
 *.co
 *.gr
 *.p2p
@@ -66,14 +62,9 @@ navigatorx*
 
 *.ss
 *.pgo
-
-
 !solo.osm.pbf
 !yogyakarta.osm.pbf
 !washington.osm.pbf
-
-
-cover.out
-coverage.out 
 *.txtclear
+cover*
 

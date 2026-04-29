@@ -75,11 +75,18 @@ func (u *User) OnlineMapMatch() error {
 		return u.write(errResp)
 	}
 
-	mgpsPoint, cands, speedMeanK, speedStdK, _ := u.hub.mapmatchingService.OnlineMapMatch(
+	mgpsPoint, cands, speedMeanK, speedStdK, err := u.hub.mapmatchingService.OnlineMapMatch(
 		context.Background(),
 		req.Gps.ToDataGPS(),
 		req.K, ToOnlineCandidates(req.Candidates),
 		req.SpeedMeanK, req.SpeedStdK, req.LastBearing)
+	if err != nil {
+		errResp := envelope{"error": map[string]string{
+			"code":    http.StatusText(http.StatusInternalServerError),
+			"message": err.Error(),
+		}}
+		return u.write(errResp)
+	}
 
 	resp := envelope{"data": NewMapmatchingResponse(mgpsPoint, cands, speedMeanK,
 		speedStdK, mgpsPoint.GetBearing())}

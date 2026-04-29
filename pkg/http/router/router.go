@@ -15,7 +15,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/alice"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	router_helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	http_server "github.com/lintang-b-s/Navigatorx/pkg/http/server"
@@ -37,6 +36,12 @@ type API struct {
 	poller netpoll.Poller
 	pool   *concurrent.WorkerPool[int, int]
 }
+
+var (
+	newHTTPServer      = http_server.New
+	listenAndServeHTTP = func(s *http.Server) error { return s.ListenAndServe() }
+	shutdownHTTP       = func(s *http.Server, ctx context.Context) error { return s.Shutdown(ctx) }
+)
 
 func NewAPI(log *zap.Logger) *API {
 	return &API{log: log}
@@ -97,16 +102,16 @@ func (api *API) Run(
 	navigatorRoutes.Routes(group)
 
 	var (
-		errChan      = make(chan error, 1)
-		errProxyChan = make(chan error, 1)
-		wsServer     *http.Server
+		errChan       = make(chan error, 1)
+		errProxyChan  = make(chan error, 1)
+		wsProxyServer *http.Server
 	)
 
 	go func() {
 		mux := http.NewServeMux()
 		mux.HandleFunc("/ws", api.upstream("online map matcher", "tcp", "127.0.0.1"+":"+strconv.Itoa(config.WebsocketPort)))
 
-		wsServer = &http.Server{
+		wsProxyServer = &http.Server{
 			Addr:    fmt.Sprintf(":%d", config.ProxyPort),
 			Handler: mux,
 			BaseContext: func(_ net.Listener) context.Context {
@@ -120,7 +125,7 @@ func (api *API) Run(
 		}
 		api.log.Info(fmt.Sprintf("WebSocket proxy running on port %d", config.ProxyPort))
 
-		if err := wsServer.ListenAndServe(); err != nil {
+		if err := listenAndServeHTTP(wsProxyServer); err != nil {
 			errProxyChan <- err
 		}
 	}()
@@ -128,14 +133,14 @@ func (api *API) Run(
 	var mwChain []alice.Constructor
 	if useRateLimit {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, Heartbeat("healthz"), Logger(log), Labels, Limit, gziphandler.GzipHandler)
+			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, Limit, gziphandler.GzipHandler)
 	} else {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, Heartbeat("healthz"), Logger(log), Labels, gziphandler.GzipHandler)
+			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, gziphandler.GzipHandler)
 	}
 	mainMwChain := alice.New(mwChain...).Then(router)
 
-	srv := http_server.New(ctx, mainMwChain, config, false)
+	srv := newHTTPServer(ctx, mainMwChain, config, false)
 	log.Info(fmt.Sprintf("API run on port %d", config.Port))
 
 	go func() {
@@ -145,14 +150,14 @@ func (api *API) Run(
 
 	serverErr := make(chan error, 1)
 	go func() {
-		serverErr <- srv.ListenAndServe()
+		serverErr <- listenAndServeHTTP(srv)
 	}()
 
 	// https://victoriametrics.com/blog/go-graceful-shutdown/
 	shutdownCtx, cancelShutdownCtx := context.WithTimeout(context.Background(), shutdownPeriod)
 	defer cancelShutdownCtx()
 	shutdown := func() {
-		err := srv.Shutdown(shutdownCtx)
+		err := shutdownHTTP(srv, shutdownCtx)
 		if err != nil {
 			// dari docs nya:  Make sure the program doesn't exit and waits instead for Shutdown to return.
 			log.Error("Failed to wait for ongoing requests to finish, waiting for forced cancellation.")
@@ -163,8 +168,8 @@ func (api *API) Run(
 				log.Error("Failed to wait for ongoing requests to finish, waiting for forced cancellation.")
 			}
 		}
-		if wsServer != nil {
-			if err := wsServer.Shutdown(shutdownCtx); err != nil {
+		if wsProxyServer != nil {
+			if err := shutdownHTTP(wsProxyServer, shutdownCtx); err != nil {
 				log.Error("WebSocket proxy shutdown error", zap.Error(err))
 			}
 		}
@@ -184,8 +189,8 @@ func (api *API) Run(
 	case err := <-serverErr:
 		log.Info("HTTP server stopped", zap.Error(err))
 		isShuttingDown.Store(true)
-		if wsServer != nil {
-			if err := wsServer.Shutdown(shutdownCtx); err != nil {
+		if wsProxyServer != nil {
+			if err := shutdownHTTP(wsProxyServer, shutdownCtx); err != nil {
 				log.Error("WebSocket proxy shutdown error", zap.Error(err))
 			}
 		}
@@ -208,7 +213,7 @@ func swaggerHandler(res http.ResponseWriter, req *http.Request, p httprouter.Par
 	httpSwagger.WrapHandler(res, req)
 }
 
-func NewContext(re *routing.CRPRoutingEngine, rs controllers.RoutingService) (context.Context, func()) {
+func NewContext(re controllers.RoutingEngine, rs controllers.RoutingService) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cb := func() {
 		re.Close()

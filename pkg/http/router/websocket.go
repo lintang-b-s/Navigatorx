@@ -19,6 +19,12 @@ import (
 	"go.uber.org/zap"
 )
 
+var (
+	listenWebsocket = net.Listen
+	handleListener  = netpoll.HandleListener
+	newPoller       = netpoll.New
+)
+
 func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	mapMatcherService controllers.MapMatcherService,
 	useRateLimit bool, errChan chan error,
@@ -44,14 +50,14 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	var mwChain []alice.Constructor
 	if useRateLimit {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, Heartbeat("healthz"), Logger(api.log), Labels, Limit)
+			RealIP, api.Heartbeat("healthz"), Logger(api.log), Labels, Limit)
 	} else {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, Heartbeat("healthz"), Logger(api.log), Labels)
+			RealIP, api.Heartbeat("healthz"), Logger(api.log), Labels)
 	}
 	mainMwChain := alice.New(mwChain...).Then(wsRouter)
 	srv := http_server.NewWithoutSet(ctx, mainMwChain, config, true)
-	ln, err := net.Listen("tcp", srv.Addr)
+	ln, err := listenWebsocket("tcp", srv.Addr)
 	if err != nil {
 		errChan <- err
 		return
@@ -62,11 +68,11 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 
 	// Create netpoll descriptor for the listener.
 	// We use OneShot here to manually resume events stream when we want to.
-	acceptDesc := netpoll.Must(netpoll.HandleListener(
+	acceptDesc := netpoll.Must(handleListener(
 		ln, netpoll.EventRead|netpoll.EventOneShot,
 	))
 
-	api.poller, err = netpoll.New(nil)
+	api.poller, err = newPoller(nil)
 	if err != nil {
 		errChan <- err
 		return
@@ -158,6 +164,10 @@ it and stores it as a map matching user in Hub instance.
 
 handle. handle online map matching request
 ref: https://sergey.kamardin.org/articles/million-websocket-and-go/
+
+NOTE: jujur aku masih gakpaham epoll epoll API, asal copas doang aowkaokw..
+tapi ini works buat demo..
+mungkin kalau ada waktu bakal belajar linux system programming buat pahamin ini semua wkwk...
 
 the linux programming interface chapter 63:
 the epoll API allows a process to monitor multiple

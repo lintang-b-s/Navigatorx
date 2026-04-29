@@ -40,6 +40,7 @@ func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapM
 		log:                log,
 		mapmatchingService: mapmatchingService,
 		validate:           validate,
+		trans:              trans,
 	}
 
 }
@@ -111,10 +112,15 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 	newCtx, cancel := ExtractDeadline(r.Context(), r)
 	defer cancel()
 
-	travelTime, dist, pathPolyline, drivingDirections, _, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
+	travelTime, dist, pathPolyline, drivingDirections, ok, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
 		request.DestinationLat, request.DestinationLon, reroute, startEdgeId)
 	if err != nil {
 		api.getStatusCode(w, r, err)
+		return
+	}
+
+	if !ok {
+		api.NotFoundResponse(w, r)
 		return
 	}
 
@@ -191,10 +197,15 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 		}
 	}
 
-	alternatives, _, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
+	alternatives, ok, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
 		request.DestinationLat, request.DestinationLon, int(request.K), reroute, startEdgeId)
 	if err != nil {
 		api.getStatusCode(w, r, err)
+		return
+	}
+
+	if !ok {
+		api.NotFoundResponse(w, r)
 		return
 	}
 

@@ -71,21 +71,6 @@ func GetDestinationPoint(lat1, lon1 float64, bearing float64, dist float64) (flo
 	return radToDeg(lat2), normalizeLongitude(radToDeg(lon2))
 }
 
-// https://www.movable-type.co.uk/scripts/latlong.html
-func MidPoint(latOne, longOne, latTwo, longTwo float64) (float64, float64) {
-	latOne = util.DegreeToRadians(latOne)
-	longOne = util.DegreeToRadians(longOne)
-	latTwo = util.DegreeToRadians(latTwo)
-	longTwo = util.DegreeToRadians(longTwo)
-
-	bx := math.Cos(latTwo) * math.Cos(longTwo-longOne)
-	by := math.Cos(latTwo) * math.Sin(longTwo-longOne)
-	denom := math.Sqrt((math.Cos(latOne)+bx)*(math.Cos(latOne)+bx) + by*by)
-	lat := math.Atan2(math.Sin(latOne)+math.Sin(latTwo), denom)
-	lon := longOne + math.Atan2(by, math.Cos(latOne)+bx)
-	return normalizeLongitude(radToDeg(lon)), radToDeg(lat)
-}
-
 // normalizeLongitude. long in degree
 func normalizeLongitude(long float64) float64 {
 	return math.Mod((long+540), 360) - 180.0

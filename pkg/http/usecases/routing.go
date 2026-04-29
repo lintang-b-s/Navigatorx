@@ -9,13 +9,14 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/guidance"
+	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
 type RoutingService struct {
 	log             *zap.Logger
-	engine          RoutingEngine
+	engine          controllers.RoutingEngine
 	graph           *da.Graph
 	spatialIndex    SpatialIndex
 	altRouting      AlternativeRouteAlgorithm
@@ -28,7 +29,7 @@ type RoutingService struct {
 	turnSignCache        *ristretto.Cache[uint64, []byte]
 }
 
-func NewRoutingService(log *zap.Logger, engine RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
+func NewRoutingService(log *zap.Logger, engine controllers.RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
 	searchRadius float64, lefthandDriving bool,
 ) (*RoutingService, error) {
 	rs := &RoutingService{
@@ -90,11 +91,7 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
-	crpQuery := routing.NewCRPALTBidirectionalSearch(rs.engine.(*routing.CRPRoutingEngine), 1.0)
-	if reroute {
-		crpQuery.SetReroute(startEdgeId)
-	}
-	travelTime, dist, pathCoords, edgePath, found = crpQuery.ShortestPathSearch(sp, tp)
+	travelTime, dist, pathCoords, edgePath, found = rs.engine.ShortestPathSearch(sp, tp, reroute, startEdgeId)
 
 	if !found {
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
@@ -185,8 +182,8 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 	return travelTime, dist
 }
 
-func (rs *RoutingService) GetRoutingEngine() *routing.CRPRoutingEngine {
-	return rs.engine.(*routing.CRPRoutingEngine)
+func (rs *RoutingService) GetRoutingEngine() controllers.RoutingEngine {
+	return rs.engine
 }
 
 func (rs *RoutingService) Snap(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64) (da.PhantomNode, da.PhantomNode) {

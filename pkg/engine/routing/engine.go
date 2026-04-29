@@ -174,3 +174,11 @@ func (crp *CRPRoutingEngine) IsDummyOutEdge(eId da.Index) bool {
 func (crp *CRPRoutingEngine) IsDummyInEdge(eId da.Index) bool {
 	return crp.graph.IsDummyInEdge(eId)
 }
+
+func (crp *CRPRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool, startEdgeId da.Index) (float64, float64, *da.Coordinates, []da.Index, bool) {
+	crpQuery := NewCRPALTBidirectionalSearch(crp, 1.0)
+	if reroute {
+		crpQuery.SetReroute(startEdgeId)
+	}
+	return crpQuery.ShortestPathSearch(sp, tp)
+}

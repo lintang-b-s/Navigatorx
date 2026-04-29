@@ -13,7 +13,6 @@ import (
 
 	"runtime/debug"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )
@@ -72,7 +71,7 @@ func realIP(r *http.Request) string {
 }
 
 // heartbeat /healthz endpoint
-func Heartbeat(endpoint string) func(http.Handler) http.Handler {
+func (api *API) Heartbeat(endpoint string) func(http.Handler) http.Handler {
 	f := func(h http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			if (r.Method == "GET" || r.Method == "HEAD") && strings.EqualFold(r.URL.Path, endpoint) {
@@ -83,7 +82,9 @@ func Heartbeat(endpoint string) func(http.Handler) http.Handler {
 				w.Header().Set("Content-Type", "text/plain")
 				w.WriteHeader(http.StatusOK)
 				_, err := w.Write([]byte("."))
-				util.AssertPanic(err == nil, fmt.Sprintf("error writing heartbeat response. err: %s", err.Error()))
+				if err != nil {
+					api.log.Error("error writing heartbeat response", zap.Error(err))
+				}
 				return
 			}
 			h.ServeHTTP(w, r)
