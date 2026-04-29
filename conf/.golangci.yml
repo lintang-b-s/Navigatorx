@@ -31,6 +31,14 @@ linters:
         - "all"
         - "-ST1003"
         - "-ST1020"
+    # gocritic:
+    #   enabled-tags:
+    #     - performance
+    #   disabled-tags:
+    #     - diagnostic
+    #     - style
+    #     - experimental
+    #     - opinionated
 
   enable:
     - errcheck
@@ -38,5 +46,8 @@ linters:
     - govet
     - bodyclose
     - unused
+    # - gocritic
+
   disable:
     - ineffassign
+  

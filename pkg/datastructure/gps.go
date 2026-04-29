@@ -72,7 +72,7 @@ func (m *MatchedGPSPoint) SetPredictedGpsCoord(pred Coordinate) {
 	m.predictedGpsCoord = pred
 }
 
-func (m *MatchedGPSPoint) GetPredictedGpsCoord()Coordinate {
+func (m *MatchedGPSPoint) GetPredictedGpsCoord() Coordinate {
 	return m.predictedGpsCoord
 }
 

@@ -1,4 +1,4 @@
-// Package spatialindex provides spatial indexing capabilities using R-trees (menggunakan mercator projected coordinate system). 
+// Package spatialindex provides spatial indexing capabilities using R-trees (menggunakan mercator projected coordinate system).
 package spatialindex
 
 import (

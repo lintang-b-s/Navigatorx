@@ -9,16 +9,16 @@ import (
 )
 
 type DinicMaxFlow struct {
-	graph                    *da.PartitionGraph
-	edgeFlows                []int64
-	level                    []int
-	last                     []int
-	artificialAdjList        [][]int          // edges from artificial-source to sources , edges from sinks to artificial-sink
-	artificialEdgeList       []da.MaxFlowEdge // edge lists  artificial-source to sources, edge lists from sinks to artificial-sink
-	numberOfOriginalEdges    int
-	debug                    bool
-	multSourcesSinks         bool
-	sinks                    *bitset.BitSet
+	graph                 *da.PartitionGraph
+	edgeFlows             []int64
+	level                 []int
+	last                  []int
+	artificialAdjList     [][]int          // edges from artificial-source to sources , edges from sinks to artificial-sink
+	artificialEdgeList    []da.MaxFlowEdge // edge lists  artificial-source to sources, edge lists from sinks to artificial-sink
+	numberOfOriginalEdges int
+	debug                 bool
+	multSourcesSinks      bool
+	sinks                 *bitset.BitSet
 }
 
 func NewDinicMaxFlow(graph *da.PartitionGraph, debug, multSourcesSinks bool) *DinicMaxFlow {
@@ -52,7 +52,7 @@ func (dmf *DinicMaxFlow) AddFlow(u da.Index, idx int, f int64, artificial bool) 
 	}
 }
 
-// AddFlowToReversedEdge. add flow to reversed edge of u 
+// AddFlowToReversedEdge. add flow to reversed edge of u
 // artificial = true jika edge yang dipush flow adalah artificial edge
 func (dmf *DinicMaxFlow) AddFlowToReversedEdge(u da.Index, idx int, f int64, artificial bool) {
 	if !artificial {
@@ -109,7 +109,6 @@ func (dmf *DinicMaxFlow) AddSinks(u da.Index) {
 	dmf.sinks.Set(uint(u))
 }
 
-// 
 // alasan saya gak menambahkan artificial/super source/sink (untuk handle multi-sources multi-sinks network flow) pada PartitionGraph serta flow dari setiap edge saya taruh di dmf.edgeFlows adalah
 // karena di inertial_flow.go PartitionGraph dipakai oleh beberapa goroutine, shgg perlu di lock/copy setiap partitionGraph untuk setiap goroutine agar tidak race condition
 // sebelum pakai solusi saat ini, saya pakai solusi copy setiap partitionGraph dan space/memory nya meledak ketika number of worker di worker pool nya inertial_flow.go gede

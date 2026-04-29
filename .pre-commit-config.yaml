@@ -1,0 +1,11 @@
+repos:
+- repo: https://github.com/dnephin/pre-commit-golang
+  rev: master
+  hooks:
+    - id: go-fmt
+      args: ["-w", "-s"]
+    - id: go-imports
+    - id: golangci-lint
+      args: ["-c=conf/.golangci.yml"]
+    - id: go-mod-tidy
+

@@ -13,8 +13,6 @@ import (
 
 /*
 cd tests/benchmark && go test -bench BenchmarkShortestPathService -benchmem -cpuprofile prof_sp_service.cpu -memprofile prof_sp_service.mem -benchtime=15s
-
-
 */
 func BenchmarkShortestPathService(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak

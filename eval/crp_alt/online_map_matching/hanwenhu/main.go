@@ -55,7 +55,7 @@ Available at: https://doi.org/10.1109/TITS.2023.3237519.
 
 */
 
-// ini evaluasi implementasi online map matching pakai multiple hypothesis techinque [1] (mapmatch_mht.go)
+// ini evaluasi implementasi online map matching pakai multiple hypothesis technique [1] (mapmatch_mht.go)
 // pakai dataset dari ref[2]: https://github.com/Hanwen-Hu/AMM/tree/main/MatchData/Shanghai
 
 const (
@@ -462,7 +462,7 @@ func main() {
 			speedMeanK       = 8.333
 			speedStdK        = 8.333
 			lastBearing      = 0.0
-			k                        = 1
+			k                = 1
 			matchedPoint     *da.MatchedGPSPoint
 		)
 

@@ -843,9 +843,9 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 			name:         "file osm yogyakarta",
 			osmfFileTest: osmfFile,
 			roundAboutWay: map[int64]struct{}{
-				1460805468: struct{}{},
-				1460805470: struct{}{},
-				1427239361: struct{}{},
+				1460805468: {},
+				1460805470: {},
+				1427239361: {},
 			},
 			streetNameWay: map[int64]string{
 				24277036:  "Jalan Urip Sumoharjo",
@@ -872,7 +872,7 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 		// 4. build overlay graph
 		// 5. bikin strongly connected components
 
-		// karena step 1-5 udah dicover di TestPreprocessorSimple
+		// karena step 1-5 udah test di TestPreprocessorSimple
 		// di prep.SortByCellNumber() kita juga update edge info (edge geometry, edge streetname, edge roadclass/highway type, etc)
 		// kita bisa assert edge info aja
 

@@ -66,9 +66,9 @@ func TestOSMParser(t *testing.T) {
 			name:         "file osm yogyakarta",
 			osmfFileTest: osmfFile,
 			roundAboutWay: map[int64]struct{}{
-				1460805468: struct{}{},
-				1460805470: struct{}{},
-				1427239361: struct{}{},
+				1460805468: {},
+				1460805470: {},
+				1427239361: {},
 			},
 			streetNameWay: map[int64]string{
 				24277036:  "Jalan Urip Sumoharjo",

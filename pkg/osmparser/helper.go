@@ -259,7 +259,7 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 					if !okS || !okE {
 						continue
 					}
-					
+
 					if end < start {
 						// Handle wrap around like Sa-Tu
 						for d := start; d <= 6; d++ {
@@ -413,8 +413,8 @@ func isInTimeRange(currentMins, fromMins, toMins int) bool {
 	return currentMins >= fromMins || currentMins < toMins
 }
 
-// isBarrierNodeAccessable. return true if barrier node accessable
-func (p *OsmParser) isBarrierNodeAccessable(node *osm.Node) (bool, error) {
+// isBarrierNodeAccessible. return true if barrier node accessible
+func (p *OsmParser) isBarrierNodeAccessible(node *osm.Node) (bool, error) {
 	accessVal := node.Tags.Find("access")
 	barrierTypeString := node.Tags.Find("barrier")
 	var err error
@@ -518,7 +518,7 @@ func (p *OsmParser) isBarrierNodeAccessable(node *osm.Node) (bool, error) {
 
 					isInTimeRange, err = isConditionalAccessInTimerange(condTime, p.currentTime)
 					if err != nil {
-						return false, fmt.Errorf("isBarrierNodeAccessable: %w", err)
+						return false, fmt.Errorf("isBarrierNodeAccessible: %w", err)
 					}
 				}
 
@@ -542,21 +542,21 @@ func (p *OsmParser) isBarrierNodeAccessable(node *osm.Node) (bool, error) {
 			return false, nil
 		}
 
-		// vehicle type accesss
+		// vehicle type access
 		vehicleTagVal := node.Tags.Find("vehicle")
 		vehicleProbhibited := isAccessTagProhibited(vehicleTagVal)
 		if pkg.IsVehicle && vehicleProbhibited {
 			return false, nil
 		}
 
-		// motor vehicle type accesss
+		// motor vehicle type access
 		motorVehicleTagVal := node.Tags.Find("motor_vehicle")
 		motorizedVehicleProhibited := isAccessTagProhibited(motorVehicleTagVal)
 		if pkg.MotorizedVehicle && motorizedVehicleProhibited {
 			return false, nil
 		}
 
-		// specific vehicle type accesss
+		// specific vehicle type access
 		specificVehicleTypeTagVal := node.Tags.Find(pkg.VehicleTypeTag[pkg.VehicleType])
 		vehicleTypeProhibited := isAccessTagProhibited(specificVehicleTypeTagVal)
 		if vehicleTypeProhibited {
@@ -586,21 +586,21 @@ func (p *OsmParser) acceptOsmWay(way *osm.Way) bool {
 		return false
 	}
 
-	// vehicle type accesss
+	// vehicle type access
 	vehicleTagVal := way.Tags.Find("vehicle")
 	vehicleProbhibited := isAccessTagProhibited(vehicleTagVal)
 	if pkg.IsVehicle && vehicleProbhibited {
 		return false
 	}
 
-	// motor vehicle type accesss
+	// motor vehicle type access
 	motorVehicleTagVal := way.Tags.Find("motor_vehicle")
 	motorizedVehicleProhibited := isAccessTagProhibited(motorVehicleTagVal)
 	if pkg.MotorizedVehicle && motorizedVehicleProhibited {
 		return false
 	}
 
-	// specific vehicle type accesss
+	// specific vehicle type access
 	specificVehicleTypeTagVal := way.Tags.Find(pkg.VehicleTypeTag[pkg.VehicleType])
 	vehicleTypeProhibited := isAccessTagProhibited(specificVehicleTypeTagVal)
 	if vehicleTypeProhibited {
@@ -622,14 +622,14 @@ func (p *OsmParser) acceptOsmWay(way *osm.Way) bool {
 		return false
 	}
 
-	// pedestrian type accesss
+	// pedestrian type access
 	footTagVal := way.Tags.Find("foot")
 	pedestrianProhibited := isAccessTagProhibited(footTagVal)
 	if pkg.VehicleType == pkg.FOOT && pedestrianProhibited {
 		return false
 	}
 
-	// bicycle type accesss
+	// bicycle type access
 	bicycleTagVal := way.Tags.Find("bicycle")
 	cyclewayTagVal := way.Tags.Find("cycleway")
 

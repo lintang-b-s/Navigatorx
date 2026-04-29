@@ -1,4 +1,5 @@
 package osmparser
+
 // NOTE: kebanyakan unit tests pada package osmparser digenerate oleh gemini 3 flash
 
 import (
@@ -78,7 +79,7 @@ func TestAcceptOsmWay(t *testing.T) {
 	}
 }
 
-func TestIsBarrierNodeAccessable(t *testing.T) {
+func TestIsBarrierNodeAccessible(t *testing.T) {
 	p := NewOSMParserV2()
 	p.currentTime = time.Date(2026, 4, 8, 12, 0, 0, 0, time.Local)
 
@@ -133,12 +134,12 @@ func TestIsBarrierNodeAccessable(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			node := &osm.Node{Tags: tc.tags}
-			got, err := p.isBarrierNodeAccessable(node)
+			got, err := p.isBarrierNodeAccessible(node)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tc.want {
-				t.Errorf("isBarrierNodeAccessable(%v) = %v, want %v", tc.tags, got, tc.want)
+				t.Errorf("isBarrierNodeAccessible(%v) = %v, want %v", tc.tags, got, tc.want)
 			}
 		})
 	}

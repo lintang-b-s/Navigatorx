@@ -68,7 +68,7 @@ func (db *DirectionBuilder) GetPrevPoint(eId da.Index, eGeom da.Coordinates, tai
 	v := eGeom[n-2]
 	for i := n - 2; i >= 0; i-- {
 		p := eGeom[i]
-		dist := util.KilometerToMeter(geo.CalculateEuclidianDistMercatorProj(tailCoord.GetLat(), tailCoord.GetLon(), p.GetLat(), p.GetLon()))
+		dist := util.KilometerToMeter(geo.CalculateEuclideanDistMercatorProj(tailCoord.GetLat(), tailCoord.GetLon(), p.GetLat(), p.GetLon()))
 		if util.Ge(dist, atLeastDist) {
 			v = p
 			break
@@ -91,7 +91,7 @@ func (db *DirectionBuilder) GetHeadPoint(eId da.Index, eGeom da.Coordinates, tai
 	v := eGeom[1]
 	for i := 1; i < n; i++ {
 		p := eGeom[i]
-		dist := util.KilometerToMeter(geo.CalculateEuclidianDistMercatorProj(tailCoord.GetLat(), tailCoord.GetLon(), p.GetLat(), p.GetLon()))
+		dist := util.KilometerToMeter(geo.CalculateEuclideanDistMercatorProj(tailCoord.GetLat(), tailCoord.GetLon(), p.GetLat(), p.GetLon()))
 		if util.Ge(dist, atLeastDist) {
 			v = p
 			break

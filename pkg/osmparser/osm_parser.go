@@ -296,12 +296,12 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 				oldNode := p.wayNodeMap[int64(node.ID)]
 				p.wayNodeMap[int64(node.ID)] = nodeWithCoord{tipe: oldNode.tipe, coord: NewNodeCoord(node.Lat, node.Lon)}
 
-				isBarrierAccessable, err := p.isBarrierNodeAccessable(node)
+				isBarrierAccessible, err := p.isBarrierNodeAccessible(node)
 				if err != nil {
-					return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: isBarrierNodeAccessable() failed to parse conditional accees node barrier: %s", mapFile)
+					return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s", mapFile)
 				}
 
-				if !isBarrierAccessable {
+				if !isBarrierAccessible {
 					p.barrierNodes[int64(node.ID)] = true
 				}
 

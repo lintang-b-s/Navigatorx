@@ -49,8 +49,8 @@ var (
 		MINIBUS:    "minibus",
 	}
 	PublicServiceVehicles = map[VehicleTypeT]struct{}{
-		BUS:  struct{}{},
-		TAXI: struct{}{},
+		BUS:  {},
+		TAXI: {},
 	}
 )
 
@@ -123,8 +123,8 @@ const (
 	INF_WEIGHT_INT    int64   = 1e15
 	DUMMY_EDGE_LENGTH float64 = 1.0
 
-	TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND  float64 = 0.0
-	ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD float64 = 92.0
+	TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND float64 = 0.0
+	ALTERNATIVE_ROUTE_SIMILARITY_THRESHOLD float64 = 92.0
 
 	INVALID_LAT float64 = 91
 	INVALID_LON float64 = 181

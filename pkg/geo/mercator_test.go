@@ -65,7 +65,7 @@ func TestMercatorDistance(t *testing.T) {
 
 		gcDist := CalculateGreatCircleDistance(scoord.GetLat(), scoord.GetLon(), tcoord.GetLat(), tcoord.GetLon())
 
-		ecDist := CalculateEuclidianDistMercatorProj(scoord.GetLat(), scoord.GetLon(), tcoord.GetLat(), tcoord.GetLon())
+		ecDist := CalculateEuclideanDistMercatorProj(scoord.GetLat(), scoord.GetLon(), tcoord.GetLat(), tcoord.GetLon())
 
 		if util.EqEps(gcDist, ecDist, 1e-13) {
 			t.Errorf("gcDist: %v, ecDist: %v differ", gcDist, ecDist)

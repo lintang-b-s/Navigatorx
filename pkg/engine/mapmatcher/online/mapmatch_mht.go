@@ -330,7 +330,7 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 		eGeometry := om.graph.GetEdgeGeometry(cand.EdgeId())
 
 		var (
-			minDist, minDistr = math.MaxFloat64, math.MaxFloat64
+			minDist, minDistr  = math.MaxFloat64, math.MaxFloat64
 			bestProjectedPoint da.Coordinate
 		)
 

@@ -34,9 +34,9 @@ func isOverlay(u Index, maxEdgesInCell uint32) bool {
 func (s *TwoLevelStorage) Get(id Index) uint32 {
 	if isOverlay(id, s.maxEdgesInCell) {
 		// https://go.dev/blog/swisstable
-		// go1.24 use swiss table for its hash table (open adressing)
+		// go1.24 use swiss table for its hash table (open addressing)
 		// a=load factor=n/m, n=number of items to be mapped, m=size of hash table
-		// open adressing avg case: unsuccesful search & insert in O(1/(1-a)) or O(1)
+		// open addressing avg case: unsuccessful search & insert in O(1/(1-a)) or O(1)
 		val, ok := s.overlay[id]
 		if !ok {
 			return math.MaxUint32
@@ -142,9 +142,9 @@ func NewMapStorage(baseSize uint32) *MapStorage {
 
 func (s *MapStorage) Get(id Index) uint32 {
 	// https://go.dev/blog/swisstable
-	// go1.24 use swiss table for its hash table (open adressing)
+	// go1.24 use swiss table for its hash table (open addressing)
 	// a=load factor=n/m, n=number of items to be mapped, m=size of hash table
-	// open adressing avg case: unsuccesful search & insert in O(1/(1-a)) or O(1)
+	// open addressing avg case: unsuccessful search & insert in O(1/(1-a)) or O(1)
 	val, ok := s.overlay[id]
 	if !ok {
 		return math.MaxUint32

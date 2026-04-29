@@ -216,7 +216,7 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 			da.Coordinate(da.NewCoordinate(lat, lon)),
 		)
 
-		dist := geo.CalculateEuclidianDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+		dist := geo.CalculateEuclideanDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
 			lat, lon) // dist dari (lat,lon) ke titik proyeksi
 
 		if util.Lt(dist, minDist) {
@@ -224,10 +224,10 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 			bestProjectedPoint = projectedPoint
 			lastIndex = i
 			if origin {
-				distToEdgeEndpoint = geo.CalculateEuclidianDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+				distToEdgeEndpoint = geo.CalculateEuclideanDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
 					edgeHeadCoord.GetLat(), edgeHeadCoord.GetLon())
 			} else {
-				distToEdgeEndpoint = geo.CalculateEuclidianDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+				distToEdgeEndpoint = geo.CalculateEuclideanDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
 					edgeTailCoord.GetLat(), edgeTailCoord.GetLon())
 			}
 		}

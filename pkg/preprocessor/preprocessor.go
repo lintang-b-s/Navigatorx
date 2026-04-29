@@ -243,7 +243,7 @@ func (p *Preprocessor) SortByCellNumber() {
 			// update new vertex osm id
 			newVerticesOsmIds.Append(p.graph.GetVertexOsmId(vOldId))
 
-			// update trafic light flag
+			// update traffic light flag
 			isTraficLight := oldGraphTrafficLight.Test(uint(vOldId))
 			if isTraficLight {
 				newNodeTrafficLight.Set(uint(vId))

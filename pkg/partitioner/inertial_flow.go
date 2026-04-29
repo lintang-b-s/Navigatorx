@@ -53,7 +53,7 @@ O(k*n^2*m).
 func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCut {
 	var (
 		best                    = &MinCut{}
-		bestNumberOfMinCutEdges         = math.MaxInt
+		bestNumberOfMinCutEdges = math.MaxInt
 	)
 
 	n := inf.graph.NumberOfVertices()

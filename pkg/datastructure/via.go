@@ -68,5 +68,3 @@ func (v *ViaVertex) GetApproxSharedDist() float64 {
 func (v *ViaVertex) GetApproxObjectiveValue() float64 {
 	return 2*v.GetCost() + v.GetApproxSharedDist() - v.GetPlateau()
 }
-
-

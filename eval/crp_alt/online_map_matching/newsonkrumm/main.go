@@ -46,7 +46,7 @@ Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), p
 338–347. Available at: https://doi.org/10.1109/TITS.2018.2812147.
 
 */
-// ini evaluasi implementasi online map matching pakai multiple hypothesis techinque [1] (mapmatch_mht.go)
+// ini evaluasi implementasi online map matching pakai multiple hypothesis technique [1] (mapmatch_mht.go)
 // pakai dataset dari: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
 func parseLineString(s string, vertexCount int) ([]da.Coordinate, error) {
 	const prefix = "LINESTRING("

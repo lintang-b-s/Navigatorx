@@ -914,7 +914,7 @@ func removeSimiliarAlternatives(alts []AlternativeRoute) []AlternativeRoute {
 
 		addToRes := true
 		for j := 0; j < len(set); j++ {
-			// check similiarity with other previous alternative routes
+			// check similarity with other previous alternative routes
 			intersection := 0.0
 
 			setJ := set[j]
@@ -930,9 +930,9 @@ func removeSimiliarAlternatives(alts []AlternativeRoute) []AlternativeRoute {
 				continue
 			}
 
-			jaccardSimiliarity := (intersection / unionSize) * 100
-			if jaccardSimiliarity >= pkg.ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD {
-				// add alt to result if similiarity with other alternative route < pkg.ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD
+			jaccardSimilarity := (intersection / unionSize) * 100
+			if jaccardSimilarity >= pkg.ALTERNATIVE_ROUTE_SIMILARITY_THRESHOLD {
+				// add alt to result if similarity with other alternative route < pkg.ALTERNATIVE_ROUTE_SIMILARITY_THRESHOLD
 				addToRes = false
 				break
 			}
@@ -1061,7 +1061,7 @@ func (ars *AlternativeRouteSearch) GetDiversity(candidates []AlternativeRoute) f
 
 		minJaccardDist := math.MaxFloat64
 		for j := 0; j < i; j++ {
-			// check similiarity with other previous alternative routes
+			// check similarity with other previous alternative routes
 			intersection := 0.0
 
 			setJ := set[j]
@@ -1075,9 +1075,9 @@ func (ars *AlternativeRouteSearch) GetDiversity(candidates []AlternativeRoute) f
 			if unionSize == 0 {
 				continue
 			}
-			jaccardSimiliarity := (intersection / unionSize)
+			jaccardSimilarity := (intersection / unionSize)
 
-			jaccardDistance := 1 - jaccardSimiliarity
+			jaccardDistance := 1 - jaccardSimilarity
 			minJaccardDist = util.MinFloat(minJaccardDist, jaccardDistance)
 		}
 
