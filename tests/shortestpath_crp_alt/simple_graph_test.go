@@ -123,7 +123,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 	t.Logf("solveSimpleGraphd test case: %v", filepath)
 }
 
-func TestCRPQuerySimpleGraph(t *testing.T) {
+func TestCRPQuerySimpleGraphMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/simple_graph/"
 

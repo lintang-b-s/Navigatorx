@@ -321,9 +321,9 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestCRPQueryGalaxyQuest  -v -timeout=0  -count=1"
+// please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestCRPQueryGalaxyQuestMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
-func TestCRPQueryGalaxyQuest(t *testing.T) {
+func TestCRPQueryGalaxyQuestMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/icpc_nwerc2023_galaxyquest/"
 	testDirs := []string{"sample", "secret"}

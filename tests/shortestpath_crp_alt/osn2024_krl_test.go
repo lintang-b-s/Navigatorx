@@ -399,11 +399,11 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestOSN2024KRL  -v -timeout=0  -count=1"
+// please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestOSN2024KRLMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode,
 // selesai dalam dua 30 menit
 // lama karena graph partitioning  nya...
-func TestOSN2024KRL(t *testing.T) {
+func TestOSN2024KRLMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/osn2024_krl/"
 	testDirs := []string{"tc"}
