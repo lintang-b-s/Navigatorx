@@ -29,7 +29,6 @@ func New(cfg config.Configuration) (*zap.Logger, error) {
 
 	log := zap.New(zapcore.NewCore(zapcore.NewConsoleEncoder(encoderCfg), zapcore.AddSync(os.Stdout), logLevel))
 
-	log.Sync()
 	return log, nil
 }
 

@@ -118,7 +118,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: download() failed %w", err)
 	}
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf(osmFile), logger)
+	graph, edgeInfoIds, err := op.Parse(osmFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: osmparse.Parse() failed: %v", err)
 	}
@@ -209,6 +209,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 
 	workers := concurrent.NewWorkerPool[query, []da.Index](100, 5)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)
 
 	var N *da.SparseMatrix[int]

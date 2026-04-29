@@ -178,7 +178,6 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 		return nil, err
 	}
 
-	
 	defer f.Close()
 
 	snp := s2.NewReader(f)

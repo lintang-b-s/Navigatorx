@@ -311,8 +311,10 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 			return da.NewEmptyViaVertex()
 		}
 
-		svPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
-		vtPackedPath = ars.engine.packedPathPool.Get().([]da.VertexEdgePair)
+		svPackedPathPtr := ars.engine.packedPathPool.Get().(*[]da.VertexEdgePair)
+		vtPackedPathPtr := ars.engine.packedPathPool.Get().(*[]da.VertexEdgePair)
+		svPackedPath = *svPackedPathPtr
+		vtPackedPath = *vtPackedPathPtr
 
 		if !v.IsOverlay() {
 			// forward
@@ -336,9 +338,11 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 		defer func() {
 			svPackedPath = svPackedPath[:0] // reset length , tapi capacity tetep sama, ngaruh ke latency load test
 			vtPackedPath = vtPackedPath[:0]
+			*svPackedPathPtr = svPackedPath
+			*vtPackedPathPtr = vtPackedPath
 
-			ars.engine.packedPathPool.Put(svPackedPath)
-			ars.engine.packedPathPool.Put(vtPackedPath)
+			ars.engine.packedPathPool.Put(svPackedPathPtr)
+			ars.engine.packedPathPool.Put(vtPackedPathPtr)
 		}()
 
 		approxDistanceShare := ars.calculateApproxDistanceShare(svPackedPath, vtPackedPath, optPathSet, shortcutPathSet,

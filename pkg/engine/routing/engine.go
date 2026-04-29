@@ -106,28 +106,28 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 	crp.packedPathPool = sync.Pool{
 		New: func() any {
 			s := make([]da.VertexEdgePair, 0, PACKED_PATH_SIZE)
-			return s
+			return &s
 		},
 	}
 
 	crp.unpackedPathPool = sync.Pool{
 		New: func() any {
 			s := make([]da.Index, 0, UNPACKED_PATH_SIZE)
-			return s
+			return &s
 		},
 	}
 
 	crp.stallingEntryPool = sync.Pool{
 		New: func() any {
 			stallingEntry := make([]float64, maxEdgesInCell*2)
-			return stallingEntry
+			return &stallingEntry
 		},
 	}
 
 	crp.stallingExitPool = sync.Pool{
 		New: func() any {
 			stallingExit := make([]float64, maxEdgesInCell*2)
-			return stallingExit
+			return &stallingExit
 		},
 	}
 

@@ -188,7 +188,7 @@ func (g *PartitionGraph) AddEdge(u, v Index, w int64, directed bool) {
 	g.edgeList = append(g.edgeList, edge)
 	g.adjacencyList[u] = append(g.adjacencyList[u], len(g.edgeList)-1)
 
-	var reversedEdge MaxFlowEdge = MaxFlowEdge{}
+	reversedEdge := MaxFlowEdge{}
 	if directed {
 		reversedEdge = NewMaxFlowEdge(len(g.edgeList), v, u, 0)
 	} else {

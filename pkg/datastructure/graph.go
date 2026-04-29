@@ -570,33 +570,19 @@ func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 }
 
 func (g *Graph) IsDummyOutEdge(eId Index) bool {
-	if g.outEdges[eId].flag&FlagDummy != 0 {
-		return true
-	}
-
-	return false
+	return g.outEdges[eId].flag&FlagDummy != 0
 }
 
 func (g *Graph) IsDummyInEdge(eId Index) bool {
-	if g.inEdges[eId].flag&FlagDummy != 0 {
-		return true
-	}
-
-	return false
+	return g.inEdges[eId].flag&FlagDummy != 0
 }
 
 func (g *Graph) IsParallelOutEdge(eId Index) bool {
-	if g.outEdges[eId].flag&FlagParallel != 0 {
-		return true
-	}
-	return false
+	return g.outEdges[eId].flag&FlagParallel != 0
 }
 
 func (g *Graph) IsParallelInlEdge(eId Index) bool {
-	if g.inEdges[eId].flag&FlagParallel != 0 {
-		return true
-	}
-	return false
+	return g.inEdges[eId].flag&FlagParallel != 0
 }
 
 func (g *Graph) IsJunctionHead(eId Index) bool {

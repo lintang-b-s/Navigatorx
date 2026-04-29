@@ -70,15 +70,6 @@ func (tf *TimeFunction) GetWeight(eId da.Index, eDefaultWeight, eLength float64)
 	return eDefaultWeight
 }
 
-func (tf *TimeFunction) GetMaxSpeed(e EdgeAttributes) float64 {
-
-	if tf.isRoadNetwork {
-		eId := e.GetEdgeId()
-		return tf.edgeMaxSpeeds[eId]
-	}
-	return e.GetWeight()
-}
-
 func (tf *TimeFunction) GetTurnCost(turnType pkg.TurnType) float64 {
 	if tf.turnCosts == nil {
 		return 0
@@ -176,7 +167,7 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 	if err != nil {
 		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to util.ReadLine(r) untuk edge max speeds")
 	}
-	
+
 	edgeMaxSpeeds := make([]float64, numOfEdges)
 	ff := util.Fields(line)
 	for eId := 0; eId < numOfEdges; eId++ {

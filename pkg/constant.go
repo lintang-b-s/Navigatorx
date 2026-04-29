@@ -10,15 +10,15 @@ type TurnType uint8
 type VehicleTypeT uint8
 
 const (
-	BICYCLE VehicleTypeT = iota
-	FOOT
-	MOTORCAR
-	MOTORCYCLE
-	BUS
-	HGV
-	GOODS
-	TAXI
-	MINIBUS
+	BICYCLE    VehicleTypeT = iota
+	FOOT       VehicleTypeT = iota
+	MOTORCAR   VehicleTypeT = iota
+	MOTORCYCLE VehicleTypeT = iota
+	BUS        VehicleTypeT = iota
+	HGV        VehicleTypeT = iota
+	GOODS      VehicleTypeT = iota
+	TAXI       VehicleTypeT = iota
+	MINIBUS    VehicleTypeT = iota
 )
 
 var (
@@ -109,24 +109,24 @@ func GetIsVehicle() bool {
 }
 
 const (
-	NONE TurnType = iota
-	LEFT_TURN
-	RIGHT_TURN
-	STRAIGHT_ON
-	U_TURN
-	NO_ENTRY
+	NONE        TurnType = iota
+	LEFT_TURN   TurnType = iota
+	RIGHT_TURN  TurnType = iota
+	STRAIGHT_ON TurnType = iota
+	U_TURN      TurnType = iota
+	NO_ENTRY    TurnType = iota
 )
 
 const (
 	INF_WEIGHT        float64 = 1e15
-	INF_WEIGHT_INT            = 1e15
-	DUMMY_EDGE_LENGTH         = 1.0
+	INF_WEIGHT_INT    int64   = 1e15
+	DUMMY_EDGE_LENGTH float64 = 1.0
 
-	TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND  = 0.0
-	ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD = 92.0
+	TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND  float64 = 0.0
+	ALTERNATIVE_ROUTE_SIMILIARITY_THRESHOLD float64 = 92.0
 
-	INVALID_LAT = 91
-	INVALID_LON = 181
+	INVALID_LAT float64 = 91
+	INVALID_LON float64 = 181
 )
 
 const (

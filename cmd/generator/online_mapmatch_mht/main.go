@@ -8,6 +8,8 @@ import (
 	"strings"
 	"time"
 
+	"math/rand/v2"
+
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -15,7 +17,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"golang.org/x/exp/rand"
 )
 
 var (
@@ -75,7 +76,7 @@ func main() {
 			0, func(a, b int) bool { return a == b })
 	}
 
-	rd := rand.New(rand.NewSource(uint64(time.Now().UnixNano())))
+	rd := rand.New(rand.NewPCG(uint64(time.Now().UnixNano()), uint64(time.Now().UnixNano())))
 
 	re := routingEngine.GetRoutingEngine()
 	altSearch := routing.NewAlternativeRouteSearch(re)

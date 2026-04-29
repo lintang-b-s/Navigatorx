@@ -81,7 +81,7 @@ func main() {
 		panic(err)
 	}
 
-	duration := time.Now().Sub(now)
+	duration := time.Since(now)
 	logger.Sugar().Infof("done partitioning... time taken: %v s", duration.Seconds())
 
 	mlp := datastructure.NewPlainMLP()

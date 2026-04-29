@@ -18,7 +18,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-
 const (
 	graphFile        string = "./data/profiles/car/diy_solo_semarang_original.graph"
 	overlayGraphFile string = "./data/profiles/car/diy_solo_semarang_overlay_graph.graph"

@@ -956,8 +956,8 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 
 func (bs *CRPALTBidirectionalSearch) Preallocate() {
 
-	bs.stallingEntry = bs.engine.stallingEntryPool.Get().([]float64)
-	bs.stallingExit = bs.engine.stallingExitPool.Get().([]float64)
+	bs.stallingEntry = *bs.engine.stallingEntryPool.Get().(*[]float64)
+	bs.stallingExit = *bs.engine.stallingExitPool.Get().(*[]float64)
 
 	initInfWeight(bs.stallingEntry)
 	initInfWeight(bs.stallingExit)
@@ -980,8 +980,8 @@ func (bs *CRPALTBidirectionalSearch) Done() {
 	bs.backwardPq.Clear()
 	bs.engine.fHeapPool.Put(bs.forwardPq)
 	bs.engine.bHeapPool.Put(bs.backwardPq)
-	bs.engine.stallingEntryPool.Put(bs.stallingEntry)
-	bs.engine.stallingExitPool.Put(bs.stallingExit)
+	bs.engine.stallingEntryPool.Put(&bs.stallingEntry)
+	bs.engine.stallingExitPool.Put(&bs.stallingExit)
 
 }
 

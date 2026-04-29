@@ -1,11 +1,30 @@
-# See the dedicated "version" documentation section.
 version: "2"
+
 linters:
   disable:
-   - ineffassign
+    - ineffassign
 
-  
+  settings:
+    errcheck:
+      exclude-functions:
+        - (*os.File).Close
+        - (io.Closer).Close
+        - (net.Conn).Close
+        - (*bufio.Scanner).Close
+
+        - (*bufio.Writer).Flush
+        - (io.Writer).Write
+        - (*os.File).Write
+        - fmt.Fprintf
+
+        - io.Copy
+        - net/http.ListenAndServe
 
 
+        - os.Remove
 
-
+      
+    staticcheck:
+      checks:
+        - "all"
+       

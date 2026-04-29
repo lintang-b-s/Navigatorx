@@ -2,21 +2,11 @@ package costfunction
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
-type EdgeAttributes interface {
-	GetWeight() float64
-	GetEdgeSpeed() float64
-	GetLength() float64
-	GetEdgeId() datastructure.Index
-	GetHighwayType() pkg.OsmHighwayType
-}
-
 type CostFunction interface {
 	GetWeight(eId da.Index, eDefaultWeight, eLength float64) float64
-	GetMaxSpeed(e EdgeAttributes) float64
 
 	GetTurnCost(turnType pkg.TurnType) float64
 }

@@ -7,7 +7,8 @@ import (
 	"sort"
 	"sync"
 
-	rd "github.com/bytedance/gopkg/lang/fastrand"
+	"math/rand/v2"
+
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -217,7 +218,7 @@ func (dn *DinicMaxFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func
 func (dn *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
 	i := p - 1
 
-	pivotId := p + rd.Intn(r-p+1)
+	pivotId := p + rand.IntN(r-p+1)
 	arr[pivotId], arr[r] = arr[r], arr[pivotId]
 	for j := p; j < r; j++ {
 		if comp(j, r) {

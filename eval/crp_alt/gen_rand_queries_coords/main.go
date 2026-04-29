@@ -28,7 +28,6 @@ var (
 	timeFunctionFile string
 )
 
-
 func init() {
 	flag.Parse()
 

@@ -229,10 +229,7 @@ func (om *OnlineMapMatchMHT) needToReset(gps *da.GPSPoint, matchedSegment *da.Ma
 		gpsLat, gpsLon,
 		matchCoord.Lat, matchCoord.Lon,
 	))
-	if dist >= DISTANCE_RESET_THRESHOLD {
-		return true
-	}
-	return false
+	return dist >= DISTANCE_RESET_THRESHOLD
 }
 
 // https://gregorygundersen.com/blog/2020/02/09/log-sum-exp/
@@ -260,7 +257,7 @@ func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(cand *ma.Candidate)
 		return (1 / (1 + math.Exp(-(math.Pi*(x-cand.GetDistr()))/(math.Sqrt(3)*om.gpsStd))))
 	}
 
-	zeroMeanGaussianLog := -(math.Pow(cand.GetDist(), 2) / (2 * math.Pow(om.gpsStd, 2)))
+	zeroMeanGaussianLog := -(cand.GetDist() * cand.GetDist() / (2 * om.gpsStd * om.gpsStd))
 
 	left := math.Log((1 / cand.Length())) + zeroMeanGaussianLog
 	right := math.Log(xi(cand.Length()) - xi(0))
@@ -270,7 +267,7 @@ func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(cand *ma.Candidate)
 // equation 23 & 24 in ref[1]
 func (om *OnlineMapMatchMHT) kalmanFilter(speedMeanKprev, speedStdKprev, gpsSpeed, deltaTime float64) (float64, float64) {
 	speedMeanK := speedMeanKprev
-	speedStdK := math.Sqrt(speedStdKprev*speedStdKprev + math.Pow(om.accelerationStd, 2)*math.Pow(deltaTime, 2))
+	speedStdK := math.Sqrt(speedStdKprev*speedStdKprev + om.accelerationStd*om.accelerationStd*deltaTime*deltaTime)
 	numerator := math.Pow(om.initialSpeedStd, 2)*speedMeanK + math.Pow(speedStdK, 2)*gpsSpeed
 	denominator := math.Pow(om.initialSpeedStd, 2) + math.Pow(speedStdK, 2)
 	speedMean := numerator / denominator
@@ -332,7 +329,7 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 		eGeometry := om.graph.GetEdgeGeometry(cand.EdgeId())
 
 		var (
-			minDist, minDistr  float64 = math.MaxFloat64, math.MaxFloat64
+			minDist, minDistr = math.MaxFloat64, math.MaxFloat64
 			bestProjectedPoint da.Coordinate
 		)
 

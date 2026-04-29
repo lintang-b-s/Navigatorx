@@ -688,7 +688,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 			return nil, err
 		}
 		tokens = util.Fields(line)
-		var vertex OverlayVertex = OverlayVertex{}
+		vertex := OverlayVertex{}
 		vCellNumber, err := util.ParseInt(tokens[0])
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to parseInt vCellNumber: %v", tokens[0])
@@ -763,7 +763,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine cellsInLevel")
 			}
 			tokens = util.Fields(line)
-			var cell Cell = Cell{}
+			cell := Cell{}
 			ccn, err := util.ParseInt(tokens[0])
 			if err != nil {
 				return nil, errors.Wrapf(err, "ReadOvelayGraph: failed to ReadLine cellNumber: %v", tokens[0])
