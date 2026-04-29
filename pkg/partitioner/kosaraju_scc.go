@@ -1,7 +1,6 @@
 package partitioner
 
 import (
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -115,15 +114,15 @@ func prePartitionWithSCC(pg *da.PartitionGraph, maximumCellSize int) []*da.Parti
 			compVIds = append(compVIds, vertex.GetID())
 		}
 
-		newVid := datastructure.Index(0)
-		newMapVid := make(map[datastructure.Index]datastructure.Index, len(compVIds))
+		newVid := da.Index(0)
+		newMapVid := make(map[da.Index]da.Index, len(compVIds))
 		for i := 0; i < len(compVIds); i++ {
 			oldVertex := comp[i]
 			vId := compVIds[i]
 			lat, lon := oldVertex.GetVertexCoordinate()
 
 			oriVId := oldVertex.GetOriginalVertexID()
-			vertex := datastructure.NewPartitionVertex(newVid, oriVId, lat, lon)
+			vertex := da.NewPartitionVertex(newVid, oriVId, lat, lon)
 			newMapVid[vId] = newVid
 			pgComponent.AddVertex(vertex)
 			newVid++

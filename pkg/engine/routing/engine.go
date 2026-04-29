@@ -1,3 +1,4 @@
+// Package routing provides routing algorithms and engines for finding fastest path in road networks.
 package routing
 
 import (
@@ -47,7 +48,7 @@ func NewCRPRoutingEngine(graph *da.Graph,
 			panic(fmt.Errorf("NewCRPRoutingEngine: failed to read precomputed landmark distances: %v", err))
 		}
 	}
-	e := &CRPRoutingEngine{
+	crp := &CRPRoutingEngine{
 		graph:        graph,
 		metrics:      metrics,
 		overlayGraph: overlayGraph,
@@ -57,9 +58,9 @@ func NewCRPRoutingEngine(graph *da.Graph,
 		lm:           lm,
 		landmarkFile: landmarkFile,
 	}
-	e.BuildQueryHeapPool()
-	e.initParameter()
-	return e
+	crp.BuildQueryHeapPool()
+	crp.initParameter()
+	return crp
 }
 
 func (crp *CRPRoutingEngine) GetGraph() *da.Graph {
@@ -135,9 +136,9 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 
 func (crp *CRPRoutingEngine) initParameter() {
 	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
-	numCpu := runtime.NumCPU()
-	crp.unpackerWorkers = numCpu / 6
-	crp.unpackerForAlternativeRoutesWorkers = numCpu / 6
+	numCPU := runtime.NumCPU()
+	crp.unpackerWorkers = numCPU / 6
+	crp.unpackerForAlternativeRoutesWorkers = numCPU / 6
 }
 
 func (crp *CRPRoutingEngine) Close() {

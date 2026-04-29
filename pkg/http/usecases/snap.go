@@ -40,9 +40,9 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 ) (da.PhantomNode, da.PhantomNode) {
 	searchRad := rs.searchRadius
 	var (
-		sp, tp             da.PhantomNode    = da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
-		pairSize           int               = spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES
-		removedPrevPairSet hashset.Uint64Set = hashset.NewUint64WithSize(pairSize)
+		sp, tp             = da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
+		pairSize           = spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES
+		removedPrevPairSet = hashset.NewUint64WithSize(pairSize)
 	)
 
 	for util.Le(searchRad, MAX_SEARCH_RADIUS) {

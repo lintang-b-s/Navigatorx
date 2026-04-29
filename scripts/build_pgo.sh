@@ -26,19 +26,19 @@ cd "$BENCH_DIR"
 # 1. Run benchmarks and collect profiles
 # We use unique filenames to avoid overwriting results
 echo "⏱️ Running BenchmarkAlternativeRoutes..."
-go test -bench BenchmarkAlternativeRoutes -benchmem -cpuprofile prof_alt.cpu -memprofile prof_alt.mem -benchtime=15s
+go test -bench ^BenchmarkAlternativeRoutes$ -benchmem -cpuprofile prof_alt.cpu -memprofile prof_alt.mem -benchtime=15s
 
 echo "⏱️ Running BenchmarkAlternativeRoutesController..."
-go test -bench BenchmarkAlternativeRoutesController -benchmem -cpuprofile prof_alt_controller.cpu -memprofile prof_alt_controller.mem -benchtime=15s
+go test -bench ^BenchmarkAlternativeRoutesController$ -benchmem -cpuprofile prof_alt_controller.cpu -memprofile prof_alt_controller.mem -benchtime=15s
 
 echo "⏱️ Running BenchmarkAlternativeRoutesService..."
-go test -bench BenchmarkAlternativeRoutesService -benchmem -cpuprofile prof_alt_service.cpu -memprofile prof_alt_service.mem -benchtime=15s
+go test -bench ^BenchmarkAlternativeRoutesService$ -benchmem -cpuprofile prof_alt_service.cpu -memprofile prof_alt_service.mem -benchtime=15s
 
 echo "⏱️ Running BenchmarkShortestPathService..."
-go test -bench BenchmarkShortestPathService -benchmem -cpuprofile prof_sp_service.cpu -memprofile prof_sp_service.mem -benchtime=15s
+go test -bench ^BenchmarkShortestPathService$ -benchmem -cpuprofile prof_sp_service.cpu -memprofile prof_sp_service.mem -benchtime=15s
 
 echo "⏱️ Running BenchmarkCRPALTQuery..."
-go test -bench BenchmarkCRPALTQuery -benchmem -cpuprofile prof.cpu -memprofile prof.mem -benchtime=15s
+go test -bench ^BenchmarkCRPALTQuery$ -benchmem -cpuprofile prof.cpu -memprofile prof.mem -benchtime=15s
 
 # 2. Merge all CPU profiles into a single PGO file
 echo "Merging profiles into $PGO_OUTPUT..."

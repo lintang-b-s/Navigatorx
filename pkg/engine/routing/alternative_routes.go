@@ -296,8 +296,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 			return da.NewEmptyViaVertex()
 		}
 
-		var plv float64
-		plv = ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
+		plv := ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), crpQuery.sForwardId, crpQuery.tBackwardId,
 			fpq, bpq, sCellNumber, lv, v.IsOverlay())
 
 		T := param.getAlpha() * optTravelTime

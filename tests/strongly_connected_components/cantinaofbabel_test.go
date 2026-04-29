@@ -71,14 +71,14 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 		ss := strings.Split(line, " ")
 		for j, word := range ss {
-			if j == 0 {
+			switch j {
+			case 0:
 				nama = word
-			} else if j == 1 {
+			case 1:
 				bahasaSpeak = word
-			} else {
+			default:
 				bahasaUnderstand[word] = struct{}{}
 			}
-			j++
 		}
 
 		starwars = append(starwars, karakter{nama, bhs{bahasaSpeak: bahasaSpeak,
@@ -87,8 +87,8 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	n := len(starwars)
 	var (
-		adjList  [][]pairEdge = make([][]pairEdge, n)
-		adjListT [][]pairEdge = make([][]pairEdge, n)
+		adjList  = make([][]pairEdge, n)
+		adjListT = make([][]pairEdge, n)
 	)
 
 	bitpack := func(i, j int) int {

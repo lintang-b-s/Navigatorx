@@ -1,9 +1,10 @@
+// Package usecases contains application business logic and service interfaces.
 package usecases
 
 import "errors"
 
 var (
-	ERRPATHNOTFOND = errors.New("no path found from origin to destination")
+	ErrPathNotFound = errors.New("no path found from origin to destination")
 )
 
 const (

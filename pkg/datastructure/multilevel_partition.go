@@ -8,7 +8,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// MultilevelPartition. store every cell information of each vertex on every level.
+// MultilevelPartition stores every cell information of each vertex on every level.
 type MultilevelPartition struct {
 	numCells    []uint32 // number of cells in the level-index overlay graph
 	pvOffset    []uint8  // offset of each level in the bitpacked cell numbers

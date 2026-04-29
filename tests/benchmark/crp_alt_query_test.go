@@ -2,8 +2,6 @@ package benchmark
 
 import (
 	"flag"
-	"fmt"
-	"math"
 	"math/rand"
 	"os"
 	"strconv"
@@ -62,7 +60,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
+	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -122,7 +120,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := int(math.Pow(10, 6))
+	n := 1000000
 	qset := make(map[uint64]struct{})
 
 	newQuery := func(s, t da.Index) query {

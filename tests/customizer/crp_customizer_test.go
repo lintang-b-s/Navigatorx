@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
-	"math"
 	"os"
 	"strconv"
 	"strings"
@@ -19,10 +17,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
-	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
-
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
@@ -277,13 +272,13 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 		g.SetGraphStorage(gs)
 
-		logger, err := logger.New()
+		logger, err := log.New()
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
 		mp := partitioner.NewMultilevelPartitioner(
-			[]int{int(math.Pow(2, 2)), int(math.Pow(2, 3))},
+			[]int{4, 8},
 			2, 1,
 			g, logger, false, false,
 		)
@@ -291,7 +286,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prep := preprocessor.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -485,7 +480,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
+	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

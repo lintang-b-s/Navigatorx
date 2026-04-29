@@ -2,7 +2,6 @@ package routing
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
@@ -15,8 +14,8 @@ type CostFunction interface {
 }
 
 type Router interface {
-	ShortestPathSearch(asId, atId datastructure.Index) (float64, float64, []datastructure.Coordinate,
-		[]datastructure.OutEdge, bool)
+	ShortestPathSearch(asId, atId da.Index) (float64, float64, []da.Coordinate,
+		[]da.OutEdge, bool)
 	GetViaVertices() []da.ViaVertex
 	GetForwardInfo() da.VertexInfo
 	GetBackwardInfo() da.VertexInfo

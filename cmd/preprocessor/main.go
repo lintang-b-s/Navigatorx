@@ -24,7 +24,7 @@ var (
 	partitionSizes         = flag.String("us", "8,11,14,17,18", "Multilevel Partition Sizes")
 	directed               = flag.Bool("directed_graph", true, "directed/undirected partition graph")
 	prePartitionWithSCC    = flag.Bool("prepartition_with_scc", false, "prepartition graph with strongly connected components")
-	inertialFlowIterations = flag.Int("iflow_iterations", 10, "number of iterations of the inertial flow algorithm")
+	inertialFlowIterations = flag.Int("iflow_iterations", 10, "number of iterations of the inertial flow algorithm (schild dan sommer (2015)) (https://link.springer.com/chapter/10.1007/978-3-319-20086-6_22)")
 	graphFile              string
 	overlayGraphFile       string
 	profileName            string

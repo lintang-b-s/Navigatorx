@@ -16,76 +16,72 @@ overlayVertices: original overlayVertexId +  max number of edges in each cell * 
 
 */
 
-func (e *CRPRoutingEngine) offsetOverlay(v da.Index) da.Index {
-	return v + e.graph.GetMaxEdgesInCell()*2
+func (crp *CRPRoutingEngine) offsetOverlay(v da.Index) da.Index {
+	return v + crp.graph.GetMaxEdgesInCell()*2
 }
 
-func (e *CRPRoutingEngine) isOverlay(u da.Index) bool {
-	return u >= e.graph.GetMaxEdgesInCell()*2
+func (crp *CRPRoutingEngine) isOverlay(u da.Index) bool {
+	return u >= crp.graph.GetMaxEdgesInCell()*2
 }
 
 // biar edge yang satu cell dengan s atau t punya range  [0, max number of edges in each cell) atau [max number of edges in each cell, max number of edges in each cell*2)
-func (e *CRPRoutingEngine) offsetForward(u, uEntryId da.Index, uCellNumber, sCellNumber da.Pv) da.Index {
+func (crp *CRPRoutingEngine) offsetForward(u, uEntryId da.Index, uCellNumber, sCellNumber da.Pv) da.Index {
 
 	if uCellNumber == sCellNumber {
-		return uEntryId - e.graph.GetInEdgeCellOffset(u)
+		return uEntryId - crp.graph.GetInEdgeCellOffset(u)
 	}
-	return uEntryId - e.graph.GetInEdgeCellOffset(u) + e.graph.GetMaxEdgesInCell()
+	return uEntryId - crp.graph.GetInEdgeCellOffset(u) + crp.graph.GetMaxEdgesInCell()
 }
 
-func (e *CRPRoutingEngine) offsetBackward(u, uExitId da.Index, uCellNumber, sCellNumber da.Pv) da.Index {
+func (crp *CRPRoutingEngine) offsetBackward(u, uExitId da.Index, uCellNumber, sCellNumber da.Pv) da.Index {
 
 	if uCellNumber == sCellNumber {
-		return uExitId - e.graph.GetOutEdgeCellOffset(u)
+		return uExitId - crp.graph.GetOutEdgeCellOffset(u)
 	}
-	return uExitId - e.graph.GetOutEdgeCellOffset(u) + e.graph.GetMaxEdgesInCell()
+	return uExitId - crp.graph.GetOutEdgeCellOffset(u) + crp.graph.GetMaxEdgesInCell()
 }
 
 // buat balikin original edgeId
-func (e *CRPRoutingEngine) adjustForward(u, uEntryId da.Index) da.Index {
-	if uEntryId < e.graph.GetMaxEdgesInCell() {
-		return uEntryId + e.graph.GetInEdgeCellOffset(u)
+func (crp *CRPRoutingEngine) adjustForward(u, uEntryId da.Index) da.Index {
+	if uEntryId < crp.graph.GetMaxEdgesInCell() {
+		return uEntryId + crp.graph.GetInEdgeCellOffset(u)
 	} else {
-		return uEntryId + e.graph.GetInEdgeCellOffset(u) - e.graph.GetMaxEdgesInCell()
+		return uEntryId + crp.graph.GetInEdgeCellOffset(u) - crp.graph.GetMaxEdgesInCell()
 	}
 }
 
-func (e *CRPRoutingEngine) adjustBackward(u, uExitId da.Index) da.Index {
-	if uExitId < e.graph.GetMaxEdgesInCell() {
-		return uExitId + e.graph.GetOutEdgeCellOffset(u)
+func (crp *CRPRoutingEngine) adjustBackward(u, uExitId da.Index) da.Index {
+	if uExitId < crp.graph.GetMaxEdgesInCell() {
+		return uExitId + crp.graph.GetOutEdgeCellOffset(u)
 	} else {
-		return uExitId + e.graph.GetOutEdgeCellOffset(u) - e.graph.GetMaxEdgesInCell()
+		return uExitId + crp.graph.GetOutEdgeCellOffset(u) - crp.graph.GetMaxEdgesInCell()
 	}
 }
 
 // offsetedEntryId in range [0, max number of edges in each cell) atau [max number of edges in each cell, max number of edges in each cell*2)
 // buat dapetin entryPoint dari edge
-func (e *CRPRoutingEngine) getEntryPoint(u, offsetedEntryId da.Index, uStartEntryOffset da.Index) da.Index {
-	if offsetedEntryId < e.graph.GetMaxEdgesInCell() {
-		return offsetedEntryId + e.graph.GetInEdgeCellOffset(u) - uStartEntryOffset
+func (crp *CRPRoutingEngine) getEntryPoint(u, offsetedEntryId da.Index, uStartEntryOffset da.Index) da.Index {
+	if offsetedEntryId < crp.graph.GetMaxEdgesInCell() {
+		return offsetedEntryId + crp.graph.GetInEdgeCellOffset(u) - uStartEntryOffset
 	} else {
-		return offsetedEntryId + e.graph.GetInEdgeCellOffset(u) - e.graph.GetMaxEdgesInCell() - uStartEntryOffset
+		return offsetedEntryId + crp.graph.GetInEdgeCellOffset(u) - crp.graph.GetMaxEdgesInCell() - uStartEntryOffset
 	}
 }
 
-func (e *CRPRoutingEngine) getExitPoint(u, offsetedExitId da.Index, uStartExitOffset da.Index) da.Index {
-	if offsetedExitId < e.graph.GetMaxEdgesInCell() {
-		return offsetedExitId + e.graph.GetOutEdgeCellOffset(u) - uStartExitOffset
+func (crp *CRPRoutingEngine) getExitPoint(u, offsetedExitId da.Index, uStartExitOffset da.Index) da.Index {
+	if offsetedExitId < crp.graph.GetMaxEdgesInCell() {
+		return offsetedExitId + crp.graph.GetOutEdgeCellOffset(u) - uStartExitOffset
 	} else {
-		return offsetedExitId + e.graph.GetOutEdgeCellOffset(u) - e.graph.GetMaxEdgesInCell() - uStartExitOffset
+		return offsetedExitId + crp.graph.GetOutEdgeCellOffset(u) - crp.graph.GetMaxEdgesInCell() - uStartExitOffset
 	}
 }
 
-func (e *CRPRoutingEngine) adjustOverlay(v da.Index) da.Index {
-	return onBit(v-e.graph.GetMaxEdgesInCell()*2, UNPACK_OVERLAY_OFFSET)
+func (crp *CRPRoutingEngine) adjustOverlay(v da.Index) da.Index {
+	return onBit(v-crp.graph.GetMaxEdgesInCell()*2, UNPACK_OVERLAY_OFFSET)
 }
 
 func isBitOn(u da.Index, i int) bool {
-	if u&da.Index(uint32(1)<<i) != 0 {
-		return true
-	}
-
-	return false
+	return u&da.Index(uint32(1)<<i) != 0
 }
 
 func offBit(u da.Index, i int) da.Index {

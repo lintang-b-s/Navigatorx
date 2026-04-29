@@ -1,3 +1,4 @@
+// Package costfunction provides interfaces and implementations for edge and turn cost calculations.
 package costfunction
 
 import (

@@ -3,9 +3,7 @@ package main
 import (
 	"context"
 	"flag"
-	"fmt"
 	"io"
-	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -106,7 +104,7 @@ func main() {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
+	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -165,7 +163,7 @@ func main() {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := int(math.Pow(10, 1)) * 5
+	n := 10 * 5
 	qset := make(map[da.Index]struct{})
 
 	queries := make([]da.Index, 0, n)
@@ -277,10 +275,7 @@ func main() {
 		expectedSp := expectedSPTravelTimes[i][t]
 		// expectedSPEdges := expectedShortestPaths[i][t]
 
-		counterexample := false
-		if !util.EqEps(expectedSp, sp, 1e-5) { // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
-			counterexample = true
-		}
+		counterexample := !util.EqEps(expectedSp, sp, 1e-5) // shortcuts weights (hasil dari Customization phase of CRP yang diwrite ke file & read lagi ) mungkin gak terlalu presisi
 
 		// if len(spEdges) != len(expectedSPEdges) {
 		// 	counterexample = true

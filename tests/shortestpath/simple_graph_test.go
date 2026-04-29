@@ -111,6 +111,9 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 
 	var expectedSPLength float64 = 0
 	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
 	if !eq(spLength, expectedSPLength) {
 		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, spLength)
 	}

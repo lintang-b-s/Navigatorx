@@ -1,3 +1,4 @@
+// Package config provides configuration structures for the logger.
 package config
 
 import (
@@ -7,11 +8,11 @@ import (
 )
 
 const (
-	FATAL_LEVEL int = iota
-	ERROR_LEVEL
-	WARN_LEVEL
-	INFO_LEVEL
-	DEBUG_LEVEL
+	FatalLevel int = iota
+	ErrorLevel
+	WarnLevel
+	InfoLevel
+	DebugLevel
 )
 
 type Configuration struct {

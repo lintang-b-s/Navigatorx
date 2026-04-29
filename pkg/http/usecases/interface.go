@@ -1,9 +1,9 @@
+// Package usecases contains application business logic and service interfaces.
 package usecases
 
 import (
 	"context"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -33,5 +33,5 @@ type OnlineMapMatcherEngine interface {
 }
 
 type OfflineMapMatcherEngine interface {
-	MapMatch(gpsTraj []*da.GPSPoint) []*datastructure.MatchedGPSPoint
+	MapMatch(gpsTraj []*da.GPSPoint) []*da.MatchedGPSPoint
 }

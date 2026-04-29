@@ -7,6 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
+// GraphStorage stores metadata and supplementary information for the graph.
 // todo: add ref, destination, destination:ref storage
 type GraphStorage struct {
 	osmNodePoints []Coordinate
@@ -271,16 +272,16 @@ func (gs *GraphStorage) GetStreetNameId(edgeId Index) uint32 {
 	return gs.streetName[edgeId]
 }
 
-func (g *GraphStorage) GetRoadClass(edgeId Index) pkg.OsmHighwayType {
-	roadClassId := g.roadClass[edgeId]
+func (gs *GraphStorage) GetRoadClass(edgeId Index) pkg.OsmHighwayType {
+	roadClassId := gs.roadClass[edgeId]
 	return roadClassId
 }
 
-func (g *GraphStorage) GetRoadClassLink(edgeId Index) pkg.OsmHighwayType {
-	roadClassLinkId := g.roadClassLink[edgeId]
+func (gs *GraphStorage) GetRoadClassLink(edgeId Index) pkg.OsmHighwayType {
+	roadClassLinkId := gs.roadClassLink[edgeId]
 	return roadClassLinkId
 }
 
-func (g *GraphStorage) GetRoadLanes(edgeId Index) uint8 {
-	return g.lanes[edgeId]
+func (gs *GraphStorage) GetRoadLanes(edgeId Index) uint8 {
+	return gs.lanes[edgeId]
 }

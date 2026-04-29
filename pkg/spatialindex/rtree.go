@@ -1,3 +1,4 @@
+// Package spatialindex provides spatial indexing capabilities using R-trees (menggunakan mercator projected coordinate system). 
 package spatialindex
 
 import (
@@ -96,10 +97,7 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 
 			eId := rt.GetEdgeId(data)
 			results = append(results, eId)
-			if len(results) > MAX_CANDIDATES {
-				return false
-			}
-			return true
+			return len(results) <= MAX_CANDIDATES
 		})
 	return results
 }

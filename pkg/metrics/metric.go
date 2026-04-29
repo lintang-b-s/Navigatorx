@@ -1,3 +1,4 @@
+// Package metrics provides utilities for managing and calculating graph metrics (edge & turn costs) and stalling tables.
 package metrics
 
 import (
@@ -13,7 +14,6 @@ import (
 	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
-	cf "github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -32,15 +32,15 @@ func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *d
 ) *Metric {
 	var (
 		err error
-		tf  *cf.TimeFunction
+		tf  *costfunction.TimeFunction
 	)
 	if timeFunctionFilePath != "" {
-		tf, err = cf.ReadFromFile(timeFunctionFilePath)
+		tf, err = costfunction.ReadFromFile(timeFunctionFilePath)
 		if err != nil {
 			panic(fmt.Errorf("NewMetric: failed to read time function: %v", err))
 		}
 	} else {
-		tf = cf.NewTimeCostFunctionEmpty()
+		tf = costfunction.NewTimeCostFunctionEmpty()
 	}
 
 	m := &Metric{
@@ -471,7 +471,7 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 
 		exitStallingTables[i] = stallingTable
 	}
-	tf, err := cf.ReadFromFile(timeFunctionFilePath)
+	tf, err := costfunction.ReadFromFile(timeFunctionFilePath)
 	if err != nil {
 		panic(fmt.Errorf("NewMetric: failed to read time function: %v", err))
 	}
@@ -490,7 +490,7 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 }
 
 func (met *Metric) UpdateMetrics() error {
-	time.Sleep(1*time.Second)
+	time.Sleep(1 * time.Second)
 	newMet, err := ReadFromFile(met.metricFilepath, met.timeFunctionFilePath)
 	if err != nil {
 		return errors.Wrapf(err, "UpdateMetrics: failed to read new metrics, filepath: %s", met.metricFilepath)

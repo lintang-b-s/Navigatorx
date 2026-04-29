@@ -1,3 +1,4 @@
+// Package landmark provides landmark selection and ALT (A*, Landmarks, and Triangle inequality) preprocessing & query phase.
 package landmark
 
 import (
@@ -17,7 +18,6 @@ import (
 
 	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -50,7 +50,7 @@ this is an implementation of planar landmark selection described in section 7 pa
 
 O(V*logV)
 */
-func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []da.Vertex {
+func (lm *Landmark) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 
 	landmarks := make([]da.Vertex, 0, k)
 	ivs := graph.GetVertices()
@@ -106,11 +106,7 @@ func (lm *Landmark) SelectLandmarksTwo(k int, graph *datastructure.Graph) []da.V
 			geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[i].GetLat(), vsCopy[i].GetLon())
 	})
 
-	var (
-		pieSize int
-	)
-
-	pieSize = n / k
+	pieSize := n / k
 
 	for i := 0; i < k; i++ {
 		// O(V)
@@ -181,7 +177,7 @@ time complexity of ALT preprocessing:
 
 O(m*logm * k), m=number of edges,k=number of landmarks
 */
-func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *datastructure.Graph, logger *zap.Logger) error {
+func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *da.Graph, logger *zap.Logger) error {
 	if k > 64 {
 		return errors.New("too much landmarks!, the maximum number of landmarks is 64. ")
 	}

@@ -4,9 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"fmt"
 	"io"
-	"math"
 	"math/rand"
 	"os"
 	"strconv"
@@ -24,12 +22,10 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
-	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
-	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -210,13 +206,13 @@ func TestCRPQuerySimple(t *testing.T) {
 
 		g.SetGraphStorage(gs)
 
-		logger, err := logger.New()
+		logger, err := log.New()
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
 		mp := partitioner.NewMultilevelPartitioner(
-			[]int{int(math.Pow(2, 2)), int(math.Pow(2, 3))},
+			[]int{4, 8},
 			2, 1,
 			g, logger, true, true,
 		)
@@ -359,7 +355,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
 	}
 
 	op := osmparser.NewOSMParserV2()
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
+	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -394,7 +390,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocesser.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -547,10 +543,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		// sp, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 		expectedSp := expectedSPTravelTimes[i][target]
 
-		counterexample := false
-		if !util.EqEps(expectedSp, sp, 1e-5) {
-			counterexample = true
-		}
+		counterexample := !util.EqEps(expectedSp, sp, 1e-5)
 
 		if (id+1)%5000 == 0 {
 			t.Logf("done query id: %v\n", id+1)

@@ -81,7 +81,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	// results.
 	accept := make(chan error, 1)
 
-	api.poller.Start(acceptDesc, func(conn netpoll.Event) {
+	err = api.poller.Start(acceptDesc, func(conn netpoll.Event) {
 		/*
 			add net listener (stream socket) file descriptor desc to epoll interest list. (netpoll run epoll_wait() in the background)
 
@@ -92,7 +92,11 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 			the epoll instance referred to by the file descriptor epfd. A single epoll_wait() call can
 			return information about multiple ready file descriptors.
 		*/
-		defer api.poller.Resume(acceptDesc)
+		defer func() {
+			if err := api.poller.Resume(acceptDesc); err != nil {
+				api.log.Sugar().Errorf("failed to resume poller: %v", err)
+			}
+		}()
 		err := api.pool.ScheduleTimeout(1*time.Millisecond, func() {
 			conn, err := ln.Accept()
 			if err != nil {
@@ -125,20 +129,26 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 			}
 		}
 	})
+	if err != nil {
+		errChan <- err
+		return
+	}
 
 	// Handle graceful shutdown
 	<-ctx.Done()
 
-	ln.Close()
+	if err := ln.Close(); err != nil {
+		api.log.Sugar().Errorf("failed to close listener: %v", err)
+	}
 
 	api.hub.RemoveAllUser()
-	api.poller.Stop(acceptDesc)
+	if err := api.poller.Stop(acceptDesc); err != nil {
+		api.log.Sugar().Errorf("failed to stop poller: %v", err)
+	}
 
 	api.pool.Close()
 
 	log.Println("webocket server stopped")
-
-	return
 }
 
 /*
@@ -187,7 +197,7 @@ func (api *API) handle(conn net.Conn) error {
 		return err
 	}
 
-	api.poller.Start(desc, func(ev netpoll.Event) {
+	err = api.poller.Start(desc, func(ev netpoll.Event) {
 		/*
 			add user connection (request) file descriptor desc to epoll interest list. (netpoll run epoll_wait() in the background)
 
@@ -210,24 +220,39 @@ func (api *API) handle(conn net.Conn) error {
 			*/
 			api.log.Info("user disconnected from websocket server")
 
-			api.poller.Stop(desc)
+			if err := api.poller.Stop(desc); err != nil {
+				api.log.Sugar().Errorf("failed to stop poller: %v", err)
+			}
 			api.hub.Remove(user)
 			return
 		}
 
 		// spawn goroutine from goroutine pool to handle the request
-		api.pool.Schedule(func() {
+		err := api.pool.Schedule(func() {
 			// run online map matching & send the map matching result to user
 			err := user.OnlineMapMatch()
 			if err != nil {
 				api.log.Error("error online map matching", zap.Error(err))
 				// error -> remove user conn file descriptor from epoll interest list & remove from hub
-				api.poller.Stop(desc)
+				if err := api.poller.Stop(desc); err != nil {
+					api.log.Sugar().Errorf("failed to stop poller: %v", err)
+				}
 				api.hub.Remove(user)
 			}
 
 		})
+		if err != nil {
+			api.log.Error("error scheduling job", zap.Error(err))
+			// error -> remove user conn file descriptor from epoll interest list & remove from hub
+			if err := api.poller.Stop(desc); err != nil {
+				api.log.Sugar().Errorf("failed to stop poller: %v", err)
+			}
+			api.hub.Remove(user)
+		}
 	})
+	if err != nil {
+		return err
+	}
 
 	return nil
 }

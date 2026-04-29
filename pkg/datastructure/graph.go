@@ -83,7 +83,7 @@ func (v *Vertex) GetTurnTablePtr() Index {
 	return v.turnTablePtr
 }
 
-// outedge enters vertex head at entryPoint
+// OutEdge represents an outgoing edge that enters vertex head at entryPoint.
 type OutEdge struct {
 	weight     float64 // minute
 	dist       float64 // meter
@@ -94,7 +94,7 @@ type OutEdge struct {
 	flag       uint8 // dummy edge (for phantom node) or parallel edge (for OSM turn restriction via-way)
 }
 
-// inedge exits vertex tail at exitPoint
+// InEdge represents an incoming edge that exits vertex tail at exitPoint.
 type InEdge struct {
 	weight    float64 // minute
 	dist      float64 // meter
@@ -103,7 +103,6 @@ type InEdge struct {
 	exitPoint Index
 	hwType    pkg.OsmHighwayType
 	flag      uint8 // dummy edge (for phantom node)  or parallel edge (for OSM turn restriction via-way)
-
 }
 
 func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint Index, hwType pkg.OsmHighwayType) OutEdge {
@@ -289,17 +288,19 @@ func (e *InEdge) SetEdgeId(edgeId Index) {
 	e.edgeId = edgeId
 }
 
-// SubVertex. map dari (vId, entryExitPoint, exitFlag) ke vo
+// SubVertex   map dari (vId, entryExitPoint, exitFlag) to overlay vertex.
 type SubVertex struct {
 	originalID     Index // original vertex id
 	exitEntryOrder Index // entry/exit point order (from 0 to outDegree-1/inDegree-1)
 	exit           bool  // is exit point
 }
 
-
+// Pv is a type representing a cell number.
 type Pv uint64
 
-// main Customizable Route Planning (CRP) graph. adjacency arrays & compact graph representation. see section 4.1 & 4.3: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+// Graph represents the main Customizable Route Planning (CRP) compact graph.
+// uses adjacency arrays and a compact graph representation.
+// See section 4.1 & 4.3: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 type Graph struct {
 	graphStorage      *GraphStorage
 	vertices          []Vertex

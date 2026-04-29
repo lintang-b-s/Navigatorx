@@ -12,8 +12,8 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// OverlayVertex. overlay vertex information
-// each overlay vertex corresponds to either an entry point or an exit point of a cell in some level
+// OverlayVertex represents an overlay vertex information.
+// Each overlay vertex corresponds to either an entry point or an exit point of a cell in some level.
 type OverlayVertex struct {
 	originalVertex        Index   // original vertex id
 	neighborOverlayVertex Index   // overlay vertex id that on another cell and incident to originalEdge. can be a head if this overlay vertex is an exit point, or can be a tail if this overlay vertex is an entry point.
@@ -48,7 +48,7 @@ func (ov *OverlayVertex) GetNeighborOverlayVertex() Index {
 	return ov.neighborOverlayVertex
 }
 
-// Cell. cell/partition information
+// Cell represents cell/partition information.
 /*
 for each cell C, we have:
 qC = number of exit points (vertex that have at least one out edge that point to vertex in other cell)

@@ -54,10 +54,7 @@ type DirectionBuilder struct {
 func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 	turnSignCache *ristretto.Cache[uint64, []byte]) *DirectionBuilder {
 
-	clockwise := false
-	if lefthand {
-		clockwise = true
-	}
+	clockwise := lefthand
 
 	db := &DirectionBuilder{
 		engine:                   engine,

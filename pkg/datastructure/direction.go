@@ -1,3 +1,4 @@
+// Package datastructure provides core graph data structures and navigation-related types.
 package datastructure
 
 import (
@@ -176,15 +177,15 @@ func bearingToCompass(bearing float64) string {
 		return "North"
 	}
 }
-func (instr *Instruction) GetTurnBearing() float64 {
-	return instr.turnBearing
+func (ins *Instruction) GetTurnBearing() float64 {
+	return ins.turnBearing
 }
-func (instr *Instruction) GetTurnDescription(clockwise bool) string {
+func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 
-	streetName := instr.GetStreetName()
+	streetName := ins.GetStreetName()
 	streetName = strings.ReplaceAll(streetName, "\x00", "")
 
-	sign := instr.GetTurnSign()
+	sign := ins.GetTurnSign()
 	var description string
 
 	switch sign {
@@ -195,7 +196,7 @@ func (instr *Instruction) GetTurnDescription(clockwise bool) string {
 			description = fmt.Sprintf("Continue onto %s", streetName)
 		}
 	case START:
-		if heading, ok := instr.extrainfo["heading"]; ok {
+		if heading, ok := ins.extrainfo["heading"]; ok {
 			headingAngle := heading.(float64)
 			headingAngle = util.RadiansToDegree(headingAngle)
 			if headingAngle < 0.0 {
@@ -213,7 +214,7 @@ func (instr *Instruction) GetTurnDescription(clockwise bool) string {
 	case FINISH:
 		description = "you have arrived at your destination"
 	default:
-		dir, _ := getDirectionDescription(sign, instr, clockwise)
+		dir, _ := getDirectionDescription(sign, ins, clockwise)
 		if dir == "" {
 			description = fmt.Sprintf("unknown  %d", sign)
 		} else {
@@ -241,7 +242,7 @@ func isEmpty(str string) bool {
 	return strings.TrimSpace(str) == ""
 }
 
-func getDirectionDescription(sign TurnType, instruction *Instruction, clockwise bool) (string, string) {
+func getDirectionDescription(sign TurnType, ins *Instruction, clockwise bool) (string, string) {
 	switch sign {
 	case U_TURN_UNKNOWN:
 		return "Make U-turn", "U_TURN_RIGHT"
@@ -270,7 +271,7 @@ func getDirectionDescription(sign TurnType, instruction *Instruction, clockwise 
 	case CONTINUE_ON_STREET:
 		return "Continue onto", "CONTINUE_ONTO"
 	case USE_ROUNDABOUT:
-		if !instruction.roundabout.exited {
+		if !ins.roundabout.exited {
 			return "Enter the roundabout", "USE_ROUNDABOUT"
 		}
 		roundaboutDir := "clockwise"
@@ -278,7 +279,7 @@ func getDirectionDescription(sign TurnType, instruction *Instruction, clockwise 
 			roundaboutDir = "counter-clockwise"
 		}
 
-		return fmt.Sprintf("At Roundabout, take the exit point %d %s", instruction.roundabout.exitNumber,
+		return fmt.Sprintf("At Roundabout, take the exit point %d %s", ins.roundabout.exitNumber,
 			roundaboutDir), ""
 
 	default:
@@ -300,12 +301,12 @@ func NewRoundaboutInstruction() *RoundaboutInstruction {
 	return roundabout
 }
 
-func (i *Instruction) IncrementExitNumber() {
-	i.roundabout.exitNumber++
+func (ins *Instruction) IncrementExitNumber() {
+	ins.roundabout.exitNumber++
 }
 
-func (i *Instruction) SetExited() {
-	i.roundabout.exited = true
+func (ins *Instruction) SetExited() {
+	ins.roundabout.exited = true
 }
 
 type DrivingDirection struct {

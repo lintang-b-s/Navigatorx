@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
@@ -80,8 +79,8 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 
 	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
 
-	sid := oldToNewVIdMap[datastructure.Index(0)]
-	tid := oldToNewVIdMap[datastructure.Index(n-1)]
+	sid := oldToNewVIdMap[da.Index(0)]
+	tid := oldToNewVIdMap[da.Index(n-1)]
 
 	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1

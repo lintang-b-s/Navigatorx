@@ -13,22 +13,23 @@ import (
 
 	"runtime/debug"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 	"golang.org/x/time/rate"
 )
 
 // recoverPanic is middleware that recovers from a panic by responding with a 500 Internal Server
 // Error before closing the connection.
-func (app *API) recoverPanic(next http.Handler) http.Handler {
+func (api *API) recoverPanic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
 		defer func() {
 			if err := recover(); err != nil {
-				app.log.Error("panic recovered. err: ", zap.String("err", string(debug.Stack())))
+				api.log.Error("panic recovered. err: ", zap.String("err", string(debug.Stack())))
 
 				w.Header().Set("Connection:", "close")
 
-				app.ServerErrorResponse(w, r, fmt.Errorf("%s", err))
+				api.ServerErrorResponse(w, r, fmt.Errorf("%s", err))
 			}
 		}()
 		next.ServeHTTP(w, r)
@@ -81,7 +82,8 @@ func Heartbeat(endpoint string) func(http.Handler) http.Handler {
 				}
 				w.Header().Set("Content-Type", "text/plain")
 				w.WriteHeader(http.StatusOK)
-				w.Write([]byte("."))
+				_, err := w.Write([]byte("."))
+				util.AssertPanic(err == nil, fmt.Sprintf("error writing heartbeat response. err: %s", err.Error()))
 				return
 			}
 			h.ServeHTTP(w, r)
@@ -238,8 +240,8 @@ func Limit(next http.Handler) http.Handler {
 			return
 		}
 		limiter := getVisitor(ip)
-		if limiter.Allow() == false {
-			http.Error(w, http.StatusText(429), http.StatusTooManyRequests)
+		if !limiter.Allow() {
+			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 			return
 		}
 		next.ServeHTTP(w, r)

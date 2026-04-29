@@ -962,7 +962,6 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 					bs.forwardMid = da.NewVertexEdgePair(wVertex.GetOriginalVertex(), overlayWId, false)
 					bs.backwardMid = da.NewVertexEdgePair(wVertex.GetOriginalVertex(), overlayWId, true)
 
-
 				}
 			}
 		}
@@ -975,7 +974,6 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 
 			bs.forwardMid = da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, false)
 			bs.backwardMid = da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, true)
-
 
 		}
 	})
@@ -996,6 +994,9 @@ func (bs *CRPBidirectionalSearch) Preallocate() {
 func (bs *CRPBidirectionalSearch) Done() {
 
 	if bs.forAlternativeRoutes {
+		// ingat: reslicing slice gak bakal bikin slice baru/resliced slices tetep refer ke original slice (https://go.dev/blog/slices-intro)
+		// karena kita pake isi dari queryHeap.heap buat cek est cost di alternative_routes.go, kita gak boleh clear queryHeap
+		// kalau queryHeap masih dipake buat algoritma buat find alternative routes....
 		return
 	}
 

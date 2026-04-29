@@ -1,6 +1,7 @@
 package datastructure
 
-// we use capacity 1 for each edge in graph (see On Balanced Separators in Road Networks, Schild, et al.)
+// MaxFlowEdge represents an edge used in max flow calculations.
+// We use capacity 1 for each edge in graph (see On Balanced Separators in Road Networks, Schild, et al.)
 // maximum flow using Dinic’s algorithm (augmenting paths, in the unit-capacity case computed by breadth-first search)
 type MaxFlowEdge struct {
 	id       int
@@ -188,7 +189,7 @@ func (g *PartitionGraph) AddEdge(u, v Index, w int64, directed bool) {
 	g.edgeList = append(g.edgeList, edge)
 	g.adjacencyList[u] = append(g.adjacencyList[u], len(g.edgeList)-1)
 
-	reversedEdge := MaxFlowEdge{}
+	var reversedEdge MaxFlowEdge
 	if directed {
 		reversedEdge = NewMaxFlowEdge(len(g.edgeList), v, u, 0)
 	} else {

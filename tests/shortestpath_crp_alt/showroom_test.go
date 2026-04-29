@@ -15,7 +15,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
@@ -88,9 +87,10 @@ func SolveShowroom(t *testing.T, filepath string) {
 	}
 
 	getWeight := func(i, j int) int {
-		if grid[i][j] == "c" {
+		switch grid[i][j] {
+		case "c":
 			return 1
-		} else if grid[i][j] == "D" {
+		case "D":
 			return 0
 		}
 
@@ -177,7 +177,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, r*c, []int{7, 8, 14, 17}, true)
 
 	tnId := cellToNId(tx, ty)
-	tid := oldToNewVIdMap[datastructure.Index(tnId)]
+	tid := oldToNewVIdMap[da.Index(tnId)]
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
 	t.Log("calculating shortest paths...\n")
@@ -187,7 +187,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	lock := sync.Mutex{}
 	calcSp := func(p pair) any {
 		snId := cellToNId(p.first, p.second)
-		sid := oldToNewVIdMap[datastructure.Index(snId)]
+		sid := oldToNewVIdMap[da.Index(snId)]
 
 		as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 

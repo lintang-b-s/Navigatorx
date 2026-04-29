@@ -1,3 +1,4 @@
+// Package geo provides geographical calculation utilities.
 package geo
 
 import (
@@ -33,7 +34,7 @@ func RamerDouglasPeucker(coords []da.Coordinate) []da.Coordinate {
 	for stack.Len() > 0 {
 		pair := stack.Remove(stack.Back()).([2]int)
 		left, right := pair[0], pair[1]
-		var maxDist float64 = -1.0
+		var maxDist = -1.0
 		farthestIndex := left
 
 		// swep over range to find the farthest point from the segment (left,right)

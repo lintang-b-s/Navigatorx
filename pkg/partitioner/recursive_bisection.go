@@ -252,12 +252,7 @@ func (rb *RecursiveBisection) assignFinalPartition(partitionGraph *da.PartitionG
 // atau dengan kata lain setiap cells dari partisi dari comp berukuran kurang dari rb.maximumCellSize
 // index dari rb.finalPartition adalah vertex Id dari original road network graph (bukan comp)
 func (rb *RecursiveBisection) allVerticesAssignedToCells(n int) bool {
-
-	if rb.numVerticesAssigned == n {
-		return true
-	}
-
-	return false
+	return rb.numVerticesAssigned == n
 }
 
 /*

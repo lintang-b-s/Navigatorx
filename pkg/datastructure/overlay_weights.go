@@ -4,8 +4,8 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 )
 
+// OverlayWeights stores shortcut weights in the overlay graph.
 /*
-we store shortcut weights in OverlayWeights.weights
 for each cell C, we have:
 qC = number of exit points (vertex that have at least one out edge that point to vertex in other cell)
 pC = number of entry points (vertex that have at least one in edge that point to vertex in other cell)

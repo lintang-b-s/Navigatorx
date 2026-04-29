@@ -1,3 +1,4 @@
+// Package logger provides a common interface for logging across the application.
 package logger
 
 import (
@@ -10,7 +11,7 @@ import (
 )
 
 func New() (*zap.Logger, error) {
-	viper.SetDefault("LOG_LEVEL", config.INFO_LEVEL)
+	viper.SetDefault("LOG_LEVEL", config.InfoLevel)
 	viper.SetDefault("LOG_TIME_FORMAT", time.RFC3339Nano)
 
 	cfg := config.Configuration{

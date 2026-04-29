@@ -1,3 +1,4 @@
+// Package crpalt contains evaluation utilities for Customizable Route Planning (CRP) query phase.
 package crpalt
 
 import (
@@ -7,7 +8,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
@@ -27,11 +27,11 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 
 	outputDir := filepath.Join(workingDir, "data", "eval")
 	var (
-		graphFile        string = filepath.Join(outputDir, fmt.Sprintf("original_dimacs_%s.graph", name))
-		overlayGraphFile string = filepath.Join(outputDir, fmt.Sprintf("overlay_graph_dimacs_%s.graph", name))
-		metricsFile      string = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.txt", name))
-		landmarkFile     string = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.lm", name))
-		mlpFile                 = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s.mlp", name))
+		graphFile        = filepath.Join(outputDir, fmt.Sprintf("original_dimacs_%s.graph", name))
+		overlayGraphFile = filepath.Join(outputDir, fmt.Sprintf("overlay_graph_dimacs_%s.graph", name))
+		metricsFile      = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.txt", name))
+		landmarkFile     = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.lm", name))
+		mlpFile          = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s.mlp", name))
 		prep             *preprocesser.Preprocessor
 	)
 
@@ -86,7 +86,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 			panic(err)
 		}
 
-		mlp := datastructure.NewPlainMLP()
+		mlp := da.NewPlainMLP()
 		err = mlp.ReadMlpFile(mlpFile)
 		if err != nil {
 			panic(err)
@@ -100,7 +100,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 
 	} else {
 
-		mlp := datastructure.NewPlainMLP()
+		mlp := da.NewPlainMLP()
 		err = mlp.ReadMlpFile(mlpFile)
 		if err != nil {
 			panic(err)
@@ -124,7 +124,9 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 	if err != nil {
 		panic(err)
 	}
-	lm.WriteLandmark(landmarkFile, g.NumberOfVertices())
+	if err := lm.WriteLandmark(landmarkFile, g.NumberOfVertices()); err != nil {
+		panic(err)
+	}
 
 	re, err := engine.NewEngineDirect(g, prep.GetOverlayGraph(), met, logger, cust, emptyCf, landmarkFile, "")
 	if err != nil {

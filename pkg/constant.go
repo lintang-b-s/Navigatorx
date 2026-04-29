@@ -1,10 +1,11 @@
+// Package pkg provides common constants and types used across the Navigatorx project.
 package pkg
 
 import (
 	"runtime"
 )
 
-// enum of turn_type
+// TurnType represents the type of turn at a junction.
 type TurnType uint8
 
 type VehicleTypeT uint8

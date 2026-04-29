@@ -1,7 +1,6 @@
 package osmparser
 
 import (
-	"fmt"
 	"os"
 	"testing"
 
@@ -44,7 +43,7 @@ func setup(t *testing.T, osmfFileTest string) (*da.Graph, [][]da.Index, *osmpars
 
 	osmParser := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := osmParser.Parse(fmt.Sprintf("%s", osmfFileTest), logger)
+	graph, edgeInfoIds, err := osmParser.Parse(osmfFileTest, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

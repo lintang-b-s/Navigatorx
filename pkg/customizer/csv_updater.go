@@ -1,3 +1,4 @@
+// Package customizer provides tools for updating edge weights and metrics from external sources.
 package customizer
 
 import (
@@ -55,7 +56,7 @@ todo: add background worker buat update conditional turn restriction & condition
 contoh conditional barrier restriction: https://www.openstreetmap.org/node/10303116750
 */
 
-// LookupTable. buat simpan mapping dari osmNodeId -> graph vertexId
+// LookupTable buat simpan mapping dari osmNodeId -> graph vertexId
 type LookupTable[T comparable] struct {
 	data             []T
 	newToOldPosition []int
@@ -175,7 +176,7 @@ func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []floa
 		if util.Eq(updatedEdgeSpeed, 0) {
 			updatedEdgeSpeed = 0.1
 		}
-		
+
 		updatedEdges = append(updatedEdges, updatedEId)
 		updatedEdgeSpeed = util.KMHToMSeconds(updatedEdgeSpeed) // convert to m/s
 		updatedEdgeSpeeds = append(updatedEdgeSpeeds, updatedEdgeSpeed)
@@ -184,8 +185,8 @@ func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []floa
 	return updatedEdges, updatedEdgeSpeeds, nil
 }
 
-// updatedSegment. satu row di segment speed csv file
-// fromOsmId, toOsmId, speed (in km/h).
+// UpdatedSegment satu row di segment speed csv file.
+// Contains fromOsmId, toOsmId, and speed (in km/h).
 type UpdatedSegment struct {
 	fromOsmId int64
 	toOsmId   int64

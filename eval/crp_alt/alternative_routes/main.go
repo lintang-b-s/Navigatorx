@@ -121,7 +121,7 @@ func main() {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
+	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
 
 	if err != nil {
 		panic(err)

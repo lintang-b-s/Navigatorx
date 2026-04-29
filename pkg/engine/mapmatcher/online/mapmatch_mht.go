@@ -1,3 +1,4 @@
+// Package online provides online map matching implementations using MHT.
 package online
 
 import (
@@ -268,11 +269,11 @@ func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(cand *ma.Candidate)
 func (om *OnlineMapMatchMHT) kalmanFilter(speedMeanKprev, speedStdKprev, gpsSpeed, deltaTime float64) (float64, float64) {
 	speedMeanK := speedMeanKprev
 	speedStdK := math.Sqrt(speedStdKprev*speedStdKprev + om.accelerationStd*om.accelerationStd*deltaTime*deltaTime)
-	numerator := math.Pow(om.initialSpeedStd, 2)*speedMeanK + math.Pow(speedStdK, 2)*gpsSpeed
-	denominator := math.Pow(om.initialSpeedStd, 2) + math.Pow(speedStdK, 2)
+	numerator := om.initialSpeedStd*om.initialSpeedStd*speedMeanK + speedStdK*speedStdK*gpsSpeed
+	denominator := om.initialSpeedStd*om.initialSpeedStd + speedStdK*speedStdK
 	speedMean := numerator / denominator
 
-	speedStdK = math.Sqrt(1 / (1/math.Pow(om.initialSpeedStd, 2) + 1/math.Pow(speedStdK, 2)))
+	speedStdK = math.Sqrt(1 / (1/(om.initialSpeedStd*om.initialSpeedStd) + 1/(speedStdK*speedStdK)))
 	return speedMean, speedStdK
 }
 

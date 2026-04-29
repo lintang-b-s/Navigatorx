@@ -5,16 +5,16 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
+func (crp *CRPRoutingEngine) RetrievePackedPath(forwardMid,
 	backwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
 	bpq *da.QueryHeap[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv, s, t da.Index) []da.VertexEdgePair {
 
 	svPackedPath := make([]da.VertexEdgePair, 0, 32)
 	vtPackedPath := make([]da.VertexEdgePair, 0, 32)
 
-	forwardPackedPath := re.RetrieveForwardPackedPath(svPackedPath, forwardMid, fpq, sForwardId, sCellNumber, s)
+	forwardPackedPath := crp.RetrieveForwardPackedPath(svPackedPath, forwardMid, fpq, sForwardId, sCellNumber, s)
 
-	backwardPackedPath := re.RetrieveBackwardPackedPath(vtPackedPath, backwardMid, bpq, tBackwardId, sCellNumber, t)
+	backwardPackedPath := crp.RetrieveBackwardPackedPath(vtPackedPath, backwardMid, bpq, tBackwardId, sCellNumber, t)
 
 	return append(forwardPackedPath, backwardPackedPath...)
 }
@@ -28,21 +28,21 @@ func (re *CRPRoutingEngine) RetrievePackedPath(forwardMid,
 // shortcut edge (u,v) disusun oleh base edges yang menyusun shortest path dari overlay vertex u ke overlay vertex v
 // kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya
 // sehingga untuk unpacking shortcut edges ada tahapan di CRP bernama Path Unpacking (path_unpacker_alt.go)
-func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEdgePair, forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
+func (crp *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEdgePair, forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
 	sForwardId da.Index, sCellNumber da.Pv, s da.Index) []da.VertexEdgePair {
 
 	// let n = number of edges in shortest path from s to mid, (from forward search)
 	// O(n)
 	mid := forwardMid
 
-	if !re.isOverlay(mid.GetEdge()) {
-		adjustedMidEdge := re.adjustForward(mid.GetVertex(), mid.GetEdge())
+	if !crp.isOverlay(mid.GetEdge()) {
+		adjustedMidEdge := crp.adjustForward(mid.GetVertex(), mid.GetEdge())
 		mid.SetEdge(adjustedMidEdge)
 
-		midOutHead, midOutEdgeId := re.graph.GetHeadOfInedgeWithOutEdge(mid.GetEdge())
+		midOutHead, midOutEdgeId := crp.graph.GetHeadOfInedgeWithOutEdge(mid.GetEdge())
 		mid.SetEdge(midOutEdgeId)
 
-		tail := re.graph.GetTailFromOutEdge(midOutEdgeId)
+		tail := crp.graph.GetTailFromOutEdge(midOutEdgeId)
 		if tail != midOutHead {
 			svPackedPath = append(svPackedPath, mid)
 		}
@@ -58,18 +58,18 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 		parentEdge := parent.GetEdge()
 		parentCopy := parent
 
-		if re.isOverlay(parentCopy.GetEdge()) {
+		if crp.isOverlay(parentCopy.GetEdge()) {
 
 			// shortcut
-			adjForwEdge := re.adjustOverlay(parentCopy.GetEdge())
+			adjForwEdge := crp.adjustOverlay(parentCopy.GetEdge())
 			parentCopy.SetEdge(adjForwEdge)
 		} else {
 
-			adjForwEdge := re.adjustForward(parentCopy.GetVertex(), parentCopy.GetEdge())
+			adjForwEdge := crp.adjustForward(parentCopy.GetVertex(), parentCopy.GetEdge())
 
 			// jadiin outEdge semua
-			inEdge := re.graph.GetInEdge(adjForwEdge)
-			_, outEdgeId := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+			inEdge := crp.graph.GetInEdge(adjForwEdge)
+			_, outEdgeId := crp.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 			parentCopy.SetEdge(outEdgeId)
 		}
 
@@ -88,8 +88,8 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 			v := parentCopy.GetVertex()
 			vEntryId := curInfo.GetParent().GetFirstOverlayEntryExitId()
 			// jadiin outEdge semua
-			inEdge := re.graph.GetInEdge(vEntryId)
-			_, outEdgeId := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+			inEdge := crp.graph.GetInEdge(vEntryId)
+			_, outEdgeId := crp.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 
 			firstOvArc := da.NewVertexEdgePair(v, outEdgeId, true)
 			svPackedPath = append(svPackedPath, firstOvArc)
@@ -105,8 +105,8 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 		// ini buat case:  anyVertex/dummyVertex-sForwardEdge-> s -vEntryId-> vOverlay
 
 		vEntryId := curInfo.GetParent().GetFirstOverlayEntryExitId()
-		inEdge := re.graph.GetInEdge(vEntryId)
-		_, outEdgeId := re.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+		inEdge := crp.graph.GetInEdge(vEntryId)
+		_, outEdgeId := crp.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 		v := lastParVertex
 
 		firstOvArc := da.NewVertexEdgePair(v, outEdgeId, true)
@@ -116,7 +116,7 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 	util.ReverseG[da.VertexEdgePair](svPackedPath)
 
 	if len(svPackedPath) == 1 {
-		tail := re.graph.GetTailFromOutEdge(svPackedPath[0].GetEdge())
+		tail := crp.graph.GetTailFromOutEdge(svPackedPath[0].GetEdge())
 		if tail != s {
 			return make([]da.VertexEdgePair, 0)
 		}
@@ -126,25 +126,25 @@ func (re *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEd
 }
 
 // RetrieveBackwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari mid ke t.
-func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(vtPackedPath []da.VertexEdgePair, backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey],
+func (crp *CRPRoutingEngine) RetrieveBackwardPackedPath(vtPackedPath []da.VertexEdgePair, backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey],
 	tBackwardId da.Index, sCellNumber da.Pv, t da.Index) []da.VertexEdgePair {
 	// let n = number of edges in shortest path from mid to t, (from backward search)
 	// worst: case O(n)
 
 	mid := backwardMid
-	if re.isOverlay(mid.GetEdge()) {
+	if crp.isOverlay(mid.GetEdge()) {
 		// overlay vertex
-		adjustedMidEdge := re.adjustOverlay(mid.GetEdge())
+		adjustedMidEdge := crp.adjustOverlay(mid.GetEdge())
 		mid.SetEdge(adjustedMidEdge)
 		vtPackedPath = append(vtPackedPath, mid)
 
 	} else {
 
-		adjustedMidEdge := re.adjustBackward(mid.GetVertex(), mid.GetEdge())
+		adjustedMidEdge := crp.adjustBackward(mid.GetVertex(), mid.GetEdge())
 		mid.SetEdge(adjustedMidEdge)
 
-		midOutEdge := re.graph.GetOutEdge(mid.GetEdge())
-		tail := re.graph.GetTailFromOutEdge(midOutEdge.GetEdgeId())
+		midOutEdge := crp.graph.GetOutEdge(mid.GetEdge())
+		tail := crp.graph.GetTailFromOutEdge(midOutEdge.GetEdgeId())
 		if tail != midOutEdge.GetHead() {
 			vtPackedPath = append(vtPackedPath, mid)
 		}
@@ -161,14 +161,14 @@ func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(vtPackedPath []da.VertexE
 		parentCopy := parent
 		lastParVertex = parentCopy.GetVertex()
 
-		if re.isOverlay(parentCopy.GetEdge()) {
+		if crp.isOverlay(parentCopy.GetEdge()) {
 
 			// overlay vertex
-			adjBackEdge := re.adjustOverlay(parentCopy.GetEdge())
+			adjBackEdge := crp.adjustOverlay(parentCopy.GetEdge())
 			parentCopy.SetEdge(adjBackEdge)
 		} else {
 
-			adjBackEdge := re.adjustBackward(parentCopy.GetVertex(), parentCopy.GetEdge())
+			adjBackEdge := crp.adjustBackward(parentCopy.GetVertex(), parentCopy.GetEdge())
 			parentCopy.SetEdge(adjBackEdge)
 		}
 
@@ -202,7 +202,7 @@ func (re *CRPRoutingEngine) RetrieveBackwardPackedPath(vtPackedPath []da.VertexE
 	}
 
 	if len(vtPackedPath) == 1 {
-		head := re.graph.GetHeadOfOutEdge(vtPackedPath[0].GetEdge())
+		head := crp.graph.GetHeadOfOutEdge(vtPackedPath[0].GetEdge())
 		if head != t {
 			return make([]da.VertexEdgePair, 0)
 		}

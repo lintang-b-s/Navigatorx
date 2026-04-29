@@ -1,3 +1,4 @@
+// Package util provides general utility functions used throughout the project.
 package util
 
 import (
@@ -79,7 +80,7 @@ type Error struct {
 
 func (e *Error) Error() string {
 	if e.orig != nil {
-		return fmt.Sprintf("%s", e.msg)
+		return e.msg
 	}
 
 	return e.msg

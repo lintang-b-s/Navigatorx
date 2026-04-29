@@ -68,10 +68,10 @@ func (api *API) Run(
 	defer func() {
 		cleanup()
 		ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-		util.Sleep(ctxWithTimeout, readinessDrainDelay)
+		_ = util.Sleep(ctxWithTimeout, readinessDrainDelay)
 		cancel()
 	}()
-	
+
 	log.Info("Run httprouter API")
 
 	routingService.InitBackgroundWorker(ctx)
@@ -97,8 +97,8 @@ func (api *API) Run(
 	navigatorRoutes.Routes(group)
 
 	var (
-		errChan      chan error = make(chan error, 1)
-		errProxyChan chan error = make(chan error, 1)
+		errChan      = make(chan error, 1)
+		errProxyChan = make(chan error, 1)
 		wsServer     *http.Server
 	)
 
@@ -158,7 +158,10 @@ func (api *API) Run(
 			log.Error("Failed to wait for ongoing requests to finish, waiting for forced cancellation.")
 			shutdownHardCtx, cancelShutdownHardCtx := context.WithTimeout(context.Background(), shutdownPeriod)
 			defer cancelShutdownHardCtx()
-			util.Sleep(shutdownHardCtx, shutdownHardPeriod)
+			err = util.Sleep(shutdownHardCtx, shutdownHardPeriod)
+			if err != nil {
+				log.Error("Failed to wait for ongoing requests to finish, waiting for forced cancellation.")
+			}
 		}
 		if wsServer != nil {
 			if err := wsServer.Shutdown(shutdownCtx); err != nil {
@@ -194,10 +197,10 @@ func (api *API) Run(
 		return ctx.Err()
 	case sig := <-GracefulShutdown():
 		isShuttingDown.Store(true)
-		util.Sleep(ctx, readinessDrainDelay)
+		err := util.Sleep(ctx, readinessDrainDelay)
 		shutdown()
 		logger.Info("Navigatorx Routing Engine Server Stopped", zap.String("signal", sig.String()))
-		return nil
+		return err
 	}
 }
 

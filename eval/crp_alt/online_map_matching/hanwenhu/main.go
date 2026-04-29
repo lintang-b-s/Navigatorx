@@ -173,7 +173,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	logger.Sugar().Infof("building transition matrix....")
-	numQueries := math.Pow(10, 3)
+	numQueries := 1000.0
 	i := 0
 	queries := make([]query, 0, n)
 
@@ -243,7 +243,9 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 
 			if counter%1e2 == 0 {
 				fmt.Printf("completed query: %v\n", counter)
-				N.WriteToFile(transitionMatrixFilepath)
+				if err := N.WriteToFile(transitionMatrixFilepath); err != nil {
+					fmt.Printf("error writing transition matrix: %v\n", err)
+				}
 			}
 		}
 	}()
@@ -376,7 +378,7 @@ func extractTarGz(gzipStream io.Reader) error {
 
 	tarReader := tar.NewReader(uncompressedStream)
 
-	for true {
+	for {
 		header, err := tarReader.Next()
 
 		if err == io.EOF {
@@ -457,9 +459,9 @@ func main() {
 			prevLat, prevLon float64
 			hasPrev          bool
 			candidates       []*ma.Candidate
-			speedMeanK       float64 = 8.333
-			speedStdK        float64 = 8.333
-			lastBearing      float64 = 0.0
+			speedMeanK       = 8.333
+			speedStdK        = 8.333
+			lastBearing      = 0.0
 			k                        = 1
 			matchedPoint     *da.MatchedGPSPoint
 		)
@@ -492,8 +494,8 @@ func main() {
 				panic(err)
 			}
 
-			var deltaTime float64 = 2 // in seconds
-			var speed float64 = 8.333
+			var deltaTime = 2.0 // in seconds
+			var speed = 8.333
 
 			if hasPrev {
 
@@ -513,14 +515,14 @@ func main() {
 			k++
 			lastBearing = matchedPoint.GetBearing()
 			mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
-			avgRuntimePerGpsPoint += float64(time.Now().Sub(now).Microseconds())
+			avgRuntimePerGpsPoint += float64(time.Since(now).Microseconds())
 
 			curGpsTime = curGpsTime.Add(2)
 		}
 
 		avgRuntimePerGpsPointAll += avgRuntimePerGpsPoint / float64(len(gpsTraj))
 
-		runtimeDataset := time.Now().Sub(nowDataset).Milliseconds()
+		runtimeDataset := time.Since(nowDataset).Milliseconds()
 		totalRuntime += float64(runtimeDataset)
 		totalPoints += float64(len(gpsTraj))
 
@@ -559,7 +561,7 @@ func main() {
 		}
 
 		start := 0
-		var prevMp *da.MatchedGPSPoint = mapMatchPointResult[start]
+		var prevMp = mapMatchPointResult[start]
 		if prevMp.GetEdgeId() == da.INVALID_EDGE_ID {
 			for q := start + 1; q < len(mapMatchPointResult); q++ {
 				if mapMatchPointResult[q].GetEdgeId() != da.INVALID_EDGE_ID {

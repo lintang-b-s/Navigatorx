@@ -37,12 +37,18 @@ func (api *API) upstream(name, network, addr string) func(w http.ResponseWriter,
 		go func() {
 			defer peer.Close()
 			defer conn.Close()
-			io.Copy(peer, conn)
+			if _, err := io.Copy(peer, conn); err != nil {
+				api.log.Error("copy response to upstream error:", zap.Error(err))
+				return
+			}
 		}()
 		go func() {
 			defer peer.Close()
 			defer conn.Close()
-			io.Copy(conn, peer)
+			if _, err := io.Copy(conn, peer); err != nil {
+				api.log.Error("copy request to client error:", zap.Error(err))
+				return
+			}
 		}()
 	}
 }

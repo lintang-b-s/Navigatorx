@@ -90,7 +90,9 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	if err != nil {
 		panic(err)
 	}
-	lm.WriteLandmark(landmarkFile, g.NumberOfVertices())
+	if err := lm.WriteLandmark(landmarkFile, g.NumberOfVertices()); err != nil {
+		t.Fatalf("err: %v", err)
+	}
 
 	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, landmarkFile, timeFunctionFile)
 	if err != nil {

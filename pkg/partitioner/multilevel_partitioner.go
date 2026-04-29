@@ -1,3 +1,4 @@
+// Package partitioner provides algorithms for road network graph partitioning, including CUstomizable Route Planning (CRP) multilevel partitioning and inertial flow algorithm.
 package partitioner
 
 import (
@@ -40,12 +41,12 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.
 	}
 }
 
-func (mpr *MultilevelPartitioner) GetCellVertices() [][][]da.Index {
-	return mpr.cellVertices
+func (mp *MultilevelPartitioner) GetCellVertices() [][][]da.Index {
+	return mp.cellVertices
 }
 
-func (mpr *MultilevelPartitioner) SetCellVertices(cellVertices [][][]da.Index) {
-	mpr.cellVertices = cellVertices
+func (mp *MultilevelPartitioner) SetCellVertices(cellVertices [][][]da.Index) {
+	mp.cellVertices = cellVertices
 }
 
 /*

@@ -1,3 +1,4 @@
+// Package concurrent provides utilities for concurrent computing.
 package concurrent
 
 import (

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
-	"net/http"
 	"os"
 	"strconv"
 	"time"
@@ -90,10 +89,6 @@ func main() {
 		queries = append(queries, newSPParam(n, s, t))
 		n++
 	}
-
-	go func() {
-		http.ListenAndServe("localhost:6060", nil)
-	}()
 
 	durations := 0.0
 

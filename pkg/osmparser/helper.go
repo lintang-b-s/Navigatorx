@@ -1,17 +1,18 @@
 package osmparser
 
 import (
+	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bytedance/gopkg/lang/stringx"
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/paulmach/osm"
 )
 
-func (o *OsmParser) roadTypeSpeed(roadType string) float64 {
-	return o.maxspeeds[pkg.GetHighwayType(roadType)]
+func (p *OsmParser) roadTypeSpeed(roadType string) float64 {
+	return p.maxspeeds[pkg.GetHighwayType(roadType)]
 }
 
 func findKeyNotEmpty(way *osm.Way, keys ...string) string {
@@ -82,10 +83,7 @@ func getName(way *osm.Way, tempMap map[string]string) {
 //7. https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right#Identifying_the_direction_of_a_way
 
 func isDirectionProhibited(value string) bool {
-	if value == "no" {
-		return true
-	}
-	return false
+	return value == "no"
 }
 
 // https://wiki.openstreetmap.org/wiki/Key:oneway
@@ -189,77 +187,63 @@ const (
 	NO_ROUTE_REVERSIBLE
 )
 
+const (
+	SUNRISE_DEFAULT = 6 * 60
+	SUNSET_DEFAULT  = 18 * 60
+	DAWN_DEFAULT    = 5*60 + 30
+	DUSK_DEFAULT    = 18*60 + 30
+)
+
 // https://wiki.openstreetmap.org/wiki/Conditional_restrictions
 // parse "Mo-Fr 07:00-09:00" or "23:00-05:00" or "23:00-05:00, 10:00-15:00" or "Mo-Fr,Su 22:00-06:00" or etc
 func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inTimeRange bool, err error) {
 
 	// condTime = Mo-Fr 07:00-09:00 or 23:00-05:00 or "23:00-05:00, 10:00-15:00" or "Mo-Fr,Su 22:00-06:00" or
 	// "Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00" or "Mo-Fr 07:00-09:00,16:00-18:00" or etc
+	// ada yang baru lagi awoakow: "dusk-dawn"
 
 	condTimeVals := strings.Split(condTime, ";")
 
 	for _, condTimeVal := range condTimeVals {
 		var (
-			fromH, fromMin, toH, toMin                 int
-			fromHours, fromMinutes, toHours, toMinutes []int
-			days                                       []time.Weekday
+			fromMinsSlice, toMinsSlice []int
+			days                       []time.Weekday
 		)
 		tokens := strings.Fields(condTimeVal)
+		if len(tokens) == 0 {
+			continue
+		}
+
+		if tokens[0] == "24/7" {
+			inTimeRange = true
+			return
+		}
 
 		switch len(tokens) {
 		case 1:
 
-			// timeRange = 17:01-8:59
+			// timeRange = 17:01-8:59 or sunset-sunrise
 			timeRangeString := tokens[0]
 			timeRanges := strings.Split(timeRangeString, ",")
 
 			for _, timeRange := range timeRanges {
-				timeParts := strings.Split(timeRange, "-")
-				// timeParts = [17:01, 8:59]
-				var fromTime, toTime []string
-				if stringx.ContainsAnySubstrings(timeParts[0], []string{":"}) {
-					fromTime = strings.Split(timeParts[0], ":")
-
-				} else if stringx.ContainsAnySubstrings(timeParts[0], []string{"."}) {
-					fromTime = strings.Split(timeParts[0], ".")
-
-				} else {
-					fromTime = strings.Split(timeParts[0], ",")
+				timeParts := splitTimeRange(timeRange)
+				if len(timeParts) != 2 {
+					// Might be just a date? Or invalid.
+					continue
 				}
 
-				if stringx.ContainsAnySubstrings(timeParts[1], []string{":"}) {
-
-					toTime = strings.Split(timeParts[1], ":")
-
-				} else if stringx.ContainsAnySubstrings(timeParts[1], []string{"."}) {
-
-					toTime = strings.Split(timeParts[1], ".")
-				} else {
-
-					toTime = strings.Split(timeParts[1], ",")
-				}
-
-				fromH, err = util.ParseInt(fromTime[0])
+				fm, err := parseOsmTime(timeParts[0])
 				if err != nil {
-					return false, err
+					return false, fmt.Errorf("isConditionalAccessInTimerange: %w", err)
 				}
-				fromHours = append(fromHours, fromH)
-				fromMin, err = util.ParseInt(fromTime[1])
-				if err != nil {
-					return false, err
-				}
-				fromMinutes = append(fromMinutes, fromMin)
+				fromMinsSlice = append(fromMinsSlice, fm)
 
-				toH, err = util.ParseInt(toTime[0])
+				tm, err := parseOsmTime(timeParts[1])
 				if err != nil {
-					return false, err
+					return false, fmt.Errorf("isConditionalAccessInTimerange: %w", err)
 				}
-				toHours = append(toHours, toH)
-				toMin, err = util.ParseInt(toTime[1])
-				if err != nil {
-					return false, err
-				}
-				toMinutes = append(toMinutes, toMin)
+				toMinsSlice = append(toMinsSlice, tm)
 			}
 
 		case 2:
@@ -275,12 +259,19 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 					if !okS || !okE {
 						continue
 					}
-					if end == time.Sunday {
-						end = time.Saturday
-						days = append(days, time.Sunday)
-					}
-					for d := start; d <= end; d++ {
-						days = append(days, d)
+					
+					if end < start {
+						// Handle wrap around like Sa-Tu
+						for d := start; d <= 6; d++ {
+							days = append(days, d)
+						}
+						for d := 0; d <= int(end); d++ {
+							days = append(days, time.Weekday(d))
+						}
+					} else {
+						for d := start; d <= end; d++ {
+							days = append(days, d)
+						}
 					}
 				} else {
 					// "Sa"
@@ -290,57 +281,27 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 				}
 			}
 
-			// timeRange = 17:01-8:59
+			// timeRange = 17:01-8:59 or sunset-sunrise
 			timeRangeString := tokens[1]
 			timeRanges := strings.Split(timeRangeString, ",")
 
 			for _, timeRange := range timeRanges {
-				timeParts := strings.Split(timeRange, "-")
-				// timeParts = [17:01, 8:59]
-				var fromTime, toTime []string
-				if stringx.ContainsAnySubstrings(timeParts[0], []string{":"}) {
-					fromTime = strings.Split(timeParts[0], ":")
-
-				} else if stringx.ContainsAnySubstrings(timeParts[0], []string{"."}) {
-					fromTime = strings.Split(timeParts[0], ".")
-
-				} else {
-					fromTime = strings.Split(timeParts[0], ",")
+				timeParts := splitTimeRange(timeRange)
+				if len(timeParts) != 2 {
+					continue
 				}
 
-				if stringx.ContainsAnySubstrings(timeParts[1], []string{":"}) {
-
-					toTime = strings.Split(timeParts[1], ":")
-
-				} else if stringx.ContainsAnySubstrings(timeParts[1], []string{"."}) {
-
-					toTime = strings.Split(timeParts[1], ".")
-				} else {
-
-					toTime = strings.Split(timeParts[1], ",")
-				}
-
-				fromH, err = util.ParseInt(fromTime[0])
+				fm, err := parseOsmTime(timeParts[0])
 				if err != nil {
-					return false, err
+					return false, fmt.Errorf("isConditionalAccessInTimerange: %w", err)
 				}
-				fromHours = append(fromHours, fromH)
-				fromMin, err = util.ParseInt(fromTime[1])
-				if err != nil {
-					return false, err
-				}
-				fromMinutes = append(fromMinutes, fromMin)
+				fromMinsSlice = append(fromMinsSlice, fm)
 
-				toH, err = util.ParseInt(toTime[0])
+				tm, err := parseOsmTime(timeParts[1])
 				if err != nil {
-					return false, err
+					return false, fmt.Errorf("isConditionalAccessInTimerange: %w", err)
 				}
-				toHours = append(toHours, toH)
-				toMin, err = util.ParseInt(toTime[1])
-				if err != nil {
-					return false, err
-				}
-				toMinutes = append(toMinutes, toMin)
+				toMinsSlice = append(toMinsSlice, tm)
 			}
 		}
 
@@ -360,16 +321,9 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 			}
 		}
 
-		for i := 0; i < len(fromHours); i++ {
-			fromH = fromHours[i]
-			fromMin = fromMinutes[i]
-			toH = toHours[i]
-			toMin = toMinutes[i]
-
-			currentMins := currentTime.Hour()*60 + currentTime.Minute()
-			fromMins := fromH*60 + fromMin
-			toMins := toH*60 + toMin
-			if isInTimeRange(currentMins, fromMins, toMins) {
+		currentMins := currentTime.Hour()*60 + currentTime.Minute()
+		for i := 0; i < len(fromMinsSlice); i++ {
+			if isInTimeRange(currentMins, fromMinsSlice[i], toMinsSlice[i]) {
 				inTimeRange = true
 				return
 			}
@@ -430,7 +384,7 @@ func getReversibleOneWay(val string, currentTime time.Time) (direction uint8, er
 
 			isInTimeRange, err = isConditionalAccessInTimerange(condTime, currentTime)
 			if err != nil {
-				return NO_ROUTE_REVERSIBLE, err
+				return NO_ROUTE_REVERSIBLE, fmt.Errorf("getReversibleOneWay: %w", err)
 			}
 		}
 
@@ -564,7 +518,7 @@ func (p *OsmParser) isBarrierNodeAccessable(node *osm.Node) (bool, error) {
 
 					isInTimeRange, err = isConditionalAccessInTimerange(condTime, p.currentTime)
 					if err != nil {
-						return false, err
+						return false, fmt.Errorf("isBarrierNodeAccessable: %w", err)
 					}
 				}
 
@@ -574,7 +528,7 @@ func (p *OsmParser) isBarrierNodeAccessable(node *osm.Node) (bool, error) {
 					// isInTimeRange=true
 					// see: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla, OSM tags for routing (nodes):
 					// kita cuma prohibite node for routing, ketika access val = no ,discouraged, agricultural, dan forestry
-					if no == true {
+					if no {
 						return false, nil
 					}
 
@@ -703,9 +657,110 @@ func (p *OsmParser) acceptOsmWay(way *osm.Way) bool {
 func (p *OsmParser) isRoundaboutByName(name string) bool {
 	nameLower := strings.ToLower(name)
 
-	if stringx.ContainsAnySubstrings(nameLower, roundaboutSubName) {
-		return true
+	return stringx.ContainsAnySubstrings(nameLower, roundaboutSubName)
+}
+
+func parseOsmTime(timeStr string) (int, error) {
+	timeStr = strings.Trim(strings.TrimSpace(timeStr), "()")
+	if timeStr == "" {
+		return 0, fmt.Errorf("empty time string")
 	}
 
-	return false
+	// Handle offsets like sunrise+01:00 or sunset-00:30
+	if idx := strings.IndexAny(timeStr, "+-"); idx != -1 {
+		base := strings.TrimSpace(timeStr[:idx])
+		offset := strings.TrimSpace(timeStr[idx+1:])
+		sign := timeStr[idx]
+
+		if isSolarEvent(base) {
+			baseMins, _ := parseSolarEvent(base)
+			offsetMins, err := parseOsmTime(offset)
+			if err != nil {
+				return 0, err
+			}
+			if sign == '+' {
+				return baseMins + offsetMins, nil
+			}
+			return baseMins - offsetMins, nil
+		}
+	}
+
+	if isSolarEvent(timeStr) {
+		mins, _ := parseSolarEvent(timeStr)
+		return mins, nil
+	}
+
+	// Handle HH:MM, HH.MM, HH,MM
+	var parts []string
+	if strings.Contains(timeStr, ":") {
+		parts = strings.Split(timeStr, ":")
+	} else if strings.Contains(timeStr, ".") {
+		parts = strings.Split(timeStr, ".")
+	} else if strings.Contains(timeStr, ",") {
+		parts = strings.Split(timeStr, ",")
+	} else {
+		// Just a number?
+		val, err := strconv.Atoi(timeStr)
+		if err != nil {
+			return 0, fmt.Errorf("invalid time format: %s", timeStr)
+		}
+		return val * 60, nil // Assume hours (OSM default for single number)
+	}
+
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("invalid time format: %s", timeStr)
+	}
+
+	h, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, err
+	}
+	m, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, err
+	}
+
+	return h*60 + m, nil
+}
+
+func isSolarEvent(s string) bool {
+	s = strings.ToLower(strings.TrimSpace(s))
+	return s == "sunrise" || s == "sunset" || s == "dawn" || s == "dusk"
+}
+
+func parseSolarEvent(s string) (int, error) {
+	s = strings.ToLower(strings.TrimSpace(s))
+	switch s {
+	case "sunrise":
+		return SUNRISE_DEFAULT, nil
+	case "sunset":
+		return SUNSET_DEFAULT, nil
+	case "dawn":
+		return DAWN_DEFAULT, nil
+	case "dusk":
+		return DUSK_DEFAULT, nil
+	}
+	return 0, fmt.Errorf("not a solar event: %s", s)
+}
+
+func splitTimeRange(timeRange string) []string {
+	var parts []string
+	var current strings.Builder
+	depth := 0
+	for _, r := range timeRange {
+		switch r {
+		case '(':
+			depth++
+		case ')':
+			depth--
+		}
+		if r == '-' && depth == 0 {
+			parts = append(parts, current.String())
+			current.Reset()
+		} else {
+			current.WriteRune(r)
+		}
+	}
+	parts = append(parts, current.String())
+	return parts
 }

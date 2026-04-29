@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
@@ -104,10 +103,10 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		xx := float64(placeA.x - placeB.x)
 		yy := float64(placeA.y - placeB.y)
 		dist := math.Sqrt(ff*ff + xx*xx + yy*yy)
-		if tipe == "walking" || tipe == "stairs" {
-
+		switch tipe {
+		case "walking", "stairs":
 			return pairDist{dist, dist}
-		} else if tipe == "lift" {
+		case "lift":
 			return pairDist{1, 1}
 		}
 
@@ -190,8 +189,8 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 
-		sid := oldToNewVIdMap[datastructure.Index(a)]
-		tid := oldToNewVIdMap[datastructure.Index(b)]
+		sid := oldToNewVIdMap[da.Index(a)]
+		tid := oldToNewVIdMap[da.Index(b)]
 
 		as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 		at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1

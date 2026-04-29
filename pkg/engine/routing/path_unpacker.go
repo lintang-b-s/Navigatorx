@@ -430,7 +430,7 @@ func (pu *PathUnpacker) GetStats() int64 {
 	return pu.runtime
 }
 
-func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates, float64) {
+func (crp *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates, float64) {
 
 	totalDistance := 0.0
 
@@ -438,27 +438,27 @@ func (re *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates,
 
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
-		totalDistance += re.graph.GetOutEdgeLength(eId)
-		capacity += re.graph.GetEdgeGeometryLength(eId)
+		totalDistance += crp.graph.GetOutEdgeLength(eId)
+		capacity += crp.graph.GetEdgeGeometryLength(eId)
 	}
 
 	path := da.NewCoordinatesWithCap(capacity)
 
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
-		re.graph.AppendPathWithEdgeGeometry(path, eId)
+		crp.graph.AppendPathWithEdgeGeometry(path, eId)
 	}
 
 	return path, totalDistance
 }
 
-func (re *CRPRoutingEngine) GetPathDistance(edgeIdPath []da.Index) float64 {
+func (crp *CRPRoutingEngine) GetPathDistance(edgeIdPath []da.Index) float64 {
 
 	totalDistance := 0.0
 
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
-		totalDistance += re.graph.GetOutEdgeLength(eId)
+		totalDistance += crp.graph.GetOutEdgeLength(eId)
 	}
 
 	return totalDistance

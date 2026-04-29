@@ -8,19 +8,19 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 )
 
-// BuildGraph. build graph data structure from list of edges.
+// BuildGraph build graph data structure from list of edges.
 // roadNetwork = flag if the graph is a road network graph.
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
 // jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph.
 // karena Customizable Route Planning (CRP) Query phase (support turn costs) mengasumsikan setiap vertices memiliki setidaknya satu edge.
 func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, [][]da.Index) {
 	var (
-		outEdges    [][]da.OutEdge = make([][]da.OutEdge, numV)
-		inEdges     [][]da.InEdge  = make([][]da.InEdge, numV)
-		edgeInfoIds [][]da.Index   = make([][]da.Index, numV)
-		inDegree    []int          = make([]int, numV)
-		outDegree   []int          = make([]int, numV)
-		vertices    []da.Vertex    = make([]da.Vertex, numV+1)
+		outEdges    = make([][]da.OutEdge, numV)
+		inEdges     = make([][]da.InEdge, numV)
+		edgeInfoIds = make([][]da.Index, numV)
+		inDegree    = make([]int, numV)
+		outDegree   = make([]int, numV)
+		vertices    = make([]da.Vertex, numV+1)
 	)
 
 	for v := 0; v < int(numV)+1; v++ {

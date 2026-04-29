@@ -1,3 +1,4 @@
+// Package osmparser provides functionality for parsing OpenStreetMap data and building road network graphs.
 package osmparser
 
 import (

@@ -30,14 +30,11 @@ var (
 	metricsFile            string
 	landmarkFile           string
 	timeFunctionFile       string
+	transitionMHTFile      string
 	httpPort               = flag.Int("http_port", 6060, "http port")
 	websocketPort          = flag.Int("websocket_port", 6666, "websocket port")
 	proxyPort              = flag.Int("proxy_port", 6767, "proxy port")
 	gracefulShutdownPeriod = flag.Int("graceful_shutdown_period", 3, "graceful shutdown period") // see https://victoriametrics.com/blog/go-graceful-shutdown/
-)
-
-const (
-	transitionMHTFile string = "./data/omm_transition_history_id.mm"
 )
 
 func init() {
@@ -52,6 +49,7 @@ func init() {
 	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, *regionName)
 	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
 	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
+	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.txt", profileName, *regionName)
 
 	util.InitProfileConfig(profileName)
 }

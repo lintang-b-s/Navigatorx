@@ -1,3 +1,4 @@
+// Package osmparser provides tools for parsing OpenStreetMap (OSM) .osm.pbf data and building the road network graphs.
 package osmparser
 
 import (
@@ -92,13 +93,14 @@ func NewOSMParserV2() *OsmParser {
 		bb:                 da.NewBoundingBoxEmpty(),
 		currentTime:        time.Now(),
 		highwayWhitelist:   initializeHighwayWhitelist(), // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
-
+		ways:               make(map[int64]osmWay),
+		restrictions:       make(map[int64][]restriction),
 	}
 	p.initializeMaxSpeed()
 	return p
 }
 
-func (o *OsmParser) initializeMaxSpeed() {
+func (p *OsmParser) initializeMaxSpeed() {
 	mapMaxSpeeds := viper.GetStringMap("maxspeeds")
 	maxspeeds := make([]float64, 18)
 	for roadType, speed := range mapMaxSpeeds {
@@ -112,23 +114,23 @@ func (o *OsmParser) initializeMaxSpeed() {
 			panic("unsupported type")
 		}
 	}
-	o.maxspeeds = maxspeeds
+	p.maxspeeds = maxspeeds
 }
 
-func (o *OsmParser) SetAcceptedNodeMap(acceptedNodeMap map[int64]NodeCoord) {
+func (p *OsmParser) SetAcceptedNodeMap(acceptedNodeMap map[int64]NodeCoord) {
 	wayNodeMap := make(map[int64]nodeWithCoord)
 	for id, val := range acceptedNodeMap {
 		wayNodeMap[id] = nodeWithCoord{JUNCTION_NODE, val}
 	}
-	o.wayNodeMap = wayNodeMap
+	p.wayNodeMap = wayNodeMap
 }
 
-func (o *OsmParser) SetNodeToOsmId(nodeToOsmId map[da.Index]int64) {
-	o.nodeToOsmId = nodeToOsmId
+func (p *OsmParser) SetNodeToOsmId(nodeToOsmId map[da.Index]int64) {
+	p.nodeToOsmId = nodeToOsmId
 }
 
-func (o *OsmParser) GetTagStringIdMap() util.IDMap {
-	return o.tagStringIdMap
+func (p *OsmParser) GetTagStringIdMap() util.IDMap {
+	return p.tagStringIdMap
 }
 
 func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da.Index, error) {
@@ -262,7 +264,10 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 			}
 		}
 	}
-	scanner.Close()
+	err = scanner.Close()
+	if err != nil {
+		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to close scanner: %s", mapFile)
+	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
@@ -325,7 +330,11 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 		}
 	}
 
-	scanner.Close()
+	err = scanner.Close()
+	if err != nil {
+		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to close scanner: %s", mapFile)
+	}
+
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
 		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to Seek scanner: %s", mapFile)
@@ -518,21 +527,21 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 			}
 		case "maxspeed":
 			{
-				
+
 				if strings.Contains(tag.Value, "mph") {
-					currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " mph", "", -1), 64)
+					currSpeed, err := strconv.ParseFloat(strings.ReplaceAll(tag.Value, " mph", ""), 64)
 					if err != nil {
 						return "", err
 					}
 					maxSpeed = currSpeed * 1.60934
 				} else if strings.Contains(tag.Value, "km/h") {
-					currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " km/h", "", -1), 64)
+					currSpeed, err := strconv.ParseFloat(strings.ReplaceAll(tag.Value, " km/h", ""), 64)
 					if err != nil {
 						return "", err
 					}
 					maxSpeed = currSpeed
 				} else if strings.Contains(tag.Value, "knots") {
-					currSpeed, err := strconv.ParseFloat(strings.Replace(tag.Value, " knots", "", -1), 64)
+					currSpeed, err := strconv.ParseFloat(strings.ReplaceAll(tag.Value, " knots", ""), 64)
 					if err != nil {
 						return "", err
 					}
@@ -793,7 +802,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	} else {
 		lanes, _ = strconv.Atoi(lanesString)
 	}
-	
+
 	fromNId := p.nodeIDMap[from.id]
 
 	toNId := p.nodeIDMap[to.id]

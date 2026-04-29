@@ -1,3 +1,4 @@
+// Package engine contains the core routing engine logic.
 package engine
 
 import (

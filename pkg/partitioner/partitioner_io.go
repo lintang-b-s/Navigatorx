@@ -27,25 +27,25 @@ func (mp *MultilevelPartitioner) writeMLPToMLPFile(filename string) error {
 	numCells := mlp.GetNumCells()
 	cellNumbers := mlp.GetCellNumbers()
 
-	_, err = f.WriteString(fmt.Sprintf("%d\n", len(numCells)))
+	_, err = fmt.Fprintf(f, "%d\n", len(numCells))
 	if err != nil {
 		return err
 	}
 
 	for i := 0; i < len(numCells); i++ {
-		_, err := f.WriteString(fmt.Sprintf("%d\n", numCells[i]))
+		_, err := fmt.Fprintf(f, "%d\n", numCells[i])
 		if err != nil {
 			return err
 		}
 	}
 
-	_, err = f.WriteString(fmt.Sprintf("%d\n", mp.graph.NumberOfVertices()))
+	_, err = fmt.Fprintf(f, "%d\n", mp.graph.NumberOfVertices())
 	if err != nil {
 		return err
 	}
 
 	for _, vertexID := range mp.graph.GetVerticeIds() {
-		_, err := f.WriteString(fmt.Sprintf("%d\n", cellNumbers[vertexID]))
+		_, err := fmt.Fprintf(f, "%d\n", cellNumbers[vertexID])
 		if err != nil {
 			return err
 		}

@@ -3,13 +3,12 @@ package preprocessor
 import (
 	"bufio"
 	"flag"
-	"fmt"
 	"math"
 	"strings"
 	"testing"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	custlog "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/spf13/viper"
 
 	"os"
@@ -17,10 +16,9 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
-	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
+	prep "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -41,7 +39,7 @@ const (
 // go tool cover -html=prep_coverage.out
 func TestPreprocessorSimple(t *testing.T) {
 
-	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*preprocesser.Preprocessor, error) {
+	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*prep.Preprocessor, error) {
 		var (
 			err  error
 			line string
@@ -119,13 +117,13 @@ func TestPreprocessorSimple(t *testing.T) {
 
 		g.SetGraphStorage(gs)
 
-		logger, err := logger.New()
+		logger, err := custlog.New()
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
 		mp := partitioner.NewMultilevelPartitioner(
-			[]int{int(math.Pow(2, 2)), int(math.Pow(2, 3))},
+			[]int{4, 8},
 			2, 1,
 			g, logger, true, true,
 		)
@@ -134,10 +132,10 @@ func TestPreprocessorSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
-		err = prep.PreProcessing(false)
+		prepr := prep.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		err = prepr.PreProcessing(false)
 
-		return prep, err
+		return prepr, err
 	}
 
 	// https://visualgo.net/en/sssp
@@ -776,18 +774,18 @@ func init() {
 	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
 }
 
-func setup(t *testing.T, osmFileTest string) *preprocesser.Preprocessor {
+func setup(t *testing.T, osmFileTest string) *prep.Preprocessor {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
-	logger, err := log.New()
+	logger, err := custlog.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmFileTest), logger)
+	graph, edgeInfoIds, err := op.Parse(osmFileTest, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -821,13 +819,13 @@ func setup(t *testing.T, osmFileTest string) *preprocesser.Preprocessor {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocesser.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
-	err = prep.PreProcessing(true)
+	prepr := prep.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	err = prepr.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return prep
+	return prepr
 }
 
 func TestPreprocessUsingOSMFile(t *testing.T) {

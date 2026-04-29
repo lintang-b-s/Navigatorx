@@ -7,7 +7,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math"
 	"math/rand"
 	"net/http"
 	"os"
@@ -103,20 +102,31 @@ func newQuery(s, t da.Index) query {
 	}
 }
 
+var (
+	profileFilePath = flag.String("profile", "./data/car.yaml", "profile file path")
+	profileName     string
+	regionName      = flag.String("region", "diy_solo_semarang", "region name")
+
+	transitionMatrixFilepath string
+)
+
 const (
-	transitionMatrixFilepath        = "./data/eval/mapmatching/omm_transition_history_id.mm"
-	roadnetworkFilepath             = "./data/eval/mapmatching/road_network.txt"
-	graphFile                string = "./data/original_eval_mm.graph"
-	mlpFile                         = "./data/eval/mapmatching/online_map_match_mlp_newsonkrumm.mlp"
-	overlayGraphFile         string = "./data/overlay_graph_eval_mm.graph"
-	metricsFile              string = "./data/metrics_eval_mm.txt"
-	roadnetworkDriveFile            = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
-	landmarkFile                    = "./data/eval/mapmatching/landmark_nk.lm"
-	timeFunctionFile         string = "./data/timefunction_eval_mm.txt"
+	roadnetworkFilepath         = "./data/eval/mapmatching/road_network.txt"
+	graphFile            string = "./data/original_eval_mm.graph"
+	mlpFile                     = "./data/eval/mapmatching/online_map_match_mlp_newsonkrumm.mlp"
+	overlayGraphFile     string = "./data/overlay_graph_eval_mm.graph"
+	metricsFile          string = "./data/metrics_eval_mm.txt"
+	roadnetworkDriveFile        = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
+	landmarkFile                = "./data/eval/mapmatching/landmark_nk.lm"
+	timeFunctionFile     string = "./data/timefunction_eval_mm.txt"
 )
 
 func init() {
 	flag.Parse()
+
+	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
+	transitionMatrixFilepath = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix_newsonkrumm.txt", profileName, *regionName)
+
 	workingDir, err := util.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
@@ -437,7 +447,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 	logger.Sugar().Infof("building transition matrix....")
-	numQueries := math.Pow(10, 3) * 5
+	numQueries := 5000.0
 	i := 0
 	queries := make([]query, 0, n)
 
@@ -473,6 +483,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 
 	workers := concurrent.NewWorkerPool[query, []da.Index](100, 5)
 	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)
 	var N *da.SparseMatrix[int]
 	_, err = os.Stat(transitionMatrixFilepath)
@@ -504,7 +515,9 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 			counter++
 			if counter%1e2 == 0 {
 				fmt.Printf("completed query: %v\n", counter)
-				N.WriteToFile(transitionMatrixFilepath)
+				if err := N.WriteToFile(transitionMatrixFilepath); err != nil {
+					fmt.Printf("error writing transition matrix: %v\n", err)
+				}
 			}
 		}
 	}()
@@ -560,10 +573,10 @@ func main() {
 		prevTime         time.Time
 		hasPrev          bool
 		candidates       []*ma.Candidate
-		speedMeanK       float64 = 8.333
-		speedStdK        float64 = 8.333
-		lastBearing      float64 = 0.0
-		k                        = 1
+		speedMeanK       = 8.333
+		speedStdK        = 8.333
+		lastBearing      = 0.0
+		k                = 1
 		matchedPoint     *da.MatchedGPSPoint
 	)
 
@@ -600,8 +613,8 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
-		var deltaTime float64 = 1
-		var speed float64 = 8.333
+		var deltaTime = 1.0
+		var speed = 8.333
 
 		if hasPrev {
 			deltaTime = curGpsTime.Sub(prevTime).Seconds()
@@ -623,11 +636,11 @@ func main() {
 		k++
 		lastBearing = matchedPoint.GetBearing()
 		mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
-		avgRuntimePerGpsPoint += float64(time.Now().Sub(now).Microseconds())
+		avgRuntimePerGpsPoint += float64(time.Since(now).Microseconds())
 	}
 
 	totalPoints := float64(k - 1)
-	runtimeDataset := time.Now().Sub(nowDataset).Milliseconds()
+	runtimeDataset := time.Since(nowDataset).Milliseconds()
 	totalRuntime += float64(runtimeDataset)
 
 	// mteric pertama:
@@ -741,7 +754,10 @@ func main() {
 		panic(err)
 	}
 
-	polyFile.Write([]byte(polyline))
+	_, err = polyFile.Write([]byte(polyline))
+	if err != nil {
+		panic(err)
+	}
 	polyFile.Close()
 
 	// todo: upload dataset ke drive, disini kita download file dataset dari drivenya (DONE)

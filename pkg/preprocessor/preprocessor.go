@@ -1,4 +1,5 @@
-package preprocesser
+// Package preprocessor handles the preprocessing phase of the Customizable Route Planning (CRP) by delling et al. (2015).
+package preprocessor
 
 import (
 	"math"
@@ -346,7 +347,7 @@ func (p *Preprocessor) SortByCellNumber() {
 		newStreetNameIds, newRoadClass, newRoadClassLink, newLanes)
 	p.graph.SetVertexOsmIds(newVerticesOsmIds)
 	p.graph.SetIsCurvedFlags(newIsCurvedFlag)
-	
+
 }
 
 func (p *Preprocessor) GetOldToNewVIdMap() []da.Index {

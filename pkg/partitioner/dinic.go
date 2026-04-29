@@ -127,7 +127,7 @@ func (dmf *DinicMaxFlow) AddArtificialEdge(u, v da.Index, w int64, directed bool
 
 	newRevEId := len(dmf.edgeFlows)
 	newRevEId -= dmf.numberOfOriginalEdges
-	var reverseEdge da.MaxFlowEdge = da.MaxFlowEdge{}
+	var reverseEdge da.MaxFlowEdge
 	if directed {
 		reverseEdge = da.NewMaxFlowEdge(newRevEId, v, u, 0)
 	} else {

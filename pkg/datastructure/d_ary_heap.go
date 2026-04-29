@@ -2,8 +2,10 @@ package datastructure
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type CRPQueryKey struct {
@@ -201,14 +203,13 @@ func (h *DAryHeap[T]) ExtractMin(updatePos func(queryInfoId, newHeapNodeId uint3
 }
 
 // decreaseKey update rank dari item min-heap.   O(logN) heapify.
-func (h *DAryHeap[T]) DecreaseKey(itemPos uint32, rank float64, updatePos func(queryInfoId, newHeapNodeId uint32)) error {
-	if itemPos >= h.Size() || h.heap[itemPos].GetRank() < rank {
-		return errors.New("invalid index or new value")
-	}
+func (h *DAryHeap[T]) DecreaseKey(itemPos uint32, rank float64, updatePos func(queryInfoId, newHeapNodeId uint32)) {
+
+	util.AssertPanic(itemPos < h.Size() && rank <= h.heap[itemPos].GetRank(), fmt.Sprintf("error when decrease key for vertex id = %d", itemPos))
 
 	h.heap[itemPos].SetRank(rank)
 	h.heapifyUp(itemPos, updatePos)
-	return nil
+
 }
 
 type AltQueryKey struct {

@@ -174,7 +174,7 @@ func (us *Dijkstra) constructShortestPath(s da.Index) []float64 {
 			}
 
 			sps[t] = sp
-			
+
 		}
 
 	} else {
@@ -186,7 +186,7 @@ func (us *Dijkstra) constructShortestPath(s da.Index) []float64 {
 				continue // sp == 0
 			}
 			sps[t] = sp
-			
+
 		}
 
 	}

@@ -24,7 +24,7 @@ type BidirectionalDijkstra struct {
 
 	upperBound float64
 
-	numSettledNodes  int
+	numSettledNodes int
 }
 
 func NewBidirectionalDijkstra(engine *CRPRoutingEngine, upperBound float64) BidirectionalDijkstra {
@@ -327,7 +327,6 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnType)
 
-	
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
 			return

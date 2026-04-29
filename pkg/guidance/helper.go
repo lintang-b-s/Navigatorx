@@ -1,3 +1,4 @@
+// Package guidance provides logic for generating driving directions (turn-by-turn navigation instructions).
 package guidance
 
 import (
@@ -106,13 +107,11 @@ func (db *DirectionBuilder) GetHeadPoint(eId da.Index, eGeom da.Coordinates, tai
 // dan edge satunya ke head: https://www.openstreetmap.org/node/11294649719  (dari jalan curved/uturn ke kanan)
 func (db *DirectionBuilder) lookForwardSameOsmWay(eIdOne da.Index, headId da.Index, maxStep int) bool {
 	step := 0
-	nextEdgeIds := make([]da.Index, 0, maxStep)
 	osmWayOne := db.graph.GetOsmWayId(eIdOne)
 	for i := db.lastPathId + 1; step < maxStep && i < len(db.path); i++ {
 		currEdgeOsmWay := db.graph.GetOsmWayId(db.path[i])
 		currEdgeHeadId := db.graph.GetHeadOfOutEdge(db.path[i])
 		step++
-		nextEdgeIds = append(nextEdgeIds, db.path[i])
 		if currEdgeOsmWay == osmWayOne && currEdgeHeadId == headId {
 			return true
 		}

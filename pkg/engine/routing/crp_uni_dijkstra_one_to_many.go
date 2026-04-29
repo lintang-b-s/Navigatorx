@@ -21,7 +21,6 @@ type CRPUniDijkstraOneToMany struct {
 
 	targetsSettled map[da.Index]struct{}
 
-
 	numSettledNodes int
 }
 
@@ -377,15 +376,15 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 	})
 }
 
-func (bs *CRPUniDijkstraOneToMany) Preallocate() {
-	maxEdgesInCell := bs.engine.graph.GetMaxEdgesInCell()
+func (us *CRPUniDijkstraOneToMany) Preallocate() {
+	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
 
-	maxSearchSize := bs.engine.graph.NumberOfEdges() + bs.engine.overlayGraph.NumberOfOverlayVertices()
-	bs.pq = da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearchSize), uint32(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
-	bs.pq.PreallocateHeap(maxSearchSize)
-	bs.stallingEntry = make([]float64, maxSearchSize)
-	bs.stallingExit = make([]float64, maxSearchSize)
+	maxSearchSize := us.engine.graph.NumberOfEdges() + us.engine.overlayGraph.NumberOfOverlayVertices()
+	us.pq = da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearchSize), uint32(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
+	us.pq.PreallocateHeap(maxSearchSize)
+	us.stallingEntry = make([]float64, maxSearchSize)
+	us.stallingExit = make([]float64, maxSearchSize)
 
-	initInfWeight(bs.stallingEntry)
-	initInfWeight(bs.stallingExit)
+	initInfWeight(us.stallingEntry)
+	initInfWeight(us.stallingExit)
 }

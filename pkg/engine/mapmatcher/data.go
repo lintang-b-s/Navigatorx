@@ -1,3 +1,4 @@
+// Package mapmatcher provides data structures and logic for online map matching.
 package mapmatcher
 
 import da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"

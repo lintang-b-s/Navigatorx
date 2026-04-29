@@ -4,12 +4,11 @@ import (
 	"sort"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 // PathExists. cek apakah ada path (tanpa costs) dari u ke v.
-func (crp *CRPRoutingEngine) PathExists(u, v datastructure.Index) bool {
+func (crp *CRPRoutingEngine) PathExists(u, v da.Index) bool {
 	return crp.graph.PathExists(u, v)
 }
 

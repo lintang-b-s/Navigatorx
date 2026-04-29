@@ -1,30 +1,42 @@
 version: "2"
 
-linters:
-  disable:
-    - ineffassign
+run:
+  timeout: 5m
 
+linters:
   settings:
     errcheck:
       exclude-functions:
+        # Files
         - (*os.File).Close
-        - (io.Closer).Close
-        - (net.Conn).Close
-        - (*bufio.Scanner).Close
-
-        - (*bufio.Writer).Flush
-        - (io.Writer).Write
         - (*os.File).Write
+        # Generic interfaces
+        - (io.Closer).Close
+        - (io.ReadCloser).Close   # covers response.Body.Close()
+        - (io.Writer).Write
+        # Network
+        - (net.Conn).Close
+        # Bufio
+        - (*bufio.Scanner).Close
+        - (*bufio.Writer).Flush
+        # s2 compression
+        - (*github.com/klauspost/compress/s2.Writer).Close
+        # Stdlib functions
         - fmt.Fprintf
-
         - io.Copy
         - net/http.ListenAndServe
-
-
         - os.Remove
-
-      
     staticcheck:
       checks:
         - "all"
-       
+        - "-ST1003"
+        - "-ST1020"
+
+  enable:
+    - errcheck
+    - staticcheck
+    - govet
+    - bodyclose
+    - unused
+  disable:
+    - ineffassign

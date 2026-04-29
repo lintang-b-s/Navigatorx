@@ -1,3 +1,4 @@
+// Package router defines the HTTP router and associated handlers.
 package router
 
 import (

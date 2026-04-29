@@ -2,7 +2,6 @@ package snap
 
 import (
 	"flag"
-	"fmt"
 	"math/rand"
 	"os"
 	"strconv"
@@ -59,7 +58,7 @@ func setup(t *testing.T) (*engine.Engine, *zap.Logger) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
+	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

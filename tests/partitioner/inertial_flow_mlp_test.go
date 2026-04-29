@@ -1,7 +1,6 @@
 package partitioner
 
 import (
-	"fmt"
 	"os"
 	"strconv"
 	"strings"
@@ -49,7 +48,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, _, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
+	graph, _, err := op.Parse(osmfFile, logger)
 	if err != nil {
 		panic(err)
 	}

@@ -87,9 +87,10 @@ func SolveShowroom(t *testing.T, filepath string) {
 	}
 
 	getWeight := func(i, j int) int {
-		if grid[i][j] == "c" {
+		switch grid[i][j] {
+		case "c":
 			return 1
-		} else if grid[i][j] == "D" {
+		case "D":
 			return 0
 		}
 

@@ -1,3 +1,4 @@
+// Package tests provides integration and unit tests for the routing engine.
 package tests
 
 import (
@@ -28,12 +29,12 @@ func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customi
 	var ( //
 		mlpFile = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
 		// url                     = fileUrl
-		osmfFile                = fmt.Sprintf("../../data/%s.osm.pbf", fileName)
-		graphFile        string = fmt.Sprintf("./data/original_%s_test.graph", fileName)
-		overlayGraphFile string = fmt.Sprintf("./data/overlay_graph_%s_test.graph", fileName)
-		metricsFile      string = fmt.Sprintf("./data/metrics_%s_test.txt", fileName)
-		landmarkFile     string = fmt.Sprintf("./data/landmark_%s_test.lm", fileName)
-		timeFunctionFile string = fmt.Sprintf("./data/timefunction_%s_test.txt", fileName)
+		osmfFile         = fmt.Sprintf("../../data/%s.osm.pbf", fileName)
+		graphFile        = fmt.Sprintf("./data/original_%s_test.graph", fileName)
+		overlayGraphFile = fmt.Sprintf("./data/overlay_graph_%s_test.graph", fileName)
+		metricsFile      = fmt.Sprintf("./data/metrics_%s_test.txt", fileName)
+		landmarkFile     = fmt.Sprintf("./data/landmark_%s_test.lm", fileName)
+		timeFunctionFile = fmt.Sprintf("./data/timefunction_%s_test.txt", fileName)
 	)
 
 	if err := os.MkdirAll("./data", 0755); err != nil {
@@ -46,7 +47,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customi
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("%s", osmfFile), logger)
+	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

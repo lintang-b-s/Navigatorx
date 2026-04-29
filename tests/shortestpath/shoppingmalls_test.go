@@ -104,10 +104,10 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		xx := float64(placeA.x - placeB.x)
 		yy := float64(placeA.y - placeB.y)
 		dist := math.Sqrt(ff*ff + xx*xx + yy*yy)
-		if tipe == "walking" || tipe == "stairs" {
-
+		switch tipe {
+		case "walking", "stairs":
 			return pairDist{dist, dist}
-		} else if tipe == "lift" {
+		case "lift":
 			return pairDist{1, 1}
 		}
 

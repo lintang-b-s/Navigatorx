@@ -127,9 +127,6 @@ func (sm *SparseMatrix[T]) WriteToFile(filename string) error {
 	defer f.Close()
 
 	snp := s2.NewWriter(f)
-	if err != nil {
-		return err
-	}
 
 	defer snp.Close()
 

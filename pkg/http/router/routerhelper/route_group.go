@@ -1,3 +1,4 @@
+// Package routerhelper provides helper functions for HTTP routing.
 package routerhelper
 
 import (

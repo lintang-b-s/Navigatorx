@@ -52,7 +52,7 @@ O(k*n^2*m).
 */
 func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCut {
 	var (
-		best                    *MinCut = &MinCut{}
+		best                    = &MinCut{}
 		bestNumberOfMinCutEdges         = math.MaxInt
 	)
 
@@ -135,9 +135,9 @@ func (v vertexEmb) getDotProd() float64 {
 }
 
 // selectFirstLastKthVertices. sort vertices by linear kombinaasi latitude & longitude
-func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]da.Index, []da.Index) {
+func (dmf *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]da.Index, []da.Index) {
 
-	vertices := dn.graph.GetVertices()
+	vertices := dmf.graph.GetVertices()
 
 	n := len(vertices)
 
@@ -160,7 +160,7 @@ func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) (
 		// expected runtime O(n)
 
 		// inspiration: https://daniel-j-h.github.io/post/selection-algorithms-for-partitioning/
-		q := dn.randomizedSelect(vertEmbeds, 0, n-1, kth, func(left, right int) bool {
+		q := dmf.randomizedSelect(vertEmbeds, 0, n-1, kth, func(left, right int) bool {
 			return vertEmbeds[left].getDotProd() <= vertEmbeds[right].getDotProd()
 		}) // q is the index of the kth-smallest element in the vertEmbeds
 
@@ -171,7 +171,7 @@ func (dn *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) (
 		// sampai sini kita mendapatkan semua elements didalam arr[q+1, n-1] lebih dari arr[q]
 		// kita bisa randomizedSelect arr[q+1, n-1] untuk mendapatkan last k sinks
 		lastKth := util.MinInt(kth, n-kth)
-		dn.randomizedSelect(vertEmbeds, q+1, n-1, lastKth, func(left, right int) bool {
+		dmf.randomizedSelect(vertEmbeds, q+1, n-1, lastKth, func(left, right int) bool {
 			return vertEmbeds[left].getDotProd() > vertEmbeds[right].getDotProd()
 		})
 
@@ -200,22 +200,22 @@ func dot(x1, y1, x2, y2 float64) float64 {
 // randomizedSelect. return the i-th smallest element (or largest depends on comp) of the array arr[p...r]
 // & partition the arr such that all elements (arr[p,..q]) left of i-th smallest element  are smaller (or largest depends on comp) than  the pivot element arr[q] & all elements (arr[q+1,...,r]) in the right of i-th smallest element
 // expected runtime O(n), n=len(arr). worst case O(n^2)
-func (dn *DinicMaxFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func(left, right int) bool) int {
+func (dmf *DinicMaxFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func(left, right int) bool) int {
 	if p == r {
 		return p
 	}
 
-	q := dn.randomizedPartition(arr, p, r, comp)
+	q := dmf.randomizedPartition(arr, p, r, comp)
 	k := q - p + 1 // size of arr[p,...,q] (include pivot element arr[q])
 	if i == k {
 		return q
 	} else if i < k {
-		return dn.randomizedSelect(arr, p, q-1, i, comp)
+		return dmf.randomizedSelect(arr, p, q-1, i, comp)
 	}
-	return dn.randomizedSelect(arr, q+1, r, i-k, comp) // i-k th smallest/largest element di arr[q+1,...,r] karena di next recursion kita operate di arr[q+1,...,r]
+	return dmf.randomizedSelect(arr, q+1, r, i-k, comp) // i-k th smallest/largest element di arr[q+1,...,r] karena di next recursion kita operate di arr[q+1,...,r]
 }
 
-func (dn *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
+func (dmf *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
 	i := p - 1
 
 	pivotId := p + rand.IntN(r-p+1)
@@ -232,20 +232,20 @@ func (dn *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func
 	return i + 1
 }
 
-func (dn *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []da.Index, directed bool) (da.Index, da.Index) {
-	artificialSource := da.Index(dn.graph.NumberOfVertices())
-	artificialSink := da.Index(dn.graph.NumberOfVertices() + 1)
+func (dmf *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []da.Index, directed bool) (da.Index, da.Index) {
+	artificialSource := da.Index(dmf.graph.NumberOfVertices())
+	artificialSink := da.Index(dmf.graph.NumberOfVertices() + 1)
 
-	dn.AddArtificialVertex(da.NewPartitionVertex(artificialSource, da.Index(ARTIFICIAL_SOURCE_ID), 0.0, 0.0))
-	dn.AddArtificialVertex(da.NewPartitionVertex(artificialSink, da.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
+	dmf.AddArtificialVertex(da.NewPartitionVertex(artificialSource, da.Index(ARTIFICIAL_SOURCE_ID), 0.0, 0.0))
+	dmf.AddArtificialVertex(da.NewPartitionVertex(artificialSink, da.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
 
 	for _, s := range sourceNodes {
-		dn.AddArtificialEdge(artificialSource, s, pkg.INF_WEIGHT_INT, directed)
+		dmf.AddArtificialEdge(artificialSource, s, pkg.INF_WEIGHT_INT, directed)
 	}
 
 	for _, t := range sinkNodes {
-		dn.AddSinks(t)
-		dn.AddArtificialEdge(t, artificialSink, pkg.INF_WEIGHT_INT, directed)
+		dmf.AddSinks(t)
+		dmf.AddArtificialEdge(t, artificialSink, pkg.INF_WEIGHT_INT, directed)
 	}
 	return artificialSource, artificialSink
 }

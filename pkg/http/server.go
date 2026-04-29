@@ -1,3 +1,4 @@
+// Package http implements the HTTP server and API handlers.
 package http
 
 import (
