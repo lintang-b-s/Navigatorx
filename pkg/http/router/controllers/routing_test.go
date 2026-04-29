@@ -189,7 +189,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID).
-			Return([]routing.AlternativeRoute{}, true, nil)
+			Return([]routing.AlternativeRoute{{}}, nil)
 
 		api.AlternativeRoutes(rr, req, nil)
 
@@ -203,7 +203,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, true, da.Index(1)).
-			Return([]routing.AlternativeRoute{}, true, nil)
+			Return([]routing.AlternativeRoute{{}}, nil)
 
 		api.AlternativeRoutes(rr, req, nil)
 
@@ -287,7 +287,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID).
-			Return([]routing.AlternativeRoute{}, false, errors.New("internal error"))
+			Return([]routing.AlternativeRoute{}, errors.New("internal error"))
 
 		api.AlternativeRoutes(rr, req, nil)
 
@@ -300,11 +300,11 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID).
-			Return([]routing.AlternativeRoute{}, false, nil)
+			Return([]routing.AlternativeRoute{}, nil)
 
 		api.AlternativeRoutes(rr, req, nil)
 
-		assert.Equal(t, http.StatusNotFound, rr.Code)
+		assert.Equal(t, http.StatusOK, rr.Code)
 	})
 }
 

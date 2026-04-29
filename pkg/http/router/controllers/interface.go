@@ -10,7 +10,7 @@ import (
 
 type RoutingService interface {
 	ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index) (float64, float64, string, []da.DrivingDirection, bool, error)
-	AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, bool, error)
+	AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, error)
 	GetRoutingEngine() RoutingEngine
 	Close()
 	InitBackgroundWorker(ctx context.Context)

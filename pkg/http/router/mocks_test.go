@@ -19,9 +19,9 @@ func (m *MockRoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLo
 	return args.Get(0).(float64), args.Get(1).(float64), args.String(2), args.Get(3).([]da.DrivingDirection), args.Bool(4), args.Error(5)
 }
 
-func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, bool, error) {
+func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, error) {
 	args := m.Called(ctx, qOrigLat, qOrigLon, qDstLat, qDstLon, k, reroute, startEdgeId)
-	return args.Get(0).([]routing.AlternativeRoute), args.Bool(1), args.Error(2)
+	return args.Get(0).([]routing.AlternativeRoute), args.Error(1)
 }
 
 func (m *MockRoutingService) GetBoundingBox(ctx context.Context) da.BoundingBox {

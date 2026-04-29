@@ -22,13 +22,13 @@ func (m *MockRoutingService) ShortestPath(ctx context.Context, origLat, origLon,
 	return args.Get(0).(float64), args.Get(1).(float64), args.String(2), r3, args.Bool(4), args.Error(5)
 }
 
-func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, bool, error) {
+func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, error) {
 	args := m.Called(ctx, origLat, origLon, dstLat, dstLon, k, reroute, startEdgeId)
 	var r0 []routing.AlternativeRoute
 	if args.Get(0) != nil {
 		r0 = args.Get(0).([]routing.AlternativeRoute)
 	}
-	return r0, args.Bool(1), args.Error(2)
+	return r0, args.Error(1)
 }
 
 func (m *MockRoutingService) GetRoutingEngine() RoutingEngine {

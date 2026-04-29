@@ -197,15 +197,10 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 		}
 	}
 
-	alternatives, ok, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
+	alternatives, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
 		request.DestinationLat, request.DestinationLon, int(request.K), reroute, startEdgeId)
 	if err != nil {
 		api.getStatusCode(w, r, err)
-		return
-	}
-
-	if !ok {
-		api.NotFoundResponse(w, r)
 		return
 	}
 

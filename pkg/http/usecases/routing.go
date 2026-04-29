@@ -116,30 +116,29 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }
 
-func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, bool, error) {
+func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, error) {
 	if util.IsTimeout(ctx) {
-		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
+		return make([]routing.AlternativeRoute, 0), util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon)
 
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
-
-		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
+		return make([]routing.AlternativeRoute, 0), util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
 			"no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 
 	if util.IsTimeout(ctx) {
-		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
+		return make([]routing.AlternativeRoute, 0), util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp, tp, k, reroute, startEdgeId)
 	if len(alternatives) == 0 {
-		return []routing.AlternativeRoute{}, false, nil
+		return make([]routing.AlternativeRoute, 0), nil
 	}
 
 	if util.IsTimeout(ctx) {
-		return []routing.AlternativeRoute{}, false, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
+		return make([]routing.AlternativeRoute, 0), util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
 	}
 
 	for i, alt := range alternatives {
@@ -161,7 +160,7 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 		directionBuilder.Reset()
 		rs.directionBuilderPool.Put(directionBuilder)
 	}
-	return alternatives, true, nil
+	return alternatives, nil
 }
 
 func (rs *RoutingService) Close() {

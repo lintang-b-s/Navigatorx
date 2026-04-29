@@ -184,10 +184,9 @@ func TestRoutingService_AlternativeRouteSearch(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
 
-		alts, ok, err := rs.AlternativeRouteSearch(ctx, yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID)
+		alts, err := rs.AlternativeRouteSearch(ctx, yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID)
 
 		assert.Error(t, err)
-		assert.False(t, ok)
 		assert.Empty(t, alts)
 	})
 }
@@ -198,10 +197,9 @@ func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 		mockSpatial.On("SearchWithinRadius", yogyakartaOriginLat, yogyakartaOriginLon, 1000.0, uint8(0)).Return([]da.Index{})
 		mockSpatial.On("SearchWithinRadius", yogyakartaDestLat, yogyakartaDestLon, 1000.0, uint8(1)).Return([]da.Index{})
 
-		alts, ok, err := rs.AlternativeRouteSearch(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID)
+		alts, err := rs.AlternativeRouteSearch(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID)
 
 		assert.Error(t, err)
-		assert.False(t, ok)
 		assert.Empty(t, alts)
 	})
 
@@ -210,10 +208,9 @@ func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 		mockAlt.On("FindAlternativeRoutes", sp, tp, 3, false, da.INVALID_EDGE_ID).
 			Return([]routing.AlternativeRoute{}, 0.0, int64(0))
 
-		alts, ok, err := rs.AlternativeRouteSearch(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID)
+		alts, err := rs.AlternativeRouteSearch(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID)
 
 		assert.NoError(t, err)
-		assert.False(t, ok)
 		assert.Empty(t, alts)
 		mockSpatial.AssertExpectations(t)
 		mockEngine.AssertExpectations(t)
@@ -229,10 +226,9 @@ func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 		mockEngine.On("IsDummyOutEdge", da.Index(0)).Return(false)
 		mockEngine.On("IsDummyInEdge", da.Index(1)).Return(false)
 
-		alts, ok, err := rs.AlternativeRouteSearch(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, true, da.Index(1))
+		alts, err := rs.AlternativeRouteSearch(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, true, da.Index(1))
 
 		assert.NoError(t, err)
-		assert.True(t, ok)
 		assert.Len(t, alts, 1)
 		assert.Equal(t, 47.0, alts[0].GetDrivingTravelTime())
 		assert.Equal(t, 320.0, alts[0].GetDist())

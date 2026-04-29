@@ -44,7 +44,7 @@ func TestServer_Use(t *testing.T) {
 	mockMMS := &mockMapMatcherService{}
 
 	go func() {
-		time.Sleep(500 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 		p, _ := os.FindProcess(os.Getpid())
 		_ = p.Signal(syscall.SIGINT)
 	}()
