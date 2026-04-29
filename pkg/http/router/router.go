@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/NYTimes/gziphandler"
-	"github.com/bytedance/gopkg/util/logger"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/alice"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
@@ -69,6 +68,7 @@ func (api *API) Run(
 	mapMatcherService controllers.MapMatcherService,
 	shutdownPeriod time.Duration,
 ) error {
+	isShuttingDown.Store(false)
 	ctx, cleanup := NewContext(routingService.GetRoutingEngine(), routingService)
 	defer func() {
 		cleanup()
@@ -107,22 +107,23 @@ func (api *API) Run(
 		wsProxyServer *http.Server
 	)
 
+	mux := http.NewServeMux()
+	mux.HandleFunc("/ws", api.upstream("online map matcher", "tcp", "127.0.0.1"+":"+strconv.Itoa(config.WebsocketPort)))
+
+	wsProxyServer = &http.Server{
+		Addr:    fmt.Sprintf(":%d", config.ProxyPort),
+		Handler: mux,
+		BaseContext: func(_ net.Listener) context.Context {
+			return ctx
+		},
+
+		ReadTimeout:       viper.GetDuration("HTTP_SERVER_READ_TIMEOUT"),
+		WriteTimeout:      config.Timeout + viper.GetDuration("HTTP_SERVER_WRITE_TIMEOUT"),
+		IdleTimeout:       viper.GetDuration("HTTP_SERVER_IDLE_TIMEOUT"),
+		ReadHeaderTimeout: viper.GetDuration("HTTP_SERVER_READ_HEADER_TIMEOUT"),
+	}
+
 	go func() {
-		mux := http.NewServeMux()
-		mux.HandleFunc("/ws", api.upstream("online map matcher", "tcp", "127.0.0.1"+":"+strconv.Itoa(config.WebsocketPort)))
-
-		wsProxyServer = &http.Server{
-			Addr:    fmt.Sprintf(":%d", config.ProxyPort),
-			Handler: mux,
-			BaseContext: func(_ net.Listener) context.Context {
-				return ctx
-			},
-
-			ReadTimeout:       viper.GetDuration("HTTP_SERVER_READ_TIMEOUT"),
-			WriteTimeout:      config.Timeout + viper.GetDuration("HTTP_SERVER_WRITE_TIMEOUT"),
-			IdleTimeout:       viper.GetDuration("HTTP_SERVER_IDLE_TIMEOUT"),
-			ReadHeaderTimeout: viper.GetDuration("HTTP_SERVER_READ_HEADER_TIMEOUT"),
-		}
 		api.log.Info(fmt.Sprintf("WebSocket proxy running on port %d", config.ProxyPort))
 
 		if err := listenAndServeHTTP(wsProxyServer); err != nil {
@@ -152,6 +153,15 @@ func (api *API) Run(
 	go func() {
 		serverErr <- listenAndServeHTTP(srv)
 	}()
+
+	shutdownSignals := make(chan os.Signal, 1)
+	signal.Notify(
+		shutdownSignals,
+		syscall.SIGINT,
+		syscall.SIGQUIT,
+		syscall.SIGTERM,
+	)
+	defer signal.Stop(shutdownSignals)
 
 	// https://victoriametrics.com/blog/go-graceful-shutdown/
 	shutdownCtx, cancelShutdownCtx := context.WithTimeout(context.Background(), shutdownPeriod)
@@ -200,11 +210,11 @@ func (api *API) Run(
 		isShuttingDown.Store(true)
 		shutdown()
 		return ctx.Err()
-	case sig := <-GracefulShutdown():
+	case sig := <-shutdownSignals:
 		isShuttingDown.Store(true)
 		err := util.Sleep(ctx, readinessDrainDelay)
 		shutdown()
-		logger.Info("Navigatorx Routing Engine Server Stopped", zap.String("signal", sig.String()))
+		api.log.Info("Navigatorx Routing Engine Server Stopped", zap.String("signal", sig.String()))
 		return err
 	}
 }
@@ -222,17 +232,4 @@ func NewContext(re controllers.RoutingEngine, rs controllers.RoutingService) (co
 	}
 
 	return ctx, cb
-}
-
-func GracefulShutdown() <-chan os.Signal {
-	shutdownSignals := make(chan os.Signal, 1)
-
-	signal.Notify(
-		shutdownSignals,
-		syscall.SIGINT,
-		syscall.SIGQUIT,
-		syscall.SIGTERM,
-	)
-
-	return shutdownSignals
 }

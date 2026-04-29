@@ -3,7 +3,6 @@ package router
 import (
 	"context"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"time"
@@ -154,7 +153,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 
 	api.pool.Close()
 
-	log.Println("webocket server stopped")
+	api.log.Info("webocket server stopped")
 }
 
 /*

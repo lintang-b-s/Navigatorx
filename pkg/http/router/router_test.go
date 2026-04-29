@@ -72,7 +72,7 @@ func TestAPI_Run(t *testing.T) {
 	})
 
 	t.Run("ListenAndServe Error", func(t *testing.T) {
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		ln, err := net.Listen("tcp", ":0")
 		skipSocketPermission(t, err)
 		if err != nil {
 			t.Fatal(err)
@@ -92,7 +92,7 @@ func TestAPI_Run(t *testing.T) {
 	})
 
 	t.Run("Proxy Listen Error", func(t *testing.T) {
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		ln, err := net.Listen("tcp", ":0")
 		skipSocketPermission(t, err)
 		if err != nil {
 			t.Fatal(err)
