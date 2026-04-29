@@ -210,6 +210,7 @@ inti dari FindAlternativeRoutes:
 1. retrieve semua via vertices yang sudah discan (beberapa entry & exit points dari vertex v discan atau overlay vertex v sudah discan) oleh forward search dan backward search dari CRP query
 2. susun kandidat alternative route s-v-t  untuk setiap via vertices v.
 3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
+
 */
 
 func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, k int, reroute bool, startEdgeId da.Index) ([]AlternativeRoute, float64, int64) {
@@ -1021,6 +1022,8 @@ func (ars *AlternativeRouteSearch) makePackedViaPathOverlayEven(svPackedPath, vt
 	return svPackedPath, vtPackedPath
 }
 
+// GetStretch compute stretch metrics yang dijelasin di section 5.4 paper: https://dl.acm.org/doi/epdf/10.1145/3567421
+// mengukur stretch, ratio dari alternative path cost / fastest path cost...
 func (ars *AlternativeRouteSearch) GetStretch(candidates []AlternativeRoute, optimalTravelTime float64) float64 {
 
 	if len(candidates) == 0 {
@@ -1037,6 +1040,8 @@ func (ars *AlternativeRouteSearch) GetStretch(candidates []AlternativeRoute, opt
 	return stretch
 }
 
+// GetDiversity compute diversity metrics yang dijelasin di section 5.4 paper: https://dl.acm.org/doi/epdf/10.1145/3567421
+// mengukur diversity dari rute alternative kedua,ketiga,.... dari rute alternatives sebelumnya
 func (ars *AlternativeRouteSearch) GetDiversity(candidates []AlternativeRoute) float64 {
 
 	if len(candidates) == 0 {
@@ -1085,10 +1090,13 @@ func (ars *AlternativeRouteSearch) GetDiversity(candidates []AlternativeRoute) f
 		}
 
 		diversity += minJaccardDist
-
 	}
 
-	diversity /= float64(len(alts))
+	if len(alts) <= 1 {
+		return 0
+	}
+
+	diversity /= float64(len(alts) - 1)
 
 	return diversity
 }

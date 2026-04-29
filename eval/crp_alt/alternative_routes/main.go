@@ -226,6 +226,7 @@ func main() {
 	runtime := 0.0
 
 	foundAltCount := 0
+	altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine())
 
 	emptyCoords := make([]da.Coordinate, 0)
 
@@ -238,8 +239,6 @@ func main() {
 
 		sp := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, sVertex.GetFirstOut(), sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
 		tp := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), tVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-
-		altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine())
 
 		alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(sp, tp, 4, false, 0)
 
