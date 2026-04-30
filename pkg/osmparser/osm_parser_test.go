@@ -53,12 +53,14 @@ func TestAcceptOsmWay(t *testing.T) {
 		},
 		{
 			name: "Access no",
-			tags: osm.Tags{{Key: "highway", Value: "primary"}, {Key: "access", Value: "no"}},
+			tags: osm.Tags{{Key: "highway", Value: "primary"}, {Key: "access", Value: "no"}, {Key: "vehicle", Value: "no"}, {Key: "motor_vehicle", Value: "no"},
+				{Key: "motorcar", Value: "no"}},
 			want: false,
 		},
 		{
 			name: "Access agricultural",
-			tags: osm.Tags{{Key: "highway", Value: "primary"}, {Key: "access", Value: "agricultural"}},
+			tags: osm.Tags{{Key: "highway", Value: "primary"}, {Key: "access", Value: "agricultural"}, {Key: "vehicle", Value: "no"}, {Key: "motor_vehicle", Value: "no"},
+				{Key: "motorcar", Value: "no"}},
 			want: false,
 		},
 		{
@@ -71,6 +73,7 @@ func TestAcceptOsmWay(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			way := &osm.Way{Tags: tc.tags}
+
 			got := p.acceptOsmWay(way)
 			if got != tc.want {
 				t.Errorf("acceptOsmWay(%v) = %v, want %v", tc.tags, got, tc.want)
@@ -110,7 +113,8 @@ func TestIsBarrierNodeAccessible(t *testing.T) {
 		},
 		{
 			name: "Gate access no",
-			tags: osm.Tags{{Key: "barrier", Value: "gate"}, {Key: "access", Value: "no"}},
+			tags: osm.Tags{{Key: "barrier", Value: "gate"}, {Key: "access", Value: "no"}, {Key: "vehicle", Value: "no"}, {Key: "motor_vehicle", Value: "no"},
+				{Key: "motorcar", Value: "no"}},
 			want: false,
 		},
 		{
