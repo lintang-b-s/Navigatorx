@@ -311,8 +311,8 @@ func TestRoutingService_AppendPhantomNodesToPath(t *testing.T) {
 
 	assert.Equal(t, 47.0, travelTime)
 	assert.Equal(t, 320.0, dist)
-	assert.InDelta(t, yogyakartaOriginLat, (*path)[0].Lat, 0.0000000001)
-	assert.InDelta(t, yogyakartaDestLat, (*path)[len(*path)-1].Lat, 0.0000000001)
+	assert.InDelta(t, yogyakartaOriginLat, (*path)[0].Lat, util.EPS)
+	assert.InDelta(t, yogyakartaDestLat, (*path)[len(*path)-1].Lat, util.EPS)
 }
 
 func TestRoutingService_Misc(t *testing.T) {

@@ -26,9 +26,8 @@ func init() {
 }
 
 func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customizer.Customizer) {
-	var ( //
-		mlpFile = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
-		// url                     = fileUrl
+	var (
+		mlpFile          = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
 		osmfFile         = fmt.Sprintf("../../data/%s.osm.pbf", fileName)
 		graphFile        = fmt.Sprintf("./data/original_%s_test.graph", fileName)
 		overlayGraphFile = fmt.Sprintf("./data/overlay_graph_%s_test.graph", fileName)
@@ -40,6 +39,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customi
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
+
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)

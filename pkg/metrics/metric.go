@@ -490,7 +490,7 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 }
 
 func (met *Metric) UpdateMetrics() error {
-	time.Sleep(1 * time.Second)
+	time.Sleep(1 * time.Second) // biar bener2 ke write ke file dulu metrics nya
 	newMet, err := ReadFromFile(met.metricFilepath, met.timeFunctionFilePath)
 	if err != nil {
 		return errors.Wrapf(err, "UpdateMetrics: failed to read new metrics, filepath: %s", met.metricFilepath)

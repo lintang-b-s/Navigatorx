@@ -123,11 +123,13 @@ func TestIsBarrierNodeAccessible(t *testing.T) {
 		},
 		{
 			name: "Conditional access no",
+			// access:conditional is stored for runtime evaluation, not evaluated at parse time.
+			// Without an explicit access=no tag, the node is accessible during parsing.
 			tags: osm.Tags{
 				{Key: "barrier", Value: "gate"},
 				{Key: "access:conditional", Value: "no @ (09:00-17:00)"},
 			},
-			want: false,
+			want: true,
 		},
 	}
 
