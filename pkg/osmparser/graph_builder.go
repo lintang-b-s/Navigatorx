@@ -1117,27 +1117,29 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	conditionalReversibleEdges := make([]da.ConditionalReversibleEdge, 0)
 	conditionalSpeedLimits := make([]da.ConditionalSpeedLimit, 0)
 	conditionalTrafficModesVal := make([]da.ConditionalTrafficMode, 0)
-	graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, eId da.Index) {
-		eInfoId := edgeInfoIds[tail][exitPoint]
-		eWayId := graphStorage.GetOsmWayId(eInfoId)
-		reversibleVal := p.conditionalReversibleWayVals[int64(eWayId)]
-		if reversibleVal != "" {
-			cre := da.NewConditionalReversibleEdge(eId, reversibleVal)
-			conditionalReversibleEdges = append(conditionalReversibleEdges, cre)
-		}
+	if roadNetwork {
+		graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, eId da.Index) {
+			eInfoId := edgeInfoIds[tail][exitPoint]
+			eWayId := graphStorage.GetOsmWayId(eInfoId)
+			reversibleVal := p.conditionalReversibleWayVals[int64(eWayId)]
+			if reversibleVal != "" {
+				cre := da.NewConditionalReversibleEdge(eId, reversibleVal)
+				conditionalReversibleEdges = append(conditionalReversibleEdges, cre)
+			}
 
-		speedLimitVal, ok := p.conditionalSpeedLimits[int64(eWayId)]
-		if ok {
-			csl := da.NewConditionalSpeedLimit(eId, speedLimitVal)
-			conditionalSpeedLimits = append(conditionalSpeedLimits, csl)
-		}
+			speedLimitVal, ok := p.conditionalSpeedLimits[int64(eWayId)]
+			if ok {
+				csl := da.NewConditionalSpeedLimit(eId, speedLimitVal)
+				conditionalSpeedLimits = append(conditionalSpeedLimits, csl)
+			}
 
-		tfmVal, ok := p.conditionalTrafficModesVal[int64(eWayId)]
-		if ok {
-			tfm := da.NewConditionalTrafficMode(eId, tfmVal)
-			conditionalTrafficModesVal = append(conditionalTrafficModesVal, tfm)
-		}
-	})
+			tfmVal, ok := p.conditionalTrafficModesVal[int64(eWayId)]
+			if ok {
+				tfm := da.NewConditionalTrafficMode(eId, tfmVal)
+				conditionalTrafficModesVal = append(conditionalTrafficModesVal, tfm)
+			}
+		})
+	}
 
 	graphStorage.SetConditionalBarrierNodes(p.conditionalBarrierNodes)
 	graphStorage.SetConditionalReversibleEdges(conditionalReversibleEdges)
