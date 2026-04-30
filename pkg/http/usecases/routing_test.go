@@ -6,7 +6,9 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 )
 
@@ -124,10 +126,44 @@ func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEn
 	mockEngine.On("GetWeightFromLength", da.Index(0), originEdgeLen, true).Return(12.0)
 	mockEngine.On("GetWeightFromLength", da.Index(1), destEdgeLen, false).Return(15.0)
 
-	sp := da.NewPhantomNode(da.NewCoordinate(-7.795599999999999, yogyakartaOriginLon), 12.0, 0, 0, da.INVALID_EDGE_ID, originEdgeLen, 0, []da.Coordinate{originCoord, originHeadCoord}, []da.Coordinate{})
-	tp := da.NewPhantomNode(da.NewCoordinate(-7.782800000000001, yogyakartaDestLon), 0, 15.0, 1, 1, 0, destEdgeLen, []da.Coordinate{}, []da.Coordinate{})
+	sp := da.NewPhantomNode(da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 12.0, 0, 0, da.INVALID_EDGE_ID, originEdgeLen, 0, []da.Coordinate{originCoord, originHeadCoord}, []da.Coordinate{})
+	tp := da.NewPhantomNode(da.NewCoordinate(yogyakartaDestLat, yogyakartaDestLon), 0, 15.0, 1, 1, 0, destEdgeLen, []da.Coordinate{}, []da.Coordinate{})
 
 	return rs, mockEngine, mockSpatial, mockAlt, sp, tp
+}
+
+// coordApproxEqual compares two Coordinates using epsilon-based float comparison.
+func coordApproxEqual(a, b da.Coordinate) bool {
+	return util.Eq(a.Lat, b.Lat) && util.Eq(a.Lon, b.Lon)
+}
+
+// coordSliceApproxEqual compares two Coordinate slices using epsilon-based float comparison.
+func coordSliceApproxEqual(a, b []da.Coordinate) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !coordApproxEqual(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// phantomNodeApproxEqual returns a matcher function for use with mock.MatchedBy
+// that compares PhantomNode fields using epsilon-based float comparison (util.Eq).
+func phantomNodeApproxEqual(expected da.PhantomNode) func(da.PhantomNode) bool {
+	return func(actual da.PhantomNode) bool {
+		return coordApproxEqual(actual.GetSnappedCoord(), expected.GetSnappedCoord()) &&
+			util.Eq(actual.GetForwardTravelTime(), expected.GetForwardTravelTime()) &&
+			util.Eq(actual.GetReverseTravelTime(), expected.GetReverseTravelTime()) &&
+			util.Eq(actual.GetForwardDistance(), expected.GetForwardDistance()) &&
+			util.Eq(actual.GetReverseDistance(), expected.GetReverseDistance()) &&
+			actual.GetOutEdgeId() == expected.GetOutEdgeId() &&
+			actual.GetInEdgeId() == expected.GetInEdgeId() &&
+			coordSliceApproxEqual(actual.GetForwardGeometry(), expected.GetForwardGeometry()) &&
+			coordSliceApproxEqual(actual.GetReverseGeometry(), expected.GetReverseGeometry())
+	}
 }
 
 func TestRoutingService_ShortestPathBranches(t *testing.T) {
@@ -145,7 +181,7 @@ func TestRoutingService_ShortestPathBranches(t *testing.T) {
 	t.Run("Engine Route Not Found", func(t *testing.T) {
 		rs, mockEngine, mockSpatial, _, sp, tp := setupSnapReadyRoutingService(t)
 		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
-		mockEngine.On("ShortestPathSearch", sp, tp, false, da.INVALID_EDGE_ID).
+		mockEngine.On("ShortestPathSearch", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), false, da.INVALID_EDGE_ID).
 			Return(0.0, 0.0, path, []da.Index{}, false)
 
 		_, _, _, _, ok, err := rs.ShortestPath(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID)
@@ -159,7 +195,7 @@ func TestRoutingService_ShortestPathBranches(t *testing.T) {
 	t.Run("Success Without Directions", func(t *testing.T) {
 		rs, mockEngine, mockSpatial, _, sp, tp := setupSnapReadyRoutingService(t)
 		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
-		mockEngine.On("ShortestPathSearch", sp, tp, true, da.Index(1)).
+		mockEngine.On("ShortestPathSearch", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), true, da.Index(1)).
 			Return(20.0, 200.0, path, []da.Index{}, true)
 		mockEngine.On("IsDummyOutEdge", da.Index(0)).Return(false)
 		mockEngine.On("IsDummyInEdge", da.Index(1)).Return(false)
@@ -205,7 +241,7 @@ func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 
 	t.Run("No Alternatives", func(t *testing.T) {
 		rs, mockEngine, mockSpatial, mockAlt, sp, tp := setupSnapReadyRoutingService(t)
-		mockAlt.On("FindAlternativeRoutes", sp, tp, 3, false, da.INVALID_EDGE_ID).
+		mockAlt.On("FindAlternativeRoutes", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), 3, false, da.INVALID_EDGE_ID).
 			Return([]routing.AlternativeRoute{}, 0.0, int64(0))
 
 		alts, err := rs.AlternativeRouteSearch(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID)
@@ -221,7 +257,7 @@ func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 		rs, mockEngine, mockSpatial, mockAlt, sp, tp := setupSnapReadyRoutingService(t)
 		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
 		alt := routing.NewAlternativeRoute(5.0, 200.0, 20.0, 0.0, 1, path, []da.Index{}, da.ViaVertex{})
-		mockAlt.On("FindAlternativeRoutes", sp, tp, 3, true, da.Index(1)).
+		mockAlt.On("FindAlternativeRoutes", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), 3, true, da.Index(1)).
 			Return([]routing.AlternativeRoute{alt}, 0.0, int64(0))
 		mockEngine.On("IsDummyOutEdge", da.Index(0)).Return(false)
 		mockEngine.On("IsDummyInEdge", da.Index(1)).Return(false)
