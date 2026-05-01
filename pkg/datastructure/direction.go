@@ -372,7 +372,7 @@ func (d *DrivingDirection) GetTurnBearing() float64 {
 	return d.turnBearing
 }
 
-func (d *DrivingDirection) GetTurnType() string {
+func (d *DrivingDirection) GetTurnTableId() string {
 	return d.turnType
 }
 

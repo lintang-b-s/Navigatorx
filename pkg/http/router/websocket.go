@@ -248,7 +248,6 @@ func (api *API) handle(conn net.Conn) error {
 				}
 				api.hub.Remove(user)
 			}
-
 		})
 		if err != nil {
 			api.log.Error("error scheduling job", zap.Error(err))

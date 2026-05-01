@@ -110,12 +110,12 @@ func GetIsVehicle() bool {
 }
 
 const (
-	NONE        TurnType = iota
+	NONE        TurnType = iota // turn cost  = 0
 	LEFT_TURN   TurnType = iota
 	RIGHT_TURN  TurnType = iota
 	STRAIGHT_ON TurnType = iota
 	U_TURN      TurnType = iota
-	NO_ENTRY    TurnType = iota
+	NO_ENTRY    TurnType = iota // turn cost = INF_WEIGHT
 )
 
 const (

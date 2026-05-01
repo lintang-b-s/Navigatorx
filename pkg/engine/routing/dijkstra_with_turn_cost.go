@@ -207,8 +207,8 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 		exitIdFromTarget := us.engine.graph.GetDummyOutEdgeId(uId)
 		_, at := us.engine.graph.GetTailOfOutedgeWithInEdge(exitIdFromTarget)
 
-		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
-			turnCost := us.engine.metrics.GetTurnCost(turnType)
+		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 			newCost := uCost + turnCost
 
 			headEntryId := us.engine.graph.GetEntryOffset(head) + da.Index(entryPoint)
@@ -224,14 +224,14 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 		})
 
 		// traverse outEdges of u
-		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
 			hwType pkg.OsmHighwayType) {
 
 			vId := head
 
 			edgeWeight := us.engine.GetWeight(eId, true)
 
-			turnCost := us.engine.metrics.GetTurnCost(turnType)
+			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
 			newTravelTime := uCost + edgeWeight + turnCost
@@ -271,8 +271,8 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 		// // u-uExit->
 
 		uExitPoint := uExitId - us.engine.graph.GetExitOffset(uId)
-		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
-			turnCost := us.engine.metrics.GetTurnCost(turnType)
+		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 			newCost := uCost + turnCost
 
 			if util.Eq(us.finalCost[uId], pkg.INF_WEIGHT) || util.Lt(newCost, us.finalCost[uId]) {
@@ -283,14 +283,14 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 		})
 
 		// traverse inEdges of u
-		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
+		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index,
 			turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 
 			vId := tail
 
 			edgeWeight := us.engine.GetWeight(eId, false)
 
-			turnCost := us.engine.metrics.GetTurnCost(turnType)
+			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 
 			newTravelTime := us.pq.GetPriority(uExitId) + edgeWeight + turnCost
 

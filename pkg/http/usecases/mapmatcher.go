@@ -5,7 +5,6 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -24,10 +23,6 @@ func NewMapMatcherService(log *zap.Logger, onlineEngine OnlineMapMatcherEngine,
 
 func (ms *MapMatcherService) OnlineMapMatch(ctx context.Context, gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64, error) {
-
-	if util.IsTimeout(ctx) {
-		return nil, make([]*ma.Candidate, 0), 0, 0, util.WrapErrorf(ctx.Err(), util.ErrContextDeadline, "request timeout")
-	}
 
 	matchedPoint, cands, speedMean, speedStd := ms.onlineEngine.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
 	return matchedPoint, cands, speedMean, speedStd, nil

@@ -11,8 +11,8 @@ type Vertex struct {
 	lat          float64
 	lon          float64
 	pvPtr        Index // pointer index to cellNumbers slice
-	turnTablePtr Index // index of the first element of turnMatrices[v] in the flattened graph.turnTables array
-	// turnMatrices[v][i][j] = 1-D indexed array index of i-th incoming edge and j-th outgoing edge  = i*outDegree + j
+	turnTablePtr Index // index of the first element of turnMatrices[v] in the flattened graph.turnTypeTable array
+	// turnMatrices[v][i][j] -> turnMatrices = flattened 1-D indexed array index of i-th incoming edge and j-th outgoing edge  = i*outDegree + j
 	firstOut Index // index of the first outEdge of this vertex in the flattened graph.outEdges array
 	firstIn  Index // index of the first inEdge of this vertex in the flattened graph.inEdges array
 	id       Index
@@ -311,7 +311,7 @@ type Graph struct {
 	cellNumbers       []Pv           // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
 	outEdgeCellOffset []Index        // offset of first outEdge for each cellNumber
 	inEdgeCellOffset  []Index        // offset of first inEdge for each cellNumber
-	turnTables        []pkg.TurnType // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTables. 1D-TurnMatrices[v][i][j] = i*outDegree + j
+	turnTypeTable     []pkg.TurnType // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTypeTable. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 
 	// strongly connected components
 	sccs               []Index   // verticeId -> sccId
@@ -323,8 +323,8 @@ type Graph struct {
 	roadNetwork bool
 }
 
-func NewGraph(vertices []Vertex, outEdges []OutEdge, inEdges []InEdge, turnTables []pkg.TurnType, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
-	return &Graph{vertices: vertices, outEdges: outEdges, inEdges: inEdges, turnTables: turnTables, maxEdgesInCell: 0, roadNetwork: roadNetwork,
+func NewGraph(vertices []Vertex, outEdges []OutEdge, inEdges []InEdge, turnTypeTable []pkg.TurnType, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
+	return &Graph{vertices: vertices, outEdges: outEdges, inEdges: inEdges, turnTypeTable: turnTypeTable, maxEdgesInCell: 0, roadNetwork: roadNetwork,
 		verticesOsmIds: verticesOsmIds}
 }
 
@@ -357,6 +357,12 @@ func (g *Graph) GetEdgeSpeeds() []float64 {
 	return eSpeeds
 }
 
+func (g *Graph) GetTurnTypes() []pkg.TurnType {
+	ttp := make([]pkg.TurnType, len(g.turnTypeTable))
+	copy(ttp, g.turnTypeTable)
+	return ttp
+}
+
 func (g *Graph) GetVertexOsmId(vId Index) uint64 {
 	return g.verticesOsmIds.Get(uint64(vId))
 }
@@ -373,8 +379,8 @@ func (g *Graph) SetVertexOsmIds(verticesOsmIds *PackedSlice) {
 	g.verticesOsmIds = verticesOsmIds
 }
 
-func (g *Graph) SetNewTurnTables(turnTables []pkg.TurnType) {
-	g.turnTables = turnTables
+func (g *Graph) SetNewTurnTypeTable(turnTypeTable []pkg.TurnType) {
+	g.turnTypeTable = turnTypeTable
 }
 
 func (g *Graph) GetOutDegree(u Index) Index {
@@ -500,12 +506,14 @@ func (g *Graph) GetEntryOrder(v, inEdgeId Index) Index {
 
 // GetTurnType get turn type dari entryPoint->u->exitPoint
 func (g *Graph) GetTurnType(u Index, entryPoint, exitPoint Index) pkg.TurnType {
-	if entryPoint == Index(INVALID_ENTRY_POINT) || exitPoint == Index(INVALID_ENTRY_POINT) {
-		return pkg.NONE
-	}
+	turnTableId := g.vertices[u].turnTablePtr + entryPoint*g.GetOutDegree(u) + exitPoint
+	return g.turnTypeTable[turnTableId]
+}
 
-	turnTableOffset := g.vertices[u].turnTablePtr + entryPoint*g.GetOutDegree(u) + exitPoint
-	return g.turnTables[turnTableOffset]
+// GetTurnType get turntableId dari entryPoint->u->exitPoint
+func (g *Graph) GetTurnTableId(u Index, entryPoint, exitPoint Index) Index {
+	turnTableId := g.vertices[u].turnTablePtr + entryPoint*g.GetOutDegree(u) + exitPoint
+	return turnTableId
 }
 
 func (g *Graph) SetCellNumbers(cellNumbers []Pv) {
@@ -517,21 +525,21 @@ func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 }
 
 // langsung return OutEge copy structnya jadi lebih gede allocation  B/op pas di benchmark
-func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(eId, head Index, weight, length float64, exitPoint, entryPoint Index, turnType pkg.TurnType,
+func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(eId, head Index, weight, length float64, exitPoint, entryPoint, turnTableId Index, turnType pkg.TurnType,
 	hwType pkg.OsmHighwayType)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 
 		handle(e, g.outEdges[e].head, g.outEdges[e].GetWeight(), g.outEdges[e].GetLength(), g.GetExitOrder(u, e), g.outEdges[e].GetEntryPoint(),
-			g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)), g.outEdges[e].hwType)
+			g.GetTurnTableId(u, entryPoint, g.GetExitOrder(u, e)), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)), g.outEdges[e].hwType)
 	}
 }
 
-func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(eId, tail Index, weight, length float64, exitPoint, entryPoint Index,
+func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(eId, tail Index, weight, length float64, exitPoint, entryPoint, turnTableId Index,
 	turnType pkg.TurnType, hwType pkg.OsmHighwayType)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
 
 		handle(e, g.inEdges[e].tail, g.inEdges[e].GetWeight(), g.inEdges[e].GetLength(), g.inEdges[e].GetExitPoint(), g.GetEntryOrder(v, e),
-			g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint), g.inEdges[e].hwType)
+			g.GetTurnTableId(v, g.GetEntryOrder(v, e), exitPoint), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint), g.inEdges[e].hwType)
 	}
 }
 
@@ -627,12 +635,12 @@ func (g *Graph) GetOverlayVertex(u Index, exitEntryOrder Index, exit bool) (Inde
 	return id, exists
 }
 
-func (g *Graph) GetTurntables() []pkg.TurnType {
-	return g.turnTables
+func (g *Graph) GetTurnTypetable() []pkg.TurnType {
+	return g.turnTypeTable
 }
 
-func (g *Graph) GetTurntablesLength() int {
-	return len(g.turnTables)
+func (g *Graph) GetTurnTypeTableLength() int {
+	return len(g.turnTypeTable)
 }
 
 func (g *Graph) GetCellNumber(u Index) Pv {
@@ -1012,5 +1020,35 @@ func NewEmptyInEdge() InEdge {
 		dist:      0,
 		exitPoint: 0,
 		hwType:    0,
+	}
+}
+
+func (g *Graph) ForEachConditionalBarrierNode(handle func(id Index, res ConditionalBarrierNode)) {
+	for idx, res := range g.graphStorage.GetConditionalBarrierNodes() {
+		handle(Index(idx), res)
+	}
+}
+
+func (g *Graph) ForEachConditionalReversibleEdge(handle func(id Index, res ConditionalReversibleEdge)) {
+	for idx, res := range g.graphStorage.GetConditionalReversibleEdges() {
+		handle(Index(idx), res)
+	}
+}
+
+func (g *Graph) ForEachConditionalSpeedLimit(handle func(id Index, res ConditionalSpeedLimit)) {
+	for idx, res := range g.graphStorage.GetConditionalSpeedLimits() {
+		handle(Index(idx), res)
+	}
+}
+
+func (g *Graph) ForEachConditionalTrafficMode(handle func(id Index, res ConditionalTrafficMode)) {
+	for idx, res := range g.graphStorage.GetConditionalTrafficModes() {
+		handle(Index(idx), res)
+	}
+}
+
+func (g *Graph) ForEachConditionalTurnRestriction(handle func(id Index, res ConditionalTurnRestriction)) {
+	for idx, res := range g.graphStorage.GetConditionalTurnRestrictions() {
+		handle(Index(idx), res)
 	}
 }

@@ -86,3 +86,38 @@ func NewEdge(from, to uint32, weight, distance float64, hwType pkg.OsmHighwayTyp
 		hwType:   hwType,
 	}
 }
+
+type node struct {
+	id    int64
+	coord NodeCoord
+}
+
+type NodeCoord struct {
+	lat float64
+	lon float64
+}
+
+func NewNodeCoord(lat, lon float64) NodeCoord {
+	return NodeCoord{lat, lon}
+}
+
+type restriction struct {
+	via             da.Index
+	viaWays         []int64
+	to              int64
+	turnRestriction TurnRestriction
+	timeRangeVal    string
+	isWay           bool
+	conditional     bool
+}
+
+type osmWay struct {
+	nodes      []int64    // osm  nodes dari osm way ini
+	graphNodes []da.Index // osm nodes yang jadi graph node dari osm way ini
+	oneWay     bool
+	hwTag      string
+}
+type nodeWithCoord struct {
+	tipe  NodeType
+	coord NodeCoord
+}

@@ -13,38 +13,24 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/spf13/viper"
 )
 
 type TimeFunction struct {
-	turnCosts     []float64 // map from pkg.TurnType to turn cost in seconds
+	turnTable []float64 // map from turnTableId  to turn cost in seconds
+	// turnMatrices[v][i][j] -> turnCosts = flattened 1-D indexed array index of i-th incoming edge dari v and j-th outgoing edge dari v  = i*outDegree + j
+
 	edgeMaxSpeeds []float64 // map from outEdge id to its maxspeed in meters per minute (m/s)
 	isRoadNetwork bool
 }
 
-func NewTimeCostFunction(roadNetwork bool, edgeMaxSpeeds []float64) *TimeFunction {
+func NewTimeCostFunction(roadNetwork bool, edgeMaxSpeeds []float64, turnTable []float64) *TimeFunction {
 	if !roadNetwork {
 		return &TimeFunction{isRoadNetwork: false}
 	}
 
 	if pkg.WITH_TURN_COSTS {
-		mapTurnCosts := viper.GetStringMap("turncosts")
-		turnCosts := make([]float64, 6)
-		for turnTypeStr, cost := range mapTurnCosts {
 
-			turnType := getTurnType(turnTypeStr)
-			switch v := cost.(type) {
-			case int:
-				turnCosts[turnType] = float64(v)
-			case float64:
-				turnCosts[turnType] = float64(v)
-			default:
-				panic("unsupported type")
-			}
-		}
-		turnCosts[pkg.NONE] = 0
-		turnCosts[pkg.NO_ENTRY] = pkg.INF_WEIGHT
-		return &TimeFunction{turnCosts: turnCosts, isRoadNetwork: true, edgeMaxSpeeds: edgeMaxSpeeds}
+		return &TimeFunction{turnTable: turnTable, isRoadNetwork: true, edgeMaxSpeeds: edgeMaxSpeeds}
 	}
 
 	return &TimeFunction{isRoadNetwork: true, edgeMaxSpeeds: edgeMaxSpeeds}
@@ -71,33 +57,12 @@ func (tf *TimeFunction) GetWeight(eId da.Index, eDefaultWeight, eLength float64)
 	return eDefaultWeight
 }
 
-func (tf *TimeFunction) GetTurnCost(turnType pkg.TurnType) float64 {
-	if tf.turnCosts == nil {
+func (tf *TimeFunction) GetTurnCost(turnTableId da.Index) float64 {
+	if tf.turnTable == nil {
 		return 0
 	}
 
-	return tf.turnCosts[turnType]
-}
-
-func getTurnType(turnTypeStr string) pkg.TurnType {
-	var turnType pkg.TurnType
-	switch turnTypeStr {
-	case "left_turn":
-		turnType = pkg.LEFT_TURN
-	case "right_turn":
-		turnType = pkg.RIGHT_TURN
-	case "straight_on":
-		turnType = pkg.STRAIGHT_ON
-	case "u_turn":
-		turnType = pkg.U_TURN
-	case "no_entry":
-		turnType = pkg.NO_ENTRY
-	case "none":
-		turnType = pkg.NONE
-	default:
-		panic("unsupported turn type")
-	}
-	return turnType
+	return tf.turnTable[turnTableId]
 }
 
 func (tf *TimeFunction) WriteToFile(filename string) error {
@@ -138,6 +103,31 @@ func (tf *TimeFunction) WriteToFile(filename string) error {
 	if err != nil {
 		return errors.Wrapf(err, "timefunction.WriteToFile: failed to write new line")
 	}
+
+	numOfTurns := len(tf.turnTable)
+	_, err = fmt.Fprintf(w, "%d\n", numOfTurns)
+	if err != nil {
+		return errors.Wrapf(err, "timefunction.WriteToFile: failed to write numOfTurns: %v", numOfTurns)
+	}
+	if numOfTurns > 0 {
+		for tId := 0; tId < numOfTurns; tId++ {
+			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(tf.turnTable[tId], 'f', -1, 64))
+			if err != nil {
+				return errors.Wrapf(err, "timefunction.WriteToFile: failed to write tf.turnTable[%d]: %v", tId, tf.turnTable[tId])
+			}
+			if tId < numOfTurns-1 {
+				_, err = fmt.Fprint(w, " ")
+				if err != nil {
+					return errors.Wrapf(err, "timefunction.WriteToFile: failed to write space")
+				}
+			}
+		}
+		_, err = fmt.Fprintf(w, "\n")
+		if err != nil {
+			return errors.Wrapf(err, "timefunction.WriteToFile: failed to write new line")
+		}
+	}
+
 	if err = w.Flush(); err != nil {
 		return errors.Wrapf(err, "timefunction.WriteToFile: failed to flush bufio writer")
 	}
@@ -178,5 +168,37 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 		}
 		edgeMaxSpeeds[eId] = eMaxSpeed
 	}
-	return NewTimeCostFunction(true, edgeMaxSpeeds), nil
+
+	line, err = util.ReadLine(r)
+	if err != nil {
+		if err.Error() == "EOF" {
+			return NewTimeCostFunction(true, edgeMaxSpeeds, nil), nil
+		}
+		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to read numOfTurns")
+	}
+
+	numOfTurns, err := util.ParseInt(line)
+	if err != nil {
+		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed read numOfTurns")
+	}
+
+	var turnTable []float64
+	if numOfTurns > 0 {
+		line, err = util.ReadLine(r)
+		if err != nil {
+			return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to util.ReadLine(r) untuk turn table")
+		}
+
+		turnTable = make([]float64, numOfTurns)
+		ff = util.Fields(line)
+		for tId := 0; tId < numOfTurns; tId++ {
+			tCost, err := strconv.ParseFloat(ff[tId], 64)
+			if err != nil {
+				return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to read turn cost of tId: %v", tId)
+			}
+			turnTable[tId] = tCost
+		}
+	}
+
+	return NewTimeCostFunction(true, edgeMaxSpeeds, turnTable), nil
 }

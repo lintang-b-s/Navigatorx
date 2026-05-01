@@ -241,12 +241,12 @@ func TestGetReversibleOneWay(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := getReversibleOneWay(tc.input, tc.currentTime)
+			got, err := GetReversibleOneWay(tc.input, tc.currentTime)
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
 			if got != tc.want {
-				t.Errorf("getReversibleOneWay(%q) = %v, want %v", tc.input, got, tc.want)
+				t.Errorf("GetReversibleOneWay(%q) = %v, want %v", tc.input, got, tc.want)
 			}
 		})
 	}

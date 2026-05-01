@@ -44,7 +44,7 @@ const (
 // there is also tests for crp query using test cases taken from
 // programming contests problems (such as ICPC regionals & Indonesian NOI)
 // which can be found in tests/shortestpath_crp_alt and tests/shortestpath
-// cd tests/query &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=query_coverage.out
+// cd tests/query &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=query_coverage.out  -v -timeout=0  -count=1
 // go tool cover -func=query_coverage.out
 // go tool cover -html=query_coverage.out
 func TestCRPQuerySimple(t *testing.T) {

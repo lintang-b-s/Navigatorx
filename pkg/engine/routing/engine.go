@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/ristretto/v2"
+	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -14,12 +15,13 @@ import (
 )
 
 type CRPRoutingEngine struct {
-	graph        *da.Graph
-	overlayGraph *da.OverlayGraph
-	metrics      *met.Metric
-	lm           *landmark.Landmark
-	logger       *zap.Logger
-	puCache      *ristretto.Cache[[]byte, []da.Index]
+	graph               *da.Graph
+	overlayGraph        *da.OverlayGraph
+	metrics             *met.Metric
+	lm                  *landmark.Landmark
+	logger              *zap.Logger
+	puCache             *ristretto.Cache[[]byte, []da.Index]
+	verticesLookupTable *customizer.LookupTable[uint64]
 
 	fHeapPool          sync.Pool
 	bHeapPool          sync.Pool
@@ -48,15 +50,22 @@ func NewCRPRoutingEngine(graph *da.Graph,
 			panic(fmt.Errorf("NewCRPRoutingEngine: failed to read precomputed landmark distances: %v", err))
 		}
 	}
+
+	vertexOsmIds := graph.GetVertexOsmIds()
+	verticesLookupTable := customizer.NewLookupTable(vertexOsmIds, func(a, b uint64) bool {
+		return a < b
+	})
+
 	crp := &CRPRoutingEngine{
-		graph:        graph,
-		metrics:      metrics,
-		overlayGraph: overlayGraph,
-		logger:       logger,
-		puCache:      puCache,
-		costFunction: costFunction,
-		lm:           lm,
-		landmarkFile: landmarkFile,
+		graph:               graph,
+		metrics:             metrics,
+		overlayGraph:        overlayGraph,
+		logger:              logger,
+		puCache:             puCache,
+		costFunction:        costFunction,
+		lm:                  lm,
+		landmarkFile:        landmarkFile,
+		verticesLookupTable: verticesLookupTable,
 	}
 	crp.BuildQueryHeapPool()
 	crp.initParameter()

@@ -13,10 +13,6 @@ import (
 const TimeoutMessage = `{"error":"context deadline exceeded"}`
 
 func New(ctx context.Context, h http.Handler, config Config, websocket bool) *http.Server {
-	viper.SetDefault("HTTP_SERVER_READ_TIMEOUT", "10s")
-	viper.SetDefault("HTTP_SERVER_WRITE_TIMEOUT", "10s")
-	viper.SetDefault("HTTP_SERVER_IDLE_TIMEOUT", "30s")
-	viper.SetDefault("HTTP_SERVER_READ_HEADER_TIMEOUT", "2s")
 
 	handler := http.TimeoutHandler(h, config.Timeout, fmt.Sprintf(`{"error": %q}`, TimeoutMessage))
 
@@ -31,10 +27,10 @@ func New(ctx context.Context, h http.Handler, config Config, websocket bool) *ht
 			return ctx
 		},
 
-		ReadTimeout:       viper.GetDuration("HTTP_SERVER_READ_TIMEOUT"),
-		WriteTimeout:      config.Timeout + viper.GetDuration("HTTP_SERVER_WRITE_TIMEOUT"),
-		IdleTimeout:       viper.GetDuration("HTTP_SERVER_IDLE_TIMEOUT"),
-		ReadHeaderTimeout: viper.GetDuration("HTTP_SERVER_READ_HEADER_TIMEOUT"),
+		ReadTimeout:       viper.GetDuration("server.read_timeout"),
+		WriteTimeout:      config.Timeout + viper.GetDuration("server.write_timeout"),
+		IdleTimeout:       viper.GetDuration("server.idle_timeout"),
+		ReadHeaderTimeout: viper.GetDuration("server.read_header_timeout"),
 	}
 
 	return server
@@ -54,10 +50,10 @@ func NewWithoutSet(ctx context.Context, h http.Handler, config Config, websocket
 			return ctx
 		},
 
-		ReadTimeout:       viper.GetDuration("HTTP_SERVER_READ_TIMEOUT"),
-		WriteTimeout:      config.Timeout + viper.GetDuration("HTTP_SERVER_WRITE_TIMEOUT"),
-		IdleTimeout:       viper.GetDuration("HTTP_SERVER_IDLE_TIMEOUT"),
-		ReadHeaderTimeout: viper.GetDuration("HTTP_SERVER_READ_HEADER_TIMEOUT"),
+		ReadTimeout:       viper.GetDuration("server.read_timeout"),
+		WriteTimeout:      config.Timeout + viper.GetDuration("server.write_timeout"),
+		IdleTimeout:       viper.GetDuration("server.idle_timeout"),
+		ReadHeaderTimeout: viper.GetDuration("server.read_header_timeout"),
 	}
 	return server
 }

@@ -1,0 +1,429 @@
+openapi: 3.0.3
+info:
+  title: Navigatorx API
+  version: 1.0.0
+  description: This is a routing engine for OpenStreetMap. Includes both standard HTTP REST endpoints and a WebSocket endpoint for real-time map matching.
+  contact:
+    name: Lintang Birda Saputra
+    email: lintangbirdasaputra23@gmail.com
+  license:
+    name: MIT License
+    url: https://opensource.org/licenses/MIT
+servers:
+  - url: http://localhost:6060
+    description: Local development server
+paths:
+  /api/computeRoutes:
+    get:
+      summary: Compute shortest path
+      description: Calculates the shortest path between an origin and destination coordinate.
+      parameters:
+        - in: query
+          name: origin_lat
+          description: Latitude of the origin point.
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - in: query
+          name: origin_lon
+          description: Longitude of the origin point.
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - in: query
+          name: destination_lat
+          description: Latitude of the destination point.
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - in: query
+          name: destination_lon
+          description: Longitude of the destination point.
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - in: query
+          name: reroute
+          description: Set to true if this is a rerouting request to prevent immediate U-turns.
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: start_edge_id
+          description: The road segment ID where the user is currently located. Used during rerouting.
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: Successful routing response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/ShortestPathResponse'
+        '400':
+          description: Bad request (validation error)
+        '404':
+          description: Path not found
+        '504':
+          description: Request timeout
+  /api/computeAlternativeRoutes:
+    get:
+      summary: Compute alternative routes
+      description: Calculates alternative routes between an origin and destination coordinate.
+      parameters:
+        - in: query
+          name: origin_lat
+          description: Latitude of the origin point.
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - in: query
+          name: origin_lon
+          description: Longitude of the origin point.
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - in: query
+          name: destination_lat
+          description: Latitude of the destination point.
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -90
+            maximum: 90
+        - in: query
+          name: destination_lon
+          description: Longitude of the destination point.
+          required: true
+          schema:
+            type: number
+            format: double
+            minimum: -180
+            maximum: 180
+        - in: query
+          name: k
+          required: true
+          description: Number of alternative routes
+          schema:
+            type: integer
+            minimum: 1
+        - in: query
+          name: reroute
+          description: Set to true if this is a rerouting request to prevent immediate U-turns.
+          required: false
+          schema:
+            type: boolean
+        - in: query
+          name: start_edge_id
+          description: The road segment ID where the user is currently located. Used during rerouting.
+          required: false
+          schema:
+            type: integer
+            format: int32
+      responses:
+        '200':
+          description: Successful routing response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AlternativeRoutesResponse'
+        '400':
+          description: Bad request (validation error)
+        '404':
+          description: Path not found
+        '504':
+          description: Request timeout
+  /api/boundingBox:
+    get:
+      summary: Get map bounding box
+      description: Returns the bounding box of the routing graph area.
+      responses:
+        '200':
+          description: Successful bounding box response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/BoundingBoxResponse'
+  /api/onlineMapMatch:
+    post:
+      summary: Online Map Matching
+      description: Performs online map matching given a GPS point and previous candidates.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MapMatchRequest'
+      responses:
+        '200':
+          description: Successful map matching response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    $ref: '#/components/schemas/MapMatchingResponse'
+        '400':
+          description: Bad request (validation error)
+  /ws:
+    get:
+      summary: WebSocket for Online Map Matching
+      description: Upgrade the connection to a WebSocket. The client sends a `MapMatchRequest` JSON payload and the server asynchronously streams back `MapMatchingResponse` payloads in real-time.
+      responses:
+        '101':
+          description: Switching Protocols to WebSocket.
+components:
+  schemas:
+    ShortestPathResponse:
+      type: object
+      properties:
+        travel_time:
+          type: number
+          format: double
+          description: Total travel time for the route in minutes.
+        path:
+          type: string
+          description: An encoded Google polyline string representing the path geometry.
+        distance:
+          type: number
+          format: double
+          description: Total distance of the route in meters.
+        driving_directions:
+          type: array
+          description: A list of driving directions and maneuvers for the route.
+          items:
+            $ref: '#/components/schemas/DrivingDirection'
+    AlternativeRoutesResponse:
+      type: object
+      properties:
+        alternative_routes:
+          type: array
+          description: A collection of alternative shortest paths.
+          items:
+            $ref: '#/components/schemas/ShortestPathResponse'
+    BoundingBoxResponse:
+      type: object
+      properties:
+        min_lat:
+          type: number
+          format: double
+          description: Minimum latitude of the map boundary.
+        min_lon:
+          type: number
+          format: double
+          description: Minimum longitude of the map boundary.
+        max_lat:
+          type: number
+          format: double
+          description: Maximum latitude of the map boundary.
+        max_lon:
+          type: number
+          format: double
+          description: Maximum longitude of the map boundary.
+    DrivingDirection:
+      type: object
+      properties:
+        instruction:
+          type: string
+          description: Human-readable driving instruction (e.g., "Turn left onto Main St").
+        turn_point:
+          description: The exact coordinate where the maneuver occurs.
+          $ref: '#/components/schemas/Coordinate'
+        street_name:
+          type: string
+          description: Name of the street the user is navigating on.
+        travel_time:
+          type: number
+          format: double
+          description: Travel time for this specific instruction in minutes.
+        distance:
+          type: number
+          format: double
+          description: Distance covered by this specific instruction in meters.
+        edge_ids:
+          type: array
+          description: List of internal road segment IDs associated with this maneuver.
+          items:
+            type: integer
+            format: int32
+        polyline:
+          type: string
+          description: Encoded polyline geometry for this segment of the route.
+        turn_bearing:
+          type: number
+          format: double
+          description: The bearing/heading of the turn at the maneuver point.
+        turn_type:
+          type: string
+          description: The classification of the turn (e.g., straight, left, right).
+        suggest_alternatives:
+          type: boolean
+          description: Flag indicating if the system should suggest alternative routes at this maneuver.
+    Coordinate:
+      type: object
+      properties:
+        lat:
+          type: number
+          format: double
+          description: Latitude coordinate.
+        lon:
+          type: number
+          format: double
+          description: Longitude coordinate.
+    GPS:
+      type: object
+      properties:
+        lon:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          description: Longitude reading from the GPS device.
+        lat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          description: Latitude reading from the GPS device.
+        time:
+          type: string
+          format: date-time
+          description: Timestamp when the GPS reading was recorded.
+        speed:
+          type: number
+          format: double
+          minimum: 0
+          description: Speed of the device in meters per second.
+        delta_time:
+          type: number
+          format: double
+          minimum: 0
+          description: Time elapsed since the previous GPS ping, in seconds.
+        dead_reckoning:
+          type: boolean
+          description: Flag indicating whether this coordinate was approximated via dead reckoning.
+    Candidate:
+      type: object
+      properties:
+        edge_id:
+          type: integer
+          format: int32
+          minimum: 0
+          description: The internal road segment ID considered as a map-matching candidate.
+        weight:
+          type: number
+          format: double
+          minimum: 0
+          description: The probabilistic weight/score of this candidate edge.
+        length:
+          type: number
+          format: double
+          minimum: 0
+          description: The length of the candidate edge segment in meters.
+    MapMatchRequest:
+      type: object
+      required:
+        - gps_point
+        - k
+      properties:
+        gps_point:
+          description: The current GPS reading to match.
+          $ref: '#/components/schemas/GPS'
+        k:
+          type: integer
+          minimum: 1
+          description: The map-matching step counter/index.
+        candidates:
+          type: array
+          description: A list of candidate edges from the previous map-matching step.
+          items:
+            $ref: '#/components/schemas/Candidate'
+        speed_mean_k:
+          type: number
+          format: double
+          minimum: 0
+          description: Mean speed calculated across recent GPS points.
+        speed_std_k:
+          type: number
+          format: double
+          minimum: 0
+          description: Standard deviation of speed calculated across recent GPS points.
+        last_bearing:
+          type: number
+          format: double
+          minimum: 0
+          description: The last calculated bearing/heading of the moving entity.
+    MatchedGPSPoint:
+      type: object
+      properties:
+        gps_point:
+          description: The original GPS point that was matched.
+          $ref: '#/components/schemas/GPS'
+        edge_id:
+          type: integer
+          format: int32
+          description: The ID of the road segment that the GPS point was successfully matched to.
+        matched_coord:
+          description: The snapped coordinate on the matched road segment.
+          $ref: '#/components/schemas/Coordinate'
+        predicted_gps_coord:
+          description: The theoretically predicted coordinate based on previous speed/bearing.
+          $ref: '#/components/schemas/Coordinate'
+        edge_initial_bearing:
+          type: number
+          format: double
+          description: The initial bearing of the matched road segment.
+    MapMatchingResponse:
+      type: object
+      properties:
+        matched_gps_point:
+          description: The result of the map-matching process.
+          $ref: '#/components/schemas/MatchedGPSPoint'
+        candidates:
+          type: array
+          description: The list of calculated candidate edges to be sent in the next request step.
+          items:
+            $ref: '#/components/schemas/Candidate'
+        speed_mean_k:
+          type: number
+          format: double
+          description: Updated mean speed of the moving entity.
+        speed_std_k:
+          type: number
+          format: double
+          description: Updated standard deviation of speed.
+        edge_initial_bearing:
+          type: number
+          format: double
+          description: The bearing of the snapped edge.

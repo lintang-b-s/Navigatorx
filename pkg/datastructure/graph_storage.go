@@ -21,6 +21,13 @@ type GraphStorage struct {
 	nodeTrafficLight        *bitset.BitSet
 	edgeOsmWayId            *PackedSlice // map dari outEdgeId ke osm way id dari edge
 
+	// conditional restrictions
+	conditionalBarrierNodes     []ConditionalBarrierNode
+	conditionalReversibleEdges  []ConditionalReversibleEdge
+	conditionalSpeedLimits      []ConditionalSpeedLimit
+	conditionalTrafficModes     []ConditionalTrafficMode
+	conditionalTurnRestrictions []ConditionalTurnRestriction
+
 	// metadata dari edges
 	edgeStartPointsIndex []Index
 	edgeEndPointsIndex   []Index
@@ -284,4 +291,44 @@ func (gs *GraphStorage) GetRoadClassLink(edgeId Index) pkg.OsmHighwayType {
 
 func (gs *GraphStorage) GetRoadLanes(edgeId Index) uint8 {
 	return gs.lanes[edgeId]
+}
+
+func (gs *GraphStorage) SetConditionalBarrierNodes(nodes []ConditionalBarrierNode) {
+	gs.conditionalBarrierNodes = nodes
+}
+
+func (gs *GraphStorage) SetConditionalReversibleEdges(ways []ConditionalReversibleEdge) {
+	gs.conditionalReversibleEdges = ways
+}
+
+func (gs *GraphStorage) SetConditionalSpeedLimits(limits []ConditionalSpeedLimit) {
+	gs.conditionalSpeedLimits = limits
+}
+
+func (gs *GraphStorage) SetConditionalTrafficModes(modes []ConditionalTrafficMode) {
+	gs.conditionalTrafficModes = modes
+}
+
+func (gs *GraphStorage) SetConditionalTurnRestrictions(restrictions []ConditionalTurnRestriction) {
+	gs.conditionalTurnRestrictions = restrictions
+}
+
+func (gs *GraphStorage) GetConditionalBarrierNodes() []ConditionalBarrierNode {
+	return gs.conditionalBarrierNodes
+}
+
+func (gs *GraphStorage) GetConditionalReversibleEdges() []ConditionalReversibleEdge {
+	return gs.conditionalReversibleEdges
+}
+
+func (gs *GraphStorage) GetConditionalSpeedLimits() []ConditionalSpeedLimit {
+	return gs.conditionalSpeedLimits
+}
+
+func (gs *GraphStorage) GetConditionalTrafficModes() []ConditionalTrafficMode {
+	return gs.conditionalTrafficModes
+}
+
+func (gs *GraphStorage) GetConditionalTurnRestrictions() []ConditionalTurnRestriction {
+	return gs.conditionalTurnRestrictions
 }

@@ -185,6 +185,100 @@ func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []floa
 	return updatedEdges, updatedEdgeSpeeds, nil
 }
 
+func (c *Customizer) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []float64, error) {
+	f, err := os.Open(filepath)
+	if err != nil {
+		return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readTurnPenaltiesFromFile: failed to open file %v", filepath)
+	}
+
+	defer f.Close()
+
+	csvReader := csv.NewReader(f)
+	data, err := csvReader.ReadAll()
+	if err != nil {
+		return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readTurnPenaltiesFromFile: failed to readAll csv data")
+	}
+
+	n := len(data)
+	updatedTurnTableIds := make([]da.Index, 0, n)
+	updatedTurnPenalties := make([]float64, 0, n)
+	for rowId := 0; rowId < n; rowId++ {
+		row := data[rowId]
+		fromOsmIdString := strings.TrimSpace(row[0])
+		fromOsmId, err := util.ParseUInt64(fromOsmIdString)
+		if err != nil {
+			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readTurnPenaltiesFromFile: failed to parse uint64 fromOsmId: %s", fromOsmIdString)
+		}
+		viaOsmIdString := strings.TrimSpace(row[1])
+		viaOsmId, err := util.ParseUInt64(viaOsmIdString)
+		if err != nil {
+			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readTurnPenaltiesFromFile: failed to parse uint64 viaOsmId: %s", viaOsmIdString)
+		}
+
+		toOsmIdString := strings.TrimSpace(row[2])
+		toOsmId, err := util.ParseUInt64(toOsmIdString)
+		if err != nil {
+			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readTurnPenaltiesFromFile: failed to parse uint64 toOsmId: %s", toOsmIdString)
+		}
+
+		fromVId := c.verticesLookupTable.Get(fromOsmId)
+		if fromVId == INVALID_LOOKUPTABLE_VAL_ID {
+			c.logger.Sugar().Warnf("no vertex %v found", fromOsmId)
+			continue
+		}
+		viaVId := c.verticesLookupTable.Get(viaOsmId)
+		if viaVId == INVALID_LOOKUPTABLE_VAL_ID {
+			c.logger.Sugar().Warnf("no vertex %v found", viaOsmId)
+			continue
+		}
+
+		toVId := c.verticesLookupTable.Get(toOsmId)
+		if toVId == INVALID_LOOKUPTABLE_VAL_ID {
+			c.logger.Sugar().Warnf("no vertex %v found", toOsmId)
+			continue
+		}
+
+		updatedEId := da.INVALID_EDGE_ID
+
+		viaEntryPoint := da.INVALID_ENTRY_POINT
+		entryPoint := da.Index(0)
+		c.graph.ForInEdgeIdsOf(da.Index(viaVId), func(eId da.Index) {
+			tail := c.graph.GetTailOfInedge(eId)
+			if tail == da.Index(fromVId) {
+				viaEntryPoint = entryPoint
+			}
+			entryPoint++
+		})
+
+		viaExitPoint := da.INVALID_EXIT_POINT
+		exitPoint := da.Index(0)
+		c.graph.ForOutEdgeIdsOf(da.Index(viaVId), func(eId da.Index) {
+			head := c.graph.GetHeadOfOutEdge(eId)
+			if head == da.Index(toVId) {
+				viaExitPoint = exitPoint
+			}
+			exitPoint++
+		})
+		turnTableId := c.graph.GetTurnTableId(da.Index(viaVId), viaEntryPoint, viaExitPoint)
+
+		if updatedEId == da.INVALID_EDGE_ID {
+			c.logger.Sugar().Warnf("no edge found from %v to %v ", fromOsmId, viaVId)
+			continue
+		}
+
+		turnPenaltyString := strings.TrimSpace(row[3])
+		turnPenalty, err := strconv.ParseFloat(turnPenaltyString, 64)
+		if err != nil {
+			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readEdgeSpeedsFile: failed to parse segent speed: %s", turnPenaltyString)
+		}
+
+		updatedTurnTableIds = append(updatedTurnTableIds, turnTableId)
+		updatedTurnPenalties = append(updatedTurnPenalties, turnPenalty)
+	}
+
+	return updatedTurnTableIds, updatedTurnPenalties, nil
+}
+
 // UpdatedSegment satu row di segment speed csv file.
 // Contains fromOsmId, toOsmId, and speed (in km/h).
 type UpdatedSegment struct {

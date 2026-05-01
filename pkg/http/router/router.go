@@ -37,7 +37,6 @@ type API struct {
 }
 
 var (
-	newHTTPServer      = http_server.New
 	listenAndServeHTTP = func(s *http.Server) error { return s.ListenAndServe() }
 	shutdownHTTP       = func(s *http.Server, ctx context.Context) error { return s.Shutdown(ctx) }
 )
@@ -48,7 +47,7 @@ func NewAPI(log *zap.Logger) *API {
 
 //	@title			Navigatorx API
 //	@version		1.0
-//	@description	This is arouting engine for openstreetmap server.
+//	@description	This is a routing engine for openstreetmap .
 
 //	@contact.name	Lintang Birda Saputra
 //	@contact.url	_
@@ -76,6 +75,11 @@ func (api *API) Run(
 		_ = util.Sleep(ctxWithTimeout, readinessDrainDelay)
 		cancel()
 	}()
+
+	viper.SetDefault("server.read_timeout", "2s")
+	viper.SetDefault("server.write_timeout", "2s")
+	viper.SetDefault("server.idle_timeout", "2s")
+	viper.SetDefault("server.read_header_timeout", "2s")
 
 	log.Info("Run httprouter API")
 
@@ -117,10 +121,10 @@ func (api *API) Run(
 			return ctx
 		},
 
-		ReadTimeout:       viper.GetDuration("HTTP_SERVER_READ_TIMEOUT"),
-		WriteTimeout:      config.Timeout + viper.GetDuration("HTTP_SERVER_WRITE_TIMEOUT"),
-		IdleTimeout:       viper.GetDuration("HTTP_SERVER_IDLE_TIMEOUT"),
-		ReadHeaderTimeout: viper.GetDuration("HTTP_SERVER_READ_HEADER_TIMEOUT"),
+		ReadTimeout:       viper.GetDuration("server.read_timeout"),
+		WriteTimeout:      config.Timeout + viper.GetDuration("server.write_timeout"),
+		IdleTimeout:       viper.GetDuration("server.idle_timeout"),
+		ReadHeaderTimeout: viper.GetDuration("server.read_header_timeout"),
 	}
 
 	go func() {
@@ -141,7 +145,7 @@ func (api *API) Run(
 	}
 	mainMwChain := alice.New(mwChain...).Then(router)
 
-	srv := newHTTPServer(ctx, mainMwChain, config, false)
+	srv := http_server.New(ctx, mainMwChain, config, false)
 	log.Info(fmt.Sprintf("API run on port %d", config.Port))
 
 	go func() {

@@ -14,6 +14,7 @@ const (
 	VIA_VERTICES_INITIAL_CAPACITY = 16
 	MOTORWAY_PENALTY              = 1
 
-	CUSTOMIZER_UPDATER_TIMER_SECONDS = 1 * time.Second
-	MAX_RETRY                        = 5
+	CUSTOMIZER_UPDATER_TIMER_SECONDS      = 1 * time.Second
+	CONDITIONAL_RESTRICTION_TIMER_SECONDS = 180 * time.Second
+	MAX_RETRY                             = 5
 )

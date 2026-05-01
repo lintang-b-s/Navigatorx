@@ -90,11 +90,11 @@ func (g *Graph) WriteGraph(filename string) error {
 	}
 
 	// turn tables
-	for i, tt := range g.turnTables {
+	for i, tt := range g.turnTypeTable {
 		if _, err = fmt.Fprintf(w, "%d", tt); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing turnTable[%d]", i)
 		}
-		if i < len(g.turnTables)-1 {
+		if i < len(g.turnTypeTable)-1 {
 			if _, err = fmt.Fprintf(w, " "); err != nil {
 				return err
 			}
@@ -268,6 +268,78 @@ func (g *Graph) WriteGraph(filename string) error {
 		}
 	}
 
+	// conditional restrictions
+	// conditional barrier nodes
+	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalBarrierNodes))
+	if err != nil {
+		return errors.Wrapf(err, "WriteGraph: failed writing conditionalBarrierNodes count")
+	}
+	for _, c := range g.graphStorage.conditionalBarrierNodes {
+		_, err = fmt.Fprintf(w, "%d %s\n", c.GetOsmNodeId(), strconv.Quote(c.GetTimeRangeVal()))
+		if err != nil {
+			return errors.Wrapf(err, "WriteGraph: failed writing conditionalBarrierNode")
+		}
+	}
+
+	// conditional reversible edges
+	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalReversibleEdges))
+	if err != nil {
+		return errors.Wrapf(err, "WriteGraph: failed writing conditionalReversibleEdges count")
+	}
+	for _, c := range g.graphStorage.conditionalReversibleEdges {
+		_, err = fmt.Fprintf(w, "%d %s\n", c.GetEdgeId(), strconv.Quote(c.GetTimeRangeVal()))
+		if err != nil {
+			return errors.Wrapf(err, "WriteGraph: failed writing conditionalReversibleEdge")
+		}
+	}
+
+	// conditional speed limits
+	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalSpeedLimits))
+	if err != nil {
+		return errors.Wrapf(err, "WriteGraph: failed writing conditionalSpeedLimits count")
+	}
+	for _, c := range g.graphStorage.conditionalSpeedLimits {
+		_, err = fmt.Fprintf(w, "%d %s\n", c.GetEdgeId(), strconv.Quote(c.GetTimeRangeSpeedVal()))
+		if err != nil {
+			return errors.Wrapf(err, "WriteGraph: failed writing conditionalSpeedLimit")
+		}
+	}
+
+	// conditional traffic modes
+	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalTrafficModes))
+	if err != nil {
+		return errors.Wrapf(err, "WriteGraph: failed writing conditionalTrafficModes count")
+	}
+	for _, c := range g.graphStorage.conditionalTrafficModes {
+		_, err = fmt.Fprintf(w, "%d %s\n", c.GetEdgeId(), strconv.Quote(c.GetTimeRangeVal()))
+		if err != nil {
+			return errors.Wrapf(err, "WriteGraph: failed writing conditionalTrafficMode")
+		}
+	}
+
+	// conditional turn restrictions
+	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalTurnRestrictions))
+	if err != nil {
+		return errors.Wrapf(err, "WriteGraph: failed writing conditionalTurnRestrictions count")
+	}
+	for _, c := range g.graphStorage.conditionalTurnRestrictions {
+		viaEIdsLen := len(c.GetViaEIds())
+		_, err = fmt.Fprintf(w, "%d %d %d %t %d %d", c.GetFromVId(), c.GetViaVId(), c.GetToVId(), c.GetViaWay(), c.GetTurnTableId(), viaEIdsLen)
+		if err != nil {
+			return errors.Wrapf(err, "WriteGraph: failed writing conditionalTurnRestriction headers")
+		}
+		for _, viaEId := range c.GetViaEIds() {
+			_, err = fmt.Fprintf(w, " %d", viaEId)
+			if err != nil {
+				return errors.Wrapf(err, "WriteGraph: failed writing conditionalTurnRestriction viaEId")
+			}
+		}
+		_, err = fmt.Fprintf(w, " %s\n", strconv.Quote(c.GetTimeRangeVal()))
+		if err != nil {
+			return errors.Wrapf(err, "WriteGraph: failed writing conditionalTurnRestriction timeRangeVal")
+		}
+	}
+
 	// write scc condensation
 	for i := 0; i < len(g.sccCondensationAdj); i++ {
 		for j := 0; j < len(g.sccCondensationAdj[i]); j++ {
@@ -421,18 +493,18 @@ func ReadGraph(filename string) (*Graph, error) {
 		cellNumbers[i] = Pv(cellNumber)
 	}
 
-	turnTables := make([]pkg.TurnType, 0)
+	turnTypeTable := make([]pkg.TurnType, 0)
 	line, err = util.ReadLine(br)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read turntables string")
+		return nil, errors.Wrapf(err, "ReadGraph: failed to read turnTypeTable string")
 	}
 	tokens = util.Fields(line)
 	for _, token := range tokens {
 		tt, err := strconv.ParseUint(token, 10, 8)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse uint turnTables: %v", token)
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse uint turnTypeTable: %v", token)
 		}
-		turnTables = append(turnTables, pkg.TurnType(tt))
+		turnTypeTable = append(turnTypeTable, pkg.TurnType(tt))
 	}
 
 	overlayVertices := make(map[SubVertex]Index)
@@ -758,6 +830,215 @@ func ReadGraph(filename string) (*Graph, error) {
 		idToStr[key] = unquotedVal
 	}
 
+	// read conditional restrictions
+
+	// conditional barrier nodes
+	line, err = util.ReadLine(br)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalBarrierNodes")
+	}
+	tokens = util.Fields(line)
+	numBarrierNodes, err := util.ParseInt(tokens[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numBarrierNodes")
+	}
+	conditionalBarrierNodes := make([]ConditionalBarrierNode, numBarrierNodes)
+	for i := 0; i < numBarrierNodes; i++ {
+		line, err = util.ReadLine(br)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalBarrierNode")
+		}
+		tokens := util.Fields(line)
+		osmNodeId, err := strconv.ParseInt(tokens[0], 10, 64)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt osmNodeId: %v", tokens[0])
+		}
+		val := tokens[1]
+		if len(tokens) > 2 {
+			for j := 2; j < len(tokens); j++ {
+				val += " " + tokens[j]
+			}
+		}
+		unquotedVal, err := strconv.Unquote(val)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
+		}
+		conditionalBarrierNodes[i] = NewConditionalBarrierNode(osmNodeId, unquotedVal)
+	}
+
+	// conditional reversible edges
+	line, err = util.ReadLine(br)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalReversibleEdges")
+	}
+	tokens = util.Fields(line)
+	numReversibleEdges, err := util.ParseInt(tokens[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numReversibleEdges")
+	}
+	conditionalReversibleEdges := make([]ConditionalReversibleEdge, numReversibleEdges)
+	for i := 0; i < numReversibleEdges; i++ {
+		line, err = util.ReadLine(br)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalReversibleEdge")
+		}
+		tokens := util.Fields(line)
+		edgeId, err := ParseIndex(tokens[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse edgeId: %v", tokens[0])
+		}
+		val := tokens[1]
+		if len(tokens) > 2 {
+			for j := 2; j < len(tokens); j++ {
+				val += " " + tokens[j]
+			}
+		}
+		unquotedVal, err := strconv.Unquote(val)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
+		}
+		conditionalReversibleEdges[i] = NewConditionalReversibleEdge(edgeId, unquotedVal)
+	}
+
+	// conditional speed limits
+	line, err = util.ReadLine(br)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalSpeedLimits")
+	}
+	tokens = util.Fields(line)
+	numSpeedLimits, err := util.ParseInt(tokens[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numSpeedLimits")
+	}
+	conditionalSpeedLimits := make([]ConditionalSpeedLimit, numSpeedLimits)
+	for i := 0; i < numSpeedLimits; i++ {
+		line, err = util.ReadLine(br)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalSpeedLimit")
+		}
+		tokens := util.Fields(line)
+		edgeId, err := ParseIndex(tokens[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse edgeId: %v", tokens[0])
+		}
+		val := tokens[1]
+		if len(tokens) > 2 {
+			for j := 2; j < len(tokens); j++ {
+				val += " " + tokens[j]
+			}
+		}
+		unquotedVal, err := strconv.Unquote(val)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
+		}
+		conditionalSpeedLimits[i] = NewConditionalSpeedLimit(edgeId, unquotedVal)
+	}
+
+	// conditional traffic modes
+	line, err = util.ReadLine(br)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTrafficModes")
+	}
+	tokens = util.Fields(line)
+	numTrafficModes, err := util.ParseInt(tokens[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numTrafficModes")
+	}
+	conditionalTrafficModes := make([]ConditionalTrafficMode, numTrafficModes)
+	for i := 0; i < numTrafficModes; i++ {
+		line, err = util.ReadLine(br)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTrafficMode")
+		}
+		tokens := util.Fields(line)
+		edgeId, err := ParseIndex(tokens[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse edgeId: %v", tokens[0])
+		}
+		val := tokens[1]
+		if len(tokens) > 2 {
+			for j := 2; j < len(tokens); j++ {
+				val += " " + tokens[j]
+			}
+		}
+		unquotedVal, err := strconv.Unquote(val)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
+		}
+		conditionalTrafficModes[i] = NewConditionalTrafficMode(edgeId, unquotedVal)
+	}
+
+	// conditional turn restrictions
+	line, err = util.ReadLine(br)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTurnRestrictions")
+	}
+	tokens = util.Fields(line)
+	numTurnRestrictions, err := util.ParseInt(tokens[0])
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numTurnRestrictions")
+	}
+	conditionalTurnRestrictions := make([]ConditionalTurnRestriction, numTurnRestrictions)
+	for i := 0; i < numTurnRestrictions; i++ {
+		line, err = util.ReadLine(br)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTurnRestriction")
+		}
+		tokens := util.Fields(line)
+
+		fromVId, err := ParseIndex(tokens[0])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse fromVId: %v", tokens[0])
+		}
+
+		viaVId, err := ParseIndex(tokens[1])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse viaVId: %v", tokens[1])
+		}
+
+		toVId, err := ParseIndex(tokens[2])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse toVId: %v", tokens[2])
+		}
+
+		viaWay, err := strconv.ParseBool(tokens[3])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse viaWay: %v", tokens[3])
+		}
+
+		turnTypeInt, err := strconv.ParseUint(tokens[4], 10, 8)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse turnType: %v", tokens[4])
+		}
+		turnType := pkg.TurnType(turnTypeInt)
+
+		viaEIdsLen, err := util.ParseInt(tokens[5])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse viaEIdsLen: %v", tokens[5])
+		}
+
+		viaEIds := make([]Index, viaEIdsLen)
+		for j := 0; j < viaEIdsLen; j++ {
+			vId, err := ParseIndex(tokens[6+j])
+			if err != nil {
+				return nil, errors.Wrapf(err, "ReadGraph: failed to parse viaEId: %v", tokens[6+j])
+			}
+			viaEIds[j] = vId
+		}
+
+		val := tokens[6+viaEIdsLen]
+		if len(tokens) > 6+viaEIdsLen+1 {
+			for j := 6 + viaEIdsLen + 1; j < len(tokens); j++ {
+				val += " " + tokens[j]
+			}
+		}
+		unquotedVal, err := strconv.Unquote(val)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
+		}
+		conditionalTurnRestrictions[i] = NewConditionalTurnRestriction(fromVId, viaVId, toVId, viaEIds, viaWay, unquotedVal, turnType)
+	}
+
 	sccCondensationAdj := make([][]Index, 0)
 	for {
 		line, err = util.ReadLine(br)
@@ -793,7 +1074,13 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	graphStorage.BuildNameTable(idToStr)
 
-	graph := NewGraph(vertices, outEdges, inEdges, turnTables, roadNetwork, verticesOsmIdsPs)
+	graphStorage.SetConditionalBarrierNodes(conditionalBarrierNodes)
+	graphStorage.SetConditionalReversibleEdges(conditionalReversibleEdges)
+	graphStorage.SetConditionalSpeedLimits(conditionalSpeedLimits)
+	graphStorage.SetConditionalTrafficModes(conditionalTrafficModes)
+	graphStorage.SetConditionalTurnRestrictions(conditionalTurnRestrictions)
+
+	graph := NewGraph(vertices, outEdges, inEdges, turnTypeTable, roadNetwork, verticesOsmIdsPs)
 	graph.SetGraphStorage(graphStorage)
 	graph.SetCellNumbers(cellNumbers)
 	graph.SetOverlayMapping(overlayVertices)

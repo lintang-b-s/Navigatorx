@@ -113,7 +113,7 @@ func TestBuildGraphWithTurnRestrictions(t *testing.T) {
 		entryPointIdx++
 	})
 
-	graph.ForOutEdgesOf(1, da.Index(turnResEntryPoint), func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+	graph.ForOutEdgesOf(1, da.Index(turnResEntryPoint), func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 		if head == 2 {
 			turnResExitPoint = int(exitPoint)
 		}
@@ -123,7 +123,7 @@ func TestBuildGraphWithTurnRestrictions(t *testing.T) {
 		t.Fatalf("could not find entry or exit point: entry=%d, exit=%d", turnResEntryPoint, turnResExitPoint)
 	}
 
-	graph.ForOutEdgesOf(1, da.Index(turnResEntryPoint), func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+	graph.ForOutEdgesOf(1, da.Index(turnResEntryPoint), func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 		if exitPoint == da.Index(turnResExitPoint) {
 			if turnType != pkg.NO_ENTRY {
 				t.Errorf("expected NO_ENTRY turn type, got %v", turnType)

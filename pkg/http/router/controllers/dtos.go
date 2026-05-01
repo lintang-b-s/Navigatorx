@@ -65,7 +65,7 @@ func NewDrivingDirection(d da.DrivingDirection) drivingDirection {
 		EdgeIds:             d.GetEdgesIds(),
 		Polyline:            d.GetPolyline(),
 		TurnBearing:         d.GetTurnBearing(),
-		TurnType:            d.GetTurnType(),
+		TurnType:            d.GetTurnTableId(),
 		SuggestAlternatives: d.GetSuggestAlternatives(),
 	}
 }
@@ -90,7 +90,7 @@ func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirec
 }
 
 func NewAlternativeRoutesResponse(alts []routing.AlternativeRoute) alternativeRoutesResponse {
-	altRes := alternativeRoutesResponse{}
+	altRes := alternativeRoutesResponse{Routes: make([]shortestPathResponse, 0)}
 	for _, alt := range alts {
 		altRes.Routes = append(altRes.Routes, NewShortestPathResponse(
 			alt.GetDrivingTravelTime(),
@@ -124,7 +124,7 @@ func (g *gps) ToDataGPS() *da.GPSPoint {
 
 type Candidate struct {
 	EdgeId da.Index `json:"edge_id" validate:"min=0"`
-	Weight float64  `json:"weight"`
+	Weight float64  `json:"weight" validate:"min=0"`
 	Length float64  `json:"length" validate:"min=0"`
 }
 
