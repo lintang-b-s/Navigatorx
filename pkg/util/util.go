@@ -106,7 +106,6 @@ var (
 	ErrNotFound            = errors.New("your requested Item is not found")
 	ErrConflict            = errors.New("your Item already exist")
 	ErrBadParamInput       = errors.New("given Param is not valid")
-	ErrContextDeadline     = errors.New("request timeout")
 )
 
 var MessageInternalServerError string = "internal server error"

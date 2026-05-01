@@ -272,7 +272,6 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 
 }
 
-// inspired by: https://engineering.grab.com/context-deadlines-and-how-to-set-them
 // taken from: https://oneuptime.com/blog/post/2026-02-01-go-context-propagation-microservices/view
 func ExtractDeadline(ctx context.Context, r *http.Request) (context.Context, context.CancelFunc) {
 	deadlineStr := r.Header.Get("X-Request-Deadline")

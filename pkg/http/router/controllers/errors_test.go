@@ -70,14 +70,6 @@ func TestRoutingAPI_ErrorResponse(t *testing.T) {
 		assert.Equal(t, http.StatusUnauthorized, rr.Code)
 	})
 
-	t.Run("Timeout", func(t *testing.T) {
-		rr := httptest.NewRecorder()
-		req, _ := http.NewRequest("GET", "/", nil)
-		api.TimeoutResponse(rr, req, "request timeout")
-		assert.Equal(t, http.StatusGatewayTimeout, rr.Code)
-		assert.Contains(t, rr.Body.String(), "request timeout")
-	})
-
 	t.Run("Edit Conflict", func(t *testing.T) {
 		rr := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/", nil)
@@ -122,7 +114,6 @@ func TestRoutingAPI_GetStatusCode(t *testing.T) {
 		{"Not Found", util.WrapErrorf(errors.New("not found"), util.ErrNotFound, "not found"), http.StatusNotFound},
 		{"Conflict", util.WrapErrorf(errors.New("conflict"), util.ErrConflict, "conflict"), http.StatusConflict},
 		{"Bad Param", util.WrapErrorf(errors.New("bad"), util.ErrBadParamInput, "bad"), http.StatusBadRequest},
-		{"Deadline", util.WrapErrorf(errors.New("deadline"), util.ErrContextDeadline, "deadline"), http.StatusGatewayTimeout},
 		{"Plain Error", errors.New("plain"), http.StatusInternalServerError},
 		{"Unknown Code", util.WrapErrorf(errors.New("unknown"), errors.New("unknown code"), "unknown"), http.StatusInternalServerError},
 	}
