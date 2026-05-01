@@ -186,7 +186,8 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 	uEntryPoint := uEntryId - us.engine.graph.GetEntryOffset(uId)
 
 	// traverse outEdges of u
-	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index,
+		turnType pkg.TurnType,
 		hwType pkg.OsmHighwayType) {
 
 		vId := head
@@ -204,7 +205,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 
 		edgeWeight := us.engine.GetWeight(eId, true)
 
-		turnCost := us.engine.metrics.GetTurnCost(turnType)
+		turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost

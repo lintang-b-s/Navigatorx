@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -20,12 +19,13 @@ import (
 
 type Metric struct {
 	// https://go101.org/article/concurrent-atomic-operation.html   https://pkg.go.dev/sync/atomic#Pointer.Load   https://go.dev/ref/mem#atomic
-	weights                              atomic.Pointer[da.OverlayWeights]
-	entryStallingTables                  atomic.Value // stallingTables for vertex-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
-	exitStallingTables                   atomic.Value
-	costFunction                         atomic.Pointer[costfunction.TimeFunction]
-	metricFilepath, timeFunctionFilePath string
-	lock                                 sync.Mutex
+	weights                                     atomic.Pointer[da.OverlayWeights]
+	entryStallingTables                         atomic.Value // stallingTables for vertex-v, i-th incoming edge and j-th incoming edge:  stallingTables[v][i*inDegree[v]+j]
+	exitStallingTables                          atomic.Value
+	costFunction                                atomic.Pointer[costfunction.TimeFunction]
+	lastSegmentSpeedFiles, lastTurnPenaltyFiles atomic.Value
+	metricFilepath, timeFunctionFilePath        string
+	lock                                        sync.Mutex
 }
 
 func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *da.OverlayWeights, metricFilepath string,
@@ -47,11 +47,17 @@ func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *d
 		metricFilepath:       metricFilepath,
 		timeFunctionFilePath: timeFunctionFilePath,
 		lock:                 sync.Mutex{},
+		// lastSegmentSpeedFiles: make([]string, 0),
+		// lastTurnPenaltyFiles:  make([]string, 0),
 	}
 	m.weights.Store(overlayWeights)
 	m.entryStallingTables.Store(make([][]float64, numOfVertices))
 	m.exitStallingTables.Store(make([][]float64, numOfVertices))
 	m.costFunction.Store(tf)
+
+	m.lastSegmentSpeedFiles.Store(make([]string, 0))
+	m.lastTurnPenaltyFiles.Store(make([]string, 0))
+
 	return m
 }
 
@@ -122,8 +128,8 @@ func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.
 			for j := da.Index(0); j < n; j++ {
 				maxDiff := -1.0
 				for k := da.Index(0); k < m; k++ {
-					Tv_ik := met.GetTurnCost(graph.GetTurnType(vId, i, k))
-					Tv_jk := met.GetTurnCost(graph.GetTurnType(vId, j, k))
+					Tv_ik := met.GetTurnCost(graph.GetTurnTableId(vId, i, k))
+					Tv_jk := met.GetTurnCost(graph.GetTurnTableId(vId, j, k))
 					maxDiff = util.MaxFloat(Tv_ik-Tv_jk, maxDiff)
 				}
 
@@ -137,8 +143,8 @@ func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.
 			for j := da.Index(0); j < m; j++ {
 				maxDiff := -1.0
 				for k := da.Index(0); k < n; k++ {
-					Tv_ki := met.GetTurnCost(graph.GetTurnType(vId, k, i))
-					Tv_kj := met.GetTurnCost(graph.GetTurnType(vId, k, j))
+					Tv_ki := met.GetTurnCost(graph.GetTurnTableId(vId, k, i))
+					Tv_kj := met.GetTurnCost(graph.GetTurnTableId(vId, k, j))
 					maxDiff = util.MaxFloat(Tv_ki-Tv_kj, maxDiff)
 				}
 
@@ -183,13 +189,29 @@ func (met *Metric) GetShortcutWeight(offset da.Index) float64 {
 	return weights.GetWeight(offset)
 }
 
-func (met *Metric) GetTurnCost(t pkg.TurnType) float64 {
+func (met *Metric) GetTurnCost(turnTableId da.Index) float64 {
 	cf := met.costFunction.Load()
-	return cf.GetTurnCost(t)
+	return cf.GetTurnCost(turnTableId)
 }
 
 func (met *Metric) GetFilePath() string {
 	return met.metricFilepath
+}
+
+func (met *Metric) SetLastSegmentSpeedFiles(filepaths []string) {
+	met.lastSegmentSpeedFiles.Store(filepaths)
+}
+
+func (met *Metric) SetLastTurnPenaltyFiles(filepaths []string) {
+	met.lastTurnPenaltyFiles.Store(filepaths)
+}
+
+func (met *Metric) GetLastSegmentSpeedFiles() []string {
+	return met.lastSegmentSpeedFiles.Load().([]string)
+}
+
+func (met *Metric) GetLastTurnPenaltyFiles() []string {
+	return met.lastTurnPenaltyFiles.Load().([]string)
 }
 
 func (met *Metric) WriteToFile(filename string) error {

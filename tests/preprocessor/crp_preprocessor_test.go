@@ -1170,7 +1170,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 						if headOsmNodeId == uint64(rest.via) {
 
 							// traverse ke semua outedges of head
-							graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, _ float64, _, headToEntryPoint da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
+							graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, _ float64, _, headToEntryPoint, turnTableId da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
 								if graph.IsDummyOutEdge(eIdTo) {
 									return
 								}

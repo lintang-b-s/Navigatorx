@@ -65,7 +65,7 @@ func NewDrivingDirection(d da.DrivingDirection) drivingDirection {
 		EdgeIds:             d.GetEdgesIds(),
 		Polyline:            d.GetPolyline(),
 		TurnBearing:         d.GetTurnBearing(),
-		TurnType:            d.GetTurnType(),
+		TurnType:            d.GetTurnTableId(),
 		SuggestAlternatives: d.GetSuggestAlternatives(),
 	}
 }

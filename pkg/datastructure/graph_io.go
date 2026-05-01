@@ -90,11 +90,11 @@ func (g *Graph) WriteGraph(filename string) error {
 	}
 
 	// turn tables
-	for i, tt := range g.turnTables {
+	for i, tt := range g.turnTypeTable {
 		if _, err = fmt.Fprintf(w, "%d", tt); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing turnTable[%d]", i)
 		}
-		if i < len(g.turnTables)-1 {
+		if i < len(g.turnTypeTable)-1 {
 			if _, err = fmt.Fprintf(w, " "); err != nil {
 				return err
 			}
@@ -324,7 +324,7 @@ func (g *Graph) WriteGraph(filename string) error {
 	}
 	for _, c := range g.graphStorage.conditionalTurnRestrictions {
 		viaEIdsLen := len(c.GetViaEIds())
-		_, err = fmt.Fprintf(w, "%d %d %d %t %d %d", c.GetFromVId(), c.GetViaVId(), c.GetToVId(), c.GetViaWay(), c.GetTurnType(), viaEIdsLen)
+		_, err = fmt.Fprintf(w, "%d %d %d %t %d %d", c.GetFromVId(), c.GetViaVId(), c.GetToVId(), c.GetViaWay(), c.GetTurnTableId(), viaEIdsLen)
 		if err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing conditionalTurnRestriction headers")
 		}
@@ -493,18 +493,18 @@ func ReadGraph(filename string) (*Graph, error) {
 		cellNumbers[i] = Pv(cellNumber)
 	}
 
-	turnTables := make([]pkg.TurnType, 0)
+	turnTypeTable := make([]pkg.TurnType, 0)
 	line, err = util.ReadLine(br)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read turntables string")
+		return nil, errors.Wrapf(err, "ReadGraph: failed to read turnTypeTable string")
 	}
 	tokens = util.Fields(line)
 	for _, token := range tokens {
 		tt, err := strconv.ParseUint(token, 10, 8)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse uint turnTables: %v", token)
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse uint turnTypeTable: %v", token)
 		}
-		turnTables = append(turnTables, pkg.TurnType(tt))
+		turnTypeTable = append(turnTypeTable, pkg.TurnType(tt))
 	}
 
 	overlayVertices := make(map[SubVertex]Index)
@@ -1080,7 +1080,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	graphStorage.SetConditionalTrafficModes(conditionalTrafficModes)
 	graphStorage.SetConditionalTurnRestrictions(conditionalTurnRestrictions)
 
-	graph := NewGraph(vertices, outEdges, inEdges, turnTables, roadNetwork, verticesOsmIdsPs)
+	graph := NewGraph(vertices, outEdges, inEdges, turnTypeTable, roadNetwork, verticesOsmIdsPs)
 	graph.SetGraphStorage(graphStorage)
 	graph.SetCellNumbers(cellNumbers)
 	graph.SetOverlayMapping(overlayVertices)

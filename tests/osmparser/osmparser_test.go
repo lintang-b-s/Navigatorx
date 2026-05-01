@@ -185,8 +185,8 @@ func TestOSMParser(t *testing.T) {
 
 		})
 
-		if graph.GetTurntablesLength() != int(matrixOffset) {
-			t.Errorf("expected turn table length: %v, got: %v", graph.GetTurntablesLength(), matrixOffset)
+		if graph.GetTurnTypeTableLength() != int(matrixOffset) {
+			t.Errorf("expected turn table length: %v, got: %v", graph.GetTurnTypeTableLength(), matrixOffset)
 		}
 	}
 

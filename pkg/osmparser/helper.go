@@ -578,10 +578,10 @@ func IsConditionalRestrictionCurrentlyProhibited(currentTime time.Time, accessCo
 			// see: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla, OSM tags for routing (nodes):
 			// kita cuma prohibite node for routing, ketika access val = no ,discouraged, agricultural, dan forestry
 			if no {
-				return false, nil
+				return true, nil
 			}
 
-			return true, nil
+			return false, nil
 		}
 	}
 

@@ -17,19 +17,19 @@ import (
 )
 
 type Customizer struct {
-	ow                   *da.OverlayWeights
-	graph                *da.Graph
-	overlayGraph         *da.OverlayGraph
-	lowestHeapPool       sync.Pool
-	levelHeapPool        sync.Pool
-	verticesLookupTable  *LookupTable[uint64]
-	logger               *zap.Logger
-	edgeSpeedsFilePath   []string
-	graphFilePath        string
-	overlayGraphFilePath string
-	metricOutputFilePath string
-	timefunctionFilePath string
-	landmarkFile         string
+	ow                                        *da.OverlayWeights
+	graph                                     *da.Graph
+	overlayGraph                              *da.OverlayGraph
+	lowestHeapPool                            sync.Pool
+	levelHeapPool                             sync.Pool
+	verticesLookupTable                       *LookupTable[uint64]
+	logger                                    *zap.Logger
+	edgeSpeedsFilePath, turnPenaltiesFilePath []string
+	graphFilePath                             string
+	overlayGraphFilePath                      string
+	metricOutputFilePath                      string
+	timefunctionFilePath                      string
+	landmarkFile                              string
 }
 
 func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, timefunctionFilePath, landmarkFile string,
@@ -48,6 +48,10 @@ func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, ti
 
 func (c *Customizer) SetEdgeSpeedsFilePath(filePath []string) {
 	c.edgeSpeedsFilePath = filePath
+}
+
+func (c *Customizer) SetTurnPenaltiesFilePath(filePath []string) {
+	c.turnPenaltiesFilePath = filePath
 }
 
 func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, logger *zap.Logger) *Customizer {
@@ -90,19 +94,39 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	updatedEdgeIds := make([]da.Index, 0)
 	updatedEdgeMaxSpeeds := make([]float64, 0)
 
+	lastSegmentSpeedFiles := make([]string, 0)
 	if len(c.edgeSpeedsFilePath) != 0 {
-		for _, currFilePath := range c.edgeSpeedsFilePath {
-			currEdgeIds, currEdgeMaxSpeeds, err := c.readEdgeSpeedsFromFile(currFilePath)
+		for _, currSpeedFilePath := range c.edgeSpeedsFilePath {
+			currEdgeIds, currEdgeMaxSpeeds, err := c.readEdgeSpeedsFromFile(currSpeedFilePath)
 			if err != nil {
 				return nil, err
 			}
 			updatedEdgeIds = append(updatedEdgeIds, currEdgeIds...)
 			updatedEdgeMaxSpeeds = append(updatedEdgeMaxSpeeds, currEdgeMaxSpeeds...)
+			lastSegmentSpeedFiles = append(lastSegmentSpeedFiles, currSpeedFilePath)
+		}
+	}
+
+	updatedTurnTableIds := make([]da.Index, 0)
+	updatedTurnPenalties := make([]float64, 0)
+	lastTurnPenaltiesFiles := make([]string, 0)
+	if len(c.turnPenaltiesFilePath) != 0 {
+		for _, turnPenaltiesFilePath := range c.turnPenaltiesFilePath {
+			currturnTableIds, currTurnPenalties, err := c.readTurnPenaltiesFromFile(turnPenaltiesFilePath)
+			if err != nil {
+				return nil, err
+			}
+			updatedTurnTableIds = append(updatedTurnTableIds, currturnTableIds...)
+			updatedTurnPenalties = append(updatedTurnPenalties, currTurnPenalties...)
+			lastTurnPenaltiesFiles = append(lastTurnPenaltiesFiles, turnPenaltiesFilePath)
 		}
 	}
 
 	edgeMaxSpeeds := c.makeEdgeMaxSpeeds(updatedEdgeIds, updatedEdgeMaxSpeeds)
-	costFunction := costfunction.NewTimeCostFunction(roadNetwork, edgeMaxSpeeds)
+
+	turnTypes := c.graph.GetTurnTypes()
+	turnTable := c.makeTurnTable(turnTypes, updatedTurnTableIds, updatedTurnPenalties)
+	costFunction := costfunction.NewTimeCostFunction(roadNetwork, edgeMaxSpeeds, turnTable)
 	err = costFunction.WriteToFile(c.timefunctionFilePath)
 	if err != nil {
 		return nil, err
@@ -141,6 +165,8 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 		panic(err)
 	}
 
+	m.SetLastSegmentSpeedFiles(lastSegmentSpeedFiles)
+	m.SetLastTurnPenaltyFiles(lastTurnPenaltiesFiles)
 	// ini write metrics harus terakhir karena bakal di update background worker
 	err = m.WriteToFile(c.metricOutputFilePath)
 	if err != nil {
@@ -198,6 +224,60 @@ func (c *Customizer) makeEdgeMaxSpeeds(updatedEdgeIds []da.Index, updatedEdgeMax
 		edgeMaxSpeeds[uEId] = updatedEdgeMaxSpeeds[i]
 	}
 	return edgeMaxSpeeds
+}
+
+func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTableIds []da.Index, updatedTurnPenalties []float64) []float64 {
+	mapTurnCosts := viper.GetStringMap("turncosts")
+	turnCosts := make([]float64, 6)
+	for turnTypeStr, cost := range mapTurnCosts {
+
+		turnType := getTurnTableId(turnTypeStr)
+		switch v := cost.(type) {
+		case int:
+			turnCosts[turnType] = float64(v)
+		case float64:
+			turnCosts[turnType] = float64(v)
+		default:
+			panic("unsupported type")
+		}
+	}
+	turnCosts[pkg.NONE] = 0
+	turnCosts[pkg.NO_ENTRY] = pkg.INF_WEIGHT
+
+	n := len(turnTypeTable)
+	turnTable := make([]float64, n)
+	for id := 0; id < n; id++ {
+		turnType := turnTypeTable[id]
+		turnTable[id] = turnCosts[turnType]
+	}
+
+	m := len(updatedTurnTableIds)
+	for i := 0; i < m; i++ {
+		turnTableId := updatedTurnTableIds[i]
+		turnTable[turnTableId] = updatedTurnPenalties[i]
+	}
+	return turnTable
+}
+
+func getTurnTableId(turnTypeStr string) pkg.TurnType {
+	var turnType pkg.TurnType
+	switch turnTypeStr {
+	case "left_turn":
+		turnType = pkg.LEFT_TURN
+	case "right_turn":
+		turnType = pkg.RIGHT_TURN
+	case "straight_on":
+		turnType = pkg.STRAIGHT_ON
+	case "u_turn":
+		turnType = pkg.U_TURN
+	case "no_entry":
+		turnType = pkg.NO_ENTRY
+	case "none":
+		turnType = pkg.NONE
+	default:
+		panic("unsupported turn type")
+	}
+	return turnType
 }
 
 type customizerCell struct {
@@ -321,13 +401,13 @@ func (c *Customizer) buildLowestLevel(
 					uTravelTime := pqNode.GetRank()
 
 					c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryId+forwardCellOffset),
-						func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+						func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
 							hwType pkg.OsmHighwayType) {
 							// traverse all out edges
 
 							v := head
 
-							turnCost := costFunction.GetTurnCost(turnType)
+							turnCost := costFunction.GetTurnCost(turnTableId)
 
 							uTravelTimeWithTurnCost := uTravelTime + turnCost
 							outArcCost := costFunction.GetWeight(eId, weight, length)

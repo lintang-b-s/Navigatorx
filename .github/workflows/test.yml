@@ -27,6 +27,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ matrix.os == 'ubuntu-latest' && secrets.GITHUB_TOKEN || '' }} # Needed for GitHub badge storer integration test
         run: go test -p 1 ./... -v -timeout=0  -count=1 -coverpkg=./pkg/...  -coverprofile=${{ matrix.os }}-profile  -skip "^TestOSN2024KRLMALT$|^TestOSN2024KRL$" # skip test yang lama selesainya
+        # note: tests harus tidak concurrent (-p 1) karena kita setiap TestFunction pada tests/shortestpath, tests/shortestpath_crp_alt, tests/query write ke file landmark yang sama
 
       - name: upload cover profile artifact
         uses: actions/upload-artifact@v7

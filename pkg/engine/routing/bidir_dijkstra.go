@@ -217,13 +217,13 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 	}
 
 	// traverse outEdges of u
-	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
 		hwType pkg.OsmHighwayType) {
 		vId := head
 
 		edgeWeight := bs.engine.GetWeight(eId, true)
 
-		turnCost := bs.engine.metrics.GetTurnCost(turnType)
+		turnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
@@ -269,17 +269,17 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 
 		newVEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
 		// traverse outEdges of v
-		bs.engine.graph.ForOutEdgesOf(vId, entryPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index, turnType2 pkg.TurnType,
+		bs.engine.graph.ForOutEdgesOf(vId, entryPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId2 da.Index, turnType2 pkg.TurnType,
 			_ pkg.OsmHighwayType) {
 
 			//  check if forward and backward search already scanned entry and exit point of v. if so, check whether we can improve the shortest path
 			scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
 
 			vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-			if scannedByBackwardSearch && util.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
+			if scannedByBackwardSearch && util.Lt(newVEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnTableId2)+
 				vExitIdTravelTime, bs.shortestTravelTime) {
 
-				bs.shortestTravelTime = newVEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnType2) +
+				bs.shortestTravelTime = newVEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnTableId2) +
 					vExitIdTravelTime
 
 				bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)
@@ -319,13 +319,13 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 		otherUExitId++
 	}
 
-	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
+	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index,
 		turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 		vId := tail
 
 		edgeWeight := bs.engine.GetWeight(eId, false)
 
-		turnCost := bs.engine.metrics.GetTurnCost(turnType)
+		turnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
 		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
@@ -361,15 +361,15 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 		vEntryId := entryOffset
 
 		newVExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-		bs.engine.graph.ForInEdgesOf(vId, exitPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index,
+		bs.engine.graph.ForInEdgesOf(vId, exitPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId2 da.Index,
 			turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
 			scannedByForwardSearch := bs.forwardPq.IsScanned(vEntryId)
 
 			vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
-			if scannedByForwardSearch && util.Lt(vEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnType2)+
+			if scannedByForwardSearch && util.Lt(vEntryIdTravelTime+bs.engine.metrics.GetTurnCost(turnTableId2)+
 				newVExitIdTravelTime, bs.shortestTravelTime) {
 
-				bs.shortestTravelTime = vEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnType2) +
+				bs.shortestTravelTime = vEntryIdTravelTime + bs.engine.metrics.GetTurnCost(turnTableId2) +
 					newVExitIdTravelTime
 
 				bs.forwardMid = da.NewVertexEdgePair(vId, vEntryId, false)

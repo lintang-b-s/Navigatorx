@@ -105,7 +105,7 @@ func (c ConditionalTurnRestriction) GetViaWay() bool {
 	return c.viaWay
 }
 
-func (c ConditionalTurnRestriction) GetTurnType() pkg.TurnType {
+func (c ConditionalTurnRestriction) GetTurnTableId() pkg.TurnType {
 	return c.turnType
 }
 

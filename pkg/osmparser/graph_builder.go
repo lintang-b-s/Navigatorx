@@ -1065,13 +1065,11 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	matrixOffset := 0
 
 	for v := 0; v < len(vertices)-1; v++ {
-
 		// set the turnTablePtr of vertex v to the current matrixOffset
 		// matrix offset is index of the first element of turnMatrices[v] in the flattened matrices array
 		vertices[v].SetTurnTablePtr(da.Index(matrixOffset))
 		// flatten the turnMatrices
 		for i := 0; i < len(turnMatrices[v]); i++ {
-
 			matrices = append(matrices, turnMatrices[v][i])
 		}
 
@@ -1097,7 +1095,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	for i := 0; i < len(flattenOutEdges); i++ {
 		outEdgeId := da.Index(i)
 		flattenOutEdges[i].SetEdgeId(outEdgeId)
-
 	}
 
 	flattenInEdges := flatten(inEdges)

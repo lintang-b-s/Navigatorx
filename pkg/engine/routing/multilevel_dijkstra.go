@@ -292,7 +292,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (flo
 			exitOffset = bs.engine.offsetBackward(uId, exitOffset, bs.engine.graph.GetCellNumber(uId), bs.sCellNumber)
 
 			uExitId := exitOffset
-			bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index, _ pkg.TurnType,
+			bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId da.Index, _ pkg.TurnType,
 				_ pkg.OsmHighwayType) {
 
 				//  check if forward and backward search already scanned  exit point of v. if so, check whether we can improve the shortest path
@@ -315,7 +315,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (flo
 
 			uEntryId := entryOffset
 
-			bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index,
+			bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId da.Index,
 				_ pkg.TurnType, _ pkg.OsmHighwayType) {
 				scannedByForwardSearch := bs.forwardPq.IsScanned(uEntryId)
 				if scannedByForwardSearch {
@@ -424,7 +424,7 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 	}
 
 	// traverse outEdges of u
-	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint da.Index, turnType pkg.TurnType,
+	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
 		hwType pkg.OsmHighwayType) {
 		vId := head
 
@@ -438,7 +438,7 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 			return
 		}
 
-		turnCost := bs.engine.metrics.GetTurnCost(turnType)
+		turnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
@@ -488,14 +488,14 @@ func (bs *CRPBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 
 			newVEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
 			// traverse outEdges of v
-			bs.engine.graph.ForOutEdgesOf(vId, entryPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index, turnType2 pkg.TurnType,
+			bs.engine.graph.ForOutEdgesOf(vId, entryPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId2 da.Index, turnType2 pkg.TurnType,
 				_ pkg.OsmHighwayType) {
 
 				// check if forward and backward search already scanned entry point and  exit point of v. if so, check whether we can improve the shortest path
 				scannedByBackwardSearch := bs.backwardPq.IsScanned(vExitId)
 				vExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
 
-				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
+				midTurnCost := bs.engine.metrics.GetTurnCost(turnTableId2)
 
 				newPathTravelTime := newVEntryIdTravelTime + midTurnCost +
 					vExitIdTravelTime
@@ -578,7 +578,7 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 		otherUExitId++
 	}
 
-	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint da.Index,
+	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index,
 		turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 		vId := tail
 
@@ -587,7 +587,7 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 
 		edgeWeight := bs.engine.GetWeight(eId, false)
 
-		turnCost := bs.engine.metrics.GetTurnCost(turnType)
+		turnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
 
@@ -629,12 +629,12 @@ func (bs *CRPBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, sour
 			vEntryId := entryOffset
 
 			newVExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-			bs.engine.graph.ForInEdgesOf(vId, exitPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index,
+			bs.engine.graph.ForInEdgesOf(vId, exitPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId2 da.Index,
 				turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
 				scannedByForwardSearch := bs.forwardPq.IsScanned(vEntryId)
 				vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
 
-				midTurnCost := bs.engine.metrics.GetTurnCost(turnType2)
+				midTurnCost := bs.engine.metrics.GetTurnCost(turnTableId2)
 
 				newPathTravelTime := vEntryIdTravelTime + midTurnCost +
 					newVExitIdTravelTime
@@ -767,13 +767,13 @@ func (bs *CRPBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 
 				newWEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
 				wExitId := exitOffset
-				bs.engine.graph.ForOutEdgesOf(originalWId, outEdgeEntryPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index, turn pkg.TurnType,
+				bs.engine.graph.ForOutEdgesOf(originalWId, outEdgeEntryPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId da.Index, turn pkg.TurnType,
 					_ pkg.OsmHighwayType) {
 					// check if forward and backward search already scanned exit point of w. if so, check whether we can improve the shortest path
 					scannedByBackwardSearch := bs.backwardPq.IsScanned(wExitId)
 					wExitIdTravelTime := bs.backwardPq.GetPriority(wExitId)
 
-					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
+					midTurnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
 					newPathTravelTime := newWEntryIdTravelTime + midTurnCost +
 						wExitIdTravelTime
@@ -919,11 +919,11 @@ func (bs *CRPBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 				wEntryId := entryOffset
 
 				newWExitIdTravelTime := bs.backwardPq.GetPriority(wExitId)
-				bs.engine.graph.ForInEdgesOf(originalWId, inEdgeExitPoint, func(_, _ da.Index, _, _ float64, _, _ da.Index,
+				bs.engine.graph.ForInEdgesOf(originalWId, inEdgeExitPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId da.Index,
 					turn pkg.TurnType, _ pkg.OsmHighwayType) {
 					scannedByForwardSearch := bs.forwardPq.IsScanned(wEntryId)
 					wEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
-					midTurnCost := bs.engine.metrics.GetTurnCost(turn)
+					midTurnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
 					newPathTravelTime := wEntryIdTravelTime + midTurnCost +
 						newWExitIdTravelTime
