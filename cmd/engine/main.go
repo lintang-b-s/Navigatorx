@@ -35,6 +35,7 @@ var (
 	websocketPort          = flag.Int("websocket_port", 6666, "websocket port")
 	proxyPort              = flag.Int("proxy_port", 6767, "proxy port")
 	gracefulShutdownPeriod = flag.Int("graceful_shutdown_period", 3, "graceful shutdown period") // see https://victoriametrics.com/blog/go-graceful-shutdown/
+	useRateLimiter         = flag.Bool("ratelimit", false, "use rate limiter")
 )
 
 func init() {
@@ -97,7 +98,7 @@ func main() {
 	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
 
 	serverErr := api.Use(
-		logger, false, routingService, mapmatcherService, shutdownPeriod*time.Second)
+		logger, *useRateLimiter, routingService, mapmatcherService, shutdownPeriod*time.Second)
 
 	if serverErr != nil {
 		logger.Error("server exited unexpectedly", zap.Error(err))
