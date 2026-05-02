@@ -299,13 +299,15 @@ func FindProjectWorkingDir() (string, error) {
 	if err != nil {
 		return "", err
 	}
+	startDir := dir
 	for {
 		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir, nil
 		}
 		parent := filepath.Dir(dir)
 		if parent == dir {
-			return "", errors.Errorf("go.mod not found")
+			// Fallback to initial directory if go.mod is not found (production mode)
+			return startDir, nil
 		}
 		dir = parent
 	}

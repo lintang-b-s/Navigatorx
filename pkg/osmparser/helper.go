@@ -634,13 +634,13 @@ func (p *OsmParser) isBarrierNodeAccessible(node *osm.Node) (bool, error) {
 	}
 }
 
-func isAccessTagProhibited(accessVal string) bool {
+func isAccessTagAllowed(accessVal string) bool {
 	if accessVal == "no" || accessVal == "discouraged" || accessVal == "agricultural" ||
 		accessVal == "forestry" {
-		return true
+		return false
 	}
 
-	return false
+	return true
 }
 
 /*
@@ -661,53 +661,53 @@ func isAccessByVehicleModeAllowed(findTag func(key string) string) bool {
 
 	accessVal := findTag("access")
 	// access=yes atau yang lainnya
-	prohibited := isAccessTagProhibited(accessVal)
+	allowed := isAccessTagAllowed(accessVal)
 
-	// kalau access=no (prohibited=true), vehicle=yes && pkg.IsVehicle=true, berarti allowed
+	// kalau access=no (allowed=false), vehicle=yes && pkg.IsVehicle=true, berarti allowed
 
 	// disini kita return true kalau tipe kendaraan profile gak prohibited, meskipun access=no
 
 	// vehicle type access
 	vehicleTagVal := findTag("vehicle")
-	vehicleProbhibited := isAccessTagProhibited(vehicleTagVal)
-	if pkg.IsVehicle && !vehicleProbhibited {
-		// kalau access=no (prohibited=true), vehicle=yes, berarti allowed
+	vehicleAllowed := isAccessTagAllowed(vehicleTagVal)
+	if pkg.IsVehicle && vehicleAllowed {
+		// kalau access=no (allowed=false), vehicle=yes, berarti allowed
 		return true
 	}
 
 	// motor vehicle type access
 	motorVehicleTagVal := findTag("motor_vehicle")
-	motorizedVehicleProhibited := isAccessTagProhibited(motorVehicleTagVal)
-	if pkg.MotorizedVehicle && !motorizedVehicleProhibited {
+	motorizedVehicleAllowed := isAccessTagAllowed(motorVehicleTagVal)
+	if pkg.MotorizedVehicle && motorizedVehicleAllowed {
 		return true
 	}
 
 	// specific vehicle type access
 	specificVehicleTypeTagVal := findTag(pkg.VehicleTypeTag[pkg.VehicleType])
-	vehicleTypeProhibited := isAccessTagProhibited(specificVehicleTypeTagVal)
-	if !vehicleTypeProhibited {
+	vehicleTypeAllowed := isAccessTagAllowed(specificVehicleTypeTagVal)
+	if vehicleTypeAllowed {
 		return true
 	}
 
 	busPsvAccess := findTag("bus:psv:forward")
 
-	busProhibited := isAccessTagProhibited(busPsvAccess)
-	if pkg.VehicleType == pkg.BUS && !busProhibited {
+	busAllowed := isAccessTagAllowed(busPsvAccess)
+	if pkg.VehicleType == pkg.BUS && busAllowed {
 		return true
 	}
 
 	psvAccess := findTag("psv:psv:forward")
 	lanePsvAccess := findTag("lanes:psv:forward")
 
-	busProhibited = isAccessTagProhibited(psvAccess) || isAccessTagProhibited(lanePsvAccess)
-	if pkg.VehicleType == pkg.BUS && !busProhibited {
+	busAllowed = isAccessTagAllowed(psvAccess) && isAccessTagAllowed(lanePsvAccess)
+	if pkg.VehicleType == pkg.BUS && busAllowed {
 		return true
 	}
 
 	// pedestrian type access
 	footTagVal := findTag("foot")
-	pedestrianProhibited := isAccessTagProhibited(footTagVal)
-	if pkg.VehicleType == pkg.FOOT && !pedestrianProhibited {
+	pedestrianAllowed := isAccessTagAllowed(footTagVal)
+	if pkg.VehicleType == pkg.FOOT && pedestrianAllowed {
 		return true
 	}
 
@@ -715,15 +715,15 @@ func isAccessByVehicleModeAllowed(findTag func(key string) string) bool {
 	bicycleTagVal := findTag("bicycle")
 	cyclewayTagVal := findTag("cycleway")
 
-	bicycleProhibited := isAccessTagProhibited(bicycleTagVal) || isAccessTagProhibited(cyclewayTagVal)
-	if pkg.VehicleType == pkg.BICYCLE && !bicycleProhibited {
+	bicycleAllowed := isAccessTagAllowed(bicycleTagVal) && isAccessTagAllowed(cyclewayTagVal)
+	if pkg.VehicleType == pkg.BICYCLE && bicycleAllowed {
 		return true
 	}
 
 	// karena kendaraan profile prohibited
-	// berarti return allowed as !prohibited
+	// berarti return allowed as is
 
-	return !prohibited
+	return allowed
 }
 
 func GetAccessValConditionalRestriction(val string) string {
@@ -741,53 +741,53 @@ func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) 
 
 	accessVal := findTag("access:conditional")
 	// access=yes atau yang lainnya
-	prohibited := isAccessTagProhibited(accessVal)
+	allowed := isAccessTagAllowed(accessVal)
 
-	// kalau access=no (prohibited=true), vehicle=yes && pkg.IsVehicle=true, berarti allowed
+	// kalau access=no (allowed=false), vehicle=yes && pkg.IsVehicle=true, berarti allowed
 
 	// disini kita return true kalau tipe kendaraan profile gak prohibited, meskipun access=no
 
 	// vehicle type access
 	vehicleTagVal := findTag("vehicle:conditional")
-	vehicleProbhibited := isAccessTagProhibited(vehicleTagVal)
-	if pkg.IsVehicle && !vehicleProbhibited {
-		// kalau access=no (prohibited=true), vehicle=yes, berarti allowed
+	vehicleAllowed := isAccessTagAllowed(vehicleTagVal)
+	if pkg.IsVehicle && vehicleAllowed {
+		// kalau access=no (allowed=false), vehicle=yes, berarti allowed
 		return true
 	}
 
 	// motor vehicle type access
 	motorVehicleTagVal := findTag("motor_vehicle:conditional")
-	motorizedVehicleProhibited := isAccessTagProhibited(motorVehicleTagVal)
-	if pkg.MotorizedVehicle && !motorizedVehicleProhibited {
+	motorizedVehicleAllowed := isAccessTagAllowed(motorVehicleTagVal)
+	if pkg.MotorizedVehicle && motorizedVehicleAllowed {
 		return true
 	}
 
 	// specific vehicle type access
 	specificVehicleTypeTagVal := findTag(pkg.VehicleTypeTag[pkg.VehicleType] + ":conditional")
-	vehicleTypeProhibited := isAccessTagProhibited(specificVehicleTypeTagVal)
-	if !vehicleTypeProhibited {
+	vehicleTypeAllowed := isAccessTagAllowed(specificVehicleTypeTagVal)
+	if vehicleTypeAllowed {
 		return true
 	}
 
 	busPsvAccess := findTag("bus:psv:forward:conditional")
 
-	busProhibited := isAccessTagProhibited(busPsvAccess)
-	if pkg.VehicleType == pkg.BUS && !busProhibited {
+	busAllowed := isAccessTagAllowed(busPsvAccess)
+	if pkg.VehicleType == pkg.BUS && busAllowed {
 		return true
 	}
 
 	psvAccess := findTag("psv:psv:forward:conditional")
 	lanePsvAccess := findTag("lanes:psv:forward:conditional")
 
-	busProhibited = isAccessTagProhibited(psvAccess) || isAccessTagProhibited(lanePsvAccess)
-	if pkg.VehicleType == pkg.BUS && !busProhibited {
+	busAllowed = isAccessTagAllowed(psvAccess) && isAccessTagAllowed(lanePsvAccess)
+	if pkg.VehicleType == pkg.BUS && busAllowed {
 		return true
 	}
 
 	// pedestrian type access
 	footTagVal := findTag("foot:conditional")
-	pedestrianProhibited := isAccessTagProhibited(footTagVal)
-	if pkg.VehicleType == pkg.FOOT && !pedestrianProhibited {
+	pedestrianAllowed := isAccessTagAllowed(footTagVal)
+	if pkg.VehicleType == pkg.FOOT && pedestrianAllowed {
 		return true
 	}
 
@@ -795,15 +795,15 @@ func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) 
 	bicycleTagVal := findTag("bicycle:conditional")
 	cyclewayTagVal := findTag("cycleway:conditional")
 
-	bicycleProhibited := isAccessTagProhibited(bicycleTagVal) || isAccessTagProhibited(cyclewayTagVal)
-	if pkg.VehicleType == pkg.BICYCLE && !bicycleProhibited {
+	bicycleAllowed := isAccessTagAllowed(bicycleTagVal) && isAccessTagAllowed(cyclewayTagVal)
+	if pkg.VehicleType == pkg.BICYCLE && bicycleAllowed {
 		return true
 	}
 
 	// karena kendaraan profile prohibited
-	// berarti return allowed as !prohibited
+	// berarti return allowed as is
 
-	return !prohibited
+	return allowed
 }
 
 func (p *OsmParser) acceptOsmWay(way *osm.Way) bool {

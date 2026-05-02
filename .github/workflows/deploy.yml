@@ -1,0 +1,42 @@
+name: Deploy NavigatorX Engine
+
+on:
+  push:
+    branches:
+      - main
+      - deployment-demo
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.1' 
+
+      - name: Build Engine for Linux
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o engine cmd/engine/main.go
+
+      - name: Copy Binary to VPS
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "engine,data/car.yaml"
+          target: "/home/ubuntu/navigatorx"
+
+      - name: Restart Systemd Service
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USER }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            sudo systemctl restart navigatorx
+            sudo systemctl status navigatorx
