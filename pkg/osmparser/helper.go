@@ -670,7 +670,7 @@ func isAccessByVehicleModeAllowed(findTag func(key string) string) bool {
 	// vehicle type access
 	vehicleTagVal := findTag("vehicle")
 	vehicleAllowed := isAccessTagAllowed(vehicleTagVal)
-	if pkg.IsVehicle && vehicleAllowed {
+	if pkg.IsVehicle && vehicleAllowed && vehicleTagVal != "" {
 		// kalau access=no (allowed=false), vehicle=yes, berarti allowed
 		return true
 	}
@@ -678,21 +678,21 @@ func isAccessByVehicleModeAllowed(findTag func(key string) string) bool {
 	// motor vehicle type access
 	motorVehicleTagVal := findTag("motor_vehicle")
 	motorizedVehicleAllowed := isAccessTagAllowed(motorVehicleTagVal)
-	if pkg.MotorizedVehicle && motorizedVehicleAllowed {
+	if pkg.MotorizedVehicle && motorizedVehicleAllowed && motorVehicleTagVal != "" {
 		return true
 	}
 
 	// specific vehicle type access
 	specificVehicleTypeTagVal := findTag(pkg.VehicleTypeTag[pkg.VehicleType])
 	vehicleTypeAllowed := isAccessTagAllowed(specificVehicleTypeTagVal)
-	if vehicleTypeAllowed {
+	if vehicleTypeAllowed && specificVehicleTypeTagVal != "" {
 		return true
 	}
 
 	busPsvAccess := findTag("bus:psv:forward")
 
 	busAllowed := isAccessTagAllowed(busPsvAccess)
-	if pkg.VehicleType == pkg.BUS && busAllowed {
+	if pkg.VehicleType == pkg.BUS && busAllowed && busPsvAccess != "" {
 		return true
 	}
 
@@ -700,14 +700,14 @@ func isAccessByVehicleModeAllowed(findTag func(key string) string) bool {
 	lanePsvAccess := findTag("lanes:psv:forward")
 
 	busAllowed = isAccessTagAllowed(psvAccess) && isAccessTagAllowed(lanePsvAccess)
-	if pkg.VehicleType == pkg.BUS && busAllowed {
+	if pkg.VehicleType == pkg.BUS && busAllowed && (psvAccess != "" || lanePsvAccess != "") {
 		return true
 	}
 
 	// pedestrian type access
 	footTagVal := findTag("foot")
 	pedestrianAllowed := isAccessTagAllowed(footTagVal)
-	if pkg.VehicleType == pkg.FOOT && pedestrianAllowed {
+	if pkg.VehicleType == pkg.FOOT && pedestrianAllowed && footTagVal != "" {
 		return true
 	}
 
@@ -716,7 +716,7 @@ func isAccessByVehicleModeAllowed(findTag func(key string) string) bool {
 	cyclewayTagVal := findTag("cycleway")
 
 	bicycleAllowed := isAccessTagAllowed(bicycleTagVal) && isAccessTagAllowed(cyclewayTagVal)
-	if pkg.VehicleType == pkg.BICYCLE && bicycleAllowed {
+	if pkg.VehicleType == pkg.BICYCLE && bicycleAllowed && (bicycleTagVal != "" || cyclewayTagVal != "") {
 		return true
 	}
 
@@ -750,7 +750,7 @@ func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) 
 	// vehicle type access
 	vehicleTagVal := findTag("vehicle:conditional")
 	vehicleAllowed := isAccessTagAllowed(vehicleTagVal)
-	if pkg.IsVehicle && vehicleAllowed {
+	if pkg.IsVehicle && vehicleAllowed && vehicleTagVal != "" {
 		// kalau access=no (allowed=false), vehicle=yes, berarti allowed
 		return true
 	}
@@ -758,21 +758,21 @@ func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) 
 	// motor vehicle type access
 	motorVehicleTagVal := findTag("motor_vehicle:conditional")
 	motorizedVehicleAllowed := isAccessTagAllowed(motorVehicleTagVal)
-	if pkg.MotorizedVehicle && motorizedVehicleAllowed {
+	if pkg.MotorizedVehicle && motorizedVehicleAllowed && motorVehicleTagVal != "" {
 		return true
 	}
 
 	// specific vehicle type access
 	specificVehicleTypeTagVal := findTag(pkg.VehicleTypeTag[pkg.VehicleType] + ":conditional")
 	vehicleTypeAllowed := isAccessTagAllowed(specificVehicleTypeTagVal)
-	if vehicleTypeAllowed {
+	if vehicleTypeAllowed && specificVehicleTypeTagVal != "" {
 		return true
 	}
 
 	busPsvAccess := findTag("bus:psv:forward:conditional")
 
 	busAllowed := isAccessTagAllowed(busPsvAccess)
-	if pkg.VehicleType == pkg.BUS && busAllowed {
+	if pkg.VehicleType == pkg.BUS && busAllowed && busPsvAccess != "" {
 		return true
 	}
 
@@ -780,14 +780,14 @@ func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) 
 	lanePsvAccess := findTag("lanes:psv:forward:conditional")
 
 	busAllowed = isAccessTagAllowed(psvAccess) && isAccessTagAllowed(lanePsvAccess)
-	if pkg.VehicleType == pkg.BUS && busAllowed {
+	if pkg.VehicleType == pkg.BUS && busAllowed && (psvAccess != "" || lanePsvAccess != "") {
 		return true
 	}
 
 	// pedestrian type access
 	footTagVal := findTag("foot:conditional")
 	pedestrianAllowed := isAccessTagAllowed(footTagVal)
-	if pkg.VehicleType == pkg.FOOT && pedestrianAllowed {
+	if pkg.VehicleType == pkg.FOOT && pedestrianAllowed && footTagVal != "" {
 		return true
 	}
 
@@ -796,7 +796,7 @@ func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) 
 	cyclewayTagVal := findTag("cycleway:conditional")
 
 	bicycleAllowed := isAccessTagAllowed(bicycleTagVal) && isAccessTagAllowed(cyclewayTagVal)
-	if pkg.VehicleType == pkg.BICYCLE && bicycleAllowed {
+	if pkg.VehicleType == pkg.BICYCLE && bicycleAllowed && (bicycleTagVal != "" || cyclewayTagVal != "") {
 		return true
 	}
 
