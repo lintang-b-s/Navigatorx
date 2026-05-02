@@ -2,9 +2,11 @@ package router
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gobwas/ws"
@@ -49,7 +51,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	var mwChain []alice.Constructor
 	if useRateLimit {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, api.Heartbeat("healthz"), Logger(api.log), Labels, Limit)
+			RealIP, api.Heartbeat("healthz"), Logger(api.log), Labels, api.Limit)
 	} else {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
 			RealIP, api.Heartbeat("healthz"), Logger(api.log), Labels)
@@ -77,9 +79,9 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 		return
 	}
 
-	api.pool = concurrent.NewWorkerPool[int, int](4, 10)
+	api.pool = concurrent.NewWorkerPool[int, int](4, 15)
 
-	api.hub = controllers.NewHub(api.pool, mapMatcherService)
+	api.hub = controllers.NewHub(api.pool, mapMatcherService, api.log)
 
 	api.pool.Spawn(2)
 	// accept is a channel to signal about next incoming connection Accept()
@@ -187,8 +189,24 @@ func (api *API) handle(conn net.Conn) error {
 
 	safeConn := deadliner{conn, ioTimeout}
 
+	// Capture client IP and User-Agent during the WebSocket upgrade handshake.
+	// gobwas/ws OnHeader provides zero-copy access to HTTP headers before they are discarded.
+	var clientIP, userAgent string
+	u := ws.Upgrader{
+		OnHeader: func(key, value []byte) error {
+			k := string(key)
+			switch {
+			case strings.EqualFold(k, "X-Real-IP"):
+				clientIP = string(value)
+			case strings.EqualFold(k, "User-Agent"):
+				userAgent = string(value)
+			}
+			return nil
+		},
+	}
+
 	// Zero-copy upgrade to WebSocket connection.
-	hs, err := ws.Upgrade(safeConn)
+	hs, err := u.Upgrade(safeConn)
 
 	if err != nil {
 		api.log.Error("upgrade error", zap.Error(err), zap.String("connnection name ", nameConn(conn)))
@@ -196,10 +214,16 @@ func (api *API) handle(conn net.Conn) error {
 		return err
 	}
 
-	api.log.Info("established websocket connection", zap.String("connnection name ", nameConn(conn)),
-		zap.String("protocol", hs.Protocol))
+	// Fallback: if X-Real-IP was not set (e.g. local dev without Caddy), use RemoteAddr
+	if clientIP == "" {
+		clientIP = conn.RemoteAddr().String()
+	}
 
-	user := api.hub.Register(conn)
+	api.log.Info("established websocket connection", zap.String("connnection name ", nameConn(conn)),
+		zap.String("protocol", hs.Protocol), zap.String("client_ip", clientIP),
+		zap.String("user_agent", userAgent))
+
+	user := api.hub.Register(conn, clientIP, userAgent)
 
 	desc, err := netpoll.HandleRead(conn)
 	if err != nil {
@@ -227,7 +251,6 @@ func (api *API) handle(conn net.Conn) error {
 				channel will return 0 (end of file) only after all
 				outstanding data in the channel has been consumed.
 			*/
-			api.log.Info("user disconnected from websocket server")
 
 			if err := api.poller.Stop(desc); err != nil {
 				api.log.Sugar().Errorf("failed to stop poller: %v", err)
@@ -241,8 +264,12 @@ func (api *API) handle(conn net.Conn) error {
 			// run online map matching & send the map matching result to user
 			err := user.OnlineMapMatch()
 			if err != nil {
-				api.log.Error("error online map matching", zap.Error(err))
-				// error -> remove user conn file descriptor from epoll interest list & remove from hub
+				if errors.Is(err, controllers.ErrNormalClosure) {
+					// Normal closure: user stopped navigation (ws.close(1000))
+				} else {
+					api.log.Error("error online map matching", zap.Error(err))
+				}
+				// In both cases: remove user conn file descriptor from epoll interest list & remove from hub
 				if err := api.poller.Stop(desc); err != nil {
 					api.log.Sugar().Errorf("failed to stop poller: %v", err)
 				}

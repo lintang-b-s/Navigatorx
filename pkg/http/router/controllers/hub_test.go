@@ -12,15 +12,16 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
 )
 
 func TestHub(t *testing.T) {
 	mockMMS := new(MockMapMatcherService)
-	hub := NewHub(nil, mockMMS)
+	hub := NewHub(nil, mockMMS, zap.NewNop())
 
 	t.Run("Register and Remove", func(t *testing.T) {
 		c1, _ := net.Pipe()
-		user := hub.Register(c1)
+		user := hub.Register(c1, "", "")
 		assert.Equal(t, 1, len(hub.us))
 		assert.Equal(t, user, hub.ns[user.id])
 
@@ -37,9 +38,9 @@ func TestHub(t *testing.T) {
 
 	t.Run("RemoveAllUser", func(t *testing.T) {
 		c1, _ := net.Pipe()
-		hub.Register(c1)
+		hub.Register(c1, "", "")
 		c2, _ := net.Pipe()
-		hub.Register(c2)
+		hub.Register(c2, "", "")
 		assert.Equal(t, 2, len(hub.us))
 
 		hub.RemoveAllUser()
@@ -49,11 +50,11 @@ func TestHub(t *testing.T) {
 
 func TestUser_OnlineMapMatch(t *testing.T) {
 	mockMMS := new(MockMapMatcherService)
-	hub := NewHub(nil, mockMMS)
+	hub := NewHub(nil, mockMMS, zap.NewNop())
 
 	t.Run("Success", func(t *testing.T) {
 		c1, c2 := net.Pipe()
-		user := hub.Register(c1)
+		user := hub.Register(c1, "", "")
 		requestTime := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
 
 		request := mapMatchRequest{
@@ -101,7 +102,7 @@ func TestUser_OnlineMapMatch(t *testing.T) {
 
 	t.Run("Invalid JSON", func(t *testing.T) {
 		c1, c2 := net.Pipe()
-		user := hub.Register(c1)
+		user := hub.Register(c1, "", "")
 
 		go func() {
 			_ = wsutil.WriteClientText(c2, []byte("invalid"))
@@ -113,7 +114,7 @@ func TestUser_OnlineMapMatch(t *testing.T) {
 
 	t.Run("Validation Error", func(t *testing.T) {
 		c1, c2 := net.Pipe()
-		user := hub.Register(c1)
+		user := hub.Register(c1, "", "")
 
 		request := mapMatchRequest{
 			Gps: gps{
@@ -145,7 +146,7 @@ func TestUser_OnlineMapMatch(t *testing.T) {
 
 	t.Run("Service Error", func(t *testing.T) {
 		c1, c2 := net.Pipe()
-		user := hub.Register(c1)
+		user := hub.Register(c1, "", "")
 		requestTime := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
 
 		request := mapMatchRequest{
@@ -186,7 +187,7 @@ func TestUser_OnlineMapMatch(t *testing.T) {
 
 	t.Run("Write Error", func(t *testing.T) {
 		c1, _ := net.Pipe()
-		user := hub.Register(c1)
+		user := hub.Register(c1, "", "")
 		c1.Close()
 
 		err := user.write("test")

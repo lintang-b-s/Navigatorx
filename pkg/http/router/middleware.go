@@ -2,7 +2,6 @@ package router
 
 import (
 	"fmt"
-	"log"
 	"mime"
 	"net"
 	"net/http"
@@ -158,8 +157,15 @@ func (hl httprouterLogger) middleware(next http.Handler) http.Handler {
 		defer func() {
 			latency := time.Since(start)
 
+			// Extract client IP: prefer X-Real-IP (set by Caddy), fallback to RemoteAddr
+			clientIP := r.Header.Get("X-Real-IP")
+			if clientIP == "" {
+				clientIP = r.RemoteAddr
+			}
+
 			hl.log.Info("request completed", zap.String("status", http.StatusText(wrappped.status)),
 				zap.Int64("took", latency.Milliseconds()), zap.String("remote", r.RemoteAddr),
+				zap.String("client_ip", clientIP), zap.String("user_agent", r.UserAgent()),
 				zap.String("request", r.RequestURI), zap.String("method", r.Method))
 		}()
 
@@ -232,13 +238,22 @@ func cleanupVisitors() {
 	}
 }
 
-func Limit(next http.Handler) http.Handler {
+func (api *API) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ip, _, err := net.SplitHostPort(r.RemoteAddr)
-		if err != nil && !strings.Contains(err.Error(), "missing port in address") {
-			log.Print(err.Error())
-			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-			return
+		// Extract client IP: prefer X-Real-IP (set by Caddy), fallback to RemoteAddr
+		clientIP := r.Header.Get("X-Real-IP")
+		if clientIP == "" {
+			clientIP = r.RemoteAddr
+		}
+		ip, _, err := net.SplitHostPort(clientIP)
+		if err != nil {
+			if strings.Contains(err.Error(), "missing port in address") {
+				ip = clientIP
+			} else {
+				api.log.Error("api.Limit: error splitting host port", zap.Error(err), zap.String("client_ip", clientIP))
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
 		}
 		limiter := getVisitor(ip)
 		if !limiter.Allow() {

@@ -87,7 +87,7 @@ func TestAPI_Handle(t *testing.T) {
 	api.poller, err = netpoll.New(nil)
 	assert.NoError(t, err)
 	api.pool = concurrent.NewWorkerPool[int, int](1, 1)
-	api.hub = controllers.NewHub(api.pool, nil)
+	api.hub = controllers.NewHub(api.pool, nil, api.log)
 
 	t.Run("Upgrade Success", func(t *testing.T) {
 		ln, err := net.Listen("tcp", ":0")
@@ -190,7 +190,7 @@ func TestAPI_Handle(t *testing.T) {
 func TestAPI_Handle_NetPipe(t *testing.T) {
 	api := NewAPI(zap.NewNop())
 	api.pool = concurrent.NewWorkerPool[int, int](1, 1)
-	api.hub = controllers.NewHub(api.pool, nil)
+	api.hub = controllers.NewHub(api.pool, nil, api.log)
 
 	t.Run("Upgrade Failure", func(t *testing.T) {
 		serverConn, clientConn := net.Pipe()

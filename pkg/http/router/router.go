@@ -138,7 +138,7 @@ func (api *API) Run(
 	var mwChain []alice.Constructor
 	if useRateLimit {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, Limit, gziphandler.GzipHandler)
+			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, api.Limit, gziphandler.GzipHandler)
 	} else {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
 			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, gziphandler.GzipHandler)

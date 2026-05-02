@@ -209,8 +209,9 @@ func TestMiddleware_Limit(t *testing.T) {
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
+	api := NewAPI(zap.NewNop())
 
-	mw := Limit(handler)
+	mw := api.Limit(handler)
 
 	t.Run("Allow", func(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)

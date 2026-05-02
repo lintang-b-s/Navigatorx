@@ -108,8 +108,8 @@ type gps struct {
 	Lon           float64   `json:"lon" validate:"required,min=-180,max=180"`
 	Lat           float64   `json:"lat" validate:"required,min=-90,max=90"`
 	Time          time.Time `json:"time"`
-	Speed         float64   `json:"speed" validate:"min=0"` // 0 if time step k=0  m/s
-	DeltaTime     float64   `json:"delta_time" validate:"min=0"`
+	Speed         float64   `json:"speed" validate:"min=0"`      // 0 if time step k=0  m/s
+	DeltaTime     float64   `json:"delta_time" validate:"min=0"` // in seconds
 	DeadReckoning bool      `json:"dead_reckoning"`
 }
 

@@ -27,8 +27,8 @@ export const options = {
     http_req_duration: ["p(95)<850"], // 95% of requests should be below 850ms
   },
   stages: [
-    { duration: "15s", target: 900 },
-    { duration: "15s", target: 900 },
+    { duration: "15s", target: 1000 },
+    { duration: "15s", target: 1000 },
   ],
 };
 

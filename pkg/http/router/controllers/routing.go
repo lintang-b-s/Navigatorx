@@ -256,6 +256,7 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 	newCtx, cancel := ExtractDeadline(r.Context(), r)
 	defer cancel()
 
+	start := time.Now()
 	mgpsPoint, cands, speedMeanK, speedStdK, err := api.mapmatchingService.OnlineMapMatch(newCtx, request.Gps.ToDataGPS(), request.K, ToOnlineCandidates(request.Candidates),
 		request.SpeedMeanK, request.SpeedStdK, request.LastBearing)
 	headers := make(http.Header)
@@ -263,6 +264,26 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 		api.getStatusCode(w, r, err)
 		return
 	}
+
+	// log map matching request completion
+	clientIP := r.Header.Get("X-Real-IP")
+	if clientIP == "" {
+		clientIP = r.RemoteAddr
+	}
+
+	api.log.Info("http map-match completed",
+		zap.Int64("took", time.Since(start).Milliseconds()),
+		zap.String("client_ip", clientIP),
+		zap.String("user_agent", r.UserAgent()),
+		zap.Float64("lat", request.Gps.Lat),
+		zap.Float64("lon", request.Gps.Lon),
+		zap.String("gps_time", request.Gps.Time.Local().String()),
+		zap.Float64("speed_ms", request.Gps.Speed),
+		zap.Int("k", request.K),
+		zap.Float64("delta_time_s", request.Gps.DeltaTime),
+		zap.Bool("dead_reckoning", request.Gps.DeadReckoning),
+		zap.Float64("last_bearing", request.LastBearing),
+	)
 
 	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewMapmatchingResponse(mgpsPoint, cands, speedMeanK,
 		speedStdK, mgpsPoint.GetBearing())}, headers); err != nil {

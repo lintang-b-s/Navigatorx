@@ -1,14 +1,29 @@
 package router
 
 import (
+	"errors"
 	"io"
 	"net"
 	"net/http"
+	"strings"
 
 	"go.uber.org/zap"
 )
 
 var dialUpstream = net.Dial
+
+// isExpectedCloseError returns true if the error is a normal result of one side
+// of the bidirectional io.Copy bridge closing (e.g. user stopped navigation).
+func isExpectedCloseError(err error) bool {
+	if errors.Is(err, net.ErrClosed) {
+		return true
+	}
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+	// Fallback string check for wrapped errors
+	return strings.Contains(err.Error(), "use of closed network connection")
+}
 
 // buat get raw tcp connection dari client (browser) -> upgrade to websocket -> create bidirectional bridge between client and wsServer
 
@@ -43,7 +58,9 @@ func (api *API) upstream(name, network, addr string) func(w http.ResponseWriter,
 			defer wsServer.Close()
 			defer client.Close()
 			if _, err := io.Copy(wsServer, client); err != nil {
-				api.log.Error("copy response to upstream error:", zap.Error(err))
+				if !isExpectedCloseError(err) {
+					api.log.Error("copy response to upstream error:", zap.Error(err))
+				}
 				return
 			}
 		}()
@@ -51,7 +68,9 @@ func (api *API) upstream(name, network, addr string) func(w http.ResponseWriter,
 			defer wsServer.Close()
 			defer client.Close()
 			if _, err := io.Copy(client, wsServer); err != nil {
-				api.log.Error("copy request to client error:", zap.Error(err))
+				if !isExpectedCloseError(err) {
+					api.log.Error("copy request to client error:", zap.Error(err))
+				}
 				return
 			}
 		}()

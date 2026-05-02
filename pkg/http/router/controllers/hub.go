@@ -2,12 +2,14 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"sort"
 	"sync"
+	"time"
 
 	json "github.com/bytedance/sonic"
 
@@ -18,14 +20,22 @@ import (
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
+	"go.uber.org/zap"
 )
+
+// ErrNormalClosure is returned when the client sends a normal WebSocket close frame (status 1000).
+// This is expected behavior when a user stops navigation, not a real error.
+var ErrNormalClosure = errors.New("ws normal closure")
 
 type User struct {
 	io   sync.Mutex
 	conn io.ReadWriteCloser
 
-	id  uint
-	hub *Hub
+	id        uint
+	hub       *Hub
+	log       *zap.Logger
+	clientIP  string
+	userAgent string
 }
 
 func (u *User) readRequest() (*mapMatchRequest, error) {
@@ -37,7 +47,13 @@ func (u *User) readRequest() (*mapMatchRequest, error) {
 		return nil, err
 	}
 	if h.OpCode.IsControl() {
-		// handle OpPing, OpPong, OpClose
+		if h.OpCode == ws.OpClose {
+			// Normal close frame from client (e.g. user stopped navigation).
+			// Handle the frame to send close response, then return sentinel error.
+			_ = wsutil.ControlFrameHandler(u.conn, ws.StateServerSide)(h, r)
+			return nil, ErrNormalClosure
+		}
+		// handle OpPing, OpPong
 		return nil, wsutil.ControlFrameHandler(u.conn, ws.StateServerSide)(h, r)
 	}
 
@@ -50,6 +66,8 @@ func (u *User) readRequest() (*mapMatchRequest, error) {
 }
 
 func (u *User) OnlineMapMatch() error {
+	start := time.Now()
+
 	req, err := u.readRequest()
 	if err != nil {
 		u.conn.Close()
@@ -62,7 +80,6 @@ func (u *User) OnlineMapMatch() error {
 	}
 
 	if err := u.hub.validate.Struct(req); err != nil {
-
 		vv := translateError(err, u.hub.trans)
 		vvString := []string{}
 		for _, v := range vv {
@@ -90,6 +107,23 @@ func (u *User) OnlineMapMatch() error {
 
 	resp := envelope{"data": NewMapmatchingResponse(mgpsPoint, cands, speedMeanK,
 		speedStdK, mgpsPoint.GetBearing())}
+
+	// log ws map matching request completion
+	u.log.Info("ws online map matching completed",
+		zap.Int64("took", time.Since(start).Milliseconds()),
+		zap.Uint("user_id", u.id),
+		zap.String("client_ip", u.clientIP),
+		zap.String("user_agent", u.userAgent),
+		zap.Float64("lat", req.Gps.Lat),
+		zap.Float64("lon", req.Gps.Lon),
+		zap.String("gps_time", req.Gps.Time.Local().String()),
+		zap.Float64("speed_ms", req.Gps.Speed), // meter/seconds
+		zap.Int("k", req.K),
+		zap.Float64("delta_time_s", req.Gps.DeltaTime),
+		zap.Bool("dead_reckoning", req.Gps.DeadReckoning),
+		zap.Float64("last_bearing", req.LastBearing),
+	)
+
 	return u.write(resp)
 }
 
@@ -115,17 +149,19 @@ type Hub struct {
 	mapmatchingService MapMatcherService
 
 	pool *concurrent.WorkerPool[int, int]
+	log  *zap.Logger
 
 	validate *validator.Validate
 	trans    ut.Translator
 }
 
-func NewHub(pool *concurrent.WorkerPool[int, int], mmService MapMatcherService) *Hub {
+func NewHub(pool *concurrent.WorkerPool[int, int], mmService MapMatcherService, log *zap.Logger) *Hub {
 	hub := &Hub{
 		pool:               pool,
 		ns:                 make(map[uint]*User),
 		us:                 make([]*User, 0),
 		mapmatchingService: mmService,
+		log:                log,
 	}
 	hub.validate = validator.New()
 
@@ -137,11 +173,14 @@ func NewHub(pool *concurrent.WorkerPool[int, int], mmService MapMatcherService) 
 	return hub
 }
 
-func (h *Hub) Register(conn net.Conn) *User {
+func (h *Hub) Register(conn net.Conn, clientIP, userAgent string) *User {
 
 	user := &User{
-		hub:  h,
-		conn: conn,
+		hub:       h,
+		conn:      conn,
+		log:       h.log,
+		clientIP:  clientIP,
+		userAgent: userAgent,
 	}
 
 	h.mu.Lock()
@@ -156,11 +195,17 @@ func (h *Hub) Register(conn net.Conn) *User {
 }
 
 func (h *Hub) Remove(user *User) {
+
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	if _, oki := h.ns[user.id]; !oki {
 		return
 	}
+	h.log.Info("user disconnected from websocket server",
+		zap.Uint("user_id", user.id),
+		zap.String("client_ip", user.clientIP),
+		zap.String("user_agent", user.userAgent),
+	)
 	delete(h.ns, user.id)
 
 	i := sort.Search(len(h.us), func(i int) bool {
