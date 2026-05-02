@@ -75,6 +75,7 @@ func (api *API) Heartbeat(endpoint string) func(http.Handler) http.Handler {
 		fn := func(w http.ResponseWriter, r *http.Request) {
 			if (r.Method == "GET" || r.Method == "HEAD") && strings.EqualFold(r.URL.Path, endpoint) {
 				if isShuttingDown.Load() { // https://victoriametrics.com/blog/go-graceful-shutdown/
+					w.Header().Set("Content-Type", "application/json")
 					http.Error(w, "Shutting down", http.StatusServiceUnavailable)
 					return
 				}
@@ -101,11 +102,13 @@ func EnforceJSONHandler(next http.Handler) http.Handler {
 		if contentType != "" {
 			mt, _, err := mime.ParseMediaType(contentType)
 			if err != nil {
+				w.Header().Set("Content-Type", "application/json")
 				http.Error(w, "Malformed Content-Type header", http.StatusBadRequest)
 				return
 			}
 
 			if mt != "application/json" {
+				w.Header().Set("Content-Type", "application/json")
 				http.Error(w, "Content-Type header must be application/json", http.StatusUnsupportedMediaType)
 				return
 			}
@@ -196,7 +199,8 @@ type visitor struct {
 }
 
 const (
-	qps = 20
+	qps   = 10
+	burst = 20
 )
 
 var visitors = make(map[string]*visitor)
@@ -212,7 +216,7 @@ func getVisitor(ip string) *rate.Limiter {
 
 	v, exists := visitors[ip]
 	if !exists {
-		limiter := rate.NewLimiter(rate.Limit(qps), qps)
+		limiter := rate.NewLimiter(rate.Limit(qps), burst)
 		visitors[ip] = &visitor{
 			limiter:  limiter,
 			lastSeen: time.Now(),
@@ -251,12 +255,15 @@ func (api *API) Limit(next http.Handler) http.Handler {
 				ip = clientIP
 			} else {
 				api.log.Error("api.Limit: error splitting host port", zap.Error(err), zap.String("client_ip", clientIP))
+				w.Header().Set("Content-Type", "application/json")
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
 		}
 		limiter := getVisitor(ip)
 		if !limiter.Allow() {
+			w.Header().Set("Retry-After", "1")
+			w.Header().Set("Content-Type", "application/json")
 			http.Error(w, http.StatusText(http.StatusTooManyRequests), http.StatusTooManyRequests)
 			return
 		}
