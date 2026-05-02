@@ -82,6 +82,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	api.pool = concurrent.NewWorkerPool[int, int](4, 15)
 
 	api.hub = controllers.NewHub(api.pool, mapMatcherService, api.log)
+	go api.hub.Start()
 
 	api.pool.Spawn(2)
 	// accept is a channel to signal about next incoming connection Accept()
@@ -149,6 +150,7 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 	}
 
 	api.hub.RemoveAllUser()
+	api.hub.Stop()
 	if err := api.poller.Stop(acceptDesc); err != nil {
 		api.log.Sugar().Errorf("failed to stop poller: %v", err)
 	}

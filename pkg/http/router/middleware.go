@@ -160,7 +160,7 @@ func (hl httprouterLogger) middleware(next http.Handler) http.Handler {
 		defer func() {
 			latency := time.Since(start)
 
-			// Extract client IP: prefer X-Real-IP (set by Caddy), fallback to RemoteAddr
+			// Extract client IP: prefer X-Real-IP (set by Caddy/nginx), fallback to RemoteAddr
 			clientIP := r.Header.Get("X-Real-IP")
 			if clientIP == "" {
 				clientIP = r.RemoteAddr
@@ -244,7 +244,7 @@ func cleanupVisitors() {
 
 func (api *API) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Extract client IP: prefer X-Real-IP (set by Caddy), fallback to RemoteAddr
+		// Extract client IP: prefer X-Real-IP (set by Caddy/nginx), fallback to RemoteAddr
 		clientIP := r.Header.Get("X-Real-IP")
 		if clientIP == "" {
 			clientIP = r.RemoteAddr

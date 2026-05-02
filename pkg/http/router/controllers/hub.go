@@ -141,6 +141,13 @@ func (u *User) write(x interface{}) error {
 	return w.Flush()
 }
 
+func (u *User) Ping() error {
+	u.io.Lock()
+	defer u.io.Unlock()
+
+	return wsutil.WriteServerMessage(u.conn, ws.OpPing, nil)
+}
+
 type Hub struct {
 	mu                 sync.RWMutex
 	seq                uint
@@ -153,15 +160,21 @@ type Hub struct {
 
 	validate *validator.Validate
 	trans    ut.Translator
+
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 func NewHub(pool *concurrent.WorkerPool[int, int], mmService MapMatcherService, log *zap.Logger) *Hub {
+	ctx, cancel := context.WithCancel(context.Background())
 	hub := &Hub{
 		pool:               pool,
 		ns:                 make(map[uint]*User),
 		us:                 make([]*User, 0),
 		mapmatchingService: mmService,
 		log:                log,
+		ctx:                ctx,
+		cancel:             cancel,
 	}
 	hub.validate = validator.New()
 
@@ -171,6 +184,30 @@ func NewHub(pool *concurrent.WorkerPool[int, int], mmService MapMatcherService, 
 	_ = enTranslations.RegisterDefaultTranslations(hub.validate, hub.trans)
 
 	return hub
+}
+
+func (h *Hub) Start() {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			h.mu.RLock()
+			for _, u := range h.us {
+				if err := u.Ping(); err != nil {
+					h.log.Debug("failed to ping user", zap.Uint("user_id", u.id), zap.Error(err))
+				}
+			}
+			h.mu.RUnlock()
+		case <-h.ctx.Done():
+			return
+		}
+	}
+}
+
+func (h *Hub) Stop() {
+	h.cancel()
 }
 
 func (h *Hub) Register(conn net.Conn, clientIP, userAgent string) *User {
