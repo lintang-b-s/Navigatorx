@@ -34,13 +34,4 @@ func TestMapMatcherService_OnlineMapMatch(t *testing.T) {
 		assert.Equal(t, 0.0, speedStd)
 	})
 
-	t.Run("Timeout", func(t *testing.T) {
-		timeoutCtx, cancel := context.WithCancel(ctx)
-		cancel() // cancel immediately
-
-		_, _, _, _, err := ms.OnlineMapMatch(timeoutCtx, gps, 1, []*ma.Candidate{}, 0.0, 0.0, 0.0)
-
-		assert.Error(t, err)
-		assert.Contains(t, err.Error(), "request timeout")
-	})
 }

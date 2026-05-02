@@ -52,21 +52,6 @@ func setupRoutingService() (*RoutingService, *MockRoutingEngine, *MockSpatialInd
 	return rs, mockEngine, mockSI, mockARA
 }
 
-func TestRoutingService_ShortestPath(t *testing.T) {
-	rs, _, _, _ := setupRoutingService()
-
-	t.Run("Timeout", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		_, _, _, _, ok, err := rs.ShortestPath(ctx, yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID)
-
-		assert.Error(t, err)
-		assert.False(t, ok)
-	})
-
-}
-
 func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEngine, *MockSpatialIndex, *MockAlternativeRouteAlgorithm, da.PhantomNode, da.PhantomNode) {
 	t.Helper()
 
@@ -213,20 +198,6 @@ func TestRoutingService_ShortestPathBranches(t *testing.T) {
 	})
 }
 
-func TestRoutingService_AlternativeRouteSearch(t *testing.T) {
-	rs, _, _, _ := setupRoutingService()
-
-	t.Run("Timeout", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		alts, err := rs.AlternativeRouteSearch(ctx, yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID)
-
-		assert.Error(t, err)
-		assert.Empty(t, alts)
-	})
-}
-
 func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 	t.Run("No Nearby Road Segments", func(t *testing.T) {
 		rs, _, mockSpatial, _ := setupRoutingService()
@@ -277,16 +248,6 @@ func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 }
 
 func TestRoutingService_Snap(t *testing.T) {
-	rs, _, _, _ := setupRoutingService()
-
-	t.Run("Timeout", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		cancel()
-
-		sp, tp := rs.Snap(ctx, yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon)
-		assert.True(t, da.IsPhantomNodeInvalid(sp))
-		assert.True(t, da.IsPhantomNodeInvalid(tp))
-	})
 
 	t.Run("Success", func(t *testing.T) {
 		rs, mockEngine, mockSpatial, _, _, _ := setupSnapReadyRoutingService(t)

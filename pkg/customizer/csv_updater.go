@@ -238,8 +238,6 @@ func (c *Customizer) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []f
 			continue
 		}
 
-		updatedEId := da.INVALID_EDGE_ID
-
 		viaEntryPoint := da.INVALID_ENTRY_POINT
 		entryPoint := da.Index(0)
 		c.graph.ForInEdgeIdsOf(da.Index(viaVId), func(eId da.Index) {
@@ -261,15 +259,10 @@ func (c *Customizer) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []f
 		})
 		turnTableId := c.graph.GetTurnTableId(da.Index(viaVId), viaEntryPoint, viaExitPoint)
 
-		if updatedEId == da.INVALID_EDGE_ID {
-			c.logger.Sugar().Warnf("no edge found from %v to %v ", fromOsmId, viaVId)
-			continue
-		}
-
 		turnPenaltyString := strings.TrimSpace(row[3])
 		turnPenalty, err := strconv.ParseFloat(turnPenaltyString, 64)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readEdgeSpeedsFile: failed to parse segent speed: %s", turnPenaltyString)
+			return make([]da.Index, 0), make([]float64, 0), errors.Wrapf(err, "customizer.readTurnPenaltiesFromFile: failed to parse turn penalty: %s", turnPenaltyString)
 		}
 
 		updatedTurnTableIds = append(updatedTurnTableIds, turnTableId)

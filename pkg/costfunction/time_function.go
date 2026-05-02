@@ -18,6 +18,7 @@ import (
 type TimeFunction struct {
 	turnTable []float64 // map from turnTableId  to turn cost in seconds
 	// turnMatrices[v][i][j] -> turnCosts = flattened 1-D indexed array index of i-th incoming edge dari v and j-th outgoing edge dari v  = i*outDegree + j
+	// = turnCost buat keluar dari v dari i-th incoming edge ke j-th outgoing edge dari v
 
 	edgeMaxSpeeds []float64 // map from outEdge id to its maxspeed in meters per minute (m/s)
 	isRoadNetwork bool
@@ -29,7 +30,6 @@ func NewTimeCostFunction(roadNetwork bool, edgeMaxSpeeds []float64, turnTable []
 	}
 
 	if pkg.WITH_TURN_COSTS {
-
 		return &TimeFunction{turnTable: turnTable, isRoadNetwork: true, edgeMaxSpeeds: edgeMaxSpeeds}
 	}
 
