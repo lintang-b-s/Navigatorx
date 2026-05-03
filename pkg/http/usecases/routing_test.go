@@ -105,11 +105,11 @@ func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEn
 	rs, err := NewRoutingService(log, mockEngine, mockSpatial, mockAlt, searchRadius, false)
 	assert.NoError(t, err)
 
-	mockSpatial.On("SearchWithinRadius", yogyakartaOriginLat, yogyakartaOriginLon, searchRadius, uint8(0)).Return([]da.Index{0})
-	mockSpatial.On("SearchWithinRadius", yogyakartaDestLat, yogyakartaDestLon, searchRadius, uint8(1)).Return([]da.Index{1})
-	mockEngine.On("PathExists", da.Index(1), da.Index(1)).Return(true)
-	mockEngine.On("GetWeightFromLength", da.Index(0), originEdgeLen, true).Return(12.0)
-	mockEngine.On("GetWeightFromLength", da.Index(1), destEdgeLen, false).Return(15.0)
+	mockSpatial.On("SearchWithinRadius", yogyakartaOriginLat, yogyakartaOriginLon, searchRadius, uint8(0)).Return([]da.Index{0}).Maybe()
+	mockSpatial.On("SearchWithinRadius", yogyakartaDestLat, yogyakartaDestLon, searchRadius, uint8(1)).Return([]da.Index{1}).Maybe()
+	mockEngine.On("PathExists", da.Index(1), da.Index(1)).Return(true).Maybe()
+	mockEngine.On("GetWeightFromLength", da.Index(0), originEdgeLen, true).Return(12.0).Maybe()
+	mockEngine.On("GetWeightFromLength", da.Index(1), destEdgeLen, false).Return(15.0).Maybe()
 
 	sp := da.NewPhantomNode(da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 12.0, 0, 0, da.INVALID_EDGE_ID, originEdgeLen, 0, []da.Coordinate{originCoord, originHeadCoord}, []da.Coordinate{})
 	tp := da.NewPhantomNode(da.NewCoordinate(yogyakartaDestLat, yogyakartaDestLon), 0, 15.0, 1, 1, 0, destEdgeLen, []da.Coordinate{}, []da.Coordinate{})
@@ -166,7 +166,7 @@ func TestRoutingService_ShortestPathBranches(t *testing.T) {
 	t.Run("Engine Route Not Found", func(t *testing.T) {
 		rs, mockEngine, mockSpatial, _, sp, tp := setupSnapReadyRoutingService(t)
 		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
-		mockEngine.On("ShortestPathSearch", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), false, da.INVALID_EDGE_ID).
+		mockEngine.On("ShortestPathSearch", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), false).
 			Return(0.0, 0.0, path, []da.Index{}, false)
 
 		_, _, _, _, ok, err := rs.ShortestPath(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID)
@@ -180,12 +180,12 @@ func TestRoutingService_ShortestPathBranches(t *testing.T) {
 	t.Run("Success Without Directions", func(t *testing.T) {
 		rs, mockEngine, mockSpatial, _, sp, tp := setupSnapReadyRoutingService(t)
 		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
-		mockEngine.On("ShortestPathSearch", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), true, da.Index(1)).
+		mockEngine.On("ShortestPathSearch", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), true).
 			Return(20.0, 200.0, path, []da.Index{}, true)
 		mockEngine.On("IsDummyOutEdge", da.Index(0)).Return(false)
 		mockEngine.On("IsDummyInEdge", da.Index(1)).Return(false)
 
-		travelTime, dist, polyline, dirs, ok, err := rs.ShortestPath(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, true, da.Index(1))
+		travelTime, dist, polyline, dirs, ok, err := rs.ShortestPath(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, true, da.Index(0))
 
 		assert.NoError(t, err)
 		assert.True(t, ok)
@@ -228,12 +228,12 @@ func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 		rs, mockEngine, mockSpatial, mockAlt, sp, tp := setupSnapReadyRoutingService(t)
 		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
 		alt := routing.NewAlternativeRoute(5.0, 200.0, 20.0, 0.0, 1, path, []da.Index{}, da.ViaVertex{})
-		mockAlt.On("FindAlternativeRoutes", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), 3, true, da.Index(1)).
+		mockAlt.On("FindAlternativeRoutes", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), 3, true, da.Index(0)).
 			Return([]routing.AlternativeRoute{alt}, 0.0, int64(0))
 		mockEngine.On("IsDummyOutEdge", da.Index(0)).Return(false)
 		mockEngine.On("IsDummyInEdge", da.Index(1)).Return(false)
 
-		alts, err := rs.AlternativeRouteSearch(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, true, da.Index(1))
+		alts, err := rs.AlternativeRouteSearch(context.Background(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, true, da.Index(0))
 
 		assert.NoError(t, err)
 		assert.Len(t, alts, 1)

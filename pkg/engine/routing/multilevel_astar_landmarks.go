@@ -32,9 +32,9 @@ type CRPALTBidirectionalSearch struct {
 	numScannedOverlayVertices int
 	runtime                   int64
 	pathUnpackingRuntime      int64
-	startEdgeId               da.Index
-	forAlternativeRoutes      bool
-	reroute                   bool
+
+	forAlternativeRoutes bool
+	reroute              bool
 
 	lastpqSum float64
 
@@ -258,9 +258,7 @@ func (bs *CRPALTBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (
 
 	asId := sp.GetOutEdgeId()
 	atId := tp.GetInEdgeId()
-	if bs.reroute {
-		asId = bs.startEdgeId
-	}
+
 	// asId: Id of outEdge u->s  (head dari outEdge = s, tail dari outEdge = u )
 	// atId: Id of inEdge  t->v  (head dari inEdge = v, tail dari inEdge = t )
 	asEntryPoint = bs.engine.graph.GetEntryPointOfOutEdge(asId)
@@ -1016,7 +1014,6 @@ func (bs *CRPALTBidirectionalSearch) OnMapMatching(handleRelaxOutEdge func(e *da
 	bs.handleRelaxInEdge = handleRelaxInEdge
 }
 
-func (bs *CRPALTBidirectionalSearch) SetReroute(startEdgeId da.Index) {
+func (bs *CRPALTBidirectionalSearch) SetReroute() {
 	bs.reroute = true
-	bs.startEdgeId = startEdgeId
 }

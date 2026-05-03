@@ -35,7 +35,6 @@ type CRPBidirectionalSearch struct {
 	runtime                   int64
 	pathUnpackingRuntime      int64
 	lastpqSum                 float64
-	startEdgeId               da.Index
 
 	forAlternativeRoutes bool
 	reroute              bool
@@ -241,9 +240,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (flo
 
 	asId := sp.GetOutEdgeId()
 	atId := tp.GetInEdgeId()
-	if bs.reroute {
-		asId = bs.startEdgeId
-	}
+
 	// asId: Id of outEdge u->s  (head dari outEdge = s, tail dari outEdge = u )
 	// atId: Id of inEdge  t->v  (head dari inEdge = v, tail dari inEdge = t )
 	asOutEdge := bs.engine.graph.GetOutEdge(asId)
@@ -1033,7 +1030,7 @@ func (bs *CRPBidirectionalSearch) getShortcutPathSet() map[uint64]uint8 {
 	return bs.shortcutPathSet
 }
 
-func (bs *CRPBidirectionalSearch) SetReroute(startEdgeId da.Index) {
+func (bs *CRPBidirectionalSearch) SetReroute() {
 	bs.reroute = true
-	bs.startEdgeId = startEdgeId
+
 }

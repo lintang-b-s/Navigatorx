@@ -25,7 +25,7 @@ type RoutingEngine interface {
 	IsDummyOutEdge(eId da.Index) bool
 	IsDummyInEdge(eId da.Index) bool
 	InitBackgroundWorker(ctx context.Context)
-	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool, startEdgeId da.Index) (float64, float64, *da.Coordinates, []da.Index, bool)
+	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
 	Close()
 }
 

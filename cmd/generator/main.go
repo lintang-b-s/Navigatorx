@@ -104,7 +104,7 @@ func main() {
 			src := RandomCoordinate(boundingBox, rd)
 			dst := RandomCoordinate(boundingBox, rd)
 
-			sp, tp := routingService.SnapOrigDestQueryToNearbyRoadSegments(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon())
+			sp, tp := routingService.SnapOrigDestQueryToNearbyRoadSegments(src.GetLat(), src.GetLon(), dst.GetLat(), dst.GetLon(), false, da.INVALID_EDGE_ID)
 			if sp.GetOutEdgeId() == da.INVALID_EDGE_ID && sp.GetInEdgeId() == da.INVALID_EDGE_ID {
 				return
 			}

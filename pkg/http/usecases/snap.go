@@ -36,7 +36,7 @@ snapped point (proyeksi titik query destination ke road segment terdekat) of des
 edgeGeometry dari source road segment setelah snappedPoint of destination.
 edgeGeometry dari source road segment sebelum snappedPoint of destination.
 */
-func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon float64,
+func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon float64, reroute bool, startEdgeId da.Index,
 ) (da.PhantomNode, da.PhantomNode) {
 	searchRad := rs.searchRadius
 	var (
@@ -48,7 +48,7 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
 		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 
-		sp, tp = rs.SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet)
+		sp, tp = rs.SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet, reroute, startEdgeId)
 		if !rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 			// break loop early if found connected origin and destination
 			break
@@ -77,15 +77,20 @@ let V_G=number of sccs of the graph/number of vertices in condensation graph scc
 worst case: O(M + c^2 * (V_G+O_G))
 */
 func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
-	removedPrevPairSet hashset.Uint64Set) (da.PhantomNode, da.PhantomNode) {
+	removedPrevPairSet hashset.Uint64Set, reroute bool, startEdgeId da.Index) (da.PhantomNode, da.PhantomNode) {
 	var (
 		projectedLat, projectedLon float64
+		origCandidates             []da.Index
 	)
 
 	// let M=number of road segments/edges in the graph, MAX_CANDIDATES (see spatial_index/constant.go dan rtree.go) adalah jumlah leafs data maksimum yang direturn oleh Search() nya r-tree
 	// SearchWithinRadius worst case is O(M)
 	// find nearest orig edge (inEdgeOffset) to qOrigLat, qOrigLon
-	origCandidates := rs.spatialIndex.SearchWithinRadius(qOrigLat, qOrigLon, searchRad, 0)
+	if !reroute {
+		origCandidates = rs.spatialIndex.SearchWithinRadius(qOrigLat, qOrigLon, searchRad, 0)
+	} else {
+		origCandidates = append(origCandidates, startEdgeId)
+	}
 
 	// find nearest dst edge (outEdgeOffset) to qDstLat, qDstLon
 	dstCandidates := rs.spatialIndex.SearchWithinRadius(qDstLat, qDstLon, searchRad, 1)

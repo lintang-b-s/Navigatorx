@@ -236,7 +236,7 @@ func (ars *AlternativeRouteSearch) FindAlternativeRoutes(sp, tp da.PhantomNode, 
 	crpQuery := NewCRPBidirectionalSearch(ars.engine, param.getUpperbound())
 	crpQuery.SetForAlternativeRoutes(true)
 	if reroute {
-		crpQuery.SetReroute(startEdgeId)
+		crpQuery.SetReroute()
 	}
 
 	defer func() {

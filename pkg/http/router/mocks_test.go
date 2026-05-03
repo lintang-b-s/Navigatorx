@@ -88,7 +88,7 @@ func (m *MockRoutingEngine) IsDummyInEdge(edgeId da.Index) bool {
 func (m *MockRoutingEngine) InitBackgroundWorker(ctx context.Context) {
 	m.Called(ctx)
 }
-func (m *MockRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool, startEdgeId da.Index) (float64, float64, *da.Coordinates, []da.Index, bool) {
-	args := m.Called(sp, tp, reroute, startEdgeId)
+func (m *MockRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool) {
+	args := m.Called(sp, tp, reroute)
 	return args.Get(0).(float64), args.Get(1).(float64), args.Get(2).(*da.Coordinates), args.Get(3).([]da.Index), args.Bool(4)
 }

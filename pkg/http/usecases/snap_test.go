@@ -69,7 +69,7 @@ func TestRoutingService_SnapOrigDestQueryToNearbyRoadSegments(t *testing.T) {
 		mockEngine.On("GetWeightFromLength", da.Index(0), originEdgeLen, true).Return(12.0)
 		mockEngine.On("GetWeightFromLength", da.Index(1), destEdgeLen, false).Return(15.0)
 
-		sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(originQueryLat, originQueryLon, destQueryLat, destQueryLon)
+		sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(originQueryLat, originQueryLon, destQueryLat, destQueryLon, false, da.INVALID_EDGE_ID)
 
 		assert.False(t, da.IsPhantomNodeInvalid(sp))
 		assert.False(t, da.IsPhantomNodeInvalid(tp))

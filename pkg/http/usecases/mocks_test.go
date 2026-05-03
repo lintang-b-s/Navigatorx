@@ -47,8 +47,8 @@ func (m *MockRoutingEngine) InitBackgroundWorker(ctx context.Context) {
 	m.Called(ctx)
 }
 
-func (m *MockRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool, startEdgeId da.Index) (float64, float64, *da.Coordinates, []da.Index, bool) {
-	args := m.Called(sp, tp, reroute, startEdgeId)
+func (m *MockRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool) {
+	args := m.Called(sp, tp, reroute)
 	var r2 *da.Coordinates
 	if args.Get(2) != nil {
 		r2 = args.Get(2).(*da.Coordinates)
