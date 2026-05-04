@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"go.uber.org/zap"
@@ -17,12 +18,10 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
-
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 func init() {
-	util.InitProfileConfig("car")
+	config.InitProfileConfig("car", "test_region")
 }
 
 func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customizer.Customizer) {

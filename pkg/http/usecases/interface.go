@@ -20,6 +20,10 @@ type OnlineMapMatcherEngine interface {
 		candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64)
 }
 
+type TilingEngine interface {
+	GetTileFilePath(userGeohash string) string
+}
+
 type OfflineMapMatcherEngine interface {
 	MapMatch(gpsTraj []*da.GPSPoint) []*da.MatchedGPSPoint
 }

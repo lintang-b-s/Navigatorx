@@ -8,17 +8,17 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var (
 	profileFilePath        = flag.String("profile", "./data/car.yaml", "profile file path")
-	osmFile                = flag.String("osm_file", "diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
+	osmFile                = flag.String("osm_file", "./data/diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
 	mlpFile                = flag.String("mlp_file", "./data/crp_inertial_flow_diy_solo_semarang.mlp", "Multilevel partition filepath")
 	regionName             = flag.String("region", "diy_solo_semarang", "region name")
 	partitionSizes         = flag.String("us", "8,11,14,17,18", "Multilevel Partition Sizes")
@@ -37,7 +37,7 @@ func init() {
 	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
 	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
 
-	util.InitProfileConfig(profileName)
+	config.InitProfileConfig(profileName, *regionName)
 }
 
 func main() {
@@ -49,7 +49,7 @@ func main() {
 	now := time.Now()
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(fmt.Sprintf("./data/%s", *osmFile), logger)
+	graph, edgeInfoIds, err := op.Parse(*osmFile, logger)
 	if err != nil {
 		panic(err)
 	}

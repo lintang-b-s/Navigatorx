@@ -7,9 +7,9 @@ import (
 
 	flag "github.com/spf13/pflag"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var (
@@ -35,7 +35,7 @@ func init() {
 	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
 	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
 
-	util.InitProfileConfig(profileName)
+	config.InitProfileConfig(profileName, *regionName)
 }
 
 func main() {

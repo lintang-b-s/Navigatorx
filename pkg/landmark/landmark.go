@@ -4,6 +4,7 @@ package landmark
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"os"
@@ -14,7 +15,6 @@ import (
 	"sync/atomic"
 
 	"github.com/bytedance/gopkg/util/gopool"
-	"github.com/cockroachdb/errors"
 
 	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -471,7 +471,7 @@ func (lm *Landmark) WriteLandmark(filename string, n int) error {
 	}
 
 	if err = w.Flush(); err != nil {
-		return errors.Wrapf(err, "WriteLandmark: failed to flush bufio writer")
+		return fmt.Errorf("WriteLandmark: failed to flush bufio writer: %w", err)
 	}
 
 	return nil
@@ -484,13 +484,13 @@ const (
 func ReadLandmark(filename string) (*Landmark, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadLandmark: failed to open file: %s", filename)
+		return nil, fmt.Errorf("ReadLandmark: failed to open file: %s: %w", filename, err)
 	}
 
 	snp := s2.NewReader(f)
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadLandmark: failed to create new s2 reader for file: %s", filename)
+		return nil, fmt.Errorf("ReadLandmark: failed to create new s2 reader for file: %s: %w", filename, err)
 	}
 	br := bufio.NewReaderSize(snp, landmarkBufferSize)
 
@@ -556,7 +556,7 @@ func ReadLandmark(filename string) (*Landmark, error) {
 	}
 
 	if err = f.Close(); err != nil {
-		return nil, errors.Wrapf(err, "ReadLandmark: failed to close file: %s", filename)
+		return nil, fmt.Errorf("ReadLandmark: failed to close file: %s: %w", filename, err)
 	}
 
 	lm := NewLandmark()
@@ -570,7 +570,7 @@ func ReadLandmark(filename string) (*Landmark, error) {
 func (lm *Landmark) UpdateLandmarks(landmarkFilePath string) error {
 	newLandmark, err := ReadLandmark(landmarkFilePath)
 	if err != nil {
-		return errors.Wrapf(err, "UpdateLandmarks: failed to read new precalculated landmark distances: %v", err)
+		return fmt.Errorf("UpdateLandmarks: failed to read new precalculated landmark distances: %v: %w", err, err)
 	}
 
 	lm.landmarks.Store(newLandmark.landmarks.Load())

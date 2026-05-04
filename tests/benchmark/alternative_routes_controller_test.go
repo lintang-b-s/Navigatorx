@@ -11,6 +11,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
@@ -31,7 +32,11 @@ func BenchmarkAlternativeRoutesController(b *testing.B) {
 	if err != nil {
 		b.Fatal(err)
 	}
-	api := controllers.New(rs, logger, nil)
+
+	tilingEngine := tiler.NewTilingEngine(g, logger)
+	tilingService := usecases.NewTileService(logger, tilingEngine)
+
+	api := controllers.New(rs, logger, nil, tilingService)
 
 	params := httprouter.Params{}
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))

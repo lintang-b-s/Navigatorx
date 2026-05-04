@@ -21,6 +21,8 @@ type GraphStorage struct {
 	nodeTrafficLight        *bitset.BitSet
 	edgeOsmWayId            *PackedSlice // map dari outEdgeId ke osm way id dari edge
 
+	edgeGeohashes []uint64
+
 	// conditional restrictions
 	conditionalBarrierNodes     []ConditionalBarrierNode
 	conditionalReversibleEdges  []ConditionalReversibleEdge
@@ -46,15 +48,17 @@ func NewGraphStorage(osmwayBitSize uint8) *GraphStorage {
 		roundaboutFlag:          bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		nodeTrafficLight:        bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		isCurvedFlag:            bitset.New(INITIAL_BIT_VECTOR_SIZE),
-		osmNodePoints:           make([]Coordinate, 0),
-		edgeOsmWayId:            NewPackedSlice(osmwayBitSize, INITIAL_APPROX_EDGE_SIZE), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
-		osmwayBitSize:           osmwayBitSize,
-		edgeStartPointsIndex:    make([]Index, 0),
-		edgeEndPointsIndex:      make([]Index, 0),
-		streetName:              make([]uint32, 0),
-		roadClass:               make([]pkg.OsmHighwayType, 0),
-		roadClassLink:           make([]pkg.OsmHighwayType, 0),
-		lanes:                   make([]uint8, 0),
+		edgeGeohashes:           make([]uint64, 0),
+
+		osmNodePoints:        make([]Coordinate, 0),
+		edgeOsmWayId:         NewPackedSlice(osmwayBitSize, INITIAL_APPROX_EDGE_SIZE), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
+		osmwayBitSize:        osmwayBitSize,
+		edgeStartPointsIndex: make([]Index, 0),
+		edgeEndPointsIndex:   make([]Index, 0),
+		streetName:           make([]uint32, 0),
+		roadClass:            make([]pkg.OsmHighwayType, 0),
+		roadClassLink:        make([]pkg.OsmHighwayType, 0),
+		lanes:                make([]uint8, 0),
 	}
 }
 
@@ -72,6 +76,7 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 		roundaboutFlag:          bitset.New(uint(numberOfEdges)),
 		nodeTrafficLight:        bitset.New(uint(numberOfVertices)),
 		isCurvedFlag:            bitset.New(uint(numberOfEdges)),
+		edgeGeohashes:           make([]uint64, numberOfEdges),
 		osmNodePoints:           make([]Coordinate, 1),
 		edgeOsmWayId:            NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID, uint64(numberOfEdges)),
 		edgeStartPointsIndex:    make([]Index, 0),
@@ -331,4 +336,20 @@ func (gs *GraphStorage) GetConditionalTrafficModes() []ConditionalTrafficMode {
 
 func (gs *GraphStorage) GetConditionalTurnRestrictions() []ConditionalTurnRestriction {
 	return gs.conditionalTurnRestrictions
+}
+
+func (gs *GraphStorage) SetEdgeGeohashes(edgeGeohashes []uint64) {
+	gs.edgeGeohashes = edgeGeohashes
+}
+
+func (gs *GraphStorage) AppendEdgeGeohash(geohash uint64) {
+	gs.edgeGeohashes = append(gs.edgeGeohashes, geohash)
+}
+
+func (gs *GraphStorage) SetEdgeGeohash(edgeId Index, geohash uint64) {
+	gs.edgeGeohashes[edgeId] = geohash
+}
+
+func (gs *GraphStorage) GetEdgeGeohash(edgeId Index) uint64 {
+	return gs.edgeGeohashes[edgeId]
 }

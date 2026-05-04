@@ -3,8 +3,8 @@ package engine
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/cockroachdb/errors"
 	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -46,7 +46,7 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 		BufferItems: 64,                                   // number of keys per Get buffer.
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "NewEngineDirect: failed to create new ristretto cache with capacity: %v", maxCost)
+		return nil, fmt.Errorf("NewEngineDirect: failed to create new ristretto cache with capacity: %v: %w", maxCost, err)
 	}
 
 	lm := landmark.NewLandmark()
@@ -102,7 +102,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		BufferItems: 64,          // number of keys per Get buffer.
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v", maxCost)
+		return nil, fmt.Errorf("initializeRoutingEngine: failed to create new ristretto cache with capacity: %v: %w", maxCost, err)
 	}
 
 	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, landmarkFile)

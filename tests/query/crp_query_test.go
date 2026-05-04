@@ -15,6 +15,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -327,7 +328,7 @@ func TestCRPQuerySimple(t *testing.T) {
 }
 
 func init() {
-	util.InitConfig()
+	config.InitConfig()
 }
 
 func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
@@ -339,11 +340,11 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
 		t.Fatal(err)
 	}
 
-	workingDir, err := util.FindProjectWorkingDir()
+	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	err = util.ReadConfig(workingDir)
+	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}

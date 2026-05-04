@@ -2,9 +2,9 @@ package usecases
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
-	"github.com/cockroachdb/errors"
 	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -52,7 +52,7 @@ func NewRoutingService(log *zap.Logger, engine controllers.RoutingEngine, spatia
 		BufferItems: 64,          // number of keys per Get buffer.
 	})
 	if err != nil {
-		return nil, errors.Wrapf(err, "initializeRoutingEngine: failed to create new ristretto cache with capacity: %v", maxCost)
+		return nil, fmt.Errorf("initializeRoutingEngine: failed to create new ristretto cache with capacity: %v: %w", maxCost, err)
 	}
 
 	rs.directionBuilderPool = &sync.Pool{
@@ -82,7 +82,12 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 			"no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 
-	travelTime, dist, pathCoords, edgePath, found = rs.engine.ShortestPathSearch(sp, tp, reroute)
+	if !rs.isSameSourceDestinationSegment(sp, tp) {
+		travelTime, dist, pathCoords, edgePath, found = rs.engine.ShortestPathSearch(sp, tp, reroute)
+	} else {
+		// segmen jalan dari phantom node source dan phantom node destination sama
+		travelTime, dist, pathCoords, edgePath, found = rs.getSameSourceDestinationSegmentResult(sp)
+	}
 
 	if !found {
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
@@ -110,6 +115,10 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 		return make([]routing.AlternativeRoute, 0), util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
 			"no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
+	}
+
+	if rs.isSameSourceDestinationSegment(sp, tp) {
+		return make([]routing.AlternativeRoute, 0), nil
 	}
 
 	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp, tp, k, reroute, startEdgeId)
@@ -144,14 +153,22 @@ func (rs *RoutingService) Close() {
 
 func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64, dist float64) (float64, float64) {
 	if !rs.engine.IsDummyOutEdge(sp.GetOutEdgeId()) {
-		path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
+		if !rs.isSameSourceDestinationSegment(sp, tp) {
+			path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
+		} else {
+			path.Prepend([]da.Coordinate{sp.GetSnappedCoord()})
+		}
 		travelTime += sp.GetForwardTravelTime()
 		dist += sp.GetForwardDistance()
 	}
 	if !rs.engine.IsDummyInEdge(tp.GetInEdgeId()) {
-		path.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
+		if !rs.isSameSourceDestinationSegment(sp, tp) {
+			path.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
+		} else {
+			path.Append([]da.Coordinate{tp.GetSnappedCoord()})
+		}
 		travelTime += tp.GetReverseTravelTime()
-		dist += sp.GetReverseDistance()
+		dist += tp.GetReverseDistance()
 	}
 	return travelTime, dist
 }
@@ -174,4 +191,15 @@ func (rs *RoutingService) GetBoundingBox(ctx context.Context) da.BoundingBox {
 
 func (rs *RoutingService) InitBackgroundWorker(ctx context.Context) {
 	rs.engine.InitBackgroundWorker(ctx)
+}
+
+func (rs *RoutingService) getSameSourceDestinationSegmentResult(sp da.PhantomNode) (float64, float64, *da.Coordinates, []da.Index, bool) {
+	eId := sp.GetOutEdgeId()
+	edgePath := make([]da.Index, 0)
+	edgePath = append(edgePath, eId)
+	travelTime := sp.GetForwardTravelTime()
+	dist := sp.GetForwardDistance()
+	pathCoords := da.NewCoordinatesWithInitialValues(sp.GetForwardGeometry())
+	found := true
+	return travelTime, dist, pathCoords, edgePath, found
 }

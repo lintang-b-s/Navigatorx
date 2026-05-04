@@ -183,7 +183,68 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	tp := da.NewPhantomNode(bestPair.destCoord, 0.0, tReverseTravelTime, destExitId, bestPair.destEdgeId, 0, tEdgeLength, make([]da.Coordinate, 0),
 		bestDestBefCoords)
 
+	// handle case when bestPair.origEdgeId == bestPair.destEdgeId
+	if rs.isSameSourceDestinationSegment(sp, tp) {
+		sp = rs.handleSameSourceDestinationSegment(sp, tp)
+	}
+
 	return sp, tp
+}
+
+func (rs *RoutingService) isSameSourceDestinationSegment(sp, tp da.PhantomNode) bool {
+	return sp.GetOutEdgeId() == tp.GetOutEdgeId()
+}
+
+func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) da.PhantomNode {
+	var newSourceForwardGeom []da.Coordinate
+
+	spForwardGeom := sp.GetForwardGeometry()
+	/*
+		case 1:
+		misal segment jalan yang source dan destination ke snap:
+
+		u---s----------------t--->v
+		misal edgeGometry cuma (uCoord, vCoord)
+
+		jadi kita cuma return geometry (sCoord, tCoord) (dihandle di rs.AppendPhantomNodesToPath()) buat shortest path nya (kalau source dan destination road segment sama)....
+
+		case 2:
+		misal segment jalan yang source dan destination ke snap:
+
+		u---s----x------w--z---t--->v
+		misal edgeGometry ada (uCoord,xCoord,wCoord,zCoord,vCoord)
+
+		di case ini, kita return geometry (sCoord, xCoord, wCoord, zCoord, tCoord)  buat shortest path nya (kalau source dan destination road segment sama dan edgeGeometry > 2)....
+	*/
+
+	edgeId := sp.GetOutEdgeId()
+	spProjectedCoord := sp.GetSnappedCoord()
+	lastIndexForward, _, _, _, _ := rs.project(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(), edgeId, true)
+	tpProjectedCoord := tp.GetSnappedCoord()
+	lastIndexBackward, _, _, _, _ := rs.project(tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon(), edgeId, true)
+
+	newSPLength := 0.0
+
+	if lastIndexForward != lastIndexBackward {
+		// case 2
+		newSourceForwardGeom = spForwardGeom[:lastIndexBackward+1]
+
+		for i := 0; i < len(newSourceForwardGeom)-1; i++ {
+			curCo := newSourceForwardGeom[i]
+			nextCo := newSourceForwardGeom[i+1]
+			newSPLength += geo.CalculateGreatCircleDistance(curCo.GetLat(), curCo.GetLon(),
+				nextCo.GetLat(), nextCo.GetLon())
+		}
+	}
+
+	// case 1 tinggal return empty newSourceForwardGeom,  geometry (sCoord, tCoord) dihandle di rs.AppendPhantomNodesToPath()
+
+	newSPTravelTime := rs.engine.GetWeightFromLength(sp.GetOutEdgeId(), newSPLength, true)
+
+	newSP := da.NewPhantomNode(sp.GetSnappedCoord(), newSPTravelTime, 0, sp.GetOutEdgeId(),
+		da.INVALID_EDGE_ID, newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
+
+	return newSP
 }
 
 type originDestination struct {
@@ -201,6 +262,50 @@ func newOriginDestination(origEdgeId, destEdgeId da.Index, origCoord, destCoord 
 }
 
 func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.Index, origin bool) (float64, float64, float64, float64, []da.Coordinate) {
+
+	lastIndex, eGeometry, bestProjectedPoint, minDist, distToEdgeEndpoint := rs.project(lat, lon, edgeId, origin)
+
+	/*
+		misal untuk origin: out edge (u,v) paling dekat dengan origin
+			u - - - - - s - - - - - > v
+
+		kita juga harus return edge geometry dari setelah s ke v buat nampilin path dari origin
+
+		untuk destination: out edge (w,q) paling dekat dengan destination
+
+		   w - - - - - t - - - - - - > q
+
+		   karena kita query shortest path/rute alternatif dari s ke t, kita return edge geometry dari w ke t
+	*/
+
+	/*
+		harusnya kalau openstreetmap bisa support lane level routing (geometry dari setiap osm way yang two-way dibedain jadi dua sesuai arah dan lanenya ):
+		kita bisa snap ke edge yang lane osm way nya lebih deket ke titik query, kaya di gmaps berikut (lihat road segment destination):
+
+		https://www.google.com/maps/dir/Sans+Guest+House+2,+Jl.+Mulwo,+Karangasem,+Kec.+Laweyan,+Kota+Surakarta,+Jawa+Tengah+57145/-7.5541728,110.8270471/@-7.5542505,110.8247047,18.47z/data=!4m9!4m8!1m5!1m1!1s0x2e7a14403c5830dd:0x5a2e99d453ee8b46!2m2!1d110.7819826!2d-7.5504398!1m0!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+
+
+		tapi di osrm juga gak support beginian sih (lihat road segment destination):
+		https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.550317%2C110.782131%3B-7.554244%2C110.827106
+
+		karena osm way yang two-way edge geometry untuk arah forward dan backward sama di openstreetmap.
+	*/
+
+	nextEdgeGeometry := make([]da.Coordinate, 0, len(eGeometry))
+	if !origin {
+		// kalau destination
+		// range lastIndex [0,len(geometry)-2]
+		nextEdgeGeometry = append(nextEdgeGeometry, eGeometry[:lastIndex+1]...)
+	} else {
+		// kalau origin
+		// range lastIndex [0,len(geometry)-2]
+		nextEdgeGeometry = append(nextEdgeGeometry, eGeometry[lastIndex+1:]...)
+	}
+
+	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist, distToEdgeEndpoint, nextEdgeGeometry
+}
+
+func (rs *RoutingService) project(lat, lon float64, edgeId da.Index, origin bool) (da.Index, []da.Coordinate, da.Coordinate, float64, float64) {
 
 	eGeometry := rs.graph.GetEdgeGeometry(edgeId)
 	minDist := pkg.INF_WEIGHT
@@ -237,44 +342,7 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 			}
 		}
 	}
-
-	/*
-		misal untuk origin: out edge (u,v) paling dekat dengan origin
-			u - - - - - s - - - - - > v
-
-		kita juga harus return edge geometry dari setelah s ke v buat nampilin path dari origin
-
-		untuk destination: out edge (w,q) paling dekat dengan destination
-
-		   w - - - - - t - - - - - - > q
-
-		   karena kita query shortest path/rute alternatif dari s ke t, kita return edge geometry dari w ke t
-	*/
-
-	/*
-		harusnya kalau openstreetmap bisa support lane level routing (geometry dari setiap osm way yang two-way dibedain jadi dua sesuai arah dan lanenya ):
-		kita bisa snap ke edge yang lane osm way nya lebih deket ke titik query, kaya di gmaps berikut (lihat road segment destination):
-
-		https://www.google.com/maps/dir/Sans+Guest+House+2,+Jl.+Mulwo,+Karangasem,+Kec.+Laweyan,+Kota+Surakarta,+Jawa+Tengah+57145/-7.5541728,110.8270471/@-7.5542505,110.8247047,18.47z/data=!4m9!4m8!1m5!1m1!1s0x2e7a14403c5830dd:0x5a2e99d453ee8b46!2m2!1d110.7819826!2d-7.5504398!1m0!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
-
-
-		tapi di osrm juga gak support beginian sih (lihat road segment destination):
-		https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.550317%2C110.782131%3B-7.554244%2C110.827106
-
-		karena osm way yang two-way edge geometry untuk arah forward dan backward sama di openstreetmap.
-	*/
-
-	nextEdgeGeometry := make([]da.Coordinate, 0, len(eGeometry))
-	if !origin {
-		// kalau destination
-		nextEdgeGeometry = append(nextEdgeGeometry, eGeometry[:lastIndex]...)
-	} else {
-		// kalau origin
-		// range lastIndex [0,len(geometry)-2]
-		nextEdgeGeometry = append(nextEdgeGeometry, eGeometry[lastIndex+1:]...)
-	}
-
-	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist, distToEdgeEndpoint, nextEdgeGeometry
+	return da.Index(lastIndex), eGeometry, bestProjectedPoint, minDist, distToEdgeEndpoint
 }
 
 func (rs *RoutingService) notFoundOriginDestinationWithinRadius(sp, tp da.PhantomNode) bool {

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/cockroachdb/errors"
+
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -115,7 +115,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 	f, err := os.Open(mapFile)
 
 	if err != nil {
-		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to Open file: %s", mapFile)
+		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Open file: %s: %w", mapFile, err)
 	}
 
 	defer f.Close()
@@ -264,12 +264,12 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 
 	err = scanner.Close()
 	if err != nil {
-		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to close scanner: %s", mapFile)
+		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to close scanner: %s: %w", mapFile, err)
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to Seek scanner: %s", mapFile)
+		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Seek scanner: %s: %w", mapFile, err)
 	}
 
 	scanner = osmpbf.New(context.Background(), f, 0)
@@ -296,7 +296,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 
 				isBarrierAccessible, err := p.isBarrierNodeAccessible(node)
 				if err != nil {
-					return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s", mapFile)
+					return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s: %w", mapFile, err)
 				}
 
 				if !isBarrierAccessible {
@@ -325,12 +325,12 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 
 	err = scanner.Close()
 	if err != nil {
-		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to close scanner: %s", mapFile)
+		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to close scanner: %s: %w", mapFile, err)
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to Seek scanner: %s", mapFile)
+		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Seek scanner: %s: %w", mapFile, err)
 	}
 
 	// scan osm way and store graph edges
@@ -478,7 +478,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 	logger.Sugar().Infof("number of edges: %v\n", graph.NumberOfEdges())
 
 	if err = scanner.Close(); err != nil {
-		return nil, make([][]da.Index, 0), errors.Wrapf(err, "osmParser.Parse: failed to Close scanner: %s", mapFile)
+		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Close scanner: %s: %w", mapFile, err)
 	}
 
 	return graph, edgeInfoIds, nil
@@ -527,7 +527,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 			{
 				maxSpeed, err = parseOsmWayMaxSpeedVal(tag.Value)
 				if err != nil {
-					return "", errors.Wrapf(err, "processWay: failed to parseOsmWayMaxSpeedVal(), wayId: %v", way.ID)
+					return "", fmt.Errorf("processWay: failed to parseOsmWayMaxSpeedVal(), wayId: %v: %w", way.ID, err)
 				}
 			}
 		case "maxspeed:conditional":

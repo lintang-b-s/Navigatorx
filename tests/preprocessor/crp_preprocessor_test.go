@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	custlog "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/spf13/viper"
@@ -759,11 +760,11 @@ func TestPreprocessorSimple(t *testing.T) {
 }
 
 func init() {
-	workingDir, err := util.FindProjectWorkingDir()
+	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig(workingDir)
+	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}

@@ -8,10 +8,12 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
@@ -52,7 +54,7 @@ func init() {
 	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
 	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.txt", profileName, *regionName)
 
-	util.InitProfileConfig(profileName)
+	config.InitProfileConfig(profileName, *regionName)
 }
 
 func main() {
@@ -96,9 +98,11 @@ func main() {
 	util.FreeMemory()
 
 	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
+	tilingEngine := tiler.NewTilingEngine(graph, logger)
+	tilingService := usecases.NewTileService(logger, tilingEngine)
 
 	serverErr := api.Use(
-		logger, *useRateLimiter, routingService, mapmatcherService, shutdownPeriod*time.Second)
+		logger, *useRateLimiter, routingService, mapmatcherService, tilingService, shutdownPeriod*time.Second)
 
 	if serverErr != nil {
 		logger.Error("server exited unexpectedly", zap.Error(err))

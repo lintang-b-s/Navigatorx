@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -22,13 +21,17 @@ import (
 
 type routingAPI struct {
 	routingService     RoutingService
-	log                *zap.Logger
 	mapmatchingService MapMatcherService
-	validate           *validator.Validate
-	trans              ut.Translator
+	tilingService      TilingService
+
+	log *zap.Logger
+
+	validate *validator.Validate
+
+	trans ut.Translator
 }
 
-func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapMatcherService) *routingAPI {
+func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapMatcherService, tilingService TilingService) *routingAPI {
 	validate := validator.New()
 	english := en.New()
 	uni := ut.New(english, english)
@@ -50,6 +53,7 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes)
 	group.GET("/boundingBox", api.GetBoundingBox)
 	group.POST("/onlineMapMatch", api.onlineMapMatch)
+	group.GET("/tile/:userGeohash", api.getTile)
 
 }
 
@@ -109,8 +113,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		}
 	}
 
-	newCtx, cancel := ExtractDeadline(r.Context(), r)
-	defer cancel()
+	newCtx := r.Context()
 
 	travelTime, dist, pathPolyline, drivingDirections, ok, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
 		request.DestinationLat, request.DestinationLon, reroute, startEdgeId)
@@ -177,8 +180,7 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 		return
 	}
 
-	newCtx, cancel := ExtractDeadline(r.Context(), r)
-	defer cancel()
+	newCtx := r.Context()
 
 	startEdgeId := da.INVALID_EDGE_ID
 	rerouteStr := query.Get("reroute")
@@ -214,8 +216,7 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 
 func (api *routingAPI) GetBoundingBox(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 
-	newCtx, cancel := ExtractDeadline(r.Context(), r)
-	defer cancel()
+	newCtx := r.Context()
 
 	bb := api.routingService.GetBoundingBox(newCtx)
 
@@ -253,9 +254,7 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 		return
 	}
 
-	newCtx, cancel := ExtractDeadline(r.Context(), r)
-	defer cancel()
-
+	newCtx := r.Context()
 	start := time.Now()
 	mgpsPoint, cands, speedMeanK, speedStdK, err := api.mapmatchingService.OnlineMapMatch(newCtx, request.Gps.ToDataGPS(), request.K, ToOnlineCandidates(request.Candidates),
 		request.SpeedMeanK, request.SpeedStdK, request.LastBearing)
@@ -293,19 +292,21 @@ func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p 
 
 }
 
-// taken from: https://oneuptime.com/blog/post/2026-02-01-go-context-propagation-microservices/view
-func ExtractDeadline(ctx context.Context, r *http.Request) (context.Context, context.CancelFunc) {
-	deadlineStr := r.Header.Get("X-Request-Deadline")
-	if deadlineStr == "" {
-		// No deadline specified, return context as-is with a no-op cancel
-		return ctx, func() {}
+func (api *routingAPI) getTile(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	userGeohash := p.ByName("userGeohash")
+	if userGeohash == "" {
+		api.BadRequestResponse(w, r, errors.New("userGeohash is required"))
+		return
 	}
 
-	deadlineMs, err := strconv.ParseInt(deadlineStr, 10, 64)
-	if err != nil {
-		return ctx, func() {}
+	// regex
+	brgx := base32Regex()
+	if !brgx.MatchString(userGeohash) {
+		api.BadRequestResponse(w, r, errors.New("userGeohash is invalid"))
+		return
 	}
 
-	deadline := time.UnixMilli(deadlineMs)
-	return context.WithDeadline(ctx, deadline)
+	ctx := r.Context()
+	tileFilePath := api.tilingService.GetTileFilePath(ctx, userGeohash)
+	http.ServeFile(w, r, tileFilePath)
 }
