@@ -20,6 +20,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
@@ -80,11 +81,11 @@ var (
 
 func init() {
 	flag.Parse()
-	workingDir, err := util.FindProjectWorkingDir()
+	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig(workingDir)
+	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}

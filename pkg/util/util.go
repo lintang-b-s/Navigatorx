@@ -6,16 +6,12 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
 
-	"github.com/cockroachdb/errors"
-	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/spf13/viper"
+	"errors"
 
 	"time"
 )
@@ -294,62 +290,10 @@ func ToFloat64IntMap(input interface{}) (map[float64]int, int) {
 	return result, defaultVal
 }
 
-func FindProjectWorkingDir() (string, error) {
-	dir, err := os.Getwd()
-	if err != nil {
-		return "", err
-	}
-	startDir := dir
-	for {
-		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
-			return dir, nil
-		}
-		parent := filepath.Dir(dir)
-		if parent == dir {
-			// Fallback to initial directory if go.mod is not found (production mode)
-			return startDir, nil
-		}
-		dir = parent
-	}
-}
-
 // FreeMemory. buat nguragin heap allocation setelah read osm road network graph & overlay graph.
 func FreeMemory() {
 	runtime.GC()
 	debug.FreeOSMemory()
-}
-
-func InitConfig() {
-	workingDir, err := FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	err = ReadConfig(workingDir)
-	if err != nil {
-		panic(err)
-	}
-	vehicleType := viper.GetString("vehicle_type")
-	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicle = pkg.GetIsVehicle()
-	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
-}
-
-func InitProfileConfig(profileName string) {
-	workingDir, err := FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	err = ReadProfileConfig(workingDir, profileName)
-	if err != nil {
-		panic(err)
-	}
-	pkg.ProfileName = profileName
-	vehicleType := viper.GetString("vehicle_type")
-	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicle = pkg.GetIsVehicle()
-	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
 }
 
 func IsTimeout(ctx context.Context) bool {

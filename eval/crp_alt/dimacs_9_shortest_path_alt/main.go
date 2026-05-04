@@ -13,6 +13,7 @@ import (
 
 	crpalt "github.com/lintang-b-s/Navigatorx/eval/crp_alt"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
@@ -94,11 +95,11 @@ func main() {
 
 	flag.Parse()
 
-	workingDir, err := util.FindProjectWorkingDir()
+	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig(workingDir)
+	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}

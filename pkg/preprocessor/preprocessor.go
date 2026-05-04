@@ -7,7 +7,9 @@ import (
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/mmcloughlin/geohash"
 	"go.uber.org/zap"
 )
 
@@ -58,6 +60,13 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 
 	if writefile {
 		err := p.overlayGraph.WriteToFile(p.overlayGraphFilename)
+		if err != nil {
+			return err
+		}
+
+		// write graph tiles
+		tilingEngine := tiler.NewTilingEngine(p.graph, p.logger)
+		err = tilingEngine.PreprocessTiles()
 		if err != nil {
 			return err
 		}
@@ -222,6 +231,8 @@ func (p *Preprocessor) SortByCellNumber() {
 	lastVertex := p.graph.GetVertex(da.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
 	newVertices := make([]da.Vertex, p.graph.GetNumberOfVerticesWithDummyVertex())
 
+	edgeGeohashes := make([]uint64, p.graph.NumberOfEdges())
+
 	newVIdToOldVId := make([]da.Index, p.graph.NumberOfVertices())
 	for i := da.Index(0); i < da.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
 		p.graph.SetOutEdgeCellOffset(i, newOutEdgeId)
@@ -310,6 +321,12 @@ func (p *Preprocessor) SortByCellNumber() {
 						newIsCurvedFlag.Set(uint(newOutEdgeId))
 					}
 
+					// add edge geohash
+					// kita set edge geohash based on tailcoord geohash
+					tailCoord := newVertices[vId].GetCoordinate()
+
+					eGeoHash := geohash.EncodeIntWithPrecision(tailCoord.GetLat(), tailCoord.GetLon(), tiler.GeohashBits)
+					edgeGeohashes[newOutEdgeId] = eGeoHash
 				} else if isRoadNetworkGraph {
 					newOsmWayIds.Append(uint64(da.INVALID_OSM_WAY_ID))
 				}
@@ -347,6 +364,7 @@ func (p *Preprocessor) SortByCellNumber() {
 		newStreetNameIds, newRoadClass, newRoadClassLink, newLanes)
 	p.graph.SetVertexOsmIds(newVerticesOsmIds)
 	p.graph.SetIsCurvedFlags(newIsCurvedFlag)
+	p.graph.SetEdgeGeohashes(edgeGeohashes)
 
 }
 

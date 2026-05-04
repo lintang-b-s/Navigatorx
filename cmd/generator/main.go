@@ -13,13 +13,13 @@ import (
 	"math/rand/v2"
 
 	"github.com/bytedance/gopkg/util/gopool"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var (
@@ -45,7 +45,7 @@ func init() {
 	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
 	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.txt", profileName, *regionName)
 
-	util.InitProfileConfig(profileName)
+	config.InitProfileConfig(profileName, *regionName)
 }
 
 func main() {

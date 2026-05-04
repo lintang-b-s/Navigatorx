@@ -3,8 +3,8 @@ logs/
 *.svg
 *.pl
 *.graph
-*.osm.pbf
 *.csv
+*.osm.pbf
 *.text
 *.txt
 coba/
@@ -69,3 +69,11 @@ navigatorx*
 cover*
 
 notes/
+*.log
+*.bin
+
+tiles/
+data/car/tiles/
+*.osm
+*.tile
+

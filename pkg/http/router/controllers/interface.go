@@ -33,3 +33,7 @@ type MapMatcherService interface {
 	OnlineMapMatch(ctx context.Context, gps *da.GPSPoint, k int,
 		candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64, error)
 }
+
+type TilingService interface {
+	GetTileFilePath(ctx context.Context, userGeohash string) string
+}

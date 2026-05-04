@@ -1,6 +1,9 @@
 package datastructure
 
-import "github.com/lintang-b-s/Navigatorx/pkg"
+import (
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+)
 
 type Coordinate struct {
 	Lat float64 `json:"lat"`
@@ -13,6 +16,10 @@ func (c Coordinate) GetLat() float64 {
 
 func (c Coordinate) GetLon() float64 {
 	return c.Lon
+}
+
+func IsSameCoordinate(a, b Coordinate) bool {
+	return util.Eq(a.GetLat(), b.GetLat()) && util.Eq(a.GetLon(), b.GetLon())
 }
 
 // 16 byte (128bit)

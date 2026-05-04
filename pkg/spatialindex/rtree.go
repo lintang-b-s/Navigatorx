@@ -6,6 +6,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+
 	"github.com/tidwall/rtree"
 	"go.uber.org/zap"
 )
@@ -28,8 +29,8 @@ func NewRtree() *Rtree {
 }
 
 // Build. build r-tree
-func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
-	log.Info("Building R-tree spatial index...")
+func (rt *Rtree) Build(graph *da.Graph, logger *zap.Logger) {
+	logger.Info("Building R-tree spatial index...")
 	graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index,
 		percentage float64, eId da.Index) {
 
@@ -65,7 +66,7 @@ func (rt *Rtree) Build(graph *da.Graph, log *zap.Logger) {
 			id)
 	})
 
-	log.Info("R-tree spatial index built.")
+	logger.Info("R-tree spatial index built.")
 }
 
 // SearchWithinRadius search for all arc endpoints within radius (in km) from the query point (qLat, qLon)

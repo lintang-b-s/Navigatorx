@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"go.uber.org/zap"
@@ -20,7 +21,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var (
@@ -49,11 +49,11 @@ func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 	if err != nil {
 		panic(err)
 	}
-	workingDir, err := util.FindProjectWorkingDir()
+	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig(workingDir)
+	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}

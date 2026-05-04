@@ -92,3 +92,12 @@ func (m *MockRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bo
 	args := m.Called(sp, tp, reroute)
 	return args.Get(0).(float64), args.Get(1).(float64), args.Get(2).(*da.Coordinates), args.Get(3).([]da.Index), args.Bool(4)
 }
+
+type MockTilingService struct {
+	mock.Mock
+}
+
+func (m *MockTilingService) GetTileFilePath(ctx context.Context, userGeohash string) string {
+	args := m.Called(ctx, userGeohash)
+	return args.String(0)
+}

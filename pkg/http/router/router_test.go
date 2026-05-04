@@ -46,6 +46,7 @@ func TestAPI_Run(t *testing.T) {
 
 	mockRS := new(MockRoutingService)
 	mockMMS := new(MockMapMatcherService)
+	mockTS := new(MockTilingService)
 	mockEngine := new(MockRoutingEngine)
 
 	mockRS.On("GetRoutingEngine").Return(mockEngine)
@@ -66,7 +67,7 @@ func TestAPI_Run(t *testing.T) {
 			_ = process.Signal(syscall.SIGINT)
 		}()
 
-		err := api.Run(config, log, false, mockRS, mockMMS, 100*time.Millisecond)
+		err := api.Run(config, log, false, mockRS, mockMMS, mockTS, 100*time.Millisecond)
 		skipSocketPermission(t, err)
 		assert.NoError(t, err)
 	})
@@ -87,7 +88,7 @@ func TestAPI_Run(t *testing.T) {
 			Port: port,
 		}
 
-		err = api.Run(configErr, log, false, mockRS, mockMMS, 100*time.Millisecond)
+		err = api.Run(configErr, log, false, mockRS, mockMMS, mockTS, 100*time.Millisecond)
 		assert.Error(t, err)
 	})
 
@@ -108,7 +109,7 @@ func TestAPI_Run(t *testing.T) {
 			ProxyPort: port,
 		}
 
-		err = api.Run(configErr, log, false, mockRS, mockMMS, 100*time.Millisecond)
+		err = api.Run(configErr, log, false, mockRS, mockMMS, mockTS, 100*time.Millisecond)
 		assert.Error(t, err)
 	})
 }
@@ -118,6 +119,7 @@ func TestAPI_Run_InjectedServerError(t *testing.T) {
 	api := NewAPI(log)
 	mockRS := new(MockRoutingService)
 	mockMMS := new(MockMapMatcherService)
+	mockTS := new(MockTilingService)
 	mockEngine := new(MockRoutingEngine)
 
 	mockRS.On("GetRoutingEngine").Return(mockEngine)
@@ -145,7 +147,7 @@ func TestAPI_Run_InjectedServerError(t *testing.T) {
 		shutdownHTTP = origShutdown
 	})
 
-	err := api.Run(http_server.Config{Port: 9102, ProxyPort: 9101, WebsocketPort: 9103}, log, true, mockRS, mockMMS, 50*time.Millisecond)
+	err := api.Run(http_server.Config{Port: 9102, ProxyPort: 9101, WebsocketPort: 9103}, log, true, mockRS, mockMMS, mockTS, 50*time.Millisecond)
 
 	assert.EqualError(t, err, "main server error")
 	mockRS.AssertExpectations(t)

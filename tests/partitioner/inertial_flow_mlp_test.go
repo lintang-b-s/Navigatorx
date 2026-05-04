@@ -7,13 +7,13 @@ import (
 	"testing"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/spf13/viper"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 const (
@@ -22,11 +22,11 @@ const (
 
 func init() {
 
-	workingDir, err := util.FindProjectWorkingDir()
+	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig(workingDir)
+	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}

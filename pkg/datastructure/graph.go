@@ -328,6 +328,10 @@ func NewGraph(vertices []Vertex, outEdges []OutEdge, inEdges []InEdge, turnTypeT
 		verticesOsmIds: verticesOsmIds}
 }
 
+func (g *Graph) GetGraphStorage() *GraphStorage {
+	return g.graphStorage
+}
+
 func (g *Graph) NumberOfVertices() int {
 	return len(g.vertices) - 1
 }
@@ -1051,4 +1055,12 @@ func (g *Graph) ForEachConditionalTurnRestriction(handle func(id Index, res Cond
 	for idx, res := range g.graphStorage.GetConditionalTurnRestrictions() {
 		handle(Index(idx), res)
 	}
+}
+
+func (g *Graph) SetEdgeGeohashes(edgeGeohashes []uint64) {
+	g.graphStorage.SetEdgeGeohashes(edgeGeohashes)
+}
+
+func (g *Graph) GetEdgeGeohash(edgeId Index) uint64 {
+	return g.graphStorage.GetEdgeGeohash(edgeId)
 }

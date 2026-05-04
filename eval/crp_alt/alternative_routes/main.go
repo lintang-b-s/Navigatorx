@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
@@ -43,11 +43,11 @@ const (
 
 func init() {
 	flag.Parse()
-	workingDir, err := util.FindProjectWorkingDir()
+	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig(workingDir)
+	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}
@@ -82,11 +82,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	workingDir, err := util.FindProjectWorkingDir()
+	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
-	err = util.ReadConfig(workingDir)
+	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}

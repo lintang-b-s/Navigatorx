@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -39,7 +38,8 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
 	mockMMS := new(MockMapMatcherService)
-	api := New(mockRS, log, mockMMS)
+	mockTS := new(MockTilingService)
+	api := New(mockRS, log, mockMMS, mockTS)
 
 	t.Run("Missing Params", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/computeRoutes", nil)
@@ -182,7 +182,8 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
 	mockMMS := new(MockMapMatcherService)
-	api := New(mockRS, log, mockMMS)
+	mockTS := new(MockTilingService)
+	api := New(mockRS, log, mockMMS, mockTS)
 
 	t.Run("Success", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
@@ -312,7 +313,8 @@ func TestRoutingAPI_GetBoundingBox(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
 	mockMMS := new(MockMapMatcherService)
-	api := New(mockRS, log, mockMMS)
+	mockTS := new(MockTilingService)
+	api := New(mockRS, log, mockMMS, mockTS)
 
 	t.Run("Success", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/boundingBox", nil)
@@ -342,7 +344,8 @@ func TestRoutingAPI_OnlineMapMatch(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
 	mockMMS := new(MockMapMatcherService)
-	api := New(mockRS, log, mockMMS)
+	mockTS := new(MockTilingService)
+	api := New(mockRS, log, mockMMS, mockTS)
 
 	t.Run("Invalid JSON", func(t *testing.T) {
 		req, _ := http.NewRequest("POST", "/onlineMapMatch", bytes.NewBufferString("invalid"))
@@ -467,7 +470,8 @@ func TestRoutingAPI_Routes(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
 	mockMMS := new(MockMapMatcherService)
-	api := New(mockRS, log, mockMMS)
+	mockTS := new(MockTilingService)
+	api := New(mockRS, log, mockMMS, mockTS)
 
 	router := httprouter.New()
 	group := helper.NewRouteGroup(router, "/api")
@@ -480,33 +484,4 @@ func TestRoutingAPI_Routes(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestExtractDeadline(t *testing.T) {
-	t.Run("No Header", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/", nil)
-		ctx, cancel := ExtractDeadline(context.Background(), req)
-		defer cancel()
-		_, ok := ctx.Deadline()
-		assert.False(t, ok)
-	})
-
-	t.Run("With Header", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/", nil)
-		req.Header.Set("X-Request-Deadline", fmt.Sprintf("%d", time.Now().Add(time.Second).UnixMilli()))
-		ctx, cancel := ExtractDeadline(context.Background(), req)
-		defer cancel()
-		deadline, ok := ctx.Deadline()
-		assert.True(t, ok)
-		assert.True(t, deadline.After(time.Now()))
-	})
-
-	t.Run("Invalid Header", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", "/", nil)
-		req.Header.Set("X-Request-Deadline", "invalid")
-		ctx, cancel := ExtractDeadline(context.Background(), req)
-		defer cancel()
-		_, ok := ctx.Deadline()
-		assert.False(t, ok)
-	})
 }

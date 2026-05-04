@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"strconv"
 
-	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -75,7 +74,7 @@ func (tf *TimeFunction) WriteToFile(filename string) error {
 
 	f, err := os.Create(filename)
 	if err != nil {
-		return errors.Wrapf(err, "timefunction.WriteToFile: failed to create file %v", filename)
+		return fmt.Errorf("timefunction.WriteToFile: failed to create file %v: %w", filename, err)
 	}
 	defer f.Close()
 
@@ -84,52 +83,52 @@ func (tf *TimeFunction) WriteToFile(filename string) error {
 	numOfEdges := len(tf.edgeMaxSpeeds)
 	_, err = fmt.Fprintf(w, "%d\n", numOfEdges)
 	if err != nil {
-		return errors.Wrapf(err, "timefunction.WriteToFile: failed to write numOfEdges: %v", numOfEdges)
+		return fmt.Errorf("timefunction.WriteToFile: failed to write numOfEdges: %v: %w", numOfEdges, err)
 	}
 	for eId := 0; eId < numOfEdges; eId++ {
 		_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(tf.edgeMaxSpeeds[eId], 'f', -1, 64))
 		if err != nil {
-			return errors.Wrapf(err, "timefunction.WriteToFile: failed to write tf.edgeMaxSpeeds[%d]: %v", eId, tf.edgeMaxSpeeds[eId])
+			return fmt.Errorf("timefunction.WriteToFile: failed to write tf.edgeMaxSpeeds[%d]: %v: %w", eId, tf.edgeMaxSpeeds[eId], err)
 		}
 		if eId < numOfEdges-1 {
 			_, err = fmt.Fprint(w, " ")
 			if err != nil {
-				return errors.Wrapf(err, "timefunction.WriteToFile: failed to write space")
+				return fmt.Errorf("timefunction.WriteToFile: failed to write space: %w", err)
 			}
 		}
 	}
 
 	_, err = fmt.Fprintf(w, "\n")
 	if err != nil {
-		return errors.Wrapf(err, "timefunction.WriteToFile: failed to write new line")
+		return fmt.Errorf("timefunction.WriteToFile: failed to write new line: %w", err)
 	}
 
 	numOfTurns := len(tf.turnTable)
 	_, err = fmt.Fprintf(w, "%d\n", numOfTurns)
 	if err != nil {
-		return errors.Wrapf(err, "timefunction.WriteToFile: failed to write numOfTurns: %v", numOfTurns)
+		return fmt.Errorf("timefunction.WriteToFile: failed to write numOfTurns: %v: %w", numOfTurns, err)
 	}
 	if numOfTurns > 0 {
 		for tId := 0; tId < numOfTurns; tId++ {
 			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(tf.turnTable[tId], 'f', -1, 64))
 			if err != nil {
-				return errors.Wrapf(err, "timefunction.WriteToFile: failed to write tf.turnTable[%d]: %v", tId, tf.turnTable[tId])
+				return fmt.Errorf("timefunction.WriteToFile: failed to write tf.turnTable[%d]: %v: %w", tId, tf.turnTable[tId], err)
 			}
 			if tId < numOfTurns-1 {
 				_, err = fmt.Fprint(w, " ")
 				if err != nil {
-					return errors.Wrapf(err, "timefunction.WriteToFile: failed to write space")
+					return fmt.Errorf("timefunction.WriteToFile: failed to write space: %w", err)
 				}
 			}
 		}
 		_, err = fmt.Fprintf(w, "\n")
 		if err != nil {
-			return errors.Wrapf(err, "timefunction.WriteToFile: failed to write new line")
+			return fmt.Errorf("timefunction.WriteToFile: failed to write new line: %w", err)
 		}
 	}
 
 	if err = w.Flush(); err != nil {
-		return errors.Wrapf(err, "timefunction.WriteToFile: failed to flush bufio writer")
+		return fmt.Errorf("timefunction.WriteToFile: failed to flush bufio writer: %w", err)
 	}
 
 	return nil
@@ -138,7 +137,7 @@ func (tf *TimeFunction) WriteToFile(filename string) error {
 func ReadFromFile(filename string) (*TimeFunction, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to open file %v", filename)
+		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to open file %v: %w", filename, err)
 	}
 
 	defer f.Close()
@@ -146,17 +145,17 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 	r := bufio.NewReader(f)
 	line, err := util.ReadLine(r)
 	if err != nil {
-		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to util.ReadLine(r)")
+		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to util.ReadLine(r): %w", err)
 	}
 
 	numOfEdges, err := util.ParseInt(line)
 	if err != nil {
-		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed read numOfEdges")
+		return nil, fmt.Errorf("timefunction.ReadFromFile: failed read numOfEdges: %w", err)
 	}
 
 	line, err = util.ReadLine(r)
 	if err != nil {
-		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to util.ReadLine(r) untuk edge max speeds")
+		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to util.ReadLine(r) untuk edge max speeds: %w", err)
 	}
 
 	edgeMaxSpeeds := make([]float64, numOfEdges)
@@ -164,7 +163,7 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 	for eId := 0; eId < numOfEdges; eId++ {
 		eMaxSpeed, err := strconv.ParseFloat(ff[eId], 64)
 		if err != nil {
-			return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to read maxspeed of eId: %v", eId)
+			return nil, fmt.Errorf("timefunction.ReadFromFile: failed to read maxspeed of eId: %v: %w", eId, err)
 		}
 		edgeMaxSpeeds[eId] = eMaxSpeed
 	}
@@ -174,19 +173,19 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 		if err.Error() == "EOF" {
 			return NewTimeCostFunction(true, edgeMaxSpeeds, nil), nil
 		}
-		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to read numOfTurns")
+		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to read numOfTurns: %w", err)
 	}
 
 	numOfTurns, err := util.ParseInt(line)
 	if err != nil {
-		return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed read numOfTurns")
+		return nil, fmt.Errorf("timefunction.ReadFromFile: failed read numOfTurns: %w", err)
 	}
 
 	var turnTable []float64
 	if numOfTurns > 0 {
 		line, err = util.ReadLine(r)
 		if err != nil {
-			return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to util.ReadLine(r) untuk turn table")
+			return nil, fmt.Errorf("timefunction.ReadFromFile: failed to util.ReadLine(r) untuk turn table: %w", err)
 		}
 
 		turnTable = make([]float64, numOfTurns)
@@ -194,7 +193,7 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 		for tId := 0; tId < numOfTurns; tId++ {
 			tCost, err := strconv.ParseFloat(ff[tId], 64)
 			if err != nil {
-				return nil, errors.Wrapf(err, "timefunction.ReadFromFile: failed to read turn cost of tId: %v", tId)
+				return nil, fmt.Errorf("timefunction.ReadFromFile: failed to read turn cost of tId: %v: %w", tId, err)
 			}
 			turnTable[tId] = tCost
 		}

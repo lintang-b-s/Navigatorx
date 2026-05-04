@@ -91,6 +91,7 @@ func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEn
 		false,
 		nil,
 	)
+
 	gs := da.NewGraphStorage(64)
 	gs.AppendOsmNodePoints([]da.Coordinate{
 		{Lat: -7.7970, Lon: 110.3660}, originCoord, originHeadCoord,
@@ -112,7 +113,7 @@ func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEn
 	mockEngine.On("GetWeightFromLength", da.Index(1), destEdgeLen, false).Return(15.0).Maybe()
 
 	sp := da.NewPhantomNode(da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 12.0, 0, 0, da.INVALID_EDGE_ID, originEdgeLen, 0, []da.Coordinate{originCoord, originHeadCoord}, []da.Coordinate{})
-	tp := da.NewPhantomNode(da.NewCoordinate(yogyakartaDestLat, yogyakartaDestLon), 0, 15.0, 1, 1, 0, destEdgeLen, []da.Coordinate{}, []da.Coordinate{})
+	tp := da.NewPhantomNode(da.NewCoordinate(yogyakartaDestLat, yogyakartaDestLon), 0, 15.0, 1, 1, 0, destEdgeLen, []da.Coordinate{}, []da.Coordinate{{Lat: -7.7860, Lon: 110.4080}})
 
 	return rs, mockEngine, mockSpatial, mockAlt, sp, tp
 }
@@ -190,7 +191,7 @@ func TestRoutingService_ShortestPathBranches(t *testing.T) {
 		assert.NoError(t, err)
 		assert.True(t, ok)
 		assert.Equal(t, 47.0, travelTime)
-		assert.Equal(t, 320.0, dist)
+		assert.Equal(t, 470.0, dist)
 		assert.NotEmpty(t, polyline)
 		assert.Empty(t, dirs)
 		mockSpatial.AssertExpectations(t)
@@ -238,7 +239,7 @@ func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Len(t, alts, 1)
 		assert.Equal(t, 47.0, alts[0].GetDrivingTravelTime())
-		assert.Equal(t, 320.0, alts[0].GetDist())
+		assert.Equal(t, 470.0, alts[0].GetDist())
 		assert.NotEmpty(t, alts[0].GetPolylinePath())
 		assert.Empty(t, alts[0].GetDrivingDirections())
 		mockSpatial.AssertExpectations(t)
@@ -271,7 +272,7 @@ func TestRoutingService_AppendPhantomNodesToPath(t *testing.T) {
 	travelTime, dist := rs.AppendPhantomNodesToPath(path, sp, tp, 20.0, 200.0)
 
 	assert.Equal(t, 47.0, travelTime)
-	assert.Equal(t, 320.0, dist)
+	assert.Equal(t, 470.0, dist)
 	assert.InDelta(t, yogyakartaOriginLat, (*path)[0].Lat, util.EPS)
 	assert.InDelta(t, yogyakartaDestLat, (*path)[len(*path)-1].Lat, util.EPS)
 }

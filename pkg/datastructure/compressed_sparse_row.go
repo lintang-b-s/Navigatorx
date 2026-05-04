@@ -3,10 +3,10 @@ package datastructure
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 
-	"github.com/cockroachdb/errors"
 	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"golang.org/x/exp/constraints"
@@ -159,7 +159,7 @@ func (sm *SparseMatrix[T]) WriteToFile(filename string) error {
 	fmt.Fprintf(w, "\n")
 
 	if err = w.Flush(); err != nil {
-		return errors.Wrapf(err, "csr.WriteToFile: failed to flush bufio writer")
+		return fmt.Errorf("csr.WriteToFile: failed to flush bufio writer: %w", err)
 	}
 	return nil
 }
@@ -177,7 +177,17 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 
 	defer f.Close()
 
-	snp := s2.NewReader(f)
+	sm, err := ReadSparseMatrixFromReader(f, zero, eq)
+	if err != nil {
+		return nil, err
+	}
+
+	return sm, nil
+}
+
+func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.Reader,
+	zero T, eq func(a, b T) bool) (*SparseMatrix[T], error) {
+	snp := s2.NewReader(r)
 
 	br := bufio.NewReader(snp)
 
@@ -193,27 +203,27 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 
 	m, err := util.ParseInt(tokens[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse m: %v", tokens[0])
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse m: %v: %w", tokens[0], err)
 	}
 
 	n, err := util.ParseInt(tokens[1])
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse n: %v", tokens[1])
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse n: %v: %w", tokens[1], err)
 	}
 
 	valsLen, err := util.ParseInt(tokens[2])
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse valsLen: %v", tokens[2])
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse valsLen: %v: %w", tokens[2], err)
 	}
 
 	colsLen, err := util.ParseInt(tokens[3])
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse colsLen: %v", tokens[3])
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse colsLen: %v: %w", tokens[3], err)
 	}
 
 	rowsLen, err := util.ParseInt(tokens[4])
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse rowsLen: %v", tokens[4])
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse rowsLen: %v: %w", tokens[4], err)
 	}
 
 	sm := NewSparseMatrix[T](m, n, zero, eq)
@@ -262,7 +272,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 
 		val, err := util.ParseInt(token)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse cols[i]: %v", token)
+			return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse cols[i]: %v: %w", token, err)
 		}
 		sm.cols[i] = val
 	}
@@ -283,7 +293,7 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 
 		val, err := util.ParseInt(token)
 		if err != nil {
-			return nil, errors.Wrapf(err, "ReadSparseMatrixFromFile: failed to parse rows[i]: %v", token)
+			return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse rows[i]: %v: %w", token, err)
 		}
 		sm.rows[i] = val
 	}

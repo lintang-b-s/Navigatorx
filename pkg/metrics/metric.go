@@ -11,7 +11,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/cockroachdb/errors"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -224,7 +223,7 @@ func (met *Metric) WriteToFile(filename string) error {
 
 	tmpFile, err := os.CreateTemp(dir, ".metrics_tmp_*")
 	if err != nil {
-		return errors.Wrapf(err, "metrics.WriteToFile: failed to create temp file in %v", dir)
+		return fmt.Errorf("metrics.WriteToFile: failed to create temp file in %v: %w", dir, err)
 	}
 	tmpName := tmpFile.Name()
 
@@ -246,20 +245,20 @@ func (met *Metric) WriteToFile(filename string) error {
 		_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(weight, 'f', -1, 64))
 		if err != nil {
 			tmpFile.Close()
-			return errors.Wrapf(err, "metrics.WriteToFile: failed to write metrics weight %v", weight)
+			return fmt.Errorf("metrics.WriteToFile: failed to write metrics weight %v: %w", weight, err)
 		}
 		if i < len(weights)-1 {
 			_, err := fmt.Fprintf(w, " ")
 			if err != nil {
 				tmpFile.Close()
-				return errors.Wrapf(err, "metrics.WriteToFile: failed to write metrics weight")
+				return fmt.Errorf("metrics.WriteToFile: failed to write metrics weight: %w", err)
 			}
 		}
 	}
 	_, err = fmt.Fprintf(w, "\n")
 	if err != nil {
 		tmpFile.Close()
-		return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
+		return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
 	}
 
 	for i := range entryStallingTables {
@@ -267,7 +266,7 @@ func (met *Metric) WriteToFile(filename string) error {
 			_, err = fmt.Fprintf(w, "0\n")
 			if err != nil {
 				tmpFile.Close()
-				return errors.Wrapf(err, "metrics.WriteToFile: failed to write 0\n")
+				return fmt.Errorf("metrics.WriteToFile: failed to write 0\n: %w", err)
 			}
 
 			continue
@@ -275,27 +274,27 @@ func (met *Metric) WriteToFile(filename string) error {
 		_, err = fmt.Fprintf(w, "%d ", len(entryStallingTables[i]))
 		if err != nil {
 			tmpFile.Close()
-			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(entryStallingTables[i]): %v", len(entryStallingTables[i]))
+			return fmt.Errorf("metrics.WriteToFile: failed to write len(entryStallingTables[i]): %v: %w", len(entryStallingTables[i]), err)
 		}
 		for j, val := range entryStallingTables[i] {
 			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
 			if err != nil {
 				tmpFile.Close()
-				return errors.Wrapf(err, "metrics.WriteToFile: failed to write entryStallingTables[i]: %v", entryStallingTables[i])
+				return fmt.Errorf("metrics.WriteToFile: failed to write entryStallingTables[i]: %v: %w", entryStallingTables[i], err)
 			}
 
 			if j < len(entryStallingTables[i])-1 {
 				_, err = fmt.Fprintf(w, " ")
 				if err != nil {
 					tmpFile.Close()
-					return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
+					return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
 				}
 			}
 		}
 		_, err = fmt.Fprintf(w, "\n")
 		if err != nil {
 			tmpFile.Close()
-			return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
+			return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
 		}
 	}
 
@@ -304,52 +303,52 @@ func (met *Metric) WriteToFile(filename string) error {
 			_, err = fmt.Fprintf(w, "0\n")
 			if err != nil {
 				tmpFile.Close()
-				return errors.Wrapf(err, "metrics.WriteToFile: failed to write 0\n")
+				return fmt.Errorf("metrics.WriteToFile: failed to write 0\n: %w", err)
 			}
 			continue
 		}
 		_, err = fmt.Fprintf(w, "%d ", len(exitStallingTables[i]))
 		if err != nil {
 			tmpFile.Close()
-			return errors.Wrapf(err, "metrics.WriteToFile: failed to write len(exitStallingTables[i]): %v", len(exitStallingTables[i]))
+			return fmt.Errorf("metrics.WriteToFile: failed to write len(exitStallingTables[i]): %v: %w", len(exitStallingTables[i]), err)
 		}
 		for j, val := range exitStallingTables[i] {
 			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
 			if err != nil {
 				tmpFile.Close()
-				return errors.Wrapf(err, "metrics.WriteToFile: failed to write exitStallingTables[i]: %v", exitStallingTables[i])
+				return fmt.Errorf("metrics.WriteToFile: failed to write exitStallingTables[i]: %v: %w", exitStallingTables[i], err)
 			}
 			if j < len(exitStallingTables[i])-1 {
 				_, err = fmt.Fprintf(w, " ")
 				if err != nil {
 					tmpFile.Close()
-					return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
+					return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
 				}
 			}
 		}
 		_, err = fmt.Fprintf(w, "\n")
 		if err != nil {
 			tmpFile.Close()
-			return errors.Wrapf(err, "metrics.WriteToFile: failed to write new line")
+			return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
 		}
 	}
 
 	if err = w.Flush(); err != nil {
 		tmpFile.Close()
-		return errors.Wrapf(err, "metric.WriteToFile: failed to flush bufio writer")
+		return fmt.Errorf("metric.WriteToFile: failed to flush bufio writer: %w", err)
 	}
 
 	if err = tmpFile.Sync(); err != nil {
 		tmpFile.Close()
-		return errors.Wrapf(err, "metric.WriteToFile: failed to sync temp file")
+		return fmt.Errorf("metric.WriteToFile: failed to sync temp file: %w", err)
 	}
 
 	if err = tmpFile.Close(); err != nil {
-		return errors.Wrapf(err, "metric.WriteToFile: failed to close temp file")
+		return fmt.Errorf("metric.WriteToFile: failed to close temp file: %w", err)
 	}
 
 	if err = os.Rename(tmpName, filename); err != nil {
-		return errors.Wrapf(err, "metric.WriteToFile: failed to rename temp file to %v", filename)
+		return fmt.Errorf("metric.WriteToFile: failed to rename temp file to %v: %w", filename, err)
 	}
 
 	succeeded = true
@@ -363,7 +362,7 @@ const (
 func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error) {
 	f, err := os.Open(filename)
 	if err != nil {
-		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to open file %v", filename)
+		return nil, fmt.Errorf("metrics.ReadFromFile: failed to open file %v: %w", filename, err)
 	}
 
 	defer f.Close()
@@ -372,12 +371,12 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 
 	line, err := util.ReadLine(r)
 	if err != nil {
-		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to util.ReadLine(r)")
+		return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
 	}
 
 	parts := util.Fields(line)
 	if len(parts) != 3 {
-		return nil, errors.Errorf("metrics.ReadFromFile: expected 3 header fields, got %v", len(parts))
+		return nil, fmt.Errorf("metrics.ReadFromFile: expected 3 header fields, got %v", len(parts))
 	}
 
 	var numWeights uint32
@@ -386,22 +385,22 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 
 	numWeights, err = util.ParseUInt32(parts[0])
 	if err != nil {
-		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse numWeights: %v", parts[0])
+		return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse numWeights: %v: %w", parts[0], err)
 	}
 
 	numEntryStallingTables, err = util.ParseInt(parts[1])
 	if err != nil {
-		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse numEntryStallingTables: %v", parts[1])
+		return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse numEntryStallingTables: %v: %w", parts[1], err)
 	}
 
 	numExitStallingTables, err = util.ParseInt(parts[2])
 	if err != nil {
-		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse numExitStallingTables: %v", parts[2])
+		return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse numExitStallingTables: %v: %w", parts[2], err)
 	}
 
 	line, err = util.ReadLine(r)
 	if err != nil {
-		return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to util.ReadLine(r)")
+		return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
 
 	}
 
@@ -409,13 +408,13 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 	parts = util.Fields(line)
 
 	if uint32(len(parts)) != numWeights {
-		return nil, errors.Errorf("metrics.ReadFromFile: expected %v weights, got %v", numWeights, len(parts))
+		return nil, fmt.Errorf("metrics.ReadFromFile: expected %v weights, got %v", numWeights, len(parts))
 	}
 
 	for i, weight := range parts {
 		weights[i], err = strconv.ParseFloat(weight, 64)
 		if err != nil {
-			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse weight[%d]: %v", i, weight)
+			return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse weight[%d]: %v: %w", i, weight, err)
 		}
 	}
 
@@ -425,7 +424,7 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 	for i := 0; i < numEntryStallingTables; i++ {
 		line, err = util.ReadLine(r)
 		if err != nil {
-			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to util.ReadLine(r)")
+			return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
 		}
 
 		parts = util.Fields(line)
@@ -434,24 +433,24 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 		}
 
 		if len(parts) < 2 {
-			return nil, errors.Errorf("metrics.ReadFromFile: invalid entryStallingTables[%d] format", i)
+			return nil, fmt.Errorf("metrics.ReadFromFile: invalid entryStallingTables[%d] format", i)
 		}
 
 		var numElements int
 		numElements, err = util.ParseInt(parts[0])
 		if err != nil {
-			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse entryStallingTables[%d] size: %v", i, parts[0])
+			return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse entryStallingTables[%d] size: %v: %w", i, parts[0], err)
 		}
 
 		if len(parts)-1 != numElements {
-			return nil, errors.Errorf("metrics.ReadFromFile: entryStallingTables[%d] expected %d elements, got %d", i, numElements, len(parts)-1)
+			return nil, fmt.Errorf("metrics.ReadFromFile: entryStallingTables[%d] expected %d elements, got %d", i, numElements, len(parts)-1)
 		}
 
 		stallingTable := make([]float64, numElements)
 		for j, val := range parts[1:] {
 			stallingTable[j], err = strconv.ParseFloat(val, 64)
 			if err != nil {
-				return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse entryStallingTables[%d][%d]: %v", i, j, val)
+				return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse entryStallingTables[%d][%d]: %v: %w", i, j, val, err)
 			}
 		}
 
@@ -461,7 +460,7 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 	for i := 0; i < numExitStallingTables; i++ {
 		line, err = util.ReadLine(r)
 		if err != nil {
-			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to util.ReadLine(r)")
+			return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
 		}
 
 		parts = util.Fields(line)
@@ -470,24 +469,24 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 		}
 
 		if len(parts) < 2 {
-			return nil, errors.Errorf("metrics.ReadFromFile: invalid exitStallingTables[%d] format", i)
+			return nil, fmt.Errorf("metrics.ReadFromFile: invalid exitStallingTables[%d] format", i)
 		}
 
 		var numElements int
 		numElements, err = util.ParseInt(parts[0])
 		if err != nil {
-			return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse exitStallingTables[%d] size: %v", i, parts[0])
+			return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse exitStallingTables[%d] size: %v: %w", i, parts[0], err)
 		}
 
 		if len(parts)-1 != numElements {
-			return nil, errors.Errorf("metrics.ReadFromFile: exitStallingTables[%d] expected %d elements, got %d", i, numElements, len(parts)-1)
+			return nil, fmt.Errorf("metrics.ReadFromFile: exitStallingTables[%d] expected %d elements, got %d", i, numElements, len(parts)-1)
 		}
 
 		stallingTable := make([]float64, numElements)
 		for j, val := range parts[1:] {
 			stallingTable[j], err = strconv.ParseFloat(val, 64)
 			if err != nil {
-				return nil, errors.Wrapf(err, "metrics.ReadFromFile: failed to parse exitStallingTables[%d][%d]: %v", i, j, val)
+				return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse exitStallingTables[%d][%d]: %v: %w", i, j, val, err)
 			}
 		}
 
@@ -515,7 +514,7 @@ func (met *Metric) UpdateMetrics() error {
 	time.Sleep(1 * time.Second) // biar bener2 ke write ke file dulu metrics nya
 	newMet, err := ReadFromFile(met.metricFilepath, met.timeFunctionFilePath)
 	if err != nil {
-		return errors.Wrapf(err, "UpdateMetrics: failed to read new metrics, filepath: %s", met.metricFilepath)
+		return fmt.Errorf("UpdateMetrics: failed to read new metrics, filepath: %s: %w", met.metricFilepath, err)
 	}
 
 	met.lock.Lock()
