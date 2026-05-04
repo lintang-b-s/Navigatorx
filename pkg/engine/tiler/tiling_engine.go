@@ -31,8 +31,8 @@ func NewTilingEngine(graph *da.Graph, logger *zap.Logger) *TilingEngine {
 
 // GetTileFilePath get tile file path based on user geohash (6 precision)
 func (te *TilingEngine) GetTileFilePath(userGeohash string) string {
-
-	return fmt.Sprintf("%s_%s.tile", MapTileFilePathPrefix(), userGeohash)
+	filePath := filepath.Join(MapTileFilePathPrefix(), userGeohash+".tile")
+	return filePath
 }
 
 func (te *TilingEngine) PreprocessTiles() error {

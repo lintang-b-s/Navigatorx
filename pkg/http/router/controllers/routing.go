@@ -8,6 +8,7 @@ import (
 	"time"
 
 	json "github.com/bytedance/sonic"
+	"github.com/mmcloughlin/geohash"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -43,6 +44,7 @@ func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapM
 		log:                log,
 		mapmatchingService: mapmatchingService,
 		validate:           validate,
+		tilingService:      tilingService,
 		trans:              trans,
 	}
 
@@ -299,10 +301,9 @@ func (api *routingAPI) getTile(w http.ResponseWriter, r *http.Request, p httprou
 		return
 	}
 
-	// regex
-	brgx := base32Regex()
-	if !brgx.MatchString(userGeohash) {
-		api.BadRequestResponse(w, r, errors.New("userGeohash is invalid"))
+	// validate request
+	if err := geohash.Validate(userGeohash); err != nil {
+		api.BadRequestResponse(w, r, err)
 		return
 	}
 
