@@ -1,6 +1,6 @@
 module github.com/lintang-b-s/Navigatorx
 
-go 1.26.2
+go 1.26.1
 
 require (
 	github.com/NYTimes/gziphandler v1.1.1
