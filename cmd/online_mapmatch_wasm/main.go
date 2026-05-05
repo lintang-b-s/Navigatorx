@@ -10,8 +10,6 @@ import (
 	"syscall/js"
 	"time"
 
-	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
@@ -32,16 +30,15 @@ var (
 	logger *zap.Logger
 )
 
-func init() {
+func main() {
 	var err error
-	logger, err = log.New()
+
+	config := zap.NewDevelopmentConfig()
+	config.OutputPaths = []string{"stdout"}
+	logger, err = config.Build()
 	if err != nil {
 		panic(err)
 	}
-}
-
-func main() {
-
 	logger.Info("Navigatorx Online Map Matcher WASM Initializing...")
 
 	rt = spatialindex.NewRtree()
