@@ -13,7 +13,7 @@ type Vertex struct {
 	pvPtr        Index // pointer index to cellNumbers slice
 	turnTablePtr Index // index of the first element of turnMatrices[v] in the flattened graph.turnTypeTable array
 	// turnMatrices[v][i][j] -> turnMatrices = flattened 1-D indexed array index of i-th incoming edge and j-th outgoing edge  = i*outDegree + j
-	firstOut Index // index of the first outEdge of this vertex in the flattened graph.outEdges array
+	firstOut Index // index of the first outEdge of this vertex in the flattened graph.outEdges array (see CSR Graph nya C++ Boost Library: https://www.boost.org/doc/libs/latest/libs/graph/doc/compressed_sparse_row.html)
 	firstIn  Index // index of the first inEdge of this vertex in the flattened graph.inEdges array
 	id       Index
 }
@@ -299,8 +299,10 @@ type SubVertex struct {
 type Pv uint64
 
 // Graph represents the main Customizable Route Planning (CRP) compact graph.
-// uses adjacency arrays and a compact graph representation.
+// uses adjacency arrays / Compressed Sparse Row (CSR) and a compact graph representation.
 // See section 4.1 & 4.3: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+// CSR graph nya C++ Boost library: https://www.boost.org/doc/libs/latest/libs/graph/doc/compressed_sparse_row.html
+// ini terinspirasi dari implementasi CRP yang dibuat oleh Michael Wegner: https://github.com/michaelwegner/CRP
 type Graph struct {
 	graphStorage      *GraphStorage
 	vertices          []Vertex
@@ -1061,6 +1063,7 @@ func (g *Graph) SetEdgeGeohashes(edgeGeohashes []uint64) {
 	g.graphStorage.SetEdgeGeohashes(edgeGeohashes)
 }
 
+// GetEdgeGeohash get  geohash (precision 6) dari edge edgeId
 func (g *Graph) GetEdgeGeohash(edgeId Index) uint64 {
 	return g.graphStorage.GetEdgeGeohash(edgeId)
 }

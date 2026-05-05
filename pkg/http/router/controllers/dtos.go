@@ -196,3 +196,11 @@ func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.C
 		Bearing:         bearing,
 	}
 }
+
+type startClientSideRealtimeMapMatchingResponse struct {
+	NumberOfVertices int `json:"number_of_vertices"`
+}
+
+func NewStartClientSideRealtimeMapMatchingResponse(n int) *startClientSideRealtimeMapMatchingResponse {
+	return &startClientSideRealtimeMapMatchingResponse{NumberOfVertices: n}
+}

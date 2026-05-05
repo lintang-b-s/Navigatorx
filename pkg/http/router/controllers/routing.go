@@ -8,6 +8,7 @@ import (
 	"time"
 
 	json "github.com/bytedance/sonic"
+	"github.com/mmcloughlin/geohash"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -43,6 +44,7 @@ func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapM
 		log:                log,
 		mapmatchingService: mapmatchingService,
 		validate:           validate,
+		tilingService:      tilingService,
 		trans:              trans,
 	}
 
@@ -54,7 +56,8 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/boundingBox", api.GetBoundingBox)
 	group.POST("/onlineMapMatch", api.onlineMapMatch)
 	group.GET("/tile/:userGeohash", api.getTile)
-
+	group.GET("/tile-init", api.initClientSideRealTimeMapMatching)
+	group.GET("/tile-init-transition-matrix", api.initClientSideRealTimeMapMatchingTransitionMatrix)
 }
 
 func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -299,14 +302,27 @@ func (api *routingAPI) getTile(w http.ResponseWriter, r *http.Request, p httprou
 		return
 	}
 
-	// regex
-	brgx := base32Regex()
-	if !brgx.MatchString(userGeohash) {
-		api.BadRequestResponse(w, r, errors.New("userGeohash is invalid"))
+	// validate request
+	if err := geohash.Validate(userGeohash); err != nil {
+		api.BadRequestResponse(w, r, err)
 		return
 	}
 
 	ctx := r.Context()
 	tileFilePath := api.tilingService.GetTileFilePath(ctx, userGeohash)
 	http.ServeFile(w, r, tileFilePath)
+}
+
+func (api *routingAPI) initClientSideRealTimeMapMatching(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	headers := make(http.Header)
+
+	numberOfVertices := api.tilingService.GetNumberOfVertices(r.Context())
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewStartClientSideRealtimeMapMatchingResponse(numberOfVertices)}, headers); err != nil {
+		api.ServerErrorResponse(w, r, err)
+		return
+	}
+}
+
+func (api *routingAPI) initClientSideRealTimeMapMatchingTransitionMatrix(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	http.ServeFile(w, r, GetMapMatchingTransitionFile())
 }

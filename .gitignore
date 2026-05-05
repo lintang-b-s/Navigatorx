@@ -76,4 +76,6 @@ tiles/
 data/car/tiles/
 *.osm
 *.tile
+*.wasm
+*.test
 

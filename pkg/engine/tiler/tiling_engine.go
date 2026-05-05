@@ -31,12 +31,16 @@ func NewTilingEngine(graph *da.Graph, logger *zap.Logger) *TilingEngine {
 
 // GetTileFilePath get tile file path based on user geohash (6 precision)
 func (te *TilingEngine) GetTileFilePath(userGeohash string) string {
+	filePath := filepath.Join(MapTileFilePathPrefix(), userGeohash+".tile")
+	return filePath
+}
 
-	return fmt.Sprintf("%s_%s.tile", MapTileFilePathPrefix(), userGeohash)
+func (te *TilingEngine) GetNumberOfVertices() int {
+	return te.graph.NumberOfVertices()
 }
 
 func (te *TilingEngine) PreprocessTiles() error {
-	lineBuf := make([]byte, 0, 128)
+	lineBuf := make([]byte, 0, 1024)
 	eTileMap := make(map[uint64][]da.Index)
 	te.graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, eId da.Index) {
 		eGeoHashInt := te.graph.GetEdgeGeohash(eId)
@@ -119,19 +123,33 @@ func (te *TilingEngine) writeEdge(w *bufio.Writer, eId da.Index, lineBuf []byte)
 	lineBuf = strconv.AppendInt(lineBuf, int64(headVId), 10)
 	lineBuf = append(lineBuf, ' ')
 	lineBuf = strconv.AppendFloat(lineBuf, te.graph.GetOutEdgeLength(eId), 'f', -1, 64)
+	lineBuf = append(lineBuf, ' ')
+
 	// tail dan head coordinate
 	tCoord := te.graph.GetVertexCoordinate(tailVId)
 	tLat, tLon := tCoord.GetLat(), tCoord.GetLon()
 	hCoord := te.graph.GetVertexCoordinate(headVId)
 	hLat, hLon := hCoord.GetLat(), hCoord.GetLon()
+
 	lineBuf = strconv.AppendFloat(lineBuf, tLat, 'f', -1, 64)
 	lineBuf = append(lineBuf, ' ')
 	lineBuf = strconv.AppendFloat(lineBuf, tLon, 'f', -1, 64)
 	lineBuf = append(lineBuf, ' ')
 	lineBuf = strconv.AppendFloat(lineBuf, hLat, 'f', -1, 64)
-	lineBuf = append(lineBuf, '\n')
-	lineBuf = strconv.AppendFloat(lineBuf, hLon, 'f', -1, 64)
 	lineBuf = append(lineBuf, ' ')
+	lineBuf = strconv.AppendFloat(lineBuf, hLon, 'f', -1, 64)
+
+	eGeom := te.graph.GetEdgeGeometry(eId)
+	lineBuf = append(lineBuf, ' ')
+	lineBuf = strconv.AppendInt(lineBuf, int64(len(eGeom)), 10)
+	for _, coord := range eGeom {
+		lineBuf = append(lineBuf, ' ')
+		lineBuf = strconv.AppendFloat(lineBuf, coord.Lat, 'f', -1, 64)
+		lineBuf = append(lineBuf, ' ')
+		lineBuf = strconv.AppendFloat(lineBuf, coord.Lon, 'f', -1, 64)
+	}
+	lineBuf = append(lineBuf, '\n')
 	_, err := w.Write(lineBuf)
+
 	return err
 }

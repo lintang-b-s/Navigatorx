@@ -2,9 +2,9 @@ name: Deploy NavigatorX Engine
 
 on:
   push:
-    # branches:
-    #   - main
-    #   - deployment-demo
+    branches:
+      - main
+      - deployment-demo
 
 jobs:
   build-and-deploy:
@@ -16,29 +16,78 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v6
         with:
-          go-version: '1.26.1' 
+          go-version: '1.26.2'
 
-      - name: Build Engine for Linux
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install gdown and download data
         run: |
-          GOOS=linux GOARCH=amd64 go build -o engine cmd/engine/main.go
-      # todo
-      # - name: Copy Binary to VPS
-      #   uses: appleboy/scp-action@master
-      #   with:
-      #     host: ${{ secrets.SSH_HOST }}
-      #     username: ${{ secrets.SSH_USER }}
-      #     key: ${{ secrets.SSH_PRIVATE_KEY }}
-      #     source: "engine,data/car.yaml"
-      #     target: "/home/ubuntu/navigatorx"
+          pip install gdown
+          mkdir -p data
+          gdown https://drive.google.com/uc?id=1uBoFWUSRka9pqH2dVPKpcystxXmkkSgs --output ./data
+          gdown https://drive.google.com/uc?id=1PjYZk9wl5xSykqjak-ZFvlT427X1eSa0 --output ./data
 
-      # - name: Restart Systemd Service
-      #   uses: appleboy/ssh-action@master
-      #   with:
-      #     host: ${{ secrets.SSH_HOST }}
-      #     username: ${{ secrets.SSH_USER }}
-      #     key: ${{ secrets.SSH_PRIVATE_KEY }}
-      #     script: |
-      #       sudo systemctl restart navigatorx
-      #       sudo systemctl status navigatorx
+      - name: Build and Preprocess
+        run: |
+          mkdir -p bin
+          go build -o ./bin/preprocessor ./cmd/preprocessor
+          ./bin/preprocessor -osm_file=./data/jabodetabek.osm.pbf -mlp_file=./data/jabodetabek.mlp -region=jabodetabek 
+          ./bin/preprocessor
 
+          go build -o ./bin/customizer ./cmd/customizer
+          ./bin/customizer --region=jabodetabek
+          ./bin/customizer
+
+          go build -o ./bin/generator ./cmd/generator
+          ./bin/generator --region=jabodetabek
+          ./bin/generator
+
+          go build -o ./bin/engine -pgo=auto ./cmd/engine
+
+      - name: Deploy to VPS
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USER: ${{ secrets.SSH_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          cat >> ~/.ssh/config <<EOF
+          Host navigatorx-vps
+            HostName $SSH_HOST
+            User $SSH_USER
+            IdentityFile ~/.ssh/id_rsa
+            StrictHostKeyChecking no
+          EOF
+          
+          ssh navigatorx-vps "rm -rf ~/navigatorx/engine ~/navigatorx/data/profiles/car"
+          
+          scp ./bin/engine navigatorx-vps:~/navigatorx
+          ssh navigatorx-vps "chmod +x ~/navigatorx/engine"
+          rsync -avzP ./data/profiles/car navigatorx-vps:~/navigatorx/data/profiles/
+
+      - name: Verify and Restart Service
+        run: |
+          ssh navigatorx-vps << 'EOF'
+            set -e
+            echo "Verifying deployment..."
+            if [ -f ~/navigatorx/engine ] && [ -d ~/navigatorx/data/profiles/car ]; then
+              echo "✅ Verification successful: Binary and profiles found."
+            else
+              echo "❌ Verification failed: Some files are missing."
+              exit 1
+            fi
             
+            echo "🔄 Restarting NavigatorX Jabodetabek service..."
+            sudo systemctl restart navigatorx-jkt
+            echo "🔄 Restarting NavigatorX DIY,solo,semarang service..."
+            sudo systemctl restart navigatorx-diy
+
+            echo "📊 Service Status:"
+            sudo systemctl status navigatorx-jkt --no-pager
+            sudo systemctl status navigatorx-diy --no-pager
+          EOF
