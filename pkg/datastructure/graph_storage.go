@@ -21,7 +21,7 @@ type GraphStorage struct {
 	nodeTrafficLight        *bitset.BitSet
 	edgeOsmWayId            *PackedSlice // map dari outEdgeId ke osm way id dari edge
 
-	edgeGeohashes []uint64
+	edgeGeohashes []uint64 // geohash (precision 6) dari semua edges
 
 	// conditional restrictions
 	conditionalBarrierNodes     []ConditionalBarrierNode

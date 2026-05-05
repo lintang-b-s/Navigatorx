@@ -56,6 +56,8 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/boundingBox", api.GetBoundingBox)
 	group.POST("/onlineMapMatch", api.onlineMapMatch)
 	group.GET("/tile/:userGeohash", api.getTile)
+	group.GET("/tile-init", api.initClientSideRealTimeMapMatching)
+	group.GET("/tile-init-transition-matrix", api.initClientSideRealTimeMapMatchingTransitionMatrix)
 
 }
 
@@ -310,4 +312,18 @@ func (api *routingAPI) getTile(w http.ResponseWriter, r *http.Request, p httprou
 	ctx := r.Context()
 	tileFilePath := api.tilingService.GetTileFilePath(ctx, userGeohash)
 	http.ServeFile(w, r, tileFilePath)
+}
+
+func (api *routingAPI) initClientSideRealTimeMapMatching(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	headers := make(http.Header)
+
+	numberOfVertices := api.tilingService.GetNumberOfVertices(r.Context())
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewStartClientSideRealtimeMapMatchingResponse(numberOfVertices)}, headers); err != nil {
+		api.ServerErrorResponse(w, r, err)
+		return
+	}
+}
+
+func (api *routingAPI) initClientSideRealTimeMapMatchingTransitionMatrix(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	http.ServeFile(w, r, GetMapMatchingTransitionFile())
 }

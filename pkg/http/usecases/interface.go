@@ -22,6 +22,7 @@ type OnlineMapMatcherEngine interface {
 
 type TilingEngine interface {
 	GetTileFilePath(userGeohash string) string
+	GetNumberOfVertices() int
 }
 
 type OfflineMapMatcherEngine interface {

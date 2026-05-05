@@ -126,6 +126,12 @@ type MockTilingService struct {
 	mock.Mock
 }
 
+// GetNumberOfVertices implements [TilingService].
+func (m *MockTilingService) GetNumberOfVertices(ctx context.Context) int {
+	args := m.Called(ctx)
+	return args.Int(0)
+}
+
 func (m *MockTilingService) GetTileFilePath(ctx context.Context, userGeohash string) string {
 	args := m.Called(ctx, userGeohash)
 	return args.String(0)

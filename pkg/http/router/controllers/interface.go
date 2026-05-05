@@ -36,4 +36,5 @@ type MapMatcherService interface {
 
 type TilingService interface {
 	GetTileFilePath(ctx context.Context, userGeohash string) string
+	GetNumberOfVertices(ctx context.Context) int
 }

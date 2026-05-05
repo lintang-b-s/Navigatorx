@@ -101,3 +101,8 @@ func (m *MockTilingService) GetTileFilePath(ctx context.Context, userGeohash str
 	args := m.Called(ctx, userGeohash)
 	return args.String(0)
 }
+
+func (m *MockTilingService) GetNumberOfVertices(ctx context.Context) int {
+	args := m.Called(ctx)
+	return args.Int(0)
+}

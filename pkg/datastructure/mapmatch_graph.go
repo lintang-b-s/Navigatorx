@@ -1,0 +1,293 @@
+package datastructure
+
+import (
+	"bufio"
+	"io"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+
+	"github.com/klauspost/compress/s2"
+)
+
+type MapMatchVertex struct {
+	id       Index
+	firstOut Index // firstOut index dari edge pertama dari vertex ini (edge yang tailnya vertex ini).
+	coord    Coordinate
+}
+
+func NewMapMatchVertex(id Index, firstOut Index, coord Coordinate) MapMatchVertex {
+	return MapMatchVertex{
+		id:       id,
+		firstOut: firstOut,
+		coord:    coord,
+	}
+}
+
+func (v *MapMatchVertex) GetId() Index {
+	return v.id
+}
+
+func (v *MapMatchVertex) SetId(id Index) {
+	v.id = id
+}
+
+func (v *MapMatchVertex) GetFirstOut() Index {
+	return v.firstOut
+}
+
+func (v *MapMatchVertex) SetFirstOut(firstOut Index) {
+	v.firstOut = firstOut
+}
+
+func (v *MapMatchVertex) GetCoord() Coordinate {
+	return v.coord
+}
+
+func (v *MapMatchVertex) SetCoord(coord Coordinate) {
+	v.coord = coord
+}
+
+type MapMatchEdge struct {
+	id       Index // orignal outEdge Id di road network graph (graph.go)
+	tail     Index
+	head     Index
+	length   float64
+	geometry []Coordinate
+}
+
+func NewMapMatchEdge(id Index, tail Index, head Index, length float64, geometry []Coordinate) MapMatchEdge {
+	return MapMatchEdge{
+		id:       id,
+		tail:     tail,
+		head:     head,
+		length:   length,
+		geometry: geometry,
+	}
+}
+
+func (e *MapMatchEdge) GetOriginalEdgeId() Index {
+	return e.id
+}
+
+func (e *MapMatchEdge) SetId(id Index) {
+	e.id = id
+}
+
+func (e *MapMatchEdge) GetTail() Index {
+	return e.tail
+}
+
+func (e *MapMatchEdge) SetTail(tail Index) {
+	e.tail = tail
+}
+
+func (e *MapMatchEdge) GetHead() Index {
+	return e.head
+}
+
+func (e *MapMatchEdge) SetHead(head Index) {
+	e.head = head
+}
+
+func (e *MapMatchEdge) GetLength() float64 {
+	return e.length
+}
+
+func (e *MapMatchEdge) SetLength(length float64) {
+	e.length = length
+}
+
+func (e *MapMatchEdge) GetGeometry() []Coordinate {
+	return e.geometry
+}
+
+func (e *MapMatchEdge) SetGeometry(geometry []Coordinate) {
+	e.geometry = geometry
+}
+
+// MapMatchingGraph compressed sparse row graph terinspirasi dari CSR graphnya C++ Boost libary: https://www.boost.org/doc/libs/latest/libs/graph/doc/compressed_sparse_row.html
+// https://www.usenix.org/system/files/login/articles/login_winter20_16_kelly.pdf
+type MapMatchingGraph struct {
+	vertices       []MapMatchVertex // vertices
+	edges          []MapMatchEdge
+	loadedEdgesSet map[Index]Index // map dari  original edge Id (edgeId di roadnetworkGraph graph.go) -> local edge Id (edgeId di mapmatchingGraph disini)
+}
+
+func NewMapMatchingGraph(vertices []MapMatchVertex, edges []MapMatchEdge) *MapMatchingGraph {
+	return &MapMatchingGraph{
+		vertices:       vertices,
+		edges:          edges,
+		loadedEdgesSet: make(map[Index]Index),
+	}
+}
+
+func (g *MapMatchingGraph) GetLocalEdgeId(originalId Index) (Index, bool) {
+	localId, ok := g.loadedEdgesSet[originalId]
+	return localId, ok
+}
+
+func (g *MapMatchingGraph) Reset() {
+	g.edges = g.edges[:0]
+	g.loadedEdgesSet = make(map[Index]Index)
+}
+
+func InitializeMapMatchingGraph(numberOfVertices int) *MapMatchingGraph {
+	vertices := make([]MapMatchVertex, numberOfVertices+1)
+	return NewMapMatchingGraph(vertices, make([]MapMatchEdge, 0))
+}
+
+func (g *MapMatchingGraph) GetVertices() []MapMatchVertex {
+	return g.vertices
+}
+
+func (g *MapMatchingGraph) SetVertices(vertices []MapMatchVertex) {
+	g.vertices = vertices
+}
+
+func (g *MapMatchingGraph) GetEdges() []MapMatchEdge {
+	return g.edges
+}
+
+func (g *MapMatchingGraph) SetEdges(edges []MapMatchEdge) {
+	g.edges = edges
+}
+
+func (g *MapMatchingGraph) GetEdgeGeometry(eId Index) []Coordinate {
+	return g.edges[eId].GetGeometry()
+}
+
+func (g *MapMatchingGraph) GetOutEdge(eId Index) MapMatchEdge {
+	return g.edges[eId]
+}
+
+func (g *MapMatchingGraph) ForOutEdgesOf(u Index, handle func(eId, head Index, length float64, geometry []Coordinate)) {
+	for eId := g.vertices[u].firstOut; eId < g.vertices[u+1].firstOut; eId++ {
+		e := g.edges[eId]
+		handle(eId, e.GetHead(), e.GetLength(), e.GetGeometry())
+	}
+}
+
+// RebuildMapMatchGraph rebuild map matching road network graph dari file graph tile (see tiling_engine.go)
+// terinspirasi dair MapDataManager nya Lyft: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+func (g *MapMatchingGraph) RebuildMapMatchGraph(graphTileFilePath string) error {
+	f, err := os.Open(graphTileFilePath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	return g.RebuildMapMatchGraphFromReader(f)
+}
+
+// RebuildMapMatchGraphFromReader rebuild map matching road network graph dari file graph tile (see tiling_engine.go)
+// terinspirasi dair MapDataManager nya Lyft: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+func (g *MapMatchingGraph) RebuildMapMatchGraphFromReader(r io.Reader) error {
+	g.Reset()
+	return g.MergeMapMatchGraphFromReader(r)
+}
+
+func (g *MapMatchingGraph) MergeMapMatchGraphFromReader(r io.Reader) error {
+	s2r := s2.NewReader(r)
+	scanner := bufio.NewScanner(s2r)
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		parts := strings.Fields(line)
+		if len(parts) < 9 {
+			continue
+		}
+
+		eId, err := strconv.ParseUint(parts[0], 10, 32)
+		if err != nil {
+			return err
+		}
+
+		if _, ok := g.loadedEdgesSet[Index(eId)]; ok {
+			continue
+		}
+
+		tailVId, err := strconv.ParseUint(parts[1], 10, 32)
+		if err != nil {
+			return err
+		}
+		headVId, err := strconv.ParseUint(parts[2], 10, 32)
+		if err != nil {
+			return err
+		}
+		length, err := strconv.ParseFloat(parts[3], 64)
+		if err != nil {
+			return err
+		}
+		tLat, err := strconv.ParseFloat(parts[4], 64)
+		if err != nil {
+			return err
+		}
+		tLon, err := strconv.ParseFloat(parts[5], 64)
+		if err != nil {
+			return err
+		}
+		hLat, err := strconv.ParseFloat(parts[6], 64)
+		if err != nil {
+			return err
+		}
+		hLon, err := strconv.ParseFloat(parts[7], 64)
+		if err != nil {
+			return err
+		}
+		numGeom, err := strconv.Atoi(parts[8])
+		if err != nil {
+			return err
+		}
+
+		geom := make([]Coordinate, numGeom)
+		for i := 0; i < numGeom; i++ {
+			lat, err := strconv.ParseFloat(parts[9+i*2], 64)
+			if err != nil {
+				return err
+			}
+			lon, err := strconv.ParseFloat(parts[10+i*2], 64)
+			if err != nil {
+				return err
+			}
+			geom[i] = Coordinate{Lat: lat, Lon: lon}
+		}
+
+		g.edges = append(g.edges, MapMatchEdge{
+			id:       Index(eId),
+			tail:     Index(tailVId),
+			head:     Index(headVId),
+			length:   length,
+			geometry: geom,
+		})
+
+		g.vertices[tailVId].coord = Coordinate{Lat: tLat, Lon: tLon}
+		g.vertices[headVId].coord = Coordinate{Lat: hLat, Lon: hLon}
+
+		g.loadedEdgesSet[Index(eId)] = 0 // dummy value, diupdate setelah sorting edges by its tail
+	}
+
+	if err := scanner.Err(); err != nil {
+		return err
+	}
+
+	// sort edges by tail
+	sort.Slice(g.edges, func(i, j int) bool {
+		return g.edges[i].tail < g.edges[j].tail
+	})
+
+	m := Index(len(g.edges))
+	// rebuild Compressed Sparse Row (CSR) MapMatchingGraph
+	currEId := Index(0)
+	for vId := 0; vId < len(g.vertices); vId++ { // O(n+m), n= number of vertices in roadNetworkGraph (graph.go),m =number of edges in current MapMatchingGraph geohashes tile (mapmatch_graph.go)
+		g.vertices[vId].firstOut = currEId
+		for currEId < m && g.edges[currEId].tail == Index(vId) {
+			originalEdgeId := g.edges[currEId].GetOriginalEdgeId()
+			g.loadedEdgesSet[originalEdgeId] = currEId
+			currEId++
+		}
+	}
+
+	return nil
+}

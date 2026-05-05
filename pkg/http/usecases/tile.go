@@ -24,3 +24,7 @@ func (ms *TileService) GetTileFilePath(ctx context.Context, userGeohash string) 
 	tileFilePath := ms.tilingEngine.GetTileFilePath(userGeohash)
 	return tileFilePath
 }
+
+func (ms *TileService) GetNumberOfVertices(ctx context.Context) int {
+	return ms.tilingEngine.GetNumberOfVertices()
+}
