@@ -170,7 +170,7 @@ func (g *MapMatchingGraph) ForOutEdgesOf(u Index, handle func(eId, head Index, l
 }
 
 // RebuildMapMatchGraph rebuild map matching road network graph dari file graph tile (see tiling_engine.go)
-// terinspirasi dair MapDataManager nya Lyft: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+// terinspirasi dari MapDataManager nya Lyft: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 func (g *MapMatchingGraph) RebuildMapMatchGraph(graphTileFilePath string) error {
 	f, err := os.Open(graphTileFilePath)
 	if err != nil {
@@ -182,7 +182,7 @@ func (g *MapMatchingGraph) RebuildMapMatchGraph(graphTileFilePath string) error 
 }
 
 // RebuildMapMatchGraphFromReader rebuild map matching road network graph dari file graph tile (see tiling_engine.go)
-// terinspirasi dair MapDataManager nya Lyft: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+// terinspirasi dari MapDataManager nya Lyft: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 func (g *MapMatchingGraph) RebuildMapMatchGraphFromReader(r io.Reader) error {
 	g.Reset()
 	return g.MergeMapMatchGraphFromReader(r)

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -14,6 +15,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
+	"go.uber.org/zap"
 )
 
 var (
@@ -28,6 +30,7 @@ var (
 	graphFile              string
 	overlayGraphFile       string
 	profileName            string
+	transitionMHTFile      string
 )
 
 func init() {
@@ -36,6 +39,7 @@ func init() {
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
 	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
 	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
+	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.txt", profileName, *regionName)
 
 	config.InitProfileConfig(profileName, *regionName)
 }
@@ -88,6 +92,13 @@ func main() {
 	err = mlp.ReadMlpFile(mlpPath)
 	if err != nil {
 		panic(err)
+	}
+
+	if _, err := os.Stat(transitionMHTFile); err == nil {
+		logger.Info("removing existing transition matrix file", zap.String("filename", transitionMHTFile))
+		if err := os.Remove(transitionMHTFile); err != nil {
+			panic(err)
+		}
 	}
 
 	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)

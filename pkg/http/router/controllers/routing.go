@@ -58,7 +58,6 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/tile/:userGeohash", api.getTile)
 	group.GET("/tile-init", api.initClientSideRealTimeMapMatching)
 	group.GET("/tile-init-transition-matrix", api.initClientSideRealTimeMapMatchingTransitionMatrix)
-
 }
 
 func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p httprouter.Params) {

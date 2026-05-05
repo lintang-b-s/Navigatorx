@@ -146,6 +146,7 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 			originalEdgeId := da.Index(cJS.Get("edge_id").Int())
 			localId, ok := graph.GetLocalEdgeId(originalEdgeId)
 			if !ok {
+				// edgeId gak inlcuded di current graph tile
 				continue
 			}
 
