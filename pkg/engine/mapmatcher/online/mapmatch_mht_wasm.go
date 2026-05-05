@@ -264,9 +264,9 @@ func (om *OnlineMapMatchMHTWasm) kalmanFilter(speedMeanKprev, speedStdKprev, gps
 func (om *OnlineMapMatchMHTWasm) computEdgeTransitionProb(eFromId, eToId da.Index, nj int) float64 {
 
 	eFrom := om.graph.GetOutEdge(eFromId)
-	eFromOriginal := eFrom.GetOriginalEdgeId()
+	eFromOriginalId := eFrom.GetOriginalEdgeId()
 	eTo := om.graph.GetOutEdge(eToId)
-	eToOriginal := eTo.GetOriginalEdgeId()
+	eToOriginalId := eTo.GetOriginalEdgeId()
 
 	branch := make([]da.Index, 0, 4)
 	e := om.graph.GetOutEdge(eFromId)
@@ -277,13 +277,13 @@ func (om *OnlineMapMatchMHTWasm) computEdgeTransitionProb(eFromId, eToId da.Inde
 	})
 	sumNej := 0.0
 	for _, jOriginal := range branch {
-		trans := float64(om.N.Get(int(eFromOriginal), int(jOriginal)))
+		trans := float64(om.N.Get(int(eFromOriginalId), int(jOriginal)))
 		if trans == 0 {
 			trans = 1
 		}
 		sumNej += trans
 	}
-	return (1.0 + float64(om.N.Get(int(eFromOriginal), int(eToOriginal)))) / (sumNej + float64(nj))
+	return (1.0 + float64(om.N.Get(int(eFromOriginalId), int(eToOriginalId)))) / (sumNej + float64(nj))
 }
 
 // equation 20 in ref[1]

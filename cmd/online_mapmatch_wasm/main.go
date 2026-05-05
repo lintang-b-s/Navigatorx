@@ -4,7 +4,7 @@ package main
 
 import (
 	"bytes"
-	_ "embed"
+
 	"fmt"
 
 	"syscall/js"
@@ -142,8 +142,8 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 	if !candidatesJS.IsNull() && !candidatesJS.IsUndefined() {
 		candidates = make([]*ma.Candidate, 0, candidatesJS.Length())
 		for i := 0; i < candidatesJS.Length(); i++ {
-			cJS := candidatesJS.Index(i)
-			originalEdgeId := da.Index(cJS.Get("edge_id").Int())
+			candJS := candidatesJS.Index(i)
+			originalEdgeId := da.Index(candJS.Get("edge_id").Int())
 			localId, ok := graph.GetLocalEdgeId(originalEdgeId)
 			if !ok {
 				// edgeId gak inlcuded di current graph tile
@@ -152,12 +152,12 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 
 			cand := ma.NewCandidate(
 				localId,
-				cJS.Get("weight").Float(),
-				cJS.Get("length").Float(),
+				candJS.Get("weight").Float(),
+				candJS.Get("length").Float(),
 			)
-			cand.SetProjectedCoord(cJS.Get("projected_lat").Float(), cJS.Get("projected_lon").Float())
-			cand.SetEdgeBearing(cJS.Get("edge_bearing").Float())
-			cand.SetStateId(cJS.Get("state_id").Int())
+			cand.SetProjectedCoord(candJS.Get("projected_lat").Float(), candJS.Get("projected_lon").Float())
+			cand.SetEdgeBearing(candJS.Get("edge_bearing").Float())
+			cand.SetStateId(candJS.Get("state_id").Int())
 			candidates = append(candidates, cand)
 		}
 	}
@@ -172,8 +172,20 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 				"lat": matchedPoint.GetMatchedCoord().GetLat(),
 				"lon": matchedPoint.GetMatchedCoord().GetLon(),
 			},
+			"predicted_gps_coord": map[string]any{
+				"lat": matchedPoint.GetPredictedGpsCoord().GetLat(),
+				"lon": matchedPoint.GetPredictedGpsCoord().GetLon(),
+			},
 			"edge_initial_bearing": matchedPoint.GetBearing(),
 			"edge_id":              int(matchedPoint.GetEdgeId()),
+			"gps_point": map[string]any{
+				"lat":            matchedPoint.GetGpsPoint().Lat(),
+				"lon":            matchedPoint.GetGpsPoint().Lon(),
+				"time":           gps.Time().Format(time.RFC3339),
+				"speed":          matchedPoint.GetGpsPoint().Speed(),
+				"delta_time":     matchedPoint.GetGpsPoint().DeltaTime(),
+				"dead_reckoning": matchedPoint.GetGpsPoint().GetDeadReckoning(),
+			},
 		}
 	} else {
 		res["matched_gps_point"] = nil

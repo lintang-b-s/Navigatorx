@@ -47,25 +47,27 @@ jobs:
 
           go build -o ./bin/engine -pgo=auto ./cmd/engine
 
-      - name: Deploy to VPS
+      - name: Install SSH Key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Configure SSH Host
         env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_HOST: ${{ secrets.SSH_HOST }}
           SSH_USER: ${{ secrets.SSH_USER }}
         run: |
           mkdir -p ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $SSH_HOST >> ~/.ssh/known_hosts
           cat >> ~/.ssh/config <<EOF
           Host navigatorx-vps
             HostName $SSH_HOST
             User $SSH_USER
-            IdentityFile ~/.ssh/id_rsa
-            StrictHostKeyChecking no
           EOF
-          
+
+      - name: Deploy to VPS
+        run: |
           ssh navigatorx-vps "rm -rf ~/navigatorx/engine ~/navigatorx/data/profiles/car"
-          
           scp ./bin/engine navigatorx-vps:~/navigatorx
           ssh navigatorx-vps "chmod +x ~/navigatorx/engine"
           rsync -avzP ./data/profiles/car navigatorx-vps:~/navigatorx/data/profiles/
