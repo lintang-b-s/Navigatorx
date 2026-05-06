@@ -247,17 +247,22 @@ func TestMiddleware_Limit(t *testing.T) {
 		req := httptest.NewRequest("GET", "/", nil)
 		req.RemoteAddr = "9.9.9.9:1234"
 
-		// Exhaust the limiter (rate is 20/s, burst 20)
-		for i := 0; i < 21; i++ {
+		// Exhaust the limiter (starts with 'burst' tokens)
+		// We loop slightly more than the burst to trigger the 429 error
+		for i := 0; i < burst+5; i++ {
 			rr := httptest.NewRecorder()
 			mw.ServeHTTP(rr, req)
-			if i < 20 {
-				assert.Equal(t, http.StatusOK, rr.Code)
+
+			if i < burst {
+				// First 'burst' requests should succeed
+				assert.Equal(t, http.StatusOK, rr.Code, "Request %d should be OK", i)
 			} else {
-				assert.Equal(t, http.StatusTooManyRequests, rr.Code)
+				// Requests beyond the burst should fail
+				assert.Equal(t, http.StatusTooManyRequests, rr.Code, "Request %d should be rate limited", i)
 			}
 		}
 	})
+
 }
 
 func TestResponseWriter_Status(t *testing.T) {
