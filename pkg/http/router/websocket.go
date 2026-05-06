@@ -79,12 +79,12 @@ func (api *API) handleWebsocket(ctx context.Context, config http_server.Config,
 		return
 	}
 
-	api.pool = concurrent.NewWorkerPool[int, int](4, 15)
+	api.pool = concurrent.NewWorkerPool[int, int](2, 15)
 
 	api.hub = controllers.NewHub(api.pool, mapMatcherService, api.log)
 	go api.hub.Start()
 
-	api.pool.Spawn(2)
+	api.pool.Spawn(1)
 	// accept is a channel to signal about next incoming connection Accept()
 	// results.
 	accept := make(chan error, 1)

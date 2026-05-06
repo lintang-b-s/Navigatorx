@@ -199,8 +199,8 @@ type visitor struct {
 }
 
 const (
-	qps   = 10
-	burst = 20
+	qps   = 6
+	burst = 10
 )
 
 var visitors = make(map[string]*visitor)
