@@ -175,10 +175,10 @@ func (g *MapMatchingGraph) RebuildMapMatchGraph(graphTileFilePath string) error 
 // terinspirasi dari MapDataManager nya Lyft: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 func (g *MapMatchingGraph) RebuildMapMatchGraphFromReader(r io.Reader) error {
 	g.Reset()
-	return g.MergeMapMatchGraphFromReader(r)
+	return g.Rebuild(r)
 }
 
-func (g *MapMatchingGraph) MergeMapMatchGraphFromReader(r io.Reader) error {
+func (g *MapMatchingGraph) Rebuild(r io.Reader) error {
 	s2r := s2.NewReader(r)
 	scanner := bufio.NewScanner(s2r)
 
@@ -211,18 +211,18 @@ func (g *MapMatchingGraph) MergeMapMatchGraphFromReader(r io.Reader) error {
 			return err
 		}
 
-		numGeom, err := strconv.Atoi(parts[8])
+		numGeom, err := strconv.Atoi(parts[4])
 		if err != nil {
 			return err
 		}
 
 		geom := make([]Coordinate, numGeom)
 		for i := 0; i < numGeom; i++ {
-			lat, err := strconv.ParseFloat(parts[9+i*2], 64)
+			lat, err := strconv.ParseFloat(parts[5+i*2], 64)
 			if err != nil {
 				return err
 			}
-			lon, err := strconv.ParseFloat(parts[10+i*2], 64)
+			lon, err := strconv.ParseFloat(parts[6+i*2], 64)
 			if err != nil {
 				return err
 			}

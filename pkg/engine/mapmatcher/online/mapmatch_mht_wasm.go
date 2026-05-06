@@ -53,7 +53,7 @@ func NewOnlineMapMatchMHTWasm(graph *da.MapMatchingGraph, rt *spatialindex.Rtree
 // OnlineMapMatch. perform online map matching using Multiple Hypothesis Technique
 // speed in meter/s, arc length in meter, k is current time step (1-based)
 // Algorithm 1 in ref[1]
-// O(M + b^{d_p}), M=number of edges, MAX_CANDIDATES=max number of r-tree leafs data to return, b=max outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
+// O( b^{d_p}), b=max outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
 func (om *OnlineMapMatchMHTWasm) OnlineMapMatch(gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 
