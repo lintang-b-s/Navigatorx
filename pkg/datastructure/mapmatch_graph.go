@@ -14,14 +14,12 @@ import (
 type MapMatchVertex struct {
 	id       Index
 	firstOut Index // firstOut index dari edge pertama dari vertex ini (edge yang tailnya vertex ini).
-	coord    Coordinate
 }
 
-func NewMapMatchVertex(id Index, firstOut Index, coord Coordinate) MapMatchVertex {
+func NewMapMatchVertex(id Index, firstOut Index) MapMatchVertex {
 	return MapMatchVertex{
 		id:       id,
 		firstOut: firstOut,
-		coord:    coord,
 	}
 }
 
@@ -39,14 +37,6 @@ func (v *MapMatchVertex) GetFirstOut() Index {
 
 func (v *MapMatchVertex) SetFirstOut(firstOut Index) {
 	v.firstOut = firstOut
-}
-
-func (v *MapMatchVertex) GetCoord() Coordinate {
-	return v.coord
-}
-
-func (v *MapMatchVertex) SetCoord(coord Coordinate) {
-	v.coord = coord
 }
 
 type MapMatchEdge struct {
@@ -220,22 +210,7 @@ func (g *MapMatchingGraph) MergeMapMatchGraphFromReader(r io.Reader) error {
 		if err != nil {
 			return err
 		}
-		tLat, err := strconv.ParseFloat(parts[4], 64)
-		if err != nil {
-			return err
-		}
-		tLon, err := strconv.ParseFloat(parts[5], 64)
-		if err != nil {
-			return err
-		}
-		hLat, err := strconv.ParseFloat(parts[6], 64)
-		if err != nil {
-			return err
-		}
-		hLon, err := strconv.ParseFloat(parts[7], 64)
-		if err != nil {
-			return err
-		}
+
 		numGeom, err := strconv.Atoi(parts[8])
 		if err != nil {
 			return err
@@ -261,9 +236,6 @@ func (g *MapMatchingGraph) MergeMapMatchGraphFromReader(r io.Reader) error {
 			length:   length,
 			geometry: geom,
 		})
-
-		g.vertices[tailVId].coord = Coordinate{Lat: tLat, Lon: tLon}
-		g.vertices[headVId].coord = Coordinate{Lat: hLat, Lon: hLon}
 
 		g.loadedEdgesSet[Index(eId)] = 0 // dummy value, diupdate setelah sorting edges by its tail
 	}

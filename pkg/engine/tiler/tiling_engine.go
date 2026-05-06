@@ -125,20 +125,7 @@ func (te *TilingEngine) writeEdge(w *bufio.Writer, eId da.Index, lineBuf []byte)
 	lineBuf = strconv.AppendFloat(lineBuf, te.graph.GetOutEdgeLength(eId), 'f', -1, 64)
 	lineBuf = append(lineBuf, ' ')
 
-	// tail dan head coordinate
-	tCoord := te.graph.GetVertexCoordinate(tailVId)
-	tLat, tLon := tCoord.GetLat(), tCoord.GetLon()
-	hCoord := te.graph.GetVertexCoordinate(headVId)
-	hLat, hLon := hCoord.GetLat(), hCoord.GetLon()
-
-	lineBuf = strconv.AppendFloat(lineBuf, tLat, 'f', -1, 64)
-	lineBuf = append(lineBuf, ' ')
-	lineBuf = strconv.AppendFloat(lineBuf, tLon, 'f', -1, 64)
-	lineBuf = append(lineBuf, ' ')
-	lineBuf = strconv.AppendFloat(lineBuf, hLat, 'f', -1, 64)
-	lineBuf = append(lineBuf, ' ')
-	lineBuf = strconv.AppendFloat(lineBuf, hLon, 'f', -1, 64)
-
+	// edge geometry
 	eGeom := te.graph.GetEdgeGeometry(eId)
 	lineBuf = append(lineBuf, ' ')
 	lineBuf = strconv.AppendInt(lineBuf, int64(len(eGeom)), 10)
