@@ -138,8 +138,9 @@ func (api *API) Run(
 
 	var mwChain []alice.Constructor
 	if useRateLimit {
+		// useRateLimit = true ->  dideploy pakai nginx reverse proxy (udah ada gzip nya).
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, api.Limit, gziphandler.GzipHandler)
+			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, api.Limit)
 	} else {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
 			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, gziphandler.GzipHandler)
