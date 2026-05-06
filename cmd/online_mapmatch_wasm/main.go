@@ -155,9 +155,7 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 				candJS.Get("weight").Float(),
 				candJS.Get("length").Float(),
 			)
-			cand.SetProjectedCoord(candJS.Get("projected_lat").Float(), candJS.Get("projected_lon").Float())
-			cand.SetEdgeBearing(candJS.Get("edge_bearing").Float())
-			cand.SetStateId(candJS.Get("state_id").Int())
+
 			candidates = append(candidates, cand)
 		}
 	}

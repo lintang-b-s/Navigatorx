@@ -59,19 +59,29 @@ func (om *OnlineMapMatchMHTWasm) OnlineMapMatch(gps *da.GPSPoint, k int,
 
 	if k == 1 || len(candidates) == 0 {
 		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc, 3) // O(M)
-		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 		sumLength := 0.0
-		for _, arcEndpoint := range nearbyArcs {
-			arc := om.graph.GetOutEdge(arcEndpoint)
-			eLength := arc.GetLength()
-			sumLength += eLength
+		startOfTheRoute := len(candidates) > 0
+
+		initialCandidates := make([]*ma.Candidate, len(candidates))
+		copy(initialCandidates, candidates)
+		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
+
+		for _, edgeId := range nearbyArcs {
+			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidates[0].EdgeId()) {
+				arc := om.graph.GetOutEdge(edgeId)
+				eLength := arc.GetLength()
+				sumLength += eLength
+			}
 		}
 
-		for _, arcEndpoint := range nearbyArcs {
-			arc := om.graph.GetOutEdge(arcEndpoint)
-			eLength := arc.GetLength()
+		for _, edgeId := range nearbyArcs {
+			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidates[0].EdgeId()) {
+				// biar candidates nya cuma first edgeId dari rute yang dipilih user (see https://github.com/lintang-b-s/navigatorx-crp-fe/blob/main/app/page.tsx).
+				arc := om.graph.GetOutEdge(edgeId)
+				eLength := arc.GetLength()
 
-			candidates = append(candidates, ma.NewCandidate(arcEndpoint, eLength/sumLength, eLength))
+				candidates = append(candidates, ma.NewCandidate(edgeId, eLength/sumLength, eLength))
+			}
 		}
 
 		om.projectAllCandidates(gps, candidates)
