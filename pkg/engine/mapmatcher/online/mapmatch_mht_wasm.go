@@ -62,12 +62,15 @@ func (om *OnlineMapMatchMHTWasm) OnlineMapMatch(gps *da.GPSPoint, k int,
 		sumLength := 0.0
 		startOfTheRoute := len(candidates) > 0
 
-		initialCandidates := make([]*ma.Candidate, len(candidates))
-		copy(initialCandidates, candidates)
+		var initialCandidate *ma.Candidate
+		if startOfTheRoute {
+			initialCandidate = candidates[0]
+		}
+
 		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 
 		for _, edgeId := range nearbyArcs {
-			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidates[0].EdgeId()) {
+			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidate.EdgeId()) {
 				arc := om.graph.GetOutEdge(edgeId)
 				eLength := arc.GetLength()
 				sumLength += eLength
@@ -75,7 +78,7 @@ func (om *OnlineMapMatchMHTWasm) OnlineMapMatch(gps *da.GPSPoint, k int,
 		}
 
 		for _, edgeId := range nearbyArcs {
-			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidates[0].EdgeId()) {
+			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidate.EdgeId()) {
 				// biar candidates nya cuma first edgeId dari rute yang dipilih user (see https://github.com/lintang-b-s/navigatorx-crp-fe/blob/main/app/page.tsx).
 				arc := om.graph.GetOutEdge(edgeId)
 				eLength := arc.GetLength()
