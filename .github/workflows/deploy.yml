@@ -67,10 +67,21 @@ jobs:
 
       - name: Deploy to VPS
         run: |
-          ssh navigatorx-vps "rm -rf ~/navigatorx/engine ~/navigatorx/data/profiles/car"
-          scp ./bin/engine navigatorx-vps:~/navigatorx
-          ssh navigatorx-vps "chmod +x ~/navigatorx/engine"
-          rsync -avzP ./data/profiles/car navigatorx-vps:~/navigatorx/data/profiles/
+          # Deploy engine safely using a temporary file
+          scp ./bin/engine navigatorx-vps:~/navigatorx/engine_new
+          ssh navigatorx-vps "chmod +x ~/navigatorx/engine_new && mv ~/navigatorx/engine_new ~/navigatorx/engine"
+          
+          # Sync profiles to a temporary directory to avoid partial data during rsync
+          ssh navigatorx-vps "mkdir -p ~/navigatorx/data/profiles"
+          rsync -avzP ./data/profiles/car/ navigatorx-vps:~/navigatorx/data/profiles/car_tmp/
+          
+          # Atomically swap the profiles directory
+          ssh navigatorx-vps "
+            rm -rf ~/navigatorx/data/profiles/car_old && \
+            if [ -d ~/navigatorx/data/profiles/car ]; then mv ~/navigatorx/data/profiles/car ~/navigatorx/data/profiles/car_old; fi && \
+            mv ~/navigatorx/data/profiles/car_tmp ~/navigatorx/data/profiles/car && \
+            rm -rf ~/navigatorx/data/profiles/car_old
+          "
 
       - name: Verify and Restart Service
         run: |
