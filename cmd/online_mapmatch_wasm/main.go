@@ -4,6 +4,7 @@ package main
 
 import (
 	"bytes"
+	"sync"
 
 	"fmt"
 
@@ -23,11 +24,13 @@ import (
 // https://go.dev/wiki/WebAssembly
 
 var (
-	om     *online.OnlineMapMatchMHTWasm
-	graph  *da.MapMatchingGraph
-	rt     *spatialindex.Rtree
-	matrix *da.SparseMatrix[int]
-	logger *zap.Logger
+	om        *online.OnlineMapMatchMHTWasm
+	graph     *da.MapMatchingGraph
+	rt        *spatialindex.Rtree
+	matrix    *da.SparseMatrix[int]
+	logger    *zap.Logger
+	keepAlive = make(chan struct{})
+	mut       sync.RWMutex
 )
 
 func main() {
@@ -50,7 +53,6 @@ func main() {
 
 	logger.Info("Navigatorx Online Map Matcher WASM Ready.")
 
-	keepAlive := make(chan struct{})
 	<-keepAlive
 }
 
@@ -87,6 +89,8 @@ func rebuildMapMatchGraphJS(this js.Value, args []js.Value) any {
 	tileBytes := make([]byte, tileBytesJS.Length())
 	js.CopyBytesToGo(tileBytes, tileBytesJS)
 
+	mut.Lock()
+	defer mut.Unlock()
 	err := graph.RebuildMapMatchGraphFromReader(bytes.NewReader(tileBytes))
 	if err != nil {
 		fmt.Printf("Failed to rebuild graph: %v\n", err)
@@ -160,7 +164,9 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 		}
 	}
 
+	mut.RLock()
 	matchedPoint, newCandidates, newSpeedMean, newSpeedStd := om.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
+	mut.RUnlock()
 
 	// convert ke javascript object
 	res := make(map[string]any)

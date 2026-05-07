@@ -27,8 +27,11 @@ export const options = {
     http_req_duration: ["p(95)<1000"], // 95% of requests should be below 1000ms
   },
   stages: [
-    { duration: "15s", target: 1000 },
-    { duration: "15s", target: 1000 },
+    { duration: "15s", target: parseInt(__ENV.VUS || "1000") },
+    {
+      duration: __ENV.DURATION || "15s",
+      target: parseInt(__ENV.VUS || "1000"),
+    },
   ],
 };
 
