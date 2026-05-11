@@ -28,9 +28,9 @@ func init() {
 	}
 	vehicleType := viper.GetString("vehicle_type")
 	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicle = pkg.GetIsVehicle()
-	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+	pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
+	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 }
 
 func setup(t *testing.T, osmfFileTest string) (*da.Graph, [][]da.Index, *osmparser.OsmParser) {

@@ -40,7 +40,7 @@ func (v *MapMatchVertex) SetFirstOut(firstOut Index) {
 }
 
 type MapMatchEdge struct {
-	id       Index // orignal outEdge Id di road network graph (graph.go)
+	id       Index //  edge Id di road network graph (graph.go)
 	tail     Index
 	head     Index
 	length   float64
@@ -57,7 +57,7 @@ func NewMapMatchEdge(id Index, tail Index, head Index, length float64, geometry 
 	}
 }
 
-func (e *MapMatchEdge) GetOriginalEdgeId() Index {
+func (e *MapMatchEdge) GetRoadNetworkEdgeId() Index {
 	return e.id
 }
 
@@ -113,7 +113,7 @@ func NewMapMatchingGraph(vertices []MapMatchVertex, edges []MapMatchEdge) *MapMa
 	}
 }
 
-func (g *MapMatchingGraph) GetLocalEdgeId(originalId Index) (Index, bool) {
+func (g *MapMatchingGraph) GetMapMatchEdgeId(originalId Index) (Index, bool) {
 	localId, ok := g.loadedEdgesSet[originalId]
 	return localId, ok
 }
@@ -148,6 +148,10 @@ func (g *MapMatchingGraph) GetEdgeGeometry(eId Index) []Coordinate {
 	return g.edges[eId].GetGeometry()
 }
 
+func (g *MapMatchingGraph) GetRoadnetworkEdgeId(eId Index) Index {
+	return g.edges[eId].id
+}
+
 func (g *MapMatchingGraph) GetOutEdge(eId Index) MapMatchEdge {
 	return g.edges[eId]
 }
@@ -162,6 +166,7 @@ func (g *MapMatchingGraph) ForOutEdgesOf(u Index, handle func(eId, head Index, l
 // RebuildMapMatchGraph rebuild map matching road network graph dari file graph tile (see tiling_engine.go)
 // terinspirasi dari MapDataManager nya Lyft: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 func (g *MapMatchingGraph) RebuildMapMatchGraph(graphTileFilePath string) error {
+
 	f, err := os.Open(graphTileFilePath)
 	if err != nil {
 		return err
@@ -255,8 +260,8 @@ func (g *MapMatchingGraph) Rebuild(r io.Reader) error {
 	for vId := 0; vId < len(g.vertices); vId++ { // O(n+m), n= number of vertices in roadNetworkGraph (graph.go),m =number of edges in current MapMatchingGraph geohashes tile (mapmatch_graph.go)
 		g.vertices[vId].firstOut = currEId
 		for currEId < m && g.edges[currEId].tail == Index(vId) {
-			originalEdgeId := g.edges[currEId].GetOriginalEdgeId()
-			g.loadedEdgesSet[originalEdgeId] = currEId
+			roadNetworkEdgeId := g.edges[currEId].GetRoadNetworkEdgeId()
+			g.loadedEdgesSet[roadNetworkEdgeId] = currEId
 			currEId++
 		}
 	}

@@ -3,22 +3,18 @@ package router
 import (
 	"context"
 	"fmt"
-	"net"
 	"os"
 	"os/signal"
-	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/NYTimes/gziphandler"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/alice"
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	router_helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	http_server "github.com/lintang-b-s/Navigatorx/pkg/http/server"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/mailru/easygo/netpoll"
 	"github.com/rs/cors"
 	"github.com/spf13/viper"
 	_ "github.com/swaggo/http-swagger"
@@ -30,10 +26,7 @@ import (
 )
 
 type API struct {
-	log    *zap.Logger
-	hub    *controllers.Hub
-	poller netpoll.Poller
-	pool   *concurrent.WorkerPool[int, int]
+	log *zap.Logger
 }
 
 var (
@@ -106,36 +99,6 @@ func (api *API) Run(
 
 	navigatorRoutes.Routes(group)
 
-	var (
-		errChan       = make(chan error, 1)
-		errProxyChan  = make(chan error, 1)
-		wsProxyServer *http.Server
-	)
-
-	mux := http.NewServeMux()
-	mux.HandleFunc("/ws", api.upstream("online map matcher", "tcp", "127.0.0.1"+":"+strconv.Itoa(config.WebsocketPort)))
-
-	wsProxyServer = &http.Server{
-		Addr:    fmt.Sprintf(":%d", config.ProxyPort),
-		Handler: mux,
-		BaseContext: func(_ net.Listener) context.Context {
-			return ctx
-		},
-
-		ReadTimeout:       viper.GetDuration("server.read_timeout"),
-		WriteTimeout:      config.Timeout + viper.GetDuration("server.write_timeout"),
-		IdleTimeout:       viper.GetDuration("server.idle_timeout"),
-		ReadHeaderTimeout: viper.GetDuration("server.read_header_timeout"),
-	}
-
-	go func() {
-		api.log.Info(fmt.Sprintf("WebSocket proxy running on port %d", config.ProxyPort))
-
-		if err := listenAndServeHTTP(wsProxyServer); err != nil {
-			errProxyChan <- err
-		}
-	}()
-
 	var mwChain []alice.Constructor
 	if useRateLimit {
 		// useRateLimit = true ->  dideploy pakai nginx reverse proxy (udah ada gzip nya).
@@ -147,13 +110,8 @@ func (api *API) Run(
 	}
 	mainMwChain := alice.New(mwChain...).Then(router)
 
-	srv := http_server.New(ctx, mainMwChain, config, false)
+	srv := http_server.New(ctx, mainMwChain, config)
 	log.Info(fmt.Sprintf("API run on port %d", config.Port))
-
-	go func() {
-		api.handleWebsocket(ctx, config, mapMatcherService,
-			false, errChan)
-	}()
 
 	serverErr := make(chan error, 1)
 	go func() {
@@ -184,32 +142,14 @@ func (api *API) Run(
 				log.Error("Failed to wait for ongoing requests to finish, waiting for forced cancellation.")
 			}
 		}
-		if wsProxyServer != nil {
-			if err := shutdownHTTP(wsProxyServer, shutdownCtx); err != nil {
-				log.Error("WebSocket proxy shutdown error", zap.Error(err))
-			}
-		}
+
 	}
 
 	select {
-	case err := <-errChan:
-		log.Error("Websocket error, shutting down server", zap.Error(err))
-		isShuttingDown.Store(true)
-		shutdown()
-		return err
-	case err := <-errProxyChan:
-		log.Error("Websocket Proxy error, shutting down server", zap.Error(err))
-		isShuttingDown.Store(true)
-		shutdown()
-		return err
 	case err := <-serverErr:
 		log.Info("HTTP server stopped", zap.Error(err))
 		isShuttingDown.Store(true)
-		if wsProxyServer != nil {
-			if err := shutdownHTTP(wsProxyServer, shutdownCtx); err != nil {
-				log.Error("WebSocket proxy shutdown error", zap.Error(err))
-			}
-		}
+
 		return err
 	case <-ctx.Done():
 		log.Info("Context canceled, shutting down server")

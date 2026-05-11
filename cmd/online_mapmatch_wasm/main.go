@@ -4,7 +4,6 @@ package main
 
 import (
 	"bytes"
-	"sync"
 
 	"fmt"
 
@@ -24,13 +23,12 @@ import (
 // https://go.dev/wiki/WebAssembly
 
 var (
-	om        *online.OnlineMapMatchMHTWasm
+	om        *online.OnlineMapMatchMHTClient
 	graph     *da.MapMatchingGraph
 	rt        *spatialindex.Rtree
 	matrix    *da.SparseMatrix[int]
 	logger    *zap.Logger
 	keepAlive = make(chan struct{})
-	mut       sync.RWMutex
 )
 
 func main() {
@@ -89,8 +87,6 @@ func rebuildMapMatchGraphJS(this js.Value, args []js.Value) any {
 	tileBytes := make([]byte, tileBytesJS.Length())
 	js.CopyBytesToGo(tileBytes, tileBytesJS)
 
-	mut.Lock()
-	defer mut.Unlock()
 	err := graph.RebuildMapMatchGraphFromReader(bytes.NewReader(tileBytes))
 	if err != nil {
 		fmt.Printf("Failed to rebuild graph: %v\n", err)
@@ -104,8 +100,7 @@ func rebuildMapMatchGraphJS(this js.Value, args []js.Value) any {
 }
 
 func updateMapMatcher() {
-
-	om = online.NewOnlineMapMatchMHTWasm(
+	om = online.NewOnlineMapMatchMHTClient(
 		graph, rt,
 		8.33333,   // initialSpeedMean
 		8.3333,    // initialSpeedStd
@@ -148,7 +143,7 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 		for i := 0; i < candidatesJS.Length(); i++ {
 			candJS := candidatesJS.Index(i)
 			originalEdgeId := da.Index(candJS.Get("edge_id").Int())
-			localId, ok := graph.GetLocalEdgeId(originalEdgeId)
+			localId, ok := graph.GetMapMatchEdgeId(originalEdgeId)
 			if !ok {
 				// edgeId gak inlcuded di current graph tile
 				continue
@@ -164,9 +159,7 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 		}
 	}
 
-	mut.RLock()
 	matchedPoint, newCandidates, newSpeedMean, newSpeedStd := om.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
-	mut.RUnlock()
 
 	// convert ke javascript object
 	res := make(map[string]any)
@@ -198,7 +191,7 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 	newCandsJS := make([]any, len(newCandidates))
 	for i, c := range newCandidates {
 		e := graph.GetOutEdge(c.EdgeId())
-		originalEdgeId := e.GetOriginalEdgeId()
+		originalEdgeId := e.GetRoadNetworkEdgeId()
 		newCandsJS[i] = map[string]any{
 			"edge_id":       int(originalEdgeId),
 			"weight":        c.Weight(),

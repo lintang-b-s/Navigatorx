@@ -62,9 +62,9 @@ func InitConfig() {
 	}
 	vehicleType := viper.GetString("vehicle_type")
 	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicle = pkg.GetIsVehicle()
-	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+	pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
+	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 }
 
 func InitProfileConfig(profileName string, regionName string) {
@@ -79,8 +79,8 @@ func InitProfileConfig(profileName string, regionName string) {
 	pkg.ProfileName = profileName
 	vehicleType := viper.GetString("vehicle_type")
 	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicle = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicle = pkg.GetIsVehicle()
-	pkg.MotorizedVehicle = pkg.GetIsMotorizedVehicle()
+	pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
+	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
+	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 	pkg.RegionName = regionName
 }

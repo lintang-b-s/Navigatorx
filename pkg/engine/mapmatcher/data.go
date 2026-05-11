@@ -6,7 +6,7 @@ import da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 type Candidate struct {
 	stateId            int
 	projectionId       da.Index
-	edgeId             da.Index
+	edgeId             da.Index // MapMatchGraph EdgeId
 	distanceFromTail   float64
 	distanceFromHead   float64
 	travelTimeFromTail float64
@@ -20,6 +20,7 @@ type Candidate struct {
 	distr                      float64 // distance from tail vertex to projected gps point
 }
 
+// EdgeId return MapMatchGraph EdgeId dari candidate
 func (c *Candidate) EdgeId() da.Index {
 	return c.edgeId
 }

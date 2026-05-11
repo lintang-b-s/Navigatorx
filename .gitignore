@@ -78,4 +78,7 @@ data/car/tiles/
 *.tile
 *.wasm
 *.test
+*.jar
+*.aar
+debug/
 

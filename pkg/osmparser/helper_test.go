@@ -197,8 +197,8 @@ func TestIsConditionalAccessInTimerange(t *testing.T) {
 }
 
 func TestGetReversedOneWay(t *testing.T) {
-	// mock pkg.IsVehicle
-	// NOTE: pkg.IsVehicle is a global variable, so this might affect other tests if run in parallel
+	// mock pkg.IsVehicleEnabled
+	// NOTE: pkg.IsVehicleEnabled is a global variable, so this might affect other tests if run in parallel
 	// But for unit tests, we can manage it.
 
 	// Since I can't easily mock the 'pkg' package variables without changing the code,

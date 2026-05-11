@@ -31,13 +31,13 @@ var (
 	VehicleType VehicleTypeT = MOTORCAR
 
 	// lebih dari roda dua   // see land-based transportation https://wiki.openstreetmap.org/wiki/Key:access
-	DoubleTrackedVehicle = true
-	MotorizedVehicle     = true
+	DoubleTrackedVehicleEnabled = true
+	MotorizedVehicleEnabled     = true
 
 	// vehicle or pedestrians. for oneway interperation for routing: https://wiki.openstreetmap.org/wiki/Key:onewayf
 	// see Land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
 	// vehicle is all type of vehicle (bicycle, motorcar, bus, motorcycle, hgv, goods,taxi, minibus)
-	IsVehicle bool = true
+	IsVehicleEnabled bool = true
 
 	VehicleTypeTag = map[VehicleTypeT]string{
 		BICYCLE:    "bicycle",

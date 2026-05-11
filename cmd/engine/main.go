@@ -15,6 +15,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
+	http_router "github.com/lintang-b-s/Navigatorx/pkg/http/router"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
@@ -33,11 +34,12 @@ var (
 	landmarkFile           string
 	timeFunctionFile       string
 	transitionMHTFile      string
-	httpPort               = flag.Int("http_port", 6060, "http port")
-	websocketPort          = flag.Int("websocket_port", 6666, "websocket port")
-	proxyPort              = flag.Int("proxy_port", 6767, "proxy port")
-	gracefulShutdownPeriod = flag.Int("graceful_shutdown_period", 3, "graceful shutdown period") // see https://victoriametrics.com/blog/go-graceful-shutdown/
-	useRateLimiter         = flag.Bool("ratelimit", false, "use rate limiter")
+	httpPort               = flag.Int("http-port", 6060, "http port")
+	websocketPort          = flag.Int("websocket-port", 6666, "websocket port")
+	proxyPort              = flag.Int("proxy-port", 6767, "proxy port")
+	gracefulShutdownPeriod = flag.Int("graceful-shutdown-period", 3, "graceful shutdown period") // see https://victoriametrics.com/blog/go-graceful-shutdown/
+	useRateLimiter         = flag.Bool("rate-limit", false, "use rate limiter")
+	rateLimitParam         = flag.String("rate-limit-param", "6,10", "rate limit parameters qps,burst")
 )
 
 func init() {
@@ -55,6 +57,16 @@ func init() {
 	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.txt", profileName, *regionName)
 
 	config.InitProfileConfig(profileName, *regionName)
+
+	if *rateLimitParam != "" {
+		var q, b int
+		_, err := fmt.Sscanf(*rateLimitParam, "%d,%d", &q, &b)
+		if err != nil {
+			panic(fmt.Sprintf("invalid rate-limit-param format: %s. expected 'qps,burst' (e.g., '6,10')", *rateLimitParam))
+		}
+		http_router.SetRateLimit(q, b)
+
+	}
 }
 
 func main() {

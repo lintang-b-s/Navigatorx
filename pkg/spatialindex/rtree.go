@@ -99,7 +99,7 @@ func (rt *Rtree) BuildMapMatch(graph *da.MapMatchingGraph, logger *zap.Logger) {
 		minX := geo.CalcLonToX(minLon)
 		maxX := geo.CalcLonToX(maxLon)
 
-		newEId := rt.BitPackOriginalEdgeId(da.Index(eId), e.GetOriginalEdgeId())
+		newEId := rt.BitPackOriginalEdgeId(da.Index(eId), e.GetRoadNetworkEdgeId())
 		rt.tr.Insert([2]float64{minX, minY}, [2]float64{maxX, maxY}, newEId)
 	}
 	logger.Info("R-tree spatial index for map matching built.")
@@ -184,6 +184,6 @@ func (rt *Rtree) GetMapMatchEdgeId(id uint64) da.Index {
 	return da.Index(id & 0xFFFFFFFF)
 }
 
-func (rt *Rtree) GetOriginalEdgeId(id uint64) da.Index {
+func (rt *Rtree) GetRoadNetworkEdgeId(id uint64) da.Index {
 	return da.Index(id >> 32)
 }

@@ -1,31 +1,19 @@
 package controllers
 
 import (
-	"bytes"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
-	"time"
 
 	"github.com/julienschmidt/httprouter"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 )
-
-type closeErrorBody struct {
-	*bytes.Reader
-}
-
-func (b closeErrorBody) Close() error {
-	return errors.New("close error")
-}
 
 const (
 	yogyakartaOriginLat = -7.7956
@@ -337,132 +325,6 @@ func TestRoutingAPI_GetBoundingBox(t *testing.T) {
 
 		api.GetBoundingBox(erw, req, nil)
 		// Should not panic, but trigger the error path
-	})
-}
-
-func TestRoutingAPI_OnlineMapMatch(t *testing.T) {
-	log := zap.NewNop()
-	mockRS := new(MockRoutingService)
-	mockMMS := new(MockMapMatcherService)
-	mockTS := new(MockTilingService)
-	api := New(mockRS, log, mockMMS, mockTS)
-
-	t.Run("Invalid JSON", func(t *testing.T) {
-		req, _ := http.NewRequest("POST", "/onlineMapMatch", bytes.NewBufferString("invalid"))
-		rr := httptest.NewRecorder()
-
-		api.onlineMapMatch(rr, req, nil)
-
-		assert.Equal(t, http.StatusBadRequest, rr.Code)
-	})
-
-	t.Run("Success", func(t *testing.T) {
-		requestBody := map[string]interface{}{
-			"gps_point": map[string]interface{}{
-				"lat":  yogyakartaOriginLat,
-				"lon":  yogyakartaOriginLon,
-				"time": "2026-04-29T10:00:00Z",
-			},
-			"k":            1,
-			"candidates":   []interface{}{},
-			"speed_mean_k": 0.0,
-			"speed_std_k":  0.0,
-			"last_bearing": 0.0,
-		}
-		requestTime := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
-		body, _ := json.Marshal(requestBody)
-		req, _ := http.NewRequest("POST", "/onlineMapMatch", bytes.NewBuffer(body))
-		rr := httptest.NewRecorder()
-
-		dummyGPS := da.NewGPSPoint(yogyakartaOriginLat, yogyakartaOriginLon, requestTime, 0, 0, false)
-		dummyMatched := da.NewMatchedGPSPoint(dummyGPS, 1, da.Coordinate{Lat: yogyakartaOriginLat, Lon: yogyakartaOriginLon}, 0)
-
-		mockMMS.On("OnlineMapMatch", req.Context(), dummyGPS, 1, []*ma.Candidate{}, 0.0, 0.0, 0.0).
-			Return(dummyMatched, []*ma.Candidate{}, 0.0, 0.0, nil)
-
-		api.onlineMapMatch(rr, req, nil)
-
-		assert.Equal(t, http.StatusOK, rr.Code)
-		mockMMS.AssertExpectations(t)
-	})
-
-	t.Run("Validation Error", func(t *testing.T) {
-		requestBody := map[string]interface{}{
-			"gps_point": map[string]interface{}{
-				"lat": 100.0, // Invalid lat
-				"lon": yogyakartaOriginLon,
-			},
-		}
-		body, _ := json.Marshal(requestBody)
-		req, _ := http.NewRequest("POST", "/onlineMapMatch", bytes.NewBuffer(body))
-		rr := httptest.NewRecorder()
-
-		api.onlineMapMatch(rr, req, nil)
-
-		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Contains(t, rr.Body.String(), "validation error")
-	})
-
-	t.Run("Service Error", func(t *testing.T) {
-		requestBody := map[string]interface{}{
-			"gps_point": map[string]interface{}{
-				"lat":  yogyakartaOriginLat,
-				"lon":  yogyakartaOriginLon,
-				"time": "2026-04-29T10:00:00Z",
-			},
-			"k": 1,
-		}
-		body, _ := json.Marshal(requestBody)
-		req, _ := http.NewRequest("POST", "/onlineMapMatch", bytes.NewBuffer(body))
-		rr := httptest.NewRecorder()
-
-		requestTime := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
-		gpsPoint := da.NewGPSPoint(yogyakartaOriginLat, yogyakartaOriginLon, requestTime, 0, 0, false)
-		mockMMS.ExpectedCalls = nil
-		mockMMS.On("OnlineMapMatch", req.Context(), gpsPoint, 1, []*ma.Candidate{}, 0.0, 0.0, 0.0).
-			Return(nil, []*ma.Candidate{}, 0.0, 0.0, errors.New("internal error"))
-
-		api.onlineMapMatch(rr, req, nil)
-
-		assert.Equal(t, http.StatusInternalServerError, rr.Code)
-	})
-
-	t.Run("Body Close Error", func(t *testing.T) {
-		requestBody := []byte(fmt.Sprintf(`{"gps_point":{"lat":%f,"lon":%f,"time":"2026-04-29T10:00:00Z"},"k":1}`, yogyakartaOriginLat, yogyakartaOriginLon))
-		req, _ := http.NewRequest("POST", "/onlineMapMatch", nil)
-		req.Body = closeErrorBody{Reader: bytes.NewReader(requestBody)}
-		rr := httptest.NewRecorder()
-
-		api.onlineMapMatch(rr, req, nil)
-
-		assert.Equal(t, http.StatusInternalServerError, rr.Code)
-		assert.Contains(t, rr.Body.String(), "the server encountered a problem")
-	})
-
-	t.Run("WriteJSON Error", func(t *testing.T) {
-		requestBody := map[string]interface{}{
-			"gps_point": map[string]interface{}{
-				"lat":  yogyakartaOriginLat,
-				"lon":  yogyakartaOriginLon,
-				"time": "2026-04-29T10:00:00Z",
-			},
-			"k": 1,
-		}
-		body, _ := json.Marshal(requestBody)
-		req, _ := http.NewRequest("POST", "/onlineMapMatch", bytes.NewBuffer(body))
-		rr := httptest.NewRecorder()
-		erw := &errorResponseWriter{ResponseWriter: rr}
-
-		requestTime := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
-		gpsPoint := da.NewGPSPoint(yogyakartaOriginLat, yogyakartaOriginLon, requestTime, 0, 0, false)
-		matched := da.NewMatchedGPSPoint(gpsPoint, 1, da.Coordinate{Lat: yogyakartaOriginLat, Lon: yogyakartaOriginLon}, 0)
-		mockMMS.ExpectedCalls = nil
-		mockMMS.On("OnlineMapMatch", req.Context(), gpsPoint, 1, []*ma.Candidate{}, 0.0, 0.0, 0.0).
-			Return(matched, []*ma.Candidate{}, 0.0, 0.0, nil)
-
-		api.onlineMapMatch(erw, req, nil)
-
-		assert.Equal(t, http.StatusOK, rr.Code)
 	})
 }
 

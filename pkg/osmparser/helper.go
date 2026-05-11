@@ -93,7 +93,7 @@ func isDirectionProhibited(value string) bool {
 func getReversedOneWay(way *osm.Way) (bool, bool) {
 	restrictedForward := false
 	restrictedBackward := false
-	if pkg.IsVehicle {
+	if pkg.IsVehicleEnabled {
 		// see Land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
 		// vehicle is all type of vehicle (bicycle, car, bus, motorcycle, etc)
 		/*
@@ -670,7 +670,7 @@ func isAccessByVehicleModeAllowed(findTag func(key string) string) bool {
 	// vehicle type access
 	vehicleTagVal := findTag("vehicle")
 	vehicleAllowed := isAccessTagAllowed(vehicleTagVal)
-	if pkg.IsVehicle && vehicleAllowed && vehicleTagVal != "" {
+	if pkg.IsVehicleEnabled && vehicleAllowed && vehicleTagVal != "" {
 		// kalau access=no (allowed=false), vehicle=yes, berarti allowed
 		return true
 	}
@@ -678,7 +678,7 @@ func isAccessByVehicleModeAllowed(findTag func(key string) string) bool {
 	// motor vehicle type access
 	motorVehicleTagVal := findTag("motor_vehicle")
 	motorizedVehicleAllowed := isAccessTagAllowed(motorVehicleTagVal)
-	if pkg.MotorizedVehicle && motorizedVehicleAllowed && motorVehicleTagVal != "" {
+	if pkg.MotorizedVehicleEnabled && motorizedVehicleAllowed && motorVehicleTagVal != "" {
 		return true
 	}
 
@@ -750,7 +750,7 @@ func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) 
 	// vehicle type access
 	vehicleTagVal := findTag("vehicle:conditional")
 	vehicleAllowed := isAccessTagAllowed(vehicleTagVal)
-	if pkg.IsVehicle && vehicleAllowed && vehicleTagVal != "" {
+	if pkg.IsVehicleEnabled && vehicleAllowed && vehicleTagVal != "" {
 		// kalau access=no (allowed=false), vehicle=yes, berarti allowed
 		return true
 	}
@@ -758,7 +758,7 @@ func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) 
 	// motor vehicle type access
 	motorVehicleTagVal := findTag("motor_vehicle:conditional")
 	motorizedVehicleAllowed := isAccessTagAllowed(motorVehicleTagVal)
-	if pkg.MotorizedVehicle && motorizedVehicleAllowed && motorVehicleTagVal != "" {
+	if pkg.MotorizedVehicleEnabled && motorizedVehicleAllowed && motorVehicleTagVal != "" {
 		return true
 	}
 

@@ -13,32 +13,10 @@ import (
 	"time"
 
 	http_server "github.com/lintang-b-s/Navigatorx/pkg/http/server"
-	"github.com/mailru/easygo/netpoll"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 )
-
-func installInjectedWebsocketInfra(t *testing.T) {
-	t.Helper()
-	origListen := listenWebsocket
-	origHandleListener := handleListener
-	origNewPoller := newPoller
-	listenWebsocket = func(network, addr string) (net.Listener, error) {
-		return fakeWebsocketListener{}, nil
-	}
-	handleListener = func(net.Listener, netpoll.Event) (*netpoll.Desc, error) {
-		return netpoll.NewDesc(0, netpoll.EventRead), nil
-	}
-	newPoller = func(*netpoll.Config) (netpoll.Poller, error) {
-		return callbackPoller{event: 0}, nil
-	}
-	t.Cleanup(func() {
-		listenWebsocket = origListen
-		handleListener = origHandleListener
-		newPoller = origNewPoller
-	})
-}
 
 func TestAPI_Run(t *testing.T) {
 	log := zap.NewNop()
@@ -68,13 +46,13 @@ func TestAPI_Run(t *testing.T) {
 		}()
 
 		err := api.Run(config, log, false, mockRS, mockMMS, mockTS, 100*time.Millisecond)
-		skipSocketPermission(t, err)
+
 		assert.NoError(t, err)
 	})
 
 	t.Run("ListenAndServe Error", func(t *testing.T) {
 		ln, err := net.Listen("tcp", ":0")
-		skipSocketPermission(t, err)
+
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -92,26 +70,6 @@ func TestAPI_Run(t *testing.T) {
 		assert.Error(t, err)
 	})
 
-	t.Run("Proxy Listen Error", func(t *testing.T) {
-		ln, err := net.Listen("tcp", ":0")
-		skipSocketPermission(t, err)
-		if err != nil {
-			t.Fatal(err)
-		}
-		defer ln.Close()
-
-		_, portStr, _ := net.SplitHostPort(ln.Addr().String())
-		var port int
-		_, _ = fmt.Sscanf(portStr, "%d", &port)
-
-		configErr := http_server.Config{
-			Port:      0,
-			ProxyPort: port,
-		}
-
-		err = api.Run(configErr, log, false, mockRS, mockMMS, mockTS, 100*time.Millisecond)
-		assert.Error(t, err)
-	})
 }
 
 func TestAPI_Run_InjectedServerError(t *testing.T) {
@@ -129,7 +87,6 @@ func TestAPI_Run_InjectedServerError(t *testing.T) {
 		return ctx != nil && ctx.Err() == nil
 	})).Return()
 
-	installInjectedWebsocketInfra(t)
 	origListenAndServe := listenAndServeHTTP
 	origShutdown := shutdownHTTP
 	listenAndServeHTTP = func(s *http.Server) error {
@@ -147,7 +104,7 @@ func TestAPI_Run_InjectedServerError(t *testing.T) {
 		shutdownHTTP = origShutdown
 	})
 
-	err := api.Run(http_server.Config{Port: 9102, ProxyPort: 9101, WebsocketPort: 9103}, log, true, mockRS, mockMMS, mockTS, 50*time.Millisecond)
+	err := api.Run(http_server.Config{Port: 9102}, log, true, mockRS, mockMMS, mockTS, 50*time.Millisecond)
 
 	assert.EqualError(t, err, "main server error")
 	mockRS.AssertExpectations(t)

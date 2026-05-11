@@ -47,7 +47,7 @@ func (te *TilingEngine) PreprocessTiles() error {
 		eTileMap[eGeoHashInt] = append(eTileMap[eGeoHashInt], eId)
 	})
 
-	te.logger.Sugar().Infof("writing %v graph tiles to file... ", len(eTileMap))
+	te.logger.Sugar().Infof("writing %v graph tiles to files... ", len(eTileMap))
 
 	// reuse writers
 	s2w := s2.NewWriter(io.Discard)
@@ -64,7 +64,7 @@ func (te *TilingEngine) PreprocessTiles() error {
 		}
 	}
 
-	te.logger.Info("completed writing tiles to file")
+	te.logger.Info("completed writing tiles to files")
 	return nil
 }
 

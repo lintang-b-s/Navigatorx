@@ -566,9 +566,9 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 	vehicleType, ok := pkg.VehicleTypeTag[pkg.VehicleType]
 	vehicleTypeOneway := way.Tags.Find(fmt.Sprintf("oneway:%s", vehicleType))
 	val := way.Tags.Find("oneway")
-	if val == "yes" || val == "-1" || restrictedForward || restrictedBackward || (pkg.IsVehicle &&
+	if val == "yes" || val == "-1" || restrictedForward || restrictedBackward || (pkg.IsVehicleEnabled &&
 		(tempMap[ROAD_CLASS] == "unclassified" || tempMap[ROAD_CLASS] == "residential") && (val == "yes" || val == "-1")) ||
-		(!pkg.IsVehicle && (tempMap[ROAD_CLASS] == "via_ferrata" || tempMap[ROAD_CLASS] == "steps") && (val == "yes" || val == "-1")) ||
+		(!pkg.IsVehicleEnabled && (tempMap[ROAD_CLASS] == "via_ferrata" || tempMap[ROAD_CLASS] == "steps") && (val == "yes" || val == "-1")) ||
 		tempMap[JUNCTION] == "roundabout" || (tempMap[ROAD_CLASS] == "motorway" && val != "no" && val != "") || (ok && (vehicleTypeOneway == "yes" || vehicleTypeOneway == "-1")) {
 		wayExtraInfoData.oneWay = true
 

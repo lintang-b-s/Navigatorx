@@ -12,14 +12,11 @@ import (
 
 const TimeoutMessage = `{"error":"context deadline exceeded"}`
 
-func New(ctx context.Context, h http.Handler, config Config, websocket bool) *http.Server {
+func New(ctx context.Context, h http.Handler, config Config) *http.Server {
 
 	handler := http.TimeoutHandler(h, config.Timeout, fmt.Sprintf(`{"error": %q}`, TimeoutMessage))
 
 	port := config.Port
-	if websocket {
-		port = config.WebsocketPort
-	}
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: handler,
@@ -36,13 +33,10 @@ func New(ctx context.Context, h http.Handler, config Config, websocket bool) *ht
 	return server
 }
 
-func NewWithoutSet(ctx context.Context, h http.Handler, config Config, websocket bool) *http.Server {
+func NewWithoutSet(ctx context.Context, h http.Handler, config Config) *http.Server {
 	handler := http.TimeoutHandler(h, config.Timeout, fmt.Sprintf(`{"error": %q}`, TimeoutMessage))
 
 	port := config.Port
-	if websocket {
-		port = config.WebsocketPort
-	}
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%d", port),
 		Handler: handler,

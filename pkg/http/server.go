@@ -31,16 +31,12 @@ func (s *Server) Use(
 
 ) error {
 	viper.SetDefault("http_port", 6060)
-	viper.SetDefault("websocket_port", 6666)
-	viper.SetDefault("proxy_port", 6767)
 
 	viper.SetDefault("server.api_timeout", "2s")
 
 	config := http_server.Config{
-		Port:          viper.GetInt("http_port"),
-		WebsocketPort: viper.GetInt("websocket_port"),
-		Timeout:       viper.GetDuration("server.api_timeout"),
-		ProxyPort:     viper.GetInt("proxy_port"),
+		Port:    viper.GetInt("http_port"),
+		Timeout: viper.GetDuration("server.api_timeout"),
 	}
 
 	server := http_router.NewAPI(log)

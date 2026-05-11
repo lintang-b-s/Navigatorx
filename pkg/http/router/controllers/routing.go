@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
-	"time"
 
-	json "github.com/bytedance/sonic"
 	"github.com/mmcloughlin/geohash"
 
 	"github.com/go-playground/locales/en"
@@ -54,7 +52,7 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
 	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes)
 	group.GET("/boundingBox", api.GetBoundingBox)
-	group.POST("/onlineMapMatch", api.onlineMapMatch)
+
 	group.GET("/tile/:userGeohash", api.getTile)
 	group.GET("/tile-init", api.initClientSideRealTimeMapMatching)
 	group.GET("/tile-init-transition-matrix", api.initClientSideRealTimeMapMatchingTransitionMatrix)
@@ -229,70 +227,6 @@ func (api *routingAPI) GetBoundingBox(w http.ResponseWriter, r *http.Request, p 
 		api.ServerErrorResponse(w, r, err)
 		return
 	}
-}
-
-func (api *routingAPI) onlineMapMatch(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	var (
-		request mapMatchRequest
-		err     error
-	)
-	err = json.ConfigDefault.NewDecoder(r.Body).Decode(&request)
-	if err != nil {
-		api.BadRequestResponse(w, r, err)
-		return
-	}
-	if err := r.Body.Close(); err != nil {
-		api.ServerErrorResponse(w, r, err)
-		return
-	}
-
-	if err := api.validate.Struct(request); err != nil {
-
-		vv := translateError(err, api.trans)
-		vvString := []string{}
-		for _, v := range vv {
-			vvString = append(vvString, v.Error())
-		}
-		api.BadRequestResponse(w, r, fmt.Errorf("validation error: %v", vvString))
-		return
-	}
-
-	newCtx := r.Context()
-	start := time.Now()
-	mgpsPoint, cands, speedMeanK, speedStdK, err := api.mapmatchingService.OnlineMapMatch(newCtx, request.Gps.ToDataGPS(), request.K, ToOnlineCandidates(request.Candidates),
-		request.SpeedMeanK, request.SpeedStdK, request.LastBearing)
-	headers := make(http.Header)
-	if err != nil {
-		api.getStatusCode(w, r, err)
-		return
-	}
-
-	// log map matching request completion
-	clientIP := r.Header.Get("X-Real-IP")
-	if clientIP == "" {
-		clientIP = r.RemoteAddr
-	}
-
-	api.log.Info("http map-match completed",
-		zap.Int64("took", time.Since(start).Milliseconds()),
-		zap.String("client_ip", clientIP),
-		zap.String("user_agent", r.UserAgent()),
-		zap.Float64("lat", request.Gps.Lat),
-		zap.Float64("lon", request.Gps.Lon),
-		zap.String("gps_time", request.Gps.Time.Local().String()),
-		zap.Float64("speed_ms", request.Gps.Speed),
-		zap.Int("k", request.K),
-		zap.Float64("delta_time_s", request.Gps.DeltaTime),
-		zap.Bool("dead_reckoning", request.Gps.DeadReckoning),
-		zap.Float64("last_bearing", request.LastBearing),
-	)
-
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewMapmatchingResponse(mgpsPoint, cands, speedMeanK,
-		speedStdK, mgpsPoint.GetBearing())}, headers); err != nil {
-		api.ServerErrorResponse(w, r, err)
-		return
-	}
-
 }
 
 func (api *routingAPI) getTile(w http.ResponseWriter, r *http.Request, p httprouter.Params) {

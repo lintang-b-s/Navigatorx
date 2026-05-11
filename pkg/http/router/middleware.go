@@ -198,10 +198,15 @@ type visitor struct {
 	lastSeen time.Time
 }
 
-const (
+var (
 	qps   = 6
 	burst = 10
 )
+
+func SetRateLimit(q, b int) {
+	qps = q
+	burst = b
+}
 
 var visitors = make(map[string]*visitor)
 var mu sync.Mutex
