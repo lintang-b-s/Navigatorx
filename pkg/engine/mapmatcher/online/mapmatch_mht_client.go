@@ -16,8 +16,8 @@ implementation of:
 Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), pp.
 338–347. Available at: https://doi.org/10.1109/TITS.2018.2812147.
 
-ini buat golang webassembly (client-side real-time map matching). terinspirasi dari: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
-lihat ./cmd/online_mapmatch_wasm/main.go
+ini buat golang mobile app library (client-side real-time map matching). terinspirasi dari: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+lihat ./pkg/mobile/mobile.go
 */
 
 type OnlineMapMatchMHTClient struct {

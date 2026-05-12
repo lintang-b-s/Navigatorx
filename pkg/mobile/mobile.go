@@ -90,7 +90,7 @@ func (m *MobileMapMatcher) RebuildGraph(tileBytes []byte) error {
 		8.33333,   // initialSpeedMean (m/s )
 		8.3333,    // initialSpeedStd
 		0.0001,    // posteriorThreshold
-		4.07,      // gpsStd (meters)
+		5.0,       // gpsStd (meters)
 		0.0000001, // lp
 		0.04,      // lc (km ~40m search radius)
 		3.0,       // accelerationStd
