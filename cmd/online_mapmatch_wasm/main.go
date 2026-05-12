@@ -142,9 +142,10 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 		candidates = make([]*ma.Candidate, 0, candidatesJS.Length())
 		for i := 0; i < candidatesJS.Length(); i++ {
 			candJS := candidatesJS.Index(i)
-			originalEdgeId := da.Index(candJS.Get("edge_id").Int())
-			localId, ok := graph.GetMapMatchEdgeId(originalEdgeId)
+			roadNetworkEdgeId := da.Index(candJS.Get("roadnetwork_edge_id").Int())
+			localId, ok := graph.GetMapMatchEdgeId(roadNetworkEdgeId)
 			if !ok {
+
 				// edgeId gak inlcuded di current graph tile
 				continue
 			}
@@ -164,6 +165,8 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 	// convert ke javascript object
 	res := make(map[string]any)
 	if matchedPoint != nil {
+		roadnetworkEdgeId := graph.GetRoadnetworkEdgeId(matchedPoint.GetEdgeId())
+
 		res["matched_gps_point"] = map[string]any{
 			"matched_coord": map[string]any{
 				"lat": matchedPoint.GetMatchedCoord().GetLat(),
@@ -174,7 +177,7 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 				"lon": matchedPoint.GetPredictedGpsCoord().GetLon(),
 			},
 			"edge_initial_bearing": matchedPoint.GetBearing(),
-			"edge_id":              int(matchedPoint.GetEdgeId()),
+			"roadnetwork_edge_id":  int(roadnetworkEdgeId),
 			"gps_point": map[string]any{
 				"lat":            matchedPoint.GetGpsPoint().Lat(),
 				"lon":            matchedPoint.GetGpsPoint().Lon(),
@@ -191,15 +194,15 @@ func onlineMapMatchJS(this js.Value, args []js.Value) any {
 	newCandsJS := make([]any, len(newCandidates))
 	for i, c := range newCandidates {
 		e := graph.GetOutEdge(c.EdgeId())
-		originalEdgeId := e.GetRoadNetworkEdgeId()
+		roadNetworkEdgeId := e.GetRoadNetworkEdgeId()
 		newCandsJS[i] = map[string]any{
-			"edge_id":       int(originalEdgeId),
-			"weight":        c.Weight(),
-			"length":        c.Length(),
-			"projected_lat": c.GetProjectedCoord().GetLat(),
-			"projected_lon": c.GetProjectedCoord().GetLon(),
-			"edge_bearing":  c.GetEdgeBearing(),
-			"state_id":      c.GetStateId(),
+			"roadnetwork_edge_id": int(roadNetworkEdgeId),
+			"weight":              c.Weight(),
+			"length":              c.Length(),
+			"projected_lat":       c.GetProjectedCoord().GetLat(),
+			"projected_lon":       c.GetProjectedCoord().GetLon(),
+			"edge_bearing":        c.GetEdgeBearing(),
+			"state_id":            c.GetStateId(),
 		}
 	}
 	res["candidates"] = newCandsJS

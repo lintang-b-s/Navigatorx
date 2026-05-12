@@ -140,6 +140,10 @@ func (g *MapMatchingGraph) GetEdges() []MapMatchEdge {
 	return g.edges
 }
 
+func (g *MapMatchingGraph) NumofEdges() int {
+	return len(g.edges)
+}
+
 func (g *MapMatchingGraph) SetEdges(edges []MapMatchEdge) {
 	g.edges = edges
 }

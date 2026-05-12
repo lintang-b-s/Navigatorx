@@ -123,8 +123,8 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 	lowerLat, lowerLon := geo.GetDestinationPoint(qLat, qLon, 225, radius)
 	upperLat, upperLon := geo.GetDestinationPoint(qLat, qLon, 45, radius)
 
-	lowerY, lowerX := geo.CalcLatToYApprox(lowerLat), geo.CalcLonToX(lowerLon)
-	upperY, upperX := geo.CalcLatToYApprox(upperLat), geo.CalcLonToX(upperLon)
+	lowerY, lowerX := geo.CalcLatToY(lowerLat), geo.CalcLonToX(lowerLon)
+	upperY, upperX := geo.CalcLatToY(upperLat), geo.CalcLonToX(upperLon)
 
 	results := make([]da.Index, 0, 10)
 	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},

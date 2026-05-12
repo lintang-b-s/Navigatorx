@@ -59,20 +59,29 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 
 	if k == 1 || len(candidates) == 0 {
+		var nearbyArcs []da.Index
 		/// SearchWithinRadius(gpsCoord, 3) return nearby road segments (dalam bentuk MapMatchGraph EdgeIds)
-		nearbyArcs := om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc, 3) // O(M)
+		searchRad := om.lc
+		for util.Le(searchRad, MAX_SEARCH_RADIUS) {
+			nearbyArcs = om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), om.lc, 3) // O(M)
+			if len(nearbyArcs) > 0 {
+				break
+			}
+			searchRad *= SEARCH_RADIUS_MULTIPLIER
+		}
+
 		sumLength := 0.0
 		startOfTheRoute := len(candidates) > 0
 
-		var initialCandidate *ma.Candidate
+		var initialCandidateEdgeId da.Index
 		if startOfTheRoute {
-			initialCandidate = candidates[0]
+			initialCandidateEdgeId = candidates[0].EdgeId()
 		}
 
 		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
-
 		for _, edgeId := range nearbyArcs {
-			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidate.EdgeId()) {
+
+			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidateEdgeId) {
 				arc := om.graph.GetOutEdge(edgeId)
 				eLength := arc.GetLength()
 				sumLength += eLength
@@ -80,7 +89,8 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
 		}
 
 		for _, edgeId := range nearbyArcs {
-			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidate.EdgeId()) {
+
+			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidateEdgeId) {
 				// biar candidates nya cuma first edgeId dari rute yang dipilih user (see https://github.com/lintang-b-s/navigatorx-crp-fe/blob/main/app/page.tsx).
 				arc := om.graph.GetOutEdge(edgeId)
 				eLength := arc.GetLength()

@@ -12,6 +12,8 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"go.uber.org/zap"
+	_ "golang.org/x/mobile/bind"
+	_ "golang.org/x/mod/modfile"
 )
 
 /*
@@ -90,7 +92,7 @@ func (m *MobileMapMatcher) RebuildGraph(tileBytes []byte) error {
 		0.0001,    // posteriorThreshold
 		4.07,      // gpsStd (meters)
 		0.0000001, // lp
-		0.15,      // lc (km ~150m search radius)
+		0.04,      // lc (km ~40m search radius)
 		3.0,       // accelerationStd
 		m.matrix,
 	)
@@ -209,7 +211,6 @@ func (m *MobileMapMatcher) Match(
 	speedStdK float64,
 	lastBearing float64,
 ) (string, error) {
-
 	m.mut.RLock()
 	defer m.mut.RUnlock()
 
