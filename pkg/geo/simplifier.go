@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	DOUGLAS_PEUCKER_THRESHOLDS = 0.01
+	DOUGLAS_PEUCKER_THRESHOLDS float64 = 1.0 // meters
 )
 
 // https://cartography-playground.gitlab.io/playgrounds/douglas-peucker-algorithm/
@@ -39,7 +39,7 @@ func RamerDouglasPeucker(coords []da.Coordinate) []da.Coordinate {
 
 		// swep over range to find the farthest point from the segment (left,right)
 		for i := left + 1; i < right; i++ {
-			dist := PointLinePerpendicularDistance(projected[left], projected[right], projected[i])
+			dist := PointLinePerpendicularDistance(projected[left], projected[right], projected[i]) // in meter
 			if dist > maxDist {
 				maxDist = dist
 				farthestIndex = i

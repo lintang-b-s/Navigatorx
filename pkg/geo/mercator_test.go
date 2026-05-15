@@ -26,7 +26,7 @@ func BenchmarkMercatorApprox(b *testing.B) {
 
 	for b.Loop() {
 		coord := RandomCoordinate(boundingBox, rd)
-		CalcLatToYApprox(coord.GetLat())
+		CalcLatToY(coord.GetLat())
 	}
 }
 
@@ -38,7 +38,7 @@ func TestMercatorApprox(t *testing.T) {
 	for i := 0; i < int(numItems); i++ {
 		coord := RandomCoordinate(boundingBox, rd)
 		yExact := CalcLatToY(coord.GetLat())
-		yApprox := CalcLatToYApprox(coord.GetLat())
+		yApprox := CalcLatToY(coord.GetLat())
 		remainder := math.Abs(yExact - yApprox)
 		if util.Ge(remainder, maxError) {
 			t.Errorf("want error less than: %v, got: %v", maxError, remainder)
@@ -63,8 +63,7 @@ func TestMercatorDistance(t *testing.T) {
 
 		tcoord := RandomCoordinate(boundingBox, rd)
 
-		gcDist := CalculateGreatCircleDistance(scoord.GetLat(), scoord.GetLon(), tcoord.GetLat(), tcoord.GetLon())
-
+		gcDist := util.KilometerToMeter(CalculateGreatCircleDistance(scoord.GetLat(), scoord.GetLon(), tcoord.GetLat(), tcoord.GetLon()))
 		ecDist := CalculateEuclideanDistMercatorProj(scoord.GetLat(), scoord.GetLon(), tcoord.GetLat(), tcoord.GetLon())
 
 		if util.EqEps(gcDist, ecDist, 1e-13) {

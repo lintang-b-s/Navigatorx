@@ -215,7 +215,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 	}
 
 	streetName := db.graph.GetStreetName(edgeId)
-	if db.prevInstruction == nil && !isRoundabout && !db.reroute {
+	if db.prevInstruction == nil && !isRoundabout {
 		// start point dari shortetest path & bukan bundaran (roundabout) & bukan reroute
 		sign := da.START
 		tailCoord := sp.GetSnappedCoord()
