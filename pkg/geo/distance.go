@@ -39,7 +39,7 @@ func CalculateEuclideanDistMercatorProj(latOne, longOne, latTwo, longTwo float64
 
 	xx := xTwo - xOne
 	yy := yTwo - yOne
-	return math.Sqrt(xx*xx+yy*yy) * math.Cos(meanLat)
+	return util.KilometerToMeter(math.Sqrt(xx*xx+yy*yy) * math.Cos(meanLat))
 }
 
 func radToDeg(r float64) float64 {

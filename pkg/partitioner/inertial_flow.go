@@ -104,7 +104,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	}
 
 	for i := 0; i < iterations; i++ {
-		slope := -1 + float64(i)*float64(2/iterations) //  (-1,0), ....., (0, 1)
+		slope := -1 + float64(i)*2.0/float64(iterations) //  (-1,0), ....., (0, 1)
 		wg.Add(1)
 		inertialFlowInChan <- newMinCutJob([]float64{slope, (1 - math.Abs(slope))})
 	}

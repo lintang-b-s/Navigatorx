@@ -137,6 +137,7 @@ func TestCurvedPolyline(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
+
 			got := IsPolylineCurved(tc.coords)
 			if got != tc.want {
 				t.Errorf("want: %v, got: %v", tc.want, got)
