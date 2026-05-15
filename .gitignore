@@ -61,7 +61,6 @@ navigatorx*
 *.chk
 
 *.ss
-*.pgo
 !solo.osm.pbf
 !yogyakarta.osm.pbf
 !washington.osm.pbf
