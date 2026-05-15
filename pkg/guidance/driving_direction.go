@@ -215,8 +215,8 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 	}
 
 	streetName := db.graph.GetStreetName(edgeId)
-	if db.prevInstruction == nil && !isRoundabout {
-		// start point dari shortetest path & bukan bundaran (roundabout)
+	if db.prevInstruction == nil && !isRoundabout && !db.reroute {
+		// start point dari shortetest path & bukan bundaran (roundabout) & bukan reroute
 		sign := da.START
 		tailCoord := sp.GetSnappedCoord()
 		point := da.NewCoordinate(
@@ -226,15 +226,20 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 		turnBearing := geo.ComputeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(),
 			head.GetLat(), head.GetLon())
 
+		db.updateState(edgeId, false)
+
 		newIns := da.NewInstruction(sign, streetName, point, false,
 			[]da.Index{edgeId}, db.cumulativeDistance, db.cumulativeTravelTime,
 			db.GetEdgePoints(edgeId), turnBearing, db.duration, db.distance, db.geometry, db.edgeGeomOffset, db.clockwise)
+
 		db.prevInstruction = newIns
 
 		db.edgeIds = make([]da.Index, 0)
 
 		db.prevInstruction.SetExtraInfo("heading", turnBearing)
 		db.instructions = append(db.instructions, db.prevInstruction)
+
+		db.reset()
 	} else if isRoundabout {
 		// current edge bundaran
 		if !db.prevInRoundabout {

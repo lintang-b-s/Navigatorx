@@ -62,7 +62,7 @@ jobs:
           cat >> ~/.ssh/config <<EOF
           Host navigatorx-vps
             HostName $SSH_HOST
-            User $SSH_USER
+            User $SSH_USER 
           EOF
 
       - name: Deploy to VPS
