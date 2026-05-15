@@ -420,7 +420,7 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 	for i := 0; i < len(eGeom)-1; i++ {
 		curr := eGeom[i]
 		next := eGeom[i+1]
-		dist := geo.CalculateGreatCircleDistance(curr.GetLat(), curr.GetLon(), next.GetLat(), next.GetLon())
+		dist := geo.CalculateEuclideanDistMercatorProj(curr.GetLat(), curr.GetLon(), next.GetLat(), next.GetLon())
 		db.geometry = append(db.geometry, curr)
 		if i == len(eGeom)-2 {
 			db.geometry = append(db.geometry, next)
