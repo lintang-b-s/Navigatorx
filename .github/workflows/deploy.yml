@@ -45,7 +45,7 @@ jobs:
           ./bin/generator --region=jabodetabek
           ./bin/generator
 
-          go build -o ./bin/engine -pgo=./bin/default.pgo  ./cmd/engine
+          go build -o ./bin/engine  ./cmd/engine
 
       - name: Install SSH Key
         uses: webfactory/ssh-agent@v0.9.0
