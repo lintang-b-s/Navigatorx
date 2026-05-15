@@ -56,6 +56,15 @@ func (tf *TimeFunction) GetWeight(eId da.Index, eDefaultWeight, eLength float64)
 	return eDefaultWeight
 }
 
+func (tf *TimeFunction) GetSegmentSpeed(eId da.Index) float64 {
+	if tf.isRoadNetwork {
+		maxspeed := tf.edgeMaxSpeeds[eId] // m/s
+		return maxspeed
+	}
+	// ini buat correctness test
+	return 0
+}
+
 func (tf *TimeFunction) GetTurnCost(turnTableId da.Index) float64 {
 	if tf.turnTable == nil {
 		return 0

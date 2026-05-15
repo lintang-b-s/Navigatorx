@@ -292,12 +292,11 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (flo
 			bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId da.Index, _ pkg.TurnType,
 				_ pkg.OsmHighwayType) {
 
-				//  check if forward and backward search already scanned  exit point of v. if so, check whether we can improve the shortest path
 				scannedByBackwardSearch := bs.backwardPq.IsScanned(uExitId)
 				if scannedByBackwardSearch {
-
 					bs.viaVertices = append(bs.viaVertices, da.NewViaVertex(uId, uEntryId, uExitId, uId, false))
 				}
+
 				uExitId++
 			})
 		} else if !overlay && !forward {

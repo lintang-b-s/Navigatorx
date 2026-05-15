@@ -176,6 +176,16 @@ func (crp *CRPRoutingEngine) GetWeightFromLength(eId da.Index, eLength float64, 
 	return crp.metrics.GetWeight(eExitId, eDefaultWeight, eLength)
 }
 
+// GetWeight. get speed of outEdge
+func (crp *CRPRoutingEngine) GetSegmentSpeed(eId da.Index, outEdge bool) float64 {
+	if outEdge {
+		return crp.metrics.GetSegmentSpeed(eId)
+	}
+
+	eExitId := crp.graph.GetExitIdOfInEdge(eId)
+	return crp.metrics.GetSegmentSpeed(eExitId)
+}
+
 func (crp *CRPRoutingEngine) IsDummyOutEdge(eId da.Index) bool {
 	return crp.graph.IsDummyOutEdge(eId)
 }

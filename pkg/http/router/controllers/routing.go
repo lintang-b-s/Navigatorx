@@ -65,6 +65,15 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 	)
 
 	query := r.URL.Query()
+	useAnnotation := false
+	useAnnotationStr := query.Get("useAnnotation")
+	if useAnnotationStr != "" {
+		useAnnotation, err = strconv.ParseBool(useAnnotationStr)
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("useAnnotation must be boolean"))
+			return
+		}
+	}
 
 	request.OriginLat, err = strconv.ParseFloat(query.Get("origin_lat"), 64)
 	if err != nil {
@@ -131,7 +140,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 	headers := make(http.Header)
 
 	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewShortestPathResponse(travelTime, dist, pathPolyline,
-		NewDrivingDirections(drivingDirections))}, headers); err != nil {
+		NewDrivingDirections(drivingDirections, useAnnotation))}, headers); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -144,6 +153,15 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 	)
 
 	query := r.URL.Query()
+	useAnnotation := false
+	useAnnotationStr := query.Get("useAnnotation")
+	if useAnnotationStr != "" {
+		useAnnotation, err = strconv.ParseBool(useAnnotationStr)
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("useAnnotation must be boolean"))
+			return
+		}
+	}
 
 	request.OriginLat, err = strconv.ParseFloat(query.Get("origin_lat"), 64)
 	if err != nil {
@@ -209,7 +227,7 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 
 	headers := make(http.Header)
 
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewAlternativeRoutesResponse(alternatives)}, headers); err != nil {
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewAlternativeRoutesResponse(alternatives, useAnnotation)}, headers); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}

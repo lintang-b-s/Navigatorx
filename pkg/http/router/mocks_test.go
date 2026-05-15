@@ -77,6 +77,10 @@ func (m *MockRoutingEngine) GetWeightFromLength(eId da.Index, eLength float64, o
 	args := m.Called(eId, eLength, outEdge)
 	return args.Get(0).(float64)
 }
+func (m *MockRoutingEngine) GetSegmentSpeed(eId da.Index, outEdge bool) float64 {
+	args := m.Called(eId, outEdge)
+	return args.Get(0).(float64)
+}
 func (m *MockRoutingEngine) IsDummyOutEdge(edgeId da.Index) bool {
 	args := m.Called(edgeId)
 	return args.Bool(0)

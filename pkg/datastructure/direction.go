@@ -42,9 +42,38 @@ func IsTurnSlight(tt TurnType) bool {
 	return tt == TURN_SLIGHT_LEFT || tt == TURN_SLIGHT_RIGHT || tt == CONTINUE_ON_STREET
 }
 
+type Annotation struct {
+	duration       []float64
+	distance       []float64
+	geometry       Coordinates
+	edgeGeomOffset []Index
+}
+
+func NewAnnotation(duration, distance []float64, geometry Coordinates, edgeGeomOffset []Index) Annotation {
+	return Annotation{duration: duration, distance: distance, geometry: geometry, edgeGeomOffset: edgeGeomOffset}
+}
+
+func (ann *Annotation) GetDuration() []float64 {
+	return ann.duration
+}
+
+func (ann *Annotation) GetDistance() []float64 {
+	return ann.distance
+}
+
+func (ann *Annotation) GetGeometry() Coordinates {
+	return ann.geometry
+}
+
+func (ann *Annotation) GetEdgeGeomOffset() []Index {
+	return ann.edgeGeomOffset
+}
+
 type Instruction struct {
-	points               []Coordinate
-	edgeIds              []Index
+	annotation Annotation
+	points     []Coordinate
+	edgeIds    []Index
+
 	roundabout           *RoundaboutInstruction
 	extrainfo            map[string]interface{}
 	point                Coordinate
@@ -59,7 +88,8 @@ type Instruction struct {
 }
 
 func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
-	cumulativeDist, cumulativeTravelTime float64, points []Coordinate, turnBearing float64, clockwise bool) *Instruction {
+	cumulativeDist, cumulativeTravelTime float64, points []Coordinate, turnBearing float64, duration, distance []float64, geometry Coordinates,
+	edgeGeomOffset []Index, clockwise bool) *Instruction {
 	var roundabout *RoundaboutInstruction
 	var ins *Instruction
 	roundabout = NewRoundaboutInstruction()
@@ -68,7 +98,18 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 	// ingat: reslicing slice gak bakal bikin slice baru/resliced slices tetep refer ke original slice (https://go.dev/blog/slices-intro)
 	// karena kita reuse db.edgeIds dari DirectionBuilder dengan reslice [:0], kita harus copy db.edgeIds biar last instructionnya gak corrupt
 	copy(edgeIdsCopy, edgeIds)
+
+	durationCopy := make([]float64, len(duration))
+	distanceCopy := make([]float64, len(distance))
+	copy(durationCopy, duration)
+	copy(distanceCopy, distance)
+	geometryCopy := *NewCoordinatesWithInitialValues(geometry)
+	edgeGeomOffsetCopy := make([]Index, len(edgeGeomOffset))
+	copy(edgeGeomOffsetCopy, edgeGeomOffset)
+	ann := NewAnnotation(durationCopy, distanceCopy, geometryCopy, edgeGeomOffsetCopy)
+
 	ins = &Instruction{
+		annotation:           ann,
 		turnSign:             sign,
 		streetname:           name,
 		point:                p,
@@ -88,11 +129,22 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 }
 
 func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRoundAbout bool, roundabout *RoundaboutInstruction,
-	cumulativeDistance, cumulativeTravelTime float64, edgeIds []Index, turnBearing float64) Instruction {
+	cumulativeDistance, cumulativeTravelTime float64, edgeIds []Index, duration, distance []float64, geometry Coordinates, edgeGeomOffset []Index, turnBearing float64) Instruction {
 
 	edgeIdsCopy := make([]Index, len(edgeIds))
 	copy(edgeIdsCopy, edgeIds)
+
+	durationCopy := make([]float64, len(duration))
+	distanceCopy := make([]float64, len(distance))
+	copy(durationCopy, duration)
+	copy(distanceCopy, distance)
+	geometryCopy := *NewCoordinatesWithInitialValues(geometry)
+	edgeGeomOffsetCopy := make([]Index, len(edgeGeomOffset))
+	copy(edgeGeomOffsetCopy, edgeGeomOffset)
+	ann := NewAnnotation(durationCopy, distanceCopy, geometryCopy, edgeGeomOffsetCopy)
+
 	ins := Instruction{
+		annotation:           ann,
 		turnSign:             sign,
 		streetname:           name,
 		point:                p,
@@ -154,6 +206,10 @@ func (ins *Instruction) GetCumulativeDistance() float64 {
 
 func (ins *Instruction) GetCumulativeTravelTime() float64 {
 	return ins.cumulativeTravelTime
+}
+
+func (ins *Instruction) GetAnnotation() Annotation {
+	return ins.annotation
 }
 
 func bearingToCompass(bearing float64) string {
@@ -312,6 +368,7 @@ func (ins *Instruction) SetExited() {
 type DrivingDirection struct {
 	instruction         string
 	edgeIds             []Index
+	annotation          Annotation
 	polyline            string
 	streetName          string
 	point               Coordinate
@@ -323,7 +380,7 @@ type DrivingDirection struct {
 }
 
 func NewDrivingDirection(ins Instruction, description string, prevTravelTime, prevDist float64,
-	edgeIds []Index, polyline string, turnBearing float64) DrivingDirection {
+	edgeIds []Index, polyline string, turnBearing float64, ann Annotation) DrivingDirection {
 	edgeIdsCopy := make([]Index, len(edgeIds))
 	copy(edgeIdsCopy, edgeIds)
 	return DrivingDirection{
@@ -337,6 +394,7 @@ func NewDrivingDirection(ins Instruction, description string, prevTravelTime, pr
 		turnBearing:         util.RoundFloat(turnBearing, 2),
 		turnType:            ins.turnType,
 		suggestAlternatives: ins.suggestAlternatives,
+		annotation:          ann,
 	}
 }
 
@@ -378,4 +436,8 @@ func (d *DrivingDirection) GetTurnTableId() string {
 
 func (d *DrivingDirection) GetSuggestAlternatives() bool {
 	return d.suggestAlternatives
+}
+
+func (d *DrivingDirection) GetAnnotation() Annotation {
+	return d.annotation
 }

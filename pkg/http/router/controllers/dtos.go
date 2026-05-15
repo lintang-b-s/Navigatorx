@@ -42,8 +42,20 @@ type boundingBoxResponse struct {
 	MaxLon float64 `json:"max_lon"`
 }
 
+type annotation struct {
+	Duration       []float64      `json:"duration"`
+	Distance       []float64      `json:"distance"`
+	Geometry       da.Coordinates `json:"geometry"`
+	EdgeGeomOffset []da.Index     `json:"edge_geometry_offset"`
+}
+
+func NewAnnotation(duration, distance []float64, geometry da.Coordinates, edgeGeomOffset []da.Index) annotation {
+	return annotation{Duration: duration, Distance: distance, Geometry: geometry, EdgeGeomOffset: edgeGeomOffset}
+}
+
 type drivingDirection struct {
 	Instruction         string        `json:"instruction"`
+	Annotation          annotation    `json:"annotation,omitempty"`
 	Point               da.Coordinate `json:"turn_point"`
 	StreetName          string        `json:"street_name"`
 	TravelTime          float64       `json:"travel_time"`
@@ -55,7 +67,16 @@ type drivingDirection struct {
 	SuggestAlternatives bool          `json:"suggest_alternatives"`
 }
 
-func NewDrivingDirection(d da.DrivingDirection) drivingDirection {
+func NewAnnotationDTO(ann da.Annotation) annotation {
+	return NewAnnotation(ann.GetDuration(), ann.GetDistance(), ann.GetGeometry(), ann.GetEdgeGeomOffset())
+}
+
+func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirection {
+
+	ann := annotation{}
+	if useAnnotation {
+		ann = NewAnnotationDTO(d.GetAnnotation())
+	}
 	return drivingDirection{
 		Instruction:         d.GetInstruction(),
 		Point:               d.GetPoint(),
@@ -67,13 +88,14 @@ func NewDrivingDirection(d da.DrivingDirection) drivingDirection {
 		TurnBearing:         d.GetTurnBearing(),
 		TurnType:            d.GetTurnTableId(),
 		SuggestAlternatives: d.GetSuggestAlternatives(),
+		Annotation:          ann,
 	}
 }
 
-func NewDrivingDirections(d []da.DrivingDirection) []drivingDirection {
+func NewDrivingDirections(d []da.DrivingDirection, useAnnotation bool) []drivingDirection {
 	drivingDirections := make([]drivingDirection, len(d))
 	for i, dir := range d {
-		drivingDirections[i] = NewDrivingDirection(dir)
+		drivingDirections[i] = NewDrivingDirection(dir, useAnnotation)
 	}
 	return drivingDirections
 }
@@ -89,12 +111,12 @@ func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirec
 	}
 }
 
-func NewAlternativeRoutesResponse(alts []routing.AlternativeRoute) alternativeRoutesResponse {
+func NewAlternativeRoutesResponse(alts []routing.AlternativeRoute, useAnnotation bool) alternativeRoutesResponse {
 	altRes := alternativeRoutesResponse{Routes: make([]shortestPathResponse, 0)}
 	for _, alt := range alts {
 		altRes.Routes = append(altRes.Routes, NewShortestPathResponse(
 			alt.GetDrivingTravelTime(),
-			alt.GetDist(), alt.GetPolylinePath(), NewDrivingDirections(alt.GetDrivingDirections()),
+			alt.GetDist(), alt.GetPolylinePath(), NewDrivingDirections(alt.GetDrivingDirections(), useAnnotation),
 		))
 	}
 	return altRes

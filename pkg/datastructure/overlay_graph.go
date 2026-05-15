@@ -476,7 +476,6 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Index, wOffset Index)) {
 
 	entryPoint := og.overlayVertices[u].GetEntryExitPoint(level)
-
 	cell := og.GetCell(og.overlayVertices[u].GetCellNumber(), level)
 	weightOffset := cell.GetCellOffset() + entryPoint*cell.GetNumExitPoints()
 	overlayIdOffset := cell.GetOverlayIdOffset() + cell.GetNumEntryPoints()

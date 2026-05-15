@@ -412,11 +412,24 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 	db.edgeIds = append(db.edgeIds, edgeId)
 
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
+	eSpeed := db.engine.GetSegmentSpeed(edgeId, true)
 
-	// isHeadTrafficLight := db.graph.IsTrafficLight(headId)
-	// if isHeadTrafficLight {
-	// 	db.cumulativeTravelTime += util.SecondsToMinutes(pkg.TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND)
-	// }
+	offset := da.Index(len(db.geometry))
+	db.edgeGeomOffset = append(db.edgeGeomOffset, offset)
+
+	for i := 0; i < len(eGeom)-1; i++ {
+		curr := eGeom[i]
+		next := eGeom[i+1]
+		dist := geo.CalculateGreatCircleDistance(curr.GetLat(), curr.GetLon(), next.GetLat(), next.GetLon())
+		db.geometry = append(db.geometry, curr)
+		if i == len(eGeom)-2 {
+			db.geometry = append(db.geometry, next)
+		}
+
+		db.distance = append(db.distance, dist)
+		dur := dist / eSpeed
+		db.duration = append(db.duration, dur)
+	}
 }
 
 func makeCacheVal(sign da.TurnType, streetName uint32) []byte {

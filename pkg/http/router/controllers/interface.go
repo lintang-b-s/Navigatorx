@@ -27,6 +27,7 @@ type RoutingEngine interface {
 	InitBackgroundWorker(ctx context.Context)
 	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
 	Close()
+	GetSegmentSpeed(eId da.Index, outEdge bool) float64
 }
 
 type MapMatcherService interface {

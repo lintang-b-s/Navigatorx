@@ -23,13 +23,19 @@ type DirectionBuilder struct {
 	turnDescriptions []string
 
 	edgeIds        []da.Index
+	edgeGeomOffset []da.Index
 	path           []da.Index
+	geometry       da.Coordinates
+	distance       []float64
+	duration       []float64
+
 	lastPathId     int
 	nextStreetName uint32 // streetName Id
 
-	engine                   RoutingEngine
-	graph                    Graph
-	prevEdge                 da.Index
+	engine   RoutingEngine
+	graph    Graph
+	prevEdge da.Index
+
 	doublePrevStreetName     string
 	prevInitialBearing       float64
 	doublePrevInitialBearing float64
@@ -79,11 +85,19 @@ func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 
 func (db *DirectionBuilder) reset() {
 	db.edgeIds = db.edgeIds[:0]
+	db.geometry = db.geometry[:0]
+	db.distance = db.distance[:0]
+	db.duration = db.duration[:0]
+	db.edgeGeomOffset = db.edgeGeomOffset[:0]
 }
 
 func (db *DirectionBuilder) done() {
 	db.instructions = db.instructions[:0]
 	db.edgeIds = db.edgeIds[:0]
+	db.geometry = db.geometry[:0]
+	db.distance = db.distance[:0]
+	db.duration = db.duration[:0]
+	db.edgeGeomOffset = db.edgeGeomOffset[:0]
 }
 
 func (db *DirectionBuilder) Reset() {
@@ -178,7 +192,7 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.Phan
 
 		currPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(ins.GetPoints()))
 		drivingDirections = append(drivingDirections, da.NewDrivingDirection(*ins, db.turnDescriptions[i],
-			currStepTravelTime, currStepDistance, ins.GetEdgeIds(), currPolyline, ins.GetTurnBearing()))
+			currStepTravelTime, currStepDistance, ins.GetEdgeIds(), currPolyline, ins.GetTurnBearing(), ins.GetAnnotation()))
 	}
 
 	return drivingDirections
@@ -214,7 +228,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 
 		newIns := da.NewInstruction(sign, streetName, point, false,
 			[]da.Index{edgeId}, db.cumulativeDistance, db.cumulativeTravelTime,
-			db.GetEdgePoints(edgeId), turnBearing, db.clockwise)
+			db.GetEdgePoints(edgeId), turnBearing, db.duration, db.distance, db.geometry, db.edgeGeomOffset, db.clockwise)
 		db.prevInstruction = newIns
 
 		db.edgeIds = make([]da.Index, 0)
@@ -239,7 +253,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 
 			turnBearing := geo.ComputeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(), tail.GetLon())
 			prevIns := da.NewInstructionWithRoundabout(sign, streetName, point, true, roundaboutInstruction, db.cumulativeDistance,
-				db.cumulativeTravelTime, db.edgeIds, turnBearing)
+				db.cumulativeTravelTime, db.edgeIds, db.duration, db.distance, db.geometry, db.edgeGeomOffset, turnBearing)
 			db.prevInstruction = &prevIns
 
 			// reset edgeIDs and points
@@ -277,7 +291,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 				nextStreetName := db.graph.GetStrFromId(db.nextStreetName)
 				suggestAlternatives := db.IsSuggestAlternatives(edgeId)
 				ins := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
-					db.GetEdgePoints(edgeId), turnBearing, db.clockwise)
+					db.GetEdgePoints(edgeId), turnBearing, db.duration, db.distance, db.geometry, db.edgeGeomOffset, db.clockwise)
 				ins.SetSuggestAlternatives(suggestAlternatives)
 
 				db.prevInstruction = ins
@@ -293,6 +307,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 	if !db.useLookForward {
 		db.updateState(edgeId, isRoundabout)
 	}
+
 }
 
 func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.PhantomNode) {
@@ -313,7 +328,7 @@ func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.Phantom
 	turnBearing := geo.ComputeFinalBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
 
 	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(edgeId), point, false,
-		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.GetEdgePoints(edgeId), turnBearing, db.clockwise)
+		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.GetEdgePoints(edgeId), turnBearing, db.duration, db.distance, db.geometry, db.edgeGeomOffset, db.clockwise)
 	finishInstruction.SetExtraInfo("heading", geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
 
 	db.instructions = append(db.instructions, finishInstruction)

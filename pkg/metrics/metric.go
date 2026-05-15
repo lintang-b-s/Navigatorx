@@ -170,7 +170,11 @@ func (met *Metric) GetWeight(eId da.Index,
 	eDefaultWeight float64, eLength float64) float64 {
 	cf := met.costFunction.Load()
 	return cf.GetWeight(eId, eDefaultWeight, eLength)
+}
 
+func (met *Metric) GetSegmentSpeed(eId da.Index) float64 {
+	cf := met.costFunction.Load()
+	return cf.GetSegmentSpeed(eId)
 }
 
 // GetEntryStallingTableCost. get precomputed max_k{T_v[i,k] - T_v[j,k]}
