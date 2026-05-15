@@ -6,7 +6,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -69,8 +68,7 @@ type drivingDirection struct {
 }
 
 func NewAnnotationDTO(ann da.Annotation) annotation {
-	simplifiedGeometry := geo.RamerDouglasPeucker(ann.GetGeometry())
-	return NewAnnotation(ann.GetDuration(), ann.GetDistance(), simplifiedGeometry, ann.GetEdgeGeomOffset())
+	return NewAnnotation(ann.GetDuration(), ann.GetDistance(), ann.GetGeometry(), ann.GetEdgeGeomOffset())
 }
 
 func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirection {

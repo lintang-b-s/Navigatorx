@@ -417,12 +417,17 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 	offset := da.Index(len(db.geometry))
 	db.edgeGeomOffset = append(db.edgeGeomOffset, offset)
 
-	for i := 0; i < len(eGeom)-1; i++ {
-		curr := eGeom[i]
-		next := eGeom[i+1]
+	eGeomCopy := make([]da.Coordinate, len(eGeom))
+	copy(eGeomCopy, eGeom)
+
+	eGeomCopy = geo.RamerDouglasPeucker(eGeomCopy)
+
+	for i := 0; i < len(eGeomCopy)-1; i++ {
+		curr := eGeomCopy[i]
+		next := eGeomCopy[i+1]
 		dist := geo.CalculateEuclideanDistMercatorProj(curr.GetLat(), curr.GetLon(), next.GetLat(), next.GetLon())
 		db.geometry = append(db.geometry, curr)
-		if i == len(eGeom)-2 {
+		if i == len(eGeomCopy)-2 {
 			db.geometry = append(db.geometry, next)
 		}
 
