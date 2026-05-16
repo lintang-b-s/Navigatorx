@@ -22,12 +22,9 @@ type DirectionBuilder struct {
 	prevInstruction  *da.Instruction
 	turnDescriptions []string
 
-	edgeIds        []da.Index
-	edgeGeomOffset []da.Index
-	path           []da.Index
-	geometry       da.Coordinates
-	distance       []float64
-	duration       []float64
+	edgeIds  []da.Index
+	path     []da.Index
+	geometry da.Coordinates
 
 	lastPathId     int
 	nextStreetName uint32 // streetName Id
@@ -86,18 +83,12 @@ func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 func (db *DirectionBuilder) reset() {
 	db.edgeIds = db.edgeIds[:0]
 	db.geometry = db.geometry[:0]
-	db.distance = db.distance[:0]
-	db.duration = db.duration[:0]
-	db.edgeGeomOffset = db.edgeGeomOffset[:0]
 }
 
 func (db *DirectionBuilder) done() {
 	db.instructions = db.instructions[:0]
 	db.edgeIds = db.edgeIds[:0]
 	db.geometry = db.geometry[:0]
-	db.distance = db.distance[:0]
-	db.duration = db.duration[:0]
-	db.edgeGeomOffset = db.edgeGeomOffset[:0]
 }
 
 func (db *DirectionBuilder) Reset() {
@@ -227,10 +218,11 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 			head.GetLat(), head.GetLon())
 
 		db.updateState(edgeId, false)
+		ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
 
 		newIns := da.NewInstruction(sign, streetName, point, false,
 			[]da.Index{edgeId}, db.cumulativeDistance, db.cumulativeTravelTime,
-			db.GetEdgePoints(edgeId), turnBearing, db.duration, db.distance, db.geometry, db.edgeGeomOffset, db.clockwise)
+			db.GetEdgePoints(edgeId), turnBearing, ann, db.clockwise)
 
 		db.prevInstruction = newIns
 
@@ -257,8 +249,9 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 			}
 
 			turnBearing := geo.ComputeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(), tail.GetLon())
+			ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
 			prevIns := da.NewInstructionWithRoundabout(sign, streetName, point, true, roundaboutInstruction, db.cumulativeDistance,
-				db.cumulativeTravelTime, db.edgeIds, db.duration, db.distance, db.geometry, db.edgeGeomOffset, turnBearing)
+				db.cumulativeTravelTime, db.edgeIds, ann, turnBearing)
 			db.prevInstruction = &prevIns
 
 			// reset edgeIDs and points
@@ -295,8 +288,9 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 					tail.GetLat(), tail.GetLon())
 				nextStreetName := db.graph.GetStrFromId(db.nextStreetName)
 				suggestAlternatives := db.IsSuggestAlternatives(edgeId)
+				ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
 				ins := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
-					db.GetEdgePoints(edgeId), turnBearing, db.duration, db.distance, db.geometry, db.edgeGeomOffset, db.clockwise)
+					db.GetEdgePoints(edgeId), turnBearing, ann, db.clockwise)
 				ins.SetSuggestAlternatives(suggestAlternatives)
 
 				db.prevInstruction = ins
@@ -331,9 +325,10 @@ func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.Phantom
 	point := da.NewCoordinate(head.GetLat(), head.GetLon())
 
 	turnBearing := geo.ComputeFinalBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
+	ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
 
 	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(edgeId), point, false,
-		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.GetEdgePoints(edgeId), turnBearing, db.duration, db.distance, db.geometry, db.edgeGeomOffset, db.clockwise)
+		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.GetEdgePoints(edgeId), turnBearing, ann, db.clockwise)
 	finishInstruction.SetExtraInfo("heading", geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
 
 	db.instructions = append(db.instructions, finishInstruction)

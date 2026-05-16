@@ -74,6 +74,7 @@ func (api *API) Run(
 	viper.SetDefault("server.write_timeout", "2s")
 	viper.SetDefault("server.idle_timeout", "2s")
 	viper.SetDefault("server.read_header_timeout", "2s")
+	viper.SetDefault("server.enable_pprof", false)
 
 	log.Info("Run httprouter API")
 
@@ -91,7 +92,10 @@ func (api *API) Run(
 
 	router.GET("/doc/*any", swaggerHandler)
 
-	router.Handler(http.MethodGet, "/debug/pprof/*item", http.DefaultServeMux)
+	if viper.GetBool("server.enable_pprof") {
+		log.Warn("pprof endpoint enabled at /debug/pprof/*item")
+		router.Handler(http.MethodGet, "/debug/pprof/*item", http.DefaultServeMux)
+	}
 
 	group := router_helper.NewRouteGroup(router, "/api")
 

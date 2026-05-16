@@ -412,29 +412,8 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 	db.edgeIds = append(db.edgeIds, edgeId)
 
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
-	eSpeed := db.engine.GetSegmentSpeed(edgeId, true)
 
-	offset := da.Index(len(db.geometry))
-	db.edgeGeomOffset = append(db.edgeGeomOffset, offset)
-
-	eGeomCopy := make([]da.Coordinate, len(eGeom))
-	copy(eGeomCopy, eGeom)
-
-	eGeomCopy = geo.RamerDouglasPeucker(eGeomCopy)
-
-	for i := 0; i < len(eGeomCopy)-1; i++ {
-		curr := eGeomCopy[i]
-		next := eGeomCopy[i+1]
-		dist := geo.CalculateEuclideanDistMercatorProj(curr.GetLat(), curr.GetLon(), next.GetLat(), next.GetLon())
-		db.geometry = append(db.geometry, curr)
-		if i == len(eGeomCopy)-2 {
-			db.geometry = append(db.geometry, next)
-		}
-
-		db.distance = append(db.distance, dist)
-		dur := dist / eSpeed
-		db.duration = append(db.duration, dur)
-	}
+	db.geometry = append(db.geometry, eGeom...)
 }
 
 func makeCacheVal(sign da.TurnType, streetName uint32) []byte {

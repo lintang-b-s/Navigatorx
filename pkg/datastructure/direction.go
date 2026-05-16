@@ -88,8 +88,8 @@ type Instruction struct {
 }
 
 func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
-	cumulativeDist, cumulativeTravelTime float64, points []Coordinate, turnBearing float64, duration, distance []float64, geometry Coordinates,
-	edgeGeomOffset []Index, clockwise bool) *Instruction {
+	cumulativeDist, cumulativeTravelTime float64, points []Coordinate, turnBearing float64, ann Annotation,
+	clockwise bool) *Instruction {
 	var roundabout *RoundaboutInstruction
 	var ins *Instruction
 	roundabout = NewRoundaboutInstruction()
@@ -98,15 +98,6 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 	// ingat: reslicing slice gak bakal bikin slice baru/resliced slices tetep refer ke original slice (https://go.dev/blog/slices-intro)
 	// karena kita reuse db.edgeIds dari DirectionBuilder dengan reslice [:0], kita harus copy db.edgeIds biar last instructionnya gak corrupt
 	copy(edgeIdsCopy, edgeIds)
-
-	durationCopy := make([]float64, len(duration))
-	distanceCopy := make([]float64, len(distance))
-	copy(durationCopy, duration)
-	copy(distanceCopy, distance)
-	geometryCopy := *NewCoordinatesWithInitialValues(geometry)
-	edgeGeomOffsetCopy := make([]Index, len(edgeGeomOffset))
-	copy(edgeGeomOffsetCopy, edgeGeomOffset)
-	ann := NewAnnotation(durationCopy, distanceCopy, geometryCopy, edgeGeomOffsetCopy)
 
 	ins = &Instruction{
 		annotation:           ann,
@@ -129,19 +120,10 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 }
 
 func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRoundAbout bool, roundabout *RoundaboutInstruction,
-	cumulativeDistance, cumulativeTravelTime float64, edgeIds []Index, duration, distance []float64, geometry Coordinates, edgeGeomOffset []Index, turnBearing float64) Instruction {
+	cumulativeDistance, cumulativeTravelTime float64, edgeIds []Index, ann Annotation, turnBearing float64) Instruction {
 
 	edgeIdsCopy := make([]Index, len(edgeIds))
 	copy(edgeIdsCopy, edgeIds)
-
-	durationCopy := make([]float64, len(duration))
-	distanceCopy := make([]float64, len(distance))
-	copy(durationCopy, duration)
-	copy(distanceCopy, distance)
-	geometryCopy := *NewCoordinatesWithInitialValues(geometry)
-	edgeGeomOffsetCopy := make([]Index, len(edgeGeomOffset))
-	copy(edgeGeomOffsetCopy, edgeGeomOffset)
-	ann := NewAnnotation(durationCopy, distanceCopy, geometryCopy, edgeGeomOffsetCopy)
 
 	ins := Instruction{
 		annotation:           ann,

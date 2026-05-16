@@ -14,10 +14,10 @@ const (
 
 // https://cartography-playground.gitlab.io/playgrounds/douglas-peucker-algorithm/
 // worst case O(n^2), n=len(coords)
-func RamerDouglasPeucker(coords []da.Coordinate) []da.Coordinate {
+func RamerDouglasPeucker(coords da.Coordinates) (da.Coordinates, []bool) {
 	size := len(coords)
 	if size < 2 {
-		return coords
+		return coords, []bool{true}
 	}
 
 	projected := make([]da.Coordinate, size)
@@ -67,9 +67,10 @@ func RamerDouglasPeucker(coords []da.Coordinate) []da.Coordinate {
 	for i, necessary := range kepts {
 		if necessary {
 			simplifiedGeometry = append(simplifiedGeometry, coords[i])
+
 		}
 	}
-	return simplifiedGeometry
+	return simplifiedGeometry, kepts
 }
 
 func IsSameCoordinate(p, q da.Coordinate) bool {

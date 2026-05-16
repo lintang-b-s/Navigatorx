@@ -360,7 +360,6 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (flo
 		if !uItem.IsOverlay() {
 			close(uItem.GetEntryExitPoint(), bs.backwardPq)
 			addViaVertex(uItem, false, false)
-
 			bs.backwardGraphSearch(uItem, s, t)
 		} else {
 			close(bs.engine.offsetOverlay(uItem.GetNode()), bs.backwardPq)
