@@ -683,7 +683,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	for i := Index(0); i < Index(vertexCount); i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ReadOvelayGraph: failed to read overlay vertex row %d: %w", i, err)
 		}
 		tokens = util.Fields(line)
 		vertex := OverlayVertex{}
@@ -733,7 +733,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 
 	line, err = util.ReadLine(br)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadOvelayGraph: failed to read overlayIdMapping line: %w", err)
 	}
 	tokens = util.Fields(line)
 	overlayIdMapping := make([]Index, 0, len(tokens))

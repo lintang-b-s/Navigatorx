@@ -431,9 +431,6 @@ func (lm *Landmark) WriteLandmark(filename string, n int) error {
 	defer f.Close()
 
 	snp := s2.NewWriter(f)
-	if err != nil {
-		return err
-	}
 
 	defer snp.Close()
 
@@ -474,6 +471,16 @@ func (lm *Landmark) WriteLandmark(filename string, n int) error {
 		return fmt.Errorf("WriteLandmark: failed to flush bufio writer: %w", err)
 	}
 
+	// http://stackoverflow.com/questions/10862375/when-to-flush-a-file-in-go
+	// idk tapi tests/driving_direction  di github actions selalu fails baru baru ini
+	// mungkin gara gara gak di f.Sync() dulu?
+	// padahal di laptop " cd tests/driving_direction &&  go test -v ." selalu pass
+	// aneh cok
+	if err = f.Sync(); err != nil {
+		f.Close()
+		return fmt.Errorf("metric.WriteToFile: failed to sync temp file: %w", err)
+	}
+
 	return nil
 }
 
@@ -496,16 +503,16 @@ func ReadLandmark(filename string) (*Landmark, error) {
 
 	line, err := util.ReadLine(br)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadLandmark: failed to read header line from file %s: %w", filename, err)
 	}
 	ff := util.Fields(line)
 	k, err := strconv.Atoi(ff[0])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadLandmark: failed to parse landmark count from header %q in file %s: %w", line, filename, err)
 	}
 	n, err := da.ParseIndex(ff[1])
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadLandmark: failed to parse vertex count from header %q in file %s: %w", line, filename, err)
 	}
 
 	landmarks := make([]da.Index, k)
@@ -519,13 +526,13 @@ func ReadLandmark(filename string) (*Landmark, error) {
 	for i := 0; i < k; i++ {
 		line, err := util.ReadLine(br)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ReadLandmark: failed to read landmark row %d from file %s: %w", i, filename, err)
 		}
 		ff := util.Fields(line)
 
 		landmarkvId, err := da.ParseIndex(ff[0])
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ReadLandmark: failed to parse landmark vertex id at row %d in file %s: %w", i, filename, err)
 		}
 
 		landmarks[i] = da.Index(landmarkvId)
@@ -534,7 +541,7 @@ func ReadLandmark(filename string) (*Landmark, error) {
 		for j := 1; j < len(ff); j++ {
 			sp, err := strconv.ParseFloat(ff[j], 64)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("ReadLandmark: failed to parse lw[%d][%d] at row %d in file %s: %w", i, j-1, i, filename, err)
 			}
 
 			lw[i][j-1] = sp
@@ -542,13 +549,13 @@ func ReadLandmark(filename string) (*Landmark, error) {
 
 		line, err = util.ReadLine(br)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("ReadLandmark: failed to read reverse landmark row %d from file %s: %w", i, filename, err)
 		}
 		ff = util.Fields(line)
 		for v := 0; v < len(ff); v++ {
 			sp, err := strconv.ParseFloat(ff[v], 64)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("ReadLandmark: failed to parse vlw[%d][%d] at reverse row %d in file %s: %w", v, i, i, filename, err)
 			}
 
 			vlw[v][i] = sp

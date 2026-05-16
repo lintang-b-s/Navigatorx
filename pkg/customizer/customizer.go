@@ -70,13 +70,13 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
 	c.graph, err = da.ReadGraph(c.graphFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Customize: failed to read graph from %s: %w", c.graphFilePath, err)
 	}
 
 	c.logger.Sugar().Infof("Reading overlay graph from %s", c.overlayGraphFilePath)
 	c.overlayGraph, err = da.ReadOverlayGraph(c.overlayGraphFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Customize: failed to read overlay graph from %s: %w", c.overlayGraphFilePath, err)
 	}
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
@@ -99,7 +99,7 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 		for _, currSpeedFilePath := range c.edgeSpeedsFilePath {
 			currEdgeIds, currEdgeMaxSpeeds, err := c.readEdgeSpeedsFromFile(currSpeedFilePath)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Customize: failed to read edge speeds from %s: %w", currSpeedFilePath, err)
 			}
 			updatedEdgeIds = append(updatedEdgeIds, currEdgeIds...)
 			updatedEdgeMaxSpeeds = append(updatedEdgeMaxSpeeds, currEdgeMaxSpeeds...)
@@ -114,7 +114,7 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 		for _, turnPenaltiesFilePath := range c.turnPenaltiesFilePath {
 			currturnTableIds, currTurnPenalties, err := c.readTurnPenaltiesFromFile(turnPenaltiesFilePath)
 			if err != nil {
-				return nil, err
+				return nil, fmt.Errorf("Customize: failed to read turn penalties from %s: %w", turnPenaltiesFilePath, err)
 			}
 			updatedTurnTableIds = append(updatedTurnTableIds, currturnTableIds...)
 			updatedTurnPenalties = append(updatedTurnPenalties, currTurnPenalties...)
@@ -129,7 +129,7 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	costFunction := costfunction.NewTimeCostFunction(roadNetwork, edgeMaxSpeeds, turnTable)
 	err = costFunction.WriteToFile(c.timefunctionFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Customize: failed to write time cost function to %s: %w", c.timefunctionFilePath, err)
 	}
 
 	maxEdgesInCell := c.graph.GetMaxEdgesInCell()
@@ -160,6 +160,7 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	if err != nil {
 		panic(err)
 	}
+
 	err = lm.WriteLandmark(c.landmarkFile, c.graph.NumberOfVertices())
 	if err != nil {
 		panic(err)
@@ -170,7 +171,7 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	// ini write metrics harus terakhir karena bakal di update background worker
 	err = m.WriteToFile(c.metricOutputFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("Customize: failed to write metric output to %s: %w", c.metricOutputFilePath, err)
 	}
 	return m, nil
 }

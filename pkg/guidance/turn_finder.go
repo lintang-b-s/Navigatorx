@@ -413,7 +413,7 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
 
-	db.geometry = append(db.geometry, eGeom...)
+	db.geometry = append(db.geometry, eGeom[:n-1]...)
 }
 
 func makeCacheVal(sign da.TurnType, streetName uint32) []byte {

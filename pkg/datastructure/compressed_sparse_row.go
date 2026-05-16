@@ -172,14 +172,14 @@ func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filenam
 		if os.IsNotExist(err) {
 			return NewSparseMatrix[T](0, 0, zero, eq), nil
 		}
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromFile: failed to open file %s: %w", filename, err)
 	}
 
 	defer f.Close()
 
 	sm, err := ReadSparseMatrixFromReader(f, zero, eq)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromFile: failed to read sparse matrix from file %s: %w", filename, err)
 	}
 
 	return sm, nil
@@ -193,12 +193,12 @@ func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.
 
 	line, err := util.ReadLine(br)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read header line: %w", err)
 	}
 
 	tokens := util.Fields(line)
 	if len(tokens) != 5 {
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: invalid header token count, expected 5 got %d, line=%q", len(tokens), line)
 	}
 
 	m, err := util.ParseInt(tokens[0])
@@ -234,12 +234,12 @@ func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.
 	// vals
 	line, err = util.ReadLine(br)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read vals line: %w", err)
 	}
 
 	tokens = util.Fields(line)
 	if len(tokens) != valsLen {
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: invalid vals token count, expected %d got %d", valsLen, len(tokens))
 	}
 
 	for i := 0; i < valsLen; i++ {
@@ -259,12 +259,12 @@ func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.
 	// cols
 	line, err = util.ReadLine(br)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read cols line: %w", err)
 	}
 
 	tokens = util.Fields(line)
 	if len(tokens) != colsLen {
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: invalid cols token count, expected %d got %d", colsLen, len(tokens))
 	}
 
 	for i := 0; i < colsLen; i++ {
@@ -280,12 +280,12 @@ func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.
 	// rows
 	line, err = util.ReadLine(br)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read rows line: %w", err)
 	}
 
 	tokens = util.Fields(line)
 	if len(tokens) != rowsLen {
-		return nil, err
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: invalid rows token count, expected %d got %d", rowsLen, len(tokens))
 	}
 
 	for i := 0; i < rowsLen; i++ {

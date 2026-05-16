@@ -52,31 +52,6 @@ func (m *mockEngine) GetWeightFromLength(eId da.Index, eLength float64, outEdge 
 func (m *mockEngine) IsDummyOutEdge(eId da.Index) bool { return false }
 func (m *mockEngine) IsDummyInEdge(eId da.Index) bool  { return false }
 
-func TestContainsCoordinate(t *testing.T) {
-	coords := []da.Coordinate{
-		da.NewCoordinate(0, 0),
-		da.NewCoordinate(1, 1),
-	}
-	assert.True(t, containsCoordinate(coords, da.NewCoordinate(1, 1)))
-	assert.False(t, containsCoordinate(coords, da.NewCoordinate(2, 2)))
-}
-
-func TestDedupeConsecutivePoints(t *testing.T) {
-	geom := da.Coordinates{
-		da.NewCoordinate(0, 0),
-		da.NewCoordinate(0, 0),
-		da.NewCoordinate(0, 1),
-		da.NewCoordinate(0, 1),
-		da.NewCoordinate(0, 2),
-	}
-	got := dedupeConsecutivePoints(geom)
-	assert.Equal(t, da.Coordinates{
-		da.NewCoordinate(0, 0),
-		da.NewCoordinate(0, 1),
-		da.NewCoordinate(0, 2),
-	}, got)
-}
-
 func TestBuildEdgeGeomOffsetFromSimplifiedGeometry(t *testing.T) {
 	p0 := da.NewCoordinate(0, 0)
 	p1 := da.NewCoordinate(0, 1)
@@ -99,17 +74,17 @@ func TestBuildEdgeGeomOffsetFromSimplifiedGeometry(t *testing.T) {
 				1: {p2},
 				2: {p4},
 			},
-			want: []da.Index{0, 2, 4},
+			want: []da.Index{0, 0, 0},
 		},
 		{
-			name:    "preserves monotonic lastMatch behavior",
+			name:    "uses edge length minus one for next offset",
 			edgeIDs: []da.Index{10, 11, 12},
 			edgeGeometries: map[da.Index][]da.Coordinate{
 				10: {p0, p1},
 				11: {p2},
 				12: {p2, p3, p4},
 			},
-			want: []da.Index{0, 2, 2},
+			want: []da.Index{0, 1, 1},
 		},
 		{
 			name:           "empty inputs",
@@ -125,25 +100,26 @@ func TestBuildEdgeGeomOffsetFromSimplifiedGeometry(t *testing.T) {
 				graph:  &mockGraph{edgeGeometries: tt.edgeGeometries},
 				engine: &mockEngine{speeds: map[da.Index]float64{}},
 			}
-			got := db.buildEdgeGeomOffsetFromSimplifiedGeometry(tt.edgeIDs, simplifiedGeometry)
+			got := db.buildEdgeGeomOffsetFromGeometry(tt.edgeIDs, simplifiedGeometry)
 			assert.Equal(t, tt.want, got)
 		})
 	}
 }
 
 func TestBuildSimplifiedAnnotation(t *testing.T) {
-	geom := da.Coordinates{
+	// Mirrors updateState() behavior: each edge contributes eGeom[:len(eGeom)-1].
+	geomWithoutLastPoint := da.Coordinates{
 		da.NewCoordinate(-7.00000, 110.00000),
 		da.NewCoordinate(-7.00000, 110.00010),
 		da.NewCoordinate(-7.00000, 110.00020),
 		da.NewCoordinate(-7.00000, 110.00030),
-		da.NewCoordinate(-7.00000, 110.00040),
 	}
+	lastEdgeLastPoint := da.NewCoordinate(-7.00000, 110.00040)
 
 	graph := &mockGraph{
 		edgeGeometries: map[da.Index][]da.Coordinate{
-			1: {geom[0], geom[1], geom[2]},
-			2: {geom[2], geom[3], geom[4]},
+			1: {geomWithoutLastPoint[0], geomWithoutLastPoint[1], geomWithoutLastPoint[2]},
+			2: {geomWithoutLastPoint[2], geomWithoutLastPoint[3], lastEdgeLastPoint},
 		},
 	}
 	engine := &mockEngine{speeds: map[da.Index]float64{1: 10, 2: 20}}
@@ -166,13 +142,24 @@ func TestBuildSimplifiedAnnotation(t *testing.T) {
 		assert.Equal(t, []da.Index{}, ann.GetEdgeGeomOffset())
 	})
 
-	t.Run("builds metrics and offsets from simplified geometry", func(t *testing.T) {
-		ann := db.buildSimplifiedAnnotation([]da.Index{1, 2}, geom)
-		assert.Equal(t, geom, ann.GetGeometry())
-		assert.Len(t, ann.GetDistance(), len(geom)-1)
-		assert.Len(t, ann.GetDuration(), len(geom)-1)
+	t.Run("appends last edge final point and builds metrics", func(t *testing.T) {
+		ann := db.buildSimplifiedAnnotation([]da.Index{1, 2}, geomWithoutLastPoint)
+		wantGeometry := append(da.Coordinates{}, geomWithoutLastPoint...)
+		wantGeometry = append(wantGeometry, lastEdgeLastPoint)
+		assert.Equal(t, wantGeometry, ann.GetGeometry())
+		assert.Len(t, ann.GetDistance(), len(wantGeometry)-1)
+		assert.Len(t, ann.GetDuration(), len(wantGeometry)-1)
 		assert.Greater(t, ann.GetDistance()[0], 0.0)
 		assert.Greater(t, ann.GetDuration()[0], 0.0)
 		assert.Equal(t, []da.Index{0, 2}, ann.GetEdgeGeomOffset())
+	})
+
+	t.Run("does not panic when last edge geometry is empty", func(t *testing.T) {
+		graph.edgeGeometries[3] = []da.Coordinate{}
+		ann := db.buildSimplifiedAnnotation([]da.Index{3}, geomWithoutLastPoint)
+		assert.Equal(t, geomWithoutLastPoint, ann.GetGeometry())
+		assert.Len(t, ann.GetDistance(), len(geomWithoutLastPoint)-1)
+		assert.Len(t, ann.GetDuration(), len(geomWithoutLastPoint)-1)
+		assert.Equal(t, []da.Index{0}, ann.GetEdgeGeomOffset())
 	})
 }

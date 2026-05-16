@@ -5,78 +5,56 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 )
 
-func (db *DirectionBuilder) buildSimplifiedAnnotation(edgeIDs []da.Index, geometry da.Coordinates) da.Annotation {
-	simplifiedGeometry := dedupeConsecutivePoints(geometry)
-	if len(simplifiedGeometry) == 0 {
-		return da.NewAnnotation([]float64{}, []float64{}, da.Coordinates{}, []da.Index{})
-	}
+func (db *DirectionBuilder) buildSimplifiedAnnotation(edgeIds []da.Index, geometry da.Coordinates) da.Annotation {
 
-	avgSpeed := 1.0
+	avgSpeed := 0.0
 
-	for _, edgeID := range edgeIDs {
+	for _, edgeID := range edgeIds {
 		avgSpeed += db.engine.GetSegmentSpeed(edgeID, true)
 	}
-	avgSpeed /= float64(len(edgeIDs))
+	avgSpeed /= max(float64(len(edgeIds)), 1)
 	avgSpeed = max(avgSpeed, 1.0)
 
-	simplifiedDistance := make([]float64, 0, max(len(simplifiedGeometry)-1, 0))
-	simplifiedDuration := make([]float64, 0, max(len(simplifiedGeometry)-1, 0))
+	m := len(edgeIds)
+	if m > 0 {
+		lastEdgeGeom := db.graph.GetEdgeGeometry(edgeIds[m-1])
+		lastEdgeGeomIdx := len(lastEdgeGeom) - 1
+		if lastEdgeGeomIdx >= 0 {
+			lastEdgeGeomPoint := lastEdgeGeom[lastEdgeGeomIdx]
+			geometry = append(geometry, lastEdgeGeomPoint)
+		}
+	}
+	n := len(geometry)
 
-	for i := 0; i < len(simplifiedGeometry)-1; i++ { // O(n), n=len(simplifiedGeometry)
-		curr := simplifiedGeometry[i]
-		next := simplifiedGeometry[i+1]
+	simplifiedDistance := make([]float64, 0, n)
+	simplifiedDuration := make([]float64, 0, n)
+
+	for i := 0; i < n-1; i++ { // O(n), n=len(geometry)
+		curr := geometry[i]
+		next := geometry[i+1]
 		dist := geo.CalculateEuclideanDistMercatorProj(curr.GetLat(), curr.GetLon(), next.GetLat(), next.GetLon())
 		simplifiedDistance = append(simplifiedDistance, dist)
-
 		simplifiedDuration = append(simplifiedDuration, dist/avgSpeed)
 	}
 
-	simplifiedEdgeGeomOffset := db.buildEdgeGeomOffsetFromSimplifiedGeometry(edgeIDs, simplifiedGeometry)
-	return da.NewAnnotation(simplifiedDuration, simplifiedDistance, simplifiedGeometry, simplifiedEdgeGeomOffset)
+	edgeGeomOffset := db.buildEdgeGeomOffsetFromGeometry(edgeIds, geometry)
+	return da.NewAnnotation(simplifiedDuration, simplifiedDistance, geometry, edgeGeomOffset)
 }
 
-func dedupeConsecutivePoints(geometry da.Coordinates) da.Coordinates {
-	if len(geometry) == 0 {
-		return da.Coordinates{}
-	}
-
-	deduped := make(da.Coordinates, 0, len(geometry))
-	deduped = append(deduped, geometry[0])
-	for i := 1; i < len(geometry); i++ { // O(n)
-		if !da.IsSameCoordinate(geometry[i], geometry[i-1]) {
-			deduped = append(deduped, geometry[i])
-		}
-	}
-	return deduped
-}
-
-func (db *DirectionBuilder) buildEdgeGeomOffsetFromSimplifiedGeometry(edgeIDs []da.Index, simplifiedGeometry da.Coordinates) []da.Index {
-	if len(edgeIDs) == 0 || len(simplifiedGeometry) == 0 {
+func (db *DirectionBuilder) buildEdgeGeomOffsetFromGeometry(edgeIds []da.Index, geometry da.Coordinates) []da.Index {
+	if len(edgeIds) == 0 || len(geometry) == 0 {
 		return []da.Index{}
 	}
 
-	simplifiedEdgeGeomOffset := make([]da.Index, 0, len(edgeIDs))
-	lastMatch := 0
-	for _, edgeID := range edgeIDs { // O(n*m*s), n=len(edgeIDs), m=len(eGeom), s=len(simplifiedGeometry)
-		eGeom := db.graph.GetEdgeGeometry(edgeID)
-		matched := lastMatch
-		for i := lastMatch; i < len(simplifiedGeometry); i++ {
-			if containsCoordinate(eGeom, simplifiedGeometry[i]) {
-				matched = i
-				break
-			}
-		}
-		simplifiedEdgeGeomOffset = append(simplifiedEdgeGeomOffset, da.Index(matched))
-		lastMatch = matched
-	}
-	return simplifiedEdgeGeomOffset
-}
+	edgeGeomOffset := make([]da.Index, 0, len(edgeIds))
 
-func containsCoordinate(geometry []da.Coordinate, c da.Coordinate) bool {
-	for _, p := range geometry {
-		if da.IsSameCoordinate(p, c) {
-			return true
-		}
+	offset := da.Index(0)
+	for i := 0; i < len(edgeIds); i++ { // O(n)
+		edgeId := edgeIds[i]
+		eGeom := db.graph.GetEdgeGeometry(edgeId)
+		edgeGeomOffset = append(edgeGeomOffset, offset)
+		offset += da.Index(len(eGeom) - 1)
 	}
-	return false
+
+	return edgeGeomOffset
 }

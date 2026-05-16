@@ -2,6 +2,7 @@
 package logger
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/logger/config"
@@ -21,13 +22,13 @@ func New() (*zap.Logger, error) {
 
 	err := cfg.Validate()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("logger.New: invalid logger configuration: %w", err)
 	}
 
 	log, err := myZap.New(cfg)
 
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("logger.New: failed to initialize zap logger: %w", err)
 	}
 
 	return log, nil

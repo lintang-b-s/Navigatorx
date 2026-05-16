@@ -26,7 +26,7 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFil
 	re, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath,
 		logger)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("NewEngine: failed to initialize routing engine: %w", err)
 	}
 	return &Engine{
 		crpRoutingEngine: re,
@@ -71,24 +71,24 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	logger.Info("Reading graph....")
 	graph, err := da.ReadGraph(graphFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("initializeRoutingEngine: failed to read graph from %s: %w", graphFilePath, err)
 	}
 
 	logger.Info("Reading overlay graph....")
 	overlayGraph, err := da.ReadOverlayGraph(overlayGraphFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("initializeRoutingEngine: failed to read overlay graph from %s: %w", overlayGraphFilePath, err)
 	}
 
 	logger.Info("Reading stalling tables & metrics...")
 
 	cf, err := costfunction.ReadFromFile(timeFunctionFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("initializeRoutingEngine: failed to read time function from %s: %w", timeFunctionFilePath, err)
 	}
 	m, err := metrics.ReadFromFile(metricsFilePath, timeFunctionFilePath)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("initializeRoutingEngine: failed to read metrics from %s (timeFunction=%s): %w", metricsFilePath, timeFunctionFilePath, err)
 	}
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
