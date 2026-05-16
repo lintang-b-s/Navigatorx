@@ -229,27 +229,27 @@ func (c *Customizer) makeEdgeMaxSpeeds(updatedEdgeIds []da.Index, updatedEdgeMax
 
 func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTableIds []da.Index, updatedTurnPenalties []float64) []float64 {
 	mapTurnCosts := viper.GetStringMap("turncosts")
-	turnCosts := make([]float64, 6)
+	turnTypes := make([]float64, 6)
 	for turnTypeStr, cost := range mapTurnCosts {
 
 		turnType := getTurnTableId(turnTypeStr)
 		switch v := cost.(type) {
 		case int:
-			turnCosts[turnType] = float64(v)
+			turnTypes[turnType] = float64(v)
 		case float64:
-			turnCosts[turnType] = float64(v)
+			turnTypes[turnType] = float64(v)
 		default:
 			panic("unsupported type")
 		}
 	}
-	turnCosts[pkg.NONE] = 0
-	turnCosts[pkg.NO_ENTRY] = pkg.INF_WEIGHT
+	turnTypes[pkg.NONE] = 0
+	turnTypes[pkg.NO_ENTRY] = pkg.INF_WEIGHT
 
 	n := len(turnTypeTable)
 	turnTable := make([]float64, n)
 	for id := 0; id < n; id++ {
 		turnType := turnTypeTable[id]
-		turnTable[id] = turnCosts[turnType]
+		turnTable[id] = turnTypes[turnType]
 	}
 
 	m := len(updatedTurnTableIds)
