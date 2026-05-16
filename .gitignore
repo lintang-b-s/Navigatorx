@@ -63,7 +63,6 @@ navigatorx*
 *.ss
 !solo.osm.pbf
 !yogyakarta.osm.pbf
-!washington.osm.pbf
 *.txt
 cover*
 

@@ -40,15 +40,6 @@ func TestAlternativeRoutes(t *testing.T) {
 			maxStretch:     1.25, // dari parameter epsilon di car.yaml/default.yaml, 1+epsilon
 			maxRuntime:     10,
 		},
-
-		{
-			name:           "alternative routes washington Openstreetmap",
-			mapFileName:    "washington",
-			minDiversity:   0.1,
-			minSuccessRate: 0.75,
-			maxStretch:     1.25, // dari parameter epsilon di car.yaml/default.yaml, 1+epsilon
-			maxRuntime:     10,
-		},
 	}
 
 	for _, tc := range testCases {
