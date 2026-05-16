@@ -125,7 +125,7 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	edgeMaxSpeeds := c.makeEdgeMaxSpeeds(updatedEdgeIds, updatedEdgeMaxSpeeds)
 
 	turnTypes := c.graph.GetTurnTypes()
-	turnTable := c.makeTurnTable(turnTypes, updatedTurnTableIds, updatedTurnPenalties)
+	turnTable := c.makeTurnTable(turnTypes, updatedTurnTableIds, updatedTurnPenalties, edgeMaxSpeeds)
 	costFunction := costfunction.NewTimeCostFunction(roadNetwork, edgeMaxSpeeds, turnTable)
 	err = costFunction.WriteToFile(c.timefunctionFilePath)
 	if err != nil {
@@ -218,6 +218,7 @@ func (c *Customizer) makeEdgeMaxSpeeds(updatedEdgeIds []da.Index, updatedEdgeMax
 	oldEdgeSpeeds := c.graph.GetEdgeSpeeds()
 	for eId := 0; eId < numOfEdges; eId++ {
 		edgeMaxSpeeds[eId] = oldEdgeSpeeds[eId]
+
 	}
 
 	for i := 0; i < len(updatedEdgeIds); i++ {
@@ -227,35 +228,66 @@ func (c *Customizer) makeEdgeMaxSpeeds(updatedEdgeIds []da.Index, updatedEdgeMax
 	return edgeMaxSpeeds
 }
 
-func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTableIds []da.Index, updatedTurnPenalties []float64) []float64 {
+// makeTurnTable membuat turn costs table
+// edgeMaxSpeeds speed limit dari setiap edges in m/s
+// updatedTurnTableIds dan updatedTurnPenalties adalah edgeIds dan turnPenalties dari edges yang diinput file csv
+func (c *Customizer) makeTurnTable(turnTypeTable []pkg.Turn, updatedTurnTableIds []da.Index, updatedTurnPenalties []float64, edgeMaxSpeeds []float64) []float64 {
 	mapTurnCosts := viper.GetStringMap("turncosts")
-	turnTypes := make([]float64, 6)
+	turnTypesCost := make([]float64, 6)
 	for turnTypeStr, cost := range mapTurnCosts {
-
+		if turnTypeStr == "traffic_light" {
+			continue
+		}
 		turnType := getTurnTableId(turnTypeStr)
 		switch v := cost.(type) {
 		case int:
-			turnTypes[turnType] = float64(v)
+			turnTypesCost[turnType] = float64(v)
 		case float64:
-			turnTypes[turnType] = float64(v)
+			turnTypesCost[turnType] = float64(v)
 		default:
 			panic("unsupported type")
 		}
 	}
-	turnTypes[pkg.NONE] = 0
-	turnTypes[pkg.NO_ENTRY] = pkg.INF_WEIGHT
+
+	trafficLightPenalty := viper.GetFloat64("turncosts.traffic_light") // in seconds
+
+	turnTypesCost[pkg.NONE] = 0
+	turnTypesCost[pkg.NO_ENTRY] = pkg.INF_WEIGHT
 
 	n := len(turnTypeTable)
 	turnTable := make([]float64, n)
 	for id := 0; id < n; id++ {
 		turnType := turnTypeTable[id]
-		turnTable[id] = turnTypes[turnType]
+		turnTable[id] += turnTypesCost[turnType.GetTurnType()]
 	}
+
+	c.graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, eIdFrom da.Index) {
+		if c.graph.IsDummyOutEdge(eIdFrom) {
+			return
+		}
+		vLimitFrom := edgeMaxSpeeds[eIdFrom]
+		c.graph.ForOutEdgesOf(head, entryPoint, func(eIdTo, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+			vLimitTo := edgeMaxSpeeds[eIdTo]
+			turn := turnTypeTable[turnTableId]
+			currentTurnCost := turnTable[turnTableId]
+			if util.Eq(turn.GetTurningSpeed(), 0) || turnType == pkg.NO_ENTRY || util.Eq(currentTurnCost, pkg.INF_WEIGHT) || c.graph.IsDummyOutEdge(eIdTo) {
+				// gak ada turn penalty (pkg.NewTurnRest())
+				return
+			}
+			turnCostByAngleBetweenEdges := pkg.CalcTurningCost(turn.GetTurningSpeed(), vLimitFrom, vLimitTo)
+
+			turnTable[turnTableId] += turnCostByAngleBetweenEdges
+
+			if turn.ContainsTrafficLight() {
+				turnTable[turnTableId] += trafficLightPenalty
+			}
+		})
+	})
 
 	m := len(updatedTurnTableIds)
 	for i := 0; i < m; i++ {
 		turnTableId := updatedTurnTableIds[i]
-		turnTable[turnTableId] = updatedTurnPenalties[i]
+		turnTable[turnTableId] += updatedTurnPenalties[i]
 	}
 	return turnTable
 }

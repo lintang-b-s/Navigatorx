@@ -733,20 +733,18 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 		sp, _, _, _, found := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
-		expectedSp := expectedSPTravelTimes[i][target]
+		expectedSp := util.RoundFloat(expectedSPTravelTimes[i][target], 1) // in seconds
 		// expectedPolyline := expectedSpPaths[s][target]
 
 		// gotPolyline := da.GooglePoylineFromCoords(*pathCoords)
 
 		counterexample := false
 		expectedFound := util.Lt(expectedSp, pkg.INF_WEIGHT)
+		sp = util.RoundFloat(sp, 1)
 
 		notValid := (!util.EqEps(expectedSp, sp, 1e-4) && found && expectedFound) || (found && !expectedFound) || (!found && expectedFound)
 		if notValid {
 			counterexample = true
-			crpQuery2 := routing.NewCRPBidirectionalSearch(re, 1.0)
-			sp2, spPath2, _ := crpQuery2.ShortestPathSearch(sPhantomNode, tPhantomNode)
-			_, _ = sp2, spPath2
 		}
 
 		if (id+1)%5000 == 0 {

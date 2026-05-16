@@ -28,17 +28,17 @@ import (
 // lihat head dari parallel edge: https://www.openstreetmap.org/node/8445759311#map=19/-7.568314/110.815814
 
 type OsmParser struct {
-	wayNodeMap                   map[int64]nodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
-	relationMemberMap            map[int64]struct{}
-	barrierNodes                 map[int64]bool // osm node Id -> barrier node flag
-	nodeTag                      map[int64]map[uint32]uint32
-	tagStringIdMap               util.IDMap
-	nodeIDMap                    map[int64]da.Index // osm node Id -> graph nodeId
-	nodeToOsmId                  map[da.Index]int64 // graph nodeId -> osm node Id
-	maxNodeID                    int64
-	restrictions                 map[int64][]restriction // wayId -> list of restrictions
-	ways                         map[int64]osmWay        // wayId -> osm way
-	trafficEdges                 []da.Index
+	wayNodeMap        map[int64]nodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
+	relationMemberMap map[int64]struct{}
+	barrierNodes      map[int64]bool // osm node Id -> barrier node flag
+	nodeTag           map[int64]map[uint32]uint32
+	tagStringIdMap    util.IDMap
+	nodeIDMap         map[int64]da.Index // osm node Id -> graph nodeId
+	nodeToOsmId       map[da.Index]int64 // graph nodeId -> osm node Id
+	maxNodeID         int64
+	restrictions      map[int64][]restriction // wayId -> list of restrictions
+	ways              map[int64]osmWay        // wayId -> osm way
+
 	osmWayDefaultSpeed           map[int64]float64 // wayId -> default max speed
 	bb                           *da.BoundingBox
 	reversibleOsmWay             map[int64]struct{}
@@ -53,14 +53,14 @@ type OsmParser struct {
 
 func NewOSMParserV2() *OsmParser {
 	p := &OsmParser{
-		wayNodeMap:                   make(map[int64]nodeWithCoord),
-		relationMemberMap:            make(map[int64]struct{}),
-		barrierNodes:                 make(map[int64]bool),
-		nodeTag:                      make(map[int64]map[uint32]uint32),
-		tagStringIdMap:               util.NewIdMap(),
-		nodeIDMap:                    make(map[int64]da.Index),
-		nodeToOsmId:                  make(map[da.Index]int64),
-		trafficEdges:                 make([]da.Index, 0),
+		wayNodeMap:        make(map[int64]nodeWithCoord),
+		relationMemberMap: make(map[int64]struct{}),
+		barrierNodes:      make(map[int64]bool),
+		nodeTag:           make(map[int64]map[uint32]uint32),
+		tagStringIdMap:    util.NewIdMap(),
+		nodeIDMap:         make(map[int64]da.Index),
+		nodeToOsmId:       make(map[da.Index]int64),
+
 		osmWayDefaultSpeed:           make(map[int64]float64),
 		bb:                           da.NewBoundingBoxEmpty(),
 		currentTime:                  time.Now(),
@@ -733,12 +733,12 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		p.nodeToOsmId[p.nodeIDMap[to.id]] = to.id
 	}
 
+	containTrafficLight := false
 	edgePoints := make([]da.Coordinate, 0)
 	distance := 0.0
 	for i := 0; i < len(segment); i++ {
 		if p.nodeTag[int64(segment[i].id)][p.tagStringIdMap.GetID(TRAFFIC_LIGHT)] == 1 {
-
-			p.trafficEdges = append(p.trafficEdges, da.Index(len(*scannedEdges)))
+			containTrafficLight = true
 		}
 		edgePoints = append(edgePoints, da.NewCoordinate(
 			segment[i].coord.lat,
@@ -811,6 +811,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				uint32(toNId),
 				travelTimeWeight,
 				distanceInMeter,
+				containTrafficLight,
 				hwType,
 			)
 
@@ -853,6 +854,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 				uint32(fromNId),
 				travelTimeWeight,
 				distanceInMeter,
+				containTrafficLight,
 				hwType,
 			)
 
@@ -896,6 +898,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			uint32(toNId),
 			travelTimeWeight,
 			distanceInMeter,
+			containTrafficLight,
 			hwType,
 		)
 
@@ -932,6 +935,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			uint32(fromNId),
 			travelTimeWeight,
 			distanceInMeter,
+			containTrafficLight,
 			hwType,
 		)
 

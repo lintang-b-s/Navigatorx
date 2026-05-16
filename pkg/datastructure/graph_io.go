@@ -91,7 +91,11 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// turn tables
 	for i, tt := range g.turnTypeTable {
-		if _, err = fmt.Fprintf(w, "%d", tt); err != nil {
+		if _, err = fmt.Fprintf(w, "%d,%s,%t",
+			tt.GetTurnType(),
+			strconv.FormatFloat(tt.GetTurningSpeed(), 'f', -1, 64),
+			tt.ContainsTrafficLight(),
+		); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing turnTable[%d]", i)
 		}
 		if i < len(g.turnTypeTable)-1 {
@@ -493,18 +497,36 @@ func ReadGraph(filename string) (*Graph, error) {
 		cellNumbers[i] = Pv(cellNumber)
 	}
 
-	turnTypeTable := make([]pkg.TurnType, 0)
+	turnTypeTable := make([]pkg.Turn, 0)
 	line, err = util.ReadLine(br)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read turnTypeTable string")
 	}
 	tokens = util.Fields(line)
 	for _, token := range tokens {
-		tt, err := strconv.ParseUint(token, 10, 8)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse uint turnTypeTable: %v", token)
+		parts := strings.Split(token, ",")
+
+		if len(parts) != 3 {
+			return nil, errors.Errorf("ReadGraph: invalid turnTypeTable token %q", token)
 		}
-		turnTypeTable = append(turnTypeTable, pkg.TurnType(tt))
+
+		tt, err := strconv.ParseUint(parts[0], 10, 8)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse turnType in turnTypeTable: %v", token)
+		}
+		turningSpeed, err := strconv.ParseFloat(parts[1], 64)
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse turningSpeed in turnTypeTable: %v", token)
+		}
+
+		containsTrafficLight := false
+
+		containsTrafficLight, err = strconv.ParseBool(parts[2])
+		if err != nil {
+			return nil, errors.Wrapf(err, "ReadGraph: failed to parse containsTrafficLight in turnTypeTable: %v", token)
+		}
+
+		turnTypeTable = append(turnTypeTable, pkg.NewTurn(pkg.TurnType(tt), turningSpeed, containsTrafficLight))
 	}
 
 	overlayVertices := make(map[SubVertex]Index)

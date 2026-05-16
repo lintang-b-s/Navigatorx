@@ -14,8 +14,8 @@ func TestBuildGraphSimple(t *testing.T) {
 
 	// Create some mocked edges
 	scannedEdges := []Edge{
-		NewEdge(0, 1, 10.0, 100.0, 1),
-		NewEdge(1, 2, 15.0, 150.0, 2),
+		NewEdge(0, 1, 10.0, 100.0, false, 1),
+		NewEdge(1, 2, 15.0, 150.0, false, 2),
 	}
 
 	// Mock wayNodeMap and nodeToOsmId
@@ -73,8 +73,8 @@ func TestBuildGraphWithTurnRestrictions(t *testing.T) {
 	}
 
 	scannedEdges := []Edge{
-		NewEdge(0, 1, 10.0, 100.0, 1),
-		NewEdge(1, 2, 15.0, 150.0, 2),
+		NewEdge(0, 1, 10.0, 100.0, false, 1),
+		NewEdge(1, 2, 15.0, 150.0, false, 2),
 	}
 
 	p.wayNodeMap[1] = nodeWithCoord{tipe: JUNCTION_NODE, coord: NewNodeCoord(-7.795870, 110.365442)}

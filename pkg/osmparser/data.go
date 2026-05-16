@@ -14,6 +14,7 @@ type Edge struct {
 	to                         uint32
 	osmwayId                   int64
 	junctionTail, junctionHead bool
+	containsTrafficLight       bool
 	hwType                     pkg.OsmHighwayType
 }
 
@@ -45,6 +46,10 @@ func (e *Edge) GetHighwayType() pkg.OsmHighwayType {
 	return e.hwType
 }
 
+func (e *Edge) ContainsTrafficLight() bool {
+	return e.containsTrafficLight
+}
+
 func (e *Edge) SetFromOSMId(fromOsmId uint64) {
 	e.fromOsmId = fromOsmId
 }
@@ -65,6 +70,10 @@ func (e *Edge) SetJunctionTail() {
 	e.junctionTail = true
 }
 
+func (e *Edge) SetContainsTrafficLight(containsTrafficLight bool) {
+	e.containsTrafficLight = containsTrafficLight
+}
+
 func (e *Edge) IsJunctionHead() bool {
 	return e.junctionHead
 }
@@ -77,13 +86,14 @@ func (e *Edge) GetOsmWayId() int64 {
 	return e.osmwayId
 }
 
-func NewEdge(from, to uint32, weight, distance float64, hwType pkg.OsmHighwayType) Edge {
+func NewEdge(from, to uint32, weight, distance float64, containsTrafficLight bool, hwType pkg.OsmHighwayType) Edge {
 	return Edge{
-		from:     from,
-		to:       to,
-		weight:   weight,
-		distance: distance,
-		hwType:   hwType,
+		from:                 from,
+		to:                   to,
+		weight:               weight,
+		distance:             distance,
+		containsTrafficLight: containsTrafficLight,
+		hwType:               hwType,
 	}
 }
 

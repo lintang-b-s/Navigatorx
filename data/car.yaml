@@ -54,6 +54,7 @@ turncosts: # (see section 4.1 and 7: https://www.microsoft.com/en-us/research/wp
   u_turn: 300 # ini adalah cost dari u-turn di two-way road (two-way road example: https://www.openstreetmap.org/way/1360292077)
   left_turn: 0
   right_turn: 0
+  traffic_light: 10 # turn cost/penalty in seconds kalau di fromSegment->toSegment contains traffic light
 
 alternatives:
   alpha: # every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path

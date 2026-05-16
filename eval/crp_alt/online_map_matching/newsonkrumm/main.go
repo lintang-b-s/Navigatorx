@@ -334,6 +334,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				e.toId,
 				travelTimeWeight,
 				distanceInMeter,
+				false,
 				pkg.MOTORWAY,
 			)
 
@@ -351,6 +352,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				e.fromId,
 				travelTimeWeight,
 				distanceInMeter,
+				false,
 				pkg.MOTORWAY,
 			)
 
@@ -376,6 +378,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				e.toId,
 				travelTimeWeight,
 				distanceInMeter,
+				false,
 				pkg.MOTORWAY,
 			)
 			graphEdges = append(graphEdges, graphEdge)
