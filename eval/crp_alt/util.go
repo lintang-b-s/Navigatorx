@@ -128,7 +128,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		panic(err)
 	}
 
-	re, err := engine.NewEngineDirect(g, prep.GetOverlayGraph(), met, logger, cust, emptyCf, landmarkFile, "")
+	re, err := engine.NewEngineDirect(g, prep.GetOverlayGraph(), met, logger, cust, emptyCf, landmarkFile)
 	if err != nil {
 		panic(err)
 	}

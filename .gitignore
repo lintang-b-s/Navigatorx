@@ -61,8 +61,7 @@ navigatorx*
 *.chk
 
 *.ss
-!solo.osm.pbf
-!yogyakarta.osm.pbf
+
 *.txt
 cover*
 
@@ -79,4 +78,6 @@ data/car/tiles/
 *.jar
 *.aar
 debug/
+*.pgo
+
 

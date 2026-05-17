@@ -12,6 +12,8 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -36,11 +38,11 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	br := bufio.NewReader(f)
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff := fields(line)
+	ff := util.Fields(line)
 
 	N, err := strconv.Atoi(ff[0])
 	if err != nil {
@@ -64,7 +66,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 			nama, bahasaSpeak string
 		)
 		bahasaUnderstand := make(map[string]struct{})
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -87,8 +89,8 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	n := len(starwars)
 	var (
-		adjList  = make([][]pairEdge, n)
-		adjListT = make([][]pairEdge, n)
+		adjList  = make([][]tests.PairEdge, n)
+		adjListT = make([][]tests.PairEdge, n)
 	)
 
 	bitpack := func(i, j int) int {
@@ -110,24 +112,24 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 			}
 
 			if swi.bahasak.bahasaSpeak == swj.bahasak.bahasaSpeak {
-				adjList[i] = append(adjList[i], newPairEdge(j, 1))
-				adjList[j] = append(adjList[j], newPairEdge(i, 1))
+				adjList[i] = append(adjList[i], tests.NewPairEdge(j, 1))
+				adjList[j] = append(adjList[j], tests.NewPairEdge(i, 1))
 
 				edgesSet[bitpack(i, j)] = struct{}{}
 				edgesSet[bitpack(j, i)] = struct{}{}
 
-				adjListT[j] = append(adjListT[j], newPairEdge(i, 1))
-				adjListT[i] = append(adjListT[i], newPairEdge(j, 1))
+				adjListT[j] = append(adjListT[j], tests.NewPairEdge(i, 1))
+				adjListT[i] = append(adjListT[i], tests.NewPairEdge(j, 1))
 			} else if _, ok := swj.bahasak.bahasaUnderstand[swi.bahasak.bahasaSpeak]; ok {
 				edgesSet[bitpack(i, j)] = struct{}{}
 
-				adjList[i] = append(adjList[i], newPairEdge(j, 1))
-				adjListT[j] = append(adjListT[j], newPairEdge(i, 1))
+				adjList[i] = append(adjList[i], tests.NewPairEdge(j, 1))
+				adjListT[j] = append(adjListT[j], tests.NewPairEdge(i, 1))
 			}
 		}
 	}
 
-	es := flattenEdges(adjList)
+	es := tests.FlattenEdges(adjList)
 
 	op := osmparser.NewOSMParserV2()
 	gs := datastructure.NewGraphStorageWithSize(len(es), n)
@@ -156,7 +158,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 	defer fOut.Close()
 
 	brOut := bufio.NewReader(fOut)
-	line, err = readLine(brOut)
+	line, err = util.ReadLine(brOut)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

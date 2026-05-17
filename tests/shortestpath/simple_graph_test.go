@@ -14,6 +14,8 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 func solveSimpleGraph(t *testing.T, filepath string) {
@@ -32,11 +34,11 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 
 	br := bufio.NewReader(f)
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff := fields(line)
+	ff := util.Fields(line)
 	n, err = strconv.Atoi(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -53,13 +55,13 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(i)))
 	}
 
-	adjList := make([][]pairEdge, n)
+	adjList := make([][]tests.PairEdge, n)
 	for i := 0; i < m; i++ {
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff := fields(line)
+		ff := util.Fields(line)
 		u, err := strconv.Atoi(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -72,7 +74,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		adjList[u] = append(adjList[u], pairEdge{v, float64(w)})
+		adjList[u] = append(adjList[u], tests.NewPairEdge(v, float64(w)))
 	}
 
 	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, []int{1, 2}, true)
@@ -104,7 +106,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 
 	brOut := bufio.NewReader(fOut)
 
-	line, err = readLine(brOut)
+	line, err = util.ReadLine(brOut)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -114,7 +116,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	if !eq(spLength, expectedSPLength) {
+	if !util.Eq(spLength, expectedSPLength) {
 		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, spLength)
 	}
 

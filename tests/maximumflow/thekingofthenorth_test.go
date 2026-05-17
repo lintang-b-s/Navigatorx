@@ -12,6 +12,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 /*
@@ -44,11 +45,11 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 
 	br := bufio.NewReader(f)
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff := fields(line)
+	ff := util.Fields(line)
 
 	R, err := strconv.Atoi(ff[0])
 	if err != nil {
@@ -65,11 +66,11 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	}
 
 	for i := 0; i < R; i++ {
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff := fields(line)
+		ff := util.Fields(line)
 		for j := 0; j < C; j++ {
 
 			numBannerMen, err := strconv.Atoi(ff[j])
@@ -206,11 +207,11 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 		dinic.AddArtificialEdge(superSource, musuhVId, INF, true)
 	}
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff = fields(line)
+	ff = util.Fields(line)
 
 	castlei, err := strconv.Atoi(ff[0])
 	if err != nil {
@@ -233,7 +234,7 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	defer fOut.Close()
 
 	brOut := bufio.NewReader(fOut)
-	line, err = readLine(brOut)
+	line, err = util.ReadLine(brOut)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

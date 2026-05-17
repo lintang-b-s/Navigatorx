@@ -70,7 +70,7 @@ alternatives:
     default: 1.6 # untuk > 50 km, ini bagus buat rute alternative jarak jauh cnth: jogja solo
   max_candidates_to_unpack:
     10: 10 # great circle distance between source and destination <= 10km -> 10 via candidates to unpack
-    20: 10 # great circle distance between source and destination <= 20km  & > 10km -> 8 via candidates to unpack
+    20: 10 # great circle distance between source and destination <= 20km  & > 10km -> 10 via candidates to unpack
     50: 5
     100: 2
     default: 2

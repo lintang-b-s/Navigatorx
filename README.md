@@ -1,24 +1,50 @@
+
 # Navigatorx
+
+Routing Engine For Openstreetmap data.
+
 
 [![test](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml)
 [![lint](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml)
 [![coverage](https://raw.githubusercontent.com/lintang-b-s/Navigatorx/badges/.badges/main/coverage.svg)](/.github/.testcoverage.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/lintang-b-s/Navigatorx?cache=v1)](https://goreportcard.com/report/github.com/lintang-b-s/Navigatorx)
 
-
 #### Quick Start
 
+##### Download OpenStreetMap Data (.osm.pbf foramt)
+
+You can download OpenStreetMap data from geofabrik (https://download.geofabrik.de/index.html)
+
 ```
-sh scripts/build_pgo.sh
 pip install gdown
 gdown https://drive.google.com/uc?id=1uBoFWUSRka9pqH2dVPKpcystxXmkkSgs --output ./data
+```
+
+##### Collect cpu profiles (for profile guided optimization)
+
+```
+gdown https://drive.google.com/uc?id=1HBswl5-JkFXWh--AFLC2ElYC4Tbsj1i0   --output ./data
+gdown https://drive.google.com/uc?id=1pRmqUFgNc_p0lEKmfzLcn3IRhUW4Cm4c  --output ./data
+sh scripts/build_pgo.sh
+```
+
+##### Pre-processing
+run a preprocessing phase to speed up point-to-point queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1)) algorithm is available. The CRP pre-processing phase creates multilevel partitions and overlay graph data structures.
+```
 export GOFLAGS="-buildvcs=false"
 go build -o ./bin/preprocessor ./cmd/preprocessor
 ./bin/preprocessor
+```
 
+##### Customization
+The Customizable Route Planning CRP ([[1]](#ref1)) customization phase computes shortcut weights on multilevel partitions.
+```
 go build -o ./bin/customizer ./cmd/customizer
 ./bin/customizer
+```
 
+##### Query Engine
+```
 go build -o ./bin/generator ./cmd/generator
 ./bin/generator
 
@@ -29,18 +55,44 @@ go build -o ./bin/engine -pgo=./bin/default.pgo  ./cmd/engine
 #### Tests
 
 ```
+gdown https://drive.google.com/uc?id=1HBswl5-JkFXWh--AFLC2ElYC4Tbsj1i0   --output ./data
+gdown https://drive.google.com/uc?id=1pRmqUFgNc_p0lEKmfzLcn3IRhUW4Cm4c  --output ./data
 sh ./scripts/run_test.sh
 ```
 
 #### Load Test
+
 ```
 go run eval/crp_alt/gen_rand_queries_coords/main.go
 k6 run eval/crp_alt/load_tests/k6_sp.js
 k6 run eval/crp_alt/load_tests/k6_alternatives.js
 ```
 
+#### API Documentation
+The OpenAPI specification is available at [swagger.yaml](./swagger.yaml).
+
+#### References & Acknowledgments
+
+##### References
+
+<a id="ref1"></a>1. Delling, D. et al. (2015) “Customizable Route Planning in Road
+Networks,” Transportation Science [Preprint]. Available at:
+https://doi.org/10.1287/trsc.2014.0579 .
+
+<a id="ref2"></a>2. Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
+Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
+https://doi.org/10.1007/978-3-642-13193-6_3 .
 
 
+<a id="ref3"></a>3. Goldberg, A. and Harrelson, C. (2005) “Computing the shortest path: A search meets
+graph theory,” in. ACM-SIAM Symposium on Discrete Algorithms. Vancouver:
+ACM, pp. 156 - 165.
 
 
+##### Acknowledgments
+The author would like to express his deepest gratitude to the contributors to the open source projects below. The code in the Navigatorx project is heavily adapted and inspired by the following open source projects:
 
+1. [CRP](https://github.com/michaelwegner/CRP)
+2. [OSRM Backend](https://github.com/Project-OSRM/osrm-backend)
+3. [GraphHopper](https://github.com/graphhopper/graphhopper)
+4. [Telenav](https://github.com/Telenav/open-source-spec)

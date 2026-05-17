@@ -13,6 +13,8 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -40,11 +42,11 @@ func SolveRideHailing(t *testing.T, filepath string) {
 
 	br := bufio.NewReader(f)
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff := fields(line)
+	ff := util.Fields(line)
 
 	n, err := strconv.Atoi(ff[0])
 	if err != nil {
@@ -60,18 +62,18 @@ func SolveRideHailing(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	adjList := make([][]pairEdge, n+1)
+	adjList := make([][]tests.PairEdge, n+1)
 
 	for i := 0; i < m; i++ {
 		var (
 			u, v, w int
 		)
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff = fields(line)
+		ff = util.Fields(line)
 
 		u, err = strconv.Atoi(ff[0])
 		if err != nil {
@@ -88,7 +90,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 
-		adjList[u] = append(adjList[u], newPairEdge(v, float64(w)))
+		adjList[u] = append(adjList[u], tests.NewPairEdge(v, float64(w)))
 	}
 
 	bitpack := func(u, v int) int {
@@ -117,8 +119,8 @@ func SolveRideHailing(t *testing.T, filepath string) {
 			uDist := int64(queryKey.GetRank())
 
 			for _, vv := range adjList[u] {
-				v := vv.to
-				vDist := int64(vv.weight)
+				v := vv.To
+				vDist := int64(vv.Weight)
 				ok := djdist[v] < math.MaxInt64
 				if !ok || uDist+vDist < djdist[v] {
 					djdist[v] = uDist + vDist
@@ -159,12 +161,12 @@ func SolveRideHailing(t *testing.T, filepath string) {
 			u, v, time int
 		)
 
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff = fields(line)
+		ff = util.Fields(line)
 
 		u, err = strconv.Atoi(ff[0])
 		if err != nil {
@@ -229,7 +231,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 	defer fOut.Close()
 
 	brOut := bufio.NewReader(fOut)
-	line, err = readLine(brOut)
+	line, err = util.ReadLine(brOut)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

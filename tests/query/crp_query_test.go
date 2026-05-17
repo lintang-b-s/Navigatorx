@@ -29,6 +29,7 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
 	"go.uber.org/zap"
 )
 
@@ -145,11 +146,11 @@ func TestCRPQuerySimple(t *testing.T) {
 
 		br := bufio.NewReader(f)
 
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff := fields(line)
+		ff := util.Fields(line)
 		n, err = strconv.Atoi(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -166,13 +167,13 @@ func TestCRPQuerySimple(t *testing.T) {
 			nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(i)))
 		}
 
-		adjList := make([][]pairEdge, n)
+		adjList := make([][]tests.PairEdge, n)
 		for i := 0; i < m; i++ {
-			line, err = readLine(br)
+			line, err = util.ReadLine(br)
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			ff := fields(line)
+			ff := util.Fields(line)
 			u, err := strconv.Atoi(ff[0])
 			if err != nil {
 				t.Fatalf("err: %v", err)
@@ -185,9 +186,9 @@ func TestCRPQuerySimple(t *testing.T) {
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			adjList[u] = append(adjList[u], pairEdge{v, float64(w)})
+			adjList[u] = append(adjList[u], tests.NewPairEdge(v, float64(w)))
 		}
-		es := flattenEdges(adjList)
+		es := tests.FlattenEdges(adjList)
 
 		op := osmparser.NewOSMParserV2()
 		acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
@@ -248,7 +249,7 @@ func TestCRPQuerySimple(t *testing.T) {
 
 		cf := costfunction.NewTimeCostFunctionEmpty()
 
-		eng, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf, landmarkFile, timeFunctionFile)
+		eng, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf, landmarkFile)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -275,11 +276,11 @@ func TestCRPQuerySimple(t *testing.T) {
 
 			apsp := make(map[uint64]float64, n*n) // all pairs shortest path. bitpack(source,target) -> shortest st-path cost
 			for {
-				line, err := readLine(brOut)
+				line, err := util.ReadLine(brOut)
 				if errors.Is(err, io.EOF) {
 					break
 				}
-				ff := fields(line)
+				ff := util.Fields(line)
 				ss, tt, stcosts := ff[0], ff[1], ff[2]
 				source, err := strconv.Atoi(ss)
 				if err != nil {

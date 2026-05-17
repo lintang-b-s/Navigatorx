@@ -19,6 +19,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -48,11 +49,11 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 	br := bufio.NewReader(f)
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff := fields(line)
+	ff := util.Fields(line)
 
 	r, err := strconv.Atoi(ff[0])
 	if err != nil {
@@ -71,7 +72,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	}
 
 	for i := 0; i < r; i++ {
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -80,7 +81,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		}
 	}
 
-	adjList := make([][]pairEdge, r*c)
+	adjList := make([][]tests.PairEdge, r*c)
 
 	cellToNId := func(i, j int) int {
 		return i*c + j
@@ -108,28 +109,28 @@ func SolveShowroom(t *testing.T, filepath string) {
 				weight := getWeight(i, j+1)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					newPairEdge(cellToNId(i, j+1), float64(weight)))
+					tests.NewPairEdge(cellToNId(i, j+1), float64(weight)))
 			}
 
 			if i+1 < r {
 				weight := getWeight(i+1, j)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					newPairEdge(cellToNId(i+1, j), float64(weight)))
+					tests.NewPairEdge(cellToNId(i+1, j), float64(weight)))
 			}
 
 			if j-1 >= 0 {
 				weight := getWeight(i, j-1)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					newPairEdge(cellToNId(i, j-1), float64(weight)))
+					tests.NewPairEdge(cellToNId(i, j-1), float64(weight)))
 			}
 
 			if i-1 >= 0 {
 				weight := getWeight(i-1, j)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					newPairEdge(cellToNId(i-1, j), float64(weight)))
+					tests.NewPairEdge(cellToNId(i-1, j), float64(weight)))
 			}
 
 			if j == c-1 && grid[i][j] == "D" {
@@ -149,11 +150,11 @@ func SolveShowroom(t *testing.T, filepath string) {
 		}
 	}
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff = fields(line)
+	ff = util.Fields(line)
 
 	tx, err := strconv.Atoi(ff[0])
 	if err != nil {
@@ -232,7 +233,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 	brOut := bufio.NewReader(fOut)
 
-	line, err = readLine(brOut)
+	line, err = util.ReadLine(brOut)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -242,7 +243,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	if !eq(ans, expectedSPLength) {
+	if !util.Eq(ans, expectedSPLength) {
 		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, ans)
 	}
 

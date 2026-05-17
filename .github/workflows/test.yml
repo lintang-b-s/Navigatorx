@@ -16,12 +16,18 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v6
-        with:
-          lfs: true
+        
       - name: setup go
         uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+
+      - name: install gdown and download data
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install gdown
+          gdown https://drive.google.com/uc?id=1HBswl5-JkFXWh--AFLC2ElYC4Tbsj1i0 --output ./data
+          gdown https://drive.google.com/uc?id=1pRmqUFgNc_p0lEKmfzLcn3IRhUW4Cm4c --output ./data
 
       - name: test
         env:
@@ -44,8 +50,7 @@ jobs:
       steps:
         - name: checkout
           uses: actions/checkout@v6
-          with:
-            lfs: true
+          
 
         - name: download ubuntu-latest-profile
           uses: actions/download-artifact@v8
@@ -115,5 +120,4 @@ jobs:
           if: steps.coverage.outcome == 'failure'
           shell: bash
           run: echo "coverage check failed" && exit 1
-
 

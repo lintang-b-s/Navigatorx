@@ -15,6 +15,8 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -128,11 +130,11 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 
 	br := bufio.NewReader(f)
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff := fields(line)
+	ff := util.Fields(line)
 
 	n, err := strconv.Atoi(ff[0])
 	if err != nil {
@@ -155,11 +157,11 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		var (
 			x, y, z int
 		)
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff = fields(line)
+		ff = util.Fields(line)
 
 		x, err = strconv.Atoi(ff[0])
 		if err != nil {
@@ -177,7 +179,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		galaxy = append(galaxy, planet{x, y, z})
 	}
 
-	adjList := make([][]pairEdge, n)
+	adjList := make([][]tests.PairEdge, n)
 
 	eucDist := func(a, b planet) float64 {
 		xx := float64(a.x - b.x)
@@ -192,11 +194,11 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		var (
 			u, v int
 		)
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff = fields(line)
+		ff = util.Fields(line)
 
 		u, err = strconv.Atoi(ff[0])
 		if err != nil {
@@ -214,8 +216,8 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		planetV := galaxy[v]
 
 		dist := math.Sqrt(eucDist(planetU, planetV))
-		adjList[u] = append(adjList[u], pairEdge{v, dist})
-		adjList[v] = append(adjList[v], pairEdge{u, dist})
+		adjList[u] = append(adjList[u], tests.NewPairEdge(v, dist))
+		adjList[v] = append(adjList[v], tests.NewPairEdge(u, dist))
 	}
 
 	nodeCoords := make([]osmparser.NodeCoord, 0)
@@ -265,11 +267,11 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		var (
 			target, time int
 		)
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff = fields(line)
+		ff = util.Fields(line)
 		target, err = strconv.Atoi(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -284,7 +286,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		if fuel == -1 {
 			ans := "impossible"
 
-			line, err = readLine(brOut)
+			line, err = util.ReadLine(brOut)
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -295,7 +297,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		} else {
 			ans := fuel
 
-			line, err = readLine(brOut)
+			line, err = util.ReadLine(brOut)
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -305,7 +307,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			if !eq(ans, expectedAns) {
+			if !util.Eq(ans, expectedAns) {
 				t.Fatalf("FAIL: Expected fuel: %v, got: %v", expectedAns, ans)
 			}
 		}

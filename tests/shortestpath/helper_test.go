@@ -1,11 +1,6 @@
 package shortestpath
 
 import (
-	"bufio"
-	"errors"
-	"io"
-	"math"
-	"strings"
 	"testing"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
@@ -16,6 +11,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
+	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 const (
@@ -26,9 +22,9 @@ const (
 	timeFunctionFile string = "./data/timefunction_sp_test.txt"
 )
 
-func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEdge, n int, Us []int, pgDirected bool) (*engine.Engine, *da.Graph,
+func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine, *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
-	es := flattenEdges(adjList)
+	es := tests.FlattenEdges(adjList)
 
 	op := osmparser.NewOSMParserV2()
 	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
@@ -84,7 +80,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	}
 	cf := costfunction.NewTimeCostFunctionEmpty()
 
-	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, landmarkFile, timeFunctionFile)
+	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, landmarkFile)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -93,49 +89,4 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]pairEd
 	newToOldVidMap := prep.GetNewToOldVIdMap()
 
 	return re, g, oldToNewVIdMap, newToOldVidMap
-}
-
-// equal operator
-func eq(a, b float64) bool {
-	return math.Abs(a-b) <= EPS
-}
-
-func readLine(br *bufio.Reader) (string, error) {
-	line, err := br.ReadString('\n')
-	if err != nil {
-		if errors.Is(err, io.EOF) && len(line) > 0 {
-		} else {
-			return "", err
-		}
-	}
-	return strings.TrimRight(line, "\r\n"), nil
-}
-
-func fields(s string) []string {
-
-	return strings.Fields(s)
-}
-
-type pairEdge struct {
-	to     int
-	weight float64
-}
-
-func newPairEdge(to int, weight float64) pairEdge {
-	return pairEdge{to, weight}
-}
-
-func flattenEdges(es [][]pairEdge) []osmparser.Edge {
-	flatten := make([]osmparser.Edge, 0, len(es))
-
-	eid := 0
-
-	for from, edges := range es {
-		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, e.weight, false, 0))
-			eid++
-		}
-	}
-
-	return flatten
 }

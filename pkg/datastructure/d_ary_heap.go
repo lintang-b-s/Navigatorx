@@ -210,7 +210,6 @@ func (h *DAryHeap[T]) DecreaseKey(itemPos uint32, rank float64, updatePos func(q
 
 	h.heap[itemPos].SetRank(rank)
 	h.heapifyUp(itemPos, updatePos)
-
 }
 
 type AltQueryKey struct {

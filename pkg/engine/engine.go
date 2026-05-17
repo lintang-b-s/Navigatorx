@@ -36,7 +36,7 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFil
 const keyValByteApproxSize = 9 + 4*5
 
 func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.Metric,
-	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction, landmarkFile, timeFunctionFilePath string) (*Engine, error) {
+	logger *zap.Logger, cst routing.Customizer, cf routing.CostFunction, landmarkFile string) (*Engine, error) {
 	// customizable route planning in road networks section 7.2 (path retrieval)
 
 	const maxCost = int64(1) << 20

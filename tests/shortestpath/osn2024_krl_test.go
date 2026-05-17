@@ -16,6 +16,8 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -190,11 +192,11 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 	br := bufio.NewReader(f)
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff := fields(line)
+	ff := util.Fields(line)
 
 	N, err := strconv.Atoi(ff[0])
 	if err != nil {
@@ -231,11 +233,11 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		var (
 			a, b, c, d int64
 		)
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff = fields(line)
+		ff = util.Fields(line)
 
 		a, err = strconv.ParseInt(ff[0], 10, 64)
 		if err != nil {
@@ -260,7 +262,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		rutes[i] = newRute(int(a), int(b), c, d)
 	}
 
-	adjList := make([][]pairEdge, 2*N)
+	adjList := make([][]tests.PairEdge, 2*N)
 
 	stA := make([]int64, N)
 	st := NewSegmentTree(stA, true)
@@ -285,16 +287,16 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		b := rt.b - 1 + N
 
 		// edges sistem ekspress
-		adjList[a] = append(adjList[a], newPairEdge(b, float64(rt.d)))
-		adjList[b] = append(adjList[b], newPairEdge(a, float64(rt.d)))
+		adjList[a] = append(adjList[a], tests.NewPairEdge(b, float64(rt.d)))
+		adjList[b] = append(adjList[b], tests.NewPairEdge(a, float64(rt.d)))
 		e += 2
 	}
 
 	for v := 0; v < N; v++ {
 		// edge non-transit vertex ke transit vertex
-		adjList[v] = append(adjList[v], newPairEdge(v+N, float64(T)))
+		adjList[v] = append(adjList[v], tests.NewPairEdge(v+N, float64(T)))
 		// edge vertex ke non-transit vertex
-		adjList[v+N] = append(adjList[v+N], newPairEdge(v, 0))
+		adjList[v+N] = append(adjList[v+N], tests.NewPairEdge(v, 0))
 		e += 2
 	}
 
@@ -302,8 +304,8 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		// O(N * log N)
 		// angkot
 		// stasiun non-transit ke next stasiun non-transit
-		adjList[v] = append(adjList[v], newPairEdge(v+1, float64(K)))
-		adjList[v+1] = append(adjList[v+1], newPairEdge(v, float64(K)))
+		adjList[v] = append(adjList[v], tests.NewPairEdge(v+1, float64(K)))
+		adjList[v+1] = append(adjList[v+1], tests.NewPairEdge(v, float64(K)))
 
 		e += 2
 
@@ -313,8 +315,8 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		}
 
 		// commuter edges
-		adjList[v+N] = append(adjList[v+N], newPairEdge(v+1+N, float64(rmqv)))
-		adjList[v+1+N] = append(adjList[v+1+N], newPairEdge(v+N, float64(rmqv)))
+		adjList[v+N] = append(adjList[v+N], tests.NewPairEdge(v+1+N, float64(rmqv)))
+		adjList[v+1+N] = append(adjList[v+1+N], tests.NewPairEdge(v+N, float64(rmqv)))
 
 		e += 2
 	}
@@ -380,7 +382,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 	brOut := bufio.NewReader(fOut)
 
-	line, err = readLine(brOut)
+	line, err = util.ReadLine(brOut)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -390,7 +392,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	if !eq(ans, expectedSPLength) {
+	if !util.Eq(ans, expectedSPLength) {
 		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, ans)
 	}
 

@@ -14,6 +14,8 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -47,11 +49,11 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 
 	br := bufio.NewReader(f)
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	ff := fields(line)
+	ff := util.Fields(line)
 
 	N, err = strconv.Atoi(ff[0])
 	if err != nil {
@@ -69,11 +71,11 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		var (
 			fl, x, y int
 		)
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff := fields(line)
+		ff := util.Fields(line)
 		fl, err = strconv.Atoi(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -92,7 +94,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		places[i] = place{fl * 5, x, y}
 	}
 
-	adjList := make([][]pairEdge, N)
+	adjList := make([][]tests.PairEdge, N)
 
 	type pairDist struct {
 		abDist, baDist float64
@@ -120,11 +122,11 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 			tipe string
 		)
 
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff = fields(line)
+		ff = util.Fields(line)
 		a, err = strconv.Atoi(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -141,8 +143,8 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		placeB := places[b]
 
 		pd := getDist(placeA, placeB, tipe)
-		adjList[a] = append(adjList[a], pairEdge{b, pd.abDist})
-		adjList[b] = append(adjList[b], pairEdge{a, pd.baDist})
+		adjList[a] = append(adjList[a], tests.NewPairEdge(b, pd.abDist))
+		adjList[b] = append(adjList[b], tests.NewPairEdge(a, pd.baDist))
 	}
 
 	nodeCoords := make([]osmparser.NodeCoord, 0)
@@ -153,7 +155,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 
 	re, g, oldToNewVIdMap, newToOldVidMap, _ := buildCRP(t, nodeCoords, adjList, N, []int{6, 7}, true)
 
-	line, err = readLine(br)
+	line, err = util.ReadLine(br)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -173,11 +175,11 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		var (
 			a, b int
 		)
-		line, err = readLine(br)
+		line, err = util.ReadLine(br)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		ff = fields(line)
+		ff = util.Fields(line)
 
 		a, err = strconv.Atoi(ff[0])
 		if err != nil {
@@ -215,12 +217,12 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 
 		// assert expected output dari test cases soal
 
-		line, err = readLine(brOut)
+		line, err = util.ReadLine(brOut)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		ff = fields(line)
+		ff = util.Fields(line)
 
 		expectedPath := make([]int, len(ff))
 		for k := 0; k < len(ff); k++ {

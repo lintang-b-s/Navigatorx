@@ -102,3 +102,27 @@ func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customi
 
 	return re, logger, custom
 }
+
+type PairEdge struct {
+	To     int
+	Weight float64
+}
+
+func NewPairEdge(to int, weight float64) PairEdge {
+	return PairEdge{To: to, Weight: weight}
+}
+
+func FlattenEdges(es [][]PairEdge) []osmparser.Edge {
+	flatten := make([]osmparser.Edge, 0, len(es))
+
+	eid := 0
+
+	for from, edges := range es {
+		for _, e := range edges {
+			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.To), e.Weight, e.Weight, false, 0))
+			eid++
+		}
+	}
+
+	return flatten
+}

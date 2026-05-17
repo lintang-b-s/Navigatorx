@@ -1,5 +1,0 @@
-*.osm.pbf filter=lfs diff=lfs merge=lfs -text
-solo.osm.pbf filter=lfs diff=lfs merge=lfs -text
-yogyakarta.osm.pbf filter=lfs diff=lfs merge=lfs -text
-washington.osm.pbf filter=lfs diff=lfs merge=lfs -text
-*.pgo filter=lfs diff=lfs merge=lfs -text
