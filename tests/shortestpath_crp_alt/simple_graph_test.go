@@ -126,7 +126,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 
 func TestCRPQuerySimpleGraphMALT(t *testing.T) {
 
-	dirPath := "../shortestpath/data/tests/shortestpath/simple_graph/"
+	dirPath := "../shortestpath/data/tests/shortestpath/simple_graph"
 
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
