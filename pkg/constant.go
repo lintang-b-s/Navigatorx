@@ -35,48 +35,57 @@ func (t Turn) ContainsTrafficLight() bool {
 }
 
 const (
-	maxLateralAccel    = 1.6 // m/s²
-	avgAccelAfterTurn  = 1.2 // m/s²
-	avgDecelBeforeTurn = 1.2 // m/s²
+	maxCentAccel       = 1.6  // m/s²
+	avgAccelAfterTurn  = 1.2  // m/s²
+	avgDecelBeforeTurn = -1.2 // m/s²
 )
+
+func CalcResolution(l, lPrime, minResolution float64) float64 {
+	delta := min(l, lPrime)
+	delta = min(delta, minResolution)
+	return delta
+}
 
 // CalcTurningSpeed computes max turning speed in m/s.
 // l, lPrime: edge lengths in meters.
 // turnAngleDeg: the turn angle in DEGREES (converted internally).
 // https://ae.iti.kit.edu/download/turn_ch.pdf
-func CalcTurningSpeed(l, lPrime, turnAngleDeg float64) float64 {
+func CalcTurningSpeed(l, lPrime, minResolution, turnAngleDeg float64) float64 {
 	angleBetweenEdgesDeg := 180 - turnAngleDeg
 	turnAngleRad := util.DegreeToRadians(angleBetweenEdgesDeg)
-	delta := min(l, lPrime)
+	delta := CalcResolution(l, lPrime, minResolution)
 	radius := math.Tan(turnAngleRad/2) * delta / 2
-	turningSpeed := math.Sqrt(maxLateralAccel * radius)
+	turningSpeed := math.Sqrt(maxCentAccel * radius)
 	return turningSpeed
 }
 
 /* CalcTurningCost computes turn cost in seconds.
 // maxV: turning speed (in m/s)
 // vlimitTo, vlimitFrom: speed limit road segment from e, speed limit road segment to e'(in m/s).
+vlimitFrom
 // -----e---->
 //           |
 //           |
-//			 e'
+//			 e'	vlimitTo
 // 			 |
 // 			 |
 // 			\/
 // https://ae.iti.kit.edu/download/turn_ch.pdf
 */ // nolint: gofmt
-func CalcTurningCost(maxV, vlimitFrom, vlimitTo float64) float64 {
+func CalcTurningCost(turningSpeed, vlimitFrom, vlimitTo float64) float64 {
 
-	decCost := 0.0
+	distTraveledWhileDecel := (turningSpeed*turningSpeed - vlimitFrom*vlimitFrom) / (2 * avgDecelBeforeTurn)
+	distTraveledWhileAccel := (vlimitTo*vlimitTo - turningSpeed*turningSpeed) / (2 * avgAccelAfterTurn)
 
-	diff := vlimitFrom - maxV
-	decCost = (diff * diff) / (2 * avgDecelBeforeTurn * vlimitFrom)
+	timeFullSpeedFrom := distTraveledWhileDecel / vlimitFrom
+	timeFullSpeedTo := distTraveledWhileAccel / vlimitTo
 
-	accCost := 0.0
+	timeWhileDecel := (turningSpeed - vlimitFrom) / avgDecelBeforeTurn
+	timeWhileAccel := (vlimitTo - turningSpeed) / avgAccelAfterTurn
 
-	diff = vlimitTo - maxV
-	accCost = (diff * diff) / (2 * avgAccelAfterTurn * vlimitTo)
-	// extra turning cost (travel time while accelerating with turn - travel time cost without any turns)?
+	decCost := timeWhileDecel - timeFullSpeedFrom
+	accCost := timeWhileAccel - timeFullSpeedTo
+	// turning cost (travel time while accelerating with turn - travel time cost without any turns/full speed)?
 
 	return decCost + accCost
 }

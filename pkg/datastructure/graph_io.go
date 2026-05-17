@@ -38,9 +38,10 @@ func (g *Graph) WriteGraph(filename string) error {
 	w := bufio.NewWriter(snp)
 
 	// graph header
-	if _, err = fmt.Fprintf(w, "%d %d %d %d %t\n",
+	if _, err = fmt.Fprintf(w, "%d %d %d %d %t %s\n",
 		len(g.vertices), g.NumberOfEdges(),
-		g.GetNumberOfCellsNumbers(), g.GetNumberOfOverlayVertexMapping(), g.roadNetwork); err != nil {
+		g.GetNumberOfCellsNumbers(), g.GetNumberOfOverlayVertexMapping(), g.roadNetwork,
+		strconv.FormatFloat(g.minResolution, 'f', -1, 64)); err != nil {
 		return errors.Wrapf(err, "WriteGraph: failed writing graph headers")
 	}
 
@@ -91,11 +92,7 @@ func (g *Graph) WriteGraph(filename string) error {
 
 	// turn tables
 	for i, tt := range g.turnTypeTable {
-		if _, err = fmt.Fprintf(w, "%d,%s,%t",
-			tt.GetTurnType(),
-			strconv.FormatFloat(tt.GetTurningSpeed(), 'f', -1, 64),
-			tt.ContainsTrafficLight(),
-		); err != nil {
+		if _, err = fmt.Fprintf(w, "%d", tt); err != nil {
 			return errors.Wrapf(err, "WriteGraph: failed writing turnTable[%d]", i)
 		}
 		if i < len(g.turnTypeTable)-1 {
@@ -405,9 +402,6 @@ func ReadGraph(filename string) (*Graph, error) {
 	defer f.Close()
 
 	snp := s2.NewReader(f)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed creating s2.NewReader %s", filename)
-	}
 
 	br := bufio.NewReaderSize(snp, graphBufferSize)
 
@@ -417,8 +411,8 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	tokens := util.Fields(line)
-	if len(tokens) != 5 {
-		return nil, errors.Newf("ReadGraph: number of graph headers is not correct, expected: %v or %v, got: %v", 4, 5, len(tokens))
+	if len(tokens) != 6 {
+		return nil, errors.Newf("ReadGraph: number of graph headers is not correct, expected: %v, got: %v", 6, len(tokens))
 	}
 
 	numVertices, err := ParseIndex(tokens[0])
@@ -443,6 +437,11 @@ func ReadGraph(filename string) (*Graph, error) {
 	roadNetwork, err = strconv.ParseBool(tokens[4])
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed parsing roadNetwork flag: %v", tokens[4])
+	}
+
+	minResolution, err := strconv.ParseFloat(tokens[5], 64)
+	if err != nil {
+		return nil, errors.Wrapf(err, "ReadGraph: failed parsing minResolution: %v", tokens[5])
 	}
 
 	vertices := make([]Vertex, numVertices)
@@ -497,36 +496,18 @@ func ReadGraph(filename string) (*Graph, error) {
 		cellNumbers[i] = Pv(cellNumber)
 	}
 
-	turnTypeTable := make([]pkg.Turn, 0)
+	turnTypeTable := make([]pkg.TurnType, 0)
 	line, err = util.ReadLine(br)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read turnTypeTable string")
 	}
 	tokens = util.Fields(line)
 	for _, token := range tokens {
-		parts := strings.Split(token, ",")
-
-		if len(parts) != 3 {
-			return nil, errors.Errorf("ReadGraph: invalid turnTypeTable token %q", token)
-		}
-
-		tt, err := strconv.ParseUint(parts[0], 10, 8)
+		tt, err := strconv.ParseUint(token, 10, 8)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to parse turnType in turnTypeTable: %v", token)
 		}
-		turningSpeed, err := strconv.ParseFloat(parts[1], 64)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse turningSpeed in turnTypeTable: %v", token)
-		}
-
-		containsTrafficLight := false
-
-		containsTrafficLight, err = strconv.ParseBool(parts[2])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse containsTrafficLight in turnTypeTable: %v", token)
-		}
-
-		turnTypeTable = append(turnTypeTable, pkg.NewTurn(pkg.TurnType(tt), turningSpeed, containsTrafficLight))
+		turnTypeTable = append(turnTypeTable, pkg.TurnType(tt))
 	}
 
 	overlayVertices := make(map[SubVertex]Index)
@@ -1112,6 +1093,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	graph.SetSCCs(sccs)
 	graph.SetSCCCondensationAdj(sccCondensationAdj)
 	graph.SetBoundingBox(bb)
+	graph.SetMinResolution(minResolution)
 
 	return graph, nil
 }

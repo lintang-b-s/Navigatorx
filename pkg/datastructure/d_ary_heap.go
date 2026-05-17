@@ -205,7 +205,8 @@ func (h *DAryHeap[T]) ExtractMin(updatePos func(queryInfoId, newHeapNodeId uint3
 // decreaseKey update rank dari item min-heap.   O(logN) heapify.
 func (h *DAryHeap[T]) DecreaseKey(itemPos uint32, rank float64, updatePos func(queryInfoId, newHeapNodeId uint32)) {
 
-	util.AssertPanic(itemPos < h.Size() && util.Le(rank, h.heap[itemPos].GetRank()), fmt.Sprintf("error when decrease key for vertex id = %d", itemPos))
+	util.AssertPanic(itemPos < h.Size() && util.Le(rank, h.heap[itemPos].GetRank()), fmt.Sprintf("error when decrease key for vertex id = %d, newRank: %v, oldRank: %v", itemPos, rank,
+		h.heap[itemPos].GetRank()))
 
 	h.heap[itemPos].SetRank(rank)
 	h.heapifyUp(itemPos, updatePos)

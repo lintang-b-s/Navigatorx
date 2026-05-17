@@ -3,12 +3,14 @@ package customizer
 import (
 	"context"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -231,11 +233,11 @@ func (c *Customizer) makeEdgeMaxSpeeds(updatedEdgeIds []da.Index, updatedEdgeMax
 // makeTurnTable membuat turn costs table
 // edgeMaxSpeeds speed limit dari setiap edges in m/s
 // updatedTurnTableIds dan updatedTurnPenalties adalah edgeIds dan turnPenalties dari edges yang diinput file csv
-func (c *Customizer) makeTurnTable(turnTypeTable []pkg.Turn, updatedTurnTableIds []da.Index, updatedTurnPenalties []float64, edgeMaxSpeeds []float64) []float64 {
+func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTableIds []da.Index, updatedTurnPenalties []float64, edgeMaxSpeeds []float64) []float64 {
 	mapTurnCosts := viper.GetStringMap("turncosts")
 	turnTypesCost := make([]float64, 6)
 	for turnTypeStr, cost := range mapTurnCosts {
-		if turnTypeStr == "traffic_light" {
+		if turnTypeStr == "traffic_light" || turnTypeStr == "max_turn_cost_based_on_angle_between_edges" {
 			continue
 		}
 		turnType := getTurnTableId(turnTypeStr)
@@ -250,6 +252,7 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.Turn, updatedTurnTableIds
 	}
 
 	trafficLightPenalty := viper.GetFloat64("turncosts.traffic_light") // in seconds
+	turnCostByAngleThreshold := viper.GetFloat64("turncosts.max_turn_cost_based_on_angle_between_edges")
 
 	turnTypesCost[pkg.NONE] = 0
 	turnTypesCost[pkg.NO_ENTRY] = pkg.INF_WEIGHT
@@ -258,29 +261,64 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.Turn, updatedTurnTableIds
 	turnTable := make([]float64, n)
 	for id := 0; id < n; id++ {
 		turnType := turnTypeTable[id]
-		turnTable[id] += turnTypesCost[turnType.GetTurnType()]
+		turnTable[id] += turnTypesCost[turnType]
 	}
+
+	minResolution := c.graph.GetMinResolution()
 
 	c.graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, eIdFrom da.Index) {
 		if c.graph.IsDummyOutEdge(eIdFrom) {
 			return
 		}
 		vLimitFrom := edgeMaxSpeeds[eIdFrom]
-		c.graph.ForOutEdgesOf(head, entryPoint, func(eIdTo, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+		c.graph.ForOutEdgesOf(head, entryPoint, func(eIdTo, headTo da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+			_, fromInEdgeId := c.graph.GetTailOfOutedgeWithInEdge(eIdFrom)
+			fromInEdge := c.graph.GetInEdge(fromInEdgeId)
+			toOutEdge := c.graph.GetOutEdge(eIdTo)
+
+			containsTrafficLight := fromInEdge.ContainsTrafficLight() || toOutEdge.ContainsTrafficLight()
+			if containsTrafficLight {
+				turnTable[turnTableId] += trafficLightPenalty
+			}
+
+			fromSegmentStreetName := c.graph.GetStreetName(eIdFrom)
+			toSegmentStreetName := c.graph.GetStreetName(eIdTo)
+
+			if !isTurnCostByAngleBetweenEdgesAllowed(turnType) || isSameName(fromSegmentStreetName, toSegmentStreetName) {
+				// skip kalau turnType bukan LEFT_TURN dan bukan RIGHT_TURN. skip juga kalau gak pindah jalan.
+				// soale kalau di jalan tol (example: https://www.openstreetmap.org/way/1301675709#map=15/-7.63705/110.66151)
+				// sering dipisah jadi beberaapa osm ways -> yang mana jadi beberapa graph edges. padahal masih bisa ngebut dan gak perlu turn costs di jalan tol??...
+				return
+			}
+
 			vLimitTo := edgeMaxSpeeds[eIdTo]
-			turn := turnTypeTable[turnTableId]
 			currentTurnCost := turnTable[turnTableId]
-			if util.Eq(turn.GetTurningSpeed(), 0) || turnType == pkg.NO_ENTRY || util.Eq(currentTurnCost, pkg.INF_WEIGHT) || c.graph.IsDummyOutEdge(eIdTo) {
+
+			prevVertex := c.graph.GetVertex(tail)
+			tailVertex := c.graph.GetVertex(head)
+			headVertex := c.graph.GetVertex(headTo)
+
+			prevInitialBearing := geo.ComputeInitialBearing(prevVertex.GetLat(), prevVertex.GetLon(), tailVertex.GetLat(),
+				tailVertex.GetLon())
+			relativeBearing := geo.ComputeRelativeBearing(tailVertex.GetLat(), tailVertex.GetLon(), headVertex.GetLat(),
+				headVertex.GetLon(), prevInitialBearing)
+			absRelativeBearing := math.Abs(relativeBearing)
+			turnAngleDeg := util.RadiansToDegree(absRelativeBearing)
+
+			l := fromInEdge.GetLength()
+			lPrime := toOutEdge.GetLength()
+			turningSpeed := pkg.CalcTurningSpeed(l, lPrime, minResolution, turnAngleDeg)
+
+			if util.Eq(turningSpeed, 0) || turnType == pkg.NO_ENTRY || util.Eq(currentTurnCost, pkg.INF_WEIGHT) || c.graph.IsDummyOutEdge(eIdTo) {
 				// gak ada turn penalty (pkg.NewTurnRest())
 				return
 			}
-			turnCostByAngleBetweenEdges := pkg.CalcTurningCost(turn.GetTurningSpeed(), vLimitFrom, vLimitTo)
+
+			turnCostByAngleBetweenEdges := pkg.CalcTurningCost(turningSpeed, vLimitFrom, vLimitTo)
+
+			turnCostByAngleBetweenEdges = util.MinFloat(turnCostByAngleBetweenEdges, turnCostByAngleThreshold)
 
 			turnTable[turnTableId] += turnCostByAngleBetweenEdges
-
-			if turn.ContainsTrafficLight() {
-				turnTable[turnTableId] += trafficLightPenalty
-			}
 		})
 	})
 
@@ -290,6 +328,20 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.Turn, updatedTurnTableIds
 		turnTable[turnTableId] += updatedTurnPenalties[i]
 	}
 	return turnTable
+}
+
+func isTurnCostByAngleBetweenEdgesAllowed(turnType pkg.TurnType) bool {
+	return turnType == pkg.LEFT_TURN || turnType == pkg.RIGHT_TURN
+}
+
+func isSameName(name1, name2 string) bool {
+	if name1 == "" || name2 == "" {
+		// seringkali di osm, nama street kosong "" (terutama di residential/living street/tertiary osm ways), better dianggap false
+		// biar kalo belok masih ada turn instructionnya
+		// contoh tertiary osm way yang gak ada namanya:  https://www.openstreetmap.org/way/332233207#map=17/-7.555473/110.769728
+		return false
+	}
+	return name1 == name2
 }
 
 func getTurnTableId(turnTypeStr string) pkg.TurnType {

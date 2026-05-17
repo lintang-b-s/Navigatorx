@@ -309,14 +309,16 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 	// T[u][i*outDegree[u]+j] = turn type from entryPoint i (inEdge ke-i dari vertex u) to exitPoint j  (outEdge ke-j dari vertex u)  at vertex u.
 	// buat via yang tipe nya osm node: https://wiki.openstreetmap.org/wiki/Relation:restriction .
-	turnMatrices := make([][]pkg.Turn, len(vertices)-1)
+	turnMatrices := make([][]pkg.TurnType, len(vertices)-1)
+
+	minResolution := pkg.INF_WEIGHT
 
 	// init turn matrices
 	for via := 0; via < len(turnMatrices); via++ {
-		turnMatrices[via] = make([]pkg.Turn, outDegree[via]*inDegree[via])
+		turnMatrices[via] = make([]pkg.TurnType, outDegree[via]*inDegree[via])
 
 		for j := 0; j < len(turnMatrices[via]); j++ {
-			turnMatrices[via][j] = pkg.NewTurnRest(pkg.NONE)
+			turnMatrices[via][j] = pkg.NONE
 		}
 
 		// tambahin turn type buat turn left/ turn right
@@ -336,20 +338,20 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 					tail.GetLon())
 				turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
 					headPoint.GetLon(), prevInitialBearing)
-				delta := geo.ComputeRelativeBearing(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
-					headPoint.GetLon(), prevInitialBearing)
-				absDelta := math.Abs(delta)
-				turnAngleDeg := util.RadiansToDegree(absDelta)
 
 				l := inEdge.GetLength()
 				lPrime := outEdge.GetLength()
-				turningSpeed := pkg.CalcTurningSpeed(l, lPrime, turnAngleDeg)
-				containsTrafficLight := inEdge.ContainsTrafficLight() || outEdge.ContainsTrafficLight()
+
+				if !util.Eq(l, 0) && !util.Eq(lPrime, 0) {
+					delta := pkg.CalcResolution(l, lPrime, pkg.INF_WEIGHT)
+					minResolution = min(minResolution, delta)
+				}
+
 				switch turn {
 				case da.TURN_SLIGHT_LEFT, da.TURN_LEFT, da.TURN_SHARP_LEFT:
-					turnMatrices[via][rowOffset+exitPoint] = pkg.NewTurn(pkg.LEFT_TURN, turningSpeed, containsTrafficLight)
+					turnMatrices[via][rowOffset+exitPoint] = pkg.LEFT_TURN
 				case da.TURN_SLIGHT_RIGHT, da.TURN_RIGHT, da.TURN_SHARP_RIGHT:
-					turnMatrices[via][rowOffset+exitPoint] = pkg.NewTurn(pkg.RIGHT_TURN, turningSpeed, containsTrafficLight)
+					turnMatrices[via][rowOffset+exitPoint] = pkg.RIGHT_TURN
 				}
 			}
 		}
@@ -425,7 +427,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						continue
 					}
 
-					turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.NewTurnRest(uturnType)
+					turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = uturnType
 				} else if i < len(way.graphNodes)-1 {
 
 					// backward
@@ -450,7 +452,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						}
 
 						if entryPoint != -1 && exitPoint != -1 {
-							turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.NewTurnRest(uturnType)
+							turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = uturnType
 						}
 					}
 
@@ -476,7 +478,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						}
 
 						if entryPoint != -1 && exitPoint != -1 {
-							turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.NewTurnRest(uturnType)
+							turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = uturnType
 						}
 					}
 
@@ -510,7 +512,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						continue
 					}
 
-					turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = pkg.NewTurnRest(uturnType)
+					turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = uturnType
 				}
 			}
 		}
@@ -652,7 +654,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 									// dissallow semua turn right...
 									// https://www.openstreetmap.org/relation/19516441#map=18/-7.774471/110.380569
 									// https://www.openstreetmap.org/relation/19514924
-									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NewTurnRest(pkg.NO_ENTRY)
+									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
 								}
 
 							case ONLY_RIGHT_TURN:
@@ -664,7 +666,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 								if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT || turn == da.CONTINUE_ON_STREET {
 									// dissallow semua turn left...
 									// https://www.openstreetmap.org/relation/19514925
-									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NewTurnRest(pkg.NO_ENTRY)
+									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
 								}
 
 							case ONLY_STRAIGHT_ON:
@@ -682,7 +684,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 									// dissallow semua turn right dan turn left...
 									// contoh: http://openstreetmap.org/relation/19474168
-									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NewTurnRest(pkg.NO_ENTRY)
+									turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
 								}
 
 							}
@@ -726,7 +728,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 					}
 
 					if !restriction.conditional {
-						turnMatrices[via][rowOffset+exitPoint] = pkg.NewTurnRest(turnType)
+						turnMatrices[via][rowOffset+exitPoint] = turnType
 					} else {
 
 						ctr := da.NewConditionalTurnRestriction(predecessor, via, successor, make([]da.Index, 0), false, restriction.timeRangeVal,
@@ -970,7 +972,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 								tailEntryPoint = k
 							} else {
 								// kasih turn cost INF buat transisi dari  all other inEdges dari tail (selain from-edge) -> tail -> via-edge 2
-								turnMatrices[tail][k*da.Index(outDegree[tail])+tailNewViaEdgeExitPoint] = pkg.NewTurnRest(pkg.NO_ENTRY)
+								turnMatrices[tail][k*da.Index(outDegree[tail])+tailNewViaEdgeExitPoint] = pkg.NO_ENTRY
 							}
 						}
 
@@ -996,10 +998,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 						rowOffset := tailEntryPoint * da.Index(outDegree[tail])
 
 						// kasih turn cost 0 buat transisi dari from-edge -> tail -> via-edge 2
-						turnMatrices[tail][rowOffset+tailNewViaEdgeExitPoint] = pkg.NewTurnRest(pkg.NONE)
+						turnMatrices[tail][rowOffset+tailNewViaEdgeExitPoint] = pkg.NONE
 
 						// kasih turn cost INF buat transisi dari from-edge -> tail -> via-edge 1
-						turnMatrices[tail][rowOffset+tailViaEdgeExitPoint] = pkg.NewTurnRest(pkg.NO_ENTRY)
+						turnMatrices[tail][rowOffset+tailViaEdgeExitPoint] = pkg.NO_ENTRY
 
 						if lastViaway {
 							// dari via-edge 2 ke to-edge dikasih turn cost INF (karena OSM u-turn restriction diatas).. biar dari  Jalan Siliwangi ke arah timur (from-edge 2) -> via-edge 2 -> to-edge gabisa lewat...
@@ -1022,22 +1024,22 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 							switch restriction.turnRestriction {
 							case NO_LEFT_TURN:
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NewTurnRest(pkg.NO_ENTRY)
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
 
 							case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NewTurnRest(pkg.NO_ENTRY)
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
 
 							case NO_STRAIGHT_ON:
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NewTurnRest(pkg.NO_ENTRY)
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
 
 							case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NewTurnRest(pkg.NO_ENTRY)
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
 
 							case NO_ENTRY:
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NewTurnRest(pkg.NO_ENTRY)
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
 
 							default:
-								turnMatrices[head][rowOffset+headExitPoint] = pkg.NewTurnRest(pkg.NONE)
+								turnMatrices[head][rowOffset+headExitPoint] = pkg.NONE
 
 							}
 						}
@@ -1079,7 +1081,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		}
 	}
 
-	matrices := make([]pkg.Turn, 0)
+	matrices := make([]pkg.TurnType, 0)
 	matrixOffset := 0
 
 	for v := 0; v < len(vertices)-1; v++ {
@@ -1162,6 +1164,10 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	graphStorage.SetConditionalTrafficModes(conditionalTrafficModesVal)
 	graphStorage.SetConditionalTurnRestrictions(conditionalTurnRestrictions)
 	graph.SetGraphStorage(graphStorage)
+
+	if roadNetwork {
+		graph.SetMinResolution(minResolution)
+	}
 
 	return graph, edgeInfoIds
 }

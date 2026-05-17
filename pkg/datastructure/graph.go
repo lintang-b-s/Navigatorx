@@ -326,22 +326,23 @@ type Graph struct {
 	inEdges           []InEdge            // reversed edges. setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v)
 	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
 	verticesOsmIds    *PackedSlice
-	cellNumbers       []Pv       // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
-	outEdgeCellOffset []Index    // offset of first outEdge for each cellNumber
-	inEdgeCellOffset  []Index    // offset of first inEdge for each cellNumber
-	turnTypeTable     []pkg.Turn // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTypeTable. 1D-TurnMatrices[v][i][j] = i*outDegree + j
+	cellNumbers       []Pv           // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
+	outEdgeCellOffset []Index        // offset of first outEdge for each cellNumber
+	inEdgeCellOffset  []Index        // offset of first inEdge for each cellNumber
+	turnTypeTable     []pkg.TurnType // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTypeTable. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 
 	// strongly connected components
 	sccs               []Index   // verticeId -> sccId
 	sccCondensationAdj [][]Index // condensation graph connection of scc of u -> scc of v
 
 	boundingBox    *BoundingBox
+	minResolution  float64
 	maxEdgesInCell Index // maximum number of inEdges/outEdges in any cell
 
 	roadNetwork bool
 }
 
-func NewGraph(vertices []Vertex, outEdges []OutEdge, inEdges []InEdge, turnTypeTable []pkg.Turn, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
+func NewGraph(vertices []Vertex, outEdges []OutEdge, inEdges []InEdge, turnTypeTable []pkg.TurnType, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
 	return &Graph{vertices: vertices, outEdges: outEdges, inEdges: inEdges, turnTypeTable: turnTypeTable, maxEdgesInCell: 0, roadNetwork: roadNetwork,
 		verticesOsmIds: verticesOsmIds}
 }
@@ -369,6 +370,14 @@ func (g *Graph) IsRoadNetworkGraph() bool {
 	return g.roadNetwork
 }
 
+func (g *Graph) SetMinResolution(minResolution float64) {
+	g.minResolution = minResolution
+}
+
+func (g *Graph) GetMinResolution() float64 {
+	return g.minResolution
+}
+
 func (g *Graph) GetEdgeSpeeds() []float64 {
 	m := Index(g.NumberOfEdges())
 	eSpeeds := make([]float64, m)
@@ -380,8 +389,8 @@ func (g *Graph) GetEdgeSpeeds() []float64 {
 	return eSpeeds
 }
 
-func (g *Graph) GetTurnTypes() []pkg.Turn {
-	ttp := make([]pkg.Turn, len(g.turnTypeTable))
+func (g *Graph) GetTurnTypes() []pkg.TurnType {
+	ttp := make([]pkg.TurnType, len(g.turnTypeTable))
 	copy(ttp, g.turnTypeTable)
 	return ttp
 }
@@ -402,7 +411,7 @@ func (g *Graph) SetVertexOsmIds(verticesOsmIds *PackedSlice) {
 	g.verticesOsmIds = verticesOsmIds
 }
 
-func (g *Graph) SetNewTurnTypeTable(turnTypeTable []pkg.Turn) {
+func (g *Graph) SetNewTurnTypeTable(turnTypeTable []pkg.TurnType) {
 	g.turnTypeTable = turnTypeTable
 }
 
@@ -490,6 +499,7 @@ func (g *Graph) GetTailOfOutedge(e Index) Index {
 	return g.inEdges[head.firstIn+Index(outEdge.entryPoint)].tail
 }
 
+// GetTailOfOutedgeWithInEdge. return (tail,inEdge) dari outEdge id
 func (g *Graph) GetTailOfOutedgeWithInEdge(e Index) (Index, Index) {
 	outEdge := g.outEdges[e]
 	head := g.vertices[outEdge.head]
@@ -530,7 +540,7 @@ func (g *Graph) GetEntryOrder(v, inEdgeId Index) Index {
 // GetTurnType get turn type dari entryPoint->u->exitPoint
 func (g *Graph) GetTurnType(u Index, entryPoint, exitPoint Index) pkg.TurnType {
 	turnTableId := g.vertices[u].turnTablePtr + entryPoint*g.GetOutDegree(u) + exitPoint
-	return g.turnTypeTable[turnTableId].GetTurnType()
+	return g.turnTypeTable[turnTableId]
 }
 
 // GetTurnType get turntableId dari entryPoint->u->exitPoint
@@ -658,7 +668,7 @@ func (g *Graph) GetOverlayVertex(u Index, exitEntryOrder Index, exit bool) (Inde
 	return id, exists
 }
 
-func (g *Graph) GetTurnTypetable() []pkg.Turn {
+func (g *Graph) GetTurnTypetable() []pkg.TurnType {
 	return g.turnTypeTable
 }
 
