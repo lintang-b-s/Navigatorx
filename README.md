@@ -28,7 +28,7 @@ sh scripts/build_pgo.sh
 
 ### Pre-processing
 
-run a preprocessing phase to speed up point-to-point queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1)) algorithm is available. The CRP pre-processing phase creates multilevel partitions and overlay graph data structures.
+run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1)) algorithm is available. The CRP pre-processing phase creates multilevel partitions and overlay graph data structures.
 
 ```
 export GOFLAGS="-buildvcs=false"
@@ -38,7 +38,7 @@ go build -o ./bin/preprocessor ./cmd/preprocessor
 
 ### Customization
 
-The Customizable Route Planning CRP customization phase ([[1]](#ref1)) computes the shortcut weights at each cell of the multilevel partitioning result and computes landmark distances for the ALT algorithm (A\*, landmarks, and triangle inequality) ([[3]](#ref3)).
+The Customizable Route Planning CRP customization phase ([[1]](#ref1)) computes the shortcut weights at each cell of the multilevel partitioning result and computes landmark distances for the ALT algorithm (A\* search, landmarks, and triangle inequality) ([[3]](#ref3)).
 
 ```
 go build -o ./bin/customizer ./cmd/customizer

@@ -35,9 +35,9 @@ func (t Turn) ContainsTrafficLight() bool {
 }
 
 const (
-	maxCentAccel       = 1.6  // m/s²
-	avgAccelAfterTurn  = 1.2  // m/s²
-	avgDecelBeforeTurn = -1.2 // m/s²
+	maxCentAccel       = 3.67749375 // m/s²  (avg peak lateral acceleration VBOX https://www.jsheld.com/uploads/PDFs/Lateral-and-Tangential-Accelerations-of-Left-Turning-Vehicles-from-Naturalistic-Observations.pdf)
+	avgAccelAfterTurn  = 2.745862   // m/s² (0.28g avg acceleration phase 2 row 1  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
+	avgDecelBeforeTurn = -2.157463  // m/s²  (0.22g avg decceleration phase 1 row 1  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
 )
 
 func CalcResolution(l, lPrime, minResolution float64) float64 {
@@ -119,7 +119,7 @@ var (
 	DoubleTrackedVehicleEnabled = true
 	MotorizedVehicleEnabled     = true
 
-	// vehicle or pedestrians. for oneway interperation for routing: https://wiki.openstreetmap.org/wiki/Key:onewayf
+	// vehicle or pedestrians. for oneway interperation for routing: https://wiki.openstreetmap.org/wiki/Key:oneway
 	// see Land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
 	// vehicle is all type of vehicle (bicycle, motorcar, bus, motorcycle, hgv, goods,taxi, minibus)
 	IsVehicleEnabled bool = true
