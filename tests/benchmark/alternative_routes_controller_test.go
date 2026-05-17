@@ -36,7 +36,7 @@ func BenchmarkAlternativeRoutesController(b *testing.B) {
 	tilingEngine := tiler.NewTilingEngine(g, logger)
 	tilingService := usecases.NewTileService(logger, tilingEngine)
 
-	api := controllers.New(rs, logger, nil, tilingService)
+	api := controllers.New(rs, logger, tilingService)
 
 	params := httprouter.Params{}
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))

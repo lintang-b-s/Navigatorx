@@ -25,9 +25,8 @@ const (
 func TestRoutingAPI_ShortestPath(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockMMS := new(MockMapMatcherService)
 	mockTS := new(MockTilingService)
-	api := New(mockRS, log, mockMMS, mockTS)
+	api := New(mockRS, log, mockTS)
 
 	t.Run("Missing Params", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/computeRoutes", nil)
@@ -169,9 +168,8 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockMMS := new(MockMapMatcherService)
 	mockTS := new(MockTilingService)
-	api := New(mockRS, log, mockMMS, mockTS)
+	api := New(mockRS, log, mockTS)
 
 	t.Run("Success", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
@@ -300,9 +298,8 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 func TestRoutingAPI_GetBoundingBox(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockMMS := new(MockMapMatcherService)
 	mockTS := new(MockTilingService)
-	api := New(mockRS, log, mockMMS, mockTS)
+	api := New(mockRS, log, mockTS)
 
 	t.Run("Success", func(t *testing.T) {
 		req, _ := http.NewRequest("GET", "/boundingBox", nil)
@@ -331,9 +328,8 @@ func TestRoutingAPI_GetBoundingBox(t *testing.T) {
 func TestRoutingAPI_Routes(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockMMS := new(MockMapMatcherService)
 	mockTS := new(MockTilingService)
-	api := New(mockRS, log, mockMMS, mockTS)
+	api := New(mockRS, log, mockTS)
 
 	router := httprouter.New()
 	group := helper.NewRouteGroup(router, "/api")

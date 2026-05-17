@@ -57,7 +57,6 @@ func (api *API) Run(
 
 	useRateLimit bool,
 	routingService controllers.RoutingService,
-	mapMatcherService controllers.MapMatcherService,
 	tilingService controllers.TilingService,
 	shutdownPeriod time.Duration,
 ) error {
@@ -99,7 +98,7 @@ func (api *API) Run(
 
 	group := router_helper.NewRouteGroup(router, "/api")
 
-	navigatorRoutes := controllers.New(routingService, log, mapMatcherService, tilingService)
+	navigatorRoutes := controllers.New(routingService, log, tilingService)
 
 	navigatorRoutes.Routes(group)
 

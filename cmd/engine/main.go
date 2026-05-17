@@ -9,9 +9,7 @@ import (
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
-	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
@@ -33,7 +31,6 @@ var (
 	metricsFile            string
 	landmarkFile           string
 	timeFunctionFile       string
-	transitionMHTFile      string
 	httpPort               = flag.Int("http-port", 6060, "http port")
 	websocketPort          = flag.Int("websocket-port", 6666, "websocket port")
 	proxyPort              = flag.Int("proxy-port", 6767, "proxy port")
@@ -54,7 +51,6 @@ func init() {
 	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, *regionName)
 	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
 	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
-	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.txt", profileName, *regionName)
 
 	config.InitProfileConfig(profileName, *regionName)
 
@@ -86,15 +82,8 @@ func main() {
 	rtree := spatialindex.NewRtree()
 	rtree.Build(re.GetGraph(), logger)
 
-	N, err := da.ReadSparseMatrixFromFile[int](transitionMHTFile, int(0),
-		func(a, b int) bool { return a == b })
-	if err != nil {
-		panic(err)
-	}
-
 	graph := re.GetGraph()
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.0001, 4.07, 0.0000001,
-		0.06, 3, N) // speed in meter/s,
+
 	api := http.NewServer(logger)
 
 	altSearch := routing.NewAlternativeRouteSearch(re)
@@ -105,8 +94,6 @@ func main() {
 		panic(err)
 	}
 
-	mapmatcherService := usecases.NewMapMatcherService(logger, onlineMapMatcherEngine)
-
 	util.FreeMemory()
 
 	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
@@ -114,7 +101,7 @@ func main() {
 	tilingService := usecases.NewTileService(logger, tilingEngine)
 
 	serverErr := api.Use(
-		logger, *useRateLimiter, routingService, mapmatcherService, tilingService, shutdownPeriod*time.Second)
+		logger, *useRateLimiter, routingService, tilingService, shutdownPeriod*time.Second)
 
 	if serverErr != nil {
 		logger.Error("server exited unexpectedly", zap.Error(err))

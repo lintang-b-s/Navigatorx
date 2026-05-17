@@ -19,9 +19,8 @@ import (
 )
 
 type routingAPI struct {
-	routingService     RoutingService
-	mapmatchingService MapMatcherService
-	tilingService      TilingService
+	routingService RoutingService
+	tilingService  TilingService
 
 	log *zap.Logger
 
@@ -30,7 +29,7 @@ type routingAPI struct {
 	trans ut.Translator
 }
 
-func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapMatcherService, tilingService TilingService) *routingAPI {
+func New(routingService RoutingService, log *zap.Logger, tilingService TilingService) *routingAPI {
 	validate := validator.New()
 	english := en.New()
 	uni := ut.New(english, english)
@@ -38,12 +37,11 @@ func New(routingService RoutingService, log *zap.Logger, mapmatchingService MapM
 	_ = enTranslations.RegisterDefaultTranslations(validate, trans)
 
 	return &routingAPI{
-		routingService:     routingService,
-		log:                log,
-		mapmatchingService: mapmatchingService,
-		validate:           validate,
-		tilingService:      tilingService,
-		trans:              trans,
+		routingService: routingService,
+		log:            log,
+		validate:       validate,
+		tilingService:  tilingService,
+		trans:          trans,
 	}
 
 }

@@ -41,7 +41,6 @@ func TestServer_Use(t *testing.T) {
 	mockRS.On("Close").Return()
 	mockRE.On("Close").Return()
 
-	mockMMS := &mockMapMatcherService{}
 	mockTS := &mockTilingService{}
 
 	go func() {
@@ -50,7 +49,7 @@ func TestServer_Use(t *testing.T) {
 		_ = p.Signal(syscall.SIGINT)
 	}()
 
-	err := srv.Use(log, false, mockRS, mockMMS, mockTS, 100*time.Millisecond)
+	err := srv.Use(log, false, mockRS, mockTS, 100*time.Millisecond)
 	skipHTTPServerSocketPermission(t, err)
 	assert.NoError(t, err)
 }
@@ -73,11 +72,6 @@ func (m *mockRoutingService) GetRoutingEngine() controllers.RoutingEngine {
 	return args.Get(0).(controllers.RoutingEngine)
 }
 func (m *mockRoutingService) InitBackgroundWorker(ctx context.Context) { m.Called(ctx) }
-
-type mockMapMatcherService struct {
-	controllers.MapMatcherService
-	mock.Mock
-}
 
 type mockTilingService struct {
 	controllers.TilingService

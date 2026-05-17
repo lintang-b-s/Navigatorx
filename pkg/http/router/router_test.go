@@ -23,7 +23,6 @@ func TestAPI_Run(t *testing.T) {
 	api := NewAPI(log)
 
 	mockRS := new(MockRoutingService)
-	mockMMS := new(MockMapMatcherService)
 	mockTS := new(MockTilingService)
 	mockEngine := new(MockRoutingEngine)
 
@@ -45,7 +44,7 @@ func TestAPI_Run(t *testing.T) {
 			_ = process.Signal(syscall.SIGINT)
 		}()
 
-		err := api.Run(config, log, false, mockRS, mockMMS, mockTS, 100*time.Millisecond)
+		err := api.Run(config, log, false, mockRS, mockTS, 100*time.Millisecond)
 
 		assert.NoError(t, err)
 	})
@@ -66,7 +65,7 @@ func TestAPI_Run(t *testing.T) {
 			Port: port,
 		}
 
-		err = api.Run(configErr, log, false, mockRS, mockMMS, mockTS, 100*time.Millisecond)
+		err = api.Run(configErr, log, false, mockRS, mockTS, 100*time.Millisecond)
 		assert.Error(t, err)
 	})
 
@@ -76,7 +75,6 @@ func TestAPI_Run_InjectedServerError(t *testing.T) {
 	log := zap.NewNop()
 	api := NewAPI(log)
 	mockRS := new(MockRoutingService)
-	mockMMS := new(MockMapMatcherService)
 	mockTS := new(MockTilingService)
 	mockEngine := new(MockRoutingEngine)
 
@@ -104,7 +102,7 @@ func TestAPI_Run_InjectedServerError(t *testing.T) {
 		shutdownHTTP = origShutdown
 	})
 
-	err := api.Run(http_server.Config{Port: 9102}, log, true, mockRS, mockMMS, mockTS, 50*time.Millisecond)
+	err := api.Run(http_server.Config{Port: 9102}, log, true, mockRS, mockTS, 50*time.Millisecond)
 
 	assert.EqualError(t, err, "main server error")
 	mockRS.AssertExpectations(t)
