@@ -48,8 +48,6 @@ go build -o ./bin/customizer ./cmd/customizer
 ### Query Engine
 
 ```
-go build -o ./bin/generator ./cmd/generator
-./bin/generator
 
 go build -o ./bin/engine -pgo=./bin/default.pgo  ./cmd/engine
 ./bin/engine
