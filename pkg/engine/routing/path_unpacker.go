@@ -69,8 +69,6 @@ func (pu *PathUnpacker) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, 
 
 	now := time.Now()
 
-	// todo: sebelumnya pakai worker pools di worker_pool.go, di benchmark ada additional 40000 B/op, bikin worker pool yang allocate less space ?
-
 	shortcutPathSet := make(map[uint64]uint8)
 
 	for i := 0; i < len(packedPath); {

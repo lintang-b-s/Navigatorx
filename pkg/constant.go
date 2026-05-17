@@ -8,36 +8,10 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type Turn struct {
-	turnType             TurnType
-	turningSpeed         float64
-	containsTrafficLight bool
-}
-
-func NewTurn(turnType TurnType, turningSpeed float64, containsTrafficLight bool) Turn {
-	return Turn{turnType: turnType, turningSpeed: turningSpeed, containsTrafficLight: containsTrafficLight}
-}
-
-func NewTurnRest(turnType TurnType) Turn {
-	return Turn{turnType: turnType}
-}
-
-func (t Turn) GetTurnType() TurnType {
-	return t.turnType
-}
-
-func (t Turn) GetTurningSpeed() float64 {
-	return t.turningSpeed
-}
-
-func (t Turn) ContainsTrafficLight() bool {
-	return t.containsTrafficLight
-}
-
 const (
-	maxCentAccel       = 3.67749375 // m/s²  (avg peak lateral acceleration VBOX https://www.jsheld.com/uploads/PDFs/Lateral-and-Tangential-Accelerations-of-Left-Turning-Vehicles-from-Naturalistic-Observations.pdf)
-	avgAccelAfterTurn  = 2.745862   // m/s² (0.28g avg acceleration phase 2 row 1  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
-	avgDecelBeforeTurn = -2.157463  // m/s²  (0.22g avg decceleration phase 1 row 1  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
+	maxCentAccel       = 1.6671305  // m/s²  (avg 86 vehicles peak lateral acceleration  https://www.jsheld.com/uploads/PDFs/Lateral-and-Tangential-Accelerations-of-Left-Turning-Vehicles-from-Naturalistic-Observations.pdf)
+	avgAccelAfterTurn  = 0.980665   // m/s² (0.10g avg acceleration phase 1 row 2  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
+	avgDecelBeforeTurn = -1.6671305 // m/s²  (0.17g avg decceleration phase 1 row 1  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
 )
 
 func CalcResolution(l, lPrime, minResolution float64) float64 {

@@ -474,8 +474,8 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 
 	graphStorage.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
 
-	logger.Sugar().Infof("number of vertices: %v\n", graph.NumberOfVertices())
-	logger.Sugar().Infof("number of edges: %v\n", graph.NumberOfEdges())
+	logger.Sugar().Infof("number of vertices: %v", graph.NumberOfVertices())
+	logger.Sugar().Infof("number of edges: %v", graph.NumberOfEdges())
 
 	if err = scanner.Close(); err != nil {
 		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Close scanner: %s: %w", mapFile, err)
