@@ -194,7 +194,7 @@ func MaxInt(a, b int64) int64 {
 }
 
 const (
-	EPS = 1e-9
+	EPS = 1e-7
 )
 
 // equal operator
@@ -207,7 +207,7 @@ func EqEps(a, b, eps float64) bool {
 	return math.Abs(a-b) <= eps
 }
 
-// less than operator
+// less than operator. a<b
 func Lt(a, b float64) bool {
 	return a+EPS < b
 }

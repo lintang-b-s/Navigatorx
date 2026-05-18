@@ -440,7 +440,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	n := 20
+	n := 50
 	qset := make(map[da.Index]struct{})
 
 	queries := make([]da.Index, 0, n)
@@ -551,6 +551,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 			t.Logf("done query id: %v\n", id+1)
 		}
 		if counterexample {
+
 			return newCounterExampleData(expectedSp, sp, []da.Index{}, []da.Index{}, true)
 		}
 

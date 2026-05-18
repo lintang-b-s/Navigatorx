@@ -193,6 +193,11 @@ func (sc *ScannedBitsetStorage) Set(queryInfoId uint32) {
 	sc.scanned.Set(uint(queryInfoId))
 }
 
+func (sc *ScannedBitsetStorage) Clear(maxEdgesInCell uint32) {
+	approxMaxSearchSize := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
+	sc.scanned = bitset.New(uint(approxMaxSearchSize))
+}
+
 type ScannedSettorage struct {
 	scanned hashset.Uint32Set
 }
@@ -207,4 +212,9 @@ func (sc *ScannedSettorage) Test(queryInfoId uint32) bool {
 
 func (sc *ScannedSettorage) Set(queryInfoId uint32) {
 	sc.scanned.Add(queryInfoId)
+}
+
+func (sc *ScannedSettorage) Clear(maxEdgesInCell uint32) {
+	approxMaxSearchSize := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
+	sc.scanned = hashset.NewUint32WithSize(int(approxMaxSearchSize))
 }
