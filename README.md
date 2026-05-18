@@ -69,6 +69,8 @@ k6 run eval/crp_alt/load_tests/k6_sp.js
 k6 run eval/crp_alt/load_tests/k6_alternatives.js
 ```
 
+load tests result: https://github.com/lintang-b-s/skripsi_code 
+
 ## API Documentation
 
 The OpenAPI specification is available at [swagger.yaml](./swagger.yaml).
