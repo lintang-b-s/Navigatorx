@@ -49,15 +49,15 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
 partisi road networks graph dengan cara:
 (1) sort vertices by linear kombinaasi latitude & longitude
-(2) compute max flow/min st-cut dari first k nodes (sources) to last k nodes(sinks) dari sortest vertices
-(3) return minimum st-cut sebagai edge separator (atau recurse sampai size dari resulting subgraphs < maximumCellSize)
+(2) compute max flow/st-mincut dari first k nodes (sources) to last k nodes(sinks) dari sortest vertices
+(3) return st-mincut sebagai edge separator (atau recurse sampai size dari resulting subgraphs < maximumCellSize U).
 
 time complexity:
 let U = rb.maximumCellSize. computeInertialFlowDinic is just run dinic algorithm for multiple times. dinic time complexity O(n^2 * m).
 worst case ketika the graph adlh complete graph, m=n(n-1)/2 -> dinic O(n^2 * n(n-1)/2)
-worst case dari inertial flow ketika dinic return minimum cut dengan partisi S, T, dengan |S|=1  dan |T|= n-1  (atau |T|=1 dan |S|=n-1).
+worst case dari inertial flow ketika dinic return st-mincut dengan partisi S, T, dengan |S|=1  dan |T|= n-1  (atau |T|=1 dan |S|=n-1).
 T(n) = n^2 * \frac{n * (n-1)}{2} *c + T(n-1)
-base case: n-k = U
+base case: T(U)=O(1)
 T(n) = O(n^5)
 */
 func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {

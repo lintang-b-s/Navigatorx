@@ -377,7 +377,8 @@ func newCustomizerCell(cell da.Cell, cellNumber da.Pv) customizerCell {
 /*
 Customization Phase of Customizable Route Planning (CRP) by delling et al. see section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
-let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
+let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any cell
+let c_1, c_l be the number of cells in level 1 and the number of cells in level l.
 
 worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
 worst case buildLevel in level l:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
@@ -438,7 +439,7 @@ func (c *Customizer) buildLowestLevel(
 
 		dijkstra := func(entries <-chan da.Index) {
 			/*
-				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
+				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any cell
 				let n,m,k denote the number vertices,edges, and number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), respectively.
 
 
@@ -621,7 +622,7 @@ func (c *Customizer) buildLevel(
 
 		dijkstra := func(entries <-chan da.Index) {
 			/*
-				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any partition
+				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortucts within any cell
 				let n,m,k denote the number vertices,edges, and number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), respectively.
 
 

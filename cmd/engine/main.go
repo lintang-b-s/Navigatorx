@@ -23,17 +23,16 @@ import (
 )
 
 var (
-	profileFilePath        = flag.String("profile", "./data/car.yaml", "profile file path")
-	profileName            string
-	regionName             = flag.String("region", "diy_solo_semarang", "region name")
-	graphFile              string
-	overlayGraphFile       string
-	metricsFile            string
-	landmarkFile           string
-	timeFunctionFile       string
-	httpPort               = flag.Int("http-port", 6060, "http port")
-	websocketPort          = flag.Int("websocket-port", 6666, "websocket port")
-	proxyPort              = flag.Int("proxy-port", 6767, "proxy port")
+	profileFilePath  = flag.String("profile", "./data/car.yaml", "profile file path")
+	profileName      string
+	regionName       = flag.String("region", "diy_solo_semarang", "region name")
+	graphFile        string
+	overlayGraphFile string
+	metricsFile      string
+	landmarkFile     string
+	timeFunctionFile string
+	httpPort         = flag.Int("http-port", 6060, "http port")
+
 	gracefulShutdownPeriod = flag.Int("graceful-shutdown-period", 3, "graceful shutdown period") // see https://victoriametrics.com/blog/go-graceful-shutdown/
 	useRateLimiter         = flag.Bool("rate-limit", false, "use rate limiter")
 	rateLimitParam         = flag.String("rate-limit-param", "6,10", "rate limit parameters qps,burst")
@@ -42,8 +41,6 @@ var (
 func init() {
 	flag.Parse()
 	viper.Set("http_port", *httpPort)
-	viper.Set("websocket_port", *websocketPort)
-	viper.Set("proxy_port", *proxyPort)
 
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
 	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
@@ -61,7 +58,6 @@ func init() {
 			panic(fmt.Sprintf("invalid rate-limit-param format: %s. expected 'qps,burst' (e.g., '6,10')", *rateLimitParam))
 		}
 		http_router.SetRateLimit(q, b)
-
 	}
 }
 
