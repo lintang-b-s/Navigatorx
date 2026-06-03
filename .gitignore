@@ -82,3 +82,8 @@ debug/
 .coverage/
 
 
+data/eval/
+*.gpx
+
+*.zip
+

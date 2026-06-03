@@ -23,7 +23,7 @@ func (crp *CRPRoutingEngine) RetrievePackedPath(forwardMid,
 // setelah CRP query terminates, kita mendapatkan mid vertex (atau overlay vertex), dengan s-mid-t adalah shortest path
 // untuk retrieve full packed path dari s ke mid kita backtrack ke ancestor (parents) dari mid sampai ke s.
 // edges pada path s-mid bisa berupa shortcut edges dan base edge
-// dinakan packed path karena masih terdapat shortcut edges yang menyusun packed path
+// dinamakan packed path karena masih terdapat shortcut edges yang menyusun packed path
 // bobot dari shortcut edge (u,v) adalah shortest path cost dari overlay vertex u ke overlay vertex v yang sudah kita precompute di fase kustomisasi CRP
 // shortcut edge (u,v) disusun oleh base edges yang menyusun shortest path dari overlay vertex u ke overlay vertex v
 // kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya

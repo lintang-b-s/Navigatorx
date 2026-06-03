@@ -4,7 +4,6 @@ package costfunction
 import (
 	"bufio"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -44,12 +43,17 @@ func NewTimeCostFunctionEmpty() *TimeFunction {
 func (tf *TimeFunction) GetWeight(eId da.Index, eDefaultWeight, eLength float64) float64 {
 	if tf.isRoadNetwork {
 		maxspeed := tf.edgeMaxSpeeds[eId] // m/s
-		if util.Eq(eDefaultWeight, pkg.INF_WEIGHT) || util.Eq(maxspeed, 0) {
+		if util.Eq(eDefaultWeight, pkg.INF_WEIGHT) {
 			return eDefaultWeight
+		} else if util.Eq(maxspeed, 0) {
+			// blokade jalan. kasih inf travel time
+			return pkg.INF_WEIGHT
 		}
-		if eDefaultWeight == 0 || math.IsNaN(maxspeed) {
+
+		if eDefaultWeight == 0 {
 			return 0
 		}
+
 		return eLength / maxspeed
 	}
 	// ini buat correctness test
@@ -143,7 +147,7 @@ func (tf *TimeFunction) WriteToFile(filename string) error {
 	return nil
 }
 
-func ReadFromFile(filename string) (*TimeFunction, error) {
+func ReadFromFile(filename string, readBuf *bufio.Reader) (*TimeFunction, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to open file %v: %w", filename, err)
@@ -151,8 +155,8 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 
 	defer f.Close()
 
-	r := bufio.NewReader(f)
-	line, err := util.ReadLine(r)
+	readBuf.Reset(f)
+	line, err := util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to util.ReadLine(r): %w", err)
 	}
@@ -162,7 +166,7 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 		return nil, fmt.Errorf("timefunction.ReadFromFile: failed read numOfEdges: %w", err)
 	}
 
-	line, err = util.ReadLine(r)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to util.ReadLine(r) untuk edge max speeds: %w", err)
 	}
@@ -177,7 +181,7 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 		edgeMaxSpeeds[eId] = eMaxSpeed
 	}
 
-	line, err = util.ReadLine(r)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		if err.Error() == "EOF" {
 			return NewTimeCostFunction(true, edgeMaxSpeeds, nil), nil
@@ -192,7 +196,7 @@ func ReadFromFile(filename string) (*TimeFunction, error) {
 
 	var turnTable []float64
 	if numOfTurns > 0 {
-		line, err = util.ReadLine(r)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, fmt.Errorf("timefunction.ReadFromFile: failed to util.ReadLine(r) untuk turn table: %w", err)
 		}

@@ -71,3 +71,15 @@ func (cs *Coordinates) Reset() {
 	slice = slice[:0]
 	*cs = slice
 }
+
+// https://go.dev/doc/effective_go#pointers_vs_values
+func (cs *Coordinates) Get(i int) Coordinate {
+	slice := *cs
+	return slice[i]
+}
+
+// https://go.dev/doc/effective_go#pointers_vs_values
+func (cs *Coordinates) Length() int {
+	slice := *cs
+	return len(slice)
+}

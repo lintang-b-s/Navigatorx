@@ -82,12 +82,20 @@ func (p *PhantomNode) GetReverseTravelTime() float64 {
 	return p.reverseTravelTime
 }
 
+func (p *PhantomNode) SetReverseTravelTime(reverseTravelTime float64) {
+	p.reverseTravelTime = reverseTravelTime
+}
+
 func (p *PhantomNode) GetForwardDistance() float64 {
 	return p.forwardDistance
 }
 
 func (p *PhantomNode) GetReverseDistance() float64 {
 	return p.reverseDistance
+}
+
+func (p *PhantomNode) SetReverseDistance(reverseDistance float64) {
+	p.reverseDistance = reverseDistance
 }
 
 func (p *PhantomNode) GetOutEdgeId() Index {

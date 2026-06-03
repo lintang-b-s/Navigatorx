@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	osmfFile = "../../data/yogyakarta.osm.pbf"
+	osmfFile = "./data/yogyakarta.osm.pbf"
 )
 
 func init() {

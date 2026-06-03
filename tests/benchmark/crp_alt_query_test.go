@@ -29,7 +29,7 @@ var (
 
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	osmfFile                = "../../data/yogyakarta.osm.pbf"
+	osmfFile                = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_benchmark.graph"
 	overlayGraphFile string = "./data/overlay_graph_benchmark.graph"
 	metricsFile      string = "./data/metrics_benchmark.txt"

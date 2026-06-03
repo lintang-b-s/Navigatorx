@@ -393,7 +393,7 @@ const (
 	graphBufferSize = 4096 * 4
 )
 
-func ReadGraph(filename string) (*Graph, error) {
+func ReadGraph(filename string, readBuf *bufio.Reader) (*Graph, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed opening file: %s", filename)
@@ -403,9 +403,9 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	snp := s2.NewReader(f)
 
-	br := bufio.NewReaderSize(snp, graphBufferSize)
+	readBuf.Reset(snp)
 
-	line, err := util.ReadLine(br)
+	line, err := util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed reading line: %s", filename)
 	}
@@ -448,7 +448,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	var vertexOsmId uint64
 	verticesOsmIdsPs := NewPackedSlice(BIT_SIZE_OSM_NODE_ID, uint64(numEdges))
 	for i := 0; i < int(numVertices); i++ {
-		vertexLine, err := util.ReadLine(br)
+		vertexLine, err := util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to read vertexLine")
 		}
@@ -461,7 +461,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	outEdges := make([]OutEdge, numEdges)
 	for i := 0; i < int(numEdges); i++ {
-		outEdgeLine, err := util.ReadLine(br)
+		outEdgeLine, err := util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to read outEdgeLine")
 		}
@@ -473,7 +473,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	inEdges := make([]InEdge, numEdges)
 	for i := 0; i < int(numEdges); i++ {
-		inEdgeLine, err := util.ReadLine(br)
+		inEdgeLine, err := util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to read inEdgeLine")
 		}
@@ -485,7 +485,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	cellNumbers := make([]Pv, numCellNumbers)
 	for i := 0; i < int(numCellNumbers); i++ {
-		cnLine, err := util.ReadLine(br)
+		cnLine, err := util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to read cnLine")
 		}
@@ -497,7 +497,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	turnTypeTable := make([]pkg.TurnType, 0)
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read turnTypeTable string")
 	}
@@ -512,7 +512,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	overlayVertices := make(map[SubVertex]Index)
 	for i := 0; i < int(numOverlayMappings); i++ {
-		overlayLine, err := util.ReadLine(br)
+		overlayLine, err := util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to read overlayLine")
 		}
@@ -544,7 +544,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		overlayVertices[subV] = overlayId
 	}
 
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine maxEdgesIncell")
 	}
@@ -553,7 +553,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ParseIndex maxEdgesInCell: %v", line)
 	}
 
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine numCellNumbers")
 	}
@@ -571,7 +571,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		outEdgeCellOffset[i] = offset
 	}
 
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine numCellNumbers")
 	}
@@ -589,7 +589,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	// read sccs
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine sccs")
 	}
@@ -607,7 +607,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	// read bounding box
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine bounding box")
 	}
@@ -634,7 +634,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	// read graph storage
 
 	// osm way geometry points
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine osm way geometry points")
 	}
@@ -647,7 +647,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	osmNodePoints := make([]Coordinate, numOsmNodePoints)
 	for i := 0; i < numOsmNodePoints; i++ {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine osm way geometry point")
 		}
@@ -665,8 +665,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	// map edge info flag
-
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edgeInfos headers")
 	}
@@ -675,7 +674,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read osmWayBitSize")
 	}
 
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edgeInfos headers")
 	}
@@ -695,7 +694,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	osmWayIds := NewPackedSlice(uint8(osmWayBitSize), uint64(numEdgeMetadatas))
 
 	for i := 0; i < numEdgeMetadatas; i++ {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edge metadata[%d]", i)
 		}
@@ -741,53 +740,53 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	// roundabout flag
 	roundaboutFlags := bitset.New(uint(numEdges))
-	if _, err = roundaboutFlags.ReadFrom(br); err != nil {
+	if _, err = roundaboutFlags.ReadFrom(readBuf); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset roundaboutFlags")
 	}
-	if _, err = br.ReadByte(); err != nil {
+	if _, err = readBuf.ReadByte(); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after roundaboutFlags")
 	}
 
 	// traffic light flag
 	trafficLightFlags := bitset.New(uint(numEdges))
-	if _, err = trafficLightFlags.ReadFrom(br); err != nil {
+	if _, err = trafficLightFlags.ReadFrom(readBuf); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset trafficLightFlags")
 	}
-	if _, err = br.ReadByte(); err != nil {
+	if _, err = readBuf.ReadByte(); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after trafficLightFlags")
 	}
 
 	// street direction forward flag
 	stretDirectionsForward := bitset.New(uint(numEdges))
-	if _, err = stretDirectionsForward.ReadFrom(br); err != nil {
+	if _, err = stretDirectionsForward.ReadFrom(readBuf); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset streetDirectionsForward")
 	}
-	if _, err = br.ReadByte(); err != nil {
+	if _, err = readBuf.ReadByte(); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after streetDirectionsForward")
 	}
 
 	// street direction backward flag
 	stretDirectionsBackward := bitset.New(uint(numEdges))
-	if _, err = stretDirectionsBackward.ReadFrom(br); err != nil {
+	if _, err = stretDirectionsBackward.ReadFrom(readBuf); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset streetDirectionsBackward")
 	}
 
-	if _, err = br.ReadByte(); err != nil {
+	if _, err = readBuf.ReadByte(); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after streetDirectionsBackward")
 	}
 
 	// is curved flag
 	isCurvedFlag := bitset.New(uint(numEdges))
-	if _, err = isCurvedFlag.ReadFrom(br); err != nil {
+	if _, err = isCurvedFlag.ReadFrom(readBuf); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset isCurvedFlag")
 	}
 
-	if _, err = br.ReadByte(); err != nil {
+	if _, err = readBuf.ReadByte(); err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after isCurvedFlag")
 	}
 
 	// tagstring idmap flag
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine tagstring")
 	}
@@ -801,7 +800,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 	for i := 0; i < numIdMapItems; i++ {
 
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine idMapItem")
 		}
@@ -836,7 +835,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	// read conditional restrictions
 
 	// conditional barrier nodes
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalBarrierNodes")
 	}
@@ -847,7 +846,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 	conditionalBarrierNodes := make([]ConditionalBarrierNode, numBarrierNodes)
 	for i := 0; i < numBarrierNodes; i++ {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalBarrierNode")
 		}
@@ -870,7 +869,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	// conditional reversible edges
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalReversibleEdges")
 	}
@@ -881,7 +880,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 	conditionalReversibleEdges := make([]ConditionalReversibleEdge, numReversibleEdges)
 	for i := 0; i < numReversibleEdges; i++ {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalReversibleEdge")
 		}
@@ -904,7 +903,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	// conditional speed limits
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalSpeedLimits")
 	}
@@ -915,7 +914,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 	conditionalSpeedLimits := make([]ConditionalSpeedLimit, numSpeedLimits)
 	for i := 0; i < numSpeedLimits; i++ {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalSpeedLimit")
 		}
@@ -938,7 +937,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	// conditional traffic modes
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTrafficModes")
 	}
@@ -949,7 +948,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 	conditionalTrafficModes := make([]ConditionalTrafficMode, numTrafficModes)
 	for i := 0; i < numTrafficModes; i++ {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTrafficMode")
 		}
@@ -972,7 +971,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 
 	// conditional turn restrictions
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTurnRestrictions")
 	}
@@ -983,7 +982,7 @@ func ReadGraph(filename string) (*Graph, error) {
 	}
 	conditionalTurnRestrictions := make([]ConditionalTurnRestriction, numTurnRestrictions)
 	for i := 0; i < numTurnRestrictions; i++ {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTurnRestriction")
 		}
@@ -1044,7 +1043,7 @@ func ReadGraph(filename string) (*Graph, error) {
 
 	sccCondensationAdj := make([][]Index, 0)
 	for {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			if errors.Is(err, io.EOF) {
 				break

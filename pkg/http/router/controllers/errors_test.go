@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -114,6 +115,8 @@ func TestRoutingAPI_GetStatusCode(t *testing.T) {
 		{"Not Found", util.WrapErrorf(errors.New("not found"), util.ErrNotFound, "not found"), http.StatusNotFound},
 		{"Conflict", util.WrapErrorf(errors.New("conflict"), util.ErrConflict, "conflict"), http.StatusConflict},
 		{"Bad Param", util.WrapErrorf(errors.New("bad"), util.ErrBadParamInput, "bad"), http.StatusBadRequest},
+		{"Context Canceled", context.Canceled, http.StatusRequestTimeout},
+		{"Context Deadline Exceeded", context.DeadlineExceeded, http.StatusRequestTimeout},
 		{"Plain Error", errors.New("plain"), http.StatusInternalServerError},
 		{"Unknown Code", util.WrapErrorf(errors.New("unknown"), errors.New("unknown code"), "unknown"), http.StatusInternalServerError},
 	}

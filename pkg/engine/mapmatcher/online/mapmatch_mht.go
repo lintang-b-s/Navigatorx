@@ -89,6 +89,7 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 		om.projectAllCandidates(gps, candidates)
 
 		matchedPoint, newcandidates, _ := om.filterLog(gps, candidates)
+
 		return matchedPoint, newcandidates, om.initialSpeedMean, om.initialSpeedStd
 	} else {
 		var (
@@ -100,12 +101,6 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 		} else {
 			speedMean = speedMeanK
 			speedStd = speedStdK
-		}
-
-		if gps.GetDeadReckoning() {
-			predDist := convertMeterToKilometer(speedMean * gps.DeltaTime()) // speed in m/s, deltatime in s
-			predGpsLat, predGpsLon := geo.GetDestinationPoint(gps.Lat(), gps.Lon(), lastBearing, predDist)
-			gps.SetCoord(predGpsLat, predGpsLon)
 		}
 
 		newCandidates := make([]*ma.Candidate, 0, len(candidates))
@@ -122,11 +117,6 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 		om.projectAllCandidates(gps, newCandidates)
 
 		matchedPoint, newCandidatesFiltered, reset := om.filterLog(gps, newCandidates)
-
-		if gps.GetDeadReckoning() {
-			matchedPoint.SetPredictedGpsCoord(da.NewCoordinate(matchedPoint.GetMatchedCoord().GetLat(),
-				matchedPoint.GetMatchedCoord().GetLon()))
-		}
 
 		if reset {
 			return matchedPoint, make([]*ma.Candidate, 0), om.initialSpeedMean, om.initialSpeedStd
@@ -148,7 +138,7 @@ func (om *OnlineMapMatchMHT) recur(newCands []*ma.Candidate, w float64, tau []da
 		head := lastEdge.GetHead()
 
 		om.graph.ForOutEdgeIdsOf(head, func(eId da.Index) {
-			if om.graph.GetHeadOfOutEdge(head) == head {
+			if om.graph.GetHeadOfOutEdge(eId) == head {
 				return
 			}
 			eNext = append(eNext, eId)
@@ -188,7 +178,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 	logAllCandWeights := make([]float64, 0, len(candidates))
 
 	for _, cand := range candidates {
-		obsLogLikelihood := om.computeObservationLogLikelihood(cand)
+		obsLogLikelihood := om.computeEmissionLogProb(cand)
 		logAllCandWeights = append(logAllCandWeights, math.Log(cand.Weight())+obsLogLikelihood)
 	}
 
@@ -196,7 +186,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 	sumPosterior := 0.0 // should \approx 1
 
 	for i, cand := range candidates {
-		obsLogLikelihood := om.computeObservationLogLikelihood(cand)
+		obsLogLikelihood := om.computeEmissionLogProb(cand)
 		posterior := (obsLogLikelihood + math.Log(cand.Weight())) - (allCandsWeightLSE)
 		candidates[i] = ma.NewCandidate(cand.EdgeId(), math.Exp(posterior), cand.Length())
 		candidates[i].SetProjectedCoord(cand.GetProjectedCoord().GetLat(), cand.GetProjectedCoord().GetLon())
@@ -222,15 +212,15 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 		if util.Gt(cand.Weight(), maxWeight) {
 			projectedPointCoord := cand.GetProjectedCoord()
 			eInitialBearing := cand.GetEdgeBearing()
-			matchedSegment = da.NewMatchedGPSPoint(gps, cand.EdgeId(), projectedPointCoord, eInitialBearing)
+			streetName := om.graph.GetStreetName(cand.EdgeId())
+			matchedSegment = da.NewMatchedGPSPoint(gps, cand.EdgeId(), projectedPointCoord, eInitialBearing, 0, streetName) // kita gak pake obsId online map matching
 			maxWeight = cand.Weight()
 		}
 	}
 	if matchedSegment == nil {
-		gpsPoint := da.NewGPSPoint(gps.Lat(), gps.Lon(), gps.Time(), gps.Speed(), gps.DeltaTime(),
-			gps.GetDeadReckoning())
+		gpsPoint := da.NewGPSPoint(gps.Lat(), gps.Lon(), gps.Time(), gps.Speed(), gps.DeltaTime())
 		invalidMatchedCoord := da.NewCoordinate(INVALID_LAT, INVALID_LON)
-		matchedSegment = da.NewMatchedGPSPoint(gpsPoint, da.INVALID_EDGE_ID, invalidMatchedCoord, 0.0)
+		matchedSegment = da.NewMatchedGPSPoint(gpsPoint, da.INVALID_EDGE_ID, invalidMatchedCoord, 0.0, 0, "")
 	}
 
 	return matchedSegment, filteredCands, om.needToReset(gps, matchedSegment)
@@ -239,7 +229,7 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 func (om *OnlineMapMatchMHT) needToReset(gps *da.GPSPoint, matchedSegment *da.MatchedGPSPoint) bool {
 	gpsLat, gpsLon := gps.Lat(), gps.Lon()
 	matchCoord := matchedSegment.GetMatchedCoord()
-	dist := convertKilometerToMeter(geo.CalculateGreatCircleDistance(
+	dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 		gpsLat, gpsLon,
 		matchCoord.Lat, matchCoord.Lon,
 	))
@@ -264,19 +254,26 @@ func logSumExp(ps []float64) float64 {
 	return maxP + math.Log(sumExp)
 }
 
-// logarithm of equation 21 ref[1]
-func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(cand *ma.Candidate) float64 {
-
-	xi := func(x float64) float64 {
-		return (1 / (1 + math.Exp(-(math.Pi*(x-cand.GetDistr()))/(math.Sqrt(3)*om.gpsStd))))
-	}
-
-	zeroMeanGaussianLog := -(cand.GetDist() * cand.GetDist() / (2 * om.gpsStd * om.gpsStd))
-
-	left := math.Log((1 / cand.Length())) + zeroMeanGaussianLog
-	right := math.Log(xi(cand.Length()) - xi(0))
-	return left + right
+// logarithm of equation [1]  in https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
+func (om *OnlineMapMatchMHT) computeEmissionLogProb(cand *ma.Candidate) float64 {
+	obsStateDist := cand.GetDist()
+	sigma := om.gpsStd
+	return -0.5*(math.Log(2.0*math.Pi)+(obsStateDist/sigma)*(obsStateDist/sigma)) - math.Log(sigma)
 }
+
+// // logarithm of equation 21 ref[1]
+// func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(cand *ma.Candidate) float64 {
+
+// 	xi := func(x float64) float64 {
+// 		return (1 / (1 + math.Exp(-(math.Pi*(x-cand.GetDistr()))/(math.Sqrt(3)*om.gpsStd))))
+// 	}
+
+// 	zeroMeanGaussianLog := -(cand.GetDist() * cand.GetDist() / (2 * om.gpsStd * om.gpsStd))
+
+// 	left := -math.Log(cand.Length()) + zeroMeanGaussianLog
+// 	right := math.Log(xi(cand.Length()) - xi(0))
+// 	return left + right
+// }
 
 // equation 23 & 24 in ref[1]
 func (om *OnlineMapMatchMHT) kalmanFilter(speedMeanKprev, speedStdKprev, gpsSpeed, deltaTime float64) (float64, float64) {
@@ -296,7 +293,7 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo da.Index, nj in
 	e := om.graph.GetOutEdge(eFrom)
 	head := e.GetHead()
 	om.graph.ForOutEdgeIdsOf(head, func(eId da.Index) {
-		if om.graph.GetHeadOfOutEdge(head) == head {
+		if om.graph.GetHeadOfOutEdge(eId) == head {
 			return
 		}
 		branch = append(branch, eId)
@@ -304,9 +301,6 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo da.Index, nj in
 	sumNej := 0.0
 	for _, j := range branch {
 		trans := float64(om.N.Get(int(eFrom), int(j)))
-		if trans == 0 {
-			trans = 1
-		}
 		sumNej += trans
 	}
 	return (1.0 + float64(om.N.Get(int(eFrom), int(eTo)))) / (sumNej + float64(nj))
@@ -387,5 +381,6 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 		cand.SetDist(minDist)
 		cand.SetDistr(minDistr)
 		cand.SetEdgeBearing(candEdgeBearing)
+
 	}
 }

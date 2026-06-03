@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"os"
@@ -62,7 +63,8 @@ func main() {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), logger)
-	graph, err := da.ReadGraph(graphFile)
+	readBuf := bufio.NewReaderSize(nil, 4096*4)
+	graph, err := da.ReadGraph(graphFile, readBuf)
 	if err != nil {
 		panic(err)
 	}

@@ -19,6 +19,7 @@ import (
 */
 
 func (api *API) logError(r *http.Request, err error) {
+
 	api.log.Error("internal server error", zap.Error(err), zap.String("request_method", r.Method),
 		zap.String("request_uri", r.URL.String()))
 }
@@ -33,12 +34,14 @@ func (api *API) errorResponse(w http.ResponseWriter, r *http.Request, status int
 
 	err := api.writeJSON(w, status, env, nil)
 	if err != nil {
+
 		api.logError(r, err)
 		w.WriteHeader(500)
 	}
 }
 
 func (api *API) ServerErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+
 	api.logError(r, err)
 
 	message := "the server encountered a problem and could not process your request"

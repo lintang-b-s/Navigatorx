@@ -551,6 +551,9 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 
 		*/
 
+		if len(fromNodes) < 2 {
+			return
+		}
 		for i := 0; i < len(fromNodes); i++ {
 			if fromNodes[i] == restriction.via {
 				if i == 0 && way.oneWay {
@@ -748,7 +751,6 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		if !IsNotAllowedToTurnType(restriction.turnRestriction) || restriction.conditional {
 			// currently only support via-way turn restriction yang no_* (no_left_turn, no_u_turn, etc.)
 			// currently gak support conditional via-way turn restriction  (30 april 2026).
-
 			return
 		}
 

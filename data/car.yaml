@@ -27,7 +27,7 @@ highway_whitelist:
 # see land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
 # supported: motorcycle, car. todo: ( bicycle, foot, , bus, hgv, goods, taxi, minibus)
 vehicle_type: motorcar
-landmarks: 16
+landmarks: 8
 
 maxspeeds: # in km/h
   motorway: 100
@@ -76,8 +76,17 @@ alternatives:
     default: 2
 
 server:
-  api_timeout: 5s
+  api_timeout: 600s
+  read_timeout: 60s
+  write_timeout: 0s # disable absolute response write deadline for long offline map matching requests
+  idle_timeout: 240s # keep-alive tcp connection pool timeout
+  read_header_timeout: 10s
+  allowed_origins:
+    - "*"
+  http_version: http1.1 # http2 or http1.1
+  max_request_body_size: 1 # in MB
+  enable_pprof: true 
 
 guidance:
-  left_hand: true # https://en.wikipedia.org/wiki/Left-_and_right-hand_traffic  , example: Inonesia is left-hand traffic
+  left_hand: true # https://en.wikipedia.org/wiki/Left-_and_right-hand_traffic  , example: Indonesia is left-hand traffic
 

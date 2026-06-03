@@ -70,7 +70,8 @@ func TestGraphIO_MinResolutionRoundTrip(t *testing.T) {
 		t.Fatalf("WriteGraph failed: %v", err)
 	}
 
-	got, err := ReadGraph(tmpFile)
+	readBuf := bufio.NewReaderSize(nil, graphBufferSize)
+	got, err := ReadGraph(tmpFile, readBuf)
 	if err != nil {
 		t.Fatalf("ReadGraph failed: %v", err)
 	}
@@ -104,7 +105,8 @@ func TestReadGraph_RejectsOldHeaderFormat(t *testing.T) {
 		t.Fatalf("close file: %v", err)
 	}
 
-	_, err = ReadGraph(tmpFile)
+	readBuf := bufio.NewReaderSize(nil, graphBufferSize)
+	_, err = ReadGraph(tmpFile, readBuf)
 	if err == nil {
 		t.Fatalf("expected error for old 5-field header, got nil")
 	}

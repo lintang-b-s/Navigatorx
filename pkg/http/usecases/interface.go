@@ -27,4 +27,5 @@ type TilingEngine interface {
 
 type OfflineMapMatcherEngine interface {
 	MapMatch(gpsTraj []*da.GPSPoint) []*da.MatchedGPSPoint
+	MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate)
 }

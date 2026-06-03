@@ -6,6 +6,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -111,6 +112,8 @@ func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEn
 	mockEngine.On("PathExists", da.Index(1), da.Index(1)).Return(true).Maybe()
 	mockEngine.On("GetWeightFromLength", da.Index(0), originEdgeLen, true).Return(12.0).Maybe()
 	mockEngine.On("GetWeightFromLength", da.Index(1), destEdgeLen, false).Return(15.0).Maybe()
+	mockEngine.On("GetSegmentSpeed", da.Index(0), true).Return(10.0).Maybe()
+	mockEngine.On("GetSegmentSpeed", da.Index(1), false).Return(10.0).Maybe()
 
 	sp := da.NewPhantomNode(da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 12.0, 0, 0, da.INVALID_EDGE_ID, originEdgeLen, 0, []da.Coordinate{originCoord, originHeadCoord}, []da.Coordinate{})
 	tp := da.NewPhantomNode(da.NewCoordinate(yogyakartaDestLat, yogyakartaDestLon), 0, 15.0, 1, 1, 0, destEdgeLen, []da.Coordinate{}, []da.Coordinate{{Lat: -7.7860, Lon: 110.4080}})
@@ -297,5 +300,42 @@ func TestRoutingService_Misc(t *testing.T) {
 		mockEngine.On("InitBackgroundWorker", ctx).Return()
 		rs.InitBackgroundWorker(ctx)
 		mockEngine.AssertExpectations(t)
+	})
+}
+
+func TestRoutingService_OfflineMapMatch(t *testing.T) {
+	t.Run("Context Timeout Error", func(t *testing.T) {
+		rs, _, _, _ := setupRoutingService()
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+
+		_, _, err := rs.OfflineMapMatch(ctx, []*da.GPSPoint{}, []float64{})
+		assert.Error(t, err)
+	})
+
+	t.Run("Invalid Spatial Index Type Error", func(t *testing.T) {
+		rs, _, _, _ := setupRoutingService()
+		// rs.spatialIndex is MockSpatialIndex, which is not *spatialindex.Rtree
+
+		_, _, err := rs.OfflineMapMatch(context.Background(), []*da.GPSPoint{}, []float64{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "spatial index is not of type *spatialindex.Rtree")
+	})
+
+	t.Run("Invalid Routing Engine Type Error", func(t *testing.T) {
+		mockEngine := new(MockRoutingEngine)
+		mockSI := spatialindex.NewRtree()
+		mockARA := new(MockAlternativeRouteAlgorithm)
+		log := zap.NewNop()
+
+		g := da.NewGraph(nil, nil, nil, nil, true, nil)
+		mockEngine.On("GetGraph").Return(g)
+
+		rs, err := NewRoutingService(log, mockEngine, mockSI, mockARA, 1.0, false)
+		assert.NoError(t, err)
+
+		_, _, err = rs.OfflineMapMatch(context.Background(), []*da.GPSPoint{}, []float64{})
+		assert.Error(t, err)
+		assert.Contains(t, err.Error(), "routing engine is not of type *routing.CRPRoutingEngine")
 	})
 }

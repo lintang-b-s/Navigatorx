@@ -619,11 +619,7 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 	return nil
 }
 
-const (
-	overlayBufferSize int = 4096 * 4
-)
-
-func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
+func ReadOverlayGraph(filename string, readBuf *bufio.Reader) (*OverlayGraph, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("ReadOvelayGraph: failed to opening file: %v: %w", filename, err)
@@ -636,9 +632,9 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 		return nil, fmt.Errorf("ReadOvelayGraph: failed create new snappy reader: %v: %w", filename, err)
 	}
 
-	br := bufio.NewReaderSize(snp, overlayBufferSize)
+	readBuf.Reset(snp)
 
-	line, err := util.ReadLine(br)
+	line, err := util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("ReadOvelayGraph: failed readLine offsets: %v: %w", filename, err)
 	}
@@ -655,7 +651,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 
 	levelInfo := NewLevelInfo(offsets)
 
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("ReadOvelayGraph: failed readLine vertexCountInLevel: %w", err)
 	}
@@ -669,7 +665,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 		vertexCountInLevel = append(vertexCountInLevel, Index(vv))
 	}
 
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("ReadOvelayGraph: failed readLine vertexCount: %w", err)
 	}
@@ -681,7 +677,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	vertices := make([]OverlayVertex, 0, vertexCount)
 
 	for i := Index(0); i < Index(vertexCount); i++ {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, fmt.Errorf("ReadOvelayGraph: failed to read overlay vertex row %d: %w", i, err)
 		}
@@ -720,7 +716,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 		vertices = append(vertices, vertex)
 	}
 
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("ReadOvelayGraph: failed to ReadLine weightVectorSize: %w", err)
 	}
@@ -731,7 +727,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	}
 	weightVectorSize := uint32(ww)
 
-	line, err = util.ReadLine(br)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("ReadOvelayGraph: failed to read overlayIdMapping line: %w", err)
 	}
@@ -747,7 +743,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 
 	cellMapping := make([]map[Pv]Cell, levelInfo.GetLevelCount())
 	for i := 0; i < levelInfo.GetLevelCount(); i++ {
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, fmt.Errorf("ReadOvelayGraph: failed readLine cellsInLevel count: %w", err)
 		}
@@ -756,7 +752,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 			return nil, fmt.Errorf("ReadOvelayGraph: failed to parseInt cellsInLevel: %v: %w", line, err)
 		}
 		for j := 0; j < cellsInLevel; j++ {
-			line, err = util.ReadLine(br)
+			line, err = util.ReadLine(readBuf)
 			if err != nil {
 				return nil, fmt.Errorf("ReadOvelayGraph: failed to ReadLine cellsInLevel: %w", err)
 			}

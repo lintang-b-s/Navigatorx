@@ -18,12 +18,13 @@ func TestMapMatcherService_OnlineMapMatch(t *testing.T) {
 
 	ctx := context.Background()
 	gpsTime := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
-	gps := da.NewGPSPoint(yogyakartaOriginLat, yogyakartaOriginLon, gpsTime, 0, 0, false)
+	gps := da.NewGPSPoint(yogyakartaOriginLat, yogyakartaOriginLon, gpsTime, 0, 0)
 
 	t.Run("Success", func(t *testing.T) {
 		candidates := []*ma.Candidate{}
 		mockEngine.On("OnlineMapMatch", gps, 1, candidates, 0.0, 0.0, 0.0).
-			Return(da.NewMatchedGPSPoint(gps, 0, da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 0.0), []*ma.Candidate{}, 0.0, 0.0)
+			Return(da.NewMatchedGPSPoint(gps, 0, da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 0.0, 0, ""),
+				[]*ma.Candidate{}, 0.0, 0.0)
 
 		res, cands, speedMean, speedStd, err := ms.OnlineMapMatch(ctx, gps, 1, candidates, 0.0, 0.0, 0.0)
 

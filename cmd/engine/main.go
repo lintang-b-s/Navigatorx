@@ -4,7 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
@@ -62,7 +61,6 @@ func init() {
 }
 
 func main() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 
 	logger, err := log.New()
 	if err != nil {
@@ -103,4 +101,5 @@ func main() {
 		logger.Error("server exited unexpectedly", zap.Error(err))
 	}
 	logger.Info("Navigatorx Routing Engine Server Stopped")
+
 }

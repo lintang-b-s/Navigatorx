@@ -50,7 +50,24 @@ type Annotation struct {
 }
 
 func NewAnnotation(duration, distance []float64, geometry Coordinates, edgeGeomOffset []Index) Annotation {
-	return Annotation{duration: duration, distance: distance, geometry: geometry, edgeGeomOffset: edgeGeomOffset}
+	durationCopy := make([]float64, len(duration))
+	copy(durationCopy, duration)
+
+	distanceCopy := make([]float64, len(distance))
+	copy(distanceCopy, distance)
+
+	geometryCopy := make(Coordinates, len(geometry))
+	copy(geometryCopy, geometry)
+
+	edgeGeomOffsetCopy := make([]Index, len(edgeGeomOffset))
+	copy(edgeGeomOffsetCopy, edgeGeomOffset)
+
+	return Annotation{
+		duration:       durationCopy,
+		distance:       distanceCopy,
+		geometry:       geometryCopy,
+		edgeGeomOffset: edgeGeomOffsetCopy,
+	}
 }
 
 func (ann *Annotation) GetDuration() []float64 {

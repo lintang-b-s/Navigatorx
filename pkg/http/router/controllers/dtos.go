@@ -1,6 +1,7 @@
 package controllers
 
 import (
+	"encoding/xml"
 	"time"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -43,13 +44,13 @@ type boundingBoxResponse struct {
 }
 
 type annotation struct {
-	Duration       []float64      `json:"duration"`
-	Distance       []float64      `json:"distance"`
-	Geometry       da.Coordinates `json:"geometry"`
-	EdgeGeomOffset []da.Index     `json:"edge_geometry_offset"`
+	Duration       []float64  `json:"duration"`
+	Distance       []float64  `json:"distance"`
+	Geometry       string     `json:"geometry"`
+	EdgeGeomOffset []da.Index `json:"edge_geometry_offset"`
 }
 
-func NewAnnotation(duration, distance []float64, geometry da.Coordinates, edgeGeomOffset []da.Index) annotation {
+func NewAnnotation(duration, distance []float64, geometry string, edgeGeomOffset []da.Index) annotation {
 	return annotation{Duration: duration, Distance: distance, Geometry: geometry, EdgeGeomOffset: edgeGeomOffset}
 }
 
@@ -68,7 +69,12 @@ type drivingDirection struct {
 }
 
 func NewAnnotationDTO(ann da.Annotation) annotation {
-	return NewAnnotation(ann.GetDuration(), ann.GetDistance(), ann.GetGeometry(), ann.GetEdgeGeomOffset())
+	return NewAnnotation(
+		ann.GetDuration(),
+		ann.GetDistance(),
+		da.GooglePoylineFromCoords(ann.GetGeometry()),
+		ann.GetEdgeGeomOffset(),
+	)
 }
 
 func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirection {
@@ -127,12 +133,12 @@ func NewBoundingBox(bb da.BoundingBox) boundingBoxResponse {
 }
 
 type gps struct {
-	Lon           float64   `json:"lon" validate:"required,min=-180,max=180"`
-	Lat           float64   `json:"lat" validate:"required,min=-90,max=90"`
-	Time          time.Time `json:"time"`
-	Speed         float64   `json:"speed" validate:"min=0"`      // 0 if time step k=0  m/s
-	DeltaTime     float64   `json:"delta_time" validate:"min=0"` // in seconds
-	DeadReckoning bool      `json:"dead_reckoning"`
+	Lon       float64   `json:"lon" validate:"required,min=-180,max=180"`
+	Lat       float64   `json:"lat" validate:"required,min=-90,max=90"`
+	Time      time.Time `json:"time"`
+	Speed     float64   `json:"speed" validate:"min=0"`      // 0 if time step k=0  m/s
+	DeltaTime float64   `json:"delta_time" validate:"min=0"` // in seconds
+
 }
 
 func newGPS(lat, lon float64, time time.Time, speed, deltaTime float64) *gps {
@@ -141,7 +147,7 @@ func newGPS(lat, lon float64, time time.Time, speed, deltaTime float64) *gps {
 
 func (g *gps) ToDataGPS() *da.GPSPoint {
 	return da.NewGPSPoint(g.Lat, g.Lon, g.Time, g.Speed,
-		g.DeltaTime, g.DeadReckoning)
+		g.DeltaTime)
 }
 
 type Candidate struct {
@@ -225,4 +231,53 @@ type startClientSideRealtimeMapMatchingResponse struct {
 
 func NewStartClientSideRealtimeMapMatchingResponse(n int) *startClientSideRealtimeMapMatchingResponse {
 	return &startClientSideRealtimeMapMatchingResponse{NumberOfVertices: n}
+}
+
+type GPX struct {
+	XMLName xml.Name `xml:"gpx"`
+	Trk     Trk      `xml:"trk"`
+}
+
+type Trk struct {
+	XMLName xml.Name `xml:"trk"`
+	TrkSeg  TrkSeg   `xml:"trkseg"`
+}
+
+type TrkSeg struct {
+	XMLName xml.Name `xml:"trkseg"`
+	TrkPts  []TrkPt  `xml:"trkpt"`
+}
+
+type TrkPt struct {
+	XMLName xml.Name `xml:"trkpt"`
+	Lat     float64  `xml:"lat,attr"`
+	Lon     float64  `xml:"lon,attr"`
+	Time    string   `xml:"time,omitempty"`
+}
+
+type offlineMapMatchingResponse struct {
+	MatchedPoints []*MatchedGPSPoint `json:"matched_points"`
+	RoutePath     []da.Coordinate    `json:"route_path"`
+}
+
+func NewOfflineMapMatchingResponse(matchedPoints []*da.MatchedGPSPoint, routePath []da.Coordinate) *offlineMapMatchingResponse {
+	points := make([]*MatchedGPSPoint, len(matchedPoints))
+	for i, mp := range matchedPoints {
+		mgps := mp.GetGpsPoint()
+		points[i] = NewMatchedGPSPoint(
+			&gps{
+				Lat:  mgps.Lat(),
+				Lon:  mgps.Lon(),
+				Time: mgps.Time(),
+			},
+			mp.GetEdgeId(),
+			mp.GetMatchedCoord(),
+			mp.GetPredictedGpsCoord(),
+			mp.GetBearing(),
+		)
+	}
+	return &offlineMapMatchingResponse{
+		MatchedPoints: points,
+		RoutePath:     routePath,
+	}
 }

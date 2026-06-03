@@ -27,7 +27,7 @@ func init() {
 func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customizer.Customizer) {
 	var (
 		mlpFile          = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
-		osmfFile         = fmt.Sprintf("../../data/%s.osm.pbf", fileName)
+		osmfFile         = fmt.Sprintf("./data/%s.osm.pbf", fileName)
 		graphFile        = fmt.Sprintf("./data/original_%s_test.graph", fileName)
 		overlayGraphFile = fmt.Sprintf("./data/overlay_graph_%s_test.graph", fileName)
 		metricsFile      = fmt.Sprintf("./data/metrics_%s_test.txt", fileName)

@@ -32,12 +32,12 @@ func ComputeFinalBearing(lat1, lon1, lat2, lon2 float64) float64 {
 // https://i0.wp.com/blog.mytimezero.com/wp-content/uploads/2017/12/art-blog-course-heading-fr.png?resize=636%2C471&ssl=1
 func ComputeRelativeBearing(prevLat, prevLon, curLat, curLon, prevInitialBearing float64) float64 {
 	initialBearing := ComputeInitialBearing(prevLat, prevLon, curLat, curLon)
-	relativeBearing := alignRelativeBearing(initialBearing - prevInitialBearing)
+	relativeBearing := AlignRelativeBearing(initialBearing - prevInitialBearing)
 	return relativeBearing
 }
 
 /*
-alignRelativeBearing. handle case ketika initialBearing-prevInitialBearing > 180° atau  initialBearing-prevInitialBearing < -180°.
+AlignRelativeBearing. handle case ketika initialBearing-prevInitialBearing > 180° atau  initialBearing-prevInitialBearing < -180°.
 
 misal:
 
@@ -69,7 +69,7 @@ setelah fix:  relativeBearing  = 30°  turn slight right
 
 relativeBearing in radians.
 */
-func alignRelativeBearing(relativeBearing float64) float64 {
+func AlignRelativeBearing(relativeBearing float64) float64 {
 	if util.RadiansToDegree(relativeBearing) > 180 {
 		relativeBearing -= 2 * math.Pi
 	} else if util.RadiansToDegree(relativeBearing) < -180 {
@@ -156,6 +156,5 @@ func GetTurnDirection(prevLat, prevLon, lat, long, prevInitialBearing float64) d
 
 	} else {
 		return (da.TURN_SHARP_RIGHT)
-
 	}
 }

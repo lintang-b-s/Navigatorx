@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
@@ -29,6 +30,7 @@ func TestNewServer(t *testing.T) {
 }
 
 func TestServer_Use(t *testing.T) {
+	viper.Set("http_port", 0)
 	log := zap.NewNop()
 	srv := NewServer(log)
 

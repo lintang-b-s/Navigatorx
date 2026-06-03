@@ -2,11 +2,11 @@
 package engine
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 
 	"github.com/dgraph-io/ristretto/v2"
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
@@ -55,7 +55,8 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 		panic(err)
 	}
 
-	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, landmarkFile)
+	readBuf := bufio.NewReaderSize(nil, 4096*4)
+	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, landmarkFile, readBuf)
 
 	return &Engine{
 		crpRoutingEngine: re,
@@ -67,33 +68,30 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	error) {
 
 	logger.Info("Starting query engine....")
+	readBuf := bufio.NewReaderSize(nil, 4096*4)
 
 	logger.Info("Reading graph....")
-	graph, err := da.ReadGraph(graphFilePath)
+	graph, err := da.ReadGraph(graphFilePath, readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("initializeRoutingEngine: failed to read graph from %s: %w", graphFilePath, err)
 	}
 
 	logger.Info("Reading overlay graph....")
-	overlayGraph, err := da.ReadOverlayGraph(overlayGraphFilePath)
+	overlayGraph, err := da.ReadOverlayGraph(overlayGraphFilePath, readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("initializeRoutingEngine: failed to read overlay graph from %s: %w", overlayGraphFilePath, err)
 	}
 
 	logger.Info("Reading stalling tables & metrics...")
 
-	cf, err := costfunction.ReadFromFile(timeFunctionFilePath)
-	if err != nil {
-		return nil, fmt.Errorf("initializeRoutingEngine: failed to read time function from %s: %w", timeFunctionFilePath, err)
-	}
-	m, err := metrics.ReadFromFile(metricsFilePath, timeFunctionFilePath)
+	m, err := metrics.ReadFromFile(metricsFilePath, timeFunctionFilePath, readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("initializeRoutingEngine: failed to read metrics from %s (timeFunction=%s): %w", metricsFilePath, timeFunctionFilePath, err)
 	}
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
 
-	const maxCost = int64(1) << 27
+	const maxCost = int64(1) << 28
 	const maxItems = (maxCost / keyValByteApproxSize)
 	const numCounters = maxItems * 3
 	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
@@ -105,7 +103,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 		return nil, fmt.Errorf("initializeRoutingEngine: failed to create new ristretto cache with capacity: %v: %w", maxCost, err)
 	}
 
-	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, cf, landmarkFile)
+	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, landmarkFile, readBuf)
 
 	return re, nil
 }

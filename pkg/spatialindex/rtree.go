@@ -70,7 +70,7 @@ func (rt *Rtree) Build(graph *da.Graph, logger *zap.Logger) {
 }
 
 func (rt *Rtree) BuildMapMatch(graph *da.MapMatchingGraph, logger *zap.Logger) {
-	logger.Info("Building R-tree spatial index for map matching...")
+
 	for eId, e := range graph.GetEdges() {
 		eGeom := e.GetGeometry()
 		maxLat, maxLon := math.Inf(-1), math.Inf(-1)
@@ -102,7 +102,7 @@ func (rt *Rtree) BuildMapMatch(graph *da.MapMatchingGraph, logger *zap.Logger) {
 		newEId := rt.BitPackOriginalEdgeId(da.Index(eId), e.GetRoadNetworkEdgeId())
 		rt.tr.Insert([2]float64{minX, minY}, [2]float64{maxX, maxY}, newEId)
 	}
-	logger.Info("R-tree spatial index for map matching built.")
+
 }
 
 func (rt *Rtree) Reset() {
@@ -120,13 +120,13 @@ func (rt *Rtree) Reset() {
 // mode=0  origin, mode=1 destination, mode=2 not both, mode=3 for client-side realtime mapmatching webassembly
 func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da.Index {
 
-	lowerLat, lowerLon := geo.GetDestinationPoint(qLat, qLon, 225, radius)
-	upperLat, upperLon := geo.GetDestinationPoint(qLat, qLon, 45, radius)
+	qy, qx := geo.CalcLatToY(qLat), geo.CalcLonToX(qLon)
 
-	lowerY, lowerX := geo.CalcLatToY(lowerLat), geo.CalcLonToX(lowerLon)
-	upperY, upperX := geo.CalcLatToY(upperLat), geo.CalcLonToX(upperLon)
+	lowerY, lowerX := qy-radius, qx-radius
+	upperY, upperX := qy+radius, qx+radius
 
 	results := make([]da.Index, 0, 10)
+
 	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},
 		func(min, max [2]float64, data uint64) bool {
 			if mode == 0 && !rt.IsJunctionHead(data) {
@@ -139,6 +139,8 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 			var eId da.Index
 			if mode == 3 {
 				eId = rt.GetMapMatchEdgeId(data)
+				results = append(results, eId)
+				return len(results) <= MAX_CANDIDATES_MAP_MATCHING
 			} else {
 				eId = rt.GetEdgeId(data)
 			}
@@ -146,6 +148,7 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 			results = append(results, eId)
 			return len(results) <= MAX_CANDIDATES
 		})
+
 	return results
 }
 

@@ -28,7 +28,8 @@ type CRPBidirectionalSearch struct {
 	sForwardId  da.Index
 	tBackwardId da.Index
 
-	upperBound float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
+	upperBound          float64 // upperbound for finding alternative routes (see page 15 Customizable Route Planning in Road Networks by Delling et al.)
+	maxSearchRadiusSecs float64
 
 	numScannedVertices        int
 	numScannedOverlayVertices int
@@ -60,6 +61,7 @@ func NewCRPBidirectionalSearch(engine *CRPRoutingEngine, upperBound float64) *CR
 		numScannedOverlayVertices: 0,
 		shortcutPathSet:           make(map[uint64]uint8),
 		viaVertices:               make([]da.ViaVertex, 0, VIA_VERTICES_INITIAL_CAPACITY),
+		maxSearchRadiusSecs:       3 * pkg.INF_WEIGHT,
 	}
 	crpQuery.Preallocate()
 	return crpQuery
@@ -228,8 +230,8 @@ turnCost(v->t->z) = 0
 untuk referensi lain implementasi routing with turn cost di road network dapat dilihat di:
 1. https://dl.acm.org/doi/10.5555/2008623.2008634
 2. https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp    also see osrm graph representation: https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
-
+3. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp    also see osrm graph representation: https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
+4. customizable contraction hierarchies with turn costs: https://drops.dagstuhl.de/storage/01oasics/oasics-vol085-atmos2020/OASIcs.ATMOS.2020.9/OASIcs.ATMOS.2020.9.pdf   atau  https://i11www.iti.kit.edu/_media/teaching/theses/ba-zuendorf-19.pdf
 
 */
 
@@ -335,7 +337,7 @@ func (bs *CRPBidirectionalSearch) ShortestPathSearch(sp, tp da.PhantomNode) (flo
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
-		if util.Ge(minForward+minBackward, (bs.shortestTravelTime)*(bs.upperBound)) {
+		if util.Ge(minForward+minBackward, (bs.shortestTravelTime)*(bs.upperBound)) || util.Ge(minForward+minBackward, bs.maxSearchRadiusSecs) {
 			bs.lastpqSum = minForward + minBackward
 			break
 		}
@@ -1031,4 +1033,8 @@ func (bs *CRPBidirectionalSearch) getShortcutPathSet() map[uint64]uint8 {
 func (bs *CRPBidirectionalSearch) SetReroute() {
 	bs.reroute = true
 
+}
+
+func (bs *CRPBidirectionalSearch) SetMaxSearchRadiusSecs(maxSearchRadiusSecs float64) {
+	bs.maxSearchRadiusSecs = maxSearchRadiusSecs
 }

@@ -18,6 +18,7 @@ type Candidate struct {
 	projectedLat, projectedLon float64
 	dist                       float64 // distance to current gps point
 	distr                      float64 // distance from tail vertex to projected gps point
+
 }
 
 // EdgeId return MapMatchGraph EdgeId dari candidate

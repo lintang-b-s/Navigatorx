@@ -1,12 +1,15 @@
 package controllers
 
 import (
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/mmcloughlin/geohash"
+	"github.com/spf13/viper"
 
 	"github.com/go-playground/locales/en"
 	ut "github.com/go-playground/universal-translator"
@@ -14,6 +17,7 @@ import (
 	enTranslations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/julienschmidt/httprouter"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	"go.uber.org/zap"
 )
@@ -26,7 +30,8 @@ type routingAPI struct {
 
 	validate *validator.Validate
 
-	trans ut.Translator
+	trans              ut.Translator
+	maxRequestBodySize int64
 }
 
 func New(routingService RoutingService, log *zap.Logger, tilingService TilingService) *routingAPI {
@@ -36,12 +41,16 @@ func New(routingService RoutingService, log *zap.Logger, tilingService TilingSer
 	trans, _ := uni.GetTranslator("en")
 	_ = enTranslations.RegisterDefaultTranslations(validate, trans)
 
+	viper.SetDefault("server.max_request_body_size", int64(1))
+	maxRequestBodySize := viper.GetInt64("server.max_request_body_size") * MB_TO_BYTES
+
 	return &routingAPI{
-		routingService: routingService,
-		log:            log,
-		validate:       validate,
-		tilingService:  tilingService,
-		trans:          trans,
+		routingService:     routingService,
+		log:                log,
+		validate:           validate,
+		tilingService:      tilingService,
+		trans:              trans,
+		maxRequestBodySize: maxRequestBodySize,
 	}
 
 }
@@ -54,6 +63,7 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/tile/:userGeohash", api.getTile)
 	group.GET("/tile-init", api.initClientSideRealTimeMapMatching)
 	group.GET("/tile-init-transition-matrix", api.initClientSideRealTimeMapMatchingTransitionMatrix)
+	group.POST("/mapmatching", api.offlineMapMatching) // offline map-matching
 }
 
 func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
@@ -274,5 +284,68 @@ func (api *routingAPI) initClientSideRealTimeMapMatching(w http.ResponseWriter, 
 }
 
 func (api *routingAPI) initClientSideRealTimeMapMatchingTransitionMatrix(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	http.ServeFile(w, r, GetMapMatchingTransitionFile())
+	http.ServeFile(w, r, tiler.MapTileFilePathPrefix())
+}
+
+func (api *routingAPI) offlineMapMatching(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+
+	r.Body = http.MaxBytesReader(w, r.Body, api.maxRequestBodySize)
+
+	var gpx GPX
+	err := xml.NewDecoder(r.Body).Decode(&gpx)
+	if err != nil {
+		api.BadRequestResponse(w, r, fmt.Errorf("failed to parse GPX XML: %w", err))
+		return
+	}
+
+	pts := gpx.Trk.TrkSeg.TrkPts
+	if len(pts) == 0 {
+		api.BadRequestResponse(w, r, errors.New("GPX contains no track points"))
+		return
+	}
+	query := r.URL.Query()
+
+	gpsRadiusesM, err := parseGPSRadiuses(query, len(pts))
+	if err != nil {
+		api.BadRequestResponse(w, r, err)
+		return
+	}
+
+	gpsPoints := make([]*da.GPSPoint, len(pts))
+	baseTime := time.Now()
+	for i, pt := range pts {
+		if pt.Lat < -90 || pt.Lat > 90 || pt.Lon < -180 || pt.Lon > 180 {
+			api.BadRequestResponse(w, r, fmt.Errorf("invalid trackpoint coordinates at index %d: lat=%f, lon=%f", i, pt.Lat, pt.Lon))
+			return
+		}
+
+		var ptTime time.Time
+		if pt.Time != "" {
+			var err error
+			ptTime, err = time.Parse(time.RFC3339, pt.Time)
+			if err != nil {
+				ptTime, err = time.Parse(time.RFC3339Nano, pt.Time)
+				if err != nil {
+					api.BadRequestResponse(w, r, fmt.Errorf("invalid time format '%s' at trackpoint index %d: %w", pt.Time, i, err))
+					return
+				}
+			}
+		} else {
+			ptTime = baseTime.Add(time.Duration(i) * time.Second)
+		}
+
+		gpsPoints[i] = da.NewGPSPoint(pt.Lat, pt.Lon, ptTime, 0, 0)
+	}
+
+	matchedPoints, routePath, err := api.routingService.OfflineMapMatch(r.Context(), gpsPoints, gpsRadiusesM)
+	if err != nil {
+		api.getStatusCode(w, r, err)
+		return
+	}
+
+	headers := make(http.Header)
+	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewOfflineMapMatchingResponse(matchedPoints, routePath)}, headers); err != nil {
+		api.ServerErrorResponse(w, r, err)
+		return
+	}
 }

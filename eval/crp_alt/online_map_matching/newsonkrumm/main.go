@@ -106,7 +106,6 @@ func newQuery(s, t da.Index) query {
 var (
 	profileFilePath = flag.String("profile", "./data/car.yaml", "profile file path")
 	profileName     string
-	regionName      = flag.String("region", "diy_solo_semarang", "region name")
 
 	transitionMatrixFilepath string
 )
@@ -126,7 +125,7 @@ func init() {
 	flag.Parse()
 
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	transitionMatrixFilepath = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix_newsonkrumm.txt", profileName, *regionName)
+	transitionMatrixFilepath = fmt.Sprintf("./data/transition_matrix_newsonkrumm.txt")
 
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
@@ -563,7 +562,7 @@ func main() {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(g, logger)
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(g, rtree, 8.33333, 8.3333, 0.0001, 4.07, 0.0000001,
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(g, rtree, 8.33333, 8.3333, 0.0001, 5.0, 0.0000001,
 		0.05, 3, N) // speed in meter/s,
 	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0644)
 	if err != nil {
@@ -635,7 +634,7 @@ func main() {
 		prevTime = curGpsTime
 
 		now := time.Now()
-		curGps := da.NewGPSPoint(lat, lon, curGpsTime, speed, deltaTime, false)
+		curGps := da.NewGPSPoint(lat, lon, curGpsTime, speed, deltaTime)
 		matchedPoint, candidates, speedMeanK, speedStdK = onlineMapMatcherEngine.OnlineMapMatch(curGps, k, candidates, speedMeanK, speedStdK, lastBearing)
 		k++
 		lastBearing = matchedPoint.GetBearing()
@@ -745,7 +744,7 @@ func main() {
 
 	avgRuntimePerGpsPoint /= float64(k - 1)
 	rmf := (lengthOfErrorneouslyAdded + lengthOfErrorneouslySubtracted) / lengthOfCorrectRoute
-	crp := numOfCorrectMatchedRoads / numberOfRoadsOfMatchedTrips
+	crp := numOfCorrectMatchedRoads / numberOfRoadsOfMatchedTrips // section V Accuracy: https://mod.wict.pku.edu.cn/docs/20240422170836017278.pdf
 	fmt.Printf("Route Mismatch Fraction (RMF): %v\n", rmf)
 	fmt.Printf("Correct Road Percentage (CRP) or accuracy: %v\n", crp)
 	fmt.Printf("avg runtime per gpt point: %v microseconds/gps point\n", avgRuntimePerGpsPoint)

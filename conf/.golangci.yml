@@ -2,9 +2,11 @@ version: "2"
 
 run:
   timeout: 5m
-  skip-dirs:
-    - pkg/mobile
 linters:
+  exclusions:
+    paths:
+      - pkg/mobile
+      - eval
   settings:
     errcheck:
       exclude-functions:
@@ -28,6 +30,7 @@ linters:
         - net/http.ListenAndServe
         - os.Remove
         - (net.Listener).Close
+        - (*zip.ReadCloser).Close
     staticcheck:
       checks:
         - "all"

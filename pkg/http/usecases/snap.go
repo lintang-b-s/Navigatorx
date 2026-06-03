@@ -190,7 +190,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 	// handle case when bestPair.origEdgeId == bestPair.destEdgeId
 	if rs.isSameSourceDestinationSegment(sp, tp) {
-		sp = rs.handleSameSourceDestinationSegment(sp, tp)
+		sp, tp = rs.handleSameSourceDestinationSegment(sp, tp)
 	}
 
 	return sp, tp
@@ -200,7 +200,7 @@ func (rs *RoutingService) isSameSourceDestinationSegment(sp, tp da.PhantomNode) 
 	return sp.GetOutEdgeId() == tp.GetOutEdgeId()
 }
 
-func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) da.PhantomNode {
+func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) (da.PhantomNode, da.PhantomNode) {
 	var newSourceForwardGeom []da.Coordinate
 
 	spForwardGeom := sp.GetForwardGeometry()
@@ -230,6 +230,9 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 
 	newSPLength := 0.0
 
+	tp.SetReverseTravelTime(0)
+	tp.SetReverseDistance(0)
+
 	if lastIndexForward != lastIndexBackward {
 		// case 2
 		newSourceForwardGeom = spForwardGeom[:lastIndexBackward+1]
@@ -240,16 +243,32 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 			newSPLength += geo.CalculateGreatCircleDistance(curCo.GetLat(), curCo.GetLon(),
 				nextCo.GetLat(), nextCo.GetLon())
 		}
+
+		// dist (sp, newSourceForwardGeom[0])
+		firstCoord := newSourceForwardGeom[0]
+		newSPLength += geo.CalculateGreatCircleDistance(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(),
+			firstCoord.GetLat(), firstCoord.GetLon())
+
+		// dist (newSourceForwardGeom[len(newSourceForwardGeom)-1], tp)
+		lastCoord := newSourceForwardGeom[len(newSourceForwardGeom)-1]
+		newSPLength += geo.CalculateGreatCircleDistance(lastCoord.GetLat(), lastCoord.GetLon(),
+			tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
+
+		newSPTravelTime := rs.engine.GetWeightFromLength(sp.GetOutEdgeId(), newSPLength, true)
+		newSP := da.NewPhantomNode(sp.GetSnappedCoord(), newSPTravelTime, 0, sp.GetOutEdgeId(),
+			da.INVALID_EDGE_ID, newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
+
+		return newSP, tp
 	}
 
-	// case 1 tinggal return empty newSourceForwardGeom,  geometry (sCoord, tCoord) dihandle di rs.AppendPhantomNodesToPath()
-
+	// case 1 tinggal return empty newSourceForwardGeom, geometry dist & traveltime (sCoord, tCoord) dihandle di sini
+	newSPLength += geo.CalculateGreatCircleDistance(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(),
+		tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
 	newSPTravelTime := rs.engine.GetWeightFromLength(sp.GetOutEdgeId(), newSPLength, true)
-
 	newSP := da.NewPhantomNode(sp.GetSnappedCoord(), newSPTravelTime, 0, sp.GetOutEdgeId(),
 		da.INVALID_EDGE_ID, newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
 
-	return newSP
+	return newSP, tp
 }
 
 type originDestination struct {

@@ -31,7 +31,7 @@ var (
 const (
 	mlpFile = "./data/stress_test_yogyakarta.mlp"
 
-	osmfFile                = "../../data/yogyakarta.osm.pbf"
+	osmfFile                = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_preprocessor_test.graph"
 	overlayGraphFile string = "./data/overlay_graph_preprocessor_test.graph"
 )

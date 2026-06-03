@@ -1,6 +1,7 @@
 package customizer
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"math"
@@ -67,16 +68,17 @@ func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, logger 
 func (c *Customizer) Customize() (*metrics.Metric, error) {
 
 	var err error
+	readBuf := bufio.NewReaderSize(nil, 4096*4)
 
 	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
-	c.graph, err = da.ReadGraph(c.graphFilePath)
+	c.graph, err = da.ReadGraph(c.graphFilePath, readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("Customize: failed to read graph from %s: %w", c.graphFilePath, err)
 	}
 
 	c.logger.Sugar().Infof("Reading overlay graph from %s", c.overlayGraphFilePath)
-	c.overlayGraph, err = da.ReadOverlayGraph(c.overlayGraphFilePath)
+	c.overlayGraph, err = da.ReadOverlayGraph(c.overlayGraphFilePath, readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("Customize: failed to read overlay graph from %s: %w", c.overlayGraphFilePath, err)
 	}
@@ -150,7 +152,7 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 
 	c.Build(costFunction)
 	c.logger.Sugar().Infof("Building stalling tables...")
-	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, c.metricOutputFilePath)
+	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, c.metricOutputFilePath, readBuf)
 
 	m.BuildStallingTables(c.overlayGraph, c.graph)
 
@@ -186,6 +188,7 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 
 	var m *metrics.Metric
+	readBuf := bufio.NewReaderSize(nil, 4096*4)
 	emptyCf := costfunction.NewTimeCostFunctionEmpty()
 	maxEdgesInCell := c.graph.GetMaxEdgesInCell()
 
@@ -203,7 +206,7 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 
 	c.Build(emptyCf)
 	c.logger.Sugar().Infof("Building stalling tables...")
-	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, "")
+	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, "", readBuf)
 	m.BuildStallingTables(c.overlayGraph, c.graph)
 	c.logger.Sugar().Infof("Customization step completed successfully.")
 

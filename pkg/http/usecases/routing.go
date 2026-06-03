@@ -7,9 +7,11 @@ import (
 
 	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/offline"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/guidance"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
+	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
@@ -84,9 +86,6 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 
 	if !rs.isSameSourceDestinationSegment(sp, tp) {
 		travelTime, dist, pathCoords, edgePath, found = rs.engine.ShortestPathSearch(sp, tp, reroute)
-	} else {
-		// segmen jalan dari phantom node source dan phantom node destination sama
-		travelTime, dist, pathCoords, edgePath, found = rs.getSameSourceDestinationSegmentResult(sp)
 	}
 
 	if !found {
@@ -161,15 +160,18 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 		travelTime += sp.GetForwardTravelTime()
 		dist += sp.GetForwardDistance()
 	}
+
 	if !rs.engine.IsDummyInEdge(tp.GetInEdgeId()) {
 		if !rs.isSameSourceDestinationSegment(sp, tp) {
 			path.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
 		} else {
 			path.Append([]da.Coordinate{tp.GetSnappedCoord()})
 		}
+
 		travelTime += tp.GetReverseTravelTime()
 		dist += tp.GetReverseDistance()
 	}
+
 	return travelTime, dist
 }
 
@@ -193,13 +195,26 @@ func (rs *RoutingService) InitBackgroundWorker(ctx context.Context) {
 	rs.engine.InitBackgroundWorker(ctx)
 }
 
-func (rs *RoutingService) getSameSourceDestinationSegmentResult(sp da.PhantomNode) (float64, float64, *da.Coordinates, []da.Index, bool) {
-	eId := sp.GetOutEdgeId()
-	edgePath := make([]da.Index, 0)
-	edgePath = append(edgePath, eId)
-	travelTime := sp.GetForwardTravelTime()
-	dist := sp.GetForwardDistance()
-	pathCoords := da.NewCoordinatesWithInitialValues(sp.GetForwardGeometry())
-	found := true
-	return travelTime, dist, pathCoords, edgePath, found
+func (rs *RoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate, error) {
+	if util.IsTimeout(ctx) {
+		return nil, nil, ctx.Err()
+	}
+
+	rt, ok := rs.spatialIndex.(*spatialindex.Rtree)
+	if !ok {
+		return nil, nil, fmt.Errorf("spatial index is not of type *spatialindex.Rtree")
+	}
+
+	re, ok := rs.engine.(*routing.CRPRoutingEngine)
+	if !ok {
+		return nil, nil, fmt.Errorf("routing engine is not of type *routing.CRPRoutingEngine")
+	}
+
+	hmm := offline.NewHiddenMarkovModelMapMatching(rs.graph, re, rt)
+	var matchedPoints []*da.MatchedGPSPoint
+	var routePath []da.Coordinate
+
+	matchedPoints, routePath = hmm.MapMatchWithGPSRadiuses(gpsTraj, gpsRadiusesM)
+
+	return matchedPoints, routePath, nil
 }

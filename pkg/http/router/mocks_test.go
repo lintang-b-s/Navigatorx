@@ -42,6 +42,19 @@ func (m *MockRoutingService) InitBackgroundWorker(ctx context.Context) {
 	m.Called(ctx)
 }
 
+func (m *MockRoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate, error) {
+	args := m.Called(ctx, gpsTraj, gpsRadiusesM)
+	var r0 []*da.MatchedGPSPoint
+	if args.Get(0) != nil {
+		r0 = args.Get(0).([]*da.MatchedGPSPoint)
+	}
+	var r1 []da.Coordinate
+	if args.Get(1) != nil {
+		r1 = args.Get(1).([]da.Coordinate)
+	}
+	return r0, r1, args.Error(2)
+}
+
 type MockMapMatcherService struct {
 	mock.Mock
 }

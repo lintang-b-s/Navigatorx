@@ -129,7 +129,6 @@ func (h *DAryHeap[T]) heapifyDown(index uint32, updatePos func(queryInfoId, newH
 
 	if h.heap[smallest].rank < h.heap[index].rank {
 		h.Swap(index, smallest, updatePos)
-
 		h.heapifyDown(smallest, updatePos)
 	}
 }

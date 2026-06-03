@@ -71,9 +71,10 @@ func (api *API) Run(
 
 	viper.SetDefault("server.read_timeout", "2s")
 	viper.SetDefault("server.write_timeout", "2s")
-	viper.SetDefault("server.idle_timeout", "2s")
+	viper.SetDefault("server.idle_timeout", "240s") // keep-alive tcp connection pool timeout
 	viper.SetDefault("server.read_header_timeout", "2s")
 	viper.SetDefault("server.enable_pprof", false)
+	viper.SetDefault("server.allowed_origins", []string{"*"})
 
 	log.Info("Run httprouter API")
 
@@ -81,8 +82,8 @@ func (api *API) Run(
 	router := httprouter.New()
 
 	corsHandler := cors.New(cors.Options{ //nolint:gocritic // ignore
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "DELETE", "OPTIONS"},
+		AllowedOrigins:   viper.GetStringSlice("server.allowed_origins"),
+		AllowedMethods:   []string{"GET", "POST", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
 		ExposedHeaders:   []string{"Link"},
 		AllowCredentials: true,

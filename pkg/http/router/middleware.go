@@ -94,7 +94,7 @@ func (api *API) Heartbeat(endpoint string) func(http.Handler) http.Handler {
 	return f
 }
 
-// EnforceJSONHandler make sure that the request has a Content-Type header of application/json
+// EnforceJSONHandler make sure that the request has a Content-Type header of application/json, application/gpx+xml, application/xml, or text/xml
 func EnforceJSONHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		contentType := r.Header.Get("Content-Type")
@@ -107,9 +107,9 @@ func EnforceJSONHandler(next http.Handler) http.Handler {
 				return
 			}
 
-			if mt != "application/json" {
+			if mt != "application/json" && mt != "application/gpx+xml" && mt != "application/xml" && mt != "text/xml" {
 				w.Header().Set("Content-Type", "application/json")
-				http.Error(w, "Content-Type header must be application/json", http.StatusUnsupportedMediaType)
+				http.Error(w, "Content-Type header must be application/json or GPX XML", http.StatusUnsupportedMediaType)
 				return
 			}
 		}

@@ -2,8 +2,13 @@ package controllers
 
 import (
 	"bytes"
+	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
+	"strings"
 	"sync"
 
 	json "github.com/bytedance/sonic"
@@ -60,10 +65,18 @@ func NewMessageResponse(msg string) messageResponse {
 func (api *routingAPI) getStatusCode(w http.ResponseWriter, r *http.Request, err error) {
 	if err == nil {
 		headers := make(http.Header)
-
 		if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewMessageResponse("success")}, headers); err != nil {
 			api.ServerErrorResponse(w, r, err)
 		}
+		return
+	}
+	if errors.Is(err, context.Canceled) {
+		api.errorResponse(w, r, http.StatusRequestTimeout, "request was canceled")
+		return
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		api.errorResponse(w, r, http.StatusRequestTimeout, "request timed out")
+		return
 	}
 	var ierr *util.Error
 	if !errors.As(err, &ierr) {
@@ -84,4 +97,56 @@ func (api *routingAPI) getStatusCode(w http.ResponseWriter, r *http.Request, err
 			api.ServerErrorResponse(w, r, err)
 		}
 	}
+}
+
+func parseGPSRadiuses(query url.Values, pointsCount int) ([]float64, error) {
+	const defaultGPSRadiusM = 40.0
+
+	rawValue := query.Get("gps_radiuses")
+	ok := rawValue != ""
+
+	if !ok {
+		rawValue := query.Get("gps_radius") // one gps accuracy radius
+		ok := rawValue != ""
+		if ok {
+			radiusM, err := strconv.ParseFloat(rawValue, 64)
+			if err != nil || radiusM < 0 {
+				return nil, errors.New("gps_radius must be a non-negative float value")
+			}
+			gpsRadiusesM := make([]float64, pointsCount)
+			for i := range gpsRadiusesM {
+				gpsRadiusesM[i] = radiusM
+			}
+			return gpsRadiusesM, nil
+		}
+
+		gpsRadiusesM := make([]float64, pointsCount)
+		for i := range gpsRadiusesM {
+			gpsRadiusesM[i] = defaultGPSRadiusM
+		}
+		return gpsRadiusesM, nil
+	}
+
+	if rawValue == "" {
+		return nil, errors.New("gps_radiuses must contain non-negative float values")
+	}
+
+	parts := strings.Split(rawValue, ";")
+	if len(parts) != pointsCount {
+		return nil, fmt.Errorf("gps_radiuses count must match GPX trackpoint count")
+	}
+
+	gpsRadiusesM := make([]float64, len(parts))
+	for i, part := range parts {
+		if part == "" {
+			return nil, errors.New("gps_radiuses must contain non-negative float values")
+		}
+		radiusM, err := strconv.ParseFloat(part, 64)
+		if err != nil || radiusM < 0 {
+			return nil, errors.New("gps_radiuses must contain non-negative float values")
+		}
+		gpsRadiusesM[i] = radiusM
+	}
+
+	return gpsRadiusesM, nil
 }

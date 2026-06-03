@@ -33,7 +33,7 @@ var (
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "../../data/yogyakarta.osm.pbf"
+	osmfFile                = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_customizer_test.graph"
 	overlayGraphFile string = "./data/overlay_graph_customizer_test.graph"
 	metricsFile      string = "./data/metrics_customizer_test.txt"
@@ -536,7 +536,8 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 		t.Fatal(err)
 	}
 
-	lm, err := landmark.ReadLandmark(landmarkFile)
+	readBuf := bufio.NewReaderSize(nil, 4096*4)
+	lm, err := landmark.ReadLandmark(landmarkFile, readBuf)
 	if err != nil {
 		t.Fatal(err)
 	}

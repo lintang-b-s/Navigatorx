@@ -29,9 +29,11 @@ func FindProjectWorkingDir() (string, error) {
 	return "", fmt.Errorf("working directory not found")
 }
 
-func ReadConfig(wordkingDir string) error {
+func ReadConfig(workingDir string) error {
 	viper.SetConfigName("default")
-	viper.AddConfigPath(wordkingDir + "/data/")
+	viper.AddConfigPath(workingDir + "/data/")
+
+	pkg.WorkingDir = workingDir
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -40,9 +42,11 @@ func ReadConfig(wordkingDir string) error {
 	return nil
 }
 
-func ReadProfileConfig(wordkingDir string, profile string) error {
+func ReadProfileConfig(workingDir string, profile string) error {
 	viper.SetConfigName(profile)
-	viper.AddConfigPath(wordkingDir + "/data/")
+	viper.AddConfigPath(workingDir + "/data/")
+
+	pkg.WorkingDir = workingDir
 
 	err := viper.ReadInConfig()
 	if err != nil {

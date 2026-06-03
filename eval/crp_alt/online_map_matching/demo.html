@@ -1,0 +1,935 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <title>Navigatorx - Offline Map Matching Dashboard</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link
+      href="https://unpkg.com/maplibre-gl/dist/maplibre-gl.css"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg-color: #0b0f19;
+        --card-bg: rgba(22, 30, 49, 0.75);
+        --card-border: rgba(255, 255, 255, 0.08);
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --accent-primary: #8b5cf6; /* violet */
+        --accent-primary-hover: #7c3aed;
+        --color-raw: #f43f5e; /* rose */
+        --color-matched: #10b981; /* emerald */
+        --color-route: #38bdf8; /* sky */
+        --font-main:
+          "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI",
+          Roboto, sans-serif;
+        --font-display: "Outfit", sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      body {
+        font-family: var(--font-main);
+        background-color: var(--bg-color);
+        color: var(--text-primary);
+        height: 100vh;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+
+      header {
+        background: rgba(11, 15, 25, 0.8);
+        backdrop-filter: blur(12px);
+        border-bottom: 1px solid var(--card-border);
+        padding: 1rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 1000;
+        flex-shrink: 0;
+      }
+
+      .logo-container {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
+
+      .logo-icon {
+        width: 2rem;
+        height: 2rem;
+        background: linear-gradient(135deg, #a78bfa, #8b5cf6);
+        border-radius: 0.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+        font-family: var(--font-display);
+        font-size: 1.1rem;
+        color: white;
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.3);
+      }
+
+      h1 {
+        font-family: var(--font-display);
+        font-size: 1.25rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+        background: linear-gradient(to right, #f8fafc, #cbd5e1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+      }
+
+      .badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.25rem 0.6rem;
+        border-radius: 2rem;
+        background: rgba(139, 92, 246, 0.15);
+        color: #a78bfa;
+        border: 1px solid rgba(139, 92, 246, 0.3);
+      }
+
+      .main-container {
+        display: flex;
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+      }
+
+      #map {
+        flex: 1;
+        height: 100%;
+        width: 100%;
+        background-color: #0b0f19;
+      }
+
+      .overlay-panel {
+        position: absolute;
+        top: 1.5rem;
+        left: 1.5rem;
+        width: 380px;
+        max-height: calc(100% - 3rem);
+        background: var(--card-bg);
+        backdrop-filter: blur(16px) saturate(120%);
+        -webkit-backdrop-filter: blur(16px) saturate(120%);
+        border: 1px solid var(--card-border);
+        border-radius: 1rem;
+        z-index: 1000;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        box-shadow:
+          0 20px 25px -5px rgba(0, 0, 0, 0.3),
+          0 10px 10px -5px rgba(0, 0, 0, 0.2);
+        overflow-y: auto;
+        transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+
+      .panel-section {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .panel-section h3 {
+        font-family: var(--font-display);
+        font-size: 0.9rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 0.25rem;
+      }
+
+      .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+      }
+
+      label {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .file-drop-zone {
+        border: 2px dashed rgba(255, 255, 255, 0.15);
+        border-radius: 0.75rem;
+        padding: 1.5rem 1rem;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.02);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      .file-drop-zone:hover,
+      .file-drop-zone.dragover {
+        border-color: var(--accent-primary);
+        background: rgba(139, 92, 246, 0.04);
+      }
+
+      .file-drop-zone svg {
+        width: 2rem;
+        height: 2rem;
+        color: var(--text-secondary);
+        transition: color 0.2s ease;
+      }
+
+      .file-drop-zone:hover svg {
+        color: var(--accent-primary);
+      }
+
+      .file-name-display {
+        font-size: 0.8rem;
+        color: var(--accent-primary);
+        font-weight: 600;
+        word-break: break-all;
+        display: none;
+      }
+
+      input[type="file"] {
+        display: none;
+      }
+
+      input[type="number"],
+      input[type="text"],
+      select {
+        background: rgba(15, 23, 42, 0.6);
+        border: 1px solid var(--card-border);
+        border-radius: 0.5rem;
+        padding: 0.6rem 0.75rem;
+        color: var(--text-primary);
+        font-family: var(--font-main);
+        font-size: 0.9rem;
+        outline: none;
+        transition: all 0.2s ease;
+      }
+
+      input[type="number"]:focus,
+      input[type="text"]:focus,
+      select:focus {
+        border-color: var(--accent-primary);
+        box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+      }
+
+      button.btn-primary {
+        background: linear-gradient(
+          135deg,
+          var(--accent-primary),
+          var(--accent-primary-hover)
+        );
+        color: white;
+        border: none;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1.25rem;
+        font-family: var(--font-main);
+        font-weight: 600;
+        font-size: 0.9rem;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.25);
+      }
+
+      button.btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(139, 92, 246, 0.35);
+      }
+
+      button.btn-primary:active {
+        transform: translateY(0);
+      }
+
+      button.btn-primary:disabled {
+        background: #1e293b;
+        color: var(--text-secondary);
+        box-shadow: none;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .legend-container {
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid var(--card-border);
+        border-radius: 0.5rem;
+        padding: 0.75rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+      }
+
+      .legend-color {
+        width: 1.25rem;
+        height: 4px;
+        border-radius: 2px;
+      }
+
+      .legend-color.raw {
+        background-color: var(--color-raw);
+        box-shadow: 0 0 6px rgba(244, 63, 94, 0.6);
+      }
+
+      .legend-color.matched {
+        background-color: var(--color-matched);
+        box-shadow: 0 0 6px rgba(16, 185, 129, 0.6);
+      }
+
+      .legend-color.route {
+        background-color: var(--color-route);
+        box-shadow: 0 0 6px rgba(56, 189, 248, 0.6);
+      }
+
+      .stats-panel {
+        display: none;
+        flex-direction: column;
+        gap: 0.75rem;
+        background: rgba(15, 23, 42, 0.4);
+        border: 1px solid var(--card-border);
+        border-radius: 0.5rem;
+        padding: 1rem;
+        animation: fadeIn 0.3s ease-out;
+      }
+
+      .stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.75rem;
+      }
+
+      .stat-card {
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid rgba(255, 255, 255, 0.04);
+        border-radius: 0.4rem;
+        padding: 0.6rem;
+        text-align: center;
+      }
+
+      .stat-value {
+        font-family: var(--font-display);
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+      }
+
+      .stat-label {
+        font-size: 0.7rem;
+        color: var(--text-secondary);
+        text-transform: uppercase;
+        margin-top: 0.15rem;
+      }
+
+      .spinner {
+        width: 1.2rem;
+        height: 1.2rem;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.8s linear infinite;
+        display: none;
+      }
+
+      @keyframes spin {
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes fadeIn {
+        from {
+          opacity: 0;
+          transform: translateY(5px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .leaflet-bar {
+        border: 1px solid var(--card-border) !important;
+        box-shadow: none !important;
+      }
+      .leaflet-bar a {
+        background-color: var(--card-bg) !important;
+        color: var(--text-primary) !important;
+        border-bottom: 1px solid var(--card-border) !important;
+        backdrop-filter: blur(12px);
+      }
+      .leaflet-bar a:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+      }
+      .leaflet-container {
+        font-family: var(--font-main);
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="logo-container">
+        <div class="logo-icon">N</div>
+        <h1>Navigatorx</h1>
+        <span class="badge">Offline Map Matcher</span>
+      </div>
+    </header>
+
+    <div class="main-container">
+      <div id="map"></div>
+
+      <div class="overlay-panel">
+        <div class="panel-section">
+          <h3>Map Matching Configuration</h3>
+
+          <div class="form-group" style="margin-top: 0.5rem">
+            <label>GPX Input File</label>
+            <div class="file-drop-zone" id="dropZone">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke-width="1.5"
+                stroke="currentColor"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"
+                />
+              </svg>
+              <span style="font-size: 0.85rem; font-weight: 500"
+                >Drag & drop GPX file here</span
+              >
+              <span style="font-size: 0.75rem; color: var(--text-secondary)"
+                >or click to select file</span
+              >
+              <span class="file-name-display" id="fileName"></span>
+            </div>
+            <input type="file" id="gpxFile" accept=".gpx" />
+          </div>
+
+          <div class="form-group" style="margin-top: 0.5rem">
+            <label for="routingEngine">Routing Engine</label>
+            <select id="routingEngine">
+              <option value="navigatorx">Navigatorx</option>
+              <option value="osrm">OSRM</option>
+            </select>
+          </div>
+
+          <div class="form-group" style="margin-top: 0.5rem">
+            <label for="gpsRadius">GPS Radiuses (meters)</label>
+            <input
+              type="number"
+              id="gpsRadius"
+              value="7"
+              min="1"
+              max="1000"
+              placeholder="e.g. 7"
+            />
+          </div>
+
+          <div id="osrmConfigSection" style="display: none; margin-top: 0.5rem">
+            <div class="form-group">
+              <label for="osrmBaseUrl">OSRM Base URL</label>
+              <input
+                type="text"
+                id="osrmBaseUrl"
+                value="http://localhost:5000"
+                placeholder="http://localhost:5000"
+              />
+            </div>
+
+            <div class="form-group" style="margin-top: 0.5rem">
+              <label for="osrmProfile">OSRM Profile</label>
+              <input
+                type="text"
+                id="osrmProfile"
+                value="driving"
+                placeholder="driving"
+              />
+            </div>
+          </div>
+        </div>
+
+        <button class="btn-primary" id="matchButton" type="button" disabled>
+          <div class="spinner" id="matchSpinner"></div>
+          <span id="matchButtonText">Run Map Matching</span>
+        </button>
+
+        <div class="panel-section">
+          <h3>Map Legend</h3>
+          <div class="legend-container">
+            <div class="legend-item">
+              <div class="legend-color raw"></div>
+              <span>Raw GPS Trajectory (GPX)</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color matched"></div>
+              <span>Map-Matched Trajectory</span>
+            </div>
+            <div class="legend-item">
+              <div class="legend-color route"></div>
+              <span>Matched Route Path</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="stats-panel" id="statsPanel">
+          <h3 style="margin-bottom: 0.25rem">Results Summary</h3>
+          <div class="stats-grid">
+            <div class="stat-card">
+              <div class="stat-value" id="statRawCount">-</div>
+              <div class="stat-label">Raw Points</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statMatchedCount">-</div>
+              <div class="stat-label">Matched Points</div>
+            </div>
+            <div class="stat-card">
+              <div
+                class="stat-value"
+                id="statStatus"
+                style="
+                  color: var(--color-matched);
+                  font-size: 1rem;
+                  font-weight: 600;
+                "
+              >
+                -
+              </div>
+              <div class="stat-label">API Status</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-value" id="statTime">-</div>
+              <div class="stat-label">Time Taken</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+    <script src="https://unpkg.com/maplibre-gl/dist/maplibre-gl.js"></script>
+    <script src="https://unpkg.com/@maplibre/maplibre-gl-leaflet/leaflet-maplibre-gl.js"></script>
+
+    <script>
+      // Initialize leaflet map
+      var map = L.map("map", {
+        zoomControl: false,
+      }).setView([47.66779, -122.104872], 14); // Default to Yogyakarta coords
+
+      L.control
+        .zoom({
+          position: "bottomright",
+        })
+        .addTo(map);
+
+      // OpenFreeMap Liberty style vector tiles via Maplibre GL
+      L.maplibreGL({
+        style: "https://tiles.openfreemap.org/styles/liberty",
+        attribution:
+          '&copy; <a href="https://openfreemap.org">OpenFreeMap</a> &copy; <a href="https://www.openmaptiles.org/">OpenMapTiles</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      }).addTo(map);
+
+      var rawPolylineLayer = null;
+      var matchedPolylineLayer = null;
+      var routePathPolylineLayer = null;
+      var rawMarkerGroup = L.layerGroup().addTo(map);
+      var matchedMarkerGroup = L.layerGroup().addTo(map);
+
+      var gpxContent = "";
+
+      // Drag and drop events
+      var dropZone = document.getElementById("dropZone");
+      var fileInput = document.getElementById("gpxFile");
+      var fileNameDisplay = document.getElementById("fileName");
+      var matchButton = document.getElementById("matchButton");
+      var routingEngineSelect = document.getElementById("routingEngine");
+      var osrmConfigSection = document.getElementById("osrmConfigSection");
+
+      function updateEngineConfigVisibility() {
+        osrmConfigSection.style.display =
+          routingEngineSelect.value === "osrm" ? "block" : "none";
+      }
+
+      routingEngineSelect.addEventListener(
+        "change",
+        updateEngineConfigVisibility,
+      );
+      updateEngineConfigVisibility();
+
+      dropZone.addEventListener("click", () => fileInput.click());
+
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("dragover");
+      });
+
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("dragover");
+      });
+
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("dragover");
+        if (e.dataTransfer.files.length > 0) {
+          handleFileSelect(e.dataTransfer.files[0]);
+        }
+      });
+
+      fileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+          handleFileSelect(e.target.files[0]);
+        }
+      });
+
+      function handleFileSelect(file) {
+        if (!file.name.endsWith(".gpx")) {
+          alert("Please upload a file with .gpx extension.");
+          return;
+        }
+        fileNameDisplay.textContent = file.name;
+        fileNameDisplay.style.display = "block";
+
+        var reader = new FileReader();
+        reader.onload = function (e) {
+          gpxContent = e.target.result;
+          matchButton.removeAttribute("disabled");
+        };
+        reader.readAsText(file);
+      }
+
+      // XML Parsing logic for GPX trackpoints
+      function parseGpxTrackpoints(gpxText) {
+        var parser = new DOMParser();
+        var xmlDoc = parser.parseFromString(gpxText, "text/xml");
+        var parserErrors = xmlDoc.getElementsByTagName("parsererror");
+        if (parserErrors.length > 0) {
+          throw new Error("Invalid GPX XML content.");
+        }
+
+        var trkpts = xmlDoc.getElementsByTagName("trkpt");
+        var points = [];
+        for (var i = 0; i < trkpts.length; i++) {
+          var trkpt = trkpts[i];
+          var lat = parseFloat(trkpt.getAttribute("lat"));
+          var lon = parseFloat(trkpt.getAttribute("lon"));
+
+          if (!isNaN(lat) && !isNaN(lon)) {
+            var timeNode = trkpt.getElementsByTagName("time");
+            var parsedTime = null;
+            if (timeNode.length > 0 && timeNode[0].textContent) {
+              var parsedMs = Date.parse(timeNode[0].textContent.trim());
+              if (!isNaN(parsedMs)) {
+                parsedTime = parsedMs;
+              }
+            }
+
+            points.push({
+              lat: lat,
+              lon: lon,
+              timeMs: parsedTime,
+            });
+          }
+        }
+        return points;
+      }
+
+      function buildMonotonicTimestamps(trackpoints) {
+        var timestamps = [];
+        var previousTimestamp = null;
+        var nowEpoch = Math.floor(Date.now() / 1000);
+
+        for (var i = 0; i < trackpoints.length; i++) {
+          var timestamp = null;
+          if (typeof trackpoints[i].timeMs === "number") {
+            timestamp = Math.floor(trackpoints[i].timeMs / 1000);
+          }
+
+          if (timestamp === null || isNaN(timestamp)) {
+            timestamp =
+              previousTimestamp === null ? nowEpoch : previousTimestamp + 1;
+          } else if (
+            previousTimestamp !== null &&
+            timestamp <= previousTimestamp
+          ) {
+            timestamp = previousTimestamp + 1;
+          }
+
+          timestamps.push(timestamp);
+          previousTimestamp = timestamp;
+        }
+
+        return timestamps;
+      }
+
+      function normalizeOsrmBaseUrl(baseUrl) {
+        return baseUrl.replace(/\/+$/, "");
+      }
+
+      function escapeHtml(value) {
+        return String(value)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      async function runNavigatorxMapMatching(
+        gpxText,
+        trackpoints,
+        gpsRadiusMeters,
+      ) {
+        var response = await fetch(
+          `http://localhost:6060/api/mapmatching?gps_radius=${encodeURIComponent(gpsRadiusMeters)}`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/gpx+xml",
+            },
+            body: gpxText,
+          },
+        );
+
+        if (!response.ok) {
+          var errorText = await response.text();
+          throw new Error(errorText || `HTTP error ${response.status}`);
+        }
+
+        var result = await response.json();
+        var matchedPoints = (result.data && result.data.matched_points) || [];
+        var routePath = (result.data && result.data.route_path) || [];
+
+        return {
+          response: response,
+          matchedPoints: matchedPoints,
+          routePath: routePath,
+        };
+      }
+
+      // Handle map matching request
+      document
+        .getElementById("matchButton")
+        .addEventListener("click", async function (event) {
+          event.preventDefault();
+          event.stopPropagation();
+          if (!gpxContent) return;
+
+          // Clear existing map layers
+          if (rawPolylineLayer) map.removeLayer(rawPolylineLayer);
+          if (matchedPolylineLayer) map.removeLayer(matchedPolylineLayer);
+          if (routePathPolylineLayer) map.removeLayer(routePathPolylineLayer);
+          rawMarkerGroup.clearLayers();
+          matchedMarkerGroup.clearLayers();
+
+          // Parse and plot raw GPX trajectory
+          var trackpoints;
+          try {
+            trackpoints = parseGpxTrackpoints(gpxContent);
+          } catch (parseError) {
+            alert("Failed to parse GPX file:\n" + parseError.message);
+            return;
+          }
+          if (trackpoints.length === 0) {
+            alert("No coordinates found in GPX file!");
+            return;
+          }
+          var rawCoords = trackpoints.map(function (pt) {
+            return [pt.lat, pt.lon];
+          });
+
+          rawPolylineLayer = L.polyline(rawCoords, {
+            color: "var(--color-raw)",
+            weight: 3,
+            opacity: 0.6,
+            dashArray: "5, 10",
+          }).addTo(map);
+
+          rawCoords.forEach((coord) => {
+            L.circleMarker(coord, {
+              color: "var(--color-raw)",
+              radius: 3,
+              fillOpacity: 0.8,
+            }).addTo(rawMarkerGroup);
+          });
+
+          // Set UI loading state
+          var matchButtonText = document.getElementById("matchButtonText");
+          var matchSpinner = document.getElementById("matchSpinner");
+          matchButton.disabled = true;
+          matchButtonText.textContent = "Matching...";
+          matchSpinner.style.display = "block";
+          document.getElementById("statsPanel").style.display = "none";
+
+          var startTime = performance.now();
+          var gpsRadiusMeters = parseFloat(
+            document.getElementById("gpsRadius").value || 7,
+          );
+          if (isNaN(gpsRadiusMeters) || gpsRadiusMeters <= 0) {
+            gpsRadiusMeters = 7;
+          }
+          var selectedEngine = routingEngineSelect.value;
+          var engineLabel = selectedEngine === "osrm" ? "OSRM" : "Navigatorx";
+
+          try {
+            var requestResult;
+
+            requestResult = await runNavigatorxMapMatching(
+              gpxContent,
+              trackpoints,
+              gpsRadiusMeters,
+            );
+
+            var endTime = performance.now();
+            var durationMs = (endTime - startTime).toFixed(0);
+            var response = requestResult.response;
+            var matchedPoints = requestResult.matchedPoints;
+            var routePath = requestResult.routePath || [];
+
+            if (matchedPoints.length === 0) {
+              alert("No matched points returned from the API.");
+            } else {
+              var matchedCoords = matchedPoints.map((p) => [
+                p.matched_coord.lat,
+                p.matched_coord.lon,
+              ]);
+              var routePathCoords = routePath
+                .filter(
+                  (p) => typeof p.lat === "number" && typeof p.lon === "number",
+                )
+                .map((p) => [p.lat, p.lon]);
+
+              if (routePathCoords.length > 0) {
+                routePathPolylineLayer = L.polyline(routePathCoords, {
+                  color: "var(--color-route)",
+                  weight: 6,
+                  opacity: 0.85,
+                  lineCap: "round",
+                  lineJoin: "round",
+                }).addTo(map);
+              }
+
+              // Plot matched trajectory
+              matchedPolylineLayer = L.polyline(matchedCoords, {
+                color: "var(--color-matched)",
+                weight: 4,
+                opacity: 0.95,
+              }).addTo(map);
+
+              matchedPoints.forEach((p) => {
+                var coord = [p.matched_coord.lat, p.matched_coord.lon];
+                var popupContent = "";
+                if (typeof p.edge_id !== "undefined") {
+                  var edgeBearing = p.edge_initial_bearing
+                    ? p.edge_initial_bearing.toFixed(1)
+                    : "0.0";
+                  popupContent = `
+                  <b>Matched Edge:</b> ${escapeHtml(p.edge_id)}<br/>
+                  <b>Bearing:</b> ${escapeHtml(edgeBearing)}°
+                `;
+                } else {
+                  popupContent = `
+                  <b>Name:</b> ${escapeHtml(p.name || "-")}<br/>
+                  <b>Alternatives:</b> ${escapeHtml(typeof p.alternatives_count === "number" ? p.alternatives_count : "-")}<br/>
+                  <b>Matching Index:</b> ${escapeHtml(typeof p.matchings_index === "number" ? p.matchings_index : "-")}<br/>
+                  <b>Waypoint Index:</b> ${escapeHtml(typeof p.waypoint_index === "number" ? p.waypoint_index : "-")}
+                `;
+                }
+
+                L.circleMarker(coord, {
+                  color: "var(--color-matched)",
+                  radius: 4,
+                  fillOpacity: 1.0,
+                })
+                  .bindPopup(
+                    `
+                <div style="font-family: var(--font-main); font-size: 0.75rem; color: #1e293b;">
+                  ${popupContent}
+                </div>
+              `,
+                  )
+                  .addTo(matchedMarkerGroup);
+              });
+
+              // Adjust map viewport to cover both paths
+              var boundsLayers = [rawPolylineLayer, matchedPolylineLayer];
+              if (routePathPolylineLayer) {
+                boundsLayers.push(routePathPolylineLayer);
+              }
+              var combinedBounds = L.featureGroup(boundsLayers).getBounds();
+              map.fitBounds(combinedBounds, { padding: [40, 40] });
+            }
+
+            // Populate stats dashboard
+            document.getElementById("statRawCount").textContent =
+              rawCoords.length;
+            document.getElementById("statMatchedCount").textContent =
+              matchedPoints.length;
+            document.getElementById("statStatus").textContent =
+              response.status + " OK (" + engineLabel + ")";
+            document.getElementById("statStatus").style.color =
+              "var(--color-matched)";
+            document.getElementById("statTime").textContent = `${durationMs}ms`;
+            document.getElementById("statsPanel").style.display = "flex";
+          } catch (error) {
+            console.error("Map matching error:", error);
+            document.getElementById("statRawCount").textContent =
+              rawCoords.length;
+            document.getElementById("statMatchedCount").textContent = "0";
+            document.getElementById("statStatus").textContent = "ERROR";
+            document.getElementById("statStatus").style.color =
+              "var(--color-raw)";
+            document.getElementById("statTime").textContent = "-";
+            document.getElementById("statsPanel").style.display = "flex";
+            alert("Error during map matching:\n" + error.message);
+          } finally {
+            matchButton.disabled = false;
+            matchButtonText.textContent = "Run Map Matching";
+            matchSpinner.style.display = "none";
+          }
+        });
+    </script>
+  </body>
+</html>

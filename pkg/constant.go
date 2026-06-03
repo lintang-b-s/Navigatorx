@@ -85,6 +85,7 @@ var (
 	NUM_CPU     = runtime.NumCPU()
 	ProfileName = "car"
 	RegionName  = ""
+	WorkingDir  = ""
 
 	// supported: bicycle, foot, motorcycle, bus, hgv, goods, taxi, minibus, motorcar
 	VehicleType VehicleTypeT = MOTORCAR

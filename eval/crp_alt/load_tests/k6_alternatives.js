@@ -91,7 +91,7 @@ export default () => {
   const randomQuery = queryData[Math.floor(Math.random() * queryData.length)];
 
   const res = http.get(
-    `http://localhost:6060/api/computeAlternativeRoutes?origin_lat=${randomQuery.srcLat}&origin_lon=${randomQuery.srcLon}&destination_lat=${randomQuery.destLat}&destination_lon=${randomQuery.destLon}&k=3`,
+    `http://localhost:6060/api/computeAlternativeRoutes?origin_lat=${randomQuery.srcLat}&origin_lon=${randomQuery.srcLon}&destination_lat=${randomQuery.destLat}&destination_lon=${randomQuery.destLon}&k=3&useAnnotation=false`,
     {
       headers: {
         "Content-Type": "application/json",

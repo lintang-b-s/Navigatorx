@@ -11,13 +11,14 @@ import (
 	"io"
 	"math"
 	"math/rand"
-	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 
+	onlinemapmatching "github.com/lintang-b-s/Navigatorx/eval/crp_alt/online_map_matching"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
@@ -60,16 +61,17 @@ Available at: https://doi.org/10.1109/TITS.2023.3237519.
 // pakai dataset dari ref[2]: https://github.com/Hanwen-Hu/AMM/tree/main/MatchData/Shanghai
 
 const (
-	osmFile                            = "../../data/eval/mapmatching/shanghai.osm.pbf"
+	osmFile                            = "./data/eval/mapmatching/shanghai.osm.pbf"
 	graphFile                   string = "./data/original_eval_mm_hh.graph"
 	overlayGraphFile            string = "./data/overlay_graph_eval_mm_hh.graph"
 	metricsFile                 string = "./data/metrics_eval_mm_hh.txt"
-	transitionMatrixFilepath           = "./data/eval/mapmatching/omm_transition_history_id_hh.mm"
+	transitionMatrixFilepath           = "./data/eval/mapmatching/omm_transition_history_id_hh.txt"
 	shanghaiDatasetDriveFile           = "https://drive.google.com/uc?export=download&id=1Ecaabtah1TXyx5T-QqAngPPSEMhUQwaV"
 	shanghaiOsmDriveFile               = "https://drive.google.com/uc?export=download&id=1cWnidrIprbzHiNxEq1zVgIDiawInqlVj"
 	shanghaiDataFilePath               = "./data/eval/mapmatching/shanghai.tar.gz"
 	shanghaiTestDataFilePath           = "./data/eval/mapmatching/Shanghai/track"
 	shanghaiGroundTruthFilepath        = "./data/eval/mapmatching/Shanghai/ground"
+	shanghaiPolylinesPath              = "./data/eval/mapmatching/Shanghai/polylines"
 	mlpFile                            = "./data/eval/mapmatching/online_map_match_mlp_hanwenhu.mlp"
 	landmarkFile                       = "./data/eval/mapmatching/landmark_hh.lm"
 	timeFunctionFile            string = "./data/timefunction_eval_mm_hh.txt"
@@ -115,7 +117,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: log.New() failed %w", err)
 	}
 	op := osmparser.NewOSMParserV2()
-	err = download(osmFile, shanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
+	err = onlinemapmatching.Download(osmFile, shanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: download() failed %w", err)
 	}
@@ -264,40 +266,6 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	return re, graph, logger, N, nil
 }
 
-func download(filePath, url string, logger *zap.Logger, name string) error {
-
-	if _, err := os.Stat(filePath); os.IsNotExist(err) {
-		logger.Sugar().Infof("downloading evaluation %s dataset.....", name)
-
-		dir := filepath.Dir(filePath)
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			return fmt.Errorf("download: MkdirAll failed %v", err)
-		}
-
-		output, err := os.Create(filePath)
-		if err != nil {
-			return fmt.Errorf("download: Create failed %v", err)
-		}
-		defer output.Close()
-
-		logger.Sugar().Infof("downloading file......")
-		response, err := http.Get(url)
-		if err != nil {
-			return fmt.Errorf("download: http.Get failed %v", err)
-		}
-		defer response.Body.Close()
-
-		_, err = io.Copy(output, response.Body)
-		if err != nil {
-			return fmt.Errorf("download: io.Copy failed %v", err)
-		}
-
-		logger.Sugar().Infof("download complete")
-	}
-
-	return nil
-}
-
 func readCsv(filePath string) ([]map[string]string, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -420,13 +388,30 @@ func extractTarGz(gzipStream io.Reader) error {
 	return nil
 }
 
+func trackIDFromName(trajName string) string {
+	base := filepath.Base(trajName)
+	ext := filepath.Ext(base)
+	return strings.TrimSuffix(base, ext)
+}
+
+func writePolyline(filePath string, points []da.Coordinate) error {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+		return fmt.Errorf("write polyline: mkdir failed: %v", err)
+	}
+	polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(points))
+	if err := os.WriteFile(filePath, []byte(polyline), 0644); err != nil {
+		return fmt.Errorf("write polyline: write file failed: %v", err)
+	}
+	return nil
+}
+
 func main() {
 	_, graph, logger, N, err := buildCRPGraph()
 	if err != nil {
 		panic(err)
 	}
 
-	err = download(shanghaiDataFilePath, shanghaiDatasetDriveFile, logger, "shanghai dataset")
+	err = onlinemapmatching.Download(shanghaiDataFilePath, shanghaiDatasetDriveFile, logger, "shanghai dataset")
 	if err != nil {
 		panic(err)
 	}
@@ -447,7 +432,7 @@ func main() {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(graph, logger)
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.001, 4.07, 0.000001,
+	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.001, 5.0, 0.000001,
 		0.06, 3, N) // speed in meter/s,
 	avgRuntimePerGpsPointAll := 0.0
 
@@ -468,6 +453,8 @@ func main() {
 		)
 
 		mapMatchPointResult := make([]*da.MatchedGPSPoint, 0)
+		gpsTrackPolyline := make([]da.Coordinate, 0, len(gpsTraj))
+		matchResultPolyline := make([]da.Coordinate, 0, len(gpsTraj))
 		avgRuntimePerGpsPoint := 0.0
 
 		nowDataset := time.Now()
@@ -509,16 +496,30 @@ func main() {
 			}
 
 			prevLat, prevLon = lat, lon
+			gpsTrackPolyline = append(gpsTrackPolyline, da.NewCoordinate(lat, lon))
 
 			now := time.Now()
-			curGps := da.NewGPSPoint(lat, lon, curGpsTime, speed, deltaTime, false)
+			curGps := da.NewGPSPoint(lat, lon, curGpsTime, speed, deltaTime)
 			matchedPoint, candidates, speedMeanK, speedStdK = onlineMapMatcherEngine.OnlineMapMatch(curGps, k, candidates, speedMeanK, speedStdK, lastBearing)
 			k++
 			lastBearing = matchedPoint.GetBearing()
 			mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
+			if matchedPoint.GetEdgeId() != da.INVALID_EDGE_ID {
+				matchResultPolyline = append(matchResultPolyline, matchedPoint.GetMatchedCoord())
+			}
 			avgRuntimePerGpsPoint += float64(time.Since(now).Microseconds())
 
 			curGpsTime = curGpsTime.Add(2)
+		}
+
+		trackID := trackIDFromName(trajName)
+		resultPolylinePath := filepath.Join(shanghaiPolylinesPath, fmt.Sprintf("result_polyline_%s.txt", trackID))
+		if err := writePolyline(resultPolylinePath, matchResultPolyline); err != nil {
+			panic(err)
+		}
+		gpsTrackPath := filepath.Join(shanghaiPolylinesPath, fmt.Sprintf("gps_track_%s.txt", trackID))
+		if err := writePolyline(gpsTrackPath, gpsTrackPolyline); err != nil {
+			panic(err)
 		}
 
 		avgRuntimePerGpsPointAll += avgRuntimePerGpsPoint / float64(len(gpsTraj))
@@ -589,7 +590,6 @@ func main() {
 				matchLength += dist
 				prevMp = mp
 			}
-
 		}
 
 		matchingError := math.Abs(matchLength-groundTruthLength) / groundTruthLength

@@ -2,6 +2,7 @@
 package routing
 
 import (
+	"bufio"
 	"fmt"
 	"runtime"
 	"sync"
@@ -31,7 +32,6 @@ type CRPRoutingEngine struct {
 	unpackedPathPool   sync.Pool
 	stallingEntryPool  sync.Pool
 	stallingExitPool   sync.Pool
-	costFunction       CostFunction
 	landmarkFile       string
 
 	unpackerWorkers                     int
@@ -41,11 +41,11 @@ type CRPRoutingEngine struct {
 func NewCRPRoutingEngine(graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric,
 	logger *zap.Logger, puCache *ristretto.Cache[[]byte, []da.Index],
-	costFunction CostFunction, landmarkFile string) *CRPRoutingEngine {
+	landmarkFile string, readBuf *bufio.Reader) *CRPRoutingEngine {
 	var err error
 	lm := landmark.NewLandmark()
 	if landmarkFile != "" {
-		lm, err = landmark.ReadLandmark(landmarkFile)
+		lm, err = landmark.ReadLandmark(landmarkFile, readBuf)
 		if err != nil {
 			panic(fmt.Errorf("NewCRPRoutingEngine: failed to read precomputed landmark distances: %v", err))
 		}
@@ -62,7 +62,6 @@ func NewCRPRoutingEngine(graph *da.Graph,
 		overlayGraph:        overlayGraph,
 		logger:              logger,
 		puCache:             puCache,
-		costFunction:        costFunction,
 		lm:                  lm,
 		landmarkFile:        landmarkFile,
 		verticesLookupTable: verticesLookupTable,

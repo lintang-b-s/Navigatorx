@@ -172,12 +172,11 @@ func (m *MobileMapMatcher) toMatchedGPSPointDTO(mgps *da.MatchedGPSPoint) *Match
 	gps := mgps.GetGpsPoint()
 
 	gpsDTO := GPSPointDTO{
-		Lat:           gps.Lat(),
-		Lon:           gps.Lon(),
-		TimeUnix:      gps.Time().Unix(),
-		Speed:         gps.Speed(),
-		DeltaTime:     gps.DeltaTime(),
-		DeadReckoning: gps.GetDeadReckoning(),
+		Lat:       gps.Lat(),
+		Lon:       gps.Lon(),
+		TimeUnix:  gps.Time().Unix(),
+		Speed:     gps.Speed(),
+		DeltaTime: gps.DeltaTime(),
 	}
 
 	matchedCoord := mgps.GetMatchedCoord()
@@ -220,7 +219,6 @@ func (m *MobileMapMatcher) Match(
 		time.Unix(timeUnix, 0),
 		gpsSpeed,
 		deltaTime,
-		deadReckoning,
 	)
 
 	// Unmarshal into DTOs

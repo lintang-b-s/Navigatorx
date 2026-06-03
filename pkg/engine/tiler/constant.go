@@ -12,5 +12,5 @@ const (
 )
 
 func MapTileFilePathPrefix() string {
-	return fmt.Sprintf("./data/profiles/%s/tiles/%s", pkg.ProfileName, pkg.RegionName)
+	return fmt.Sprintf("%s/data/profiles/%s/tiles/%s", pkg.WorkingDir, pkg.ProfileName, pkg.RegionName)
 }

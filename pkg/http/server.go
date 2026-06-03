@@ -34,10 +34,21 @@ func (s *Server) Use(
 
 	viper.SetDefault("server.api_timeout", "2s")
 
+	viper.SetDefault("server.http_version", "http2")
+
 	config := http_server.Config{
 		Port:    viper.GetInt("http_port"),
 		Timeout: viper.GetDuration("server.api_timeout"),
 	}
+	log.Info("HTTP server config",
+		zap.Int("port", config.Port),
+		zap.Duration("api_timeout", config.Timeout),
+		zap.Duration("read_timeout", viper.GetDuration("server.read_timeout")),
+		zap.Duration("write_timeout", viper.GetDuration("server.write_timeout")),
+		zap.Duration("idle_timeout", viper.GetDuration("server.idle_timeout")),
+		zap.Duration("read_header_timeout", viper.GetDuration("server.read_header_timeout")),
+		zap.String("http_version", viper.GetString("server.http_version")),
+	)
 
 	server := http_router.NewAPI(log)
 

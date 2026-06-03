@@ -240,7 +240,8 @@ turnCost(v->t->z) = 0
 untuk referensi lain implementasi routing with turn cost di road network dapat dilihat di:
 1. https://dl.acm.org/doi/10.5555/2008623.2008634
 2. https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp  also see osrm graph representation: https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
+3. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp  also see osrm graph representation: https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
+4. customizable contraction hierarchies with turn costs: https://drops.dagstuhl.de/storage/01oasics/oasics-vol085-atmos2020/OASIcs.ATMOS.2020.9/OASIcs.ATMOS.2020.9.pdf  atau  https://i11www.iti.kit.edu/_media/teaching/theses/ba-zuendorf-19.pdf
 
 */
 

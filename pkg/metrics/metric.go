@@ -27,14 +27,14 @@ type Metric struct {
 	lock                                        sync.Mutex
 }
 
-func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *da.OverlayWeights, metricFilepath string,
+func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *da.OverlayWeights, metricFilepath string, readBuf *bufio.Reader,
 ) *Metric {
 	var (
 		err error
 		tf  *costfunction.TimeFunction
 	)
 	if timeFunctionFilePath != "" {
-		tf, err = costfunction.ReadFromFile(timeFunctionFilePath)
+		tf, err = costfunction.ReadFromFile(timeFunctionFilePath, readBuf)
 		if err != nil {
 			panic(fmt.Errorf("NewMetric: failed to read time function: %v", err))
 		}
@@ -359,11 +359,7 @@ func (met *Metric) WriteToFile(filename string) error {
 	return nil
 }
 
-const (
-	metricsBufferSize = 4096 * 2
-)
-
-func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error) {
+func ReadFromFile(filename string, timeFunctionFilePath string, readBuf *bufio.Reader) (*Metric, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("metrics.ReadFromFile: failed to open file %v: %w", filename, err)
@@ -371,9 +367,9 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 
 	defer f.Close()
 
-	r := bufio.NewReaderSize(f, metricsBufferSize)
+	readBuf.Reset(f)
 
-	line, err := util.ReadLine(r)
+	line, err := util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
 	}
@@ -402,7 +398,7 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 		return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse numExitStallingTables: %v: %w", parts[2], err)
 	}
 
-	line, err = util.ReadLine(r)
+	line, err = util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
 
@@ -426,7 +422,7 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 	exitStallingTables := make([][]float64, numExitStallingTables)
 
 	for i := 0; i < numEntryStallingTables; i++ {
-		line, err = util.ReadLine(r)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
 		}
@@ -462,7 +458,7 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 	}
 
 	for i := 0; i < numExitStallingTables; i++ {
-		line, err = util.ReadLine(r)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
 		}
@@ -496,7 +492,8 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 
 		exitStallingTables[i] = stallingTable
 	}
-	tf, err := costfunction.ReadFromFile(timeFunctionFilePath)
+
+	tf, err := costfunction.ReadFromFile(timeFunctionFilePath, readBuf)
 	if err != nil {
 		panic(fmt.Errorf("NewMetric: failed to read time function: %v", err))
 	}
@@ -514,9 +511,9 @@ func ReadFromFile(filename string, timeFunctionFilePath string) (*Metric, error)
 	return metric, nil
 }
 
-func (met *Metric) UpdateMetrics() error {
+func (met *Metric) UpdateMetrics(readBuf *bufio.Reader) error {
 	time.Sleep(2 * time.Second) // biar bener2 ke write ke file dulu metrics nya
-	newMet, err := ReadFromFile(met.metricFilepath, met.timeFunctionFilePath)
+	newMet, err := ReadFromFile(met.metricFilepath, met.timeFunctionFilePath, readBuf)
 	if err != nil {
 		return fmt.Errorf("UpdateMetrics: failed to read new metrics, filepath: %s: %w", met.metricFilepath, err)
 	}

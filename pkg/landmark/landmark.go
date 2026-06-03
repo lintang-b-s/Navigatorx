@@ -484,11 +484,7 @@ func (lm *Landmark) WriteLandmark(filename string, n int) error {
 	return nil
 }
 
-const (
-	landmarkBufferSize = 4096 * 2
-)
-
-func ReadLandmark(filename string) (*Landmark, error) {
+func ReadLandmark(filename string, readBuf *bufio.Reader) (*Landmark, error) {
 	f, err := os.Open(filename)
 	if err != nil {
 		return nil, fmt.Errorf("ReadLandmark: failed to open file: %s: %w", filename, err)
@@ -499,9 +495,9 @@ func ReadLandmark(filename string) (*Landmark, error) {
 	if err != nil {
 		return nil, fmt.Errorf("ReadLandmark: failed to create new s2 reader for file: %s: %w", filename, err)
 	}
-	br := bufio.NewReaderSize(snp, landmarkBufferSize)
+	readBuf.Reset(snp)
 
-	line, err := util.ReadLine(br)
+	line, err := util.ReadLine(readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("ReadLandmark: failed to read header line from file %s: %w", filename, err)
 	}
@@ -524,7 +520,7 @@ func ReadLandmark(filename string) (*Landmark, error) {
 	}
 
 	for i := 0; i < k; i++ {
-		line, err := util.ReadLine(br)
+		line, err := util.ReadLine(readBuf)
 		if err != nil {
 			return nil, fmt.Errorf("ReadLandmark: failed to read landmark row %d from file %s: %w", i, filename, err)
 		}
@@ -547,7 +543,7 @@ func ReadLandmark(filename string) (*Landmark, error) {
 			lw[i][j-1] = sp
 		}
 
-		line, err = util.ReadLine(br)
+		line, err = util.ReadLine(readBuf)
 		if err != nil {
 			return nil, fmt.Errorf("ReadLandmark: failed to read reverse landmark row %d from file %s: %w", i, filename, err)
 		}
@@ -574,8 +570,8 @@ func ReadLandmark(filename string) (*Landmark, error) {
 	return lm, nil
 }
 
-func (lm *Landmark) UpdateLandmarks(landmarkFilePath string) error {
-	newLandmark, err := ReadLandmark(landmarkFilePath)
+func (lm *Landmark) UpdateLandmarks(landmarkFilePath string, readBuf *bufio.Reader) error {
+	newLandmark, err := ReadLandmark(landmarkFilePath, readBuf)
 	if err != nil {
 		return fmt.Errorf("UpdateLandmarks: failed to read new precalculated landmark distances: %v: %w", err, err)
 	}

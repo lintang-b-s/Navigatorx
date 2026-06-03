@@ -114,6 +114,10 @@ func KilometerToMeter(d float64) float64 {
 	return d * 1000
 }
 
+func MeterToKilometer(d float64) float64 {
+	return d / 1000.0
+}
+
 func SecondsToMinutes(seconds float64) float64 {
 	return seconds / 60
 }

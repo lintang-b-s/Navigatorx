@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/julienschmidt/httprouter"
@@ -12,6 +14,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"go.uber.org/zap"
 )
 
@@ -342,4 +345,196 @@ func TestRoutingAPI_Routes(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
+	log := zap.NewNop()
+	mockRS := new(MockRoutingService)
+	mockTS := new(MockTilingService)
+	api := New(mockRS, log, mockTS)
+
+	validGPX := `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GraphHopper">
+  <trk>
+    <trkseg>
+      <trkpt lat="-7.7956" lon="110.3695">
+        <time>2026-05-21T15:00:00Z</time>
+      </trkpt>
+      <trkpt lat="-7.7828" lon="110.4145">
+        <time>2026-05-21T15:00:05Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+
+	t.Run("Invalid GPS Radiuses", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/mapmatching?gps_radiuses=50;-10", strings.NewReader(validGPX))
+		rr := httptest.NewRecorder()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "gps_radiuses must contain non-negative float values")
+	})
+
+	t.Run("GPS Radiuses Count Mismatch", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/mapmatching?gps_radiuses=50", strings.NewReader(validGPX))
+		rr := httptest.NewRecorder()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "gps_radiuses count must match GPX trackpoint count")
+	})
+
+	t.Run("Invalid Single GPS Radius", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/mapmatching?gps_radius=-10", strings.NewReader(validGPX))
+		rr := httptest.NewRecorder()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "gps_radius must be a non-negative float value")
+	})
+
+	t.Run("Invalid XML GPX Body", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/mapmatching", strings.NewReader("invalid xml"))
+		rr := httptest.NewRecorder()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "failed to parse GPX XML")
+	})
+
+	t.Run("Empty GPX Trackpoints", func(t *testing.T) {
+		gpxStr := `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GraphHopper">
+  <trk>
+    <trkseg>
+    </trkseg>
+  </trk>
+</gpx>`
+		req, _ := http.NewRequest("POST", "/mapmatching", strings.NewReader(gpxStr))
+		rr := httptest.NewRecorder()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "GPX contains no track points")
+	})
+
+	t.Run("Invalid Coordinates", func(t *testing.T) {
+		gpxStr := `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="GraphHopper">
+  <trk>
+    <trkseg>
+      <trkpt lat="100.0" lon="11.0">
+        <time>2026-05-21T15:00:00Z</time>
+      </trkpt>
+    </trkseg>
+  </trk>
+</gpx>`
+		req, _ := http.NewRequest("POST", "/mapmatching", strings.NewReader(gpxStr))
+		rr := httptest.NewRecorder()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "invalid trackpoint coordinates")
+	})
+
+	t.Run("Success with custom GPS radiuses", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/mapmatching?gps_radiuses=50;60", strings.NewReader(validGPX))
+		rr := httptest.NewRecorder()
+
+		mockRS.On("OfflineMapMatch",
+			mock.Anything,
+			mock.Anything,
+			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
+				return reflect.DeepEqual(gpsRadiusesM, []float64{50, 60})
+			}),
+			true,
+		).Return([]*da.MatchedGPSPoint{}, []da.Coordinate{}, nil).Once()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Contains(t, rr.Body.String(), "matched_points")
+		assert.Contains(t, rr.Body.String(), "route_path")
+		mockRS.AssertExpectations(t)
+	})
+
+	t.Run("Success with single GPS radius", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/mapmatching?gps_radius=70", strings.NewReader(validGPX))
+		rr := httptest.NewRecorder()
+
+		mockRS.On("OfflineMapMatch",
+			mock.Anything,
+			mock.Anything,
+			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
+				return reflect.DeepEqual(gpsRadiusesM, []float64{70, 70})
+			}),
+			true,
+		).Return([]*da.MatchedGPSPoint{}, []da.Coordinate{}, nil).Once()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Contains(t, rr.Body.String(), "matched_points")
+		assert.Contains(t, rr.Body.String(), "route_path")
+		mockRS.AssertExpectations(t)
+	})
+
+	t.Run("Success with default GPS radiuses", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/mapmatching", strings.NewReader(validGPX))
+		rr := httptest.NewRecorder()
+
+		mockRS.On("OfflineMapMatch",
+			mock.Anything,
+			mock.Anything,
+			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
+				return reflect.DeepEqual(gpsRadiusesM, []float64{40, 40})
+			}),
+			true,
+		).Return([]*da.MatchedGPSPoint{}, []da.Coordinate{}, nil).Once()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Contains(t, rr.Body.String(), "matched_points")
+		assert.Contains(t, rr.Body.String(), "route_path")
+		mockRS.AssertExpectations(t)
+	})
+
+	t.Run("Success without route path", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/mapmatching?gps_radius=70&include_route_path=false", strings.NewReader(validGPX))
+		rr := httptest.NewRecorder()
+
+		mockRS.On("OfflineMapMatch",
+			mock.Anything,
+			mock.Anything,
+			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
+				return reflect.DeepEqual(gpsRadiusesM, []float64{70, 70})
+			}),
+			false,
+		).Return([]*da.MatchedGPSPoint{}, []da.Coordinate{}, nil).Once()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusOK, rr.Code)
+		assert.Contains(t, rr.Body.String(), "matched_points")
+		assert.Contains(t, rr.Body.String(), "route_path")
+		mockRS.AssertExpectations(t)
+	})
+
+	t.Run("Invalid include route path", func(t *testing.T) {
+		req, _ := http.NewRequest("POST", "/mapmatching?include_route_path=wat", strings.NewReader(validGPX))
+		rr := httptest.NewRecorder()
+
+		api.offlineMapMatching(rr, req, nil)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "include_route_path must be a boolean value")
+	})
 }

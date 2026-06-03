@@ -10,8 +10,9 @@ import (
 // inspired by OSRM QueryHeap
 
 type QueryHeap[T comparable] struct {
-	heap           *DAryHeap[T]     // 4-ary minheap
-	queryInfos     []VertexInfo     // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array), scanned dari node. node bisa berupa edgeId/overlayVertexId dari graph. ingat, this crp query impl. support turn costs
+	heap       *DAryHeap[T] // 4-ary minheap
+	queryInfos []VertexInfo // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array), scanned dari node. node bisa berupa edgeId/overlayVertexId dari graph. ingat, this crp query impl. support turn costs
+
 	storage        QueryInfoStorage // map dari edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
 	maxEdgesInCell uint32
 	storageType    QueryInfoStorageType
