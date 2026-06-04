@@ -61,7 +61,8 @@ alternatives:
   alpha: # every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
     default: 0.25
   gamma:
-    20: 0.65 # alternative routes with great circle distance between source and destination <= 20km  at least 35% different than the shortest path
+    15: 0.65
+    20: 0.7 # alternative routes with great circle distance between source and destination <= 20km  at least 30% different than the shortest path
     50: 0.75 # alternative routes with great circle distance between source and destination <= 50km  at least 25% different than the shortest path
     default: 0.75 # alternative routes with great circle distance between source and destination > 50km  at least 25% different than the shortest path
   epsilon:

@@ -17,7 +17,6 @@ import (
 	enTranslations "github.com/go-playground/validator/v10/translations/en"
 	"github.com/julienschmidt/httprouter"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	"go.uber.org/zap"
 )
@@ -284,7 +283,7 @@ func (api *routingAPI) initClientSideRealTimeMapMatching(w http.ResponseWriter, 
 }
 
 func (api *routingAPI) initClientSideRealTimeMapMatchingTransitionMatrix(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	http.ServeFile(w, r, tiler.MapTileFilePathPrefix())
+	http.ServeFile(w, r, GetMapMatchingTransitionFile())
 }
 
 func (api *routingAPI) offlineMapMatching(w http.ResponseWriter, r *http.Request, p httprouter.Params) {

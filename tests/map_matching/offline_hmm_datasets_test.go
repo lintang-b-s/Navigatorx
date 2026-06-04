@@ -1292,7 +1292,7 @@ func ohmmEmpiricalCDF(sortedValues []float64, x float64) float64 {
 	return float64(count) / float64(len(sortedValues))
 }
 
-// go test ./tests/online_map_matching -run TestGisCupOfflineHMMMapMatching -v -timeout=0 -count=1
+// go test ./tests/map_matching -run TestGisCupOfflineHMMMapMatching -v -timeout=0 -count=1
 func TestGisCupOfflineHMMMapMatching(t *testing.T) {
 	workingDir := ohmmEnsureConfig(t)
 	re, graph, logger, edgeLengths := ohmmBuildGisCupCRPGraph(t, workingDir)
@@ -1351,7 +1351,7 @@ func TestGisCupOfflineHMMMapMatching(t *testing.T) {
 	}
 }
 
-// go test ./tests/online_map_matching -run TestHengfengLiOfflineHMMMapMatching -v -timeout=0 -count=1
+// go test ./tests/map_matching -run TestHengfengLiOfflineHMMMapMatching -v -timeout=0 -count=1
 func TestHengfengLiOfflineHMMMapMatching(t *testing.T) {
 	workingDir := ohmmEnsureConfig(t)
 	re, graph, logger, graphEdgeIDToMelbourneEdgeID, edgeLengthByID := ohmmBuildMelbourneCRPGraph(t, workingDir)
@@ -1395,7 +1395,7 @@ func TestHengfengLiOfflineHMMMapMatching(t *testing.T) {
 	}
 }
 
-// go test ./tests/online_map_matching -run TestHanwenHuOfflineHMMMapMatching -v -timeout=0 -count=1
+// go test ./tests/map_matching -run TestHanwenHuOfflineHMMMapMatching -v -timeout=0 -count=1
 func TestHanwenHuOfflineHMMMapMatching(t *testing.T) {
 	workingDir := ohmmEnsureConfig(t)
 	re, graph, logger := ohmmBuildHanwenHuCRPGraph(t)
@@ -1414,7 +1414,7 @@ func TestHanwenHuOfflineHMMMapMatching(t *testing.T) {
 	}
 	defer gzFile.Close()
 	if _, err := os.Stat(shanghaiTestDataPath); err != nil {
-		if err := hhExtractTarGz(gzFile); err != nil {
+		if err := hhExtractTarGz(gzFile, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
 			t.Fatalf("extract Shanghai tar.gz failed: %v", err)
 		}
 	}
@@ -1494,7 +1494,7 @@ func TestHanwenHuOfflineHMMMapMatching(t *testing.T) {
 	}
 }
 
-// go test ./tests/online_map_matching -run TestNewsonKrummOfflineHMMMapMatching -v -timeout=0 -count=1
+// go test ./tests/map_matching -run TestNewsonKrummOfflineHMMMapMatching -v -timeout=0 -count=1
 func TestNewsonKrummOfflineHMMMapMatching(t *testing.T) {
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {

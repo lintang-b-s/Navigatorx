@@ -304,9 +304,8 @@ func hhUnixTimestampToTime(ut int64) (time.Time, error) {
 	return time.UnixMilli(ut), nil
 }
 
-func hhExtractTarGz(gzipStream io.Reader) error {
-	const destDir = "./data/eval/mapmatching/"
-	if _, err := os.Stat(destDir + "Shanghai"); err == nil {
+func hhExtractTarGz(gzipStream io.Reader, destDir string) error {
+	if _, err := os.Stat(filepath.Join(destDir, "Shanghai")); err == nil {
 		return nil
 	}
 	uncompressedStream, err := gzip.NewReader(gzipStream)
@@ -367,20 +366,25 @@ func hhWritePolyline(filePath string, points []da.Coordinate) error {
 // go test ./tests/map_matching  -run TestHanwenhuOnlineMapMatching  -v -timeout=0  -count=1
 func TestHanwenhuOnlineMapMatching(t *testing.T) {
 	ensureHHConfig(t)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		t.Fatalf("find project working dir failed: %v", err)
+	}
 
 	_, graph, logger, N := hhBuildCRPGraph(t)
-	if err := hhDownload(hhShanghaiDataFilePath, hhShanghaiDatasetDriveFile, logger, "shanghai dataset"); err != nil {
+	shanghaiDataFilePath := ohmmProjectPath(workingDir, hhShanghaiDataFilePath)
+	if err := hhDownload(shanghaiDataFilePath, hhShanghaiDatasetDriveFile, logger, "shanghai dataset"); err != nil {
 		t.Fatalf("download dataset failed: %v", err)
 	}
-	gzFile, err := os.Open(hhShanghaiDataFilePath)
+	gzFile, err := os.Open(shanghaiDataFilePath)
 	if err != nil {
 		t.Fatalf("open shanghai tar.gz failed: %v", err)
 	}
 	defer gzFile.Close()
-	if err := hhExtractTarGz(gzFile); err != nil {
+	if err := hhExtractTarGz(gzFile, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
 		t.Fatalf("extract tar.gz failed: %v", err)
 	}
-	gpsTrajectories, err := hhReadAllCSVInDir(hhShanghaiTestDataPath)
+	gpsTrajectories, err := hhReadAllCSVInDir(ohmmProjectPath(workingDir, hhShanghaiTestDataPath))
 	if err != nil {
 		t.Fatalf("read trajectories failed: %v", err)
 	}
