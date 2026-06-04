@@ -13,6 +13,6 @@ for test_dir in tests/*; do
   ln -sf "$REPO_ROOT/data/solo.osm.pbf" "$test_data_dir/solo.osm.pbf"
 done
 
-go test -p 1 ./... -v -timeout=0  -failfast  -count=1 -coverpkg=./pkg/... -coverprofile=cover.out  -skip "^TestOSN2024KRLMALT$|^TestOSN2024KRL$" # skip test yang lama selesainya
+go test -p 1 ./... -v -timeout=140m  -failfast  -count=1 -coverpkg=./pkg/... -coverprofile=cover.out  -skip "^TestOSN2024KRLMALT$|^TestOSN2024KRL$" # skip test yang lama selesainya
 # note: tests harus tidak concurrent (-p 1) karena kita setiap TestFunction pada tests/shortestpath, tests/shortestpath_crp_alt, tests/query write ke file landmark yang sama
 # selain itu kalau kita pakai concurrent, verbose log nya (-v) gak langsung keluar

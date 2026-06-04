@@ -856,36 +856,6 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStre
 	return streetByID, nil
 }
 
-func ohmmEnsureMelbourneDataset(t *testing.T, workingDir string, logger *zap.Logger) {
-	t.Helper()
-
-	required := []string{
-		filepath.Join(workingDir, "data/eval/mapmatching/melbourne/complete-osm-map/vertex.txt"),
-		filepath.Join(workingDir, "data/eval/mapmatching/melbourne/complete-osm-map/edges.txt"),
-		filepath.Join(workingDir, "data/eval/mapmatching/melbourne/complete-osm-map/streets.txt"),
-		filepath.Join(workingDir, "data/eval/mapmatching/melbourne/gps_track.txt"),
-		filepath.Join(workingDir, "data/eval/mapmatching/melbourne/groundtruth.txt"),
-	}
-	ready := true
-	for _, path := range required {
-		if _, err := os.Stat(path); err != nil {
-			ready = false
-			break
-		}
-	}
-	if ready {
-		return
-	}
-
-	zipPath := filepath.Join(workingDir, "data/eval/mapmatching/dataset_bundle.zip")
-	if err := evalutil.Download(zipPath, ohmmMelbourneDatasetDriveFile, logger, "melbourne dataset bundle file"); err != nil {
-		t.Fatalf("download Melbourne dataset failed: %v", err)
-	}
-	if err := evalutil.ExtractZip(zipPath, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
-		t.Fatalf("extract Melbourne dataset failed: %v", err)
-	}
-}
-
 func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine, *da.Graph, *zap.Logger, map[da.Index]int64, map[int64]float64) {
 	t.Helper()
 
@@ -895,7 +865,6 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	if err != nil {
 		t.Fatalf("log.New failed: %v", err)
 	}
-	ohmmEnsureMelbourneDataset(t, workingDir, logger)
 
 	vertexPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/complete-osm-map/vertex.txt")
 	edgesPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/complete-osm-map/edges.txt")
