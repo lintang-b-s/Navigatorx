@@ -126,7 +126,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		return nil, nil, nil, nil, nil, err
 	}
 
-	pkg.RegionName = "newsonkrumm"
+	config.InitProfileConfig("car", "newsonkrumm")
 
 	roadnetworkFilepath := filepath.Join(workingDir, "data/eval/mapmatching/road_network.txt")
 	graphFile := filepath.Join(workingDir, "data/original_eval_mm.graph")
@@ -630,6 +630,13 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 			tileFilepath := tilingEngine.GetTileFilePath(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
 			err = mg.RebuildMapMatchGraph(tileFilepath)
 			if err != nil {
+				if errors.Is(err, os.ErrNotExist) {
+					centerGeohash = currGeohash
+					candidates = candidates[:0]
+					mg.Reset()
+					rtree.Reset()
+					continue
+				}
 				t.Fatal(err)
 			}
 

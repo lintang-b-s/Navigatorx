@@ -8,5 +8,3 @@ go test -p 1 ./... -v -timeout=0  -failfast  -count=1 -coverpkg=./pkg/... -cover
 # selain itu kalau kita pakai concurrent, verbose log nya (-v) gak langsung keluar
 
 
-
-

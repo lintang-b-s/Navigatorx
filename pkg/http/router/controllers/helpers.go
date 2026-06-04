@@ -150,3 +150,26 @@ func parseGPSRadiuses(query url.Values, pointsCount int) ([]float64, error) {
 
 	return gpsRadiusesM, nil
 }
+
+func getRawQueryValue(rawQuery, key string) (string, bool, error) {
+	for _, part := range strings.Split(rawQuery, "&") {
+		if part == "" {
+			continue
+		}
+		rawKey, rawValue, _ := strings.Cut(part, "=")
+		decodedKey, err := url.QueryUnescape(rawKey)
+		if err != nil {
+			return "", false, err
+		}
+		if decodedKey != key {
+			continue
+		}
+		decodedValue, err := url.QueryUnescape(rawValue)
+		if err != nil {
+			return "", false, err
+		}
+		return decodedValue, true, nil
+	}
+
+	return "", false, nil
+}

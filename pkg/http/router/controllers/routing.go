@@ -304,6 +304,21 @@ func (api *routingAPI) offlineMapMatching(w http.ResponseWriter, r *http.Request
 		return
 	}
 	query := r.URL.Query()
+	rawGPSRadiuses, hasGPSRadiuses, err := getRawQueryValue(r.URL.RawQuery, "gps_radiuses")
+
+	if err != nil {
+		api.BadRequestResponse(w, r, err)
+		return
+	}
+	if hasGPSRadiuses {
+		query.Set("gps_radiuses", rawGPSRadiuses)
+	}
+	if rawIncludeRoutePath := query.Get("include_route_path"); rawIncludeRoutePath != "" {
+		if _, err := strconv.ParseBool(rawIncludeRoutePath); err != nil {
+			api.BadRequestResponse(w, r, errors.New("include_route_path must be a boolean value"))
+			return
+		}
+	}
 
 	gpsRadiusesM, err := parseGPSRadiuses(query, len(pts))
 	if err != nil {

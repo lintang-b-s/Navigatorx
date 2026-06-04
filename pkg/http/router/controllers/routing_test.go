@@ -454,7 +454,6 @@ func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
 			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
 				return reflect.DeepEqual(gpsRadiusesM, []float64{50, 60})
 			}),
-			true,
 		).Return([]*da.MatchedGPSPoint{}, []da.Coordinate{}, nil).Once()
 
 		api.offlineMapMatching(rr, req, nil)
@@ -475,7 +474,6 @@ func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
 			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
 				return reflect.DeepEqual(gpsRadiusesM, []float64{70, 70})
 			}),
-			true,
 		).Return([]*da.MatchedGPSPoint{}, []da.Coordinate{}, nil).Once()
 
 		api.offlineMapMatching(rr, req, nil)
@@ -496,7 +494,6 @@ func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
 			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
 				return reflect.DeepEqual(gpsRadiusesM, []float64{40, 40})
 			}),
-			true,
 		).Return([]*da.MatchedGPSPoint{}, []da.Coordinate{}, nil).Once()
 
 		api.offlineMapMatching(rr, req, nil)
@@ -517,7 +514,6 @@ func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
 			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
 				return reflect.DeepEqual(gpsRadiusesM, []float64{70, 70})
 			}),
-			false,
 		).Return([]*da.MatchedGPSPoint{}, []da.Coordinate{}, nil).Once()
 
 		api.offlineMapMatching(rr, req, nil)

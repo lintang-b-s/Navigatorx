@@ -29,5 +29,5 @@ func TestNew(t *testing.T) {
 	assert.Equal(t, ":8080", server.Addr)
 	assert.NotNil(t, server.Handler)
 	assert.Equal(t, ctx, server.BaseContext(nil))
-	assert.Equal(t, time.Duration(0), server.WriteTimeout)
+	assert.Equal(t, 5*time.Second, server.WriteTimeout)
 }
