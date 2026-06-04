@@ -120,22 +120,6 @@ func (db *DirectionBuilder) lookForwardSameOsmWay(eIdOne da.Index, headId da.Ind
 	return false
 }
 
-func (db *DirectionBuilder) GetEdgePoints(lastEdgeId da.Index) da.Coordinates {
-	coords := make([]da.Coordinate, 0)
-	if len(db.edgeIds) > 0 {
-		firstVertexId := db.graph.GetTailOfOutedge(db.edgeIds[0])
-		firstVertex := db.graph.GetVertex(firstVertexId)
-		coords = append(coords, firstVertex.GetCoordinate())
-		for i := 0; i < len(db.edgeIds); i++ {
-			headVId := db.graph.GetHeadOfOutEdge(db.edgeIds[i])
-			headVertex := db.graph.GetVertex(headVId)
-			coords = append(coords, headVertex.GetCoordinate())
-		}
-	}
-
-	return *da.NewCoordinatesWithInitialValues(coords)
-}
-
 // IsSuggestAlternatives. cek apakah tipe highway dari edgeId in "primary", "secondary", "trunk"
 // biasanya kalau kita pakai google map, ketika kita di dekat persimpangan jalan besar, gmaps ngasih rute alternatives
 // nah ini tujuannya buat nandain routeStep (kumpulan segmen jalan sebelum titik belok) bisa disuggest alternative routes

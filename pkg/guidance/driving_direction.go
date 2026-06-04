@@ -181,9 +181,8 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.Phan
 			currStepDistance = db.instructions[i].GetCumulativeDistance() - db.instructions[i-1].GetCumulativeDistance()
 		}
 
-		currPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(ins.GetPoints()))
 		drivingDirections = append(drivingDirections, da.NewDrivingDirection(*ins, db.turnDescriptions[i],
-			currStepTravelTime, currStepDistance, ins.GetEdgeIds(), currPolyline, ins.GetTurnBearing(), ins.GetAnnotation()))
+			currStepTravelTime, currStepDistance, ins.GetEdgeIds(), ins.GetTurnBearing(), ins.GetAnnotation()))
 	}
 
 	return drivingDirections
@@ -222,7 +221,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 
 		newIns := da.NewInstruction(sign, streetName, point, false,
 			[]da.Index{edgeId}, db.cumulativeDistance, db.cumulativeTravelTime,
-			db.GetEdgePoints(edgeId), turnBearing, ann, db.clockwise)
+			turnBearing, ann, db.clockwise)
 
 		db.prevInstruction = newIns
 
@@ -290,7 +289,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 				suggestAlternatives := db.IsSuggestAlternatives(edgeId)
 				ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
 				ins := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
-					db.GetEdgePoints(edgeId), turnBearing, ann, db.clockwise)
+					turnBearing, ann, db.clockwise)
 				ins.SetSuggestAlternatives(suggestAlternatives)
 
 				db.prevInstruction = ins
@@ -328,7 +327,7 @@ func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.Phantom
 	ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
 
 	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(edgeId), point, false,
-		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, db.GetEdgePoints(edgeId), turnBearing, ann, db.clockwise)
+		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, turnBearing, ann, db.clockwise)
 	finishInstruction.SetExtraInfo("heading", geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
 
 	db.instructions = append(db.instructions, finishInstruction)

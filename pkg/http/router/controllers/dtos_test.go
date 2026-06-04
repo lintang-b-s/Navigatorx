@@ -15,13 +15,12 @@ func TestDTOS(t *testing.T) {
 		ins := da.Instruction{}
 		ins.SetSuggestAlternatives(true)
 		ann := da.NewAnnotation([]float64{}, []float64{}, da.Coordinates{}, []da.Index{})
-		d := da.NewDrivingDirection(ins, "turn left", 60.0, 100.0, []da.Index{1}, "polyline", 90.0, ann)
+		d := da.NewDrivingDirection(ins, "turn left", 60.0, 100.0, []da.Index{1}, 90.0, ann)
 
 		dd := NewDrivingDirection(d, true)
 		assert.Equal(t, "turn left", dd.Instruction)
 		assert.Equal(t, 1.0, dd.TravelTime) // 60s / 60
 		assert.Equal(t, 100.0, dd.Distance)
-		assert.Equal(t, "polyline", dd.Polyline)
 		assert.Equal(t, 90.0, dd.TurnBearing)
 		assert.True(t, dd.SuggestAlternatives)
 	})
@@ -34,7 +33,7 @@ func TestDTOS(t *testing.T) {
 		ins := da.Instruction{}
 		ann := da.NewAnnotation([]float64{}, []float64{}, da.Coordinates{}, []da.Index{})
 		alt.SetDrivingDirections([]da.DrivingDirection{
-			da.NewDrivingDirection(ins, "continue", 30.0, 50.0, []da.Index{1}, "step", 0.0, ann),
+			da.NewDrivingDirection(ins, "continue", 30.0, 50.0, []da.Index{1}, 0.0, ann),
 		})
 
 		res := NewAlternativeRoutesResponse([]routing.AlternativeRoute{alt}, true)

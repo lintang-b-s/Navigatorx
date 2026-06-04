@@ -43,7 +43,7 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 	searchRad := rs.searchRadius
 	var (
 		sp, tp             = da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
-		pairSize           = spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES
+		pairSize           = (spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES) / 10
 		removedPrevPairSet = hashset.NewUint64WithSize(pairSize)
 	)
 

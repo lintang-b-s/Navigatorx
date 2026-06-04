@@ -88,7 +88,6 @@ func (ann *Annotation) GetEdgeGeomOffset() []Index {
 
 type Instruction struct {
 	annotation Annotation
-	points     []Coordinate
 	edgeIds    []Index
 
 	roundabout           *RoundaboutInstruction
@@ -105,7 +104,7 @@ type Instruction struct {
 }
 
 func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
-	cumulativeDist, cumulativeTravelTime float64, points []Coordinate, turnBearing float64, ann Annotation,
+	cumulativeDist, cumulativeTravelTime float64, turnBearing float64, ann Annotation,
 	clockwise bool) *Instruction {
 	var roundabout *RoundaboutInstruction
 	var ins *Instruction
@@ -127,7 +126,6 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 		cumulativeTravelTime: cumulativeTravelTime,
 		cumulativeDistance:   cumulativeDist,
 		edgeIds:              edgeIdsCopy,
-		points:               points,
 		turnBearing:          turnBearing,
 	}
 
@@ -185,10 +183,6 @@ func (ins *Instruction) SetStreetName(streetName string) {
 
 func (ins *Instruction) GetTurnSign() TurnType {
 	return ins.turnSign
-}
-
-func (ins *Instruction) GetPoints() []Coordinate {
-	return ins.points
 }
 
 func (ins *Instruction) GetEdgeIds() []Index {
@@ -368,7 +362,6 @@ type DrivingDirection struct {
 	instruction         string
 	edgeIds             []Index
 	annotation          Annotation
-	polyline            string
 	streetName          string
 	point               Coordinate
 	travelTime          float64
@@ -379,7 +372,7 @@ type DrivingDirection struct {
 }
 
 func NewDrivingDirection(ins Instruction, description string, prevTravelTime, prevDist float64,
-	edgeIds []Index, polyline string, turnBearing float64, ann Annotation) DrivingDirection {
+	edgeIds []Index, turnBearing float64, ann Annotation) DrivingDirection {
 	edgeIdsCopy := make([]Index, len(edgeIds))
 	copy(edgeIdsCopy, edgeIds)
 	return DrivingDirection{
@@ -389,7 +382,6 @@ func NewDrivingDirection(ins Instruction, description string, prevTravelTime, pr
 		travelTime:          util.RoundFloat(prevTravelTime, 2),
 		distance:            util.RoundFloat(prevDist, 2),
 		edgeIds:             edgeIdsCopy,
-		polyline:            polyline,
 		turnBearing:         util.RoundFloat(turnBearing, 2),
 		turnType:            ins.turnType,
 		suggestAlternatives: ins.suggestAlternatives,
@@ -419,10 +411,6 @@ func (d *DrivingDirection) GetDistance() float64 {
 
 func (d *DrivingDirection) GetEdgesIds() []Index {
 	return d.edgeIds
-}
-
-func (d *DrivingDirection) GetPolyline() string {
-	return d.polyline
 }
 
 func (d *DrivingDirection) GetTurnBearing() float64 {

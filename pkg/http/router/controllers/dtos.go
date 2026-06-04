@@ -47,11 +47,12 @@ type annotation struct {
 	Duration       []float64  `json:"duration"`
 	Distance       []float64  `json:"distance"`
 	Geometry       string     `json:"geometry"`
+	EdgeIds        []da.Index `json:"edge_ids"`
 	EdgeGeomOffset []da.Index `json:"edge_geometry_offset"`
 }
 
-func NewAnnotation(duration, distance []float64, geometry string, edgeGeomOffset []da.Index) annotation {
-	return annotation{Duration: duration, Distance: distance, Geometry: geometry, EdgeGeomOffset: edgeGeomOffset}
+func NewAnnotation(duration, distance []float64, geometry string, edgeGeomOffset, edgeIds []da.Index) annotation {
+	return annotation{Duration: duration, Distance: distance, Geometry: geometry, EdgeGeomOffset: edgeGeomOffset, EdgeIds: edgeIds}
 }
 
 type drivingDirection struct {
@@ -61,19 +62,18 @@ type drivingDirection struct {
 	StreetName          string        `json:"street_name"`
 	TravelTime          float64       `json:"travel_time"`
 	Distance            float64       `json:"distance"`
-	EdgeIds             []da.Index    `json:"edge_ids"`
-	Polyline            string        `json:"polyline"`
 	TurnBearing         float64       `json:"turn_bearing"`
 	TurnType            string        `json:"turn_type"`
 	SuggestAlternatives bool          `json:"suggest_alternatives"`
 }
 
-func NewAnnotationDTO(ann da.Annotation) annotation {
+func NewAnnotationDTO(ann da.Annotation, edgeIds []da.Index) annotation {
 	return NewAnnotation(
 		ann.GetDuration(),
 		ann.GetDistance(),
 		da.GooglePoylineFromCoords(ann.GetGeometry()),
 		ann.GetEdgeGeomOffset(),
+		edgeIds,
 	)
 }
 
@@ -81,7 +81,7 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirec
 
 	ann := annotation{}
 	if useAnnotation {
-		ann = NewAnnotationDTO(d.GetAnnotation())
+		ann = NewAnnotationDTO(d.GetAnnotation(), d.GetEdgesIds())
 	}
 	return drivingDirection{
 		Instruction:         d.GetInstruction(),
@@ -89,8 +89,6 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirec
 		StreetName:          d.GetStreetName(),
 		TravelTime:          util.SecondsToMinutes(d.GetTravelTime()),
 		Distance:            d.GetDistance(),
-		EdgeIds:             d.GetEdgesIds(),
-		Polyline:            d.GetPolyline(),
 		TurnBearing:         d.GetTurnBearing(),
 		TurnType:            d.GetTurnTableId(),
 		SuggestAlternatives: d.GetSuggestAlternatives(),
