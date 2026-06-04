@@ -28,7 +28,10 @@ jobs:
           python -m pip install gdown
           gdown https://drive.google.com/uc?id=1HBswl5-JkFXWh--AFLC2ElYC4Tbsj1i0 --output ./data
           gdown https://drive.google.com/uc?id=1pRmqUFgNc_p0lEKmfzLcn3IRhUW4Cm4c --output ./data
-          for test_data_dir in tests/*/data; do
+          for test_dir in tests/*; do
+            test -d "$test_dir" || continue
+            test_data_dir="$test_dir/data"
+            mkdir -p "$test_data_dir"
             ln -sf "$GITHUB_WORKSPACE/data/yogyakarta.osm.pbf" "$test_data_dir/yogyakarta.osm.pbf"
             ln -sf "$GITHUB_WORKSPACE/data/solo.osm.pbf" "$test_data_dir/solo.osm.pbf"
           done
