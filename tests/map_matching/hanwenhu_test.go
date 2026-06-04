@@ -528,7 +528,8 @@ func TestHanwenhuOnlineMapMatching(t *testing.T) {
 		totalRuntime += float64(runtimeDataset)
 		totalPoints += float64(len(gpsTraj))
 
-		groundTruth, err := hhReadCSV(hhShanghaiGroundTruthPath + "/" + trajName)
+		shanghaiGroundTruthPath := ohmmProjectPath(workingDir, hhShanghaiGroundTruthPath)
+		groundTruth, err := hhReadCSV(filepath.Join(shanghaiGroundTruthPath, trajName))
 		if err != nil {
 			t.Fatalf("read ground truth failed: %v", err)
 		}

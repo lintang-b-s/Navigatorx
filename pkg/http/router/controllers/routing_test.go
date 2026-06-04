@@ -5,11 +5,14 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"reflect"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
@@ -345,6 +348,59 @@ func TestRoutingAPI_Routes(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
+}
+
+func TestRoutingAPI_TransitionMatrixTrailingSlashDoesNotRedirect(t *testing.T) {
+	log := zap.NewNop()
+	mockRS := new(MockRoutingService)
+	mockTS := new(MockTilingService)
+	api := New(mockRS, log, mockTS)
+
+	router := httprouter.New()
+	group := helper.NewRouteGroup(router, "/api")
+	api.Routes(group)
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/tile-init-transition-matrix/", nil)
+
+	router.ServeHTTP(w, req)
+
+	assert.NotEqual(t, http.StatusMovedPermanently, w.Code)
+}
+
+func TestRoutingAPI_TransitionMatrixIgnoresConditionalCacheHeaders(t *testing.T) {
+	previousWorkingDir, err := os.Getwd()
+	assert.NoError(t, err)
+	tempDir := t.TempDir()
+	assert.NoError(t, os.Chdir(tempDir))
+	t.Cleanup(func() {
+		assert.NoError(t, os.Chdir(previousWorkingDir))
+	})
+
+	previousProfileName := pkg.ProfileName
+	previousRegionName := pkg.RegionName
+	pkg.ProfileName = "car"
+	pkg.RegionName = "test"
+	t.Cleanup(func() {
+		pkg.ProfileName = previousProfileName
+		pkg.RegionName = previousRegionName
+	})
+
+	matrixPath := "data/profiles/car/test_transition_matrix.txt"
+	assert.NoError(t, os.MkdirAll("data/profiles/car", 0o755))
+	assert.NoError(t, os.WriteFile(matrixPath, []byte("matrix"), 0o644))
+	assert.NoError(t, os.Chtimes(matrixPath, time.Now().Add(-time.Hour), time.Now().Add(-time.Hour)))
+
+	api := New(new(MockRoutingService), zap.NewNop(), new(MockTilingService))
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/tile-init-transition-matrix/", nil)
+	req.Header.Set("If-Modified-Since", time.Now().UTC().Format(http.TimeFormat))
+
+	api.initClientSideRealTimeMapMatchingTransitionMatrix(w, req, nil)
+
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "matrix", w.Body.String())
+	assert.Contains(t, w.Header().Get("Cache-Control"), "no-store")
 }
 
 func TestRoutingAPI_OfflineMapMatching(t *testing.T) {

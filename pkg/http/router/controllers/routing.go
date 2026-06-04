@@ -62,6 +62,7 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/tile/:userGeohash", api.getTile)
 	group.GET("/tile-init", api.initClientSideRealTimeMapMatching)
 	group.GET("/tile-init-transition-matrix", api.initClientSideRealTimeMapMatchingTransitionMatrix)
+	group.GET("/tile-init-transition-matrix/", api.initClientSideRealTimeMapMatchingTransitionMatrix)
 	group.POST("/mapmatching", api.offlineMapMatching) // offline map-matching
 }
 
@@ -283,6 +284,11 @@ func (api *routingAPI) initClientSideRealTimeMapMatching(w http.ResponseWriter, 
 }
 
 func (api *routingAPI) initClientSideRealTimeMapMatchingTransitionMatrix(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	r.Header.Del("If-Modified-Since")
+	r.Header.Del("If-None-Match")
+	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	w.Header().Set("Pragma", "no-cache")
+	w.Header().Set("Expires", "0")
 	http.ServeFile(w, r, GetMapMatchingTransitionFile())
 }
 
