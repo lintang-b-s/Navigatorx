@@ -308,7 +308,7 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 	}
 }
 
-// go test ./tests/map_matching  -run TestGisCupOnlineMHTMapMatching  -v -timeout=0  -count=1
+// go test ./tests/map_matching  -run TestHengfengLiOnlineMHTMapMatching  -v -timeout=0  -count=1
 func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 	workingDir := ohmmEnsureConfig(t)
 	re, graph, logger, graphEdgeIDToMelbourneEdgeID, edgeLengthByID := ohmmBuildMelbourneCRPGraph(t, workingDir)

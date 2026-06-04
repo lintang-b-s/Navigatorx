@@ -53,12 +53,22 @@ func (te *TilingEngine) PreprocessTiles() error {
 	s2w := s2.NewWriter(io.Discard)
 	bw := bufio.NewWriterSize(s2w, 64*1024)
 
+	tileGeohashes := make(map[uint64]struct{}, len(eTileMap))
+	for geohashInt := range eTileMap {
+		tileGeohashes[geohashInt] = struct{}{}
+		for _, neighbor := range geohash.NeighborsIntWithPrecision(geohashInt, uint(GeohashBits)) {
+			if eids, ok := eTileMap[neighbor]; !ok || len(eids) == 0 {
+				tileGeohashes[neighbor] = struct{}{}
+			}
+		}
+	}
+
 	// write tiles ke file "<geohash_p_6_string>.tile"
-	for geohashInt, eIds := range eTileMap {
+	for geohashInt := range tileGeohashes {
 		geohashStr := geohash.ConvertIntToString(geohashInt, uint(GeohashPrecision))
 		neighbors := geohash.NeighborsIntWithPrecision(geohashInt, uint(GeohashBits))
 
-		err := te.writeTileToFile(geohashStr, eIds, neighbors, eTileMap, s2w, bw, lineBuf)
+		err := te.writeTileToFile(geohashStr, eTileMap[geohashInt], neighbors, eTileMap, s2w, bw, lineBuf)
 		if err != nil {
 			return fmt.Errorf("tilingEngine.PreprocessTiles: failed to writeTileToFile: %v", geohashStr)
 		}
