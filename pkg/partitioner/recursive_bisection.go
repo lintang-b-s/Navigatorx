@@ -95,9 +95,8 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 
 	wg := sync.WaitGroup{}
 
-	worstCaseNumOfOps := n - rb.maximumCellSize + 1
-	iflowInChan := make(chan *da.PartitionGraph, worstCaseNumOfOps)
-	iflowOutChan := make(chan bisectionRes, worstCaseNumOfOps)
+	iflowInChan := make(chan *da.PartitionGraph, InertialFlowChanSize)
+	iflowOutChan := make(chan bisectionRes, InertialFlowChanSize)
 
 	computeIflow := func() {
 		for pg := range iflowInChan {

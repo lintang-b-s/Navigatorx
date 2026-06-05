@@ -80,8 +80,6 @@ type PartitionGraph struct {
 	vertices      []PartitionVertex
 	adjacencyList [][]int
 	edgeList      []MaxFlowEdge
-	level         []int
-	last          []int
 }
 
 func NewPartitionGraph(numberOfVertices int) *PartitionGraph {
@@ -93,8 +91,6 @@ func NewPartitionGraph(numberOfVertices int) *PartitionGraph {
 		vertices:      make([]PartitionVertex, 0),
 		adjacencyList: adjacencyList,
 		edgeList:      make([]MaxFlowEdge, 0),
-		level:         make([]int, numberOfVertices),
-		last:          make([]int, numberOfVertices),
 	}
 }
 
@@ -116,25 +112,12 @@ func (g *PartitionGraph) NumberOfVertices() int {
 	return len(g.vertices)
 }
 
-func (g *PartitionGraph) GetLast() []int {
-	return g.last
-}
-
-func (g *PartitionGraph) GetLevel() []int {
-	return g.level
-}
-
 func (g *PartitionGraph) AddVertex(v PartitionVertex) {
 	g.vertices = append(g.vertices, v)
 	if len(g.adjacencyList) < int(v.id)+1 {
 		g.adjacencyList = append(g.adjacencyList, []int{})
 	}
-	if len(g.level) < int(v.id)+1 {
-		g.level = append(g.level, 0)
-	}
-	if len(g.last) < int(v.id)+1 {
-		g.last = append(g.last, 0)
-	}
+
 }
 
 func (g *PartitionGraph) GetVertex(u Index) PartitionVertex {

@@ -15,11 +15,13 @@ const (
 	INERTIAL_FLOW_ITERATION_LARGE_GRAPH      = 1
 	LARGE_GRAPH_NUMBER_OF_VERTICES           = 100000
 	USE_RANDOMIZED_SELECT               bool = true
+	InertialFlowChanSize                     = 64
+	CellInOutChanSize                        = 50
 )
 
 var (
 	// 	https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
-	INERTIAL_FLOW_WORKERS = util.ClampMin(pkg.NUM_CPU/4, 1)
-	BISECTION_WORKERS     = util.ClampMin(pkg.NUM_CPU/6, 1)
+	INERTIAL_FLOW_WORKERS = util.ClampMin(pkg.NUM_CPU/2, 1)
+	BISECTION_WORKERS     = util.ClampMin(pkg.NUM_CPU/4, 1)
 	LEVEL_WORKERS         = util.ClampMin(pkg.NUM_CPU/6, 1)
 )

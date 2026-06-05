@@ -80,8 +80,8 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	for level := mp.l - 2; level >= 0; level-- {
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
 
-		cellInChan := make(chan []da.Index, 50)
-		cellOutchan := make(chan [][]da.Index, 50)
+		cellInChan := make(chan []da.Index, CellInOutChanSize)
+		cellOutchan := make(chan [][]da.Index, CellInOutChanSize)
 		wg := sync.WaitGroup{}
 		computeRecursiveBisection := func() {
 			for cell := range cellInChan {

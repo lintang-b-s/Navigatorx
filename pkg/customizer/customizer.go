@@ -428,7 +428,7 @@ func (c *Customizer) buildLowestLevel(
 
 	cellMapInLevelOne := c.overlayGraph.GetAllCellsInLevel(1)
 
-	cellCliqueOutChan := make(chan []cellCustomizationRes, 50)
+	cellCliqueOutChan := make(chan []cellCustomizationRes, cellCliqueOutChanSize)
 
 	wg := sync.WaitGroup{}
 
@@ -438,7 +438,7 @@ func (c *Customizer) buildLowestLevel(
 		cellNumber := job.cellNumber
 
 		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
-		dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
+		dijkstraResChan := make(chan cellCustomizationRes, dijkstraResChanSize)
 
 		dijkstra := func(entries <-chan da.Index) {
 			/*
@@ -611,7 +611,7 @@ func (c *Customizer) buildLevel(
 	levelInfo := c.overlayGraph.GetLevelInfo()
 	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
 
-	cellCliqueOutChan := make(chan []cellCustomizationRes, 50)
+	cellCliqueOutChan := make(chan []cellCustomizationRes, cellCliqueOutChanSize)
 
 	wg := sync.WaitGroup{}
 
@@ -621,7 +621,7 @@ func (c *Customizer) buildLevel(
 		cellNumber := job.cellNumber
 
 		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
-		dijkstraResChan := make(chan cellCustomizationRes, cellWeightSize)
+		dijkstraResChan := make(chan cellCustomizationRes, dijkstraResChanSize)
 
 		dijkstra := func(entries <-chan da.Index) {
 			/*

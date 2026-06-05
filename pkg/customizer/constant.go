@@ -12,6 +12,8 @@ var (
 )
 
 const (
-	CELL_ENTRIES_CHAN_SIZE         = 4096 * 4
+	CELL_ENTRIES_CHAN_SIZE         = 1024
+	dijkstraResChanSize            = 256
+	cellCliqueOutChanSize          = 50
 	INVALID_LOOKUPTABLE_VAL_ID int = -1
 )

@@ -26,8 +26,6 @@ func NewDinicMaxFlow(graph *da.PartitionGraph, debug, multSourcesSinks bool) *Di
 
 	dc := &DinicMaxFlow{graph: graph, debug: debug, last: make([]int, n), level: make([]int, n), artificialAdjList: make([][]int, n+2),
 		multSourcesSinks: multSourcesSinks, sinks: bitset.New(uint(n)), artificialEdgeList: make([]da.MaxFlowEdge, 0, 10)}
-	copy(dc.last, graph.GetLast())
-	copy(dc.level, graph.GetLevel())
 
 	dc.edgeFlows = make([]int64, graph.GetNumberOfEdges())
 	graph.ForEdges(func(i int, e da.MaxFlowEdge) {
