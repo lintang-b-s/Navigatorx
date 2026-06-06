@@ -11,6 +11,15 @@ var CoordinatePrecision = 1e7
 
 const invalidFixedCoordinate = math.MinInt32
 
+type FloatCoordinate struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
+
+func NewFloatCoordinate(lat, lon float64) FloatCoordinate {
+	return FloatCoordinate{Lat: lat, Lon: lon}
+}
+
 type Coordinate struct {
 	lat int32 // latitude * 10^7 .terinspirasi dari how OSRM store osm node coordinates & save space
 	lon int32 // longitude * 10^7
@@ -30,6 +39,10 @@ func (c Coordinate) GetFixedLat() int32 {
 
 func (c Coordinate) GetFixedLon() int32 {
 	return c.lon
+}
+
+func (c Coordinate) ToFloatCoordinate() FloatCoordinate {
+	return NewFloatCoordinate(c.GetLat(), c.GetLon())
 }
 
 func (c Coordinate) IsValid() bool {

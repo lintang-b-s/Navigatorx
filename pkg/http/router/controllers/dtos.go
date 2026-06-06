@@ -56,15 +56,15 @@ func NewAnnotation(duration, distance []float64, geometry string, edgeGeomOffset
 }
 
 type drivingDirection struct {
-	Instruction         string        `json:"instruction"`
-	Annotation          annotation    `json:"annotation,omitempty"`
-	Point               da.Coordinate `json:"turn_point"`
-	StreetName          string        `json:"street_name"`
-	TravelTime          float64       `json:"travel_time"`
-	Distance            float64       `json:"distance"`
-	TurnBearing         float64       `json:"turn_bearing"`
-	TurnType            string        `json:"turn_type"`
-	SuggestAlternatives bool          `json:"suggest_alternatives"`
+	Instruction         string             `json:"instruction"`
+	Annotation          annotation         `json:"annotation,omitzero"`
+	Point               da.FloatCoordinate `json:"turn_point"`
+	StreetName          string             `json:"street_name"`
+	TravelTime          float64            `json:"travel_time"`
+	Distance            float64            `json:"distance"`
+	TurnBearing         float64            `json:"turn_bearing"`
+	TurnType            string             `json:"turn_type"`
+	SuggestAlternatives bool               `json:"suggest_alternatives"`
 }
 
 func NewAnnotationDTO(ann da.Annotation, edgeIds []da.Index) annotation {
@@ -85,7 +85,7 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirec
 	}
 	return drivingDirection{
 		Instruction:         d.GetInstruction(),
-		Point:               d.GetPoint(),
+		Point:               d.GetPoint().ToFloatCoordinate(),
 		StreetName:          d.GetStreetName(),
 		TravelTime:          util.SecondsToMinutes(d.GetTravelTime()),
 		Distance:            d.GetDistance(),
