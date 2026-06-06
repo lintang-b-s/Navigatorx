@@ -31,7 +31,7 @@ var (
 const (
 	mlpFile = "./data/stress_test_yogyakarta.mlp"
 
-	osmfFile                = "./data/yogyakarta.osm.pbf"
+	osmFile                 = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_preprocessor_test.ngraph"
 	overlayGraphFile string = "./data/overlay_graph_preprocessor_test.ngraph"
 )
@@ -835,15 +835,15 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 
 	testCases := []struct {
 		name           string
-		osmfFileTest   string
+		osmFileTest    string
 		roundAboutWay  map[int64]struct{}
 		streetNameWay  map[int64]string
 		highwayTypeWay map[int64]string
 		roadLanes      map[int64]uint8
 	}{
 		{
-			name:         "file osm yogyakarta",
-			osmfFileTest: osmfFile,
+			name:        "file osm yogyakarta",
+			osmFileTest: osmFile,
 			roundAboutWay: map[int64]struct{}{
 				1460805468: {},
 				1460805470: {},
@@ -866,7 +866,7 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 
 	for _, tc := range testCases {
 
-		prep := setup(t, tc.osmfFileTest)
+		prep := setup(t, tc.osmFileTest)
 		// di preprocessor kita melakukan:
 		// 1. build g.cellNumbers
 		// 2. set cellNumber index dari setiap vertices
@@ -923,7 +923,7 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 
 // go test ./tests/preprocessor  -v -run TestPreprocessTurnRestrictionsUsingOSMFile
 func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
-	prep := setup(t, osmfFile)
+	prep := setup(t, osmFile)
 	graph := prep.GetGraph()
 
 	type turnRes struct {

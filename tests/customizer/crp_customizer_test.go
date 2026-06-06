@@ -33,7 +33,7 @@ var (
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "./data/yogyakarta.osm.pbf"
+	osmFile                 = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_customizer_test.ngraph"
 	overlayGraphFile string = "./data/overlay_graph_customizer_test.ngraph"
 	metricsFile      string = "./data/metrics_customizer_test.nmt"
@@ -482,7 +482,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmfFile), logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}

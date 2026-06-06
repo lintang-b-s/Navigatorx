@@ -2,6 +2,7 @@ package osmparser
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -14,7 +15,7 @@ import (
 )
 
 const (
-	osmfFile = "./data/yogyakarta.osm.pbf"
+	osmFile = "./data/yogyakarta.osm.pbf"
 )
 
 func init() {
@@ -33,7 +34,7 @@ func init() {
 	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 }
 
-func setup(t *testing.T, osmfFileTest string) (*da.Graph, [][]da.Index, *osmparser.OsmParser) {
+func setup(t *testing.T, osmFileTest string) (*da.Graph, [][]da.Index, *osmparser.OsmParser) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -44,7 +45,7 @@ func setup(t *testing.T, osmfFileTest string) (*da.Graph, [][]da.Index, *osmpars
 
 	osmParser := osmparser.NewOSMParserV2()
 
-	graph, _, edgeInfoIds, err := osmParser.Parse(osmfFileTest, logger)
+	graph, _, edgeInfoIds, err := osmParser.Parse(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,20 +53,21 @@ func setup(t *testing.T, osmfFileTest string) (*da.Graph, [][]da.Index, *osmpars
 	return graph, edgeInfoIds, osmParser
 }
 
+// go test ./tests/osmparser .
 func TestOSMParser(t *testing.T) {
 
 	testCases := []struct {
 		name string
 
-		osmfFileTest   string
+		osmFileTest    string
 		roundAboutWay  map[int64]struct{}
 		streetNameWay  map[int64]string
 		highwayTypeWay map[int64]string
 		roadLanes      map[int64]uint8
 	}{
 		{
-			name:         "file osm yogyakarta",
-			osmfFileTest: osmfFile,
+			name:        "file osm yogyakarta",
+			osmFileTest: osmFile,
 			roundAboutWay: map[int64]struct{}{
 				1460805468: {},
 				1460805470: {},
@@ -87,7 +89,7 @@ func TestOSMParser(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		graph, edgeInfoIds, op := setup(t, tc.osmfFileTest)
+		graph, edgeInfoIds, op := setup(t, tc.osmFileTest)
 		bb := graph.GetBoundingBox()
 		n := graph.NumberOfVertices()
 		osmNodeIdMap := op.GetNodeIdMap()

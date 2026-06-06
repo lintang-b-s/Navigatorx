@@ -30,7 +30,7 @@ var (
 
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	osmfFile                = "./data/yogyakarta.osm.pbf"
+	osmFile                 = "./data/yogyakarta.osm.pbf"
 	graphFile        string = "./data/original_benchmark.ngraph"
 	overlayGraphFile string = "./data/overlay_graph_benchmark.ngraph"
 	metricsFile      string = "./data/metrics_benchmark.nmt"
@@ -61,7 +61,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmfFile), logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		panic(err)
 	}

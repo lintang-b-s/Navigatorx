@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	osmfFile = "./data/yogyakarta.osm.pbf"
+	osmFile = "./data/yogyakarta.osm.pbf"
 )
 
 func init() {
@@ -49,7 +49,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, _, _, err := op.Parse(filepath.Join(pkg.WorkingDir, osmfFile), logger)
+	graph, _, _, err := op.Parse(filepath.Join(pkg.WorkingDir, osmFile), logger)
 	if err != nil {
 		panic(err)
 	}
