@@ -207,7 +207,7 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 		exitIdFromTarget := us.engine.graph.GetDummyOutEdgeId(uId)
 		_, at := us.engine.graph.GetTailOfOutedgeWithInEdge(exitIdFromTarget)
 
-		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 			newCost := uCost + turnCost
 
@@ -224,7 +224,7 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 		})
 
 		// traverse outEdges of u
-		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
+		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
 			hwType pkg.OsmHighwayType) {
 
 			vId := head
@@ -271,7 +271,7 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 		// // u-uExit->
 
 		uExitPoint := uExitId - us.engine.graph.GetExitOffset(uId)
-		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 			newCost := uCost + turnCost
 
@@ -283,7 +283,7 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 		})
 
 		// traverse inEdges of u
-		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index,
+		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, exitPoint, entryPoint, turnTableId da.Index,
 			turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 
 			vId := tail

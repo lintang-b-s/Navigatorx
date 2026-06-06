@@ -8,7 +8,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -19,6 +18,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
@@ -34,11 +34,11 @@ const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_eval_alt.graph"
-	overlayGraphFile string = "./data/overlay_graph_eval_alt.graph"
-	metricsFile      string = "./data/metrics_eval_alt.txt"
-	landmarkFile     string = "./data/landmark_eval_alt.lm"
-	timeFunctionFile string = "./data/timefunction_eval_alt.txt"
+	graphFile        string = "./data/original_eval_alt.ngraph"
+	overlayGraphFile string = "./data/overlay_graph_eval_alt.ngraph"
+	metricsFile      string = "./data/metrics_eval_alt.nmt"
+	landmarkFile     string = "./data/landmark_eval_alt.nlm"
+	timeFunctionFile string = "./data/timefunction_eval_alt.ntf"
 )
 
 func init() {
@@ -121,7 +121,7 @@ func main() {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(osmfFile, logger)
 
 	if err != nil {
 		panic(err)
@@ -130,7 +130,7 @@ func main() {
 	pss := strings.Split(*partitionSizes, ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
-		pow, err := strconv.Atoi(pss[i])
+		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
 			panic(err)
 		}
@@ -156,7 +156,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

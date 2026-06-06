@@ -33,7 +33,8 @@ func BenchmarkAlternativeRoutesController(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	tilingEngine := tiler.NewTilingEngine(g, logger)
+	cf := re.GetCostFunction()
+	tilingEngine := tiler.NewTilingEngine(g, logger, cf)
 	tilingService := usecases.NewTileService(logger, tilingEngine)
 
 	api := controllers.New(rs, logger, tilingService)

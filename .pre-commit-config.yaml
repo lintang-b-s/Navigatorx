@@ -1,4 +1,13 @@
 repos:
+- repo: local
+  hooks:
+    - id: sync-software-version
+      name: sync software version from latest git tag
+      entry: scripts/sync_software_version.sh
+      language: system
+      pass_filenames: false
+      always_run: true
+
 - repo: https://github.com/dnephin/pre-commit-golang
   rev: master
   hooks:
@@ -8,4 +17,3 @@ repos:
     - id: golangci-lint
       args: ["-c=conf/.golangci.yml"]
     - id: go-mod-tidy
-

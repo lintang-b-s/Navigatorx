@@ -21,7 +21,7 @@ type GraphStorage struct {
 	nodeTrafficLight        *bitset.BitSet
 	edgeOsmWayId            *PackedSlice // map dari outEdgeId ke osm way id dari edge
 
-	edgeGeohashes []uint64 // geohash (precision 6) dari semua edges
+	edgeGeohashes []uint32 // geohash precision 6 uses 30 bits
 
 	// conditional restrictions
 	conditionalBarrierNodes     []ConditionalBarrierNode
@@ -48,7 +48,7 @@ func NewGraphStorage(osmwayBitSize uint8) *GraphStorage {
 		roundaboutFlag:          bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		nodeTrafficLight:        bitset.New(INITIAL_BIT_VECTOR_SIZE),
 		isCurvedFlag:            bitset.New(INITIAL_BIT_VECTOR_SIZE),
-		edgeGeohashes:           make([]uint64, 0),
+		edgeGeohashes:           make([]uint32, 0),
 
 		osmNodePoints:        make([]Coordinate, 0),
 		edgeOsmWayId:         NewPackedSlice(osmwayBitSize, INITIAL_APPROX_EDGE_SIZE), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
@@ -76,7 +76,7 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 		roundaboutFlag:          bitset.New(uint(numberOfEdges)),
 		nodeTrafficLight:        bitset.New(uint(numberOfVertices)),
 		isCurvedFlag:            bitset.New(uint(numberOfEdges)),
-		edgeGeohashes:           make([]uint64, numberOfEdges),
+		edgeGeohashes:           make([]uint32, numberOfEdges),
 		osmNodePoints:           make([]Coordinate, 1),
 		edgeOsmWayId:            NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID, uint64(numberOfEdges)),
 		edgeStartPointsIndex:    make([]Index, 0),
@@ -338,18 +338,18 @@ func (gs *GraphStorage) GetConditionalTurnRestrictions() []ConditionalTurnRestri
 	return gs.conditionalTurnRestrictions
 }
 
-func (gs *GraphStorage) SetEdgeGeohashes(edgeGeohashes []uint64) {
+func (gs *GraphStorage) SetEdgeGeohashes(edgeGeohashes []uint32) {
 	gs.edgeGeohashes = edgeGeohashes
 }
 
 func (gs *GraphStorage) AppendEdgeGeohash(geohash uint64) {
-	gs.edgeGeohashes = append(gs.edgeGeohashes, geohash)
+	gs.edgeGeohashes = append(gs.edgeGeohashes, uint32(geohash))
 }
 
 func (gs *GraphStorage) SetEdgeGeohash(edgeId Index, geohash uint64) {
-	gs.edgeGeohashes[edgeId] = geohash
+	gs.edgeGeohashes[edgeId] = uint32(geohash)
 }
 
 func (gs *GraphStorage) GetEdgeGeohash(edgeId Index) uint64 {
-	return gs.edgeGeohashes[edgeId]
+	return uint64(gs.edgeGeohashes[edgeId])
 }

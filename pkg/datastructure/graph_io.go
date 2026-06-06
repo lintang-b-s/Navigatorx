@@ -3,1228 +3,875 @@ package datastructure
 import (
 	"bufio"
 	"fmt"
-	"io"
 	"math"
-	"os"
-	"path/filepath"
-	"strconv"
-	"strings"
-
-	"github.com/cockroachdb/errors"
+	"sort"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-func (g *Graph) WriteGraph(filename string) error {
-	dir := filepath.Dir(filename)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0755); err != nil {
+const (
+	maxGraphItems = uint32(math.MaxUint32)
+	maxGraphText  = 64 << 20
+)
+
+func writePackedSlice(w *util.BinaryWriter, values *PackedSlice) error {
+	if values == nil {
+		return w.Bool(false)
+	}
+	if err := w.Bool(true); err != nil {
+		return err
+	}
+	if err := w.Uint8(values.numberOfBits); err != nil {
+		return err
+	}
+	if err := w.Uint64(values.numOfItems); err != nil {
+		return err
+	}
+	if err := w.Length(len(values.data)); err != nil {
+		return err
+	}
+	for _, value := range values.data {
+		if err := w.Uint64(value); err != nil {
 			return err
 		}
 	}
-
-	f, err := os.Create(filename)
-	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed to create file: %s", filename)
-	}
-	defer f.Close()
-
-	snp := s2.NewWriter(f)
-	defer snp.Close()
-
-	w := bufio.NewWriter(snp)
-
-	// graph header
-	if _, err = fmt.Fprintf(w, "%d %d %d %d %t %s\n",
-		len(g.vertices), g.NumberOfEdges(),
-		g.GetNumberOfCellsNumbers(), g.GetNumberOfOverlayVertexMapping(), g.roadNetwork,
-		strconv.FormatFloat(g.minResolution, 'f', -1, 64)); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing graph headers")
-	}
-
-	// graph vertices
-	for i, v := range g.vertices {
-		latF := strconv.FormatFloat(v.lat, 'f', -1, 64)
-		lonF := strconv.FormatFloat(v.lon, 'f', -1, 64)
-		var osmId uint64
-		if i < len(g.vertices)-1 {
-			osmId = g.GetVertexOsmId(Index(i))
-		}
-
-		if _, err = fmt.Fprintf(w, "%d %d %d %d %d %s %s %d\n",
-			v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, v.id, latF, lonF, osmId); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing vertex[%d]", i)
-		}
-	}
-
-	// out edges
-	for i, e := range g.outEdges {
-		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
-			e.edgeId, e.head,
-			strconv.FormatFloat(e.weight, 'f', -1, 64),
-			strconv.FormatFloat(e.dist, 'f', -1, 64),
-			e.entryPoint, e.hwType, e.flag,
-		); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing outEdge[%d]", i)
-		}
-	}
-
-	// in edges
-	for i, e := range g.inEdges {
-		if _, err = fmt.Fprintf(w, "%d %d %s %s %d %d %d\n",
-			e.edgeId, e.tail,
-			strconv.FormatFloat(e.weight, 'f', -1, 64),
-			strconv.FormatFloat(e.dist, 'f', -1, 64),
-			e.exitPoint, e.hwType, e.flag); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing inEdge[%d]", i)
-		}
-	}
-
-	// cell numbers
-	for i, cn := range g.cellNumbers {
-		if _, err = fmt.Fprintf(w, "%d\n", cn); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing cellNumber[%d]", i)
-		}
-	}
-
-	// turn tables
-	for i, tt := range g.turnTypeTable {
-		if _, err = fmt.Fprintf(w, "%d", tt); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing turnTable[%d]", i)
-		}
-		if i < len(g.turnTypeTable)-1 {
-			if _, err = fmt.Fprintf(w, " "); err != nil {
-				return err
-			}
-		}
-	}
-	if _, err = fmt.Fprintf(w, "\n"); err != nil {
+	if err := w.Blob(values.lowerOffset); err != nil {
 		return err
 	}
+	return w.Blob(values.upperNumOfBits)
+}
 
-	// overlay
-	for k, v := range g.overlayVertices {
-		if _, err = fmt.Fprintf(w, "%d %d %t %d\n",
-			k.originalID, k.exitEntryOrder, k.exit, v); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing overlayVertices")
+func readPackedSlice(r *util.BinaryReader) (*PackedSlice, error) {
+	present, err := r.Bool()
+	if err != nil || !present {
+		return nil, err
+	}
+	bits, err := r.Uint8()
+	if err != nil {
+		return nil, err
+	}
+	if bits == 0 || bits > 64 {
+		return nil, fmt.Errorf("invalid packed slice bit width %d", bits)
+	}
+	items, err := r.Uint64()
+	if err != nil {
+		return nil, err
+	}
+	if items > uint64(maxGraphItems) {
+		return nil, fmt.Errorf("packed slice item count %d is too large", items)
+	}
+	dataLength, err := r.Length(maxGraphItems)
+	if err != nil {
+		return nil, err
+	}
+	data := make([]uint64, dataLength)
+	for i := range data {
+		data[i], err = r.Uint64()
+		if err != nil {
+			return nil, err
 		}
 	}
+	lower, err := r.Blob(maxGraphItems)
+	if err != nil {
+		return nil, err
+	}
+	upper, err := r.Blob(maxGraphItems)
+	if err != nil {
+		return nil, err
+	}
+	if uint64(len(lower)) != items || uint64(len(upper)) != items {
+		return nil, fmt.Errorf("packed slice metadata count does not match item count %d", items)
+	}
+	requiredWords := uint64(1)
+	if items > 0 {
+		requiredWords = (items*uint64(bits) + 63) / 64
+	}
+	if uint64(len(data)) != requiredWords {
+		return nil, fmt.Errorf("packed slice has %d data words, expected %d", len(data), requiredWords)
+	}
+	return &PackedSlice{
+		data:           data,
+		numberOfBits:   bits,
+		lowerOffset:    lower,
+		upperNumOfBits: upper,
+		numOfItems:     items,
+	}, nil
+}
 
-	// cell offsets
-	if _, err = fmt.Fprintf(w, "%d\n", g.maxEdgesInCell); err != nil {
+func writeBitSet(w *util.BinaryWriter, value *bitset.BitSet) error {
+	if value == nil {
+		return w.Bool(false)
+	}
+	if err := w.Bool(true); err != nil {
 		return err
 	}
-
-	for i, val := range g.outEdgeCellOffset {
-		if _, err = fmt.Fprintf(w, "%d", val); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing outEdgeCellOffset[%d]", i)
-		}
-		if i < len(g.outEdgeCellOffset)-1 {
-			if _, err = fmt.Fprintf(w, " "); err != nil {
-				return err
-			}
-		}
-	}
-	if _, err = fmt.Fprintf(w, "\n"); err != nil {
+	if err := w.Uint64(uint64(value.Len())); err != nil {
 		return err
 	}
-
-	for i, val := range g.inEdgeCellOffset {
-		if _, err = fmt.Fprintf(w, "%d", val); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing inEdgeCellOffset[%d]", i)
-		}
-		if i < len(g.inEdgeCellOffset)-1 {
-			if _, err = fmt.Fprintf(w, " "); err != nil {
-				return err
-			}
+	for _, word := range value.Words() {
+		if err := w.Uint64(word); err != nil {
+			return err
 		}
 	}
-	if _, err = fmt.Fprintf(w, "\n"); err != nil {
-		return err
-	}
-
-	// sccs
-	for i, val := range g.sccs {
-		if _, err = fmt.Fprintf(w, "%d", val); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing scc[%d]", i)
-		}
-		if i < len(g.sccs)-1 {
-			if _, err = fmt.Fprintf(w, " "); err != nil {
-				return err
-			}
-		}
-	}
-	if _, err = fmt.Fprintf(w, "\n"); err != nil {
-		return err
-	}
-
-	// bounding box
-	if _, err = fmt.Fprintf(w, "%s %s %s %s\n",
-		strconv.FormatFloat(g.boundingBox.GetMinLat(), 'f', -1, 64),
-		strconv.FormatFloat(g.boundingBox.GetMinLon(), 'f', -1, 64),
-		strconv.FormatFloat(g.boundingBox.GetMaxLat(), 'f', -1, 64),
-		strconv.FormatFloat(g.boundingBox.GetMaxLon(), 'f', -1, 64)); err != nil {
-		return err
-	}
-
-	// graph storage
-
-	// osm node points
-	if _, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.osmNodePoints)); err != nil { // ← move here
-		return errors.Wrapf(err, "WriteGraph: failed writing osmNodePoints count")
-	}
-
-	for i, p := range g.graphStorage.osmNodePoints {
-		if _, err = fmt.Fprintf(w, "%s %s\n",
-			strconv.FormatFloat(p.Lat, 'f', -1, 64),
-			strconv.FormatFloat(p.Lon, 'f', -1, 64)); err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing osmNodePoints[%d]", i)
-		}
-	}
-
-	// map edge metadatas
-
-	// osm way bit size
-	if _, err = fmt.Fprintf(w, "%d\n", g.graphStorage.osmwayBitSize); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing osmwayBitSize")
-	}
-
-	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.edgeStartPointsIndex))
-	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing edgeStartPointsIndex length %v", len(g.graphStorage.edgeStartPointsIndex))
-	}
-	for i := 0; i < len(g.graphStorage.edgeStartPointsIndex); i++ {
-		osmWayId := uint64(0)
-		if g.roadNetwork {
-			osmWayId = g.graphStorage.edgeOsmWayId.Get(uint64(i))
-		}
-		_, err = fmt.Fprintf(w, "%d %d %d %d %d %d %d\n",
-			g.graphStorage.edgeStartPointsIndex[i],
-			g.graphStorage.edgeEndPointsIndex[i],
-			g.graphStorage.streetName[i],
-			g.graphStorage.roadClass[i],
-			g.graphStorage.roadClassLink[i],
-			g.graphStorage.lanes[i],
-			osmWayId,
-		)
-		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing edge metadata[%d]", i)
-		}
-	}
-
-	// flags
-	if _, err := g.graphStorage.roundaboutFlag.WriteTo(w); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing roundaboutFlag")
-	}
-
-	if _, err := fmt.Fprintf(w, "\n"); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writid new line")
-	}
-
-	if _, err := g.graphStorage.nodeTrafficLight.WriteTo(w); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing nodeTrafficLight")
-	}
-	if _, err := fmt.Fprintf(w, "\n"); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writid new line")
-	}
-
-	if _, err := g.graphStorage.streetDirectionForward.WriteTo(w); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing streetDirectionForward")
-	}
-	if _, err := fmt.Fprintf(w, "\n"); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writid new line")
-	}
-
-	if _, err := g.graphStorage.streetDirectionBackward.WriteTo(w); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing streetDirectionBackward")
-	}
-
-	if _, err := fmt.Fprintf(w, "\n"); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writid new line")
-	}
-
-	if _, err := g.graphStorage.isCurvedFlag.WriteTo(w); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing isCurvedFlag")
-	}
-
-	if _, err := fmt.Fprintf(w, "\n"); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writid new line")
-	}
-
-	// tag string
-
-	nameTableLength := len(g.graphStorage.nameTable)
-	_, err = fmt.Fprintf(w, "%d\n", nameTableLength)
-	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed to write tagString keys length: %v", nameTableLength)
-	}
-
-	for key, val := range g.graphStorage.nameTable {
-		_, err = fmt.Fprintf(w, "%d %s\n", key, strconv.Quote(val))
-		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed to write key, strconv.Quote(val): %v, %v", key, strconv.Quote(val))
-		}
-	}
-
-	// conditional restrictions
-	// conditional barrier nodes
-	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalBarrierNodes))
-	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing conditionalBarrierNodes count")
-	}
-	for _, c := range g.graphStorage.conditionalBarrierNodes {
-		_, err = fmt.Fprintf(w, "%d %s\n", c.GetOsmNodeId(), strconv.Quote(c.GetTimeRangeVal()))
-		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing conditionalBarrierNode")
-		}
-	}
-
-	// conditional reversible edges
-	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalReversibleEdges))
-	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing conditionalReversibleEdges count")
-	}
-	for _, c := range g.graphStorage.conditionalReversibleEdges {
-		_, err = fmt.Fprintf(w, "%d %s\n", c.GetEdgeId(), strconv.Quote(c.GetTimeRangeVal()))
-		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing conditionalReversibleEdge")
-		}
-	}
-
-	// conditional speed limits
-	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalSpeedLimits))
-	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing conditionalSpeedLimits count")
-	}
-	for _, c := range g.graphStorage.conditionalSpeedLimits {
-		_, err = fmt.Fprintf(w, "%d %s\n", c.GetEdgeId(), strconv.Quote(c.GetTimeRangeSpeedVal()))
-		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing conditionalSpeedLimit")
-		}
-	}
-
-	// conditional traffic modes
-	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalTrafficModes))
-	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing conditionalTrafficModes count")
-	}
-	for _, c := range g.graphStorage.conditionalTrafficModes {
-		_, err = fmt.Fprintf(w, "%d %s\n", c.GetEdgeId(), strconv.Quote(c.GetTimeRangeVal()))
-		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing conditionalTrafficMode")
-		}
-	}
-
-	// conditional turn restrictions
-	_, err = fmt.Fprintf(w, "%d\n", len(g.graphStorage.conditionalTurnRestrictions))
-	if err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed writing conditionalTurnRestrictions count")
-	}
-	for _, c := range g.graphStorage.conditionalTurnRestrictions {
-		viaEIdsLen := len(c.GetViaEIds())
-		_, err = fmt.Fprintf(w, "%d %d %d %t %d %d", c.GetFromVId(), c.GetViaVId(), c.GetToVId(), c.GetViaWay(), c.GetTurnTableId(), viaEIdsLen)
-		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing conditionalTurnRestriction headers")
-		}
-		for _, viaEId := range c.GetViaEIds() {
-			_, err = fmt.Fprintf(w, " %d", viaEId)
-			if err != nil {
-				return errors.Wrapf(err, "WriteGraph: failed writing conditionalTurnRestriction viaEId")
-			}
-		}
-		_, err = fmt.Fprintf(w, " %s\n", strconv.Quote(c.GetTimeRangeVal()))
-		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed writing conditionalTurnRestriction timeRangeVal")
-		}
-	}
-
-	// write scc condensation
-	for i := 0; i < len(g.sccCondensationAdj); i++ {
-		for j := 0; j < len(g.sccCondensationAdj[i]); j++ {
-			_, err = fmt.Fprintf(w, "%d", g.sccCondensationAdj[i][j])
-			if err != nil {
-				return errors.Wrapf(err, "WriteGraph: failed to write  g.sccCondensationAdj[i][j]): %v", g.sccCondensationAdj[i][j])
-			}
-
-			if j < len(g.sccCondensationAdj[i])-1 {
-				_, err = fmt.Fprintf(w, " ")
-				if err != nil {
-					return errors.Wrapf(err, "WriteGraph: failed to write new space")
-				}
-			}
-		}
-
-		if len(g.sccCondensationAdj[i]) == 0 {
-			_, err = fmt.Fprintf(w, "empty")
-			if err != nil {
-				return errors.Wrapf(err, "WriteGraph: failed to write empty")
-			}
-
-		}
-
-		_, err = fmt.Fprintf(w, "\n")
-		if err != nil {
-			return errors.Wrapf(err, "WriteGraph: failed to write new line")
-		}
-	}
-
-	if err = w.Flush(); err != nil {
-		return errors.Wrapf(err, "WriteGraph: failed to flush bufio writer")
-	}
-
 	return nil
 }
 
-func ParseIndex(s string) (Index, error) {
-	u, err := strconv.ParseUint(s, 10, 32)
+func readBitSet(r *util.BinaryReader) (*bitset.BitSet, error) {
+	present, err := r.Bool()
+	if err != nil || !present {
+		return nil, err
+	}
+	length, err := r.Uint64()
 	if err != nil {
-		return 0, errors.Wrapf(err, "ParseIndex strconv.ParseUint: error parsing string to integer %s", s)
+		return nil, err
 	}
-	if u > math.MaxUint32 {
-		return 0, fmt.Errorf("ParseIndex: value %s overflows uint32", s)
+	if length > uint64(maxGraphItems) {
+		return nil, fmt.Errorf("bitset length %d is too large", length)
 	}
-	return Index(u), nil
+	wordCount := (length + 63) / 64
+	words := make([]uint64, wordCount)
+	for i := range words {
+		words[i], err = r.Uint64()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return bitset.FromWithLength(uint(length), words), nil
 }
 
-const (
-	graphBufferSize = 4096 * 4
-)
+func writeIndices(w *util.BinaryWriter, values []Index) error {
+	if err := w.Length(len(values)); err != nil {
+		return err
+	}
+	for _, value := range values {
+		if err := w.Uint32(uint32(value)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-func ReadGraph(filename string, readBuf *bufio.Reader) (*Graph, error) {
-	f, err := os.Open(filename)
+func readIndices(r *util.BinaryReader) ([]Index, error) {
+	length, err := r.Length(maxGraphItems)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed opening file: %s", filename)
+		return nil, err
 	}
+	values := make([]Index, length)
+	for i := range values {
+		value, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		values[i] = Index(value)
+	}
+	return values, nil
+}
 
-	defer f.Close()
+func writeUint32s(w *util.BinaryWriter, values []uint32) error {
+	if err := w.Length(len(values)); err != nil {
+		return err
+	}
+	for _, value := range values {
+		if err := w.Uint32(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	snp := s2.NewReader(f)
-
-	readBuf.Reset(snp)
-
-	line, err := util.ReadLine(readBuf)
+func readUint32s(r *util.BinaryReader) ([]uint32, error) {
+	length, err := r.Length(maxGraphItems)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed reading line: %s", filename)
+		return nil, err
 	}
-
-	tokens := util.Fields(line)
-	if len(tokens) != 6 {
-		return nil, errors.Newf("ReadGraph: number of graph headers is not correct, expected: %v, got: %v", 6, len(tokens))
+	values := make([]uint32, length)
+	if err := r.ReadUint32s(values); err != nil {
+		return nil, err
 	}
+	return values, nil
+}
 
-	numVertices, err := ParseIndex(tokens[0])
+func readUint64s(r *util.BinaryReader) ([]uint64, error) {
+	length, err := r.Length(maxGraphItems)
 	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed parsing number of vertices: %v", tokens[0])
+		return nil, err
 	}
+	values := make([]uint64, length)
+	if err := r.ReadUint64s(values); err != nil {
+		return nil, err
+	}
+	return values, nil
+}
 
-	numEdges, err := ParseIndex(tokens[1])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed parsing number of edges: %v", tokens[1])
-	}
-	numCellNumbers, err := ParseIndex(tokens[2])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed parsing number of cells: %v", tokens[2])
-	}
-	numOverlayMappings, err := ParseIndex(tokens[3])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed parsing number of overlay mappings: %v", tokens[3])
-	}
+func (g *Graph) WriteGraph(filename string) error {
+	return util.WriteCompressedArtifact(filename, func(w *util.BinaryWriter) error {
 
-	roadNetwork := true
-	roadNetwork, err = strconv.ParseBool(tokens[4])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed parsing roadNetwork flag: %v", tokens[4])
-	}
-
-	minResolution, err := strconv.ParseFloat(tokens[5], 64)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed parsing minResolution: %v", tokens[5])
-	}
-
-	vertices := make([]Vertex, numVertices)
-	var vertexOsmId uint64
-	verticesOsmIdsPs := NewPackedSlice(BIT_SIZE_OSM_NODE_ID, uint64(numEdges))
-	for i := 0; i < int(numVertices); i++ {
-		vertexLine, err := util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to read vertexLine")
+		if err := w.Bool(g.roadNetwork); err != nil {
+			return err
 		}
-		vertices[i], vertexOsmId, err = parseVertex(vertexLine)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse vertex: %v", vertexLine)
+		if err := w.Float64(g.minResolution); err != nil {
+			return err
 		}
-		verticesOsmIdsPs.Append(vertexOsmId)
-	}
-
-	outEdges := make([]OutEdge, numEdges)
-	for i := 0; i < int(numEdges); i++ {
-		outEdgeLine, err := util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to read outEdgeLine")
+		if err := w.Length(len(g.vertices)); err != nil {
+			return err
 		}
-		outEdges[i], err = parseOutEdge(outEdgeLine)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse outEdge: %v", outEdgeLine)
-		}
-	}
-
-	inEdges := make([]InEdge, numEdges)
-	for i := 0; i < int(numEdges); i++ {
-		inEdgeLine, err := util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to read inEdgeLine")
-		}
-		inEdges[i], err = parseInEdge(inEdgeLine)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse inEdge: %v", inEdgeLine)
-		}
-	}
-
-	cellNumbers := make([]Pv, numCellNumbers)
-	for i := 0; i < int(numCellNumbers); i++ {
-		cnLine, err := util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to read cnLine")
-		}
-		cellNumber, err := strconv.ParseUint(cnLine, 10, 64)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse cellNumber: %v", cnLine)
-		}
-		cellNumbers[i] = Pv(cellNumber)
-	}
-
-	turnTypeTable := make([]pkg.TurnType, 0)
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read turnTypeTable string")
-	}
-	tokens = util.Fields(line)
-	for _, token := range tokens {
-		tt, err := strconv.ParseUint(token, 10, 8)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse turnType in turnTypeTable: %v", token)
-		}
-		turnTypeTable = append(turnTypeTable, pkg.TurnType(tt))
-	}
-
-	overlayVertices := make(map[SubVertex]Index)
-	for i := 0; i < int(numOverlayMappings); i++ {
-		overlayLine, err := util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to read overlayLine")
-		}
-		tokens = util.Fields(overlayLine)
-		if len(tokens) != 4 {
-			return nil, fmt.Errorf("expected 4 overlayLine fields, got %d", len(tokens))
-		}
-		origID, err := ParseIndex(tokens[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseIndex origId: %v", tokens[0])
-		}
-		exitEntryOrder, err := strconv.ParseUint(tokens[1], 10, 32)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseUint exitEntryOrder: %v", tokens[1])
-		}
-		exit, err := strconv.ParseBool(tokens[2])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseBool exit: %v", tokens[2])
-		}
-		overlayId, err := ParseIndex(tokens[3])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseIndex overlayId: %v", tokens[3])
-		}
-		subV := SubVertex{
-			originalID:     origID,
-			exitEntryOrder: Index(exitEntryOrder),
-			exit:           exit,
-		}
-		overlayVertices[subV] = overlayId
-	}
-
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine maxEdgesIncell")
-	}
-	maxEdgesInCell, err := ParseIndex(strings.TrimSpace(line))
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ParseIndex maxEdgesInCell: %v", line)
-	}
-
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine numCellNumbers")
-	}
-	tokens = util.Fields(line)
-	if len(tokens) != int(numCellNumbers) {
-		return nil, fmt.Errorf("expected %d numCellNumbers, got %d", numCellNumbers, len(tokens))
-	}
-
-	outEdgeCellOffset := make([]Index, numCellNumbers)
-	for i, token := range tokens {
-		offset, err := ParseIndex(token)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseIndex outEdgeCellOffset: %v", token)
-		}
-		outEdgeCellOffset[i] = offset
-	}
-
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine numCellNumbers")
-	}
-	tokens = util.Fields(line)
-	if len(tokens) != int(numCellNumbers) {
-		return nil, fmt.Errorf("expected %d numCellNumbers, got %d", numCellNumbers, len(tokens))
-	}
-	inEdgeCellOffset := make([]Index, numCellNumbers)
-	for i, token := range tokens {
-		offset, err := ParseIndex(token)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseIndex inEdgeCellOffset: %v", token)
-		}
-		inEdgeCellOffset[i] = offset
-	}
-
-	// read sccs
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine sccs")
-	}
-	tokens = util.Fields(line)
-	if len(tokens) != int(numVertices-1) {
-		return nil, fmt.Errorf("expected %d vertices, got %d", numVertices, len(tokens))
-	}
-	sccs := make([]Index, numVertices-1)
-	for i, token := range tokens {
-		scc, err := ParseIndex(token)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseIndex scc: %v", token)
-		}
-		sccs[i] = scc
-	}
-
-	// read bounding box
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine bounding box")
-	}
-	tokens = util.Fields(line)
-
-	minLat, err := strconv.ParseFloat(tokens[0], 64)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ParseFloat min latitude %v", tokens[0])
-	}
-	minLon, err := strconv.ParseFloat(tokens[1], 64)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ParseFloat min longitude %v", tokens[1])
-	}
-	maxLat, err := strconv.ParseFloat(tokens[2], 64)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ParseFloat max latitude %v", tokens[2])
-	}
-	maxLon, err := strconv.ParseFloat(tokens[3], 64)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ParseFloat max longitude %v", tokens[3])
-	}
-	bb := NewBoundingBox(minLat, minLon, maxLat, maxLon)
-
-	// read graph storage
-
-	// osm way geometry points
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine osm way geometry points")
-	}
-
-	tokens = util.Fields(line)
-	numOsmNodePoints, err := util.ParseInt(tokens[0])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numOsmNodePoints: %v", tokens[0])
-	}
-
-	osmNodePoints := make([]Coordinate, numOsmNodePoints)
-	for i := 0; i < numOsmNodePoints; i++ {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine osm way geometry point")
-		}
-		tokens = util.Fields(line)
-
-		lat, err := strconv.ParseFloat(tokens[0], 64)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseFloat osm way geometry point latitude: %v", tokens[0])
-		}
-		lon, err := strconv.ParseFloat(tokens[1], 64)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseFloat osm way geometry point longitude: %v", tokens[1])
-		}
-		osmNodePoints[i] = NewCoordinate(lat, lon)
-	}
-
-	// map edge info flag
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edgeInfos headers")
-	}
-	osmWayBitSize, err := util.ParseInt(line)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read osmWayBitSize")
-	}
-
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edgeInfos headers")
-	}
-	tokens = util.Fields(line)
-
-	numEdgeMetadatas, err := util.ParseInt(tokens[0])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numEdgeMetadatas: %v", tokens[0])
-	}
-
-	edgeStartPointsIndex := make([]Index, numEdgeMetadatas)
-	edgeEndPointsIndex := make([]Index, numEdgeMetadatas)
-	streetName := make([]uint32, numEdgeMetadatas)
-	roadClass := make([]pkg.OsmHighwayType, numEdgeMetadatas)
-	roadClassLink := make([]pkg.OsmHighwayType, numEdgeMetadatas)
-	lanes := make([]uint8, numEdgeMetadatas)
-	osmWayIds := NewPackedSlice(uint8(osmWayBitSize), uint64(numEdgeMetadatas))
-
-	for i := 0; i < numEdgeMetadatas; i++ {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine edge metadata[%d]", i)
-		}
-		tokens = util.Fields(line)
-
-		startPointIndex, err := util.ParseInt(tokens[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt edgeStartPointsIndex[%d]: %v", i, tokens[0])
-		}
-		endPointIndex, err := util.ParseInt(tokens[1])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt edgeEndPointsIndex[%d]: %v", i, tokens[1])
-		}
-		sName, err := util.ParseUInt32(tokens[2])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 streetName[%d]: %v", i, tokens[2])
-		}
-		rClass, err := util.ParseUInt32(tokens[3])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 roadClass[%d]: %v", i, tokens[3])
-		}
-		rClassLink, err := util.ParseUInt32(tokens[4])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ParseUInt32 roadClassLink[%d]: %v", i, tokens[4])
-		}
-		l, err := util.ParseInt(tokens[5])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt lanes[%d]: %v", i, tokens[5])
-		}
-		osmWayId, err := util.ParseUInt64(tokens[6])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt osmWayId[%d]: %v", i, tokens[6])
-		}
-
-		edgeStartPointsIndex[i] = Index(startPointIndex)
-		edgeEndPointsIndex[i] = Index(endPointIndex)
-		streetName[i] = sName
-		roadClass[i] = pkg.OsmHighwayType(rClass)
-		roadClassLink[i] = pkg.OsmHighwayType(rClassLink)
-		lanes[i] = uint8(l)
-		osmWayIds.Append(uint64(osmWayId))
-	}
-
-	// roundabout flag
-	roundaboutFlags := bitset.New(uint(numEdges))
-	if _, err = roundaboutFlags.ReadFrom(readBuf); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset roundaboutFlags")
-	}
-	if _, err = readBuf.ReadByte(); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after roundaboutFlags")
-	}
-
-	// traffic light flag
-	trafficLightFlags := bitset.New(uint(numEdges))
-	if _, err = trafficLightFlags.ReadFrom(readBuf); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset trafficLightFlags")
-	}
-	if _, err = readBuf.ReadByte(); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after trafficLightFlags")
-	}
-
-	// street direction forward flag
-	stretDirectionsForward := bitset.New(uint(numEdges))
-	if _, err = stretDirectionsForward.ReadFrom(readBuf); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset streetDirectionsForward")
-	}
-	if _, err = readBuf.ReadByte(); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after streetDirectionsForward")
-	}
-
-	// street direction backward flag
-	stretDirectionsBackward := bitset.New(uint(numEdges))
-	if _, err = stretDirectionsBackward.ReadFrom(readBuf); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset streetDirectionsBackward")
-	}
-
-	if _, err = readBuf.ReadByte(); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after streetDirectionsBackward")
-	}
-
-	// is curved flag
-	isCurvedFlag := bitset.New(uint(numEdges))
-	if _, err = isCurvedFlag.ReadFrom(readBuf); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read bitset isCurvedFlag")
-	}
-
-	if _, err = readBuf.ReadByte(); err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to read newline after isCurvedFlag")
-	}
-
-	// tagstring idmap flag
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine tagstring")
-	}
-
-	tokens = util.Fields(line)
-	numIdMapItems, err := util.ParseInt(tokens[0])
-	idToStr := make(map[uint32]string)
-
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt numIdMapItems: %v", tokens[0])
-	}
-	for i := 0; i < numIdMapItems; i++ {
-
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine idMapItem")
-		}
-
-		tokens = util.Fields(line)
-		if len(tokens) < 2 {
-			continue
-		}
-
-		val := tokens[1]
-
-		if len(tokens) > 2 {
-			for i := 2; i < len(tokens); i++ {
-				val += " " + tokens[i]
-			}
-		}
-
-		unquotedVal, err := strconv.Unquote(val)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
-		}
-		key, err := util.ParseUInt32(tokens[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt tagstring key: %v", tokens[0])
-		}
-
-		unquotedVal = strings.ReplaceAll(unquotedVal, "\x00", "")
-
-		idToStr[key] = unquotedVal
-	}
-
-	// read conditional restrictions
-
-	// conditional barrier nodes
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalBarrierNodes")
-	}
-	tokens = util.Fields(line)
-	numBarrierNodes, err := util.ParseInt(tokens[0])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numBarrierNodes")
-	}
-	conditionalBarrierNodes := make([]ConditionalBarrierNode, numBarrierNodes)
-	for i := 0; i < numBarrierNodes; i++ {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalBarrierNode")
-		}
-		tokens := util.Fields(line)
-		osmNodeId, err := strconv.ParseInt(tokens[0], 10, 64)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parseInt osmNodeId: %v", tokens[0])
-		}
-		val := tokens[1]
-		if len(tokens) > 2 {
-			for j := 2; j < len(tokens); j++ {
-				val += " " + tokens[j]
-			}
-		}
-		unquotedVal, err := strconv.Unquote(val)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
-		}
-		conditionalBarrierNodes[i] = NewConditionalBarrierNode(osmNodeId, unquotedVal)
-	}
-
-	// conditional reversible edges
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalReversibleEdges")
-	}
-	tokens = util.Fields(line)
-	numReversibleEdges, err := util.ParseInt(tokens[0])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numReversibleEdges")
-	}
-	conditionalReversibleEdges := make([]ConditionalReversibleEdge, numReversibleEdges)
-	for i := 0; i < numReversibleEdges; i++ {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalReversibleEdge")
-		}
-		tokens := util.Fields(line)
-		edgeId, err := ParseIndex(tokens[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse edgeId: %v", tokens[0])
-		}
-		val := tokens[1]
-		if len(tokens) > 2 {
-			for j := 2; j < len(tokens); j++ {
-				val += " " + tokens[j]
-			}
-		}
-		unquotedVal, err := strconv.Unquote(val)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
-		}
-		conditionalReversibleEdges[i] = NewConditionalReversibleEdge(edgeId, unquotedVal)
-	}
-
-	// conditional speed limits
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalSpeedLimits")
-	}
-	tokens = util.Fields(line)
-	numSpeedLimits, err := util.ParseInt(tokens[0])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numSpeedLimits")
-	}
-	conditionalSpeedLimits := make([]ConditionalSpeedLimit, numSpeedLimits)
-	for i := 0; i < numSpeedLimits; i++ {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalSpeedLimit")
-		}
-		tokens := util.Fields(line)
-		edgeId, err := ParseIndex(tokens[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse edgeId: %v", tokens[0])
-		}
-		val := tokens[1]
-		if len(tokens) > 2 {
-			for j := 2; j < len(tokens); j++ {
-				val += " " + tokens[j]
-			}
-		}
-		unquotedVal, err := strconv.Unquote(val)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
-		}
-		conditionalSpeedLimits[i] = NewConditionalSpeedLimit(edgeId, unquotedVal)
-	}
-
-	// conditional traffic modes
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTrafficModes")
-	}
-	tokens = util.Fields(line)
-	numTrafficModes, err := util.ParseInt(tokens[0])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numTrafficModes")
-	}
-	conditionalTrafficModes := make([]ConditionalTrafficMode, numTrafficModes)
-	for i := 0; i < numTrafficModes; i++ {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTrafficMode")
-		}
-		tokens := util.Fields(line)
-		edgeId, err := ParseIndex(tokens[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse edgeId: %v", tokens[0])
-		}
-		val := tokens[1]
-		if len(tokens) > 2 {
-			for j := 2; j < len(tokens); j++ {
-				val += " " + tokens[j]
-			}
-		}
-		unquotedVal, err := strconv.Unquote(val)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
-		}
-		conditionalTrafficModes[i] = NewConditionalTrafficMode(edgeId, unquotedVal)
-	}
-
-	// conditional turn restrictions
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTurnRestrictions")
-	}
-	tokens = util.Fields(line)
-	numTurnRestrictions, err := util.ParseInt(tokens[0])
-	if err != nil {
-		return nil, errors.Wrapf(err, "ReadGraph: failed to parse numTurnRestrictions")
-	}
-	conditionalTurnRestrictions := make([]ConditionalTurnRestriction, numTurnRestrictions)
-	for i := 0; i < numTurnRestrictions; i++ {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to readLine conditionalTurnRestriction")
-		}
-		tokens := util.Fields(line)
-
-		fromVId, err := ParseIndex(tokens[0])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse fromVId: %v", tokens[0])
-		}
-
-		viaVId, err := ParseIndex(tokens[1])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse viaVId: %v", tokens[1])
-		}
-
-		toVId, err := ParseIndex(tokens[2])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse toVId: %v", tokens[2])
-		}
-
-		viaWay, err := strconv.ParseBool(tokens[3])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse viaWay: %v", tokens[3])
-		}
-
-		turnTypeInt, err := strconv.ParseUint(tokens[4], 10, 8)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse turnType: %v", tokens[4])
-		}
-		turnType := pkg.TurnType(turnTypeInt)
-
-		viaEIdsLen, err := util.ParseInt(tokens[5])
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to parse viaEIdsLen: %v", tokens[5])
-		}
-
-		viaEIds := make([]Index, viaEIdsLen)
-		for j := 0; j < viaEIdsLen; j++ {
-			vId, err := ParseIndex(tokens[6+j])
-			if err != nil {
-				return nil, errors.Wrapf(err, "ReadGraph: failed to parse viaEId: %v", tokens[6+j])
-			}
-			viaEIds[j] = vId
-		}
-
-		val := tokens[6+viaEIdsLen]
-		if len(tokens) > 6+viaEIdsLen+1 {
-			for j := 6 + viaEIdsLen + 1; j < len(tokens); j++ {
-				val += " " + tokens[j]
-			}
-		}
-		unquotedVal, err := strconv.Unquote(val)
-		if err != nil {
-			return nil, errors.Wrapf(err, "ReadGraph: failed to Unquote: %v", val)
-		}
-		conditionalTurnRestrictions[i] = NewConditionalTurnRestriction(fromVId, viaVId, toVId, viaEIds, viaWay, unquotedVal, turnType)
-	}
-
-	sccCondensationAdj := make([][]Index, 0)
-	for {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				break
-			}
-			return nil, errors.Wrapf(err, "ReadGraph: failed to ReadLine sccCondensationAdj")
-		}
-		tokens = util.Fields(line)
-		if len(tokens) == 0 {
-			continue
-		}
-		adj := make([]Index, 0)
-		if tokens[0] != "empty" {
-			for _, token := range tokens {
-				scc, err := ParseIndex(token)
-				if err != nil {
-					return nil, errors.Wrapf(err, "ReadGraph: failed to ParseIndex scc: %v", token)
+		for _, v := range g.vertices {
+			for _, value := range []Index{v.pvPtr, v.turnTablePtr, v.firstOut, v.firstIn, v.id} {
+				if err := w.Uint32(uint32(value)); err != nil {
+					return err
 				}
-				adj = append(adj, scc)
+			}
+			if err := w.Int32(v.lat); err != nil {
+				return err
+			}
+			if err := w.Int32(v.lon); err != nil {
+				return err
 			}
 		}
-		sccCondensationAdj = append(sccCondensationAdj, adj)
+		if err := writePackedSlice(w, g.verticesOsmIds); err != nil {
+			return err
+		}
+		if err := w.Length(len(g.outEdges)); err != nil {
+			return err
+		}
+		for _, edge := range g.outEdges {
+			if err := w.Uint32(uint32(edge.edgeId)); err != nil {
+				return err
+			}
+			if err := w.Uint32(uint32(edge.head)); err != nil {
+				return err
+			}
+			if err := w.Uint32(uint32(edge.entryPoint)); err != nil {
+				return err
+			}
+			if err := w.Uint8(uint8(edge.hwType)); err != nil {
+				return err
+			}
+			if err := w.Uint8(edge.flag); err != nil {
+				return err
+			}
+		}
+		if err := w.Length(len(g.inEdges)); err != nil {
+			return err
+		}
+		for _, edge := range g.inEdges {
+			if err := w.Uint32(uint32(edge.edgeId)); err != nil {
+				return err
+			}
+			if err := w.Uint32(uint32(edge.tail)); err != nil {
+				return err
+			}
+			if err := w.Uint32(uint32(edge.exitPoint)); err != nil {
+				return err
+			}
+			if err := w.Uint8(uint8(edge.hwType)); err != nil {
+				return err
+			}
+			if err := w.Uint8(edge.flag); err != nil {
+				return err
+			}
+		}
+		if err := w.Length(len(g.cellNumbers)); err != nil {
+			return err
+		}
+		for _, value := range g.cellNumbers {
+			if err := w.Uint64(uint64(value)); err != nil {
+				return err
+			}
+		}
+		if err := w.Length(len(g.turnTypeTable)); err != nil {
+			return err
+		}
+		for _, value := range g.turnTypeTable {
+			if err := w.Uint8(uint8(value)); err != nil {
+				return err
+			}
+		}
+		keys := make([]SubVertex, 0, len(g.overlayVertices))
+		for key := range g.overlayVertices {
+			keys = append(keys, key)
+		}
+		sort.Slice(keys, func(i, j int) bool {
+			if keys[i].originalID != keys[j].originalID {
+				return keys[i].originalID < keys[j].originalID
+			}
+			if keys[i].exitEntryOrder != keys[j].exitEntryOrder {
+				return keys[i].exitEntryOrder < keys[j].exitEntryOrder
+			}
+			return !keys[i].exit && keys[j].exit
+		})
+		if err := w.Length(len(keys)); err != nil {
+			return err
+		}
+		for _, key := range keys {
+			if err := w.Uint32(uint32(key.originalID)); err != nil {
+				return err
+			}
+			if err := w.Uint32(uint32(key.exitEntryOrder)); err != nil {
+				return err
+			}
+			if err := w.Bool(key.exit); err != nil {
+				return err
+			}
+			if err := w.Uint32(uint32(g.overlayVertices[key])); err != nil {
+				return err
+			}
+		}
+		if err := w.Uint32(uint32(g.maxEdgesInCell)); err != nil {
+			return err
+		}
+		if err := writeIndices(w, g.outEdgeCellOffset); err != nil {
+			return err
+		}
+		if err := writeIndices(w, g.inEdgeCellOffset); err != nil {
+			return err
+		}
+		if err := writeIndices(w, g.sccs); err != nil {
+			return err
+		}
+		if err := w.Length(len(g.sccCondensationAdj)); err != nil {
+			return err
+		}
+		for _, row := range g.sccCondensationAdj {
+			if err := writeIndices(w, row); err != nil {
+				return err
+			}
+		}
+		for _, value := range []float64{g.boundingBox.minLat, g.boundingBox.minLon, g.boundingBox.maxLat, g.boundingBox.maxLon} {
+			if err := w.Float64(value); err != nil {
+				return err
+			}
+		}
+		return writeGraphStorage(w, g.graphStorage)
+	})
+}
+
+func writeGraphStorage(w *util.BinaryWriter, gs *GraphStorage) error {
+	if err := w.Length(len(gs.osmNodePoints)); err != nil {
+		return err
 	}
+	for _, point := range gs.osmNodePoints {
+		if err := w.Int32(point.GetFixedLat()); err != nil {
+			return err
+		}
+		if err := w.Int32(point.GetFixedLon()); err != nil {
+			return err
+		}
+	}
+	if err := w.Uint8(gs.osmwayBitSize); err != nil {
+		return err
+	}
+	if err := writePackedSlice(w, gs.edgeOsmWayId); err != nil {
+		return err
+	}
+	metadataCount := len(gs.edgeStartPointsIndex)
+	if len(gs.edgeEndPointsIndex) != metadataCount || len(gs.streetName) != metadataCount ||
+		len(gs.roadClass) != metadataCount || len(gs.roadClassLink) != metadataCount || len(gs.lanes) != metadataCount {
+		return fmt.Errorf("graph edge metadata lengths do not match")
+	}
+	if err := w.Length(metadataCount); err != nil {
+		return err
+	}
+	for i := 0; i < metadataCount; i++ {
+		if err := w.Uint32(uint32(gs.edgeStartPointsIndex[i])); err != nil {
+			return err
+		}
+		if err := w.Uint32(uint32(gs.edgeEndPointsIndex[i])); err != nil {
+			return err
+		}
+		if err := w.Uint32(gs.streetName[i]); err != nil {
+			return err
+		}
+		if err := w.Uint8(uint8(gs.roadClass[i])); err != nil {
+			return err
+		}
+		if err := w.Uint8(uint8(gs.roadClassLink[i])); err != nil {
+			return err
+		}
+		if err := w.Uint8(gs.lanes[i]); err != nil {
+			return err
+		}
+	}
+	for _, value := range []*bitset.BitSet{gs.roundaboutFlag, gs.nodeTrafficLight, gs.streetDirectionForward, gs.streetDirectionBackward, gs.isCurvedFlag} {
+		if err := writeBitSet(w, value); err != nil {
+			return err
+		}
+	}
+	if err := writeUint32s(w, gs.edgeGeohashes); err != nil {
+		return err
+	}
+	if err := w.Length(len(gs.nameTable)); err != nil {
+		return err
+	}
+	for _, value := range gs.nameTable {
+		if err := w.String(value); err != nil {
+			return err
+		}
+	}
+	if err := w.Length(len(gs.conditionalBarrierNodes)); err != nil {
+		return err
+	}
+	for _, value := range gs.conditionalBarrierNodes {
+		if err := w.Int64(value.osmNodeId); err != nil {
+			return err
+		}
+		if err := w.String(value.timeRangeVal); err != nil {
+			return err
+		}
+	}
+	if err := w.Length(len(gs.conditionalReversibleEdges)); err != nil {
+		return err
+	}
+	for _, value := range gs.conditionalReversibleEdges {
+		if err := w.Uint32(uint32(value.edgeId)); err != nil {
+			return err
+		}
+		if err := w.String(value.timeRangeVal); err != nil {
+			return err
+		}
+	}
+	if err := w.Length(len(gs.conditionalSpeedLimits)); err != nil {
+		return err
+	}
+	for _, value := range gs.conditionalSpeedLimits {
+		if err := w.Uint32(uint32(value.edgeId)); err != nil {
+			return err
+		}
+		if err := w.String(value.timeRangeSpeedVal); err != nil {
+			return err
+		}
+	}
+	if err := w.Length(len(gs.conditionalTrafficModes)); err != nil {
+		return err
+	}
+	for _, value := range gs.conditionalTrafficModes {
+		if err := w.Uint32(uint32(value.edgeId)); err != nil {
+			return err
+		}
+		if err := w.String(value.timeRangeVal); err != nil {
+			return err
+		}
+	}
+	if err := w.Length(len(gs.conditionalTurnRestrictions)); err != nil {
+		return err
+	}
+	for _, value := range gs.conditionalTurnRestrictions {
+		for _, id := range []Index{value.fromVId, value.viaVId, value.toVId} {
+			if err := w.Uint32(uint32(id)); err != nil {
+				return err
+			}
+		}
+		if err := w.Bool(value.viaWay); err != nil {
+			return err
+		}
+		if err := w.Uint8(uint8(value.turnType)); err != nil {
+			return err
+		}
+		if err := writeIndices(w, value.viaEIds); err != nil {
+			return err
+		}
+		if err := w.String(value.timeRangeVal); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	graphStorage := BuildGraphStorage(osmNodePoints,
-		roundaboutFlags, trafficLightFlags,
-		stretDirectionsForward, stretDirectionsBackward, isCurvedFlag)
+func ReadGraph(filename string, _ *bufio.Reader) (*Graph, error) {
+	file, r, err := util.OpenCompressedArtifact(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
 
-	graphStorage.SetNewEdgeMetadata(osmWayIds, edgeStartPointsIndex, edgeEndPointsIndex,
-		streetName, roadClass, roadClassLink, lanes)
-
-	graphStorage.BuildNameTable(idToStr)
-
-	graphStorage.SetConditionalBarrierNodes(conditionalBarrierNodes)
-	graphStorage.SetConditionalReversibleEdges(conditionalReversibleEdges)
-	graphStorage.SetConditionalSpeedLimits(conditionalSpeedLimits)
-	graphStorage.SetConditionalTrafficModes(conditionalTrafficModes)
-	graphStorage.SetConditionalTurnRestrictions(conditionalTurnRestrictions)
-
-	graph := NewGraph(vertices, outEdges, inEdges, turnTypeTable, roadNetwork, verticesOsmIdsPs)
-	graph.SetGraphStorage(graphStorage)
-	graph.SetCellNumbers(cellNumbers)
-	graph.SetOverlayMapping(overlayVertices)
-	graph.maxEdgesInCell = maxEdgesInCell
-	graph.outEdgeCellOffset = outEdgeCellOffset
-	graph.inEdgeCellOffset = inEdgeCellOffset
-	graph.SetSCCs(sccs)
-	graph.SetSCCCondensationAdj(sccCondensationAdj)
-	graph.SetBoundingBox(bb)
-	graph.SetMinResolution(minResolution)
-
+	roadNetwork, err := r.Bool()
+	if err != nil {
+		return nil, err
+	}
+	minResolution, err := r.Float64()
+	if err != nil {
+		return nil, err
+	}
+	vertexCount, err := r.Length(maxGraphItems)
+	if err != nil {
+		return nil, err
+	}
+	vertices := make([]Vertex, vertexCount)
+	for i := range vertices {
+		fields := []*Index{&vertices[i].pvPtr, &vertices[i].turnTablePtr, &vertices[i].firstOut, &vertices[i].firstIn, &vertices[i].id}
+		for _, field := range fields {
+			value, err := r.Uint32()
+			if err != nil {
+				return nil, err
+			}
+			*field = Index(value)
+		}
+		vertices[i].lat, err = r.Int32()
+		if err != nil {
+			return nil, err
+		}
+		vertices[i].lon, err = r.Int32()
+		if err != nil {
+			return nil, err
+		}
+	}
+	vertexOsmIDs, err := readPackedSlice(r)
+	if err != nil {
+		return nil, err
+	}
+	outCount, err := r.Length(maxGraphItems)
+	if err != nil {
+		return nil, err
+	}
+	outEdges := make([]OutEdge, outCount)
+	for i := range outEdges {
+		edgeID, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		head, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		outEdges[i].edgeId, outEdges[i].head = Index(edgeID), Index(head)
+		entry, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		outEdges[i].entryPoint = Index(entry)
+		hwType, err := r.Uint8()
+		if err != nil {
+			return nil, err
+		}
+		outEdges[i].hwType = pkg.OsmHighwayType(hwType)
+		outEdges[i].flag, err = r.Uint8()
+		if err != nil {
+			return nil, err
+		}
+	}
+	inCount, err := r.Length(maxGraphItems)
+	if err != nil {
+		return nil, err
+	}
+	if inCount != outCount {
+		return nil, fmt.Errorf("in-edge count %d does not match out-edge count %d", inCount, outCount)
+	}
+	inEdges := make([]InEdge, inCount)
+	for i := range inEdges {
+		edgeID, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		tail, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		inEdges[i].edgeId, inEdges[i].tail = Index(edgeID), Index(tail)
+		exit, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		inEdges[i].exitPoint = Index(exit)
+		hwType, err := r.Uint8()
+		if err != nil {
+			return nil, err
+		}
+		inEdges[i].hwType = pkg.OsmHighwayType(hwType)
+		inEdges[i].flag, err = r.Uint8()
+		if err != nil {
+			return nil, err
+		}
+	}
+	cellValues, err := readUint64s(r)
+	if err != nil {
+		return nil, err
+	}
+	cellNumbers := make([]Pv, len(cellValues))
+	for i, value := range cellValues {
+		cellNumbers[i] = Pv(value)
+	}
+	turnCount, err := r.Length(maxGraphItems)
+	if err != nil {
+		return nil, err
+	}
+	turnTypes := make([]pkg.TurnType, turnCount)
+	for i := range turnTypes {
+		value, err := r.Uint8()
+		if err != nil {
+			return nil, err
+		}
+		turnTypes[i] = pkg.TurnType(value)
+	}
+	overlayCount, err := r.Length(maxGraphItems)
+	if err != nil {
+		return nil, err
+	}
+	overlay := make(map[SubVertex]Index, overlayCount)
+	for range overlayCount {
+		original, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		order, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		exit, err := r.Bool()
+		if err != nil {
+			return nil, err
+		}
+		id, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		overlay[SubVertex{originalID: Index(original), exitEntryOrder: Index(order), exit: exit}] = Index(id)
+	}
+	maxEdges, err := r.Uint32()
+	if err != nil {
+		return nil, err
+	}
+	outOffsets, err := readIndices(r)
+	if err != nil {
+		return nil, err
+	}
+	inOffsets, err := readIndices(r)
+	if err != nil {
+		return nil, err
+	}
+	if len(outOffsets) != len(cellNumbers) || len(inOffsets) != len(cellNumbers) {
+		return nil, fmt.Errorf("cell offset counts do not match cell count")
+	}
+	sccs, err := readIndices(r)
+	if err != nil {
+		return nil, err
+	}
+	adjCount, err := r.Length(maxGraphItems)
+	if err != nil {
+		return nil, err
+	}
+	sccAdj := make([][]Index, adjCount)
+	for i := range sccAdj {
+		sccAdj[i], err = readIndices(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+	bounds := [4]float64{}
+	for i := range bounds {
+		bounds[i], err = r.Float64()
+		if err != nil {
+			return nil, err
+		}
+	}
+	storage, err := readGraphStorage(r, int(outCount), int(vertexCount))
+	if err != nil {
+		return nil, err
+	}
+	graph := NewGraph(vertices, outEdges, inEdges, turnTypes, roadNetwork, vertexOsmIDs)
+	graph.graphStorage = storage
+	graph.cellNumbers = cellNumbers
+	graph.overlayVertices = overlay
+	graph.maxEdgesInCell = Index(maxEdges)
+	graph.outEdgeCellOffset = outOffsets
+	graph.inEdgeCellOffset = inOffsets
+	graph.sccs = sccs
+	graph.sccCondensationAdj = sccAdj
+	graph.boundingBox = NewBoundingBox(bounds[0], bounds[1], bounds[2], bounds[3])
+	graph.minResolution = minResolution
 	return graph, nil
 }
 
-func parseVertex(line string) (Vertex, uint64, error) {
-	tokens := util.Fields(line)
-	if len(tokens) != 8 {
-		return NewEmptyVertex(), 0, fmt.Errorf("expected 8 fields, got %d", len(tokens))
-	}
-	pvPtr, err := ParseIndex(tokens[0])
+func readGraphStorage(r *util.BinaryReader, edgeCount, vertexCount int) (*GraphStorage, error) {
+	pointCount, err := r.Length(maxGraphItems)
 	if err != nil {
-		return NewEmptyVertex(), 0, err
+		return nil, err
 	}
-	ttPtr, err := ParseIndex(tokens[1])
+	points := make([]Coordinate, pointCount)
+	if err := r.ReadInt32Pairs(len(points), func(i int, lat, lon int32) {
+		points[i] = NewFixedCoordinate(lat, lon)
+	}); err != nil {
+		return nil, err
+	}
+	bitSize, err := r.Uint8()
 	if err != nil {
-		return NewEmptyVertex(), 0, err
+		return nil, err
 	}
-	firstOut, err := ParseIndex(tokens[2])
+	osmWayIDs, err := readPackedSlice(r)
 	if err != nil {
-		return NewEmptyVertex(), 0, err
+		return nil, err
 	}
-	firstIn, err := ParseIndex(tokens[3])
+	metadataCount, err := r.Length(maxGraphItems)
 	if err != nil {
-		return NewEmptyVertex(), 0, err
+		return nil, err
 	}
-
-	id, err := ParseIndex(tokens[4])
+	if metadataCount != 0 && int(metadataCount) != edgeCount {
+		return nil, fmt.Errorf("edge metadata count %d does not match edge count %d", metadataCount, edgeCount)
+	}
+	gs := &GraphStorage{
+		osmNodePoints:        points,
+		edgeOsmWayId:         osmWayIDs,
+		osmwayBitSize:        bitSize,
+		edgeStartPointsIndex: make([]Index, metadataCount),
+		edgeEndPointsIndex:   make([]Index, metadataCount),
+		streetName:           make([]uint32, metadataCount),
+		roadClass:            make([]pkg.OsmHighwayType, metadataCount),
+		roadClassLink:        make([]pkg.OsmHighwayType, metadataCount),
+		lanes:                make([]uint8, metadataCount),
+	}
+	for i := 0; i < int(metadataCount); i++ {
+		start, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		end, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		gs.edgeStartPointsIndex[i], gs.edgeEndPointsIndex[i] = Index(start), Index(end)
+		gs.streetName[i], err = r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		roadClass, err := r.Uint8()
+		if err != nil {
+			return nil, err
+		}
+		gs.roadClass[i] = pkg.OsmHighwayType(roadClass)
+		roadClassLink, err := r.Uint8()
+		if err != nil {
+			return nil, err
+		}
+		gs.roadClassLink[i] = pkg.OsmHighwayType(roadClassLink)
+		gs.lanes[i], err = r.Uint8()
+		if err != nil {
+			return nil, err
+		}
+	}
+	flags := []**bitset.BitSet{&gs.roundaboutFlag, &gs.nodeTrafficLight, &gs.streetDirectionForward, &gs.streetDirectionBackward, &gs.isCurvedFlag}
+	for _, target := range flags {
+		*target, err = readBitSet(r)
+		if err != nil {
+			return nil, err
+		}
+	}
+	gs.edgeGeohashes, err = readUint32s(r)
 	if err != nil {
-		return NewEmptyVertex(), 0, err
+		return nil, err
 	}
-
-	lat, err := strconv.ParseFloat(tokens[5], 64)
+	if len(gs.edgeGeohashes) != 0 && len(gs.edgeGeohashes) != edgeCount {
+		return nil, fmt.Errorf("edge geohash count %d does not match edge count %d", len(gs.edgeGeohashes), edgeCount)
+	}
+	nameCount, err := r.Length(maxGraphItems)
 	if err != nil {
-		return NewEmptyVertex(), 0, fmt.Errorf("lat: %v", err)
+		return nil, err
 	}
-	lon, err := strconv.ParseFloat(tokens[6], 64)
+	gs.nameTable = make([]string, nameCount)
+	for i := range gs.nameTable {
+		gs.nameTable[i], err = r.String(maxGraphText)
+		if err != nil {
+			return nil, err
+		}
+	}
+	barrierCount, err := r.Length(maxGraphItems)
 	if err != nil {
-		return NewEmptyVertex(), 0, fmt.Errorf("lon: %v", err)
+		return nil, err
 	}
-
-	osmId, err := strconv.ParseUint(tokens[7], 10, 64)
+	gs.conditionalBarrierNodes = make([]ConditionalBarrierNode, barrierCount)
+	for i := range gs.conditionalBarrierNodes {
+		gs.conditionalBarrierNodes[i].osmNodeId, err = r.Int64()
+		if err != nil {
+			return nil, err
+		}
+		gs.conditionalBarrierNodes[i].timeRangeVal, err = r.String(maxGraphText)
+		if err != nil {
+			return nil, err
+		}
+	}
+	reversibleCount, err := r.Length(maxGraphItems)
 	if err != nil {
-		return NewEmptyVertex(), 0, fmt.Errorf("lon: %v", err)
+		return nil, err
 	}
-
-	return Vertex{
-		pvPtr: pvPtr, turnTablePtr: ttPtr,
-		firstOut: firstOut, firstIn: firstIn,
-		lat: lat, lon: lon, id: id,
-	}, osmId, nil
-}
-
-func parseOutEdge(line string) (OutEdge, error) {
-	tokens := util.Fields(line)
-	if len(tokens) != 7 {
-		return NewEmptyOutEdge(), fmt.Errorf("expected 7 fields, got %d", len(tokens))
+	gs.conditionalReversibleEdges = make([]ConditionalReversibleEdge, reversibleCount)
+	for i := range gs.conditionalReversibleEdges {
+		id, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		gs.conditionalReversibleEdges[i].edgeId = Index(id)
+		gs.conditionalReversibleEdges[i].timeRangeVal, err = r.String(maxGraphText)
+		if err != nil {
+			return nil, err
+		}
 	}
-	edgeId, err := ParseIndex(tokens[0])
+	speedCount, err := r.Length(maxGraphItems)
 	if err != nil {
-		return NewEmptyOutEdge(), err
+		return nil, err
 	}
-	head, err := ParseIndex(tokens[1])
+	gs.conditionalSpeedLimits = make([]ConditionalSpeedLimit, speedCount)
+	for i := range gs.conditionalSpeedLimits {
+		id, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		gs.conditionalSpeedLimits[i].edgeId = Index(id)
+		gs.conditionalSpeedLimits[i].timeRangeSpeedVal, err = r.String(maxGraphText)
+		if err != nil {
+			return nil, err
+		}
+	}
+	modeCount, err := r.Length(maxGraphItems)
 	if err != nil {
-		return NewEmptyOutEdge(), err
+		return nil, err
 	}
-	weight, err := strconv.ParseFloat(tokens[2], 64)
+	gs.conditionalTrafficModes = make([]ConditionalTrafficMode, modeCount)
+	for i := range gs.conditionalTrafficModes {
+		id, err := r.Uint32()
+		if err != nil {
+			return nil, err
+		}
+		gs.conditionalTrafficModes[i].edgeId = Index(id)
+		gs.conditionalTrafficModes[i].timeRangeVal, err = r.String(maxGraphText)
+		if err != nil {
+			return nil, err
+		}
+	}
+	turnCount, err := r.Length(maxGraphItems)
 	if err != nil {
-		return NewEmptyOutEdge(), err
+		return nil, err
 	}
-	dist, err := strconv.ParseFloat(tokens[3], 64)
-	if err != nil {
-		return NewEmptyOutEdge(), err
+	gs.conditionalTurnRestrictions = make([]ConditionalTurnRestriction, turnCount)
+	for i := range gs.conditionalTurnRestrictions {
+		value := &gs.conditionalTurnRestrictions[i]
+		ids := []*Index{&value.fromVId, &value.viaVId, &value.toVId}
+		for _, target := range ids {
+			id, err := r.Uint32()
+			if err != nil {
+				return nil, err
+			}
+			*target = Index(id)
+		}
+		value.viaWay, err = r.Bool()
+		if err != nil {
+			return nil, err
+		}
+		turnType, err := r.Uint8()
+		if err != nil {
+			return nil, err
+		}
+		value.turnType = pkg.TurnType(turnType)
+		value.viaEIds, err = readIndices(r)
+		if err != nil {
+			return nil, err
+		}
+		value.timeRangeVal, err = r.String(maxGraphText)
+		if err != nil {
+			return nil, err
+		}
 	}
-
-	entryPoint, err := strconv.ParseUint(tokens[4], 10, 32)
-	if err != nil {
-		return NewEmptyOutEdge(), err
+	if gs.nodeTrafficLight != nil && gs.nodeTrafficLight.Len() > uint(vertexCount) {
+		return nil, fmt.Errorf("traffic-light bitset exceeds vertex count")
 	}
-
-	hwType, err := strconv.ParseUint(tokens[5], 10, 8)
-	if err != nil {
-		return NewEmptyOutEdge(), err
-	}
-
-	flag, err := strconv.ParseUint(tokens[6], 10, 8)
-	if err != nil {
-		return NewEmptyOutEdge(), err
-	}
-
-	e := NewOutEdge(edgeId, head, weight, dist, Index(entryPoint), pkg.OsmHighwayType(hwType))
-	e.SetFlag(uint8(flag))
-	return e, nil
-}
-
-func parseInEdge(line string) (InEdge, error) {
-	tokens := util.Fields(line)
-	if len(tokens) != 7 {
-		return NewEmptyInEdge(), fmt.Errorf("expected 7 fields, got %d", len(tokens))
-	}
-	edgeId, err := ParseIndex(tokens[0])
-	if err != nil {
-		return NewEmptyInEdge(), err
-	}
-	tail, err := ParseIndex(tokens[1])
-	if err != nil {
-		return NewEmptyInEdge(), err
-	}
-	weight, err := strconv.ParseFloat(tokens[2], 64)
-	if err != nil {
-		return NewEmptyInEdge(), err
-	}
-	dist, err := strconv.ParseFloat(tokens[3], 64)
-	if err != nil {
-		return NewEmptyInEdge(), err
-	}
-
-	exitPoint, err := strconv.ParseUint(tokens[4], 10, 32)
-	if err != nil {
-		return NewEmptyInEdge(), err
-	}
-
-	hwType, err := strconv.ParseUint(tokens[5], 10, 8)
-	if err != nil {
-		return NewEmptyInEdge(), err
-	}
-
-	flag, err := strconv.ParseUint(tokens[6], 10, 8)
-	if err != nil {
-		return NewEmptyInEdge(), err
-	}
-
-	e := NewInEdge(edgeId, tail, weight, dist, Index(exitPoint), pkg.OsmHighwayType(hwType))
-	e.SetFlag(uint8(flag))
-	return e, nil
+	return gs, nil
 }

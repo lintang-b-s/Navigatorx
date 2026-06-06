@@ -7,13 +7,13 @@ import (
 	"io"
 	"math"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bits-and-blooms/bitset"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -110,12 +110,12 @@ func (p *OsmParser) GetTagStringIdMap() util.IDMap {
 	return p.tagStringIdMap
 }
 
-func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da.Index, error) {
+func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *costfunction.TimeFunction, [][]da.Index, error) {
 
 	f, err := os.Open(mapFile)
 
 	if err != nil {
-		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Open file: %s: %w", mapFile, err)
+		return nil, nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Open file: %s: %w", mapFile, err)
 	}
 
 	defer f.Close()
@@ -264,12 +264,12 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 
 	err = scanner.Close()
 	if err != nil {
-		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to close scanner: %s: %w", mapFile, err)
+		return nil, nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to close scanner: %s: %w", mapFile, err)
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Seek scanner: %s: %w", mapFile, err)
+		return nil, nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Seek scanner: %s: %w", mapFile, err)
 	}
 
 	scanner = osmpbf.New(context.Background(), f, 0)
@@ -296,7 +296,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 
 				isBarrierAccessible, err := p.isBarrierNodeAccessible(node)
 				if err != nil {
-					return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s: %w", mapFile, err)
+					return nil, nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s: %w", mapFile, err)
 				}
 
 				if !isBarrierAccessible {
@@ -325,12 +325,12 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 
 	err = scanner.Close()
 	if err != nil {
-		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to close scanner: %s: %w", mapFile, err)
+		return nil, nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to close scanner: %s: %w", mapFile, err)
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Seek scanner: %s: %w", mapFile, err)
+		return nil, nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Seek scanner: %s: %w", mapFile, err)
 	}
 
 	// scan osm way and store graph edges
@@ -449,7 +449,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 		p.ways[wayId] = way
 	}
 
-	graph, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), true)
+	graph, timeFunction, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), true)
 
 	graph.SetBoundingBox(p.bb)
 
@@ -478,10 +478,10 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, [][]da
 	logger.Sugar().Infof("number of edges: %v", graph.NumberOfEdges())
 
 	if err = scanner.Close(); err != nil {
-		return nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Close scanner: %s: %w", mapFile, err)
+		return nil, nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Close scanner: %s: %w", mapFile, err)
 	}
 
-	return graph, edgeInfoIds, nil
+	return graph, timeFunction, edgeInfoIds, nil
 }
 
 type wayExtraInfo struct {
@@ -772,7 +772,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	if !exists {
 		lanes = 1
 	} else {
-		lanes, _ = strconv.Atoi(lanesString)
+		lanes, _ = util.ParseTextInt(lanesString)
 	}
 
 	fromNId := p.nodeIDMap[from.id]

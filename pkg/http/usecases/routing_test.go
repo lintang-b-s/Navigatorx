@@ -28,7 +28,10 @@ func setupRoutingService() (*RoutingService, *MockRoutingEngine, *MockSpatialInd
 
 	// Create a minimal working graph for Snap
 	gs := da.NewGraphStorage(41)
-	gs.AppendOsmNodePoints([]da.Coordinate{{Lat: yogyakartaOriginLat, Lon: yogyakartaOriginLon}, {Lat: yogyakartaDestLat, Lon: yogyakartaDestLon}})
+	gs.AppendOsmNodePoints([]da.Coordinate{
+		da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon),
+		da.NewCoordinate(yogyakartaDestLat, yogyakartaDestLon),
+	})
 	gs.AppendEdgeMetadata(100, 0, 2, 0, 0, 0, 1) // Edge 0
 	gs.AppendEdgeMetadata(101, 0, 2, 0, 0, 0, 1) // Edge 1
 
@@ -38,8 +41,8 @@ func setupRoutingService() (*RoutingService, *MockRoutingEngine, *MockSpatialInd
 			da.NewVertex(yogyakartaDestLat, yogyakartaDestLon, 1),
 			da.NewVertex(-7.7660, 110.4310, 2),
 		},
-		[]da.OutEdge{da.NewOutEdge(1, 1, 0, 1, 0, 0), da.NewOutEdge(1, 1, 1, 2, 0, 0)},
-		[]da.InEdge{da.NewInEdge(1, 1, 0, 0, 0, 0), da.NewInEdge(1, 1, 1, 1, 0, 0)},
+		[]da.OutEdge{da.NewOutEdge(1, 1, 0, 0), da.NewOutEdge(1, 1, 0, 0)},
+		[]da.InEdge{da.NewInEdge(1, 1, 0, 0), da.NewInEdge(1, 1, 0, 0)},
 		nil,
 		true,
 		nil,
@@ -74,7 +77,7 @@ func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEn
 	v0 := da.NewVertex(-7.7970, 110.3660, 0)
 	v0.SetFirstOut(0)
 	v0.SetFirstIn(0)
-	v1 := da.NewVertex(originHeadCoord.Lat, originHeadCoord.Lon, 1)
+	v1 := da.NewVertex(originHeadCoord.GetLat(), originHeadCoord.GetLon(), 1)
 	v1.SetFirstOut(1)
 	v1.SetFirstIn(0)
 	v2 := da.NewVertex(-7.7780, 110.4240, 2)
@@ -86,8 +89,8 @@ func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEn
 
 	g := da.NewGraph(
 		[]da.Vertex{v0, v1, v2, vDummy},
-		[]da.OutEdge{da.NewOutEdge(0, 1, 12.0, originEdgeLen, 0, 0), da.NewOutEdge(1, 2, 15.0, destEdgeLen, 0, 0)},
-		[]da.InEdge{da.NewInEdge(0, 0, 12.0, originEdgeLen, 0, 0), da.NewInEdge(1, 1, 15.0, destEdgeLen, 0, 0)},
+		[]da.OutEdge{da.NewOutEdge(0, 1, 0, 0), da.NewOutEdge(1, 2, 0, 0)},
+		[]da.InEdge{da.NewInEdge(0, 0, 0, 0), da.NewInEdge(1, 1, 0, 0)},
 		nil,
 		false,
 		nil,
@@ -95,8 +98,8 @@ func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEn
 
 	gs := da.NewGraphStorage(64)
 	gs.AppendOsmNodePoints([]da.Coordinate{
-		{Lat: -7.7970, Lon: 110.3660}, originCoord, originHeadCoord,
-		{Lat: -7.7860, Lon: 110.4080}, destCoord, {Lat: -7.7780, Lon: 110.4240},
+		da.NewCoordinate(-7.7970, 110.3660), originCoord, originHeadCoord,
+		da.NewCoordinate(-7.7860, 110.4080), destCoord, da.NewCoordinate(-7.7780, 110.4240),
 	})
 	gs.AppendEdgeMetadata(100, 0, 3, 0, 0, 0, 1)
 	gs.AppendEdgeMetadata(200, 3, 6, 0, 0, 0, 1)
@@ -110,20 +113,22 @@ func setupSnapReadyRoutingService(t *testing.T) (*RoutingService, *MockRoutingEn
 	mockSpatial.On("SearchWithinRadius", yogyakartaOriginLat, yogyakartaOriginLon, searchRadius, uint8(0)).Return([]da.Index{0}).Maybe()
 	mockSpatial.On("SearchWithinRadius", yogyakartaDestLat, yogyakartaDestLon, searchRadius, uint8(1)).Return([]da.Index{1}).Maybe()
 	mockEngine.On("PathExists", da.Index(1), da.Index(1)).Return(true).Maybe()
+	mockEngine.On("GetSegmentLength", da.Index(0), true).Return(originEdgeLen).Maybe()
+	mockEngine.On("GetSegmentLength", da.Index(1), false).Return(destEdgeLen).Maybe()
 	mockEngine.On("GetWeightFromLength", da.Index(0), originEdgeLen, true).Return(12.0).Maybe()
 	mockEngine.On("GetWeightFromLength", da.Index(1), destEdgeLen, false).Return(15.0).Maybe()
 	mockEngine.On("GetSegmentSpeed", da.Index(0), true).Return(10.0).Maybe()
 	mockEngine.On("GetSegmentSpeed", da.Index(1), false).Return(10.0).Maybe()
 
 	sp := da.NewPhantomNode(da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 12.0, 0, 0, da.INVALID_EDGE_ID, originEdgeLen, 0, []da.Coordinate{originCoord, originHeadCoord}, []da.Coordinate{})
-	tp := da.NewPhantomNode(da.NewCoordinate(yogyakartaDestLat, yogyakartaDestLon), 0, 15.0, 1, 1, 0, destEdgeLen, []da.Coordinate{}, []da.Coordinate{{Lat: -7.7860, Lon: 110.4080}})
+	tp := da.NewPhantomNode(da.NewCoordinate(yogyakartaDestLat, yogyakartaDestLon), 0, 15.0, 1, 1, 0, destEdgeLen, []da.Coordinate{}, []da.Coordinate{da.NewCoordinate(-7.7860, 110.4080)})
 
 	return rs, mockEngine, mockSpatial, mockAlt, sp, tp
 }
 
 // coordApproxEqual compares two Coordinates using epsilon-based float comparison.
 func coordApproxEqual(a, b da.Coordinate) bool {
-	return util.Eq(a.Lat, b.Lat) && util.Eq(a.Lon, b.Lon)
+	return util.Eq(a.GetLat(), b.GetLat()) && util.Eq(a.GetLon(), b.GetLon())
 }
 
 // coordSliceApproxEqual compares two Coordinate slices using epsilon-based float comparison.
@@ -169,7 +174,7 @@ func TestRoutingService_ShortestPathBranches(t *testing.T) {
 
 	t.Run("Engine Route Not Found", func(t *testing.T) {
 		rs, mockEngine, mockSpatial, _, sp, tp := setupSnapReadyRoutingService(t)
-		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
+		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{da.NewCoordinate(-7.7900, 110.3860)})
 		mockEngine.On("ShortestPathSearch", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), false).
 			Return(0.0, 0.0, path, []da.Index{}, false)
 
@@ -183,7 +188,7 @@ func TestRoutingService_ShortestPathBranches(t *testing.T) {
 
 	t.Run("Success Without Directions", func(t *testing.T) {
 		rs, mockEngine, mockSpatial, _, sp, tp := setupSnapReadyRoutingService(t)
-		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
+		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{da.NewCoordinate(-7.7900, 110.3860)})
 		mockEngine.On("ShortestPathSearch", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), true).
 			Return(20.0, 200.0, path, []da.Index{}, true)
 		mockEngine.On("IsDummyOutEdge", da.Index(0)).Return(false)
@@ -230,7 +235,7 @@ func TestRoutingService_AlternativeRouteSearchBranches(t *testing.T) {
 
 	t.Run("Success Without Directions", func(t *testing.T) {
 		rs, mockEngine, mockSpatial, mockAlt, sp, tp := setupSnapReadyRoutingService(t)
-		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
+		path := da.NewCoordinatesWithInitialValues([]da.Coordinate{da.NewCoordinate(-7.7900, 110.3860)})
 		alt := routing.NewAlternativeRoute(5.0, 200.0, 20.0, 0.0, 1, path, []da.Index{}, da.ViaVertex{})
 		mockAlt.On("FindAlternativeRoutes", mock.MatchedBy(phantomNodeApproxEqual(sp)), mock.MatchedBy(phantomNodeApproxEqual(tp)), 3, true, da.Index(0)).
 			Return([]routing.AlternativeRoute{alt}, 0.0, int64(0))
@@ -268,7 +273,7 @@ func TestRoutingService_Snap(t *testing.T) {
 
 func TestRoutingService_AppendPhantomNodesToPath(t *testing.T) {
 	rs, mockEngine, _, _, sp, tp := setupSnapReadyRoutingService(t)
-	path := da.NewCoordinatesWithInitialValues([]da.Coordinate{{Lat: -7.7900, Lon: 110.3860}})
+	path := da.NewCoordinatesWithInitialValues([]da.Coordinate{da.NewCoordinate(-7.7900, 110.3860)})
 	mockEngine.On("IsDummyOutEdge", da.Index(0)).Return(false)
 	mockEngine.On("IsDummyInEdge", da.Index(1)).Return(false)
 
@@ -276,8 +281,8 @@ func TestRoutingService_AppendPhantomNodesToPath(t *testing.T) {
 
 	assert.Equal(t, 47.0, travelTime)
 	assert.Equal(t, 470.0, dist)
-	assert.InDelta(t, yogyakartaOriginLat, (*path)[0].Lat, util.EPS)
-	assert.InDelta(t, yogyakartaDestLat, (*path)[len(*path)-1].Lat, util.EPS)
+	assert.InDelta(t, yogyakartaOriginLat, (*path)[0].GetLat(), util.EPS)
+	assert.InDelta(t, yogyakartaDestLat, (*path)[len(*path)-1].GetLat(), util.EPS)
 }
 
 func TestRoutingService_Misc(t *testing.T) {

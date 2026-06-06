@@ -2,45 +2,68 @@
 package costfunction
 
 import (
-	"bufio"
-	"fmt"
-	"os"
 	"path/filepath"
-	"strconv"
+	"strings"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+func PreprocessingTimeFunctionPath(graphFilename string) string {
+	base := strings.TrimSuffix(filepath.Base(graphFilename), filepath.Ext(graphFilename))
+	base = strings.TrimSuffix(base, "_original")
+	return filepath.Join(filepath.Dir(graphFilename), base+"_preprocessing_timefunction.ntf")
+}
+
 type TimeFunction struct {
 	turnTable []float64 // map from turnTableId  to turn cost in seconds
 	// turnMatrices[v][i][j] -> turnCosts = flattened 1-D indexed array index of i-th incoming edge dari v and j-th outgoing edge dari v  = i*outDegree + j
 	// = turnCost buat keluar dari v dari i-th incoming edge ke j-th outgoing edge dari v
 
-	edgeMaxSpeeds []float64 // map from outEdge id to its maxspeed in meters per minute (m/s)
-	isRoadNetwork bool
+	defaultWeights []float64
+	segmentLengths []float64
+	edgeMaxSpeeds  []float64 // map from outEdge id to its maxspeed in meters per second (m/s)
+	isRoadNetwork  bool
 }
 
-func NewTimeCostFunction(roadNetwork bool, edgeMaxSpeeds []float64, turnTable []float64) *TimeFunction {
-	if !roadNetwork {
-		return &TimeFunction{isRoadNetwork: false}
+func NewTimeCostFunction(roadNetwork bool, defaultWeights, segmentLengths, edgeMaxSpeeds, turnTable []float64) *TimeFunction {
+	tf := &TimeFunction{
+		defaultWeights: defaultWeights,
+		segmentLengths: segmentLengths,
+		edgeMaxSpeeds:  edgeMaxSpeeds,
+		isRoadNetwork:  roadNetwork,
 	}
-
 	if pkg.WITH_TURN_COSTS {
-		return &TimeFunction{turnTable: turnTable, isRoadNetwork: true, edgeMaxSpeeds: edgeMaxSpeeds}
+		tf.turnTable = turnTable
 	}
-
-	return &TimeFunction{isRoadNetwork: true, edgeMaxSpeeds: edgeMaxSpeeds}
+	return tf
 }
 
 func NewTimeCostFunctionEmpty() *TimeFunction {
 	return &TimeFunction{}
 }
 
+func NewPreprocessingTimeFunction(roadNetwork bool, defaultWeights, segmentLengths []float64) *TimeFunction {
+	edgeMaxSpeeds := make([]float64, len(defaultWeights))
+	if roadNetwork {
+		for i := range edgeMaxSpeeds {
+			if !util.Eq(defaultWeights[i], 0) {
+				edgeMaxSpeeds[i] = segmentLengths[i] / defaultWeights[i]
+			}
+		}
+	}
+	return NewTimeCostFunction(roadNetwork, defaultWeights, segmentLengths, edgeMaxSpeeds, nil)
+}
+
 // GetWeight. Get travel time dari outEdge (in minutes).
 // eId adalah id dari outEdge yang ingin didapat weightnya
-func (tf *TimeFunction) GetWeight(eId da.Index, eDefaultWeight, eLength float64) float64 {
+func (tf *TimeFunction) GetWeight(eId da.Index) float64 {
+	return tf.GetWeightFromLength(eId, tf.segmentLengths[eId])
+}
+
+func (tf *TimeFunction) GetWeightFromLength(eId da.Index, eLength float64) float64 {
+	eDefaultWeight := tf.defaultWeights[eId]
 	if tf.isRoadNetwork {
 		maxspeed := tf.edgeMaxSpeeds[eId] // m/s
 		if util.Eq(eDefaultWeight, pkg.INF_WEIGHT) {
@@ -48,9 +71,7 @@ func (tf *TimeFunction) GetWeight(eId da.Index, eDefaultWeight, eLength float64)
 		} else if util.Eq(maxspeed, 0) {
 			// blokade jalan. kasih inf travel time
 			return pkg.INF_WEIGHT
-		}
-
-		if eDefaultWeight == 0 {
+		} else if eDefaultWeight == 0 {
 			return 0
 		}
 
@@ -58,6 +79,44 @@ func (tf *TimeFunction) GetWeight(eId da.Index, eDefaultWeight, eLength float64)
 	}
 	// ini buat correctness test
 	return eDefaultWeight
+}
+
+func (tf *TimeFunction) GetDefaultWeight(eId da.Index) float64 {
+	return tf.defaultWeights[eId]
+}
+
+func (tf *TimeFunction) GetSegmentLength(eId da.Index) float64 {
+	return tf.segmentLengths[eId]
+}
+
+func (tf *TimeFunction) GetDefaultWeights() []float64 {
+	return tf.defaultWeights
+}
+
+func (tf *TimeFunction) GetSegmentLengths() []float64 {
+	return tf.segmentLengths
+}
+
+func (tf *TimeFunction) GetEdgeMaxSpeeds() []float64 {
+	return tf.edgeMaxSpeeds
+}
+
+func (tf *TimeFunction) ReorderEdges(oldEdgeIDs []da.Index) {
+	defaultWeights := make([]float64, len(oldEdgeIDs))
+	segmentLengths := make([]float64, len(oldEdgeIDs))
+	edgeMaxSpeeds := make([]float64, len(oldEdgeIDs))
+	for newID, oldID := range oldEdgeIDs {
+		defaultWeights[newID] = tf.defaultWeights[oldID]
+		segmentLengths[newID] = tf.segmentLengths[oldID]
+		edgeMaxSpeeds[newID] = tf.edgeMaxSpeeds[oldID]
+	}
+	tf.defaultWeights = defaultWeights
+	tf.segmentLengths = segmentLengths
+	tf.edgeMaxSpeeds = edgeMaxSpeeds
+}
+
+func (tf *TimeFunction) WithCustomization(edgeMaxSpeeds, turnTable []float64) *TimeFunction {
+	return NewTimeCostFunction(tf.isRoadNetwork, tf.defaultWeights, tf.segmentLengths, edgeMaxSpeeds, turnTable)
 }
 
 func (tf *TimeFunction) GetSegmentSpeed(eId da.Index) float64 {
@@ -75,142 +134,4 @@ func (tf *TimeFunction) GetTurnCost(turnTableId da.Index) float64 {
 	}
 
 	return tf.turnTable[turnTableId]
-}
-
-func (tf *TimeFunction) WriteToFile(filename string) error {
-	dir := filepath.Dir(filename)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
-		}
-	}
-
-	f, err := os.Create(filename)
-	if err != nil {
-		return fmt.Errorf("timefunction.WriteToFile: failed to create file %v: %w", filename, err)
-	}
-	defer f.Close()
-
-	w := bufio.NewWriter(f)
-
-	numOfEdges := len(tf.edgeMaxSpeeds)
-	_, err = fmt.Fprintf(w, "%d\n", numOfEdges)
-	if err != nil {
-		return fmt.Errorf("timefunction.WriteToFile: failed to write numOfEdges: %v: %w", numOfEdges, err)
-	}
-	for eId := 0; eId < numOfEdges; eId++ {
-		_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(tf.edgeMaxSpeeds[eId], 'f', -1, 64))
-		if err != nil {
-			return fmt.Errorf("timefunction.WriteToFile: failed to write tf.edgeMaxSpeeds[%d]: %v: %w", eId, tf.edgeMaxSpeeds[eId], err)
-		}
-		if eId < numOfEdges-1 {
-			_, err = fmt.Fprint(w, " ")
-			if err != nil {
-				return fmt.Errorf("timefunction.WriteToFile: failed to write space: %w", err)
-			}
-		}
-	}
-
-	_, err = fmt.Fprintf(w, "\n")
-	if err != nil {
-		return fmt.Errorf("timefunction.WriteToFile: failed to write new line: %w", err)
-	}
-
-	numOfTurns := len(tf.turnTable)
-	_, err = fmt.Fprintf(w, "%d\n", numOfTurns)
-	if err != nil {
-		return fmt.Errorf("timefunction.WriteToFile: failed to write numOfTurns: %v: %w", numOfTurns, err)
-	}
-	if numOfTurns > 0 {
-		for tId := 0; tId < numOfTurns; tId++ {
-			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(tf.turnTable[tId], 'f', -1, 64))
-			if err != nil {
-				return fmt.Errorf("timefunction.WriteToFile: failed to write tf.turnTable[%d]: %v: %w", tId, tf.turnTable[tId], err)
-			}
-			if tId < numOfTurns-1 {
-				_, err = fmt.Fprint(w, " ")
-				if err != nil {
-					return fmt.Errorf("timefunction.WriteToFile: failed to write space: %w", err)
-				}
-			}
-		}
-		_, err = fmt.Fprintf(w, "\n")
-		if err != nil {
-			return fmt.Errorf("timefunction.WriteToFile: failed to write new line: %w", err)
-		}
-	}
-
-	if err = w.Flush(); err != nil {
-		return fmt.Errorf("timefunction.WriteToFile: failed to flush bufio writer: %w", err)
-	}
-
-	return nil
-}
-
-func ReadFromFile(filename string, readBuf *bufio.Reader) (*TimeFunction, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to open file %v: %w", filename, err)
-	}
-
-	defer f.Close()
-
-	readBuf.Reset(f)
-	line, err := util.ReadLine(readBuf)
-	if err != nil {
-		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to util.ReadLine(r): %w", err)
-	}
-
-	numOfEdges, err := util.ParseInt(line)
-	if err != nil {
-		return nil, fmt.Errorf("timefunction.ReadFromFile: failed read numOfEdges: %w", err)
-	}
-
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to util.ReadLine(r) untuk edge max speeds: %w", err)
-	}
-
-	edgeMaxSpeeds := make([]float64, numOfEdges)
-	ff := util.Fields(line)
-	for eId := 0; eId < numOfEdges; eId++ {
-		eMaxSpeed, err := strconv.ParseFloat(ff[eId], 64)
-		if err != nil {
-			return nil, fmt.Errorf("timefunction.ReadFromFile: failed to read maxspeed of eId: %v: %w", eId, err)
-		}
-		edgeMaxSpeeds[eId] = eMaxSpeed
-	}
-
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		if err.Error() == "EOF" {
-			return NewTimeCostFunction(true, edgeMaxSpeeds, nil), nil
-		}
-		return nil, fmt.Errorf("timefunction.ReadFromFile: failed to read numOfTurns: %w", err)
-	}
-
-	numOfTurns, err := util.ParseInt(line)
-	if err != nil {
-		return nil, fmt.Errorf("timefunction.ReadFromFile: failed read numOfTurns: %w", err)
-	}
-
-	var turnTable []float64
-	if numOfTurns > 0 {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, fmt.Errorf("timefunction.ReadFromFile: failed to util.ReadLine(r) untuk turn table: %w", err)
-		}
-
-		turnTable = make([]float64, numOfTurns)
-		ff = util.Fields(line)
-		for tId := 0; tId < numOfTurns; tId++ {
-			tCost, err := strconv.ParseFloat(ff[tId], 64)
-			if err != nil {
-				return nil, fmt.Errorf("timefunction.ReadFromFile: failed to read turn cost of tId: %v: %w", tId, err)
-			}
-			turnTable[tId] = tCost
-		}
-	}
-
-	return NewTimeCostFunction(true, edgeMaxSpeeds, turnTable), nil
 }

@@ -6,7 +6,7 @@ import (
 	"flag"
 	"io"
 	"os"
-	"strconv"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -34,11 +34,11 @@ const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_customizer_test.graph"
-	overlayGraphFile string = "./data/overlay_graph_customizer_test.graph"
-	metricsFile      string = "./data/metrics_customizer_test.txt"
-	landmarkFile     string = "./data/landmark_customizer_test.lm"
-	timeFunctionFile string = "./data/timefunction_customizer_test.txt"
+	graphFile        string = "./data/original_customizer_test.ngraph"
+	overlayGraphFile string = "./data/overlay_graph_customizer_test.ngraph"
+	metricsFile      string = "./data/metrics_customizer_test.nmt"
+	landmarkFile     string = "./data/landmark_customizer_test.nlm"
+	timeFunctionFile string = "./data/timefunction_customizer_test.ntf"
 )
 
 const (
@@ -217,12 +217,12 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 		ff := util.Fields(line)
-		n, err = strconv.Atoi(ff[0])
+		n, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		m, err = strconv.Atoi(ff[1])
+		m, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -240,15 +240,15 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				t.Fatalf("err: %v", err)
 			}
 			ff := util.Fields(line)
-			u, err := strconv.Atoi(ff[0])
+			u, err := util.ParseTextInt(ff[0])
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			v, err := strconv.Atoi(ff[1])
+			v, err := util.ParseTextInt(ff[1])
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			w, err := strconv.Atoi(ff[2])
+			w, err := util.ParseTextInt(ff[2])
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -268,7 +268,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+		g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -288,7 +288,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocessor.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prep := preprocessor.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -297,7 +297,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		logger.Sugar().Infof("Preprocessing completed successfully.")
 
 		og := prep.GetOverlayGraph()
-		custom := customizer.NewCustomizerDirect(g, og, logger)
+		custom := customizer.NewCustomizerDirect(g, og, prep.GetTimeFunction(), logger)
 		mt, err := custom.CustomizeDirect()
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -422,15 +422,15 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				}
 				ff := util.Fields(line)
 				ss, tt, stcosts := ff[0], ff[1], ff[2]
-				source, err := strconv.Atoi(ss)
+				source, err := util.ParseTextInt(ss)
 				if err != nil {
 					t.Fatal(err)
 				}
-				target, err := strconv.Atoi(tt)
+				target, err := util.ParseTextInt(tt)
 				if err != nil {
 					t.Fatal(err)
 				}
-				stcost, err := strconv.ParseFloat(stcosts, 64)
+				stcost, err := util.ParseTextFloat64(stcosts)
 				if err != nil {
 					t.Fatal(err)
 				}
@@ -482,7 +482,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmfFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -490,7 +490,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	pss := strings.Split(*partitionSizes, ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
-		pow, err := strconv.Atoi(pss[i])
+		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -516,7 +516,7 @@ func setup(t *testing.T) (*engine.Engine, *landmark.Landmark) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

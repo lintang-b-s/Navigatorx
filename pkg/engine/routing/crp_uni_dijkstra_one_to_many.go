@@ -186,7 +186,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 	uEntryPoint := uEntryId - us.engine.graph.GetEntryOffset(uId)
 
 	// traverse outEdges of u
-	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index,
+	us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, exitPoint, entryPoint, turnTableId da.Index,
 		turnType pkg.TurnType,
 		hwType pkg.OsmHighwayType) {
 

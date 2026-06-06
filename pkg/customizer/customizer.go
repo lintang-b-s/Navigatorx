@@ -32,18 +32,21 @@ type Customizer struct {
 	overlayGraphFilePath                      string
 	metricOutputFilePath                      string
 	timefunctionFilePath                      string
+	preprocessingTimeFunctionFilePath         string
+	preprocessingTimeFunction                 *costfunction.TimeFunction
 	landmarkFile                              string
 }
 
 func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, timefunctionFilePath, landmarkFile string,
 	logger *zap.Logger) *Customizer {
 	cst := &Customizer{
-		graphFilePath:        graphFilePath,
-		overlayGraphFilePath: overlayGraphFilePath,
-		metricOutputFilePath: metricOutputFilePath,
-		logger:               logger,
-		timefunctionFilePath: timefunctionFilePath,
-		landmarkFile:         landmarkFile,
+		graphFilePath:                     graphFilePath,
+		overlayGraphFilePath:              overlayGraphFilePath,
+		metricOutputFilePath:              metricOutputFilePath,
+		logger:                            logger,
+		timefunctionFilePath:              timefunctionFilePath,
+		preprocessingTimeFunctionFilePath: costfunction.PreprocessingTimeFunctionPath(graphFilePath),
+		landmarkFile:                      landmarkFile,
 	}
 
 	return cst
@@ -57,18 +60,19 @@ func (c *Customizer) SetTurnPenaltiesFilePath(filePath []string) {
 	c.turnPenaltiesFilePath = filePath
 }
 
-func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, logger *zap.Logger) *Customizer {
+func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, preprocessingTimeFunction *costfunction.TimeFunction, logger *zap.Logger) *Customizer {
 	return &Customizer{
-		graph:        graph,
-		overlayGraph: overlayGraph,
-		logger:       logger,
+		graph:                     graph,
+		overlayGraph:              overlayGraph,
+		preprocessingTimeFunction: preprocessingTimeFunction,
+		logger:                    logger,
 	}
 }
 
 func (c *Customizer) Customize() (*metrics.Metric, error) {
 
 	var err error
-	readBuf := bufio.NewReaderSize(nil, 4096*4)
+	readBuf := bufio.NewReaderSize(nil, util.BUFIO_SIZE)
 
 	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
@@ -82,6 +86,10 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Customize: failed to read overlay graph from %s: %w", c.overlayGraphFilePath, err)
 	}
+	c.preprocessingTimeFunction, err = costfunction.ReadPreprocessingFromFile(c.preprocessingTimeFunctionFilePath)
+	if err != nil {
+		return nil, fmt.Errorf("Customize: failed to read preprocessing time function from %s: %w", c.preprocessingTimeFunctionFilePath, err)
+	}
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
@@ -92,8 +100,6 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	c.verticesLookupTable = NewLookupTable(vertexOsmIds, func(a, b uint64) bool {
 		return a < b
 	})
-
-	roadNetwork := c.graph.IsRoadNetworkGraph()
 
 	updatedEdgeIds := make([]da.Index, 0)
 	updatedEdgeMaxSpeeds := make([]float64, 0)
@@ -130,7 +136,7 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 
 	turnTypes := c.graph.GetTurnTypes()
 	turnTable := c.makeTurnTable(turnTypes, updatedTurnTableIds, updatedTurnPenalties, edgeMaxSpeeds)
-	costFunction := costfunction.NewTimeCostFunction(roadNetwork, edgeMaxSpeeds, turnTable)
+	costFunction := c.preprocessingTimeFunction.WithCustomization(edgeMaxSpeeds, turnTable)
 	err = costFunction.WriteToFile(c.timefunctionFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("Customize: failed to write time cost function to %s: %w", c.timefunctionFilePath, err)
@@ -188,8 +194,8 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 
 	var m *metrics.Metric
-	readBuf := bufio.NewReaderSize(nil, 4096*4)
-	emptyCf := costfunction.NewTimeCostFunctionEmpty()
+	readBuf := bufio.NewReaderSize(nil, util.BUFIO_SIZE)
+	cf := c.preprocessingTimeFunction.WithCustomization(c.preprocessingTimeFunction.GetEdgeMaxSpeeds(), nil)
 	maxEdgesInCell := c.graph.GetMaxEdgesInCell()
 
 	c.lowestHeapPool = sync.Pool{
@@ -204,9 +210,10 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 		},
 	}
 
-	c.Build(emptyCf)
+	c.Build(cf)
 	c.logger.Sugar().Infof("Building stalling tables...")
 	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, "", readBuf)
+	m.SetTimeFunction(cf)
 	m.BuildStallingTables(c.overlayGraph, c.graph)
 	c.logger.Sugar().Infof("Customization step completed successfully.")
 
@@ -220,10 +227,9 @@ func (c *Customizer) makeEdgeMaxSpeeds(updatedEdgeIds []da.Index, updatedEdgeMax
 	numOfEdges := c.graph.NumberOfOutEdges()
 
 	edgeMaxSpeeds := make([]float64, numOfEdges)
-	oldEdgeSpeeds := c.graph.GetEdgeSpeeds()
+	oldEdgeSpeeds := c.preprocessingTimeFunction.GetEdgeMaxSpeeds()
 	for eId := 0; eId < numOfEdges; eId++ {
 		edgeMaxSpeeds[eId] = oldEdgeSpeeds[eId]
-
 	}
 
 	for i := 0; i < len(updatedEdgeIds); i++ {
@@ -274,7 +280,7 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTabl
 			return
 		}
 		vLimitFrom := edgeMaxSpeeds[eIdFrom]
-		c.graph.ForOutEdgesOf(head, entryPoint, func(eIdTo, headTo da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
+		c.graph.ForOutEdgesOf(head, entryPoint, func(eIdTo, headTo da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 			_, fromInEdgeId := c.graph.GetTailOfOutedgeWithInEdge(eIdFrom)
 			fromInEdge := c.graph.GetInEdge(fromInEdgeId)
 			toOutEdge := c.graph.GetOutEdge(eIdTo)
@@ -308,8 +314,9 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTabl
 			absRelativeBearing := math.Abs(relativeBearing)
 			turnAngleDeg := util.RadiansToDegree(absRelativeBearing)
 
-			l := fromInEdge.GetLength()
-			lPrime := toOutEdge.GetLength()
+			fromOutEdgeId := c.graph.GetExitIdOfInEdge(fromInEdgeId)
+			l := c.preprocessingTimeFunction.GetSegmentLength(fromOutEdgeId)
+			lPrime := c.preprocessingTimeFunction.GetSegmentLength(eIdTo)
 			turningSpeed := pkg.CalcTurningSpeed(l, lPrime, minResolution, turnAngleDeg)
 
 			if util.Eq(turningSpeed, 0) || turnType == pkg.NO_ENTRY || util.Eq(currentTurnCost, pkg.INF_WEIGHT) || c.graph.IsDummyOutEdge(eIdTo) {
@@ -490,7 +497,7 @@ func (c *Customizer) buildLowestLevel(
 					uTravelTime := pqNode.GetRank()
 
 					c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryId+forwardCellOffset),
-						func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
+						func(eId, head da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
 							hwType pkg.OsmHighwayType) {
 							// traverse all out edges
 
@@ -499,7 +506,7 @@ func (c *Customizer) buildLowestLevel(
 							turnCost := costFunction.GetTurnCost(turnTableId)
 
 							uTravelTimeWithTurnCost := uTravelTime + turnCost
-							outArcCost := costFunction.GetWeight(eId, weight, length)
+							outArcCost := costFunction.GetWeight(eId)
 
 							newTravelTime := uTravelTimeWithTurnCost + outArcCost
 
@@ -685,11 +692,10 @@ func (c *Customizer) buildLevel(
 							neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
 							neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)
 							// cut edge (exitOverlayVertex, neighborOverlayVertex)
-							exitOriEdgeId := exitOverlayVertex.GetOriginalEdge()
+							cutOutEdgeId := exitOverlayVertex.GetOriginalEdge()
 
 							if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
-								exOriEdge := c.graph.GetOutEdge(exitOriEdgeId)
-								boundaryArcWeight := costFunction.GetWeight(exOriEdge.GetEdgeId(), exOriEdge.GetWeight(), exOriEdge.GetLength())
+								boundaryArcWeight := costFunction.GetWeight(cutOutEdgeId)
 
 								newNeighborTravelTime := newTravelTime + boundaryArcWeight
 								oldNTravelTime := travelTime[neighborVertex]

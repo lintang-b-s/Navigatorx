@@ -4,13 +4,14 @@ package tests
 import (
 	"fmt"
 	"os"
-	"strconv"
+	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
@@ -28,11 +29,11 @@ func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customi
 	var (
 		mlpFile          = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
 		osmfFile         = fmt.Sprintf("./data/%s.osm.pbf", fileName)
-		graphFile        = fmt.Sprintf("./data/original_%s_test.graph", fileName)
-		overlayGraphFile = fmt.Sprintf("./data/overlay_graph_%s_test.graph", fileName)
-		metricsFile      = fmt.Sprintf("./data/metrics_%s_test.txt", fileName)
-		landmarkFile     = fmt.Sprintf("./data/landmark_%s_test.lm", fileName)
-		timeFunctionFile = fmt.Sprintf("./data/timefunction_%s_test.txt", fileName)
+		graphFile        = fmt.Sprintf("./data/original_%s_test.ngraph", fileName)
+		overlayGraphFile = fmt.Sprintf("./data/overlay_graph_%s_test.ngraph", fileName)
+		metricsFile      = fmt.Sprintf("./data/metrics_%s_test.nmt", fileName)
+		landmarkFile     = fmt.Sprintf("./data/landmark_%s_test.nlm", fileName)
+		timeFunctionFile = fmt.Sprintf("./data/timefunction_%s_test.ntf", fileName)
 	)
 
 	if err := os.MkdirAll("./data", 0755); err != nil {
@@ -46,7 +47,11 @@ func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customi
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		t.Fatal(err)
+	}
+	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmfFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -54,7 +59,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customi
 	pss := strings.Split("8,10,11,12,15", ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
-		pow, err := strconv.Atoi(pss[i])
+		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -80,7 +85,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customi
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

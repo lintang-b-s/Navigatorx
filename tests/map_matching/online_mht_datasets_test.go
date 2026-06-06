@@ -116,7 +116,7 @@ func ommBuildOrReadTransitionMatrix(t *testing.T, re *engine.Engine, graph *da.G
 }
 
 func ommRunOnlineMHT(graph *da.Graph, rtree *spatialindex.Rtree, transitionMatrix *da.SparseMatrix[int],
-	gpsTraj []*da.GPSPoint) ([]*da.MatchedGPSPoint, float64) {
+	gpsTraj []*da.GPSPoint, getSegmentLength func(da.Index) float64) ([]*da.MatchedGPSPoint, float64) {
 	onlineMM := online.NewOnlineMapMatchMHT(
 		graph,
 		rtree,
@@ -128,6 +128,7 @@ func ommRunOnlineMHT(graph *da.Graph, rtree *spatialindex.Rtree, transitionMatri
 		ommLC,
 		ommAccelerationStd,
 		transitionMatrix,
+		getSegmentLength,
 	)
 
 	var (
@@ -184,7 +185,7 @@ func ommComputeGisCupEdgeSetMetrics(graph *da.Graph, groundTruthEdgeIDs []int64,
 		dataEdgeID := graph.GetOsmWayId(point.GetEdgeId())
 		length, ok := edgeLengths[dataEdgeID]
 		if !ok {
-			length = graph.GetOutEdge(point.GetEdgeId()).GetLength()
+			continue
 		}
 		matchedEdgeSet[dataEdgeID] = length
 	}
@@ -251,7 +252,7 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 		t,
 		re,
 		graph,
-		filepath.Join(workingDir, "data/eval/mapmatching/giscup/omm_transition_history_giscup.txt"),
+		filepath.Join(workingDir, "data/eval/mapmatching/giscup/omm_transition_history_giscup.ntm"),
 		5000,
 	)
 
@@ -278,7 +279,9 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 		}
 
 		gpsTraj := ohmmGisCupGPSTrajectory(points)
-		matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(graph, rtree, transitionMatrix, gpsTraj)
+		matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(graph, rtree, transitionMatrix, gpsTraj, func(eID da.Index) float64 {
+			return re.GetRoutingEngine().GetSegmentLength(eID, true)
+		})
 		if len(matchedPoints) == 0 {
 			t.Fatalf("GIS Cup case %s produced no matched points", tc.id)
 		}
@@ -316,7 +319,7 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 		t,
 		re,
 		graph,
-		filepath.Join(workingDir, "data/eval/mapmatching/melbourne/online_mht_transition_hl.txt"),
+		filepath.Join(workingDir, "data/eval/mapmatching/melbourne/online_mht_transition_hl.ntm"),
 		1000,
 	)
 
@@ -334,7 +337,9 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 	rtree := spatialindex.NewRtree()
 	rtree.Build(graph, logger)
 	gpsTraj := ohmmMelbourneGPSTrajectory(points)
-	matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(graph, rtree, transitionMatrix, gpsTraj)
+	matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(graph, rtree, transitionMatrix, gpsTraj, func(eID da.Index) float64 {
+		return re.GetRoutingEngine().GetSegmentLength(eID, true)
+	})
 	if len(matchedPoints) == 0 {
 		t.Fatalf("Hengfeng Li online MHT produced no matched points")
 	}

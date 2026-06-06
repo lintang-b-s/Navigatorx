@@ -19,7 +19,7 @@ const (
 	segmentFile = "dummy_test_speed_segments.csv"
 )
 
-// cd tests/query &&  go test -v -run TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile
+// go test ./tests/query  -v -run TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile
 func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 	const filename = "yogyakarta"
 	eng, logger, cust := tests.Setup(t, filename)

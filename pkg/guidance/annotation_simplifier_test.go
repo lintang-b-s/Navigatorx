@@ -42,11 +42,12 @@ type mockEngine struct {
 	speeds map[da.Index]float64
 }
 
-func (m *mockEngine) GetGraph() *da.Graph                                { return nil }
-func (m *mockEngine) PathExists(u, v da.Index) bool                      { return false }
-func (m *mockEngine) GetWeight(eId da.Index, outEdge bool) float64       { return 0 }
-func (m *mockEngine) GetSegmentSpeed(eId da.Index, outEdge bool) float64 { return m.speeds[eId] }
-func (m *mockEngine) GetWeightFromLength(eId da.Index, eLength float64, outEdge bool) float64 {
+func (m *mockEngine) GetGraph() *da.Graph                                 { return nil }
+func (m *mockEngine) PathExists(u, v da.Index) bool                       { return false }
+func (m *mockEngine) GetWeight(eId da.Index, outEdge bool) float64        { return 0 }
+func (m *mockEngine) GetSegmentSpeed(eId da.Index, outEdge bool) float64  { return m.speeds[eId] }
+func (m *mockEngine) GetSegmentLength(eId da.Index, outEdge bool) float64 { return 0 }
+func (m *mockEngine) GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64 {
 	return 0
 }
 func (m *mockEngine) IsDummyOutEdge(eId da.Index) bool { return false }

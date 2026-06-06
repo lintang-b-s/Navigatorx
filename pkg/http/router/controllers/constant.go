@@ -13,5 +13,5 @@ const (
 )
 
 func GetMapMatchingTransitionFile() string {
-	return fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.txt", pkg.ProfileName, pkg.RegionName)
+	return fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.ntm", pkg.ProfileName, pkg.RegionName)
 }

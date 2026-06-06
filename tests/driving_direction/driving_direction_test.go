@@ -11,7 +11,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
-// cd tests/driving_direction &&  go test -v .
+// go test ./tests/driving_direction -v .
 func TestDrivingDirection(t *testing.T) {
 
 	const filename = "solo"

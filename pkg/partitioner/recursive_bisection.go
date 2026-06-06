@@ -205,7 +205,7 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *da.PartitionGraph)
 	for _, uVertex := range pg.GetVertices() { // O(n+m), m = number of edges in pgs
 		uOriVId := uVertex.GetOriginalVertexID()
 
-		rb.originalGraph.ForOutEdgesOfVertex(uOriVId, func(head, exitPoint da.Index, weight float64) {
+		rb.originalGraph.ForOutEdgesOfVertex(uOriVId, func(head, exitPoint da.Index) {
 			v, ok := origVIdToPgVIdMap[head] // get vertex id di current partition graph pg
 			if !ok {
 				// v not in current partition Graph
@@ -281,7 +281,7 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []da.
 	}
 
 	for _, vId := range initialVerticeIds { // O(n+m), m = number of edges that its tail vertex in initialVerticeIds
-		rb.originalGraph.ForOutEdgesOfVertex(vId, func(head, exitPoint da.Index, weight float64) {
+		rb.originalGraph.ForOutEdgesOfVertex(vId, func(head, exitPoint da.Index) {
 			if _, headInSet := initialVerticeIdSet[head]; !headInSet {
 				// skip arc that its head outside current cell
 				return

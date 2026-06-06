@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -44,7 +43,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 	}
 	ff := util.Fields(line)
 
-	N, err := strconv.Atoi(ff[0])
+	N, err := util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -71,15 +70,15 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 
-		ss := strings.Split(line, " ")
+		ss := util.Fields(line)
 		for j, word := range ss {
 			switch j {
 			case 0:
-				nama = word
+				nama = string(word)
 			case 1:
-				bahasaSpeak = word
+				bahasaSpeak = string(word)
 			default:
-				bahasaUnderstand[word] = struct{}{}
+				bahasaUnderstand[string(word)] = struct{}{}
 			}
 		}
 
@@ -133,7 +132,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	op := osmparser.NewOSMParserV2()
 	gs := datastructure.NewGraphStorageWithSize(len(es), n)
-	g, _ := op.BuildGraph(es, gs, uint32(n), false)
+	g, _, _ := op.BuildGraph(es, gs, uint32(n), false)
 
 	g.RunKosaraju()
 
@@ -162,7 +161,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	expectedAns, err := strconv.Atoi(line)
+	expectedAns, err := util.ParseTextInt(line)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

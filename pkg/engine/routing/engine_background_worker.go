@@ -95,6 +95,7 @@ func (crp *CRPRoutingEngine) updateMetrics() (err error) {
 		crp.logger.Sugar().Errorf("engine.checkCustomizerUpdate: failed to update precalculated landmark distances: %v\n", err)
 		return err
 	}
+	crp.puCache.Clear()
 	crp.logger.Sugar().Infof("updated the metrics and costFunction....")
 
 	return nil
@@ -198,7 +199,7 @@ func isFileUpdated(path string) (int64, error) {
 // 	crp.graph.ForEachConditionalSpeedLimit(func(id da.Index, res da.ConditionalSpeedLimit) {
 // 		eId := res.GetEdgeId()
 // 		speedStr := op.GetAccessValConditionalRestriction(res.GetTimeRangeSpeedVal())
-// 		speed, err := strconv.ParseFloat(speedStr, 64)
+// 		speed, err := util.ParseFloat64(speedStr)
 // 		if err != nil {
 // 			crp.logger.Sugar().Warnf("activateConditionalRestrictions: failed to parseFloat() edge speed %s", err.Error())
 // 		}

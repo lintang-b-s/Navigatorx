@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/dgraph-io/ristretto/v2"
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
@@ -43,6 +44,7 @@ func NewCRPRoutingEngine(graph *da.Graph,
 	logger *zap.Logger, puCache *ristretto.Cache[[]byte, []da.Index],
 	landmarkFile string, readBuf *bufio.Reader) *CRPRoutingEngine {
 	var err error
+
 	lm := landmark.NewLandmark()
 	if landmarkFile != "" {
 		lm, err = landmark.ReadLandmark(landmarkFile, readBuf)
@@ -81,6 +83,10 @@ func (crp *CRPRoutingEngine) GetOverlayGraph() *da.OverlayGraph {
 
 func (crp *CRPRoutingEngine) GetMetrics() *met.Metric {
 	return crp.metrics
+}
+
+func (crp *CRPRoutingEngine) GetCostFunction() *costfunction.TimeFunction {
+	return crp.metrics.GetCostFunction()
 }
 
 func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
@@ -155,24 +161,24 @@ func (crp *CRPRoutingEngine) Close() {
 
 // GetWeight. get weight of outEdge/inEdge
 func (crp *CRPRoutingEngine) GetWeight(eId da.Index, outEdge bool) float64 {
-	if outEdge {
-		eDefaultWeight, eLength, _ := crp.graph.GetOutEdgeTripleWeightKey(eId)
-		return crp.metrics.GetWeight(eId, eDefaultWeight, eLength)
+	if !outEdge {
+		eId = crp.graph.GetExitIdOfInEdge(eId)
 	}
-
-	eDefaultWeight, eLength, _ := crp.graph.GetInEdgeTripleWeightKey(eId)
-	eExitId := crp.graph.GetExitIdOfInEdge(eId)
-	return crp.metrics.GetWeight(eExitId, eDefaultWeight, eLength)
+	return crp.metrics.GetWeight(eId)
 }
 
-func (crp *CRPRoutingEngine) GetWeightFromLength(eId da.Index, eLength float64, outEdge bool) float64 {
-	if outEdge {
-		eDefaultWeight, _, _ := crp.graph.GetOutEdgeTripleWeightKey(eId)
-		return crp.metrics.GetWeight(eId, eDefaultWeight, eLength)
+func (crp *CRPRoutingEngine) GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64 {
+	if !outEdge {
+		eId = crp.graph.GetExitIdOfInEdge(eId)
 	}
-	eDefaultWeight, _, _ := crp.graph.GetInEdgeTripleWeightKey(eId)
-	eExitId := crp.graph.GetExitIdOfInEdge(eId)
-	return crp.metrics.GetWeight(eExitId, eDefaultWeight, eLength)
+	return crp.metrics.GetWeightFromLength(eId, eLength)
+}
+
+func (crp *CRPRoutingEngine) GetSegmentLength(eId da.Index, outEdge bool) float64 {
+	if !outEdge {
+		eId = crp.graph.GetExitIdOfInEdge(eId)
+	}
+	return crp.metrics.GetSegmentLength(eId)
 }
 
 // GetWeight. get speed of outEdge

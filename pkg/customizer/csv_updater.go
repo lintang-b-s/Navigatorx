@@ -131,12 +131,12 @@ func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []floa
 	for rowId := 0; rowId < n; rowId++ {
 		row := data[rowId]
 		fromOsmIdString := strings.TrimSpace(row[0])
-		fromOsmId, err := util.ParseUInt64(fromOsmIdString)
+		fromOsmId, err := util.ParseTextUInt64(fromOsmIdString)
 		if err != nil {
 			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to parse uint64 fromOsmId: %s: %w", fromOsmIdString, err)
 		}
 		toOsmIdString := strings.TrimSpace(row[1])
-		toOsmId, err := util.ParseUInt64(toOsmIdString)
+		toOsmId, err := util.ParseTextUInt64(toOsmIdString)
 		if err != nil {
 			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to parse uint64 toOsmId: %s: %w", toOsmIdString, err)
 		}
@@ -167,7 +167,7 @@ func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []floa
 		}
 
 		updatedEdgeSpeedString := strings.TrimSpace(row[2])
-		updatedEdgeSpeed, err := strconv.ParseFloat(updatedEdgeSpeedString, 64)
+		updatedEdgeSpeed, err := util.ParseTextFloat64(updatedEdgeSpeedString)
 		if err != nil {
 			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to parse segent speed: %s: %w", updatedEdgeSpeedString, err)
 		}
@@ -204,18 +204,18 @@ func (c *Customizer) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []f
 	for rowId := 0; rowId < n; rowId++ {
 		row := data[rowId]
 		fromOsmIdString := strings.TrimSpace(row[0])
-		fromOsmId, err := util.ParseUInt64(fromOsmIdString)
+		fromOsmId, err := util.ParseTextUInt64(fromOsmIdString)
 		if err != nil {
 			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse uint64 fromOsmId: %s: %w", fromOsmIdString, err)
 		}
 		viaOsmIdString := strings.TrimSpace(row[1])
-		viaOsmId, err := util.ParseUInt64(viaOsmIdString)
+		viaOsmId, err := util.ParseTextUInt64(viaOsmIdString)
 		if err != nil {
 			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse uint64 viaOsmId: %s: %w", viaOsmIdString, err)
 		}
 
 		toOsmIdString := strings.TrimSpace(row[2])
-		toOsmId, err := util.ParseUInt64(toOsmIdString)
+		toOsmId, err := util.ParseTextUInt64(toOsmIdString)
 		if err != nil {
 			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse uint64 toOsmId: %s: %w", toOsmIdString, err)
 		}
@@ -259,7 +259,7 @@ func (c *Customizer) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []f
 		turnTableId := c.graph.GetTurnTableId(da.Index(viaVId), viaEntryPoint, viaExitPoint)
 
 		turnPenaltyString := strings.TrimSpace(row[3])
-		turnPenalty, err := strconv.ParseFloat(turnPenaltyString, 64)
+		turnPenalty, err := util.ParseTextFloat64(turnPenaltyString)
 		if err != nil {
 			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse turn penalty: %s: %w", turnPenaltyString, err)
 		}

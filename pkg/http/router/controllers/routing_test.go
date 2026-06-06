@@ -386,7 +386,7 @@ func TestRoutingAPI_TransitionMatrixIgnoresConditionalCacheHeaders(t *testing.T)
 		pkg.RegionName = previousRegionName
 	})
 
-	matrixPath := "data/profiles/car/test_transition_matrix.txt"
+	matrixPath := "data/profiles/car/test_transition_matrix.ntm"
 	assert.NoError(t, os.MkdirAll("data/profiles/car", 0o755))
 	assert.NoError(t, os.WriteFile(matrixPath, []byte("matrix"), 0o644))
 	assert.NoError(t, os.Chtimes(matrixPath, time.Now().Add(-time.Hour), time.Now().Add(-time.Hour)))

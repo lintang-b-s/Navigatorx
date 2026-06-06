@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -27,10 +26,10 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 
 	outputDir := filepath.Join(workingDir, "data", "eval")
 	var (
-		graphFile        = filepath.Join(outputDir, fmt.Sprintf("original_dimacs_%s.graph", name))
-		overlayGraphFile = filepath.Join(outputDir, fmt.Sprintf("overlay_graph_dimacs_%s.graph", name))
-		metricsFile      = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.txt", name))
-		landmarkFile     = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.lm", name))
+		graphFile        = filepath.Join(outputDir, fmt.Sprintf("original_dimacs_%s.ngraph", name))
+		overlayGraphFile = filepath.Join(outputDir, fmt.Sprintf("overlay_graph_dimacs_%s.ngraph", name))
+		metricsFile      = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.nmt", name))
+		landmarkFile     = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.nlm", name))
 		mlpFile          = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s.mlp", name))
 		prep             *preprocesser.Preprocessor
 	)
@@ -57,7 +56,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 	op.SetNodeToOsmId(nodeToOsmId)
 
 	gs := da.NewGraphStorageWithSize(len(es), n)
-	g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false) // roadnetwork false biar ada dummy edge (v,v)
+	g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false) // roadnetwork false biar ada dummy edge (v,v)
 
 	g.SetGraphStorage(gs)
 
@@ -92,7 +91,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 			panic(err)
 		}
 
-		prep = preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prep = preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 		err = prep.PreProcessing(true)
 		if err != nil {
 			panic(err)
@@ -105,19 +104,19 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		if err != nil {
 			panic(err)
 		}
-		prep = preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prep = preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			panic(err)
 		}
 	}
 
-	cust := customizer.NewCustomizerDirect(g, prep.GetOverlayGraph(), logger)
+	cust := customizer.NewCustomizerDirect(g, prep.GetOverlayGraph(), prep.GetTimeFunction(), logger)
 	met, err := cust.CustomizeDirect()
 	if err != nil {
 		panic(err)
 	}
-	emptyCf := costfunction.NewTimeCostFunctionEmpty()
+	emptyCf := prep.GetTimeFunction()
 
 	lm := landmark.NewLandmark()
 	err = lm.PreprocessALT(1, met, g, logger)

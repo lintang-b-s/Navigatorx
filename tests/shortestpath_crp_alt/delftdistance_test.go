@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -58,12 +57,12 @@ func solve(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 	ff := util.Fields(line)
-	h, err = strconv.Atoi(ff[0])
+	h, err = util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	w, err = strconv.Atoi(ff[1])
+	w, err = util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -285,7 +284,7 @@ func solve(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestCRPQueryDelftDistanceMALT  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/shortestpath_crp_alt -run TestCRPQueryDelftDistanceMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 // selesai dalam dalam 65 detik
 func TestCRPQueryDelftDistanceMALT(t *testing.T) {

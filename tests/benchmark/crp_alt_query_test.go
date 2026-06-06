@@ -4,7 +4,7 @@ import (
 	"flag"
 	"math/rand"
 	"os"
-	"strconv"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +12,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -30,11 +31,11 @@ var (
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_benchmark.graph"
-	overlayGraphFile string = "./data/overlay_graph_benchmark.graph"
-	metricsFile      string = "./data/metrics_benchmark.txt"
-	landmarkFile     string = "./data/landmark_benchmark.lm"
-	timeFunctionFile string = "./data/timeFunctionFile_benchmark.txt"
+	graphFile        string = "./data/original_benchmark.ngraph"
+	overlayGraphFile string = "./data/overlay_graph_benchmark.ngraph"
+	metricsFile      string = "./data/metrics_benchmark.nmt"
+	landmarkFile     string = "./data/landmark_benchmark.nlm"
+	timeFunctionFile string = "./data/timeFunctionFile_benchmark.ntf"
 )
 
 type query struct {
@@ -60,7 +61,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmfFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -68,7 +69,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 	pss := strings.Split(*partitionSizes, ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
-		pow, err := strconv.Atoi(pss[i])
+		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
 			panic(err)
 		}
@@ -95,7 +96,7 @@ func setup() (*engine.Engine, []query, *da.Graph, *zap.Logger) {
 		panic(err)
 	}
 
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

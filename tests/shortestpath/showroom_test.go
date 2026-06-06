@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -55,12 +54,12 @@ func SolveShowroom(t *testing.T, filepath string) {
 	}
 	ff := util.Fields(line)
 
-	r, err := strconv.Atoi(ff[0])
+	r, err := util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	c, err := strconv.Atoi(ff[1])
+	c, err := util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -156,12 +155,12 @@ func SolveShowroom(t *testing.T, filepath string) {
 	}
 	ff = util.Fields(line)
 
-	tx, err := strconv.Atoi(ff[0])
+	tx, err := util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	ty, err := strconv.Atoi(ff[1])
+	ty, err := util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

@@ -21,6 +21,7 @@ Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), p
 
 type OnlineMapMatchMHT struct {
 	graph             *da.Graph
+	getSegmentLength  func(da.Index) float64
 	rt                *spatialindex.Rtree
 	initialSpeedMean  float64 // \overline{v}
 	initialSpeedStd   float64 // \sigma_{v}
@@ -34,9 +35,10 @@ type OnlineMapMatchMHT struct {
 
 func NewOnlineMapMatchMHT(graph *da.Graph, rt *spatialindex.Rtree, initialSpeedMean, initialSpeedStd float64,
 	posteriorThresold, gpsStd, lp, lc, accelerationStd float64,
-	N *da.SparseMatrix[int]) *OnlineMapMatchMHT {
+	N *da.SparseMatrix[int], getSegmentLength func(da.Index) float64) *OnlineMapMatchMHT {
 	return &OnlineMapMatchMHT{
 		graph:             graph,
+		getSegmentLength:  getSegmentLength,
 		rt:                rt,
 		initialSpeedMean:  initialSpeedMean,
 		initialSpeedStd:   initialSpeedStd,
@@ -70,8 +72,7 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 
 		for _, edgeId := range nearbyArcs {
 			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidate.EdgeId()) {
-				arc := om.graph.GetOutEdge(edgeId)
-				eLength := arc.GetLength()
+				eLength := om.getSegmentLength(edgeId)
 				sumLength += eLength
 			}
 		}
@@ -79,8 +80,7 @@ func (om *OnlineMapMatchMHT) OnlineMapMatch(gps *da.GPSPoint, k int,
 		for _, edgeId := range nearbyArcs {
 			if !startOfTheRoute || (startOfTheRoute && edgeId == initialCandidate.EdgeId()) {
 				// biar candidates nya cuma first edgeId dari rute yang dipilih user (see https://github.com/lintang-b-s/navigatorx-crp-fe/blob/main/app/page.tsx).
-				arc := om.graph.GetOutEdge(edgeId)
-				eLength := arc.GetLength()
+				eLength := om.getSegmentLength(edgeId)
 
 				candidates = append(candidates, ma.NewCandidate(edgeId, eLength/sumLength, eLength))
 			}
@@ -164,7 +164,7 @@ func (om *OnlineMapMatchMHT) recur(newCands []*ma.Candidate, w float64, tau []da
 	if cnew == nil {
 		lastTauEdge := om.graph.GetOutEdge(tau[len(tau)-1])
 		newCands = append(newCands, ma.NewCandidate(tau[len(tau)-1], wprime,
-			lastTauEdge.GetLength()))
+			om.getSegmentLength(lastTauEdge.GetEdgeId())))
 	} else {
 		cnew.SetWeight(cnew.Weight() + wprime)
 	}
@@ -231,7 +231,7 @@ func (om *OnlineMapMatchMHT) needToReset(gps *da.GPSPoint, matchedSegment *da.Ma
 	matchCoord := matchedSegment.GetMatchedCoord()
 	dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 		gpsLat, gpsLon,
-		matchCoord.Lat, matchCoord.Lon,
+		matchCoord.GetLat(), matchCoord.GetLon(),
 	))
 	return dist >= DISTANCE_RESET_THRESHOLD
 }
@@ -310,13 +310,12 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFrom, eTo da.Index, nj in
 func (om *OnlineMapMatchMHT) computeHProb(tau []da.Index, speedMean, speedStd, deltaTime float64) float64 {
 	tauLength := 0.0
 	for _, edgeId := range tau {
-		e := om.graph.GetOutEdge(edgeId)
-		tauLength += e.GetLength()
+		tauLength += om.getSegmentLength(edgeId)
 	}
-	firstEdge := om.graph.GetOutEdge(tau[0])
+	firstEdgeLength := om.getSegmentLength(tau[0])
 
 	s := (math.Sqrt(3) * speedStd * deltaTime) / math.Pi
-	out := (1.0 / firstEdge.GetLength())
+	out := (1.0 / firstEdgeLength)
 
 	f := func(x float64) float64 {
 		numerator := speedMean*deltaTime - (tauLength - x)
@@ -326,7 +325,7 @@ func (om *OnlineMapMatchMHT) computeHProb(tau []da.Index, speedMean, speedStd, d
 		return s * log
 	}
 
-	return out * (f(firstEdge.GetLength()) - f(0))
+	return out * (f(firstEdgeLength) - f(0))
 }
 
 func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate) {
@@ -352,7 +351,7 @@ func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates [
 				gpsCoord,
 			)
 			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
-				projectedPoint.Lat, projectedPoint.Lon,
+				projectedPoint.GetLat(), projectedPoint.GetLon(),
 				gpsCoord.GetLat(), gpsCoord.GetLon(),
 			))
 

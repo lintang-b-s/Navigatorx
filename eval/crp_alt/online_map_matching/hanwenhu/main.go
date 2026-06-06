@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -62,10 +61,10 @@ Available at: https://doi.org/10.1109/TITS.2023.3237519.
 
 const (
 	osmFile                            = "./data/eval/mapmatching/shanghai.osm.pbf"
-	graphFile                   string = "./data/original_eval_mm_hh.graph"
-	overlayGraphFile            string = "./data/overlay_graph_eval_mm_hh.graph"
-	metricsFile                 string = "./data/metrics_eval_mm_hh.txt"
-	transitionMatrixFilepath           = "./data/eval/mapmatching/omm_transition_history_id_hh.txt"
+	graphFile                   string = "./data/original_eval_mm_hh.ngraph"
+	overlayGraphFile            string = "./data/overlay_graph_eval_mm_hh.ngraph"
+	metricsFile                 string = "./data/metrics_eval_mm_hh.nmt"
+	transitionMatrixFilepath           = "./data/eval/mapmatching/omm_transition_history_id_hh.ntm"
 	shanghaiDatasetDriveFile           = "https://drive.google.com/uc?export=download&id=1Ecaabtah1TXyx5T-QqAngPPSEMhUQwaV"
 	shanghaiOsmDriveFile               = "https://drive.google.com/uc?export=download&id=1cWnidrIprbzHiNxEq1zVgIDiawInqlVj"
 	shanghaiDataFilePath               = "./data/eval/mapmatching/shanghai.tar.gz"
@@ -73,8 +72,8 @@ const (
 	shanghaiGroundTruthFilepath        = "./data/eval/mapmatching/Shanghai/ground"
 	shanghaiPolylinesPath              = "./data/eval/mapmatching/Shanghai/polylines"
 	mlpFile                            = "./data/eval/mapmatching/online_map_match_mlp_hanwenhu.mlp"
-	landmarkFile                       = "./data/eval/mapmatching/landmark_hh.lm"
-	timeFunctionFile            string = "./data/timefunction_eval_mm_hh.txt"
+	landmarkFile                       = "./data/eval/mapmatching/landmark_hh.nlm"
+	timeFunctionFile            string = "./data/timefunction_eval_mm_hh.ntf"
 )
 
 var (
@@ -121,7 +120,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: download() failed %w", err)
 	}
-	graph, edgeInfoIds, err := op.Parse(osmFile, logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(osmFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: osmparse.Parse() failed: %v", err)
 	}
@@ -153,7 +152,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		panic(err)
 	}
 
-	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: prep.PreProcessing() failed: %v", err)
@@ -406,7 +405,7 @@ func writePolyline(filePath string, points []da.Coordinate) error {
 }
 
 func main() {
-	_, graph, logger, N, err := buildCRPGraph()
+	re, graph, logger, N, err := buildCRPGraph()
 	if err != nil {
 		panic(err)
 	}
@@ -433,7 +432,9 @@ func main() {
 	rtree := spatialindex.NewRtree()
 	rtree.Build(graph, logger)
 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.001, 5.0, 0.000001,
-		0.06, 3, N) // speed in meter/s,
+		0.06, 3, N, func(eID da.Index) float64 {
+			return re.GetRoutingEngine().GetSegmentLength(eID, true)
+		}) // speed in meter/s,
 	avgRuntimePerGpsPointAll := 0.0
 
 	totalPoints := 0.0
@@ -459,7 +460,7 @@ func main() {
 
 		nowDataset := time.Now()
 
-		locatetime, err := strconv.ParseInt(gpsTraj[0]["locatetime"], 10, 64)
+		locatetime, err := util.ParseTextInt64(gpsTraj[0]["locatetime"])
 		if err != nil {
 			panic(err)
 		}
@@ -472,12 +473,12 @@ func main() {
 		for i := 0; i < len(gpsTraj); i++ {
 			gps := gpsTraj[i]
 
-			lat, err := strconv.ParseFloat(gps["lat"], 64)
+			lat, err := util.ParseTextFloat64(gps["lat"])
 			if err != nil {
 				panic(err)
 			}
 
-			lon, err := strconv.ParseFloat(gps["lon"], 64)
+			lon, err := util.ParseTextFloat64(gps["lon"])
 			if err != nil {
 				panic(err)
 			}
@@ -537,23 +538,23 @@ func main() {
 		groundTruthLength := 0.0
 		for j := 1; j < len(groundTruth); j++ {
 			prevGt := groundTruth[j-1]
-			prevLat, err := strconv.ParseFloat(prevGt["lat"], 64)
+			prevLat, err := util.ParseTextFloat64(prevGt["lat"])
 			if err != nil {
 				panic(err)
 			}
 
-			prevLon, err := strconv.ParseFloat(prevGt["lon"], 64)
+			prevLon, err := util.ParseTextFloat64(prevGt["lon"])
 			if err != nil {
 				panic(err)
 			}
 
 			gt := groundTruth[j]
-			lat, err := strconv.ParseFloat(gt["lat"], 64)
+			lat, err := util.ParseTextFloat64(gt["lat"])
 			if err != nil {
 				panic(err)
 			}
 
-			lon, err := strconv.ParseFloat(gt["lon"], 64)
+			lon, err := util.ParseTextFloat64(gt["lon"])
 			if err != nil {
 				panic(err)
 			}

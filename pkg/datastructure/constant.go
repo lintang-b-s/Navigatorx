@@ -3,7 +3,6 @@ package datastructure
 import "math"
 
 const (
-	workersNum                     = 5
 	INVALID_VERTEX_ID        Index = 10e8
 	INVALID_EDGE_ID          Index = 10e8 + 1
 	INVALID_EDGE_INFO_ID     Index = 10e8 + 2
@@ -19,6 +18,7 @@ const (
 	BIT_SIZE_OSM_NODE_ID               = 34
 	INITIAL_APPROX_EDGE_SIZE           = 1000
 	INVALID_STREET_NAME_ID      uint32 = math.MaxUint32
+	graphBufferSize                    = 4096 * 4
 )
 
 type QueryInfoStorageType int

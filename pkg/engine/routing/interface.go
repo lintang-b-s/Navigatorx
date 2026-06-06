@@ -8,7 +8,9 @@ type Customizer interface {
 }
 
 type CostFunction interface {
-	GetWeight(eId da.Index, eWeight float64, eLength float64) float64
+	GetWeight(eId da.Index) float64
+	GetWeightFromLength(eId da.Index, eLength float64) float64
+	GetSegmentLength(eId da.Index) float64
 	GetTurnCost(turnTableId da.Index) float64
 }
 

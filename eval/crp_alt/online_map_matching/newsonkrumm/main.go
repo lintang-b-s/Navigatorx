@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -11,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -49,25 +49,22 @@ Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), p
 */
 // ini evaluasi implementasi online map matching pakai multiple hypothesis technique [1] (mapmatch_mht.go)
 // pakai dataset dari: https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
-func parseLineString(s string, vertexCount int) ([]da.Coordinate, error) {
-	const prefix = "LINESTRING("
+func parseLineString(s []byte, vertexCount int) ([]da.Coordinate, error) {
+	const prefixLength = len("LINESTRING(")
 
-	content := s[len(prefix) : len(s)-1]
-
-	parts := strings.Split(content, ",")
+	content := s[prefixLength : len(s)-1]
+	parts := bytes.Split(content, []byte(","))
 
 	coords := make([]da.Coordinate, 0, vertexCount)
 
 	for _, p := range parts {
-		p = strings.TrimSpace(p)
-
-		xy := strings.Fields(p)
+		xy := bytes.Fields(bytes.TrimSpace(p))
 		if len(xy) < 2 {
 			return nil, fmt.Errorf("invalid coordinates")
 		}
 
-		lon, err1 := strconv.ParseFloat(xy[0], 64)
-		lat, err2 := strconv.ParseFloat(xy[1], 64)
+		lon, err1 := util.ParseTextFloat64(string(xy[0]))
+		lat, err2 := util.ParseTextFloat64(string(xy[1]))
 		if err1 != nil || err2 != nil {
 			return nil, fmt.Errorf("%v %v", err1, err2)
 		}
@@ -112,20 +109,20 @@ var (
 
 const (
 	roadnetworkFilepath         = "./data/eval/mapmatching/road_network.txt"
-	graphFile            string = "./data/original_eval_mm.graph"
+	graphFile            string = "./data/original_eval_mm.ngraph"
 	mlpFile                     = "./data/eval/mapmatching/online_map_match_mlp_newsonkrumm.mlp"
-	overlayGraphFile     string = "./data/overlay_graph_eval_mm.graph"
-	metricsFile          string = "./data/metrics_eval_mm.txt"
+	overlayGraphFile     string = "./data/overlay_graph_eval_mm.ngraph"
+	metricsFile          string = "./data/metrics_eval_mm.nmt"
 	roadnetworkDriveFile        = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
-	landmarkFile                = "./data/eval/mapmatching/landmark_nk.lm"
-	timeFunctionFile     string = "./data/timefunction_eval_mm.txt"
+	landmarkFile                = "./data/eval/mapmatching/landmark_nk.nlm"
+	timeFunctionFile     string = "./data/timefunction_eval_mm.ntf"
 )
 
 func init() {
 	flag.Parse()
 
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	transitionMatrixFilepath = fmt.Sprintf("./data/transition_matrix_newsonkrumm.txt")
+	transitionMatrixFilepath = fmt.Sprintf("./data/transition_matrix_newsonkrumm.ntm")
 
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
@@ -217,20 +214,20 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		lineId++
 		ff := util.Fields(line)
 
-		edgeId, err := strconv.ParseInt(ff[0], 10, 64)
+		edgeId, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
 		}
-		fromId, err := strconv.ParseInt(ff[1], 10, 64)
+		fromId, err := util.ParseTextInt64(ff[1])
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
 		}
 
-		toId, err := strconv.ParseInt(ff[2], 10, 64)
+		toId, err := util.ParseTextInt64(ff[2])
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
 		}
-		twoWayInt, err := strconv.ParseInt(ff[3], 10, 32)
+		twoWayInt, err := util.ParseTextInt32(ff[3])
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
 		}
@@ -241,12 +238,12 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 			twoWay = false
 		}
 
-		speed, err := strconv.ParseFloat(ff[4], 64)
+		speed, err := util.ParseTextFloat64(ff[4])
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
 		}
 
-		vertexCount, err := strconv.ParseInt(ff[5], 10, 32)
+		vertexCount, err := util.ParseTextInt32(ff[5])
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
 		}
@@ -259,7 +256,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		}
 
 		lineString := line[idx:]
-		edgeGeometry, err := parseLineString(lineString, int(vertexCount))
+		edgeGeometry, err := parseLineString([]byte(lineString), int(vertexCount))
 		if err != nil {
 			return nil, nil, nil, nil, nil, err
 		}
@@ -396,7 +393,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmId)
-	g, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true)
+	g, timeFunction, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true)
 	g.SetGraphStorage(graphStorage)
 
 	us := []int{8, 11, 14, 16}
@@ -426,7 +423,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 		panic(err)
 	}
 
-	prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -545,7 +542,7 @@ const (
 )
 
 func main() {
-	_, g, logger, N, edgeLength, err := buildRoadNetworkCRPGraph(roadnetworkFilepath)
+	re, g, logger, N, edgeLength, err := buildRoadNetworkCRPGraph(roadnetworkFilepath)
 	if err != nil {
 		panic(err)
 	}
@@ -563,7 +560,9 @@ func main() {
 	rtree := spatialindex.NewRtree()
 	rtree.Build(g, logger)
 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(g, rtree, 8.33333, 8.3333, 0.0001, 5.0, 0.0000001,
-		0.05, 3, N) // speed in meter/s,
+		0.05, 3, N, func(eID da.Index) float64 {
+			return re.GetRoutingEngine().GetSegmentLength(eID, true)
+		}) // speed in meter/s,
 	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0644)
 	if err != nil {
 		panic(err)
@@ -602,12 +601,12 @@ func main() {
 			// skip header
 			continue
 		}
-		dateTime := ff[0] + " " + ff[1]
-		lat, err := strconv.ParseFloat(ff[2], 64)
+		dateTime := string(ff[0]) + " " + string(ff[1])
+		lat, err := util.ParseTextFloat64(ff[2])
 		if err != nil {
 			panic(err)
 		}
-		lon, err := strconv.ParseFloat(ff[3], 64)
+		lon, err := util.ParseTextFloat64(ff[3])
 		if err != nil {
 			panic(err)
 		}
@@ -674,7 +673,7 @@ func main() {
 			continue
 		}
 
-		edgeId, err := strconv.ParseInt(ff[0], 10, 64)
+		edgeId, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			panic(err)
 		}
@@ -710,7 +709,7 @@ func main() {
 		matchedDataEId := g.GetOsmWayId(curMatchedEId)
 
 		curMatchedEdge := g.GetOutEdge(curMatchedEId)
-		matchedEdgeSet[matchedDataEId] = curMatchedEdge.GetLength()
+		matchedEdgeSet[matchedDataEId] = re.GetRoutingEngine().GetSegmentLength(curMatchedEdge.GetEdgeId(), true)
 		_, inGroundTruthReversed := traversedEdges[matchedDataEId]
 		_, inGroundTruthForward := traversedEdges[matchedDataEId/2]
 

@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -48,16 +47,16 @@ func SolveRideHailing(t *testing.T, filepath string) {
 	}
 	ff := util.Fields(line)
 
-	n, err := strconv.Atoi(ff[0])
+	n, err := util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	m, err := strconv.Atoi(ff[1])
+	m, err := util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	k, err := strconv.Atoi(ff[2])
+	k, err := util.ParseTextInt(ff[2])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -75,17 +74,17 @@ func SolveRideHailing(t *testing.T, filepath string) {
 		}
 		ff = util.Fields(line)
 
-		u, err = strconv.Atoi(ff[0])
+		u, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		v, err = strconv.Atoi(ff[1])
+		v, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		w, err = strconv.Atoi(ff[2])
+		w, err = util.ParseTextInt(ff[2])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -168,17 +167,17 @@ func SolveRideHailing(t *testing.T, filepath string) {
 		}
 		ff = util.Fields(line)
 
-		u, err = strconv.Atoi(ff[0])
+		u, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		v, err = strconv.Atoi(ff[1])
+		v, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		time, err = strconv.Atoi(ff[2])
+		time, err = util.ParseTextInt(ff[2])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -235,7 +234,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	expectedAns, err := strconv.Atoi(line)
+	expectedAns, err := util.ParseTextInt(line)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

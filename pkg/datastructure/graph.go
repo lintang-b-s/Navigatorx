@@ -1,15 +1,35 @@
 package datastructure
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type Index uint32
 
+func ParseTextIndex(value string) (Index, error) {
+	parsed, err := util.ParseTextUInt32(value)
+	if err != nil {
+		return 0, fmt.Errorf("parse text index %q: %w", value, err)
+	}
+	return Index(parsed), nil
+}
+
+func ParseIndex(value string) (Index, error) {
+	parsed, err := strconv.ParseUint(value, 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("parse text index %q: %w", value, err)
+	}
+	return Index(parsed), nil
+}
+
 type Vertex struct {
-	lat          float64
-	lon          float64
+	lat          int32
+	lon          int32
 	pvPtr        Index // pointer index to cellNumbers slice
 	turnTablePtr Index // index of the first element of turnMatrices[v] in the flattened graph.turnTypeTable array
 	// turnMatrices[v][i][j] -> turnMatrices = flattened 1-D indexed array index of i-th incoming edge and j-th outgoing edge  = i*outDegree + j
@@ -19,16 +39,19 @@ type Vertex struct {
 }
 
 func NewVertex(lat, lon float64, id Index) Vertex {
+	coordinate := NewCoordinate(lat, lon)
 	return Vertex{
-		lat: lat,
-		lon: lon,
+		lat: coordinate.GetFixedLat(),
+		lon: coordinate.GetFixedLon(),
 		id:  id,
 	}
 }
 
 func NewEmptyVertex() Vertex {
 	return Vertex{
-		id: INVALID_VERTEX_ID,
+		lat: invalidFixedCoordinate,
+		lon: invalidFixedCoordinate,
+		id:  INVALID_VERTEX_ID,
 	}
 }
 
@@ -56,15 +79,15 @@ func (v *Vertex) GetID() Index {
 }
 
 func (v *Vertex) GetLat() float64 {
-	return v.lat
+	return float64(v.lat) / CoordinatePrecision
 }
 
 func (v *Vertex) GetLon() float64 {
-	return v.lon
+	return float64(v.lon) / CoordinatePrecision
 }
 
 func (v *Vertex) GetCoordinate() Coordinate {
-	return NewCoordinate(v.GetLat(), v.GetLon())
+	return NewFixedCoordinate(v.lat, v.lon)
 }
 
 func (v *Vertex) GetFirstOut() Index {
@@ -85,9 +108,7 @@ func (v *Vertex) GetTurnTablePtr() Index {
 
 // OutEdge represents an outgoing edge that enters vertex head at entryPoint.
 type OutEdge struct {
-	weight     float64 // minute
-	dist       float64 // meter
-	edgeId     Index   // edgeId = edgeId di graph.outEdges.
+	edgeId     Index // edgeId = edgeId di graph.outEdges.
 	head       Index
 	entryPoint Index
 	hwType     pkg.OsmHighwayType
@@ -96,33 +117,27 @@ type OutEdge struct {
 
 // InEdge represents an incoming edge that exits vertex tail at exitPoint.
 type InEdge struct {
-	weight    float64 // minute
-	dist      float64 // meter
-	edgeId    Index   //edgeId = edgeId di graph.inEdges.
+	edgeId    Index //edgeId = edgeId di graph.inEdges.
 	tail      Index
 	exitPoint Index
 	hwType    pkg.OsmHighwayType
 	flag      uint8 // dummy edge (for phantom node)  or parallel edge (for OSM turn restriction via-way)
 }
 
-func NewOutEdge(edgeId, head Index, weight, dist float64, entryPoint Index, hwType pkg.OsmHighwayType) OutEdge {
+func NewOutEdge(edgeId, head, entryPoint Index, hwType pkg.OsmHighwayType) OutEdge {
 	return OutEdge{
 		edgeId:     edgeId,
 		head:       head,
-		weight:     weight,
-		dist:       dist,
 		entryPoint: entryPoint,
 		hwType:     hwType,
 		flag:       0,
 	}
 }
 
-func NewInEdge(edgeId, tail Index, weight, dist float64, exitPoint Index, hwType pkg.OsmHighwayType) InEdge {
+func NewInEdge(edgeId, tail, exitPoint Index, hwType pkg.OsmHighwayType) InEdge {
 	return InEdge{
 		edgeId:    edgeId,
 		tail:      tail,
-		weight:    weight,
-		dist:      dist,
 		exitPoint: exitPoint,
 		hwType:    hwType,
 		flag:      0,
@@ -209,32 +224,12 @@ func (e *InEdge) GetFlag() uint8 {
 	return e.flag
 }
 
-func (e *OutEdge) GetWeight() float64 {
-	return e.weight
-}
-
-// GetEdgeSpeed. get edge speed in meter/minute
-func (e *OutEdge) GetEdgeSpeed() float64 {
-	if e.weight == 0 {
-		return 0
-	}
-	return e.dist / e.weight
-}
-
-func (e *OutEdge) SetWeight(travelTime float64) {
-	e.weight = travelTime
-}
-
 func (e *OutEdge) SetEdgeId(edgeId Index) {
 	e.edgeId = edgeId
 }
 
 func (e *OutEdge) SetHead(headId Index) {
 	e.head = headId
-}
-
-func (e *OutEdge) GetLength() float64 {
-	return e.dist
 }
 
 func (e *OutEdge) GetHead() Index {
@@ -257,27 +252,8 @@ func (e *OutEdge) GetEdgeId() Index {
 	return e.edgeId
 }
 
-func (e *InEdge) GetWeight() float64 {
-	return e.weight
-}
-
 func (e *InEdge) GetHighwayType() pkg.OsmHighwayType {
 	return e.hwType
-}
-
-func (e *InEdge) SetWeight(travelTime float64) {
-	e.weight = travelTime
-}
-
-func (e *InEdge) GetEdgeSpeed() float64 {
-	if e.weight == 0 {
-		return 0
-	}
-	return e.dist / e.weight
-}
-
-func (e *InEdge) GetLength() float64 {
-	return e.dist
 }
 
 func (e *InEdge) GetTail() Index {
@@ -378,17 +354,6 @@ func (g *Graph) GetMinResolution() float64 {
 	return g.minResolution
 }
 
-func (g *Graph) GetEdgeSpeeds() []float64 {
-	m := Index(g.NumberOfEdges())
-	eSpeeds := make([]float64, m)
-	for eId := Index(0); eId < m; eId++ {
-		eSpeeds[eId] = g.outEdges[eId].GetLength() / g.outEdges[eId].GetWeight() // in m/s
-
-	}
-
-	return eSpeeds
-}
-
 func (g *Graph) GetTurnTypes() []pkg.TurnType {
 	ttp := make([]pkg.TurnType, len(g.turnTypeTable))
 	copy(ttp, g.turnTypeTable)
@@ -448,33 +413,8 @@ func (g *Graph) GetInEdge(e Index) *InEdge {
 	return &g.inEdges[e]
 }
 
-func (g *Graph) GetOutEdgeLength(e Index) float64 {
-	return g.outEdges[e].GetLength()
-}
-
-func (g *Graph) GetInEdgeLength(e Index) float64 {
-	return g.inEdges[e].GetLength()
-}
-
-func (g *Graph) GetOutEdgeWeight(e Index) float64 {
-	return g.outEdges[e].GetWeight()
-}
-
 func (g *Graph) GetOutEdgeHighwayType(e Index) pkg.OsmHighwayType {
 	return g.outEdges[e].hwType
-}
-
-// GetOutEdgeTripleWeightKey. return default weight, length, and speed of outEdge e
-func (g *Graph) GetOutEdgeTripleWeightKey(e Index) (float64, float64, float64) {
-	speed := g.outEdges[e].GetWeight() / g.outEdges[e].GetLength()
-
-	return g.outEdges[e].GetWeight(), g.outEdges[e].GetLength(), speed
-}
-
-// GetInEdgeTripleWeightKey. return default weight, length, and speed of inEdge e
-func (g *Graph) GetInEdgeTripleWeightKey(e Index) (float64, float64, float64) {
-	speed := g.inEdges[e].GetWeight() / g.inEdges[e].GetLength()
-	return g.inEdges[e].GetWeight(), g.inEdges[e].GetLength(), speed
 }
 
 func (g *Graph) GetCellNumbers() []Pv {
@@ -558,20 +498,20 @@ func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 }
 
 // langsung return OutEge copy structnya jadi lebih gede allocation  B/op pas di benchmark
-func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(eId, head Index, weight, length float64, exitPoint, entryPoint, turnTableId Index, turnType pkg.TurnType,
+func (g *Graph) ForOutEdgesOf(u Index, entryPoint Index, handle func(eId, head Index, exitPoint, entryPoint, turnTableId Index, turnType pkg.TurnType,
 	hwType pkg.OsmHighwayType)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 
-		handle(e, g.outEdges[e].head, g.outEdges[e].GetWeight(), g.outEdges[e].GetLength(), g.GetExitOrder(u, e), g.outEdges[e].GetEntryPoint(),
+		handle(e, g.outEdges[e].head, g.GetExitOrder(u, e), g.outEdges[e].GetEntryPoint(),
 			g.GetTurnTableId(u, entryPoint, g.GetExitOrder(u, e)), g.GetTurnType(u, entryPoint, g.GetExitOrder(u, e)), g.outEdges[e].hwType)
 	}
 }
 
-func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(eId, tail Index, weight, length float64, exitPoint, entryPoint, turnTableId Index,
+func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(eId, tail Index, exitPoint, entryPoint, turnTableId Index,
 	turnType pkg.TurnType, hwType pkg.OsmHighwayType)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
 
-		handle(e, g.inEdges[e].tail, g.inEdges[e].GetWeight(), g.inEdges[e].GetLength(), g.inEdges[e].GetExitPoint(), g.GetEntryOrder(v, e),
+		handle(e, g.inEdges[e].tail, g.inEdges[e].GetExitPoint(), g.GetEntryOrder(v, e),
 			g.GetTurnTableId(v, g.GetEntryOrder(v, e), exitPoint), g.GetTurnType(v, g.GetEntryOrder(v, e), exitPoint), g.inEdges[e].hwType)
 	}
 }
@@ -731,7 +671,7 @@ func (g *Graph) GetNumberOfOverlayVertexMapping() int {
 
 func (g *Graph) GetVertexCoordinates(u Index) (float64, float64) {
 	v := g.vertices[u]
-	return v.lat, v.lon
+	return v.GetLat(), v.GetLon()
 }
 
 func (g *Graph) SetVertices(vs []Vertex) {
@@ -1017,12 +957,12 @@ func (g *Graph) SetStreetDirection(streetDirectionForward, streetDirectionBackwa
 	g.graphStorage.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
 }
 
-func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(head, exitPoint Index, weight float64)) {
+func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(head, exitPoint Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 		if g.IsDummyOutEdge(e) || g.IsParallelOutEdge(e) {
 			continue
 		}
-		handle(g.outEdges[e].head, g.GetExitOrder(u, e), g.outEdges[e].weight)
+		handle(g.outEdges[e].head, g.GetExitOrder(u, e))
 	}
 }
 
@@ -1038,8 +978,6 @@ func NewEmptyOutEdge() OutEdge {
 	return OutEdge{
 		edgeId:     INVALID_EDGE_ID,
 		head:       0,
-		weight:     0,
-		dist:       0,
 		entryPoint: 0,
 		hwType:     0,
 	}
@@ -1049,8 +987,6 @@ func NewEmptyInEdge() InEdge {
 	return InEdge{
 		edgeId:    INVALID_EDGE_ID,
 		tail:      0,
-		weight:    0,
-		dist:      0,
 		exitPoint: 0,
 		hwType:    0,
 	}
@@ -1086,7 +1022,7 @@ func (g *Graph) ForEachConditionalTurnRestriction(handle func(id Index, res Cond
 	}
 }
 
-func (g *Graph) SetEdgeGeohashes(edgeGeohashes []uint64) {
+func (g *Graph) SetEdgeGeohashes(edgeGeohashes []uint32) {
 	g.graphStorage.SetEdgeGeohashes(edgeGeohashes)
 }
 

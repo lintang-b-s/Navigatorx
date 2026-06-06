@@ -86,11 +86,16 @@ func (m *MockRoutingEngine) GetWeight(eId da.Index, outEdge bool) float64 {
 	args := m.Called(eId, outEdge)
 	return args.Get(0).(float64)
 }
-func (m *MockRoutingEngine) GetWeightFromLength(eId da.Index, eLength float64, outEdge bool) float64 {
+func (m *MockRoutingEngine) GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64 {
 	args := m.Called(eId, eLength, outEdge)
 	return args.Get(0).(float64)
 }
 func (m *MockRoutingEngine) GetSegmentSpeed(eId da.Index, outEdge bool) float64 {
+	args := m.Called(eId, outEdge)
+	return args.Get(0).(float64)
+}
+
+func (m *MockRoutingEngine) GetSegmentLength(eId da.Index, outEdge bool) float64 {
 	args := m.Called(eId, outEdge)
 	return args.Get(0).(float64)
 }

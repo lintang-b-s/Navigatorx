@@ -8,7 +8,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	crpalt "github.com/lintang-b-s/Navigatorx/eval/crp_alt"
@@ -62,7 +61,7 @@ func parsePartitionSizes(raw string) ([]int, error) {
 		if part == "" {
 			continue
 		}
-		size, err := strconv.Atoi(part)
+		size, err := util.ParseTextInt(part)
 		if err != nil {
 			return nil, fmt.Errorf("invalid partition size %q: %w", part, err)
 		}
@@ -131,7 +130,7 @@ func main() {
 	}
 
 	ff := util.Fields(line)
-	n, err := util.ParseInt(ff[4]) // number of vertices
+	n, err := util.ParseTextInt(ff[4]) // number of vertices
 	if err != nil {
 		panic(fmt.Errorf("err: %w", err))
 	}
@@ -151,15 +150,15 @@ func main() {
 			panic(fmt.Errorf("err: %w", err))
 		}
 		ff := util.Fields(line)
-		id, err := util.ParseInt(ff[1])
+		id, err := util.ParseTextInt(ff[1])
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
-		x, err := util.ParseInt(ff[2])
+		x, err := util.ParseTextInt(ff[2])
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
-		y, err := util.ParseInt(ff[3])
+		y, err := util.ParseTextInt(ff[3])
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
@@ -188,7 +187,7 @@ func main() {
 	}
 
 	ff = util.Fields(line)
-	m, err := util.ParseInt(ff[3]) // number of edges
+	m, err := util.ParseTextInt(ff[3]) // number of edges
 	if err != nil {
 		panic(fmt.Errorf("err: %w", err))
 	}
@@ -210,15 +209,15 @@ func main() {
 			panic(fmt.Errorf("err: %w", err))
 		}
 		ff := util.Fields(line)
-		u, err := util.ParseInt(ff[1])
+		u, err := util.ParseTextInt(ff[1])
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
-		v, err := util.ParseInt(ff[2])
+		v, err := util.ParseTextInt(ff[2])
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
-		weight, err := util.ParseInt(ff[3])
+		weight, err := util.ParseTextInt(ff[3])
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
@@ -255,7 +254,7 @@ func main() {
 	}
 
 	ff = util.Fields(line)
-	q, err := util.ParseInt(ff[4]) // number of edges
+	q, err := util.ParseTextInt(ff[4]) // number of edges
 	if err != nil {
 		panic(fmt.Errorf("err: %w", err))
 	}
@@ -275,7 +274,7 @@ func main() {
 			panic(fmt.Errorf("err: %w", err))
 		}
 		ff := util.Fields(line)
-		s, err := util.ParseInt(ff[1])
+		s, err := util.ParseTextInt(ff[1])
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}

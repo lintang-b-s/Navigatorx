@@ -2,6 +2,7 @@ package onlinemapmatching
 
 import (
 	"bufio"
+	"bytes"
 	"encoding/csv"
 	"errors"
 	"fmt"
@@ -10,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +19,7 @@ import (
 	evalutil "github.com/lintang-b-s/Navigatorx/eval/crp_alt/online_map_matching"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -155,7 +156,7 @@ func ohmmProjectPath(workingDir, path string) string {
 	return filepath.Join(workingDir, strings.TrimPrefix(path, "./"))
 }
 
-func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, edgeInfoIDs [][]da.Index, logger *zap.Logger, partitionSizes []int,
+func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfunction.TimeFunction, edgeInfoIDs [][]da.Index, logger *zap.Logger, partitionSizes []int,
 	mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile string) *engine.Engine {
 	t.Helper()
 
@@ -180,7 +181,7 @@ func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, edgeInfoIDs [][]da.Index
 	if err := mlp.ReadMlpFile(mlpFile); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIDs)
+	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIDs)
 	if err := prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
@@ -276,15 +277,15 @@ func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint3
 			return nil, nil, nil, nil, fmt.Errorf("invalid node line %q", line)
 		}
 
-		nodeID, err := strconv.ParseInt(fields[0], 10, 64)
+		nodeID, err := util.ParseTextInt64(fields[0])
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
-		lat, err := strconv.ParseFloat(fields[1], 64)
+		lat, err := util.ParseTextFloat64(fields[1])
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
-		lon, err := strconv.ParseFloat(fields[2], 64)
+		lon, err := util.ParseTextFloat64(fields[2])
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
@@ -314,20 +315,20 @@ func ohmmReadGisCupEdgeGeometry(edgeGeometryFilePath string) (map[int64]ohmmEdge
 		} else if err != nil {
 			return nil, err
 		}
-		line = strings.TrimSpace(line)
-		if line == "" {
+		lineBytes := bytes.TrimSpace([]byte(line))
+		if len(line) == 0 {
 			continue
 		}
 
-		fields := strings.Split(line, "^")
+		fields := bytes.Split(lineBytes, []byte("^"))
 		if len(fields) < 8 {
 			return nil, fmt.Errorf("invalid edge geometry line %q", line)
 		}
-		edgeID, err := strconv.ParseInt(strings.TrimSpace(fields[0]), 10, 64)
+		edgeID, err := util.ParseTextInt64(string(bytes.TrimSpace(fields[0])))
 		if err != nil {
 			return nil, err
 		}
-		length, err := strconv.ParseFloat(strings.TrimSpace(fields[3]), 64)
+		length, err := util.ParseTextFloat64(string(bytes.TrimSpace(fields[3])))
 		if err != nil {
 			return nil, err
 		}
@@ -338,17 +339,17 @@ func ohmmReadGisCupEdgeGeometry(edgeGeometryFilePath string) (map[int64]ohmmEdge
 
 		coords := make([]da.Coordinate, 0, len(coordFields)/2)
 		for i := 0; i < len(coordFields); i += 2 {
-			lat, err := strconv.ParseFloat(strings.TrimSpace(coordFields[i]), 64)
+			lat, err := util.ParseTextFloat64(string(bytes.TrimSpace(coordFields[i])))
 			if err != nil {
 				return nil, err
 			}
-			lon, err := strconv.ParseFloat(strings.TrimSpace(coordFields[i+1]), 64)
+			lon, err := util.ParseTextFloat64(string(bytes.TrimSpace(coordFields[i+1])))
 			if err != nil {
 				return nil, err
 			}
 			coords = append(coords, da.NewCoordinate(lat, lon))
 		}
-		roadType := pkg.GetHighwayType(strings.TrimSpace(fields[2]))
+		roadType := pkg.GetHighwayType(string(bytes.TrimSpace(fields[2])))
 		if roadType == pkg.UNKNOWN {
 			roadType = pkg.ROAD
 		}
@@ -367,19 +368,19 @@ func ohmmFallbackGeometry(edgeID int64, from, to uint32, nodeCoords []da.Coordin
 	return ohmmEdgeGeometry{length: length, roadType: pkg.ROAD, coords: []da.Coordinate{fromCoord, toCoord}}
 }
 
-func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, [][]da.Index, map[int64]float64, error) {
+func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *costfunction.TimeFunction, [][]da.Index, map[int64]float64, error) {
 	nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, err := ohmmReadGisCupNodes(paths.nodesFilePath)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	edgeGeometries, err := ohmmReadGisCupEdgeGeometry(paths.edgeGeometryFilePath)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	f, err := os.OpenFile(paths.edgesFilePath, os.O_RDONLY, 0644)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	defer f.Close()
 
@@ -393,40 +394,40 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 		if err != nil && errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 		fields := util.Fields(line)
 		if len(fields) == 0 {
 			continue
 		}
 		if len(fields) < 4 {
-			return nil, nil, nil, fmt.Errorf("invalid edge line %q", line)
+			return nil, nil, nil, nil, fmt.Errorf("invalid edge line %q", line)
 		}
 
-		edgeID, err := strconv.ParseInt(fields[0], 10, 64)
+		edgeID, err := util.ParseTextInt64(fields[0])
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
-		fromNodeID, err := strconv.ParseInt(fields[1], 10, 64)
+		fromNodeID, err := util.ParseTextInt64(fields[1])
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
-		toNodeID, err := strconv.ParseInt(fields[2], 10, 64)
+		toNodeID, err := util.ParseTextInt64(fields[2])
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
-		cost, err := strconv.ParseFloat(fields[3], 64)
+		cost, err := util.ParseTextFloat64(fields[3])
 		if err != nil {
-			return nil, nil, nil, err
+			return nil, nil, nil, nil, err
 		}
 
 		fromIndex, ok := nodeIDToIndex[fromNodeID]
 		if !ok {
-			return nil, nil, nil, fmt.Errorf("missing from node %d", fromNodeID)
+			return nil, nil, nil, nil, fmt.Errorf("missing from node %d", fromNodeID)
 		}
 		toIndex, ok := nodeIDToIndex[toNodeID]
 		if !ok {
-			return nil, nil, nil, fmt.Errorf("missing to node %d", toNodeID)
+			return nil, nil, nil, nil, fmt.Errorf("missing to node %d", toNodeID)
 		}
 		if fromIndex == toIndex {
 			continue
@@ -452,9 +453,9 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 	op := osmparser.NewOSMParserV2()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeCoords)), true)
+	graph, timeFunction, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeCoords)), true)
 	graph.SetGraphStorage(graphStorage)
-	return graph, edgeInfoIDs, edgeLengths, nil
+	return graph, timeFunction, edgeInfoIDs, edgeLengths, nil
 }
 
 func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine, *da.Graph, *zap.Logger, map[int64]float64) {
@@ -467,17 +468,17 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine, *
 		t.Fatalf("log.New failed: %v", err)
 	}
 	paths := ohmmEnsureGisCupRoadNetwork(t, workingDir, logger)
-	graph, edgeInfoIDs, edgeLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
+	graph, timeFunction, edgeInfoIDs, edgeLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
 	if err != nil {
 		t.Fatalf("build GIS Cup graph failed: %v", err)
 	}
 
-	graphFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_original_giscup.graph")
-	overlayGraphFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_overlay_graph_giscup.graph")
-	metricsFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_metrics_giscup.txt")
+	graphFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_original_giscup.ngraph")
+	overlayGraphFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_overlay_graph_giscup.ngraph")
+	metricsFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_metrics_giscup.nmt")
 	mlpFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_mlp_giscup.mlp")
-	landmarkFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_landmark_giscup.lm")
-	timeFunctionFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_timefunction_giscup.txt")
+	landmarkFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_landmark_giscup.nlm")
+	timeFunctionFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_timefunction_giscup.ntf")
 
 	var re *engine.Engine
 	if ohmmEngineFilesExist(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile) {
@@ -486,7 +487,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine, *
 			t.Fatalf("load GIS Cup engine failed: %v", err)
 		}
 	} else {
-		re = ohmmPrepareCRPFiles(t, graph, edgeInfoIDs, logger, []int{8, 11, 14, 16},
+		re = ohmmPrepareCRPFiles(t, graph, timeFunction, edgeInfoIDs, logger, []int{8, 11, 14, 16},
 			mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile)
 	}
 	return re, re.GetRoutingEngine().GetGraph(), logger, edgeLengths
@@ -514,15 +515,15 @@ func ohmmReadGisCupTrack(trackPath string) ([]ohmmGisCupTrackPoint, error) {
 			continue
 		}
 
-		timeSec, err := strconv.ParseFloat(strings.TrimSpace(record[0]), 64)
+		timeSec, err := util.ParseTextFloat64(strings.TrimSpace(record[0]))
 		if err != nil {
 			return nil, err
 		}
-		lat, err := strconv.ParseFloat(strings.TrimSpace(record[1]), 64)
+		lat, err := util.ParseTextFloat64(strings.TrimSpace(record[1]))
 		if err != nil {
 			return nil, err
 		}
-		lon, err := strconv.ParseFloat(strings.TrimSpace(record[2]), 64)
+		lon, err := util.ParseTextFloat64(strings.TrimSpace(record[2]))
 		if err != nil {
 			return nil, err
 		}
@@ -552,7 +553,7 @@ func ohmmReadGisCupGroundTruth(outputPath string) ([]int64, error) {
 		if len(record) < 2 || strings.TrimSpace(record[0]) == "" {
 			continue
 		}
-		edgeID, err := strconv.ParseInt(strings.TrimSpace(record[1]), 10, 64)
+		edgeID, err := util.ParseTextInt64(strings.TrimSpace(record[1]))
 		if err != nil {
 			return nil, err
 		}
@@ -625,7 +626,7 @@ func ohmmComputeEdgeSetMetrics(graph *da.Graph, groundTruthEdgeIDs []int64, matc
 		dataEdgeID := graph.GetOsmWayId(point.GetEdgeId())
 		length, ok := edgeLengths[dataEdgeID]
 		if !ok {
-			length = graph.GetOutEdge(point.GetEdgeId()).GetLength()
+			continue
 		}
 		matchedEdgeSet[dataEdgeID] = length
 	}
@@ -696,7 +697,7 @@ func ohmmParseMelbourneVertexFile(filePath string) ([]ohmmMelbourneVertex, error
 	if err != nil {
 		return nil, err
 	}
-	expectedVertices, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedVertices, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, err
 	}
@@ -713,19 +714,19 @@ func ohmmParseMelbourneVertexFile(filePath string) ([]ohmmMelbourneVertex, error
 		if len(ff) < 4 {
 			return nil, fmt.Errorf("invalid vertex line %q", line)
 		}
-		id, err := strconv.ParseInt(ff[0], 10, 64)
+		id, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, err
 		}
-		osmID, err := strconv.ParseInt(ff[1], 10, 64)
+		osmID, err := util.ParseTextInt64(ff[1])
 		if err != nil {
 			return nil, err
 		}
-		lon, err := strconv.ParseFloat(ff[2], 64)
+		lon, err := util.ParseTextFloat64(ff[2])
 		if err != nil {
 			return nil, err
 		}
-		lat, err := strconv.ParseFloat(ff[3], 64)
+		lat, err := util.ParseTextFloat64(ff[3])
 		if err != nil {
 			return nil, err
 		}
@@ -749,7 +750,7 @@ func ohmmParseMelbourneEdgesFile(filePath string) ([]ohmmMelbourneEdge, error) {
 	if err != nil {
 		return nil, err
 	}
-	expectedEdges, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedEdges, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, err
 	}
@@ -766,19 +767,19 @@ func ohmmParseMelbourneEdgesFile(filePath string) ([]ohmmMelbourneEdge, error) {
 		if len(ff) < 4 {
 			return nil, fmt.Errorf("invalid edge line %q", line)
 		}
-		id, err := strconv.ParseInt(ff[0], 10, 64)
+		id, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, err
 		}
-		startID, err := strconv.ParseInt(ff[1], 10, 64)
+		startID, err := util.ParseTextInt64(ff[1])
 		if err != nil {
 			return nil, err
 		}
-		endID, err := strconv.ParseInt(ff[2], 10, 64)
+		endID, err := util.ParseTextInt64(ff[2])
 		if err != nil {
 			return nil, err
 		}
-		dist, err := strconv.ParseFloat(ff[3], 64)
+		dist, err := util.ParseTextFloat64(ff[3])
 		if err != nil {
 			return nil, err
 		}
@@ -799,7 +800,7 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStre
 	if err != nil {
 		return nil, err
 	}
-	expectedEdges, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedEdges, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, err
 	}
@@ -816,35 +817,35 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStre
 		if len(ff) < 8 {
 			return nil, fmt.Errorf("invalid street line %q", line)
 		}
-		id, err := strconv.ParseInt(ff[0], 10, 64)
+		id, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, err
 		}
-		startID, err := strconv.ParseInt(ff[1], 10, 64)
+		startID, err := util.ParseTextInt64(ff[1])
 		if err != nil {
 			return nil, err
 		}
-		startLon, err := strconv.ParseFloat(ff[2], 64)
+		startLon, err := util.ParseTextFloat64(ff[2])
 		if err != nil {
 			return nil, err
 		}
-		startLat, err := strconv.ParseFloat(ff[3], 64)
+		startLat, err := util.ParseTextFloat64(ff[3])
 		if err != nil {
 			return nil, err
 		}
-		endID, err := strconv.ParseInt(ff[4], 10, 64)
+		endID, err := util.ParseTextInt64(ff[4])
 		if err != nil {
 			return nil, err
 		}
-		endLon, err := strconv.ParseFloat(ff[5], 64)
+		endLon, err := util.ParseTextFloat64(ff[5])
 		if err != nil {
 			return nil, err
 		}
-		endLat, err := strconv.ParseFloat(ff[6], 64)
+		endLat, err := util.ParseTextFloat64(ff[6])
 		if err != nil {
 			return nil, err
 		}
-		dist, err := strconv.ParseFloat(ff[7], 64)
+		dist, err := util.ParseTextFloat64(ff[7])
 		if err != nil {
 			return nil, err
 		}
@@ -910,15 +911,15 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	op := osmparser.NewOSMParserV2()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(vertices)), true)
+	graph, timeFunction, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(vertices)), true)
 	graph.SetGraphStorage(graphStorage)
 
-	graphFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_original_hl.graph")
-	overlayGraphFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_overlay_graph_hl.graph")
-	metricsFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_metrics_hl.txt")
+	graphFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_original_hl.ngraph")
+	overlayGraphFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_overlay_graph_hl.ngraph")
+	metricsFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_metrics_hl.nmt")
 	mlpFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_mlp_hl.mlp")
-	landmarkFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_landmark_hl.lm")
-	timeFunctionFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_timefunction_hl.txt")
+	landmarkFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_landmark_hl.nlm")
+	timeFunctionFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_timefunction_hl.ntf")
 
 	var re *engine.Engine
 	if ohmmEngineFilesExist(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile) {
@@ -927,7 +928,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 			t.Fatalf("load Melbourne engine failed: %v", err)
 		}
 	} else {
-		re = ohmmPrepareCRPFiles(t, graph, edgeInfoIDs, logger, []int{8, 11, 13, 14, 15},
+		re = ohmmPrepareCRPFiles(t, graph, timeFunction, edgeInfoIDs, logger, []int{8, 11, 13, 14, 15},
 			mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile)
 	}
 
@@ -956,7 +957,7 @@ func ohmmReadMelbourneGPSTrack(filePath string) ([]ohmmMelbourneGPSPoint, error)
 	if err != nil {
 		return nil, err
 	}
-	expectedPoints, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedPoints, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, err
 	}
@@ -973,15 +974,15 @@ func ohmmReadMelbourneGPSTrack(filePath string) ([]ohmmMelbourneGPSPoint, error)
 		if len(ff) < 3 {
 			continue
 		}
-		timestamp, err := strconv.ParseInt(ff[0], 10, 64)
+		timestamp, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, err
 		}
-		lat, err := strconv.ParseFloat(ff[1], 64)
+		lat, err := util.ParseTextFloat64(ff[1])
 		if err != nil {
 			return nil, err
 		}
-		lon, err := strconv.ParseFloat(ff[2], 64)
+		lon, err := util.ParseTextFloat64(ff[2])
 		if err != nil {
 			return nil, err
 		}
@@ -1002,7 +1003,7 @@ func ohmmReadMelbourneGroundTruthEdges(filePath string) ([]int64, error) {
 	if err != nil {
 		return nil, err
 	}
-	expectedEdges, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedEdges, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, err
 	}
@@ -1019,7 +1020,7 @@ func ohmmReadMelbourneGroundTruthEdges(filePath string) ([]int64, error) {
 		if len(ff) == 0 {
 			continue
 		}
-		edgeID, err := strconv.ParseInt(ff[0], 10, 64)
+		edgeID, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, err
 		}
@@ -1158,7 +1159,7 @@ func ohmmBuildHanwenHuCRPGraph(t *testing.T) (*engine.Engine, *da.Graph, *zap.Lo
 func ohmmHanwenHuGPSTrajectory(t *testing.T, gpsTraj []map[string]string) []*da.GPSPoint {
 	t.Helper()
 
-	locatetime, err := strconv.ParseInt(gpsTraj[0]["locatetime"], 10, 64)
+	locatetime, err := util.ParseTextInt64(gpsTraj[0]["locatetime"])
 	if err != nil {
 		t.Fatalf("parse locatetime failed: %v", err)
 	}
@@ -1173,11 +1174,11 @@ func ohmmHanwenHuGPSTrajectory(t *testing.T, gpsTraj []map[string]string) []*da.
 		hasPrev          bool
 	)
 	for i, gps := range gpsTraj {
-		lat, err := strconv.ParseFloat(gps["lat"], 64)
+		lat, err := util.ParseTextFloat64(gps["lat"])
 		if err != nil {
 			t.Fatalf("parse lat failed: %v", err)
 		}
-		lon, err := strconv.ParseFloat(gps["lon"], 64)
+		lon, err := util.ParseTextFloat64(gps["lon"])
 		if err != nil {
 			t.Fatalf("parse lon failed: %v", err)
 		}
@@ -1204,20 +1205,20 @@ func ohmmGroundTruthLength(t *testing.T, groundTruth []map[string]string) float6
 	length := 0.0
 	for j := 1; j < len(groundTruth); j++ {
 		prevGt := groundTruth[j-1]
-		prevLat, err := strconv.ParseFloat(prevGt["lat"], 64)
+		prevLat, err := util.ParseTextFloat64(prevGt["lat"])
 		if err != nil {
 			t.Fatalf("parse gt prev lat failed: %v", err)
 		}
-		prevLon, err := strconv.ParseFloat(prevGt["lon"], 64)
+		prevLon, err := util.ParseTextFloat64(prevGt["lon"])
 		if err != nil {
 			t.Fatalf("parse gt prev lon failed: %v", err)
 		}
 		gt := groundTruth[j]
-		lat, err := strconv.ParseFloat(gt["lat"], 64)
+		lat, err := util.ParseTextFloat64(gt["lat"])
 		if err != nil {
 			t.Fatalf("parse gt lat failed: %v", err)
 		}
-		lon, err := strconv.ParseFloat(gt["lon"], 64)
+		lon, err := util.ParseTextFloat64(gt["lon"])
 		if err != nil {
 			t.Fatalf("parse gt lon failed: %v", err)
 		}

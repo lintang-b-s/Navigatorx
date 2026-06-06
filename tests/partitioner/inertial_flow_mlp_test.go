@@ -2,7 +2,7 @@ package partitioner
 
 import (
 	"os"
-	"strconv"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -10,6 +10,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
@@ -48,7 +49,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, _, err := op.Parse(osmfFile, logger)
+	graph, _, _, err := op.Parse(filepath.Join(pkg.WorkingDir, osmfFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -56,7 +57,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 	pss := strings.Split("8,10,11,12,14", ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
-		pow, err := strconv.Atoi(pss[i])
+		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
 			panic(err)
 		}
@@ -78,7 +79,7 @@ const (
 )
 
 // todo: add test customizer & query pake file osm yang di gdrive (DONE)
-// please run the test using command: "cd tests/partitioner &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=part_coverage.out  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/partitioner -v . --cover -coverpkg=../../pkg/... -coverprofile=part_coverage.out  -v -timeout=0  -count=1"
 // go tool cover -func=part_coverage.out
 // go tool cover -html=part_coverage.out
 // karena bakal timeout kalau pakai run test vscode

@@ -9,7 +9,6 @@ import (
 	"runtime"
 	"runtime/debug"
 	"sort"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -198,32 +197,32 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	}
 	ff := util.Fields(line)
 
-	N, err := strconv.Atoi(ff[0])
+	N, err := util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	M, err := strconv.Atoi(ff[1])
+	M, err := util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	K, err := strconv.Atoi(ff[2])
+	K, err := util.ParseTextInt(ff[2])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	T, err := strconv.Atoi(ff[3])
+	T, err := util.ParseTextInt(ff[3])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	P, err := strconv.Atoi(ff[4])
+	P, err := util.ParseTextInt(ff[4])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	Q, err := strconv.Atoi(ff[5])
+	Q, err := util.ParseTextInt(ff[5])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -239,22 +238,22 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		}
 		ff = util.Fields(line)
 
-		a, err = strconv.ParseInt(ff[0], 10, 64)
+		a, err = util.ParseTextInt64(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		b, err = strconv.ParseInt(ff[1], 10, 64)
+		b, err = util.ParseTextInt64(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		c, err = strconv.ParseInt(ff[2], 10, 64)
+		c, err = util.ParseTextInt64(ff[2])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		d, err = strconv.ParseInt(ff[3], 10, 64)
+		d, err = util.ParseTextInt64(ff[3])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}

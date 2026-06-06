@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 
 	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -201,27 +200,27 @@ func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.
 		return nil, fmt.Errorf("ReadSparseMatrixFromReader: invalid header token count, expected 5 got %d, line=%q", len(tokens), line)
 	}
 
-	m, err := util.ParseInt(tokens[0])
+	m, err := util.ParseTextInt(tokens[0])
 	if err != nil {
 		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse m: %v: %w", tokens[0], err)
 	}
 
-	n, err := util.ParseInt(tokens[1])
+	n, err := util.ParseTextInt(tokens[1])
 	if err != nil {
 		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse n: %v: %w", tokens[1], err)
 	}
 
-	valsLen, err := util.ParseInt(tokens[2])
+	valsLen, err := util.ParseTextInt(tokens[2])
 	if err != nil {
 		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse valsLen: %v: %w", tokens[2], err)
 	}
 
-	colsLen, err := util.ParseInt(tokens[3])
+	colsLen, err := util.ParseTextInt(tokens[3])
 	if err != nil {
 		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse colsLen: %v: %w", tokens[3], err)
 	}
 
-	rowsLen, err := util.ParseInt(tokens[4])
+	rowsLen, err := util.ParseTextInt(tokens[4])
 	if err != nil {
 		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse rowsLen: %v: %w", tokens[4], err)
 	}
@@ -244,12 +243,12 @@ func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.
 
 	for i := 0; i < valsLen; i++ {
 		token := tokens[i]
-		if intVal, err := strconv.Atoi(token); err == nil {
+		if intVal, err := util.ParseTextInt(token); err == nil {
 			sm.vals[i] = any(intVal).(T)
 			continue
 		}
 
-		if floatVal, err := strconv.ParseFloat(token, 64); err == nil {
+		if floatVal, err := util.ParseTextFloat64(token); err == nil {
 			sm.vals[i] = any(floatVal).(T)
 			continue
 		}
@@ -270,7 +269,7 @@ func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.
 	for i := 0; i < colsLen; i++ {
 		token := tokens[i]
 
-		val, err := util.ParseInt(token)
+		val, err := util.ParseTextInt(token)
 		if err != nil {
 			return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse cols[i]: %v: %w", token, err)
 		}
@@ -291,7 +290,7 @@ func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.
 	for i := 0; i < rowsLen; i++ {
 		token := tokens[i]
 
-		val, err := util.ParseInt(token)
+		val, err := util.ParseTextInt(token)
 		if err != nil {
 			return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse rows[i]: %v: %w", token, err)
 		}

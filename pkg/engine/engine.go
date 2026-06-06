@@ -11,6 +11,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -55,7 +56,7 @@ func NewEngineDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, m *metrics.
 		panic(err)
 	}
 
-	readBuf := bufio.NewReaderSize(nil, 4096*4)
+	readBuf := bufio.NewReaderSize(nil, util.BUFIO_SIZE)
 	re := routing.NewCRPRoutingEngine(graph, overlayGraph, m, logger, puCache, landmarkFile, readBuf)
 
 	return &Engine{
@@ -68,7 +69,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 	error) {
 
 	logger.Info("Starting query engine....")
-	readBuf := bufio.NewReaderSize(nil, 4096*4)
+	readBuf := bufio.NewReaderSize(nil, util.BUFIO_SIZE)
 
 	logger.Info("Reading graph....")
 	graph, err := da.ReadGraph(graphFilePath, readBuf)

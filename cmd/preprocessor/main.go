@@ -5,16 +5,18 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
+	"runtime"
 	"strings"
 	"time"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -27,6 +29,7 @@ var (
 	directed               = flag.Bool("directed_graph", false, "directed/undirected partition graph")
 	prePartitionWithSCC    = flag.Bool("prepartition_with_scc", false, "prepartition graph with strongly connected components")
 	inertialFlowIterations = flag.Int("iflow_iterations", 10, "number of iterations of the inertial flow algorithm (schild dan sommer (2015)) (https://link.springer.com/chapter/10.1007/978-3-319-20086-6_22)")
+	skipTiles              = flag.Bool("skip-tiles", false, "skip map tile generation")
 	graphFile              string
 	overlayGraphFile       string
 	profileName            string
@@ -37,11 +40,12 @@ func init() {
 	flag.Parse()
 
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
-	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
-	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.txt", profileName, *regionName)
+	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.ngraph", profileName, *regionName)
+	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.ngraph", profileName, *regionName)
+	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.ntm", profileName, *regionName)
 
 	config.InitProfileConfig(profileName, *regionName)
+	gopool.SetCap(int32(runtime.NumCPU()))
 }
 
 func main() {
@@ -53,7 +57,7 @@ func main() {
 	now := time.Now()
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(*osmFile, logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(*osmFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -61,13 +65,14 @@ func main() {
 	pss := strings.Split(*partitionSizes, ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
-		pow, err := strconv.Atoi(pss[i])
+		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
 			panic(err)
 		}
 		ps[i] = 1 << pow // 2^pow
 	}
 
+	mlpPath := *mlpFile
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
@@ -78,10 +83,7 @@ func main() {
 	)
 
 	mp.RunMultilevelPartitioning()
-
-	mlpPath := *mlpFile
-	err = mp.SaveToFile(mlpPath)
-	if err != nil {
+	if err := mp.SaveToFile(mlpPath); err != nil {
 		panic(err)
 	}
 
@@ -101,7 +103,8 @@ func main() {
 		}
 	}
 
-	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep.SetWriteTiles(!*skipTiles)
 
 	err = prep.PreProcessing(true)
 	if err != nil {

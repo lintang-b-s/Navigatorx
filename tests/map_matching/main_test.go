@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	evalutil "github.com/lintang-b-s/Navigatorx/eval/crp_alt/online_map_matching"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 )
 
 func TestMain(m *testing.M) {
+	gopool.SetCap(int32(runtime.NumCPU()))
 	if err := ensureMapMatchingDatasetBundle(); err != nil {
 		fmt.Fprintf(os.Stderr, "prepare map matching dataset bundle failed: %v\n", err)
 		os.Exit(1)

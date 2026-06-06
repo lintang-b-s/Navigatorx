@@ -21,6 +21,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var (
@@ -39,12 +40,12 @@ func init() {
 	flag.Parse()
 
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
-	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
-	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, *regionName)
-	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
-	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
-	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.txt", profileName, *regionName)
+	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.ngraph", profileName, *regionName)
+	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.ngraph", profileName, *regionName)
+	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.nlm", profileName, *regionName)
+	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.nmt", profileName, *regionName)
+	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.ntf", profileName, *regionName)
+	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.ntm", profileName, *regionName)
 
 	config.InitProfileConfig(profileName, *regionName)
 }
@@ -63,7 +64,7 @@ func main() {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(routingEngine.GetRoutingEngine().GetGraph(), logger)
-	readBuf := bufio.NewReaderSize(nil, 4096*4)
+	readBuf := bufio.NewReaderSize(nil, util.BUFIO_SIZE)
 	graph, err := da.ReadGraph(graphFile, readBuf)
 	if err != nil {
 		panic(err)

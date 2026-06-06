@@ -4,9 +4,11 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -16,7 +18,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -42,11 +43,11 @@ func init() {
 	viper.Set("http_port", *httpPort)
 
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
-	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
-	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, *regionName)
-	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
-	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
+	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.ngraph", profileName, *regionName)
+	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.ngraph", profileName, *regionName)
+	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.nlm", profileName, *regionName)
+	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.nmt", profileName, *regionName)
+	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.ntf", profileName, *regionName)
 
 	config.InitProfileConfig(profileName, *regionName)
 
@@ -58,6 +59,8 @@ func init() {
 		}
 		http_router.SetRateLimit(q, b)
 	}
+
+	gopool.SetCap(int32(runtime.NumCPU()))
 }
 
 func main() {
@@ -67,11 +70,11 @@ func main() {
 		panic(err)
 	}
 
-	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	eng, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}
-	re := routingEngine.GetRoutingEngine()
+	re := eng.GetRoutingEngine()
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(re.GetGraph(), logger)
@@ -88,10 +91,9 @@ func main() {
 		panic(err)
 	}
 
-	util.FreeMemory()
-
+	cf := re.GetCostFunction()
 	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
-	tilingEngine := tiler.NewTilingEngine(graph, logger)
+	tilingEngine := tiler.NewTilingEngine(graph, logger, cf)
 	tilingService := usecases.NewTileService(logger, tilingEngine)
 
 	serverErr := api.Use(

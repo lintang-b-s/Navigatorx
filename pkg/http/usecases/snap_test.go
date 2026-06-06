@@ -42,15 +42,15 @@ func TestRoutingService_SnapOrigDestQueryToNearbyRoadSegments(t *testing.T) {
 
 	mockGraph := da.NewGraph(
 		[]da.Vertex{v0, v1, v2, vDummy},
-		[]da.OutEdge{da.NewOutEdge(0, 1, 12.0, originEdgeLen, 0, 0), da.NewOutEdge(1, 2, 15.0, destEdgeLen, 0, 0)},
-		[]da.InEdge{da.NewInEdge(0, 0, 12.0, originEdgeLen, 0, 0), da.NewInEdge(1, 1, 15.0, destEdgeLen, 0, 0)},
+		[]da.OutEdge{da.NewOutEdge(0, 1, 0, 0), da.NewOutEdge(1, 2, 0, 0)},
+		[]da.InEdge{da.NewInEdge(0, 0, 0, 0), da.NewInEdge(1, 1, 0, 0)},
 		nil, false, nil,
 	)
 
 	gs := da.NewGraphStorage(64)
 	gs.AppendOsmNodePoints([]da.Coordinate{
-		{Lat: -7.7970, Lon: 110.3660}, {Lat: -7.7952, Lon: 110.3700}, {Lat: -7.7900, Lon: 110.3860},
-		{Lat: -7.7860, Lon: 110.4080}, {Lat: -7.7825, Lon: 110.4150}, {Lat: -7.7780, Lon: 110.4240},
+		da.NewCoordinate(-7.7970, 110.3660), da.NewCoordinate(-7.7952, 110.3700), da.NewCoordinate(-7.7900, 110.3860),
+		da.NewCoordinate(-7.7860, 110.4080), da.NewCoordinate(-7.7825, 110.4150), da.NewCoordinate(-7.7780, 110.4240),
 	})
 	gs.AppendEdgeMetadata(100, 0, 3, 0, 0, 0, 1)
 	gs.AppendEdgeMetadata(200, 3, 6, 0, 0, 0, 1)
@@ -66,6 +66,8 @@ func TestRoutingService_SnapOrigDestQueryToNearbyRoadSegments(t *testing.T) {
 		mockSpatial.On("SearchWithinRadius", destQueryLat, destQueryLon, searchRadius, uint8(1)).Return([]da.Index{1})
 
 		mockEngine.On("PathExists", da.Index(1), da.Index(1)).Return(true)
+		mockEngine.On("GetSegmentLength", da.Index(0), true).Return(originEdgeLen)
+		mockEngine.On("GetSegmentLength", da.Index(1), false).Return(destEdgeLen)
 		mockEngine.On("GetWeightFromLength", da.Index(0), originEdgeLen, true).Return(12.0)
 		mockEngine.On("GetWeightFromLength", da.Index(1), destEdgeLen, false).Return(15.0)
 

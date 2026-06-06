@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -39,12 +38,12 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 	ff := util.Fields(line)
-	n, err = strconv.Atoi(ff[0])
+	n, err = util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	m, err = strconv.Atoi(ff[1])
+	m, err = util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -62,15 +61,15 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 		ff := util.Fields(line)
-		u, err := strconv.Atoi(ff[0])
+		u, err := util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		v, err := strconv.Atoi(ff[1])
+		v, err := util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		w, err := strconv.Atoi(ff[2])
+		w, err := util.ParseTextInt(ff[2])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}

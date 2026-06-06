@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"math"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -14,7 +15,6 @@ import (
 	"github.com/spf13/viper"
 
 	"os"
-	"strconv"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -32,8 +32,8 @@ const (
 	mlpFile = "./data/stress_test_yogyakarta.mlp"
 
 	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_preprocessor_test.graph"
-	overlayGraphFile string = "./data/overlay_graph_preprocessor_test.graph"
+	graphFile        string = "./data/original_preprocessor_test.ngraph"
+	overlayGraphFile string = "./data/overlay_graph_preprocessor_test.ngraph"
 )
 
 // cd tests/preprocessor &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=prep_coverage.out
@@ -62,12 +62,12 @@ func TestPreprocessorSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 		ff := util.Fields(line)
-		n, err = strconv.Atoi(ff[0])
+		n, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		m, err = strconv.Atoi(ff[1])
+		m, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -85,15 +85,15 @@ func TestPreprocessorSimple(t *testing.T) {
 				t.Fatalf("err: %v", err)
 			}
 			ff := util.Fields(line)
-			u, err := strconv.Atoi(ff[0])
+			u, err := util.ParseTextInt(ff[0])
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			v, err := strconv.Atoi(ff[1])
+			v, err := util.ParseTextInt(ff[1])
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			w, err := strconv.Atoi(ff[2])
+			w, err := util.ParseTextInt(ff[2])
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -113,7 +113,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+		g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -134,7 +134,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prepr := prep.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prepr := prep.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 		err = prepr.PreProcessing(false)
 
 		return prepr, err
@@ -787,7 +787,7 @@ func setup(t *testing.T, osmFileTest string) *prep.Preprocessor {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(osmFileTest, logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -795,7 +795,7 @@ func setup(t *testing.T, osmFileTest string) *prep.Preprocessor {
 	pss := strings.Split(*partitionSizes, ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
-		pow, err := strconv.Atoi(pss[i])
+		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -821,7 +821,7 @@ func setup(t *testing.T, osmFileTest string) *prep.Preprocessor {
 	if err != nil {
 		panic(err)
 	}
-	prepr := prep.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prepr := prep.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prepr.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -830,11 +830,11 @@ func setup(t *testing.T, osmFileTest string) *prep.Preprocessor {
 	return prepr
 }
 
+// go test ./tests/preprocessor  -v -run TestPreprocessUsingOSMFile
 func TestPreprocessUsingOSMFile(t *testing.T) {
 
 	testCases := []struct {
-		name string
-
+		name           string
 		osmfFileTest   string
 		roundAboutWay  map[int64]struct{}
 		streetNameWay  map[int64]string
@@ -921,6 +921,7 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 	}
 }
 
+// go test ./tests/preprocessor  -v -run TestPreprocessTurnRestrictionsUsingOSMFile
 func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 	prep := setup(t, osmfFile)
 	graph := prep.GetGraph()
@@ -1172,7 +1173,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 						if headOsmNodeId == uint64(rest.via) {
 
 							// traverse ke semua outedges of head
-							graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, _ float64, _, headToEntryPoint, turnTableId da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
+							graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, headToEntryPoint, turnTableId da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
 								if graph.IsDummyOutEdge(eIdTo) {
 									return
 								}

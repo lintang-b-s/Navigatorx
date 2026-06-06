@@ -101,7 +101,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	if scanner.Scan() {
 		line := scanner.Text()
 		var numLevels int
-		numLevels, err := util.ParseInt(line)
+		numLevels, err := util.ParseTextInt(string(line))
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	for i := 0; i < len(mp.numCells); i++ {
 		if scanner.Scan() {
 			line := scanner.Text()
-			mp.numCells[i], err = util.ParseUInt32(line)
+			mp.numCells[i], err = util.ParseTextUInt32(string(line))
 			if err != nil {
 				return err
 			}
@@ -132,7 +132,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	if scanner.Scan() {
 		line := scanner.Text()
 
-		numVertices, err = util.ParseInt(line)
+		numVertices, err = util.ParseTextInt(string(line))
 		if err != nil {
 			return err
 		}
@@ -148,7 +148,7 @@ func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
 	for i := 0; i < mp.GetNumberOfVertices(); i++ {
 		if scanner.Scan() {
 			line := scanner.Text()
-			cellNumberUint, err := util.ParseUInt64(line)
+			cellNumberUint, err := util.ParseTextUInt64(string(line))
 			cellNumber := Pv(cellNumberUint)
 			if err != nil {
 				return err

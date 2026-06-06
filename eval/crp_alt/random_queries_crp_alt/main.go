@@ -7,7 +7,6 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
@@ -19,11 +18,11 @@ import (
 )
 
 const (
-	graphFile        string = "./data/profiles/car/diy_solo_semarang_original.graph"
-	overlayGraphFile string = "./data/profiles/car/diy_solo_semarang_overlay_graph.graph"
-	metricsFile      string = "./data/profiles/car/diy_solo_semarang_metrics.txt"
-	landmarkFile     string = "./data/profiles/car/diy_solo_semarang_landmark.lm"
-	timeFunctionFile string = "./data/profiles/car/diy_solo_semarang_timefunction.txt"
+	graphFile        string = "./data/profiles/car/diy_solo_semarang_original.ngraph"
+	overlayGraphFile string = "./data/profiles/car/diy_solo_semarang_overlay_graph.ngraph"
+	metricsFile      string = "./data/profiles/car/diy_solo_semarang_metrics.nmt"
+	landmarkFile     string = "./data/profiles/car/diy_solo_semarang_landmark.nlm"
+	timeFunctionFile string = "./data/profiles/car/diy_solo_semarang_timefunction.ntf"
 )
 
 func main() {
@@ -71,7 +70,7 @@ func main() {
 	hf := util.Fields(line)
 	hours := make([]int, len(hf))
 	for i, h := range hf {
-		hours[i], _ = strconv.Atoi(h)
+		hours[i], _ = util.ParseTextInt(h)
 	}
 
 	n := 0
@@ -79,11 +78,11 @@ func main() {
 	queries := make([]spParam, 0)
 	for line, err = util.ReadLine(br); err != io.EOF; line, err = util.ReadLine(br) {
 		ff := util.Fields(line)
-		s, err := da.ParseIndex(ff[0])
+		s, err := da.ParseTextIndex(ff[0])
 		if err != nil {
 			panic(err)
 		}
-		t, err := da.ParseIndex(ff[1])
+		t, err := da.ParseTextIndex(ff[1])
 		if err != nil {
 			panic(err)
 		}

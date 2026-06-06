@@ -383,7 +383,7 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 	}
 
 	// traverse outEdges of u
-	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
+	bs.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
 		hwType pkg.OsmHighwayType) {
 		vId := head
 
@@ -451,7 +451,7 @@ func (bs *CRPALTBidirectionalSearch) forwardGraphSearch(uItem da.CRPQueryKey, so
 
 			newVEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
 			// traverse outEdges of v
-			bs.engine.graph.ForOutEdgesOf(vId, entryPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId2 da.Index, turnType2 pkg.TurnType,
+			bs.engine.graph.ForOutEdgesOf(vId, entryPoint, func(_, _ da.Index, _, _, turnTableId2 da.Index, turnType2 pkg.TurnType,
 				_ pkg.OsmHighwayType) {
 
 				// check if forward and backward search already scanned entry point and  exit point of v. if so, check whether we can improve the shortest path
@@ -541,7 +541,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 		otherUExitId++
 	}
 
-	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index,
+	bs.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, exitPoint, entryPoint, turnTableId da.Index,
 		turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 		vId := tail
 
@@ -596,7 +596,7 @@ func (bs *CRPALTBidirectionalSearch) backwardGraphSearch(uItem da.CRPQueryKey, s
 			vEntryId := entryOffset
 
 			newVExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-			bs.engine.graph.ForInEdgesOf(vId, exitPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId2 da.Index,
+			bs.engine.graph.ForInEdgesOf(vId, exitPoint, func(_, _ da.Index, _, _, turnTableId2 da.Index,
 				turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
 				scannedByForwardSearch := bs.forwardPq.IsScanned(vEntryId)
 				vEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
@@ -737,7 +737,7 @@ func (bs *CRPALTBidirectionalSearch) forwardOverlayGraphSearch(uItem da.CRPQuery
 
 				newWEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
 				wExitId := exitOffset
-				bs.engine.graph.ForOutEdgesOf(originalWId, outEdgeEntryPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId da.Index, _ pkg.TurnType,
+				bs.engine.graph.ForOutEdgesOf(originalWId, outEdgeEntryPoint, func(_, _ da.Index, _, _, turnTableId da.Index, _ pkg.TurnType,
 					_ pkg.OsmHighwayType) {
 					// check if forward and backward search already scanned exit point of w. if so, check whether we can improve the shortest path
 					scannedByBackwardSearch := bs.backwardPq.IsScanned(wExitId)
@@ -893,7 +893,7 @@ func (bs *CRPALTBidirectionalSearch) backwardOverlayGraphSearch(uItem da.CRPQuer
 				wEntryId := entryOffset
 
 				newWExitIdTravelTime := bs.backwardPq.GetPriority(wExitId)
-				bs.engine.graph.ForInEdgesOf(originalWId, inEdgeExitPoint, func(_, _ da.Index, _, _ float64, _, _, turnTableId da.Index,
+				bs.engine.graph.ForInEdgesOf(originalWId, inEdgeExitPoint, func(_, _ da.Index, _, _, turnTableId da.Index,
 					_ pkg.TurnType, _ pkg.OsmHighwayType) {
 					scannedByForwardSearch := bs.forwardPq.IsScanned(wEntryId)
 					wEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)

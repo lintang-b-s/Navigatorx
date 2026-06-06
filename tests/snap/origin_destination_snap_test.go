@@ -4,7 +4,7 @@ import (
 	"flag"
 	"math/rand"
 	"os"
-	"strconv"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -33,11 +33,11 @@ var (
 const (
 	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
 	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_query_test.graph"
-	overlayGraphFile string = "./data/overlay_graph_query_test.graph"
-	metricsFile      string = "./data/metrics_query_test.txt"
-	landmarkFile     string = "./data/landmark_query_test.lm"
-	timeFunctionFile string = "./data/timefunction_od_test.txt"
+	graphFile        string = "./data/original_query_test.ngraph"
+	overlayGraphFile string = "./data/overlay_graph_query_test.ngraph"
+	metricsFile      string = "./data/metrics_query_test.nmt"
+	landmarkFile     string = "./data/landmark_query_test.nlm"
+	timeFunctionFile string = "./data/timefunction_od_test.ntf"
 )
 
 func setup(t *testing.T) (*engine.Engine, *zap.Logger) {
@@ -59,7 +59,7 @@ func setup(t *testing.T) (*engine.Engine, *zap.Logger) {
 
 	op := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := op.Parse(osmfFile, logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmfFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -67,7 +67,7 @@ func setup(t *testing.T) (*engine.Engine, *zap.Logger) {
 	pss := strings.Split(*partitionSizes, ",")
 	ps := make([]int, len(pss))
 	for i := 0; i < len(ps); i++ {
-		pow, err := strconv.Atoi(pss[i])
+		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -93,7 +93,7 @@ func setup(t *testing.T) (*engine.Engine, *zap.Logger) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

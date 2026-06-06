@@ -15,19 +15,9 @@ func TestGooglePolyline(t *testing.T) {
 		{
 			name: "contoh polyline (https://developers.google.com/maps/documentation/utilities/polylinealgorithm)",
 			coords: NewCoordinatesWithInitialValues([]Coordinate{
-				{
-					Lat: 38.5,
-					Lon: -120.2,
-				},
-
-				{
-					Lat: 40.7,
-					Lon: -120.95,
-				},
-				{
-					Lat: 43.252,
-					Lon: -126.453,
-				},
+				NewCoordinate(38.5, -120.2),
+				NewCoordinate(40.7, -120.95),
+				NewCoordinate(43.252, -126.453),
 			}),
 			expectedPolyline: "_p~iF~ps|U_ulLnnqC_mqNvxq`@",
 		},

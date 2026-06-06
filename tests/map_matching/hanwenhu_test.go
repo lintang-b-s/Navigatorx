@@ -15,7 +15,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -46,10 +45,10 @@ import (
 
 const (
 	hhOsmFile                         = "./data/eval/mapmatching/shanghai.osm.pbf"
-	hhGraphFile                string = "./data/original_eval_mm_hh.graph"
-	hhOverlayGraphFile         string = "./data/overlay_graph_eval_mm_hh.graph"
-	hhMetricsFile              string = "./data/metrics_eval_mm_hh.txt"
-	hhTransitionMatrixFile            = "./data/eval/mapmatching/omm_transition_history_id_hh.txt"
+	hhGraphFile                string = "./data/original_eval_mm_hh.ngraph"
+	hhOverlayGraphFile         string = "./data/overlay_graph_eval_mm_hh.ngraph"
+	hhMetricsFile              string = "./data/metrics_eval_mm_hh.nmt"
+	hhTransitionMatrixFile            = "./data/eval/mapmatching/omm_transition_history_id_hh.ntm"
 	hhShanghaiDatasetDriveFile        = "https://drive.google.com/uc?export=download&id=1Ecaabtah1TXyx5T-QqAngPPSEMhUQwaV"
 	hhShanghaiOsmDriveFile            = "https://drive.google.com/uc?export=download&id=1cWnidrIprbzHiNxEq1zVgIDiawInqlVj"
 	hhShanghaiDataFilePath            = "./data/eval/mapmatching/shanghai.tar.gz"
@@ -57,8 +56,8 @@ const (
 	hhShanghaiGroundTruthPath         = "./data/eval/mapmatching/Shanghai/ground"
 	hhShanghaiPolylinesPath           = "./data/eval/mapmatching/Shanghai/polylines"
 	hhMlpFile                         = "./data/eval/mapmatching/online_map_match_mlp_hanwenhu.mlp"
-	hhLandmarkFile                    = "./data/eval/mapmatching/landmark_hh.lm"
-	hhTimeFunctionFile         string = "./data/timefunction_eval_mm_hh.txt"
+	hhLandmarkFile                    = "./data/eval/mapmatching/landmark_hh.nlm"
+	hhTimeFunctionFile         string = "./data/timefunction_eval_mm_hh.ntf"
 )
 
 var (
@@ -139,7 +138,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine, *da.Graph, *zap.Logger, *da.
 	if err != nil {
 		t.Fatalf("download osm failed: %v", err)
 	}
-	graph, edgeInfoIds, err := op.Parse(hhOsmFile, logger)
+	graph, timeFunction, edgeInfoIds, err := op.Parse(hhOsmFile, logger)
 	if err != nil {
 		t.Fatalf("osm parse failed: %v", err)
 	}
@@ -157,7 +156,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine, *da.Graph, *zap.Logger, *da.
 	if err = mlp.ReadMlpFile(hhMlpFile); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, mlp, logger, hhGraphFile, hhOverlayGraphFile, edgeInfoIds)
+	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, hhGraphFile, hhOverlayGraphFile, edgeInfoIds)
 	if err = prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
@@ -371,7 +370,7 @@ func TestHanwenhuOnlineMapMatching(t *testing.T) {
 		t.Fatalf("find project working dir failed: %v", err)
 	}
 
-	_, graph, logger, N := hhBuildCRPGraph(t)
+	eng, graph, logger, N := hhBuildCRPGraph(t)
 	shanghaiDataFilePath := ohmmProjectPath(workingDir, hhShanghaiDataFilePath)
 	if err := hhDownload(shanghaiDataFilePath, hhShanghaiDatasetDriveFile, logger, "shanghai dataset"); err != nil {
 		t.Fatalf("download dataset failed: %v", err)
@@ -399,7 +398,9 @@ func TestHanwenhuOnlineMapMatching(t *testing.T) {
 	totalRuntime := 0.0
 	matchingErrors := make([]float64, 0, len(gpsTrajectories))
 
-	tilingEngine := tiler.NewTilingEngine(graph, logger)
+	re := eng.GetRoutingEngine()
+	cf := re.GetCostFunction()
+	tilingEngine := tiler.NewTilingEngine(graph, logger, cf)
 	centerGeohash := uint64(0)
 
 	for trajName, gpsTraj := range gpsTrajectories {
@@ -419,7 +420,7 @@ func TestHanwenhuOnlineMapMatching(t *testing.T) {
 		avgRuntimePerGpsPoint := 0.0
 		nowDataset := time.Now()
 
-		locatetime, err := strconv.ParseInt(gpsTraj[0]["locatetime"], 10, 64)
+		locatetime, err := util.ParseTextInt64(gpsTraj[0]["locatetime"])
 		if err != nil {
 			t.Fatalf("parse locatetime failed: %v", err)
 		}
@@ -431,11 +432,11 @@ func TestHanwenhuOnlineMapMatching(t *testing.T) {
 
 		for i := 0; i < len(gpsTraj); i++ {
 			gps := gpsTraj[i]
-			lat, err := strconv.ParseFloat(gps["lat"], 64)
+			lat, err := util.ParseTextFloat64(gps["lat"])
 			if err != nil {
 				t.Fatalf("parse lat failed: %v", err)
 			}
-			lon, err := strconv.ParseFloat(gps["lon"], 64)
+			lon, err := util.ParseTextFloat64(gps["lon"])
 			if err != nil {
 				t.Fatalf("parse lon failed: %v", err)
 			}
@@ -536,20 +537,20 @@ func TestHanwenhuOnlineMapMatching(t *testing.T) {
 		groundTruthLength := 0.0
 		for j := 1; j < len(groundTruth); j++ {
 			prevGt := groundTruth[j-1]
-			prevLat, err := strconv.ParseFloat(prevGt["lat"], 64)
+			prevLat, err := util.ParseTextFloat64(prevGt["lat"])
 			if err != nil {
 				t.Fatalf("parse gt prev lat failed: %v", err)
 			}
-			prevLon, err := strconv.ParseFloat(prevGt["lon"], 64)
+			prevLon, err := util.ParseTextFloat64(prevGt["lon"])
 			if err != nil {
 				t.Fatalf("parse gt prev lon failed: %v", err)
 			}
 			gt := groundTruth[j]
-			lat, err := strconv.ParseFloat(gt["lat"], 64)
+			lat, err := util.ParseTextFloat64(gt["lat"])
 			if err != nil {
 				t.Fatalf("parse gt lat failed: %v", err)
 			}
-			lon, err := strconv.ParseFloat(gt["lon"], 64)
+			lon, err := util.ParseTextFloat64(gt["lon"])
 			if err != nil {
 				t.Fatalf("parse gt lon failed: %v", err)
 			}

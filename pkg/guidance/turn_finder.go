@@ -406,7 +406,7 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 	db.prevNode = tailId
 	db.prevEdge = edgeId
 
-	db.cumulativeDistance += db.graph.GetOutEdgeLength(edgeId)
+	db.cumulativeDistance += db.engine.GetSegmentLength(edgeId, true)
 	db.cumulativeTravelTime += db.engine.GetWeight(edgeId, true)
 
 	db.edgeIds = append(db.edgeIds, edgeId)

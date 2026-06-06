@@ -85,9 +85,7 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 			vId := head
 
-			weight, length, _ := us.graph.GetOutEdgeTripleWeightKey(eId)
-
-			edgeWeight := us.metrics.GetWeight(eId, weight, length)
+			edgeWeight := us.metrics.GetWeight(eId)
 
 			// get cost to reach v through u
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
@@ -127,10 +125,8 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 			vId := tail
 
-			weight, length, _ := us.graph.GetInEdgeTripleWeightKey(eId)
-
 			eExitId := us.graph.GetExitIdOfInEdge(eId)
-			edgeWeight := us.metrics.GetWeight(eExitId, weight, length)
+			edgeWeight := us.metrics.GetWeight(eExitId)
 
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 

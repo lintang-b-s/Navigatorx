@@ -1,41 +1,75 @@
 package datastructure
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+var CoordinatePrecision = 1e7
+
+const invalidFixedCoordinate = math.MinInt32
+
 type Coordinate struct {
-	Lat float64 `json:"lat"`
-	Lon float64 `json:"lon"`
+	lat int32 // latitude * 10^7 .terinspirasi dari how OSRM store osm node coordinates & save space
+	lon int32 // longitude * 10^7
 }
 
 func (c Coordinate) GetLat() float64 {
-	return c.Lat
+	return float64(c.lat) / CoordinatePrecision
 }
 
 func (c Coordinate) GetLon() float64 {
-	return c.Lon
+	return float64(c.lon) / CoordinatePrecision
+}
+
+func (c Coordinate) GetFixedLat() int32 {
+	return c.lat
+}
+
+func (c Coordinate) GetFixedLon() int32 {
+	return c.lon
+}
+
+func (c Coordinate) IsValid() bool {
+	return c.lat != invalidFixedCoordinate && c.lon != invalidFixedCoordinate
 }
 
 func IsSameCoordinate(a, b Coordinate) bool {
-	return util.Eq(a.GetLat(), b.GetLat()) && util.Eq(a.GetLon(), b.GetLon())
+	return a == b
 }
 
-// 16 byte (128bit)
-
 func NewCoordinate(lat, lon float64) Coordinate {
-	return Coordinate{
-		Lat: lat,
-		Lon: lon,
+	fixedLat, err := coordinateToFixed(lat, "latitude")
+	if err != nil {
+		panic(err)
 	}
+	fixedLon, err := coordinateToFixed(lon, "longitude")
+	if err != nil {
+		panic(err)
+	}
+	return NewFixedCoordinate(fixedLat, fixedLon)
+}
+
+func NewFixedCoordinate(lat, lon int32) Coordinate {
+	return Coordinate{lat: lat, lon: lon}
+}
+
+func NewUninitializedCoordinate() Coordinate {
+	return NewFixedCoordinate(invalidFixedCoordinate, invalidFixedCoordinate)
+}
+
+func coordinateToFixed(value float64, name string) (int32, error) {
+	fixed := math.Round(value * CoordinatePrecision)
+	if fixed <= math.MinInt32 || fixed > math.MaxInt32 {
+		return 0, fmt.Errorf("%s %.12g exceeds fixed-coordinate range", name, value)
+	}
+	return int32(fixed), nil
 }
 
 func NewInvalidCoordinate() Coordinate {
-	return Coordinate{
-		Lat: pkg.INVALID_LAT,
-		Lon: pkg.INVALID_LON,
-	}
+	return NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON)
 }
 
 type Coordinates []Coordinate

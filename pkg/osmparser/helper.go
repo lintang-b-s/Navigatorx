@@ -2,13 +2,13 @@ package osmparser
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/bytedance/gopkg/lang/stringx"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/paulmach/osm"
 )
 
@@ -235,7 +235,7 @@ func parseOsmTime(timeStr string) (int, error) {
 		parts = strings.Split(timeStr, ",")
 	} else {
 		// Just a number?
-		val, err := strconv.Atoi(timeStr)
+		val, err := util.ParseTextInt(timeStr)
 		if err != nil {
 			return 0, fmt.Errorf("invalid time format: %s", timeStr)
 		}
@@ -246,11 +246,11 @@ func parseOsmTime(timeStr string) (int, error) {
 		return 0, fmt.Errorf("invalid time format: %s", timeStr)
 	}
 
-	h, err := strconv.Atoi(parts[0])
+	h, err := util.ParseTextInt(parts[0])
 	if err != nil {
 		return 0, err
 	}
-	m, err := strconv.Atoi(parts[1])
+	m, err := util.ParseTextInt(parts[1])
 	if err != nil {
 		return 0, err
 	}
@@ -856,19 +856,19 @@ func (p *OsmParser) isRoundaboutByName(name string) bool {
 func parseOsmWayMaxSpeedVal(maxSpeedVal string) (float64, error) {
 	var maxSpeed float64
 	if strings.Contains(maxSpeedVal, "mph") {
-		currSpeed, err := strconv.ParseFloat(strings.ReplaceAll(maxSpeedVal, " mph", ""), 64)
+		currSpeed, err := util.ParseTextFloat64(strings.ReplaceAll(maxSpeedVal, " mph", ""))
 		if err != nil {
 			return 0, err
 		}
 		maxSpeed = currSpeed * 1.60934
 	} else if strings.Contains(maxSpeedVal, "km/h") {
-		currSpeed, err := strconv.ParseFloat(strings.ReplaceAll(maxSpeedVal, " km/h", ""), 64)
+		currSpeed, err := util.ParseTextFloat64(strings.ReplaceAll(maxSpeedVal, " km/h", ""))
 		if err != nil {
 			return 0, err
 		}
 		maxSpeed = currSpeed
 	} else if strings.Contains(maxSpeedVal, "knots") {
-		currSpeed, err := strconv.ParseFloat(strings.ReplaceAll(maxSpeedVal, " knots", ""), 64)
+		currSpeed, err := util.ParseTextFloat64(strings.ReplaceAll(maxSpeedVal, " knots", ""))
 		if err != nil {
 			return 0, err
 		}
@@ -879,7 +879,7 @@ func parseOsmWayMaxSpeedVal(maxSpeedVal string) (float64, error) {
 		// The maximum fixed numeric speed limit,
 		// followed by the appropriate unit,
 		// if not measured in km/h. When the value is in km/h then no unit should be included. For example, maxspeed=60 for 60 km/h and maxspeed=50 mph for 50 mph (note the space between the value and the unit).
-		currSpeed, err := strconv.ParseFloat(maxSpeedVal, 64)
+		currSpeed, err := util.ParseTextFloat64(maxSpeedVal)
 		if err != nil {
 			return 0, err
 		}

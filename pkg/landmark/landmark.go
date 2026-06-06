@@ -7,16 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 	"sort"
-	"strconv"
 	"sync"
 	"sync/atomic"
 
 	"github.com/bytedance/gopkg/util/gopool"
 
-	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -32,12 +28,37 @@ type Landmark struct {
 
 }
 
+type landmarkTable struct {
+	values []float64 // values[row*cols+col] = values2D[row][col]. lw: rows=landmarks, cols=vertices
+	rows   da.Index
+	cols   da.Index
+}
+
+func newLandmarkTable(rows, cols da.Index) *landmarkTable {
+	return &landmarkTable{values: make([]float64, rows*cols), rows: rows, cols: cols}
+}
+
+func (table *landmarkTable) row(row da.Index) []float64 {
+	start := row * table.cols
+	return table.values[start : start+table.cols]
+}
+
+func (table *landmarkTable) at(row da.Index, col da.Index) float64 {
+	return table.values[row*table.cols+col]
+}
+
+func (table *landmarkTable) matrix() [][]float64 {
+	rows := make([][]float64, table.rows)
+	for i := range rows {
+		rows[i] = append([]float64(nil), table.row(da.Index(i))...)
+	}
+	return rows
+}
+
 func NewLandmark() *Landmark {
 	lm := &Landmark{}
-	lw := make([][]float64, 0)
-	lm.lw.Store(lw)
-	vlw := make([][]float64, 0)
-	lm.vlw.Store(vlw)
+	lm.lw.Store(newLandmarkTable(0, 0))
+	lm.vlw.Store(newLandmarkTable(0, 0))
 	landmarks := make([]da.Index, 0)
 	lm.landmarks.Store(landmarks)
 	return lm
@@ -181,26 +202,19 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *da.Graph, log
 	if k > 64 {
 		return errors.New("too much landmarks!, the maximum number of landmarks is 64. ")
 	}
-	n := graph.NumberOfVertices()
+	n := da.Index(graph.NumberOfVertices())
 
-	if n < k {
-		lm.lw.Store(make([][]float64, 0))
+	if n < da.Index(k) {
+		lm.lw.Store(newLandmarkTable(0, 0))
+		lm.vlw.Store(newLandmarkTable(0, 0))
 		lm.landmarks.Store(make([]da.Index, 0))
 		return nil
 	}
 
 	logger.Info("computing landmarks....")
-	lw := make([][]float64, k)
+	lw := newLandmarkTable(da.Index(k), n)
 	landmarks := make([]da.Index, k)
-
-	vlw := make([][]float64, n)
-	for i := 0; i < n; i++ {
-		vlw[i] = make([]float64, k)
-	}
-
-	for i := 0; i < k; i++ {
-		lw[i] = make([]float64, n)
-	}
+	vlw := newLandmarkTable(n, da.Index(k))
 	landmarksVertices := lm.SelectLandmarksTwo(k, graph)
 
 	maxSearchSize := graph.NumberOfEdges()
@@ -212,11 +226,11 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *da.Graph, log
 		},
 	}
 
-	dijkstraInChan := make(chan queryParam, 6)
-	dijkstraRevInChan := make(chan queryParam, 6)
+	dijkstraInChan := make(chan queryParam, landmarkChanSize)
+	dijkstraRevInChan := make(chan queryParam, landmarkChanSize)
 
-	dijkstraOutChan := make(chan queryRet, 6)
-	dijkstraRevOutChan := make(chan queryRet, 6)
+	dijkstraOutChan := make(chan queryRet, landmarkChanSize)
+	dijkstraRevOutChan := make(chan queryRet, landmarkChanSize)
 
 	wg := sync.WaitGroup{}
 
@@ -246,8 +260,8 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *da.Graph, log
 		for res := range dijkstraRevOutChan {
 			il := res.getIndex()
 			sps := res.getSpCosts()
-			for v := 0; v < n; v++ {
-				vlw[v][il] = sps[v]
+			for v := 0; v < int(n); v++ {
+				vlw.values[v*k+il] = sps[v]
 			}
 			wg.Done()
 		}
@@ -257,7 +271,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *da.Graph, log
 		for res := range dijkstraOutChan {
 			il := res.getIndex()
 			sps := res.getSpCosts()
-			copy(lw[il], sps)
+			copy(lw.row(da.Index(il)), sps)
 			wg.Done()
 		}
 	}()
@@ -309,13 +323,13 @@ activeLandmarks berisi list index dari active query landmark (list index dari lm
 func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) float64 {
 	// O(k), k = number of landmarks
 	tighestLowerBound := -pkg.INF_WEIGHT
-	vlw := lm.vlw.Load().([][]float64)
-	lw := lm.lw.Load().([][]float64)
+	vlw := lm.vlw.Load().(*landmarkTable)
+	lw := lm.lw.Load().(*landmarkTable)
 	for i := 0; i < len(activeLandmarks); i++ {
 		landmarkId := activeLandmarks[i]
 
-		lbOne := vlw[u][landmarkId] - vlw[t][landmarkId]
-		lbTwo := lw[landmarkId][t] - lw[landmarkId][u]
+		lbOne := vlw.at(u, landmarkId) - vlw.at(t, landmarkId)
+		lbTwo := lw.at(landmarkId, t) - lw.at(landmarkId, u)
 
 		betterLb := 0.0
 		if util.Gt(lbOne, lbTwo) {
@@ -409,165 +423,11 @@ func (lm *Landmark) GetLandmarkVIds() []da.Index {
 }
 
 func (lm *Landmark) GetLandmarkVWeights() [][]float64 {
-	return lm.lw.Load().([][]float64)
+	return lm.lw.Load().(*landmarkTable).matrix()
 }
 
 func (lm *Landmark) GetVerticesLandmarkWeights() [][]float64 {
-	return lm.vlw.Load().([][]float64)
-}
-
-func (lm *Landmark) WriteLandmark(filename string, n int) error {
-	dir := filepath.Dir(filename)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
-		}
-	}
-
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	snp := s2.NewWriter(f)
-
-	defer snp.Close()
-
-	w := bufio.NewWriter(snp)
-
-	landmarks := lm.landmarks.Load().([]da.Index)
-	k := len(landmarks)
-	lw := lm.lw.Load().([][]float64)
-	vlw := lm.vlw.Load().([][]float64)
-
-	fmt.Fprintf(w, "%d %d\n", k, n)
-
-	for i := 0; i < k; i++ {
-		landmarkvId := landmarks[i]
-		fmt.Fprintf(w, "%d ", landmarkvId)
-
-		for v := 0; v < n; v++ {
-			sp := strconv.FormatFloat(lw[i][v], 'f', -1, 64)
-			fmt.Fprintf(w, "%s", sp)
-			if v < n-1 {
-				fmt.Fprintf(w, " ")
-			}
-		}
-
-		fmt.Fprintf(w, "\n")
-
-		for v := 0; v < n; v++ {
-			sp := strconv.FormatFloat(vlw[v][i], 'f', -1, 64)
-			fmt.Fprintf(w, "%s", sp)
-			if v < n-1 {
-				fmt.Fprintf(w, " ")
-			}
-		}
-		fmt.Fprintf(w, "\n")
-	}
-
-	if err = w.Flush(); err != nil {
-		return fmt.Errorf("WriteLandmark: failed to flush bufio writer: %w", err)
-	}
-
-	// http://stackoverflow.com/questions/10862375/when-to-flush-a-file-in-go
-	// idk tapi tests/driving_direction  di github actions selalu fails baru baru ini
-	// mungkin gara gara gak di f.Sync() dulu?
-	// padahal di laptop " cd tests/driving_direction &&  go test -v ." selalu pass
-	// aneh cok
-	if err = f.Sync(); err != nil {
-		f.Close()
-		return fmt.Errorf("metric.WriteToFile: failed to sync temp file: %w", err)
-	}
-
-	return nil
-}
-
-func ReadLandmark(filename string, readBuf *bufio.Reader) (*Landmark, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("ReadLandmark: failed to open file: %s: %w", filename, err)
-	}
-
-	snp := s2.NewReader(f)
-
-	if err != nil {
-		return nil, fmt.Errorf("ReadLandmark: failed to create new s2 reader for file: %s: %w", filename, err)
-	}
-	readBuf.Reset(snp)
-
-	line, err := util.ReadLine(readBuf)
-	if err != nil {
-		return nil, fmt.Errorf("ReadLandmark: failed to read header line from file %s: %w", filename, err)
-	}
-	ff := util.Fields(line)
-	k, err := strconv.Atoi(ff[0])
-	if err != nil {
-		return nil, fmt.Errorf("ReadLandmark: failed to parse landmark count from header %q in file %s: %w", line, filename, err)
-	}
-	n, err := da.ParseIndex(ff[1])
-	if err != nil {
-		return nil, fmt.Errorf("ReadLandmark: failed to parse vertex count from header %q in file %s: %w", line, filename, err)
-	}
-
-	landmarks := make([]da.Index, k)
-	lw := make([][]float64, k)
-	vlw := make([][]float64, n)
-
-	for v := 0; v < int(n); v++ {
-		vlw[v] = make([]float64, k)
-	}
-
-	for i := 0; i < k; i++ {
-		line, err := util.ReadLine(readBuf)
-		if err != nil {
-			return nil, fmt.Errorf("ReadLandmark: failed to read landmark row %d from file %s: %w", i, filename, err)
-		}
-		ff := util.Fields(line)
-
-		landmarkvId, err := da.ParseIndex(ff[0])
-		if err != nil {
-			return nil, fmt.Errorf("ReadLandmark: failed to parse landmark vertex id at row %d in file %s: %w", i, filename, err)
-		}
-
-		landmarks[i] = da.Index(landmarkvId)
-		lw[i] = make([]float64, n)
-
-		for j := 1; j < len(ff); j++ {
-			sp, err := strconv.ParseFloat(ff[j], 64)
-			if err != nil {
-				return nil, fmt.Errorf("ReadLandmark: failed to parse lw[%d][%d] at row %d in file %s: %w", i, j-1, i, filename, err)
-			}
-
-			lw[i][j-1] = sp
-		}
-
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, fmt.Errorf("ReadLandmark: failed to read reverse landmark row %d from file %s: %w", i, filename, err)
-		}
-		ff = util.Fields(line)
-		for v := 0; v < len(ff); v++ {
-			sp, err := strconv.ParseFloat(ff[v], 64)
-			if err != nil {
-				return nil, fmt.Errorf("ReadLandmark: failed to parse vlw[%d][%d] at reverse row %d in file %s: %w", v, i, i, filename, err)
-			}
-
-			vlw[v][i] = sp
-		}
-	}
-
-	if err = f.Close(); err != nil {
-		return nil, fmt.Errorf("ReadLandmark: failed to close file: %s: %w", filename, err)
-	}
-
-	lm := NewLandmark()
-	lm.lw.Store(lw)
-	lm.vlw.Store(vlw)
-	lm.landmarks.Store(landmarks)
-
-	return lm, nil
+	return lm.vlw.Load().(*landmarkTable).matrix()
 }
 
 func (lm *Landmark) UpdateLandmarks(landmarkFilePath string, readBuf *bufio.Reader) error {

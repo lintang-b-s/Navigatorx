@@ -1,9 +1,11 @@
 package shortestpath
 
 import (
+	"os"
+	"runtime"
 	"testing"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -14,16 +16,22 @@ import (
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
+func TestMain(m *testing.M) {
+	gopool.SetCap(int32(runtime.NumCPU()))
+	os.Exit(m.Run())
+}
+
 const (
-	graphFile        string = "./data/original_sp_test.graph"
-	overlayGraphFile string = "./data/overlay_graph_sp_test.graph"
-	metricsFile      string = "./data/metrics_sp_test.txt"
+	graphFile        string = "./data/original_sp_test.ngraph"
+	overlayGraphFile string = "./data/overlay_graph_sp_test.ngraph"
+	metricsFile      string = "./data/metrics_sp_test.nmt"
 	landmarkFile     string = ""
-	timeFunctionFile string = "./data/timefunction_sp_test.txt"
+	timeFunctionFile string = "./data/timefunction_sp_test.ntf"
 )
 
 func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine, *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
+	da.CoordinatePrecision = 1e6
 	es := tests.FlattenEdges(adjList)
 
 	op := osmparser.NewOSMParserV2()
@@ -38,7 +46,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 	op.SetNodeToOsmId(nodeToOsmId)
 
 	gs := da.NewGraphStorageWithSize(len(es), n)
-	g, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+	g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -66,19 +74,19 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 
 	mlp := mp.BuildMLP()
 
-	prep := preprocesser.NewPreprocessor(g, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(false)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
 	og := prep.GetOverlayGraph()
-	cust := customizer.NewCustomizerDirect(g, og, logger)
+	cust := customizer.NewCustomizerDirect(g, og, prep.GetTimeFunction(), logger)
 	m, err := cust.CustomizeDirect()
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	cf := costfunction.NewTimeCostFunctionEmpty()
+	cf := prep.GetTimeFunction()
 
 	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, landmarkFile)
 	if err != nil {

@@ -1,14 +1,14 @@
 package datastructure
 
 import (
-	"bufio"
+	"errors"
+	"fmt"
 	"io"
 	"os"
 	"sort"
-	"strconv"
-	"strings"
 
 	"github.com/klauspost/compress/s2"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type MapMatchVertex struct {
@@ -188,54 +188,50 @@ func (g *MapMatchingGraph) RebuildMapMatchGraphFromReader(r io.Reader) error {
 }
 
 func (g *MapMatchingGraph) Rebuild(r io.Reader) error {
-	s2r := s2.NewReader(r)
-	scanner := bufio.NewScanner(s2r)
+	reader := util.NewBinaryReader(s2.NewReader(r))
 
-	for scanner.Scan() {
-		line := scanner.Text()
-		parts := strings.Fields(line)
-		if len(parts) < 9 {
-			continue
+	for {
+		eId, err := reader.Uint32()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("read map-matching tile edge ID: %w", err)
 		}
 
-		eId, err := strconv.ParseUint(parts[0], 10, 32)
+		tailVId, err := reader.Uint32()
 		if err != nil {
-			return err
+			return fmt.Errorf("read map-matching tile edge %d tail: %w", eId, err)
+		}
+		headVId, err := reader.Uint32()
+		if err != nil {
+			return fmt.Errorf("read map-matching tile edge %d head: %w", eId, err)
+		}
+		length, err := reader.Float64()
+		if err != nil {
+			return fmt.Errorf("read map-matching tile edge %d length: %w", eId, err)
+		}
+
+		numGeom, err := reader.Uint32()
+		if err != nil {
+			return fmt.Errorf("read map-matching tile edge %d geometry count: %w", eId, err)
+		}
+
+		geom := make([]Coordinate, int(numGeom))
+		for i := range geom {
+			lat, err := reader.Int32()
+			if err != nil {
+				return fmt.Errorf("read map-matching tile edge %d geometry %d latitude: %w", eId, i, err)
+			}
+			lon, err := reader.Int32()
+			if err != nil {
+				return fmt.Errorf("read map-matching tile edge %d geometry %d longitude: %w", eId, i, err)
+			}
+			geom[i] = NewFixedCoordinate(lat, lon)
 		}
 
 		if _, ok := g.loadedEdgesSet[Index(eId)]; ok {
 			continue
-		}
-
-		tailVId, err := strconv.ParseUint(parts[1], 10, 32)
-		if err != nil {
-			return err
-		}
-		headVId, err := strconv.ParseUint(parts[2], 10, 32)
-		if err != nil {
-			return err
-		}
-		length, err := strconv.ParseFloat(parts[3], 64)
-		if err != nil {
-			return err
-		}
-
-		numGeom, err := strconv.Atoi(parts[4])
-		if err != nil {
-			return err
-		}
-
-		geom := make([]Coordinate, numGeom)
-		for i := 0; i < numGeom; i++ {
-			lat, err := strconv.ParseFloat(parts[5+i*2], 64)
-			if err != nil {
-				return err
-			}
-			lon, err := strconv.ParseFloat(parts[6+i*2], 64)
-			if err != nil {
-				return err
-			}
-			geom[i] = Coordinate{Lat: lat, Lon: lon}
 		}
 
 		g.edges = append(g.edges, MapMatchEdge{
@@ -247,10 +243,6 @@ func (g *MapMatchingGraph) Rebuild(r io.Reader) error {
 		})
 
 		g.loadedEdgesSet[Index(eId)] = 0 // dummy value, diupdate setelah sorting edges by its tail
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
 	}
 
 	// sort edges by tail

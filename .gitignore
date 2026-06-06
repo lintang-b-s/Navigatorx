@@ -2,7 +2,9 @@ bin/
 logs/
 *.svg
 *.pl
-*.graph
+*.ngraph
+*.nmt
+*.ntm
 *.csv
 *.osm.pbf
 *.text
@@ -33,7 +35,7 @@ dataori/
 
 *.tpgr
 *.coordinate
-*.lm
+*.nlm
 
 pprof_cheatsheet.txt
 navigatorx-cpu-profile
@@ -86,4 +88,5 @@ data/eval/
 *.gpx
 
 *.zip
-
+*.ntf
+bin/default.pgo

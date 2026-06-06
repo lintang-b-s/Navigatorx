@@ -244,7 +244,7 @@ func (om *OnlineMapMatchMHTClient) needToReset(gps *da.GPSPoint, matchedSegment 
 	matchCoord := matchedSegment.GetMatchedCoord()
 	dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
 		gpsLat, gpsLon,
-		matchCoord.Lat, matchCoord.Lon,
+		matchCoord.GetLat(), matchCoord.GetLon(),
 	))
 	return util.Gt(dist, DISTANCE_RESET_THRESHOLD)
 }
@@ -352,7 +352,7 @@ func (om *OnlineMapMatchMHTClient) projectAllCandidates(gps *da.GPSPoint, candid
 				gpsCoord,
 			)
 			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
-				projectedPoint.Lat, projectedPoint.Lon,
+				projectedPoint.GetLat(), projectedPoint.GetLon(),
 				gpsCoord.GetLat(), gpsCoord.GetLon(),
 			))
 

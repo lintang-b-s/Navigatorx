@@ -6,6 +6,7 @@ import (
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -14,29 +15,38 @@ import (
 )
 
 type Preprocessor struct {
-	graph                               *da.Graph
-	mlp                                 *da.MultilevelPartition
-	overlayGraph                        *da.OverlayGraph
-	logger                              *zap.Logger
-	newVIdMap                           []da.Index
-	newToOldVIdMap                      map[da.Index]da.Index
-	edgeInfoIds                         [][]da.Index
-	graphFilename, overlayGraphFilename string
+	graph                                                                  *da.Graph
+	mlp                                                                    *da.MultilevelPartition
+	overlayGraph                                                           *da.OverlayGraph
+	logger                                                                 *zap.Logger
+	newVIdMap                                                              []da.Index
+	newToOldVIdMap                                                         map[da.Index]da.Index
+	edgeInfoIds                                                            [][]da.Index
+	timeFunction                                                           *costfunction.TimeFunction
+	graphFilename, overlayGraphFilename, preprocessingTimeFunctionFilename string
+	writeTiles                                                             bool
 }
 
-func NewPreprocessor(graph *da.Graph, mlp *da.MultilevelPartition,
+func NewPreprocessor(graph *da.Graph, timeFunction *costfunction.TimeFunction, mlp *da.MultilevelPartition,
 	logger *zap.Logger, gFilename string, ogFilename string, edgeInfoIds [][]da.Index,
 ) *Preprocessor {
 	return &Preprocessor{
-		graph:                graph,
-		mlp:                  mlp,
-		logger:               logger,
-		newVIdMap:            make([]da.Index, graph.NumberOfVertices()),
-		newToOldVIdMap:       make(map[da.Index]da.Index, graph.NumberOfVertices()),
-		graphFilename:        gFilename,
-		overlayGraphFilename: ogFilename,
-		edgeInfoIds:          edgeInfoIds,
+		graph:                             graph,
+		mlp:                               mlp,
+		logger:                            logger,
+		newVIdMap:                         make([]da.Index, graph.NumberOfVertices()),
+		newToOldVIdMap:                    make(map[da.Index]da.Index, graph.NumberOfVertices()),
+		graphFilename:                     gFilename,
+		overlayGraphFilename:              ogFilename,
+		preprocessingTimeFunctionFilename: costfunction.PreprocessingTimeFunctionPath(gFilename),
+		edgeInfoIds:                       edgeInfoIds,
+		timeFunction:                      timeFunction,
+		writeTiles:                        true,
 	}
+}
+
+func (p *Preprocessor) SetWriteTiles(writeTiles bool) {
+	p.writeTiles = writeTiles
 }
 
 // Preprocesssing. Preprocessing (building Overlay Graph) phase. see section 5.1 Metric Independent Preprocessing (Overlay Topology) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
@@ -48,7 +58,7 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 	p.SortByCellNumber()
 
 	p.overlayGraph = da.NewOverlayGraph(p.graph, p.mlp)
-	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.graph")
+	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.ngraph")
 	for l := p.overlayGraph.GetLevelInfo().GetLevelCount(); l >= 1; l-- {
 		p.logger.Sugar().Infof("overlay graph level %v: number of overlay vertices %v", l, p.overlayGraph.NumberOfVerticesInLevel(l))
 	}
@@ -56,7 +66,7 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Running Kosaraju's algorithm to find strongly connected components (SCCs)...")
 	p.graph.RunKosaraju()
 
-	p.logger.Sugar().Infof("Writing graph to ./data/original.graph")
+	p.logger.Sugar().Infof("Writing graph to ./data/original.ngraph")
 
 	if writefile {
 		err := p.overlayGraph.WriteToFile(p.overlayGraphFilename)
@@ -65,13 +75,17 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 		}
 
 		// write graph tiles
-		tilingEngine := tiler.NewTilingEngine(p.graph, p.logger)
-		err = tilingEngine.PreprocessTiles()
-		if err != nil {
-			return err
+		if p.writeTiles {
+			tilingEngine := tiler.NewTilingEngine(p.graph, p.logger, p.timeFunction)
+			if err := tilingEngine.PreprocessTiles(); err != nil {
+				return err
+			}
 		}
 
-		return p.graph.WriteGraph(p.graphFilename)
+		if err := p.graph.WriteGraph(p.graphFilename); err != nil {
+			return err
+		}
+		return p.timeFunction.WritePreprocessingToFile(p.preprocessingTimeFunctionFilename)
 	}
 	return nil
 }
@@ -134,8 +148,6 @@ func (p *Preprocessor) SortByCellNumber() {
 			newOEdge := da.NewOutEdge(
 				oEdge.GetEdgeId(),
 				oEdge.GetHead(),
-				oEdge.GetWeight(),
-				oEdge.GetLength(),
 				oEdge.GetEntryPoint(),
 				oEdge.GetHighwayType(),
 			)
@@ -152,8 +164,6 @@ func (p *Preprocessor) SortByCellNumber() {
 			newInEdge := da.NewInEdge(
 				inEdge.GetEdgeId(),
 				inEdge.GetTail(),
-				inEdge.GetWeight(),
-				inEdge.GetLength(),
 				inEdge.GetExitPoint(),
 				inEdge.GetHighwayType(),
 			)
@@ -231,9 +241,10 @@ func (p *Preprocessor) SortByCellNumber() {
 	lastVertex := p.graph.GetVertex(da.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
 	newVertices := make([]da.Vertex, p.graph.GetNumberOfVerticesWithDummyVertex())
 
-	edgeGeohashes := make([]uint64, p.graph.NumberOfEdges())
+	edgeGeohashes := make([]uint32, p.graph.NumberOfEdges())
 
 	newVIdToOldVId := make([]da.Index, p.graph.NumberOfVertices())
+	oldOutEdgeIDs := make([]da.Index, 0, p.graph.NumberOfOutEdges())
 	for i := da.Index(0); i < da.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
 		p.graph.SetOutEdgeCellOffset(i, newOutEdgeId)
 		p.graph.SetInEdgeCellOffset(i, newInEdgeId)
@@ -268,12 +279,12 @@ func (p *Preprocessor) SortByCellNumber() {
 				newOutEdgeHead := p.newVIdMap[oldOutEdge.GetHead()]
 
 				newOutEdge := da.NewOutEdge(
-					newOutEdgeId, newOutEdgeHead, oldOutEdge.GetWeight(),
-					oldOutEdge.GetLength(), oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
+					newOutEdgeId, newOutEdgeHead, oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
 				)
 				newOutEdge.SetFlag(oldOutEdge.GetFlag())
 
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
+				oldOutEdgeIDs = append(oldOutEdgeIDs, oldOutEdge.GetEdgeId())
 
 				// update edge metadata
 				vExitPoint := p.graph.GetExitOrder(vOldId, oldOutEdge.GetEdgeId())
@@ -326,7 +337,7 @@ func (p *Preprocessor) SortByCellNumber() {
 					tailCoord := newVertices[vId].GetCoordinate()
 
 					eGeoHash := geohash.EncodeIntWithPrecision(tailCoord.GetLat(), tailCoord.GetLon(), tiler.GeohashBits)
-					edgeGeohashes[newOutEdgeId] = eGeoHash
+					edgeGeohashes[newOutEdgeId] = uint32(eGeoHash)
 				} else if isRoadNetworkGraph {
 					newOsmWayIds.Append(uint64(da.INVALID_OSM_WAY_ID))
 				}
@@ -339,8 +350,7 @@ func (p *Preprocessor) SortByCellNumber() {
 
 				newInEdgeTail := p.newVIdMap[oldInEdge.GetTail()]
 				newInEdge := da.NewInEdge(
-					newInEdgeId, newInEdgeTail, oldInEdge.GetWeight(),
-					oldInEdge.GetLength(), oldInEdge.GetExitPoint(),
+					newInEdgeId, newInEdgeTail, oldInEdge.GetExitPoint(),
 					oldInEdge.GetHighwayType(),
 				)
 
@@ -365,6 +375,7 @@ func (p *Preprocessor) SortByCellNumber() {
 	p.graph.SetVertexOsmIds(newVerticesOsmIds)
 	p.graph.SetIsCurvedFlags(newIsCurvedFlag)
 	p.graph.SetEdgeGeohashes(edgeGeohashes)
+	p.timeFunction.ReorderEdges(oldOutEdgeIDs)
 
 }
 
@@ -382,4 +393,8 @@ func (p *Preprocessor) GetOverlayGraph() *da.OverlayGraph {
 
 func (p *Preprocessor) GetGraph() *da.Graph {
 	return p.graph
+}
+
+func (p *Preprocessor) GetTimeFunction() *costfunction.TimeFunction {
+	return p.timeFunction
 }

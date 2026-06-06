@@ -355,7 +355,7 @@ func (pu *PathUnpacker) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.
 		}
 
 		// relax all out edges of u
-		pu.engine.graph.ForOutEdgesOf(uId, pu.engine.graph.GetEntryOrder(uId, adjuEntryId), func(eId, head da.Index, weight, length float64, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
+		pu.engine.graph.ForOutEdgesOf(uId, pu.engine.graph.GetEntryOrder(uId, adjuEntryId), func(eId, head da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
 			hwType pkg.OsmHighwayType) {
 			vId := head
 
@@ -436,7 +436,7 @@ func (crp *CRPRoutingEngine) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates
 
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
-		totalDistance += crp.graph.GetOutEdgeLength(eId)
+		totalDistance += crp.GetSegmentLength(eId, true)
 		capacity += crp.graph.GetEdgeGeometryLength(eId)
 	}
 
@@ -456,7 +456,7 @@ func (crp *CRPRoutingEngine) GetPathDistance(edgeIdPath []da.Index) float64 {
 
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
-		totalDistance += crp.graph.GetOutEdgeLength(eId)
+		totalDistance += crp.GetSegmentLength(eId, true)
 	}
 
 	return totalDistance

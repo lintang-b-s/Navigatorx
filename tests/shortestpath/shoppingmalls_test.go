@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -56,12 +55,12 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 	}
 	ff := util.Fields(line)
 
-	N, err = strconv.Atoi(ff[0])
+	N, err = util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	M, err = strconv.Atoi(ff[1])
+	M, err = util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -77,17 +76,17 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 		ff := util.Fields(line)
-		fl, err = strconv.Atoi(ff[0])
+		fl, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		x, err = strconv.Atoi(ff[1])
+		x, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		y, err = strconv.Atoi(ff[2])
+		y, err = util.ParseTextInt(ff[2])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -128,17 +127,17 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 		ff = util.Fields(line)
-		a, err = strconv.Atoi(ff[0])
+		a, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		b, err = strconv.Atoi(ff[1])
+		b, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		tipe = ff[2]
+		tipe = string(ff[2])
 
 		placeA := places[a]
 		placeB := places[b]
@@ -160,7 +159,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	q, err := strconv.Atoi(line)
+	q, err := util.ParseTextInt(line)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -182,12 +181,12 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		}
 		ff = util.Fields(line)
 
-		a, err = strconv.Atoi(ff[0])
+		a, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		b, err = strconv.Atoi(ff[1])
+		b, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -227,7 +226,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 
 		expectedPath := make([]int, len(ff))
 		for k := 0; k < len(ff); k++ {
-			expectedPath[k], err = strconv.Atoi(ff[k])
+			expectedPath[k], err = util.ParseTextInt(ff[k])
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}

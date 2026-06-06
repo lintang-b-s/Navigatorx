@@ -9,7 +9,6 @@ import (
 	"io"
 	"math/rand"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -65,15 +64,15 @@ const (
 	melbourneResultPolyline   = "./data/eval/mapmatching/melbourne/result_polyline.txt"
 	melbourneGPSPolyline      = "./data/eval/mapmatching/melbourne/gps_track_polyline.txt"
 
-	graphFile                         string = "./data/original_eval_mm_hl.graph"
-	overlayGraphFile                  string = "./data/overlay_graph_eval_mm_hl.graph"
-	metricsFile                       string = "./data/metrics_eval_mm_hl.txt"
-	transitionMatrixFilepath                 = "./data/eval/mapmatching/omm_transition_history_id_hl.txt"
+	graphFile                         string = "./data/original_eval_mm_hl.ngraph"
+	overlayGraphFile                  string = "./data/overlay_graph_eval_mm_hl.ngraph"
+	metricsFile                       string = "./data/metrics_eval_mm_hl.nmt"
+	transitionMatrixFilepath                 = "./data/eval/mapmatching/omm_transition_history_id_hl.ntm"
 	mapmatchingDatasetBundleDriveLink        = "https://drive.google.com/uc?export=download&id=1WY0BPpu1M-e7grP33B_7BFrHlkj6kd_H"
 
 	mlpFile                 = "./data/eval/mapmatching/online_map_match_mlp_hengfengli.mlp"
-	landmarkFile            = "./data/eval/mapmatching/landmark_hl.lm"
-	timeFunctionFile string = "./data/timefunction_eval_mm_hl.txt"
+	landmarkFile            = "./data/eval/mapmatching/landmark_hl.nlm"
+	timeFunctionFile string = "./data/timefunction_eval_mm_hl.ntf"
 )
 
 var (
@@ -152,7 +151,7 @@ func parseMelbourneVertexFile(filepath string) ([]melbourneVertex, error) {
 	if err != nil {
 		return nil, err
 	}
-	expectedVertices, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedVertices, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, fmt.Errorf("parse vertex header count: %w", err)
 	}
@@ -171,19 +170,19 @@ func parseMelbourneVertexFile(filepath string) ([]melbourneVertex, error) {
 			return nil, fmt.Errorf("invalid vertex line: %q", line)
 		}
 
-		id, err := strconv.ParseInt(ff[0], 10, 64)
+		id, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, fmt.Errorf("parse vertex id: %w", err)
 		}
-		osmID, err := strconv.ParseInt(ff[1], 10, 64)
+		osmID, err := util.ParseTextInt64(ff[1])
 		if err != nil {
 			return nil, fmt.Errorf("parse vertex osm id: %w", err)
 		}
-		lon, err := strconv.ParseFloat(ff[2], 64)
+		lon, err := util.ParseTextFloat64(ff[2])
 		if err != nil {
 			return nil, fmt.Errorf("parse vertex lon: %w", err)
 		}
-		lat, err := strconv.ParseFloat(ff[3], 64)
+		lat, err := util.ParseTextFloat64(ff[3])
 		if err != nil {
 			return nil, fmt.Errorf("parse vertex lat: %w", err)
 		}
@@ -216,7 +215,7 @@ func parseMelbourneEdgesFile(filepath string) ([]melbourneEdge, error) {
 	if err != nil {
 		return nil, err
 	}
-	expectedEdges, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedEdges, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, fmt.Errorf("parse edges header count: %w", err)
 	}
@@ -234,19 +233,19 @@ func parseMelbourneEdgesFile(filepath string) ([]melbourneEdge, error) {
 		if len(ff) < 4 {
 			return nil, fmt.Errorf("invalid edges line: %q", line)
 		}
-		id, err := strconv.ParseInt(ff[0], 10, 64)
+		id, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, fmt.Errorf("parse edge id: %w", err)
 		}
-		startID, err := strconv.ParseInt(ff[1], 10, 64)
+		startID, err := util.ParseTextInt64(ff[1])
 		if err != nil {
 			return nil, fmt.Errorf("parse edge start id: %w", err)
 		}
-		endID, err := strconv.ParseInt(ff[2], 10, 64)
+		endID, err := util.ParseTextInt64(ff[2])
 		if err != nil {
 			return nil, fmt.Errorf("parse edge end id: %w", err)
 		}
-		dist, err := strconv.ParseFloat(ff[3], 64)
+		dist, err := util.ParseTextFloat64(ff[3])
 		if err != nil {
 			return nil, fmt.Errorf("parse edge distance: %w", err)
 		}
@@ -273,7 +272,7 @@ func parseMelbourneStreetsFile(filepath string) ([]melbourneStreet, map[int64]me
 	if err != nil {
 		return nil, nil, err
 	}
-	expectedEdges, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedEdges, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, nil, fmt.Errorf("parse streets header count: %w", err)
 	}
@@ -291,35 +290,35 @@ func parseMelbourneStreetsFile(filepath string) ([]melbourneStreet, map[int64]me
 		if len(ff) < 10 {
 			return nil, nil, fmt.Errorf("invalid streets line: %q", line)
 		}
-		id, err := strconv.ParseInt(ff[0], 10, 64)
+		id, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse street edge id: %w", err)
 		}
-		startID, err := strconv.ParseInt(ff[1], 10, 64)
+		startID, err := util.ParseTextInt64(ff[1])
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse street start id: %w", err)
 		}
-		startLon, err := strconv.ParseFloat(ff[2], 64)
+		startLon, err := util.ParseTextFloat64(ff[2])
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse street start lon: %w", err)
 		}
-		startLat, err := strconv.ParseFloat(ff[3], 64)
+		startLat, err := util.ParseTextFloat64(ff[3])
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse street start lat: %w", err)
 		}
-		endID, err := strconv.ParseInt(ff[4], 10, 64)
+		endID, err := util.ParseTextInt64(ff[4])
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse street end id: %w", err)
 		}
-		endLon, err := strconv.ParseFloat(ff[5], 64)
+		endLon, err := util.ParseTextFloat64(ff[5])
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse street end lon: %w", err)
 		}
-		endLat, err := strconv.ParseFloat(ff[6], 64)
+		endLat, err := util.ParseTextFloat64(ff[6])
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse street end lat: %w", err)
 		}
-		dist, err := strconv.ParseFloat(ff[7], 64)
+		dist, err := util.ParseTextFloat64(ff[7])
 		if err != nil {
 			return nil, nil, fmt.Errorf("parse street distance: %w", err)
 		}
@@ -419,7 +418,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	op := osmparser.NewOSMParserV2()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(vertices)), true)
+	graph, timeFunction, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(vertices)), true)
 	graph.SetGraphStorage(graphStorage)
 
 	ps := make([]int, len(partitionSizes))
@@ -449,7 +448,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		panic(err)
 	}
 
-	prep := prepo.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: prep.PreProcessing() failed: %v", err)
@@ -584,7 +583,7 @@ func readMelbourneGPSTrack(filePath string) ([]melbourneGPSPoint, error) {
 	if err != nil {
 		return nil, err
 	}
-	expectedPoints, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedPoints, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, fmt.Errorf("parse gps point count in %s: %w", filePath, err)
 	}
@@ -599,7 +598,7 @@ func readMelbourneGPSTrack(filePath string) ([]melbourneGPSPoint, error) {
 			return nil, err
 		}
 		lineNo++
-		if strings.TrimSpace(line) == "" {
+		if len(strings.TrimSpace(line)) == 0 {
 			continue
 		}
 
@@ -608,15 +607,15 @@ func readMelbourneGPSTrack(filePath string) ([]melbourneGPSPoint, error) {
 			return nil, fmt.Errorf("invalid gps line %d in %s: %q", lineNo, filePath, line)
 		}
 
-		timestamp, err := strconv.ParseInt(ff[0], 10, 64)
+		timestamp, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, fmt.Errorf("parse gps timestamp line %d in %s: %w", lineNo, filePath, err)
 		}
-		lat, err := strconv.ParseFloat(ff[1], 64)
+		lat, err := util.ParseTextFloat64(ff[1])
 		if err != nil {
 			return nil, fmt.Errorf("parse gps latitude line %d in %s: %w", lineNo, filePath, err)
 		}
-		lon, err := strconv.ParseFloat(ff[2], 64)
+		lon, err := util.ParseTextFloat64(ff[2])
 		if err != nil {
 			return nil, fmt.Errorf("parse gps longitude line %d in %s: %w", lineNo, filePath, err)
 		}
@@ -647,7 +646,7 @@ func readMelbourneGroundTruthEdges(filePath string) ([]int64, error) {
 	if err != nil {
 		return nil, err
 	}
-	expectedEdges, err := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+	expectedEdges, err := util.ParseTextInt64(strings.TrimSpace(line))
 	if err != nil {
 		return nil, fmt.Errorf("parse groundtruth edge count in %s: %w", filePath, err)
 	}
@@ -662,7 +661,7 @@ func readMelbourneGroundTruthEdges(filePath string) ([]int64, error) {
 			return nil, err
 		}
 		lineNo++
-		if strings.TrimSpace(line) == "" {
+		if len(strings.TrimSpace(line)) == 0 {
 			continue
 		}
 
@@ -670,7 +669,7 @@ func readMelbourneGroundTruthEdges(filePath string) ([]int64, error) {
 		if len(ff) < 1 {
 			return nil, fmt.Errorf("invalid groundtruth line %d in %s: %q", lineNo, filePath, line)
 		}
-		edgeID, err := strconv.ParseInt(ff[0], 10, 64)
+		edgeID, err := util.ParseTextInt64(ff[0])
 		if err != nil {
 			return nil, fmt.Errorf("parse groundtruth edge id line %d in %s: %w", lineNo, filePath, err)
 		}
@@ -750,7 +749,7 @@ func evaluateMatchedRoute(mapMatchPointResult []*da.MatchedGPSPoint, groundTruth
 }
 
 func main() {
-	_, graph, logger, N, graphEdgeIDToMelbourneEdgeID, edgeLengthByID, err := buildCRPGraph()
+	re, graph, logger, N, graphEdgeIDToMelbourneEdgeID, edgeLengthByID, err := buildCRPGraph()
 	if err != nil {
 		panic(err)
 	}
@@ -758,7 +757,9 @@ func main() {
 	rtree := spatialindex.NewRtree()
 	rtree.Build(graph, logger)
 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHT(graph, rtree, 8.33333, 8.3333, 0.001, 5.0, 0.000001,
-		0.06, 3, N) // speed in meter/s
+		0.06, 3, N, func(eID da.Index) float64 {
+			return re.GetRoutingEngine().GetSegmentLength(eID, true)
+		}) // speed in meter/s
 
 	gpsTraj, err := readMelbourneGPSTrack(melbourneGPSTrackFilepath)
 	if err != nil {

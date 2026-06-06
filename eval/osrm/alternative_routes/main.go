@@ -9,7 +9,6 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
-	"strconv"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -86,19 +85,19 @@ func loadQueries(path string) ([]queryParam, error) {
 		}
 		ss := util.Fields(line)
 
-		srcLat, err := strconv.ParseFloat(ss[0], 64)
+		srcLat, err := util.ParseTextFloat64(ss[0])
 		if err != nil {
 			return []queryParam{}, err
 		}
-		srcLon, err := strconv.ParseFloat(ss[1], 64)
+		srcLon, err := util.ParseTextFloat64(ss[1])
 		if err != nil {
 			return []queryParam{}, err
 		}
-		destLat, err := strconv.ParseFloat(ss[2], 64)
+		destLat, err := util.ParseTextFloat64(ss[2])
 		if err != nil {
 			return []queryParam{}, err
 		}
-		destLon, err := strconv.ParseFloat(ss[3], 64)
+		destLon, err := util.ParseTextFloat64(ss[3])
 		if err != nil {
 			return []queryParam{}, err
 		}

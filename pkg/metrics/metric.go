@@ -4,12 +4,8 @@ package metrics
 import (
 	"bufio"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strconv"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -25,6 +21,32 @@ type Metric struct {
 	lastSegmentSpeedFiles, lastTurnPenaltyFiles atomic.Value
 	metricFilepath, timeFunctionFilePath        string
 	lock                                        sync.Mutex
+}
+
+type flatFloat64Table struct {
+	values  []float64
+	offsets []uint32
+}
+
+func newFlatFloat64Table(rowLengths []uint32) *flatFloat64Table {
+	table := &flatFloat64Table{
+		offsets: make([]uint32, len(rowLengths)+1),
+	}
+	var total uint64
+	for i, length := range rowLengths {
+		total += uint64(length)
+		table.offsets[i+1] = uint32(total)
+	}
+	table.values = make([]float64, total)
+	return table
+}
+
+func (table *flatFloat64Table) row(index da.Index) []float64 {
+	return table.values[table.offsets[index]:table.offsets[index+1]]
+}
+
+func (table *flatFloat64Table) value(row da.Index, offset da.Index) float64 {
+	return table.values[table.offsets[row]+uint32(offset)]
 }
 
 func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *da.OverlayWeights, metricFilepath string, readBuf *bufio.Reader,
@@ -50,8 +72,9 @@ func NewMetric(numOfVertices int, timeFunctionFilePath string, overlayWeights *d
 		// lastTurnPenaltyFiles:  make([]string, 0),
 	}
 	m.weights.Store(overlayWeights)
-	m.entryStallingTables.Store(make([][]float64, numOfVertices))
-	m.exitStallingTables.Store(make([][]float64, numOfVertices))
+	emptyLengths := make([]uint32, numOfVertices)
+	m.entryStallingTables.Store(newFlatFloat64Table(emptyLengths))
+	m.exitStallingTables.Store(newFlatFloat64Table(emptyLengths))
 	m.costFunction.Store(tf)
 
 	m.lastSegmentSpeedFiles.Store(make([]string, 0))
@@ -107,21 +130,28 @@ karena kita incorporate turn costs, kita menggunakan turn-aware dijkstra (see re
 di implementasi ini kita pakai edgeId sebagai item dari priority queue node
 */
 func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.Graph) {
-	entryStallingtables := met.entryStallingTables.Load().([][]float64)
-	exitStallingTables := met.exitStallingTables.Load().([][]float64)
+	vertexCount := graph.NumberOfVertices()
+	entryLengths := make([]uint32, vertexCount)
+	exitLengths := make([]uint32, vertexCount)
+	for vID := 0; vID < vertexCount; vID++ {
+		n := uint64(graph.GetInDegree(da.Index(vID)))
+		m := uint64(graph.GetOutDegree(da.Index(vID)))
+		entryLengths[vID] = uint32(n * n)
+		exitLengths[vID] = uint32(m * m)
+	}
+	entryStallingtables := newFlatFloat64Table(entryLengths)
+	exitStallingTables := newFlatFloat64Table(exitLengths)
 	for vId := da.Index(0); vId < da.Index(graph.NumberOfVertices()); vId++ {
 
 		n := graph.GetInDegree(vId)
 		m := graph.GetOutDegree(vId)
 
 		if n == 0 && m == 0 {
-			entryStallingtables[vId] = make([]float64, 0)
-			exitStallingTables[vId] = make([]float64, 0)
 			continue
 		}
 
-		entryStallingTable := make([]float64, n*n)
-		exitStallingTable := make([]float64, m*m)
+		entryStallingTable := entryStallingtables.row(vId)
+		exitStallingTable := exitStallingTables.row(vId)
 
 		for i := da.Index(0); i < n; i++ {
 			for j := da.Index(0); j < n; j++ {
@@ -133,7 +163,6 @@ func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.
 				}
 
 				// ini compute max_k{T_v[i,k] - T_v[j,k]}
-
 				entryStallingTable[i*n+j] = maxDiff
 			}
 		}
@@ -152,9 +181,6 @@ func (met *Metric) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *da.
 				exitStallingTable[i*m+j] = maxDiff
 			}
 		}
-
-		entryStallingtables[vId] = entryStallingTable
-		exitStallingTables[vId] = exitStallingTable
 	}
 	met.entryStallingTables.Store(entryStallingtables)
 	met.exitStallingTables.Store(exitStallingTables)
@@ -164,12 +190,29 @@ func (met *Metric) GetWeights() *da.OverlayWeights {
 	return met.weights.Load()
 }
 
+func (met *Metric) SetTimeFunction(tf *costfunction.TimeFunction) {
+	met.costFunction.Store(tf)
+}
+
+func (met *Metric) GetCostFunction() *costfunction.TimeFunction {
+	return met.costFunction.Load()
+}
+
 // GetWeight. get weight dari outEdge dengan id eId
 // eId adalah id/index dari outEdge yang ingin didapat weightnya
-func (met *Metric) GetWeight(eId da.Index,
-	eDefaultWeight float64, eLength float64) float64 {
+func (met *Metric) GetWeight(eId da.Index) float64 {
 	cf := met.costFunction.Load()
-	return cf.GetWeight(eId, eDefaultWeight, eLength)
+	return cf.GetWeight(eId)
+}
+
+func (met *Metric) GetWeightFromLength(eId da.Index, length float64) float64 {
+	cf := met.costFunction.Load()
+	return cf.GetWeightFromLength(eId, length)
+}
+
+func (met *Metric) GetSegmentLength(eId da.Index) float64 {
+	cf := met.costFunction.Load()
+	return cf.GetSegmentLength(eId)
 }
 
 func (met *Metric) GetSegmentSpeed(eId da.Index) float64 {
@@ -179,12 +222,12 @@ func (met *Metric) GetSegmentSpeed(eId da.Index) float64 {
 
 // GetEntryStallingTableCost. get precomputed max_k{T_v[i,k] - T_v[j,k]}
 func (met *Metric) GetEntryStallingTableCost(uId da.Index, offset da.Index) float64 {
-	return met.entryStallingTables.Load().([][]float64)[uId][offset]
+	return met.entryStallingTables.Load().(*flatFloat64Table).value(uId, offset)
 }
 
 // GetExitStallingTableCost. get precomputed  max_k{T_v[k,i] - T_v[k,j]}
 func (met *Metric) GetExitStallingTableCost(uId da.Index, offset da.Index) float64 {
-	return met.exitStallingTables.Load().([][]float64)[uId][offset]
+	return met.exitStallingTables.Load().(*flatFloat64Table).value(uId, offset)
 }
 
 func (met *Metric) GetShortcutWeight(offset da.Index) float64 {
@@ -217,302 +260,7 @@ func (met *Metric) GetLastTurnPenaltyFiles() []string {
 	return met.lastTurnPenaltyFiles.Load().([]string)
 }
 
-func (met *Metric) WriteToFile(filename string) error {
-	dir := filepath.Dir(filename)
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		if err := os.MkdirAll(dir, 0755); err != nil {
-			return err
-		}
-	}
-
-	tmpFile, err := os.CreateTemp(dir, ".metrics_tmp_*")
-	if err != nil {
-		return fmt.Errorf("metrics.WriteToFile: failed to create temp file in %v: %w", dir, err)
-	}
-	tmpName := tmpFile.Name()
-
-	succeeded := false
-	defer func() {
-		if !succeeded {
-			os.Remove(tmpName)
-		}
-	}()
-
-	w := bufio.NewWriter(tmpFile)
-
-	weights := met.weights.Load().GetWeights()
-	entryStallingTables := met.entryStallingTables.Load().([][]float64)
-	exitStallingTables := met.exitStallingTables.Load().([][]float64)
-	fmt.Fprintf(w, "%d %d %d\n", len(weights), len(entryStallingTables), len(exitStallingTables))
-	for i, weight := range weights {
-
-		_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(weight, 'f', -1, 64))
-		if err != nil {
-			tmpFile.Close()
-			return fmt.Errorf("metrics.WriteToFile: failed to write metrics weight %v: %w", weight, err)
-		}
-		if i < len(weights)-1 {
-			_, err := fmt.Fprintf(w, " ")
-			if err != nil {
-				tmpFile.Close()
-				return fmt.Errorf("metrics.WriteToFile: failed to write metrics weight: %w", err)
-			}
-		}
-	}
-	_, err = fmt.Fprintf(w, "\n")
-	if err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
-	}
-
-	for i := range entryStallingTables {
-		if entryStallingTables[i] == nil {
-			_, err = fmt.Fprintf(w, "0\n")
-			if err != nil {
-				tmpFile.Close()
-				return fmt.Errorf("metrics.WriteToFile: failed to write 0\n: %w", err)
-			}
-
-			continue
-		}
-		_, err = fmt.Fprintf(w, "%d ", len(entryStallingTables[i]))
-		if err != nil {
-			tmpFile.Close()
-			return fmt.Errorf("metrics.WriteToFile: failed to write len(entryStallingTables[i]): %v: %w", len(entryStallingTables[i]), err)
-		}
-		for j, val := range entryStallingTables[i] {
-			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
-			if err != nil {
-				tmpFile.Close()
-				return fmt.Errorf("metrics.WriteToFile: failed to write entryStallingTables[i]: %v: %w", entryStallingTables[i], err)
-			}
-
-			if j < len(entryStallingTables[i])-1 {
-				_, err = fmt.Fprintf(w, " ")
-				if err != nil {
-					tmpFile.Close()
-					return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
-				}
-			}
-		}
-		_, err = fmt.Fprintf(w, "\n")
-		if err != nil {
-			tmpFile.Close()
-			return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
-		}
-	}
-
-	for i := range exitStallingTables {
-		if exitStallingTables[i] == nil {
-			_, err = fmt.Fprintf(w, "0\n")
-			if err != nil {
-				tmpFile.Close()
-				return fmt.Errorf("metrics.WriteToFile: failed to write 0\n: %w", err)
-			}
-			continue
-		}
-		_, err = fmt.Fprintf(w, "%d ", len(exitStallingTables[i]))
-		if err != nil {
-			tmpFile.Close()
-			return fmt.Errorf("metrics.WriteToFile: failed to write len(exitStallingTables[i]): %v: %w", len(exitStallingTables[i]), err)
-		}
-		for j, val := range exitStallingTables[i] {
-			_, err = fmt.Fprintf(w, "%s", strconv.FormatFloat(val, 'f', -1, 64))
-			if err != nil {
-				tmpFile.Close()
-				return fmt.Errorf("metrics.WriteToFile: failed to write exitStallingTables[i]: %v: %w", exitStallingTables[i], err)
-			}
-			if j < len(exitStallingTables[i])-1 {
-				_, err = fmt.Fprintf(w, " ")
-				if err != nil {
-					tmpFile.Close()
-					return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
-				}
-			}
-		}
-		_, err = fmt.Fprintf(w, "\n")
-		if err != nil {
-			tmpFile.Close()
-			return fmt.Errorf("metrics.WriteToFile: failed to write new line: %w", err)
-		}
-	}
-
-	if err = w.Flush(); err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("metric.WriteToFile: failed to flush bufio writer: %w", err)
-	}
-
-	if err = tmpFile.Sync(); err != nil {
-		tmpFile.Close()
-		return fmt.Errorf("metric.WriteToFile: failed to sync temp file: %w", err)
-	}
-
-	if err = tmpFile.Close(); err != nil {
-		return fmt.Errorf("metric.WriteToFile: failed to close temp file: %w", err)
-	}
-
-	if err = os.Rename(tmpName, filename); err != nil {
-		return fmt.Errorf("metric.WriteToFile: failed to rename temp file to %v: %w", filename, err)
-	}
-
-	succeeded = true
-	return nil
-}
-
-func ReadFromFile(filename string, timeFunctionFilePath string, readBuf *bufio.Reader) (*Metric, error) {
-	f, err := os.Open(filename)
-	if err != nil {
-		return nil, fmt.Errorf("metrics.ReadFromFile: failed to open file %v: %w", filename, err)
-	}
-
-	defer f.Close()
-
-	readBuf.Reset(f)
-
-	line, err := util.ReadLine(readBuf)
-	if err != nil {
-		return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
-	}
-
-	parts := util.Fields(line)
-	if len(parts) != 3 {
-		return nil, fmt.Errorf("metrics.ReadFromFile: expected 3 header fields, got %v", len(parts))
-	}
-
-	var numWeights uint32
-	var numEntryStallingTables int
-	var numExitStallingTables int
-
-	numWeights, err = util.ParseUInt32(parts[0])
-	if err != nil {
-		return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse numWeights: %v: %w", parts[0], err)
-	}
-
-	numEntryStallingTables, err = util.ParseInt(parts[1])
-	if err != nil {
-		return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse numEntryStallingTables: %v: %w", parts[1], err)
-	}
-
-	numExitStallingTables, err = util.ParseInt(parts[2])
-	if err != nil {
-		return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse numExitStallingTables: %v: %w", parts[2], err)
-	}
-
-	line, err = util.ReadLine(readBuf)
-	if err != nil {
-		return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
-
-	}
-
-	weights := make([]float64, numWeights)
-	parts = util.Fields(line)
-
-	if uint32(len(parts)) != numWeights {
-		return nil, fmt.Errorf("metrics.ReadFromFile: expected %v weights, got %v", numWeights, len(parts))
-	}
-
-	for i, weight := range parts {
-		weights[i], err = strconv.ParseFloat(weight, 64)
-		if err != nil {
-			return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse weight[%d]: %v: %w", i, weight, err)
-		}
-	}
-
-	entryStallingTables := make([][]float64, numEntryStallingTables)
-	exitStallingTables := make([][]float64, numExitStallingTables)
-
-	for i := 0; i < numEntryStallingTables; i++ {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
-		}
-
-		parts = util.Fields(line)
-		if len(parts) == 1 && parts[0] == "0" {
-			continue
-		}
-
-		if len(parts) < 2 {
-			return nil, fmt.Errorf("metrics.ReadFromFile: invalid entryStallingTables[%d] format", i)
-		}
-
-		var numElements int
-		numElements, err = util.ParseInt(parts[0])
-		if err != nil {
-			return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse entryStallingTables[%d] size: %v: %w", i, parts[0], err)
-		}
-
-		if len(parts)-1 != numElements {
-			return nil, fmt.Errorf("metrics.ReadFromFile: entryStallingTables[%d] expected %d elements, got %d", i, numElements, len(parts)-1)
-		}
-
-		stallingTable := make([]float64, numElements)
-		for j, val := range parts[1:] {
-			stallingTable[j], err = strconv.ParseFloat(val, 64)
-			if err != nil {
-				return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse entryStallingTables[%d][%d]: %v: %w", i, j, val, err)
-			}
-		}
-
-		entryStallingTables[i] = stallingTable
-	}
-
-	for i := 0; i < numExitStallingTables; i++ {
-		line, err = util.ReadLine(readBuf)
-		if err != nil {
-			return nil, fmt.Errorf("metrics.ReadFromFile: failed to util.ReadLine(r): %w", err)
-		}
-
-		parts = util.Fields(line)
-		if len(parts) == 1 && parts[0] == "0" {
-			continue
-		}
-
-		if len(parts) < 2 {
-			return nil, fmt.Errorf("metrics.ReadFromFile: invalid exitStallingTables[%d] format", i)
-		}
-
-		var numElements int
-		numElements, err = util.ParseInt(parts[0])
-		if err != nil {
-			return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse exitStallingTables[%d] size: %v: %w", i, parts[0], err)
-		}
-
-		if len(parts)-1 != numElements {
-			return nil, fmt.Errorf("metrics.ReadFromFile: exitStallingTables[%d] expected %d elements, got %d", i, numElements, len(parts)-1)
-		}
-
-		stallingTable := make([]float64, numElements)
-		for j, val := range parts[1:] {
-			stallingTable[j], err = strconv.ParseFloat(val, 64)
-			if err != nil {
-				return nil, fmt.Errorf("metrics.ReadFromFile: failed to parse exitStallingTables[%d][%d]: %v: %w", i, j, val, err)
-			}
-		}
-
-		exitStallingTables[i] = stallingTable
-	}
-
-	tf, err := costfunction.ReadFromFile(timeFunctionFilePath, readBuf)
-	if err != nil {
-		panic(fmt.Errorf("NewMetric: failed to read time function: %v", err))
-	}
-	metric := &Metric{
-		metricFilepath:       filename,
-		timeFunctionFilePath: timeFunctionFilePath,
-	}
-
-	ovWeights := da.NewOverlayWeights(numWeights)
-	ovWeights.SetWeights(weights)
-	metric.weights.Store(ovWeights)
-	metric.entryStallingTables.Store(entryStallingTables)
-	metric.exitStallingTables.Store(exitStallingTables)
-	metric.costFunction.Store(tf)
-	return metric, nil
-}
-
 func (met *Metric) UpdateMetrics(readBuf *bufio.Reader) error {
-	time.Sleep(2 * time.Second) // biar bener2 ke write ke file dulu metrics nya
 	newMet, err := ReadFromFile(met.metricFilepath, met.timeFunctionFilePath, readBuf)
 	if err != nil {
 		return fmt.Errorf("UpdateMetrics: failed to read new metrics, filepath: %s: %w", met.metricFilepath, err)

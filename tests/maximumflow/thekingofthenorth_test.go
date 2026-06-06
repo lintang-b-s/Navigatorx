@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -51,11 +50,11 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	}
 	ff := util.Fields(line)
 
-	R, err := strconv.Atoi(ff[0])
+	R, err := util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	C, err := strconv.Atoi(ff[1])
+	C, err := util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -73,7 +72,7 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 		ff := util.Fields(line)
 		for j := 0; j < C; j++ {
 
-			numBannerMen, err := strconv.Atoi(ff[j])
+			numBannerMen, err := util.ParseTextInt(ff[j])
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
@@ -213,11 +212,11 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	}
 	ff = util.Fields(line)
 
-	castlei, err := strconv.Atoi(ff[0])
+	castlei, err := util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	castlej, err := strconv.Atoi(ff[1])
+	castlej, err := util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -238,7 +237,7 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	expectedAns, err := strconv.Atoi(line)
+	expectedAns, err := util.ParseTextInt(line)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

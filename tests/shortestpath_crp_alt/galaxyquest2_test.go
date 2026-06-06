@@ -8,7 +8,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"runtime/debug"
-	"strconv"
 	"strings"
 	"testing"
 
@@ -136,17 +135,17 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	}
 	ff := util.Fields(line)
 
-	n, err := strconv.Atoi(ff[0])
+	n, err := util.ParseTextInt(ff[0])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	m, err := strconv.Atoi(ff[1])
+	m, err := util.ParseTextInt(ff[1])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	q, err := strconv.Atoi(ff[2])
+	q, err := util.ParseTextInt(ff[2])
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -163,15 +162,15 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		}
 		ff = util.Fields(line)
 
-		x, err = strconv.Atoi(ff[0])
+		x, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		y, err = strconv.Atoi(ff[1])
+		y, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		z, err = strconv.Atoi(ff[2])
+		z, err = util.ParseTextInt(ff[2])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -200,11 +199,11 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		}
 		ff = util.Fields(line)
 
-		u, err = strconv.Atoi(ff[0])
+		u, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		v, err = strconv.Atoi(ff[1])
+		v, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -280,13 +279,13 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 		ff = util.Fields(line)
-		target, err = strconv.Atoi(ff[0])
+		target, err = util.ParseTextInt(ff[0])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 		target--
 
-		time, err = strconv.Atoi(ff[1])
+		time, err = util.ParseTextInt(ff[1])
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -323,7 +322,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestCRPQueryGalaxyQuestMALT  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/shortestpath_crp_alt -run TestCRPQueryGalaxyQuestMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 func TestCRPQueryGalaxyQuestMALT(t *testing.T) {
 

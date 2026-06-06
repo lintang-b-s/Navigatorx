@@ -174,14 +174,14 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
 	}
 
-	sEdgeLength := rs.graph.GetOutEdgeLength(bestPair.origEdgeId)
-	sForwardTravelTime := rs.engine.GetWeightFromLength(bestPair.origEdgeId, sEdgeLength, true)
+	sEdgeLength := rs.engine.GetSegmentLength(bestPair.origEdgeId, true)
+	sForwardTravelTime := rs.engine.GetWeightFromLength(bestPair.origEdgeId, true, sEdgeLength)
 
 	sp := da.NewPhantomNode(bestPair.origCoord, sForwardTravelTime, 0, bestPair.origEdgeId, da.INVALID_EDGE_ID, sEdgeLength, 0, bestOriginNextCoords,
 		make([]da.Coordinate, 0))
 
-	tEdgeLength := rs.graph.GetInEdgeLength(bestPair.destEdgeId)
-	tReverseTravelTime := rs.engine.GetWeightFromLength(bestPair.destEdgeId, tEdgeLength, false)
+	tEdgeLength := rs.engine.GetSegmentLength(bestPair.destEdgeId, false)
+	tReverseTravelTime := rs.engine.GetWeightFromLength(bestPair.destEdgeId, false, tEdgeLength)
 
 	destExitId := rs.graph.GetExitIdOfInEdge(bestPair.destEdgeId) // outEdgeId of destination road segment
 
@@ -254,7 +254,7 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 		newSPLength += geo.CalculateGreatCircleDistance(lastCoord.GetLat(), lastCoord.GetLon(),
 			tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
 
-		newSPTravelTime := rs.engine.GetWeightFromLength(sp.GetOutEdgeId(), newSPLength, true)
+		newSPTravelTime := rs.engine.GetWeightFromLength(sp.GetOutEdgeId(), true, newSPLength)
 		newSP := da.NewPhantomNode(sp.GetSnappedCoord(), newSPTravelTime, 0, sp.GetOutEdgeId(),
 			da.INVALID_EDGE_ID, newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
 
@@ -264,7 +264,7 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 	// case 1 tinggal return empty newSourceForwardGeom, geometry dist & traveltime (sCoord, tCoord) dihandle di sini
 	newSPLength += geo.CalculateGreatCircleDistance(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(),
 		tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
-	newSPTravelTime := rs.engine.GetWeightFromLength(sp.GetOutEdgeId(), newSPLength, true)
+	newSPTravelTime := rs.engine.GetWeightFromLength(sp.GetOutEdgeId(), true, newSPLength)
 	newSP := da.NewPhantomNode(sp.GetSnappedCoord(), newSPTravelTime, 0, sp.GetOutEdgeId(),
 		da.INVALID_EDGE_ID, newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
 
@@ -350,7 +350,7 @@ func (rs *RoutingService) project(lat, lon float64, edgeId da.Index, origin bool
 			da.Coordinate(da.NewCoordinate(lat, lon)),
 		)
 
-		dist := geo.CalculateEuclideanDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+		dist := geo.CalculateEuclideanDistMercatorProj(projectedPoint.GetLat(), projectedPoint.GetLon(),
 			lat, lon) // dist dari (lat,lon) ke titik proyeksi
 
 		if util.Lt(dist, minDist) {
@@ -358,10 +358,10 @@ func (rs *RoutingService) project(lat, lon float64, edgeId da.Index, origin bool
 			bestProjectedPoint = projectedPoint
 			lastIndex = i
 			if origin {
-				distToEdgeEndpoint = geo.CalculateEuclideanDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+				distToEdgeEndpoint = geo.CalculateEuclideanDistMercatorProj(projectedPoint.GetLat(), projectedPoint.GetLon(),
 					edgeHeadCoord.GetLat(), edgeHeadCoord.GetLon())
 			} else {
-				distToEdgeEndpoint = geo.CalculateEuclideanDistMercatorProj(projectedPoint.Lat, projectedPoint.Lon,
+				distToEdgeEndpoint = geo.CalculateEuclideanDistMercatorProj(projectedPoint.GetLat(), projectedPoint.GetLon(),
 					edgeTailCoord.GetLat(), edgeTailCoord.GetLon())
 			}
 		}

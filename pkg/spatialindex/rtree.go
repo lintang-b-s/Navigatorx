@@ -12,7 +12,17 @@ import (
 )
 
 type Rtree struct {
-	tr *rtree.RTreeG[uint64]
+	tr *rtree.RTreeGN[int32, uint64]
+}
+
+const spatialIndexPrecision = 1e5 // mercator projected 2d coordinate
+
+func spatialFloor(value float64) int32 {
+	return int32(math.Floor(value * spatialIndexPrecision))
+}
+
+func spatialCeil(value float64) int32 {
+	return int32(math.Ceil(value * spatialIndexPrecision))
 }
 
 // our query is compact graph CRP multilevel bidirectional dijkstra
@@ -22,7 +32,7 @@ type Rtree struct {
 // so we need to know nearby as & at before run the query
 
 func NewRtree() *Rtree {
-	var tr rtree.RTreeG[uint64]
+	var tr rtree.RTreeGN[int32, uint64]
 	return &Rtree{
 		tr: &tr,
 	}
@@ -62,7 +72,7 @@ func (rt *Rtree) Build(graph *da.Graph, logger *zap.Logger) {
 		maxX := geo.CalcLonToX(maxLon)
 
 		id := rt.addFlag(graph, eId)
-		rt.tr.Insert([2]float64{minX, minY}, [2]float64{maxX, maxY},
+		rt.tr.Insert([2]int32{spatialFloor(minX), spatialFloor(minY)}, [2]int32{spatialCeil(maxX), spatialCeil(maxY)},
 			id)
 	})
 
@@ -100,13 +110,13 @@ func (rt *Rtree) BuildMapMatch(graph *da.MapMatchingGraph, logger *zap.Logger) {
 		maxX := geo.CalcLonToX(maxLon)
 
 		newEId := rt.BitPackOriginalEdgeId(da.Index(eId), e.GetRoadNetworkEdgeId())
-		rt.tr.Insert([2]float64{minX, minY}, [2]float64{maxX, maxY}, newEId)
+		rt.tr.Insert([2]int32{spatialFloor(minX), spatialFloor(minY)}, [2]int32{spatialCeil(maxX), spatialCeil(maxY)}, newEId)
 	}
 
 }
 
 func (rt *Rtree) Reset() {
-	var tr rtree.RTreeG[uint64]
+	var tr rtree.RTreeGN[int32, uint64]
 	rt.tr = &tr
 }
 
@@ -127,8 +137,8 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 
 	results := make([]da.Index, 0, 10)
 
-	rt.tr.Search([2]float64{lowerX, lowerY}, [2]float64{upperX, upperY},
-		func(min, max [2]float64, data uint64) bool {
+	rt.tr.Search([2]int32{spatialFloor(lowerX), spatialFloor(lowerY)}, [2]int32{spatialCeil(upperX), spatialCeil(upperY)},
+		func(min, max [2]int32, data uint64) bool {
 			if mode == 0 && !rt.IsJunctionHead(data) {
 				// skip edge yang head nya gak junction
 				return true

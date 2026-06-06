@@ -27,25 +27,25 @@ jobs:
         run: |
           pip install gdown
           mkdir -p data
-          gdown https://drive.google.com/uc?id=1uBoFWUSRka9pqH2dVPKpcystxXmkkSgs --output ./data
-          gdown https://drive.google.com/uc?id=1PjYZk9wl5xSykqjak-ZFvlT427X1eSa0 --output ./data
+          gdown https://drive.google.com/uc?id=14CJJHH_HgnGjv7NtKoSM7ai_uXREKbcT --output ./data
+
 
       - name: Build and Preprocess
         run: |
           mkdir -p bin
           go build -o ./bin/preprocessor ./cmd/preprocessor
-          ./bin/preprocessor -osm_file=./data/jabodetabek.osm.pbf -mlp_file=./data/jabodetabek.mlp -region=jabodetabek 
-          ./bin/preprocessor
+          ./bin/preprocessor --osm_file=./data/jateng.osm.pbf --mlp_file=./data/jateng.mlp --region=jateng   --us=8,11,14,17,19
 
           go build -o ./bin/customizer ./cmd/customizer
-          ./bin/customizer --region=jabodetabek
-          ./bin/customizer
+          ./bin/customizer --region=jateng
 
           go build -o ./bin/generator ./cmd/generator
-          ./bin/generator --region=jabodetabek
-          ./bin/generator
+          ./bin/generator --region=jateng
 
-          go build -o ./bin/engine  ./cmd/engine
+          gdown https://drive.google.com/uc?id=1HBswl5-JkFXWh--AFLC2ElYC4Tbsj1i0 --output ./data
+          gdown https://drive.google.com/uc?id=1pRmqUFgNc_p0lEKmfzLcn3IRhUW4Cm4c --output ./data
+          sh scripts/build_pgo.sh
+          go build -o ./bin/engine -pgo=./bin/default.pgo ./cmd/engine
 
       - name: Install SSH Key
         uses: webfactory/ssh-agent@v0.9.0
@@ -94,13 +94,10 @@ jobs:
               echo "❌ Verification failed: Some files are missing."
               exit 1
             fi
-            
-            echo "🔄 Restarting NavigatorX Jabodetabek service..."
-            sudo systemctl restart navigatorx-jkt
-            echo "🔄 Restarting NavigatorX DIY,solo,semarang service..."
-            sudo systemctl restart navigatorx-diy
+
+            echo "🔄 Restarting NavigatorX Jawa Tengah service..."
+            sudo systemctl restart navigatorx-jateng
 
             echo "📊 Service Status:"
-            sudo systemctl status navigatorx-jkt --no-pager
-            sudo systemctl status navigatorx-diy --no-pager
+            sudo systemctl status navigatorx-jateng --no-pager
           EOF

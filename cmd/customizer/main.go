@@ -3,8 +3,10 @@ package main
 import (
 	"fmt"
 	"path/filepath"
+	"runtime"
 	"strings"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	flag "github.com/spf13/pflag"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
@@ -29,13 +31,15 @@ func init() {
 	flag.Parse()
 
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.graph", profileName, *regionName)
-	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.graph", profileName, *regionName)
-	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.lm", profileName, *regionName)
-	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.txt", profileName, *regionName)
-	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.txt", profileName, *regionName)
+	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.ngraph", profileName, *regionName)
+	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.ngraph", profileName, *regionName)
+	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.nlm", profileName, *regionName)
+	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.nmt", profileName, *regionName)
+	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.ntf", profileName, *regionName)
 
 	config.InitProfileConfig(profileName, *regionName)
+
+	gopool.SetCap(int32(runtime.NumCPU()))
 }
 
 func main() {

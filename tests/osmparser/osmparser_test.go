@@ -44,7 +44,7 @@ func setup(t *testing.T, osmfFileTest string) (*da.Graph, [][]da.Index, *osmpars
 
 	osmParser := osmparser.NewOSMParserV2()
 
-	graph, edgeInfoIds, err := osmParser.Parse(osmfFileTest, logger)
+	graph, _, edgeInfoIds, err := osmParser.Parse(osmfFileTest, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

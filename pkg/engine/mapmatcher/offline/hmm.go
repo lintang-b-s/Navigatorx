@@ -316,7 +316,7 @@ func (h *HMM) projectAllGpsWithRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []f
 		candidates := make([]*ma.Candidate, 0, len(nearbyArcs))
 
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := h.graph.GetOutEdge(arcEndpoint).GetLength()
+			eLength := h.re.GetSegmentLength(arcEndpoint, true)
 			cand := ma.NewCandidate(arcEndpoint, 0, eLength)
 			candidates = append(candidates, cand)
 		}
@@ -532,7 +532,7 @@ func (h *HMM) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) (transit
 
 	distance = math.Abs(distance)
 
-	travelTime := h.re.GetWeightFromLength(sp.GetOutEdgeId(), distance, true)
+	travelTime := h.re.GetWeightFromLength(sp.GetOutEdgeId(), true, distance)
 
 	return transitionRoute{distance: distance, travelTime: travelTime}, true
 }
@@ -611,7 +611,7 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 		sameSegmentDur := pkg.INF_WEIGHT
 		sameSegmentDist := pkg.INF_WEIGHT
 
-		eLength := h.graph.GetOutEdgeLength(sOutEdgeId)
+		eLength := h.re.GetSegmentLength(sOutEdgeId, true)
 
 		sameSegmentRevDist := eLength - sp.GetReverseDistance() - tp.GetReverseDistance()
 		if util.Gt(sameSegmentRevDist, 0) {
@@ -656,7 +656,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	if !addPath {
 		routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
 		for _, edgeId := range edgePath {
-			routeDistance += h.graph.GetOutEdgeLength(edgeId)
+			routeDistance += h.re.GetSegmentLength(edgeId, true)
 		}
 
 		return transitionRoute{distance: routeDistance, travelTime: travelTime}, true
@@ -743,12 +743,12 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 		cand.SetDistr(minDistr)
 		cand.SetDistanceFromTail(minDistr)
 
-		edgeLength := h.graph.GetOutEdgeLength(cand.EdgeId())
+		edgeLength := h.re.GetSegmentLength(cand.EdgeId(), true)
 		distanceFromHead := max(edgeLength-minDistr, 0)
 		cand.SetDistanceFromHead(distanceFromHead)
 
-		cand.SetTravelTimeFromTail(h.re.GetWeightFromLength(cand.EdgeId(), minDistr, true))
-		cand.SetTravelTimeFromHead(h.re.GetWeightFromLength(cand.EdgeId(), distanceFromHead, true))
+		cand.SetTravelTimeFromTail(h.re.GetWeightFromLength(cand.EdgeId(), true, minDistr))
+		cand.SetTravelTimeFromHead(h.re.GetWeightFromLength(cand.EdgeId(), true, distanceFromHead))
 
 		cand.SetEdgeBearing(candEdgeBearing)
 	}

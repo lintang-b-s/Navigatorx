@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/csv"
 	"errors"
@@ -21,6 +22,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -60,13 +62,13 @@ const (
 	giscupPredictionOutputDir = "./data/eval/mapmatching/GisContestTrainingData/predicted_output"
 	giscupPolylineOutputDir   = "./data/eval/mapmatching/GisContestTrainingData/polylines"
 
-	graphFile                = "./data/eval/mapmatching/giscup/original_giscup.graph"
-	overlayGraphFile         = "./data/eval/mapmatching/giscup/overlay_graph_giscup.graph"
-	metricsFile              = "./data/eval/mapmatching/giscup/metrics_giscup.txt"
+	graphFile                = "./data/eval/mapmatching/giscup/original_giscup.ngraph"
+	overlayGraphFile         = "./data/eval/mapmatching/giscup/overlay_graph_giscup.ngraph"
+	metricsFile              = "./data/eval/mapmatching/giscup/metrics_giscup.nmt"
 	mlpFile                  = "./data/eval/mapmatching/giscup/online_map_match_mlp_giscup.mlp"
-	landmarkFile             = "./data/eval/mapmatching/giscup/landmark_giscup.lm"
-	timeFunctionFile         = "./data/eval/mapmatching/giscup/timefunction_giscup.txt"
-	transitionMatrixFilepath = "./data/eval/mapmatching/giscup/omm_transition_history_giscup.txt"
+	landmarkFile             = "./data/eval/mapmatching/giscup/landmark_giscup.nlm"
+	timeFunctionFile         = "./data/eval/mapmatching/giscup/timefunction_giscup.ntf"
+	transitionMatrixFilepath = "./data/eval/mapmatching/giscup/omm_transition_history_giscup.ntm"
 
 	defaultSpeedMPS = 8.33333
 )
@@ -211,15 +213,15 @@ func readGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint32, m
 			return nil, nil, nil, nil, fmt.Errorf("readGisCupNodes: invalid line %d", lineNo)
 		}
 
-		nodeID, err := strconv.ParseInt(fields[0], 10, 64)
+		nodeID, err := util.ParseTextInt64(fields[0])
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("readGisCupNodes: parse node id at line %d failed: %w", lineNo, err)
 		}
-		lat, err := strconv.ParseFloat(fields[1], 64)
+		lat, err := util.ParseTextFloat64(fields[1])
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("readGisCupNodes: parse lat at line %d failed: %w", lineNo, err)
 		}
-		lon, err := strconv.ParseFloat(fields[2], 64)
+		lon, err := util.ParseTextFloat64(fields[2])
 		if err != nil {
 			return nil, nil, nil, nil, fmt.Errorf("readGisCupNodes: parse lon at line %d failed: %w", lineNo, err)
 		}
@@ -254,21 +256,21 @@ func readGisCupEdgeGeometry(edgeGeometryFilePath string) (map[int64]edgeGeometry
 			return nil, fmt.Errorf("readGisCupEdgeGeometry: read line failed: %w", err)
 		}
 		lineNo++
-		line = strings.TrimSpace(line)
-		if line == "" {
+		lineBytes := bytes.TrimSpace([]byte(line))
+		if len(line) == 0 {
 			continue
 		}
 
-		fields := strings.Split(line, "^")
+		fields := bytes.Split(lineBytes, []byte("^"))
 		if len(fields) < 8 {
 			return nil, fmt.Errorf("readGisCupEdgeGeometry: invalid line %d", lineNo)
 		}
 
-		edgeID, err := strconv.ParseInt(strings.TrimSpace(fields[0]), 10, 64)
+		edgeID, err := util.ParseTextInt64(string(bytes.TrimSpace(fields[0])))
 		if err != nil {
 			return nil, fmt.Errorf("readGisCupEdgeGeometry: parse edge id at line %d failed: %w", lineNo, err)
 		}
-		length, err := strconv.ParseFloat(strings.TrimSpace(fields[3]), 64)
+		length, err := util.ParseTextFloat64(string(bytes.TrimSpace(fields[3])))
 		if err != nil {
 			return nil, fmt.Errorf("readGisCupEdgeGeometry: parse length at line %d failed: %w", lineNo, err)
 		}
@@ -279,11 +281,11 @@ func readGisCupEdgeGeometry(edgeGeometryFilePath string) (map[int64]edgeGeometry
 		}
 		coords := make([]da.Coordinate, 0, len(coordFields)/2)
 		for i := 0; i < len(coordFields); i += 2 {
-			lat, err := strconv.ParseFloat(strings.TrimSpace(coordFields[i]), 64)
+			lat, err := util.ParseTextFloat64(string(bytes.TrimSpace(coordFields[i])))
 			if err != nil {
 				return nil, fmt.Errorf("readGisCupEdgeGeometry: parse lat at line %d failed: %w", lineNo, err)
 			}
-			lon, err := strconv.ParseFloat(strings.TrimSpace(coordFields[i+1]), 64)
+			lon, err := util.ParseTextFloat64(string(bytes.TrimSpace(coordFields[i+1])))
 			if err != nil {
 				return nil, fmt.Errorf("readGisCupEdgeGeometry: parse lon at line %d failed: %w", lineNo, err)
 			}
@@ -293,7 +295,7 @@ func readGisCupEdgeGeometry(edgeGeometryFilePath string) (map[int64]edgeGeometry
 			return nil, fmt.Errorf("readGisCupEdgeGeometry: too few coordinates at line %d", lineNo)
 		}
 
-		roadType := pkg.GetHighwayType(strings.TrimSpace(fields[2]))
+		roadType := pkg.GetHighwayType(string(bytes.TrimSpace(fields[2])))
 		if roadType == pkg.UNKNOWN {
 			roadType = pkg.ROAD
 		}
@@ -323,19 +325,19 @@ func fallbackEdgeGeometry(edgeID int64, from, to uint32, nodeCoords []da.Coordin
 	}
 }
 
-func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, [][]da.Index, map[int64]float64, error) {
+func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, *costfunction.TimeFunction, [][]da.Index, map[int64]float64, error) {
 	nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, err := readGisCupNodes(paths.nodesFilePath)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 	edgeGeometries, err := readGisCupEdgeGeometry(paths.edgeGeometryFilePath)
 	if err != nil {
-		return nil, nil, nil, err
+		return nil, nil, nil, nil, err
 	}
 
 	f, err := os.OpenFile(paths.edgesFilePath, os.O_RDONLY, 0644)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: open edges failed: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: open edges failed: %w", err)
 	}
 	defer f.Close()
 
@@ -350,7 +352,7 @@ func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, [][]da.Index,
 		if err != nil && errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: read edge line failed: %w", err)
+			return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: read edge line failed: %w", err)
 		}
 		lineNo++
 		fields := util.Fields(line)
@@ -358,33 +360,33 @@ func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, [][]da.Index,
 			continue
 		}
 		if len(fields) < 4 {
-			return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: invalid edge line %d", lineNo)
+			return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: invalid edge line %d", lineNo)
 		}
 
-		edgeID, err := strconv.ParseInt(fields[0], 10, 64)
+		edgeID, err := util.ParseTextInt64(fields[0])
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: parse edge id at line %d failed: %w", lineNo, err)
+			return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: parse edge id at line %d failed: %w", lineNo, err)
 		}
-		fromNodeID, err := strconv.ParseInt(fields[1], 10, 64)
+		fromNodeID, err := util.ParseTextInt64(fields[1])
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: parse from node id at line %d failed: %w", lineNo, err)
+			return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: parse from node id at line %d failed: %w", lineNo, err)
 		}
-		toNodeID, err := strconv.ParseInt(fields[2], 10, 64)
+		toNodeID, err := util.ParseTextInt64(fields[2])
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: parse to node id at line %d failed: %w", lineNo, err)
+			return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: parse to node id at line %d failed: %w", lineNo, err)
 		}
-		cost, err := strconv.ParseFloat(fields[3], 64)
+		cost, err := util.ParseTextFloat64(fields[3])
 		if err != nil {
-			return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: parse cost at line %d failed: %w", lineNo, err)
+			return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: parse cost at line %d failed: %w", lineNo, err)
 		}
 
 		fromIndex, ok := nodeIDToIndex[fromNodeID]
 		if !ok {
-			return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: missing from node %d at line %d", fromNodeID, lineNo)
+			return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: missing from node %d at line %d", fromNodeID, lineNo)
 		}
 		toIndex, ok := nodeIDToIndex[toNodeID]
 		if !ok {
-			return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: missing to node %d at line %d", toNodeID, lineNo)
+			return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: missing to node %d at line %d", toNodeID, lineNo)
 		}
 		if fromIndex == toIndex {
 			continue
@@ -415,15 +417,15 @@ func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, [][]da.Index,
 		edgeLengths[edgeID] = geometry.length
 	}
 	if len(graphEdges) == 0 {
-		return nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: no edges loaded from %s", paths.edgesFilePath)
+		return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: no edges loaded from %s", paths.edgesFilePath)
 	}
 
 	op := osmparser.NewOSMParserV2()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeCoords)), true)
+	graph, timeFunction, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeCoords)), true)
 	graph.SetGraphStorage(graphStorage)
-	return graph, edgeInfoIDs, edgeLengths, nil
+	return graph, timeFunction, edgeInfoIDs, edgeLengths, nil
 }
 
 func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
@@ -437,7 +439,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return nil, nil, nil, nil, nil, err
 	}
 
-	graph, edgeInfoIDs, edgeLengths, err := buildGraphFromGisCupFiles(paths)
+	graph, timeFunction, edgeInfoIDs, edgeLengths, err := buildGraphFromGisCupFiles(paths)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -460,7 +462,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 		return nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: ReadMlpFile failed: %w", err)
 	}
 
-	prep := preprocesser.NewPreprocessor(graph, mlp, logger, graphFile, overlayGraphFile, edgeInfoIDs)
+	prep := preprocesser.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIDs)
 	if err := prep.PreProcessing(true); err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: PreProcessing failed: %w", err)
 	}
@@ -598,15 +600,15 @@ func readTrackFile(trackPath string) ([]trackPoint, error) {
 			return nil, fmt.Errorf("readTrackFile: invalid line %d", lineNo)
 		}
 
-		timeSec, err := strconv.ParseFloat(strings.TrimSpace(record[0]), 64)
+		timeSec, err := util.ParseTextFloat64(strings.TrimSpace(record[0]))
 		if err != nil {
 			return nil, fmt.Errorf("readTrackFile: parse time at line %d failed: %w", lineNo, err)
 		}
-		lat, err := strconv.ParseFloat(strings.TrimSpace(record[1]), 64)
+		lat, err := util.ParseTextFloat64(strings.TrimSpace(record[1]))
 		if err != nil {
 			return nil, fmt.Errorf("readTrackFile: parse latitude at line %d failed: %w", lineNo, err)
 		}
-		lon, err := strconv.ParseFloat(strings.TrimSpace(record[2]), 64)
+		lon, err := util.ParseTextFloat64(strings.TrimSpace(record[2]))
 		if err != nil {
 			return nil, fmt.Errorf("readTrackFile: parse longitude at line %d failed: %w", lineNo, err)
 		}
@@ -645,7 +647,7 @@ func readGroundTruthFile(outputPath string) ([]int64, error) {
 		if len(record) < 2 {
 			return nil, fmt.Errorf("readGroundTruthFile: invalid line %d", lineNo)
 		}
-		edgeID, err := strconv.ParseInt(strings.TrimSpace(record[1]), 10, 64)
+		edgeID, err := util.ParseTextInt64(strings.TrimSpace(record[1]))
 		if err != nil {
 			return nil, fmt.Errorf("readGroundTruthFile: parse edge id at line %d failed: %w", lineNo, err)
 		}
@@ -768,7 +770,7 @@ func computeMetrics(graph *da.Graph, groundTruthEdgeIDs []int64, matchedPoints [
 		dataEdgeID := graph.GetOsmWayId(point.GetEdgeId())
 		length, ok := edgeLengths[dataEdgeID]
 		if !ok {
-			length = graph.GetOutEdge(point.GetEdgeId()).GetLength()
+			continue
 		}
 		matchedEdgeSet[dataEdgeID] = length
 	}
@@ -806,7 +808,8 @@ func computeMetrics(graph *da.Graph, groundTruthEdgeIDs []int64, matchedPoints [
 	return crp, rmf
 }
 
-func evaluateCase(tc trajectoryCase, graph *da.Graph, rtree *spatialindex.Rtree, transitionMatrix *da.SparseMatrix[int], edgeLengths map[int64]float64) (evalMetrics, error) {
+func evaluateCase(tc trajectoryCase, graph *da.Graph, rtree *spatialindex.Rtree, transitionMatrix *da.SparseMatrix[int], edgeLengths map[int64]float64,
+	getSegmentLength func(da.Index) float64) (evalMetrics, error) {
 	trackPoints, err := readTrackFile(tc.inputFilePath)
 	if err != nil {
 		return evalMetrics{}, err
@@ -822,6 +825,7 @@ func evaluateCase(tc trajectoryCase, graph *da.Graph, rtree *spatialindex.Rtree,
 		defaultSpeedMPS, defaultSpeedMPS,
 		0.001, 5.0, 0.000001, 0.06, 3,
 		transitionMatrix,
+		getSegmentLength,
 	)
 
 	var (
@@ -901,7 +905,7 @@ func ensureTrainingDataExists() error {
 }
 
 func main() {
-	_, graph, logger, transitionMatrix, edgeLengths, err := buildCRPGraph()
+	re, graph, logger, transitionMatrix, edgeLengths, err := buildCRPGraph()
 	if err != nil {
 		panic(err)
 	}
@@ -920,7 +924,9 @@ func main() {
 
 	results := make([]evalMetrics, 0, len(trajectoryCases))
 	for _, tc := range trajectoryCases {
-		res, err := evaluateCase(tc, graph, rtree, transitionMatrix, edgeLengths)
+		res, err := evaluateCase(tc, graph, rtree, transitionMatrix, edgeLengths, func(eID da.Index) float64 {
+			return re.GetRoutingEngine().GetSegmentLength(eID, true)
+		})
 		if err != nil {
 			logger.Sugar().Warnf("skip trajectory %s: %v", tc.id, err)
 			continue
