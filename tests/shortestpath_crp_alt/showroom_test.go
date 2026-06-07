@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"sync"
 	"testing"
@@ -281,8 +279,6 @@ func TestShowroomMALT(t *testing.T) {
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
 				SolveShowroom(t, testPath)
 
-				runtime.GC()
-				debug.FreeOSMemory()
 			})
 
 		}

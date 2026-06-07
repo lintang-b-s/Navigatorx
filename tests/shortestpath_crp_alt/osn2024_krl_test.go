@@ -6,8 +6,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"testing"
@@ -432,8 +430,6 @@ func TestOSN2024KRLMALT(t *testing.T) {
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
 				SolveOSN2024KRL(t, testPath)
 
-				runtime.GC()
-				debug.FreeOSMemory()
 			})
 
 		}

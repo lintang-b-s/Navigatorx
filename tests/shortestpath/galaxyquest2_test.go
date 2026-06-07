@@ -6,8 +6,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -315,7 +313,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "cd tests/shortestpath && go test -run TestCRPQueryGalaxyQuest  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/shortestpath -run TestCRPQueryGalaxyQuest  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 func TestCRPQueryGalaxyQuest(t *testing.T) {
 
@@ -345,9 +343,6 @@ func TestCRPQueryGalaxyQuest(t *testing.T) {
 			t.Logf("solving test case: %v", baseName)
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
 				solveGalaxyQuest(t, testPath)
-
-				runtime.GC()
-				debug.FreeOSMemory()
 			})
 
 		}

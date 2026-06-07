@@ -6,8 +6,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -316,8 +314,6 @@ func TestCRPQueryDelftDistance(t *testing.T) {
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
 				solve(t, testPath)
 
-				runtime.GC()
-				debug.FreeOSMemory()
 			})
 
 		}

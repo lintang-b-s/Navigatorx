@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/debug"
 	"sort"
 	"strings"
 	"testing"
@@ -268,8 +266,6 @@ func TestOSN2024KRLBidirDijkstra(t *testing.T) {
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
 				SolveOSN2024KRLBidirDijkstra(t, testPath)
 
-				runtime.GC()
-				debug.FreeOSMemory()
 			})
 
 		}

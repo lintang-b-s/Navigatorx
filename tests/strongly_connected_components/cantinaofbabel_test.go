@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -200,8 +198,6 @@ func TestCantinaOfBabelSCC(t *testing.T) {
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
 				SolveCantinaOfBabel(t, testPath)
 
-				runtime.GC()
-				debug.FreeOSMemory()
 			})
 
 		}

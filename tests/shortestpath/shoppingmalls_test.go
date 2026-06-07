@@ -5,8 +5,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -274,8 +272,7 @@ func TestCRPQueryShoppingMalls(t *testing.T) {
 			t.Logf("solving test case: %v", baseName)
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
 				solveShoppingMalls(t, testPath)
-				runtime.GC()
-				debug.FreeOSMemory()
+
 			})
 
 		}

@@ -6,8 +6,6 @@ import (
 	"math"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -353,10 +351,7 @@ func TestCRPQueryGalaxyQuestMALT(t *testing.T) {
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
 				solveGalaxyQuest(t, testPath)
 
-				runtime.GC()
-				debug.FreeOSMemory()
 			})
-
 		}
 	}
 }

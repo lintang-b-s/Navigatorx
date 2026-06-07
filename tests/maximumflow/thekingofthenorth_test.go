@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"os"
 	"path/filepath"
-	"runtime"
-	"runtime/debug"
 	"strings"
 	"testing"
 
@@ -276,8 +274,6 @@ func TestTheKingOfTheNorth(t *testing.T) {
 			t.Run(dir+"/"+baseName, func(t *testing.T) {
 				SolveTheKingOfTheNorth(t, testPath)
 
-				runtime.GC()
-				debug.FreeOSMemory()
 			})
 
 		}
