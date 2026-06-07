@@ -89,10 +89,6 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 		components = append(components, initialPg)
 	}
 
-	n := len(initialVerticeIds)
-
-	wg := sync.WaitGroup{}
-
 	iflowInChan := make(chan *da.PartitionGraph, InertialFlowChanSize)
 	iflowOutChan := make(chan bisectionRes, InertialFlowChanSize)
 
@@ -109,53 +105,60 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 		go computeIflow()
 	}
 
+	queue := make([]*da.PartitionGraph, 0, len(components))
 	numJobs := 0
 	for _, component := range components {
 		if tooSmall(component.NumberOfVertices()) {
 			rb.assignFinalPartition(component)
 			continue
 		}
-		iflowInChan <- component
+		queue = append(queue, component)
 		numJobs++
 	}
-	wg.Add(1)
 
 	if numJobs == 0 {
 		close(iflowInChan)
-		wg.Done()
 	}
 
-	go func() {
-		wg.Wait()
-		close(iflowOutChan)
-	}()
+	numUncompletedJob := 0
 
-	for res := range iflowOutChan {
-		// only stop when wp.jobQueue closed && wp.jobQueue empty -> wp.results closed -> this loop terminate
-		partOne := res.partOne
-		partTwo := res.partTwo
+	for len(queue) > 0 || numUncompletedJob > 0 {
+		var (
+			job     *da.PartitionGraph
+			jobChan chan *da.PartitionGraph
+		)
 
-		if !tooSmall(partOne.NumberOfVertices()) {
-			iflowInChan <- partOne
-
-		} else {
-			rb.assignFinalPartition(partOne) // O(p), p = number of vertitices in partition one (partOne)
-		}
-		if !tooSmall(partTwo.NumberOfVertices()) {
-			iflowInChan <- partTwo
-		} else {
-			rb.assignFinalPartition(partTwo) // O(q), q = number of vertitices in partition two (partTwo)
+		if len(queue) > 0 {
+			job = queue[0]
+			queue = queue[1:]
+			jobChan = iflowInChan
 		}
 
-		if rb.allVerticesAssignedToCells(n) { // O(1)
-			// close wp.jobQueue, kita bisa close wp.jobQueue disini karena
-			// semua vertices in initialPg sudah di assign ke rb.finalPartition
-			// atau dengan kata lain setiap cells dari partisi dari initialPg berukuran kurang dari rb.maximumCellSize
-			close(iflowInChan)
-			wg.Done()
+		select {
+		case jobChan <- job:
+			numUncompletedJob++
+		case res := <-iflowOutChan:
+			// only stop when wp.jobQueue closed && wp.jobQueue empty -> wp.results closed -> this loop terminate
+			partOne := res.partOne
+			partTwo := res.partTwo
+
+			if !tooSmall(partOne.NumberOfVertices()) {
+				queue = append(queue, partOne)
+			} else {
+				rb.assignFinalPartition(partOne) // O(p), p = number of vertitices in partition one (partOne)
+			}
+			if !tooSmall(partTwo.NumberOfVertices()) {
+				queue = append(queue, partTwo)
+			} else {
+				rb.assignFinalPartition(partTwo) // O(q), q = number of vertitices in partition two (partTwo)
+			}
+
+			numUncompletedJob--
 		}
 	}
 
+	close(iflowInChan)
+	close(iflowOutChan)
 }
 
 // applyBisection. bisect st-cut jadi partisi S dan T yang saling disjoint
@@ -243,13 +246,6 @@ func (rb *RecursiveBisection) assignFinalPartition(partitionGraph *da.PartitionG
 		rb.numVerticesAssigned++
 	}
 	rb.partitionCount++
-}
-
-// allVerticesAssignedToCells. cek jika semua vertices in comp sudah di assign ke rb.finalPartition
-// atau dengan kata lain setiap cells dari partisi dari comp berukuran kurang dari rb.maximumCellSize
-// index dari rb.finalPartition adalah vertex Id dari original road network graph (bukan comp)
-func (rb *RecursiveBisection) allVerticesAssignedToCells(n int) bool {
-	return rb.numVerticesAssigned == n
 }
 
 /*
