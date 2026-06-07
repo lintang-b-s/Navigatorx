@@ -1,10 +1,8 @@
 package partitioner
 
 import (
-	"context"
 	"sync"
 
-	"github.com/bytedance/gopkg/util/gopool"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"go.uber.org/zap"
 )
@@ -108,7 +106,7 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 	}
 
 	for i := 0; i < BISECTION_WORKERS; i++ {
-		gopool.CtxGo(context.Background(), computeIflow)
+		go computeIflow()
 	}
 
 	numJobs := 0

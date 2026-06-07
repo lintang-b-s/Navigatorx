@@ -1,7 +1,6 @@
 package partitioner
 
 import (
-	"context"
 	"math"
 
 	"sort"
@@ -9,7 +8,6 @@ import (
 
 	"math/rand/v2"
 
-	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -100,7 +98,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	}
 
 	for i := 0; i < INERTIAL_FLOW_WORKERS; i++ {
-		gopool.CtxGo(context.Background(), computeMinCut)
+		go computeMinCut()
 	}
 
 	for i := 0; i < iterations; i++ {

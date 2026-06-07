@@ -2,11 +2,9 @@
 package partitioner
 
 import (
-	"context"
 	"fmt"
 	"sync"
 
-	"github.com/bytedance/gopkg/util/gopool"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"go.uber.org/zap"
 )
@@ -101,7 +99,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		}()
 
 		for q := 0; q < LEVEL_WORKERS; q++ {
-			gopool.CtxGo(context.Background(), computeRecursiveBisection)
+			go computeRecursiveBisection()
 		}
 
 		for _, cell := range mp.cellVertices[level+1] {

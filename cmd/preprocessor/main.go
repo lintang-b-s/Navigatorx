@@ -5,11 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"time"
 
-	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
@@ -45,7 +43,6 @@ func init() {
 	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.ntm", profileName, *regionName)
 
 	config.InitProfileConfig(profileName, *regionName)
-	gopool.SetCap(int32(runtime.NumCPU()))
 }
 
 func main() {

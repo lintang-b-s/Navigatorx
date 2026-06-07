@@ -322,12 +322,10 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 	nodeCoords := make([]osmparser.NodeCoord, 0)
 	for i := 0; i < N; i++ {
-
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(i)))
 	}
 
 	for i := N; i < 2*N; i++ {
-
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i*3), float64(i*3)))
 	}
 

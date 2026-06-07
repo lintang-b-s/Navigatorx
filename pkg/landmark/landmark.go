@@ -3,15 +3,12 @@ package landmark
 
 import (
 	"bufio"
-	"context"
 	"errors"
 	"fmt"
 	"math"
 	"sort"
 	"sync"
 	"sync/atomic"
-
-	"github.com/bytedance/gopkg/util/gopool"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -276,9 +273,9 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *da.Graph, log
 		}
 	}()
 
-	for i := 0; i < int(WORKERS); i++ {
-		gopool.CtxGo(context.Background(), calcDijkstra)
-		gopool.CtxGo(context.Background(), calcDijkstraRev)
+	for i := 0; i < WORKERS; i++ {
+		go calcDijkstra()
+		go calcDijkstraRev()
 	}
 
 	for i := 0; i < k; i++ {
