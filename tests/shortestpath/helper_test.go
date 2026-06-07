@@ -3,6 +3,7 @@ package shortestpath
 import (
 	"os"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/bytedance/gopkg/util/gopool"
@@ -32,6 +33,9 @@ const (
 func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine, *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	da.CoordinatePrecision = 1e6
+	if strings.Contains(strings.ToUpper(t.Name()), "KRL") {
+		da.CoordinatePrecision = 1e3
+	}
 	es := tests.FlattenEdges(adjList)
 
 	op := osmparser.NewOSMParserV2()
