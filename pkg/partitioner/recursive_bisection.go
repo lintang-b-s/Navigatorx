@@ -111,7 +111,7 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 	computeIflow := func() {
 		for pg := range iflowInChan {
 			iflow := NewInertialFlow(pg, rb.inertialFlowIterations, rb.directed)
-			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n^2 * m), n,m = number of vertices & edges in current partition graph pg
+			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(min{m * sqrt(m), m * n^(2/3)})) dinic on unit capacity graph, n,m = number of vertices & edges in current partition graph pg
 			partOne, partTwo := rb.applyBisection(cut, pg)          // O(n+m)
 			iflowOutChan <- NewBisectionRes(partOne, partTwo)
 		}
