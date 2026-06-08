@@ -44,20 +44,36 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 }
 
 /*
-[On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
-partisi road networks graph dengan cara:
+ref1: [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
+partisi road networks graph dengan cara: (b = parameter balance)
 (1) sort vertices by linear kombinaasi latitude & longitude
-(2) compute max flow/st-mincut dari first k nodes (sources) to last k nodes(sinks) dari sortest vertices
+(2) compute max flow/st-mincut dari first k=n*b nodes (sources) to last k=n*b nodes(sinks) dari sortest vertices
 (3) return st-mincut sebagai edge separator (atau recurse sampai size dari resulting subgraphs < maximumCellSize U).
 
 time complexity:
-let U = rb.maximumCellSize. computeInertialFlowDinic is just run dinic algorithm for multiple times. dinic time complexity O(n^2 * m).
-worst case ketika the graph adlh complete graph, m=n(n-1)/2 -> dinic O(n^2 * n(n-1)/2)
-worst case dari inertial flow ketika dinic return st-mincut dengan partisi S, T, dengan |S|=1  dan |T|= n-1  (atau |T|=1 dan |S|=n-1).
-T(n) = n^2 * \frac{n * (n-1)}{2} *c + T(n-1)
-base case: T(U)=O(1)
-T(n) = O(n^5)
-*/
+let U = rb.maximumCellSize. computeInertialFlowDinic is just run dinic algorithm for multiple times.
+
+ref2: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
+
+time complexity dinic algorithm on unit capacity graph::
+see lemama 4.2 ref2, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
+karena di implementasi inertial flow ini kita selalu pakai unit capacity..
+let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pada graph n vertices dan m edges = O(min{m * sqrt(m), m * n^(2/3)})
+b=SOURCE_SINK_RATE atau parameter balance b dari algoritma inertial flow ref1. 0<b<=1/2
+worst case ketika hasil st b-balanced mincut selalu |S|=b*n, |T|=(1-b)*n
+
+T(n)=T(n*(1-b)) + T(b*n) +T_d(n)
+	<= 2T(n*(1-b))+T_d(n)
+	<= 2^2 T(n(1-b)^2) + 2T_d(n(1-b)) + T_d(n)
+	<= 2^k * T_d(n) + 2^k*T(n(1-b)^k)
+
+
+base case T(U)=O(1)
+k=log_{1/(1-b)} (n/U)
+
+T(n)=O(2^{log_{1/(1-b)} n} * T_d(n))
+
+*/ //
 func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 
 	initialPg := rb.buildInitialPartitionGraph(initialVerticeIds) // O(n+m), n = len(initialVerticeIds), m = number of edges that its tail vertex in initialVerticeIds
@@ -145,12 +161,12 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 			if !tooSmall(partOne.NumberOfVertices()) {
 				queue = append(queue, partOne)
 			} else {
-				rb.assignFinalPartition(partOne) // O(p), p = number of vertitices in partition one (partOne)
+				rb.assignFinalPartition(partOne) // O(p), p = number of vertices in partition one (partOne)
 			}
 			if !tooSmall(partTwo.NumberOfVertices()) {
 				queue = append(queue, partTwo)
 			} else {
-				rb.assignFinalPartition(partTwo) // O(q), q = number of vertitices in partition two (partTwo)
+				rb.assignFinalPartition(partTwo) // O(q), q = number of vertices in partition two (partTwo)
 			}
 
 			numUncompletedJob--

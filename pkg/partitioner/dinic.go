@@ -298,6 +298,9 @@ func (dmf *DinicMaxFlow) blockingFlow(s, t da.Index) int64 {
 		// so in this blocking flow loop, num of iterations is in O(m)
 		// sum over all iterations of this blocking flow loop, time complexity of blocking flow:
 		// sum_{i=1}^{m} O(k+n) = O(nm)
+
+		// for unit capacity graph:
+		// time complexity of blocking flow unit capacity graph: O(m) (see lemma 4.2 ref1)
 		flow := dmf.dfsAugmentPath(s, s, t, math.MaxInt) // O(k+n), with k=number of pointer dmf.last advances in this dfs execution
 		if flow == 0 {
 			break
@@ -309,7 +312,14 @@ func (dmf *DinicMaxFlow) blockingFlow(s, t da.Index) int64 {
 
 /*
 ComputeMaxflowMinCut. compute max flow/min st-cut
-time complexity: O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
+ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
+
+time complexity:
+general capacity graph:
+see lemama 4.1 ref1, O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
+
+for unit capacity graph:
+see lemama 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 */
 func (dmf *DinicMaxFlow) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
 	var (
@@ -324,6 +334,9 @@ func (dmf *DinicMaxFlow) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
 		// shortest path ditance from s to any vertices using unit distance (bfs) is at most n-1.
 		// thus, num of iterations of  this loop is O(n)
 		// time complexity of dinic algorithm: O(n^2*m)
+
+		// for unit capacity graph:
+		// see lemama 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 		dmf.resetCurrentEdges()
 		blockingFlowVal := dmf.blockingFlow(s, t) // O(nm)
 		maxFlow += blockingFlowVal

@@ -45,8 +45,17 @@ computeInertialFlowDinic.
 
 return st-mincut dengan partisi S, T yang saling disjoint.
 time complexity:
-karena cuma call algoritma dinic berkali kali sejumlah iterations, let k = number of iterations+2
-O(k*n^2*m).
+karena cuma call algoritma dinic unit capacity berkali kali sejumlah iterations, let k = number of iterations+2
+ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
+
+time complexity dinic algorithm on general capacity graph:
+see lemama 4.1 ref1, O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
+
+time complexity dinic algorithm on unit capacity graph:
+see lemama 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
+
+karena di implementasi inertial flow ini kita selalu pakai unit capacity..
+O(k*min{m * sqrt(m), m * n^(2/3)}).
 */
 func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCut {
 	var (
