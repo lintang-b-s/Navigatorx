@@ -56,7 +56,7 @@ let U = rb.maximumCellSize. computeInertialFlowDinic is just run dinic algorithm
 ref2: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 
 time complexity dinic algorithm on unit capacity graph::
-see lemama 4.2 ref2, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
+see lemma 4.2 ref2, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 karena di implementasi inertial flow ini kita selalu pakai unit capacity..
 let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pada graph n vertices dan m edges = O(min{m * sqrt(m), m * n^(2/3)})
 b=SOURCE_SINK_RATE atau parameter balance b dari algoritma inertial flow ref1. 0<b<=1/2
@@ -71,7 +71,7 @@ T(n)=T(n*(1-b)) + T(b*n) +T_d(n)
 base case T(U)=O(1)
 k=log_{1/(1-b)} (n/U)
 
-T(n)=O(2^{log_{1/(1-b)} n} * T_d(n))
+T(n)=O(2^{log_{1/(1-b)} n/U} * T_d(n)) , untuk level 5 default U_5 = 2^18
 
 */ //
 func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
