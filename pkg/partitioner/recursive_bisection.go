@@ -71,7 +71,7 @@ T(n)=T(n*(1-b)) + T(b*n) +T_d(n)
 base case T(U)=O(1)
 k=log_{1/(1-b)} (n/U)
 
-T(n)=O(2^{log_{1/(1-b)} n/U} * T_d(n)) , untuk level 5 default U_5 = 2^18
+T(n)=O((n/U)^{log_{1/(1-b)} 2} * T_d(n)) , untuk level 5 default U_5 = 2^18
 
 */ //
 func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {

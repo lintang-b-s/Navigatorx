@@ -21,6 +21,8 @@ type TimeFunction struct {
 	// turnMatrices[v][i][j] -> turnCosts = flattened 1-D indexed array index of i-th incoming edge dari v and j-th outgoing edge dari v  = i*outDegree + j
 	// = turnCost buat keluar dari v dari i-th incoming edge ke j-th outgoing edge dari v
 
+	// todo: ubah semua ke generic , possible value: int32 (buat input openstreetmap pbf kaya osrm) atau float64 (other)
+	// biar memory usage nya turun lagi
 	defaultWeights []float64
 	segmentLengths []float64
 	edgeMaxSpeeds  []float64 // map from outEdge id to its maxspeed in meters per second (m/s)
