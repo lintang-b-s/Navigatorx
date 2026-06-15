@@ -82,7 +82,7 @@ func (m *MockRoutingEngine) PathExists(u, v da.Index) bool {
 	args := m.Called(u, v)
 	return args.Bool(0)
 }
-func (m *MockRoutingEngine) GetWeight(eId da.Index, outEdge bool) float64 {
+func (m *MockRoutingEngine) GetWeightSeconds(eId da.Index, outEdge bool) float64 {
 	args := m.Called(eId, outEdge)
 	return args.Get(0).(float64)
 }

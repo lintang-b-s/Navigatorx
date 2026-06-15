@@ -16,6 +16,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
@@ -84,6 +85,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	util.USE_INT32 = false
 
 	og := prep.GetOverlayGraph()
 	cust := customizer.NewCustomizerDirect(

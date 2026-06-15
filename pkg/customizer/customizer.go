@@ -541,7 +541,7 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 								vEntryId := c.graph.GetEntryOffset(v) + da.Index(entryPoint) - forwardCellOffset
 
 								ok := util.Lt(travelTime[vEntryId], util.Infinity[W]())
-								if oldvTT := travelTime[vEntryId]; !ok || (ok && newTravelTime < oldvTT) {
+								if oldvTT := travelTime[vEntryId]; !ok || (ok && util.Lt(newTravelTime, oldvTT)) {
 									travelTime[vEntryId] = newTravelTime
 									if ok {
 										pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, noPar)
@@ -556,7 +556,7 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 								exitVertexTravelTime := uTravelTimeWithTurnCost
 								exitOverlayVId, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
 								ok := util.Lt(overlayTravelTime[exitOverlayVId], util.Infinity[W]())
-								if !ok || (ok && exitVertexTravelTime < overlayTravelTime[exitOverlayVId]) {
+								if !ok || (ok && util.Lt(exitVertexTravelTime, overlayTravelTime[exitOverlayVId])) {
 									overlayTravelTime[exitOverlayVId] = exitVertexTravelTime
 								}
 							}
@@ -705,7 +705,7 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 
 						oldExitTravelTime := travelTime[exitOverlayVertex]
 						exitAlreadyLabelled := util.Lt(travelTime[exitOverlayVertex], util.Infinity[W]())
-						if !exitAlreadyLabelled || (exitAlreadyLabelled && newTravelTime < oldExitTravelTime) {
+						if !exitAlreadyLabelled || (exitAlreadyLabelled && util.Lt(newTravelTime, oldExitTravelTime)) {
 							travelTime[exitOverlayVertex] = newTravelTime
 							// visit neighbor of exitOverlayVertex
 							//
@@ -723,7 +723,7 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 								nAlreadyLabelled := util.Lt(travelTime[neighborVertex], util.Infinity[W]())
 
 								if !nAlreadyLabelled ||
-									(nAlreadyLabelled && newNeighborTravelTime < oldNTravelTime) {
+									(nAlreadyLabelled && util.Lt(newNeighborTravelTime, oldNTravelTime)) {
 									travelTime[neighborVertex] = newNeighborTravelTime
 
 									if !nAlreadyLabelled {

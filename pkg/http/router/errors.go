@@ -41,7 +41,7 @@ func (api *API) errorResponse(w http.ResponseWriter, r *http.Request, status int
 		Message: message.(string),
 	}}
 
-	err := api.writeJSON(w, status, env, nil)
+	err := api.writeJSON(w, status, env)
 	if err != nil {
 
 		api.logError(r, err)
