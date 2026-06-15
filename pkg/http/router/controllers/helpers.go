@@ -23,18 +23,13 @@ var bufPool = sync.Pool{
 	},
 }
 
-const maxJSONBUfPool = 128 << 10
-
 // writeJSON marshals data structure to encoded JSON response.
 func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data any) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 
 	defer func() {
 		buf.Reset()
-		if buf.Cap() <= maxJSONBUfPool {
-			bufPool.Put(buf)
-		}
-
+		bufPool.Put(buf) // ada memory leak pas load test /computeAlternativeRoutes , ?
 	}()
 
 	enc := json.ConfigDefault.NewEncoder(buf)
