@@ -125,7 +125,6 @@ func (rt *Rtree) Build(graph *da.Graph, logger *zap.Logger) {
 			flag := rt.getFlag(graph, eId, true)
 			segmentSet[segKey] = newSegmentVal(minX, minY, maxX, maxY, eId, flag)
 		}
-
 	})
 
 	for _, seg := range segmentSet {
@@ -188,6 +187,7 @@ func (rt *Rtree) getFlag(graph *da.Graph, eId da.Index, forward bool) uint8 {
 			flag |= JUNCTION_FORWARD_HEAD_FLAG
 		default:
 			flag |= JUNCTION_BACKWARD_HEAD_FLAG
+			flag |= BIDIRECTIONAL
 		}
 	}
 	if graph.IsJunctionTail(eId) {
@@ -196,6 +196,7 @@ func (rt *Rtree) getFlag(graph *da.Graph, eId da.Index, forward bool) uint8 {
 			flag |= JUNCTION_FORWARD_TAIL_FLAG
 		default:
 			flag |= JUNCTION_BACKWARD_TAIL_FLAG
+			flag |= BIDIRECTIONAL
 		}
 	}
 	return flag
@@ -227,6 +228,10 @@ func isBackwardJunctionTail(flag uint8) bool {
 	return flag&JUNCTION_BACKWARD_TAIL_FLAG != 0
 }
 
+func isBidirectional(flag uint8) bool {
+	return flag&BIDIRECTIONAL != 0
+}
+
 func (rt *Rtree) GetEdgeId(data leafData, mode uint8) (da.Index, da.Index) {
 	var (
 		backEdgeId, forwEdgeId = da.INVALID_EDGE_ID, da.INVALID_EDGE_ID
@@ -237,7 +242,7 @@ func (rt *Rtree) GetEdgeId(data leafData, mode uint8) (da.Index, da.Index) {
 		if isForwardJunctionHead(data.flag) {
 			forwEdgeId = da.Index(data.edgeId & 0xFFFFFFFF)
 		}
-		if isBackwardJunctionHead(data.flag) {
+		if isBackwardJunctionHead(data.flag) && isBidirectional(data.flag) {
 			backEdgeId = da.Index(data.edgeId >> 32)
 		}
 
@@ -246,11 +251,16 @@ func (rt *Rtree) GetEdgeId(data leafData, mode uint8) (da.Index, da.Index) {
 		if isForwardJunctionTail(data.flag) {
 			forwEdgeId = da.Index(data.edgeId & 0xFFFFFFFF)
 		}
-		if isBackwardJunctionTail(data.flag) {
+		if isBackwardJunctionTail(data.flag) && isBidirectional(data.flag) {
 			backEdgeId = da.Index(data.edgeId >> 32)
 		}
 
 		return forwEdgeId, backEdgeId
+	default:
+		forwEdgeId = da.Index(data.edgeId & 0xFFFFFFFF)
+		if isBidirectional(data.flag) {
+			backEdgeId = da.Index(data.edgeId >> 32)
+		}
+		return forwEdgeId, backEdgeId
 	}
-	return forwEdgeId, backEdgeId
 }

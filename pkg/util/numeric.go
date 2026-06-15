@@ -2,7 +2,6 @@ package util
 
 import (
 	"cmp"
-	"errors"
 	"math"
 )
 
@@ -21,8 +20,6 @@ const (
 var (
 	USE_INT32 = false
 )
-
-var ErrFixedPointOverflow = errors.New("fixed-point value is out of range")
 
 func Infinity[T RoutingNumber]() T {
 	switch USE_INT32 {
