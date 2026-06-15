@@ -37,7 +37,7 @@ func (db *DirectionBuilder) buildSimplifiedAnnotation(edgeIds []da.Index, geomet
 		next := geometry[i+1]
 		dist := geo.CalculateEuclideanDistMercatorProj(curr.GetLat(), curr.GetLon(), next.GetLat(), next.GetLon())
 		simplifiedDistance = append(simplifiedDistance, dist)
-		simplifiedDuration[i] = dist / avgSpeed
+		simplifiedDuration = append(simplifiedDuration, dist/avgSpeed)
 	}
 
 	edgeGeomOffset := db.buildEdgeGeomOffsetFromGeometry(edgeIds, geometry)
