@@ -64,7 +64,7 @@ sh ./scripts/run_test.sh
 ## Load Test
 
 ```
-ulimit -n 65535 # increase file descriptor limits (https://goperf.dev/02-networking/networking-internals/ ,  https://crackingwalnuts.com/networking-protocols/socket-programming)
+ulimit -n 65535 # increase file descriptor limits (https://goperf.dev/02-networking/networking-internals/)
 go run eval/crp_alt/gen_rand_queries_coords/main.go
 k6 run eval/crp_alt/load_tests/k6_sp.js
 k6 run eval/crp_alt/load_tests/k6_alternatives.js

@@ -22,6 +22,9 @@ func NewRtreeMapMatch() *RtreeMapMatch {
 
 func (rt *RtreeMapMatch) BuildMapMatch(graph *da.MapMatchingGraph, logger *zap.Logger) {
 	m := graph.NumofEdges()
+	if m == 0 {
+		return
+	}
 
 	mins := make([][2]int32, 0, m)
 	maxs := make([][2]int32, 0, m)

@@ -13,7 +13,7 @@ type RoutingNumber interface {
 
 const (
 	CentiScale                = 100
-	INF_WEIGHT_FIXED  int32   = 800_000_000 // 800 million centi seconds ~ 92.5 hari.
+	INF_WEIGHT_FIXED  int32   = 600_000_000 // 600 million centi seconds ~ 69 hari.
 	INF_WEIGHT_FLOAT  float64 = 1e15
 	TurnCostForbidden uint16  = math.MaxUint16
 )

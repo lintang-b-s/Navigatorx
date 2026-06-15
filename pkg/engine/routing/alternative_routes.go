@@ -1001,8 +1001,19 @@ func (ars *AlternativeRouteSearch[W]) initParameter() {
 	ars.alphaMap, ars.defaultAlpha = util.ToFloat64Map(altConfig["alpha"])
 	ars.epsilonMap, ars.defaultEpsilon = util.ToFloat64Map(altConfig["epsilon"])
 	ars.upperBoundMap, ars.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
+	validateUpperbound(ars.upperBoundMap, ars.defaultUpperbound)
 	ars.maxCandidatesToUnpackMap, ars.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
+}
 
+func validateUpperbound(upperBoundMap map[float64]float64, defaultUpperbound float64) {
+	if defaultUpperbound > 1.75 {
+		panic("bidirectional search upperbound must less than or equal 1.75")
+	}
+	for _, val := range upperBoundMap {
+		if val > 1.75 {
+			panic("bidirectional search upperbound must less than or equal 1.75")
+		}
+	}
 }
 
 func (ars *AlternativeRouteSearch[W]) makePackedViaPathOverlayEven(svPackedPath, vtPackedPath []da.VertexEdgePair) ([]da.VertexEdgePair, []da.VertexEdgePair) {
