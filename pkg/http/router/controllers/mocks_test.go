@@ -13,8 +13,8 @@ type MockRoutingService struct {
 	mock.Mock
 }
 
-func (m *MockRoutingService) ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index) (float64, float64, string, []da.DrivingDirection, bool, error) {
-	args := m.Called(ctx, origLat, origLon, dstLat, dstLon, reroute, startEdgeId)
+func (m *MockRoutingService) ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index, useAnnotation bool) (float64, float64, string, []da.DrivingDirection, bool, error) {
+	args := m.Called(ctx, origLat, origLon, dstLat, dstLon, reroute, startEdgeId, useAnnotation)
 	var r3 []da.DrivingDirection
 	if args.Get(3) != nil {
 		r3 = args.Get(3).([]da.DrivingDirection)
@@ -22,8 +22,8 @@ func (m *MockRoutingService) ShortestPath(ctx context.Context, origLat, origLon,
 	return args.Get(0).(float64), args.Get(1).(float64), args.String(2), r3, args.Bool(4), args.Error(5)
 }
 
-func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, error) {
-	args := m.Called(ctx, origLat, origLon, dstLat, dstLon, k, reroute, startEdgeId)
+func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index, useAnnotation bool) ([]routing.AlternativeRoute, error) {
+	args := m.Called(ctx, origLat, origLon, dstLat, dstLon, k, reroute, startEdgeId, useAnnotation)
 	var r0 []routing.AlternativeRoute
 	if args.Get(0) != nil {
 		r0 = args.Get(0).([]routing.AlternativeRoute)
@@ -140,6 +140,10 @@ func (m *MockRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bo
 	}
 	return args.Get(0).(float64), args.Get(1).(float64), r2, r3, args.Bool(4)
 }
+
+func (m *MockRoutingEngine) PutPathToPool([]da.Index) {}
+
+func (m *MockRoutingEngine) PutCoordsToPool(*da.Coordinates) {}
 
 func (m *MockRoutingEngine) Close() {
 	m.Called()

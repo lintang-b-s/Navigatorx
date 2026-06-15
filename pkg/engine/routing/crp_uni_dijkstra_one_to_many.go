@@ -6,14 +6,14 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type CRPUniDijkstraOneToMany struct {
-	engine              *CRPRoutingEngine
-	shortestTravelTimes map[da.Index]float64
+type CRPUniDijkstraOneToMany[W util.RoutingNumber] struct {
+	engine              *CRPRoutingEngine[W]
+	shortestTravelTimes map[da.Index]W
 
-	stallingEntry []float64
-	stallingExit  []float64
+	stallingEntry []W
+	stallingExit  []W
 
-	pq        *da.QueryHeap[da.CRPQueryKey]
+	pq        *da.QueryHeap[da.CRPQueryKey, W]
 	tEntryIds map[target]da.Index
 
 	sCellNumber  da.Pv
@@ -24,17 +24,19 @@ type CRPUniDijkstraOneToMany struct {
 	numSettledNodes int
 }
 
-func NewCRPUniDijkstraOneToMany(engine *CRPRoutingEngine) *CRPUniDijkstraOneToMany {
-	crpQuery := &CRPUniDijkstraOneToMany{
+func NewCRPUniDijkstraOneToMany[W util.RoutingNumber](
+	engine *CRPRoutingEngine[W],
+) *CRPUniDijkstraOneToMany[W] {
+	crpQuery := &CRPUniDijkstraOneToMany[W]{
 		engine: engine,
 
-		stallingEntry: make([]float64, 0),
-		stallingExit:  make([]float64, 0),
+		stallingEntry: make([]W, 0),
+		stallingExit:  make([]W, 0),
 
 		numSettledNodes: 0,
 
 		tEntryIds:           make(map[target]da.Index, 0),
-		shortestTravelTimes: make(map[da.Index]float64),
+		shortestTravelTimes: make(map[da.Index]W),
 		targetsSettled:      make(map[da.Index]struct{}),
 	}
 	crpQuery.Preallocate()
@@ -57,7 +59,7 @@ extract-min at most O(m_p+n_o) operations
 
 if len(atIds) approaches n, u should use plain dijkstra in dijkstra.go
 */
-func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, atIds []da.Index) (map[da.Index]float64, map[da.Index]float64, map[da.Index][]da.Coordinate,
+func (us *CRPUniDijkstraOneToMany[W]) ShortestPathOneToManySearch(asId da.Index, atIds []da.Index) (map[da.Index]W, map[da.Index]float64, map[da.Index][]da.Coordinate,
 	map[da.Index][]da.Index) {
 
 	us.Preallocate()
@@ -80,7 +82,7 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 	sForwardId := us.engine.graph.GetEntryOffset(s) + da.Index(asEdge.GetEntryPoint())
 
 	sQueryKey := da.NewCRPQueryKey(s, sForwardId, false)
-	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 	us.pq.Insert(sForwardId, 0, sVertexInfo, sQueryKey)
 
 	finished := false
@@ -152,16 +154,17 @@ func (us *CRPUniDijkstraOneToMany) ShortestPathOneToManySearch(asId da.Index, at
 
 		unpacker := NewPathUnpacker(us.engine, us.engine.metrics, us.engine.puCache, true, true)
 		edgeIdPath, _ := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))
-		finalPath, totalDistance := us.engine.GetEdgePath(edgeIdPath)
+		finalPath, totalDistance := us.engine.GetEdgePath(edgeIdPath, 0)
 		tdists[t.getatId()] = totalDistance
 		tfinalPath[t.getatId()] = *finalPath
 		tfinalEdgePath[t.getatId()] = edgeIdPath
+		us.engine.PutCoordsToPool(finalPath)
 	}
 
 	return us.shortestTravelTimes, tdists, tfinalPath, tfinalEdgePath
 }
 
-func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source da.Index, targets []target) bool {
+func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, source da.Index, targets []target) bool {
 
 	uId := uItem.GetNode()
 	uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
@@ -203,14 +206,14 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			}
 		}
 
-		edgeWeight := us.engine.GetWeight(eId, true)
+		edgeWeight := us.engine.getWeight(eId, true)
 
 		turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost
 
-		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+		if util.Ge(newTravelTime, util.Infinity[W]()) {
 			return
 		}
 
@@ -220,14 +223,14 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			// if query level of v is 0, then v is in the same cell as s or t in the lowest level
 			// then, we just do edge relaxation as usual in turn-aware dijkstra
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), util.Infinity[W]())
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vEntryId)) {
 				// newTravelTime is not better, do nothing
 
 				return
 			}
 
-			if bvi := us.stallingEntry[vEntryId]; util.Lt(bvi, pkg.INF_WEIGHT) && util.Gt(newTravelTime, bvi) {
+			if bvi := us.stallingEntry[vEntryId]; util.Lt(bvi, util.Infinity[W]()) && util.Gt(newTravelTime, bvi) {
 				// stalled
 				return
 			}
@@ -255,7 +258,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 			v, _ := us.engine.graph.GetOverlayVertex(vId, entryPoint, false)
 			overlayVId := v + da.Index(us.engine.graph.NumberOfEdges())
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(overlayVId), pkg.INF_WEIGHT)
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(overlayVId), util.Infinity[W]())
 			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, us.pq.GetPriority(overlayVId))) {
 
 				if !vAlreadyLabelled {
@@ -277,7 +280,7 @@ func (us *CRPUniDijkstraOneToMany) graphSearchUni(uItem da.CRPQueryKey, source d
 	return false
 }
 
-func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
+func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 	// search on overlay graph
 
 	u := uItem.GetNode() // overlay vertex id
@@ -290,13 +293,13 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 		shortcutOutEdgeWeight := us.engine.metrics.GetShortcutWeight(wOffset)
 
 		newTravelTime := us.pq.GetPriority(uId) + shortcutOutEdgeWeight
-		if newTravelTime >= pkg.INF_WEIGHT {
+		if util.Ge(newTravelTime, util.Infinity[W]()) {
 			return
 		}
 		vVertex := us.engine.overlayGraph.GetVertex(v)
 
 		vId := v + da.Index(us.engine.graph.NumberOfEdges())
-		vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
+		vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
 		if !vAlreadyLabelled || (vAlreadyLabelled && newTravelTime < us.pq.GetPriority(vId)) {
 
 			us.pq.SetQueryLevel(vId, uint8(uQueryLevel))
@@ -304,7 +307,7 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 			// traverse edge to next cell
 			vOriEdgeId := vVertex.GetOriginalEdge()
 
-			edgeWeight := us.engine.GetWeight(vOriEdgeId, true)
+			edgeWeight := us.engine.getWeight(vOriEdgeId, true)
 			// w is in the next cell from v cell
 			w := vVertex.GetNeighborOverlayVertex()
 			wVertex := us.engine.overlayGraph.GetVertex(w)
@@ -324,7 +327,7 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 
 			newTravelTime = us.pq.GetPriority(vId) + edgeWeight
 
-			if newTravelTime >= pkg.INF_WEIGHT {
+			if util.Ge(newTravelTime, util.Infinity[W]()) {
 				return
 			}
 
@@ -335,7 +338,7 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 
 				// relax entry Edge of w
 				// update travelTime to reach entry point of w and insert entryPoint of w to forwardPq
-				wAlreadyLabelled := util.Lt(us.pq.GetPriority(wEntryId), pkg.INF_WEIGHT)
+				wAlreadyLabelled := util.Lt(us.pq.GetPriority(wEntryId), util.Infinity[W]())
 				if wAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(wEntryId)) {
 
 					return
@@ -357,7 +360,7 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 				// update new travelTime to reach overlay vertex w
 				// insert item overlay vertex w and its query level to pq, because we need to traverse & relax shortcut edges in overlay graph
 				wId := w + da.Index(us.engine.graph.NumberOfEdges())
-				wAlreadyLabelled := util.Lt(us.pq.GetPriority(wId), pkg.INF_WEIGHT)
+				wAlreadyLabelled := util.Lt(us.pq.GetPriority(wId), util.Infinity[W]())
 				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, us.pq.GetPriority(wId))) {
 
 					if !wAlreadyLabelled {
@@ -377,14 +380,14 @@ func (us *CRPUniDijkstraOneToMany) overlayGraphSearchUni(uItem da.CRPQueryKey) {
 	})
 }
 
-func (us *CRPUniDijkstraOneToMany) Preallocate() {
+func (us *CRPUniDijkstraOneToMany[W]) Preallocate() {
 	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
 
 	maxSearchSize := us.engine.graph.NumberOfEdges() + us.engine.overlayGraph.NumberOfOverlayVertices()
-	us.pq = da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearchSize), uint32(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
+	us.pq = da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxSearchSize), uint32(maxEdgesInCell), da.TWO_LEVEL_STORAGE, true)
 	us.pq.PreallocateHeap(maxSearchSize)
-	us.stallingEntry = make([]float64, maxSearchSize)
-	us.stallingExit = make([]float64, maxSearchSize)
+	us.stallingEntry = make([]W, maxSearchSize)
+	us.stallingExit = make([]W, maxSearchSize)
 
 	initInfWeight(us.stallingEntry)
 	initInfWeight(us.stallingExit)

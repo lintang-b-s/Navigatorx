@@ -1,5 +1,7 @@
 package datastructure
 
+import "github.com/lintang-b-s/Navigatorx/pkg/util"
+
 type VertexEdgePair struct {
 	vertex      Index // 4 byte
 	edge        Index // 4 byte
@@ -64,44 +66,44 @@ func (ve VertexEdgePair) GetOutInEdgeId() Index {
 	return ve.outInEdgeId
 }
 
-type VertexInfo struct {
+type VertexInfo[W util.RoutingNumber] struct {
 	parent     VertexEdgePair // 13 byte
-	travelTime float64        // 8 byte
-	heapNodeId uint32         // 4 byte
+	travelTime W
+	heapNodeId uint32 // 4 byte
 }
 
-func NewVertexInfo(travelTime float64, parent VertexEdgePair) VertexInfo {
-	return VertexInfo{
+func NewVertexInfo[W util.RoutingNumber](travelTime W, parent VertexEdgePair) VertexInfo[W] {
+	return VertexInfo[W]{
 		travelTime: travelTime,
 		parent:     parent,
 		heapNodeId: 0,
 	}
 }
 
-func (vi *VertexInfo) GetTravelTime() float64 {
+func (vi *VertexInfo[W]) GetTravelTime() W {
 	return vi.travelTime
 }
 
-func (vi *VertexInfo) UpdateTravelTime(tt float64) {
+func (vi *VertexInfo[W]) UpdateTravelTime(tt W) {
 	vi.travelTime = tt
 }
 
-func (vi *VertexInfo) UpdateParent(par VertexEdgePair) {
+func (vi *VertexInfo[W]) UpdateParent(par VertexEdgePair) {
 	vi.parent = par
 }
 
-func (vi *VertexInfo) SetHeapNodeId(id uint32) {
+func (vi *VertexInfo[W]) SetHeapNodeId(id uint32) {
 	vi.heapNodeId = id
 }
 
-func (vi *VertexInfo) GetHeapNodeId() uint32 {
+func (vi *VertexInfo[W]) GetHeapNodeId() uint32 {
 	return vi.heapNodeId
 }
 
-func (vi *VertexInfo) SetFirstOverlayEntryExitId(id Index) {
+func (vi *VertexInfo[W]) SetFirstOverlayEntryExitId(id Index) {
 	vi.parent.SetFirstOverlayEntryExitId(id)
 }
 
-func (vi VertexInfo) GetParent() VertexEdgePair {
+func (vi VertexInfo[W]) GetParent() VertexEdgePair {
 	return vi.parent
 }

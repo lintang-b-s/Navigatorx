@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	JSON_BUF_POOL_SIZE = 4096
+	JSON_BUF_POOL_SIZE = 32 << 10
 	MB_TO_BYTES        = 1000000
 )
 

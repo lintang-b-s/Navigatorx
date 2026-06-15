@@ -10,7 +10,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -18,46 +17,45 @@ import (
 	"go.uber.org/zap"
 )
 
-type Landmark struct {
-	lw        atomic.Value // distance from each landmarks to every vertices in graph
-	vlw       atomic.Value // distance from all vertices to each landmarks
-	landmarks atomic.Value // landmark vertex ids
-
+type Landmark[W util.RoutingNumber] struct {
+	lw        atomic.Pointer[landmarkTable[W]]
+	vlw       atomic.Pointer[landmarkTable[W]]
+	landmarks atomic.Pointer[[]da.Index]
 }
 
-type landmarkTable struct {
-	values []float64 // values[row*cols+col] = values2D[row][col]. lw: rows=landmarks, cols=vertices
+type landmarkTable[W util.RoutingNumber] struct {
+	values []W
 	rows   da.Index
 	cols   da.Index
 }
 
-func newLandmarkTable(rows, cols da.Index) *landmarkTable {
-	return &landmarkTable{values: make([]float64, rows*cols), rows: rows, cols: cols}
+func newLandmarkTable[W util.RoutingNumber](rows, cols da.Index) *landmarkTable[W] {
+	return &landmarkTable[W]{values: make([]W, rows*cols), rows: rows, cols: cols}
 }
 
-func (table *landmarkTable) row(row da.Index) []float64 {
+func (table *landmarkTable[W]) row(row da.Index) []W {
 	start := row * table.cols
 	return table.values[start : start+table.cols]
 }
 
-func (table *landmarkTable) at(row da.Index, col da.Index) float64 {
+func (table *landmarkTable[W]) at(row da.Index, col da.Index) W {
 	return table.values[row*table.cols+col]
 }
 
-func (table *landmarkTable) matrix() [][]float64 {
-	rows := make([][]float64, table.rows)
+func (table *landmarkTable[W]) matrix() [][]W {
+	rows := make([][]W, table.rows)
 	for i := range rows {
-		rows[i] = append([]float64(nil), table.row(da.Index(i))...)
+		rows[i] = table.row(da.Index(i))
 	}
 	return rows
 }
 
-func NewLandmark() *Landmark {
-	lm := &Landmark{}
-	lm.lw.Store(newLandmarkTable(0, 0))
-	lm.vlw.Store(newLandmarkTable(0, 0))
+func NewLandmark[W util.RoutingNumber]() *Landmark[W] {
+	lm := &Landmark[W]{}
+	lm.lw.Store(newLandmarkTable[W](0, 0))
+	lm.vlw.Store(newLandmarkTable[W](0, 0))
 	landmarks := make([]da.Index, 0)
-	lm.landmarks.Store(landmarks)
+	lm.landmarks.Store(&landmarks)
 	return lm
 }
 
@@ -68,7 +66,7 @@ this is an implementation of planar landmark selection described in section 7 pa
 
 O(V*logV)
 */
-func (lm *Landmark) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
+func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 
 	landmarks := make([]da.Vertex, 0, k)
 	ivs := graph.GetVertices()
@@ -169,20 +167,20 @@ func (qp *queryParam) getSid() da.Index {
 	return qp.sid
 }
 
-type queryRet struct {
+type queryRet[W util.RoutingNumber] struct {
 	il  int
-	sps []float64
+	sps []W
 }
 
-func newQueryRet(il int, sps []float64) queryRet {
-	return queryRet{il, sps}
+func newQueryRet[W util.RoutingNumber](il int, sps []W) queryRet[W] {
+	return queryRet[W]{il, sps}
 }
 
-func (qr *queryRet) getIndex() int {
+func (qr *queryRet[W]) getIndex() int {
 	return qr.il
 }
 
-func (qr *queryRet) getSpCosts() []float64 {
+func (qr *queryRet[W]) getSpCosts() []W {
 	return qr.sps
 }
 
@@ -195,23 +193,24 @@ time complexity of ALT preprocessing:
 
 O(m*logm * k), m=number of edges,k=number of landmarks
 */
-func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *da.Graph, logger *zap.Logger) error {
+func (lm *Landmark[W]) PreprocessALT(k int, m *metrics.Metric[W], graph *da.Graph, logger *zap.Logger) error {
 	if k > 64 {
 		return errors.New("too much landmarks!, the maximum number of landmarks is 64. ")
 	}
 	n := da.Index(graph.NumberOfVertices())
 
 	if n < da.Index(k) {
-		lm.lw.Store(newLandmarkTable(0, 0))
-		lm.vlw.Store(newLandmarkTable(0, 0))
-		lm.landmarks.Store(make([]da.Index, 0))
+		lm.lw.Store(newLandmarkTable[W](0, 0))
+		lm.vlw.Store(newLandmarkTable[W](0, 0))
+		landmarks := make([]da.Index, 0)
+		lm.landmarks.Store(&landmarks)
 		return nil
 	}
 
 	logger.Info("computing landmarks....")
-	lw := newLandmarkTable(da.Index(k), n)
+	lw := newLandmarkTable[W](da.Index(k), n)
 	landmarks := make([]da.Index, k)
-	vlw := newLandmarkTable(n, da.Index(k))
+	vlw := newLandmarkTable[W](n, da.Index(k))
 	landmarksVertices := lm.SelectLandmarksTwo(k, graph)
 
 	maxSearchSize := graph.NumberOfEdges()
@@ -219,15 +218,15 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *da.Graph, log
 
 	heapPool := sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	dijkstraInChan := make(chan queryParam, landmarkChanSize)
 	dijkstraRevInChan := make(chan queryParam, landmarkChanSize)
 
-	dijkstraOutChan := make(chan queryRet, landmarkChanSize)
-	dijkstraRevOutChan := make(chan queryRet, landmarkChanSize)
+	dijkstraOutChan := make(chan queryRet[W], landmarkChanSize)
+	dijkstraRevOutChan := make(chan queryRet[W], landmarkChanSize)
 
 	wg := sync.WaitGroup{}
 
@@ -294,7 +293,7 @@ func (lm *Landmark) PreprocessALT(k int, m *metrics.Metric, graph *da.Graph, log
 	close(dijkstraOutChan)
 	close(dijkstraRevOutChan)
 
-	lm.landmarks.Store(landmarks)
+	lm.landmarks.Store(&landmarks)
 	lm.lw.Store(lw)
 	lm.vlw.Store(vlw)
 
@@ -317,39 +316,33 @@ fungsi potential/heuristik  h(v) meiliki sifat konsisten/feasible [3]
 
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
-func (lm *Landmark) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) float64 {
+func (lm *Landmark[W]) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) W {
 	// O(k), k = number of landmarks
-	tighestLowerBound := -pkg.INF_WEIGHT
-	vlw := lm.vlw.Load().(*landmarkTable)
-	lw := lm.lw.Load().(*landmarkTable)
+	tighestLowerBound := -util.Infinity[W]()
+	vlw := lm.vlw.Load()
+	lw := lm.lw.Load()
 	for i := 0; i < len(activeLandmarks); i++ {
 		landmarkId := activeLandmarks[i]
 
-		lbOne := vlw.at(u, landmarkId) - vlw.at(t, landmarkId)
-		lbTwo := lw.at(landmarkId, t) - lw.at(landmarkId, u)
+		uToLandmark := vlw.at(u, landmarkId)
+		tToLandmark := vlw.at(t, landmarkId)
+		tighestLowerBound = max(tighestLowerBound, uToLandmark-tToLandmark)
 
-		betterLb := 0.0
-		if util.Gt(lbOne, lbTwo) {
-			betterLb = lbOne
-		} else {
-			betterLb = lbTwo
-		}
-
-		if util.Gt(betterLb, tighestLowerBound) {
-			tighestLowerBound = betterLb
-		}
+		landmarkToT := lw.at(landmarkId, t)
+		landmarkToU := lw.at(landmarkId, u)
+		tighestLowerBound = max(tighestLowerBound, landmarkToT-landmarkToU)
 	}
 
 	return tighestLowerBound
 }
 
-type activeLandmark struct {
+type activeLandmark[W util.RoutingNumber] struct {
 	i  da.Index
-	lb float64
+	lb W
 }
 
-func newActiveLandmark(i da.Index, lb float64) activeLandmark {
-	return activeLandmark{i, lb}
+func newActiveLandmark[W util.RoutingNumber](i da.Index, lb W) activeLandmark[W] {
+	return activeLandmark[W]{i, lb}
 }
 
 const (
@@ -362,18 +355,19 @@ https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortes
 Use only an active subset:  (page 6)
 – prefer landmarks that give the best lower bound on dist(s, t).
 */
-func (lm *Landmark) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
-	landmarks := lm.landmarks.Load().([]da.Index)
-	bestLandmarks := make([]da.Index, 0, len(landmarks))
+func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
+	landmarks := *lm.landmarks.Load()
+	bestLandmarks := make([]da.Index, 0, activeLandmarkSize)
 
 	oriLandmarks := make([]da.Index, len(landmarks))
 	for i := 0; i < len(landmarks); i++ {
 		oriLandmarks[i] = da.Index(i)
 	}
 
-	lowerBounds := make([]activeLandmark, len(landmarks))
+	lowerBounds := make([]activeLandmark[W], len(landmarks))
 	for i := 0; i < len(landmarks); i++ {
-		lb, _ := lm.FindTighestConsistentLowerBound(s, s, t, oriLandmarks)
+		lid := landmarks[i]
+		lb, _ := lm.FindTighestConsistentLowerBound(lid, s, t, oriLandmarks)
 		lowerBounds[i] = newActiveLandmark(da.Index(i), lb)
 	}
 	// O(k* logk), k = number of landmarks
@@ -393,42 +387,44 @@ func (lm *Landmark) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [2] https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 [3] Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
-
-https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
+[4] https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 
 implementation of consistent/feasible potential function in 5.2 Consistent Approach ref [1]
-calc \pi_f(u)=\frac{h_f(u)-h_r(u)}{2} and \pi_r(u)=\frac{h_r(u)-h_f(u)}{2}
-h_f(u) adalah estimate sp cost dari u ke t
-h_r(u) adalah estimate sp cost dari s ke u
+calc \pi_f(u)=max(h_f(v), h_r(t)-h_r(v)+beta) untuk forward search and \pi_r(u)=-\pi_f(u) untuk backward search
+kita disini pakai beta=h_f(s)
+h_f(u) adalah consistent lower bound dari sp cost dari u ke t
+h_r(u) adalah consistent lower bound dari sp cost dari s ke u
 */
-func (lm *Landmark) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index) (float64, float64) {
+func (lm *Landmark[W]) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index) (W, W) {
 	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks) // estimate on dist(u,t)
 	piru := lm.FindTighestLowerBound(s, u, activeLandmarks) // estimate on dist(s,u)
+	pirt := lm.FindTighestLowerBound(s, t, activeLandmarks) // estimate on dist(s, t)
 
-	pfu := ((pifu - piru) / 2.0)
-	pru := ((piru - pifu) / 2.0)
+	beta := pirt
+	pfu := max(pifu, pirt-piru+beta)
+	pru := -pfu
 
 	return pfu, pru
 }
 
-func (lm *Landmark) GetLandmarkVId(i da.Index) da.Index {
-	return lm.landmarks.Load().([]da.Index)[i]
+func (lm *Landmark[W]) GetLandmarkVId(i da.Index) da.Index {
+	return (*lm.landmarks.Load())[i]
 }
 
-func (lm *Landmark) GetLandmarkVIds() []da.Index {
-	return lm.landmarks.Load().([]da.Index)
+func (lm *Landmark[W]) GetLandmarkVIds() []da.Index {
+	return *lm.landmarks.Load()
 }
 
-func (lm *Landmark) GetLandmarkVWeights() [][]float64 {
-	return lm.lw.Load().(*landmarkTable).matrix()
+func (lm *Landmark[W]) GetLandmarkVWeights() [][]W {
+	return lm.lw.Load().matrix()
 }
 
-func (lm *Landmark) GetVerticesLandmarkWeights() [][]float64 {
-	return lm.vlw.Load().(*landmarkTable).matrix()
+func (lm *Landmark[W]) GetVerticesLandmarkWeights() [][]W {
+	return lm.vlw.Load().matrix()
 }
 
-func (lm *Landmark) UpdateLandmarks(landmarkFilePath string, readBuf *bufio.Reader) error {
-	newLandmark, err := ReadLandmark(landmarkFilePath, readBuf)
+func (lm *Landmark[W]) UpdateLandmarks(landmarkFilePath string, readBuf *bufio.Reader) error {
+	newLandmark, err := ReadLandmark[W](landmarkFilePath, readBuf)
 	if err != nil {
 		return fmt.Errorf("UpdateLandmarks: failed to read new precalculated landmark distances: %v: %w", err, err)
 	}

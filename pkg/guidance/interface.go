@@ -11,12 +11,18 @@ type Graph interface {
 	IsRoundabout(edgeId da.Index) bool
 	GetStreetName(edgeId da.Index) string
 	GetEdgeGeometry(edgeID da.Index) []da.Coordinate
-	ForOutEdgeIdsOf(u da.Index, handle func(eId da.Index))
+	GetEdgeGeometryLength(edgeID da.Index) int
+	GetEdgeGeometryPoint(edgeID da.Index, point int) da.Coordinate
+	AppendEdgeGeometryWithoutLast(path *da.Coordinates, edgeID da.Index)
+	GetOutEdgeBounds(u da.Index) (da.Index, da.Index)
+	IsTraversableOutEdge(e da.Index) bool
 	GetRoadClass(edgeId da.Index) string
+	ForOutEdgeIdsOf(u da.Index, handle func(eId da.Index))
 	GetRoadClassLink(edgeId da.Index) string
 	GetStreetDirection(edgeId da.Index) [2]bool
 	GetRoadLanes(edgeId da.Index) uint8
-	ForInEdgeIdsOf(v da.Index, handle func(eId da.Index))
+	GetInEdgeBounds(v da.Index) (da.Index, da.Index)
+	IsTraversableInEdge(e da.Index) bool
 	GetHeadFromInEdge(entryId da.Index) da.Index
 	IsTrafficLight(vertexId da.Index) bool
 	IsDummyOutEdge(eId da.Index) bool
@@ -33,7 +39,7 @@ type Graph interface {
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
-	GetWeight(eId da.Index, outEdge bool) float64
+	GetWeightSeconds(eId da.Index, outEdge bool) float64
 	GetSegmentSpeed(eId da.Index, outEdge bool) float64
 	GetSegmentLength(eId da.Index, outEdge bool) float64
 	GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64

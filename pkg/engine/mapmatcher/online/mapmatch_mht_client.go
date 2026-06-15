@@ -22,7 +22,7 @@ lihat ./pkg/mobile/mobile.go
 
 type OnlineMapMatchMHTClient struct {
 	graph             *da.MapMatchingGraph
-	rt                *spatialindex.Rtree
+	rt                *spatialindex.RtreeMapMatch
 	initialSpeedMean  float64 // \overline{v}
 	initialSpeedStd   float64 // \sigma_{v}
 	posteriorThresold float64 // L_u
@@ -33,7 +33,7 @@ type OnlineMapMatchMHTClient struct {
 	N                 *da.SparseMatrix[int]
 }
 
-func NewOnlineMapMatchMHTClient(graph *da.MapMatchingGraph, rt *spatialindex.Rtree, initialSpeedMean, initialSpeedStd float64,
+func NewOnlineMapMatchMHTClient(graph *da.MapMatchingGraph, rt *spatialindex.RtreeMapMatch, initialSpeedMean, initialSpeedStd float64,
 	posteriorThresold, gpsStd, lp, lc, accelerationStd float64,
 	N *da.SparseMatrix[int]) *OnlineMapMatchMHTClient {
 	return &OnlineMapMatchMHTClient{
@@ -66,7 +66,7 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
 		searchRad := om.lc
 		for (startOfTheRoute && util.Le(searchRad, MAX_SEARCH_RADIUS_INITIAL)) ||
 			(!startOfTheRoute && util.Le(searchRad, MAX_SEARCH_RADIUS)) {
-			nearbyArcs = om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), searchRad, 3) // O(M)
+			nearbyArcs = om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), searchRad) // O(M)
 			if len(nearbyArcs) > 0 {
 				break
 			}

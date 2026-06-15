@@ -102,7 +102,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 			dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true)
 			sources, sinks := dn.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
 			s, t := dn.createArtificialSourceSink(sources, sinks, inf.directed)
-			inertialFlowOutChan <- dn.ComputeMaxflowMinCut(s, t) //  O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
+			inertialFlowOutChan <- dn.ComputeMaxflowMinCut(s, t) //  O(min{m * sqrt(m), m * n^(2/3)}), n,m=number of vertices & edges dari da.PartitionGraph
 		}
 	}
 

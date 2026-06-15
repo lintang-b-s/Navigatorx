@@ -17,7 +17,7 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
-func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine, *da.Graph,
+func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int32], *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
@@ -31,7 +31,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		metricsFile      = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.nmt", name))
 		landmarkFile     = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.nlm", name))
 		mlpFile          = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s.mlp", name))
-		prep             *preprocesser.Preprocessor
+		prep             *preprocesser.Preprocessor[int32]
 	)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -111,15 +111,15 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		}
 	}
 
-	cust := customizer.NewCustomizerDirect(g, prep.GetOverlayGraph(), prep.GetTimeFunction(), logger)
+	cust := customizer.NewCustomizerDirect(
+		g, prep.GetOverlayGraph(), prep.GetTimeFunction(), logger,
+	)
 	met, err := cust.CustomizeDirect()
 	if err != nil {
 		panic(err)
 	}
-	emptyCf := prep.GetTimeFunction()
-
-	lm := landmark.NewLandmark()
-	err = lm.PreprocessALT(1, met, g, logger)
+	lm := landmark.NewLandmark[int32]()
+	err = lm.PreprocessALT(2, met, g, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -127,7 +127,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		panic(err)
 	}
 
-	re, err := engine.NewEngineDirect(g, prep.GetOverlayGraph(), met, logger, cust, emptyCf, landmarkFile)
+	re, err := engine.NewEngineDirect(g, prep.GetOverlayGraph(), met, logger, landmarkFile)
 	if err != nil {
 		panic(err)
 	}
@@ -147,14 +147,14 @@ func NewPairEdge(to int, weight float64) PairEdge {
 	return PairEdge{to, weight}
 }
 
-func flattenEdges(es [][]PairEdge) []osmparser.Edge {
-	flatten := make([]osmparser.Edge, 0, len(es))
+func flattenEdges(es [][]PairEdge) []osmparser.Edge[int32] {
+	flatten := make([]osmparser.Edge[int32], 0, len(es))
 
 	eid := 0
 
 	for from, edges := range es {
 		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.to), e.weight, e.weight, false, 0))
+			flatten = append(flatten, osmparser.NewEdge[int32](uint32(from), uint32(e.to), int32(e.weight), uint32(e.weight), false, 0))
 			eid++
 		}
 	}

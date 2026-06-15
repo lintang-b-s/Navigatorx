@@ -3,25 +3,24 @@ package landmark
 import (
 	"sync"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type Dijkstra struct {
+type Dijkstra[W util.RoutingNumber] struct {
 	graph   *da.Graph
-	metrics *met.Metric
+	metrics *met.Metric[W]
 
-	pq *da.QueryHeap[da.CRPQueryKey]
+	pq *da.QueryHeap[da.CRPQueryKey, W]
 
 	useReverseGraph bool
 
 	numSettledNodes int
 }
 
-func NewDijkstra(graph *da.Graph, metrics *met.Metric, useReverseGraph bool) *Dijkstra {
-	dj := &Dijkstra{
+func NewDijkstra[W util.RoutingNumber](graph *da.Graph, metrics *met.Metric[W], useReverseGraph bool) *Dijkstra[W] {
+	dj := &Dijkstra[W]{
 		graph:           graph,
 		useReverseGraph: useReverseGraph,
 		numSettledNodes: 0,
@@ -46,8 +45,8 @@ the graph, we can reduce this problem to a single-source problem..
 buat precalculated landmark sp distances (untuk potential/heuristic ALT (A*, landmarks, and triangle inequality) algorithm)
 kita gak perlu pakai turn costs karena kalau misal pake turn costs di fase query Customizable Route Planning (CRP), potential/heuristic nya masih underestimate true sp dist dan masih memenuhi sifat konsisten/feasible...
 */
-func (us *Dijkstra) ShortestPath(s da.Index, heapPool *sync.Pool) []float64 {
-	us.pq = heapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
+func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
+	us.pq = heapPool.Get().(*da.QueryHeap[da.CRPQueryKey, W])
 	us.pq.Clear()
 
 	done := func() {
@@ -58,7 +57,7 @@ func (us *Dijkstra) ShortestPath(s da.Index, heapPool *sync.Pool) []float64 {
 	noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
 	djKey := da.NewDijkstraKey(s, s)
-	us.pq.Insert(s, 0, da.NewVertexInfo(0,
+	us.pq.Insert(s, 0, da.NewVertexInfo(W(0),
 		noPar), djKey)
 
 	for !us.pq.IsEmpty() {
@@ -72,7 +71,7 @@ func (us *Dijkstra) ShortestPath(s da.Index, heapPool *sync.Pool) []float64 {
 	return sps
 }
 
-func (us *Dijkstra) graphSearchUni(source da.Index) {
+func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
 	uId := uItem.GetNode()
@@ -90,11 +89,13 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 			// get cost to reach v through u
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, util.Infinity[W]()) {
+
 				return
 			}
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
+
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
 				// newTravelTime is not better, do nothing
 
@@ -130,11 +131,11 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, util.Infinity[W]()) {
 				return
 			}
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
 				// newTravelTime is not better, do nothing
 				return
@@ -157,9 +158,9 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 	}
 }
 
-func (us *Dijkstra) constructShortestPath(s da.Index) []float64 {
+func (us *Dijkstra[W]) constructShortestPath(s da.Index) []W {
 	n := us.graph.NumberOfVertices()
-	sps := make([]float64, n)
+	sps := make([]W, n)
 	if !us.useReverseGraph {
 
 		for t := da.Index(0); t < da.Index(n); t++ {

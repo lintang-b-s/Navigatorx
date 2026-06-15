@@ -134,7 +134,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 	newCtx := r.Context()
 
 	travelTime, dist, pathPolyline, drivingDirections, ok, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
-		request.DestinationLat, request.DestinationLon, reroute, startEdgeId)
+		request.DestinationLat, request.DestinationLon, reroute, startEdgeId, useAnnotation)
 	if err != nil {
 		api.getStatusCode(w, r, err)
 		return
@@ -145,10 +145,13 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		return
 	}
 
-	headers := make(http.Header)
-
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewShortestPathResponse(travelTime, dist, pathPolyline,
-		NewDrivingDirections(drivingDirections, useAnnotation))}, headers); err != nil {
+	response := shortestPathEnvelope{Data: NewShortestPathResponse(
+		travelTime,
+		dist,
+		pathPolyline,
+		NewDrivingDirections(drivingDirections, useAnnotation),
+	)}
+	if err := api.writeJSON(w, http.StatusOK, response); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -227,15 +230,14 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 	}
 
 	alternatives, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
-		request.DestinationLat, request.DestinationLon, int(request.K), reroute, startEdgeId)
+		request.DestinationLat, request.DestinationLon, int(request.K), reroute, startEdgeId, useAnnotation)
 	if err != nil {
 		api.getStatusCode(w, r, err)
 		return
 	}
 
-	headers := make(http.Header)
-
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewAlternativeRoutesResponse(alternatives, useAnnotation)}, headers); err != nil {
+	response := alternativeRoutesEnvelope{Data: NewAlternativeRoutesResponse(alternatives, useAnnotation)}
+	if err := api.writeJSON(w, http.StatusOK, response); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -247,9 +249,7 @@ func (api *routingAPI) GetBoundingBox(w http.ResponseWriter, r *http.Request, p 
 
 	bb := api.routingService.GetBoundingBox(newCtx)
 
-	headers := make(http.Header)
-
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewBoundingBox(bb)}, headers); err != nil {
+	if err := api.writeJSON(w, http.StatusOK, boundingBoxEnvelope{Data: NewBoundingBox(bb)}); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -274,10 +274,8 @@ func (api *routingAPI) getTile(w http.ResponseWriter, r *http.Request, p httprou
 }
 
 func (api *routingAPI) initClientSideRealTimeMapMatching(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	headers := make(http.Header)
-
 	numberOfVertices := api.tilingService.GetNumberOfVertices(r.Context())
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewStartClientSideRealtimeMapMatchingResponse(numberOfVertices)}, headers); err != nil {
+	if err := api.writeJSON(w, http.StatusOK, startClientSideRealtimeMapMatchingEnvelope{Data: *NewStartClientSideRealtimeMapMatchingResponse(numberOfVertices)}); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}
@@ -363,8 +361,7 @@ func (api *routingAPI) offlineMapMatching(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	headers := make(http.Header)
-	if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewOfflineMapMatchingResponse(matchedPoints, routePath)}, headers); err != nil {
+	if err := api.writeJSON(w, http.StatusOK, offlineMapMatchingEnvelope{Data: *NewOfflineMapMatchingResponse(matchedPoints, routePath)}); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}

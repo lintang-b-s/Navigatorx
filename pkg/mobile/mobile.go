@@ -52,7 +52,7 @@ tapi karena di mobile app road segment candidates edgeIds nya adalah RoadNetwork
 type MobileMapMatcher struct {
 	om     *online.OnlineMapMatchMHTClient
 	graph  *da.MapMatchingGraph
-	rt     *spatialindex.Rtree
+	rt     *spatialindex.RtreeMapMatch
 	matrix *da.SparseMatrix[int]
 	logger *zap.Logger
 	mut    sync.RWMutex
@@ -62,7 +62,7 @@ func NewMobileMapMatcher() *MobileMapMatcher {
 	config := zap.NewDevelopmentConfig()
 	logger, _ := config.Build()
 	return &MobileMapMatcher{
-		rt:     spatialindex.NewRtree(),
+		rt:     spatialindex.NewRtreeMapMatch(),
 		logger: logger,
 		mut:    sync.RWMutex{},
 	}

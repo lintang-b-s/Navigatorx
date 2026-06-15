@@ -10,26 +10,29 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-const maxMetricItems = uint32(math.MaxInt32)
+const (
+	maxMetricItems = uint32(math.MaxInt32)
+	metricMagic    = uint32(0x32544d4e)
+)
 
-func readFloat64s(r *util.BinaryReader) ([]float64, error) {
+func readValues[T any](r *util.BinaryReader, read func(*util.BinaryReader, []T) error) ([]T, error) {
 	length, err := r.Length(maxMetricItems)
 	if err != nil {
 		return nil, err
 	}
-	values := make([]float64, length)
-	if err := r.ReadFloat64s(values); err != nil {
+	values := make([]T, length)
+	if err := read(r, values); err != nil {
 		return nil, err
 	}
 	return values, nil
 }
 
-func writeFloat64Table(w *util.BinaryWriter, table *flatFloat64Table) error {
-	rowCount := len(table.offsets) - 1
-	if err := w.Length(rowCount); err != nil {
-		return err
-	}
-	if err := w.Length(len(table.values)); err != nil {
+func writeTable[W util.RoutingNumber](
+	w *util.BinaryWriter,
+	table *flatTable[W],
+	write func(*util.BinaryWriter, []W) error,
+) error {
+	if err := w.Length(len(table.offsets) - 1); err != nil {
 		return err
 	}
 	for _, offset := range table.offsets {
@@ -37,34 +40,22 @@ func writeFloat64Table(w *util.BinaryWriter, table *flatFloat64Table) error {
 			return err
 		}
 	}
-	for _, value := range table.values {
-		if err := w.Float64(value); err != nil {
-			return err
-		}
-	}
-	return nil
+	return write(w, table.values)
 }
 
-func readFloat64Table(r *util.BinaryReader) (*flatFloat64Table, error) {
+func readTable[W util.RoutingNumber](
+	r *util.BinaryReader,
+	read func(*util.BinaryReader, []W) error,
+) (*flatTable[W], error) {
 	rowCount, err := r.Length(maxMetricItems)
 	if err != nil {
 		return nil, err
 	}
-	valueCount, err := r.Length(maxMetricItems)
-	if err != nil {
-		return nil, err
-	}
-	table := &flatFloat64Table{
-		values:  make([]float64, valueCount),
-		offsets: make([]uint32, rowCount+1),
-	}
+	table := &flatTable[W]{offsets: make([]uint32, rowCount+1)}
 	for i := range table.offsets {
 		offset, err := r.Uint32()
 		if err != nil {
 			return nil, err
-		}
-		if offset > valueCount {
-			return nil, fmt.Errorf("stalling offset %d exceeds value count %d", offset, valueCount)
 		}
 		if i == 0 && offset != 0 {
 			return nil, fmt.Errorf("first stalling offset is %d, expected 0", offset)
@@ -74,59 +65,78 @@ func readFloat64Table(r *util.BinaryReader) (*flatFloat64Table, error) {
 		}
 		table.offsets[i] = offset
 	}
-	if table.offsets[len(table.offsets)-1] != valueCount {
-		return nil, fmt.Errorf("final stalling offset is %d, expected %d", table.offsets[len(table.offsets)-1], valueCount)
-	}
-	if err := r.ReadFloat64s(table.values); err != nil {
+	table.values, err = readValues(r, read)
+	if err != nil {
 		return nil, err
+	}
+	if table.offsets[len(table.offsets)-1] != uint32(len(table.values)) {
+		return nil, fmt.Errorf("final stalling offset is %d, expected %d", table.offsets[len(table.offsets)-1], len(table.values))
 	}
 	return table, nil
 }
 
-func (met *Metric) WriteToFile(filename string) error {
+func (met *Metric[W]) WriteToFile(filename string) error {
 	return util.WriteCompressedArtifact(filename, func(w *util.BinaryWriter) error {
-		if err := w.WriteFloat64s(met.weights.Load().GetWeights()); err != nil {
+		if err := w.Uint32(metricMagic); err != nil {
 			return err
 		}
-		if err := writeFloat64Table(w, met.entryStallingTables.Load().(*flatFloat64Table)); err != nil {
+		if err := w.Uint8(costfunction.NumericMarker[W]()); err != nil {
 			return err
 		}
-		return writeFloat64Table(w, met.exitStallingTables.Load().(*flatFloat64Table))
+		if err := costfunction.WriteRoutingNumbers(w, met.weights.Load().GetWeights()); err != nil {
+			return err
+		}
+		if err := writeTable(w, met.entryStallingTables.Load(), costfunction.WriteRoutingNumbers[W]); err != nil {
+			return err
+		}
+		return writeTable(w, met.exitStallingTables.Load(), costfunction.WriteRoutingNumbers[W])
 	})
 }
 
-func ReadFromFile(filename, timeFunctionFilePath string, readBuf *bufio.Reader) (*Metric, error) {
+func ReadFromFile[W util.RoutingNumber](
+	filename, timeFunctionFilePath string,
+	readBuf *bufio.Reader,
+) (*Metric[W], error) {
 	file, r, err := util.OpenCompressedArtifact(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	weights, err := readFloat64s(r)
+	magic, err := r.Uint32()
+	if err != nil || magic != metricMagic {
+		return nil, fmt.Errorf("unsupported legacy metric artifact; regenerate it with cmd/customizer")
+	}
+	marker, err := r.Uint8()
+	if err != nil {
+		return nil, err
+	}
+	expectedMarker := costfunction.NumericMarker[W]()
+	if marker != expectedMarker {
+		return nil, fmt.Errorf("metric numeric representation %d does not match expected %d", marker, expectedMarker)
+	}
+	weights, err := readValues(r, costfunction.ReadRoutingNumbers[W])
 	if err != nil {
 		return nil, fmt.Errorf("read metric weights: %w", err)
 	}
-
-	entryTables, err := readFloat64Table(r)
+	entryTables, err := readTable(r, costfunction.ReadRoutingNumbers[W])
 	if err != nil {
 		return nil, fmt.Errorf("read entry stalling tables: %w", err)
 	}
-	exitTables, err := readFloat64Table(r)
+	exitTables, err := readTable(r, costfunction.ReadRoutingNumbers[W])
 	if err != nil {
 		return nil, fmt.Errorf("read exit stalling tables: %w", err)
 	}
-
 	if len(entryTables.offsets) != len(exitTables.offsets) {
 		return nil, fmt.Errorf("entry and exit stalling table counts differ")
 	}
-
-	timeFunction, err := costfunction.ReadFromFile(timeFunctionFilePath, readBuf)
+	timeFunction, err := costfunction.ReadFromFile[W](timeFunctionFilePath, readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("read time function: %w", err)
 	}
-	overlayWeights := da.NewOverlayWeights(uint32(len(weights)))
+	overlayWeights := da.NewOverlayWeights[W](uint32(len(weights)))
 	overlayWeights.SetWeights(weights)
-	metric := &Metric{
+	metric := &Metric[W]{
 		metricFilepath:       filename,
 		timeFunctionFilePath: timeFunctionFilePath,
 	}

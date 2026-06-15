@@ -11,31 +11,52 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type PathUnpackerALT struct {
-	engine *CRPRoutingEngine
+type PathUnpackerALT[W util.RoutingNumber] struct {
+	engine *CRPRoutingEngine[W]
 
-	metrics *metrics.Metric
+	metrics *metrics.Metric[W]
 
 	puCache *ristretto.Cache[[]byte, []da.Index]
-	lm      *landmark.Landmark
+	lm      *landmark.Landmark[W]
 
 	useCache  bool
 	oneToMany bool
 	runtime   int64
 }
 
-func NewPathUnpackerALT(engine *CRPRoutingEngine, metrics *metrics.Metric,
-	puCache *ristretto.Cache[[]byte, []da.Index], useCache bool, lm *landmark.Landmark,
-) *PathUnpackerALT {
-	return &PathUnpackerALT{
-		engine:  engine,
-		metrics: metrics,
+func NewPathUnpackerALT[W util.RoutingNumber](
+	engine *CRPRoutingEngine[W],
+	useCache bool,
+) *PathUnpackerALT[W] {
+	pu := engine.pathUnpackerPool.Get().(*PathUnpackerALT[W])
+	pu.Reset(useCache)
+	return pu
+}
 
-		puCache:  puCache,
-		useCache: useCache,
-		runtime:  0,
-		lm:       lm,
-	}
+func newPathUnpackerALTAlloc[W util.RoutingNumber](engine *CRPRoutingEngine[W],
+	metric *metrics.Metric[W],
+	puCache *ristretto.Cache[[]byte, []da.Index],
+	lm *landmark.Landmark[W]) *PathUnpackerALT[W] {
+	pu := &PathUnpackerALT[W]{}
+	pu.metrics = metric
+	pu.puCache = puCache
+	pu.lm = lm
+	pu.runtime = 0
+	return pu
+}
+
+func (pu *PathUnpackerALT[W]) Reset(
+
+	useCache bool,
+) {
+	pu.useCache = useCache
+	pu.runtime = 0
+}
+
+// DonePooled returns a PathUnpackerALT instance back to the engine pool so
+// the next call can reuse the already-paid-for allocation.
+func (pu *PathUnpackerALT[W]) DonePooled() {
+	pu.engine.pathUnpackerPool.Put(pu)
 }
 
 /*
@@ -72,9 +93,10 @@ let q = number of shorcut edges in packedPath
 let L = highest level of multilevel partition
 time complexity of unpackPath: O(q * ( L *  (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p) ) )
 */
-func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Index, map[uint64]uint8) {
+func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) ([]da.Index, map[uint64]uint8) {
 
-	unpackedEdgePath := make([]da.Index, 0, len(packedPath))
+	unpackedEdgePath := *pu.engine.unpackedPathPool.Get().(*[]da.Index)
+	unpackedEdgePath = unpackedEdgePath[:0]
 
 	now := time.Now()
 
@@ -113,8 +135,7 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 			exOriVId := exitVertex.GetOriginalVertex()
 			shortcutPathSet[util.Bitpack(uint32(enOriVId), uint32(exOriVId))] = queryLevel
 
-			shortcutEdgeIdsPath := pu.unpackInLevelCell(entryOverlayId, exitOverlayId, queryLevel)
-			unpackedEdgePath = append(unpackedEdgePath, shortcutEdgeIdsPath...) // golang slice append copy shortcutEdgeIdsPath ke unpackedEdgePath :https://go.dev/doc/effective_go#slices
+			unpackedEdgePath = pu.unpackInLevelCell(entryOverlayId, exitOverlayId, queryLevel, unpackedEdgePath)
 			i += 2
 		}
 	}
@@ -126,9 +147,52 @@ func (pu *PathUnpackerALT) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 	return unpackedEdgePath, shortcutPathSet
 }
 
-func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
+// unpackPathEdgesOnly is the same as unpackPath but skips allocating the
+// shortcutPathSet map. 
+func (pu *PathUnpackerALT[W]) unpackPathEdgesOnly(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) []da.Index {
+	unpackedEdgePath := *pu.engine.unpackedPathPool.Get().(*[]da.Index)
+	unpackedEdgePath = unpackedEdgePath[:0]
+
+	now := time.Now()
+	for i := 0; i < len(packedPath); {
+		cur := packedPath[i]
+		if !isBitOn(cur.GetEdge(), UNPACK_OVERLAY_OFFSET) {
+			// original vertex (non-overlay vertex)
+			unpackedEdgePath = append(unpackedEdgePath, cur.GetEdge())
+
+			i++
+		} else {
+			// overlay vertex
+			entryOverlayId := offBit(cur.GetEdge(), UNPACK_OVERLAY_OFFSET)
+
+			entryVertex := pu.engine.overlayGraph.GetVertex(entryOverlayId)
+			entryCellNumber := entryVertex.GetCellNumber()
+			var queryLevel uint8
+
+			if !pu.oneToMany {
+				queryLevel = pu.engine.overlayGraph.GetQueryLevel(sCellNumber, tCellNumber, entryCellNumber)
+
+			} else {
+				queryLevel = cur.GetQueryLevel()
+			}
+
+			exitOverlayId := offBit(packedPath[i+1].GetEdge(), UNPACK_OVERLAY_OFFSET)
+
+			unpackedEdgePath = pu.unpackInLevelCell(entryOverlayId, exitOverlayId, queryLevel, unpackedEdgePath)
+			i += 2
+		}
+	}
+
+	unpackedEdgePath = removeDuplicates(unpackedEdgePath)
+
+	pu.runtime = time.Since(now).Milliseconds()
+	return unpackedEdgePath
+}
+
+func (pu *PathUnpackerALT[W]) unpackInLevelCell(sourceOverlayId da.Index,
 	targetOverlayId da.Index,
 	level uint8,
+	edgePath []da.Index,
 ) []da.Index {
 
 	if level == 1 {
@@ -139,20 +203,17 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 		neighborOverlayVertex := pu.engine.overlayGraph.GetVertex(neighborOfTarget)
 		targetEntryId := neighborOverlayVertex.GetOriginalEdge()
 
-		edgePath := pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId,
-			sourceOverlayId, targetOverlayId)
+		edgePath = pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId,
+			sourceOverlayId, targetOverlayId, edgePath)
 		return edgePath
 	}
 
 	if pu.useCache {
-		if overlayPath, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, level)); ok {
-
-			edgePath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
+		var cacheKey [9]byte
+		if overlayPath, ok := pu.puCache.Get(NewPUCacheKey(&cacheKey, sourceOverlayId, targetOverlayId, level)); ok {
 			for i := 0; i < len(overlayPath); i += 2 {
-				downLevelEdgePath := pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1)
-				edgePath = append(edgePath, downLevelEdgePath...)
+				edgePath = pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, edgePath)
 			}
-
 			return edgePath
 		}
 	}
@@ -160,32 +221,27 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 	sVertex := pu.engine.overlayGraph.GetVertex(sourceOverlayId)
 	sourceCellNumber := sVertex.GetCellNumber()
 
-	pq := pu.engine.pufOverlayHeapPool.Get().(*da.QueryHeap[da.Index])
+	pq := pu.engine.pufOverlayHeapPool.Get().(*da.QueryHeap[da.Index, W])
 
 	done := func() {
 		pq.Clear()
 		pu.engine.pufOverlayHeapPool.Put(pq)
-
 	}
 
 	truncatedSourceCellNumber := pu.engine.overlayGraph.GetLevelInfo().TruncateToLevel(sourceCellNumber, level)
 
 	tVertex := pu.engine.overlayGraph.GetVertex(targetOverlayId)
-	targetCellNumber := tVertex.GetCellNumber()
-	truncatedTargetCellNumber := pu.engine.overlayGraph.GetLevelInfo().TruncateToLevel(targetCellNumber, level)
 
-	util.AssertPanic(truncatedSourceCellNumber == truncatedTargetCellNumber, "cell number/id dari sourceOverlay vertex dan targetOverlay vertex haruslah sama")
-
-	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 	pq.Insert(sourceOverlayId, 0, sVertexInfo, sourceOverlayId)
 
 	s := sVertex.GetOriginalVertex()
 	t := tVertex.GetOriginalVertex()
 	activeLandmarks := pu.lm.SelectBestQueryLandmarks(s, t)
 
-	labelled := func(pq *da.QueryHeap[da.Index], v da.Index) bool {
+	labelled := func(pq *da.QueryHeap[da.Index, W], v da.Index) bool {
 
-		ok := util.Lt(pq.GetPriority(v), pkg.INF_WEIGHT)
+		ok := util.Lt(pq.GetPriority(v), util.Infinity[W]())
 		return ok
 	}
 
@@ -211,7 +267,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 			pfv := pu.lm.FindTighestLowerBound(originalVId, t, activeLandmarks)
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, util.Infinity[W]()) {
 				return
 			}
 
@@ -255,7 +311,7 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 				}
 
 				// get out edge that point to wEntryVertex from vOverlayId
-				newTravelTime += pu.engine.GetWeight(vOverlayVertex.GetOriginalEdge(), true)
+				newTravelTime += pu.engine.getWeight(vOverlayVertex.GetOriginalEdge(), true)
 
 				wOriginalId := wNeigborVertex.GetOriginalVertex()
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
@@ -282,7 +338,8 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 
 	}
 
-	overlayPath := make([]da.Index, 0, UNPACKER_OVERLAY_PATH_SIZE)
+	overlayPathPtr := pu.engine.unpackedPathPool.Get().(*[]da.Index)
+	overlayPath := (*overlayPathPtr)[:0]
 
 	overlayPath = append(overlayPath, targetOverlayId)
 
@@ -294,39 +351,41 @@ func (pu *PathUnpackerALT) unpackInLevelCell(sourceOverlayId da.Index,
 
 	util.ReverseG(overlayPath)
 
-	util.AssertPanic(len(overlayPath)%2 == 0, "harusnya len(overlayPath) genap")
-
 	if pu.useCache {
-		pu.puCache.Set(NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath, 1)
+		var cacheKey [9]byte
+		cachedPath := make([]da.Index, len(overlayPath))
+		copy(cachedPath, overlayPath)
+		pu.puCache.Set(NewPUCacheKey(&cacheKey, sourceOverlayId, targetOverlayId, level), cachedPath, 1)
 	}
 
 	done()
 
-	edgePath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
 	for i := 0; i < len(overlayPath); i += 2 {
 		curV := overlayPath[i]
 		nextV := overlayPath[i+1]
 
-		downLevelEdgePath := pu.unpackInLevelCell(curV, nextV, level-1)
-		edgePath = append(edgePath, downLevelEdgePath...)
+		edgePath = pu.unpackInLevelCell(curV, nextV, level-1, edgePath)
 	}
+
+	*overlayPathPtr = overlayPath
+	pu.engine.unpackedPathPool.Put(overlayPathPtr)
 
 	return edgePath
 }
 
-func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.Index,
-	sourceOverlayId, targetOverlayId da.Index) []da.Index {
+func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.Index,
+	sourceOverlayId, targetOverlayId da.Index, edgePath []da.Index) []da.Index {
 
 	if pu.useCache {
-		if edgeIds, ok := pu.puCache.Get(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1)); ok {
+		var cacheKey [9]byte
+		if edgeIds, ok := pu.puCache.Get(NewPUCacheKey(&cacheKey, sourceOverlayId, targetOverlayId, 1)); ok {
 			// fetch from cache
-
-			return edgeIds
+			return append(edgePath, edgeIds...)
 		}
 	}
 
 	// sourceEntryId inEdge that point to source vertex
-	pq := pu.engine.pufBaseHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
+	pq := pu.engine.pufBaseHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey, W])
 
 	done := func() {
 		pq.Clear()
@@ -353,7 +412,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 	offSourceEntryId := pu.engine.offsetForward(s, sourceEntryId, sourceCellNumber, sourceCellNumber)
 
 	sQueryKey := da.NewCRPQueryKeyWithOutInEdgeId(s, offSourceEntryId, sOutEdge)
-	sInfo := da.NewVertexInfo(0, da.NewVertexEdgePairWithOutEdgeId(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID,
+	sInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePairWithOutEdgeId(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID,
 		da.INVALID_EDGE_ID, false))
 
 	pq.Insert(offSourceEntryId, 0, sInfo, sQueryKey)
@@ -386,7 +445,7 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			vId := head
 
 			vEntryId := pu.engine.graph.GetEntryOffset(vId) + entryPoint
-			edgeWeight := pu.engine.GetWeight(eId, true)
+			edgeWeight := pu.engine.getWeight(eId, true)
 
 			newTravelTime := pq.GetPriority(uEntryId) + edgeWeight + pu.metrics.GetTurnCost(turnTableId)
 
@@ -395,14 +454,14 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 				return
 			}
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, util.Infinity[W]()) {
 				return
 			}
 
 			offVEntryId := pu.engine.offsetForward(vId, vEntryId, pu.engine.graph.GetCellNumber(vId), sourceCellNumber)
 
 			// relax edge
-			vAlreadyLabelled := util.Lt(pq.GetPriority(offVEntryId), pkg.INF_WEIGHT)
+			vAlreadyLabelled := util.Lt(pq.GetPriority(offVEntryId), util.Infinity[W]())
 			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(offVEntryId))) {
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 				pfv := pu.lm.FindTighestLowerBound(vId, t, activeLandmarks)
@@ -421,35 +480,39 @@ func (pu *PathUnpackerALT) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 		})
 	}
 
-	edgeIdPath := make([]da.Index, 0, UNPACKER_EDGE_PATH_SIZE)
+	startLen := len(edgePath)
 
 	_, midOutEdgeId := pu.engine.graph.GetHeadOfInedgeWithOutEdge(targetEntryId)
 
-	if util.Gt(pu.engine.GetWeight(midOutEdgeId, true), 0) {
-		edgeIdPath = append(edgeIdPath, midOutEdgeId)
+	if util.Gt(pu.engine.getWeight(midOutEdgeId, true), W(0)) {
+		edgePath = append(edgePath, midOutEdgeId)
 	}
 
 	uId := offTargetEntryId
 	for pq.Get(uId).GetParent().GetEdge() != da.INVALID_EDGE_ID { // sampai parent.edge = sourceEntryId, include sp edges didalam current cell & sp edge entry cell ini
 		prevOutEdgeId := pq.Get(uId).GetParent().GetOutInEdgeId()
 
-		edgeIdPath = append(edgeIdPath, prevOutEdgeId)
+		edgePath = append(edgePath, prevOutEdgeId)
 
 		pEId := pq.Get(uId).GetParent().GetEdge()
 
 		uId = pEId
 	}
 
-	util.ReverseG(edgeIdPath)
+	subPath := edgePath[startLen:]
+	util.ReverseG(subPath)
 
 	if pu.useCache {
 		// https://github.com/dgraph-io/ristretto is thread-safe
-		pu.puCache.Set(NewPUCacheKey(sourceOverlayId, targetOverlayId, 1), edgeIdPath, 1)
+		var cacheKey [9]byte
+		cachedPath := make([]da.Index, len(subPath))
+		copy(cachedPath, subPath)
+		pu.puCache.Set(NewPUCacheKey(&cacheKey, sourceOverlayId, targetOverlayId, 1), cachedPath, 1)
 	}
 
-	return edgeIdPath
+	return edgePath
 }
 
-func (pu *PathUnpackerALT) GetStats() int64 {
+func (pu *PathUnpackerALT[W]) GetStats() int64 {
 	return pu.runtime
 }

@@ -551,6 +551,16 @@ func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 	}
 }
 
+// GetOutEdgeBounds exposes the contiguous outgoing edge range for allocation-free iteration.
+func (g *Graph) GetOutEdgeBounds(u Index) (Index, Index) {
+	return g.vertices[u].firstOut, g.vertices[u+1].firstOut
+}
+
+// IsTraversableOutEdge excludes synthetic and duplicate outgoing edges.
+func (g *Graph) IsTraversableOutEdge(e Index) bool {
+	return !g.IsDummyOutEdge(e) && !g.IsParallelOutEdge(e)
+}
+
 func (g *Graph) IsDummyOutEdge(eId Index) bool {
 	return g.outEdges[eId].flag&FlagDummy != 0
 }
@@ -582,6 +592,16 @@ func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {
 		}
 		handle(e)
 	}
+}
+
+// GetInEdgeBounds exposes the contiguous incoming edge range for allocation-free iteration.
+func (g *Graph) GetInEdgeBounds(v Index) (Index, Index) {
+	return g.vertices[v].firstIn, g.vertices[v+1].firstIn
+}
+
+// IsTraversableInEdge excludes synthetic and duplicate incoming edges.
+func (g *Graph) IsTraversableInEdge(e Index) bool {
+	return !g.IsDummyInEdge(e) && !g.IsParallelInlEdge(e)
 }
 
 func (g *Graph) GetHeadFromInEdge(entryId Index) Index {
@@ -921,6 +941,16 @@ func (g *Graph) AppendPathWithEdgeGeometry(path *Coordinates, edgeID Index) {
 
 func (g *Graph) GetEdgeGeometryLength(edgeID Index) int {
 	return g.graphStorage.GetEdgeGeometryLength(edgeID)
+}
+
+// GetEdgeGeometryPoint reads one directed geometry point without materializing a slice.
+func (g *Graph) GetEdgeGeometryPoint(edgeID Index, point int) Coordinate {
+	return g.graphStorage.GetEdgeGeometryPoint(edgeID, point)
+}
+
+// AppendEdgeGeometryWithoutLast appends directed geometry without its shared endpoint.
+func (g *Graph) AppendEdgeGeometryWithoutLast(path *Coordinates, edgeID Index) {
+	g.graphStorage.AppendEdgeGeometryWithoutLast(path, edgeID)
 }
 
 func (g *Graph) GetOsmWayBitSize() uint8 {

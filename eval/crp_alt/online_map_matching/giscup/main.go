@@ -325,7 +325,7 @@ func fallbackEdgeGeometry(edgeID int64, from, to uint32, nodeCoords []da.Coordin
 	}
 }
 
-func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, *costfunction.TimeFunction, [][]da.Index, map[int64]float64, error) {
+func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, *costfunction.TimeFunction[int32], [][]da.Index, map[int64]float64, error) {
 	nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, err := readGisCupNodes(paths.nodesFilePath)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -342,7 +342,7 @@ func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, *costfunction
 	defer f.Close()
 
 	graphStorage := da.NewGraphStorage(54)
-	graphEdges := make([]osmparser.Edge, 0)
+	graphEdges := make([]osmparser.Edge[int32], 0)
 	edgeLengths := make(map[int64]float64)
 
 	br := bufio.NewReader(f)
@@ -410,7 +410,10 @@ func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, *costfunction
 			1,
 		)
 
-		graphEdge := osmparser.NewEdge(fromIndex, toIndex, cost, geometry.length, false, geometry.roadType)
+		graphEdge := osmparser.NewFixedEdge(
+			fromIndex, toIndex, cost, geometry.length, false, geometry.roadType,
+		)
+
 		graphEdge.SetFromOSMId(uint64(fromNodeID))
 		graphEdge.SetToOSMId(uint64(toNodeID))
 		graphEdges = append(graphEdges, graphEdge)
@@ -428,7 +431,7 @@ func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, *costfunction
 	return graph, timeFunction, edgeInfoIDs, edgeLengths, nil
 }
 
-func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
+func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
 	logger, err := log.New()
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: log.New failed: %w", err)
@@ -487,7 +490,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	return re, graph, logger, transitionMatrix, edgeLengths, nil
 }
 
-func buildOrReadTransitionMatrix(re *engine.Engine, graph *da.Graph, logger *zap.Logger) (*da.SparseMatrix[int], error) {
+func buildOrReadTransitionMatrix(re *engine.Engine[int32], graph *da.Graph, logger *zap.Logger) (*da.SparseMatrix[int], error) {
 	if _, err := os.Stat(transitionMatrixFilepath); err == nil {
 		logger.Info("reading transition matrix from file...")
 		matrix, err := da.ReadSparseMatrixFromFile[int](

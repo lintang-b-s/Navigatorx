@@ -1,7 +1,7 @@
 package datastructure
 
 import (
-	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // OverlayWeights stores shortcut weights in the overlay graph.
@@ -12,35 +12,35 @@ pC = number of entry points (vertex that have at least one in edge that point to
 fC = poisition in OverlayWeights.weights where the first entry of C is represented
 shortcut betweeb i-th entry point and the j-th exit point of C will be stored in W [fC + iqC + j].
 */
-type OverlayWeights struct {
-	weights []float64
+type OverlayWeights[W util.RoutingNumber] struct {
+	weights []W
 }
 
-func (ow *OverlayWeights) GetWeight(i Index) float64 {
+func (ow *OverlayWeights[W]) GetWeight(i Index) W {
 	shortcutWeight := ow.weights[i]
 	return shortcutWeight
 }
 
-func (ow *OverlayWeights) GetWeights() []float64 {
+func (ow *OverlayWeights[W]) GetWeights() []W {
 	return ow.weights
 }
 
-func (ow *OverlayWeights) SetWeights(weights []float64) {
+func (ow *OverlayWeights[W]) SetWeights(weights []W) {
 	copy(ow.weights, weights)
 }
 
-func (ow *OverlayWeights) GetNumberOfShortcuts() int {
+func (ow *OverlayWeights[W]) GetNumberOfShortcuts() int {
 	return len(ow.weights)
 }
 
-func (ow *OverlayWeights) SetWeight(index int, weight float64) {
+func (ow *OverlayWeights[W]) SetWeight(index int, weight W) {
 	ow.weights[index] = weight
 }
 
-func NewOverlayWeights(weightVectorSize uint32) *OverlayWeights {
-	weights := make([]float64, weightVectorSize)
+func NewOverlayWeights[W util.RoutingNumber](weightVectorSize uint32) *OverlayWeights[W] {
+	weights := make([]W, weightVectorSize)
 	for i := range weights {
-		weights[i] = pkg.INF_WEIGHT
+		weights[i] = util.Infinity[W]()
 	}
-	return &OverlayWeights{weights: weights}
+	return &OverlayWeights[W]{weights: weights}
 }

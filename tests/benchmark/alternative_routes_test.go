@@ -16,6 +16,10 @@ cd tests/benchmark && go test -bench BenchmarkAlternativeRoutes -benchmem -cpupr
 
 BenchmarkAlternativeRoutes-12               9158           1959775 ns/op                 1.960 ms/op           510.3 ops/sec      273223 B/op       1950 allocs/op
 
+
+2026-06-12T21:17:31.068577912+07:00     info    starting benchmark.....
+BenchmarkAlternativeRoutes-12              17528           1016850 ns/op                 1.017 ms/op           983.4 ops/sec      109088 B/op        625 allocs/op
+
 CRP alternative routes query runtime match dengan hasil eksperimen ref [1] table 8, sekitar 3 ms
 
 todo2: optimize sampai p95 latency alternative routes ngalahin osrm (DONE)

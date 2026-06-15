@@ -31,8 +31,8 @@ const (
 	timeFunctionFile string = "./data/timefunction_sp_test.ntf"
 )
 
-func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine, *da.Graph,
-	[]da.Index, map[da.Index]da.Index, *landmark.Landmark) {
+func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine[float64], *da.Graph,
+	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[float64]) {
 	da.CoordinatePrecision = 1e6
 	if strings.Contains(strings.ToUpper(t.Name()), "KRL") {
 		da.CoordinatePrecision = 1e3
@@ -52,7 +52,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 	op.SetNodeToOsmId(nodeToOsmId)
 
 	gs := da.NewGraphStorageWithSize(len(es), n)
-	g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+	g, timeFunction, edgeInfoIds := op.BuildGraphFloat64(es, gs, uint32(n), false)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -86,14 +86,14 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 	}
 
 	og := prep.GetOverlayGraph()
-	cust := customizer.NewCustomizerDirect(g, og, prep.GetTimeFunction(), logger)
+	cust := customizer.NewCustomizerDirect(
+		g, og, prep.GetTimeFunction(), logger,
+	)
 	m, err := cust.CustomizeDirect()
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	cf := prep.GetTimeFunction()
-
-	lm := landmark.NewLandmark()
+	lm := landmark.NewLandmark[float64]()
 	err = lm.PreprocessALT(1, m, g, logger)
 	if err != nil {
 		panic(err)
@@ -102,7 +102,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 		t.Fatalf("err: %v", err)
 	}
 
-	re, err := engine.NewEngineDirect(g, og, m, logger, cust, cf, landmarkFile)
+	re, err := engine.NewEngineDirect(g, og, m, logger, landmarkFile)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

@@ -18,14 +18,14 @@ import (
 )
 
 // TilingEngine engine untuk get subset of RoadNetworkGraph yang berada didalam userGeohash cell. terinspirasi dari: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
-type TilingEngine struct {
+type TilingEngine[W util.RoutingNumber] struct {
 	graph        *da.Graph
-	timeFunction *costfunction.TimeFunction
+	timeFunction *costfunction.TimeFunction[W]
 	logger       *zap.Logger
 }
 
-func NewTilingEngine(graph *da.Graph, logger *zap.Logger, timeFunction *costfunction.TimeFunction) *TilingEngine {
-	engine := &TilingEngine{
+func NewTilingEngine[W util.RoutingNumber](graph *da.Graph, logger *zap.Logger, timeFunction *costfunction.TimeFunction[W]) *TilingEngine[W] {
+	engine := &TilingEngine[W]{
 		graph:        graph,
 		logger:       logger,
 		timeFunction: timeFunction,
@@ -35,16 +35,16 @@ func NewTilingEngine(graph *da.Graph, logger *zap.Logger, timeFunction *costfunc
 }
 
 // GetTileFilePath get tile file path based on user geohash (6 precision)
-func (te *TilingEngine) GetTileFilePath(userGeohash string) string {
+func (te *TilingEngine[W]) GetTileFilePath(userGeohash string) string {
 	filePath := filepath.Join(MapTileFilePathPrefix(), userGeohash+".tile")
 	return filePath
 }
 
-func (te *TilingEngine) GetNumberOfVertices() int {
+func (te *TilingEngine[W]) GetNumberOfVertices() int {
 	return te.graph.NumberOfVertices()
 }
 
-func (te *TilingEngine) PreprocessTiles() error {
+func (te *TilingEngine[W]) PreprocessTiles() error {
 	eTileMap := make(map[uint64][]da.Index)
 	te.graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, eId da.Index) {
 		eGeoHashInt := te.graph.GetEdgeGeohash(eId)
@@ -82,7 +82,7 @@ func (te *TilingEngine) PreprocessTiles() error {
 	return nil
 }
 
-func (te *TilingEngine) writeTileToFile(currGeohash string, eIds []da.Index, neighbors []uint64, eTileMap map[uint64][]da.Index, s2w *s2.Writer, bw *bufio.Writer) error {
+func (te *TilingEngine[W]) writeTileToFile(currGeohash string, eIds []da.Index, neighbors []uint64, eTileMap map[uint64][]da.Index, s2w *s2.Writer, bw *bufio.Writer) error {
 	filePath := filepath.Join(MapTileFilePathPrefix(), currGeohash+".tile")
 	dir := filepath.Dir(filePath)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -126,7 +126,7 @@ func (te *TilingEngine) writeTileToFile(currGeohash string, eIds []da.Index, nei
 	return s2w.Close()
 }
 
-func (te *TilingEngine) writeEdge(w *util.BinaryWriter, eId da.Index) error {
+func (te *TilingEngine[W]) writeEdge(w *util.BinaryWriter, eId da.Index) error {
 	if err := w.Uint32(uint32(eId)); err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func (te *TilingEngine) writeEdge(w *util.BinaryWriter, eId da.Index) error {
 	if err := w.Uint32(uint32(headVId)); err != nil {
 		return err
 	}
-	if err := w.Float64(te.timeFunction.GetSegmentLength(eId)); err != nil {
+	if err := w.Float64(te.timeFunction.DistanceToMeters(te.timeFunction.GetSegmentLength(eId))); err != nil {
 		return err
 	}
 

@@ -13,6 +13,11 @@ import (
 
 /*
 cd tests/benchmark && go test -bench BenchmarkShortestPathService -benchmem -cpuprofile prof_sp_service.cpu -memprofile prof_sp_service.mem -benchtime=15s
+
+pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkShortestPathService-12            32131            530657 ns/op                 0.5328 ms/op         1884 ops/sec         16138 B/op        130 allocs/op
+PASS
 */
 func BenchmarkShortestPathService(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
@@ -42,7 +47,7 @@ func BenchmarkShortestPathService(b *testing.B) {
 		sCoord := g.GetVertexCoordinate(s)
 		tCoord := g.GetVertexCoordinate(t)
 
-		_, _, _, _, _, _ = rs.ShortestPath(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(), false, 0)
+		_, _, _, _, _, _ = rs.ShortestPath(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(), false, 0, false)
 	}
 
 	now := time.Since(start)
@@ -51,5 +56,4 @@ func BenchmarkShortestPathService(b *testing.B) {
 
 	b.ReportMetric(msPerOp, "ms/op")
 	b.ReportMetric(throughput, "ops/sec")
-
 }

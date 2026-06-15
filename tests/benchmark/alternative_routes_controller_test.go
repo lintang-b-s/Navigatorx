@@ -17,6 +17,11 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 )
 
+/*
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkAlternativeRoutesController-12            17343           1035039 ns/op                 1.035 ms/op           966.1 ops/sec      125265 B/op        684 allocs/op
+PASS
+*/
 func BenchmarkAlternativeRoutesController(b *testing.B) {
 	eng, _, _, logger := setup()
 	re := eng.GetRoutingEngine()

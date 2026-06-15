@@ -32,8 +32,20 @@ type shortestPathResponse struct {
 	DrivingDirections []drivingDirection `json:"driving_directions"`
 }
 
+type shortestPathEnvelope struct {
+	Data shortestPathResponse `json:"data"`
+}
+
 type alternativeRoutesResponse struct {
 	Routes []shortestPathResponse `json:"alternative_routes"`
+}
+
+type alternativeRoutesEnvelope struct {
+	Data alternativeRoutesResponse `json:"data"`
+}
+
+type boundingBoxEnvelope struct {
+	Data boundingBoxResponse `json:"data"`
 }
 
 type boundingBoxResponse struct {
@@ -96,10 +108,20 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirec
 	}
 }
 
+// NewDrivingDirections converts driving directions to the response DTO. When
+// useAnnotation is false, the Annotation field of each entry is the zero
+// value, which causes sonic to omit it from the JSON output (omitzero), saving
+// the per-instruction allocation of duration/distance/geometry slices.
 func NewDrivingDirections(d []da.DrivingDirection, useAnnotation bool) []drivingDirection {
 	drivingDirections := make([]drivingDirection, len(d))
+	if useAnnotation {
+		for i, dir := range d {
+			drivingDirections[i] = NewDrivingDirection(dir, true)
+		}
+		return drivingDirections
+	}
 	for i, dir := range d {
-		drivingDirections[i] = NewDrivingDirection(dir, useAnnotation)
+		drivingDirections[i] = NewDrivingDirection(dir, false)
 	}
 	return drivingDirections
 }
@@ -116,12 +138,12 @@ func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirec
 }
 
 func NewAlternativeRoutesResponse(alts []routing.AlternativeRoute, useAnnotation bool) alternativeRoutesResponse {
-	altRes := alternativeRoutesResponse{Routes: make([]shortestPathResponse, 0)}
-	for _, alt := range alts {
-		altRes.Routes = append(altRes.Routes, NewShortestPathResponse(
+	altRes := alternativeRoutesResponse{Routes: make([]shortestPathResponse, len(alts))}
+	for i, alt := range alts {
+		altRes.Routes[i] = NewShortestPathResponse(
 			alt.GetDrivingTravelTime(),
 			alt.GetDist(), alt.GetPolylinePath(), NewDrivingDirections(alt.GetDrivingDirections(), useAnnotation),
-		))
+		)
 	}
 	return altRes
 }
@@ -223,6 +245,10 @@ func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.C
 	}
 }
 
+type startClientSideRealtimeMapMatchingEnvelope struct {
+	Data startClientSideRealtimeMapMatchingResponse `json:"data"`
+}
+
 type startClientSideRealtimeMapMatchingResponse struct {
 	NumberOfVertices int `json:"number_of_vertices"`
 }
@@ -251,6 +277,10 @@ type TrkPt struct {
 	Lat     float64  `xml:"lat,attr"`
 	Lon     float64  `xml:"lon,attr"`
 	Time    string   `xml:"time,omitempty"`
+}
+
+type offlineMapMatchingEnvelope struct {
+	Data offlineMapMatchingResponse `json:"data"`
 }
 
 type offlineMapMatchingResponse struct {

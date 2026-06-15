@@ -3,6 +3,7 @@ package tests
 
 import (
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,7 +26,7 @@ func init() {
 	config.InitProfileConfig("car", "test_region")
 }
 
-func Setup(t *testing.T, fileName string) (*engine.Engine, *zap.Logger, *customizer.Customizer) {
+func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *customizer.Customizer[int32]) {
 	var (
 		mlpFile          = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
 		osmfFile         = fmt.Sprintf("./data/%s.osm.pbf", fileName)
@@ -117,14 +118,15 @@ func NewPairEdge(to int, weight float64) PairEdge {
 	return PairEdge{To: to, Weight: weight}
 }
 
-func FlattenEdges(es [][]PairEdge) []osmparser.Edge {
-	flatten := make([]osmparser.Edge, 0, len(es))
+func FlattenEdges(es [][]PairEdge) []osmparser.Edge[float64] {
+	flatten := make([]osmparser.Edge[float64], 0, len(es))
 
 	eid := 0
 
 	for from, edges := range es {
 		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.To), e.Weight, e.Weight, false, 0))
+			length := uint32(math.Round(e.Weight * 100))
+			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.To), e.Weight, length, false, 0))
 			eid++
 		}
 	}

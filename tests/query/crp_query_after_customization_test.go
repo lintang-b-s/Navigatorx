@@ -42,7 +42,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 	type segmentSpeedData struct {
 		fromOsmId int64
 		toOsmId   int64
-		speed     float64 // in km/h
+		speed     float64 // in kilometers per hour
 	}
 
 	type queryData struct {
@@ -286,7 +286,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 
 			// cek shortest path route
 			_, _, spPolyline, drivingDirections, _, _ := routingService.ShortestPath(context.Background(), q.originLat, q.originLon,
-				q.destLat, q.destLon, false, 0)
+				q.destLat, q.destLon, false, 0, true)
 
 			spPathEdgeIds := make([]da.Index, 0, len(drivingDirections))
 			for _, dd := range drivingDirections {
@@ -327,7 +327,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 
 			// cek shortest path route
 			_, _, _, drivingDirections, _, _ = routingService.ShortestPath(context.Background(), q.originLat, q.originLon,
-				q.destLat, q.destLon, false, 0)
+				q.destLat, q.destLon, false, 0, true)
 
 			spPathEdgeIdsAfterCustomization := make([]da.Index, 0, len(drivingDirections))
 			for _, dd := range drivingDirections {

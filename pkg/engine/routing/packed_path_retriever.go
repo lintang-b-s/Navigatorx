@@ -5,9 +5,9 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-func (crp *CRPRoutingEngine) RetrievePackedPath(forwardMid,
-	backwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
-	bpq *da.QueryHeap[da.CRPQueryKey], sForwardId, tBackwardId da.Index, sCellNumber da.Pv, s, t da.Index) []da.VertexEdgePair {
+func (crp *CRPRoutingEngine[W]) RetrievePackedPath(forwardMid,
+	backwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey, W],
+	bpq *da.QueryHeap[da.CRPQueryKey, W], sForwardId, tBackwardId da.Index, sCellNumber da.Pv, s, t da.Index) []da.VertexEdgePair {
 
 	svPackedPath := make([]da.VertexEdgePair, 0, 32)
 	vtPackedPath := make([]da.VertexEdgePair, 0, 32)
@@ -28,7 +28,7 @@ func (crp *CRPRoutingEngine) RetrievePackedPath(forwardMid,
 // shortcut edge (u,v) disusun oleh base edges yang menyusun shortest path dari overlay vertex u ke overlay vertex v
 // kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya
 // sehingga untuk unpacking shortcut edges ada tahapan di CRP bernama Path Unpacking (path_unpacker_alt.go)
-func (crp *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexEdgePair, forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey],
+func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(svPackedPath []da.VertexEdgePair, forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey, W],
 	sForwardId da.Index, sCellNumber da.Pv, s da.Index) []da.VertexEdgePair {
 
 	// let n = number of edges in shortest path from s to mid, (from forward search)
@@ -126,7 +126,7 @@ func (crp *CRPRoutingEngine) RetrieveForwardPackedPath(svPackedPath []da.VertexE
 }
 
 // RetrieveBackwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari mid ke t.
-func (crp *CRPRoutingEngine) RetrieveBackwardPackedPath(vtPackedPath []da.VertexEdgePair, backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey],
+func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(vtPackedPath []da.VertexEdgePair, backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey, W],
 	tBackwardId da.Index, sCellNumber da.Pv, t da.Index) []da.VertexEdgePair {
 	// let n = number of edges in shortest path from mid to t, (from backward search)
 	// worst: case O(n)

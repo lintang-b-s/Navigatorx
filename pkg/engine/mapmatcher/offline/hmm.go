@@ -16,7 +16,7 @@ import (
 
 type HMM struct {
 	graph *da.Graph
-	re    *routing.CRPRoutingEngine
+	re    *routing.CRPRoutingEngine[int32]
 	rt    *spatialindex.Rtree
 }
 
@@ -32,7 +32,7 @@ func newHMMObservation(observationId int,
 	return hmmObservation{observationId: observationId, gps: gps, candidates: candidates}
 }
 
-func NewHiddenMarkovModelMapMatching(graph *da.Graph, re *routing.CRPRoutingEngine,
+func NewHiddenMarkovModelMapMatching(graph *da.Graph, re *routing.CRPRoutingEngine[int32],
 	rt *spatialindex.Rtree) *HMM {
 	return &HMM{
 		graph: graph,
@@ -616,7 +616,7 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 		sameSegmentRevDist := eLength - sp.GetReverseDistance() - tp.GetReverseDistance()
 		if util.Gt(sameSegmentRevDist, 0) {
 			sameSegmentDist = sameSegmentRevDist
-			eDuration := h.re.GetWeight(sOutEdgeId, true)
+			eDuration := h.re.GetWeightSeconds(sOutEdgeId, true)
 			sameSegmentDur = eDuration - sp.GetReverseTravelTime() - tp.GetReverseTravelTime()
 		}
 
@@ -647,11 +647,13 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	longerDur := longerDist / MaxSpeedMS
 
 	crpQuery := routing.NewCRPBidirectionalSearch(h.re, 1.0)
+	defer crpQuery.Done()
 	crpQuery.SetMaxSearchRadiusSecs(longerDur)
-	travelTime, edgePath, found := crpQuery.ShortestPathSearch(sp, tp)
+	weight, edgePath, found := crpQuery.ShortestPathSearch(sp, tp)
 	if !found {
 		return transitionRoute{}, false
 	}
+	travelTime := h.re.GetCostFunction().WeightToSeconds(weight)
 
 	if !addPath {
 		routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
@@ -664,7 +666,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 
 	routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
 
-	finalPath, totalDistance := h.re.GetEdgePath(edgePath)
+	finalPath, totalDistance := h.re.GetEdgePath(edgePath, 0)
 	routeDistance += totalDistance
 
 	path := make([]da.Coordinate, 0, len(sp.GetForwardGeometry())+len(*finalPath)+len(tp.GetReverseGeometry())+2)
@@ -673,6 +675,8 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	path = appendRoutePath(path, *finalPath)
 	path = appendRoutePath(path, tp.GetReverseGeometry())
 	path = appendRoutePath(path, []da.Coordinate{tp.GetSnappedCoord()})
+
+	h.re.PutCoordsToPool(finalPath)
 
 	return transitionRoute{distance: routeDistance, travelTime: travelTime, path: path}, true
 }

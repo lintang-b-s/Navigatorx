@@ -13,9 +13,9 @@ func TestBuildGraphSimple(t *testing.T) {
 	p := NewOSMParserV2()
 
 	// Create some mocked edges
-	scannedEdges := []Edge{
-		NewEdge(0, 1, 10.0, 100.0, false, 1),
-		NewEdge(1, 2, 15.0, 150.0, false, 2),
+	scannedEdges := []Edge[float64]{
+		NewEdge(0, 1, 10.0, 100, false, 1),
+		NewEdge(1, 2, 15.0, 150, false, 2),
 	}
 
 	// Mock wayNodeMap and nodeToOsmId
@@ -30,7 +30,7 @@ func TestBuildGraphSimple(t *testing.T) {
 	numV := uint32(3)
 	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
-	graph, _, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, numV, true)
+	graph, _, edgeInfoIds := BuildGraph(p, scannedEdges, graphStorage, numV, true)
 
 	if graph == nil {
 		t.Fatal("BuildGraph returned nil")
@@ -72,9 +72,9 @@ func TestBuildGraphWithTurnRestrictions(t *testing.T) {
 		},
 	}
 
-	scannedEdges := []Edge{
-		NewEdge(0, 1, 10.0, 100.0, false, 1),
-		NewEdge(1, 2, 15.0, 150.0, false, 2),
+	scannedEdges := []Edge[float64]{
+		NewEdge(0, 1, 10.0, 100, false, 1),
+		NewEdge(1, 2, 15.0, 150, false, 2),
 	}
 
 	p.wayNodeMap[1] = nodeWithCoord{tipe: JUNCTION_NODE, coord: NewNodeCoord(-7.795870, 110.365442)}
@@ -88,7 +88,7 @@ func TestBuildGraphWithTurnRestrictions(t *testing.T) {
 	numV := uint32(3)
 	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
-	graph, _, _ := p.BuildGraph(scannedEdges, graphStorage, numV, true)
+	graph, _, _ := BuildGraph(p, scannedEdges, graphStorage, numV, true)
 
 	if graph == nil {
 		t.Fatal("BuildGraph returned nil")

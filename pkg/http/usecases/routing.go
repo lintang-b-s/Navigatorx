@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/bytedance/gopkg/collection/hashset"
 	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/offline"
@@ -28,16 +29,17 @@ type RoutingService struct {
 	// sync pools
 
 	directionBuilderPool *sync.Pool
+	candidatePairSetPool *sync.Pool
 	turnSignCache        *ristretto.Cache[uint64, []byte]
 }
 
-func NewRoutingService(log *zap.Logger, engine controllers.RoutingEngine, spatialindex SpatialIndex, altRouting AlternativeRouteAlgorithm,
+func NewRoutingService(log *zap.Logger, engine controllers.RoutingEngine, spatialIndex SpatialIndex, altRouting AlternativeRouteAlgorithm,
 	searchRadius float64, lefthandDriving bool,
 ) (*RoutingService, error) {
 	rs := &RoutingService{
 		log:             log,
 		engine:          engine,
-		spatialIndex:    spatialindex,
+		spatialIndex:    spatialIndex,
 		searchRadius:    searchRadius,
 		lefthandDriving: lefthandDriving,
 		graph:           engine.GetGraph(),
@@ -65,11 +67,23 @@ func NewRoutingService(log *zap.Logger, engine controllers.RoutingEngine, spatia
 			)
 		},
 	}
+	const candidatePairCapacity = (spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES) / 10
+	rs.candidatePairSetPool = &sync.Pool{
+		New: func() any {
+			return hashset.NewUint64WithSize(candidatePairCapacity)
+		},
+	}
 
 	return rs, nil
 }
 
-func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, reroute bool, startEdgeId da.Index) (float64, float64, string, []da.DrivingDirection, bool, error) {
+func (rs *RoutingService) ShortestPath(
+	ctx context.Context,
+	qOrigLat, qOrigLon, qDstLat, qDstLon float64,
+	reroute bool,
+	startEdgeId da.Index,
+	useAnnotation bool,
+) (float64, float64, string, []da.DrivingDirection, bool, error) {
 	var (
 		travelTime, dist float64
 		pathCoords       *da.Coordinates
@@ -100,14 +114,23 @@ func (rs *RoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, 
 	if reroute {
 		directionBuilder.SetReroute(startEdgeId)
 	}
-	drivingDirection := directionBuilder.GetDrivingDirections(edgePath, sp, tp)
+	drivingDirection := directionBuilder.GetDrivingDirections(edgePath, sp, tp, useAnnotation)
+	rs.engine.PutPathToPool(edgePath[:0])
+	rs.engine.PutCoordsToPool(pathCoords)
 
 	directionBuilder.Reset()
 	rs.directionBuilderPool.Put(directionBuilder)
 	return travelTime, dist, pathPolyline, drivingDirection, true, nil
 }
 
-func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, error) {
+func (rs *RoutingService) AlternativeRouteSearch(
+	ctx context.Context,
+	qOrigLat, qOrigLon, qDstLat, qDstLon float64,
+	k int,
+	reroute bool,
+	startEdgeId da.Index,
+	useAnnotation bool,
+) ([]routing.AlternativeRoute, error) {
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startEdgeId)
 
@@ -137,8 +160,11 @@ func (rs *RoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, 
 		if reroute {
 			directionBuilder.SetReroute(startEdgeId)
 		}
-		drivingDirection := directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath(), sp, tp)
+		edgeIDPath := alt.GetEdgeIdPath()
+		drivingDirection := directionBuilder.GetDrivingDirections(edgeIDPath, sp, tp, useAnnotation)
 		alternatives[i].SetDrivingDirections(drivingDirection)
+		rs.engine.PutPathToPool(edgeIDPath[:0])
+		rs.engine.PutCoordsToPool(altPathCoords)
 
 		directionBuilder.Reset()
 		rs.directionBuilderPool.Put(directionBuilder)
@@ -151,11 +177,12 @@ func (rs *RoutingService) Close() {
 }
 
 func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64, dist float64) (float64, float64) {
+
 	if !rs.engine.IsDummyOutEdge(sp.GetOutEdgeId()) {
 		if !rs.isSameSourceDestinationSegment(sp, tp) {
-			path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, sp.GetForwardGeometry()...))
+			path.PrependCoordinateAndSlice(sp.GetSnappedCoord(), sp.GetForwardGeometry())
 		} else {
-			path.Prepend([]da.Coordinate{sp.GetSnappedCoord()})
+			path.PrependCoordinateAndSlice(sp.GetSnappedCoord(), nil)
 		}
 		travelTime += sp.GetForwardTravelTime()
 		dist += sp.GetForwardDistance()
@@ -163,9 +190,10 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 
 	if !rs.engine.IsDummyInEdge(tp.GetInEdgeId()) {
 		if !rs.isSameSourceDestinationSegment(sp, tp) {
-			path.Append(append(tp.GetReverseGeometry(), tp.GetSnappedCoord()))
+			path.Append(tp.GetReverseGeometry())
+			path.AppendCoordinate(tp.GetSnappedCoord())
 		} else {
-			path.Append([]da.Coordinate{tp.GetSnappedCoord()})
+			path.AppendCoordinate(tp.GetSnappedCoord())
 		}
 
 		travelTime += tp.GetReverseTravelTime()
@@ -205,7 +233,7 @@ func (rs *RoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPS
 		return nil, nil, fmt.Errorf("spatial index is not of type *spatialindex.Rtree")
 	}
 
-	re, ok := rs.engine.(*routing.CRPRoutingEngine)
+	re, ok := rs.engine.(*routing.CRPRoutingEngine[int32])
 	if !ok {
 		return nil, nil, fmt.Errorf("routing engine is not of type *routing.CRPRoutingEngine")
 	}

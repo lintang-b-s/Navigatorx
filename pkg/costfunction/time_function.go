@@ -1,7 +1,8 @@
-// Package costfunction provides interfaces and implementations for edge and turn cost calculations.
+// Package costfunction provides typed edge and turn cost calculations.
 package costfunction
 
 import (
+	"math"
 	"path/filepath"
 	"strings"
 
@@ -16,97 +17,106 @@ func PreprocessingTimeFunctionPath(graphFilename string) string {
 	return filepath.Join(filepath.Dir(graphFilename), base+"_preprocessing_timefunction.ntf")
 }
 
-type TimeFunction struct {
-	turnTable []float64 // map from turnTableId  to turn cost in seconds
+type TimeFunction[W util.RoutingNumber] struct {
+	defaultWeights []W      // centisecond (if the input is openstreetmap file)
+	segmentLengths []uint32 // centimeter
+	edgeMaxSpeeds  []uint32 // centimeter / centisecond  (1/100 second)
+	turnTable      []uint16 // centisecond // map from turnTableId  to turn cost in centiseconds
 	// turnMatrices[v][i][j] -> turnCosts = flattened 1-D indexed array index of i-th incoming edge dari v and j-th outgoing edge dari v  = i*outDegree + j
 	// = turnCost buat keluar dari v dari i-th incoming edge ke j-th outgoing edge dari v
-
-	// todo: ubah semua ke generic , possible value: int32 (buat input openstreetmap pbf kaya osrm) atau float64 (other)
-	// biar memory usage nya turun lagi
-	defaultWeights []float64
-	segmentLengths []float64
-	edgeMaxSpeeds  []float64 // map from outEdge id to its maxspeed in meters per second (m/s)
-	isRoadNetwork  bool
+	// salah satu buat support turn restrictions di openstreetmap. cara lain, osrm pakai edge-expanded graph representation: https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/understanding_osrm_graph_representation.md
+	// cara support turn restrictions yang pakai turn table/compact graph representation di propose di: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+	isRoadNetwork bool
 }
 
-func NewTimeCostFunction(roadNetwork bool, defaultWeights, segmentLengths, edgeMaxSpeeds, turnTable []float64) *TimeFunction {
-	tf := &TimeFunction{
+func NewTimeCostFunction[W util.RoutingNumber](
+	roadNetwork bool,
+	defaultWeights []W,
+	segmentLengths, edgeMaxSpeeds []uint32,
+	turnTable []uint16,
+) *TimeFunction[W] {
+	return &TimeFunction[W]{
 		defaultWeights: defaultWeights,
 		segmentLengths: segmentLengths,
 		edgeMaxSpeeds:  edgeMaxSpeeds,
+		turnTable:      turnTable,
 		isRoadNetwork:  roadNetwork,
 	}
-	if pkg.WITH_TURN_COSTS {
-		tf.turnTable = turnTable
-	}
-	return tf
 }
 
-func NewTimeCostFunctionEmpty() *TimeFunction {
-	return &TimeFunction{}
+func NewTimeCostFunctionEmpty[W util.RoutingNumber]() *TimeFunction[W] {
+	return &TimeFunction[W]{}
 }
 
-func NewPreprocessingTimeFunction(roadNetwork bool, defaultWeights, segmentLengths []float64) *TimeFunction {
-	edgeMaxSpeeds := make([]float64, len(defaultWeights))
+func NewPreprocessingTimeFunction[W util.RoutingNumber](
+	roadNetwork bool,
+	defaultWeights []W,
+	segmentLengths []uint32,
+) *TimeFunction[W] {
+	edgeMaxSpeeds := make([]uint32, len(defaultWeights))
 	if roadNetwork {
-		for i := range edgeMaxSpeeds {
-			if !util.Eq(defaultWeights[i], 0) {
-				edgeMaxSpeeds[i] = segmentLengths[i] / defaultWeights[i]
+		for i, weight := range defaultWeights {
+			if weight == 0 {
+				continue
 			}
+			edgeMaxSpeeds[i] = speedFromWeight(segmentLengths[i], weight)
 		}
 	}
-	return NewTimeCostFunction(roadNetwork, defaultWeights, segmentLengths, edgeMaxSpeeds, nil)
+	return NewTimeCostFunction(
+		roadNetwork, defaultWeights, segmentLengths, edgeMaxSpeeds, nil,
+	)
 }
 
-// GetWeight. Get travel time dari outEdge (in minutes).
-// eId adalah id dari outEdge yang ingin didapat weightnya
-func (tf *TimeFunction) GetWeight(eId da.Index) float64 {
-	return tf.GetWeightFromLength(eId, tf.segmentLengths[eId])
+// speedFromWeight returns centimeters per centisecond, numerically equal to meters per second.
+func speedFromWeight[W util.RoutingNumber](length uint32, weight W) uint32 {
+	return uint32(math.Round(float64(length) / float64(weight)))
 }
 
-func (tf *TimeFunction) GetWeightFromLength(eId da.Index, eLength float64) float64 {
-	eDefaultWeight := tf.defaultWeights[eId]
-	if tf.isRoadNetwork {
-		maxspeed := tf.edgeMaxSpeeds[eId] // m/s
-		if util.Eq(eDefaultWeight, pkg.INF_WEIGHT) {
-			return eDefaultWeight
-		} else if util.Eq(maxspeed, 0) {
-			// blokade jalan. kasih inf travel time
-			return pkg.INF_WEIGHT
-		} else if eDefaultWeight == 0 {
-			return 0
-		}
+func (tf *TimeFunction[W]) GetWeight(eID da.Index) W {
+	return tf.GetWeightFromLength(eID, tf.segmentLengths[eID])
+}
 
-		return eLength / maxspeed
+func (tf *TimeFunction[W]) GetWeightFromLength(eID da.Index, length uint32) W {
+	defaultWeight := tf.defaultWeights[eID]
+	if !tf.isRoadNetwork || defaultWeight == 0 || defaultWeight >= util.Infinity[W]() {
+		return defaultWeight
 	}
-	// ini buat correctness test
-	return eDefaultWeight
+	speed := tf.edgeMaxSpeeds[eID]
+	if speed == 0 {
+		return util.Infinity[W]()
+	}
+	weight := int32(length / speed)
+	if weight >= util.Infinity[int32]() {
+		return util.Infinity[W]()
+	}
+	return W(weight)
 }
 
-func (tf *TimeFunction) GetDefaultWeight(eId da.Index) float64 {
-	return tf.defaultWeights[eId]
+func (tf *TimeFunction[W]) GetDefaultWeight(eID da.Index) W {
+	return tf.defaultWeights[eID]
 }
 
-func (tf *TimeFunction) GetSegmentLength(eId da.Index) float64 {
-	return tf.segmentLengths[eId]
+// GetSegmentLength. get road segment lengths in centimeter
+func (tf *TimeFunction[W]) GetSegmentLength(eID da.Index) uint32 {
+	return tf.segmentLengths[eID]
 }
 
-func (tf *TimeFunction) GetDefaultWeights() []float64 {
+func (tf *TimeFunction[W]) GetDefaultWeights() []W {
 	return tf.defaultWeights
 }
 
-func (tf *TimeFunction) GetSegmentLengths() []float64 {
+func (tf *TimeFunction[W]) GetSegmentLengths() []uint32 {
 	return tf.segmentLengths
 }
 
-func (tf *TimeFunction) GetEdgeMaxSpeeds() []float64 {
+func (tf *TimeFunction[W]) GetEdgeMaxSpeeds() []uint32 {
 	return tf.edgeMaxSpeeds
 }
 
-func (tf *TimeFunction) ReorderEdges(oldEdgeIDs []da.Index) {
-	defaultWeights := make([]float64, len(oldEdgeIDs))
-	segmentLengths := make([]float64, len(oldEdgeIDs))
-	edgeMaxSpeeds := make([]float64, len(oldEdgeIDs))
+func (tf *TimeFunction[W]) ReorderEdges(oldEdgeIDs []da.Index) {
+	defaultWeights := make([]W, len(oldEdgeIDs))
+	segmentLengths := make([]uint32, len(oldEdgeIDs))
+	edgeMaxSpeeds := make([]uint32, len(oldEdgeIDs))
 	for newID, oldID := range oldEdgeIDs {
 		defaultWeights[newID] = tf.defaultWeights[oldID]
 		segmentLengths[newID] = tf.segmentLengths[oldID]
@@ -117,23 +127,63 @@ func (tf *TimeFunction) ReorderEdges(oldEdgeIDs []da.Index) {
 	tf.edgeMaxSpeeds = edgeMaxSpeeds
 }
 
-func (tf *TimeFunction) WithCustomization(edgeMaxSpeeds, turnTable []float64) *TimeFunction {
-	return NewTimeCostFunction(tf.isRoadNetwork, tf.defaultWeights, tf.segmentLengths, edgeMaxSpeeds, turnTable)
+func (tf *TimeFunction[W]) WithCustomization(
+	edgeMaxSpeeds []uint32,
+	turnTable []uint16,
+) *TimeFunction[W] {
+	return NewTimeCostFunction(
+		tf.isRoadNetwork, tf.defaultWeights, tf.segmentLengths, edgeMaxSpeeds, turnTable,
+	)
 }
 
-func (tf *TimeFunction) GetSegmentSpeed(eId da.Index) float64 {
-	if tf.isRoadNetwork {
-		maxspeed := tf.edgeMaxSpeeds[eId] // m/s
-		return maxspeed
-	}
-	// ini buat correctness test
-	return 0
-}
-
-func (tf *TimeFunction) GetTurnCost(turnTableId da.Index) float64 {
-	if tf.turnTable == nil {
+func (tf *TimeFunction[W]) GetSegmentSpeed(eID da.Index) uint32 {
+	if !tf.isRoadNetwork {
 		return 0
 	}
+	return tf.edgeMaxSpeeds[eID]
+}
 
-	return tf.turnTable[turnTableId]
+func (tf *TimeFunction[W]) GetTurnCost(turnTableID da.Index) W {
+	if !pkg.WITH_TURN_COSTS || !tf.isRoadNetwork || tf.turnTable == nil {
+		return 0
+	}
+	value := tf.turnTable[turnTableID]
+	if value == util.TurnCostForbidden {
+		return util.Infinity[W]()
+	}
+
+	return W(value)
+}
+
+func (tf *TimeFunction[W]) WeightToSeconds(value W) float64 {
+	if tf.isRoadNetwork {
+		return float64(value) / util.CentiScale
+	}
+	return float64(value)
+}
+
+func (tf *TimeFunction[W]) WeightFromSeconds(value float64) W {
+	return W(util.RoundCentiseconds(value))
+}
+
+func (tf *TimeFunction[W]) DistanceToMeters(value uint32) float64 {
+	return float64(value) / util.CentiScale
+}
+
+func (tf *TimeFunction[W]) DistanceFromMeters(value float64) uint32 {
+	return uint32(math.Round(value * util.CentiScale))
+}
+
+func (tf *TimeFunction[W]) SpeedToMetersPerSecond(value uint32) float64 {
+	return float64(value)
+}
+
+// SpeedFromKilometerPerHour converts CSV speed input to centimeters per centisecond.
+func (tf *TimeFunction[W]) SpeedFromKilometerPerHour(value float64) uint32 {
+	speed := math.Round(value / 3.6)
+	return uint32(speed)
+}
+
+func (tf *TimeFunction[W]) IsRoadNetwork() bool {
+	return tf.isRoadNetwork
 }

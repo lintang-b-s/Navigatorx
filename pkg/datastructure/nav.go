@@ -105,11 +105,42 @@ func (cs *Coordinates) Append(newCoords []Coordinate) {
 	*cs = slice
 }
 
-// https://go.dev/doc/effective_go#pointers_vs_values
-func (cs *Coordinates) Prepend(newCoords []Coordinate) {
+// PrependCoordinateAndSlice grows once before adding a point and geometry prefix.
+func (cs *Coordinates) PrependCoordinateAndSlice(coord Coordinate, coords []Coordinate) {
 	slice := *cs
-	slice = append(newCoords, slice...)
+	oldLength := len(slice)
+	added := len(coords) + 1
+	newLength := oldLength + added
+	if cap(slice) < newLength {
+		grown := make(Coordinates, newLength)
+		grown[0] = coord
+		copy(grown[1:], coords)
+		copy(grown[added:], slice)
+		*cs = grown
+		return
+	}
+	slice = slice[:newLength]
+	copy(slice[added:], slice[:oldLength])
+	slice[0] = coord
+	copy(slice[1:added], coords)
 	*cs = slice
+}
+
+// AppendCoordinate appends one coordinate without creating a temporary slice.
+func (cs *Coordinates) AppendCoordinate(coord Coordinate) {
+	*cs = append(*cs, coord)
+}
+
+// Grow reserves room for additional coordinates while preserving the current length.
+func (cs *Coordinates) Grow(additional int) {
+	slice := *cs
+	required := len(slice) + additional
+	if cap(slice) >= required {
+		return
+	}
+	grown := make(Coordinates, len(slice), required)
+	copy(grown, slice)
+	*cs = grown
 }
 
 // https://go.dev/doc/effective_go#pointers_vs_values

@@ -6,15 +6,15 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type DijkstraWithTurnCost struct {
-	engine *CRPRoutingEngine
+type DijkstraWithTurnCost[W util.RoutingNumber] struct {
+	engine *CRPRoutingEngine[W]
 
-	finalCost           []float64
-	finalQueryKey       []da.VertexInfo
+	finalCost           []W
+	finalQueryKey       []da.VertexInfo[W]
 	finalEdge           []da.Index
-	shortestTravelTimes []float64
+	shortestTravelTimes []W
 
-	pq *da.QueryHeap[da.CRPQueryKey]
+	pq *da.QueryHeap[da.CRPQueryKey, W]
 
 	sForwardId da.Index
 
@@ -22,13 +22,16 @@ type DijkstraWithTurnCost struct {
 	useReversedEdges bool
 }
 
-func NewDijkstraWithTurnCost(engine *CRPRoutingEngine, useReversedEdges bool) DijkstraWithTurnCost {
-	dj := DijkstraWithTurnCost{
+func NewDijkstraWithTurnCost[W util.RoutingNumber](
+	engine *CRPRoutingEngine[W],
+	useReversedEdges bool,
+) DijkstraWithTurnCost[W] {
+	dj := DijkstraWithTurnCost[W]{
 		engine:        engine,
-		finalQueryKey: make([]da.VertexInfo, 0),
+		finalQueryKey: make([]da.VertexInfo[W], 0),
 
 		numSettledNodes:     0,
-		shortestTravelTimes: make([]float64, 0),
+		shortestTravelTimes: make([]W, 0),
 		useReversedEdges:    useReversedEdges,
 	}
 
@@ -60,7 +63,7 @@ untuk referensi lain implementasi routing with turn cost di road network dapat d
 2. https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 2. multilevel-dijkstranya OSRM: https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp
 */
-func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Index) {
+func (us *DijkstraWithTurnCost[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) {
 	var (
 		sForwardId da.Index
 	)
@@ -72,13 +75,13 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 	}
 
 	n := us.engine.graph.NumberOfVertices()
-	us.finalCost = make([]float64, n)
+	us.finalCost = make([]W, n)
 	for v := 0; v < n; v++ {
-		us.finalCost[v] = pkg.INF_WEIGHT
+		us.finalCost[v] = util.Infinity[W]()
 	}
 	us.sForwardId = sForwardId
 
-	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
 	djKey := da.NewDijkstraKey(s, sForwardId)
 	us.pq.Insert(sForwardId, 0, sVertexInfo, djKey)
@@ -90,7 +93,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 	}
 
 	spEdges := make([][]da.Index, n)
-	sps := make([]float64, n)
+	sps := make([]W, n)
 	if !us.useReversedEdges {
 
 		for t := da.Index(0); t < da.Index(n); t++ {
@@ -103,7 +106,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 			}
 
 			sps[t] = sp
-			if util.Ge(sp, pkg.INF_WEIGHT) {
+			if util.Ge(sp, util.Infinity[W]()) {
 				continue
 			}
 
@@ -138,7 +141,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 				continue // sp == 0
 			}
 			sps[t] = sp
-			if util.Ge(sp, pkg.INF_WEIGHT) {
+			if util.Ge(sp, util.Infinity[W]()) {
 				continue
 			}
 
@@ -170,7 +173,7 @@ func (us *DijkstraWithTurnCost) ShortestPath(s da.Index) ([]float64, [][]da.Inde
 	return sps, spEdges
 }
 
-func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
+func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 	// taken from Delling, D. et al. (2015) “Customizable Route Planning in Road Networks,” Transportation Science [Preprint]. Available at: https://doi.org/10.1287/trsc.2014.0579 :
 	// The query algorithm maintains a distance label d(u) for each entry u which can either be a vertex on the overlay or a pair (u, i) corresponding to the i-th entry point of u in the original graph.
 	// for forward search, we traverse outEdges of the graph and store (u, entryPoint of outEdge) to represent the key of the priority queue.
@@ -216,7 +219,7 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 				return
 			}
 
-			if util.Eq(us.finalCost[uId], pkg.INF_WEIGHT) || util.Lt(newCost, us.finalCost[uId]) {
+			if util.Eq(us.finalCost[uId], util.Infinity[W]()) || util.Lt(newCost, us.finalCost[uId]) {
 				us.finalQueryKey[uId] = us.pq.Get(uEntryId)
 				us.finalEdge[uId] = uEntryId
 				us.finalCost[uId] = newCost
@@ -229,20 +232,20 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 
 			vId := head
 
-			edgeWeight := us.engine.GetWeight(eId, true)
+			edgeWeight := us.engine.getWeight(eId, true)
 
 			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
 			newTravelTime := uCost + edgeWeight + turnCost
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, util.Infinity[W]()) {
 				return
 			}
 
 			vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(entryPoint)
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), pkg.INF_WEIGHT)
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), util.Infinity[W]())
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vEntryId)) {
 				// newTravelTime is not better, do nothing
 
@@ -275,7 +278,7 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 			newCost := uCost + turnCost
 
-			if util.Eq(us.finalCost[uId], pkg.INF_WEIGHT) || util.Lt(newCost, us.finalCost[uId]) {
+			if util.Eq(us.finalCost[uId], util.Infinity[W]()) || util.Lt(newCost, us.finalCost[uId]) {
 				us.finalQueryKey[uId] = us.pq.Get(uExitId)
 				us.finalEdge[uId] = uExitId
 				us.finalCost[uId] = newCost
@@ -288,22 +291,21 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 
 			vId := tail
 
-			edgeWeight := us.engine.GetWeight(eId, false)
+			edgeWeight := us.engine.getWeight(eId, false)
 
 			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 
 			newTravelTime := us.pq.GetPriority(uExitId) + edgeWeight + turnCost
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, util.Infinity[W]()) {
 				return
 			}
 
 			vExitId := us.engine.graph.GetExitOffset(vId) + da.Index(exitPoint)
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vExitId), pkg.INF_WEIGHT)
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vExitId), util.Infinity[W]())
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vExitId)) {
 				// newTravelTime is not better, do nothing
-
 				return
 			}
 
@@ -327,16 +329,16 @@ func (us *DijkstraWithTurnCost) graphSearchUni(source da.Index) bool {
 	return false
 }
 
-func (us *DijkstraWithTurnCost) Preallocate() {
+func (us *DijkstraWithTurnCost[W]) Preallocate() {
 	numberOfEdges := us.engine.graph.NumberOfEdges()
 	maxSearchSize := numberOfEdges
 	numberOfVerties := us.engine.graph.NumberOfVertices()
-	us.finalQueryKey = make([]da.VertexInfo, numberOfVerties)
+	us.finalQueryKey = make([]da.VertexInfo[W], numberOfVerties)
 	for i := 0; i < numberOfVerties; i++ {
-		us.finalQueryKey[i] = da.NewVertexInfo(pkg.INF_WEIGHT, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+		us.finalQueryKey[i] = da.NewVertexInfo(util.Infinity[W](), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 	}
 	us.finalEdge = make([]da.Index, numberOfVerties)
 	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
-	us.pq = da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+	us.pq = da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 	us.pq.PreallocateHeap(maxSearchSize)
 }

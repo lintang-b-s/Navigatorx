@@ -108,7 +108,7 @@ func newQuery(s, t da.Index) query {
 	}
 }
 
-func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[int], error) {
+func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int], error) {
 
 	flag.Parse()
 	logger, err := log.New()

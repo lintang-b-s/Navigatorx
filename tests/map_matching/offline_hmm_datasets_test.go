@@ -156,8 +156,8 @@ func ohmmProjectPath(workingDir, path string) string {
 	return filepath.Join(workingDir, strings.TrimPrefix(path, "./"))
 }
 
-func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfunction.TimeFunction, edgeInfoIDs [][]da.Index, logger *zap.Logger, partitionSizes []int,
-	mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile string) *engine.Engine {
+func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfunction.TimeFunction[int32], edgeInfoIDs [][]da.Index, logger *zap.Logger, partitionSizes []int,
+	mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile string) *engine.Engine[int32] {
 	t.Helper()
 
 	for _, path := range []string{mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile} {
@@ -368,7 +368,7 @@ func ohmmFallbackGeometry(edgeID int64, from, to uint32, nodeCoords []da.Coordin
 	return ohmmEdgeGeometry{length: length, roadType: pkg.ROAD, coords: []da.Coordinate{fromCoord, toCoord}}
 }
 
-func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *costfunction.TimeFunction, [][]da.Index, map[int64]float64, error) {
+func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *costfunction.TimeFunction[int32], [][]da.Index, map[int64]float64, error) {
 	nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, err := ohmmReadGisCupNodes(paths.nodesFilePath)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -385,7 +385,7 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 	defer f.Close()
 
 	graphStorage := da.NewGraphStorage(54)
-	graphEdges := make([]osmparser.Edge, 0)
+	graphEdges := make([]osmparser.Edge[int32], 0)
 	edgeLengths := make(map[int64]float64)
 
 	br := bufio.NewReader(f)
@@ -443,7 +443,10 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 		endPointsIndex := graphStorage.GetOsmNodePointsCount()
 		graphStorage.AppendEdgeMetadata(edgeID, da.Index(startPointsIndex), da.Index(endPointsIndex), 0, geometry.roadType, 0, 1)
 
-		graphEdge := osmparser.NewEdge(fromIndex, toIndex, cost, geometry.length, false, geometry.roadType)
+		graphEdge := osmparser.NewFixedEdge(
+			fromIndex, toIndex, cost, geometry.length, false, geometry.roadType,
+		)
+
 		graphEdge.SetFromOSMId(uint64(fromNodeID))
 		graphEdge.SetToOSMId(uint64(toNodeID))
 		graphEdges = append(graphEdges, graphEdge)
@@ -458,7 +461,7 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 	return graph, timeFunction, edgeInfoIDs, edgeLengths, nil
 }
 
-func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine, *da.Graph, *zap.Logger, map[int64]float64) {
+func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, map[int64]float64) {
 	t.Helper()
 
 	pkg.RegionName = "giscup"
@@ -480,7 +483,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine, *
 	landmarkFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_landmark_giscup.nlm")
 	timeFunctionFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_timefunction_giscup.ntf")
 
-	var re *engine.Engine
+	var re *engine.Engine[int32]
 	if ohmmEngineFilesExist(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile) {
 		re, err = engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 		if err != nil {
@@ -857,7 +860,7 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStre
 	return streetByID, nil
 }
 
-func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine, *da.Graph, *zap.Logger, map[da.Index]int64, map[int64]float64) {
+func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, map[da.Index]int64, map[int64]float64) {
 	t.Helper()
 
 	pkg.RegionName = "hengfengli"
@@ -885,7 +888,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	}
 
 	graphStorage := da.NewGraphStorage(54)
-	graphEdges := make([]osmparser.Edge, 0, len(edges))
+	graphEdges := make([]osmparser.Edge[int32], 0, len(edges))
 	for _, e := range edges {
 		st, ok := streetByID[e.id]
 		if !ok {
@@ -898,7 +901,11 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		})
 		endPointsIndex := graphStorage.GetOsmNodePointsCount()
 		graphStorage.AppendEdgeMetadata(e.id, da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1)
-		graphEdges = append(graphEdges, osmparser.NewEdge(uint32(e.startID), uint32(e.endID), e.distance, e.distance, false, pkg.MOTORWAY))
+		graphEdge := osmparser.NewFixedEdge(
+			uint32(e.startID), uint32(e.endID), e.distance, e.distance, false, pkg.MOTORWAY,
+		)
+
+		graphEdges = append(graphEdges, graphEdge)
 	}
 
 	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, len(vertices))
@@ -921,7 +928,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	landmarkFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_landmark_hl.nlm")
 	timeFunctionFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_timefunction_hl.ntf")
 
-	var re *engine.Engine
+	var re *engine.Engine[int32]
 	if ohmmEngineFilesExist(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile) {
 		re, err = engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 		if err != nil {
@@ -1136,7 +1143,7 @@ func ohmmWritePolyline(t *testing.T, filePath string, matchedPoints []*da.Matche
 	}
 }
 
-func ohmmBuildHanwenHuCRPGraph(t *testing.T) (*engine.Engine, *da.Graph, *zap.Logger) {
+func ohmmBuildHanwenHuCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logger) {
 	t.Helper()
 
 	logger, err := log.New()

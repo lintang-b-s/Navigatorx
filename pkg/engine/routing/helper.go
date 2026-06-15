@@ -1,14 +1,12 @@
 package routing
 
 import (
-	"sort"
-
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // PathExists. cek apakah ada path (tanpa costs) dari u ke v.
-func (crp *CRPRoutingEngine) PathExists(u, v da.Index) bool {
+func (crp *CRPRoutingEngine[W]) PathExists(u, v da.Index) bool {
 	return crp.graph.PathExists(u, v)
 }
 
@@ -29,62 +27,44 @@ func (t target) getatId() da.Index {
 	return t.atId
 }
 
+// removeDuplicates removes duplicate edge IDs from arr in-place 
 func removeDuplicates(arr []da.Index) []da.Index {
-
-	n := len(arr)
-
-	arrIndices := make([]uint32, n)
-	for i := 0; i < n; i++ {
-		arrIndices[i] = uint32(i)
+	if len(arr) < 2 {
+		return arr
 	}
-
-	// sort arrIndices by arr[arrIndices[i]] increasing
-	sort.Slice(arrIndices, func(i, j int) bool {
-		return arr[arrIndices[i]] < arr[arrIndices[j]]
-	})
-
-	isDuplicate := make([]bool, n)
-
-	for i := 1; i < n; i++ {
-		if arr[arrIndices[i]] == arr[arrIndices[i-1]] {
-			isDuplicate[arrIndices[i]] = true
+	seen := make(map[da.Index]struct{}, len(arr))
+	out := arr[:0]
+	for _, v := range arr {
+		if _, ok := seen[v]; ok {
+			continue
 		}
+		seen[v] = struct{}{}
+		out = append(out, v)
 	}
-
-	l := 0
-
-	for r := 0; r < n; r++ {
-		v := arr[r]
-		if !isDuplicate[r] {
-			arr[l] = v
-			l++
-		}
-	}
-
-	return arr[:l]
+	return out
 }
 
-func (bs *CRPBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *CRPBidirectionalSearch[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	return bs.forwardPq
 }
 
-func (bs *CRPBidirectionalSearch) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *CRPBidirectionalSearch[W]) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	return bs.backwardPq
 }
 
-func (bs *CRPBidirectionalSearch) GetSCellNumber() da.Pv {
+func (bs *CRPBidirectionalSearch[W]) GetSCellNumber() da.Pv {
 	return bs.sCellNumber
 }
 
-func (bs *CRPBidirectionalSearch) GetTCellNumber() da.Pv {
+func (bs *CRPBidirectionalSearch[W]) GetTCellNumber() da.Pv {
 	return bs.tCellNumber
 }
 
-func (bs *CRPBidirectionalSearch) GetNumScannedNodes() int {
+func (bs *CRPBidirectionalSearch[W]) GetNumScannedNodes() int {
 	return bs.numScannedVertices
 }
 
-func (bs *CRPALTBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *CRPALTBidirectionalSearch[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	// karena queryHeap diambil dari sync.Pool & a pointer,
 	// bisa ada dipakai query lain buat write ke map & sekaligus dipakai alternative routes finder buat read map nya
 	// udah coba load test endpoint alternative routes, dapet error concurrent map read & write
@@ -93,36 +73,36 @@ func (bs *CRPALTBidirectionalSearch) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey
 	return bs.forwardPq
 }
 
-func (bs *CRPALTBidirectionalSearch) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *CRPALTBidirectionalSearch[W]) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	return bs.backwardPq
 }
 
-func (bs *CRPALTBidirectionalSearch) GetSCellNumber() da.Pv {
+func (bs *CRPALTBidirectionalSearch[W]) GetSCellNumber() da.Pv {
 	return bs.sCellNumber
 }
 
-func (bs *CRPALTBidirectionalSearch) GetNumScannedVertices() int {
+func (bs *CRPALTBidirectionalSearch[W]) GetNumScannedVertices() int {
 	return bs.numScannedVertices
 }
 
-func (bs *CRPALTBidirectionalSearch) GetNumScannedOverlayVertices() int {
+func (bs *CRPALTBidirectionalSearch[W]) GetNumScannedOverlayVertices() int {
 	return bs.numScannedOverlayVertices
 }
 
-func (bs *BidirectionalDijkstra) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *BidirectionalDijkstra[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	return bs.forwardPq
 }
 
-func (bs *BidirectionalDijkstra) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey] {
+func (bs *BidirectionalDijkstra[W]) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	return bs.backwardPq
 }
 
-func (bs *BidirectionalDijkstra) GetSCellNumber() da.Pv {
+func (bs *BidirectionalDijkstra[W]) GetSCellNumber() da.Pv {
 	return 0
 }
 
-func initInfWeight(dist []float64) {
+func initInfWeight[W util.RoutingNumber](dist []W) {
 	for i := range dist {
-		dist[i] = pkg.INF_WEIGHT
+		dist[i] = util.Infinity[W]()
 	}
 }

@@ -111,7 +111,7 @@ func (lt *LookupTable[T]) Get(key T) int {
 	return INVALID_LOOKUPTABLE_VAL_ID
 }
 
-func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []float64, error) {
+func (c *Customizer[W]) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []float64, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to open file %v: %w", filepath, err)
@@ -172,19 +172,19 @@ func (c *Customizer) readEdgeSpeedsFromFile(filepath string) ([]da.Index, []floa
 			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to parse segent speed: %s: %w", updatedEdgeSpeedString, err)
 		}
 
-		if util.Eq(updatedEdgeSpeed, 0) {
-			updatedEdgeSpeed = 0.1
+		if updatedEdgeSpeed < 0 {
+			return make([]da.Index, 0), make([]float64, 0),
+				fmt.Errorf("customizer.readEdgeSpeedsFile: segment speed must be non-negative: %s", updatedEdgeSpeedString)
 		}
 
 		updatedEdges = append(updatedEdges, updatedEId)
-		updatedEdgeSpeed = util.KMHToMSeconds(updatedEdgeSpeed) // convert to m/s
 		updatedEdgeSpeeds = append(updatedEdgeSpeeds, updatedEdgeSpeed)
 	}
 
 	return updatedEdges, updatedEdgeSpeeds, nil
 }
 
-func (c *Customizer) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []float64, error) {
+func (c *Customizer[W]) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []float64, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
 		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to open file %v: %w", filepath, err)
@@ -271,12 +271,11 @@ func (c *Customizer) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []f
 	return updatedTurnTableIds, updatedTurnPenalties, nil
 }
 
-// UpdatedSegment satu row di segment speed csv file.
-// Contains fromOsmId, toOsmId, and speed (in km/h).
+// UpdatedSegment is one row in a segment-speed CSV file; speed is kilometers per hour.
 type UpdatedSegment struct {
 	fromOsmId int64
 	toOsmId   int64
-	speed     float64 // in km/h
+	speed     float64 // in k,/h
 }
 
 func NewUpdatedSegment(fromOsmId, toOsmId int64, speed float64) UpdatedSegment {

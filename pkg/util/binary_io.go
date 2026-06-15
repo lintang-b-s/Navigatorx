@@ -89,6 +89,42 @@ func (w *BinaryWriter) WriteFloat64s(values []float64) error {
 	return nil
 }
 
+func (w *BinaryWriter) WriteInt32s(values []int32) error {
+	if err := w.Length(len(values)); err != nil {
+		return err
+	}
+	for _, value := range values {
+		if err := w.Int32(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *BinaryWriter) WriteUint32s(values []uint32) error {
+	if err := w.Length(len(values)); err != nil {
+		return err
+	}
+	for _, value := range values {
+		if err := w.Uint32(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (w *BinaryWriter) WriteUint16s(values []uint16) error {
+	if err := w.Length(len(values)); err != nil {
+		return err
+	}
+	for _, value := range values {
+		if err := w.Uint16(value); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (w *BinaryWriter) Length(length int) error {
 	if uint64(length) > math.MaxUint32 {
 		return fmt.Errorf("length %d exceeds uint32", length)
@@ -201,6 +237,17 @@ func (r *BinaryReader) ReadInt32s(values []int32) error {
 			values[offset+i/itemSize] = int32(binary.LittleEndian.Uint32(chunk[i : i+itemSize]))
 		}
 	})
+}
+
+func (r *BinaryReader) ReadUint16s(values []uint16) error {
+	for i := range values {
+		value, err := r.Uint16()
+		if err != nil {
+			return err
+		}
+		values[i] = value
+	}
+	return nil
 }
 
 func (r *BinaryReader) ReadInt32Pairs(count int, set func(index int, first, second int32)) error {

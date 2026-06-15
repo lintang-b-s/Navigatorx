@@ -15,82 +15,86 @@ import (
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
 // jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph.
 // karena Customizable Route Planning (CRP) Query phase (support turn costs) mengasumsikan setiap vertices memiliki setidaknya satu edge.
-func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, *costfunction.TimeFunction, [][]da.Index) {
+func (p *OsmParser) BuildGraph(scannedEdges []Edge[int32], graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, *costfunction.TimeFunction[int32], [][]da.Index) {
+	util.USE_INT32 = true
+	return BuildGraph(p, scannedEdges, graphStorage, numV, roadNetwork)
+}
+
+func (p *OsmParser) BuildGraphFloat64(
+	scannedEdges []Edge[float64],
+	graphStorage *da.GraphStorage,
+	numV uint32,
+	roadNetwork bool,
+) (*da.Graph, *costfunction.TimeFunction[float64], [][]da.Index) {
+	util.USE_INT32 = false
+	return BuildGraph(p, scannedEdges, graphStorage, numV, roadNetwork)
+}
+
+func BuildGraph[W util.RoutingNumber](
+	p *OsmParser,
+	scannedEdges []Edge[W],
+	graphStorage *da.GraphStorage,
+	numV uint32,
+	roadNetwork bool,
+) (*da.Graph, *costfunction.TimeFunction[W], [][]da.Index) {
 	var (
 		outEdges    = make([][]da.OutEdge, numV)
 		inEdges     = make([][]da.InEdge, numV)
-		outWeights  = make([][]float64, numV)
-		outLengths  = make([][]float64, numV)
-		inLengths   = make([][]float64, numV)
+		outWeights  = make([][]W, numV)
+		outLengths  = make([][]uint32, numV)
+		inLengths   = make([][]uint32, numV)
 		edgeInfoIds = make([][]da.Index, numV)
 		inDegree    = make([]int, numV)
 		outDegree   = make([]int, numV)
 		vertices    = make([]da.Vertex, numV+1)
 	)
 
-	for v := 0; v < int(numV)+1; v++ {
-		vertices[v] = da.NewVertex(0, 0, da.Index(v))
-	}
-
 	vertexOsmIds := make([]uint64, numV)
-
-	// O(E)
-	for eId, e := range scannedEdges {
+	for eID, e := range scannedEdges {
 		u := da.Index(e.from)
 		v := da.Index(e.to)
-		uOsmId := e.GetFromOsmId()
-		vOsmId := e.GetToOsmId()
 
 		vEntryPoint := da.Index(len(inEdges[v]))
 		outEdge := da.NewOutEdge(0, v, vEntryPoint, e.GetHighwayType())
-
 		if e.IsJunctionHead() {
 			outEdge.SetJunctionHead()
 		}
-
 		if e.IsJunctionTail() {
 			outEdge.SetJunctionTail()
 		}
-
 		if e.ContainsTrafficLight() {
 			outEdge.SetContainsTrafficLight()
 		}
-
 		outEdges[u] = append(outEdges[u], outEdge)
 		outWeights[u] = append(outWeights[u], e.GetWeight())
 		outLengths[u] = append(outLengths[u], e.GetDistance())
 
-		edgeInfoIds[u] = append(edgeInfoIds[u], da.Index(eId))
-
-		outDegree[u]++
-
 		uExitPoint := da.Index(len(outEdges[u]) - 1)
 		inEdge := da.NewInEdge(0, u, uExitPoint, e.GetHighwayType())
-
 		if e.IsJunctionHead() {
 			inEdge.SetJunctionHead()
 		}
-
 		if e.IsJunctionTail() {
 			inEdge.SetJunctionTail()
 		}
-
 		if e.ContainsTrafficLight() {
 			inEdge.SetContainsTrafficLight()
 		}
-
 		inEdges[v] = append(inEdges[v], inEdge)
 		inLengths[v] = append(inLengths[v], e.GetDistance())
-		inDegree[v]++
 
-		uData := p.wayNodeMap[p.nodeToOsmId[da.Index(u)]].coord
+		uData := p.wayNodeMap[p.nodeToOsmId[u]].coord
+		vData := p.wayNodeMap[p.nodeToOsmId[v]].coord
 		vertices[u] = da.NewVertex(uData.lat, uData.lon, u)
-
-		vData := p.wayNodeMap[p.nodeToOsmId[da.Index(v)]].coord
 		vertices[v] = da.NewVertex(vData.lat, vData.lon, v)
+		vertexOsmIds[u] = e.GetFromOsmId()
+		vertexOsmIds[v] = e.GetToOsmId()
+		edgeInfoIds[u] = append(edgeInfoIds[u], da.Index(eID))
+	}
 
-		vertexOsmIds[u] = uOsmId
-		vertexOsmIds[v] = vOsmId
+	for v := range numV {
+		outDegree[v] = len(outEdges[v])
+		inDegree[v] = len(inEdges[v])
 	}
 
 	newEInfoId := len(scannedEdges)
@@ -294,12 +298,13 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 	for v := 0; v < len(vertices)-1; v++ {
 		// we need to do this because Customizable Route Planning (with turn costs) query assume all vertex have at least one outEdge (at for target as source)
 		if !roadNetwork || (roadNetwork && (outDegree[v] == 0 || inDegree[v] == 0)) {
+			// if !roadNetwork {
 			dummyOut := da.NewOutEdge(da.INVALID_EDGE_ID, da.Index(v),
 				da.Index(len(inEdges[v])), pkg.INVALID_HIGHWAY)
 			dummyOut.SetDummyEdge()
 			outEdges[v] = append(outEdges[v], dummyOut)
-			outWeights[v] = append(outWeights[v], pkg.INF_WEIGHT)
-			outLengths[v] = append(outLengths[v], pkg.DUMMY_EDGE_LENGTH)
+			outWeights[v] = append(outWeights[v], util.Infinity[W]())
+			outLengths[v] = append(outLengths[v], 1)
 			edgeInfoIds[v] = append(edgeInfoIds[v], da.INVALID_EDGE_INFO_ID)
 			outDegree[v]++
 
@@ -307,7 +312,7 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				da.Index(len(outEdges[v])-1), pkg.INVALID_HIGHWAY)
 			dummyIn.SetDummyEdge()
 			inEdges[v] = append(inEdges[v], dummyIn)
-			inLengths[v] = append(inLengths[v], pkg.DUMMY_EDGE_LENGTH)
+			inLengths[v] = append(inLengths[v], 1)
 			inDegree[v]++
 
 			graphStorage.AppendEdgeMetadata(
@@ -353,8 +358,8 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 				turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
 					headPoint.GetLon(), prevInitialBearing)
 
-				l := inLengths[via][entryPoint]
-				lPrime := outLengths[via][exitPoint]
+				l := util.MetersFromCentimeters(inLengths[via][entryPoint])
+				lPrime := util.MetersFromCentimeters(outLengths[via][exitPoint])
 
 				if !util.Eq(l, 0) && !util.Eq(lPrime, 0) {
 					delta := pkg.CalcResolution(l, lPrime, pkg.INF_WEIGHT)
@@ -1187,7 +1192,9 @@ func (p *OsmParser) BuildGraph(scannedEdges []Edge, graphStorage *da.GraphStorag
 		graph.SetMinResolution(minResolution)
 	}
 
-	timeFunction := costfunction.NewPreprocessingTimeFunction(roadNetwork, defaultWeights, segmentLengths)
+	timeFunction := costfunction.NewPreprocessingTimeFunction(
+		roadNetwork, defaultWeights, segmentLengths,
+	)
 	return graph, timeFunction, edgeInfoIds
 }
 

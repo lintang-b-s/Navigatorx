@@ -16,7 +16,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -60,7 +59,7 @@ func TestCRPQuerySimple(t *testing.T) {
 	testCases := []struct {
 		name     string
 		filepath string
-		want     [][]map[uint64]float64 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
+		want     [][]map[uint64]int32 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
 
 		apspFilePath string // all pairs shortest paths filepath.
 
@@ -130,7 +129,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		},
 	}
 
-	buildGraph := func(filepath string) (*routing.CRPRoutingEngine, *landmark.Landmark, map[da.Index]da.Index, error) {
+	buildGraph := func(filepath string) (*routing.CRPRoutingEngine[float64], *landmark.Landmark[float64], map[da.Index]da.Index, error) {
 		var (
 			err  error
 			line string
@@ -202,7 +201,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+		g, timeFunction, edgeInfoIds := op.BuildGraphFloat64(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -232,12 +231,14 @@ func TestCRPQuerySimple(t *testing.T) {
 		t.Logf("Preprocessing completed successfully.")
 
 		og := prep.GetOverlayGraph()
-		custom := customizer.NewCustomizerDirect(g, og, prep.GetTimeFunction(), logger)
+		custom := customizer.NewCustomizerDirect(
+			g, og, prep.GetTimeFunction(), logger,
+		)
 		mt, err := custom.CustomizeDirect()
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		lm := landmark.NewLandmark()
+		lm := landmark.NewLandmark[float64]()
 		err = lm.PreprocessALT(util.MinInt(16, n), mt, g, logger)
 		if err != nil {
 			t.Fatal(err)
@@ -247,9 +248,7 @@ func TestCRPQuerySimple(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		cf := costfunction.NewTimeCostFunctionEmpty()
-
-		eng, err := engine.NewEngineDirect(g, og, mt, logger, custom, cf, landmarkFile)
+		eng, err := engine.NewEngineDirect(g, og, mt, logger, landmarkFile)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
@@ -319,7 +318,7 @@ func TestCRPQuerySimple(t *testing.T) {
 					spCost, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 					if !util.Eq(spCost, expectedSpCost) {
-						t.Errorf("expected shortest path cost from %v to %v: %v, got: %v", oldS, oldT, spCost, expectedSpCost)
+						t.Errorf("expected shortest path cost from %v to %v: %v, got: %v", oldS, oldT, expectedSpCost, spCost)
 					}
 
 				}
@@ -332,7 +331,7 @@ func init() {
 	config.InitConfig()
 }
 
-func setup(t *testing.T, turnCost bool) (*engine.Engine, *zap.Logger) {
+func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -462,7 +461,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 	}
 	numberOfVertices := g.NumberOfVertices()
 
-	expectedSPTravelTimes := make([][]float64, n)
+	expectedSPTravelTimes := make([][]int32, n)
 
 	t.Logf("start dijkstra query for some sources to all other vertices...")
 
@@ -513,14 +512,15 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 	}
 
 	type counterExampleData struct {
-		expectedSp, crpALTSP           float64
+		expectedSp, crpALTSP           int32
 		expectedSpEdges, crpALTSPEdges []da.Index
+		source, target                 da.Index
 		counterexample                 bool
 	}
 
-	newCounterExampleData := func(expectedSp, crpALTSP float64, expectedSpEdges, crpALTSPEdges []da.Index, cx bool) counterExampleData {
+	newCounterExampleData := func(expectedSp, crpALTSP int32, expectedSpEdges, crpALTSPEdges []da.Index, source, target da.Index, cx bool) counterExampleData {
 		return counterExampleData{expectedSp: expectedSp, crpALTSP: crpALTSP, expectedSpEdges: expectedSpEdges, crpALTSPEdges: crpALTSPEdges,
-			counterexample: cx}
+			source: source, target: target, counterexample: cx}
 	}
 
 	calcSp := func(q query) counterExampleData {
@@ -542,25 +542,27 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
 
 		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+
 		// sp, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 		expectedSp := expectedSPTravelTimes[i][target]
 
-		counterexample := !util.EqEps(expectedSp, sp, 1e-5)
+		counterexample := !util.Eq(expectedSp, sp)
 
 		if (id+1)%5000 == 0 {
 			t.Logf("done query id: %v\n", id+1)
 		}
 		if counterexample {
 
-			return newCounterExampleData(expectedSp, sp, []da.Index{}, []da.Index{}, true)
+			return newCounterExampleData(expectedSp, sp, []da.Index{}, []da.Index{}, s, target, true)
 		}
 
-		return newCounterExampleData(0, 0, nil, nil, false)
+		return newCounterExampleData(0, 0, nil, nil, 0, 0, false)
 	}
 
 	workers := concurrent.NewWorkerPool[query, counterExampleData](70, 500)
 
 	ctx, cancel = context.WithCancel(context.Background())
+	defer cancel()
 	workers.StartWithContext(ctx, calcSp)
 
 	done := make(chan struct{}, 1)
@@ -585,12 +587,13 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 	t.Run("stress test crp query", func(t *testing.T) {
 		for res := range workers.CollectResults() {
 			if res.counterexample {
-				t.Logf("found counterExample!!\n")
-				t.Errorf("found counter example!!, expected shortest path cost: %f, got: %f", res.expectedSp, res.crpALTSP)
-
-				cancel()
-
-				t.Logf("\n")
+				t.Fatalf(
+					"found counterexample from %d to %d: expected shortest path cost %d, got %d",
+					res.source,
+					res.target,
+					res.expectedSp,
+					res.crpALTSP,
+				)
 			}
 		}
 	})
@@ -632,7 +635,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 	}
 	numberOfVertices := g.NumberOfVertices()
 
-	expectedSPTravelTimes := make([][]float64, n)
+	expectedSPTravelTimes := make([][]int32, n)
 
 	t.Logf("start dijkstra query for all sources...")
 
@@ -651,7 +654,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 		expectedSpPaths[s] = make([]string, numberOfVertices)
 		for target := 0; target < numberOfVertices; target++ {
-			expectedpathCoords, _ := re.GetEdgePath(spPath[target])
+			expectedpathCoords, _ := re.GetEdgePath(spPath[target], 0)
 			expectedPolyline := da.GooglePoylineFromCoords(*expectedpathCoords)
 			expectedSpPaths[s][target] = expectedPolyline
 		}
@@ -691,12 +694,12 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 	type counterExampleData struct {
 		s, t                           da.Index
-		expectedSp, crpALTSP           float64
+		expectedSp, crpALTSP           int32
 		expectedSpEdges, crpALTSPEdges []da.Index
 		counterexample                 bool
 	}
 
-	newCounterExampleData := func(s, t da.Index, expectedSp, crpALTSP float64, expectedSpEdges, crpALTSPEdges []da.Index, cx bool) counterExampleData {
+	newCounterExampleData := func(s, t da.Index, expectedSp, crpALTSP int32, expectedSpEdges, crpALTSPEdges []da.Index, cx bool) counterExampleData {
 		return counterExampleData{s: s, t: t, expectedSp: expectedSp, crpALTSP: crpALTSP, expectedSpEdges: expectedSpEdges, crpALTSPEdges: crpALTSPEdges,
 			counterexample: cx}
 	}
@@ -735,16 +738,15 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 		sp, _, _, _, found := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
-		expectedSp := util.RoundFloat(expectedSPTravelTimes[i][target], 1) // in seconds
+		expectedSp := expectedSPTravelTimes[i][target] // in nanoseconds
 		// expectedPolyline := expectedSpPaths[s][target]
 
 		// gotPolyline := da.GooglePoylineFromCoords(*pathCoords)
 
 		counterexample := false
-		expectedFound := util.Lt(expectedSp, pkg.INF_WEIGHT)
-		sp = util.RoundFloat(sp, 1)
+		expectedFound := util.Lt(expectedSp, util.Infinity[int32]())
 
-		notValid := (!util.EqEps(expectedSp, sp, 1e-4) && found && expectedFound) || (found && !expectedFound) || (!found && expectedFound)
+		notValid := (!util.Eq(expectedSp, sp) && found && expectedFound) || (found && !expectedFound) || (!found && expectedFound)
 		if notValid {
 			counterexample = true
 		}
@@ -786,7 +788,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		for res := range workers.CollectResults() {
 			if res.counterexample { // todo: aneh setelah tambahin multiple via-way turn restrictions jadi gak pass
 				t.Logf("found counterExample!!\n")
-				t.Errorf("found counter example!!, expected shortest path from %v to %v cost: %f, got: %f", res.s, res.t, res.expectedSp, res.crpALTSP)
+				t.Errorf("found counter example!!, expected shortest path from %v to %v cost: %d, got: %d", res.s, res.t, res.expectedSp, res.crpALTSP)
 
 				cancel()
 

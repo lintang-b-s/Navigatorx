@@ -13,14 +13,15 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
-type CRPRoutingEngine struct {
+type CRPRoutingEngine[W util.RoutingNumber] struct {
 	graph               *da.Graph
 	overlayGraph        *da.OverlayGraph
-	metrics             *met.Metric
-	lm                  *landmark.Landmark
+	metrics             *met.Metric[W]
+	lm                  *landmark.Landmark[W]
 	logger              *zap.Logger
 	puCache             *ristretto.Cache[[]byte, []da.Index]
 	verticesLookupTable *customizer.LookupTable[uint64]
@@ -31,23 +32,27 @@ type CRPRoutingEngine struct {
 	pufBaseHeapPool    sync.Pool
 	packedPathPool     sync.Pool
 	unpackedPathPool   sync.Pool
-	stallingEntryPool  sync.Pool
-	stallingExitPool   sync.Pool
+
+	coordsPool         sync.Pool
+	bidirSearchPool    sync.Pool
+	altBidirSearchPool sync.Pool
+	pathUnpackerPool   sync.Pool
 	landmarkFile       string
 
 	unpackerWorkers                     int
 	unpackerForAlternativeRoutesWorkers int
 }
 
-func NewCRPRoutingEngine(graph *da.Graph,
-	overlayGraph *da.OverlayGraph, metrics *met.Metric,
+func NewCRPRoutingEngine[W util.RoutingNumber](graph *da.Graph,
+	overlayGraph *da.OverlayGraph, metrics *met.Metric[W],
 	logger *zap.Logger, puCache *ristretto.Cache[[]byte, []da.Index],
-	landmarkFile string, readBuf *bufio.Reader) *CRPRoutingEngine {
+	landmarkFile string, readBuf *bufio.Reader,
+) *CRPRoutingEngine[W] {
 	var err error
 
-	lm := landmark.NewLandmark()
+	lm := landmark.NewLandmark[W]()
 	if landmarkFile != "" {
-		lm, err = landmark.ReadLandmark(landmarkFile, readBuf)
+		lm, err = landmark.ReadLandmark[W](landmarkFile, readBuf)
 		if err != nil {
 			panic(fmt.Errorf("NewCRPRoutingEngine: failed to read precomputed landmark distances: %v", err))
 		}
@@ -58,7 +63,7 @@ func NewCRPRoutingEngine(graph *da.Graph,
 		return a < b
 	})
 
-	crp := &CRPRoutingEngine{
+	crp := &CRPRoutingEngine[W]{
 		graph:               graph,
 		metrics:             metrics,
 		overlayGraph:        overlayGraph,
@@ -73,48 +78,48 @@ func NewCRPRoutingEngine(graph *da.Graph,
 	return crp
 }
 
-func (crp *CRPRoutingEngine) GetGraph() *da.Graph {
+func (crp *CRPRoutingEngine[W]) GetGraph() *da.Graph {
 	return crp.graph
 }
 
-func (crp *CRPRoutingEngine) GetOverlayGraph() *da.OverlayGraph {
+func (crp *CRPRoutingEngine[W]) GetOverlayGraph() *da.OverlayGraph {
 	return crp.overlayGraph
 }
 
-func (crp *CRPRoutingEngine) GetMetrics() *met.Metric {
+func (crp *CRPRoutingEngine[W]) GetMetrics() *met.Metric[W] {
 	return crp.metrics
 }
 
-func (crp *CRPRoutingEngine) GetCostFunction() *costfunction.TimeFunction {
+func (crp *CRPRoutingEngine[W]) GetCostFunction() *costfunction.TimeFunction[W] {
 	return crp.metrics.GetCostFunction()
 }
 
-func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
+func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	maxEdgesInCell := crp.graph.GetMaxEdgesInCell()
 	numberOfOverlayVertices := crp.overlayGraph.NumberOfOverlayVertices()
 	maxSearchSize := uint32(maxEdgesInCell*2) + uint32(numberOfOverlayVertices)
 	// crp query heap pool
 	crp.fHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey, W](maxSearchSize, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 	crp.bHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](maxSearchSize, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey, W](maxSearchSize, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	// path unpacking heap pool
 	crp.pufOverlayHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](da.OVERLAY_CELL_INFO_SIZE, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](da.OVERLAY_CELL_INFO_SIZE, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
 	crp.pufBaseHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxEdgesInCell)*2, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxEdgesInCell)*2, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
@@ -132,77 +137,136 @@ func (crp *CRPRoutingEngine) BuildQueryHeapPool() {
 		},
 	}
 
-	crp.stallingEntryPool = sync.Pool{
+	crp.coordsPool = sync.Pool{
 		New: func() any {
-			stallingEntry := make([]float64, maxEdgesInCell*2)
-			return &stallingEntry
+			cs := da.NewCoordinatesWithCap(0)
+			return cs
 		},
 	}
 
-	crp.stallingExitPool = sync.Pool{
+	crp.bidirSearchPool = sync.Pool{
 		New: func() any {
-			stallingExit := make([]float64, maxEdgesInCell*2)
-			return &stallingExit
+			return newCRPBidirectionalSearchAlloc[W](crp)
 		},
 	}
 
+	crp.altBidirSearchPool = sync.Pool{
+		New: func() any {
+			return newCRPALTBidirectionalSearchAlloc[W](crp)
+		},
+	}
+
+	crp.pathUnpackerPool = sync.Pool{
+		New: func() any {
+			pu := newPathUnpackerALTAlloc[W](crp, crp.metrics, crp.puCache, crp.lm)
+			pu.engine = crp
+			return pu
+		},
+	}
 }
 
-func (crp *CRPRoutingEngine) initParameter() {
+func (crp *CRPRoutingEngine[W]) initParameter() {
 	// https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
 	numCPU := runtime.NumCPU()
 	crp.unpackerWorkers = numCPU / 6
 	crp.unpackerForAlternativeRoutesWorkers = numCPU / 6
 }
 
-func (crp *CRPRoutingEngine) Close() {
+func (crp *CRPRoutingEngine[W]) Close() {
 	crp.puCache.Close()
 }
 
 // GetWeight. get weight of outEdge/inEdge
-func (crp *CRPRoutingEngine) GetWeight(eId da.Index, outEdge bool) float64 {
+func (crp *CRPRoutingEngine[W]) getWeight(eId da.Index, outEdge bool) W {
 	if !outEdge {
 		eId = crp.graph.GetExitIdOfInEdge(eId)
 	}
 	return crp.metrics.GetWeight(eId)
 }
 
-func (crp *CRPRoutingEngine) GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64 {
+func (crp *CRPRoutingEngine[W]) GetWeightSeconds(eId da.Index, outEdge bool) float64 {
+	return crp.metrics.GetCostFunction().WeightToSeconds(crp.getWeight(eId, outEdge))
+}
+
+func (crp *CRPRoutingEngine[W]) getWeightFromLength(eId da.Index, outEdge bool, eLength uint32) W {
 	if !outEdge {
 		eId = crp.graph.GetExitIdOfInEdge(eId)
 	}
 	return crp.metrics.GetWeightFromLength(eId, eLength)
 }
 
-func (crp *CRPRoutingEngine) GetSegmentLength(eId da.Index, outEdge bool) float64 {
+// GetWeightFromLength. get weight (traveltime /duration) of a road semgent given road segment length
+func (crp *CRPRoutingEngine[W]) GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64 {
+	length := crp.metrics.GetCostFunction().DistanceFromMeters(eLength)
+
+	return crp.metrics.GetCostFunction().WeightToSeconds(crp.getWeightFromLength(eId, outEdge, length))
+}
+
+func (crp *CRPRoutingEngine[W]) getSegmentLength(eId da.Index, outEdge bool) uint32 {
 	if !outEdge {
 		eId = crp.graph.GetExitIdOfInEdge(eId)
 	}
 	return crp.metrics.GetSegmentLength(eId)
 }
 
-// GetWeight. get speed of outEdge
-func (crp *CRPRoutingEngine) GetSegmentSpeed(eId da.Index, outEdge bool) float64 {
+// GetSegmentLength. get road segment (edge) length in meters
+func (crp *CRPRoutingEngine[W]) GetSegmentLength(eId da.Index, outEdge bool) float64 {
+	return crp.metrics.GetCostFunction().DistanceToMeters(crp.getSegmentLength(eId, outEdge))
+}
+
+// GetWeight. get speed of outEdge in m/s
+func (crp *CRPRoutingEngine[W]) GetSegmentSpeed(eId da.Index, outEdge bool) float64 {
 	if outEdge {
-		return crp.metrics.GetSegmentSpeed(eId)
+		return crp.metrics.GetCostFunction().SpeedToMetersPerSecond(crp.metrics.GetSegmentSpeed(eId))
 	}
 
 	eExitId := crp.graph.GetExitIdOfInEdge(eId)
-	return crp.metrics.GetSegmentSpeed(eExitId)
+	return crp.metrics.GetCostFunction().SpeedToMetersPerSecond(crp.metrics.GetSegmentSpeed(eExitId))
 }
 
-func (crp *CRPRoutingEngine) IsDummyOutEdge(eId da.Index) bool {
+func (crp *CRPRoutingEngine[W]) IsDummyOutEdge(eId da.Index) bool {
 	return crp.graph.IsDummyOutEdge(eId)
 }
 
-func (crp *CRPRoutingEngine) IsDummyInEdge(eId da.Index) bool {
+func (crp *CRPRoutingEngine[W]) IsDummyInEdge(eId da.Index) bool {
 	return crp.graph.IsDummyInEdge(eId)
 }
 
-func (crp *CRPRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool) {
+func (crp *CRPRoutingEngine[W]) PutPathToPool(path []da.Index) {
+	crp.unpackedPathPool.Put(&path)
+}
+
+// PutCoordsToPool returns a *Coordinates to the engine's coords pool so the
+// underlying slice can be reused on the next GetEdgePath / GetCoords call.
+func (crp *CRPRoutingEngine[W]) PutCoordsToPool(coords *da.Coordinates) {
+	if coords == nil {
+		return
+	}
+	coords.Reset()
+	crp.coordsPool.Put(coords)
+}
+
+// GetCoordsFromPool fetches a *Coordinates from the engine's coords pool,
+// resetting its length to 0 while preserving capacity.
+func (crp *CRPRoutingEngine[W]) GetCoordsFromPool() *da.Coordinates {
+	c := crp.coordsPool.Get().(*da.Coordinates)
+	c.Reset()
+	return c
+}
+
+func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool) {
 	crpQuery := NewCRPALTBidirectionalSearch(crp, 1.0)
 	if reroute {
 		crpQuery.SetReroute()
 	}
-	return crpQuery.ShortestPathSearch(sp, tp)
+	weight, distance, path, edgePath, found := crpQuery.ShortestPathSearch(sp, tp)
+	return crp.metrics.GetCostFunction().WeightToSeconds(weight), distance, path, edgePath, found
 }
+
+// EmptyCoords is a package-level sentinel *Coordinates used to represent a
+// "not found" path without heap-allocating a new Coordinates value.
+var EmptyCoords = da.NewCoordinatesWithCap(0)
+
+// EmptyIndexSet is a package-level sentinel []da.Index used to represent a
+// "not found" edge-id path without heap-allocating a new slice.
+var EmptyIndexSet = []da.Index{}

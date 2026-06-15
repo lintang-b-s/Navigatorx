@@ -39,7 +39,7 @@ type ommTransitionQuery struct {
 	t da.Index
 }
 
-func ommBuildOrReadTransitionMatrix(t *testing.T, re *engine.Engine, graph *da.Graph, matrixPath string,
+func ommBuildOrReadTransitionMatrix(t *testing.T, re *engine.Engine[int32], graph *da.Graph, matrixPath string,
 	numQueries int) *da.SparseMatrix[int] {
 	t.Helper()
 

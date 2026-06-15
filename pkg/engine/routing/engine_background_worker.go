@@ -9,12 +9,12 @@ import (
 	"time"
 )
 
-func (crp *CRPRoutingEngine) InitBackgroundWorker(ctx context.Context) {
+func (crp *CRPRoutingEngine[W]) InitBackgroundWorker(ctx context.Context) {
 	go crp.checkCustomizerUpdate(crp.metrics.GetFilePath(), ctx)
 	// go crp.checkActivatedConditionalRestrictions(ctx) // belum jadi
 }
 
-func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx context.Context) {
+func (crp *CRPRoutingEngine[W]) checkCustomizerUpdate(metricsFilePath string, ctx context.Context) {
 	lastModifiedTime, err := isFileUpdated(metricsFilePath)
 	if err != nil {
 		crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time : %v\n", err)
@@ -78,7 +78,7 @@ func (crp *CRPRoutingEngine) checkCustomizerUpdate(metricsFilePath string, ctx c
 	}
 }
 
-func (crp *CRPRoutingEngine) updateMetrics() (err error) {
+func (crp *CRPRoutingEngine[W]) updateMetrics() (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic recovered: %v", r)

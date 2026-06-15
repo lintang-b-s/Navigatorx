@@ -18,13 +18,14 @@ import (
 type DirectionBuilder struct {
 	turnSignCache *ristretto.Cache[uint64, []byte] // cache untuk turn sign dari (prevEdgeId, currEdgeId) untuk di jalan Nasional, Jalan provinsi, dan Jalan kabupaten
 
-	instructions     []*da.Instruction
-	prevInstruction  *da.Instruction
+	instructions     []da.Instruction
+	prevInstruction  int
 	turnDescriptions []string
 
-	edgeIds  []da.Index
-	path     []da.Index
-	geometry da.Coordinates
+	edgeIds          []da.Index
+	path             []da.Index
+	geometry         da.Coordinates
+	alternativeTurns []da.Index
 
 	lastPathId     int
 	nextStreetName uint32 // streetName Id
@@ -50,8 +51,9 @@ type DirectionBuilder struct {
 	lookForwardStep          int
 
 	// reroute
-	reroute     bool
-	startEdgeId da.Index
+	reroute       bool
+	startEdgeId   da.Index
+	useAnnotation bool
 }
 
 func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
@@ -70,7 +72,8 @@ func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 		prevPoint:                da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON),
 		prevEdge:                 da.Index(da.INVALID_EDGE_ID),
 		turnDescriptions:         make([]string, 256),
-		instructions:             make([]*da.Instruction, 0),
+		instructions:             make([]da.Instruction, 0),
+		prevInstruction:          -1,
 		edgeIds:                  make([]da.Index, 0),
 		lastPathId:               0,
 		turnSignCache:            turnSignCache,
@@ -80,22 +83,27 @@ func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 	return db
 }
 
+// reset releases annotation-owned slices and otherwise reuses builder capacity.
 func (db *DirectionBuilder) reset() {
 	db.edgeIds = db.edgeIds[:0]
 	db.geometry = db.geometry[:0]
 }
 
+// done clears request-owned references before the builder returns to its pool.
 func (db *DirectionBuilder) done() {
 	db.instructions = db.instructions[:0]
+	db.turnDescriptions = db.turnDescriptions[:0]
 	db.edgeIds = db.edgeIds[:0]
 	db.geometry = db.geometry[:0]
+	db.prevInstruction = -1
+	db.alternativeTurns = db.alternativeTurns[:0]
 }
 
 func (db *DirectionBuilder) Reset() {
 
 	db.prevNode = math.MaxUint32
 	db.prevInRoundabout = false
-	db.prevInstruction = nil
+	db.prevInstruction = -1
 	db.prevEdge = da.Index(da.INVALID_EDGE_ID)
 	db.prevPoint = da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON)
 	db.doublePrevPoint = da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON)
@@ -107,12 +115,13 @@ func (db *DirectionBuilder) Reset() {
 	db.doublePrevNode = 0
 	db.lastPathId = 0
 	db.nextStreetName = da.INVALID_STREET_NAME_ID
-	db.path = make([]da.Index, 0)
+	db.path = db.path[:0]
 	db.prevSign = da.IGNORE
 	db.useLookForward = false
 	db.lookForwardStep = 0
 	db.startEdgeId = da.INVALID_EDGE_ID
 	db.reroute = false
+	db.useAnnotation = false
 }
 
 func (db *DirectionBuilder) SetReroute(startEdgeId da.Index) {
@@ -122,27 +131,28 @@ func (db *DirectionBuilder) SetReroute(startEdgeId da.Index) {
 
 // GetDrivingDirections. generate driving directions dairi path (list of edgeIds)
 // worst case: O(n*q + n*l), n = number of edgeIds in path arr, q=max outDegree of any vertex in the graph, l=maximum length of any edge geometry
-func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.PhantomNode) []da.DrivingDirection {
+func (db *DirectionBuilder) GetDrivingDirections(
+	path []da.Index,
+	sp, tp da.PhantomNode,
+	useAnnotation bool,
+) []da.DrivingDirection {
 	defer db.done()
+	db.useAnnotation = useAnnotation
 
 	if len(path) == 0 {
-		return make([]da.DrivingDirection, 0)
+		return nil
 	}
 
 	if !db.graph.IsDummyOutEdge(sp.GetOutEdgeId()) && !db.reroute {
-		firstEdgeId := sp.GetOutEdgeId()
-		path = append([]da.Index{firstEdgeId}, path...)
+		db.path = append(db.path, sp.GetOutEdgeId())
 	} else if db.reroute {
-		firstEdgeId := db.startEdgeId
-		path = append([]da.Index{firstEdgeId}, path...)
+		db.path = append(db.path, db.startEdgeId)
 	}
+	db.path = append(db.path, path...)
 
 	if !db.graph.IsDummyOutEdge(tp.GetOutEdgeId()) {
-		lastEdgeId := tp.GetOutEdgeId()
-		path = append(path, lastEdgeId)
+		db.path = append(db.path, tp.GetOutEdgeId())
 	}
-
-	db.path = path
 
 	m := len(db.path)
 	for db.lastPathId < m {
@@ -162,17 +172,16 @@ func (db *DirectionBuilder) GetDrivingDirections(path []da.Index, sp, tp da.Phan
 	}
 
 	n := len(db.instructions)
-	if len(db.turnDescriptions) < n {
-		db.turnDescriptions = make([]string, n)
-	}
+	db.turnDescriptions = make([]string, n)
 
-	for i, ins := range db.instructions {
-		desc := ins.GetTurnDescription(db.clockwise)
+	for i := range db.instructions {
+		desc := db.instructions[i].GetTurnDescription(db.clockwise)
 		db.turnDescriptions[i] = desc
 	}
 
-	drivingDirections := make([]da.DrivingDirection, 0)
-	for i, ins := range db.instructions {
+	drivingDirections := make([]da.DrivingDirection, 0, n)
+	for i := range db.instructions {
+		ins := &db.instructions[i]
 		var (
 			currStepTravelTime, currStepDistance float64
 		)
@@ -205,7 +214,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 	}
 
 	streetName := db.graph.GetStreetName(edgeId)
-	if db.prevInstruction == nil && !isRoundabout {
+	if db.prevInstruction < 0 && !isRoundabout {
 		// start point dari shortetest path & bukan bundaran (roundabout) & bukan reroute
 		sign := da.START
 		tailCoord := sp.GetSnappedCoord()
@@ -217,18 +226,19 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 			head.GetLat(), head.GetLon())
 
 		db.updateState(edgeId, false)
-		ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
+		ann := db.annotation()
 
+		var edgeIds []da.Index
+		if db.useAnnotation {
+			edgeIds = []da.Index{edgeId}
+		}
 		newIns := da.NewInstruction(sign, streetName, point, false,
-			[]da.Index{edgeId}, db.cumulativeDistance, db.cumulativeTravelTime,
+			edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
 			turnBearing, ann, db.clockwise)
 
-		db.prevInstruction = newIns
-
-		db.edgeIds = make([]da.Index, 0)
-
-		db.prevInstruction.SetExtraInfo("heading", turnBearing)
-		db.instructions = append(db.instructions, db.prevInstruction)
+		newIns.SetHeading(turnBearing)
+		db.instructions = append(db.instructions, newIns)
+		db.prevInstruction = len(db.instructions) - 1
 
 		db.reset()
 	} else if isRoundabout {
@@ -239,7 +249,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 			roundaboutInstruction := da.NewRoundaboutInstruction()
 
 			db.doublePrevInitialBearing = db.prevInitialBearing
-			if db.prevInstruction != nil {
+			if db.prevInstruction >= 0 {
 				db.prevInitialBearing = geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(), tail.GetLon())
 
 			} else {
@@ -248,28 +258,26 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 			}
 
 			turnBearing := geo.ComputeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(), tail.GetLon())
-			ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
+			ann := db.annotation()
 			prevIns := da.NewInstructionWithRoundabout(sign, streetName, point, true, roundaboutInstruction, db.cumulativeDistance,
 				db.cumulativeTravelTime, db.edgeIds, ann, turnBearing)
-			db.prevInstruction = &prevIns
+			db.instructions = append(db.instructions, prevIns)
+			db.prevInstruction = len(db.instructions) - 1
 
 			// reset edgeIDs and points
 			db.reset()
-
-			db.instructions = append(db.instructions, db.prevInstruction)
 		}
 
 		db.graph.ForOutEdgeIdsOf(headId, func(eId da.Index) {
 
 			eIsRoundabout := db.graph.IsRoundabout(eId)
 			if !eIsRoundabout {
-				roundaboutInstruction := db.prevInstruction
-				roundaboutInstruction.IncrementExitNumber()
+				db.previousInstruction().IncrementExitNumber()
 			}
 		})
 	} else if db.prevInRoundabout {
-		db.prevInstruction.SetStreetName(streetName)
-		roundaboutInstruction := db.prevInstruction
+		db.previousInstruction().SetStreetName(streetName)
+		roundaboutInstruction := db.previousInstruction()
 		roundaboutInstruction.SetExited()
 		db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge)
 	} else {
@@ -278,8 +286,8 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 		if turnSign != da.IGNORE {
 			uTurn, uturnType := db.checkUTurn(turnSign, streetName, edgeId)
 			if uTurn {
-				db.prevInstruction.SetSign(uturnType)
-				db.prevInstruction.SetStreetName(streetName)
+				db.previousInstruction().SetSign(uturnType)
+				db.previousInstruction().SetStreetName(streetName)
 			} else {
 				// bukan U-turn -> continue/right/left
 				tailCoord := tail.GetCoordinate()
@@ -287,16 +295,15 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 					tail.GetLat(), tail.GetLon())
 				nextStreetName := db.graph.GetStrFromId(db.nextStreetName)
 				suggestAlternatives := db.IsSuggestAlternatives(edgeId)
-				ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
+				ann := db.annotation()
 				ins := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
 					turnBearing, ann, db.clockwise)
 				ins.SetSuggestAlternatives(suggestAlternatives)
 
-				db.prevInstruction = ins
-
 				db.reset()
 
 				db.instructions = append(db.instructions, ins)
+				db.prevInstruction = len(db.instructions) - 1
 			}
 		}
 		db.prevSign = turnSign
@@ -324,11 +331,24 @@ func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.Phantom
 	point := da.NewCoordinate(head.GetLat(), head.GetLon())
 
 	turnBearing := geo.ComputeFinalBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
-	ann := db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
+	ann := db.annotation()
 
 	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(edgeId), point, false,
 		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, turnBearing, ann, db.clockwise)
-	finishInstruction.SetExtraInfo("heading", geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
+	finishInstruction.SetHeading(geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
 
 	db.instructions = append(db.instructions, finishInstruction)
+}
+
+// previousInstruction returns the previous instruction
+func (db *DirectionBuilder) previousInstruction() *da.Instruction {
+	return &db.instructions[db.prevInstruction]
+}
+
+// annotation avoids constructing annotation data when the request did not ask for it.
+func (db *DirectionBuilder) annotation() da.Annotation {
+	if !db.useAnnotation {
+		return da.Annotation{}
+	}
+	return db.buildSimplifiedAnnotation(db.edgeIds, db.geometry)
 }

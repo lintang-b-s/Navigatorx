@@ -110,7 +110,7 @@ func (p *OsmParser) GetTagStringIdMap() util.IDMap {
 	return p.tagStringIdMap
 }
 
-func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *costfunction.TimeFunction, [][]da.Index, error) {
+func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *costfunction.TimeFunction[int32], [][]da.Index, error) {
 
 	f, err := os.Open(mapFile)
 
@@ -335,7 +335,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *costf
 
 	// scan osm way and store graph edges
 	scanner = osmpbf.New(context.Background(), f, 0)
-	scannedEdges := make([]Edge, 0)
+	scannedEdges := make([]Edge[int32], 0)
 	p.ways = make(map[int64]osmWay, scannedWays)
 	streetDirection := make(map[int64][2]bool)
 	countWays := 0
@@ -449,7 +449,15 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *costf
 		p.ways[wayId] = way
 	}
 
-	graph, timeFunction, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, uint32(len(p.nodeIDMap)), true)
+	scannedEdges, graphStorage, numVertices, err := p.compressOSMGraph(
+		scannedEdges, graphStorage, streetDirection,
+	)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("compress OSM graph: %w", err)
+	}
+	graph, timeFunction, edgeInfoIds := p.BuildGraph(
+		scannedEdges, graphStorage, numVertices, true,
+	)
 
 	graph.SetBoundingBox(p.bb)
 
@@ -491,7 +499,7 @@ type wayExtraInfo struct {
 
 func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 	streetDirection map[int64][2]bool,
-	scannedEdges *[]Edge, tempMap map[string]string) (string, error) {
+	scannedEdges *[]Edge[int32], tempMap map[string]string) (string, error) {
 	var err error
 
 	getName(way, tempMap)
@@ -638,7 +646,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 }
 
 func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge, id int64) {
+	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[int32], id int64) {
 
 	if len(segment) == 2 && segment[0].id == segment[1].id {
 		// skip loop edge
@@ -653,7 +661,7 @@ func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, sp
 }
 
 func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge, id int64,
+	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[int32], id int64,
 ) {
 	waySegment := []node{}
 	for i := 0; i < len(segment); i++ {
@@ -700,7 +708,7 @@ func (p *OsmParser) copyNode(nodeData node) node {
 }
 
 func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge, id int64) {
+	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[int32], id int64) {
 	var (
 		lanes int
 	)
@@ -765,6 +773,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	distanceInMeter := util.KilometerToMeter(distance)
 
 	travelTimeWeight := distanceInMeter / util.KMHToMSeconds(speed) // in seconds
+	fixedWeight := util.RoundCentiseconds(travelTimeWeight)
+	fixedDistance := uint32(util.RoundCentimeters(distanceInMeter))
 
 	p.osmWayDefaultSpeed[id] = speed
 
@@ -809,8 +819,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			e := NewEdge(
 				uint32(fromNId),
 				uint32(toNId),
-				travelTimeWeight,
-				distanceInMeter,
+				fixedWeight,
+				fixedDistance,
 				containTrafficLight,
 				hwType,
 			)
@@ -852,8 +862,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			e := NewEdge(
 				uint32(toNId),
 				uint32(fromNId),
-				travelTimeWeight,
-				distanceInMeter,
+				fixedWeight,
+				fixedDistance,
 				containTrafficLight,
 				hwType,
 			)
@@ -896,8 +906,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		e := NewEdge(
 			uint32(fromNId),
 			uint32(toNId),
-			travelTimeWeight,
-			distanceInMeter,
+			fixedWeight,
+			fixedDistance,
 			containTrafficLight,
 			hwType,
 		)
@@ -933,8 +943,8 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 		e = NewEdge(
 			uint32(toNId),
 			uint32(fromNId),
-			travelTimeWeight,
-			distanceInMeter,
+			fixedWeight,
+			fixedDistance,
 			containTrafficLight,
 			hwType,
 		)

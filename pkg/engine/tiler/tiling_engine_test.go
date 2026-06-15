@@ -41,7 +41,13 @@ func TestWriteEdgeBinaryRoundTrip(t *testing.T) {
 	storage.AppendEdgeMetadata(1, 0, da.Index(len(geometry)), 0, 0, 0, 1)
 	graph.SetGraphStorage(storage)
 
-	timeFunction := costfunction.NewTimeCostFunction(false, []float64{4}, []float64{12.5}, nil, nil)
+	timeFunction := costfunction.NewTimeCostFunction(
+		false,
+		[]float64{4},
+		[]uint32{1_250},
+		[]uint32{0},
+		nil,
+	)
 	engine := NewTilingEngine(graph, zap.NewNop(), timeFunction)
 
 	var tile bytes.Buffer

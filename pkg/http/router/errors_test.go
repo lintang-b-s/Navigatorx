@@ -77,7 +77,19 @@ func TestAPI_WriteJSON_Error(t *testing.T) {
 	api := NewAPI(zap.NewNop())
 	w := httptest.NewRecorder()
 
-	data := envelope{"error": make(chan int)}
+	data := errorEnvelope{Error: errorBody{Code: "error", Message: "test"}}
+	err := api.writeJSON(w, http.StatusOK, data, nil)
+	assert.NoError(t, err)
+}
+
+func TestAPI_WriteJSON_UnserializableContent(t *testing.T) {
+	api := NewAPI(zap.NewNop())
+	w := httptest.NewRecorder()
+
+	type unserializable struct {
+		Ch chan int `json:"ch"`
+	}
+	data := unserializable{Ch: make(chan int)}
 	err := api.writeJSON(w, http.StatusOK, data, nil)
 	assert.Error(t, err)
 }
@@ -87,7 +99,10 @@ func TestAPI_WriteJSON_SuccessWithHeaders(t *testing.T) {
 	w := httptest.NewRecorder()
 	headers := http.Header{"X-Test": []string{"covered"}}
 
-	err := api.writeJSON(w, http.StatusAccepted, envelope{"data": "ok"}, headers)
+	type okResponse struct {
+		Data string `json:"data"`
+	}
+	err := api.writeJSON(w, http.StatusAccepted, okResponse{Data: "ok"}, headers)
 
 	assert.NoError(t, err)
 	assert.Equal(t, http.StatusAccepted, w.Code)

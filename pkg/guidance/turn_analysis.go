@@ -25,23 +25,20 @@ ada 4 belokan yang bisa dilakukan dari tail.
 --- / | = jalan 2 arah
 */ // nolint: gofmt
 func (db *DirectionBuilder) GetAlternativeTurns(tailId, headId, prevVertexId da.Index) (int, []da.Index) {
-	outEdgesFromTail := make([]da.Index, 0) // reset length, tapi capacity tetep sama
+	db.alternativeTurns = db.alternativeTurns[:0]
 
-	db.graph.ForOutEdgeIdsOf(tailId, func(eId da.Index) {
-
-		outEdgesFromTail = append(outEdgesFromTail, eId)
-	})
-
-	tempAltTurns := make([]da.Index, 0)
-
-	for _, edge := range outEdgesFromTail {
-		edgeHead := db.graph.GetHeadOfOutEdge(edge)
+	firstOut, endOut := db.graph.GetOutEdgeBounds(tailId)
+	for eId := firstOut; eId < endOut; eId++ {
+		if !db.graph.IsTraversableOutEdge(eId) {
+			continue
+		}
+		edgeHead := db.graph.GetHeadOfOutEdge(eId)
 		if edgeHead != prevVertexId && edgeHead != headId {
-			tempAltTurns = append(tempAltTurns, edge)
+			db.alternativeTurns = append(db.alternativeTurns, eId)
 		}
 	}
 
-	return len(tempAltTurns), tempAltTurns
+	return len(db.alternativeTurns), db.alternativeTurns
 }
 
 /*
@@ -108,13 +105,6 @@ func (db *DirectionBuilder) isStreetMergedSkip(currentEdge, prevEdge da.Index, c
 
 	otherEdge := da.INVALID_EDGE_ID // outEdge dari tail selain PrevEdge yang mengarah dari tail
 
-	outEdgesFromTail := make([]da.Index, 0) // reset length, tapi capacity tetep sama
-
-	db.graph.ForOutEdgeIdsOf(tail, func(eId da.Index) {
-
-		outEdgesFromTail = append(outEdgesFromTail, eId)
-	})
-
 	tailOfPrevEdge := db.graph.GetTailOfOutedge(prevEdge)
 	currHead := db.graph.GetHeadOfOutEdge(currentEdge)
 
@@ -125,7 +115,11 @@ func (db *DirectionBuilder) isStreetMergedSkip(currentEdge, prevEdge da.Index, c
 	prevInitialBearing := geo.ComputeInitialBearing(tailOfPrevEdgeCoord.GetLat(), tailOfPrevEdgeCoord.GetLon(), tailCoord.GetLat(),
 		tailCoord.GetLon())
 
-	for _, outEdgeId := range outEdgesFromTail {
+	firstOut, endOut := db.graph.GetOutEdgeBounds(tail)
+	for outEdgeId := firstOut; outEdgeId < endOut; outEdgeId++ {
+		if !db.graph.IsTraversableOutEdge(outEdgeId) {
+			continue
+		}
 		edgeStreetName := db.graph.GetStreetName(outEdgeId)
 
 		edgeHead := db.graph.GetHeadOfOutEdge(outEdgeId)
@@ -185,11 +179,6 @@ func (db *DirectionBuilder) isStreetSplitSkip(currentEdge, prevEdge da.Index, cu
 
 	otherEdge := da.INVALID_EDGE_ID // inEdge dari tail selain PrevEdge yang mengarah ke tail
 
-	inEdgesFromTail := make([]da.Index, 0)
-
-	db.graph.ForInEdgeIdsOf(tail, func(eId da.Index) {
-		inEdgesFromTail = append(inEdgesFromTail, eId)
-	})
 	prevEdgeTail := db.graph.GetTailOfOutedge(prevEdge)
 
 	currHead := db.graph.GetHeadOfOutEdge(currentEdge)
@@ -200,8 +189,11 @@ func (db *DirectionBuilder) isStreetSplitSkip(currentEdge, prevEdge da.Index, cu
 	prevInitialBearing := geo.ComputeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(), currHeadCoord.GetLat(),
 		currHeadCoord.GetLon())
 
-	for _, inEdgeId := range inEdgesFromTail {
-
+	firstIn, endIn := db.graph.GetInEdgeBounds(tail)
+	for inEdgeId := firstIn; inEdgeId < endIn; inEdgeId++ {
+		if !db.graph.IsTraversableInEdge(inEdgeId) {
+			continue
+		}
 		outEdgeId := db.graph.GetExitIdOfInEdge(inEdgeId)
 
 		inEdgeStreetName := db.graph.GetStreetName(outEdgeId)
@@ -259,13 +251,6 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.Index, currS
 
 	otherEdge := da.INVALID_EDGE_ID // outEdge dari tail selain PrevEdge yang mengarah dari tail
 
-	inEdgesFromTail := make([]da.Index, 0) // reset length, tapi capacity tetep sama
-
-	db.graph.ForInEdgeIdsOf(tail, func(eId da.Index) {
-
-		inEdgesFromTail = append(inEdgesFromTail, eId)
-	})
-
 	tailOfPrevEdge := db.graph.GetTailOfOutedge(prevEdge)
 
 	tailOfPrevEdgeCoord := db.graph.GetVertexCoordinate(tailOfPrevEdge)
@@ -275,7 +260,11 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.Index, currS
 	prevInitialBearing := geo.ComputeInitialBearing(tailOfPrevEdgeCoord.GetLat(), tailOfPrevEdgeCoord.GetLon(), tailCoord.GetLat(),
 		tailCoord.GetLon())
 
-	for _, inEdgeId := range inEdgesFromTail {
+	firstIn, endIn := db.graph.GetInEdgeBounds(tail)
+	for inEdgeId := firstIn; inEdgeId < endIn; inEdgeId++ {
+		if !db.graph.IsTraversableInEdge(inEdgeId) {
+			continue
+		}
 		outEdgeId := db.graph.GetExitIdOfInEdge(inEdgeId)
 
 		edgeStreetName := db.graph.GetStreetName(outEdgeId)

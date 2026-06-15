@@ -130,7 +130,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	op := osmparser.NewOSMParserV2()
 	gs := datastructure.NewGraphStorageWithSize(len(es), n)
-	g, _, _ := op.BuildGraph(es, gs, uint32(n), false)
+	g, _, _ := op.BuildGraphFloat64(es, gs, uint32(n), false)
 
 	g.RunKosaraju()
 

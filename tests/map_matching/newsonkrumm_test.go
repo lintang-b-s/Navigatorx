@@ -119,7 +119,7 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 	return nil
 }
 
-func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
+func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
 	zlog, err := logger.New()
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -220,7 +220,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	}
 
 	graphStorage := da.NewGraphStorage(54)
-	graphEdges := make([]osmparser.Edge, 0, len(edges))
+	graphEdges := make([]osmparser.Edge[int32], 0, len(edges))
 	edgeLength := make(map[int64]float64)
 
 	for _, e := range edges {
@@ -241,11 +241,19 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		graphStorage.AppendOsmNodePoints(e.geometry)
 		endPointsIndex := graphStorage.GetOsmNodePointsCount()
 		graphStorage.AppendEdgeMetadata(int64(e.eId), da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1)
-		graphEdges = append(graphEdges, osmparser.NewEdge(e.fromId, e.toId, travelTimeWeight, distanceInMeter, false, pkg.MOTORWAY))
+		graphEdge := osmparser.NewFixedEdge(
+			e.fromId, e.toId, travelTimeWeight, distanceInMeter, false, pkg.MOTORWAY,
+		)
+
+		graphEdges = append(graphEdges, graphEdge)
 
 		if e.twoWay {
 			graphStorage.AppendEdgeMetadata(int64(e.eId)*2, da.Index(endPointsIndex), da.Index(startPointsIndex), 0, 0, 0, 1)
-			graphEdges = append(graphEdges, osmparser.NewEdge(e.toId, e.fromId, travelTimeWeight, distanceInMeter, false, pkg.MOTORWAY))
+			reverseEdge := osmparser.NewFixedEdge(
+				e.toId, e.fromId, travelTimeWeight, distanceInMeter, false, pkg.MOTORWAY,
+			)
+
+			graphEdges = append(graphEdges, reverseEdge)
 		}
 	}
 
@@ -545,7 +553,7 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 		t.Fatalf("download ground truth failed: %v", err)
 	}
 
-	rtree := spatialindex.NewRtree()
+	rtree := spatialindex.NewRtreeMapMatch()
 
 	mg := da.InitializeMapMatchingGraph(g.NumberOfVertices())
 	onlineMM := online.NewOnlineMapMatchMHTClient(mg, rtree, 8.33333, 8.3333, 0.0001, 5.0, 0.0000001, 0.04, 3, N)

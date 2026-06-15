@@ -19,8 +19,8 @@ import (
 	"go.uber.org/zap"
 )
 
-type Customizer struct {
-	ow                                        *da.OverlayWeights
+type Customizer[W util.RoutingNumber] struct {
+	ow                                        *da.OverlayWeights[W]
 	graph                                     *da.Graph
 	overlayGraph                              *da.OverlayGraph
 	lowestHeapPool                            sync.Pool
@@ -33,13 +33,14 @@ type Customizer struct {
 	metricOutputFilePath                      string
 	timefunctionFilePath                      string
 	preprocessingTimeFunctionFilePath         string
-	preprocessingTimeFunction                 *costfunction.TimeFunction
+	preprocessingTimeFunction                 *costfunction.TimeFunction[W]
 	landmarkFile                              string
 }
 
 func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, timefunctionFilePath, landmarkFile string,
-	logger *zap.Logger) *Customizer {
-	cst := &Customizer{
+	logger *zap.Logger) *Customizer[int32] {
+	util.USE_INT32 = true
+	cst := &Customizer[int32]{
 		graphFilePath:                     graphFilePath,
 		overlayGraphFilePath:              overlayGraphFilePath,
 		metricOutputFilePath:              metricOutputFilePath,
@@ -52,16 +53,28 @@ func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, ti
 	return cst
 }
 
-func (c *Customizer) SetEdgeSpeedsFilePath(filePath []string) {
+func (c *Customizer[W]) SetEdgeSpeedsFilePath(filePath []string) {
 	c.edgeSpeedsFilePath = filePath
 }
 
-func (c *Customizer) SetTurnPenaltiesFilePath(filePath []string) {
+func (c *Customizer[W]) SetTurnPenaltiesFilePath(filePath []string) {
 	c.turnPenaltiesFilePath = filePath
 }
 
-func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, preprocessingTimeFunction *costfunction.TimeFunction, logger *zap.Logger) *Customizer {
-	return &Customizer{
+func NewCustomizerDirect[W util.RoutingNumber](
+	graph *da.Graph,
+	overlayGraph *da.OverlayGraph,
+	preprocessingTimeFunction *costfunction.TimeFunction[W],
+	logger *zap.Logger,
+) *Customizer[W] {
+	var zero W
+	switch any(zero).(type) {
+	case float64:
+		util.USE_INT32 = false
+	default:
+		util.USE_INT32 = true
+	}
+	return &Customizer[W]{
 		graph:                     graph,
 		overlayGraph:              overlayGraph,
 		preprocessingTimeFunction: preprocessingTimeFunction,
@@ -69,7 +82,7 @@ func NewCustomizerDirect(graph *da.Graph, overlayGraph *da.OverlayGraph, preproc
 	}
 }
 
-func (c *Customizer) Customize() (*metrics.Metric, error) {
+func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
 
 	var err error
 	readBuf := bufio.NewReaderSize(nil, util.BUFIO_SIZE)
@@ -86,15 +99,15 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 	if err != nil {
 		return nil, fmt.Errorf("Customize: failed to read overlay graph from %s: %w", c.overlayGraphFilePath, err)
 	}
-	c.preprocessingTimeFunction, err = costfunction.ReadPreprocessingFromFile(c.preprocessingTimeFunctionFilePath)
+	c.preprocessingTimeFunction, err = costfunction.ReadPreprocessingFromFile[W](c.preprocessingTimeFunctionFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("Customize: failed to read preprocessing time function from %s: %w", c.preprocessingTimeFunctionFilePath, err)
 	}
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
-	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
+	c.ow = da.NewOverlayWeights[W](c.overlayGraph.GetWeightVectorSize())
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
-	var m *metrics.Metric
+	var m *metrics.Metric[W]
 
 	vertexOsmIds := c.graph.GetVertexOsmIds()
 	c.verticesLookupTable = NewLookupTable(vertexOsmIds, func(a, b uint64) bool {
@@ -146,13 +159,13 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 
 	c.lowestHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxEdgesInCell), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxEdgesInCell), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	c.levelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -164,7 +177,7 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 
 	c.logger.Sugar().Infof("Customization step completed successfully.")
 
-	lm := landmark.NewLandmark()
+	lm := landmark.NewLandmark[W]()
 	numberOfLandmarks := viper.GetInt("landmarks")
 	err = lm.PreprocessALT(numberOfLandmarks, m, c.graph, c.logger)
 	if err != nil {
@@ -187,26 +200,26 @@ func (c *Customizer) Customize() (*metrics.Metric, error) {
 }
 
 // just for shortest path test
-func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
+func (c *Customizer[W]) CustomizeDirect() (*metrics.Metric[W], error) {
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
-	c.ow = da.NewOverlayWeights(c.overlayGraph.GetWeightVectorSize())
+	c.ow = da.NewOverlayWeights[W](c.overlayGraph.GetWeightVectorSize())
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 
-	var m *metrics.Metric
+	var m *metrics.Metric[W]
 	readBuf := bufio.NewReaderSize(nil, util.BUFIO_SIZE)
 	cf := c.preprocessingTimeFunction.WithCustomization(c.preprocessingTimeFunction.GetEdgeMaxSpeeds(), nil)
 	maxEdgesInCell := c.graph.GetMaxEdgesInCell()
 
 	c.lowestHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.CRPQueryKey](uint32(maxEdgesInCell), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxEdgesInCell), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 		},
 	}
 
 	c.levelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -220,13 +233,15 @@ func (c *Customizer) CustomizeDirect() (*metrics.Metric, error) {
 	return m, nil
 }
 
-// makeEdgeMaxSpeeds. bikin map dari edgeId -> edge max speed (in m/s)
-// updatedEdgeMaxSpeeds in m/s.
-func (c *Customizer) makeEdgeMaxSpeeds(updatedEdgeIds []da.Index, updatedEdgeMaxSpeeds []float64) []float64 {
+// makeEdgeMaxSpeeds merge old road segment speed limits & updated road segment speed limits.
+func (c *Customizer[W]) makeEdgeMaxSpeeds(
+	updatedEdgeIds []da.Index,
+	updatedEdgeMaxSpeeds []float64,
+) []uint32 {
 
 	numOfEdges := c.graph.NumberOfOutEdges()
 
-	edgeMaxSpeeds := make([]float64, numOfEdges)
+	edgeMaxSpeeds := make([]uint32, numOfEdges)
 	oldEdgeSpeeds := c.preprocessingTimeFunction.GetEdgeMaxSpeeds()
 	for eId := 0; eId < numOfEdges; eId++ {
 		edgeMaxSpeeds[eId] = oldEdgeSpeeds[eId]
@@ -234,15 +249,20 @@ func (c *Customizer) makeEdgeMaxSpeeds(updatedEdgeIds []da.Index, updatedEdgeMax
 
 	for i := 0; i < len(updatedEdgeIds); i++ {
 		uEId := updatedEdgeIds[i]
-		edgeMaxSpeeds[uEId] = updatedEdgeMaxSpeeds[i]
+		speed := c.preprocessingTimeFunction.SpeedFromKilometerPerHour(updatedEdgeMaxSpeeds[i])
+
+		edgeMaxSpeeds[uEId] = speed
 	}
 	return edgeMaxSpeeds
 }
 
-// makeTurnTable membuat turn costs table
-// edgeMaxSpeeds speed limit dari setiap edges in m/s
-// updatedTurnTableIds dan updatedTurnPenalties adalah edgeIds dan turnPenalties dari edges yang diinput file csv
-func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTableIds []da.Index, updatedTurnPenalties []float64, edgeMaxSpeeds []float64) []float64 {
+// makeTurnTable builds turn costs using edge speeds converted to meters per second.
+func (c *Customizer[W]) makeTurnTable(
+	turnTypeTable []pkg.TurnType,
+	updatedTurnTableIds []da.Index,
+	updatedTurnPenalties []float64,
+	edgeMaxSpeeds []uint32,
+) []uint16 {
 	mapTurnCosts := viper.GetStringMap("turncosts")
 	turnTypesCost := make([]float64, 6)
 	for turnTypeStr, cost := range mapTurnCosts {
@@ -264,13 +284,13 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTabl
 	turnCostByAngleThreshold := viper.GetFloat64("turncosts.max_turn_cost_based_on_angle_between_edges")
 
 	turnTypesCost[pkg.NONE] = 0
-	turnTypesCost[pkg.NO_ENTRY] = pkg.INF_WEIGHT
+	turnTypesCost[pkg.NO_ENTRY] = math.Inf(1)
 
 	n := len(turnTypeTable)
-	turnTable := make([]float64, n)
+	turnTableSeconds := make([]float64, n)
 	for id := 0; id < n; id++ {
 		turnType := turnTypeTable[id]
-		turnTable[id] += turnTypesCost[turnType]
+		turnTableSeconds[id] += turnTypesCost[turnType]
 	}
 
 	minResolution := c.graph.GetMinResolution()
@@ -279,7 +299,7 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTabl
 		if c.graph.IsDummyOutEdge(eIdFrom) {
 			return
 		}
-		vLimitFrom := edgeMaxSpeeds[eIdFrom]
+		vLimitFrom := c.preprocessingTimeFunction.SpeedToMetersPerSecond(edgeMaxSpeeds[eIdFrom])
 		c.graph.ForOutEdgesOf(head, entryPoint, func(eIdTo, headTo da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 			_, fromInEdgeId := c.graph.GetTailOfOutedgeWithInEdge(eIdFrom)
 			fromInEdge := c.graph.GetInEdge(fromInEdgeId)
@@ -287,7 +307,7 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTabl
 
 			containsTrafficLight := fromInEdge.ContainsTrafficLight() || toOutEdge.ContainsTrafficLight()
 			if containsTrafficLight {
-				turnTable[turnTableId] += trafficLightPenalty
+				turnTableSeconds[turnTableId] += trafficLightPenalty
 			}
 
 			fromSegmentStreetName := c.graph.GetStreetName(eIdFrom)
@@ -300,8 +320,8 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTabl
 				return
 			}
 
-			vLimitTo := edgeMaxSpeeds[eIdTo]
-			currentTurnCost := turnTable[turnTableId]
+			vLimitTo := c.preprocessingTimeFunction.SpeedToMetersPerSecond(edgeMaxSpeeds[eIdTo])
+			currentTurnCost := turnTableSeconds[turnTableId]
 
 			prevVertex := c.graph.GetVertex(tail)
 			tailVertex := c.graph.GetVertex(head)
@@ -315,11 +335,11 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTabl
 			turnAngleDeg := util.RadiansToDegree(absRelativeBearing)
 
 			fromOutEdgeId := c.graph.GetExitIdOfInEdge(fromInEdgeId)
-			l := c.preprocessingTimeFunction.GetSegmentLength(fromOutEdgeId)
-			lPrime := c.preprocessingTimeFunction.GetSegmentLength(eIdTo)
+			l := c.preprocessingTimeFunction.DistanceToMeters(c.preprocessingTimeFunction.GetSegmentLength(fromOutEdgeId))
+			lPrime := c.preprocessingTimeFunction.DistanceToMeters(c.preprocessingTimeFunction.GetSegmentLength(eIdTo))
 			turningSpeed := pkg.CalcTurningSpeed(l, lPrime, minResolution, turnAngleDeg)
 
-			if util.Eq(turningSpeed, 0) || turnType == pkg.NO_ENTRY || util.Eq(currentTurnCost, pkg.INF_WEIGHT) || c.graph.IsDummyOutEdge(eIdTo) {
+			if util.Eq(turningSpeed, 0) || turnType == pkg.NO_ENTRY || math.IsInf(currentTurnCost, 1) || c.graph.IsDummyOutEdge(eIdTo) {
 				// gak ada turn penalty (pkg.NewTurnRest())
 				return
 			}
@@ -328,14 +348,18 @@ func (c *Customizer) makeTurnTable(turnTypeTable []pkg.TurnType, updatedTurnTabl
 
 			turnCostByAngleBetweenEdges = util.MinFloat(turnCostByAngleBetweenEdges, turnCostByAngleThreshold)
 
-			turnTable[turnTableId] += turnCostByAngleBetweenEdges
+			turnTableSeconds[turnTableId] += turnCostByAngleBetweenEdges
 		})
 	})
 
 	m := len(updatedTurnTableIds)
 	for i := 0; i < m; i++ {
 		turnTableId := updatedTurnTableIds[i]
-		turnTable[turnTableId] += updatedTurnPenalties[i]
+		turnTableSeconds[turnTableId] += updatedTurnPenalties[i]
+	}
+	turnTable := make([]uint16, n)
+	for i, seconds := range turnTableSeconds {
+		turnTable[i] = util.QuantizeTurnCost(seconds, math.IsInf(seconds, 1))
 	}
 	return turnTable
 }
@@ -395,8 +419,7 @@ worst case buildLevel in level l:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op)
 
 worst case crp customization: O(  c_1 * n_op * (m_p* log(m_p)) + c_l * n_op * (n_op + \hat{m_p}) * log(n_op)  )
 */
-func (c *Customizer) Build(
-	costFunction costfunction.CostFunction) {
+func (c *Customizer[W]) Build(costFunction *costfunction.TimeFunction[W]) {
 	c.buildLowestLevel(costFunction)
 	c.logger.Info("finished crp customization level 1")
 	for level := 2; level <= c.overlayGraph.GetLevelInfo().GetLevelCount(); level++ {
@@ -406,20 +429,20 @@ func (c *Customizer) Build(
 	}
 }
 
-type cellCustomizationRes struct {
-	travelTime float64
+type cellCustomizationRes[W util.RoutingNumber] struct {
+	travelTime W
 	index      int
 }
 
-func NewCellCustomizationResult(travelTime float64, index int) cellCustomizationRes {
-	return cellCustomizationRes{travelTime, index}
+func NewCellCustomizationResult[W util.RoutingNumber](travelTime W, index int) cellCustomizationRes[W] {
+	return cellCustomizationRes[W]{travelTime, index}
 }
 
-func (cc cellCustomizationRes) getTravelTime() float64 {
+func (cc cellCustomizationRes[W]) getTravelTime() W {
 	return cc.travelTime
 }
 
-func (cc cellCustomizationRes) getIndex() int {
+func (cc cellCustomizationRes[W]) getIndex() int {
 	return cc.index
 }
 
@@ -430,12 +453,11 @@ func (cc cellCustomizationRes) getIndex() int {
 // restricted to cell C: menggunakan only vertices dan edges yang terletak pada cell C.
 // this function is parallelized using goroutines worker pool
 */
-func (c *Customizer) buildLowestLevel(
-	costFunction costfunction.CostFunction) {
+func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction[W]) {
 
 	cellMapInLevelOne := c.overlayGraph.GetAllCellsInLevel(1)
 
-	cellCliqueOutChan := make(chan []cellCustomizationRes, cellCliqueOutChanSize)
+	cellCliqueOutChan := make(chan []cellCustomizationRes[W], cellCliqueOutChanSize)
 
 	wg := sync.WaitGroup{}
 
@@ -445,7 +467,7 @@ func (c *Customizer) buildLowestLevel(
 		cellNumber := job.cellNumber
 
 		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
-		dijkstraResChan := make(chan cellCustomizationRes, dijkstraResChanSize)
+		dijkstraResChan := make(chan cellCustomizationRes[W], dijkstraResChanSize)
 
 		dijkstra := func(entries <-chan da.Index) {
 			/*
@@ -466,19 +488,19 @@ func (c *Customizer) buildLowestLevel(
 				start := overlayVertex.GetOriginalVertex()
 				maxSearchSize := c.graph.GetMaxEdgesInCell()
 
-				pq := c.lowestHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey])
+				pq := c.lowestHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey, W])
 				pq.Clear()
 				done := func() {
 					c.lowestHeapPool.Put(pq)
 				}
 
-				travelTime := make([]float64, maxSearchSize)
-				overlayTravelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
+				travelTime := make([]W, maxSearchSize)
+				overlayTravelTime := make([]W, c.overlayGraph.NumberOfOverlayVertices())
 				for q := 0; q < len(travelTime); q++ {
-					travelTime[q] = pkg.INF_WEIGHT
+					travelTime[q] = util.Infinity[W]()
 				}
 				for q := 0; q < len(overlayTravelTime); q++ {
-					overlayTravelTime[q] = pkg.INF_WEIGHT
+					overlayTravelTime[q] = util.Infinity[W]()
 				}
 				forwardCellOffset := c.graph.GetInEdgeCellOffset(start)
 				startInEdgeOffset := overlayVertex.GetOriginalEdge() - forwardCellOffset
@@ -486,7 +508,7 @@ func (c *Customizer) buildLowestLevel(
 				travelTime[startInEdgeOffset] = 0
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
-				sVertexInfo := da.NewVertexInfo(0, noPar)
+				sVertexInfo := da.NewVertexInfo(W(0), noPar)
 				pq.Insert(startInEdgeOffset, 0, sVertexInfo, da.NewDijkstraKey(start, startInEdgeOffset))
 
 				for !pq.IsEmpty() {
@@ -510,7 +532,7 @@ func (c *Customizer) buildLowestLevel(
 
 							newTravelTime := uTravelTimeWithTurnCost + outArcCost
 
-							if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+							if util.Ge(newTravelTime, util.Infinity[W]()) {
 								return
 							}
 
@@ -518,7 +540,7 @@ func (c *Customizer) buildLowestLevel(
 							if vTruncatedCellNumber == cellNumber {
 								vEntryId := c.graph.GetEntryOffset(v) + da.Index(entryPoint) - forwardCellOffset
 
-								ok := util.Lt(travelTime[vEntryId], pkg.INF_WEIGHT)
+								ok := util.Lt(travelTime[vEntryId], util.Infinity[W]())
 								if oldvTT := travelTime[vEntryId]; !ok || (ok && newTravelTime < oldvTT) {
 									travelTime[vEntryId] = newTravelTime
 									if ok {
@@ -533,7 +555,7 @@ func (c *Customizer) buildLowestLevel(
 								// save this shortcut travelTime
 								exitVertexTravelTime := uTravelTimeWithTurnCost
 								exitOverlayVId, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
-								ok := util.Lt(overlayTravelTime[exitOverlayVId], pkg.INF_WEIGHT)
+								ok := util.Lt(overlayTravelTime[exitOverlayVId], util.Infinity[W]())
 								if !ok || (ok && exitVertexTravelTime < overlayTravelTime[exitOverlayVId]) {
 									overlayTravelTime[exitOverlayVId] = exitVertexTravelTime
 								}
@@ -544,10 +566,10 @@ func (c *Customizer) buildLowestLevel(
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
-					ok := util.Lt(overlayTravelTime[exitOverlayVId], pkg.INF_WEIGHT)
+					ok := util.Lt(overlayTravelTime[exitOverlayVId], util.Infinity[W]())
 
 					if !ok {
-						dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					} else {
 						dijkstraResChan <- NewCellCustomizationResult(overlayTravelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					}
@@ -562,7 +584,7 @@ func (c *Customizer) buildLowestLevel(
 			go dijkstra(entries)
 		}
 
-		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
+		cellWeights := make([]cellCustomizationRes[W], cell.GetNumEntryPoints()*cell.GetNumExitPoints())
 
 		wg := sync.WaitGroup{}
 		wg.Add(1)
@@ -596,8 +618,10 @@ func (c *Customizer) buildLowestLevel(
 		}
 	}()
 
+	numberOfShortcuts := da.Index(0)
 	for cellNumber, cell := range cellMapInLevelOne {
 		wg.Add(1)
+		numberOfShortcuts += cell.GetNumEntryPoints() * cell.GetNumExitPoints()
 		gopool.CtxGo(context.Background(), func() { buildCellClique(newCustomizerCell(cell, cellNumber)) })
 	}
 
@@ -606,19 +630,20 @@ func (c *Customizer) buildLowestLevel(
 
 	wg.Wait()
 	close(cellCliqueOutChan)
+	c.logger.Sugar().Infof("number of shortcuts overlay graph level %v: %v ", 1, numberOfShortcuts)
+
 }
 
 // buildLevel. build clique of each cell in the level (level > 1)
 // using Dijkstra algorithm (menggunakan shortcut edges pada subcells of the level-i cell) from each entry vertices of the cell to all exit vertices of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
-func (c *Customizer) buildLevel(
-	costFunction costfunction.CostFunction, level int) {
+func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], level int) {
 
 	levelInfo := c.overlayGraph.GetLevelInfo()
 	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
 
-	cellCliqueOutChan := make(chan []cellCustomizationRes, cellCliqueOutChanSize)
+	cellCliqueOutChan := make(chan []cellCustomizationRes[W], cellCliqueOutChanSize)
 
 	wg := sync.WaitGroup{}
 
@@ -628,7 +653,7 @@ func (c *Customizer) buildLevel(
 		cellNumber := job.cellNumber
 
 		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
-		dijkstraResChan := make(chan cellCustomizationRes, dijkstraResChanSize)
+		dijkstraResChan := make(chan cellCustomizationRes[W], dijkstraResChanSize)
 
 		dijkstra := func(entries <-chan da.Index) {
 			/*
@@ -645,20 +670,20 @@ func (c *Customizer) buildLevel(
 			*/
 			for i := range entries {
 
-				pq := c.levelHeapPool.Get().(*da.QueryHeap[da.Index])
+				pq := c.levelHeapPool.Get().(*da.QueryHeap[da.Index, W])
 				pq.Clear()
 				done := func() {
 					c.levelHeapPool.Put(pq)
 				}
 
-				travelTime := make([]float64, c.overlayGraph.NumberOfOverlayVertices())
+				travelTime := make([]W, c.overlayGraph.NumberOfOverlayVertices())
 				for v := 0; v < c.overlayGraph.NumberOfOverlayVertices(); v++ {
-					travelTime[v] = pkg.INF_WEIGHT
+					travelTime[v] = util.Infinity[W]()
 				}
 				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
 
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
-				sVertexInfo := da.NewVertexInfo(0, noPar)
+				sVertexInfo := da.NewVertexInfo(W(0), noPar)
 
 				pq.Insert(startOverlayVertexId, 0, sVertexInfo, startOverlayVertexId)
 
@@ -667,10 +692,6 @@ func (c *Customizer) buildLevel(
 					uOverlayId := pqNode.GetItem()
 					uTravelTime := pqNode.GetRank()
 
-					uOverlayVertex := c.overlayGraph.GetVertex(uOverlayId)
-					uTruncatedLevel := c.overlayGraph.TruncateToLevel(uOverlayVertex.GetCellNumber(), uint8(level))
-					util.AssertPanic(uTruncatedLevel == cellNumber, "current truncated cell number and boundary vertex truncated cell number must be the same!")
-
 					c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exitOverlayVertex da.Index, wOffset da.Index) {
 						// iterate all shortcuts (u, \cdot)
 
@@ -678,12 +699,12 @@ func (c *Customizer) buildLevel(
 
 						newTravelTime := uTravelTime + shortcutWeight
 
-						if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+						if util.Ge(newTravelTime, util.Infinity[W]()) {
 							return
 						}
 
 						oldExitTravelTime := travelTime[exitOverlayVertex]
-						exitAlreadyLabelled := util.Lt(travelTime[exitOverlayVertex], pkg.INF_WEIGHT)
+						exitAlreadyLabelled := util.Lt(travelTime[exitOverlayVertex], util.Infinity[W]())
 						if !exitAlreadyLabelled || (exitAlreadyLabelled && newTravelTime < oldExitTravelTime) {
 							travelTime[exitOverlayVertex] = newTravelTime
 							// visit neighbor of exitOverlayVertex
@@ -699,7 +720,7 @@ func (c *Customizer) buildLevel(
 
 								newNeighborTravelTime := newTravelTime + boundaryArcWeight
 								oldNTravelTime := travelTime[neighborVertex]
-								nAlreadyLabelled := util.Lt(travelTime[neighborVertex], pkg.INF_WEIGHT)
+								nAlreadyLabelled := util.Lt(travelTime[neighborVertex], util.Infinity[W]())
 
 								if !nAlreadyLabelled ||
 									(nAlreadyLabelled && newNeighborTravelTime < oldNTravelTime) {
@@ -722,9 +743,9 @@ func (c *Customizer) buildLevel(
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
 
-					ok := util.Lt(travelTime[exitOverlayVId], pkg.INF_WEIGHT)
+					ok := util.Lt(travelTime[exitOverlayVId], util.Infinity[W]())
 					if !ok {
-						dijkstraResChan <- NewCellCustomizationResult(pkg.INF_WEIGHT, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					} else {
 						dijkstraResChan <- NewCellCustomizationResult(travelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					}
@@ -739,7 +760,7 @@ func (c *Customizer) buildLevel(
 			go dijkstra(entries)
 		}
 
-		cellWeights := make([]cellCustomizationRes, cell.GetNumEntryPoints()*cell.GetNumExitPoints())
+		cellWeights := make([]cellCustomizationRes[W], cell.GetNumEntryPoints()*cell.GetNumExitPoints())
 
 		wg := sync.WaitGroup{}
 		wg.Add(1)
@@ -772,9 +793,11 @@ func (c *Customizer) buildLevel(
 			wg.Done()
 		}
 	}()
+	numberOfShortcuts := da.Index(0)
 
 	for pv, cell := range cellMapInLevel {
 		wg.Add(1)
+		numberOfShortcuts += cell.GetNumEntryPoints() * cell.GetNumExitPoints()
 		gopool.CtxGo(context.Background(), func() {
 			buildCellClique(newCustomizerCell(cell, pv))
 		})
@@ -785,24 +808,25 @@ func (c *Customizer) buildLevel(
 
 	wg.Wait()
 	close(cellCliqueOutChan)
+	c.logger.Sugar().Infof("number of shortcuts overlay graph level %v: %v ", level, numberOfShortcuts)
 }
 
-func (c *Customizer) SetGraph(graph *da.Graph) {
+func (c *Customizer[W]) SetGraph(graph *da.Graph) {
 	c.graph = graph
 }
 
-func (c *Customizer) SetOverlayGraph(overlayGraph *da.OverlayGraph) {
+func (c *Customizer[W]) SetOverlayGraph(overlayGraph *da.OverlayGraph) {
 	c.overlayGraph = overlayGraph
 }
 
-func (c *Customizer) SetOverlayWeight(ow *da.OverlayWeights) {
+func (c *Customizer[W]) SetOverlayWeight(ow *da.OverlayWeights[W]) {
 	c.ow = ow
 }
 
-func (c *Customizer) GetGraph() *da.Graph {
+func (c *Customizer[W]) GetGraph() *da.Graph {
 	return c.graph
 }
 
-func (c *Customizer) GetOverlayGraph() *da.OverlayGraph {
+func (c *Customizer[W]) GetOverlayGraph() *da.OverlayGraph {
 	return c.overlayGraph
 }

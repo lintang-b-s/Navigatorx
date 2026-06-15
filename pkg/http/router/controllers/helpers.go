@@ -23,25 +23,24 @@ var bufPool = sync.Pool{
 	},
 }
 
+const maxJSONBUfPool = 128 << 10
+
 // writeJSON marshals data structure to encoded JSON response.
-func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data envelope,
-	headers http.Header) error {
+func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data any) error {
 	buf := bufPool.Get().(*bytes.Buffer)
 
 	defer func() {
-		bufPool.Put(buf)
 		buf.Reset()
+		if buf.Cap() <= maxJSONBUfPool {
+			bufPool.Put(buf)
+		}
+
 	}()
 
 	enc := json.ConfigDefault.NewEncoder(buf)
-	enc.SetIndent("", "\t")
 
 	if err := enc.Encode(data); err != nil {
 		return err
-	}
-
-	for key, value := range headers {
-		w.Header()[key] = value
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -54,6 +53,10 @@ func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data envelop
 	return nil
 }
 
+type messageEnvelope struct {
+	Data messageResponse `json:"data"`
+}
+
 type messageResponse struct {
 	Message string `json:"message"`
 }
@@ -64,8 +67,7 @@ func NewMessageResponse(msg string) messageResponse {
 
 func (api *routingAPI) getStatusCode(w http.ResponseWriter, r *http.Request, err error) {
 	if err == nil {
-		headers := make(http.Header)
-		if err := api.writeJSON(w, http.StatusOK, envelope{"data": NewMessageResponse("success")}, headers); err != nil {
+		if err := api.writeJSON(w, http.StatusOK, messageEnvelope{Data: NewMessageResponse("success")}); err != nil {
 			api.ServerErrorResponse(w, r, err)
 		}
 		return

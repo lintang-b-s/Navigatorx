@@ -9,8 +9,8 @@ import (
 )
 
 type RoutingService interface {
-	ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index) (float64, float64, string, []da.DrivingDirection, bool, error)
-	AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, error)
+	ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index, useAnnotation bool) (float64, float64, string, []da.DrivingDirection, bool, error)
+	AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index, useAnnotation bool) ([]routing.AlternativeRoute, error)
 	GetRoutingEngine() RoutingEngine
 	Close()
 	InitBackgroundWorker(ctx context.Context)
@@ -21,7 +21,7 @@ type RoutingService interface {
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
-	GetWeight(eId da.Index, outEdge bool) float64
+	GetWeightSeconds(eId da.Index, outEdge bool) float64
 	GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64
 	GetSegmentLength(eId da.Index, outEdge bool) float64
 	IsDummyOutEdge(eId da.Index) bool
@@ -30,6 +30,8 @@ type RoutingEngine interface {
 	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
 	Close()
 	GetSegmentSpeed(eId da.Index, outEdge bool) float64
+	PutPathToPool(path []da.Index)
+	PutCoordsToPool(coords *da.Coordinates)
 }
 
 type MapMatcherService interface {

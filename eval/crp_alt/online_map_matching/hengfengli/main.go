@@ -352,7 +352,7 @@ func melbourneDatasetReady() bool {
 	return true
 }
 
-func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[da.Index]int64, map[int64]float64, error) {
+func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[da.Index]int64, map[int64]float64, error) {
 
 	flag.Parse()
 	logger, err := log.New()
@@ -387,7 +387,7 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 	}
 
 	graphStorage := da.NewGraphStorage(54)
-	graphEdges := make([]osmparser.Edge, 0, len(edges))
+	graphEdges := make([]osmparser.Edge[int32], 0, len(edges))
 	for _, e := range edges {
 		st, ok := streetByID[e.id]
 		if !ok {
@@ -405,7 +405,11 @@ func buildCRPGraph() (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[i
 
 		endPointsIndex := graphStorage.GetOsmNodePointsCount()
 		graphStorage.AppendEdgeMetadata(e.id, da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1)
-		graphEdges = append(graphEdges, osmparser.NewEdge(uint32(e.startID), uint32(e.endID), e.distance, e.distance, false, pkg.MOTORWAY))
+		graphEdge := osmparser.NewFixedEdge(
+			uint32(e.startID), uint32(e.endID), e.distance, e.distance, false, pkg.MOTORWAY,
+		)
+
+		graphEdges = append(graphEdges, graphEdge)
 	}
 
 	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, len(vertices))

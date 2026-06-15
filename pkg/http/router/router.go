@@ -92,10 +92,10 @@ func (api *API) Run(
 
 	router.GET("/doc/*any", swaggerHandler)
 
-	if viper.GetBool("server.enable_pprof") {
-		log.Warn("pprof endpoint enabled at /debug/pprof/*item")
-		router.Handler(http.MethodGet, "/debug/pprof/*item", http.DefaultServeMux)
-	}
+	// if viper.GetBool("server.enable_pprof") {
+	log.Warn("pprof endpoint enabled at /debug/pprof/*item")
+	router.Handler(http.MethodGet, "/debug/pprof/*item", http.DefaultServeMux)
+	// }
 
 	group := router_helper.NewRouteGroup(router, "/api")
 

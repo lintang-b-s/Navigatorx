@@ -10,17 +10,24 @@ import (
 // GraphStorage stores metadata and supplementary information for the graph.
 // todo: add ref, destination, destination:ref storage
 type GraphStorage struct {
+	// di set sebelum buildGraph()
 	osmNodePoints []Coordinate
-	nameTable     []string // map dari integer ke string (tag name di osm way)
+
+	nameTable []string // map dari integer ke string (tag name di osm way)
 
 	//  https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
+	// dua ini di set setelah buildGraph()
 	streetDirectionForward  *bitset.BitSet // kalau direction dari edgeId forward: bitset.Test(edgeId) return true
 	streetDirectionBackward *bitset.BitSet
-	isCurvedFlag            *bitset.BitSet // is geometry/polyline dari edge curved or not
-	roundaboutFlag          *bitset.BitSet
-	nodeTrafficLight        *bitset.BitSet
-	edgeOsmWayId            *PackedSlice // map dari outEdgeId ke osm way id dari edge
 
+	// dua ini di set sebelum buildGraph()
+	isCurvedFlag   *bitset.BitSet // is geometry/polyline dari edge curved or not
+	roundaboutFlag *bitset.BitSet
+
+	// di set saat sebelum buildGraph
+	nodeTrafficLight *bitset.BitSet
+
+	// di set saat sortByCell
 	edgeGeohashes []uint32 // geohash precision 6 uses 30 bits
 
 	// conditional restrictions
@@ -31,6 +38,8 @@ type GraphStorage struct {
 	conditionalTurnRestrictions []ConditionalTurnRestriction
 
 	// metadata dari edges
+	// diset saat osmparser
+	edgeOsmWayId         *PackedSlice // map dari outEdgeId ke osm way id dari edge
 	edgeStartPointsIndex []Index
 	edgeEndPointsIndex   []Index
 	streetName           []uint32
@@ -152,6 +161,29 @@ func (gs *GraphStorage) GetEdgeGeometryLength(edgeID Index) int {
 		return int(endIndex) - int(startIndex)
 	}
 	return int(startIndex) - int(endIndex)
+}
+
+// GetEdgeGeometryPoint reads a geometry point in the edge's travel direction without allocating.
+func (gs *GraphStorage) GetEdgeGeometryPoint(edgeID Index, point int) Coordinate {
+	startIndex := gs.edgeStartPointsIndex[edgeID]
+	endIndex := gs.edgeEndPointsIndex[edgeID]
+	if startIndex < endIndex {
+		return gs.osmNodePoints[int(startIndex)+point]
+	}
+	return gs.osmNodePoints[int(startIndex)-1-point]
+}
+
+// AppendEdgeGeometryWithoutLast appends directed geometry while leaving the shared endpoint out.
+func (gs *GraphStorage) AppendEdgeGeometryWithoutLast(path *Coordinates, edgeID Index) {
+	length := gs.GetEdgeGeometryLength(edgeID)
+	if length <= 1 {
+		return
+	}
+	points := *path
+	for point := 0; point < length-1; point++ {
+		points = append(points, gs.GetEdgeGeometryPoint(edgeID, point))
+	}
+	*path = points
 }
 
 func (gs *GraphStorage) AppendPathWithEdgeGeometry(path *Coordinates, edgeID Index) {

@@ -173,7 +173,7 @@ func download(filePath, url string, logger *zap.Logger, name string) error {
 	return nil
 }
 
-func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
+func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
 	logger, err := logger.New()
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -281,7 +281,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 	}
 	graphStorage := da.NewGraphStorage(54)
 
-	graphEdges := make([]osmparser.Edge, 0, len(edges))
+	graphEdges := make([]osmparser.Edge[int32], 0, len(edges))
 
 	edgeLength := make(map[int64]float64)
 
@@ -325,7 +325,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				1,
 			)
 
-			graphEdge := osmparser.NewEdge(
+			graphEdge := osmparser.NewFixedEdge(
 				e.fromId,
 				e.toId,
 				travelTimeWeight,
@@ -343,7 +343,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				1,
 			)
 
-			graphRevE := osmparser.NewEdge(
+			graphRevE := osmparser.NewFixedEdge(
 				e.toId,
 				e.fromId,
 				travelTimeWeight,
@@ -369,7 +369,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				1,
 			)
 
-			graphEdge := osmparser.NewEdge(
+			graphEdge := osmparser.NewFixedEdge(
 				e.fromId,
 				e.toId,
 				travelTimeWeight,
@@ -377,6 +377,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine, *da.Graph, *zap.
 				false,
 				pkg.MOTORWAY,
 			)
+
 			graphEdges = append(graphEdges, graphEdge)
 		}
 	}

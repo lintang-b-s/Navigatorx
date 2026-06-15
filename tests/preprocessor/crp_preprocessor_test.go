@@ -41,7 +41,7 @@ const (
 // go tool cover -html=prep_coverage.out
 func TestPreprocessorSimple(t *testing.T) {
 
-	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*prep.Preprocessor, error) {
+	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*prep.Preprocessor[float64], error) {
 		var (
 			err  error
 			line string
@@ -113,7 +113,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+		g, timeFunction, edgeInfoIds := op.BuildGraphFloat64(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -245,7 +245,7 @@ func TestPreprocessorSimple(t *testing.T) {
 				{
 					{
 						bitpack(1, 1): 0,
-						bitpack(1, 0): pkg.INF_WEIGHT,
+						bitpack(1, 0): util.Infinity[float64](),
 					},
 					{
 						bitpack(3, 3): 0.0,
@@ -253,7 +253,7 @@ func TestPreprocessorSimple(t *testing.T) {
 					},
 					{},
 					{
-						bitpack(6, 2): pkg.INF_WEIGHT,
+						bitpack(6, 2): util.Infinity[float64](),
 						bitpack(6, 6): 0,
 						bitpack(2, 2): 0,
 						bitpack(2, 6): 21,
@@ -263,15 +263,15 @@ func TestPreprocessorSimple(t *testing.T) {
 					{
 						bitpack(3, 3): 0.0,
 						bitpack(3, 4): 20.0,
-						bitpack(3, 0): pkg.INF_WEIGHT,
+						bitpack(3, 0): util.Infinity[float64](),
 						bitpack(3, 1): 29,
 					},
 					{
 						bitpack(2, 2): 0.0,
-						bitpack(5, 2): pkg.INF_WEIGHT, // gak ada path dari 5 ke 2 only pakai edges in cell 2 level 1. edges \in cell C, iff head and tail dari edge \in C.
-						bitpack(6, 2): pkg.INF_WEIGHT,
-						bitpack(7, 2): pkg.INF_WEIGHT,
-						bitpack(8, 2): pkg.INF_WEIGHT,
+						bitpack(5, 2): util.Infinity[float64](), // gak ada path dari 5 ke 2 only pakai edges in cell 2 level 1. edges \in cell C, iff head and tail dari edge \in C.
+						bitpack(6, 2): util.Infinity[float64](),
+						bitpack(7, 2): util.Infinity[float64](),
+						bitpack(8, 2): util.Infinity[float64](),
 					},
 				},
 			},
@@ -408,7 +408,7 @@ func TestPreprocessorSimple(t *testing.T) {
 						bitpack(0, 0): 0,
 						bitpack(3, 3): 0,
 						bitpack(0, 3): 6,
-						bitpack(3, 0): pkg.INF_WEIGHT,
+						bitpack(3, 0): util.Infinity[float64](),
 					},
 					{},
 				},
@@ -417,9 +417,9 @@ func TestPreprocessorSimple(t *testing.T) {
 						bitpack(1, 2): 2,
 					},
 					{
-						bitpack(4, 0): pkg.INF_WEIGHT,
+						bitpack(4, 0): util.Infinity[float64](),
 						bitpack(0, 0): 0,
-						bitpack(3, 0): pkg.INF_WEIGHT,
+						bitpack(3, 0): util.Infinity[float64](),
 					},
 				},
 			},
@@ -776,7 +776,7 @@ func init() {
 	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 }
 
-func setup(t *testing.T, osmFileTest string) *prep.Preprocessor {
+func setup(t *testing.T, osmFileTest string) *prep.Preprocessor[int32] {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}

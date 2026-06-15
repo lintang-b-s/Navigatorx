@@ -125,7 +125,7 @@ func hhDownload(filePath, url string, logger *zap.Logger, name string) error {
 	return nil
 }
 
-func hhBuildCRPGraph(t *testing.T) (*engine.Engine, *da.Graph, *zap.Logger, *da.SparseMatrix[int]) {
+func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int]) {
 	t.Helper()
 	pkg.RegionName = "hanwenhu"
 
@@ -388,7 +388,7 @@ func TestHanwenhuOnlineMapMatching(t *testing.T) {
 		t.Fatalf("read trajectories failed: %v", err)
 	}
 
-	rtree := spatialindex.NewRtree()
+	rtree := spatialindex.NewRtreeMapMatch()
 
 	mg := da.InitializeMapMatchingGraph(graph.NumberOfVertices())
 	rtree.BuildMapMatch(mg, logger)

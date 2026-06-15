@@ -1,6 +1,7 @@
 package routing
 
 import (
+	"math"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -8,14 +9,14 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type BidirectionalDijkstra struct {
-	engine *CRPRoutingEngine
+type BidirectionalDijkstra[W util.RoutingNumber] struct {
+	engine *CRPRoutingEngine[W]
 
-	forwardPq          *da.QueryHeap[da.CRPQueryKey]
-	backwardPq         *da.QueryHeap[da.CRPQueryKey]
-	shortestTravelTime float64
-	stallingEntry      []float64
-	stallingExit       []float64
+	forwardPq          *da.QueryHeap[da.CRPQueryKey, W]
+	backwardPq         *da.QueryHeap[da.CRPQueryKey, W]
+	shortestTravelTime W
+	stallingEntry      []W
+	stallingExit       []W
 	forwardMid         da.VertexEdgePair
 	backwardMid        da.VertexEdgePair
 	runtime            int64
@@ -27,8 +28,11 @@ type BidirectionalDijkstra struct {
 	numSettledNodes int
 }
 
-func NewBidirectionalDijkstra(engine *CRPRoutingEngine, upperBound float64) BidirectionalDijkstra {
-	dj := BidirectionalDijkstra{
+func NewBidirectionalDijkstra[W util.RoutingNumber](
+	engine *CRPRoutingEngine[W],
+	upperBound float64,
+) BidirectionalDijkstra[W] {
+	dj := BidirectionalDijkstra[W]{
 		engine:      engine,
 		forwardMid:  da.NewVertexEdgePair(0, 0, false),
 		backwardMid: da.NewVertexEdgePair(0, 0, true),
@@ -48,7 +52,7 @@ https://kam.mff.cuni.cz/~spring/media/papers/5/bidirectional_dijkstra.pdf
 
 bidirectional dijkstra, support turn costs
 */
-func (bs *BidirectionalDijkstra) ShortestPathSearch(sp, tp da.PhantomNode) (float64, float64, []da.Coordinate,
+func (bs *BidirectionalDijkstra[W]) ShortestPathSearch(sp, tp da.PhantomNode) (W, float64, []da.Coordinate,
 	[]da.OutEdge, bool) {
 
 	now := time.Now()
@@ -72,23 +76,23 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(sp, tp da.PhantomNode) (floa
 	bs.sForwardId = sForwardId
 	bs.tBackwardId = tBackwardId
 
-	bs.shortestTravelTime = 2 * pkg.INF_WEIGHT
+	bs.shortestTravelTime = 2 * util.Infinity[W]()
 
-	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, sForwardId, false))
-	tVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, tBackwardId, true))
+	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, sForwardId, false))
+	tVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, tBackwardId, true))
 	sQueryKey := da.NewCRPQueryKey(s, sForwardId, false)
 	tQueryKey := da.NewCRPQueryKey(t, tBackwardId, false)
 	bs.forwardPq.Insert(sForwardId, 0, sVertexInfo, sQueryKey)
 	bs.backwardPq.Insert(tBackwardId, 0, tVertexInfo, tQueryKey)
 
-	close := func(id da.Index, queryHeap *da.QueryHeap[da.CRPQueryKey]) {
+	close := func(id da.Index, queryHeap *da.QueryHeap[da.CRPQueryKey, W]) {
 		queryHeap.Scan(id)
 	}
 
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
-		if util.Ge(minForward+minBackward, (bs.shortestTravelTime)*(bs.upperBound)) {
+		if util.Ge(minForward+minBackward, W(float64(bs.shortestTravelTime)*(bs.upperBound))) {
 			break
 		}
 
@@ -106,8 +110,10 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(sp, tp da.PhantomNode) (floa
 
 	}
 
-	if util.Eq(bs.shortestTravelTime, 2*pkg.INF_WEIGHT) {
-		return pkg.INF_WEIGHT, 2 * pkg.INF_WEIGHT, []da.Coordinate{}, []da.OutEdge{}, false
+	if bs.shortestTravelTime == 2*util.Infinity[W]() {
+		return util.Infinity[W](),
+			math.Inf(1),
+			[]da.Coordinate{}, []da.OutEdge{}, false
 	}
 
 	finalEdgePath := make([]da.OutEdge, 0)
@@ -190,7 +196,7 @@ func (bs *BidirectionalDijkstra) ShortestPathSearch(sp, tp da.PhantomNode) (floa
 	return bs.shortestTravelTime, totalDistance, finalPath, finalEdgePath, true
 }
 
-func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
+func (bs *BidirectionalDijkstra[W]) forwardGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
 
 	uId := uItem.GetNode()
 	uEntryId := uItem.GetEntryExitPoint() // index of inedge that point to vertex uId
@@ -208,7 +214,7 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 		bui := util.MaxFloat(0, uEntryIdTravelTime+
 			bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset))
 
-		if val := bs.stallingEntry[otherUEntryId]; util.Eq(val, pkg.INF_WEIGHT) {
+		if val := bs.stallingEntry[otherUEntryId]; util.Eq(val, util.Infinity[W]()) {
 			bs.stallingEntry[otherUEntryId] = bui
 		} else {
 			bs.stallingEntry[otherUEntryId] = util.MinFloat(bs.stallingEntry[otherUEntryId], bui)
@@ -221,14 +227,14 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 		hwType pkg.OsmHighwayType) {
 		vId := head
 
-		edgeWeight := bs.engine.GetWeight(eId, true)
+		edgeWeight := bs.engine.getWeight(eId, true)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
 		newTravelTime := uEntryIdTravelTime + edgeWeight + turnCost
 
-		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+		if util.Ge(newTravelTime, util.Infinity[W]()) {
 			return
 		}
 		vEntryId := bs.engine.graph.GetEntryOffset(vId) + da.Index(entryPoint)
@@ -238,9 +244,9 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 
 		// relax edge
 		oldVEntryIdTravelTime := bs.forwardPq.GetPriority(vEntryId)
-		vAlreadyLabelled := util.Lt(oldVEntryIdTravelTime, pkg.INF_WEIGHT)
+		vAlreadyLabelled := util.Lt(oldVEntryIdTravelTime, util.Infinity[W]())
 		if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, oldVEntryIdTravelTime)) {
-			if bvi := bs.stallingEntry[vEntryId]; util.Lt(bvi, pkg.INF_WEIGHT) && util.Gt(newTravelTime, bvi) {
+			if bvi := bs.stallingEntry[vEntryId]; util.Lt(bvi, util.Infinity[W]()) && util.Gt(newTravelTime, bvi) {
 				// stalled
 				return
 			}
@@ -291,7 +297,7 @@ func (bs *BidirectionalDijkstra) forwardGraphSearch(uItem da.CRPQueryKey, source
 	})
 }
 
-func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
+func (bs *BidirectionalDijkstra[W]) backwardGraphSearch(uItem da.CRPQueryKey, source, target da.Index) {
 	// search backward on graph level 1
 	// basically same as forward search, but using inEdges and exitPoint instead of outEdges and entryPoint
 
@@ -311,7 +317,7 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 		bui := util.MaxFloat(0, uExitIdTravelTime+
 			bs.engine.metrics.GetExitStallingTableCost(uId, stallingOffset))
 
-		if val := bs.stallingExit[otherUExitId]; util.Eq(val, pkg.INF_WEIGHT) {
+		if val := bs.stallingExit[otherUExitId]; util.Eq(val, util.Infinity[W]()) {
 			bs.stallingExit[otherUExitId] = bui
 		} else {
 			bs.stallingExit[otherUExitId] = util.MinFloat(bs.stallingExit[otherUExitId], bui)
@@ -323,12 +329,12 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 		turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 		vId := tail
 
-		edgeWeight := bs.engine.GetWeight(eId, false)
+		edgeWeight := bs.engine.getWeight(eId, false)
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
 		newTravelTime := uExitIdTravelTime + edgeWeight + turnCost
-		if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+		if util.Ge(newTravelTime, util.Infinity[W]()) {
 			return
 		}
 
@@ -336,10 +342,10 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 
 		// relax edge
 		oldVExitIdTravelTime := bs.backwardPq.GetPriority(vExitId)
-		vAlreadyLabelled := util.Lt(oldVExitIdTravelTime, pkg.INF_WEIGHT)
+		vAlreadyLabelled := util.Lt(oldVExitIdTravelTime, util.Infinity[W]())
 		if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, oldVExitIdTravelTime)) {
 
-			if bvi := bs.stallingExit[vExitId]; util.Lt(bvi, pkg.INF_WEIGHT) && util.Gt(newTravelTime, bvi) {
+			if bvi := bs.stallingExit[vExitId]; util.Lt(bvi, util.Infinity[W]()) && util.Gt(newTravelTime, bvi) {
 				// stalled
 				return
 			}
@@ -382,14 +388,14 @@ func (bs *BidirectionalDijkstra) backwardGraphSearch(uItem da.CRPQueryKey, sourc
 	})
 }
 
-func (bs *BidirectionalDijkstra) Preallocate() {
+func (bs *BidirectionalDijkstra[W]) Preallocate() {
 	maxSearch := bs.engine.graph.NumberOfEdges()
 
-	bs.stallingEntry = make([]float64, maxSearch)
-	bs.stallingExit = make([]float64, maxSearch)
+	bs.stallingEntry = make([]W, maxSearch)
+	bs.stallingExit = make([]W, maxSearch)
 	initInfWeight(bs.stallingEntry)
 	initInfWeight(bs.stallingExit)
 
-	bs.forwardPq = da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearch), uint32(maxSearch), da.ARRAY_STORAGE, true)
-	bs.backwardPq = da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearch), uint32(maxSearch), da.ARRAY_STORAGE, true)
+	bs.forwardPq = da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxSearch), uint32(maxSearch), da.ARRAY_STORAGE, true)
+	bs.backwardPq = da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxSearch), uint32(maxSearch), da.ARRAY_STORAGE, true)
 }

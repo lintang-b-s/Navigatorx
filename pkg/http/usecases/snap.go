@@ -7,7 +7,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -42,10 +41,14 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 ) (da.PhantomNode, da.PhantomNode) {
 	searchRad := rs.searchRadius
 	var (
-		sp, tp             = da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
-		pairSize           = (spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES) / 10
-		removedPrevPairSet = hashset.NewUint64WithSize(pairSize)
+		sp = da.NewInvalidPhantomNode()
+		tp = da.NewInvalidPhantomNode()
 	)
+	removedPrevPairSet := rs.candidatePairSetPool.Get().(hashset.Uint64Set)
+	defer func() {
+		clear(removedPrevPairSet)
+		rs.candidatePairSetPool.Put(removedPrevPairSet)
+	}()
 
 	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
 		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
@@ -100,24 +103,24 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	sort.Slice(origCandidates, func(i, j int) bool { return origCandidates[i] < origCandidates[j] })
 	sort.Slice(dstCandidates, func(i, j int) bool { return dstCandidates[i] < dstCandidates[j] })
 
-	origDist := make([]float64, len(origCandidates))
-	dstDist := make([]float64, len(dstCandidates))
-	origCoord := make([]da.Coordinate, len(origCandidates))
-	origNextCoords := make([][]da.Coordinate, len(origCandidates))
-	dstCoord := make([]da.Coordinate, len(dstCandidates))
-	dstNextCoords := make([][]da.Coordinate, len(dstCandidates))
+	type candidateSnap struct {
+		coord      da.Coordinate
+		dist       float64
+		distToEnd  float64
+		nextCoords []da.Coordinate
+	}
 
-	origToEndpointDist := make([]float64, len(origCandidates))
-	destToEndpointDist := make([]float64, len(dstCandidates))
+	origSnaps := make([]candidateSnap, len(origCandidates))
+	dstSnaps := make([]candidateSnap, len(dstCandidates))
 
 	for i, c := range origCandidates {
-		projectedLat, projectedLon, origDist[i], origToEndpointDist[i], origNextCoords[i] = rs.ProjectCoordinateToEdge(qOrigLat, qOrigLon, c, true)
-		origCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
+		projectedLat, projectedLon, origSnaps[i].dist, origSnaps[i].distToEnd, origSnaps[i].nextCoords = rs.ProjectCoordinateToEdge(qOrigLat, qOrigLon, c, true)
+		origSnaps[i].coord = da.NewCoordinate(projectedLat, projectedLon)
 	}
 
 	for i, c := range dstCandidates {
-		projectedLat, projectedLon, dstDist[i], destToEndpointDist[i], dstNextCoords[i] = rs.ProjectCoordinateToEdge(qDstLat, qDstLon, c, false)
-		dstCoord[i] = da.NewCoordinate(projectedLat, projectedLon)
+		projectedLat, projectedLon, dstSnaps[i].dist, dstSnaps[i].distToEnd, dstSnaps[i].nextCoords = rs.ProjectCoordinateToEdge(qDstLat, qDstLon, c, false)
+		dstSnaps[i].coord = da.NewCoordinate(projectedLat, projectedLon)
 	}
 
 	g := rs.graph
@@ -150,22 +153,22 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 				continue
 			}
 
-			origDestSnapDist := origDist[i] + dstDist[j]
+			origDestSnapDist := origSnaps[i].dist + dstSnaps[j].dist
 
-			origDestSnapToEndpointDist := origToEndpointDist[i] + destToEndpointDist[j]
+			origDestSnapToEndpointDist := origSnaps[i].distToEnd + dstSnaps[j].distToEnd
 
 			if util.Lt(origDestSnapDist, minDist) {
 				minDist = origDestSnapDist
 				minDistToEndpoint = origDestSnapToEndpointDist
-				bestPair = newOriginDestination(o, dstInEdge, origCoord[i], dstCoord[j])
-				bestOriginNextCoords = origNextCoords[i]
-				bestDestBefCoords = dstNextCoords[j]
+				bestPair = newOriginDestination(o, dstInEdge, origSnaps[i].coord, dstSnaps[j].coord)
+				bestOriginNextCoords = origSnaps[i].nextCoords
+				bestDestBefCoords = dstSnaps[j].nextCoords
 			} else if util.Eq(origDestSnapDist, minDist) && util.Lt(origDestSnapToEndpointDist, minDistToEndpoint) {
 				minDist = origDestSnapDist
 				minDistToEndpoint = origDestSnapToEndpointDist
-				bestPair = newOriginDestination(o, dstInEdge, origCoord[i], dstCoord[j])
-				bestOriginNextCoords = origNextCoords[i]
-				bestDestBefCoords = dstNextCoords[j]
+				bestPair = newOriginDestination(o, dstInEdge, origSnaps[i].coord, dstSnaps[j].coord)
+				bestOriginNextCoords = origSnaps[i].nextCoords
+				bestDestBefCoords = dstSnaps[j].nextCoords
 			}
 		}
 	}

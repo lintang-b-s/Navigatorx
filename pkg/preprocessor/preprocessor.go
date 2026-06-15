@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Preprocessor struct {
+type Preprocessor[W util.RoutingNumber] struct {
 	graph                                                                  *da.Graph
 	mlp                                                                    *da.MultilevelPartition
 	overlayGraph                                                           *da.OverlayGraph
@@ -22,15 +22,15 @@ type Preprocessor struct {
 	newVIdMap                                                              []da.Index
 	newToOldVIdMap                                                         map[da.Index]da.Index
 	edgeInfoIds                                                            [][]da.Index
-	timeFunction                                                           *costfunction.TimeFunction
+	timeFunction                                                           *costfunction.TimeFunction[W]
 	graphFilename, overlayGraphFilename, preprocessingTimeFunctionFilename string
 	writeTiles                                                             bool
 }
 
-func NewPreprocessor(graph *da.Graph, timeFunction *costfunction.TimeFunction, mlp *da.MultilevelPartition,
+func NewPreprocessor[W util.RoutingNumber](graph *da.Graph, timeFunction *costfunction.TimeFunction[W], mlp *da.MultilevelPartition,
 	logger *zap.Logger, gFilename string, ogFilename string, edgeInfoIds [][]da.Index,
-) *Preprocessor {
-	return &Preprocessor{
+) *Preprocessor[W] {
+	return &Preprocessor[W]{
 		graph:                             graph,
 		mlp:                               mlp,
 		logger:                            logger,
@@ -45,12 +45,12 @@ func NewPreprocessor(graph *da.Graph, timeFunction *costfunction.TimeFunction, m
 	}
 }
 
-func (p *Preprocessor) SetWriteTiles(writeTiles bool) {
+func (p *Preprocessor[W]) SetWriteTiles(writeTiles bool) {
 	p.writeTiles = writeTiles
 }
 
 // Preprocesssing. Preprocessing (building Overlay Graph) phase. see section 5.1 Metric Independent Preprocessing (Overlay Topology) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-func (p *Preprocessor) PreProcessing(writefile bool) error {
+func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Starting preprocessing step of Customizable Route Planning...")
 
 	p.logger.Sugar().Infof("Building Overlay Graph of each levels...")
@@ -90,7 +90,7 @@ func (p *Preprocessor) PreProcessing(writefile bool) error {
 	return nil
 }
 
-func (p *Preprocessor) BuildCellNumber() {
+func (p *Preprocessor[W]) BuildCellNumber() {
 	cellNumbers := make([]da.Pv, 0, p.mlp.GetNumberOfCellsInLevel(0))
 	pvMap := make(map[da.Pv]da.Index, p.mlp.GetNumberOfCellsInLevel(0))
 	p.graph.ForVertices(func(_ da.Vertex, id da.Index) {
@@ -113,7 +113,7 @@ func (p *Preprocessor) BuildCellNumber() {
 /*
 group vertices s.t. vertices within the same cell are adjacent to each other
 */
-func (p *Preprocessor) SortByCellNumber() {
+func (p *Preprocessor[W]) SortByCellNumber() {
 	cellVertices := make([][]struct {
 		vertex        da.Vertex
 		originalIndex da.Index
@@ -379,22 +379,22 @@ func (p *Preprocessor) SortByCellNumber() {
 
 }
 
-func (p *Preprocessor) GetOldToNewVIdMap() []da.Index {
+func (p *Preprocessor[W]) GetOldToNewVIdMap() []da.Index {
 	return p.newVIdMap
 }
 
-func (p *Preprocessor) GetNewToOldVIdMap() map[da.Index]da.Index {
+func (p *Preprocessor[W]) GetNewToOldVIdMap() map[da.Index]da.Index {
 	return p.newToOldVIdMap
 }
 
-func (p *Preprocessor) GetOverlayGraph() *da.OverlayGraph {
+func (p *Preprocessor[W]) GetOverlayGraph() *da.OverlayGraph {
 	return p.overlayGraph
 }
 
-func (p *Preprocessor) GetGraph() *da.Graph {
+func (p *Preprocessor[W]) GetGraph() *da.Graph {
 	return p.graph
 }
 
-func (p *Preprocessor) GetTimeFunction() *costfunction.TimeFunction {
+func (p *Preprocessor[W]) GetTimeFunction() *costfunction.TimeFunction[W] {
 	return p.timeFunction
 }

@@ -273,61 +273,6 @@ func MaxInt(a, b int64) int64 {
 	return b
 }
 
-const (
-	EPS = 1e-7
-)
-
-// equal operator
-func Eq(a, b float64) bool {
-	return math.Abs(a-b) <= EPS
-}
-
-// equal operator
-func EqEps(a, b, eps float64) bool {
-	return math.Abs(a-b) <= eps
-}
-
-// less than operator. a<b
-func Lt(a, b float64) bool {
-	return a+EPS < b
-}
-
-// greater than or equal to operator
-func Ge(a, b float64) bool {
-	return Le(b, a)
-}
-
-func Gt(a, b float64) bool {
-	return Lt(b, a)
-}
-
-// less than or equal operator
-func Le(a, b float64) bool {
-	return a <= b+EPS
-}
-
-// MaxFloat. maximum operator
-func MaxFloat(a, b float64) float64 {
-	if Gt(a, b) {
-		return a
-	}
-	return b
-}
-
-func MinFloat(a, b float64) float64 {
-	if Lt(a, b) {
-		return a
-	}
-	return b
-}
-
-func ClampMin(a, b int) int {
-	if a < b {
-		return b
-	}
-	return a
-}
-
 func ToFloat64Map(input interface{}) (map[float64]float64, float64) {
 	result := make(map[float64]float64)
 	defaultVal := 0.0

@@ -68,14 +68,12 @@ prevPoint----prevEdge----tail
 */ // nolint: gofmt
 func (db *DirectionBuilder) handleResidentialRoadTurn(edgeId da.Index, tailId, prevNodeId, headId da.Index, currStreetName string) da.TurnType {
 
-	eGeom := db.graph.GetEdgeGeometry(edgeId)
-
 	curved := db.graph.IsCurved(edgeId)
 
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
 
-	tailCoord := eGeom[0]
-	headCoord := db.GetHeadPoint(edgeId, eGeom, tailCoord, 25)
+	tailCoord := db.graph.GetEdgeGeometryPoint(edgeId, 0)
+	headCoord := db.GetHeadPoint(edgeId, tailCoord, 25)
 
 	headLat := headCoord.GetLat()
 	headLon := headCoord.GetLon()
@@ -157,14 +155,12 @@ https://www.google.com/maps/dir/-7.5501666,110.7820614/Kasunanan+Palace,+Surakar
 
 */ // nolint: gofmt
 func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevNodeId, headId da.Index, currStreetName string) da.TurnType {
-	eGeom := db.graph.GetEdgeGeometry(edgeId)
-
 	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
 
 	curved := db.graph.IsCurved(edgeId)
 
-	tailCoord := eGeom[0]
-	headCoord := db.GetHeadPoint(edgeId, eGeom, tailCoord, 25)
+	tailCoord := db.graph.GetEdgeGeometryPoint(edgeId, 0)
+	headCoord := db.GetHeadPoint(edgeId, tailCoord, 25)
 
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
 
@@ -388,8 +384,6 @@ setelah evaluate turn dari currentEdge:
 kita update prevPoint, doublePrevPoint, prevNode, prevEdge, doublePrevNode, etc..
 */ // nolint: gofmt
 func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
-	eGeom := db.graph.GetEdgeGeometry(edgeId)
-
 	if db.prevEdge != da.INVALID_EDGE_ID {
 		db.doublePrevInitialBearing = db.prevInitialBearing
 		db.doublePrevStreetName = db.graph.GetStreetName(db.prevEdge)
@@ -397,9 +391,13 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 
 	tailId := db.graph.GetTailOfOutedge(edgeId)
 
-	n := len(eGeom)
+	n := db.graph.GetEdgeGeometryLength(edgeId)
 	db.doublePrevPoint = db.prevPoint
-	db.prevPoint = db.GetPrevPoint(edgeId, eGeom, eGeom[n-1], 25)
+	db.prevPoint = db.GetPrevPoint(
+		edgeId,
+		db.graph.GetEdgeGeometryPoint(edgeId, n-1),
+		25,
+	)
 
 	db.doublePrevNode = db.prevNode
 	db.prevInRoundabout = isInRoundabout
@@ -407,13 +405,14 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 	db.prevEdge = edgeId
 
 	db.cumulativeDistance += db.engine.GetSegmentLength(edgeId, true)
-	db.cumulativeTravelTime += db.engine.GetWeight(edgeId, true)
+	db.cumulativeTravelTime += db.engine.GetWeightSeconds(edgeId, true)
 
-	db.edgeIds = append(db.edgeIds, edgeId)
+	if db.useAnnotation {
+		db.edgeIds = append(db.edgeIds, edgeId)
+		db.graph.AppendEdgeGeometryWithoutLast(&db.geometry, edgeId)
+	}
 
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
-
-	db.geometry = append(db.geometry, eGeom[:n-1]...)
 }
 
 func makeCacheVal(sign da.TurnType, streetName uint32) []byte {
@@ -424,8 +423,7 @@ func makeCacheVal(sign da.TurnType, streetName uint32) []byte {
 }
 
 func (db *DirectionBuilder) updatePrevInitialBearing(edgeId da.Index) {
-	eGeom := db.graph.GetEdgeGeometry(edgeId)
-	tailCoord := eGeom[0]
+	tailCoord := db.graph.GetEdgeGeometryPoint(edgeId, 0)
 	db.prevInitialBearing = geo.ComputeInitialBearing(db.prevPoint.GetLat(), db.prevPoint.GetLon(),
 		tailCoord.GetLat(), tailCoord.GetLon())
 }

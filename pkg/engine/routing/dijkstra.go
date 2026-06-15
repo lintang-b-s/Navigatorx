@@ -1,22 +1,24 @@
 package routing
 
 import (
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type Dijkstra struct {
-	engine *CRPRoutingEngine
+type Dijkstra[W util.RoutingNumber] struct {
+	engine *CRPRoutingEngine[W]
 
-	pq *da.QueryHeap[da.CRPQueryKey]
+	pq *da.QueryHeap[da.CRPQueryKey, W]
 
 	numSettledNodes  int
 	useReversedEdges bool
 }
 
-func NewDijkstra(engine *CRPRoutingEngine, useReversedEdges bool) Dijkstra {
-	dj := Dijkstra{
+func NewDijkstra[W util.RoutingNumber](
+	engine *CRPRoutingEngine[W],
+	useReversedEdges bool,
+) Dijkstra[W] {
+	dj := Dijkstra[W]{
 		engine:           engine,
 		numSettledNodes:  0,
 		useReversedEdges: useReversedEdges,
@@ -33,9 +35,9 @@ ini implementasi dijkstra yang biasa anda lihat di internet / competitive progra
 
 useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 */
-func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.Index) {
+func (us *Dijkstra[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) {
 
-	sVertexInfo := da.NewVertexInfo(0, da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
 	djKey := da.NewDijkstraKey(s, s)
 	us.pq.Insert(s, 0, sVertexInfo, djKey)
@@ -51,7 +53,7 @@ func (us *Dijkstra) ShortestPath(s da.Index) ([]float64, [][]da.Index) {
 	return sps, spEdges
 }
 
-func (us *Dijkstra) graphSearchUni(source da.Index) {
+func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
@@ -63,15 +65,15 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 		us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
 			head := us.engine.graph.GetHeadOfOutEdge(eId)
 			vId := head
-			edgeWeight := us.engine.GetWeight(eId, true)
+			edgeWeight := us.engine.getWeight(eId, true)
 			// get cost to reach v through u
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, util.Infinity[W]()) {
 				return
 			}
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
 				// newTravelTime is not better, do nothing
 				return
@@ -98,15 +100,15 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 
 			vId := tail
 
-			edgeWeight := us.engine.GetWeight(eId, false)
+			edgeWeight := us.engine.getWeight(eId, false)
 
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 
-			if util.Ge(newTravelTime, pkg.INF_WEIGHT) {
+			if util.Ge(newTravelTime, util.Infinity[W]()) {
 				return
 			}
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), pkg.INF_WEIGHT)
+			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
 			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
 				// newTravelTime is not better, do nothing
 				return
@@ -129,19 +131,19 @@ func (us *Dijkstra) graphSearchUni(source da.Index) {
 	}
 }
 
-func (us *Dijkstra) Preallocate() {
+func (us *Dijkstra[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
 
 	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
-	us.pq = da.NewQueryHeap[da.CRPQueryKey](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+	us.pq = da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
 
-func (us *Dijkstra) constructShortestPath(s da.Index) ([]float64, [][]da.Index) {
+func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 	n := us.engine.graph.NumberOfVertices()
 	spEdges := make([][]da.Index, n)
-	sps := make([]float64, n)
+	sps := make([]W, n)
 	if !us.useReversedEdges {
 
 		for t := da.Index(0); t < da.Index(n); t++ {
@@ -152,7 +154,7 @@ func (us *Dijkstra) constructShortestPath(s da.Index) ([]float64, [][]da.Index) 
 			}
 
 			sps[t] = sp
-			if util.Ge(sp, pkg.INF_WEIGHT) {
+			if util.Ge(sp, util.Infinity[W]()) {
 				continue
 			}
 
@@ -178,7 +180,7 @@ func (us *Dijkstra) constructShortestPath(s da.Index) ([]float64, [][]da.Index) 
 				continue // sp == 0
 			}
 			sps[t] = sp
-			if util.Ge(sp, pkg.INF_WEIGHT) {
+			if util.Ge(sp, util.Infinity[W]()) {
 				continue
 			}
 

@@ -90,8 +90,9 @@ type Instruction struct {
 	annotation Annotation
 	edgeIds    []Index
 
-	roundabout           *RoundaboutInstruction
-	extrainfo            map[string]interface{}
+	roundabout           RoundaboutInstruction
+	heading              float64
+	hasHeading           bool
 	point                Coordinate
 	streetname           string
 	cumulativeDistance   float64
@@ -105,52 +106,37 @@ type Instruction struct {
 
 func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
 	cumulativeDist, cumulativeTravelTime float64, turnBearing float64, ann Annotation,
-	clockwise bool) *Instruction {
-	var roundabout *RoundaboutInstruction
-	var ins *Instruction
-	roundabout = NewRoundaboutInstruction()
-
-	edgeIdsCopy := make([]Index, len(edgeIds)) // https://go.dev/blog/slices-intro
-	// ingat: reslicing slice gak bakal bikin slice baru/resliced slices tetep refer ke original slice (https://go.dev/blog/slices-intro)
-	// karena kita reuse db.edgeIds dari DirectionBuilder dengan reslice [:0], kita harus copy db.edgeIds biar last instructionnya gak corrupt
-	copy(edgeIdsCopy, edgeIds)
-
-	ins = &Instruction{
+	clockwise bool) Instruction {
+	ins := Instruction{
 		annotation:           ann,
 		turnSign:             sign,
 		streetname:           name,
 		point:                p,
-		extrainfo:            make(map[string]interface{}, 3),
-		roundabout:           roundabout,
 		isRoundabout:         isRoundAbout,
 		cumulativeTravelTime: cumulativeTravelTime,
 		cumulativeDistance:   cumulativeDist,
-		edgeIds:              edgeIdsCopy,
+		edgeIds:              edgeIds,
 		turnBearing:          turnBearing,
 	}
 
-	_, ins.turnType = getDirectionDescription(sign, ins, clockwise)
+	_, ins.turnType = getDirectionDescription(sign, &ins, clockwise)
 
 	return ins
 }
 
-func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRoundAbout bool, roundabout *RoundaboutInstruction,
+func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRoundAbout bool, roundabout RoundaboutInstruction,
 	cumulativeDistance, cumulativeTravelTime float64, edgeIds []Index, ann Annotation, turnBearing float64) Instruction {
-
-	edgeIdsCopy := make([]Index, len(edgeIds))
-	copy(edgeIdsCopy, edgeIds)
 
 	ins := Instruction{
 		annotation:           ann,
 		turnSign:             sign,
 		streetname:           name,
 		point:                p,
-		extrainfo:            make(map[string]interface{}, 3),
 		roundabout:           roundabout,
 		isRoundabout:         isRoundAbout,
 		cumulativeDistance:   cumulativeDistance,
 		cumulativeTravelTime: cumulativeTravelTime,
-		edgeIds:              edgeIdsCopy,
+		edgeIds:              edgeIds,
 		turnBearing:          turnBearing,
 	}
 	ins.turnType = "ROUNDABOUT"
@@ -169,8 +155,9 @@ func (ins *Instruction) GetSuggestAlternatives() bool {
 	return ins.suggestAlternatives
 }
 
-func (ins *Instruction) SetExtraInfo(key string, val interface{}) {
-	ins.extrainfo[key] = val
+func (ins *Instruction) SetHeading(heading float64) {
+	ins.heading = heading
+	ins.hasHeading = true
 }
 
 func (ins *Instruction) SetSign(sign TurnType) {
@@ -245,8 +232,8 @@ func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 			description = fmt.Sprintf("Continue onto %s", streetName)
 		}
 	case START:
-		if heading, ok := ins.extrainfo["heading"]; ok {
-			headingAngle := heading.(float64)
+		if ins.hasHeading {
+			headingAngle := ins.heading
 			headingAngle = util.RadiansToDegree(headingAngle)
 			if headingAngle < 0.0 {
 				headingAngle += 360
@@ -341,13 +328,8 @@ type RoundaboutInstruction struct {
 	exited     bool
 }
 
-func NewRoundaboutInstruction() *RoundaboutInstruction {
-	roundabout := &RoundaboutInstruction{
-		exitNumber: 0,
-		exited:     false,
-	}
-
-	return roundabout
+func NewRoundaboutInstruction() RoundaboutInstruction {
+	return RoundaboutInstruction{}
 }
 
 func (ins *Instruction) IncrementExitNumber() {
@@ -373,15 +355,13 @@ type DrivingDirection struct {
 
 func NewDrivingDirection(ins Instruction, description string, prevTravelTime, prevDist float64,
 	edgeIds []Index, turnBearing float64, ann Annotation) DrivingDirection {
-	edgeIdsCopy := make([]Index, len(edgeIds))
-	copy(edgeIdsCopy, edgeIds)
 	return DrivingDirection{
 		instruction:         description,
 		point:               ins.point,
 		streetName:          ins.streetname,
 		travelTime:          util.RoundFloat(prevTravelTime, 2),
 		distance:            util.RoundFloat(prevDist, 2),
-		edgeIds:             edgeIdsCopy,
+		edgeIds:             edgeIds,
 		turnBearing:         util.RoundFloat(turnBearing, 2),
 		turnType:            ins.turnType,
 		suggestAlternatives: ins.suggestAlternatives,

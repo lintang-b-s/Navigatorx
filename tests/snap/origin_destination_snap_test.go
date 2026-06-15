@@ -40,7 +40,7 @@ const (
 	timeFunctionFile string = "./data/timefunction_od_test.ntf"
 )
 
-func setup(t *testing.T) (*engine.Engine, *zap.Logger) {
+func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}

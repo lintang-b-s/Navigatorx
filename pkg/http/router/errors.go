@@ -18,6 +18,15 @@ import (
 
 */
 
+type errorEnvelope struct {
+	Error errorBody `json:"error"`
+}
+
+type errorBody struct {
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
 func (api *API) logError(r *http.Request, err error) {
 
 	api.log.Error("internal server error", zap.Error(err), zap.String("request_method", r.Method),
@@ -27,9 +36,9 @@ func (api *API) logError(r *http.Request, err error) {
 // errorResponse method for sending JSON-formatted error messages to the client with a given status code.
 func (api *API) errorResponse(w http.ResponseWriter, r *http.Request, status int, message interface{},
 ) {
-	env := envelope{"error": map[string]string{
-		"code":    http.StatusText(status),
-		"message": message.(string),
+	env := errorEnvelope{Error: errorBody{
+		Code:    http.StatusText(status),
+		Message: message.(string),
 	}}
 
 	err := api.writeJSON(w, status, env, nil)
