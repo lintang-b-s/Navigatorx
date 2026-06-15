@@ -120,50 +120,6 @@ func (pu *PathUnpacker[W]) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 	return unpackedEdgePath, shortcutPathSet
 }
 
-// unpackPathEdgesOnly is the same as unpackPath but skips allocating the
-// shortcutPathSet map.
-func (pu *PathUnpacker[W]) unpackPathEdgesOnly(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) []da.Index {
-	unpackedEdgePath := *pu.engine.unpackedPathPool.Get().(*[]da.Index)
-	unpackedEdgePath = unpackedEdgePath[:0]
-
-	now := time.Now()
-
-	for i := 0; i < len(packedPath); {
-		cur := packedPath[i]
-		if !isBitOn(cur.GetEdge(), UNPACK_OVERLAY_OFFSET) {
-			// original vertex (non-overlay vertex)
-
-			unpackedEdgePath = append(unpackedEdgePath, cur.GetEdge())
-
-			i++
-		} else {
-			// overlay vertex
-			entryOverlayId := offBit(cur.GetEdge(), UNPACK_OVERLAY_OFFSET)
-
-			entryVertex := pu.engine.overlayGraph.GetVertex(entryOverlayId)
-			entryCellNumber := entryVertex.GetCellNumber()
-			var queryLevel uint8
-
-			if !pu.oneToMany {
-				queryLevel = pu.engine.overlayGraph.GetQueryLevel(sCellNumber, tCellNumber, entryCellNumber)
-
-			} else {
-				queryLevel = cur.GetQueryLevel()
-			}
-
-			exitOverlayId := offBit(packedPath[i+1].GetEdge(), UNPACK_OVERLAY_OFFSET)
-
-			unpackedEdgePath = pu.unpackInLevelCell(entryOverlayId, exitOverlayId, queryLevel, unpackedEdgePath)
-			i += 2
-		}
-	}
-
-	unpackedEdgePath = removeDuplicates(unpackedEdgePath)
-
-	pu.runtime = time.Since(now).Milliseconds()
-	return unpackedEdgePath
-}
-
 func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
 	targetOverlayId da.Index,
 	level uint8,

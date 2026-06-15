@@ -179,7 +179,7 @@ ngaruh ke load test
 goos: linux
 goarch: amd64
 pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
-cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics  
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
 BenchmarkCRPALTQuery-12            42294            392012 ns/op                 0.3920 ms/op         2551 ops/sec          9405 B/op         54 allocs/op
 
 todo2: optimize sampai p95 latency computeRoute ngalahin osrm  (DONE)

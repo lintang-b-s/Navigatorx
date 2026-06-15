@@ -148,7 +148,7 @@ func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.VertexEdgePair, sCellNu
 }
 
 // unpackPathEdgesOnly is the same as unpackPath but skips allocating the
-// shortcutPathSet map. 
+// shortcutPathSet map.
 func (pu *PathUnpackerALT[W]) unpackPathEdgesOnly(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv) []da.Index {
 	unpackedEdgePath := *pu.engine.unpackedPathPool.Get().(*[]da.Index)
 	unpackedEdgePath = unpackedEdgePath[:0]

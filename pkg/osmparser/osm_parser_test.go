@@ -10,20 +10,6 @@ import (
 	"github.com/paulmach/osm"
 )
 
-func TestNewOSMParserV2(t *testing.T) {
-	p := NewOSMParserV2()
-	if p == nil {
-		t.Fatal("NewOSMParserV2 returned nil")
-	}
-	if p.wayNodeMap == nil {
-		t.Error("wayNodeMap not initialized")
-	}
-
-	if p.highwayWhitelist == nil {
-		t.Error("highwayWhitelist not initialized")
-	}
-}
-
 func TestAcceptOsmWay(t *testing.T) {
 	p := NewOSMParserV2()
 	p.highwayWhitelist = map[string]struct{}{

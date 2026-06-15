@@ -27,7 +27,7 @@ func (t target) getatId() da.Index {
 	return t.atId
 }
 
-// removeDuplicates removes duplicate edge IDs from arr in-place 
+// removeDuplicates removes duplicate edge IDs from arr in-place
 func removeDuplicates(arr []da.Index) []da.Index {
 	if len(arr) < 2 {
 		return arr

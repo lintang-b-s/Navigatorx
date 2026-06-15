@@ -12,9 +12,7 @@ import (
 )
 
 /*
-
 BenchmarkAlternativeRoutesService-12               13674           1275013 ns/op                 1.279 ms/op           784.3 ops/sec      121826 B/op        706 allocs/op
-
 */
 func BenchmarkAlternativeRoutesService(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
