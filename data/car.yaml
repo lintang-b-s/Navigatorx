@@ -68,11 +68,10 @@ alternatives:
   epsilon:
     default: 0.25 #  alternative routes at most 25% longer than the shortest path
   upper_bound: # max upperbound 1.75
-    50: 1.28 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
-    default: 1.6 # untuk > 50 km, ini bagus buat rute alternative jarak jauh cnth: jogja solo 
+    50: 1.25 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
+    default: 1.25 # untuk > 50 km
   max_candidates_to_unpack:
     10: 10 # great circle distance between source and destination <= 10km -> 10 via candidates to unpack
-    20: 7 # great circle distance between source and destination <= 20km  & > 10km -> 7 via candidates to unpack
     50: 5
     100: 2
     default: 2
@@ -91,5 +90,4 @@ server:
 
 guidance:
   left_hand: true # https://en.wikipedia.org/wiki/Left-_and_right-hand_traffic  , example: Indonesia is left-hand traffic
-
 

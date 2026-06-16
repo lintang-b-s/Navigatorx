@@ -1,6 +1,8 @@
 package routing
 
 import (
+	"slices"
+
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -27,21 +29,12 @@ func (t target) getatId() da.Index {
 	return t.atId
 }
 
-// removeDuplicates removes duplicate edge IDs from arr in-place
+// removeDuplicates removes consecutive duplicate edge IDs from arr in-place.
 func removeDuplicates(arr []da.Index) []da.Index {
 	if len(arr) < 2 {
 		return arr
 	}
-	seen := make(map[da.Index]struct{}, len(arr))
-	out := arr[:0]
-	for _, v := range arr {
-		if _, ok := seen[v]; ok {
-			continue
-		}
-		seen[v] = struct{}{}
-		out = append(out, v)
-	}
-	return out
+	return slices.Compact(arr)
 }
 
 func (bs *CRPBidirectionalSearch[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {

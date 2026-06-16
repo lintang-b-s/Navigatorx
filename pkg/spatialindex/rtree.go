@@ -203,12 +203,12 @@ func (rt *Rtree) getFlag(graph *da.Graph, eId da.Index, forward bool) uint8 {
 }
 
 func (rt *Rtree) IsJunctionHead(data leafData) bool {
-	return isForwardJunctionHead(data.flag) &&
+	return isForwardJunctionHead(data.flag) ||
 		isBackwardJunctionHead(data.flag)
 }
 
 func (rt *Rtree) IsJunctionTail(data leafData) bool {
-	return isForwardJunctionTail(JUNCTION_FORWARD_TAIL_FLAG) &&
+	return isForwardJunctionTail(data.flag) ||
 		isBackwardJunctionTail(data.flag)
 }
 

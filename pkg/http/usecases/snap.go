@@ -1,8 +1,6 @@
 package usecases
 
 import (
-	"sort"
-
 	"github.com/bytedance/gopkg/collection/hashset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -99,9 +97,6 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 	// find nearest dst edge (outEdgeOffset) to qDstLat, qDstLon
 	dstCandidates := rs.spatialIndex.SearchWithinRadius(qDstLat, qDstLon, searchRad, 1)
-
-	sort.Slice(origCandidates, func(i, j int) bool { return origCandidates[i] < origCandidates[j] })
-	sort.Slice(dstCandidates, func(i, j int) bool { return dstCandidates[i] < dstCandidates[j] })
 
 	type candidateSnap struct {
 		coord      da.Coordinate

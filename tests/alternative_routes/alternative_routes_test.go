@@ -151,6 +151,7 @@ func TestAlternativeRoutes(t *testing.T) {
 			if util.Gt(runtime, tc.maxRuntime) {
 				t.Errorf("want maximum runtime: %v, got: %v", tc.maxRuntime, runtime)
 			}
+
 		})
 	}
 }

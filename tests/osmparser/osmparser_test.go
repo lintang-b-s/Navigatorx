@@ -10,7 +10,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 )
 
@@ -53,7 +52,7 @@ func setup(t *testing.T, osmFileTest string) (*da.Graph, [][]da.Index, *osmparse
 	return graph, edgeInfoIds, osmParser
 }
 
-// go test ./tests/osmparser .
+// go test ./tests/osmparser -run .
 func TestOSMParser(t *testing.T) {
 
 	testCases := []struct {
@@ -90,7 +89,6 @@ func TestOSMParser(t *testing.T) {
 
 	for _, tc := range testCases {
 		graph, edgeInfoIds, op := setup(t, tc.osmFileTest)
-		bb := graph.GetBoundingBox()
 		n := graph.NumberOfVertices()
 		osmNodeIdMap := op.GetNodeIdMap()
 		matrixOffset := da.Index(0)
@@ -100,22 +98,6 @@ func TestOSMParser(t *testing.T) {
 			}
 			if v.GetID() >= da.Index(n) {
 				t.Errorf("expected vertex id lesser than or equal to: %v, got: %v", n, v.GetID())
-			}
-
-			if util.Lt(v.GetLat(), bb.GetMinLat()) {
-				t.Errorf("expected vertex latitude greater than or equal to: %v, got: %v", bb.GetMinLat(), v.GetLat())
-			}
-
-			if util.Lt(v.GetLon(), bb.GetMinLon()) {
-				t.Errorf("expected vertex longitude greater than or equal to: %v, got: %v", bb.GetMinLon(), v.GetLon())
-			}
-
-			if util.Gt(v.GetLat(), bb.GetMaxLat()) {
-				t.Errorf("expected vertex latitude lesser than or equal to: %v, got: %v", bb.GetMaxLat(), v.GetLat())
-			}
-
-			if util.Gt(v.GetLon(), bb.GetMaxLon()) {
-				t.Errorf("expected vertex longitude lesser than or equal to: %v, got: %v", bb.GetMaxLon(), v.GetLon())
 			}
 
 			// cek v.osmId

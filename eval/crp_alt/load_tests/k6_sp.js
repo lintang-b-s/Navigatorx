@@ -1,5 +1,5 @@
 import http from "k6/http";
-import { sleep, check } from "k6";
+import { check } from "k6";
 import { SharedArray } from "k6/data";
 
 // https://grafana.com/docs/k6/latest/testing-guides/api-load-testing/
@@ -22,14 +22,28 @@ const queryData = new SharedArray("queries", function () {
 });
 
 export const options = {
+  discardResponseBodies: true,
   thresholds: {
     http_req_failed: ["rate<0.01"], // http errors should be less than 1%
     http_req_duration: ["p(95)<100"], // 95% of requests should be below 100ms
   },
-  stages: [
-    { duration: "15s", target: parseInt(__ENV.VUS || "1000") },
-    { duration: __ENV.DURATION || "15s", target: parseInt(__ENV.VUS || "1000") },
-  ],
+  scenarios: {
+    contacts: {
+      executor: "ramping-arrival-rate",
+      startRate: 0,
+      timeUnit: "1s",
+      preAllocatedVUs: 50,
+      maxVUs: 150,
+
+      stages: [
+        { duration: "15s", target: parseInt(__ENV.RPS || "1000") },
+        {
+          duration: __ENV.DURATION || "15s",
+          target: parseInt(__ENV.RPS || "1000"),
+        },
+      ],
+    },
+  },
 };
 
 /*
@@ -114,5 +128,4 @@ export default () => {
       return false;
     },
   });
-  sleep(1);
 };
