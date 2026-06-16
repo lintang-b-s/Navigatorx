@@ -86,7 +86,8 @@ server:
     - "*"
   http_version: http1.1 # http2 or http1.1
   max_request_body_size: 1 # in MB
-  enable_pprof: false
+
+enable_pprof: false
 
 guidance:
   left_hand: true # https://en.wikipedia.org/wiki/Left-_and_right-hand_traffic  , example: Indonesia is left-hand traffic

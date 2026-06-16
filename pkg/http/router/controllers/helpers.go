@@ -29,7 +29,7 @@ func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data any) er
 
 	defer func() {
 		buf.Reset()
-		bufPool.Put(buf) // ada memory leak pas load test /computeAlternativeRoutes , ?
+		bufPool.Put(buf)
 	}()
 
 	enc := json.ConfigDefault.NewEncoder(buf)
