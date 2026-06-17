@@ -45,7 +45,7 @@ const (
 // there is also tests for crp query using test cases taken from
 // programming contests problems (such as ICPC regionals & Indonesian NOI)
 // which can be found in tests/shortestpath_crp_alt and tests/shortestpath
-// cd tests/query &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=query_coverage.out  -v -timeout=0  -count=1
+// cd tests/query &&  go test -v . --cover -failfast -coverpkg=../../pkg/... -coverprofile=query_coverage.out  -v -timeout=0  -count=1
 // go tool cover -func=query_coverage.out
 // go tool cover -html=query_coverage.out
 func TestCRPQuerySimple(t *testing.T) {
@@ -486,7 +486,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		return nil
 	}
 
-	workersDijkstra := concurrent.NewWorkerPool[int, any](70, 500)
+	workersDijkstra := concurrent.NewWorkerPool[int, any](70, 25_000)
 	ctx, cancel := context.WithCancel(context.Background())
 	workersDijkstra.StartWithContext(ctx, calcSpDijkstra)
 	go func() {
@@ -559,7 +559,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		return newCounterExampleData(0, 0, nil, nil, 0, 0, false)
 	}
 
-	workers := concurrent.NewWorkerPool[query, counterExampleData](70, 500)
+	workers := concurrent.NewWorkerPool[query, counterExampleData](70, 25_000)
 
 	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()

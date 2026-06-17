@@ -183,6 +183,15 @@ cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
 BenchmarkCRPALTQuery-12            42294            392012 ns/op                 0.3920 ms/op         2551 ops/sec          9405 B/op         54 allocs/op
 
 todo2: optimize sampai p95 latency computeRoute ngalahin osrm  (DONE)
+
+2026-06-17T16:11:22.794297704+07:00     info    starting benchmark.....
+goos: linux
+goarch: amd64
+pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkCRPALTQuery-12            46819            374541 ns/op                 0.3745 ms/op         2670 ops/sec          7412 B/op         13 allocs/op
+PASS
+ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       35.488s
 */
 func BenchmarkCRPALTQuery(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak

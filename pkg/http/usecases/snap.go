@@ -8,6 +8,13 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+type candidateSnap struct {
+	coord      da.Coordinate
+	dist       float64
+	distToEnd  float64
+	nextCoords []da.Coordinate
+}
+
 /*
 SnapOrigDestToNearbyRoadSegments. snap origin dan destination query ke road segment terdekatnya.
 serta terdapat path dari head dari road segment origin ke tail dari road segment destination hasil snap.
@@ -98,13 +105,6 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	// find nearest dst edge (outEdgeOffset) to qDstLat, qDstLon
 	dstCandidates := rs.spatialIndex.SearchWithinRadius(qDstLat, qDstLon, searchRad, 1)
 
-	type candidateSnap struct {
-		coord      da.Coordinate
-		dist       float64
-		distToEnd  float64
-		nextCoords []da.Coordinate
-	}
-
 	origSnaps := make([]candidateSnap, len(origCandidates))
 	dstSnaps := make([]candidateSnap, len(dstCandidates))
 
@@ -129,8 +129,8 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	minDistToEndpoint := pkg.INF_WEIGHT
 	bestPair := newOriginDestination(da.INVALID_EDGE_ID, da.INVALID_EDGE_ID,
 		da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON), da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON))
-	bestOriginNextCoords := make([]da.Coordinate, 0)
-	bestDestBefCoords := make([]da.Coordinate, 0)
+	var bestOriginNextCoords []da.Coordinate
+	var bestDestBefCoords []da.Coordinate
 
 	for i, o := range origCandidates {
 		for j, d := range dstCandidates {
@@ -304,7 +304,7 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 		harusnya kalau openstreetmap bisa support lane level routing (geometry dari setiap osm way yang two-way dibedain jadi dua sesuai arah dan lanenya ):
 		kita bisa snap ke edge yang lane osm way nya lebih deket ke titik query, kaya di gmaps berikut (lihat road segment destination):
 
-		https://www.google.com/maps/dir/Sans+Guest+House+2,+Jl.+Mulwo,+Karangasem,+Kec.+Laweyan,+Kota+Surakarta,+Jawa+Tengah+57145/-7.5541728,110.8270471/@-7.5542505,110.8247047,18.47z/data=!4m9!4m8!1m5!1m1!1s0x2e7a14403c5830dd:0x5a2e99d453ee8b46!2m2!1d110.7819826!2d-7.5504398!1m0!3e0?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
+		https://www.google.com/maps/dir/Sans+Guest+House+2,+Jl.+Mulwo,+Karangasem,+Kec.+Laweyan,+Kota+Surakarta,+Jawa+Tengah+57145/-7.5541728,110.8270471/@-7.5542505,110.8247047,18.47z/data=!4m1!4b1!4m3!4m2!3e0!5i2?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
 
 
 		tapi di osrm juga gak support beginian sih (lihat road segment destination):
@@ -313,15 +313,14 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 		karena osm way yang two-way edge geometry untuk arah forward dan backward sama di openstreetmap.
 	*/
 
-	nextEdgeGeometry := make([]da.Coordinate, 0, len(eGeometry))
+	// eGeometry lives for the engine lifetime, so a sub-slice avoids allocating
+	// a new buffer. Callers (PhantomNode.forwardGeometry) only read the values
+	// and copy them into the response path.
+	var nextEdgeGeometry []da.Coordinate
 	if !origin {
-		// kalau destination
-		// range lastIndex [0,len(geometry)-2]
-		nextEdgeGeometry = append(nextEdgeGeometry, eGeometry[:lastIndex+1]...)
+		nextEdgeGeometry = eGeometry[:lastIndex+1]
 	} else {
-		// kalau origin
-		// range lastIndex [0,len(geometry)-2]
-		nextEdgeGeometry = append(nextEdgeGeometry, eGeometry[lastIndex+1:]...)
+		nextEdgeGeometry = eGeometry[lastIndex+1:]
 	}
 
 	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist, distToEdgeEndpoint, nextEdgeGeometry

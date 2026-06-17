@@ -9,14 +9,12 @@ func (crp *CRPRoutingEngine[W]) RetrievePackedPath(forwardMid,
 	backwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey, W],
 	bpq *da.QueryHeap[da.CRPQueryKey, W], sForwardId, tBackwardId da.Index, sCellNumber da.Pv, s, t da.Index) []da.VertexEdgePair {
 
-	svPackedPath := make([]da.VertexEdgePair, 0, 32)
-	vtPackedPath := make([]da.VertexEdgePair, 0, 32)
+	forwardPackedPath := crp.RetrieveForwardPackedPath(forwardMid, fpq, sForwardId, sCellNumber, s)
+	backwardPackedPath := crp.RetrieveBackwardPackedPath(backwardMid, bpq, tBackwardId, sCellNumber, t)
 
-	forwardPackedPath := crp.RetrieveForwardPackedPath(svPackedPath, forwardMid, fpq, sForwardId, sCellNumber, s)
+	result := append(forwardPackedPath, backwardPackedPath...)
 
-	backwardPackedPath := crp.RetrieveBackwardPackedPath(vtPackedPath, backwardMid, bpq, tBackwardId, sCellNumber, t)
-
-	return append(forwardPackedPath, backwardPackedPath...)
+	return result
 }
 
 // RetrieveForwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari s ke mid.
@@ -28,9 +26,9 @@ func (crp *CRPRoutingEngine[W]) RetrievePackedPath(forwardMid,
 // shortcut edge (u,v) disusun oleh base edges yang menyusun shortest path dari overlay vertex u ke overlay vertex v
 // kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya
 // sehingga untuk unpacking shortcut edges ada tahapan di CRP bernama Path Unpacking (path_unpacker_alt.go)
-func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(svPackedPath []da.VertexEdgePair, forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey, W],
+func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey, W],
 	sForwardId da.Index, sCellNumber da.Pv, s da.Index) []da.VertexEdgePair {
-
+	svPackedPath := make([]da.VertexEdgePair, 0, 32)
 	// let n = number of edges in shortest path from s to mid, (from forward search)
 	// O(n)
 	mid := forwardMid
@@ -118,7 +116,7 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(svPackedPath []da.Vert
 	if len(svPackedPath) == 1 {
 		tail := crp.graph.GetTailFromOutEdge(svPackedPath[0].GetEdge())
 		if tail != s {
-			return make([]da.VertexEdgePair, 0)
+			return svPackedPath[:0]
 		}
 	}
 
@@ -126,8 +124,10 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(svPackedPath []da.Vert
 }
 
 // RetrieveBackwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari mid ke t.
-func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(vtPackedPath []da.VertexEdgePair, backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey, W],
+func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey, W],
 	tBackwardId da.Index, sCellNumber da.Pv, t da.Index) []da.VertexEdgePair {
+	vtPackedPath := make([]da.VertexEdgePair, 0, 32)
+
 	// let n = number of edges in shortest path from mid to t, (from backward search)
 	// worst: case O(n)
 
@@ -204,7 +204,7 @@ func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(vtPackedPath []da.Ver
 	if len(vtPackedPath) == 1 {
 		head := crp.graph.GetHeadOfOutEdge(vtPackedPath[0].GetEdge())
 		if head != t {
-			return make([]da.VertexEdgePair, 0)
+			return vtPackedPath[:0]
 		}
 	}
 

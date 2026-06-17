@@ -30,7 +30,6 @@ type RoutingEngine interface {
 	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
 	Close()
 	GetSegmentSpeed(eId da.Index, outEdge bool) float64
-	PutPathToPool(path []da.Index)
 	PutCoordsToPool(coords *da.Coordinates)
 }
 

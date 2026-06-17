@@ -14,14 +14,21 @@ cd tests/benchmark && go test -bench BenchmarkAlternativeRoutes -benchmem -cpupr
 
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 
-BenchmarkAlternativeRoutes-12               9158           1959775 ns/op                 1.960 ms/op           510.3 ops/sec      273223 B/op       1950 allocs/op
-
-2026-06-12T21:17:31.068577912+07:00     info    starting benchmark.....
-BenchmarkAlternativeRoutes-12              17528           1016850 ns/op                 1.017 ms/op           983.4 ops/sec      109088 B/op        625 allocs/op
+2026-06-16T18:42:48.380061587+07:00     info    starting benchmark.....
+BenchmarkAlternativeRoutes-12                      27051            663009 ns/op                 0.6630 ms/op         1508 ops/sec         47305 B/op        371 allocs/op
+PASS
+ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       94.224s
 
 CRP alternative routes query runtime match dengan hasil eksperimen ref [1] table 8, sekitar 3 ms
 
-todo2: optimize sampai p95 latency alternative routes ngalahin osrm (DONE)
+-17T15:28:34.829034405+07:00	info	starting benchmark.....
+goos: linux
+goarch: amd64
+pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkAlternativeRoutes-12    	   16534	   1033144 ns/op	         1.033 ms/op	     967.9 ops/sec	 26384 B/op	    67 allocs/op
+PASS
+ok  	github.com/lintang-b-s/Navigatorx/tests/benchmark	39.632s
 */
 func BenchmarkAlternativeRoutes(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak

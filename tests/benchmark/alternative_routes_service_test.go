@@ -12,7 +12,19 @@ import (
 )
 
 /*
-BenchmarkAlternativeRoutesService-12               13674           1275013 ns/op                 1.279 ms/op           784.3 ops/sec      121826 B/op        706 allocs/op
+go test -bench BenchmarkAlternativeRoutesService -benchmem -cpuprofile prof_alt_service.cpu -memprofile prof_alt_service.mem -benchtime=15s
+
+pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkAlternativeRoutesService-12               19237            920091 ns/op                 0.9228 ms/op         1087 ops/sec         54794 B/op        487 allocs/op
+PASS
+ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       32.122s
+
+pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkAlternativeRoutesService-12               18016            915288 ns/op                 0.9179 ms/op         1093 ops/sec         79267 B/op        213 allocs/op
+PASS
+ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       32.671s
 */
 func BenchmarkAlternativeRoutesService(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak

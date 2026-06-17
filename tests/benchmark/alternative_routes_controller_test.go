@@ -18,9 +18,16 @@ import (
 )
 
 /*
-cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
-BenchmarkAlternativeRoutesController-12            17343           1035039 ns/op                 1.035 ms/op           966.1 ops/sec      125265 B/op        684 allocs/op
+go test -bench BenchmarkAlternativeRoutesController -benchmem -cpuprofile prof_alt_controller.cpu -memprofile prof_alt_controller.mem -benchtime=15s
+
+BenchmarkAlternativeRoutesController-12            34322            445420 ns/op                 0.4455 ms/op         2245 ops/sec         42467 B/op        285 allocs/op
 PASS
+ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       29.818s
+
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkAlternativeRoutesController-12    	   40689	    423370 ns/op	      0.4234 ms/op	    2362 ops/sec	 21972 B/op	    81 allocs/op
+PASS
+ok  	github.com/lintang-b-s/Navigatorx/tests/benchmark	34.139s
 */
 func BenchmarkAlternativeRoutesController(b *testing.B) {
 	eng, _, _, logger := setup()

@@ -8,7 +8,6 @@ require (
 	github.com/bytedance/gopkg v0.1.4
 	github.com/bytedance/sonic v1.15.0
 	github.com/cockroachdb/errors v1.13.0
-	github.com/dgraph-io/ristretto/v2 v2.4.0
 	github.com/go-playground/locales v0.14.1
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.27.0
@@ -16,6 +15,7 @@ require (
 	github.com/justinas/alice v1.2.0
 	github.com/klauspost/compress v1.18.4
 	github.com/lintang-b-s/rtree v0.0.0-20260614132954-7a07821a437a
+	github.com/maypok86/otter/v2 v2.3.0
 	github.com/mmcloughlin/geohash v0.10.0
 	github.com/paulmach/osm v0.8.0
 	github.com/rs/cors v1.11.1
@@ -35,13 +35,11 @@ require (
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/bytedance/sonic/loader v0.5.0 // indirect
-	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/cloudwego/base64x v0.1.6 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/redact v1.1.5 // indirect
 	github.com/datadog/czlib v0.0.0-20160811164712-4bc9a24e37f2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
-	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/getsentry/sentry-go v0.46.0 // indirect

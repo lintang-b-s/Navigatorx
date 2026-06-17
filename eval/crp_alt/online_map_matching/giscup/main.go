@@ -532,7 +532,7 @@ func buildOrReadTransitionMatrix(re *engine.Engine[int32], graph *da.Graph, logg
 	}
 
 	matrix := da.NewSparseMatrix[int](graph.NumberOfEdges(), graph.NumberOfEdges(), 0, func(a, b int) bool { return a == b })
-	workers := concurrent.NewWorkerPool[query, []da.Index](100, 5)
+	workers := concurrent.NewWorkerPool[query, []da.Index](100, 25_000)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)

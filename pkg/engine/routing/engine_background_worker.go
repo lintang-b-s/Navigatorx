@@ -95,7 +95,7 @@ func (crp *CRPRoutingEngine[W]) updateMetrics() (err error) {
 		crp.logger.Sugar().Errorf("engine.checkCustomizerUpdate: failed to update precalculated landmark distances: %v\n", err)
 		return err
 	}
-	crp.puCache.Clear()
+	crp.puCache.InvalidateAll()
 	crp.logger.Sugar().Infof("updated the metrics and costFunction....")
 
 	return nil

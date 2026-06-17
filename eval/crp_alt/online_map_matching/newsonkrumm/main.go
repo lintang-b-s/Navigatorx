@@ -482,7 +482,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine[int32], *da.Graph
 		return edges
 	}
 
-	workers := concurrent.NewWorkerPool[query, []da.Index](100, 5)
+	workers := concurrent.NewWorkerPool[query, []da.Index](100, 25_000)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)

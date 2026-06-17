@@ -1,7 +1,6 @@
 package guidance
 
 import (
-	"encoding/binary"
 	"math"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -20,10 +19,10 @@ func (db *DirectionBuilder) getTurnSign(edgeId da.Index, tailId, prevNodeId, hea
 
 	key := util.Bitpack(uint32(db.prevEdge), uint32(edgeId))
 
-	if sign, ok := db.turnSignCache.Get(key); ok {
+	if val, ok := db.turnSignCache.GetIfPresent(key); ok {
 		db.updatePrevInitialBearing(edgeId)
-		db.nextStreetName = binary.LittleEndian.Uint32(sign[1:])
-		turn := da.TurnType(sign[0])
+		turn, streetName := unpackCacheVal(val)
+		db.nextStreetName = streetName
 		return turn
 	}
 
@@ -191,7 +190,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 	if !da.IsTurnSlight(sign) {
 		if !leavingPrevStreet || streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && curved) {
-			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID), 1)
+			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
 			return da.IGNORE
 		}
 
@@ -220,7 +219,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 					if db.isSameConsecutiveTurn(sign, nextSign) {
 
-						db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
+						db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 						return sign
 					}
 				}
@@ -237,7 +236,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 		}
 
 		// sign is not CONTINUE/TURN_SLIGHT_* & street name berubah dari prev edge ke curr edge & not split/merged street -> output sign
-		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
+		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 		return sign
 	} else if leavingPrevStreet && (sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_SLIGHT_RIGHT) && !streetMergedSkip && !streetSplitSkip {
 		//  sign TURN_SLIGHT_*  & leavingPrevStreet &  not split/merged street -> output sign
@@ -248,19 +247,19 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 
 		if db.isStreetMerged(edgeId, db.prevEdge, currStreetName, prevStreetName, isSamePrimaryName) {
 			sign = da.MERGE_ONTO
-			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
+			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
 		}
 
 		if alternativeTurnsCount >= 1 {
-			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
+			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
 		}
 	}
 
 	if (sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_SLIGHT_RIGHT) && (streetMergedSkip || streetSplitSkip) {
 
-		db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID), 1)
+		db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
 		return da.IGNORE
 	}
 
@@ -288,11 +287,11 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 		if util.Lt(currRelativeBearingDeg, CONTINUE_ALT_CURRENT_RELATIVE_BEARING) && util.Gt(alternativeTurnRelativeBearingDeg, CONTINUE_ALT_TURN_RELATIVE_BEARING) {
 			// bearing difference antara prevEdge dan currentEDge < 7° (CONTINUE Direction), Edge otherContinueEdge > 8.6 (TURN SLIGHT or more direction).
 			if db.nextStreetName == da.INVALID_STREET_NAME_ID || !leavingPrevStreet {
-				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID), 1)
+				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
 				return da.IGNORE
 			}
 
-			db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, db.nextStreetName), 1)
+			db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, db.nextStreetName))
 			return da.CONTINUE_ON_STREET
 		}
 
@@ -317,7 +316,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 				// contoh dari tail: https://www.openstreetmap.org/node/11294649720
 				// dari tail osm node diatas ada 2 edge ke head: https://www.openstreetmap.org/node/11294649718
 				// dan edge satunya ke head: https://www.openstreetmap.org/node/11294649719  (dari jalan curved/uturn ke kanan)
-				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID), 1)
+				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
 				return da.IGNORE
 			}
 
@@ -334,12 +333,12 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 			if currRelativeBearing > alternativeTurnRelativeBearing {
 
 				if !db.useLookForward { // only set cache kalo gak pake lookForward, ribet buat correctness nya wkwk
-					db.turnSignCache.Set(key, makeCacheVal(da.KEEP_RIGHT, db.nextStreetName), 1)
+					db.turnSignCache.Set(key, makeCacheVal(da.KEEP_RIGHT, db.nextStreetName))
 				}
 				return da.KEEP_RIGHT
 			} else {
 				if !db.useLookForward {
-					db.turnSignCache.Set(key, makeCacheVal(da.KEEP_LEFT, db.nextStreetName), 1)
+					db.turnSignCache.Set(key, makeCacheVal(da.KEEP_LEFT, db.nextStreetName))
 				}
 				return da.KEEP_LEFT
 			}
@@ -356,15 +355,15 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(edgeId da.Index, tailId, prevN
 	if leavingPrevStreet && currStreetName != "" && prevStreetName != "" {
 		if db.isStreetMerged(edgeId, db.prevEdge, currStreetName, prevStreetName, isSamePrimaryName) {
 			sign = da.MERGE_ONTO
-			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName), 1)
+			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
 		}
 
-		db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, currStreetNameId), 1)
+		db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, currStreetNameId))
 		return da.CONTINUE_ON_STREET
 	}
 
-	db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID), 1)
+	db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
 	return da.IGNORE
 }
 
@@ -415,11 +414,12 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 	db.nextStreetName = db.graph.GetStreetNameId(edgeId)
 }
 
-func makeCacheVal(sign da.TurnType, streetName uint32) []byte {
-	buf := make([]byte, 4+1)
-	buf[0] = byte(sign)
-	binary.LittleEndian.PutUint32(buf[1:], streetName)
-	return buf
+func makeCacheVal(sign da.TurnType, streetName uint32) uint64 {
+	return uint64(sign) | uint64(streetName)<<8
+}
+
+func unpackCacheVal(val uint64) (da.TurnType, uint32) {
+	return da.TurnType(val & 0xff), uint32(val >> 8)
 }
 
 func (db *DirectionBuilder) updatePrevInitialBearing(edgeId da.Index) {

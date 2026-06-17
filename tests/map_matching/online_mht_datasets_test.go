@@ -81,7 +81,7 @@ func ommBuildOrReadTransitionMatrix(t *testing.T, re *engine.Engine[int32], grap
 		return edges
 	}
 
-	workers := concurrent.NewWorkerPool[ommTransitionQuery, []da.Index](100, 5)
+	workers := concurrent.NewWorkerPool[ommTransitionQuery, []da.Index](100, 25_000)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)

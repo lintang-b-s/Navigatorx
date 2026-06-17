@@ -152,8 +152,8 @@ func (us *CRPUniDijkstraOneToMany[W]) ShortestPathOneToManySearch(asId da.Index,
 
 		util.ReverseG[da.VertexEdgePair](idPath)
 
-		unpacker := NewPathUnpacker(us.engine, us.engine.metrics, us.engine.puCache, true, true)
-		edgeIdPath, _ := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()))
+		unpacker := NewPathUnpacker(us.engine)
+		edgeIdPath, _ := unpacker.unpackPath(idPath, us.sCellNumber, us.engine.graph.GetCellNumber(t.gettId()), true)
 		finalPath, totalDistance := us.engine.GetEdgePath(edgeIdPath, 0)
 		tdists[t.getatId()] = totalDistance
 		tfinalPath[t.getatId()] = *finalPath

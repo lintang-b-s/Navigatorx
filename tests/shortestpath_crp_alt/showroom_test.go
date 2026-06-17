@@ -205,7 +205,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		return nil
 	}
 
-	workers := concurrent.NewWorkerPool[pair, any](50, 5)
+	workers := concurrent.NewWorkerPool[pair, any](50, 25_000)
 	ctx, cancel := context.WithCancel(context.Background())
 	workers.StartWithContext(ctx, calcSp)
 	go func() {

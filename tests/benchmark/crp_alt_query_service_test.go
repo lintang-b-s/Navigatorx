@@ -18,6 +18,15 @@ pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
 BenchmarkShortestPathService-12            32131            530657 ns/op                 0.5328 ms/op         1884 ops/sec         16138 B/op        130 allocs/op
 PASS
+
+2026-06-17T16:07:11.600544051+07:00     info    R-tree spatial index built.
+goos: linux
+goarch: amd64
+pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkShortestPathService-12            29205            568201 ns/op                 0.5700 ms/op         1760 ops/sec          5955 B/op         33 allocs/op
+PASS
+ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       32.103s
 */
 func BenchmarkShortestPathService(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak

@@ -202,7 +202,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 		return edges
 	}
 
-	workers := concurrent.NewWorkerPool[hhQuery, []da.Index](100, 5)
+	workers := concurrent.NewWorkerPool[hhQuery, []da.Index](100, 25_000)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)

@@ -6,7 +6,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
@@ -35,8 +34,6 @@ func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFil
 	}, nil
 }
 
-const keyValByteApproxSize = 8 + 4*5
-
 func NewEngineDirect[W util.RoutingNumber](
 	graph *da.Graph,
 	overlayGraph *da.OverlayGraph,
@@ -52,18 +49,10 @@ func NewEngineDirect[W util.RoutingNumber](
 	default:
 		util.USE_INT32 = true
 	}
-	const maxCost = int64(1) << 20
-	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
-		NumCounters: (maxCost / keyValByteApproxSize) * 5, // number of keys to track frequency of .
-		MaxCost:     maxCost,                              // maximum cost of cache .
-		BufferItems: 64,                                   // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, fmt.Errorf("NewEngineDirect: failed to create new ristretto cache with capacity: %v: %w", maxCost, err)
-	}
+	puCache := da.NewPuCache()
 
 	lm := landmark.NewLandmark[W]()
-	err = lm.PreprocessALT(4, m, graph, logger)
+	err := lm.PreprocessALT(4, m, graph, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -106,17 +95,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
 
-	const maxCost = int64(1) << 28
-	const maxItems = (maxCost / keyValByteApproxSize)
-	const numCounters = maxItems * 3
-	puCache, err := ristretto.NewCache(&ristretto.Config[[]byte, []da.Index]{
-		NumCounters: numCounters, // number of keys to track frequency of .
-		MaxCost:     maxCost,     // maximum cost of cache .
-		BufferItems: 64,          // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, fmt.Errorf("initializeRoutingEngine: failed to create new ristretto cache with capacity: %v: %w", maxCost, err)
-	}
+	puCache := da.NewPuCache()
 
 	re := routing.NewCRPRoutingEngine(
 		graph, overlayGraph, m, logger, puCache, landmarkFile, readBuf,

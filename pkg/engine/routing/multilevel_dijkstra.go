@@ -329,11 +329,6 @@ func (bs *CRPBidirectionalSearch[W]) ShortestPathSearch(sp, tp da.PhantomNode) (
 	bs.forwardPq.Insert(sForwardId, 0, sVertexInfo, sQueryKey)
 	bs.backwardPq.Insert(tBackwardId, 0, tVertexInfo, tQueryKey)
 
-	close := func(id da.Index, queryHeap *da.QueryHeap[da.CRPQueryKey, W]) {
-		// scan item (can be edgeId or overlay vertex id)
-		queryHeap.Scan(id)
-	}
-
 	addViaVertex := func(uItem da.CRPQueryKey, forward bool, overlay bool) {
 		if !overlay && forward {
 			uId := uItem.GetNode()
@@ -401,13 +396,12 @@ func (bs *CRPBidirectionalSearch[W]) ShortestPathSearch(sp, tp da.PhantomNode) (
 		uItem := queryKey.GetItem()
 
 		if !uItem.IsOverlay() {
-			close(uItem.GetEntryExitPoint(), bs.forwardPq)
+			bs.forwardPq.Scan(uItem.GetEntryExitPoint())
 			addViaVertex(uItem, true, false)
 			bs.forwardGraphSearch(uItem, s, t)
 		} else {
-			close(bs.engine.offsetOverlay(uItem.GetNode()), bs.forwardPq)
+			bs.forwardPq.Scan(bs.engine.offsetOverlay(uItem.GetNode()))
 			addViaVertex(uItem, true, true)
-
 			bs.forwardOverlayGraphSearch(uItem, s, t)
 			bs.numScannedOverlayVertices++
 		}
@@ -415,11 +409,11 @@ func (bs *CRPBidirectionalSearch[W]) ShortestPathSearch(sp, tp da.PhantomNode) (
 		queryKey = bs.backwardPq.ExtractMin()
 		uItem = queryKey.GetItem()
 		if !uItem.IsOverlay() {
-			close(uItem.GetEntryExitPoint(), bs.backwardPq)
+			bs.backwardPq.Scan(uItem.GetEntryExitPoint())
 			addViaVertex(uItem, false, false)
 			bs.backwardGraphSearch(uItem, s, t)
 		} else {
-			close(bs.engine.offsetOverlay(uItem.GetNode()), bs.backwardPq)
+			bs.backwardPq.Scan(bs.engine.offsetOverlay(uItem.GetNode()))
 			addViaVertex(uItem, false, true)
 			bs.backwardOverlayGraphSearch(uItem, s, t)
 			bs.numScannedOverlayVertices++
@@ -438,7 +432,7 @@ func (bs *CRPBidirectionalSearch[W]) ShortestPathSearch(sp, tp da.PhantomNode) (
 	dur := time.Since(now).Milliseconds()
 	bs.runtime = dur
 
-	unpacker := NewPathUnpackerALT(bs.engine, true)
+	unpacker := NewPathUnpackerALT(bs.engine)
 	defer unpacker.DonePooled()
 	edgeIdPath, shortcutPathSet := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.shortcutPathSet = shortcutPathSet

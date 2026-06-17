@@ -3,10 +3,10 @@ package guidance
 import (
 	"math"
 
-	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/maypok86/otter/v2"
 )
 
 // https://wiki.openstreetmap.org/wiki/Sample_driving_instructions/template_TEMPLATE
@@ -16,11 +16,12 @@ import (
 // https://wiki.openstreetmap.org/wiki/Highway_link
 
 type DirectionBuilder struct {
-	turnSignCache *ristretto.Cache[uint64, []byte] // cache untuk turn sign dari (prevEdgeId, currEdgeId) untuk di jalan Nasional, Jalan provinsi, dan Jalan kabupaten
+	turnSignCache *otter.Cache[uint64, uint64] // cache untuk turn sign dari (prevEdgeId, currEdgeId) untuk di jalan Nasional, Jalan provinsi, dan Jalan kabupaten. Uses uint64 value to avoid the per-call byte-slice allocation of the previous []byte encoding
 
-	instructions     []da.Instruction
-	prevInstruction  int
-	turnDescriptions []string
+	instructions      []da.Instruction
+	prevInstruction   int
+	turnDescriptions  []string
+	drivingDirections []da.DrivingDirection
 
 	edgeIds          []da.Index
 	path             []da.Index
@@ -57,7 +58,7 @@ type DirectionBuilder struct {
 }
 
 func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
-	turnSignCache *ristretto.Cache[uint64, []byte]) *DirectionBuilder {
+	turnSignCache *otter.Cache[uint64, uint64]) *DirectionBuilder {
 
 	clockwise := lefthand
 
@@ -71,10 +72,13 @@ func NewDirectionBuilder(engine RoutingEngine, graph Graph, lefthand bool,
 		lefthand:                 lefthand,
 		prevPoint:                da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON),
 		prevEdge:                 da.Index(da.INVALID_EDGE_ID),
-		turnDescriptions:         make([]string, 256),
-		instructions:             make([]da.Instruction, 0),
+		turnDescriptions:         make([]string, 0, 16),
+		drivingDirections:        make([]da.DrivingDirection, 0, 16),
+		instructions:             make([]da.Instruction, 0, 16),
 		prevInstruction:          -1,
-		edgeIds:                  make([]da.Index, 0),
+		edgeIds:                  make([]da.Index, 0, 16),
+		geometry:                 da.Coordinates{},
+		alternativeTurns:         make([]da.Index, 0),
 		lastPathId:               0,
 		turnSignCache:            turnSignCache,
 		prevSign:                 da.IGNORE,
@@ -93,6 +97,7 @@ func (db *DirectionBuilder) reset() {
 func (db *DirectionBuilder) done() {
 	db.instructions = db.instructions[:0]
 	db.turnDescriptions = db.turnDescriptions[:0]
+	db.drivingDirections = db.drivingDirections[:0]
 	db.edgeIds = db.edgeIds[:0]
 	db.geometry = db.geometry[:0]
 	db.prevInstruction = -1
@@ -171,17 +176,16 @@ func (db *DirectionBuilder) GetDrivingDirections(
 		db.buildFinalInstruction(db.path[m-1], tp)
 	}
 
-	n := len(db.instructions)
-	db.turnDescriptions = make([]string, n)
+	db.turnDescriptions = db.turnDescriptions[:0]
 
 	for i := range db.instructions {
 		desc := db.instructions[i].GetTurnDescription(db.clockwise)
-		db.turnDescriptions[i] = desc
+		db.turnDescriptions = append(db.turnDescriptions, desc)
 	}
 
-	drivingDirections := make([]da.DrivingDirection, 0, n)
+	db.drivingDirections = db.drivingDirections[:0]
+
 	for i := range db.instructions {
-		ins := &db.instructions[i]
 		var (
 			currStepTravelTime, currStepDistance float64
 		)
@@ -190,11 +194,11 @@ func (db *DirectionBuilder) GetDrivingDirections(
 			currStepDistance = db.instructions[i].GetCumulativeDistance() - db.instructions[i-1].GetCumulativeDistance()
 		}
 
-		drivingDirections = append(drivingDirections, da.NewDrivingDirection(*ins, db.turnDescriptions[i],
-			currStepTravelTime, currStepDistance, ins.GetEdgeIds(), ins.GetTurnBearing(), ins.GetAnnotation()))
+		db.drivingDirections = append(db.drivingDirections, da.NewDrivingDirection(db.instructions[i], db.turnDescriptions[i],
+			currStepTravelTime, currStepDistance, db.instructions[i].GetEdgeIds(), db.instructions[i].GetTurnBearing(), db.instructions[i].GetAnnotation()))
 	}
 
-	return drivingDirections
+	return db.drivingDirections
 }
 
 func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode) {

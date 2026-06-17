@@ -33,7 +33,7 @@ export const options = {
       startRate: 0,
       timeUnit: "1s",
       preAllocatedVUs: 50,
-      maxVUs: 150,
+      maxVUs: __ENV.MAXVUS || 150,
 
       stages: [
         { duration: "15s", target: parseInt(__ENV.RPS || "1000") },

@@ -7,13 +7,13 @@ import (
 	"runtime"
 	"sync"
 
-	"github.com/dgraph-io/ristretto/v2"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/maypok86/otter/v2"
 	"go.uber.org/zap"
 )
 
@@ -23,15 +23,13 @@ type CRPRoutingEngine[W util.RoutingNumber] struct {
 	metrics             *met.Metric[W]
 	lm                  *landmark.Landmark[W]
 	logger              *zap.Logger
-	puCache             *ristretto.Cache[[]byte, []da.Index]
+	puCache             *otter.Cache[da.PUCacheKey, []da.Index]
 	verticesLookupTable *customizer.LookupTable[uint64]
 
 	fHeapPool          sync.Pool
 	bHeapPool          sync.Pool
 	pufOverlayHeapPool sync.Pool
 	pufBaseHeapPool    sync.Pool
-	packedPathPool     sync.Pool
-	unpackedPathPool   sync.Pool
 
 	coordsPool         sync.Pool
 	bidirSearchPool    sync.Pool
@@ -45,7 +43,7 @@ type CRPRoutingEngine[W util.RoutingNumber] struct {
 
 func NewCRPRoutingEngine[W util.RoutingNumber](graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric[W],
-	logger *zap.Logger, puCache *ristretto.Cache[[]byte, []da.Index],
+	logger *zap.Logger, puCache *otter.Cache[da.PUCacheKey, []da.Index],
 	landmarkFile string, readBuf *bufio.Reader,
 ) *CRPRoutingEngine[W] {
 	var err error
@@ -123,20 +121,6 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 		},
 	}
 
-	crp.packedPathPool = sync.Pool{
-		New: func() any {
-			s := make([]da.VertexEdgePair, 0, PACKED_PATH_SIZE)
-			return &s
-		},
-	}
-
-	crp.unpackedPathPool = sync.Pool{
-		New: func() any {
-			s := make([]da.Index, 0, UNPACKED_PATH_SIZE)
-			return &s
-		},
-	}
-
 	crp.coordsPool = sync.Pool{
 		New: func() any {
 			cs := da.NewCoordinatesWithCap(0)
@@ -158,8 +142,7 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 
 	crp.pathUnpackerPool = sync.Pool{
 		New: func() any {
-			pu := newPathUnpackerALTAlloc[W](crp, crp.metrics, crp.puCache, crp.lm)
-			pu.engine = crp
+			pu := newPathUnpackerALTAlloc[W](crp)
 			return pu
 		},
 	}
@@ -173,7 +156,8 @@ func (crp *CRPRoutingEngine[W]) initParameter() {
 }
 
 func (crp *CRPRoutingEngine[W]) Close() {
-	crp.puCache.Close()
+	crp.puCache.InvalidateAll()
+	crp.puCache.StopAllGoroutines()
 }
 
 // GetWeight. get weight of outEdge/inEdge
@@ -232,16 +216,9 @@ func (crp *CRPRoutingEngine[W]) IsDummyInEdge(eId da.Index) bool {
 	return crp.graph.IsDummyInEdge(eId)
 }
 
-func (crp *CRPRoutingEngine[W]) PutPathToPool(path []da.Index) {
-	crp.unpackedPathPool.Put(&path)
-}
-
 // PutCoordsToPool returns a *Coordinates to the engine's coords pool so the
 // underlying slice can be reused on the next GetEdgePath / GetCoords call.
 func (crp *CRPRoutingEngine[W]) PutCoordsToPool(coords *da.Coordinates) {
-	if coords == nil {
-		return
-	}
 	coords.Reset()
 	crp.coordsPool.Put(coords)
 }

@@ -615,7 +615,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		streetDirection[int64(way.ID)] = [2]bool{true, true}
 	}
 
-	waySegment := []node{}
+	waySegment := make([]node, 0, 16)
 	for _, wayNode := range way.Nodes {
 		nodeId := int64(wayNode.ID)
 		wayNodeData := p.wayNodeMap[nodeId]
@@ -629,7 +629,7 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 			waySegment = append(waySegment, nodeData)
 			p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraInfoData,
 				scannedEdges, int64(way.ID))
-			waySegment = []node{}
+			waySegment = make([]node, 0, 16)
 
 			waySegment = append(waySegment, nodeData)
 		} else {

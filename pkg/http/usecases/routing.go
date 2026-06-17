@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/bytedance/gopkg/collection/hashset"
-	"github.com/dgraph-io/ristretto/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/offline"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -14,6 +13,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/maypok86/otter/v2"
 	"go.uber.org/zap"
 )
 
@@ -30,7 +30,7 @@ type RoutingService struct {
 
 	directionBuilderPool *sync.Pool
 	candidatePairSetPool *sync.Pool
-	turnSignCache        *ristretto.Cache[uint64, []byte]
+	turnSignCache        *otter.Cache[uint64, uint64]
 }
 
 func NewRoutingService(log *zap.Logger, engine controllers.RoutingEngine, spatialIndex SpatialIndex, altRouting AlternativeRouteAlgorithm,
@@ -46,18 +46,7 @@ func NewRoutingService(log *zap.Logger, engine controllers.RoutingEngine, spatia
 		altRouting:      altRouting,
 	}
 
-	var err error
-	const keyValByteSize = 12
-	const maxCost = int64(1) << 25
-	const numCounters = (maxCost / keyValByteSize) * 3
-	rs.turnSignCache, err = ristretto.NewCache(&ristretto.Config[uint64, []byte]{
-		NumCounters: numCounters, // number of keys to track frequency of .
-		MaxCost:     maxCost,     // maximum cost of cache .
-		BufferItems: 64,          // number of keys per Get buffer.
-	})
-	if err != nil {
-		return nil, fmt.Errorf("initializeRoutingEngine: failed to create new ristretto cache with capacity: %v: %w", maxCost, err)
-	}
+	rs.turnSignCache = da.NewTurnSignCache()
 
 	rs.directionBuilderPool = &sync.Pool{
 		New: func() any {
@@ -115,7 +104,6 @@ func (rs *RoutingService) ShortestPath(
 		directionBuilder.SetReroute(startEdgeId)
 	}
 	drivingDirection := directionBuilder.GetDrivingDirections(edgePath, sp, tp, useAnnotation)
-	rs.engine.PutPathToPool(edgePath[:0])
 	rs.engine.PutCoordsToPool(pathCoords)
 
 	directionBuilder.Reset()
@@ -163,7 +151,6 @@ func (rs *RoutingService) AlternativeRouteSearch(
 		edgeIDPath := alt.GetEdgeIdPath()
 		drivingDirection := directionBuilder.GetDrivingDirections(edgeIDPath, sp, tp, useAnnotation)
 		alternatives[i].SetDrivingDirections(drivingDirection)
-		rs.engine.PutPathToPool(edgeIDPath[:0])
 		rs.engine.PutCoordsToPool(altPathCoords)
 
 		directionBuilder.Reset()
@@ -173,7 +160,8 @@ func (rs *RoutingService) AlternativeRouteSearch(
 }
 
 func (rs *RoutingService) Close() {
-	rs.turnSignCache.Close()
+	rs.turnSignCache.InvalidateAll()
+	rs.turnSignCache.StopAllGoroutines()
 }
 
 func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64, dist float64) (float64, float64) {

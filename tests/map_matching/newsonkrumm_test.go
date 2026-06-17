@@ -330,7 +330,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		return routeEdges
 	}
 
-	workers := concurrent.NewWorkerPool[nkQuery, []da.Index](100, 5)
+	workers := concurrent.NewWorkerPool[nkQuery, []da.Index](100, 25_000)
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)

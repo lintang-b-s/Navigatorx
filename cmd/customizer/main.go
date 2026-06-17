@@ -18,7 +18,7 @@ var (
 	profileName       string
 	profileFilePath   = flag.String("profile", "./data/car.yaml", "profile file path")
 	regionName        = flag.String("region", "diy_solo_semarang", "region name")
-	edgeSpeedsFile    = flag.StringSlice("edge-speed-file", []string{}, "edge speed csv file. example usage --edge-speed-file=blokade.csv,traffic_solo.csv")
+	edgeSpeedsFile    = flag.StringSlice("segment-speed-file", []string{}, "segment speed csv file. example usage --segment-speed-file=blokade.csv,traffic_solo.csv")
 	turnPenaltiesFile = flag.StringSlice("turn-penalty-file", []string{}, "turn penaltiy csv file. example usage --turn-penalty-file=tutup_portal.csv")
 	graphFile         string
 	overlayGraphFile  string

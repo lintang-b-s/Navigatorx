@@ -119,7 +119,7 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 		turnBearing:          turnBearing,
 	}
 
-	_, ins.turnType = getDirectionDescription(sign, &ins, clockwise)
+	_, ins.turnType = getDirectionDescription(sign, ins.roundabout.exited, ins.roundabout.exitNumber, clockwise)
 
 	return ins
 }
@@ -222,15 +222,13 @@ func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 	streetName = strings.ReplaceAll(streetName, "\x00", "")
 
 	sign := ins.GetTurnSign()
-	var description string
 
 	switch sign {
 	case CONTINUE_ON_STREET:
 		if isEmpty(streetName) {
-			description = "Continue"
-		} else {
-			description = fmt.Sprintf("Continue onto %s", streetName)
+			return "Continue"
 		}
+		return "Continue onto " + streetName
 	case START:
 		if ins.hasHeading {
 			headingAngle := ins.heading
@@ -240,45 +238,37 @@ func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 			}
 			compassDir := bearingToCompass(headingAngle)
 			if streetName != "" {
-				description = fmt.Sprintf("Head %s toward %s", compassDir, streetName)
+				return "Head " + compassDir + " toward " + streetName
 			} else {
-				description = fmt.Sprintf("Head %s", compassDir)
+				return "Head " + compassDir
 			}
-		} else {
-			description = fmt.Sprintf("Head toward %s", streetName)
 		}
+		return "Head toward " + streetName
 	case FINISH:
-		description = "you have arrived at your destination"
-	default:
-		dir, _ := getDirectionDescription(sign, ins, clockwise)
-		if dir == "" {
-			description = fmt.Sprintf("unknown  %d", sign)
-		} else {
-			if isEmpty(streetName) {
-				description = dir
-			} else {
-				switch dir {
-				case "Keep left":
-					description = fmt.Sprintf("%s to continue on %s", dir, streetName)
-				case "Keep right":
-					description = fmt.Sprintf("%s continue on %s", dir, streetName)
+		return "you have arrived at your destination"
 
-				default:
-
-					description = fmt.Sprintf("%s onto %s", dir, streetName)
-				}
-			}
-		}
 	}
-
-	return description
+	dir, _ := getDirectionDescription(sign, ins.roundabout.exited, ins.roundabout.exitNumber, clockwise)
+	if dir == "" {
+		return fmt.Sprintf("unknown  %d", sign)
+	}
+	if isEmpty(streetName) {
+		return dir
+	}
+	switch dir {
+	case "Keep left":
+		return dir + " to continue on " + streetName
+	case "Keep right":
+		return dir + " continue on " + streetName
+	}
+	return dir + " onto " + streetName
 }
 
 func isEmpty(str string) bool {
 	return strings.TrimSpace(str) == ""
 }
 
-func getDirectionDescription(sign TurnType, ins *Instruction, clockwise bool) (string, string) {
+func getDirectionDescription(sign TurnType, roundaboutExited bool, roundaboutExitNum int, clockwise bool) (string, string) {
 	switch sign {
 	case U_TURN_UNKNOWN:
 		return "Make U-turn", "U_TURN_RIGHT"
@@ -307,7 +297,7 @@ func getDirectionDescription(sign TurnType, ins *Instruction, clockwise bool) (s
 	case CONTINUE_ON_STREET:
 		return "Continue onto", "CONTINUE_ONTO"
 	case USE_ROUNDABOUT:
-		if !ins.roundabout.exited {
+		if !roundaboutExited {
 			return "Enter the roundabout", "USE_ROUNDABOUT"
 		}
 		roundaboutDir := "clockwise"
@@ -315,9 +305,8 @@ func getDirectionDescription(sign TurnType, ins *Instruction, clockwise bool) (s
 			roundaboutDir = "counter-clockwise"
 		}
 
-		return fmt.Sprintf("At Roundabout, take the exit point %d %s", ins.roundabout.exitNumber,
-			roundaboutDir), ""
-
+		return fmt.Sprintf("At Roundabout, take the exit point %d %s",
+			roundaboutExitNum, roundaboutDir), ""
 	default:
 		return "", ""
 	}
@@ -370,6 +359,7 @@ func NewDrivingDirection(ins Instruction, description string, prevTravelTime, pr
 }
 
 func (d *DrivingDirection) GetInstruction() string {
+
 	return d.instruction
 }
 
