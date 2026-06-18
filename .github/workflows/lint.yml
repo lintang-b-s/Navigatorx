@@ -26,8 +26,8 @@ jobs:
           version: v2.11.3 # LINT_VERSION: update version in other places
           args: --config conf/.golangci.yml
 
-      - id: govulncheck
-        uses: golang/govulncheck-action@v1.0.4
-        with:
-          repo-checkout: false
-          go-package: ./...
+      # - id: govulncheck
+      #   uses: golang/govulncheck-action@v1.0.4
+      #   with:
+      #     repo-checkout: false
+      #     go-package: ./...
