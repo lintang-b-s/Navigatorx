@@ -17,30 +17,55 @@ import (
 	"go.uber.org/zap"
 )
 
-var bufPool = sync.Pool{
-	New: func() any {
-		return bytes.NewBuffer(make([]byte, 0, JSON_BUF_POOL_SIZE))
-	},
+type JSONEncoderPool struct {
+	pool sync.Pool
 }
+
+type encoderWrapper struct {
+	buf     *bytes.Buffer
+	encoder json.Encoder
+}
+
+func NewJSONEncoderPool() *JSONEncoderPool {
+	return &JSONEncoderPool{
+		pool: sync.Pool{
+			New: func() interface{} {
+				buf := bytes.NewBuffer(make([]byte, 0, JSON_BUF_POOL_SIZE))
+				return &encoderWrapper{
+					buf:     buf,
+					encoder: json.ConfigDefault.NewEncoder(buf),
+				}
+			},
+		},
+	}
+}
+
+var (
+	jencPool = NewJSONEncoderPool()
+)
 
 // writeJSON marshals data structure to encoded JSON response.
 func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data any) error {
-	buf := bufPool.Get().(*bytes.Buffer)
-
+	jenc := jencPool.pool.Get().(*encoderWrapper)
 	defer func() {
-		buf.Reset()
-		bufPool.Put(buf)
+		jenc.buf.Reset()
+		jencPool.pool.Put(jenc)
 	}()
 
-	enc := json.ConfigDefault.NewEncoder(buf)
-
-	if err := enc.Encode(data); err != nil {
+	if err := jenc.encoder.Encode(data); err != nil {
 		return err
 	}
 
+	b := jenc.buf.Bytes()
+	if len(b) > 0 && b[len(b)-1] == '\n' {
+		b = b[:len(b)-1]
+	}
+	result := make([]byte, len(b))
+	copy(result, b)
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	if _, err := buf.WriteTo(w); err != nil {
+	if _, err := w.Write(result); err != nil {
 		api.log.Error("failed to write JSON response", zap.Error(err))
 		return err
 	}

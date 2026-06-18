@@ -270,7 +270,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(sp, tp da.PhantomNod
 	viaVertices := crpQuery.GetViaVertices()
 	viaVertices = ars.filterByUniqueId(viaVertices)
 
-	optPathSet, motorwaySet := ars.buildPathSet(optEdgeIdPath)
+	optPathSet, motorwaySet := ars.buildPathMotorwaySet(optEdgeIdPath)
 
 	shortcutPathSet := crpQuery.getShortcutPathSet()
 	unpacker := NewPathUnpackerALT(ars.engine)
@@ -297,19 +297,27 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(sp, tp da.PhantomNod
 	filteredCandidates = filteredCandidates[:c]
 
 	res := make([]AlternativeRoute, 0, c)
+	resSet := make([]map[da.Index]struct{}, 0, c)
 
 	for _, v := range filteredCandidates {
 		alternativeRoute := arf.computeAlternative(v)
 		if isEmptyAlternativeRoute(alternativeRoute) {
 			continue
 		}
+
+		if len(res) > 0 && !ars.differToOtherAlternatives(resSet, alternativeRoute.GetEdgeIdPath()) {
+			continue
+		}
+
 		res = append(res, alternativeRoute)
+		resSet = append(resSet, ars.buildEdgesPathSet(alternativeRoute.GetEdgeIdPath()))
 	}
 
 	clear(arf.optPathSet)
 	clear(arf.motorwaySet)
 	indexMapPool.Put(arf.optPathSet)
 	indexMapPool.Put(arf.motorwaySet)
+	putSetsToPool(resSet)
 
 	slices.SortFunc(res, func(a, b AlternativeRoute) int {
 		return cmp.Compare(a.GetObjectiveValue(), b.GetObjectiveValue())
@@ -328,6 +336,41 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(sp, tp da.PhantomNod
 	runtime := time.Since(now).Milliseconds()
 
 	return res, optTravelTime, runtime
+}
+
+func intersection(otherAltSet map[da.Index]struct{}, alt []da.Index) int {
+	n := 0
+	for _, v := range alt {
+		if _, ok := otherAltSet[v]; ok {
+			n++
+		}
+	}
+	return n
+}
+
+func jaccardDistance(otherAltSet map[da.Index]struct{}, alt []da.Index) float64 {
+	inter := intersection(otherAltSet, alt)
+	lena, lenb := len(alt), len(otherAltSet)
+	union := lena + lenb - inter
+	return 1.0 - float64(inter)/float64(union)
+}
+
+const (
+	minAltsDiversity = 0.3
+)
+
+func (ars *AlternativeRouteSearch[W]) differToOtherAlternatives(otherAltSets []map[da.Index]struct{}, alt []da.Index) bool {
+	minDist := math.MaxFloat64
+	for i := 0; i < len(otherAltSets); i++ {
+		jcdDist := jaccardDistance(otherAltSets[i], alt)
+		if jcdDist < minDist {
+			minDist = jcdDist
+			if minDist < minAltsDiversity {
+				return false
+			}
+		}
+	}
+	return minDist >= minAltsDiversity
 }
 
 type AlternativeRouteFilter[W util.RoutingNumber] struct {
@@ -560,8 +603,27 @@ func (ars *AlternativeRouteSearch[W]) calculateDistanceShare(svPath, vtPath []da
 	return distanceShare
 }
 
-func (ars *AlternativeRouteSearch[W]) buildPathSet(optPath []da.Index) (map[da.Index]struct{}, map[da.Index]struct{}) {
+func (ars *AlternativeRouteSearch[W]) buildEdgesPathSet(edgesPath []da.Index) map[da.Index]struct{} {
+	edgesPathSet := indexMapPool.Get().(map[da.Index]struct{})
+	for _, eId := range edgesPath {
+		edgesPathSet[eId] = struct{}{}
+	}
+	return edgesPathSet
+}
+
+func (ars *AlternativeRouteSearch[W]) buildPathSet(optPath []da.Index) map[da.Index]struct{} {
 	optPathSet := indexMapPool.Get().(map[da.Index]struct{})
+
+	for _, eId := range optPath {
+		eHead := ars.engine.graph.GetHeadOfOutEdge(eId)
+		v := eHead
+		optPathSet[v] = struct{}{}
+	}
+	return optPathSet
+}
+
+func (ars *AlternativeRouteSearch[W]) buildPathMotorwaySet(optPath []da.Index) (map[da.Index]struct{}, map[da.Index]struct{}) {
+	optPathSet := ars.buildPathSet(optPath)
 	motorwaySet := indexMapPool.Get().(map[da.Index]struct{})
 
 	for _, eId := range optPath {
@@ -576,6 +638,12 @@ func (ars *AlternativeRouteSearch[W]) buildPathSet(optPath []da.Index) (map[da.I
 		optPathSet[v] = struct{}{}
 	}
 	return optPathSet, motorwaySet
+}
+
+func putSetsToPool(sets []map[da.Index]struct{}) {
+	for _, v := range sets {
+		indexMapPool.Put(v)
+	}
 }
 
 // calculateApproxDistanceShare. calculate sharing amount (edge weights) dari packed path dari alternative route P_v dan optimal/shortest route Opt
@@ -924,53 +992,6 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 
 	return plateau
 }
-
-// func removeSimiliarAlternatives(alts []AlternativeRoute) []AlternativeRoute {
-// 	set := make([]map[da.Index]struct{}, 0, len(alts))
-
-// 	res := make([]AlternativeRoute, 0, len(alts))
-// 	for _, alt := range alts {
-// 		// O(N^2 * M), N=len(alts), M=max{len(alts.edges[i])}, for each 0<=i<len(alts)
-// 		altPath := alt.GetEdgeIdPath()
-
-// 		addToRes := true
-// 		for j := 0; j < len(set); j++ {
-// 			// check similarity with other previous alternative routes
-// 			intersection := 0.0
-
-// 			setJ := set[j]
-// 			for _, e := range altPath {
-// 				if _, exists := setJ[e]; exists {
-// 					intersection++
-// 				}
-// 			}
-
-// 			unionSize := float64(len(setJ) + len(altPath) - int(intersection)) // |A \cup B| = |A|+|B|-|A \cap B|
-
-// 			if unionSize == 0 {
-// 				continue
-// 			}
-
-// 			jaccardSimilarity := (intersection / unionSize) * 100
-// 			if jaccardSimilarity >= pkg.ALTERNATIVE_ROUTE_SIMILARITY_THRESHOLD {
-// 				// add alt to result if similarity with other alternative route < pkg.ALTERNATIVE_ROUTE_SIMILARITY_THRESHOLD
-// 				addToRes = false
-// 				break
-// 			}
-// 		}
-
-// 		if addToRes {
-// 			res = append(res, alt)
-
-// 			altSet := make(map[da.Index]struct{}, len(altPath))
-// 			for _, e := range altPath {
-// 				altSet[e] = struct{}{}
-// 			}
-// 			set = append(set, altSet)
-// 		}
-// 	}
-// 	return res
-// }
 
 func (ars *AlternativeRouteSearch[W]) parameterByRequest(s, t da.Index) AlternativeRouteParameters {
 
