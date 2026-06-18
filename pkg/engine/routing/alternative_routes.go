@@ -641,7 +641,8 @@ func (ars *AlternativeRouteSearch[W]) buildPathMotorwaySet(optPath []da.Index) (
 }
 
 func putSetsToPool(sets []map[da.Index]struct{}) {
-	for _, v := range sets {
+	for i, v := range sets {
+		clear(sets[i])
 		indexMapPool.Put(v)
 	}
 }
