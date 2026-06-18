@@ -18,6 +18,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -95,7 +96,7 @@ func main() {
 	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
 	tilingEngine := tiler.NewTilingEngine(graph, logger, cf)
 	tilingService := usecases.NewTileService(logger, tilingEngine)
-
+	util.FreeMemory()
 	serverErr := api.Use(
 		logger, *useRateLimiter, routingService, tilingService, shutdownPeriod*time.Second)
 

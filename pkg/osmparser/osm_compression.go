@@ -1,9 +1,10 @@
 package osmparser
 
 import (
+	"fmt"
+
 	"github.com/bits-and-blooms/bitset"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -61,12 +62,14 @@ func (p *OsmParser) compressOSMGraph(
 		outEdges[edge.from] = append(outEdges[edge.from], edgeId)
 		inEdges[edge.to] = append(inEdges[edge.to], edgeId)
 	}
+	dfsState := make([]int, numVertices)
 
 	// A 1-in/1-out vertex is only a candidate. Metadata compatibility below
 	// decides whether removing it preserves routing and guidance behavior.
 	protected := p.compressionProtectedVertices(edges, storage)
 	contractible := make([]bool, numVertices) // if contractible[vertex] == true, incomingEdge->vertex->outgouingEdge can be compressed as one edge
 	for vertex := range contractible {
+		dfsState[vertex] = unvisited
 		if protected[vertex] || len(inEdges[vertex]) != 1 || len(outEdges[vertex]) != 1 {
 			// only compress vertices that only have inDegree=1 & outDegree=1
 			continue
@@ -80,6 +83,15 @@ func (p *OsmParser) compressOSMGraph(
 			&edges[inID], &edges[outID], storage, da.Index(inID), da.Index(outID),
 			streetDirection, p.osmWayDefaultSpeed,
 		)
+	}
+
+	for u := range contractible {
+		if dfsState[u] == unvisited && contractible[u] {
+			cycle, v := cycleCheck(uint32(u), dfsState, outEdges, edges, contractible)
+			if cycle {
+				contractible[v] = false
+			}
+		}
 	}
 
 	// Removed vertices keep INVALID_VERTEX_ID. Every surviving vertex receives
@@ -144,18 +156,15 @@ func (p *OsmParser) compressOSMGraph(
 		util.ReverseG(compressibleEdges)
 
 		edgeId = outEdges[v][0]
-		cycle := discovered[edges[edgeId].to]
-		if !cycle {
-			for {
-				compressibleEdges = append(compressibleEdges, edgeId)
-				compressedEdgesSet.Set(uint(edgeId))
-				head := edges[edgeId].to
-				if !contractible[head] || discovered[head] {
-					break
-				}
-				discovered[head] = true
-				edgeId = outEdges[head][0]
+		for {
+			compressibleEdges = append(compressibleEdges, edgeId)
+			compressedEdgesSet.Set(uint(edgeId))
+			head := edges[edgeId].to
+			if !contractible[head] || discovered[head] {
+				break
 			}
+			discovered[head] = true
+			edgeId = outEdges[head][0]
 		}
 
 		mergedEdge, geometry, curved := mergeOSMEdgeChain(edges, storage, compressibleEdges, oldToNew)
@@ -264,6 +273,12 @@ func protectWayGraphNodes(protected []bool, way osmWay) {
 	}
 }
 
+const (
+	unvisited int = iota
+	explored      // visisted but not yet completed
+	visited       // visited and completed
+)
+
 // canCompress reports whether removing the shared vertex preserves
 // routing, access, and guidance semantics.
 //
@@ -282,9 +297,7 @@ func canCompress(
 	if inEdge.containsTrafficLight || outEdge.containsTrafficLight {
 		return false
 	}
-	if !compressionContinuesStraight(storage, inID, outID) {
-		return false
-	}
+
 	if storage.IsRoundabout(inID) || storage.IsRoundabout(outID) {
 		return false
 	}
@@ -309,25 +322,24 @@ func canCompress(
 			int64(outEdge.weight)*int64(inEdge.distance)
 }
 
-// compressionContinuesStraight checks the local maneuver at the shared vertex.
-// Only a continue-straight maneuver may disappear; bends that guidance would
-// describe as turns must retain their vertex and separate edges.
-func compressionContinuesStraight(storage *da.GraphStorage, inID, outID da.Index) bool {
-	inLength := storage.GetEdgeGeometryLength(inID)
-	outLength := storage.GetEdgeGeometryLength(outID)
-	if inLength < 2 || outLength < 2 {
-		return false
+// cycleCheck. find cycle of contractible vertices.
+func cycleCheck(u uint32, dfsState []int, outEdges [][]int, edges []Edge[int32], contractible []bool) (bool, uint32) {
+	dfsState[u] = explored
+	for _, eId := range outEdges[u] {
+		v := edges[eId].to
+		if !contractible[v] {
+			continue
+		}
+		if dfsState[v] == explored || dfsState[v] == visited {
+			return true, v
+		}
+		if found, w := cycleCheck(v, dfsState, outEdges, edges, contractible); found {
+			return true, w
+		}
 	}
 
-	prev := storage.GetEdgeGeometryPoint(inID, inLength-2)
-	vertex := storage.GetEdgeGeometryPoint(inID, inLength-1)
-	next := storage.GetEdgeGeometryPoint(outID, 1)
-	prevBearing := geo.ComputeInitialBearing(
-		prev.GetLat(), prev.GetLon(), vertex.GetLat(), vertex.GetLon(),
-	)
-	return geo.GetTurnDirection(
-		vertex.GetLat(), vertex.GetLon(), next.GetLat(), next.GetLon(), prevBearing,
-	) == da.CONTINUE_ON_STREET
+	dfsState[u] = visited
+	return false, 0
 }
 
 // mergeOSMEdgeChain combines one maximal chain into a single edge.
@@ -368,6 +380,9 @@ func mergeOSMEdgeChain(
 	merged.from = uint32(oldToNew[first.from])
 	merged.to = uint32(oldToNew[last.to])
 	merged.weight = int32(totalWeight)
+	if merged.to == uint32(da.INVALID_VERTEX_ID) {
+		fmt.Printf("debug")
+	}
 	merged.distance = uint32(totalLength)
 	merged.toOsmId = last.toOsmId
 	merged.junctionHead = last.junctionHead

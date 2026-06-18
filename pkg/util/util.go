@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"runtime"
+	"runtime/debug"
 	"strconv"
 	"strings"
 
@@ -102,6 +104,11 @@ func ParseFloat64(value []byte) (float64, error) {
 		return 0, err
 	}
 	return math.Float64frombits(binary.LittleEndian.Uint64(value)), nil
+}
+
+func FreeMemory() {
+	runtime.GC()
+	debug.FreeOSMemory()
 }
 
 func ParseTextInt(value string) (int, error) {
