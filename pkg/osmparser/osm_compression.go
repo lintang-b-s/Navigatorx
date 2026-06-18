@@ -50,7 +50,7 @@ func (p *OsmParser) compressOSMGraph(
 	edges []Edge[int32],
 	storage *da.GraphStorage,
 	streetDirection map[int64][2]bool,
-) ([]Edge[int32], *da.GraphStorage, uint32, error) {
+) ([]Edge[int32], *da.GraphStorage, uint32) {
 	numVertices := len(p.nodeToOsmId)
 
 	// Edge indexes make degree checks and chain traversal constant time.
@@ -144,16 +144,20 @@ func (p *OsmParser) compressOSMGraph(
 		util.ReverseG(compressibleEdges)
 
 		edgeId = outEdges[v][0]
-		for {
-			compressibleEdges = append(compressibleEdges, edgeId)
-			compressedEdgesSet.Set(uint(edgeId))
-			head := edges[edgeId].to
-			if !contractible[head] || discovered[head] {
-				break
+		cycle := discovered[edges[edgeId].to]
+		if !cycle {
+			for {
+				compressibleEdges = append(compressibleEdges, edgeId)
+				compressedEdgesSet.Set(uint(edgeId))
+				head := edges[edgeId].to
+				if !contractible[head] || discovered[head] {
+					break
+				}
+				discovered[head] = true
+				edgeId = outEdges[head][0]
 			}
-			discovered[head] = true
-			edgeId = outEdges[head][0]
 		}
+
 		mergedEdge, geometry, curved := mergeOSMEdgeChain(edges, storage, compressibleEdges, oldToNew)
 
 		sourceID := da.Index(compressibleEdges[0])
@@ -196,7 +200,7 @@ func (p *OsmParser) compressOSMGraph(
 	p.nodeToOsmId = newNodeToOSMID
 	p.nodeIDMap = newNodeIDMap
 	p.remapCompressedGraphNodes(oldToNew)
-	return compressed, compressedStorage, uint32(newVertexID), nil
+	return compressed, compressedStorage, uint32(newVertexID)
 }
 
 // compressionProtectedVertices marks vertices that carry semantics an edge

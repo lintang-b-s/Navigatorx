@@ -449,12 +449,10 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *costf
 		p.ways[wayId] = way
 	}
 
-	scannedEdges, graphStorage, numVertices, err := p.compressOSMGraph(
+	scannedEdges, graphStorage, numVertices := p.compressOSMGraph(
 		scannedEdges, graphStorage, streetDirection,
 	)
-	if err != nil {
-		return nil, nil, nil, fmt.Errorf("compress OSM graph: %w", err)
-	}
+
 	graph, timeFunction, edgeInfoIds := p.BuildGraph(
 		scannedEdges, graphStorage, numVertices, true,
 	)
