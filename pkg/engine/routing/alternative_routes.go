@@ -50,7 +50,9 @@ func (ar *AlternativeRoute) GetDrivingDirections() []da.DrivingDirection {
 	return ar.drivingDirections
 }
 func (ar *AlternativeRoute) SetDrivingDirections(dds []da.DrivingDirection) {
-	ar.drivingDirections = dds
+	ddsCopy := make([]da.DrivingDirection, len(dds))
+	copy(ddsCopy, dds)
+	ar.drivingDirections = ddsCopy
 }
 
 func (ar *AlternativeRoute) GetDrivingTravelTime() float64 {

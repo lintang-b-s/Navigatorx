@@ -71,7 +71,7 @@ func (api *API) Run(
 
 	viper.SetDefault("server.read_timeout", "2s")
 	viper.SetDefault("server.write_timeout", "2s")
-	viper.SetDefault("server.idle_timeout", "240s") // keep-alive tcp connection pool timeout
+	viper.SetDefault("server.idle_timeout", "240s") // keep-alive  timeout
 	viper.SetDefault("server.read_header_timeout", "2s")
 	viper.SetDefault("enable_pprof", false)
 	viper.SetDefault("server.allowed_origins", []string{"*"})

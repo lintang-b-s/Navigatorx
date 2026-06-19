@@ -308,6 +308,9 @@ func (c *Customizer[W]) makeTurnTable(
 			containsTrafficLight := fromInEdge.ContainsTrafficLight() || toOutEdge.ContainsTrafficLight()
 			if containsTrafficLight {
 				turnTableSeconds[turnTableId] += trafficLightPenalty
+			} else {
+				// only add turning cost di persimpangan bangjo
+				return
 			}
 
 			fromSegmentStreetName := c.graph.GetStreetName(eIdFrom)

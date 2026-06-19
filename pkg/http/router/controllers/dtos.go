@@ -108,10 +108,7 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirec
 	}
 }
 
-// NewDrivingDirections converts driving directions to the response DTO. When
-// useAnnotation is false, the Annotation field of each entry is the zero
-// value, which causes sonic to omit it from the JSON output (omitzero), saving
-// the per-instruction allocation of duration/distance/geometry slices.
+// NewDrivingDirections converts driving directions to the response DTO.
 func NewDrivingDirections(d []da.DrivingDirection, useAnnotation bool) []drivingDirection {
 	drivingDirections := make([]drivingDirection, len(d))
 	if useAnnotation {

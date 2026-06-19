@@ -80,7 +80,7 @@ server:
   api_timeout: 5s
   read_timeout: 60s
   write_timeout: 0s # disable absolute response write deadline for long offline map matching requests
-  idle_timeout: 240s # keep-alive tcp connection pool timeout
+  idle_timeout: 240s # keep-alive  timeout
   read_header_timeout: 10s
   allowed_origins:
     - "*"

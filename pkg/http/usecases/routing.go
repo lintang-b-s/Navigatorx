@@ -103,12 +103,12 @@ func (rs *RoutingService) ShortestPath(
 	if reroute {
 		directionBuilder.SetReroute(startEdgeId)
 	}
-	drivingDirection := directionBuilder.GetDrivingDirections(edgePath, sp, tp, useAnnotation)
+	drivingDirections := directionBuilder.GetDrivingDirections(edgePath, sp, tp, useAnnotation)
 	rs.engine.PutCoordsToPool(pathCoords)
 
 	directionBuilder.Reset()
 	rs.directionBuilderPool.Put(directionBuilder)
-	return travelTime, dist, pathPolyline, drivingDirection, true, nil
+	return travelTime, dist, pathPolyline, drivingDirections, true, nil
 }
 
 func (rs *RoutingService) AlternativeRouteSearch(
@@ -149,8 +149,8 @@ func (rs *RoutingService) AlternativeRouteSearch(
 			directionBuilder.SetReroute(startEdgeId)
 		}
 		edgeIDPath := alt.GetEdgeIdPath()
-		drivingDirection := directionBuilder.GetDrivingDirections(edgeIDPath, sp, tp, useAnnotation)
-		alternatives[i].SetDrivingDirections(drivingDirection)
+		drivingDirections := directionBuilder.GetDrivingDirections(edgeIDPath, sp, tp, useAnnotation)
+		alternatives[i].SetDrivingDirections(drivingDirections)
 		rs.engine.PutCoordsToPool(altPathCoords)
 
 		directionBuilder.Reset()
