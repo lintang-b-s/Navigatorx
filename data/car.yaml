@@ -25,7 +25,7 @@ highway_whitelist:
   - private
 
 # see land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
-# supported: motorcycle, car. todo: ( bicycle, foot, , bus, hgv, goods, taxi, minibus)
+# supported: motorcycle, car. todo: ( bicycle, foot, bus, hgv, goods, taxi, minibus)
 vehicle_type: motorcar
 landmarks: 8
 

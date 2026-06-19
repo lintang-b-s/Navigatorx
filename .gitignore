@@ -69,3 +69,6 @@ data/eval/
 *.zip
 *.ntf
 bin/default.pgo
+!data/traffic_solo.csv
+!data/blokade_solo.csv
+

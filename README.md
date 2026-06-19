@@ -54,9 +54,31 @@ go build -o ./bin/engine -pgo=./bin/default.pgo  ./cmd/engine
 ```
 
 ### Traffic Update
-todo tambah text
 
+If you have real-time traffic data, you can also update the weights of the affected road segments (edges) while the query engine is running. <br>
+example: <br>
 
+```
+./bin/customizer --segment-speed-file=./data/traffic_solo.csv,./data/blokade_solo.csv
+```
+
+For changes in the duration (weight) of road segments, the csv file follows the following format: <br>
+
+```
+from_osm_id, to_osm_id, edge_speed_in_km_h
+```
+
+from/to OSM node IDs must be connected. Note that for some OSM nodes that only have indegree and outdegree equal to 1, the node may be compressed/contracted so that only the two adjacent nodes to the contracted node remain in the compressed graph. <br>
+
+After you run the command above, the query engine will provide the following log: <br>
+
+```
+2026-06-19T18:18:15.251949597+07:00     info    engine.checkCustomizerUpdate: file modification time changed  old=1781867857  new=1781867894
+, updating the metrics and costFunction....
+2026-06-19T18:18:15.890226994+07:00     info    updated the metrics and costFunction....
+```
+
+navigatorx also supports updating turn penalties with the customizer cmd flag "--turn-penalty-file", whose csv file follows the same format.
 
 ## Tests
 
