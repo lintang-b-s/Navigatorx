@@ -38,7 +38,7 @@ go build -o ./bin/preprocessor ./cmd/preprocessor
 
 ### Customization
 
-The Customizable Route Planning CRP customization phase ([[1]](#ref1)) computes the shortcut weights at each cell of the multilevel partitioning result and computes landmark distances for the ALT algorithm (A\* search, landmarks, and triangle inequality) ([[3]](#ref3)).
+The Customizable Route Planning CRP customization phase ([[1]](#ref1)) computes the shortcut weights at each cell of the multilevel partitioning result. The customizer also computes landmark distances for the ALT algorithm (A* search, landmarks, and triangle inequality) ([[3]](#ref3)).
 
 ```
 go build -o ./bin/customizer ./cmd/customizer
