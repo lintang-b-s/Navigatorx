@@ -115,7 +115,7 @@ https://doi.org/10.1287/trsc.2014.0579 .
 Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
 https://doi.org/10.1007/978-3-642-13193-6_3 .
 
-<a id="ref3"></a>3. Goldberg, A. and Harrelson, C. (2005) “Computing the shortest path: A search meets
+<a id="ref3"></a>3. Goldberg, A. and Harrelson, C. (2005) “Computing the shortest path: A* search meets
 graph theory,” in. ACM-SIAM Symposium on Discrete Algorithms. Vancouver:
 ACM, pp. 156 - 165.
 

@@ -15,6 +15,8 @@ servers:
 tags:
   - name: Routing
     description: Point-to-point routing and alternative route queries.
+  - name: Map Matching
+    description: Offline map matching for GPX tracks.
   - name: Map Data
     description: Map bounds and tiled graph data for client-side map matching.
   - name: System
@@ -77,6 +79,59 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AlternativeRoutesEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /api/mapmatching:
+    post:
+      tags:
+        - Map Matching
+      summary: Offline map matching
+      description: Performs offline map matching on a GPX track. Accepts a GPX XML body and returns matched GPS points along with the route path.
+      parameters:
+        - in: query
+          name: gps_radiuses
+          required: false
+          description: Semicolon-separated per-point GPS accuracy radii in meters. The count must match the number of trackpoints in the GPX body.
+          schema:
+            type: string
+          example: "10;15;10"
+        - in: query
+          name: gps_radius
+          required: false
+          description: Single GPS accuracy radius in meters applied to all points. Ignored when `gps_radiuses` is provided.
+          schema:
+            type: number
+            format: double
+            minimum: 0
+          example: 10
+        - in: query
+          name: include_route_path
+          required: false
+          description: Whether to include the reconstructed route path in the response.
+          schema:
+            type: boolean
+            default: false
+      requestBody:
+        required: true
+        description: GPX XML track to match.
+        content:
+          application/gpx+xml:
+            schema:
+              $ref: '#/components/schemas/GPX'
+          application/xml:
+            schema:
+              $ref: '#/components/schemas/GPX'
+      responses:
+        '200':
+          description: Successful offline map-matching response.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OfflineMapMatchingEnvelope'
         '400':
           $ref: '#/components/responses/BadRequest'
         '500':
@@ -446,8 +501,6 @@ components:
         - street_name
         - travel_time
         - distance
-        - edge_ids
-        - polyline
         - turn_bearing
         - turn_type
         - suggest_alternatives
@@ -471,16 +524,6 @@ components:
           type: number
           format: double
           description: Distance covered by this instruction in meters.
-        edge_ids:
-          type: array
-          description: Internal road-segment IDs associated with this maneuver.
-          items:
-            type: integer
-            format: int32
-            minimum: 0
-        polyline:
-          type: string
-          description: Encoded polyline geometry for this route segment.
         turn_bearing:
           type: number
           format: double
@@ -508,10 +551,15 @@ components:
             type: number
             format: double
         geometry:
+          type: string
+          description: Encoded polyline geometry for the annotated route.
+        edge_ids:
           type: array
-          description: Coordinates for the annotated route geometry.
+          description: Road-segment IDs for each edge in the annotation.
           items:
-            $ref: '#/components/schemas/Coordinate'
+            type: integer
+            format: int32
+            minimum: 0
         edge_geometry_offset:
           type: array
           description: Geometry offsets for each edge in the annotation.
@@ -533,3 +581,115 @@ components:
           type: number
           format: double
           description: Longitude coordinate.
+    GPX:
+      type: object
+      description: GPX XML document containing a track with trackpoints.
+      properties:
+        trk:
+          type: object
+          properties:
+            trkseg:
+              type: object
+              properties:
+                trkpt:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/TrkPt'
+    TrkPt:
+      type: object
+      description: A single trackpoint within a GPX track segment.
+      required:
+        - lat
+        - lon
+      properties:
+        lat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+          description: Latitude of the trackpoint.
+        lon:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
+          description: Longitude of the trackpoint.
+        time:
+          type: string
+          format: date-time
+          description: Timestamp of the trackpoint in RFC 3339 format.
+    OfflineMapMatchingEnvelope:
+      type: object
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/OfflineMapMatchingResponse'
+    OfflineMapMatchingResponse:
+      type: object
+      required:
+        - matched_points
+        - route_path
+      properties:
+        matched_points:
+          type: array
+          description: GPS points matched to the road network.
+          items:
+            $ref: '#/components/schemas/MatchedGPSPoint'
+        route_path:
+          type: array
+          description: Coordinates of the reconstructed route path.
+          items:
+            $ref: '#/components/schemas/Coordinate'
+    MatchedGPSPoint:
+      type: object
+      required:
+        - gps_point
+        - edge_id
+        - matched_coord
+        - predicted_gps_coord
+        - edge_initial_bearing
+      properties:
+        gps_point:
+          $ref: '#/components/schemas/GPSPoint'
+        edge_id:
+          type: integer
+          format: int32
+          minimum: 0
+          description: Road-segment ID matched to this GPS point.
+        matched_coord:
+          $ref: '#/components/schemas/Coordinate'
+        predicted_gps_coord:
+          $ref: '#/components/schemas/Coordinate'
+        edge_initial_bearing:
+          type: number
+          format: double
+          description: Initial bearing of the matched edge in degrees.
+    GPSPoint:
+      type: object
+      required:
+        - lat
+        - lon
+      properties:
+        lat:
+          type: number
+          format: double
+          description: Latitude of the GPS point.
+        lon:
+          type: number
+          format: double
+          description: Longitude of the GPS point.
+        time:
+          type: string
+          format: date-time
+          description: Timestamp of the GPS reading.
+        speed:
+          type: number
+          format: double
+          minimum: 0
+          description: Speed at this GPS point in m/s.
+        delta_time:
+          type: number
+          format: double
+          minimum: 0
+          description: Time delta in seconds from the previous GPS point.
