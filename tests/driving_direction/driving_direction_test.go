@@ -2,6 +2,7 @@ package drivingdirection
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -41,13 +42,14 @@ func TestDrivingDirection(t *testing.T) {
 			qDestinationCoord: da.NewCoordinate(-7.575219943065335, 110.8267931836022),
 			wantDirections: []string{
 				"Head West",
+				"Turn right",
 				"Turn left",
-				"Turn left",
-				"Turn right onto Jalan Sawo Raya",
-				"Turn left onto Jalan Sawo Raya",
-				"Turn left onto Jalan Jenderal Ahmad Yani",
-				"Continue onto Jalan Brigadir Jenderal Slamet Riyadi",
-				"Keep right",
+				"Turn right",
+				"Turn right onto Jalan Adi Sucipto",
+				"At Roundabout, take the exit point 2 clockwise onto Jalan Adi Sucipto",
+				"Keep right continue on Fly Over Manahan",
+				"Merge onto onto Jalan Dokter Muwardi",
+				"Turn left onto Jalan Brigadir Jenderal Slamet Riyadi",
 				"Turn right onto Jalan Yos Sudarso",
 				"Turn left",
 				"Turn right onto Jalan Reksoniten",
@@ -86,8 +88,11 @@ func TestDrivingDirection(t *testing.T) {
 				"Turn left",
 				"Turn right",
 				"Turn right onto Jalan Adi Sucipto",
-				"At Roundabout, take the exit point 1 clockwise onto Jalan Jenderal Achmad Yani",
-				"Turn slight left onto Jalan Letnan Jenderal Suprapto",
+				"At Roundabout, take the exit point 2 clockwise onto Jalan Adi Sucipto",
+				"Turn left onto Jalan M.H. Thamrin",
+				"Continue onto Jalan Letnan Jenderal Suprapto",
+				"Turn sharp left onto Jalan Jenderal Achmad Yani",
+				"Turn sharp right onto Jalan Letnan Jenderal Suprapto",
 				"Turn left onto Jalan Kutai Raya",
 				"Turn right onto Jalan Kutai 8",
 				"Turn right onto Jalan Kutai Utara",
@@ -102,13 +107,18 @@ func TestDrivingDirection(t *testing.T) {
 			qDestinationCoord: da.NewCoordinate(-7.5989204, 110.8167583),
 			wantDirections: []string{
 				"Head South",
+				"Turn right",
+				"Turn sharp right",
+				"Turn slight left",
+				"Turn right",
 				"Turn left",
-				"Turn right onto Jalan Sawo Raya",
-				"Turn left onto Jalan Sawo Raya",
-				"Turn left onto Jalan Jenderal Ahmad Yani",
-				"Continue onto Jalan Brigadir Jenderal Slamet Riyadi",
-				"Keep right",
-				"Turn right onto Jalan Bhayangkara",
+				"Turn right onto Jalan Adi Sucipto",
+				"At Roundabout, take the exit point 2 clockwise onto Jalan Adi Sucipto",
+				"Keep right continue on Fly Over Manahan",
+				"Merge onto onto Jalan Dokter Muwardi",
+				"Turn left onto Jalan Brigadir Jenderal Slamet Riyadi",
+				"Turn right onto Jalan Honggowongso",
+				"Turn slight left",
 				"Turn left onto Jalan Veteran",
 				"Turn right onto Jalan Yos Sudarso",
 				"Turn left",
@@ -127,9 +137,11 @@ func TestDrivingDirection(t *testing.T) {
 			wantDirections: []string{
 				"Head North",
 				"Turn left",
+				"Turn left onto Jalan Ki Hadjar Dewantara",
+				"Turn slight left",
 				"Turn right onto Jalan Ki Hadjar Dewantara",
-				"Turn left",
-				"Turn right onto Jalan Insinyur Sutami",
+				"Turn left onto Jalan Insinyur Sutami",
+				"Make U-turn right onto Jalan Insinyur Sutami",
 				"At Roundabout, take the exit point 1 clockwise onto Jalan Kolonel Sutarto",
 				"Continue onto Jalan Jenderal Achmad Yani",
 				"Turn slight right onto Jalan Jenderal Achmad Yani",
@@ -149,18 +161,17 @@ func TestDrivingDirection(t *testing.T) {
 			wantDirections: []string{
 				"Head South toward Jalan Tulang Bawang Utara 1",
 				"Turn right",
-				"Turn left",
+				"Turn left onto Jalan Tulang Bawang 2",
+				"Turn left onto Jalan Tulang Bawang Selatan",
+				"Turn right onto Jalan Tulang Bawang Selatan 2",
 				"Turn left onto Jalan Pamugaran Utama",
 				"Turn sharp right onto Jalan Pamugaran Utama",
 				"Turn left onto Jalan Pamugaran Utama",
-				"Turn right onto Simpang Joglo",
-				"Turn right onto Jalan Kapten Pierre Tendean",
+				"At Roundabout, take the exit point 3 clockwise onto Jalan Kapten Pierre Tendean",
 				"Continue onto Jembatan Kalianyar",
 				"Turn left onto Jalan Jenderal Achmad Yani",
 				"Turn right onto Jalan Letnan Jenderal S. Parman",
 				"Turn right onto Jalan Sultan Syahrir",
-				"Turn left",
-				"Turn right",
 				"Turn left onto Jalan R.M. Said",
 				"Turn right onto Jalan Teuku Umar",
 				"Turn right onto Jalan Ronggowarsito",
@@ -175,20 +186,23 @@ func TestDrivingDirection(t *testing.T) {
 			},
 		},
 	}
-
+	valhallaVisualizerPolylineUrl := func(polyline string) string {
+		return fmt.Sprintf("https://valhalla.github.io/demos/polyline/?unescape=true&polyline6=false#%s", polyline)
+	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			orig := tc.qOriginCoord
 			dest := tc.qDestinationCoord // todo: aneh setelah tambahin multiple via-way turn restrictions jadi gak kedetect turn instruction buat roundabout manahan (DONE)
-			_, _, _, drivingDirections, _, _ := routingService.ShortestPath(context.Background(), orig.GetLat(), orig.GetLon(),
+			_, _, polyline, drivingDirections, _, _ := routingService.ShortestPath(context.Background(), orig.GetLat(), orig.GetLon(),
 				dest.GetLat(), dest.GetLon(), false, 0, true)
 			if len(drivingDirections) != len(tc.wantDirections) {
 				t.Errorf("expected driving directions length: %v, got: %v", len(tc.wantDirections), len(drivingDirections))
 			}
-
+			polylineUrl := valhallaVisualizerPolylineUrl(polyline)
+			t.Logf("%s", polylineUrl)
 			for i := 0; i < len(drivingDirections); i++ {
 				if drivingDirections[i].GetInstruction() != tc.wantDirections[i] {
-					t.Errorf("expected %v-th driving direction instruction: %v, got: %v", i, tc.wantDirections[i], drivingDirections[i].GetInstruction())
+					t.Errorf("expected %v-th driving direction instruction: %v, got: %v", i+1, tc.wantDirections[i], drivingDirections[i].GetInstruction())
 				}
 			}
 		})

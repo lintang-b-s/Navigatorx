@@ -250,7 +250,6 @@ func (c *Customizer[W]) makeEdgeMaxSpeeds(
 	for i := 0; i < len(updatedEdgeIds); i++ {
 		uEId := updatedEdgeIds[i]
 		speed := c.preprocessingTimeFunction.SpeedFromKilometerPerHour(updatedEdgeMaxSpeeds[i])
-
 		edgeMaxSpeeds[uEId] = speed
 	}
 	return edgeMaxSpeeds
