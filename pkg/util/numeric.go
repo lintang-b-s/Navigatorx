@@ -14,7 +14,7 @@ const (
 	CentiScale                = 100
 	INF_WEIGHT_FIXED  int32   = 600_000_000 // 600 million centi seconds ~ 69 hari.
 	INF_WEIGHT_FLOAT  float64 = 1e15
-	INF_WEIGHT_INT64  int64   = math.MaxInt64
+	INF_WEIGHT_INT64  int64   = 1e17
 	TurnCostForbidden uint16  = math.MaxUint16
 )
 
