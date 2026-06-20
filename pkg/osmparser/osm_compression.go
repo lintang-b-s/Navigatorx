@@ -300,6 +300,13 @@ func canCompress[W util.RoutingNumber](
 		return false
 	}
 
+	if !inEdge.junctionHead || !outEdge.junctionTail {
+		// head dari inEdge must be JUNCTION_NODE, head terhubung ke osm way lain
+		// buat prevent case kalau head adalah END_NODE && inEdge bidirectional (oneway=false) osm way dan canCompress return true.
+		// demikian juga tail dari outEdge must be JUNCTION_NODE.
+		return false
+	}
+
 	if inEdge.hwType != outEdge.hwType ||
 		storage.GetStreetNameId(inID) != storage.GetStreetNameId(outID) ||
 		storage.GetRoadLanes(inID) != storage.GetRoadLanes(outID) ||
@@ -382,6 +389,7 @@ func mergeOSMEdgeChain[W util.RoutingNumber](
 	merged.toOsmId = last.toOsmId
 	merged.junctionHead = last.junctionHead
 	merged.containsTrafficLight = false
+
 	return merged, geometry, curved
 }
 

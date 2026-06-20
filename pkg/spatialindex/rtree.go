@@ -141,11 +141,13 @@ func (rt *Rtree) Build(graph *da.Graph, logger *zap.Logger) {
 // SearchWithinRadius search for all arc endpoints within radius (in km) from the query point (qLat, qLon)
 // let M=number of road segmnents/edges in the graph
 // R-tree search worst case is O(M) ketika MBR dari query overlap semua mbr leafs data
-// tapi karena kita limit leaf data yang kita return sebanyak MAX_CANDIDATES
-// SearchWithinRadius worst case is O(M)
+// kita limit leaf data yang kita return sebanyak MAX_CANDIDATES < maxLeafEntries (64).
+// dan kita pakai STR (sort-tile-recursive) packed r-tree, bulk insert (.Bulk(..)), space utilization nya ~100% every leaf nodes.
+// https://ia600709.us.archive.org/13/items/nasa_techdoc_19970016975/19970016975.pdf
+// https://xilinx.github.io/Vitis_Libraries/data_analytics/2022.1/guide_L2/internals/geospatialJoin.html
 // https://www2.cs.sfu.ca/CourseCentral/454/jpei/slides/R-Tree.pdf
 // https://dl.acm.org/doi/10.1145/971697.602266
-// mode=0  origin, mode=1 destination, mode=2 not both, mode=3 for client-side realtime mapmatching webassembly
+// mode=0  origin, mode=1 destination, mode=2 not both
 func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da.Index {
 
 	qy, qx := geo.CalcLatToY(qLat), geo.CalcLonToX(qLon)
@@ -242,7 +244,7 @@ func (rt *Rtree) GetEdgeId(data leafData, mode uint8) (da.Index, da.Index) {
 		if isForwardJunctionHead(data.flag) {
 			forwEdgeId = da.Index(data.edgeId & 0xFFFFFFFF)
 		}
-		if isBackwardJunctionHead(data.flag) && isBidirectional(data.flag) {
+		if isBidirectional(data.flag) && isBackwardJunctionHead(data.flag) {
 			backEdgeId = da.Index(data.edgeId >> 32)
 		}
 
@@ -251,7 +253,7 @@ func (rt *Rtree) GetEdgeId(data leafData, mode uint8) (da.Index, da.Index) {
 		if isForwardJunctionTail(data.flag) {
 			forwEdgeId = da.Index(data.edgeId & 0xFFFFFFFF)
 		}
-		if isBackwardJunctionTail(data.flag) && isBidirectional(data.flag) {
+		if isBidirectional(data.flag) && isBackwardJunctionTail(data.flag) {
 			backEdgeId = da.Index(data.edgeId >> 32)
 		}
 

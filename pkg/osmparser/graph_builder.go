@@ -81,6 +81,7 @@ func buildGraph[W util.RoutingNumber](
 		vertexOsmIds[u] = e.GetFromOsmId()
 		vertexOsmIds[v] = e.GetToOsmId()
 		edgeInfoIds[u] = append(edgeInfoIds[u], da.Index(eID))
+
 	}
 
 	for v := range numV {
@@ -289,7 +290,6 @@ func buildGraph[W util.RoutingNumber](
 	for v := 0; v < len(vertices)-1; v++ {
 		// we need to do this because Customizable Route Planning (with turn costs) query assume all vertex have at least one outEdge (at for target as source)
 		if !roadNetwork || (roadNetwork && (outDegree[v] == 0 || inDegree[v] == 0)) {
-			// if !roadNetwork {
 			dummyOut := da.NewOutEdge(da.INVALID_EDGE_ID, da.Index(v),
 				da.Index(len(inEdges[v])), pkg.INVALID_HIGHWAY)
 			dummyOut.SetDummyEdge()
