@@ -201,7 +201,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 		lock.Lock()
 		defer lock.Unlock()
-		minDist = util.MinFloat(minDist, spLength)
+		minDist = min(minDist, spLength)
 		return nil
 	}
 

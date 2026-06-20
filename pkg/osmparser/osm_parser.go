@@ -719,16 +719,16 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 		return
 	}
 
-	maxLonft := util.MaxFloat(from.coord.lon, to.coord.lon)
-	maxLatft := util.MaxFloat(from.coord.lat, to.coord.lat)
+	maxLonft := max(from.coord.lon, to.coord.lon)
+	maxLatft := max(from.coord.lat, to.coord.lat)
 
-	minLonft := util.MinFloat(from.coord.lon, to.coord.lon)
-	minLatft := util.MinFloat(from.coord.lat, to.coord.lat)
+	minLonft := min(from.coord.lon, to.coord.lon)
+	minLatft := min(from.coord.lat, to.coord.lat)
 
-	p.bb.SetMaxLat(util.MaxFloat(p.bb.GetMaxLat(), maxLatft))
-	p.bb.SetMaxLon(util.MaxFloat(p.bb.GetMaxLon(), maxLonft))
-	p.bb.SetMinLat(util.MinFloat(p.bb.GetMinLat(), minLatft))
-	p.bb.SetMinLon(util.MinFloat(p.bb.GetMinLon(), minLonft))
+	p.bb.SetMaxLat(max(p.bb.GetMaxLat(), maxLatft))
+	p.bb.SetMaxLon(max(p.bb.GetMaxLon(), maxLonft))
+	p.bb.SetMinLat(min(p.bb.GetMinLat(), minLatft))
+	p.bb.SetMinLon(min(p.bb.GetMinLon(), minLonft))
 
 	if _, ok := p.nodeIDMap[from.id]; !ok {
 		p.nodeIDMap[from.id] = da.Index(len(p.nodeIDMap))

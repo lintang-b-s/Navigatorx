@@ -988,7 +988,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 	lastPlateauTT = lv - lastPlateauTT
 
 	firstPlateauTTSeconds := ars.engine.GetCostFunction().WeightToSeconds(firstPlateauTT)
-	plateau := util.MaxFloat(
+	plateau := max(
 		lastPlateauTT-firstPlateauTTSeconds,
 		0,
 	)
@@ -1134,7 +1134,7 @@ func (ars *AlternativeRouteSearch[W]) GetDiversity(candidates []AlternativeRoute
 			jaccardSimilarity := (intersection / unionSize)
 
 			jaccardDistance := 1 - jaccardSimilarity
-			minJaccardDist = util.MinFloat(minJaccardDist, jaccardDistance)
+			minJaccardDist = min(minJaccardDist, jaccardDistance)
 		}
 
 		for _, e := range altPath {

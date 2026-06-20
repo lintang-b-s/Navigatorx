@@ -512,7 +512,7 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, groundTruthDataFilepath s
 	for eID := range traversedEdges {
 		eLengthForward, inMapMatchResultForward := matchedEdgeSet[eID]
 		eLengthReversed, inMapMatchResultReversed := matchedEdgeSet[eID*2]
-		eLength := util.MaxFloat(eLengthForward, eLengthReversed)
+		eLength := max(eLengthForward, eLengthReversed)
 		if !inMapMatchResultForward && !inMapMatchResultReversed {
 			lengthOfErrSubtracted += eLength
 		}
@@ -770,7 +770,7 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 	for eID := range traversedEdges {
 		eLengthForward, inMapMatchResultForward := matchedEdgeSet[eID]
 		eLengthReversed, inMapMatchResultReversed := matchedEdgeSet[eID*2]
-		eLength := util.MaxFloat(eLengthForward, eLengthReversed)
+		eLength := max(eLengthForward, eLengthReversed)
 		if !inMapMatchResultForward && !inMapMatchResultReversed {
 			lengthOfErrSubtracted += eLength
 		}

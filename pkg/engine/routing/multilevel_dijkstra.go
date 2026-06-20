@@ -459,13 +459,13 @@ func (bs *CRPBidirectionalSearch[W]) forwardGraphSearch(uItem da.CRPQueryKey, so
 	for j := da.Index(0); j < uInDeg; j++ {
 
 		stallingOffset := uInDeg*uEntryPoint + j
-		bui := util.MaxFloat(uEntryIdTravelTime+
+		bui := max(uEntryIdTravelTime+
 			bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset), 0)
 
 		if val := bs.stallingEntry[otherUEntryId]; util.Eq(val, util.Infinity[W]()) {
 			bs.stallingEntry[otherUEntryId] = bui
 		} else {
-			bs.stallingEntry[otherUEntryId] = util.MinFloat(bs.stallingEntry[otherUEntryId], bui)
+			bs.stallingEntry[otherUEntryId] = min(bs.stallingEntry[otherUEntryId], bui)
 		}
 		otherUEntryId++
 	}
@@ -614,13 +614,13 @@ func (bs *CRPBidirectionalSearch[W]) backwardGraphSearch(uItem da.CRPQueryKey, s
 	for j := da.Index(0); j < uOutDeg; j++ {
 
 		stallingOffset := uOutDeg*uExitPoint + j
-		bui := util.MaxFloat(0, uExitIdTravelTime+
+		bui := max(0, uExitIdTravelTime+
 			bs.engine.metrics.GetExitStallingTableCost(uId, stallingOffset))
 
 		if val := bs.stallingExit[otherUExitId]; util.Eq(val, util.Infinity[W]()) {
 			bs.stallingExit[otherUExitId] = bui
 		} else {
-			bs.stallingExit[otherUExitId] = util.MinFloat(bs.stallingExit[otherUExitId], bui)
+			bs.stallingExit[otherUExitId] = min(bs.stallingExit[otherUExitId], bui)
 		}
 		otherUExitId++
 	}

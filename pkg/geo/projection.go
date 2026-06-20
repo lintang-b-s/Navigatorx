@@ -34,7 +34,7 @@ func ProjectPointOnSegment(pointA da.Coordinate, pointB da.Coordinate,
 		t = numerator / denominator
 	}
 
-	t = util.MaxFloat(0, util.MinFloat(1, t))
+	t = max(0, min(1, t))
 
 	projx, projy := ax+t*abx, ay+t*aby
 

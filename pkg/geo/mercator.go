@@ -2,8 +2,6 @@ package geo
 
 import (
 	"math"
-
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 /*
@@ -33,7 +31,7 @@ const (
 
 // https://en.wikipedia.org/wiki/Mercator_projection#Properties
 func clampLat(lat float64) float64 {
-	return util.MaxFloat(util.MinFloat(maxLatDeg, lat), minLatDeg)
+	return max(min(maxLatDeg, lat), minLatDeg)
 }
 
 func Radians(deg float64) float64 {

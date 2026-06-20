@@ -117,21 +117,6 @@ func Le[T RoutingNumber](a, b T) bool {
 	return float64(a) <= float64(b)+EPS
 }
 
-// MaxFloat. maximum operator
-func MaxFloat[T RoutingNumber](a, b T) T {
-	if Gt(a, b) {
-		return a
-	}
-	return b
-}
-
-func MinFloat[T RoutingNumber](a, b T) T {
-	if Lt(a, b) {
-		return a
-	}
-	return b
-}
-
 func ClampMin(a, b int) int {
 	if a < b {
 		return b

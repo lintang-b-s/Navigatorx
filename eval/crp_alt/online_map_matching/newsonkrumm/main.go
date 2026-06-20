@@ -736,7 +736,7 @@ func main() {
 	for eId := range traversedEdges {
 		eLengthForward, inMapMatchResultForward := matchedEdgeSet[eId]
 		eLengthReversed, inMapMatchResultReversed := matchedEdgeSet[eId*2]
-		eLength := util.MaxFloat(eLengthForward, eLengthReversed)
+		eLength := max(eLengthForward, eLengthReversed)
 		if !inMapMatchResultForward && !inMapMatchResultReversed {
 			lengthOfErrorneouslySubtracted += eLength
 		}

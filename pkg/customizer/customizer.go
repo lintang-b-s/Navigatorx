@@ -341,7 +341,7 @@ func (c *Customizer[W]) makeTurnTable(
 
 			turnCostByAngleBetweenEdges := pkg.CalcTurningCost(turningSpeed, vLimitFrom, vLimitTo)
 
-			turnCostByAngleBetweenEdges = util.MinFloat(turnCostByAngleBetweenEdges, turnCostByAngleThreshold)
+			turnCostByAngleBetweenEdges = min(turnCostByAngleBetweenEdges, turnCostByAngleThreshold)
 
 			turnTableSeconds[turnTableId] += turnCostByAngleBetweenEdges
 		})

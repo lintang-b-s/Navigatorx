@@ -184,10 +184,10 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 			p.graph.SetMaxEdgesInCell(numInEdgesInCell[cell])
 		}
 
-		minLat = util.MinFloat(minLat, p.graph.GetVertexCoordinate(i).GetLat())
-		minLon = util.MinFloat(minLon, p.graph.GetVertexCoordinate(i).GetLon())
-		maxLat = util.MaxFloat(maxLat, p.graph.GetVertexCoordinate(i).GetLat())
-		maxLon = util.MaxFloat(maxLon, p.graph.GetVertexCoordinate(i).GetLon())
+		minLat = min(minLat, p.graph.GetVertexCoordinate(i).GetLat())
+		minLon = min(minLon, p.graph.GetVertexCoordinate(i).GetLon())
+		maxLat = max(maxLat, p.graph.GetVertexCoordinate(i).GetLat())
+		maxLon = max(maxLon, p.graph.GetVertexCoordinate(i).GetLon())
 	}
 
 	p.graph.SetBoundingBox(da.NewBoundingBox(minLat, minLon, maxLat, maxLon))
