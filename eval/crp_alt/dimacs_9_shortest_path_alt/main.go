@@ -143,6 +143,8 @@ func main() {
 		}
 	}
 
+	const rounder = 1e8
+
 	nodeCoords := make([]op.NodeCoord, n+1)
 	for v := 0; v < n; v++ { // vertex id 0 dummy vertex.. id vertex dari file dimacs mulai dari 1
 		line, err = util.ReadLine(br)
@@ -162,7 +164,11 @@ func main() {
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
-		nodeCoords[id] = op.NewNodeCoord(float64(x), float64(y))
+		// di navigatorx versi v0.1.2, weight dari setiap edges pakai tipe generic util.RoutingNumber
+		// dan untuk koordinat dari setiap node, kita pakai int32 (lat * 10^7, lon * 10^7) untuk input openstreetmap, buat save space kaya osrm.
+		// dan karena di dimacs 9th implementation challenge ini koordinat nya bisa lebih dair 10^8, kita bagi 10^8 biar gak overflow int32
+
+		nodeCoords[id] = op.NewNodeCoord(float64(x)/rounder, float64(y)/rounder)
 	}
 
 	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0644)
@@ -231,6 +237,8 @@ func main() {
 		adjList[u] = append(adjList[u], crpalt.NewPairEdge(v, float64(weight)))
 	}
 
+	fmt.Printf("maxweight: %v", maxWeight)
+
 	// read sssp queries
 	fInputQueries, err := os.OpenFile(inputQueriesPath, os.O_RDONLY, 0644)
 	if err != nil {
@@ -282,10 +290,10 @@ func main() {
 	}
 
 	type queryRes struct {
-		spcost int32
+		spcost uint64
 	}
 
-	newQueryRes := func(spCost int32) queryRes {
+	newQueryRes := func(spCost uint64) queryRes {
 		return queryRes{spcost: spCost}
 	}
 

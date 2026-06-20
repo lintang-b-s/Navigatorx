@@ -47,11 +47,11 @@ step buat compress nya:
 //  3. Assign compact IDs to the vertices that remain.
 //  4. Merge each maximal edge chain and rebuild edge metadata.
 //  5. Remap OSM-node, way, and restriction references to compact IDs.
-func (p *OsmParser) compressOSMGraph(
-	edges []Edge[int32],
+func (p *OsmParser[W]) compressOSMGraph(
+	edges []Edge[W],
 	storage *da.GraphStorage,
 	streetDirection map[int64][2]bool,
-) ([]Edge[int32], *da.GraphStorage, uint32) {
+) ([]Edge[W], *da.GraphStorage, uint32) {
 	numVertices := len(p.nodeToOsmId)
 
 	// Edge indexes make degree checks and chain traversal constant time.
@@ -116,12 +116,12 @@ func (p *OsmParser) compressOSMGraph(
 	}
 
 	m := len(edges)
-	compressed := make([]Edge[int32], 0, m)
+	compressed := make([]Edge[W], 0, m)
 	compressedStorage := da.NewGraphStorage(storage.GetOsmwayBitSize())
 	discovered := make([]bool, numVertices)
 	compressedEdgesSet := bitset.New(uint(m))
 
-	appendEdgeToStorage := func(sourceID, newEdgeId da.Index, mergedEdge Edge[int32], geometry []da.Coordinate, curved bool) {
+	appendEdgeToStorage := func(sourceID, newEdgeId da.Index, mergedEdge Edge[W], geometry []da.Coordinate, curved bool) {
 		start := da.Index(compressedStorage.GetOsmNodePointsCount())
 		compressedStorage.AppendOsmNodePoints(geometry)
 		end := da.Index(compressedStorage.GetOsmNodePointsCount())
@@ -219,8 +219,8 @@ func (p *OsmParser) compressOSMGraph(
 // endpoints of conditionally restricted ways. Protecting both endpoints of a
 // conditional edge keeps later time-dependent customization attached to the
 // same graph locations.
-func (p *OsmParser) compressionProtectedVertices(
-	edges []Edge[int32],
+func (p *OsmParser[W]) compressionProtectedVertices(
+	edges []Edge[W],
 	storage *da.GraphStorage,
 ) []bool {
 	protected := make([]bool, len(p.nodeToOsmId))
@@ -287,8 +287,8 @@ const (
 // continuous road. If explicit way speeds are unavailable, equal
 // weight-to-distance ratios provide the equivalent speed check without
 // floating-point division.
-func canCompress(
-	inEdge, outEdge *Edge[int32],
+func canCompress[W util.RoutingNumber](
+	inEdge, outEdge *Edge[W],
 	storage *da.GraphStorage,
 	inID, outID da.Index,
 	streetDirection map[int64][2]bool,
@@ -323,7 +323,7 @@ func canCompress(
 }
 
 // cycleCheck. find cycle of contractible vertices.
-func cycleCheck(u uint32, dfsState []int, outEdges [][]int, edges []Edge[int32], contractible []bool) (bool, uint32) {
+func cycleCheck[W util.RoutingNumber](u uint32, dfsState []int, outEdges [][]int, edges []Edge[W], contractible []bool) (bool, uint32) {
 	dfsState[u] = explored
 	for _, eId := range outEdges[u] {
 		v := edges[eId].to
@@ -333,7 +333,7 @@ func cycleCheck(u uint32, dfsState []int, outEdges [][]int, edges []Edge[int32],
 		if dfsState[v] == explored || dfsState[v] == visited {
 			return true, v
 		}
-		if found, w := cycleCheck(v, dfsState, outEdges, edges, contractible); found {
+		if found, w := cycleCheck[W](v, dfsState, outEdges, edges, contractible); found {
 			return true, w
 		}
 	}
@@ -349,12 +349,12 @@ func cycleCheck(u uint32, dfsState []int, outEdges [][]int, edges []Edge[int32],
 // new storage and duplicate coordinates at edge boundaries are omitted. The
 // first edge supplies compatible road metadata, while the last edge supplies
 // destination-specific OSM and junction fields.
-func mergeOSMEdgeChain(
-	edges []Edge[int32],
+func mergeOSMEdgeChain[W util.RoutingNumber](
+	edges []Edge[W],
 	storage *da.GraphStorage,
 	edgeIds []int,
 	oldToNew []da.Index,
-) (Edge[int32], []da.Coordinate, bool) {
+) (Edge[W], []da.Coordinate, bool) {
 	first := edges[edgeIds[0]]
 	last := edges[edgeIds[len(edgeIds)-1]]
 	var totalWeight int64
@@ -379,7 +379,7 @@ func mergeOSMEdgeChain(
 	merged := first
 	merged.from = uint32(oldToNew[first.from])
 	merged.to = uint32(oldToNew[last.to])
-	merged.weight = int32(totalWeight)
+	merged.weight = W(totalWeight)
 	if merged.to == uint32(da.INVALID_VERTEX_ID) {
 		fmt.Printf("debug")
 	}
@@ -396,7 +396,7 @@ func mergeOSMEdgeChain(
 // are collapsed, and node-based restriction via vertices are translated to
 // their compact IDs. Restriction participants were protected earlier, so a
 // node-based via vertex must always have a valid mapping here.
-func (p *OsmParser) remapCompressedGraphNodes(oldToNew []da.Index) {
+func (p *OsmParser[W]) remapCompressedGraphNodes(oldToNew []da.Index) {
 	for wayID, way := range p.ways {
 		graphNodes := way.graphNodes[:0]
 		for _, oldVertex := range way.graphNodes {

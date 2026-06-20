@@ -119,7 +119,7 @@ func main() {
 		logger.Sugar().Infof("download complete")
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 
 	graph, timeFunction, edgeInfoIds, err := op.Parse(osmfFile, logger)
 
@@ -171,7 +171,7 @@ func main() {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 func TestAcceptOsmWay(t *testing.T) {
-	p := NewOSMParserV2()
+	p := NewOSMParserV2[int32]()
 	p.highwayWhitelist = map[string]struct{}{
 		"motorway":     {},
 		"trunk":        {},
@@ -69,7 +69,7 @@ func TestAcceptOsmWay(t *testing.T) {
 }
 
 func TestIsBarrierNodeAccessible(t *testing.T) {
-	p := NewOSMParserV2()
+	p := NewOSMParserV2[int32]()
 	p.currentTime = time.Date(2026, 4, 8, 12, 0, 0, 0, time.Local)
 
 	// Mock pkg.VehicleType

@@ -119,6 +119,7 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 	return nil
 }
 
+// https://www.microsoft.com/en-us/research/publication/hidden-markov-map-matching-noise-sparseness/
 func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[int64]float64, error) {
 	zlog, err := logger.New()
 	if err != nil {
@@ -257,7 +258,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		}
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 	n := len(nodeIdMap)
 	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
 	nodeToOsmID := make(map[da.Index]int64, n)
@@ -292,7 +293,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	if _, err := cust.Customize(); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, zlog)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, zlog)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}

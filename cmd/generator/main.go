@@ -57,7 +57,7 @@ func main() {
 		panic(err)
 	}
 
-	routingEngine, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	routingEngine, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}

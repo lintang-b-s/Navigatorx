@@ -87,7 +87,7 @@ type ohmmMelbourneEdge struct {
 	id       int64
 	startID  int64
 	endID    int64
-	distance float64
+	distance float64 // meters
 }
 
 type ohmmMelbourneStreet struct {
@@ -190,7 +190,7 @@ func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfuncti
 		t.Fatalf("customize failed: %v", err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		t.Fatalf("new engine failed: %v", err)
 	}
@@ -249,6 +249,7 @@ func ohmmEnsureGisCupRoadNetwork(t *testing.T, workingDir string, logger *zap.Lo
 	return paths
 }
 
+// https://web.archive.org/web/20130127211936/http://depts.washington.edu/giscup/home
 func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint32, map[int64]osmparser.NodeCoord, map[da.Index]int64, error) {
 	f, err := os.OpenFile(nodesFilePath, os.O_RDONLY, 0644)
 	if err != nil {
@@ -299,6 +300,7 @@ func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint3
 	return nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, nil
 }
 
+// https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
 func ohmmReadGisCupEdgeGeometry(edgeGeometryFilePath string) (map[int64]ohmmEdgeGeometry, error) {
 	f, err := os.OpenFile(edgeGeometryFilePath, os.O_RDONLY, 0644)
 	if err != nil {
@@ -368,6 +370,7 @@ func ohmmFallbackGeometry(edgeID int64, from, to uint32, nodeCoords []da.Coordin
 	return ohmmEdgeGeometry{length: length, roadType: pkg.ROAD, coords: []da.Coordinate{fromCoord, toCoord}}
 }
 
+// https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
 func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *costfunction.TimeFunction[int32], [][]da.Index, map[int64]float64, error) {
 	nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, err := ohmmReadGisCupNodes(paths.nodesFilePath)
 	if err != nil {
@@ -453,7 +456,7 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 		edgeLengths[edgeID] = geometry.length
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
 	graph, timeFunction, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeCoords)), true)
@@ -461,6 +464,7 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 	return graph, timeFunction, edgeInfoIDs, edgeLengths, nil
 }
 
+// https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
 func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, map[int64]float64) {
 	t.Helper()
 
@@ -485,7 +489,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 
 	var re *engine.Engine[int32]
 	if ohmmEngineFilesExist(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile) {
-		re, err = engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+		re, err = engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 		if err != nil {
 			t.Fatalf("load GIS Cup engine failed: %v", err)
 		}
@@ -860,6 +864,7 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStre
 	return streetByID, nil
 }
 
+// https://web.archive.org/web/20170301001019/https://people.eng.unimelb.edu.au/henli/projects/map-matching/
 func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, map[da.Index]int64, map[int64]float64) {
 	t.Helper()
 
@@ -915,7 +920,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		nodeToOsmID[da.Index(v.id)] = v.osmID
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
 	graph, timeFunction, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(vertices)), true)
@@ -930,7 +935,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 
 	var re *engine.Engine[int32]
 	if ohmmEngineFilesExist(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile) {
-		re, err = engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+		re, err = engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 		if err != nil {
 			t.Fatalf("load Melbourne engine failed: %v", err)
 		}
@@ -1152,7 +1157,7 @@ func ohmmBuildHanwenHuCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, 
 	}
 
 	if ohmmEngineFilesExist(hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhLandmarkFile, hhTimeFunctionFile) {
-		re, err := engine.NewEngine(hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhLandmarkFile, hhTimeFunctionFile, logger)
+		re, err := engine.NewEngine[int32](hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhLandmarkFile, hhTimeFunctionFile, logger)
 		if err != nil {
 			t.Fatalf("load Hanwen-Hu engine failed: %v", err)
 		}

@@ -12,7 +12,7 @@ import (
 	"github.com/paulmach/osm"
 )
 
-func (p *OsmParser) roadTypeSpeed(roadType string) float64 {
+func (p *OsmParser[W]) roadTypeSpeed(roadType string) float64 {
 	return p.maxspeeds[pkg.GetHighwayType(roadType)]
 }
 
@@ -589,7 +589,7 @@ func IsConditionalRestrictionCurrentlyProhibited(currentTime time.Time, accessCo
 }
 
 // isBarrierNodeAccessible. return true if barrier node accessible
-func (p *OsmParser) isBarrierNodeAccessible(node *osm.Node) (bool, error) {
+func (p *OsmParser[W]) isBarrierNodeAccessible(node *osm.Node) (bool, error) {
 
 	barrierTypeString := node.Tags.Find("barrier")
 
@@ -806,7 +806,7 @@ func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) 
 	return allowed
 }
 
-func (p *OsmParser) acceptOsmWay(way *osm.Way) bool {
+func (p *OsmParser[W]) acceptOsmWay(way *osm.Way) bool {
 	findTag := func(key string) string {
 		return way.Tags.Find(key)
 	}
@@ -847,7 +847,7 @@ func (p *OsmParser) acceptOsmWay(way *osm.Way) bool {
 
 // isRoundaboutByName. cek osm way is roundabout or not by the name.
 // example: https://www.openstreetmap.org/way/1350609078 , namane bundaran tapi gak ada tag junction=roundabout.
-func (p *OsmParser) isRoundaboutByName(name string) bool {
+func (p *OsmParser[W]) isRoundaboutByName(name string) bool {
 	nameLower := strings.ToLower(name)
 
 	return stringx.ContainsAnySubstrings(nameLower, roundaboutSubName)

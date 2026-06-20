@@ -47,7 +47,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 		panic(err)
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 
 	graph, _, _, err := op.Parse(filepath.Join(pkg.WorkingDir, osmFile), logger)
 	if err != nil {

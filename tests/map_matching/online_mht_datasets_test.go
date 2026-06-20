@@ -244,6 +244,7 @@ func ommComputeGisCupPointAccuracy(graph *da.Graph, groundTruthEdgeIDs []int64, 
 	return float64(correct) / float64(len(groundTruthEdgeIDs))
 }
 
+// https://web.archive.org/web/20130127211936/http://depts.washington.edu/giscup/home
 // go test ./tests/map_matching  -run TestGisCupOnlineMHTMapMatching  -v -timeout=0  -count=1
 func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 	workingDir := ohmmEnsureConfig(t)

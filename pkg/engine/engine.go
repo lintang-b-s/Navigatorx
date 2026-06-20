@@ -22,18 +22,19 @@ func (e *Engine[W]) GetRoutingEngine() *routing.CRPRoutingEngine[W] {
 	return e.crpRoutingEngine
 }
 
-func NewEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath string, logger *zap.Logger) (*Engine[int32], error) {
-	util.USE_INT32 = true
-	re, err := initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath,
+func NewEngine[W util.RoutingNumber](graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath string, logger *zap.Logger) (*Engine[W], error) {
+	util.ActivateMode[W]()
+	re, err := initializeRoutingEngine[W](graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath,
 		logger)
 	if err != nil {
 		return nil, fmt.Errorf("NewEngine: failed to initialize routing engine: %w", err)
 	}
-	return &Engine[int32]{
+	return &Engine[W]{
 		crpRoutingEngine: re,
 	}, nil
 }
 
+// NewEngineDirect yang ini gak perlu read dari file, karena pakai CustomizeDirect
 func NewEngineDirect[W util.RoutingNumber](
 	graph *da.Graph,
 	overlayGraph *da.OverlayGraph,
@@ -67,8 +68,8 @@ func NewEngineDirect[W util.RoutingNumber](
 	}, nil
 }
 
-func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath string, logger *zap.Logger,
-) (*routing.CRPRoutingEngine[int32],
+func initializeRoutingEngine[W util.RoutingNumber](graphFilePath, overlayGraphFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath string, logger *zap.Logger,
+) (*routing.CRPRoutingEngine[W],
 	error) {
 
 	logger.Info("Starting query engine....")
@@ -88,7 +89,7 @@ func initializeRoutingEngine(graphFilePath, overlayGraphFilePath, metricsFilePat
 
 	logger.Info("Reading stalling tables & metrics...")
 
-	m, err := metrics.ReadFromFile[int32](metricsFilePath, timeFunctionFilePath, readBuf)
+	m, err := metrics.ReadFromFile[W](metricsFilePath, timeFunctionFilePath, readBuf)
 	if err != nil {
 		return nil, fmt.Errorf("initializeRoutingEngine: failed to read metrics from %s (timeFunction=%s): %w", metricsFilePath, timeFunctionFilePath, err)
 	}

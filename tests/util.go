@@ -46,7 +46,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 		t.Fatal(err)
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
@@ -101,7 +101,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

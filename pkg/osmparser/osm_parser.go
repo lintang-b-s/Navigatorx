@@ -27,7 +27,7 @@ import (
 // lihat tail dari parallel edge: https://www.openstreetmap.org/node/8445770719#map=19/-7.568382/110.816289
 // lihat head dari parallel edge: https://www.openstreetmap.org/node/8445759311#map=19/-7.568314/110.815814
 
-type OsmParser struct {
+type OsmParser[W util.RoutingNumber] struct {
 	wayNodeMap        map[int64]nodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
 	relationMemberMap map[int64]struct{}
 	barrierNodes      map[int64]bool // osm node Id -> barrier node flag
@@ -51,8 +51,8 @@ type OsmParser struct {
 	conditionalTrafficModesVal   map[int64]string
 }
 
-func NewOSMParserV2() *OsmParser {
-	p := &OsmParser{
+func NewOSMParserV2[W util.RoutingNumber]() *OsmParser[W] {
+	p := &OsmParser[W]{
 		wayNodeMap:        make(map[int64]nodeWithCoord),
 		relationMemberMap: make(map[int64]struct{}),
 		barrierNodes:      make(map[int64]bool),
@@ -77,7 +77,7 @@ func NewOSMParserV2() *OsmParser {
 	return p
 }
 
-func (p *OsmParser) initializeMaxSpeed() {
+func (p *OsmParser[W]) initializeMaxSpeed() {
 	mapMaxSpeeds := viper.GetStringMap("maxspeeds")
 	maxspeeds := make([]float64, 18)
 	for roadType, speed := range mapMaxSpeeds {
@@ -94,7 +94,7 @@ func (p *OsmParser) initializeMaxSpeed() {
 	p.maxspeeds = maxspeeds
 }
 
-func (p *OsmParser) SetAcceptedNodeMap(acceptedNodeMap map[int64]NodeCoord) {
+func (p *OsmParser[W]) SetAcceptedNodeMap(acceptedNodeMap map[int64]NodeCoord) {
 	wayNodeMap := make(map[int64]nodeWithCoord)
 	for id, val := range acceptedNodeMap {
 		wayNodeMap[id] = nodeWithCoord{JUNCTION_NODE, val}
@@ -102,15 +102,15 @@ func (p *OsmParser) SetAcceptedNodeMap(acceptedNodeMap map[int64]NodeCoord) {
 	p.wayNodeMap = wayNodeMap
 }
 
-func (p *OsmParser) SetNodeToOsmId(nodeToOsmId map[da.Index]int64) {
+func (p *OsmParser[W]) SetNodeToOsmId(nodeToOsmId map[da.Index]int64) {
 	p.nodeToOsmId = nodeToOsmId
 }
 
-func (p *OsmParser) GetTagStringIdMap() util.IDMap {
+func (p *OsmParser[W]) GetTagStringIdMap() util.IDMap {
 	return p.tagStringIdMap
 }
 
-func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *costfunction.TimeFunction[int32], [][]da.Index, error) {
+func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *costfunction.TimeFunction[W], [][]da.Index, error) {
 
 	f, err := os.Open(mapFile)
 
@@ -335,7 +335,7 @@ func (p *OsmParser) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *costf
 
 	// scan osm way and store graph edges
 	scanner = osmpbf.New(context.Background(), f, 0)
-	scannedEdges := make([]Edge[int32], 0)
+	scannedEdges := make([]Edge[W], 0)
 	p.ways = make(map[int64]osmWay, scannedWays)
 	streetDirection := make(map[int64][2]bool)
 	countWays := 0
@@ -495,9 +495,9 @@ type wayExtraInfo struct {
 	forward bool
 }
 
-func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
+func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 	streetDirection map[int64][2]bool,
-	scannedEdges *[]Edge[int32], tempMap map[string]string) (string, error) {
+	scannedEdges *[]Edge[W], tempMap map[string]string) (string, error) {
 	var err error
 
 	getName(way, tempMap)
@@ -643,8 +643,8 @@ func (p *OsmParser) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 	return hwTag, nil
 }
 
-func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[int32], id int64) {
+func (p *OsmParser[W]) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
+	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[W], id int64) {
 
 	if len(segment) == 2 && segment[0].id == segment[1].id {
 		// skip loop edge
@@ -658,8 +658,8 @@ func (p *OsmParser) processSegment(segment []node, tempMap map[string]string, sp
 	}
 }
 
-func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[int32], id int64,
+func (p *OsmParser[W]) processSegment2(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
+	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[W], id int64,
 ) {
 	waySegment := []node{}
 	for i := 0; i < len(segment); i++ {
@@ -687,7 +687,7 @@ func (p *OsmParser) processSegment2(segment []node, tempMap map[string]string, s
 	}
 }
 
-func (p *OsmParser) copyNode(nodeData node) node {
+func (p *OsmParser[W]) copyNode(nodeData node) node {
 	// use the same coordinate but different id & and the newID is not used
 	newMaxID := p.maxNodeID + 1
 	p.wayNodeMap[newMaxID] = nodeWithCoord{
@@ -705,8 +705,8 @@ func (p *OsmParser) copyNode(nodeData node) node {
 	}
 }
 
-func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[int32], id int64) {
+func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
+	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[W], id int64) {
 	var (
 		lanes int
 	)
@@ -771,7 +771,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	distanceInMeter := util.KilometerToMeter(distance)
 
 	travelTimeWeight := distanceInMeter / util.KMHToMSeconds(speed) // in seconds
-	fixedWeight := util.RoundCentiseconds(travelTimeWeight)
+	fixedWeight := W(util.RoundCentiseconds(travelTimeWeight))
 	fixedDistance := uint32(util.RoundCentimeters(distanceInMeter))
 
 	p.osmWayDefaultSpeed[id] = speed
@@ -857,7 +857,7 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 			)
 
 			graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
-			e := NewEdge(
+			e := NewEdge[W](
 				uint32(toNId),
 				uint32(fromNId),
 				fixedWeight,
@@ -965,10 +965,10 @@ func (p *OsmParser) addEdge(segment []node, tempMap map[string]string, speed flo
 	}
 }
 
-func (p *OsmParser) isJunctionNode(nodeID int64) bool {
+func (p *OsmParser[W]) isJunctionNode(nodeID int64) bool {
 	return p.wayNodeMap[int64(nodeID)].tipe == JUNCTION_NODE
 }
 
-func (p *OsmParser) GetNodeIdMap() map[int64]da.Index {
+func (p *OsmParser[W]) GetNodeIdMap() map[int64]da.Index {
 	return p.nodeIDMap
 }

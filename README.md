@@ -48,7 +48,6 @@ go build -o ./bin/customizer ./cmd/customizer
 ### Query Engine
 
 ```
-
 go build -o ./bin/engine -pgo=./bin/default.pgo  ./cmd/engine
 ./bin/engine
 ```
@@ -121,7 +120,7 @@ ACM, pp. 156 - 165.
 
 ### Acknowledgments
 
-The author would like to express his deepest gratitude to the contributors to the open source projects below. The code in the Navigatorx project is heavily adapted and inspired by the following open source projects:
+i would like to express my deepest gratitude to the contributors to the open source projects below. The code in the Navigatorx project is heavily adapted and inspired by the following open source projects:
 
 1. [CRP](https://github.com/michaelwegner/CRP)
 2. [OSRM Backend](https://github.com/Project-OSRM/osrm-backend)

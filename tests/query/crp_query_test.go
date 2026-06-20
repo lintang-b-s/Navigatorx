@@ -189,7 +189,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		}
 		es := tests.FlattenEdges(adjList)
 
-		op := osmparser.NewOSMParserV2()
+		op := osmparser.NewOSMParserV2[float64]()
 		acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
@@ -201,7 +201,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeInfoIds := op.BuildGraphFloat64(es, gs, uint32(n), false)
+		g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -355,7 +355,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 		pkg.OnTurnCost()
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
@@ -406,7 +406,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

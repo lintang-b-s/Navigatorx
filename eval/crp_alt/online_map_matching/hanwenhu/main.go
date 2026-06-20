@@ -115,7 +115,7 @@ func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseM
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: log.New() failed %w", err)
 	}
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 	err = onlinemapmatching.Download(osmFile, shanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: download() failed %w", err)
@@ -164,7 +164,7 @@ func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseM
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: cust.Customize() failed: %v", err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: engine.NewEngine() failed: %v", err)
 	}

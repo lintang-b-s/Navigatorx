@@ -51,7 +51,7 @@ func main() {
 	}
 
 	now := time.Now()
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 
 	graph, timeFunction, edgeInfoIds, err := op.Parse(*osmFile, logger)
 	if err != nil {

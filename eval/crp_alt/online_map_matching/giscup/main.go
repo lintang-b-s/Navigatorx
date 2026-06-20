@@ -42,6 +42,7 @@ import (
 
 /*
 go run eval/crp_alt/online_map_matching/giscup/main.go
+https://web.archive.org/web/20130127211936/http://depts.washington.edu/giscup/home
 
 GIS Cup 2012 training data:
 - Road nodes: <NodeId> <lat> <long>
@@ -423,7 +424,7 @@ func buildGraphFromGisCupFiles(paths roadNetworkPaths) (*da.Graph, *costfunction
 		return nil, nil, nil, nil, fmt.Errorf("buildGraphFromGisCupFiles: no edges loaded from %s", paths.edgesFilePath)
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
 	graph, timeFunction, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeCoords)), true)
@@ -475,7 +476,7 @@ func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseM
 		return nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: Customize failed: %w", err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: NewEngine failed: %w", err)
 	}

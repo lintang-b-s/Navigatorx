@@ -253,7 +253,7 @@ func TestGetReversibleOneWay(t *testing.T) {
 }
 
 func TestIsRoundaboutByName(t *testing.T) {
-	p := &OsmParser{}
+	p := &OsmParser[int32]{}
 	testCases := []struct {
 		name string
 		want bool

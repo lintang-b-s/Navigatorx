@@ -382,7 +382,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine[int32], *da.Graph
 		}
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 	n := len(nodeIdMap)
 
 	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
@@ -436,7 +436,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine[int32], *da.Graph
 		return nil, nil, nil, nil, nil, err
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}

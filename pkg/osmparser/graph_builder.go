@@ -13,25 +13,16 @@ import (
 // BuildGraph build graph data structure from list of edges.
 // roadNetwork = flag if the graph is a road network graph.
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
-// jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph.
-// karena Customizable Route Planning (CRP) Query phase (support turn costs) mengasumsikan setiap vertices memiliki setidaknya satu edge.
-func (p *OsmParser) BuildGraph(scannedEdges []Edge[int32], graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, *costfunction.TimeFunction[int32], [][]da.Index) {
-	util.USE_INT32 = true
-	return BuildGraph(p, scannedEdges, graphStorage, numV, roadNetwork)
+// jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph, untuk correctness test.
+// karena Customizable Route Planning (CRP) Query phase (with turn costs) mengasumsikan setiap vertices memiliki setidaknya 1 incoming edge & 1 outgoing edge biar bisa point-to-point shortest path (p2p) with turn costs.
+// untuk roadNetwork=true, inputnya file OpenStreetMap pbf, kita support hampir semua tipe osm turn restrictions.
+func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, *costfunction.TimeFunction[W], [][]da.Index) {
+	util.ActivateMode[W]()
+	return buildGraph(p, scannedEdges, graphStorage, numV, roadNetwork)
 }
 
-func (p *OsmParser) BuildGraphFloat64(
-	scannedEdges []Edge[float64],
-	graphStorage *da.GraphStorage,
-	numV uint32,
-	roadNetwork bool,
-) (*da.Graph, *costfunction.TimeFunction[float64], [][]da.Index) {
-	util.USE_INT32 = false
-	return BuildGraph(p, scannedEdges, graphStorage, numV, roadNetwork)
-}
-
-func BuildGraph[W util.RoutingNumber](
-	p *OsmParser,
+func buildGraph[W util.RoutingNumber](
+	p *OsmParser[W],
 	scannedEdges []Edge[W],
 	graphStorage *da.GraphStorage,
 	numV uint32,
@@ -765,7 +756,7 @@ func BuildGraph[W util.RoutingNumber](
 		}
 	}
 
-	// handler via-way turn restriction
+	// handler via-way turn restriction (dan multiple via-ways turn restriction)
 	addViaWayTurnRestriction := func(wayId int64, way osmWay, fromNodes []da.Index, restriction restriction, fromResId int) {
 		if !IsNotAllowedToTurnType(restriction.turnRestriction) || restriction.conditional {
 			// currently only support via-way turn restriction yang no_* (no_left_turn, no_u_turn, etc.)

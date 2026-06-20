@@ -160,11 +160,15 @@ func (met *Metric[W]) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *
 
 		for i := da.Index(0); i < n; i++ {
 			for j := da.Index(0); j < n; j++ {
-				maxDiff := W(-1)
-				for k := da.Index(0); k < m; k++ {
-					Tv_ik := met.GetTurnCost(graph.GetTurnTableId(vId, i, k))
-					Tv_jk := met.GetTurnCost(graph.GetTurnTableId(vId, j, k))
-					maxDiff = max(Tv_ik-Tv_jk, maxDiff)
+				maxDiff := W(0)
+				if m > 0 {
+					maxDiff = met.GetTurnCost(graph.GetTurnTableId(vId, i, 0)) - met.GetTurnCost(graph.GetTurnTableId(vId, j, 0))
+					for k := da.Index(1); k < m; k++ {
+						Tv_ik := met.GetTurnCost(graph.GetTurnTableId(vId, i, k))
+						Tv_jk := met.GetTurnCost(graph.GetTurnTableId(vId, j, k))
+						maxDiff = max(Tv_ik-Tv_jk, maxDiff)
+					}
+
 				}
 
 				// ini compute max_k{T_v[i,k] - T_v[j,k]}
@@ -174,11 +178,14 @@ func (met *Metric[W]) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *
 
 		for i := da.Index(0); i < m; i++ {
 			for j := da.Index(0); j < m; j++ {
-				maxDiff := W(-1)
-				for k := da.Index(0); k < n; k++ {
-					Tv_ki := met.GetTurnCost(graph.GetTurnTableId(vId, k, i))
-					Tv_kj := met.GetTurnCost(graph.GetTurnTableId(vId, k, j))
-					maxDiff = max(Tv_ki-Tv_kj, maxDiff)
+				maxDiff := W(0)
+				if n > 0 {
+					maxDiff = met.GetTurnCost(graph.GetTurnTableId(vId, 0, i)) - met.GetTurnCost(graph.GetTurnTableId(vId, 0, j))
+					for k := da.Index(1); k < n; k++ {
+						Tv_ki := met.GetTurnCost(graph.GetTurnTableId(vId, k, i))
+						Tv_kj := met.GetTurnCost(graph.GetTurnTableId(vId, k, j))
+						maxDiff = max(Tv_ki-Tv_kj, maxDiff)
+					}
 				}
 
 				// ini compute max_k{T_v[k,i] - T_v[k,j]}

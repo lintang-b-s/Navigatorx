@@ -59,7 +59,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 		panic(err)
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 
 	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
@@ -111,7 +111,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}

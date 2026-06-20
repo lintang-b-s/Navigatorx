@@ -125,6 +125,7 @@ func hhDownload(filePath, url string, logger *zap.Logger, name string) error {
 	return nil
 }
 
+// https://github.com/Hanwen-Hu/AMM/tree/main/MatchData/Shanghai
 func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int]) {
 	t.Helper()
 	pkg.RegionName = "hanwenhu"
@@ -133,7 +134,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	if err != nil {
 		t.Fatalf("log.New failed: %v", err)
 	}
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 	err = hhDownload(hhOsmFile, hhShanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
 	if err != nil {
 		t.Fatalf("download osm failed: %v", err)
@@ -164,7 +165,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	if _, err = cust.Customize(); err != nil {
 		t.Fatalf("customize failed: %v", err)
 	}
-	re, err := engine.NewEngine(hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhLandmarkFile, hhTimeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhLandmarkFile, hhTimeFunctionFile, logger)
 	if err != nil {
 		t.Fatalf("new engine failed: %v", err)
 	}

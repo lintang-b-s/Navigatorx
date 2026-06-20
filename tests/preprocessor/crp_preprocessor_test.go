@@ -101,7 +101,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		}
 		es := tests.FlattenEdges(adjList)
 
-		op := osmparser.NewOSMParserV2()
+		op := osmparser.NewOSMParserV2[float64]()
 		acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
@@ -113,7 +113,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeInfoIds := op.BuildGraphFloat64(es, gs, uint32(n), false)
+		g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -785,7 +785,7 @@ func setup(t *testing.T, osmFileTest string) *prep.Preprocessor[int32] {
 		t.Fatal(err)
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 
 	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {

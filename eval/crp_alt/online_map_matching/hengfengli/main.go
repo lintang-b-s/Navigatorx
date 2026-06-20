@@ -35,7 +35,6 @@ import (
 )
 
 /*
-go run eval/crp_alt/online_map_matching/hanwenhu/main.go
 
 pastikan downloaded file tidak corrupt.
 
@@ -51,8 +50,7 @@ Available at: https://doi.org/10.1109/TITS.2023.3237519.
 */
 
 // ini evaluasi implementasi online map matching pakai multiple hypothesis technique [1] (mapmatch_mht.go)
-// pakai dataset dari ref[2]: https://github.com/Hanwen-Hu/AMM/tree/main/MatchData/Shanghai
-
+// https://web.archive.org/web/20170301001019/https://people.eng.unimelb.edu.au/henli/projects/map-matching/
 const (
 	datasetBundleFilePath     = "./data/eval/mapmatching/dataset_bundle.zip"
 	datasetDirectoryPath      = "./data/eval/mapmatching"
@@ -419,7 +417,7 @@ func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseM
 		nodeToOsmID[da.Index(v.id)] = v.osmID
 	}
 
-	op := osmparser.NewOSMParserV2()
+	op := osmparser.NewOSMParserV2[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
 	graph, timeFunction, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(vertices)), true)
@@ -464,7 +462,7 @@ func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseM
 		return nil, nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: cust.Customize() failed: %v", err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		return nil, nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: engine.NewEngine() failed: %v", err)
 	}

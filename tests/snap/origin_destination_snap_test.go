@@ -57,8 +57,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 		t.Fatal(err)
 	}
 
-	op := osmparser.NewOSMParserV2()
-
+	op := osmparser.NewOSMParserV2[int32]()
 	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
@@ -108,7 +107,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}

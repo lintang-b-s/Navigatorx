@@ -33,7 +33,7 @@ func init() {
 	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 }
 
-func setup(t *testing.T, osmFileTest string) (*da.Graph, [][]da.Index, *osmparser.OsmParser) {
+func setup(t *testing.T, osmFileTest string) (*da.Graph, [][]da.Index, *osmparser.OsmParser[int32]) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -42,7 +42,7 @@ func setup(t *testing.T, osmFileTest string) (*da.Graph, [][]da.Index, *osmparse
 		t.Fatal(err)
 	}
 
-	osmParser := osmparser.NewOSMParserV2()
+	osmParser := osmparser.NewOSMParserV2[int32]()
 
 	graph, _, edgeInfoIds, err := osmParser.Parse(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {

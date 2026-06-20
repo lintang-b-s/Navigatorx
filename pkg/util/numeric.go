@@ -7,18 +7,20 @@ import (
 
 type RoutingNumber interface {
 	cmp.Ordered
-	~int32 | ~float64
+	~int32 | ~float64 | ~uint64
 }
 
 const (
 	CentiScale                = 100
 	INF_WEIGHT_FIXED  int32   = 600_000_000 // 600 million centi seconds ~ 69 hari.
 	INF_WEIGHT_FLOAT  float64 = 1e15
+	INF_WEIGHT_UINT64 uint64  = math.MaxUint64
 	TurnCostForbidden uint16  = math.MaxUint16
 )
 
 var (
-	USE_INT32 = false
+	USE_INT32  = false
+	USE_UINT64 = false
 )
 
 func Infinity[T RoutingNumber]() T {
@@ -26,6 +28,9 @@ func Infinity[T RoutingNumber]() T {
 	case true:
 		return T(INF_WEIGHT_FIXED)
 	case false:
+		if USE_UINT64 {
+			return any(INF_WEIGHT_UINT64).(T)
+		}
 		return any(INF_WEIGHT_FLOAT).(T)
 	}
 	return any(INF_WEIGHT_FIXED).(T)
@@ -73,7 +78,7 @@ const (
 
 // equal operator
 func Eq[T RoutingNumber](a, b T) bool {
-	if USE_INT32 {
+	if USE_INT32 || USE_UINT64 {
 		return a == b
 	}
 	return math.Abs(float64(a-b)) <= EPS
@@ -81,7 +86,7 @@ func Eq[T RoutingNumber](a, b T) bool {
 
 // equal operator
 func EqEps[T RoutingNumber](a, b, eps T) bool {
-	if USE_INT32 {
+	if USE_INT32 || USE_UINT64 {
 		return a == b
 	}
 	return math.Abs(float64(a-b)) <= float64(eps)
@@ -89,7 +94,7 @@ func EqEps[T RoutingNumber](a, b, eps T) bool {
 
 // less than operator. a<b
 func Lt[T RoutingNumber](a, b T) bool {
-	if USE_INT32 {
+	if USE_INT32 || USE_UINT64 {
 		return a < b
 	}
 	return float64(a)+EPS < float64(b)
@@ -106,7 +111,7 @@ func Gt[T RoutingNumber](a, b T) bool {
 
 // less than or equal operator
 func Le[T RoutingNumber](a, b T) bool {
-	if USE_INT32 {
+	if USE_INT32 || USE_UINT64 {
 		return a <= b
 	}
 	return float64(a) <= float64(b)+EPS
@@ -132,4 +137,18 @@ func ClampMin(a, b int) int {
 		return b
 	}
 	return a
+}
+
+func ActivateMode[W RoutingNumber]() {
+	var zero W
+	switch any(zero).(type) {
+	case float64:
+		USE_INT32 = false
+		USE_UINT64 = false
+	case int32:
+		USE_INT32 = true
+	case uint64:
+		USE_INT32 = false
+		USE_UINT64 = true
+	}
 }

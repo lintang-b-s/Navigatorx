@@ -34,6 +34,8 @@ func WriteRoutingNumbers[W util.RoutingNumber](w *util.BinaryWriter, values []W)
 		return w.WriteInt32s(typed)
 	case []float64:
 		return w.WriteFloat64s(typed)
+	case []uint64:
+		return w.WriteUint64s(typed)
 	default:
 		panic("unsupported routing number slice")
 	}
@@ -46,6 +48,8 @@ func ReadRoutingNumbers[W util.RoutingNumber](r *util.BinaryReader, values []W) 
 		return r.ReadInt32s(typed)
 	case []float64:
 		return r.ReadFloat64s(typed)
+	case []uint64:
+		return r.ReadUint64s(typed)
 	default:
 		panic("unsupported routing number slice")
 	}
