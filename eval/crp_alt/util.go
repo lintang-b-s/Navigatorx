@@ -18,7 +18,7 @@ import (
 )
 
 // ini buat dimacs 9th implmenetation challenge correctness test
-func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[uint64], *da.Graph,
+func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
@@ -32,7 +32,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		metricsFile      = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.nmt", name))
 		landmarkFile     = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.nlm", name))
 		mlpFile          = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s.mlp", name))
-		prep             *preprocesser.Preprocessor[uint64]
+		prep             *preprocesser.Preprocessor[int64]
 	)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -46,7 +46,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 
 	es := flattenEdges(adjList)
 
-	op := osmparser.NewOSMParserV2[uint64]()
+	op := osmparser.NewOSMParserV2[int64]()
 	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -119,7 +119,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 	if err != nil {
 		panic(err)
 	}
-	lm := landmark.NewLandmark[uint64]()
+	lm := landmark.NewLandmark[int64]()
 	err = lm.PreprocessALT(2, met, g, logger)
 	if err != nil {
 		panic(err)
@@ -148,14 +148,14 @@ func NewPairEdge(to int, weight float64) PairEdge {
 	return PairEdge{to, weight}
 }
 
-func flattenEdges(es [][]PairEdge) []osmparser.Edge[uint64] {
-	flatten := make([]osmparser.Edge[uint64], 0, len(es))
+func flattenEdges(es [][]PairEdge) []osmparser.Edge[int64] {
+	flatten := make([]osmparser.Edge[int64], 0, len(es))
 
 	eid := 0
 
 	for from, edges := range es {
 		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge[uint64](uint32(from), uint32(e.to), uint64(e.weight), uint32(e.weight), false, 0))
+			flatten = append(flatten, osmparser.NewEdge[int64](uint32(from), uint32(e.to), int64(e.weight), uint32(e.weight), false, 0))
 			eid++
 		}
 	}

@@ -12,7 +12,7 @@ const (
 	maxTimeFunctionItems = uint32(math.MaxInt32)
 	int32Marker          = uint8(1)
 	float64Marker        = uint8(2)
-	uint64Marker         = uint8(3)
+	int64Marker          = uint8(3)
 )
 
 // NumericMarker identifies the concrete generic number stored in an artifact.
@@ -23,8 +23,8 @@ func NumericMarker[W util.RoutingNumber]() uint8 {
 		return int32Marker
 	case float64:
 		return float64Marker
-	case uint64:
-		return uint64Marker
+	case int64:
+		return int64Marker
 	default:
 		panic("unsupported routing number")
 	}
@@ -37,8 +37,8 @@ func WriteRoutingNumbers[W util.RoutingNumber](w *util.BinaryWriter, values []W)
 		return w.WriteInt32s(typed)
 	case []float64:
 		return w.WriteFloat64s(typed)
-	case []uint64:
-		return w.WriteUint64s(typed)
+	case []int64:
+		return w.WriteInt64s(typed)
 	default:
 		panic("unsupported routing number slice")
 	}
@@ -51,8 +51,8 @@ func ReadRoutingNumbers[W util.RoutingNumber](r *util.BinaryReader, values []W) 
 		return r.ReadInt32s(typed)
 	case []float64:
 		return r.ReadFloat64s(typed)
-	case []uint64:
-		return r.ReadUint64s(typed)
+	case []int64:
+		return r.ReadInt64s(typed)
 	default:
 		panic("unsupported routing number slice")
 	}

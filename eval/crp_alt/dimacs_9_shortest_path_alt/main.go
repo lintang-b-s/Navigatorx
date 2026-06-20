@@ -288,10 +288,10 @@ func main() {
 	}
 
 	type queryRes struct {
-		spcost uint64
+		spcost int64
 	}
 
-	newQueryRes := func(spCost uint64) queryRes {
+	newQueryRes := func(spCost int64) queryRes {
 		return queryRes{spcost: spCost}
 	}
 

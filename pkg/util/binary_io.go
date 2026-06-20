@@ -113,12 +113,12 @@ func (w *BinaryWriter) WriteUint32s(values []uint32) error {
 	return nil
 }
 
-func (w *BinaryWriter) WriteUint64s(values []uint64) error {
+func (w *BinaryWriter) WriteInt64s(values []int64) error {
 	if err := w.Length(len(values)); err != nil {
 		return err
 	}
 	for _, value := range values {
-		if err := w.Uint64(value); err != nil {
+		if err := w.Int64(value); err != nil {
 			return err
 		}
 	}
@@ -289,6 +289,15 @@ func (r *BinaryReader) ReadUint64s(values []uint64) error {
 	return r.readBulk(len(values), itemSize, func(chunk []byte, offset int) {
 		for i := 0; i < len(chunk); i += itemSize {
 			values[offset+i/itemSize] = binary.LittleEndian.Uint64(chunk[i : i+itemSize])
+		}
+	})
+}
+
+func (r *BinaryReader) ReadInt64s(values []int64) error {
+	const itemSize = 8
+	return r.readBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			values[offset+i/itemSize] = int64(binary.LittleEndian.Uint64(chunk[i : i+itemSize]))
 		}
 	})
 }
