@@ -24,8 +24,8 @@ type TimeFunction[W util.RoutingNumber] struct {
 	turnTable      []uint16 // centisecond // map from turnTableId  to turn cost in centiseconds
 	// turnMatrices[v][i][j] -> turnCosts = flattened 1-D indexed array index of i-th incoming edge dari v and j-th outgoing edge dari v  = i*outDegree + j
 	// = turnCost buat keluar dari v dari i-th incoming edge ke j-th outgoing edge dari v
-	// salah satu buat support turn restrictions di openstreetmap. cara lain, osrm pakai edge-expanded graph representation: https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/understanding_osrm_graph_representation.md
-	// cara support turn restrictions yang pakai turn table/compact graph representation di propose di: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+	// salah satu buat support turn restrictions di openstreetmap. cara lain, osrm pakai edge-expanded graph representation: https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/understanding_osrm_graph_representation.md  dan https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
+	// cara support turn restrictions yang pakai turn table/compact graph representation di propose di: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf dan https://ae.iti.kit.edu/download/turn_ch.pdf
 	isRoadNetwork bool
 }
 

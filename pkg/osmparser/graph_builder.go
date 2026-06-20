@@ -14,7 +14,7 @@ import (
 // roadNetwork = flag if the graph is a road network graph.
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
 // jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph, untuk correctness test.
-// karena Customizable Route Planning (CRP) Query phase (with turn costs) mengasumsikan setiap vertices memiliki setidaknya 1 incoming edge & 1 outgoing edge biar bisa point-to-point shortest path (p2p) with turn costs.
+// karena Customizable Route Planning (CRP) Query phase (with turn costs) mengasumsikan setiap vertices memiliki setidaknya 1 incoming edge & 1 outgoing edge biar bisa point-to-point shortest path (p2p) with turn costs ke/dari setiap vertices.
 // untuk roadNetwork=true, inputnya file OpenStreetMap pbf, kita support hampir semua tipe osm turn restrictions.
 func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, *costfunction.TimeFunction[W], [][]da.Index) {
 	util.ActivateMode[W]()
