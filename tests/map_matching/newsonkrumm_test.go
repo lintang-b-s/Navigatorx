@@ -289,7 +289,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	if err := prep.PreProcessing(true); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, zlog)
+	cust := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, zlog)
 	if _, err := cust.Customize(); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}

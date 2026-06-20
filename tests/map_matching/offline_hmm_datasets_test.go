@@ -185,7 +185,7 @@ func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfuncti
 	if err := prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
-	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	cust := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 	if _, err := cust.Customize(); err != nil {
 		t.Fatalf("customize failed: %v", err)
 	}

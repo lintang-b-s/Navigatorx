@@ -526,7 +526,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	custom := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 
 	_, err = custom.Customize()
 	if err != nil {

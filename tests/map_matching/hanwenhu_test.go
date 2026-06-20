@@ -161,7 +161,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	if err = prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
-	cust := customizer.NewCustomizer(hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhTimeFunctionFile, hhLandmarkFile, logger)
+	cust := customizer.NewCustomizer[int32](hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhTimeFunctionFile, hhLandmarkFile, logger)
 	if _, err = cust.Customize(); err != nil {
 		t.Fatalf("customize failed: %v", err)
 	}

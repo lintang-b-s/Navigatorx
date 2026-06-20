@@ -37,10 +37,10 @@ type Customizer[W util.RoutingNumber] struct {
 	landmarkFile                              string
 }
 
-func NewCustomizer(graphFilePath, overlayGraphFilePath, metricOutputFilePath, timefunctionFilePath, landmarkFile string,
-	logger *zap.Logger) *Customizer[int32] {
-	util.USE_INT32 = true
-	cst := &Customizer[int32]{
+func NewCustomizer[W util.RoutingNumber](graphFilePath, overlayGraphFilePath, metricOutputFilePath, timefunctionFilePath, landmarkFile string,
+	logger *zap.Logger) *Customizer[W] {
+	util.ActivateMode[W]()
+	cst := &Customizer[W]{
 		graphFilePath:                     graphFilePath,
 		overlayGraphFilePath:              overlayGraphFilePath,
 		metricOutputFilePath:              metricOutputFilePath,
@@ -67,13 +67,7 @@ func NewCustomizerDirect[W util.RoutingNumber](
 	preprocessingTimeFunction *costfunction.TimeFunction[W],
 	logger *zap.Logger,
 ) *Customizer[W] {
-	var zero W
-	switch any(zero).(type) {
-	case float64:
-		util.USE_INT32 = false
-	default:
-		util.USE_INT32 = true
-	}
+	util.ActivateMode[W]()
 	return &Customizer[W]{
 		graph:                     graph,
 		overlayGraph:              overlayGraph,
@@ -83,7 +77,6 @@ func NewCustomizerDirect[W util.RoutingNumber](
 }
 
 func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
-
 	var err error
 	readBuf := bufio.NewReaderSize(nil, util.BUFIO_SIZE)
 

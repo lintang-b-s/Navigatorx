@@ -48,7 +48,7 @@ func main() {
 		panic(err)
 	}
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	custom := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 	custom.SetEdgeSpeedsFilePath(*edgeSpeedsFile)
 	custom.SetTurnPenaltiesFilePath(*turnPenaltiesFile)
 

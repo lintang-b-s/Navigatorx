@@ -158,7 +158,7 @@ func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseM
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: prep.PreProcessing() failed: %v", err)
 	}
 
-	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	cust := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 	_, err = cust.Customize()
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: cust.Customize() failed: %v", err)

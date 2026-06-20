@@ -234,6 +234,9 @@ func main() {
 			maxWeight = weight
 		}
 
+		if weight == 9223372036854775807 {
+			fmt.Printf("debug")
+		}
 		adjList[u] = append(adjList[u], crpalt.NewPairEdge(v, float64(weight)))
 	}
 

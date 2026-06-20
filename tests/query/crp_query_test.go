@@ -399,7 +399,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	custom := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 
 	_, err = custom.Customize()
 	if err != nil {

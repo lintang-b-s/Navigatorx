@@ -430,7 +430,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine[int32], *da.Graph
 		return nil, nil, nil, nil, nil, err
 	}
 
-	cust := customizer.NewCustomizer(graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	cust := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
 	_, err = cust.Customize()
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
