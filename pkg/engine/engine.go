@@ -42,14 +42,7 @@ func NewEngineDirect[W util.RoutingNumber](
 	logger *zap.Logger,
 	landmarkFile string,
 ) (*Engine[W], error) {
-	// customizable route planning in road networks section 7.2 (path retrieval)
-	var zero W
-	switch any(zero).(type) {
-	case float64:
-		util.USE_INT32 = false
-	default:
-		util.USE_INT32 = true
-	}
+	util.ActivateMode[W]()
 	puCache := da.NewPuCache()
 
 	lm := landmark.NewLandmark[W]()

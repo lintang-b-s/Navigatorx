@@ -19,6 +19,7 @@ func NewPUCacheKey(source, target Index, level uint8) PUCacheKey {
 }
 
 func NewPuCache() *otter.Cache[PUCacheKey, []Index] {
+	// customizable route planning in road networks section 7.2 (path retrieval)
 	puCache := otter.Must(&otter.Options[PUCacheKey, []Index]{
 		MaximumSize:     pathUnpackerMaxSize,
 		InitialCapacity: initialPuCacheCapacity,
