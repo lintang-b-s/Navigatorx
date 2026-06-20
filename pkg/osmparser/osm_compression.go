@@ -1,8 +1,6 @@
 package osmparser
 
 import (
-	"fmt"
-
 	"github.com/bits-and-blooms/bitset"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -380,9 +378,6 @@ func mergeOSMEdgeChain[W util.RoutingNumber](
 	merged.from = uint32(oldToNew[first.from])
 	merged.to = uint32(oldToNew[last.to])
 	merged.weight = W(totalWeight)
-	if merged.to == uint32(da.INVALID_VERTEX_ID) {
-		fmt.Printf("debug")
-	}
 	merged.distance = uint32(totalLength)
 	merged.toOsmId = last.toOsmId
 	merged.junctionHead = last.junctionHead
