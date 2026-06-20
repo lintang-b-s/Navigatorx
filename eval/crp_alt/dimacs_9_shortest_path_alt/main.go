@@ -237,8 +237,6 @@ func main() {
 		adjList[u] = append(adjList[u], crpalt.NewPairEdge(v, float64(weight)))
 	}
 
-	fmt.Printf("maxweight: %v", maxWeight)
-
 	// read sssp queries
 	fInputQueries, err := os.OpenFile(inputQueriesPath, os.O_RDONLY, 0644)
 	if err != nil {

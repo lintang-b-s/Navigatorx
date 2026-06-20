@@ -12,6 +12,7 @@ const (
 	maxTimeFunctionItems = uint32(math.MaxInt32)
 	int32Marker          = uint8(1)
 	float64Marker        = uint8(2)
+	uint64Marker         = uint8(3)
 )
 
 // NumericMarker identifies the concrete generic number stored in an artifact.
@@ -22,6 +23,8 @@ func NumericMarker[W util.RoutingNumber]() uint8 {
 		return int32Marker
 	case float64:
 		return float64Marker
+	case uint64:
+		return uint64Marker
 	default:
 		panic("unsupported routing number")
 	}
