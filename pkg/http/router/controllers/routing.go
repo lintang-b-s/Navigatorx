@@ -83,6 +83,16 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		}
 	}
 
+	useSteps := true
+	useStepsStr := query.Get("useSteps")
+	if useStepsStr != "" {
+		useSteps, err = strconv.ParseBool(useStepsStr)
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("useSteps must be boolean"))
+			return
+		}
+	}
+
 	request.OriginLat, err = strconv.ParseFloat(query.Get("origin_lat"), 64)
 	if err != nil {
 		api.BadRequestResponse(w, r, errors.New("origin_lat is required and must be a valid float"))
@@ -134,7 +144,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 	newCtx := r.Context()
 
 	travelTime, dist, pathPolyline, drivingDirections, ok, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
-		request.DestinationLat, request.DestinationLon, reroute, startEdgeId, useAnnotation)
+		request.DestinationLat, request.DestinationLon, reroute, startEdgeId, useAnnotation, useSteps)
 	if err != nil {
 		api.getStatusCode(w, r, err)
 		return
@@ -170,6 +180,16 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 		useAnnotation, err = strconv.ParseBool(useAnnotationStr)
 		if err != nil {
 			api.BadRequestResponse(w, r, errors.New("useAnnotation must be boolean"))
+			return
+		}
+	}
+
+	useSteps := true
+	useStepsStr := query.Get("useSteps")
+	if useStepsStr != "" {
+		useSteps, err = strconv.ParseBool(useStepsStr)
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("useSteps must be boolean"))
 			return
 		}
 	}
@@ -230,7 +250,7 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 	}
 
 	alternatives, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
-		request.DestinationLat, request.DestinationLon, int(request.K), reroute, startEdgeId, useAnnotation)
+		request.DestinationLat, request.DestinationLon, int(request.K), reroute, startEdgeId, useAnnotation, useSteps)
 	if err != nil {
 		api.getStatusCode(w, r, err)
 		return

@@ -194,7 +194,7 @@ func TestDrivingDirection(t *testing.T) {
 			orig := tc.qOriginCoord
 			dest := tc.qDestinationCoord // todo: aneh setelah tambahin multiple via-way turn restrictions jadi gak kedetect turn instruction buat roundabout manahan (DONE)
 			_, _, polyline, drivingDirections, _, _ := routingService.ShortestPath(context.Background(), orig.GetLat(), orig.GetLon(),
-				dest.GetLat(), dest.GetLon(), false, 0, true)
+				dest.GetLat(), dest.GetLon(), false, 0, true, true)
 			if len(drivingDirections) != len(tc.wantDirections) {
 				t.Errorf("expected driving directions length: %v, got: %v", len(tc.wantDirections), len(drivingDirections))
 			}

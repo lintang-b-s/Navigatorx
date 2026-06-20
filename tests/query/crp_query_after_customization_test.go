@@ -65,50 +65,50 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 				{
 					fromOsmId: 2601239374, // https://www.openstreetmap.org/node/2601239374
 					toOsmId:   1472574635,
-					speed:     0.1, // 0.1 km/h
+					speed:     0.0, // 0.0 km/h
 				},
 				{
 					fromOsmId: 1472574635,
 					toOsmId:   7650861628,
-					speed:     0.1,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 7650861628,
 					toOsmId:   7650861633,
-					speed:     0.1,
+					speed:     0.0,
 				},
 
 				{
 					fromOsmId: 7650861633,
 					toOsmId:   1664661816,
-					speed:     0.1,
+					speed:     0.0,
 				},
 
 				{
 					fromOsmId: 1664661816,
 					toOsmId:   7652244593,
-					speed:     0.1,
+					speed:     0.0,
 				},
 
 				{
 					fromOsmId: 7652244593,
 					toOsmId:   269398839,
-					speed:     0.1,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 269398839,
 					toOsmId:   7648974730,
-					speed:     0.1,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 7648974730,
 					toOsmId:   3628566588,
-					speed:     0.1,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 3628566588,
 					toOsmId:   12441110867,
-					speed:     0.1,
+					speed:     0.0,
 				},
 			},
 		},
@@ -122,79 +122,79 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 				{
 					fromOsmId: 13398102142,
 					toOsmId:   8474428438,
-					speed:     0.5, // 0.5 km/h
+					speed:     0.0, // 0.0 km/h
 				},
 
 				{
 					fromOsmId: 8474428438,
 					toOsmId:   2564065341,
-					speed:     0.5,
+					speed:     0.0,
 				},
 
 				{
 					fromOsmId: 2564065341,
 					toOsmId:   8482215551,
-					speed:     0.5,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 8482215551,
 					toOsmId:   9963297623,
-					speed:     0.5,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 9963297623,
 					toOsmId:   1664585410,
-					speed:     0.5,
+					speed:     0.0,
 				},
 
 				{
 					fromOsmId: 1664585410,
 					toOsmId:   1664585415,
-					speed:     0.5,
+					speed:     0.0,
 				},
 
 				{
 					fromOsmId: 1664585415,
 					toOsmId:   2647208599,
-					speed:     0.5,
+					speed:     0.0,
 				},
 
 				{
 					fromOsmId: 2647208599,
 					toOsmId:   275864222,
-					speed:     0.5,
+					speed:     0.0,
 				},
 
 				{
 					fromOsmId: 275864222,
 					toOsmId:   2941473421,
-					speed:     0.5,
+					speed:     0.0,
 				},
 
 				{
 					fromOsmId: 2941473421,
 					toOsmId:   5632067096,
-					speed:     0.5,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 5632067096,
 					toOsmId:   10292278109,
-					speed:     0.5,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 1389399208,
 					toOsmId:   5636354958,
-					speed:     0.5,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 5636354958,
 					toOsmId:   5636354955,
-					speed:     0.5,
+					speed:     0.0,
 				},
 				{
 					fromOsmId: 5636354955,
 					toOsmId:   7648639908,
-					speed:     0.5,
+					speed:     0.0,
 				},
 			},
 		},
@@ -286,7 +286,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 
 			// cek shortest path route
 			_, _, spPolyline, drivingDirections, _, _ := routingService.ShortestPath(context.Background(), q.originLat, q.originLon,
-				q.destLat, q.destLon, false, 0, true)
+				q.destLat, q.destLon, false, 0, true, true)
 
 			spPathEdgeIds := make([]da.Index, 0, len(drivingDirections))
 			for _, dd := range drivingDirections {
@@ -327,7 +327,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 
 			// cek shortest path route
 			_, _, _, drivingDirections, _, _ = routingService.ShortestPath(context.Background(), q.originLat, q.originLon,
-				q.destLat, q.destLon, false, 0, true)
+				q.destLat, q.destLon, false, 0, true, true)
 
 			spPathEdgeIdsAfterCustomization := make([]da.Index, 0, len(drivingDirections))
 			for _, dd := range drivingDirections {

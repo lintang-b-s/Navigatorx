@@ -14,13 +14,13 @@ type MockRoutingService struct {
 	mock.Mock
 }
 
-func (m *MockRoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, reroute bool, startEdgeId da.Index, useAnnotation bool) (float64, float64, string, []da.DrivingDirection, bool, error) {
-	args := m.Called(ctx, qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startEdgeId, useAnnotation)
+func (m *MockRoutingService) ShortestPath(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) (float64, float64, string, []da.DrivingDirection, bool, error) {
+	args := m.Called(ctx, qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startEdgeId, useAnnotation, useSteps)
 	return args.Get(0).(float64), args.Get(1).(float64), args.String(2), args.Get(3).([]da.DrivingDirection), args.Bool(4), args.Error(5)
 }
 
-func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startEdgeId da.Index, useAnnotation bool) ([]routing.AlternativeRoute, error) {
-	args := m.Called(ctx, qOrigLat, qOrigLon, qDstLat, qDstLon, k, reroute, startEdgeId, useAnnotation)
+func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) ([]routing.AlternativeRoute, error) {
+	args := m.Called(ctx, qOrigLat, qOrigLon, qDstLat, qDstLon, k, reroute, startEdgeId, useAnnotation, useSteps)
 	return args.Get(0).([]routing.AlternativeRoute), args.Error(1)
 }
 

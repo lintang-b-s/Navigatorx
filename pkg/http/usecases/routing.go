@@ -72,12 +72,14 @@ func (rs *RoutingService) ShortestPath(
 	reroute bool,
 	startEdgeId da.Index,
 	useAnnotation bool,
+	useSteps bool,
 ) (float64, float64, string, []da.DrivingDirection, bool, error) {
 	var (
-		travelTime, dist float64
-		pathCoords       *da.Coordinates
-		edgePath         []da.Index
-		found            bool
+		travelTime, dist  float64
+		pathCoords        *da.Coordinates
+		edgePath          []da.Index
+		found             bool
+		drivingDirections []da.DrivingDirection
 	)
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startEdgeId)
@@ -99,15 +101,18 @@ func (rs *RoutingService) ShortestPath(
 	travelTime, dist = rs.AppendPhantomNodesToPath(pathCoords, sp, tp, travelTime, dist)
 
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
-	directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
-	if reroute {
-		directionBuilder.SetReroute(startEdgeId)
-	}
-	drivingDirections := directionBuilder.GetDrivingDirections(edgePath, sp, tp, useAnnotation)
-	rs.engine.PutCoordsToPool(pathCoords)
 
-	directionBuilder.Reset()
-	rs.directionBuilderPool.Put(directionBuilder)
+	if useSteps {
+		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
+		if reroute {
+			directionBuilder.SetReroute(startEdgeId)
+		}
+		drivingDirections = directionBuilder.GetDrivingDirections(edgePath, sp, tp, useAnnotation)
+		directionBuilder.Reset()
+		rs.directionBuilderPool.Put(directionBuilder)
+	}
+
+	rs.engine.PutCoordsToPool(pathCoords)
 	return travelTime, dist, pathPolyline, drivingDirections, true, nil
 }
 
@@ -118,6 +123,7 @@ func (rs *RoutingService) AlternativeRouteSearch(
 	reroute bool,
 	startEdgeId da.Index,
 	useAnnotation bool,
+	useSteps bool,
 ) ([]routing.AlternativeRoute, error) {
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startEdgeId)
@@ -137,6 +143,8 @@ func (rs *RoutingService) AlternativeRouteSearch(
 	}
 
 	for i, alt := range alternatives {
+		var drivingDirections []da.DrivingDirection
+
 		altPathCoords := alt.GetCoords()
 		newTravelTime, dist := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alt.GetDrivingTravelTime(), alt.GetDist())
 		alternatives[i].SetDrivingTravelTime(newTravelTime) // in seconds
@@ -144,17 +152,19 @@ func (rs *RoutingService) AlternativeRouteSearch(
 
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
 		alternatives[i].SetPolylinePath(pathPolyline)
-		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
-		if reroute {
-			directionBuilder.SetReroute(startEdgeId)
+		if useSteps {
+			directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
+			if reroute {
+				directionBuilder.SetReroute(startEdgeId)
+			}
+			drivingDirections = directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath(), sp, tp, useAnnotation)
+			directionBuilder.Reset()
+			rs.directionBuilderPool.Put(directionBuilder)
 		}
-		edgeIDPath := alt.GetEdgeIdPath()
-		drivingDirections := directionBuilder.GetDrivingDirections(edgeIDPath, sp, tp, useAnnotation)
+
 		alternatives[i].SetDrivingDirections(drivingDirections)
 		rs.engine.PutCoordsToPool(altPathCoords)
 
-		directionBuilder.Reset()
-		rs.directionBuilderPool.Put(directionBuilder)
 	}
 	return alternatives, nil
 }

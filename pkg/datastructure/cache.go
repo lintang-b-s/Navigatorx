@@ -4,9 +4,9 @@ import "github.com/maypok86/otter/v2"
 
 const (
 	pathUnpackCacheMaxBytes uint64 = 1 << 28
-	pathUnpackEntryOverhead        = 48 + 4*5
+	pathUnpackEntryOverhead        = 24 + 9 + 4*4
 	pathUnpackerMaxSize            = int(pathUnpackCacheMaxBytes / pathUnpackEntryOverhead)
-	initialPuCacheCapacity         = 50_000
+	initialPuCacheCapacity         = 400_000
 )
 
 type PUCacheKey struct {
@@ -27,7 +27,7 @@ func NewPuCache() *otter.Cache[PUCacheKey, []Index] {
 }
 
 const (
-	turnSignCacheMaxBytes        uint64 = 1 << 25
+	turnSignCacheMaxBytes        uint64 = 1 << 24
 	turnSignEntryBytes           uint64 = 16
 	turnSigncacheMaximumSize            = int(turnSignCacheMaxBytes / turnSignEntryBytes)
 	initialTurnSignCacheCapacity        = 10_000

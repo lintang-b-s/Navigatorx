@@ -118,7 +118,7 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
-		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID, false).
+		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID, false, true).
 			Return(100.0, 1000.0, "polyline", []da.DrivingDirection{}, true, nil)
 
 		api.shortestPath(rr, req, nil)
@@ -133,7 +133,7 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.ExpectedCalls = nil
-		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, true, da.Index(1), false).
+		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, true, da.Index(1), false, true).
 			Return(100.0, 1000.0, "polyline", []da.DrivingDirection{}, true, nil)
 
 		api.shortestPath(rr, req, nil)
@@ -147,7 +147,7 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.ExpectedCalls = nil
-		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID, false).
+		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID, false, true).
 			Return(0.0, 0.0, "", []da.DrivingDirection{}, false, errors.New("internal error"))
 
 		api.shortestPath(rr, req, nil)
@@ -161,7 +161,7 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.ExpectedCalls = nil
-		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID, false).
+		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID, false, true).
 			Return(0.0, 0.0, "", []da.DrivingDirection{}, false, nil)
 
 		api.shortestPath(rr, req, nil)
@@ -181,7 +181,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
-		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID, false).
+		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID, false, true).
 			Return([]routing.AlternativeRoute{{}}, nil)
 
 		api.AlternativeRoutes(rr, req, nil)
@@ -195,7 +195,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.ExpectedCalls = nil
-		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, true, da.Index(1), false).
+		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, true, da.Index(1), false, true).
 			Return([]routing.AlternativeRoute{{}}, nil)
 
 		api.AlternativeRoutes(rr, req, nil)
@@ -279,7 +279,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.ExpectedCalls = nil
-		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID, false).
+		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID, false, true).
 			Return([]routing.AlternativeRoute{}, errors.New("internal error"))
 
 		api.AlternativeRoutes(rr, req, nil)
@@ -292,7 +292,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.ExpectedCalls = nil
-		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID, false).
+		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_EDGE_ID, false, true).
 			Return([]routing.AlternativeRoute{}, nil)
 
 		api.AlternativeRoutes(rr, req, nil)
@@ -343,7 +343,7 @@ func TestRoutingAPI_Routes(t *testing.T) {
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", fmt.Sprintf("/api/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 
-	mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID, false).
+	mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.INVALID_EDGE_ID, false, true).
 		Return(100.0, 1000.0, "polyline", []da.DrivingDirection{}, true, nil)
 
 	router.ServeHTTP(w, req)

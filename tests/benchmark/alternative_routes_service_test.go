@@ -55,8 +55,7 @@ func BenchmarkAlternativeRoutesService(b *testing.B) {
 		tCoord := g.GetVertexCoordinate(t)
 
 		_, _ = rs.AlternativeRouteSearch(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(),
-			3, false, 0, false)
-
+			3, false, 0, false, true)
 	}
 
 	now := time.Since(start)

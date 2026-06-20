@@ -15,7 +15,7 @@ import (
 const (
 	SoftwareVersionMajor uint16 = 0
 	SoftwareVersionMinor uint16 = 1
-	SoftwareVersionPatch uint16 = 1
+	SoftwareVersionPatch uint16 = 2
 )
 
 var magicNumber = [4]byte{'n', 'a', 'v', 'x'} // https://gist.github.com/leommoore/f9e57ba2aa4bf197ebc5
