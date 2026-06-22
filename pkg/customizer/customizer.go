@@ -25,6 +25,8 @@ type Customizer[W util.RoutingNumber] struct {
 	overlayGraph                              *da.OverlayGraph
 	lowestHeapPool                            sync.Pool
 	levelHeapPool                             sync.Pool
+	lowestHeapNoTurnCostPool                  sync.Pool
+	levelHeapNoTurnCostPool                   sync.Pool
 	verticesLookupTable                       *LookupTable[uint64]
 	logger                                    *zap.Logger
 	edgeSpeedsFilePath, turnPenaltiesFilePath []string
@@ -35,6 +37,7 @@ type Customizer[W util.RoutingNumber] struct {
 	preprocessingTimeFunctionFilePath         string
 	preprocessingTimeFunction                 *costfunction.TimeFunction[W]
 	landmarkFile                              string
+	turnCost                                  bool
 }
 
 func NewCustomizer[W util.RoutingNumber](graphFilePath, overlayGraphFilePath, metricOutputFilePath, timefunctionFilePath, landmarkFile string,
@@ -77,6 +80,7 @@ func NewCustomizerDirect[W util.RoutingNumber](
 }
 
 func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
+	c.turnCost = true
 	var err error
 	readBuf := bufio.NewReaderSize(nil, util.BUFIO_SIZE)
 
@@ -162,6 +166,18 @@ func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
 		},
 	}
 
+	c.lowestHeapNoTurnCostPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxEdgesInCell), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+		},
+	}
+
+	c.levelHeapNoTurnCostPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+		},
+	}
+
 	c.Build(costFunction)
 	c.logger.Sugar().Infof("Building stalling tables...")
 	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, c.metricOutputFilePath, readBuf)
@@ -194,6 +210,7 @@ func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
 
 // just for shortest path test
 func (c *Customizer[W]) CustomizeDirect() (*metrics.Metric[W], error) {
+	c.turnCost = false
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights[W](c.overlayGraph.GetWeightVectorSize())
@@ -211,6 +228,18 @@ func (c *Customizer[W]) CustomizeDirect() (*metrics.Metric[W], error) {
 	}
 
 	c.levelHeapPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+		},
+	}
+
+	c.lowestHeapNoTurnCostPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxEdgesInCell), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+		},
+	}
+
+	c.levelHeapNoTurnCostPool = sync.Pool{
 		New: func() any {
 			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
@@ -415,10 +444,18 @@ worst case buildLevel in level l:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op)
 worst case crp customization: O(  c_1 * n_op * (m_p* log(m_p)) + c_l * n_op * (n_op + \hat{m_p}) * log(n_op)  )
 */
 func (c *Customizer[W]) Build(costFunction *costfunction.TimeFunction[W]) {
-	c.buildLowestLevel(costFunction)
+	if c.turnCost {
+		c.buildLowestLevel(costFunction)
+	} else {
+		c.buildLowestLevelWithoutTurnCost(costFunction)
+	}
 	c.logger.Info("finished crp customization level 1")
 	for level := 2; level <= c.overlayGraph.GetLevelInfo().GetLevelCount(); level++ {
-		c.buildLevel(costFunction, level)
+		if c.turnCost {
+			c.buildLevel(costFunction, level)
+		} else {
+			c.buildLevelWithoutTurnCost(costFunction, level)
+		}
 		c.logger.Sugar().Infof("finished crp customization level %v", level)
 
 	}
@@ -443,7 +480,10 @@ func (cc cellCustomizationRes[W]) getIndex() int {
 
 /*
 // buildLowestLevel. build clique of each cell in the lowest level (level 1)
-// using Dijkstra algorithm (restricted to cell C) from each entry point of the cell to all exit points of the cell
+1.  query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
+Networks,” Transportation Science [Preprint]. Available at:
+https://doi.org/10.1287/trsc.2014.0579.
+// using turn-aware implementation of Dijkstra algorithm [1] (restricted to cell C) from each entry point of the cell to all exit points of the cell
 // and store the result in ow.weights
 // restricted to cell C: menggunakan only vertices dan edges yang terletak pada cell C.
 // this function is parallelized using goroutines worker pool
@@ -630,7 +670,10 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 }
 
 // buildLevel. build clique of each cell in the level (level > 1)
-// using Dijkstra algorithm (menggunakan shortcut edges pada subcells of the level-i cell) from each entry vertices of the cell to all exit vertices of the cell
+// 1.  query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
+// Networks,” Transportation Science [Preprint]. Available at:
+// https://doi.org/10.1287/trsc.2014.0579.
+// using turn-aware implementation of Dijkstra algorithm [1] (menggunakan shortcut edges pada subcells of the level-i cell) from each entry vertices of the cell to all exit vertices of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
 func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], level int) {

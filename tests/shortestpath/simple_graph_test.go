@@ -144,7 +144,7 @@ func TestCRPQuerySimpleGraph(t *testing.T) {
 		testPath := filepath.Join(dirPath, baseName)
 
 		t.Logf("solving test case: %v", baseName)
-		t.Run(dirPath+"/"+baseName, func(t *testing.T) {
+		t.Run("Multilevel-Dijkstra with turn costs equal to 0"+dirPath+"/"+baseName, func(t *testing.T) {
 			solveSimpleGraph(t, testPath)
 
 			runtime.GC()

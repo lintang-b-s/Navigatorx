@@ -207,17 +207,24 @@ search terminates ketika sum dari minimum keys of both priority queues exceeds \
 di implementasi multilevel-alt ini, kita menggunakan Bidirectional ALT [3] instead of bidirectional dijkstra
 Bidirectional A*, landmarks, and triangle inequality (ALT) [3] adalah algoritma bidirectional A* yang fungsi heuristik/potential nya memanfaatkan precomputed landmark shortest path distances (see ref[3] for the details)
 fungsi heuristik/potential yang digunakan bidirectional ALT memiliki sifat konsisten/feasible
-potential function adalah fungsi dari vertices ke bilangan real, fungsi potensial \pi_t(v) memberikan estimate sp distance dari v ke t
+potential function adalah fungsi dari vertices ke bilangan real, fungsi potensial \pi_f(v) memberikan estimate sp distance dari v ke t
 diberikan fungsi potensial \pi, kita mendefinisikan reduced cost dari sebuah edge dengan l_{\pi}(v,w)=l(v,w)-\pi(v)+\pi(w)
 fungsi potensial \pi dikakan konsisten atau feasible jika l_{\pi} >= 0 untuk semua edges
 
-pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat konsisten. misal \pi_t(v) adalah estimate sp distance dari v ke t dan \pi_s(v) estimate sp distance dari s ke v
-[4],[3], dan [8], kita menggunakan fungsi potensial p_t(v)=\frac{\pi_t(v)-\pi_s(v)}{2} untuk forward search dan p_s(v)=-p_t(v) untuk backward search
+pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat konsisten. misal \pi_f(v) adalah estimate sp distance dari v ke t dan \pi_r(v) estimate sp distance dari s ke v
+diadaptasi dari ref [3] dan [8], kita menggunakan fungsi potensial konsisten/feasible  pi_f(v)=max(h_f(v), h_r(t)-h_r(v)+beta) untuk forward search and pi_r(v)=-pi_f(v) untuk backward search. kita disini pakai beta=h_f(s) (lihat landmark.go).
 [4], [3]  membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(w)-p_t(v)=l(v,w)-p_s(w)+p_s(v) >= 0
 dari Lemma 25.1 (Reweighting does not change shortest paths) pada ref 7:
 misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path from v0 to vk with weight function l if and only if it is a shortest path with weight function l_p
 
-Multilevel-ALT dibawah menggunakan fungsi potensial Bidirectional A* p_f(v)=\frac{\pi_f(v)-\pi_r(v)}{2}  dan  p_r(v)=\frac{\pi_r(v)-\pi_f(v)}{2}
+s-t shortest path yang dihasilkan oleh bidirectional ALT pada graf consisting of overlay graph H, cell level 1 C_s, cell level 1 C_t ekuivalen dengan s-t shortest path yang dihasilkan oleh algoritma multilevel-dijkstra dengan edge weight l_p diatas.
+dengan menggunakan lemma reweighting does not change shortest paths diatas, kita mendapatkan s-t shortest path yang dihasilkan oleh algoritma multilevel-dijkstra dengan edge weight l_p  ekuivalen dengan s-t shortest path
+yang dihasillkan oleh algoritma multilevel dijkstra dengan edge weight l.
+lihat multilevel_dijkstra_without_turn_cost.go untuk penjelasan multilevel-dijkstra.
+
+
+
+Multilevel-ALT dibawah menggunakan fungsi potensial Bidirectional A* p_f(v)=max(h_f(v), h_r(t)-h_r(v)+beta)   dan  p_r(v)=-p_f(v).  kita disini pakai beta=h_f(s) (lihat landmark.go).
 yang dijelaskan pada: https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 dan  https://www.microsoft.com/en-us/research/wp-content/uploads/2004/07/tr-2004-24.pdf
 serta memanfaaatkan shortcuts dari multilevel overlay graph hasil preprocessing dan customization phase dari Customizable Route Planning (CRP) yang
@@ -453,17 +460,16 @@ func (bs *CRPALTBidirectionalSearch[W]) forwardGraphSearch(uItem da.CRPQueryKey,
 					// dist'(s,(vEntryId, v)) > dist'(s, (, v)) + max_k { T_u[, k] -  T_u[vEntryId,k]}
 					return
 				}
+				newPar := da.NewVertexEdgePair(uId, uEntryId, false)
 
 				if vAlreadyLabelled {
 					// newTravelTime is better, update the forwardInfo
 					// is key already in the priority queue, decrease its key
 
-					newPar := da.NewVertexEdgePair(uId, uEntryId, false)
 					bs.forwardPq.DecreaseKey(vEntryId, priority, newTravelTime, newPar)
 				} else if !vAlreadyLabelled {
 
-					vertexInfo := da.NewVertexInfo(newTravelTime,
-						da.NewVertexEdgePair(uId, uEntryId, false))
+					vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 					queryKey := da.NewCRPQueryKey(vId, vEntryId, false)
 					// is key not in the priority queue, insert it
 					bs.forwardPq.Insert(vEntryId, priority, vertexInfo, queryKey)
@@ -508,11 +514,11 @@ func (bs *CRPALTBidirectionalSearch[W]) forwardGraphSearch(uItem da.CRPQueryKey,
 			oldOverlayVIdTravelTime := bs.forwardPq.GetPriority(overlayVId)
 			vAlreadyLabelled := util.Lt(oldOverlayVIdTravelTime, util.Infinity[W]())
 			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, oldOverlayVIdTravelTime)) {
+				newPar := da.NewVertexEdgePair(uId, uEntryId, false)
 
 				if !vAlreadyLabelled {
 
-					vertexInfo := da.NewVertexInfo(newTravelTime,
-						da.NewVertexEdgePair(uId, uEntryId, false))
+					vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 					vertexInfo.SetFirstOverlayEntryExitId(vEntryId)
 
 					queryKey := da.NewCRPQueryKey(v, da.Index(vQueryLevel), true)
@@ -520,7 +526,6 @@ func (bs *CRPALTBidirectionalSearch[W]) forwardGraphSearch(uItem da.CRPQueryKey,
 				} else {
 
 					bs.forwardPq.SetFirstOverlayEntryExitId(overlayVId, vEntryId)
-					newPar := da.NewVertexEdgePair(uId, uEntryId, false)
 					bs.forwardPq.DecreaseKey(overlayVId, priority, newTravelTime, newPar)
 				}
 			}
@@ -604,13 +609,12 @@ func (bs *CRPALTBidirectionalSearch[W]) backwardGraphSearch(uItem da.CRPQueryKey
 					// stalled
 					return
 				}
+				newPar := da.NewVertexEdgePair(uId, uExitId, true)
 
 				if vAlreadyLabelled {
-					newPar := da.NewVertexEdgePair(uId, uExitId, true)
 					bs.backwardPq.DecreaseKey(vExitId, priority, newTravelTime, newPar)
 				} else {
-					vertexInfo := da.NewVertexInfo(newTravelTime,
-						da.NewVertexEdgePair(uId, uExitId, false))
+					vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 					queryKey := da.NewCRPQueryKey(vId, vExitId, false)
 					bs.backwardPq.Insert(vExitId, priority, vertexInfo, queryKey)
 				}
@@ -652,17 +656,16 @@ func (bs *CRPALTBidirectionalSearch[W]) backwardGraphSearch(uItem da.CRPQueryKey
 			oldOverlayVIdTravelTime := bs.backwardPq.GetPriority(overlayVId)
 			vAlreadyLabelled := util.Lt(oldOverlayVIdTravelTime, util.Infinity[W]())
 			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, oldOverlayVIdTravelTime)) {
+				newPar := da.NewVertexEdgePair(uId, uExitId, true)
 
 				if !vAlreadyLabelled {
 
-					vVertexInfo := da.NewVertexInfo(newTravelTime,
-						da.NewVertexEdgePair(uId, uExitId, true))
+					vVertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 					vVertexInfo.SetFirstOverlayEntryExitId(vExitId)
 					queryKey := da.NewCRPQueryKey(v, da.Index(vQueryLevel), true)
 					bs.backwardPq.Insert(overlayVId, priority, vVertexInfo, queryKey)
 				} else {
 					bs.backwardPq.SetFirstOverlayEntryExitId(overlayVId, vExitId)
-					newPar := da.NewVertexEdgePair(uId, uExitId, true)
 					bs.backwardPq.DecreaseKey(overlayVId, priority, newTravelTime, newPar)
 				}
 			}
@@ -745,14 +748,14 @@ func (bs *CRPALTBidirectionalSearch[W]) forwardOverlayGraphSearch(uItem da.CRPQu
 				oldWEntryIdTravelTime := bs.forwardPq.GetPriority(wEntryId)
 				wAlreadyLabelled := util.Lt(oldWEntryIdTravelTime, util.Infinity[W]())
 				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, oldWEntryIdTravelTime)) {
+					newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, false)
+
 					if wAlreadyLabelled {
 
-						newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, false)
 						bs.forwardPq.DecreaseKey(wEntryId, priority, newTravelTime, newPar)
 					} else {
 
-						vertexInfo := da.NewVertexInfo(newTravelTime,
-							da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, false))
+						vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 						queryKey := da.NewCRPQueryKey(originalWId, wEntryId, false)
 						bs.forwardPq.Insert(wEntryId, priority, vertexInfo, queryKey)
 					}
@@ -792,16 +795,15 @@ func (bs *CRPALTBidirectionalSearch[W]) forwardOverlayGraphSearch(uItem da.CRPQu
 				oldOverlayWIdTravelTime := bs.forwardPq.GetPriority(overlayWId)
 				wAlreadyLabelled := util.Lt(oldOverlayWIdTravelTime, util.Infinity[W]())
 				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, oldOverlayWIdTravelTime)) {
+					newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, false)
 
 					if !wAlreadyLabelled {
 
-						vertexInfo := da.NewVertexInfo(newTravelTime,
-							da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, false))
+						vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 						queryKey := da.NewCRPQueryKey(w, da.Index(wQueryLevel), true)
 						bs.forwardPq.Insert(overlayWId, priority, vertexInfo, queryKey)
 					} else {
 
-						newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, false)
 						bs.forwardPq.DecreaseKey(overlayWId, priority, newTravelTime, newPar)
 					}
 				}
@@ -900,14 +902,14 @@ func (bs *CRPALTBidirectionalSearch[W]) backwardOverlayGraphSearch(uItem da.CRPQ
 				oldWExitIdTravelTime := bs.backwardPq.GetPriority(wExitId)
 				wAlreadyLabelled := util.Lt(oldWExitIdTravelTime, util.Infinity[W]())
 				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, oldWExitIdTravelTime)) {
+					newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, true)
+
 					if wAlreadyLabelled {
-						newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, true)
 						bs.backwardPq.DecreaseKey(wExitId, priority, newTravelTime, newPar)
 					} else {
 						queryKey := da.NewCRPQueryKey(originalWId, wExitId, false)
 
-						vertexInfo := da.NewVertexInfo(newTravelTime,
-							da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, true))
+						vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 						bs.backwardPq.Insert(wExitId, priority, vertexInfo, queryKey)
 					}
 				}
@@ -942,15 +944,14 @@ func (bs *CRPALTBidirectionalSearch[W]) backwardOverlayGraphSearch(uItem da.CRPQ
 				oldOverlayWIdTravelTime := bs.backwardPq.GetPriority(overlayWId)
 				wAlreadyLabelled := util.Lt(oldOverlayWIdTravelTime, util.Infinity[W]())
 				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, oldOverlayWIdTravelTime)) {
+					newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, true)
 
 					if !wAlreadyLabelled {
 						queryKey := da.NewCRPQueryKey(w, da.Index(wQueryLevel), true)
 
-						vertexInfo := da.NewVertexInfo(newTravelTime,
-							da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, true))
+						vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 						bs.backwardPq.Insert(overlayWId, priority, vertexInfo, queryKey)
 					} else {
-						newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), overlayVId, true)
 						bs.backwardPq.DecreaseKey(overlayWId, priority, newTravelTime, newPar)
 					}
 				}

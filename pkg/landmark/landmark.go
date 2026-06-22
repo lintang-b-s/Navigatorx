@@ -311,7 +311,7 @@ https://doi.org/10.1007/978-3-319-49487-6_2.
 
 implementation of computing tighest lower bound of A*, landmarks, and triangle inequality, 6 Computing Lower Bounds in [1] or section 2.2 ALT in [2]
 misal L adalah set of landmarks, dist(v,w) adalah shortest path cost dari vertex v ke vertex w
-FindTighestLowerBound compute h(v)=max_{l\inL}{dist(l,t)-dist(l,v), dist(v,l)-dist(t,l)}
+FindTighestLowerBound compute h(v)=max_{l in L}{dist(l,t)-dist(l,v), dist(v,l)-dist(t,l)}
 fungsi potential/heuristik  h(v) meiliki sifat konsisten/feasible [3]
 
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
@@ -390,17 +390,17 @@ func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 [4] https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 
 implementation of consistent/feasible potential function in 5.2 Consistent Approach ref [1]
-calc \pi_f(u)=max(h_f(v), h_r(t)-h_r(v)+beta) untuk forward search and \pi_r(u)=-\pi_f(u) untuk backward search
+calc pi_f(v)=max(h_f(v), h_r(t)-h_r(v)+beta) untuk forward search and pi_r(v)=-pi_f(v) untuk backward search
 kita disini pakai beta=h_f(s)
 h_f(u) adalah consistent lower bound dari sp cost dari u ke t
 h_r(u) adalah consistent lower bound dari sp cost dari s ke u
 */
 func (lm *Landmark[W]) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index) (W, W) {
-	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks) // estimate on dist(u,t)
-	piru := lm.FindTighestLowerBound(s, u, activeLandmarks) // estimate on dist(s,u)
-	pirt := lm.FindTighestLowerBound(s, t, activeLandmarks) // estimate on dist(s, t)
+	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks) // consistent lower bound dari dist(u,t)
+	piru := lm.FindTighestLowerBound(s, u, activeLandmarks) // consistent lower bound dari dist(s,u)
+	pirt := lm.FindTighestLowerBound(s, t, activeLandmarks) // consistent lower bound dari dist(s, t)
 
-	beta := pirt
+	beta := pirt // h_f(s)
 	pfu := max(pifu, pirt-piru+beta)
 	pru := -pfu
 

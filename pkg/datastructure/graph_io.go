@@ -323,10 +323,6 @@ func (g *Graph) WriteGraph(filename string) error {
 			return err
 		}
 
-		if err := w.Uint32(uint32(g.maxNumVerticesInCell)); err != nil {
-			return err
-		}
-
 		if err := writeIndices(w, g.outEdgeCellOffset); err != nil {
 			return err
 		}
@@ -637,10 +633,7 @@ func ReadGraph(filename string, _ *bufio.Reader) (*Graph, error) {
 	if err != nil {
 		return nil, err
 	}
-	maxNumVerticesInCell, err := r.Uint32()
-	if err != nil {
-		return nil, err
-	}
+
 	outOffsets, err := readIndices(r)
 	if err != nil {
 		return nil, err
@@ -683,7 +676,7 @@ func ReadGraph(filename string, _ *bufio.Reader) (*Graph, error) {
 	graph.cellNumbers = cellNumbers
 	graph.overlayVertices = overlay
 	graph.maxEdgesInCell = Index(maxNumEdgesInCell)
-	graph.maxNumVerticesInCell = Index(maxNumVerticesInCell)
+
 	graph.outEdgeCellOffset = outOffsets
 	graph.inEdgeCellOffset = inOffsets
 	graph.sccs = sccs

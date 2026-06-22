@@ -1,4 +1,4 @@
-package shortestpath_without_turn_cost
+package shortestpath_crp_alt_without_turn_cost
 
 import (
 	"math/rand"

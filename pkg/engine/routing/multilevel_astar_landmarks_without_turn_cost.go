@@ -7,7 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type CRPBidirectionalSearchWithoutTurnCost[W util.RoutingNumber] struct {
+type CRPALTBidirectionalSearchWithoutTurnCost[W util.RoutingNumber] struct {
 	engine             *CRPRoutingEngine[W]
 	shortestTravelTime W
 	forwardMid         da.VertexEdgePair
@@ -15,6 +15,8 @@ type CRPBidirectionalSearchWithoutTurnCost[W util.RoutingNumber] struct {
 
 	forwardPq  *da.QueryHeap[da.CRPQueryKeyNoTurnCost, W]
 	backwardPq *da.QueryHeap[da.CRPQueryKeyNoTurnCost, W]
+
+	activeLandmarks []da.Index
 
 	sCellNumber da.Pv
 	tCellNumber da.Pv
@@ -25,10 +27,10 @@ type CRPBidirectionalSearchWithoutTurnCost[W util.RoutingNumber] struct {
 	pathUnpackingRuntime      int64
 }
 
-func NewCRPBidirectionalSearchWithoutTurnCost[W util.RoutingNumber](
+func NewCRPALTBidirectionalSearchWithoutTurnCost[W util.RoutingNumber](
 	engine *CRPRoutingEngine[W],
-) *CRPBidirectionalSearchWithoutTurnCost[W] {
-	crpQuery := &CRPBidirectionalSearchWithoutTurnCost[W]{
+) *CRPALTBidirectionalSearchWithoutTurnCost[W] {
+	crpQuery := &CRPALTBidirectionalSearchWithoutTurnCost[W]{
 		engine: engine,
 
 		forwardMid:  da.NewVertexEdgePair(0, 0, false),
@@ -44,9 +46,9 @@ func NewCRPBidirectionalSearchWithoutTurnCost[W util.RoutingNumber](
 	return crpQuery
 }
 
-// Reset clears per-query state on a pooled CRPBidirectionalSearchWithoutTurnCost so it can
+// Reset clears per-query state on a pooled CRPALTBidirectionalSearchWithoutTurnCost so it can
 // be reused.
-func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) Reset() {
+func (bs *CRPALTBidirectionalSearchWithoutTurnCost[W]) Reset() {
 
 	bs.shortestTravelTime = 2 * util.Infinity[W]()
 
@@ -71,9 +73,14 @@ keywords: {Computational modeling;Roads;Navigation;Computational efficiency;Perf
 4. query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
+5. ALT query phase: Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+6. https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
+7. bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
+8. Cormen, T.H. et al. (2009) Introduction to Algorithms. 3th ed. Cambridge, MA, USA: MIT Press
 
-ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1] / multilevel-dijkstra tanpa incorporate turn costs.
-intinya cuma bidirectional dijkstra pada graf yang consisiting of overlay graph H, cell C_s, cell C_t. C_s adalah cell level 1 yang mengandung vertex s hasil multilevel partition (lihat package partitioner).
+
+ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1] + Bidirectional ALT (A* search, landmarks, and triangle inequality) [5]  tanpa incorporate turn costs.
+intinya cuma bidirectional ALT  (A* search, landmarks, and triangle inequality)  pada graf yang consisiting of overlay graph H, cell C_s, cell C_t. C_s adalah cell level 1 yang mengandung vertex s hasil multilevel partition (lihat package partitioner).
 Setiap cell C_v memiliki vertices (all inside cell C_v) dan edges (semua endpoints nya inside C_v), vertices dan edges dari cell C_v adalah subset dari vertices dan edges dari graf G.
 overlay graph H adalah graf yang mengandung all boundary/overlay vertices, all cut/boundary edges, all shortcut edges di setiap cells hasil multilevel partitioning.
 boundary vertices adalah vertices yang punya setidaknya satu edge yang kedua endpoint nya (tail dan head) di cell yang berbeda, edge yang kedua endpointnya in different cell ini disebut cut/boundary edge.
@@ -87,9 +94,31 @@ dengan s-t shortest path pada graf G.
 untuk any s-t shortest path, kita bisa decompose edges penyusun s-t shortest path dengan edges inside cell C_s, edges inside C_t, cut edges in any cells, atau edges inside any cell (selain C_s dan C_t).
 tapi karena di fase kustomisasi CRP [1] dan HiTi [2], kita compute shortcuts di setiap cell yang mana adalah shortest path dari entry boundary vertex ke exit boundary vertex dengan hanya menggunakan vertices and edges inside that cell.
 bagian "edges inside any cell (selain C_s dan C_t)" bisa kita ganti dengan shortcuts di overlay graph H yang udah kita precompute di fase kustomisasi.
+proof of correctness bidirectional dijkstra bisa dilihat di proof of correctness Algorithm 2 di ref [3]
 
-proof of correctness bidirectional dijkstra bisa dilihat di proof of correctness Algorithm 2 di ref [3]. di implementasi ini, kita apply bidirectional dijkstra pada graf consisting of overlay graph H, cell C_s, cell C_t yang mana s-t shortest path yang dihasilkan
+di implementasi ini, kita apply bidirectional ALT (A* search, landmarks, and triangle inequality) [5]  pada graf consisting of overlay graph H, cell C_s, cell C_t yang mana s-t shortest path yang dihasilkan
 ekuivalen dengan s-t shortest path pada graf G.
+
+
+di implementasi multilevel-alt ini, kita menggunakan Bidirectional ALT (A* search, landmarks, and triangle inequality) [5] instead of bidirectional dijkstra
+Bidirectional A*, landmarks, and triangle inequality (ALT) [5] adalah algoritma bidirectional A* yang fungsi heuristik/potential nya memanfaatkan precomputed landmark shortest path distances (see ref [5] for the details)
+fungsi heuristik/potential yang digunakan bidirectional ALT memiliki sifat konsisten/feasible
+potential function adalah fungsi dari vertices ke bilangan real, fungsi potensial \pi_f(v) memberikan estimate sp distance dari v ke t
+diberikan fungsi potensial \pi, kita mendefinisikan reduced cost dari sebuah edge dengan l_{\pi}(v,w)=l(v,w)-\pi(v)+\pi(w)
+fungsi potensial \pi dikakan konsisten atau feasible jika l_{\pi} >= 0 untuk semua edges
+
+pada bidirectional A*,kita perlu adjust fungsi potensial agar tetap bersifat konsisten. misal \pi_f(v) adalah estimate sp distance dari v ke t dan \pi_r(v) estimate sp distance dari s ke v
+diadaptasi dari ref [5] dan [6], kita menggunakan fungsi potensial konsisten/feasible  pi_f(v)=max(h_f(v), h_r(t)-h_r(v)+beta) untuk forward search and pi_r(v)=-pi_f(v) untuk backward search. kita disini pakai beta=h_f(s) (lihat landmark.go).
+[5] dan [7]  membuktikan bahwa bidirectional A* dengan fungsi potensial p_t dan p_s diatas ekuivalen dengan menjalankan algoritma bidirectional dijkstra dengan bobot edge l_p(v,w)=l(v,w)+p_t(w)-p_t(v)=l(v,w)-p_s(w)+p_s(v) >= 0
+dari Lemma 25.1 (Reweighting does not change shortest paths) pada ref 8:
+misal p=(v0,v1,...,vk) adalah any path dari v0 ke vk. then p is a shortest path from v0 to vk with weight function l if and only if it is a shortest path with weight function l_p
+
+it is easy to see that fungsi heuristik bidirectional ALT (A* search, landmarks, and triangle inequality) diatas masih bersifat konsisten/feasible pada pada graf consisting of overlay graph H, cell level 1 C_s, cell level 1 C_t. kita cukup tunjukkan fungsi heuristik masih konsisten jika menggunakan  edges inside any level 1 cell,cut edges, dan shortcut edges (ez to proof).
+
+s-t shortest path yang dihasilkan oleh bidirectional ALT pada graf consisting of overlay graph H, cell level 1 C_s, cell level 1 C_t ekuivalen dengan s-t shortest path yang dihasilkan oleh algoritma multilevel-dijkstra dengan edge weight l_p diatas.
+dengan menggunakan lemma reweighting does not change shortest paths diatas, kita mendapatkan s-t shortest path yang dihasilkan oleh algoritma multilevel-dijkstra dengan edge weight l_p  ekuivalen dengan s-t shortest path
+yang dihasillkan oleh algoritma multilevel dijkstra dengan edge weight l.
+lihat multilevel_dijkstra_without_turn_cost.go untuk penjelasan multilevel-dijkstra.
 
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
@@ -100,12 +129,12 @@ decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, di C_s/C_t ki
 extract-min at most O(n_p+n_o) operations, yang kita insert di pq adlaah vertices inside C_s/C_t yang mana at most n_p dan overlay vertices in overlay graph H yang mana at most n_o.
 
 
-versi query phase dari CRP yang support turn costs & turn restrictions [4] dapat dilihat pada multilevel_dijkstra.go, yang mana implementasi dari query phase dari CRP yang menggunakan compact graph representation/turn tables yang mana simulates arc-based expanded graph representation, diadaptasi dari implementasi CRP: https://github.com/michaelwegner/CRP, jauh lebih ribet dari  implemetasi ini....
+versi query phase dari CRP + bidirectional ALT yang support turn costs & turn restrictions [4] dapat dilihat pada multilevel_astar_landmarks.go, yang mana implementasi dari query phase dari CRP yang menggunakan compact graph representation/turn tables yang mana simulates arc-based expanded graph representation, diadaptasi dari implementasi CRP: https://github.com/michaelwegner/CRP, jauh lebih ribet dari  implemetasi ini....
 implementasi query phase dari CRP yang support turn costs & turn restrictions yang jauh lebih mudah dipahami dapat dilihat di  https://github.com/Project-OSRM/osrm-backend/blob/master/include/engine/routing_algorithms/routing_base_mld.hpp   yang mana osrm pakai arc-based expanded graph : https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
 
 */
 
-func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
+func (bs *CRPALTBidirectionalSearchWithoutTurnCost[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 
 	defer bs.Done()
 	now := time.Now()
@@ -118,6 +147,7 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) ShortestPathSearch(s, t da.I
 	bs.tCellNumber = bs.engine.graph.GetCellNumber(t)
 
 	bs.shortestTravelTime = 2 * util.Infinity[W]()
+	bs.activeLandmarks = bs.engine.lm.SelectBestQueryLandmarks(s, t)
 
 	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 	tVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, true))
@@ -183,7 +213,7 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) ShortestPathSearch(s, t da.I
 /*
 graphSearch. bidirectional dijkstra search on graph level 1.
 */
-func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
+func (bs *CRPALTBidirectionalSearchWithoutTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
 
 	uId := uItem.GetNode()
 	uTravelTime := bs.forwardPq.GetPriority(uId)
@@ -205,6 +235,9 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardGraphSearch(uItem da.
 			return
 		}
 
+		pfv, _ := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
+		priority := newTravelTime + pfv
+
 		if vQueryLevel == 0 {
 
 			// if query level of v is 0, then v is in the same cell as s or t in the lowest level
@@ -219,14 +252,14 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardGraphSearch(uItem da.
 					// is key already in the priority queue, decrease its key
 
 					newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false)
-					bs.forwardPq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
+					bs.forwardPq.DecreaseKey(vId, priority, newTravelTime, newPar)
 				} else if !vAlreadyLabelled {
 
 					vertexInfo := da.NewVertexInfo(newTravelTime,
 						da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
 					queryKey := da.NewCRPQueryKeyNoTurnCost(vId, 0, false)
 					// is key not in the priority queue, insert it
-					bs.forwardPq.Insert(vId, newTravelTime, vertexInfo, queryKey)
+					bs.forwardPq.Insert(vId, priority, vertexInfo, queryKey)
 				}
 			}
 
@@ -255,9 +288,9 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardGraphSearch(uItem da.
 						newPar)
 
 					queryKey := da.NewCRPQueryKeyNoTurnCost(overlayVId, vQueryLevel, true)
-					bs.forwardPq.Insert(overlayVId, newTravelTime, vertexInfo, queryKey)
+					bs.forwardPq.Insert(overlayVId, priority, vertexInfo, queryKey)
 				} else {
-					bs.forwardPq.DecreaseKey(overlayVId, newTravelTime, newTravelTime, newPar)
+					bs.forwardPq.DecreaseKey(overlayVId, priority, newTravelTime, newPar)
 				}
 			}
 
@@ -277,7 +310,7 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardGraphSearch(uItem da.
 	})
 }
 
-func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
+func (bs *CRPALTBidirectionalSearchWithoutTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
 	// search backward on graph level 1
 
 	uId := uItem.GetNode()
@@ -298,6 +331,10 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardGraphSearch(uItem da
 			return
 		}
 
+		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+		_, prv := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
+		priority := newTravelTime + prv
+
 		if vQueryLevel == 0 {
 
 			// relax edge
@@ -307,12 +344,12 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardGraphSearch(uItem da
 
 				if vAlreadyLabelled {
 					newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, true)
-					bs.backwardPq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
+					bs.backwardPq.DecreaseKey(vId, priority, newTravelTime, newPar)
 				} else {
 					vertexInfo := da.NewVertexInfo(newTravelTime,
 						da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
 					queryKey := da.NewCRPQueryKeyNoTurnCost(vId, 0, false)
-					bs.backwardPq.Insert(vId, newTravelTime, vertexInfo, queryKey)
+					bs.backwardPq.Insert(vId, priority, vertexInfo, queryKey)
 				}
 			}
 
@@ -344,10 +381,10 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardGraphSearch(uItem da
 					vVertexInfo := da.NewVertexInfo(newTravelTime,
 						newPar)
 					queryKey := da.NewCRPQueryKeyNoTurnCost(overlayVId, vQueryLevel, true)
-					bs.backwardPq.Insert(overlayVId, newTravelTime, vVertexInfo, queryKey)
+					bs.backwardPq.Insert(overlayVId, priority, vVertexInfo, queryKey)
 				} else {
 
-					bs.backwardPq.DecreaseKey(overlayVId, newTravelTime, newTravelTime, newPar)
+					bs.backwardPq.DecreaseKey(overlayVId, priority, newTravelTime, newPar)
 				}
 			}
 
@@ -366,7 +403,7 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardGraphSearch(uItem da
 	})
 }
 
-func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
+func (bs *CRPALTBidirectionalSearchWithoutTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
 	// search on overlay graph
 
 	uId := uItem.GetNode() // overlay vertex id
@@ -416,6 +453,10 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardOverlayGraphSearch(uI
 				return
 			}
 
+			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+			pfw, _ := bs.engine.lm.FindTighestConsistentLowerBound(wId, source, target, bs.activeLandmarks)
+			priority := newTravelTime + pfw
+
 			if wQueryLevel == 0 {
 				// w is in the same cell as s or t
 
@@ -426,11 +467,11 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardOverlayGraphSearch(uI
 					newPar.SetIsOverlayVertex()
 
 					if wAlreadyLabelled {
-						bs.forwardPq.DecreaseKey(wId, newTravelTime, newTravelTime, newPar)
+						bs.forwardPq.DecreaseKey(wId, priority, newTravelTime, newPar)
 					} else {
 						vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 						queryKey := da.NewCRPQueryKeyNoTurnCost(wId, 0, false)
-						bs.forwardPq.Insert(wId, newTravelTime, vertexInfo, queryKey)
+						bs.forwardPq.Insert(wId, priority, vertexInfo, queryKey)
 					}
 				}
 
@@ -462,9 +503,9 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardOverlayGraphSearch(uI
 					if !wAlreadyLabelled {
 						vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
 						queryKey := da.NewCRPQueryKeyNoTurnCost(overlayWId, wQueryLevel, true)
-						bs.forwardPq.Insert(overlayWId, newTravelTime, vertexInfo, queryKey)
+						bs.forwardPq.Insert(overlayWId, priority, vertexInfo, queryKey)
 					} else {
-						bs.forwardPq.DecreaseKey(overlayWId, newTravelTime, newTravelTime, newPar)
+						bs.forwardPq.DecreaseKey(overlayWId, priority, newTravelTime, newPar)
 					}
 				}
 
@@ -496,7 +537,7 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) forwardOverlayGraphSearch(uI
 	})
 }
 
-func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
+func (bs *CRPALTBidirectionalSearchWithoutTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
 	// search backward on overlay graph
 
 	uId := uItem.GetNode()
@@ -545,6 +586,10 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardOverlayGraphSearch(u
 				return
 			}
 
+			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+			_, prw := bs.engine.lm.FindTighestConsistentLowerBound(wId, source, target, bs.activeLandmarks)
+			priority := newTravelTime + prw
+
 			if wQueryLevel == 0 {
 
 				// relax edge
@@ -555,11 +600,11 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardOverlayGraphSearch(u
 					newPar.SetIsOverlayVertex()
 
 					if wAlreadyLabelled {
-						bs.backwardPq.DecreaseKey(wId, newTravelTime, newTravelTime, newPar)
+						bs.backwardPq.DecreaseKey(wId, priority, newTravelTime, newPar)
 					} else {
 						queryKey := da.NewCRPQueryKeyNoTurnCost(wId, 0, false)
 						vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
-						bs.backwardPq.Insert(wId, newTravelTime, vertexInfo, queryKey)
+						bs.backwardPq.Insert(wId, priority, vertexInfo, queryKey)
 					}
 				}
 
@@ -586,10 +631,10 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardOverlayGraphSearch(u
 					if !wAlreadyLabelled {
 						queryKey := da.NewCRPQueryKeyNoTurnCost(overlayWId, wQueryLevel, true)
 						vertexInfo := da.NewVertexInfo(newTravelTime, newPar)
-						bs.backwardPq.Insert(overlayWId, newTravelTime, vertexInfo, queryKey)
+						bs.backwardPq.Insert(overlayWId, priority, vertexInfo, queryKey)
 					} else {
 
-						bs.backwardPq.DecreaseKey(overlayWId, newTravelTime, newTravelTime, newPar)
+						bs.backwardPq.DecreaseKey(overlayWId, priority, newTravelTime, newPar)
 					}
 				}
 
@@ -619,12 +664,12 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) backwardOverlayGraphSearch(u
 	})
 }
 
-func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) Preallocate() {
+func (bs *CRPALTBidirectionalSearchWithoutTurnCost[W]) Preallocate() {
 	bs.forwardPq = bs.engine.fHeapNoTurnCostPool.Get().(*da.QueryHeap[da.CRPQueryKeyNoTurnCost, W])
 	bs.backwardPq = bs.engine.bHeapNoTurnCostPool.Get().(*da.QueryHeap[da.CRPQueryKeyNoTurnCost, W])
 }
 
-func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) Done() {
+func (bs *CRPALTBidirectionalSearchWithoutTurnCost[W]) Done() {
 
 	bs.forwardPq.Clear()
 	bs.backwardPq.Clear()

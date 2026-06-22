@@ -1,4 +1,4 @@
-package shortestpath
+package shortestpath_crp_alt_without_turn_cost
 
 import (
 	"bufio"
@@ -235,25 +235,16 @@ func solve(t *testing.T, filepath string) {
 	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(0), float64(0)))
 	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(h-1), float64(w-1)))
 
-	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{7, 11, 14}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{7, 11, 14}, true)
 
-	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+	crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
 
 	sid := oldToNewVIdMap[da.Index(source)]
 	tid := oldToNewVIdMap[da.Index(target)]
 
-	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
-	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
-
 	t.Logf("calculating shortest path...  \n")
 
-	sVertex := g.GetVertex(sid)
-	tVertex := g.GetVertex(tid)
-	emptyCoords := make([]da.Coordinate, 0)
-	sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-	tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-
-	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+	spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
 
 	// assert expected output dari test cases soal
 
@@ -282,7 +273,7 @@ func solve(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "go test ./tests/shortestpath_crp_alt -run TestCRPQueryDelftDistanceMALT  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/shortestpath_crp_alt_without_turn_cost -run TestCRPQueryDelftDistanceMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 // selesai dalam dalam 65 detik
 func TestCRPQueryDelftDistanceMALT(t *testing.T) {
@@ -311,7 +302,7 @@ func TestCRPQueryDelftDistanceMALT(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-ALT with turn costs equal to 0"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT without turn cost"+dir+"/"+baseName, func(t *testing.T) {
 				solve(t, testPath)
 
 			})

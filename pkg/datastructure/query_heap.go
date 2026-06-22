@@ -10,9 +10,9 @@ import (
 
 type QueryHeap[T comparable, W util.RoutingNumber] struct {
 	heap       *DAryHeap[T, W] // 4-ary minheap
-	queryInfos []VertexInfo[W] // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array), scanned dari node. node bisa berupa edgeId/overlayVertexId dari graph. ingat, this crp query impl. support turn costs
+	queryInfos []VertexInfo[W] // berisi travelTime, parent, heapNodeId (index dari heapNode di heap array)
 
-	storage        QueryInfoStorage // map dari edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
+	storage        QueryInfoStorage // map dari nodeId/edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
 	maxEdgesInCell uint32
 	storageType    QueryInfoStorageType
 	scanned        ScannedSetStorage
@@ -79,7 +79,7 @@ func (qh *QueryHeap[T, W]) updatePosition(queryInfoId uint32, newHeapNodeId uint
 }
 
 // Insert. insert node ke priority queue
-// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) Insert(id Index, priority W, vInfo VertexInfo[W], queryKey T) {
 	newQueryInfoid := uint32(len(qh.queryInfos))
 
@@ -99,7 +99,7 @@ func (qh *QueryHeap[T, W]) ExtractMin() PriorityQueueNode[T, W] {
 }
 
 // DecreaseKey. decreaseKey() operation dari min heap. decrease priority dari node ke newPriority
-// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
 // newPriority adlh priority dari Multilevel-Dijkstra / Multilevel-ALT (A*, landmarks, and triangle intequality), kalau ALT priority dari pq beda sama estimated sp cost/qInfoPriority
 func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newPriority, qInfoPriority W, newPar VertexEdgePair) {
 	qInfoId := qh.storage.Get(id)
@@ -110,7 +110,7 @@ func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newPriority, qInfoPriority W, n
 }
 
 // Get. Get queryInfo travel time dari node
-// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) GetPriority(id Index) W {
 	qInfoId := qh.storage.Get(id)
 	if qInfoId == math.MaxUint32 {
@@ -130,7 +130,7 @@ func (qh *QueryHeap[T, W]) Clear() {
 }
 
 // Get. get queryInfo dari node
-// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) Get(id Index) VertexInfo[W] {
 	qInfoId := qh.storage.Get(id)
 	return qh.queryInfos[qInfoId]
@@ -151,7 +151,7 @@ func (qh *QueryHeap[T, W]) GetMinrank() W {
 }
 
 // Scan. mark node as scanned
-// node/id bisa berupa edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) Scan(id Index) {
 	qInfoId := qh.storage.Get(id)
 	qh.scanned.Set(qInfoId)

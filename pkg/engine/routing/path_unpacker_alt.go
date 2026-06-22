@@ -86,7 +86,7 @@ func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.VertexEdgePair, sCellNu
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
 		if !isBitOn(cur.GetEdge(), UNPACK_OVERLAY_OFFSET) {
-			// original vertex (non-overlay vertex)
+			// base edge (non-overlay vertex)
 
 			unpackedEdgePath = append(unpackedEdgePath, cur.GetEdge())
 			i++

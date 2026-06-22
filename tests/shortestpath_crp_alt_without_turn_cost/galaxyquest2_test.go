@@ -1,4 +1,4 @@
-package shortestpath
+package shortestpath_crp_alt_without_turn_cost
 
 import (
 	"bufio"
@@ -26,6 +26,7 @@ kalau mau test pakai semua test cases tinggal download dari link diatas and taru
 
 my c++ solution (got AC on kattis: https://open.kattis.com/problems/galaxyquest2):
 https://drive.google.com/file/d/1ulMqGc3n89_jfIfiOAAedAhYfL4lo9Pj/view?usp=sharing
+
 
 solution sketch:
 ref: https://icpcarchive.github.io/Europe%20Contests/Northwestern%20Europe%20Regional%20Contest%20(NWERC)/2023%20Northwestern%20Europe%20Regional%20Contest/solution.pdf
@@ -83,7 +84,6 @@ for calc \min \sum_{i} sqrt(d_i) , we can use dijkstra algorithm
 
 if q^2 - 4 < 0, then return impossible (impossible to reach planet terget)
 else:  just return the  2 * \min  * \sum_{i} cLangrange *sqrt(d_i)
-
 
 */
 
@@ -223,32 +223,31 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(planet.x+planet.z), float64(planet.y+planet.z)))
 	}
 
-	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, []int{4, 5, 6}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{4, 5, 6}, true)
 	s := 0
 	sid := oldToNewVIdMap[da.Index(s)]
-	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 
 	dist := make(map[int]float64)
 	dist[s] = 0
 
 	t.Logf("calculating shortest paths from planet 1 to other planets.....\n")
 
-	atIds := make([]da.Index, 0, n)
+	tIds := make([]da.Index, 0, n)
 
-	atIdTotId := make(map[da.Index]int)
+	newtidToOldtid := make(map[da.Index]int)
 	for v := 1; v < n; v++ {
 
 		tid := oldToNewVIdMap[da.Index(v)]
-		at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
-		atIds = append(atIds, at)
-		atIdTotId[at] = v
+		tIds = append(tIds, tid)
+		newtidToOldtid[tid] = v
 	}
-	crpQuery := routing.NewCRPUniDijkstraOneToMany(re.GetRoutingEngine())
 
-	spLengths, _, _, _ := crpQuery.ShortestPathOneToManySearch(as, atIds)
-	for atId, spLength := range spLengths {
-		t := atIdTotId[atId]
-		dist[t] = spLength
+	for _, tid := range tIds {
+		crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+
+		sp, _, _ := crpQuery.ShortestPathSearch(sid, tid)
+		target := newtidToOldtid[tid]
+		dist[target] = sp
 	}
 
 	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)
@@ -300,9 +299,8 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 			}
 
 			var expectedAns float64 = 0
-			_, err = fmt.Sscanf(line, "%f", &expectedAns)
-			if err != nil {
-				t.Fatalf("err: %v", err)
+			if _, err = fmt.Sscanf(line, "%f", &expectedAns); err != nil {
+				t.Fatalf("err parsing expected answer: %v", err)
 			}
 			if !util.Eq(ans, expectedAns) {
 				t.Fatalf("FAIL: Expected fuel: %v, got: %v", expectedAns, ans)
@@ -313,11 +311,11 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "go test ./tests/shortestpath -run TestCRPQueryGalaxyQuest  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/shortestpath_crp_alt_without_turn_cost -run TestCRPQueryGalaxyQuestMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
-func TestCRPQueryGalaxyQuest(t *testing.T) {
+func TestCRPQueryGalaxyQuestMALT(t *testing.T) {
 
-	dirPath := "./data/tests/shortestpath/icpc_nwerc2023_galaxyquest/"
+	dirPath := "../shortestpath/data/tests/shortestpath/icpc_nwerc2023_galaxyquest/"
 	testDirs := []string{"sample", "secret"}
 
 	for _, dir := range testDirs {
@@ -341,10 +339,10 @@ func TestCRPQueryGalaxyQuest(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-Dijkstra with turn costs equal to 0"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT without turn cost"+dir+"/"+baseName, func(t *testing.T) {
 				solveGalaxyQuest(t, testPath)
-			})
 
+			})
 		}
 	}
 }

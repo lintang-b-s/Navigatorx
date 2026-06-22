@@ -42,9 +42,6 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackPath(packedPath []da.VertexEdgePai
 	unpackedVertexPath := make([]da.Index, 0, len(packedPath)) // unpacked vertex path
 	now := time.Now()
 
-	// todo: sebelumnya pakai worker pools di worker_pool.go, di benchmark ada additional 40000 B/op, bikin worker pool yang allocate less space ?
-	// DONE: ternyata tanpa worker pool buat path unpacking lebih less space dan lebih bagus hasil load testnya
-
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
 		if !isBitOn(cur.GetVertex(), UNPACK_OVERLAY_OFFSET) {
@@ -302,7 +299,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLowestLevelCell(
 
 	uId := t
 	vertexPath = append(vertexPath, t)
-	for pq.Get(uId).GetParent().GetVertex() != da.INVALID_VERTEX_ID { // sampai parent.edge = sourceEntryId, include sp edges didalam current cell & sp edge entry cell ini
+	for pq.Get(uId).GetParent().GetVertex() != da.INVALID_VERTEX_ID {
 		prevVertex := pq.Get(uId).GetParent().GetVertex()
 		vertexPath = append(vertexPath, prevVertex)
 		uId = prevVertex

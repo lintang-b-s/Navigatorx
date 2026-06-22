@@ -311,11 +311,10 @@ type Graph struct {
 	sccs               []Index   // verticeId -> sccId
 	sccCondensationAdj [][]Index // condensation graph connection of scc of u -> scc of v
 
-	boundingBox          *BoundingBox
-	minResolution        float64
-	maxEdgesInCell       Index // maximum number of inEdges/outEdges in any level 1 cell
-	maxNumVerticesInCell Index // maximum number of verteices in any level 1 cell
-	roadNetwork          bool
+	boundingBox    *BoundingBox
+	minResolution  float64
+	maxEdgesInCell Index // maximum number of inEdges/outEdges in any level 1 cell
+	roadNetwork    bool
 }
 
 func NewGraph(vertices []Vertex, outEdges []OutEdge, inEdges []InEdge, turnTypeTable []pkg.TurnType, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
@@ -718,14 +717,6 @@ func (g *Graph) GetMaxEdgesInCell() Index {
 
 func (g *Graph) SetMaxEdgesInCell(maxEdgesInCell Index) {
 	g.maxEdgesInCell = maxEdgesInCell
-}
-
-func (g *Graph) SetMaxNumVerticesInCell(maxNumVerticesInCell Index) {
-	g.maxNumVerticesInCell = maxNumVerticesInCell
-}
-
-func (g *Graph) GetMaxNumVerticesInCell() Index {
-	return g.maxNumVerticesInCell
 }
 
 func (g *Graph) GetOutEdgeCellOffset(v Index) Index {

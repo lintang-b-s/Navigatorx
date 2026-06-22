@@ -1,4 +1,4 @@
-package shortestpath
+package shortestpath_crp_alt_without_turn_cost
 
 import (
 	"bufio"
@@ -76,25 +76,16 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		adjList[u] = append(adjList[u], tests.NewPairEdge(v, float64(w)))
 	}
 
-	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{1, 2}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{1, 2}, true)
 
-	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+	crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
 
 	sid := oldToNewVIdMap[da.Index(0)]
 	tid := oldToNewVIdMap[da.Index(n-1)]
 
-	as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
-	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
-
 	t.Logf("calculating shortest path...  \n")
 
-	sVertex := g.GetVertex(sid)
-	tVertex := g.GetVertex(tid)
-	emptyCoords := make([]da.Coordinate, 0)
-	sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-	tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-
-	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+	spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
 
 	// assert expected output dari test cases soal
 
@@ -120,9 +111,10 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, spLength)
 	}
 
-	t.Logf("solveSimpleGraphd test case: %v", filepath)
+	t.Logf("TestCRPQuerySimpleGraphMALT test case: %v", filepath)
 }
 
+// "go test ./tests/shortestpath_crp_alt_without_turn_cost  -run TestCRPQuerySimpleGraphMALT  -v -timeout=0  -count=1"
 func TestCRPQuerySimpleGraphMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/simple_graph"
@@ -145,7 +137,7 @@ func TestCRPQuerySimpleGraphMALT(t *testing.T) {
 		testPath := filepath.Join(dirPath, baseName)
 
 		t.Logf("solving test case: %v", baseName)
-		t.Run("Multilevel-ALT with turn costs equal to 0"+dirPath+"/"+baseName, func(t *testing.T) {
+		t.Run("Multilevel-ALT without turn cost"+dirPath+"/"+baseName, func(t *testing.T) {
 			solveSimpleGraph(t, testPath)
 
 			runtime.GC()

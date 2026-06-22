@@ -38,6 +38,10 @@ func NewDijkstraKey(node Index, entryExitPoint Index) CRPQueryKey {
 	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint}
 }
 
+func NewDijkstraKeyNoTurnCost(node Index) CRPQueryKey {
+	return CRPQueryKey{node: node}
+}
+
 func NewCRPQueryKey(node Index, entryExitPoint Index, overlay bool) CRPQueryKey {
 	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, overlay: overlay}
 }

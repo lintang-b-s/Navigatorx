@@ -1,4 +1,4 @@
-package shortestpath
+package shortestpath_crp_alt_without_turn_cost
 
 import (
 	"bufio"
@@ -150,7 +150,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(placei.x), float64(placei.y*placei.floor)))
 	}
 
-	re, g, oldToNewVIdMap, newToOldVidMap, _ := buildCRP(t, nodeCoords, adjList, N, []int{6, 7}, true)
+	re, _, oldToNewVIdMap, newToOldVidMap, _ := buildCRP(t, nodeCoords, adjList, N, []int{6, 7}, true)
 
 	line, err = util.ReadLine(br)
 	if err != nil {
@@ -191,24 +191,13 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		sid := oldToNewVIdMap[da.Index(a)]
 		tid := oldToNewVIdMap[da.Index(b)]
 
-		as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
-		at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
+		crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
 
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-
-		sVertex := g.GetVertex(sid)
-		tVertex := g.GetVertex(tid)
-		emptyCoords := make([]da.Coordinate, 0)
-		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-
-		_, _, _, spEdges, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+		_, spPath, _ := crpQuery.ShortestPathSearch(sid, tid)
 		path := make([]int, 0)
-		path = append(path, a)
 
-		for _, eId := range spEdges {
-			e := g.GetOutEdge(eId)
-			v := newToOldVidMap[e.GetHead()]
+		for _, newV := range spPath {
+			v := newToOldVidMap[newV]
 			path = append(path, int(v))
 		}
 
@@ -237,11 +226,10 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 				t.Fatalf("FAIL: Expected vertex in sp: %v, got: %v", expectedPath[j], path[j])
 			}
 		}
-
 	}
 }
 
-// please run the test using command: "cd tests/shortestpath_crp_alt && go test -run TestCRPQueryShoppingMallsMALT  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/shortestpath_crp_alt_without_turn_cost  -run TestCRPQueryShoppingMallsMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 // selesai dalam 1 detik
 func TestCRPQueryShoppingMallsMALT(t *testing.T) {
@@ -270,7 +258,7 @@ func TestCRPQueryShoppingMallsMALT(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-ALT with turn costs equal to 0"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT without turn cost"+dir+"/"+baseName, func(t *testing.T) {
 				solveShoppingMalls(t, testPath)
 
 			})

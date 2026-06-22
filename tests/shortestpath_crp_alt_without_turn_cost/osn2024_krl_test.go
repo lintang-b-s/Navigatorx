@@ -1,4 +1,4 @@
-package shortestpath_without_turn_cost
+package shortestpath_crp_alt_without_turn_cost
 
 import (
 	"bufio"
@@ -341,11 +341,11 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	tid := oldToNewVIdMap[da.Index(Q)]
 	tidTransit := oldToNewVIdMap[da.Index(Q+N)]
 
-	crpQuery := routing.NewCRPBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+	crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
 
 	spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
 
-	crpQuery2 := routing.NewCRPBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+	crpQuery2 := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
 
 	spLengthTransit, _, _ := crpQuery2.ShortestPathSearch(sid, tidTransit)
 
@@ -383,11 +383,11 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "go test ./tests/shortestpath_crp_alt -run TestOSN2024KRLMLD  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/shortestpath_crp_alt_without_turn_cost -run TestOSN2024KRLMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode,
 // selesai dalam dua 30 menit
 // lama karena graph partitioning  nya...
-func TestOSN2024KRLMLD(t *testing.T) {
+func TestOSN2024KRLMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/osn2024_krl/"
 	testDirs := []string{"tc"}
@@ -413,7 +413,7 @@ func TestOSN2024KRLMLD(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-Dijkstra without turn cost"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT without turn cost"+dir+"/"+baseName, func(t *testing.T) {
 				SolveOSN2024KRL(t, testPath)
 
 			})

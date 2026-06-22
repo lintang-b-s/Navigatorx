@@ -1,4 +1,4 @@
-package shortestpath_without_turn_cost
+package shortestpath_crp_alt_without_turn_cost
 
 import (
 	"bufio"
@@ -186,7 +186,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		snId := cellToNId(p.first, p.second)
 		sid := oldToNewVIdMap[da.Index(snId)]
 
-		crpQuery := routing.NewCRPBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+		crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
 
 		spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
 
@@ -238,10 +238,10 @@ func SolveShowroom(t *testing.T, filepath string) {
 	t.Logf("solved test case: %v", filepath)
 }
 
-// please run the test using command: "go test ./tests/shortestpath_without_turn_cost  -run TestShowroomMLD  -v -timeout=0  -count=1"
+// please run the test using command: "go test ./tests/shortestpath_crp_alt_without_turn_cost  -run TestShowroomMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 // selesai dalam 150s
-func TestShowroomMLD(t *testing.T) {
+func TestShowroomMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/ukiepc2016_showroom/"
 	testDirs := []string{"secret", "sample"}
@@ -267,7 +267,7 @@ func TestShowroomMLD(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-Dijkstra without turn cost"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT without turn cost"+dir+"/"+baseName, func(t *testing.T) {
 				SolveShowroom(t, testPath)
 
 			})

@@ -348,7 +348,7 @@ func TestCRPQueryGalaxyQuestMALT(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run(dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT with turn costs equal to 0"+dir+"/"+baseName, func(t *testing.T) {
 				solveGalaxyQuest(t, testPath)
 
 			})
