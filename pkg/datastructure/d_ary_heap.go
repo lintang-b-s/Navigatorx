@@ -46,6 +46,28 @@ func NewCRPQueryKeyWithOutInEdgeId(node, entryExitPoint, outInEdgeId Index) CRPQ
 	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, outInEdgeId: outInEdgeId}
 }
 
+type CRPQueryKeyNoTurnCost struct {
+	node       Index // nodeId or boundary/overlay nodeId
+	queryLevel uint8
+	overlay    bool // is node a boundary/overlay vertex
+}
+
+func (qk *CRPQueryKeyNoTurnCost) GetNode() Index {
+	return qk.node
+}
+
+func (qk *CRPQueryKeyNoTurnCost) IsOverlay() bool {
+	return qk.overlay
+}
+
+func (qk *CRPQueryKeyNoTurnCost) GetQueryLevel() int {
+	return int(qk.queryLevel)
+}
+
+func NewCRPQueryKeyNoTurnCost(node Index, queryLevel uint8, overlay bool) CRPQueryKeyNoTurnCost {
+	return CRPQueryKeyNoTurnCost{node: node, queryLevel: queryLevel, overlay: overlay}
+}
+
 type PriorityQueueNode[T comparable, W util.RoutingNumber] struct {
 	item        T
 	rank        W

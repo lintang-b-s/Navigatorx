@@ -1,0 +1,348 @@
+package shortestpath_without_turn_cost
+
+import (
+	"bufio"
+	"fmt"
+	"math"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
+)
+
+/*
+taken from: https://2023.nwerc.eu/main/problem-set.pdf
+
+test data: https://chipcie.wisv.ch/archive/2023/nwerc/solutions.zip
+exclude test cases that contains > 50k edges or > 30k vertices, to speed up the testings,
+agar ukuran reponya ga kegedean juga heheh.
+kalau mau test pakai semua test cases tinggal download dari link diatas and taruh di "tests/shortestpath/data/tests/shortestpath/icpc_nwerc2023_galaxyquest"
+
+my c++ solution (got AC on kattis: https://open.kattis.com/problems/galaxyquest2):
+https://drive.google.com/file/d/1ulMqGc3n89_jfIfiOAAedAhYfL4lo9Pj/view?usp=sharing
+
+
+solution sketch:
+ref: https://icpcarchive.github.io/Europe%20Contests/Northwestern%20Europe%20Regional%20Contest%20(NWERC)/2023%20Northwestern%20Europe%20Regional%20Contest/solution.pdf
+
+let:
+x_i = time for traverse the segment-i using acceleration/decceleration
+d_i = segment-i length
+decelerationTime_{i}=accelerationTime_{i}=x_i
+
+total fuel time = \sum_{i} accelerationTime_{i} + deccelerationTime_{i} = 2 * \sum_{i} x_i
+
+for each segment we accelerate, then constant velocity, then deccelerate, so:
+constantSpeedTime_{i}= \frac{d_i - x_i^2}{x_i}  = \frac{d_i}{x_i} - x_i
+
+total time take to traverse the segment-i =  accelerationTime_{i}+deccelerationTime_{i}+constantSpeedTime_{i}
+                                          = x_i + x_i + (\frac{d_i}{x_i} - x_i)
+                                          = \frac{d_i}{x_i} + x_i
+
+the problem ask minimum fuel to take: \min 2 *\sum_{i} x_i , with constraint: time to reach the target < t
+this is a constrained optimization problem, can be solved using langrange multiplier: https://tutorial.math.lamar.edu/classes/calciii/lagrangemultipliers.aspx
+
+\min 2 * \sum_{i} x_i, with constraint: \sum_{i} \frac{d_i}{x_i} + x_i <= t
+
+using langrange multiplier, we get:
+
+1. grad(2 * \sum_{i} x_i) = \lambda * grad( \sum_{i} \frac{d_i}{x_i} + x_i ) , dimana grad() = gradient vector
+
+2. \sum_{i} \frac{d_i}{x_i} + x_i  = t
+
+solve this eq (1):
+for each i we have:
+2 = (1 - \frac{d_i}{x_i^2}) * lambda
+with alg. manip., we get:
+
+x_i = \frac{sqrt(d_i) }{ sqrt(1- \frac{2}{\lambda}) }
+let c = \frac{1}{sqrt(1- \frac{2}{\lambda})}
+
+x_i = c *sqrt(d_i)   (3)
+
+
+subtituting eq (3) to eq (2) & doing some alg. manip., we get:
+c + \frac{1}{c} = \frac{t}{\sum_{i} sqrt(d_i)} (4)
+
+let q = \frac{t}{\sum_{i} sqrt(d_i)}
+
+using abc formula, we get:
+c = \frac{q +- \sqrt(q^2-4)}{2}
+
+bcs we want to find \min 2 *\sum_{i} x_i = 2 * \min  * \sum_{i} c *sqrt(d_i)
+
+we use the min c:
+c = cLangrange (in this program) = \frac{q - \sqrt(q^2-4)}{2}
+
+for calc \min \sum_{i} sqrt(d_i) , we can use dijkstra algorithm
+
+if q^2 - 4 < 0, then return impossible (impossible to reach planet terget)
+else:  just return the  2 * \min  * \sum_{i} cLangrange *sqrt(d_i)
+
+*/
+
+type planet struct {
+	x, y, z int
+}
+
+func abcFormula(a, b, c float64) float64 {
+	if b*b+EPS < 4*a*c {
+		return -1 // undefined/impossible
+	}
+	return (-b - math.Sqrt(b*b-4*a*c)) / (2 * a)
+}
+
+func getFuel(sumSqrtDist float64, t uint32) float64 {
+	if sumSqrtDist-0 < EPS {
+		return -1
+	}
+	q := float64(t) / sumSqrtDist
+
+	cLangrange := abcFormula(1, -q, 1) // sqrt(1- \frac{2}{\lambda}), dimana \lambda adlh langrange multiplier
+	if cLangrange == -1 {
+		return -1
+	}
+	fuel := 2 * sumSqrtDist * cLangrange
+	return fuel
+}
+
+func solveGalaxyQuest(t *testing.T, filepath string) {
+	var (
+		err     error
+		line    string
+		f, fOut *os.File
+	)
+
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+	if err != nil {
+		t.Fatalf("could not open test file: %v", err)
+	}
+	defer f.Close()
+
+	br := bufio.NewReader(f)
+
+	line, err = util.ReadLine(br)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	ff := util.Fields(line)
+
+	n, err := util.ParseTextInt(ff[0])
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	m, err := util.ParseTextInt(ff[1])
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	q, err := util.ParseTextInt(ff[2])
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	galaxy := make([]planet, 0)
+
+	for i := 0; i < n; i++ {
+		var (
+			x, y, z int
+		)
+		line, err = util.ReadLine(br)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		ff = util.Fields(line)
+
+		x, err = util.ParseTextInt(ff[0])
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		y, err = util.ParseTextInt(ff[1])
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		z, err = util.ParseTextInt(ff[2])
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+
+		galaxy = append(galaxy, planet{x, y, z})
+	}
+
+	adjList := make([][]tests.PairEdge, n)
+
+	eucDist := func(a, b planet) float64 {
+		xx := float64(a.x - b.x)
+		yy := float64(a.y - b.y)
+		zz := float64(a.z - b.z)
+		dist := math.Sqrt(xx*xx + yy*yy + zz*zz)
+		return dist
+	}
+
+	for i := 0; i < m; i++ {
+
+		var (
+			u, v int
+		)
+		line, err = util.ReadLine(br)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		ff = util.Fields(line)
+
+		u, err = util.ParseTextInt(ff[0])
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		v, err = util.ParseTextInt(ff[1])
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+
+		u--
+		v--
+
+		planetU := galaxy[u]
+		planetV := galaxy[v]
+
+		dist := math.Sqrt(eucDist(planetU, planetV))
+		adjList[u] = append(adjList[u], tests.NewPairEdge(v, dist))
+		adjList[v] = append(adjList[v], tests.NewPairEdge(u, dist))
+	}
+
+	nodeCoords := make([]osmparser.NodeCoord, 0)
+	for i := 0; i < n; i++ {
+		planet := galaxy[i]
+		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(planet.x+planet.z), float64(planet.y+planet.z)))
+	}
+
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{4, 5, 6}, true)
+	s := 0
+	sid := oldToNewVIdMap[da.Index(s)]
+
+	dist := make(map[int]float64)
+	dist[s] = 0
+
+	t.Logf("calculating shortest paths from planet 1 to other planets.....\n")
+
+	tIds := make([]da.Index, 0, n)
+
+	newtidToOldtid := make(map[da.Index]int)
+	for v := 1; v < n; v++ {
+
+		tid := oldToNewVIdMap[da.Index(v)]
+		tIds = append(tIds, tid)
+		newtidToOldtid[tid] = v
+	}
+
+	for _, tid := range tIds {
+		crpQuery := routing.NewCRPBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+
+		sp, _, _ := crpQuery.ShortestPathSearch(sid, tid)
+		target := newtidToOldtid[tid]
+		dist[target] = sp
+	}
+
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)
+	if err != nil {
+		t.Fatalf("could not open test file: %v", err)
+	}
+	defer fOut.Close()
+
+	brOut := bufio.NewReader(fOut)
+
+	for i := 0; i < q; i++ {
+
+		var (
+			target, time int
+		)
+		line, err = util.ReadLine(br)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		ff = util.Fields(line)
+		target, err = util.ParseTextInt(ff[0])
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		target--
+
+		time, err = util.ParseTextInt(ff[1])
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		fuel := getFuel(dist[target], uint32(time))
+		if fuel == -1 {
+			ans := "impossible"
+
+			line, err = util.ReadLine(brOut)
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
+			expectedAns := line
+			if ans != expectedAns {
+				t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedAns, ans)
+			}
+		} else {
+			ans := fuel
+
+			line, err = util.ReadLine(brOut)
+			if err != nil {
+				t.Fatalf("err: %v", err)
+			}
+
+			var expectedAns float64 = 0
+			if _, err = fmt.Sscanf(line, "%f", &expectedAns); err != nil {
+				t.Fatalf("err parsing expected answer: %v", err)
+			}
+			if !util.Eq(ans, expectedAns) {
+				t.Fatalf("FAIL: Expected fuel: %v, got: %v", expectedAns, ans)
+			}
+		}
+	}
+
+	t.Logf("solved test case: %v", filepath)
+}
+
+// please run the test using command: "go test ./tests/shortestpath_without_turn_cost -run TestCRPQueryGalaxyQuestMLD  -v -timeout=0  -count=1"
+// karena bakal timeout kalau pakai run test vscode
+func TestCRPQueryGalaxyQuestMLD(t *testing.T) {
+
+	dirPath := "../shortestpath/data/tests/shortestpath/icpc_nwerc2023_galaxyquest/"
+	testDirs := []string{"sample", "secret"}
+
+	for _, dir := range testDirs {
+		fullDir := filepath.Join(dirPath, dir)
+
+		files, err := os.ReadDir(fullDir)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+
+		for _, entry := range files {
+
+			name := entry.Name()
+
+			if !strings.HasSuffix(name, ".in") {
+				continue
+			}
+
+			baseName := strings.TrimSuffix(name, ".in")
+
+			testPath := filepath.Join(fullDir, baseName)
+
+			t.Logf("solving test case: %v", baseName)
+			t.Run(dir+"/"+baseName, func(t *testing.T) {
+				solveGalaxyQuest(t, testPath)
+
+			})
+		}
+	}
+}

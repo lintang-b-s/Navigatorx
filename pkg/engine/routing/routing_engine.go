@@ -26,8 +26,9 @@ type CRPRoutingEngine[W util.RoutingNumber] struct {
 	puCache             *otter.Cache[da.PUCacheKey, []da.Index]
 	verticesLookupTable *customizer.LookupTable[uint64]
 
-	fHeapPool          sync.Pool
-	bHeapPool          sync.Pool
+	fHeapPool sync.Pool
+	bHeapPool sync.Pool
+
 	pufOverlayHeapPool sync.Pool
 	pufBaseHeapPool    sync.Pool
 
@@ -36,6 +37,13 @@ type CRPRoutingEngine[W util.RoutingNumber] struct {
 	altBidirSearchPool sync.Pool
 	pathUnpackerPool   sync.Pool
 	landmarkFile       string
+
+	// wirhout turn cost
+	fHeapNoTurnCostPool sync.Pool
+	bHeapNoTurnCostPool sync.Pool
+
+	pufBaseNoTurnCostHeapPool  sync.Pool
+	pathUnpackerNoTurnCostPool sync.Pool
 
 	unpackerWorkers                     int
 	unpackerForAlternativeRoutesWorkers int
@@ -108,6 +116,18 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 		},
 	}
 
+	crp.fHeapNoTurnCostPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.CRPQueryKeyNoTurnCost, W](maxSearchSize, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+		},
+	}
+
+	crp.bHeapNoTurnCostPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.CRPQueryKeyNoTurnCost, W](maxSearchSize, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+		},
+	}
+
 	// path unpacking heap pool
 	crp.pufOverlayHeapPool = sync.Pool{
 		New: func() any {
@@ -118,6 +138,12 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	crp.pufBaseHeapPool = sync.Pool{
 		New: func() any {
 			return da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxEdgesInCell)*2, uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+		},
+	}
+
+	crp.pufBaseNoTurnCostHeapPool = sync.Pool{
+		New: func() any {
+			return da.NewQueryHeap[da.Index, W](uint32(maxEdgesInCell)*2, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -143,6 +169,13 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	crp.pathUnpackerPool = sync.Pool{
 		New: func() any {
 			pu := newPathUnpackerALTAlloc[W](crp)
+			return pu
+		},
+	}
+
+	crp.pathUnpackerNoTurnCostPool = sync.Pool{
+		New: func() any {
+			pu := newPathUnpackerALTNoTurnCostAlloc[W](crp)
 			return pu
 		},
 	}

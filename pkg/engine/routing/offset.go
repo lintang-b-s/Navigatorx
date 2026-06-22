@@ -11,7 +11,7 @@ thus we can preallocate the capacity of distance slices and heap as max number o
 buat indexing di info/distance slice biar gak tabrakan:
 edges that in lowest level cell that containing s: originalEdgeId - sCellEdgesOffsetId -> range [0, max number of edges in each cell)
 edges that in lowest level cell that containing t: originalEdgeId - tCellEdgesOffsetId +  max number of edges in each cell -> range [max number of edges in each cell, max number of edges in each cell*2)
-overlayVertices: original overlayVertexId +  max number of edges in each cell * 2 -> range [ max number of edges in each cell*2  ,  max number of edges in each cell*2 + number of overlayVertices)
+overlayVertices: original overlayVertexId +  max number of edges in each cell * 2 -> range [ max number of edges in each cell*2,  max number of edges in each cell*2 + number of overlayVertices)
 
 
 */
@@ -90,4 +90,14 @@ func offBit(u da.Index, i int) da.Index {
 
 func onBit(u da.Index, i int) da.Index {
 	return u | da.Index(uint32(1)<<i)
+}
+
+// offset without turn costs
+
+func (crp *CRPRoutingEngine[W]) offsetOverlayNoTurnCost(v da.Index) da.Index {
+	return v + da.Index(crp.graph.NumberOfVertices())
+}
+
+func (crp *CRPRoutingEngine[W]) adjustOffsetOverlayNoTurnCost(v da.Index) da.Index {
+	return v - da.Index(crp.graph.NumberOfVertices())
 }

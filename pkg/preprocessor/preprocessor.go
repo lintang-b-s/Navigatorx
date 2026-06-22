@@ -192,6 +192,7 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 
 	p.graph.SetBoundingBox(da.NewBoundingBox(minLat, minLon, maxLat, maxLon))
 
+	maxNumVerticesInCell := 0
 	p.newVIdMap = make([]da.Index, p.graph.NumberOfVertices()) // new vertex id after sorting by cell number
 	newVid := da.Index(0)                                      // new vertex id after sorting by cell number
 	for i := 0; i < len(cellVertices); i++ {
@@ -200,7 +201,10 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 			p.newToOldVIdMap[newVid] = cellVertices[i][v].originalIndex
 			newVid++
 		}
+		numVerticesInCell := len(cellVertices[i])
+		maxNumVerticesInCell = max(maxNumVerticesInCell, numVerticesInCell)
 	}
+	p.graph.SetMaxNumVerticesInCell(da.Index(maxNumVerticesInCell))
 
 	newOutEdgeId := da.Index(0)                                      // new id for outEdges for each vertex for each cell
 	p.graph.MakeOutEdgeCellOffset(p.graph.GetNumberOfCellsNumbers()) // offset of first outEdge for each cell

@@ -89,7 +89,6 @@ func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.VertexEdgePair, sCellNu
 			// original vertex (non-overlay vertex)
 
 			unpackedEdgePath = append(unpackedEdgePath, cur.GetEdge())
-
 			i++
 		} else {
 			// overlay vertex

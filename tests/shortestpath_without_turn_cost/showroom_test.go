@@ -1,0 +1,277 @@
+package shortestpath_without_turn_cost
+
+import (
+	"bufio"
+	"context"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+	"sync"
+	"testing"
+
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/Navigatorx/tests"
+)
+
+/*
+taken from: https://ukiepc.info/2016/
+
+test data: https://drive.google.com/drive/folders/0B8zAOBDFU39pNTRYSm5jN1Njbzg?resourcekey=0-LXcVcbcx4u75vtaiwF0zCw
+
+tests selesai sekitar 5 -7 menit
+
+
+my c++ solution (got AC on kattis: https://open.kattis.com/problems/showroom?tab=metadata):
+https://drive.google.com/file/d/1d1SQqB-8Y6EUvTlVPgrNwltpWpCqXmes/view?usp=sharing
+*/
+
+func SolveShowroom(t *testing.T, filepath string) {
+	var (
+		err     error
+		line    string
+		f, fOut *os.File
+	)
+
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+	if err != nil {
+		t.Fatalf("could not open test file: %v", err)
+	}
+	defer f.Close()
+
+	br := bufio.NewReader(f)
+
+	line, err = util.ReadLine(br)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	ff := util.Fields(line)
+
+	r, err := util.ParseTextInt(ff[0])
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	c, err := util.ParseTextInt(ff[1])
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	grid := make([][]string, r)
+
+	for i := 0; i < r; i++ {
+		grid[i] = make([]string, c)
+	}
+
+	for i := 0; i < r; i++ {
+		line, err = util.ReadLine(br)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		for j := 0; j < c; j++ {
+			grid[i][j] = fmt.Sprintf("%v", string(line[j]))
+		}
+	}
+
+	adjList := make([][]tests.PairEdge, r*c)
+
+	cellToNId := func(i, j int) int {
+		return i*c + j
+	}
+
+	getWeight := func(i, j int) int {
+		switch grid[i][j] {
+		case "c":
+			return 1
+		case "D":
+			return 0
+		}
+
+		return int(pkg.INF_WEIGHT_INT)
+	}
+
+	type pair struct {
+		first, second int
+	}
+	pintuUjungs := make([]pair, 0)
+
+	for i := 0; i < r; i++ {
+		for j := 0; j < c; j++ {
+			if j+1 < c {
+				weight := getWeight(i, j+1)
+
+				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
+					tests.NewPairEdge(cellToNId(i, j+1), float64(weight)))
+			}
+
+			if i+1 < r {
+				weight := getWeight(i+1, j)
+
+				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
+					tests.NewPairEdge(cellToNId(i+1, j), float64(weight)))
+			}
+
+			if j-1 >= 0 {
+				weight := getWeight(i, j-1)
+
+				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
+					tests.NewPairEdge(cellToNId(i, j-1), float64(weight)))
+			}
+
+			if i-1 >= 0 {
+				weight := getWeight(i-1, j)
+
+				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
+					tests.NewPairEdge(cellToNId(i-1, j), float64(weight)))
+			}
+
+			if j == c-1 && grid[i][j] == "D" {
+				pintuUjungs = append(pintuUjungs, pair{i, j})
+			}
+			if j == 0 && grid[i][j] == "D" {
+				pintuUjungs = append(pintuUjungs, pair{i, j})
+			}
+
+			if i == 0 && grid[i][j] == "D" {
+				pintuUjungs = append(pintuUjungs, pair{i, j})
+			}
+
+			if i == r-1 && grid[i][j] == "D" {
+				pintuUjungs = append(pintuUjungs, pair{i, j})
+			}
+		}
+	}
+
+	line, err = util.ReadLine(br)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	ff = util.Fields(line)
+
+	tx, err := util.ParseTextInt(ff[0])
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	ty, err := util.ParseTextInt(ff[1])
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	tx--
+	ty--
+
+	nodeCoords := make([]osmparser.NodeCoord, 0)
+	for i := 0; i < r; i++ {
+		for j := 0; j < c; j++ {
+			nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(j)))
+		}
+	}
+
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, r*c, []int{7, 8, 14, 17}, true)
+
+	tnId := cellToNId(tx, ty)
+	tid := oldToNewVIdMap[da.Index(tnId)]
+
+	t.Log("calculating shortest paths...\n")
+
+	minDist := pkg.INF_WEIGHT
+
+	lock := sync.Mutex{}
+	calcSp := func(p pair) any {
+		snId := cellToNId(p.first, p.second)
+		sid := oldToNewVIdMap[da.Index(snId)]
+
+		crpQuery := routing.NewCRPBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+
+		spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
+
+		lock.Lock()
+		defer lock.Unlock()
+		minDist = min(minDist, spLength)
+		return nil
+	}
+
+	workers := concurrent.NewWorkerPool[pair, any](50, 25_000)
+	ctx, cancel := context.WithCancel(context.Background())
+	workers.StartWithContext(ctx, calcSp)
+	go func() {
+		for range workers.CollectResults() {
+		}
+	}()
+
+	for _, p := range pintuUjungs {
+		workers.AddJob(p)
+	}
+
+	workers.Close()
+	workers.Wait()
+	cancel()
+
+	ans := minDist
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)
+	if err != nil {
+		t.Fatalf("could not open test file: %v", err)
+	}
+	defer fOut.Close()
+
+	brOut := bufio.NewReader(fOut)
+
+	line, err = util.ReadLine(brOut)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	var expectedSPLength float64 = 0
+	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+	if !util.Eq(ans, expectedSPLength) {
+		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, ans)
+	}
+
+	t.Logf("solved test case: %v", filepath)
+}
+
+// please run the test using command: "go test ./tests/shortestpath_without_turn_cost  -run TestShowroomMLD  -v -timeout=0  -count=1"
+// karena bakal timeout kalau pakai run test vscode
+// selesai dalam 150s
+func TestShowroomMLD(t *testing.T) {
+
+	dirPath := "../shortestpath/data/tests/shortestpath/ukiepc2016_showroom/"
+	testDirs := []string{"secret", "sample"}
+
+	for _, dir := range testDirs {
+		fullDir := filepath.Join(dirPath, dir)
+
+		files, err := os.ReadDir(fullDir)
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+
+		for _, entry := range files {
+
+			name := entry.Name()
+
+			if !strings.HasSuffix(name, ".in") {
+				continue
+			}
+
+			baseName := strings.TrimSuffix(name, ".in")
+
+			testPath := filepath.Join(fullDir, baseName)
+
+			t.Logf("solving test case: %v", baseName)
+			t.Run(dir+"/"+baseName, func(t *testing.T) {
+				SolveShowroom(t, testPath)
+
+			})
+
+		}
+	}
+}

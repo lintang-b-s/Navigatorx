@@ -2,11 +2,17 @@ package datastructure
 
 import "github.com/lintang-b-s/Navigatorx/pkg/util"
 
+const (
+	overlayFlag uint8 = 1 << iota
+	cutEdgeFlag
+)
+
 type VertexEdgePair struct {
 	vertex      Index // 4 byte
 	edge        Index // 4 byte
 	outInEdgeId Index // 4 byte
 	queryLevel  uint8 // 1 byte
+	flag        uint8
 }
 
 func (ve VertexEdgePair) GetEdge() Index {
@@ -19,6 +25,22 @@ func (ve VertexEdgePair) GetVertex() Index {
 
 func (ve *VertexEdgePair) SetEdge(edge Index) {
 	ve.edge = edge
+}
+
+func (ve *VertexEdgePair) SetIsOverlayVertex() {
+	ve.flag |= overlayFlag
+}
+
+func (ve *VertexEdgePair) IsOverlayVertex() bool {
+	return ve.flag&overlayFlag != 0
+}
+
+func (ve *VertexEdgePair) SetIsCutEdge() {
+	ve.flag |= cutEdgeFlag
+}
+
+func (ve *VertexEdgePair) IsCutEdge() bool {
+	return ve.flag&cutEdgeFlag != 0
 }
 
 func (ve *VertexEdgePair) SetVertex(vertex Index) {

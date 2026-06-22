@@ -311,11 +311,11 @@ type Graph struct {
 	sccs               []Index   // verticeId -> sccId
 	sccCondensationAdj [][]Index // condensation graph connection of scc of u -> scc of v
 
-	boundingBox    *BoundingBox
-	minResolution  float64
-	maxEdgesInCell Index // maximum number of inEdges/outEdges in any cell
-
-	roadNetwork bool
+	boundingBox          *BoundingBox
+	minResolution        float64
+	maxEdgesInCell       Index // maximum number of inEdges/outEdges in any level 1 cell
+	maxNumVerticesInCell Index // maximum number of verteices in any level 1 cell
+	roadNetwork          bool
 }
 
 func NewGraph(vertices []Vertex, outEdges []OutEdge, inEdges []InEdge, turnTypeTable []pkg.TurnType, roadNetwork bool, verticesOsmIds *PackedSlice) *Graph {
@@ -516,6 +516,20 @@ func (g *Graph) ForInEdgesOf(v Index, exitPoint Index, handle func(eId, tail Ind
 	}
 }
 
+func (g *Graph) ForOutEdgesOfNoTurnCost(u Index, handle func(eId, head, entryPoint Index)) {
+	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
+
+		handle(e, g.outEdges[e].head, g.outEdges[e].entryPoint)
+	}
+}
+
+func (g *Graph) ForInEdgesOfNoTurnCost(v Index, handle func(eId, tail, exitPoint Index)) {
+	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
+
+		handle(e, g.inEdges[e].tail, g.inEdges[e].exitPoint)
+	}
+}
+
 // GetDummyOutEdgeId. return dummy outEdge (u,u)
 func (g *Graph) GetDummyOutEdgeId(u Index) Index {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
@@ -704,6 +718,14 @@ func (g *Graph) GetMaxEdgesInCell() Index {
 
 func (g *Graph) SetMaxEdgesInCell(maxEdgesInCell Index) {
 	g.maxEdgesInCell = maxEdgesInCell
+}
+
+func (g *Graph) SetMaxNumVerticesInCell(maxNumVerticesInCell Index) {
+	g.maxNumVerticesInCell = maxNumVerticesInCell
+}
+
+func (g *Graph) GetMaxNumVerticesInCell() Index {
+	return g.maxNumVerticesInCell
 }
 
 func (g *Graph) GetOutEdgeCellOffset(v Index) Index {
