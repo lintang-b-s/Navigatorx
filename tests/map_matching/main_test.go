@@ -8,9 +8,9 @@ import (
 	"testing"
 
 	"github.com/bytedance/gopkg/util/gopool"
-	evalutil "github.com/lintang-b-s/Navigatorx/eval/crp_alt/online_map_matching"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	evalutil "github.com/lintang-b-s/Navigatorx/tests"
 )
 
 func TestMain(m *testing.M) {

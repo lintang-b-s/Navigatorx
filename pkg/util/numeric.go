@@ -3,6 +3,9 @@ package util
 import (
 	"cmp"
 	"math"
+	"runtime"
+
+	"github.com/bytedance/gopkg/util/gopool"
 )
 
 type RoutingNumber interface {
@@ -125,6 +128,8 @@ func ClampMin(a, b int) int {
 }
 
 func ActivateMode[W RoutingNumber]() {
+	gopool.SetCap(int32(runtime.NumCPU()))
+
 	var zero W
 	switch any(zero).(type) {
 	case float64:

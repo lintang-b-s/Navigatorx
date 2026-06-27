@@ -16,7 +16,6 @@ import (
 	"testing"
 	"time"
 
-	evalutil "github.com/lintang-b-s/Navigatorx/eval/crp_alt/online_map_matching"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
@@ -31,6 +30,7 @@ import (
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	evalutil "github.com/lintang-b-s/Navigatorx/tests"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )

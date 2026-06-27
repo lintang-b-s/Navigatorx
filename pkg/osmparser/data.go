@@ -129,6 +129,14 @@ func NewNodeCoord(lat, lon float64) NodeCoord {
 	return NodeCoord{lat, lon}
 }
 
+func (n *NodeCoord) GetX() float64 {
+	return n.lon
+}
+
+func (n *NodeCoord) GetY() float64 {
+	return n.lat
+}
+
 type restriction struct {
 	via             da.Index
 	viaWays         []int64

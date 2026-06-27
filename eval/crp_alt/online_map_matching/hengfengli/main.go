@@ -12,7 +12,8 @@ import (
 	"strings"
 	"time"
 
-	onlinemapmatching "github.com/lintang-b-s/Navigatorx/eval/crp_alt/online_map_matching"
+	testsUtil "github.com/lintang-b-s/Navigatorx/tests"
+
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
@@ -359,15 +360,15 @@ func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseM
 	}
 
 	if !melbourneDatasetReady() {
-		err = onlinemapmatching.Download(datasetBundleFilePath, mapmatchingDatasetBundleDriveLink, logger, "melbourne dataset bundle file")
+		err = testsUtil.Download(datasetBundleFilePath, mapmatchingDatasetBundleDriveLink, logger, "melbourne dataset bundle file")
 		if err != nil {
 			return nil, nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: download() failed %w", err)
 		}
 
-		err = onlinemapmatching.ExtractZip(datasetBundleFilePath, datasetDirectoryPath)
+		err = testsUtil.ExtractZip(datasetBundleFilePath, datasetDirectoryPath)
 
 		if err != nil {
-			return nil, nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: onlinemapmatching.ExtractZip() failed: %v", err)
+			return nil, nil, nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: testsUtil.ExtractZip() failed: %v", err)
 		}
 	}
 

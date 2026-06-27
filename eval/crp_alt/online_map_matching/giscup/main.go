@@ -18,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	onlinemapmatching "github.com/lintang-b-s/Navigatorx/eval/crp_alt/online_map_matching"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
@@ -36,6 +35,7 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	testsUtil "github.com/lintang-b-s/Navigatorx/tests"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -140,11 +140,11 @@ func ensureGisCupRoadNetwork(logger *zap.Logger) (roadNetworkPaths, error) {
 		return paths, nil
 	}
 
-	if err := onlinemapmatching.Download(giscupRoadZipFilePath, giscupRoadNetworkDriveFile, logger, "GIS Cup road network"); err != nil {
+	if err := testsUtil.Download(giscupRoadZipFilePath, giscupRoadNetworkDriveFile, logger, "GIS Cup road network"); err != nil {
 		return roadNetworkPaths{}, fmt.Errorf("ensureGisCupRoadNetwork: download failed: %w", err)
 	}
 
-	if err := onlinemapmatching.ExtractZip(giscupRoadZipFilePath, giscupRoadExtractDir); err != nil {
+	if err := testsUtil.ExtractZip(giscupRoadZipFilePath, giscupRoadExtractDir); err != nil {
 		return roadNetworkPaths{}, fmt.Errorf("ensureGisCupRoadNetwork: extract zip failed: %w", err)
 	}
 

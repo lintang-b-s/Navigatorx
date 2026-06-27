@@ -17,7 +17,8 @@ import (
 	"strings"
 	"time"
 
-	onlinemapmatching "github.com/lintang-b-s/Navigatorx/eval/crp_alt/online_map_matching"
+	testsUtil "github.com/lintang-b-s/Navigatorx/tests"
+
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
@@ -116,7 +117,7 @@ func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseM
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: log.New() failed %w", err)
 	}
 	op := osmparser.NewOSMParserV2[int32]()
-	err = onlinemapmatching.Download(osmFile, shanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
+	err = testsUtil.Download(osmFile, shanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
 	if err != nil {
 		return nil, nil, nil, nil, fmt.Errorf("buildCRPGraph: download() failed %w", err)
 	}
@@ -410,7 +411,7 @@ func main() {
 		panic(err)
 	}
 
-	err = onlinemapmatching.Download(shanghaiDataFilePath, shanghaiDatasetDriveFile, logger, "shanghai dataset")
+	err = testsUtil.Download(shanghaiDataFilePath, shanghaiDatasetDriveFile, logger, "shanghai dataset")
 	if err != nil {
 		panic(err)
 	}
