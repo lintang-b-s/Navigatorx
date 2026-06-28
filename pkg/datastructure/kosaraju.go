@@ -1,6 +1,7 @@
 package datastructure
 
 import (
+	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -69,7 +70,69 @@ func (g *Graph) RunKosaraju() {
 		sccCondAdj[sccOfV] = util.RemoveDuplicates(sccAdjs)
 	}
 
+	topoSorted := g.topoSort(sccCondAdj)
+	reach := g.buildReachabilityArr(sccCondAdj, topoSorted)
+
 	g.SetSCCCondensationAdj(sccCondAdj)
+	g.SetSccReach(reach)
+}
+
+func (g *Graph) buildReachabilityArr(sccCondAdjList [][]Index, topoSorted []Index) []*bitset.BitSet {
+	n := len(sccCondAdjList)
+
+	reach := make([]*bitset.BitSet, n) // sccId v -> bitset dari list dari other sccIds u yang dapat reach sccId v
+	// sccCondAdjList adlh condensation graph (directed acyclic graph) hasil kosaraju SCC.
+
+	for v := 0; v < n; v++ {
+		bs := bitset.New(INITIAL_REACHIBILITY_BITSET_SIZE)
+		bs.Set(uint(v))
+		reach[v] = bs
+	}
+
+	for i := 0; i < n; i++ {
+		u := topoSorted[i]
+		for _, v := range sccCondAdjList[u] {
+			reach[v].InPlaceUnion(reach[u])
+		}
+	}
+
+	return reach
+}
+
+// topological sorting scc condensation graph pakai kahn's algorithm. sccCondAdjList adlh condensation graph (directed acyclic graph) hasil kosaraju SCC.
+func (g *Graph) topoSort(sccCondAdjList [][]Index) []Index {
+	n := len(sccCondAdjList)
+	inDegree := make([]Index, n)
+	for u := 0; u < n; u++ {
+		for _, v := range sccCondAdjList[u] {
+			inDegree[v]++
+		}
+	}
+
+	topoSorted := make([]Index, 0)
+	queue := make([]Index, 0)
+
+	for u := 0; u < n; u++ {
+		if inDegree[u] == 0 {
+			queue = append(queue, Index(u))
+		}
+	}
+
+	// O(V+E), v=number of sccs, E=number of edges that connect sccs in condensation graph
+	for len(queue) > 0 {
+		u := queue[0]
+		queue = queue[1:]
+
+		topoSorted = append(topoSorted, u)
+		for _, v := range sccCondAdjList[u] {
+			inDegree[v]--
+			if inDegree[v] == 0 {
+				queue = append(queue, v)
+			}
+		}
+	}
+
+	return topoSorted
 }
 
 func (g *Graph) dfs(v Index, output *[]Index, visited []bool,

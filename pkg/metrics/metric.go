@@ -146,51 +146,53 @@ func (met *Metric[W]) BuildStallingTables(overlayGraph *da.OverlayGraph, graph *
 	}
 	entryStallingtables := newFlatTable[W](entryLengths)
 	exitStallingTables := newFlatTable[W](exitLengths)
-	for vId := da.Index(0); vId < da.Index(graph.NumberOfVertices()); vId++ {
+	if graph.IsRoadNetworkGraph() {
+		for vId := da.Index(0); vId < da.Index(graph.NumberOfVertices()); vId++ {
 
-		n := graph.GetInDegree(vId)
-		m := graph.GetOutDegree(vId)
+			n := graph.GetInDegree(vId)
+			m := graph.GetOutDegree(vId)
 
-		if n == 0 && m == 0 {
-			continue
-		}
-
-		entryStallingTable := entryStallingtables.row(vId)
-		exitStallingTable := exitStallingTables.row(vId)
-
-		for i := da.Index(0); i < n; i++ {
-			for j := da.Index(0); j < n; j++ {
-				maxDiff := W(0)
-				if m > 0 {
-					maxDiff = met.GetTurnCost(graph.GetTurnTableId(vId, i, 0)) - met.GetTurnCost(graph.GetTurnTableId(vId, j, 0))
-					for k := da.Index(1); k < m; k++ {
-						Tv_ik := met.GetTurnCost(graph.GetTurnTableId(vId, i, k))
-						Tv_jk := met.GetTurnCost(graph.GetTurnTableId(vId, j, k))
-						maxDiff = max(Tv_ik-Tv_jk, maxDiff)
-					}
-
-				}
-
-				// ini compute max_k{T_v[i,k] - T_v[j,k]}
-				entryStallingTable[i*n+j] = maxDiff
+			if n == 0 && m == 0 {
+				continue
 			}
-		}
 
-		for i := da.Index(0); i < m; i++ {
-			for j := da.Index(0); j < m; j++ {
-				maxDiff := W(0)
-				if n > 0 {
-					maxDiff = met.GetTurnCost(graph.GetTurnTableId(vId, 0, i)) - met.GetTurnCost(graph.GetTurnTableId(vId, 0, j))
-					for k := da.Index(1); k < n; k++ {
-						Tv_ki := met.GetTurnCost(graph.GetTurnTableId(vId, k, i))
-						Tv_kj := met.GetTurnCost(graph.GetTurnTableId(vId, k, j))
-						maxDiff = max(Tv_ki-Tv_kj, maxDiff)
+			entryStallingTable := entryStallingtables.row(vId)
+			exitStallingTable := exitStallingTables.row(vId)
+
+			for i := da.Index(0); i < n; i++ {
+				for j := da.Index(0); j < n; j++ {
+					maxDiff := W(0)
+					if m > 0 {
+						maxDiff = met.GetTurnCost(graph.GetTurnTableId(vId, i, 0)) - met.GetTurnCost(graph.GetTurnTableId(vId, j, 0))
+						for k := da.Index(1); k < m; k++ {
+							Tv_ik := met.GetTurnCost(graph.GetTurnTableId(vId, i, k))
+							Tv_jk := met.GetTurnCost(graph.GetTurnTableId(vId, j, k))
+							maxDiff = max(Tv_ik-Tv_jk, maxDiff)
+						}
+
 					}
+
+					// ini compute max_k{T_v[i,k] - T_v[j,k]}
+					entryStallingTable[i*n+j] = maxDiff
 				}
+			}
 
-				// ini compute max_k{T_v[k,i] - T_v[k,j]}
+			for i := da.Index(0); i < m; i++ {
+				for j := da.Index(0); j < m; j++ {
+					maxDiff := W(0)
+					if n > 0 {
+						maxDiff = met.GetTurnCost(graph.GetTurnTableId(vId, 0, i)) - met.GetTurnCost(graph.GetTurnTableId(vId, 0, j))
+						for k := da.Index(1); k < n; k++ {
+							Tv_ki := met.GetTurnCost(graph.GetTurnTableId(vId, k, i))
+							Tv_kj := met.GetTurnCost(graph.GetTurnTableId(vId, k, j))
+							maxDiff = max(Tv_ki-Tv_kj, maxDiff)
+						}
+					}
 
-				exitStallingTable[i*m+j] = maxDiff
+					// ini compute max_k{T_v[k,i] - T_v[k,j]}
+
+					exitStallingTable[i*m+j] = maxDiff
+				}
 			}
 		}
 	}

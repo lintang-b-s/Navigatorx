@@ -331,8 +331,11 @@ func buildGraph[W util.RoutingNumber](
 			turnMatrices[via][j] = pkg.NONE
 		}
 
-		// tambahin turn type buat turn left/ turn right
+		if !roadNetwork {
+			continue
+		}
 
+		// tambahin turn type buat turn left/ turn right
 		for entryPoint := 0; entryPoint < len(inEdges[via]); entryPoint++ {
 			inEdge := inEdges[via][entryPoint]
 			rowOffset := entryPoint * outDegree[via]

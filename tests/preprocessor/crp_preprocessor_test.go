@@ -756,6 +756,22 @@ func TestPreprocessorSimple(t *testing.T) {
 					}
 				}
 			}
+
+			// // cek correctness sccReach array
+			sccCondAdjList := g.GetSCCCondensationAdjList()
+			sccsNum := da.Index(len(sccCondAdjList))
+			for sccu := da.Index(0); sccu < sccsNum; sccu++ {
+				for sccv := da.Index(0); sccv < sccsNum; sccv++ {
+					gotUVPathExists := g.SccVCanBeReachedBySccU(sccu, sccv)
+
+					expectedUVPathExists := false
+					discovered := make([]bool, sccsNum)
+					g.DfsCondensationGraph(sccu, sccv, discovered, &expectedUVPathExists)
+					if gotUVPathExists != expectedUVPathExists {
+						t.Errorf("expected sccv: %v can be reached from sccu: %v, got: no", sccv, sccu)
+					}
+				}
+			}
 		})
 	}
 }

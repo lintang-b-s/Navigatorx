@@ -298,7 +298,7 @@ func solveGreece(t *testing.T, filepath string) {
 
 	}
 
-	t.Logf("solvedGreece test case: %v", filepath)
+	t.Logf("solved a journey to greece test case: %v", filepath)
 }
 
 // please run the test using command: "go test ./tests/shortestpath_crp_alt_without_turn_cost -run TestCRPQueryAJourneyToGreeceMALT  -v -timeout=0  -count=1"

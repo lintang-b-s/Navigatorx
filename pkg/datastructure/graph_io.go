@@ -340,6 +340,13 @@ func (g *Graph) WriteGraph(filename string) error {
 				return err
 			}
 		}
+
+		for s := 0; s < len(g.sccReach); s++ {
+			if err := w.Bitset(g.sccReach[s]); err != nil {
+				return err
+			}
+		}
+
 		for _, value := range []float64{g.boundingBox.minLat, g.boundingBox.minLon, g.boundingBox.maxLat, g.boundingBox.maxLon} {
 			if err := w.Float64(value); err != nil {
 				return err
@@ -660,6 +667,16 @@ func ReadGraph(filename string, _ *bufio.Reader) (*Graph, error) {
 			return nil, err
 		}
 	}
+
+	sccReach := make([]*bitset.BitSet, len(sccAdj))
+	for s := 0; s < len(sccReach); s++ {
+		bb, err := r.ReadBitset()
+		if err != nil {
+			return nil, err
+		}
+		sccReach[s] = bb
+	}
+
 	bounds := [4]float64{}
 	for i := range bounds {
 		bounds[i], err = r.Float64()
@@ -683,6 +700,7 @@ func ReadGraph(filename string, _ *bufio.Reader) (*Graph, error) {
 	graph.sccCondensationAdj = sccAdj
 	graph.boundingBox = NewBoundingBox(bounds[0], bounds[1], bounds[2], bounds[3])
 	graph.minResolution = minResolution
+	graph.sccReach = sccReach
 	return graph, nil
 }
 

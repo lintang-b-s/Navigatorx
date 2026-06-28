@@ -308,8 +308,10 @@ type Graph struct {
 	turnTypeTable     []pkg.TurnType // [1-D indexed array index from 2D turnMatrices] over all vertices and flattened into graph.turnTypeTable. 1D-TurnMatrices[v][i][j] = i*outDegree + j
 
 	// strongly connected components
-	sccs               []Index   // verticeId -> sccId
-	sccCondensationAdj [][]Index // condensation graph connection of scc of u -> scc of v
+	sccs               []Index // verticeId -> sccId
+	sccCondensationAdj [][]Index
+	// sccCondensationAdj [][]Index // condensation graph connection of scc of u -> scc of v
+	sccReach []*bitset.BitSet // sccId v -> bitset dari list dari other sccIds u yang dapat reach sccId v
 
 	boundingBox    *BoundingBox
 	minResolution  float64
@@ -790,6 +792,10 @@ func (g *Graph) SetSCCCondensationAdj(adj [][]Index) {
 	g.sccCondensationAdj = adj
 }
 
+func (g *Graph) SetSccReach(sccReach []*bitset.BitSet) {
+	g.sccReach = sccReach
+}
+
 func (g *Graph) GetSCCOfAVertex(u Index) Index {
 	return g.sccs[u]
 }
@@ -810,20 +816,23 @@ func (g *Graph) GetBoundingBox() *BoundingBox {
 }
 
 // PathExistsFromUToVUsingCondensationGraph. cek apakah ada path (tanpa costs) dari u ke v
-// worst case O(V_G + E_G), V_G=number of sccs of the graph/number of vertices in condensation graph, E_G=number of edges in condensation graph
+// O(1)
 func (g *Graph) PathExistsFromUToVUsingCondensationGraph(u, v Index) bool {
 	sccOfU := g.sccs[u]
 	sccOfV := g.sccs[v]
 
-	uvPathExists := false
-	discovered := make([]bool, len(g.sccCondensationAdj))
-	g.dfsCondensationGraph(sccOfU, sccOfV, discovered, &uvPathExists)
+	uvPathExists := g.sccReach[sccOfV].Test(uint(sccOfU))
+	return uvPathExists
+}
+
+func (g *Graph) SccVCanBeReachedBySccU(sccu, sccv Index) bool {
+	uvPathExists := g.sccReach[sccv].Test(uint(sccu))
 	return uvPathExists
 }
 
 // dfsCondensationGraph. dfs di condesation graph
 // O(V_G + E_G), V_G=number of sccs in graph/number of vertices in condensation graph, E_G=number of edges in condensation graph
-func (g *Graph) dfsCondensationGraph(u Index, t Index, discovered []bool, uvPathExists *bool) {
+func (g *Graph) DfsCondensationGraph(u Index, t Index, discovered []bool, uvPathExists *bool) {
 	if u == t {
 		*uvPathExists = true
 		return // gak perlu discover out neighbor dari t. discover u = discover vertex u sebelum adjacency listnya examined
@@ -840,7 +849,7 @@ func (g *Graph) dfsCondensationGraph(u Index, t Index, discovered []bool, uvPath
 			// gak perlu examine other out neighbor dari u
 			return
 		}
-		g.dfsCondensationGraph(v, t, discovered, uvPathExists)
+		g.DfsCondensationGraph(v, t, discovered, uvPathExists)
 	}
 }
 

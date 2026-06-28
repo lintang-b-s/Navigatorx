@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/klauspost/compress/s2"
 )
 
@@ -75,6 +76,11 @@ func (w *BinaryWriter) Int64(value int64) error {
 
 func (w *BinaryWriter) Float64(value float64) error {
 	return w.Uint64(math.Float64bits(value))
+}
+
+func (w *BinaryWriter) Bitset(bitset *bitset.BitSet) error {
+	_, err := bitset.WriteTo(w.w)
+	return err
 }
 
 func (w *BinaryWriter) WriteFloat64s(values []float64) error {
@@ -260,6 +266,12 @@ func (r *BinaryReader) ReadUint16s(values []uint16) error {
 		values[i] = value
 	}
 	return nil
+}
+
+func (r *BinaryReader) ReadBitset() (*bitset.BitSet, error) {
+	bb := bitset.New(100)
+	_, err := bb.ReadFrom(r.r)
+	return bb, err
 }
 
 func (r *BinaryReader) ReadInt32Pairs(count int, set func(index int, first, second int32)) error {
