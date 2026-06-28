@@ -376,3 +376,107 @@ func Density(n, m int, directed bool) float64 {
 
 	return mf / (nf * (nf - 1))
 }
+
+func AssignNodeCoordinates(adjList [][]PairEdge) []osmparser.NodeCoord {
+	n := len(adjList)
+	nodeCoords := make([]osmparser.NodeCoord, n)
+	lmOne := da.Index(0)
+
+	distLmOne := dijkstra(adjList, lmOne)
+
+	lmTwo := da.Index(1)
+	maxDistTwo := -1.0
+	for v := da.Index(0); v < da.Index(n); v++ {
+		if distLmOne[v] > maxDistTwo && v != lmOne {
+			lmTwo = v
+			maxDistTwo = distLmOne[v]
+		}
+	}
+
+	distLmTwo := dijkstra(adjList, lmTwo)
+
+	lmThree := da.Index(0)
+	maxDistThree := -1.0
+	for v := da.Index(0); v < da.Index(n); v++ {
+		dd := min(distLmTwo[v], distLmOne[v])
+		if dd > maxDistThree && v != lmTwo && v != lmOne {
+			lmThree = v
+			maxDistThree = dd
+		}
+	}
+
+	distLmOneTwo := float64(maxDistTwo)
+
+	distLmTwoThree := float64(distLmTwo[lmThree])
+	distLmOneThree := float64(distLmOne[lmThree])
+
+	nodeCoords[lmOne] = osmparser.NewNodeCoord(0, 0)
+	nodeCoords[lmTwo] = osmparser.NewNodeCoord(distLmOneTwo, 0)
+
+	nume := distLmOneThree*distLmOneThree - distLmTwoThree*distLmTwoThree + distLmOneTwo*distLmOneTwo
+	denom := 2 * distLmOneTwo
+	x3 := nume / denom
+	y3 := math.Sqrt(distLmOneThree*distLmOneThree - x3*x3)
+	nodeCoords[lmThree] = osmparser.NewNodeCoord(x3, y3)
+
+	distLmThree := dijkstra(adjList, lmThree)
+
+	// trilateration
+	for v := da.Index(0); v < da.Index(n); v++ {
+		if v == lmOne || v == lmTwo || v == lmThree {
+			continue
+		}
+
+		nume = distLmOne[v]*distLmOne[v] - distLmTwo[v]*distLmTwo[v] + distLmOneTwo*distLmOneTwo
+		denom = 2 * distLmOneTwo
+		x := nume / denom
+
+		nume = distLmOne[v]*distLmOne[v] - distLmThree[v]*distLmThree[v] + x3*x3 + y3*y3 - 2*x3*x
+		denom = 2 * y3
+
+		if util.Eq(y3, 0) {
+			denom = 0.05
+		}
+		y := nume / denom
+
+		nodeCoords[v] = osmparser.NewNodeCoord(y, x)
+	}
+
+	return nodeCoords
+}
+
+func dijkstra(adjList [][]PairEdge, s da.Index) []float64 {
+	n := len(adjList)
+
+	dist := make([]float64, n)
+	for v := 0; v < n; v++ {
+		dist[v] = util.INF_WEIGHT_FLOAT
+	}
+
+	pq := da.NewQueryHeap[da.Index, float64](uint32(n), 100, da.ARRAY_STORAGE, true)
+	emptyVertexInfo := da.NewVertexInfo(float64(0), da.NewVertexEdgePair(0, 0, false))
+
+	dist[s] = 0
+	pq.Insert(s, 0, emptyVertexInfo, s)
+
+	for !pq.IsEmpty() {
+		uNode := pq.ExtractMin()
+		u := uNode.GetItem()
+
+		for _, e := range adjList[u] {
+			v := da.Index(e.To)
+			newVCost := uNode.GetRank() + e.Weight
+			vLabelled := util.Lt(dist[v], util.INF_WEIGHT_FLOAT)
+			if !vLabelled || (vLabelled && newVCost <= dist[v]) {
+				dist[v] = uNode.GetRank() + e.Weight
+				if !vLabelled {
+					pq.Insert(v, newVCost, emptyVertexInfo, v)
+				} else {
+					pq.DecreaseKey(v, newVCost, newVCost, emptyVertexInfo.GetParent())
+				}
+			}
+		}
+	}
+
+	return dist
+}

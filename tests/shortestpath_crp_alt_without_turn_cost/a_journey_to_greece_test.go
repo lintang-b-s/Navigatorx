@@ -204,9 +204,9 @@ func solveGreece(t *testing.T, filepath string) {
 		adjList[v] = append(adjList[v], tests.NewPairEdge(u, float64(w)))
 	}
 
-	nodeCoords := assignNodeCoordinates(adjList)
+	nodeCoords := tests.AssignNodeCoordinates(adjList)
 
-	us := []int{4, 5, 6}
+	us := []int{4, 6}
 	density := tests.Density(n, m, false)
 	t.Logf("density: %v\n", density)
 	if density >= 0.02 && m >= 20000 {
