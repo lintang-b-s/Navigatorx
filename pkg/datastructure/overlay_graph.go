@@ -344,7 +344,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 		cellMapping[l] = make(map[Pv]*Cell)
 	}
 	shorcutsWeightSize := uint32(0)
-	overlayIdOffset := 0 // offset of first entry/exit point (overlay vertex) in og.overlayIdMapping for the each cell for each level
+	overlayIdOffset := uint32(0) // offset of first entry/exit point (overlay vertex) in og.overlayIdMapping for the each cell for each level
 
 	// iterate from highest level to lowest level
 	// for each level, iterate over all overlay vertices in that level
@@ -394,7 +394,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 			cellMapping[l][key].overlayIdOffset = Index(overlayIdOffset)
 			cellMapping[l][key].cellOffset = Index(shorcutsWeightSize)
 
-			overlayVertexCountInCell := int(cellMapping[l][key].numEntryPoints + cellMapping[l][key].numExitPoints)
+			overlayVertexCountInCell := uint32(cellMapping[l][key].numEntryPoints + cellMapping[l][key].numExitPoints)
 			overlayIdOffset += overlayVertexCountInCell
 			shorcutsWeightSize += uint32(cellMapping[l][key].numEntryPoints * cellMapping[l][key].numExitPoints)
 		}
