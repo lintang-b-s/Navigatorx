@@ -209,7 +209,7 @@ func solveGreece(t *testing.T, filepath string) {
 	us := []int{4, 6}
 	density := tests.Density(n, m, false)
 	t.Logf("density: %v\n", density)
-	if density >= 0.02 && m >= 20000 {
+	if density >= 0.02 || m >= 20000 {
 		// gak bikin multilevel partition, kalau graph nya dense
 		// karena di graph dense,
 		// misal n=100 dan avg degree dari setiap vertex 80
