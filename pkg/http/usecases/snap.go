@@ -31,8 +31,7 @@ kenapa??
 let q=number of rounds until searchRead exceeds MAX_SEARCH_RADIUS
 let M=number of road segments/edges in the graph
 let c=max number of road segments/edges returned by rtree spatial index
-let V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
-worst case: O(q*(M + c^2 * (V_G+O_G)))
+worst case: O(q*(M + c^2))
 
 return:
 outEdgeId dari source road segment.
@@ -83,8 +82,7 @@ kenapa??
 
 let M=number of road segments/edges in the graph, MAX_CANDIDATES (see spatial_index/constant.go dan rtree.go) adalah jumlah leafs data maksimum yang direturn oleh Search() nya r-tree
 let c=max number of road segments/edges returned by rtree spatial index
-let V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
-worst case: O(M + c^2 * (V_G+O_G))
+worst case: O(M + c^2)
 */
 func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
 	removedPrevPairSet hashset.Uint64Set, reroute bool, startEdgeId da.Index) (da.PhantomNode, da.PhantomNode) {
@@ -124,7 +122,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 	// let c=max number of road segments/edges returned by rtree spatial index
 
-	// worst case of this loop: O(c^2 * (V_G+O_G)), V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
+	// worst case of this loop: O(c^2)
 	minDist := pkg.INF_WEIGHT
 	minDistToEndpoint := pkg.INF_WEIGHT
 	bestPair := newOriginDestination(da.INVALID_EDGE_ID, da.INVALID_EDGE_ID,
@@ -143,7 +141,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 			// kita set (o,d) evaluated=true mau ada path atau gak ada path dari o ke d.
 			rs.evaluate(o, d, removedPrevPairSet)
 
-			// O(V_G + E_G), V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
+			// O(1)
 			if !rs.engine.PathExists(originHead, destinationTail) {
 				continue
 			}
