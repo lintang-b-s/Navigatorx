@@ -879,7 +879,8 @@ func (g *Graph) IsTrafficLight(vertexId Index) bool {
 // dan terdapat edge dari scc c1 ke scc c2 jika pada graph terdapat simpul in c1 yang memiliki edge dengan head in c2.
 // pas kita dfs di condensation graph dari c1, jika kita bisa reach/discover c2 maka terdapat path dari u ke v,
 // hal ini karena all vertices in c2 strongly connected.
-// O(V_G + E_G), V_G=number of sccs of the graph/number of vertices in condensation graph scc, E_G=number of edges in condensation graph
+// note, kita udah precompute scc reachability (di kosaraju.go): untuk setiap scc v, g.sccreach[v] simpan semua other scc u yang dapat reach v.
+// O(1)
 func (g *Graph) PathExists(u, v Index) bool {
 	sccOfU := g.GetSCCOfAVertex(u)
 	sccOfV := g.GetSCCOfAVertex(v)

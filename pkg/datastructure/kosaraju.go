@@ -16,7 +16,7 @@ func (g *Graph) RunKosaraju() {
 	for v := Index(0); v < n; v++ {
 		// v is index of vertice id
 		if !visited[v] {
-			g.dfs(Index(v), &order, visited, false)
+			g.Dfs(Index(v), &order, visited, false)
 		}
 	}
 
@@ -29,7 +29,7 @@ func (g *Graph) RunKosaraju() {
 	for _, v := range order {
 		if !visited[v] {
 			component := make([]Index, 0, 10)
-			g.dfs(v, &component, visited, true)
+			g.Dfs(v, &component, visited, true)
 			components = append(components, component)
 			root := v
 			for _, node := range component {
@@ -135,7 +135,7 @@ func (g *Graph) topoSort(sccCondAdjList [][]Index) []Index {
 	return topoSorted
 }
 
-func (g *Graph) dfs(v Index, output *[]Index, visited []bool,
+func (g *Graph) Dfs(v Index, output *[]Index, visited []bool,
 	reversed bool) {
 	// discovered v
 
@@ -144,16 +144,15 @@ func (g *Graph) dfs(v Index, output *[]Index, visited []bool,
 	if !reversed {
 		g.ForOutEdgeIdsOf(v, func(id Index) {
 			eHead := g.GetHeadOfOutEdge(id)
-
 			if !visited[eHead] {
-				g.dfs(eHead, output, visited, reversed)
+				g.Dfs(eHead, output, visited, reversed)
 			}
 		})
 	} else {
 		g.ForInEdgeIdsOf(v, func(id Index) {
 			eTail := g.GetTailOfInedge(id)
 			if !visited[eTail] {
-				g.dfs(eTail, output, visited, reversed)
+				g.Dfs(eTail, output, visited, reversed)
 			}
 		})
 	}

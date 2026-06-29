@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	custlog "github.com/lintang-b-s/Navigatorx/pkg/logger"
@@ -36,7 +37,8 @@ const (
 	overlayGraphFile string = "./data/overlay_graph_preprocessor_test.ngraph"
 )
 
-// cd tests/preprocessor &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=prep_coverage.out
+//	go test -v ./tests/preprocessor --cover -coverpkg=../../pkg/... -coverprofile=prep_coverage.out
+//
 // go tool cover -func=prep_coverage.out
 // go tool cover -html=prep_coverage.out
 func TestPreprocessorSimple(t *testing.T) {
@@ -757,7 +759,7 @@ func TestPreprocessorSimple(t *testing.T) {
 				}
 			}
 
-			// // cek correctness sccReach array
+			// cek correctness sccReach array
 			sccCondAdjList := g.GetSCCCondensationAdjList()
 			sccsNum := da.Index(len(sccCondAdjList))
 			for sccu := da.Index(0); sccu < sccsNum; sccu++ {
@@ -769,6 +771,47 @@ func TestPreprocessorSimple(t *testing.T) {
 					g.DfsCondensationGraph(sccu, sccv, discovered, &expectedUVPathExists)
 					if gotUVPathExists != expectedUVPathExists {
 						t.Errorf("expected sccv: %v can be reached from sccu: %v, got: no", sccv, sccu)
+					}
+				}
+			}
+
+			// cek correctness graph.PathExists(u,v)
+			fReach := make([][]da.Index, n) // vertex u -> all other vertices that can be reached by vertex u
+			visited := make([]bool, n)
+
+			// O(V*(V+E))
+			for u := da.Index(0); u < da.Index(n); u++ {
+				clear(visited)
+				childrens := make([]da.Index, 0)
+				g.Dfs(u, &childrens, visited, false)
+
+				for _, v := range childrens {
+					fReach[u] = append(fReach[u], v)
+				}
+			}
+
+			reach := make([]*bitset.BitSet, n) // vertex v -> bitset dari all other vertices that can reach vertex v
+			for u := da.Index(0); u < da.Index(n); u++ {
+				reach[u] = bitset.New(10)
+				reach[u].Set(uint(u))
+			}
+
+			for u := da.Index(0); u < da.Index(n); u++ {
+				for _, v := range fReach[u] {
+					reach[v].Set(uint(u))
+				}
+			}
+
+			// cek semua pair vertex (u,v) apakah v reachable from u
+			// O(V^2)
+			for up := da.Index(0); up < da.Index(n); up++ {
+				for vp := da.Index(0); vp < da.Index(n); vp++ {
+					u := newToOldVidMap[up]
+					v := newToOldVidMap[vp]
+					gotReach := g.PathExists(u, v)
+					expectedReach := reach[v].Test(uint(u))
+					if gotReach != expectedReach {
+						t.Errorf("expected v: %v can be reached from u: %v, got: no", v, u)
 					}
 				}
 			}
@@ -933,7 +976,25 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 					t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, roadLane, gotRoadLanes)
 				}
 			})
+
 		}
+
+		// cek correctness sccReach array
+		sccCondAdjList := graph.GetSCCCondensationAdjList()
+		sccsNum := da.Index(len(sccCondAdjList))
+		for sccu := da.Index(0); sccu < sccsNum; sccu++ {
+			for sccv := da.Index(0); sccv < sccsNum; sccv++ {
+				gotUVPathExists := graph.SccVCanBeReachedBySccU(sccu, sccv)
+
+				expectedUVPathExists := false
+				discovered := make([]bool, sccsNum)
+				graph.DfsCondensationGraph(sccu, sccv, discovered, &expectedUVPathExists)
+				if gotUVPathExists != expectedUVPathExists {
+					t.Errorf("expected sccv: %v can be reached from sccu: %v, got: no", sccv, sccu)
+				}
+			}
+		}
+
 	}
 }
 
