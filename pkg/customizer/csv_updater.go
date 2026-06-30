@@ -275,7 +275,7 @@ func (c *Customizer[W]) readTurnPenaltiesFromFile(filepath string) ([]da.Index, 
 type UpdatedSegment struct {
 	fromOsmId int64
 	toOsmId   int64
-	speed     float64 // in k,/h
+	speed     float64 // in km/h
 }
 
 func NewUpdatedSegment(fromOsmId, toOsmId int64, speed float64) UpdatedSegment {

@@ -27,6 +27,7 @@ var (
 	directed               = flag.Bool("directed_graph", true, "directed/undirected partition graph")
 	prePartitionWithSCC    = flag.Bool("prepartition_with_scc", false, "prepartition graph with strongly connected components")
 	inertialFlowIterations = flag.Int("iflow_iterations", 10, "number of iterations of the inertial flow algorithm (schild dan sommer (2015)) (https://link.springer.com/chapter/10.1007/978-3-319-20086-6_22)")
+	visualizationFile      = flag.Bool("visualization", false, "write multilevel partition visualization to json file")
 	graphFile              string
 	overlayGraphFile       string
 	profileName            string
@@ -81,6 +82,15 @@ func main() {
 	mp.RunMultilevelPartitioning()
 	if err := mp.SaveToFile(mlpPath); err != nil {
 		panic(err)
+	}
+
+	if *visualizationFile {
+		if err := mp.WriteOverlayVerticesInLevel(mlpPath); err != nil {
+			panic(err)
+		}
+		if err := mp.WriteMLPVisualizationInLevel(mlpPath); err != nil {
+			panic(err)
+		}
 	}
 
 	duration := time.Since(now)

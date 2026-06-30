@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NavigatorX — MLP Cell Visualization</title>
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#0a0e17;--bg2:#111827;--bg3:#1a2236;
+  --surface:rgba(17,24,39,.72);--surface2:rgba(26,34,54,.85);
+  --border:rgba(255,255,255,.06);--border2:rgba(255,255,255,.1);
+  --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+  --accent:#f43f5e;--accent2:#fb7185;--accent-glow:rgba(244,63,94,.25);
+  --green:#10b981;--blue:#3b82f6;
+  --radius:12px;--radius-sm:8px;
+  --mono:'JetBrains Mono',monospace;--sans:'Space Grotesk',sans-serif;
+}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans)}
+#app{display:grid;grid-template-columns:320px 1fr;grid-template-rows:56px 1fr;height:100vh}
+
+header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding:0 24px;
+  background:var(--surface2);border-bottom:1px solid var(--border);backdrop-filter:blur(20px);z-index:10}
+header .logo{display:flex;align-items:center;gap:10px;font-weight:700;font-size:15px;letter-spacing:-.02em}
+header .logo svg{width:22px;height:22px}
+header .logo span{color:var(--accent)}
+header .sep{width:1px;height:24px;background:var(--border2)}
+header .tagline{font-size:12px;color:var(--text3);font-family:var(--mono);letter-spacing:.04em;text-transform:uppercase}
+
+aside{display:flex;flex-direction:column;gap:0;background:var(--bg2);
+  border-right:1px solid var(--border);overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--bg3) transparent}
+aside::-webkit-scrollbar{width:4px}
+aside::-webkit-scrollbar-thumb{background:var(--bg3);border-radius:4px}
+
+.panel{padding:20px;border-bottom:1px solid var(--border)}
+.panel-title{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.panel-title::before{content:'';width:3px;height:12px;border-radius:2px;background:var(--accent)}
+
+.upload-zone{position:relative;border:1.5px dashed var(--border2);border-radius:var(--radius);
+  padding:28px 16px;text-align:center;cursor:pointer;transition:all .25s ease}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:var(--accent-glow)}
+.upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.upload-icon{width:36px;height:36px;margin:0 auto 10px;border-radius:50%;background:var(--bg3);
+  display:flex;align-items:center;justify-content:center;transition:all .25s}
+.upload-zone:hover .upload-icon{background:var(--accent);transform:scale(1.08)}
+.upload-icon svg{width:18px;height:18px;stroke:var(--text2);transition:stroke .25s}
+.upload-zone:hover .upload-icon svg{stroke:#fff}
+.upload-label{font-size:13px;font-weight:500;color:var(--text2)}
+.upload-hint{font-size:11px;color:var(--text3);margin-top:4px;font-family:var(--mono)}
+
+.file-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.file-chip{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:var(--radius-sm);
+  background:var(--bg3);border:1px solid var(--border);cursor:pointer;transition:all .2s;font-size:12px;font-family:var(--mono)}
+.file-chip:hover{border-color:var(--accent);background:var(--accent-glow)}
+.file-chip.active{border-color:var(--accent);background:var(--accent-glow);box-shadow:0 0 12px var(--accent-glow)}
+.file-chip .dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.file-chip .fname{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-chip .remove{width:18px;height:18px;border-radius:4px;display:flex;align-items:center;justify-content:center;
+  background:transparent;border:none;color:var(--text3);cursor:pointer;transition:all .2s;font-size:14px;line-height:1}
+.file-chip .remove:hover{background:rgba(244,63,94,.2);color:var(--accent)}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.stat-card{padding:12px;border-radius:var(--radius-sm);background:var(--bg3);border:1px solid var(--border)}
+.stat-value{font-size:22px;font-weight:700;font-family:var(--mono);letter-spacing:-.03em;line-height:1}
+.stat-value.accent{color:var(--accent)}
+.stat-value.green{color:var(--green)}
+.stat-value.blue{color:var(--blue)}
+.stat-label{font-size:10px;color:var(--text3);margin-top:4px;letter-spacing:.04em;text-transform:uppercase}
+
+.level-pills{display:flex;gap:4px;flex-wrap:wrap}
+.level-pill{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;font-family:var(--mono);
+  background:var(--bg3);border:1px solid var(--border);color:var(--text3);cursor:pointer;transition:all .2s;user-select:none}
+.level-pill:hover{border-color:var(--accent2);color:var(--text2)}
+.level-pill.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 0 16px var(--accent-glow)}
+
+.slider-row{display:flex;flex-direction:column;gap:6px}
+.slider-header{display:flex;align-items:center;justify-content:space-between}
+.slider-header label{font-size:12px;color:var(--text2)}
+.slider-header .pct{font-size:13px;font-weight:700;font-family:var(--mono);color:var(--accent);min-width:36px;text-align:right}
+input[type=range]{-webkit-appearance:none;width:100%;height:6px;border-radius:3px;background:var(--bg3);outline:none;cursor:pointer}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:pointer;box-shadow:0 0 8px var(--accent-glow)}
+input[type=range]::-moz-range-thumb{width:16px;height:16px;border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:pointer}
+
+#map-wrap{position:relative;overflow:hidden}
+#map{width:100%;height:100%}
+
+.map-badge{position:absolute;top:16px;right:16px;z-index:5;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.badge{padding:6px 14px;border-radius:20px;font-size:11px;font-weight:600;font-family:var(--mono);
+  backdrop-filter:blur(12px);border:1px solid var(--border)}
+.badge.vertex-count{background:rgba(244,63,94,.15);border-color:rgba(244,63,94,.3);color:var(--accent2)}
+.badge.level-badge{background:rgba(59,130,246,.15);border-color:rgba(59,130,246,.3);color:var(--blue)}
+.badge.cell-count{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:var(--green)}
+
+
+
+.empty-state{position:absolute;inset:0;z-index:5;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;pointer-events:none;transition:opacity .3s}
+.empty-state.hidden{opacity:0}
+.empty-icon{width:64px;height:64px;border-radius:50%;background:var(--bg3);border:1px solid var(--border);
+  display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.empty-icon svg{width:28px;height:28px;stroke:var(--text3)}
+.empty-title{font-size:16px;font-weight:600;color:var(--text2);margin-bottom:4px}
+.empty-desc{font-size:12px;color:var(--text3);font-family:var(--mono)}
+
+
+
+
+
+@media(max-width:860px){
+  #app{grid-template-columns:1fr;grid-template-rows:56px auto 1fr}
+  aside{grid-row:2;flex-direction:row;overflow-x:auto;overflow-y:hidden;border-right:none;border-bottom:1px solid var(--border);max-height:180px}
+  .panel{min-width:260px;border-bottom:none;border-right:1px solid var(--border)}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="12 2 22 8.5 22 15.5 12 22 2 15.5 2 8.5"/>
+        <line x1="12" y1="22" x2="12" y2="15.5"/>
+        <polyline points="22 8.5 12 15.5 2 8.5"/>
+      </svg>
+      Navigator<span>X</span>
+    </div>
+    <div class="sep"></div>
+    <div class="tagline">MLP Cell Visualizer</div>
+  </header>
+
+  <aside>
+    <div class="panel">
+      <div class="panel-title">Data Source</div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept=".json" multiple>
+        <div class="upload-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+        </div>
+        <div class="upload-label">Drop JSON files or click to browse</div>
+        <div class="upload-hint">*_mlp_level_*.json</div>
+      </div>
+      <div class="file-list" id="fileList"></div>
+    </div>
+
+    <div class="panel" id="levelPanel" style="display:none">
+      <div class="panel-title">Partition Level</div>
+      <div class="level-pills" id="levelPills"></div>
+    </div>
+
+    <div class="panel" id="statsPanel" style="display:none">
+      <div class="panel-title">Statistics</div>
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-value accent" id="statVertices">0</div>
+          <div class="stat-label">Vertices</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value green" id="statCells">0</div>
+          <div class="stat-label">Cells</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value blue" id="statLat">&mdash;</div>
+          <div class="stat-label">Center Lat</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-value blue" id="statLon">&mdash;</div>
+          <div class="stat-label">Center Lon</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel" id="samplePanel">
+      <div class="panel-title">Vertex Sample</div>
+      <div class="slider-row">
+        <div class="slider-header">
+          <label>Display %</label>
+          <div class="pct" id="samplePct">100%</div>
+        </div>
+        <input type="range" id="sampleSlider" min="1" max="100" value="100">
+      </div>
+    </div>
+
+
+  </aside>
+
+  <div id="map-wrap">
+    <div id="map"></div>
+    <div class="map-badge" id="mapBadge" style="display:none">
+      <div class="badge level-badge" id="badgeLevel">Level &mdash;</div>
+      <div class="badge cell-count" id="badgeCells">0 cells</div>
+      <div class="badge vertex-count" id="badgeCount">0 vertices</div>
+    </div>
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"/>
+          <line x1="8" y1="2" x2="8" y2="18"/>
+          <line x1="16" y1="6" x2="16" y2="22"/>
+        </svg>
+      </div>
+      <div class="empty-title">No data loaded</div>
+      <div class="empty-desc">Upload *_mlp_level_*.json files to visualize</div>
+    </div>
+  </div>
+</div>
+
+<script>
+function cellColor(cellId) {
+  let h = cellId | 0;
+  h = ((h >> 16) ^ h) * 0x45d9f0 | 0;
+  h = ((h >> 16) ^ h) * 0x45d9f0 | 0;
+  h = (h >> 16) ^ h;
+  const hue = ((h & 0xffff) / 0xffff) * 360;
+  const sat = 55 + (((h >> 8) & 0xff) / 255) * 35;
+  const lit = 45 + (((h >> 16) & 0xff) / 255) * 20;
+  return `hsl(${hue.toFixed(0)},${sat.toFixed(0)}%,${lit.toFixed(0)}%)`;
+}
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://tiles.openfreemap.org/styles/liberty',
+  center: [109.5, -7.2],
+  zoom: 6.5,
+  minZoom: 2,
+  maxZoom: 18
+});
+map.addControl(new maplibregl.NavigationControl({ showCompass: true, showZoom: true }), 'bottom-left');
+
+const loadedFiles = {};
+let activeLevel = null;
+let currentMode = 'mlp';
+let samplePct = 100;
+let cachedCells = [];
+let cachedCellColorMap = {};
+
+const uploadZone = document.getElementById('uploadZone');
+const fileInput = document.getElementById('fileInput');
+const sampleSlider = document.getElementById('sampleSlider');
+const samplePctEl = document.getElementById('samplePct');
+
+sampleSlider.addEventListener('input', () => {
+  samplePct = parseInt(sampleSlider.value);
+  samplePctEl.textContent = samplePct + '%';
+  applySample();
+});
+
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => { e.preventDefault(); uploadZone.classList.remove('dragover'); handleFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function handleFiles(files) {
+  const sorted = [...files].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+  sorted.forEach(f => {
+    if (loadedFiles[f.name]) return;
+    const reader = new FileReader();
+    reader.onload = e => {
+      try {
+        const data = JSON.parse(e.target.result);
+        const levelMatch = f.name.match(/level[_-](\d+)/i);
+        const level = levelMatch ? parseInt(levelMatch[1]) : Object.keys(loadedFiles).length + 1;
+        loadedFiles[f.name] = { data, level, name: f.name };
+        renderFileList();
+        updateLevels();
+        if (activeLevel === null) selectLevel(level);
+        else if (level === activeLevel) refreshMap();
+      } catch (err) { console.error('Parse error:', err); }
+    };
+    reader.readAsText(f);
+  });
+}
+
+function removeFile(name) {
+  delete loadedFiles[name];
+  renderFileList();
+  updateLevels();
+  const levels = getLoadedLevels();
+  if (levels.length === 0) { activeLevel = null; refreshMap(); }
+  else if (!levels.includes(activeLevel)) selectLevel(levels[0]);
+  else refreshMap();
+}
+
+function renderFileList() {
+  const el = document.getElementById('fileList');
+  const entries = Object.values(loadedFiles).sort((a, b) => a.level - b.level);
+  el.innerHTML = entries.map(f => {
+    const isActive = f.level === activeLevel;
+    const dotColor = isActive ? '#f43f5e' : '#64748b';
+    return `<div class="file-chip${isActive ? ' active' : ''}" onclick="selectLevel(${f.level})">
+      <div class="dot" style="background:${dotColor}"></div>
+      <div class="fname">${f.name}</div>
+      <button class="remove" onclick="event.stopPropagation();removeFile('${f.name}')">&times;</button>
+    </div>`;
+  }).join('');
+}
+
+function getLoadedLevels() {
+  return [...new Set(Object.values(loadedFiles).map(f => f.level))].sort((a, b) => a - b);
+}
+
+function updateLevels() {
+  const levels = getLoadedLevels();
+  document.getElementById('levelPanel').style.display = levels.length ? '' : 'none';
+  document.getElementById('levelPills').innerHTML = levels.map(l =>
+    `<div class="level-pill${l === activeLevel ? ' active' : ''}" onclick="selectLevel(${l})">L${l}</div>`
+  ).join('');
+}
+
+function loadedFilesByLevel(level) {
+  return Object.values(loadedFiles).filter(f => f.level === level);
+}
+
+function selectLevel(level) {
+  activeLevel = level;
+  updateLevels();
+  renderFileList();
+  refreshMap();
+}
+
+function refreshMap() {
+  const badge = document.getElementById('mapBadge');
+  const empty = document.getElementById('emptyState');
+  const samplePanelEl = document.getElementById('samplePanel');
+
+  if (activeLevel === null) {
+    clearMapLayers();
+    badge.style.display = 'none';
+    empty.classList.remove('hidden');
+    return;
+  }
+
+  const activeFiles = loadedFilesByLevel(activeLevel);
+  currentMode = activeFiles.some(f => f.name.toLowerCase().includes('boundary')) ? 'boundary' : 'mlp';
+
+  cachedCells = activeFiles.flatMap(f => f.data);
+  empty.classList.add('hidden');
+  badge.style.display = '';
+
+  samplePanelEl.style.display = currentMode === 'boundary' ? 'none' : '';
+
+  let totalVerts = 0;
+  for (let i = 0; i < cachedCells.length; i++) totalVerts += cachedCells[i].vertices.length;
+
+  document.getElementById('badgeLevel').textContent = `Level ${activeLevel}`;
+  document.getElementById('badgeCells').textContent = `${cachedCells.length} cells`;
+  document.getElementById('badgeCount').textContent = `${totalVerts.toLocaleString()} vertices`;
+  document.getElementById('statsPanel').style.display = '';
+  document.getElementById('statVertices').textContent = totalVerts.toLocaleString();
+  document.getElementById('statCells').textContent = cachedCells.length.toLocaleString();
+
+  cachedCellColorMap = {};
+  for (let c = 0; c < cachedCells.length; c++) {
+    const cid = cachedCells[c].cell_id;
+    if (!(cid in cachedCellColorMap)) cachedCellColorMap[cid] = cellColor(cid);
+  }
+
+  clearMapLayers();
+  if (cachedCells.length === 0) return;
+
+  if (currentMode === 'boundary') {
+    renderBoundary();
+  } else {
+    renderMLP();
+  }
+}
+
+function renderBoundary() {
+  const features = buildFeatures(100);
+  map.addSource('cells', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: features.pts }
+  });
+  map.addLayer({
+    id: 'cells-layer',
+    type: 'circle',
+    source: 'cells',
+    paint: {
+      'circle-color': '#ef4444',
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 3, 10, 5, 16, 5],
+      'circle-stroke-width': 0,
+      'circle-opacity': 0.85
+    }
+  });
+  map.fitBounds([[features.minLon, features.minLat], [features.maxLon, features.maxLat]], {
+    padding: { top: 50, bottom: 50, left: 50, right: 50 },
+    maxZoom: 14,
+    duration: 600
+  });
+  updateBadge(features.shown, features.total);
+}
+
+function renderMLP() {
+  const features = buildFeatures(samplePct);
+  map.addSource('cells', {
+    type: 'geojson',
+    data: { type: 'FeatureCollection', features: features.pts }
+  });
+
+  const colorStops = [];
+  const uniqueCells = Object.keys(cachedCellColorMap);
+  for (let i = 0; i < uniqueCells.length; i++) {
+    colorStops.push(parseInt(uniqueCells[i]), cachedCellColorMap[uniqueCells[i]]);
+  }
+
+  map.addLayer({
+    id: 'cells-layer',
+    type: 'circle',
+    source: 'cells',
+    paint: {
+      'circle-color': ['match', ['get', 'cell_id'], ...colorStops, '#64748b'],
+      'circle-radius': ['interpolate', ['linear'], ['zoom'], 5, 2, 10, 4, 16, 7],
+      'circle-stroke-width': 1,
+      'circle-stroke-color': 'rgba(255,255,255,0.2)',
+      'circle-opacity': 0.9
+    }
+  });
+
+  map.fitBounds([[features.minLon, features.minLat], [features.maxLon, features.maxLat]], {
+    padding: { top: 50, bottom: 50, left: 50, right: 50 },
+    maxZoom: 14,
+    duration: 600
+  });
+  updateBadge(features.shown, features.total);
+}
+
+function buildFeatures(pct) {
+  const pts = [];
+  let minLat = Infinity, maxLat = -Infinity, minLon = Infinity, maxLon = -Infinity;
+  let sumLat = 0, sumLon = 0, shown = 0, total = 0;
+
+  for (let c = 0; c < cachedCells.length; c++) {
+    const cell = cachedCells[c];
+    const cid = cell.cell_id;
+    const verts = cell.vertices;
+    const take = Math.max(1, Math.floor(verts.length * pct / 100));
+    const step = Math.max(1, Math.floor(verts.length / take));
+
+    for (let v = 0; v < verts.length; v += step) {
+      const pt = verts[v];
+      if (pt.lat < minLat) minLat = pt.lat;
+      if (pt.lat > maxLat) maxLat = pt.lat;
+      if (pt.lon < minLon) minLon = pt.lon;
+      if (pt.lon > maxLon) maxLon = pt.lon;
+      sumLat += pt.lat;
+      sumLon += pt.lon;
+      shown++;
+      pts.push({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [pt.lon, pt.lat] },
+        properties: { cell_id: cid }
+      });
+    }
+    total += verts.length;
+  }
+
+  return { pts, minLat, maxLat, minLon, maxLon, shown, total, sumLat, sumLon };
+}
+
+function applySample() {
+  if (currentMode === 'boundary' || !map.getSource('cells') || cachedCells.length === 0) return;
+  const features = buildFeatures(samplePct);
+  map.getSource('cells').setData({ type: 'FeatureCollection', features: features.pts });
+  updateBadge(features.shown, features.total);
+  document.getElementById('statLat').textContent = features.shown ? (features.sumLat / features.shown).toFixed(3) : '\u2014';
+  document.getElementById('statLon').textContent = features.shown ? (features.sumLon / features.shown).toFixed(3) : '\u2014';
+}
+
+function updateBadge(shown, total) {
+  document.getElementById('badgeCount').textContent = shown === total
+    ? `${total.toLocaleString()} vertices`
+    : `${shown.toLocaleString()} of ${total.toLocaleString()} vertices (${samplePct}%)`;
+}
+
+function clearMapLayers() {
+  if (map.getLayer('cells-layer')) map.removeLayer('cells-layer');
+  if (map.getSource('cells')) map.removeSource('cells');
+}
+
+function toggleVertices(on) {
+  if (map.getLayer('cells-layer')) {
+    map.setLayoutProperty('cells-layer', 'visibility', on ? 'visible' : 'none');
+  }
+}
+</script>
+</body>
+</html>

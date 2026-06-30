@@ -808,8 +808,8 @@ func TestPreprocessorSimple(t *testing.T) {
 				for vp := da.Index(0); vp < da.Index(n); vp++ {
 					u := newToOldVidMap[up]
 					v := newToOldVidMap[vp]
-					gotReach := g.PathExists(u, v)
-					expectedReach := reach[v].Test(uint(u))
+					gotReach := g.PathExists(up, vp)
+					expectedReach := reach[vp].Test(uint(up))
 					if gotReach != expectedReach {
 						t.Errorf("expected v: %v can be reached from u: %v, got: no", v, u)
 					}
