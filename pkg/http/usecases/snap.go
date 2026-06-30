@@ -31,7 +31,7 @@ kenapa??
 let q=number of rounds until searchRead exceeds MAX_SEARCH_RADIUS
 let M=number of road segments/edges in the graph
 let c=max number of road segments/edges returned by rtree spatial index
-worst case: O(q*(M + c^2))
+avg case: O(q*(logM + c^2))
 
 return:
 outEdgeId dari source road segment.
@@ -82,7 +82,7 @@ kenapa??
 
 let M=number of road segments/edges in the graph, MAX_CANDIDATES (see spatial_index/constant.go dan rtree.go) adalah jumlah leafs data maksimum yang direturn oleh Search() nya r-tree
 let c=max number of road segments/edges returned by rtree spatial index
-worst case: O(M + c^2)
+avg case: O(logM + c^2)
 */
 func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
 	removedPrevPairSet hashset.Uint64Set, reroute bool, startEdgeId da.Index) (da.PhantomNode, da.PhantomNode) {
@@ -92,7 +92,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	)
 
 	// let M=number of road segments/edges in the graph, MAX_CANDIDATES (see spatial_index/constant.go dan rtree.go) adalah jumlah leafs data maksimum yang direturn oleh Search() nya r-tree
-	// SearchWithinRadius worst case is O(M)
+	// SearchWithinRadius worst case is O(M), avg case is O(logM)
 	// find nearest orig edge (inEdgeOffset) to qOrigLat, qOrigLon
 	if !reroute {
 		origCandidates = rs.spatialIndex.SearchWithinRadius(qOrigLat, qOrigLon, searchRad, 0)

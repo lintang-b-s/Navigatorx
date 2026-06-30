@@ -143,6 +143,11 @@ func (rt *Rtree) Build(graph *da.Graph, logger *zap.Logger) {
 // R-tree search worst case is O(M) ketika MBR dari query overlap semua mbr leafs data
 // kita limit leaf data yang kita return sebanyak MAX_CANDIDATES < maxLeafEntries (64).
 // dan kita pakai STR (sort-tile-recursive) packed r-tree, bulk insert (.Bulk(..)), space utilization nya ~100% every leaf nodes.
+// space utilization ~100% -> total area dan total perimeter dari all nodes in r-tree smaller...
+// by lemma 3: https://dl.acm.org/doi/pdf/10.1145/170088.170403
+// expected number of nodes traversed (disk accesses karena di paper r-tree nodes nya disimpan ke disk page) proporsional dengan total area dan total perimeter dari all nodes in r-tree
+// karena kita pake bulk insert, total area + total perimeter lebih kecil -> number of nodes traversed lebih kecil saat rectangle/bounding box query.
+// karena query bounding box kita juga kecil (radius kecil & jauh lebih kecil dari MBR nya root node) & only return MAX_CANDIDATES avg case runtime dari rectangle/bounding box query proporsional dari height dari r-tree: O(logM)
 // https://ia600709.us.archive.org/13/items/nasa_techdoc_19970016975/19970016975.pdf
 // https://xilinx.github.io/Vitis_Libraries/data_analytics/2022.1/guide_L2/internals/geospatialJoin.html
 // https://www2.cs.sfu.ca/CourseCentral/454/jpei/slides/R-Tree.pdf

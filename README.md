@@ -1,6 +1,6 @@
 # Navigatorx
 
-Routing Engine For Openstreetmap data. Supports traffic updates and most types of turn restrictions (via-node, via-way, multi via-way) from OpenStreetMap.
+Routing Engine For Openstreetmap data. Supports fast traffic updates and most types of turn restrictions (via-node, via-way, multiple via-way) from OpenStreetMap.
 
 [![test](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml)
 [![lint](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml)
@@ -28,7 +28,7 @@ sh scripts/build_pgo.sh
 
 ### Pre-processing
 
-run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1)) algorithm is available. The CRP pre-processing phase creates multilevel partitions and overlay graph data structures.
+run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1)) algorithm is available. The CRP pre-processing phase creates multilevel partitions using Inertial Flow Algorithm ([[4]](#ref4)) and overlay graph data structures.
 
 ```
 export GOFLAGS="-buildvcs=false"
@@ -38,7 +38,7 @@ go build -o ./bin/preprocessor ./cmd/preprocessor
 
 ### Customization
 
-The Customizable Route Planning CRP customization phase ([[1]](#ref1)) computes the shortcut weights at each cell of the multilevel partitioning result. The customizer also computes landmark distances for the ALT algorithm (A* search, landmarks, and triangle inequality) ([[3]](#ref3)).
+The Customizable Route Planning CRP customization phase ([[1]](#ref1)) computes the shortcut weights at each cell of the multilevel partitioning result. The customizer also computes landmark distances for the ALT algorithm (A\* search, landmarks, and triangle inequality) ([[3]](#ref3)).
 
 ```
 go build -o ./bin/customizer ./cmd/customizer
@@ -64,7 +64,7 @@ example: <br>
 For changes in the duration (weight) of road segments, the csv file follows the following format: <br>
 
 ```
-from_osm_id, to_osm_id, edge_speed_in_km_h
+from_osm_id, to_osm_id, road_segment_speed_in_km_h
 ```
 
 from/to OSM node IDs must be connected. Note that for some OSM nodes that only have indegree and outdegree equal to 1, the node may be compressed/contracted so that only the two adjacent nodes to the contracted node remain in the compressed graph. <br>
@@ -77,7 +77,11 @@ After you run the command above, the query engine will provide the following log
 2026-06-19T18:18:15.890226994+07:00     info    updated the metrics and costFunction....
 ```
 
-navigatorx also supports updating turn penalties with the customizer cmd flag "--turn-penalty-file", whose csv file follows the same format.
+navigatorx also supports updating turn penalties with the customizer cmd flag "--turn-penalty-file", whose csv file follows the following format:
+
+```
+from_osm_id, via_osm_id, to_osm_id, turn_penalty_in_seconds
+```
 
 ## Tests
 
@@ -110,13 +114,13 @@ The OpenAPI specification is available at [swagger.yaml](./swagger.yaml).
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579 .
 
-<a id="ref2"></a>2. Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
-Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
+<a id="ref2"></a>2. Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
 https://doi.org/10.1007/978-3-642-13193-6_3 .
 
-<a id="ref3"></a>3. Goldberg, A. and Harrelson, C. (2005) “Computing the shortest path: A* search meets
-graph theory,” in. ACM-SIAM Symposium on Discrete Algorithms. Vancouver:
+<a id="ref3"></a>3. Goldberg, A. and Harrelson, C. (2005) “Computing the shortest path: A\* search meets graph theory,” in. ACM-SIAM Symposium on Discrete Algorithms. Vancouver:
 ACM, pp. 156 - 165.
+
+<a id="ref4"></a>4. Schild, A. and Sommer, C. (2015) ‘On Balanced Separators in Road Networks’, in E. Bampis (ed.) Experimental Algorithms. Cham: Springer International Publishing, pp. 286–297.
 
 ### Acknowledgments
 
