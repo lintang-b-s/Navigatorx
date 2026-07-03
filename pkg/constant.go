@@ -9,8 +9,8 @@ import (
 )
 
 const (
-	maxCentAccel       = 1.6671305  // m/s²  (avg 86 vehicles peak lateral acceleration  https://www.jsheld.com/uploads/PDFs/Lateral-and-Tangential-Accelerations-of-Left-Turning-Vehicles-from-Naturalistic-Observations.pdf)
-	avgAccelAfterTurn  = 0.980665   // m/s² (0.10g avg acceleration phase 1 row 2  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
+	maxCentAccel       = 1.6671305  // m/s²  (0.17 g avg 86 vehicles peak lateral acceleration  https://www.jsheld.com/uploads/PDFs/Lateral-and-Tangential-Accelerations-of-Left-Turning-Vehicles-from-Naturalistic-Observations.pdf)
+	avgAccelAfterTurn  = 2.353596   // m/s² (0.24g avg acceleration phase 2 row 2  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
 	avgDecelBeforeTurn = -1.6671305 // m/s²  (0.17g avg decceleration phase 1 row 2  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
 )
 

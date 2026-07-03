@@ -46,7 +46,7 @@ func NewEngineDirect[W util.RoutingNumber](
 	puCache := da.NewPuCache()
 
 	lm := landmark.NewLandmark[W]()
-	err := lm.PreprocessALT(4, m, graph, logger)
+	err := lm.PreprocessALT(4, m.GetCostFunction(), graph, logger)
 	if err != nil {
 		panic(err)
 	}

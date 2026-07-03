@@ -96,7 +96,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 		t.Fatalf("err: %v", err)
 	}
 	lm := landmark.NewLandmark[float64]()
-	err = lm.PreprocessALT(1, m, g, logger)
+	err = lm.PreprocessALT(1, m.GetCostFunction(), g, logger)
 	if err != nil {
 		panic(err)
 	}

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
@@ -193,7 +193,7 @@ time complexity of ALT preprocessing:
 
 O(m*logm * k), m=number of edges,k=number of landmarks
 */
-func (lm *Landmark[W]) PreprocessALT(k int, m *metrics.Metric[W], graph *da.Graph, logger *zap.Logger) error {
+func (lm *Landmark[W]) PreprocessALT(k int, cf *costfunction.TimeFunction[W], graph *da.Graph, logger *zap.Logger) error {
 	if k > 64 {
 		return errors.New("too much landmarks!, the maximum number of landmarks is 64. ")
 	}
@@ -235,7 +235,7 @@ func (lm *Landmark[W]) PreprocessALT(k int, m *metrics.Metric[W], graph *da.Grap
 			sid := qp.getSid()
 			il := qp.getIndex()
 
-			crpQuery := NewDijkstra(graph, m, false) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
+			crpQuery := NewDijkstra(graph, cf, false) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
 			sps := crpQuery.ShortestPath(sid, &heapPool)
 			dijkstraOutChan <- newQueryRet(il, sps)
 		}
@@ -245,7 +245,7 @@ func (lm *Landmark[W]) PreprocessALT(k int, m *metrics.Metric[W], graph *da.Grap
 		for qp := range dijkstraRevInChan {
 			sid := qp.getSid()
 			il := qp.getIndex()
-			crpQuery := NewDijkstra(graph, m, true) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
+			crpQuery := NewDijkstra(graph, cf, true) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
 
 			sps := crpQuery.ShortestPath(sid, &heapPool)
 			dijkstraRevOutChan <- newQueryRet(il, sps)

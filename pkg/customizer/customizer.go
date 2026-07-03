@@ -178,21 +178,23 @@ func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
 		},
 	}
 
+	lm := landmark.NewLandmark[W]()
+
+	wg := sync.WaitGroup{}
+	wg.Go(func() {
+		numberOfLandmarks := viper.GetInt("landmarks")
+		err = lm.PreprocessALT(numberOfLandmarks, costFunction, c.graph, c.logger)
+		if err != nil {
+			panic(err)
+		}
+	})
+
 	c.Build(costFunction)
 	c.logger.Sugar().Infof("Building stalling tables...")
 	m = metrics.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, c.metricOutputFilePath, readBuf)
-
 	m.BuildStallingTables(c.overlayGraph, c.graph)
 
-	c.logger.Sugar().Infof("Customization step completed successfully.")
-
-	lm := landmark.NewLandmark[W]()
-	numberOfLandmarks := viper.GetInt("landmarks")
-	err = lm.PreprocessALT(numberOfLandmarks, m, c.graph, c.logger)
-	if err != nil {
-		panic(err)
-	}
-
+	wg.Wait()
 	err = lm.WriteLandmark(c.landmarkFile, c.graph.NumberOfVertices())
 	if err != nil {
 		panic(err)
@@ -205,6 +207,9 @@ func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
 	if err != nil {
 		return nil, fmt.Errorf("Customize: failed to write metric output to %s: %w", c.metricOutputFilePath, err)
 	}
+
+	c.logger.Sugar().Infof("Customization step completed successfully.")
+
 	return m, nil
 }
 
@@ -329,9 +334,6 @@ func (c *Customizer[W]) makeTurnTable(
 			containsTrafficLight := fromInEdge.ContainsTrafficLight() || toOutEdge.ContainsTrafficLight()
 			if containsTrafficLight {
 				turnTableSeconds[turnTableId] += trafficLightPenalty
-			} else {
-				// only add turning cost di persimpangan bangjo
-				return
 			}
 
 			fromSegmentStreetName := c.graph.GetStreetName(eIdFrom)

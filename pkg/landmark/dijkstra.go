@@ -3,14 +3,14 @@ package landmark
 import (
 	"sync"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type Dijkstra[W util.RoutingNumber] struct {
-	graph   *da.Graph
-	metrics *met.Metric[W]
+	graph *da.Graph
+	cf    *costfunction.TimeFunction[W]
 
 	pq *da.QueryHeap[da.CRPQueryKey, W]
 
@@ -19,13 +19,13 @@ type Dijkstra[W util.RoutingNumber] struct {
 	numSettledNodes int
 }
 
-func NewDijkstra[W util.RoutingNumber](graph *da.Graph, metrics *met.Metric[W], useReverseGraph bool) *Dijkstra[W] {
+func NewDijkstra[W util.RoutingNumber](graph *da.Graph, cf *costfunction.TimeFunction[W], useReverseGraph bool) *Dijkstra[W] {
 	dj := &Dijkstra[W]{
 		graph:           graph,
 		useReverseGraph: useReverseGraph,
 		numSettledNodes: 0,
 
-		metrics: metrics,
+		cf: cf,
 	}
 
 	return dj
@@ -84,7 +84,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			vId := head
 
-			edgeWeight := us.metrics.GetWeight(eId)
+			edgeWeight := us.cf.GetWeight(eId)
 
 			// get cost to reach v through u
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
@@ -127,7 +127,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 			vId := tail
 
 			eExitId := us.graph.GetExitIdOfInEdge(eId)
-			edgeWeight := us.metrics.GetWeight(eExitId)
+			edgeWeight := us.cf.GetWeight(eExitId)
 
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
 

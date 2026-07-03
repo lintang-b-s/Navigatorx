@@ -304,7 +304,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 		lm := landmark.NewLandmark[float64]()
-		err = lm.PreprocessALT(util.MinInt(16, n), mt, g, logger)
+		err = lm.PreprocessALT(util.MinInt(16, n), mt.GetCostFunction(), g, logger)
 		if err != nil {
 			t.Fatal(err)
 		}

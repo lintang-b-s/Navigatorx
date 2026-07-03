@@ -120,7 +120,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		panic(err)
 	}
 	lm := landmark.NewLandmark[int64]()
-	err = lm.PreprocessALT(2, met, g, logger)
+	err = lm.PreprocessALT(2, met.GetCostFunction(), g, logger)
 	if err != nil {
 		panic(err)
 	}
