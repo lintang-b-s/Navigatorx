@@ -58,22 +58,46 @@ ref2: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.p
 time complexity dinic algorithm on unit capacity graph::
 see lemma 4.2 ref2, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 karena di implementasi inertial flow ini kita selalu pakai unit capacity..
-let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pada graph n vertices dan m edges = O(min{m * sqrt(m), m * n^(2/3)})
+in a typical road network, average degree of any vertex ~ 2. so, m = O(n)
+let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pada road network graph n vertices dan m edges = O(min{n * sqrt(n), n * n^(2/3)})=O(n^{3/2})
 b=SOURCE_SINK_RATE atau parameter balance b dari algoritma inertial flow ref1. 0<b<=1/2
 worst case ketika hasil st b-balanced mincut selalu |S|=b*n, |T|=(1-b)*n
 
-T(n)=T(n*(1-b)) + T(b*n) +T_d(n)
-	<= 2T(n*(1-b))+T_d(n)
-	<= 2^2 T(n(1-b)^2) + 2T_d(n(1-b)) + T_d(n)
-	<= 2^k * T_d(n) + 2^k*T(n(1-b)^k)
+klaim 1: \sum{i=1}^{k} (n_i)^{3/2} <= n^{3/2}. n > 0, 0<b<=1/2. dengan n=n_1+n_2+....+n_k
+untuk membuktikan klaim 1, kita perlu membuktikan klaim 2 dibawah:
+
+klaim 2: P: (a_1+a_2+...+a_m)^p >= a_1^p+a_2^p+....a_m^p. p >= 1, a_i > 0.
+bukti klaim 2:
+base case: m=2
+let q=p-1, q >= 0. p=q+1
+(a_1+a_2)^p = (a_1+a_2)^{1+q} = a_1(a_1+a_2)^q+a_2(a_1+a_2)^q >= a_1*a_1^q + a_2*a_2^q = a_1^p+a_2^p
+induction hypothesis:
+assume P true for k-1 terms.
+induction step:
+(a_1+a_2+...+a_k)^p = ((a_1+a_2+...+a_{k-1})+a_k)^p
+				   >= (a_1+a_2+...+a_{k-1})^p + a_k^p
+				   >= a_1^p+a_2^p+...+a_{k-1}^p + a_k^p    [induction hypothesis]
+
+kita bisa buktikan klaim 1 dengan pakai klaim 2.
 
 
-base case T(U)=O(1)
-k=log_{1/(1-b)} (n/U)
+depth dari recursive bisection tree:
+let n^i = subproblem size untuk node at depth i di recursive bisection tree.
+n^1 <= n(1-b)
+n^2 <= n(1-b)^2
+n^d <= n(1-b)^d
 
-T(n)=O((n/U)^{log_{1/(1-b)} 2} * T_d(n)) , untuk level 5 default U_5 = 2^18
+base case ketika subporoblem size equal to 1
+n(1-b)^d=1
+d = log_{1/(1-b)} n
 
-*/ //
+worst case time complexity:
+let cost^i = total cost over all nodes in depth i.
+T(n) = n^{3/2} + cost^1 + cost^2 + .... + cost^d
+	<= n^{3/2} +  n^{3/2}+  n^{3/2} + ... + n^{3/2}  [klaim 1]
+	=   O(log_{1/(1-b)} (n) * n^{3/2})
+
+*/ // nolint: gofmt
 func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 
 	initialPg := rb.buildInitialPartitionGraph(initialVerticeIds) // O(n+m), n = len(initialVerticeIds), m = number of edges that its tail vertex in initialVerticeIds

@@ -55,13 +55,8 @@ pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} unt
 cells di level bawahnya didapatkan dengan menjalankan algoritma inertial flow pada individual cells of the level immediately above.
 
 time complexity:
-ref2: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
-see lemama 4.2 ref2, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
-karena di implementasi inertial flow ini kita selalu pakai unit capacity..
-let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pada graph n vertices dan m edges = O(min{m * sqrt(m), m * n^(2/3)})
-for each level l, time complexity recursiveBisection.Partition() in each cell is O((U_{l+1}/U_l)^{log_{1/(1-b)} 2}* T_d(U_{l+1})), dengan U_{L+1}=n
-*/
-
+for each level l, time complexity recursiveBisection.Partition() in each cell is O(log_{1/(1-b)} (U_{l+1}) * U_{l+1}^{3/2}). dengan U_{L+1}=n
+*/ // nolint: gofmt
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
 	nodeIDs := mp.graph.GetVerticeIds()
