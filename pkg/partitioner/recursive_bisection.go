@@ -63,10 +63,10 @@ let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pad
 b=SOURCE_SINK_RATE atau parameter balance b dari algoritma inertial flow ref1. 0<b<=1/2
 worst case ketika hasil st b-balanced mincut selalu |S|=b*n, |T|=(1-b)*n
 
-klaim 1: \sum{i=1}^{k} (n_i)^{3/2} <= n^{3/2}. n > 0, 0<b<=1/2. dengan n=n_1+n_2+....+n_k
+klaim 1: \sum{i=1}^{k} (n_i)^{3/2} <= n^{3/2}. integer n,n_i > 0, bil. real 0<b<=1/2. dengan n=n_1+n_2+....+n_k
 untuk membuktikan klaim 1, kita perlu membuktikan klaim 2 dibawah:
 
-klaim 2: P: (a_1+a_2+...+a_m)^p >= a_1^p+a_2^p+....a_m^p. p >= 1, a_i > 0.
+klaim 2: P: (a_1+a_2+...+a_m)^p >= a_1^p+a_2^p+....a_m^p. bil. real p >= 1, integer a_i > 0.
 bukti klaim 2:
 base case: m=2
 let q=p-1, q >= 0. p=q+1
