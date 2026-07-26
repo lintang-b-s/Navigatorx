@@ -82,44 +82,75 @@
 ## Avg runtime
 
 ```
- go run eval/crp_alt/random_queries_crp_alt/main.go
-2026-07-26T13:08:05.75042062+07:00      info    Starting query engine....
-2026-07-26T13:08:05.750470429+07:00     info    Reading graph....
-2026-07-26T13:08:07.94125304+07:00      info    Reading overlay graph....
-2026-07-26T13:08:07.971482249+07:00     info    Reading stalling tables & metrics...
-2026-07-26T13:08:09.218429983+07:00     info    starting benchmark
-2026-07-26T13:08:12.283167441+07:00     info    done query 1000
-2026-07-26T13:08:14.604244473+07:00     info    done query 2000
-2026-07-26T13:08:16.82611654+07:00      info    done query 3000
-2026-07-26T13:08:19.21680999+07:00      info    done query 4000
-2026-07-26T13:08:21.427685987+07:00     info    done query 5000
-2026-07-26T13:08:23.530708776+07:00     info    done query 6000
-2026-07-26T13:08:25.647026028+07:00     info    done query 7000
-2026-07-26T13:08:27.779554513+07:00     info    done query 8000
-2026-07-26T13:08:29.8119325+07:00       info    done query 9000
-2026-07-26T13:08:32.030506277+07:00     info    done query 10000
-Algoritma kueri kombinasi CRP dan ALT:
-avg query times: 1.785300
-avg efficiency: 0.506349
+2026-07-26T14:37:34.853551686+07:00     info    Starting query engine....
+2026-07-26T14:37:34.853633908+07:00     info    Reading graph....
+2026-07-26T14:37:37.159534059+07:00     info    Reading overlay graph....
+2026-07-26T14:37:37.192360159+07:00     info    Reading stalling tables & metrics...
+2026-07-26T14:37:38.436172718+07:00     info    starting benchmark
+2026-07-26T14:37:41.465156887+07:00     info    done query 1000
+2026-07-26T14:37:44.100198159+07:00     info    done query 2000
+2026-07-26T14:37:46.490120068+07:00     info    done query 3000
+2026-07-26T14:37:48.939290811+07:00     info    done query 4000
+2026-07-26T14:37:51.383286901+07:00     info    done query 5000
+2026-07-26T14:37:53.637442529+07:00     info    done query 6000
+2026-07-26T14:37:55.965888995+07:00     info    done query 7000
+2026-07-26T14:37:58.253408005+07:00     info    done query 8000
+2026-07-26T14:38:00.394736613+07:00     info    done query 9000
+2026-07-26T14:38:02.686036227+07:00     info    done query 10000
+Algoritma kueri kombinasi CRP dan ALT (with turn costs) :
+avg query times: 1.927000
+avg efficiency: 0.515226
 avg number of vertices scanned: 1336
-avg query runtime: 1.277700
-avg path unpacking runtime: 0.097100
-2026-07-26T13:08:34.898075738+07:00     info    done query 1000
-2026-07-26T13:08:37.714492984+07:00     info    done query 2000
-2026-07-26T13:08:40.49641393+07:00      info    done query 3000
-2026-07-26T13:08:43.185274671+07:00     info    done query 4000
-2026-07-26T13:08:45.922078772+07:00     info    done query 5000
-2026-07-26T13:08:48.638283127+07:00     info    done query 6000
-2026-07-26T13:08:51.373931405+07:00     info    done query 7000
-2026-07-26T13:08:54.040680374+07:00     info    done query 8000
-2026-07-26T13:08:56.792619133+07:00     info    done query 9000
-2026-07-26T13:08:59.620326578+07:00     info    done query 10000
-Algoritma kueri CRP:
-avg query times: 2.263400
-avg efficiency: 0.346971
-avg number of vertices scanned: 1908
-avg query runtime: 1.969400
-avg path unpacking runtime: 0.012400
+avg query runtime: 1.398400
+avg path unpacking runtime: 0.098200
+2026-07-26T14:38:05.433202629+07:00     info    done query 1000
+2026-07-26T14:38:08.118557624+07:00     info    done query 2000
+2026-07-26T14:38:10.772213243+07:00     info    done query 3000
+2026-07-26T14:38:13.452375514+07:00     info    done query 4000
+2026-07-26T14:38:16.300474194+07:00     info    done query 5000
+2026-07-26T14:38:19.02717408+07:00      info    done query 6000
+2026-07-26T14:38:21.712126875+07:00     info    done query 7000
+2026-07-26T14:38:24.408301582+07:00     info    done query 8000
+2026-07-26T14:38:27.090987732+07:00     info    done query 9000
+2026-07-26T14:38:29.83621424+07:00      info    done query 10000
+Algoritma kueri CRP (with turn costs):
+avg query times: 2.225400
+avg efficiency: 0.349395
+avg number of vertices scanned: 1907
+avg query runtime: 1.923200
+avg path unpacking runtime: 0.012100
+2026-07-26T14:38:32.426314354+07:00     info    done query 1000
+2026-07-26T14:38:35.251948549+07:00     info    done query 2000
+2026-07-26T14:38:37.798928447+07:00     info    done query 3000
+2026-07-26T14:38:40.676744062+07:00     info    done query 4000
+2026-07-26T14:38:43.375158792+07:00     info    done query 5000
+2026-07-26T14:38:45.965306617+07:00     info    done query 6000
+2026-07-26T14:38:48.574678122+07:00     info    done query 7000
+2026-07-26T14:38:51.373740551+07:00     info    done query 8000
+2026-07-26T14:38:54.009945308+07:00     info    done query 9000
+2026-07-26T14:38:56.678124226+07:00     info    done query 10000
+Algoritma kueri kombinasi CRP dan ALT (without turn costs):
+avg query times: 2.182000
+avg efficiency: 0.728240
+avg number of vertices scanned: 966
+avg query runtime: 2.018500
+avg path unpacking runtime: 0.005400
+2026-07-26T14:39:00.869739627+07:00     info    done query 1000
+2026-07-26T14:39:04.976453364+07:00     info    done query 2000
+2026-07-26T14:39:09.12311316+07:00      info    done query 3000
+2026-07-26T14:39:13.199156052+07:00     info    done query 4000
+2026-07-26T14:39:17.360105562+07:00     info    done query 5000
+2026-07-26T14:39:21.389868501+07:00     info    done query 6000
+2026-07-26T14:39:25.301104517+07:00     info    done query 7000
+2026-07-26T14:39:29.5155562+07:00       info    done query 8000
+2026-07-26T14:39:33.908817769+07:00     info    done query 9000
+2026-07-26T14:39:38.270522166+07:00     info    done query 10000
+Algoritma kueri CRP (without turn costs):
+avg query times: 3.662000
+avg efficiency: 0.440029
+avg number of vertices scanned: 1523
+avg query runtime: 3.482700
+avg path unpacking runtime: 0.003800
 ```
 
 runtime in milliseconds
@@ -223,4 +254,3 @@ runtime in milliseconds
 2026-07-26T13:23:54.72685706+07:00      info    done computing landmarks....
 2026-07-26T13:23:54.831106509+07:00     info    Customization step completed successfully.
 ```
-

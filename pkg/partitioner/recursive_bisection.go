@@ -89,12 +89,13 @@ n(1-b)^d=1
 d = log_{1/(1-b)} n
 
 worst case time complexity:
-let cost^i = total cost over all nodes in depth i di recurrence tree.
+let cost^i = total cost over all nodes in depth i di recurrence tree. kalau complete binary tree.
 T(n) = n^{3/2} + cost^1 + cost^2 + .... + cost^{d-1} + Theta(n^{log_{1/(1-b)}  2})
 	<= n^{3/2} +  n^{3/2}+  n^{3/2} + ... + n^{3/2} + Theta(n^{log_{1/(1-b)}  2}) [klaim 1]
 	=   O(log_{1/(1-b)} (n) * n^{3/2})
 
-we can also use subtitution method to get T(n)=O(log_{1/(1-b)} (n) * n^{3/2})
+we can also use subtitution method to get T(n)=O(log_{1/(1-b)} (n) * n^{3/2}), karena recurrence tree nya bisa bukan complete binary tree.
+
 
 */ // nolint: gofmt
 func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {

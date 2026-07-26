@@ -159,7 +159,7 @@ func main() {
 		calcsSP(i, q, true)
 	}
 
-	fmt.Printf("Algoritma kueri kombinasi CRP dan ALT: \n")
+	fmt.Printf("Algoritma kueri kombinasi CRP dan ALT (with turn costs) : \n")
 	fmt.Printf("avg query times: %f\n", durations/10000.0)
 	fmt.Printf("avg efficiency: %f\n", efficiency/10000.0)
 	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/10000.0)
@@ -177,7 +177,87 @@ func main() {
 		calcsSP(i, q, false)
 	}
 
-	fmt.Printf("Algoritma kueri CRP: \n")
+	fmt.Printf("Algoritma kueri CRP (with turn costs): \n")
+	fmt.Printf("avg query times: %f\n", durations/10000.0)
+	fmt.Printf("avg efficiency: %f\n", efficiency/10000.0)
+	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/10000.0)
+	fmt.Printf("avg query runtime: %f\n", qRuntime/10000.0)
+	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/10000.0)
+
+	// gak support turn restrictions & turn costs
+	calcsSPWithoutTurnCosts := func(i int, p spParam, alt bool) any {
+
+		s := p.s
+		t := p.t
+
+		now := time.Now()
+		if alt {
+
+			crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+			_, vertexPath, _ := crpQuery.ShortestPathSearch(s, t)
+			dur := time.Since(now).Milliseconds()
+			durations += float64(dur)
+
+			eff, numScannedVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(vertexPath))
+			qRuntime += float64(queryRuntime)
+			puRuntime += float64(pathUnpackingRuntime)
+			efficiency += eff
+			totScannedVertices += numScannedVertices
+
+		} else {
+
+			crpQuery := routing.NewCRPBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+			_, vertexPath, _ := crpQuery.ShortestPathSearch(s, t)
+			dur := time.Since(now).Milliseconds()
+			durations += float64(dur)
+
+			eff, numScannedVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(vertexPath))
+			qRuntime += float64(queryRuntime)
+			puRuntime += float64(pathUnpackingRuntime)
+			efficiency += eff
+			totScannedVertices += numScannedVertices
+
+		}
+
+		if (i+1)%1000 == 0 {
+			logger.Sugar().Infof("done query %v", i+1)
+		}
+
+		return nil
+	}
+
+	durations = 0.0
+	efficiency = 0.0
+	qRuntime = 0.0
+	puRuntime = 0.0
+	totScannedVertices = 0
+
+	rd = rand.New(rand.NewSource(time.Now().UnixNano()))
+
+	rdStartId = rd.Intn(len(queries) - 10000)
+	for i, q := range queries[rdStartId : rdStartId+10000] {
+		calcsSPWithoutTurnCosts(i, q, true)
+	}
+
+	fmt.Printf("Algoritma kueri kombinasi CRP dan ALT (without turn costs): \n")
+	fmt.Printf("avg query times: %f\n", durations/10000.0)
+	fmt.Printf("avg efficiency: %f\n", efficiency/10000.0)
+	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/10000.0)
+	fmt.Printf("avg query runtime: %f\n", qRuntime/10000.0)
+	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/10000.0)
+
+	durations = 0.0
+	efficiency = 0.0
+	qRuntime = 0.0
+	puRuntime = 0.0
+	totScannedVertices = 0
+
+	rdStartId = rd.Intn(len(queries) - 10000)
+	for i, q := range queries[rdStartId : rdStartId+10000] {
+		calcsSPWithoutTurnCosts(i, q, false)
+	}
+
+	fmt.Printf("Algoritma kueri CRP (without turn costs): \n")
 	fmt.Printf("avg query times: %f\n", durations/10000.0)
 	fmt.Printf("avg efficiency: %f\n", efficiency/10000.0)
 	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/10000.0)

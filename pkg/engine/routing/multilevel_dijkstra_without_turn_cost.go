@@ -176,6 +176,7 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) ShortestPathSearch(s, t da.I
 	unpacker := NewPathUnpackerALTNoTurnCost(bs.engine)
 	defer unpacker.DonePooled()
 	edgeIdPath := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
+	bs.pathUnpackingRuntime = unpacker.runtime
 
 	return bs.shortestTravelTime, edgeIdPath, true
 }
@@ -630,4 +631,12 @@ func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) Done() {
 	bs.backwardPq.Clear()
 	bs.engine.fHeapNoTurnCostPool.Put(bs.forwardPq)
 	bs.engine.bHeapNoTurnCostPool.Put(bs.backwardPq)
+}
+
+func (bs *CRPBidirectionalSearchWithoutTurnCost[W]) GetStats(n int) (float64, int, int64, int64) {
+	// efficiency:
+	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf
+
+	efficiency := float64(n) / float64(bs.numScannedVertices)
+	return efficiency, bs.numScannedVertices, bs.runtime, bs.pathUnpackingRuntime
 }
