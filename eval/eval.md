@@ -58,99 +58,100 @@
 
 ```
 ./bin/customizer --region=jateng_jabar
-2026-07-26T12:48:52.097880627+07:00	info	Starting customization step of Customizable Route Planning...
-2026-07-26T12:48:52.097949828+07:00	info	Reading graph from ./data/profiles/car/jateng_jabar_original.ngraph
-2026-07-26T12:48:54.282415319+07:00	info	Reading overlay graph from ./data/profiles/car/jateng_jabar_overlay_graph.ngraph
-2026-07-26T12:48:54.424799649+07:00	info	Building cliques for each cell for each overlay graph level...
-2026-07-26T12:48:54.426552619+07:00	info	number of shortcuts: 2096059
-2026-07-26T12:48:58.562722613+07:00	info	computing landmarks....
-2026-07-26T12:49:46.714220446+07:00	info	number of shortcuts overlay graph level 1: 1111102
-2026-07-26T12:49:46.7142813+07:00	info	finished crp customization level 1
-2026-07-26T12:50:05.397130774+07:00	info	number of shortcuts overlay graph level 2: 497066
-2026-07-26T12:50:05.397214592+07:00	info	finished crp customization level 2
-2026-07-26T12:50:10.850350985+07:00	info	number of shortcuts overlay graph level 3: 242130
-2026-07-26T12:50:10.850455803+07:00	info	finished crp customization level 3
-2026-07-26T12:50:12.80424388+07:00	info	number of shortcuts overlay graph level 4: 153647
-2026-07-26T12:50:12.804363305+07:00	info	finished crp customization level 4
-2026-07-26T12:50:13.759899217+07:00	info	number of shortcuts overlay graph level 5: 92114
-2026-07-26T12:50:13.759962626+07:00	info	finished crp customization level 5
-2026-07-26T12:50:13.759986702+07:00	info	Building stalling tables...
-2026-07-26T12:50:36.392572029+07:00	info	done computing landmarks....
-2026-07-26T12:50:37.356199399+07:00	info	Customization step completed successfully.
+2026-07-26T18:47:37.495520606+07:00     info    Starting customization step of Customizable Route Planning...
+2026-07-26T18:47:37.49558639+07:00      info    Reading graph from ./data/profiles/car/jateng_jabar_original.ngraph
+2026-07-26T18:47:39.753160525+07:00     info    Reading overlay graph from ./data/profiles/car/jateng_jabar_overlay_graph.ngraph
+2026-07-26T18:47:39.925748618+07:00     info    Building cliques for each cell for each overlay graph level...
+2026-07-26T18:47:39.930410146+07:00     info    number of shortcuts: 2096585
+2026-07-26T18:47:44.069544804+07:00     info    computing landmarks....
+2026-07-26T18:47:53.776486579+07:00     info    number of shortcuts overlay graph level 1: 1111496
+2026-07-26T18:47:53.776522767+07:00     info    finished crp customization level 1
+2026-07-26T18:47:56.750562633+07:00     info    number of shortcuts overlay graph level 2: 497198
+2026-07-26T18:47:56.750606836+07:00     info    finished crp customization level 2
+2026-07-26T18:47:57.518189218+07:00     info    number of shortcuts overlay graph level 3: 242130
+2026-07-26T18:47:57.518220266+07:00     info    finished crp customization level 3
+2026-07-26T18:47:57.770858218+07:00     info    number of shortcuts overlay graph level 4: 153647
+2026-07-26T18:47:57.770890639+07:00     info    finished crp customization level 4
+2026-07-26T18:47:57.897526281+07:00     info    number of shortcuts overlay graph level 5: 92114
+2026-07-26T18:47:57.897572328+07:00     info    finished crp customization level 5
+2026-07-26T18:47:57.89757883+07:00      info    Building stalling tables...
+2026-07-26T18:48:07.362363699+07:00     info    done computing landmarks....
+2026-07-26T18:48:08.259523643+07:00     info    Customization step completed successfully.
 ```
 
 ## Avg runtime
 
 ```
-2026-07-26T14:37:34.853551686+07:00     info    Starting query engine....
-2026-07-26T14:37:34.853633908+07:00     info    Reading graph....
-2026-07-26T14:37:37.159534059+07:00     info    Reading overlay graph....
-2026-07-26T14:37:37.192360159+07:00     info    Reading stalling tables & metrics...
-2026-07-26T14:37:38.436172718+07:00     info    starting benchmark
-2026-07-26T14:37:41.465156887+07:00     info    done query 1000
-2026-07-26T14:37:44.100198159+07:00     info    done query 2000
-2026-07-26T14:37:46.490120068+07:00     info    done query 3000
-2026-07-26T14:37:48.939290811+07:00     info    done query 4000
-2026-07-26T14:37:51.383286901+07:00     info    done query 5000
-2026-07-26T14:37:53.637442529+07:00     info    done query 6000
-2026-07-26T14:37:55.965888995+07:00     info    done query 7000
-2026-07-26T14:37:58.253408005+07:00     info    done query 8000
-2026-07-26T14:38:00.394736613+07:00     info    done query 9000
-2026-07-26T14:38:02.686036227+07:00     info    done query 10000
+go run eval/crp_alt/random_queries_crp_alt/main.go
+2026-07-26T18:49:15.613693372+07:00     info    Starting query engine....
+2026-07-26T18:49:15.613752944+07:00     info    Reading graph....
+2026-07-26T18:49:17.701097074+07:00     info    Reading overlay graph....
+2026-07-26T18:49:17.729039953+07:00     info    Reading stalling tables & metrics...
+2026-07-26T18:49:19.302300549+07:00     info    starting benchmark
+2026-07-26T18:49:22.215519159+07:00     info    done query 1000
+2026-07-26T18:49:24.603233949+07:00     info    done query 2000
+2026-07-26T18:49:26.855519638+07:00     info    done query 3000
+2026-07-26T18:49:29.001407333+07:00     info    done query 4000
+2026-07-26T18:49:31.15316394+07:00      info    done query 5000
+2026-07-26T18:49:33.326255022+07:00     info    done query 6000
+2026-07-26T18:49:35.717246186+07:00     info    done query 7000
+2026-07-26T18:49:37.822076248+07:00     info    done query 8000
+2026-07-26T18:49:39.930674648+07:00     info    done query 9000
+2026-07-26T18:49:42.016647392+07:00     info    done query 10000
 Algoritma kueri kombinasi CRP dan ALT (with turn costs) :
-avg query times: 1.927000
-avg efficiency: 0.515226
-avg number of vertices scanned: 1336
-avg query runtime: 1.398400
-avg path unpacking runtime: 0.098200
-2026-07-26T14:38:05.433202629+07:00     info    done query 1000
-2026-07-26T14:38:08.118557624+07:00     info    done query 2000
-2026-07-26T14:38:10.772213243+07:00     info    done query 3000
-2026-07-26T14:38:13.452375514+07:00     info    done query 4000
-2026-07-26T14:38:16.300474194+07:00     info    done query 5000
-2026-07-26T14:38:19.02717408+07:00      info    done query 6000
-2026-07-26T14:38:21.712126875+07:00     info    done query 7000
-2026-07-26T14:38:24.408301582+07:00     info    done query 8000
-2026-07-26T14:38:27.090987732+07:00     info    done query 9000
-2026-07-26T14:38:29.83621424+07:00      info    done query 10000
+avg query times: 1.770700
+avg efficiency: 0.521192
+avg number of vertices scanned: 1330
+avg query runtime: 1.276200
+avg path unpacking runtime: 0.089400
+2026-07-26T18:49:44.556833172+07:00     info    done query 1000
+2026-07-26T18:49:47.355992789+07:00     info    done query 2000
+2026-07-26T18:49:50.263336425+07:00     info    done query 3000
+2026-07-26T18:49:53.214668856+07:00     info    done query 4000
+2026-07-26T18:49:55.887012893+07:00     info    done query 5000
+2026-07-26T18:49:58.573310807+07:00     info    done query 6000
+2026-07-26T18:50:01.231573008+07:00     info    done query 7000
+2026-07-26T18:50:03.919417947+07:00     info    done query 8000
+2026-07-26T18:50:06.631417632+07:00     info    done query 9000
+2026-07-26T18:50:09.198355224+07:00     info    done query 10000
 Algoritma kueri CRP (with turn costs):
-avg query times: 2.225400
-avg efficiency: 0.349395
-avg number of vertices scanned: 1907
-avg query runtime: 1.923200
-avg path unpacking runtime: 0.012100
-2026-07-26T14:38:32.426314354+07:00     info    done query 1000
-2026-07-26T14:38:35.251948549+07:00     info    done query 2000
-2026-07-26T14:38:37.798928447+07:00     info    done query 3000
-2026-07-26T14:38:40.676744062+07:00     info    done query 4000
-2026-07-26T14:38:43.375158792+07:00     info    done query 5000
-2026-07-26T14:38:45.965306617+07:00     info    done query 6000
-2026-07-26T14:38:48.574678122+07:00     info    done query 7000
-2026-07-26T14:38:51.373740551+07:00     info    done query 8000
-2026-07-26T14:38:54.009945308+07:00     info    done query 9000
-2026-07-26T14:38:56.678124226+07:00     info    done query 10000
+avg query times: 2.222400
+avg efficiency: 0.349779
+avg number of vertices scanned: 1904
+avg query runtime: 1.926500
+avg path unpacking runtime: 0.012300
+2026-07-26T18:50:11.780335615+07:00     info    done query 1000
+2026-07-26T18:50:14.385208544+07:00     info    done query 2000
+2026-07-26T18:50:16.954200778+07:00     info    done query 3000
+2026-07-26T18:50:19.560496358+07:00     info    done query 4000
+2026-07-26T18:50:22.120877258+07:00     info    done query 5000
+2026-07-26T18:50:24.851210691+07:00     info    done query 6000
+2026-07-26T18:50:27.68077765+07:00      info    done query 7000
+2026-07-26T18:50:30.412524157+07:00     info    done query 8000
+2026-07-26T18:50:33.072350012+07:00     info    done query 9000
+2026-07-26T18:50:35.764059948+07:00     info    done query 10000
 Algoritma kueri kombinasi CRP dan ALT (without turn costs):
-avg query times: 2.182000
-avg efficiency: 0.728240
+avg query times: 2.161100
+avg efficiency: 0.728894
 avg number of vertices scanned: 966
-avg query runtime: 2.018500
-avg path unpacking runtime: 0.005400
-2026-07-26T14:39:00.869739627+07:00     info    done query 1000
-2026-07-26T14:39:04.976453364+07:00     info    done query 2000
-2026-07-26T14:39:09.12311316+07:00      info    done query 3000
-2026-07-26T14:39:13.199156052+07:00     info    done query 4000
-2026-07-26T14:39:17.360105562+07:00     info    done query 5000
-2026-07-26T14:39:21.389868501+07:00     info    done query 6000
-2026-07-26T14:39:25.301104517+07:00     info    done query 7000
-2026-07-26T14:39:29.5155562+07:00       info    done query 8000
-2026-07-26T14:39:33.908817769+07:00     info    done query 9000
-2026-07-26T14:39:38.270522166+07:00     info    done query 10000
+avg query runtime: 1.985000
+avg path unpacking runtime: 0.004800
+2026-07-26T18:50:39.789232207+07:00     info    done query 1000
+2026-07-26T18:50:43.758095415+07:00     info    done query 2000
+2026-07-26T18:50:47.584968365+07:00     info    done query 3000
+2026-07-26T18:50:51.519729999+07:00     info    done query 4000
+2026-07-26T18:50:55.466712918+07:00     info    done query 5000
+2026-07-26T18:50:59.413221856+07:00     info    done query 6000
+2026-07-26T18:51:03.31040437+07:00      info    done query 7000
+2026-07-26T18:51:07.213257423+07:00     info    done query 8000
+2026-07-26T18:51:11.056914648+07:00     info    done query 9000
+2026-07-26T18:51:14.930710788+07:00     info    done query 10000
 Algoritma kueri CRP (without turn costs):
-avg query times: 3.662000
-avg efficiency: 0.440029
+avg query times: 3.415100
+avg efficiency: 0.442335
 avg number of vertices scanned: 1523
-avg query runtime: 3.482700
-avg path unpacking runtime: 0.003800
+avg query runtime: 3.242800
+avg path unpacking runtime: 0.003100
 ```
 
 runtime in milliseconds
@@ -253,4 +254,235 @@ runtime in milliseconds
 2026-07-26T13:23:53.87733454+07:00      info    Building stalling tables...
 2026-07-26T13:23:54.72685706+07:00      info    done computing landmarks....
 2026-07-26T13:23:54.831106509+07:00     info    Customization step completed successfully.
+```
+
+# Correctness test, programming contest
+
+## A Journey To Greece
+
+```
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsample/1 (0.04s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/01_expensivebridge1 (0.03s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/02_expensivebridge2 (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/03_expensivebridge3 (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/04_expensivebridge4 (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/05_double_edge (0.02s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/06_wantOnlyAthens1 (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/07_wantOnlyAthens2 (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/08_staytooShortForSites (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/09_pureTSP1 (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/10_pureTSP2 (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/11_pathimpossible (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/12_pathpossible (0.01s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/13_largest (1.61s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/13_largest2 (1.62s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/14_large.0 (1.60s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/15_large.1 (1.48s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/16_large.2 (1.80s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/17_large.3 (2.03s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/18_large.4 (1.60s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/19_large.5 (1.66s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/20_large.6 (1.53s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/21_large.7 (1.48s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/22_large.8 (1.56s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/23_large.9 (1.52s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/24_manySmall.0 (0.42s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/25_manySmall.1 (0.41s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/26_manySmall.2 (0.42s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/27_manySmall.3 (0.48s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/28_manySmall.4 (0.49s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/29_manySmall.5 (0.49s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/30_manySmall.6 (0.46s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/31_manySmall.7 (0.40s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/32_manySmall.8 (0.41s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/33_manySmall.9 (0.40s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/34_manySmall.10 (0.43s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/35_manySmall.11 (0.47s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/36_manySmall.12 (0.48s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/37_manySmall.13 (0.47s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/38_manySmall.14 (0.43s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/39_manySmall.15 (0.42s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/40_manySmall.16 (0.40s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/41_manySmall.17 (0.42s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/42_manySmall.18 (0.42s)
+    --- PASS: TestCRPQueryAJourneyToGreeceMALT/Multilevel-ALT_without_turn_costsecret/43_manySmall.19 (0.43s)
+
+```
+
+## Delft Distance
+
+```
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsample/1 (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsample/2 (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/01-small-X (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/02-small-O (0.00s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/03-small (0.00s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/04-small (0.00s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/05-small (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/06-row (0.00s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/07-col (0.00s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/08-medium (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/09-medium (0.04s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/10-medium (0.45s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/12-large-few-o (6.11s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/13-large-few-o (16.74s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/17-large-many-o (5.73s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/20-tall (0.35s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/21-tall (0.53s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/22-tall (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/23-tall (0.12s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/24-wide (0.10s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/25-wide (0.08s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/26-wide (0.39s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/27-wide (0.51s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/39-diag (25.89s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/46-diag-400 (11.79s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/54-manual (0.02s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/55-manual (0.02s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/56-manual (0.02s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/57-manual (0.02s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/58-manual (0.03s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/59-manual (0.02s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/65-corner1 (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/66-corner2 (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/67-sidel (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/68-sider (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/69-sideu (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/70-sided (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/71-moon1 (0.01s)
+    --- PASS: TestCRPQueryDelftDistanceMALT/Multilevel-ALT_without_turn_costsecret/72-moon2 (0.02s)
+```
+
+## Galaxy Quest
+```
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsample/1 (0.01s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsample/2 (0.02s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/01-cancellation (0.00s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/02-min (0.00s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/26-random-small (0.00s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/27-random-small (0.00s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/28-random-small (0.00s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/29-random-small (0.00s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/30-random-small (0.00s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/31-random-small (0.01s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/32-random-small (0.01s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/33-random-small (0.01s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/34-random-small (0.02s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/35-random-small (0.02s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/41-random (12.93s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/43-random (1.20s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/44-random (25.15s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/45-random (56.80s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/46-random-small-coords (1.73s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/47-random-small-coords (1.56s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/48-random-small-coords (1.53s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/49-random-small-coords (2.35s)
+    --- PASS: TestCRPQueryGalaxyQuestMALT/Multilevel-ALT_without_turn_costsecret/50-random-small-coords (1.72s)
+```
+
+## Shopping Malls
+
+```
+    --- PASS: TestCRPQueryShoppingMallsMALT/Multilevel-ALT_without_turn_costsecret/1 (0.01s)
+    --- PASS: TestCRPQueryShoppingMallsMALT/Multilevel-ALT_without_turn_costsecret/2 (0.11s)
+    --- PASS: TestCRPQueryShoppingMallsMALT/Multilevel-ALT_without_turn_costsecret/3 (0.09s)
+    --- PASS: TestCRPQueryShoppingMallsMALT/Multilevel-ALT_without_turn_costsecret/4 (0.18s)
+    --- PASS: TestCRPQueryShoppingMallsMALT/Multilevel-ALT_without_turn_costsecret/5 (0.22s)
+    --- PASS: TestCRPQueryShoppingMallsMALT/Multilevel-ALT_without_turn_costsecret/6 (0.16s)
+```
+
+## Showroom
+
+```
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/1.random (0.02s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/10.large-circle (0.02s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/11.all-cars-max (0.02s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/12.400 (81.61s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/13.400 (105.94s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/14.400 (95.04s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/15.400 (97.04s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/16.bigzag (72.31s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/2.random (0.03s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/3.doorcut (0.01s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/4.harder-random (0.02s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/5.harder-random (0.03s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/6.harder-random (0.02s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/7.circle (0.00s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/8.all-doors (0.00s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsecret/9.smallest (0.00s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsample/1 (0.01s)
+    --- PASS: TestShowroomMALT/Multilevel-ALT_without_turn_costsample/2 (0.00s)
+```
+
+## Kereta Rel Listrik
+
+```
+    --- PASS: TestOSN2024KRLMALT/tc/practice_10_10 (17.65s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_10_11 (0.03s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_10_3 (107.64s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_10_4 (114.24s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_10_5 (117.25s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_10_6 (144.42s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_10_7 (3.33s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_1 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_10 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_11 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_12 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_16 (12.39s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_17 (132.69s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_18 (144.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_19 (198.95s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_21 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_3 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_4 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_5 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_6 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_7 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_8 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_11_9 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_1_1 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_2_1 (0.06s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_2_2 (0.09s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_2_3 (0.07s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_2_4 (0.06s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_2_5 (0.06s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_2_6 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_2_7 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_2_8 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_4_1 (174.64s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_6_1 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_6_10 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_1 (0.06s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_10 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_2 (0.07s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_3 (0.04s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_4 (0.02s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_5 (0.06s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_6 (0.07s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_7 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_8 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_7_9 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_8_1 (154.84s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_8_2 (128.93s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_8_3 (114.94s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_8_5 (308.99s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_8_6 (137.00s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_8_8 (155.45s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_1 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_10 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_11 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_17 (278.96s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_19 (0.04s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_2 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_3 (0.07s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_4 (0.07s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_5 (0.06s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_6 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_7 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_8 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_9_9 (0.05s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_sample_1 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_sample_2 (0.01s)
+    --- PASS: TestOSN2024KRLMALT/tc/practice_sample_3 (0.01s)
+
 ```
