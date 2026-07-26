@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 
 	crpalt "github.com/lintang-b-s/Navigatorx/eval/crp_alt"
@@ -31,7 +32,7 @@ import (
 // buat routing with turn restrictions gak ada dataset nya kucari diinternet, jadi cukup pakai dijkstra_with_turn_costs.go aja buat cek correctnessnya
 
 var (
-	partitionSizes         = flag.String("us", "9,11,13,15,16", "Multilevel Partition Sizes")
+	partitionSizes         = flag.String("us", "8,11,14,17,18", "Multilevel Partition Sizes")
 	inputCoordFilePath     = flag.String("input_nodes", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-d.CAL.co", "path ke file .co dimacs 9th shortest path challnge")
 	inputEdgesFilePath     = flag.String("input_edges", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-t.CAL.gr", "path ke file .gr dimacs 9th shortest path challnge")
 	inputSSQueriesFilePath = flag.String("input_queries", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-t.CAL.ss", "path ke file .ss dimacs 9th shortest path challnge")
@@ -300,26 +301,15 @@ func main() {
 		panic(err)
 	}
 
-	re, g, oldToNewVIdMap, _ := crpalt.BuildCRP(nodeCoords, adjList, n+1, parsedPartitionSizes, *problemName)
+	re, _, oldToNewVIdMap, _ := crpalt.BuildCRP(nodeCoords, adjList, n+1, parsedPartitionSizes, *problemName)
 
 	calcSp := func(query crpalt.QueryParam) queryRes {
 		id := query.GetId()
 		s := oldToNewVIdMap[query.GetSource()]
 		t := oldToNewVIdMap[query.GetTarget()]
 
-		inEdgeToS := g.GetDummyInEdgeId(s)
-		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
-		outEdgeFromTarget := g.GetDummyOutEdgeId(t)
-		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-
-		sVertex := g.GetVertex(s)
-		tVertex := g.GetVertex(t)
-		emptyCoords := make([]da.Coordinate, 0)
-		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-
-		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+		crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+		sp, _, _ := crpQuery.ShortestPathSearch(s, t)
 		if (id+1)%progress == 0 {
 			logger.Sugar().Infof("done query id: %v/%v", id+1, q*n)
 		}
@@ -333,7 +323,7 @@ func main() {
 	ctx := context.Background()
 
 	for i, s := range sources {
-		workers := concurrent.NewWorkerPool[crpalt.QueryParam, queryRes](queryWorkers, queryChannelSize)
+		workers := concurrent.NewWorkerPool[crpalt.QueryParam, queryRes](runtime.NumCPU(), queryChannelSize)
 		workers.StartWithContext(ctx, calcSp)
 		ssspCostChan := make(chan float64)
 		go func() {

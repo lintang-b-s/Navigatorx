@@ -413,17 +413,12 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(sourceEntryId, targetEntry
 	startLen := len(edgePath)
 
 	_, midOutEdgeId := pu.eng.graph.GetHeadOfInedgeWithOutEdge(targetEntryId)
-
-	if util.Gt(pu.eng.getWeight(midOutEdgeId, true), W(0)) {
-		edgePath = append(edgePath, midOutEdgeId)
-	}
+	edgePath = append(edgePath, midOutEdgeId)
 
 	uId := offTargetEntryId
 	for pq.Get(uId).GetParent().GetEdge() != da.INVALID_EDGE_ID { // sampai parent.edge = sourceEntryId, include sp edges didalam current cell & sp edge entry cell ini
 		prevOutEdgeId := pq.Get(uId).GetParent().GetOutInEdgeId()
-
 		edgePath = append(edgePath, prevOutEdgeId)
-
 		pEId := pq.Get(uId).GetParent().GetEdge()
 
 		uId = pEId

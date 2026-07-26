@@ -180,6 +180,7 @@ func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
 
 	lm := landmark.NewLandmark[W]()
 
+	viper.SetDefault("landmarks", 8)
 	wg := sync.WaitGroup{}
 	wg.Go(func() {
 		numberOfLandmarks := viper.GetInt("landmarks")
@@ -459,7 +460,6 @@ func (c *Customizer[W]) Build(costFunction *costfunction.TimeFunction[W]) {
 			c.buildLevelWithoutTurnCost(costFunction, level)
 		}
 		c.logger.Sugar().Infof("finished crp customization level %v", level)
-
 	}
 }
 

@@ -192,9 +192,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 				}
 
 			}
-
 		})
-
 	}
 
 	overlayPath := make([]da.Index, 0, 64)

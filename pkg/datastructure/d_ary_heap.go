@@ -148,7 +148,6 @@ func (h *DAryHeap[T, W]) heapifyDown(index uint32, updatePos func(queryInfoId, n
 	if sentinel > uint32(len(h.heap)) {
 		sentinel = uint32(len(h.heap))
 	}
-
 	smallest := leftMostChild
 	for i := leftMostChild + 1; i < sentinel; i++ {
 		if util.Lt(h.heap[i].rank, h.heap[smallest].rank) {

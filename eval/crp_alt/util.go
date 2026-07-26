@@ -10,7 +10,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
@@ -32,7 +31,9 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		metricsFile      = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.nmt", name))
 		landmarkFile     = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.nlm", name))
 		mlpFile          = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s.mlp", name))
-		prep             *preprocesser.Preprocessor[int64]
+		timeFunctionFile = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s_timefunction.ntf", name))
+
+		prep *preprocesser.Preprocessor[int64]
 	)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -99,7 +100,6 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		}
 
 	} else {
-
 		mlp := da.NewPlainMLP()
 		err = mlp.ReadMlpFile(mlpFile)
 		if err != nil {
@@ -112,23 +112,14 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		}
 	}
 
-	cust := customizer.NewCustomizerDirect(
-		g, prep.GetOverlayGraph(), prep.GetTimeFunction(), logger,
-	)
-	met, err := cust.CustomizeDirect()
+	cust := customizer.NewCustomizer[int64](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+
+	_, err = cust.Customize()
 	if err != nil {
-		panic(err)
-	}
-	lm := landmark.NewLandmark[int64]()
-	err = lm.PreprocessALT(2, met.GetCostFunction(), g, logger)
-	if err != nil {
-		panic(err)
-	}
-	if err := lm.WriteLandmark(landmarkFile, g.NumberOfVertices()); err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngineDirect(g, prep.GetOverlayGraph(), met, logger, landmarkFile)
+	re, err := engine.NewEngine[int64](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
 	if err != nil {
 		panic(err)
 	}

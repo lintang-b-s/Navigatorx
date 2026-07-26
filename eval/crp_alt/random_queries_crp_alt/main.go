@@ -18,11 +18,11 @@ import (
 )
 
 const (
-	graphFile        string = "./data/profiles/car/diy_solo_semarang_original.ngraph"
-	overlayGraphFile string = "./data/profiles/car/diy_solo_semarang_overlay_graph.ngraph"
-	metricsFile      string = "./data/profiles/car/diy_solo_semarang_metrics.nmt"
-	landmarkFile     string = "./data/profiles/car/diy_solo_semarang_landmark.nlm"
-	timeFunctionFile string = "./data/profiles/car/diy_solo_semarang_timefunction.ntf"
+	graphFile        string = "./data/profiles/car/jateng_jabar_original.ngraph"
+	overlayGraphFile string = "./data/profiles/car/jateng_jabar_overlay_graph.ngraph"
+	metricsFile      string = "./data/profiles/car/jateng_jabar_metrics.nmt"
+	landmarkFile     string = "./data/profiles/car/jateng_jabar_landmark.nlm"
+	timeFunctionFile string = "./data/profiles/car/jateng_jabar_timefunction.ntf"
 )
 
 func main() {
@@ -90,19 +90,18 @@ func main() {
 		n++
 	}
 
-	durations := 0.0
-
 	g := re.GetRoutingEngine().GetGraph()
 
 	logger.Sugar().Infof("starting benchmark")
 
+	durations := 0.0
 	efficiency := 0.0
 	qRuntime := 0.0
 	puRuntime := 0.0
 	totScannedVertices := 0
-	totScannedOverlayVertices := 0
 
-	calcsSP := func(i int, p spParam) any {
+	// support turn restrictions & turn costs
+	calcsSP := func(i int, p spParam, alt bool) any {
 
 		s := p.s
 		t := p.t
@@ -117,17 +116,34 @@ func main() {
 		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
 
 		now := time.Now()
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
-		_, _, _, spEdges, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-		dur := time.Since(now).Milliseconds()
-		durations += float64(dur)
+		var spEdges []da.Index
+		if alt {
 
-		eff, numScannedVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spEdges) + 1)
-		qRuntime += float64(queryRuntime)
-		puRuntime += float64(pathUnpackingRuntime)
-		efficiency += eff
-		totScannedVertices += numScannedVertices
-		totScannedOverlayVertices += crpQuery.GetNumScannedOverlayVertices()
+			crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+			_, _, _, spEdges, _ = crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+			dur := time.Since(now).Milliseconds()
+			durations += float64(dur)
+
+			eff, numScannedVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spEdges) + 1)
+			qRuntime += float64(queryRuntime)
+			puRuntime += float64(pathUnpackingRuntime)
+			efficiency += eff
+			totScannedVertices += numScannedVertices
+
+		} else {
+
+			crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+			_, spEdges, _ = crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+			dur := time.Since(now).Milliseconds()
+			durations += float64(dur)
+
+			eff, numScannedVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spEdges) + 1)
+			qRuntime += float64(queryRuntime)
+			puRuntime += float64(pathUnpackingRuntime)
+			efficiency += eff
+			totScannedVertices += numScannedVertices
+
+		}
 
 		if (i+1)%1000 == 0 {
 			logger.Sugar().Infof("done query %v", i+1)
@@ -140,13 +156,31 @@ func main() {
 
 	rdStartId := rd.Intn(len(queries) - 10000)
 	for i, q := range queries[rdStartId : rdStartId+10000] {
-		calcsSP(i, q)
+		calcsSP(i, q, true)
 	}
 
+	fmt.Printf("Algoritma kueri kombinasi CRP dan ALT: \n")
 	fmt.Printf("avg query times: %f\n", durations/10000.0)
 	fmt.Printf("avg efficiency: %f\n", efficiency/10000.0)
 	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/10000.0)
 	fmt.Printf("avg query runtime: %f\n", qRuntime/10000.0)
 	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/10000.0)
-	fmt.Printf("avg number of overlay vertices scanned: %d\n", totScannedOverlayVertices/10000.0)
+
+	durations = 0.0
+	efficiency = 0.0
+	qRuntime = 0.0
+	puRuntime = 0.0
+	totScannedVertices = 0
+
+	rdStartId = rd.Intn(len(queries) - 10000)
+	for i, q := range queries[rdStartId : rdStartId+10000] {
+		calcsSP(i, q, false)
+	}
+
+	fmt.Printf("Algoritma kueri CRP: \n")
+	fmt.Printf("avg query times: %f\n", durations/10000.0)
+	fmt.Printf("avg efficiency: %f\n", efficiency/10000.0)
+	fmt.Printf("avg number of vertices scanned: %d\n", totScannedVertices/10000.0)
+	fmt.Printf("avg query runtime: %f\n", qRuntime/10000.0)
+	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/10000.0)
 }

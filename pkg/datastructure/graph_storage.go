@@ -75,7 +75,9 @@ func BuildGraphStorage(osmNodePoints []Coordinate, roundaboutFlag, nodeTrafficLi
 	streetDirectionForward, streetDirectionBackward, isCurvedFlag *bitset.BitSet) *GraphStorage {
 	return &GraphStorage{osmNodePoints: osmNodePoints, roundaboutFlag: roundaboutFlag,
 		nodeTrafficLight:       nodeTrafficLight,
-		streetDirectionForward: streetDirectionForward, streetDirectionBackward: streetDirectionBackward, isCurvedFlag: isCurvedFlag}
+		streetDirectionForward: streetDirectionForward, streetDirectionBackward: streetDirectionBackward, isCurvedFlag: isCurvedFlag,
+		osmwayBitSize: DEFAULT_BIT_SIZE_OSM_WAY_ID,
+	}
 }
 
 func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStorage {
@@ -91,6 +93,7 @@ func NewGraphStorageWithSize(numberOfEdges int, numberOfVertices int) *GraphStor
 		edgeStartPointsIndex:    make([]Index, 0),
 		edgeEndPointsIndex:      make([]Index, 0),
 		streetName:              make([]uint32, 0),
+		osmwayBitSize:           DEFAULT_BIT_SIZE_OSM_WAY_ID,
 		roadClass:               make([]pkg.OsmHighwayType, 0),
 		roadClassLink:           make([]pkg.OsmHighwayType, 0),
 		lanes:                   make([]uint8, 0)}

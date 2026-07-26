@@ -58,7 +58,7 @@ ref2: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.p
 time complexity dinic algorithm on unit capacity graph::
 see lemma 4.2 ref2, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 karena di implementasi inertial flow ini kita selalu pakai unit capacity..
-in a typical road network, average degree of any vertex ~ 2. so, m = O(n)
+in a typical road network, average degree of any vertex ~ 2. so, m = Theta(n)
 let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pada road network graph n vertices dan m edges = O(min{n * sqrt(n), n * n^(2/3)})=O(n^{3/2})
 b=SOURCE_SINK_RATE atau parameter balance b dari algoritma inertial flow ref1. 0<b<=1/2
 worst case ketika hasil st b-balanced mincut selalu |S|=b*n, |T|=(1-b)*n
@@ -81,21 +81,20 @@ induction step:
 kita bisa buktikan klaim 1 dengan pakai klaim 2.
 
 
-depth dari recursive bisection tree:
-let n^i = subproblem size untuk node at depth i di recursive bisection tree.
-n^1 <= n(1-b)
-n^2 <= n(1-b)^2
-n^d <= n(1-b)^d
-
+depth dari recurrence tree:
+let n^i = subproblem size untuk node at depth i di recurrence tree.
+nb < n(1-b), for 0<b<=1/2
 base case ketika subporoblem size equal to 1
 n(1-b)^d=1
 d = log_{1/(1-b)} n
 
 worst case time complexity:
-let cost^i = total cost over all nodes in depth i.
-T(n) = n^{3/2} + cost^1 + cost^2 + .... + cost^d
-	<= n^{3/2} +  n^{3/2}+  n^{3/2} + ... + n^{3/2}  [klaim 1]
+let cost^i = total cost over all nodes in depth i di recurrence tree.
+T(n) = n^{3/2} + cost^1 + cost^2 + .... + cost^{d-1} + Theta(n^{log_{1/(1-b)}  2})
+	<= n^{3/2} +  n^{3/2}+  n^{3/2} + ... + n^{3/2} + Theta(n^{log_{1/(1-b)}  2}) [klaim 1]
 	=   O(log_{1/(1-b)} (n) * n^{3/2})
+
+we can also use subtitution method to get T(n)=O(log_{1/(1-b)} (n) * n^{3/2})
 
 */ // nolint: gofmt
 func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {

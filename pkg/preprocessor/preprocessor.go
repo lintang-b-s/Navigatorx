@@ -200,7 +200,6 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 			p.newToOldVIdMap[newVid] = cellVertices[i][v].originalIndex
 			newVid++
 		}
-
 	}
 
 	newOutEdgeId := da.Index(0)                                      // new id for outEdges for each vertex for each cell

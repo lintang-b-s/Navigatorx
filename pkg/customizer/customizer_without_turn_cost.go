@@ -40,10 +40,10 @@ func (c *Customizer[W]) buildLowestLevelWithoutTurnCost(costFunction *costfuncti
 
 
 				pq contains at most all edges in a cell level 1
-				extractMin at most m_p
+				extractMin at most n_p
 				decreaseKey and insert at most m_p
 				we do dijkstra for all entries in the cell, num of entries is at most n_op
-				worst case: O( n_op * (m_p* log(m_p)) )
+				worst case: O( n_op * ((m_p + n_p)* log(n_p)) )
 
 			*/
 			for i := range entries {
@@ -177,7 +177,7 @@ func (c *Customizer[W]) buildLowestLevelWithoutTurnCost(costFunction *costfuncti
 	}
 
 	// let c_1 be the number of cells in level 1
-	// worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
+	// worst case buildLowestLevel: O( c_1 * n_op * ((m_p + n_p)* log(n_p)))
 
 	wg.Wait()
 	close(cellCliqueOutChan)
