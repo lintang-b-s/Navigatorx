@@ -400,7 +400,6 @@ func (p *OsmParser[W]) applyOsmWayGraphNodesPermutation(oldToNew []da.Index) {
 				newRestricions[fromWay][i].via = oldToNew[restrictions[i].via]
 			}
 		}
-		newRestricions[fromWay] = restrictions
 	}
 	p.restrictions = newRestricions
 }
