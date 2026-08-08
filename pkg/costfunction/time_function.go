@@ -113,18 +113,10 @@ func (tf *TimeFunction[W]) GetEdgeMaxSpeeds() []uint32 {
 	return tf.edgeMaxSpeeds
 }
 
-func (tf *TimeFunction[W]) ReorderEdges(oldEdgeIDs []da.Index) {
-	defaultWeights := make([]W, len(oldEdgeIDs))
-	segmentLengths := make([]uint32, len(oldEdgeIDs))
-	edgeMaxSpeeds := make([]uint32, len(oldEdgeIDs))
-	for newID, oldID := range oldEdgeIDs {
-		defaultWeights[newID] = tf.defaultWeights[oldID]
-		segmentLengths[newID] = tf.segmentLengths[oldID]
-		edgeMaxSpeeds[newID] = tf.edgeMaxSpeeds[oldID]
-	}
-	tf.defaultWeights = defaultWeights
-	tf.segmentLengths = segmentLengths
-	tf.edgeMaxSpeeds = edgeMaxSpeeds
+func (tf *TimeFunction[W]) ApplyEdgesPermutation(perm []int) {
+	tf.defaultWeights = util.ApplyPermutation(tf.defaultWeights, perm)
+	tf.segmentLengths = util.ApplyPermutation(tf.segmentLengths, perm)
+	tf.edgeMaxSpeeds = util.ApplyPermutation(tf.edgeMaxSpeeds, perm)
 }
 
 func (tf *TimeFunction[W]) WithCustomization(

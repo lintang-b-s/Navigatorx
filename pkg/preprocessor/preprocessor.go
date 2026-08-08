@@ -4,13 +4,10 @@ package preprocessor
 import (
 	"math"
 
-	"github.com/bits-and-blooms/bitset"
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/mmcloughlin/geohash"
 	"go.uber.org/zap"
 )
 
@@ -51,12 +48,14 @@ func (p *Preprocessor[W]) SetWriteTiles(writeTiles bool) {
 
 // Preprocesssing. Preprocessing (building Overlay Graph) phase. see section 5.1 Metric Independent Preprocessing (Overlay Topology) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
-	p.logger.Sugar().Infof("Starting preprocessing step of Customizable Route Planning...")
+	p.logger.Sugar().Infof("Starting building overlay graph preprocessing step of Customizable Route Planning...")
 
-	p.logger.Sugar().Infof("Building Overlay Graph of each levels...")
+	p.logger.Sugar().Infof("Assign each vertices cell numbers....")
 	p.BuildCellNumber()
+	p.logger.Sugar().Infof("Sort vertices by its level-1 cell....")
 	p.SortByCellNumber()
 
+	p.logger.Sugar().Infof("Building Overlay Graph of each levels....")
 	p.overlayGraph = da.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.ngraph")
 	for l := p.overlayGraph.GetLevelInfo().GetLevelCount(); l >= 1; l-- {
@@ -87,6 +86,7 @@ func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 		}
 		return p.timeFunction.WritePreprocessingToFile(p.preprocessingTimeFunctionFilename)
 	}
+
 	return nil
 }
 
@@ -131,12 +131,12 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 	p.graph.SetMaxEdgesInCell(da.Index(0)) // maximum number of edges in any cell
 	for i := da.Index(0); i < da.Index(p.graph.NumberOfVertices()); i++ {
 		cell := p.graph.GetVertexPvPtr(i) // cellNumber
-		v := p.graph.GetVertex(i)
 
+		vertex := p.graph.GetVertex(i)
 		cellVertices[cell] = append(cellVertices[cell], struct {
 			vertex        da.Vertex
 			originalIndex da.Index
-		}{vertex: v, originalIndex: i})
+		}{vertex: vertex, originalIndex: i})
 
 		oEdges[i] = make([]da.OutEdge, p.graph.GetOutDegree(i))
 		iEdges[i] = make([]da.InEdge, p.graph.GetInDegree(i))
@@ -184,10 +184,11 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 			p.graph.SetMaxEdgesInCell(numInEdgesInCell[cell])
 		}
 
-		minLat = min(minLat, p.graph.GetVertexCoordinate(i).GetLat())
-		minLon = min(minLon, p.graph.GetVertexCoordinate(i).GetLon())
-		maxLat = max(maxLat, p.graph.GetVertexCoordinate(i).GetLat())
-		maxLon = max(maxLon, p.graph.GetVertexCoordinate(i).GetLon())
+		vCoord := p.graph.GetVertexCoordinate(i)
+		minLat = min(minLat, vCoord.GetLat())
+		minLon = min(minLon, vCoord.GetLon())
+		maxLat = max(maxLat, vCoord.GetLat())
+		maxLon = max(maxLon, vCoord.GetLon())
 	}
 
 	p.graph.SetBoundingBox(da.NewBoundingBox(minLat, minLon, maxLat, maxLon))
@@ -207,44 +208,13 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 	newInEdgeId := da.Index(0)                                       // new id for inEdges for each vertex for each cell
 	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
 
-	// create new edge metadatas
-	newOsmWayIds := da.NewPackedSlice(p.graph.GetOsmWayBitSize(), uint64(p.graph.NumberOfEdges()))
-	newEdgeStartPointsIndex := make([]da.Index, p.graph.NumberOfEdges())
-	newEdgeEndPointsIndex := make([]da.Index, p.graph.NumberOfEdges())
-	newStreetNameIds := make([]uint32, p.graph.NumberOfEdges())
-	newRoadClass := make([]pkg.OsmHighwayType, p.graph.NumberOfEdges())
-	newRoadClassLink := make([]pkg.OsmHighwayType, p.graph.NumberOfEdges())
-	newLanes := make([]uint8, p.graph.NumberOfEdges())
-
-	// create new vertices osm ids
-	newVerticesOsmIds := da.NewPackedSlice(da.BIT_SIZE_OSM_NODE_ID, uint64(p.graph.NumberOfVertices())+1)
-
-	// create new roundabout flag
-	oldRoundaboutFlag := p.graph.GetRoundaboutFlag()
-	newRoundaboutFlags := bitset.New(oldRoundaboutFlag.Len())
-
-	// create new traffic light flag
-	oldGraphTrafficLight := p.graph.GetNodeTrafficLight()
-	newNodeTrafficLight := bitset.New(oldGraphTrafficLight.Len())
-
-	// create new street direction flags
-	newStreetDirectionForward := bitset.New(uint(p.graph.NumberOfEdges()))
-	newStreetDirectionBackward := bitset.New(uint(p.graph.NumberOfEdges()))
-
-	// create new is curved flags
-	oldIsCurvedFlag := p.graph.GetIsCurvedFlag()
-	newIsCurvedFlag := bitset.New(oldIsCurvedFlag.Len())
-
 	vId := da.Index(0)
-	isRoadNetworkGraph := p.graph.IsRoadNetworkGraph()
 
-	lastVertex := p.graph.GetVertex(da.Index(p.graph.GetNumberOfVerticesWithDummyVertex() - 1))
-	newVertices := make([]da.Vertex, p.graph.GetNumberOfVerticesWithDummyVertex())
+	edgeIdsPerm := make([]int, p.graph.NumberOfOutEdges())
+	edgeMetaIdsPerm := make([]int, p.graph.NumberOfOutEdges())
+	vertexIdsPerm := make([]int, p.graph.GetNumberOfVerticesWithDummyVertex())
+	vertexIdsPerm[len(vertexIdsPerm)-1] = len(vertexIdsPerm) - 1
 
-	edgeGeohashes := make([]uint32, p.graph.NumberOfEdges())
-
-	newVIdToOldVId := make([]da.Index, p.graph.NumberOfVertices())
-	oldOutEdgeIDs := make([]da.Index, 0, p.graph.NumberOfOutEdges())
 	for i := da.Index(0); i < da.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
 		p.graph.SetOutEdgeCellOffset(i, newOutEdgeId)
 		p.graph.SetInEdgeCellOffset(i, newInEdgeId)
@@ -253,111 +223,41 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 			// update vertex to use new vId
 			// in the end of the outer loop, graph vertices are sorted by cell number
 
-			newVertices[vId] = cellVertices[i][v].vertex
-
-			newVIdToOldVId[vId] = cellVertices[i][v].originalIndex
-
 			vOldId := cellVertices[i][v].originalIndex
-			newVertices[vId].SetFirstOut(newOutEdgeId)
-			newVertices[vId].SetFirstIn(newInEdgeId)
-			newVertices[vId].SetId(vId)
+			vertexIdsPerm[vId] = int(vOldId)
 
-			// update new vertex osm id
-			newVerticesOsmIds.Append(p.graph.GetVertexOsmId(vOldId))
-
-			// update traffic light flag
-			isTraficLight := oldGraphTrafficLight.Test(uint(vOldId))
-			if isTraficLight {
-				newNodeTrafficLight.Set(uint(vId))
-			}
+			p.graph.SetFirstOut(vOldId, newOutEdgeId)
+			p.graph.SetFirstIn(vOldId, newInEdgeId)
+			p.graph.SetVId(vOldId, vId)
 
 			// update outedges & inedges
 			for k := da.Index(0); k < da.Index(len(oEdges[vOldId])); k++ {
 
 				oldOutEdge := oEdges[vOldId][k]
-
 				newOutEdgeHead := p.newVIdMap[oldOutEdge.GetHead()]
-
 				newOutEdge := da.NewOutEdge(
 					newOutEdgeId, newOutEdgeHead, oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
 				)
 				newOutEdge.SetFlag(oldOutEdge.GetFlag())
-
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
-				oldOutEdgeIDs = append(oldOutEdgeIDs, oldOutEdge.GetEdgeId())
 
-				// update edge metadata
-				vExitPoint := p.graph.GetExitOrder(vOldId, oldOutEdge.GetEdgeId())
-				oldEdgeInfoId := p.edgeInfoIds[vOldId][vExitPoint]
+				vExitPoint := oldOutEdge.GetEdgeId() - cellVertices[i][v].vertex.GetFirstOut()
+				oldEdgeMetaId := p.edgeInfoIds[vOldId][vExitPoint]
+				edgeMetaIdsPerm[newOutEdgeId] = int(oldEdgeMetaId)
 
-				if isRoadNetworkGraph && oldEdgeInfoId != da.INVALID_EDGE_INFO_ID { // skip dummy edge (vOldI, vOldId)
-					oldOsmWayId := p.graph.GetOsmWayId(oldEdgeInfoId)
-					newOsmWayIds.Append(uint64(oldOsmWayId))
-
-					oldEdgePointsStartIndex, oldEdgePointsEndIndex := p.graph.GetEdgePointsIndices(oldEdgeInfoId)
-					newEdgeEndPointsIndex[newOutEdgeId] = oldEdgePointsEndIndex
-					newEdgeStartPointsIndex[newOutEdgeId] = oldEdgePointsStartIndex
-
-					oldStreetNameId := p.graph.GetStreetNameId(oldEdgeInfoId)
-					newStreetNameIds[newOutEdgeId] = oldStreetNameId
-
-					oldRoadClass := p.graph.GetRoadClass(oldEdgeInfoId)
-					newRoadClass[newOutEdgeId] = pkg.GetHighwayType(oldRoadClass)
-
-					oldRoadClassLink := p.graph.GetRoadClassLink(oldEdgeInfoId)
-					newRoadClassLink[newOutEdgeId] = pkg.GetHighwayType(oldRoadClassLink)
-
-					oldLanes := p.graph.GetRoadLanes(oldEdgeInfoId)
-					newLanes[newOutEdgeId] = oldLanes
-
-					// update roundabout flag
-					isRoundabout := oldRoundaboutFlag.Test(uint(oldEdgeInfoId))
-					if isRoundabout {
-						newRoundaboutFlags.Set(uint(newOutEdgeId))
-					}
-
-					// update street direction flag
-					streetdir := p.graph.GetStreetDirection(oldOutEdge.GetEdgeId())
-					if streetdir[0] {
-						newStreetDirectionForward.Set(uint(newOutEdgeId))
-					}
-
-					if streetdir[1] {
-						newStreetDirectionBackward.Set(uint(newOutEdgeId))
-					}
-
-					// update is curved flag
-					isCurved := oldIsCurvedFlag.Test(uint(oldEdgeInfoId))
-					if isCurved {
-						newIsCurvedFlag.Set(uint(newOutEdgeId))
-					}
-
-					// add edge geohash
-					// kita set edge geohash based on tailcoord geohash
-					tailCoord := newVertices[vId].GetCoordinate()
-
-					eGeoHash := geohash.EncodeIntWithPrecision(tailCoord.GetLat(), tailCoord.GetLon(), tiler.GeohashBits)
-					edgeGeohashes[newOutEdgeId] = uint32(eGeoHash)
-				} else if isRoadNetworkGraph {
-					newOsmWayIds.Append(uint64(da.INVALID_OSM_WAY_ID))
-				}
-
+				edgeIdsPerm[newOutEdgeId] = int(oldOutEdge.GetEdgeId())
 				newOutEdgeId++
 			}
 
 			for k := da.Index(0); k < da.Index(len(iEdges[vOldId])); k++ {
 				oldInEdge := iEdges[vOldId][k]
-
 				newInEdgeTail := p.newVIdMap[oldInEdge.GetTail()]
 				newInEdge := da.NewInEdge(
 					newInEdgeId, newInEdgeTail, oldInEdge.GetExitPoint(),
 					oldInEdge.GetHighwayType(),
 				)
-
 				newInEdge.SetFlag(oldInEdge.GetFlag())
-
 				p.graph.SetInEdge(newInEdgeId, newInEdge)
-
 				newInEdgeId++
 			}
 
@@ -365,18 +265,9 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 		}
 	}
 
-	newVertices[len(newVertices)-1] = lastVertex
-	p.graph.SetVertices(newVertices)
-	p.graph.SetRoundaboutFlags(newRoundaboutFlags)
-	p.graph.SetTrafficLightFlags(newNodeTrafficLight)
-	p.graph.SetStreetDirection(newStreetDirectionForward, newStreetDirectionBackward)
-	p.graph.SetNewEdgeMetadatas(newOsmWayIds, newEdgeStartPointsIndex, newEdgeEndPointsIndex,
-		newStreetNameIds, newRoadClass, newRoadClassLink, newLanes)
-	p.graph.SetVertexOsmIds(newVerticesOsmIds)
-	p.graph.SetIsCurvedFlags(newIsCurvedFlag)
-	p.graph.SetEdgeGeohashes(edgeGeohashes)
-	p.timeFunction.ReorderEdges(oldOutEdgeIDs)
-
+	p.graph.ApplyVerticesPermutation(vertexIdsPerm)
+	p.graph.ApplyEdgesMetadataPermutation(edgeMetaIdsPerm, edgeIdsPerm)
+	p.timeFunction.ApplyEdgesPermutation(edgeIdsPerm)
 }
 
 func (p *Preprocessor[W]) GetOldToNewVIdMap() []da.Index {

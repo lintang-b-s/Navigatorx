@@ -19,6 +19,7 @@ const (
 	INITIAL_APPROX_EDGE_SIZE                = 1000
 	INVALID_STREET_NAME_ID           uint32 = math.MaxUint32
 	INITIAL_REACHIBILITY_BITSET_SIZE        = 10
+	GeohashBits                             = 6 * 5
 )
 
 type QueryInfoStorageType int

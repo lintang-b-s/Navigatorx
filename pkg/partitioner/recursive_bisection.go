@@ -84,7 +84,7 @@ kita bisa buktikan klaim 1 dengan pakai klaim 2.
 depth dari recurrence tree:
 let n^i = subproblem size untuk node at depth i di recurrence tree.
 nb < n(1-b), for 0<b<=1/2
-base case ketika subporoblem size equal to 1
+base case ketika subporoblem size equal to 1. consider longest path dari root ke leaf.
 n(1-b)^d=1
 d = log_{1/(1-b)} n
 
@@ -94,7 +94,7 @@ T(n) = n^{3/2} + cost^1 + cost^2 + .... + cost^{d-1} + Theta(n^{log_{1/(1-b)}  2
 	<= n^{3/2} +  n^{3/2}+  n^{3/2} + ... + n^{3/2} + Theta(n^{log_{1/(1-b)}  2}) [klaim 1]
 	=   O(log_{1/(1-b)} (n) * n^{3/2})
 
-we can also use subtitution method to get T(n)=O(log_{1/(1-b)} (n) * n^{3/2}), karena recurrence tree nya bisa bukan complete binary tree.
+karena recurrence tree nya bisa bukan complete binary tree, we can also use subtitution method to get T(n)=O(log_{1/(1-b)} (n) * n^{3/2}).
 
 
 */ // nolint: gofmt

@@ -375,14 +375,7 @@ func (bs *CRPALTBidirectionalSearch[W]) ShortestPathSearch(sp, tp da.PhantomNode
 	edgeIdPath := unpacker.unpackPathEdgesOnly(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.pathUnpackingRuntime = unpacker.GetStats()
 
-	reserve := 0
-	if !bs.engine.IsDummyOutEdge(sp.GetOutEdgeId()) {
-		reserve += len(sp.GetForwardGeometry()) + 1
-	}
-	if !bs.engine.IsDummyInEdge(tp.GetInEdgeId()) {
-		reserve += len(tp.GetReverseGeometry()) + 1
-	}
-	finalPath, totalDistance := bs.engine.GetEdgePath(edgeIdPath, reserve)
+	finalPath, totalDistance := bs.engine.GetEdgePath(edgeIdPath)
 
 	return bs.shortestTravelTime, totalDistance, finalPath, edgeIdPath, true
 }

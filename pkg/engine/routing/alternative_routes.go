@@ -328,7 +328,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(sp, tp da.PhantomNod
 	maxAltSize := util.MinInt(k, len(res))
 	res = res[:maxAltSize]
 	for i := 0; i < maxAltSize; i++ {
-		finalPath, totalDistance := ars.engine.GetEdgePath(res[i].GetEdgeIdPath(), 0)
+		finalPath, totalDistance := ars.engine.GetEdgePath(res[i].GetEdgeIdPath())
 		res[i].SetCoordPath(finalPath)
 		res[i].SetDist(totalDistance)
 	}

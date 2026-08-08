@@ -48,9 +48,9 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) {
 		us.numSettledNodes++
 	}
 
-	sps, spEdges := us.constructShortestPath(s)
+	sps, spPath := us.constructShortestPath(s)
 
-	return sps, spEdges
+	return sps, spPath
 }
 
 func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
@@ -142,7 +142,7 @@ func (us *Dijkstra[W]) Preallocate() {
 
 func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 	n := us.engine.graph.NumberOfVertices()
-	spEdges := make([][]da.Index, n)
+	spPath := make([][]da.Index, n)
 	sps := make([]W, n)
 	if !us.useReversedEdges {
 
@@ -163,12 +163,12 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 			for curInfo.GetParent().GetVertex() != s {
 				parent := curInfo.GetParent()
 
-				spEdges[t] = append(spEdges[t], parent.GetEdge())
+				spPath[t] = append(spPath[t], parent.GetEdge())
 
 				curInfo = us.pq.Get(parent.GetVertex())
 			}
 
-			util.ReverseG(spEdges[t])
+			util.ReverseG(spPath[t])
 		}
 
 	} else {
@@ -193,7 +193,7 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 				outEdgeId := us.engine.graph.GetExitIdOfInEdge(parentEdge)
 
 				// jadiin outEdge semua
-				spEdges[t] = append(spEdges[t], outEdgeId)
+				spPath[t] = append(spPath[t], outEdgeId)
 
 				curInfo = us.pq.Get(parent.GetVertex())
 			}
@@ -204,8 +204,8 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 		// karena pakai reversed edges: landmark -> .... -> v ,
 		// setiap reversed edge (v,u) punya weight sama dengan weight edge (u,v).
 		// shortest path dari landmark ke v pakai reversed edges equivalent to shortest path dari v ke landmark pakai original edges
-		// kita dapet spEdges berupa list of outEdges dari v ,... ke landmark
+		// kita dapet spPath berupa list of outEdges dari v ,... ke landmark
 		// gak perlu direverse
 	}
-	return sps, spEdges
+	return sps, spPath
 }

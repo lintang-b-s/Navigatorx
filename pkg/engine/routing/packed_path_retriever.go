@@ -5,6 +5,9 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// todo: ini bisa di refactor jadi lebih clean lagi... tapi harus diubah dulu predecessor dari setiap explored vertex di multilevel_astar_landmarks.go/multilevel_dijkstra.go
+// kerjain setelah submit revisi
+
 func (crp *CRPRoutingEngine[W]) RetrievePackedPath(forwardMid,
 	backwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey, W],
 	bpq *da.QueryHeap[da.CRPQueryKey, W], sForwardId, tBackwardId da.Index, sCellNumber da.Pv, s, t da.Index) []da.VertexEdgePair {

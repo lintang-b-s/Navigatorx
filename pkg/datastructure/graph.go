@@ -7,6 +7,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/mmcloughlin/geohash"
 )
 
 type Index uint32
@@ -696,6 +697,18 @@ func (g *Graph) SetVertexPvPtr(id Index, pvPtr Index) {
 	g.vertices[id].SetPvPtr(pvPtr)
 }
 
+func (g *Graph) SetFirstOut(id Index, firstOut Index) {
+	g.vertices[id].SetFirstOut(firstOut)
+}
+
+func (g *Graph) SetFirstIn(id Index, firstIn Index) {
+	g.vertices[id].SetFirstIn(firstIn)
+}
+
+func (g *Graph) SetVId(id Index, vId Index) {
+	g.vertices[id].SetId(vId)
+}
+
 func (g *Graph) GetVertices() []Vertex {
 	return g.vertices[:g.NumberOfVertices()]
 }
@@ -976,38 +989,12 @@ func (g *Graph) AppendEdgeGeometryWithoutLast(path *Coordinates, edgeID Index) {
 	g.graphStorage.AppendEdgeGeometryWithoutLast(path, edgeID)
 }
 
-func (g *Graph) GetOsmWayBitSize() uint8 {
-	return g.graphStorage.osmwayBitSize
-}
-
-func (g *Graph) SetRoundaboutFlags(roundaboutFlags *bitset.BitSet) {
-	g.graphStorage.roundaboutFlag = roundaboutFlags
-}
-
 func (g *Graph) SetIsCurvedFlags(isCurvedFlag *bitset.BitSet) {
 	g.graphStorage.isCurvedFlag = isCurvedFlag
 }
 
-func (g *Graph) SetTrafficLightFlags(trafficLightFlags *bitset.BitSet) {
-	g.graphStorage.nodeTrafficLight = trafficLightFlags
-}
-
-func (g *Graph) SetNewEdgeMetadatas(osmWayIds *PackedSlice,
-	edgeStartPointsIndex, // edge geometry start index di gs.osmNodePoints
-	edgeEndPointsIndex []Index,
-	streetName []uint32,
-	roadClass, roadClassLink []pkg.OsmHighwayType,
-	lanes []uint8) {
-	g.graphStorage.SetNewEdgeMetadata(osmWayIds, edgeStartPointsIndex, edgeEndPointsIndex,
-		streetName, roadClass, roadClassLink, lanes)
-}
-
 func (g *Graph) GetEdgePointsIndices(edgeId Index) (Index, Index) {
 	return g.graphStorage.edgeStartPointsIndex[edgeId], g.graphStorage.edgeEndPointsIndex[edgeId]
-}
-
-func (g *Graph) SetStreetDirection(streetDirectionForward, streetDirectionBackward *bitset.BitSet) {
-	g.graphStorage.SetStreetDirection(streetDirectionForward, streetDirectionBackward)
 }
 
 func (g *Graph) ForOutEdgesOfVertex(u Index, handle func(head, exitPoint Index)) {
@@ -1075,11 +1062,40 @@ func (g *Graph) ForEachConditionalTurnRestriction(handle func(id Index, res Cond
 	}
 }
 
-func (g *Graph) SetEdgeGeohashes(edgeGeohashes []uint32) {
-	g.graphStorage.SetEdgeGeohashes(edgeGeohashes)
-}
-
 // GetEdgeGeohash get  geohash (precision 6) dari edge edgeId
 func (g *Graph) GetEdgeGeohash(edgeId Index) uint64 {
 	return g.graphStorage.GetEdgeGeohash(edgeId)
+}
+
+// ApplyVerticesPermutation. apply vertices permutation
+// perm=permutation slice that maps new vertex id to old vertex id
+func (g *Graph) ApplyVerticesPermutation(perm []int) {
+	g.vertices = util.ApplyPermutation(g.vertices, perm)
+
+	newNodeTrafficLight := bitset.New(g.graphStorage.nodeTrafficLight.Len())
+	newVerticesOsmIds := NewPackedSlice(BIT_SIZE_OSM_NODE_ID, uint64(g.NumberOfVertices())+1)
+
+	for v := Index(0); v < Index(g.NumberOfVertices()); v++ {
+		oldV := Index(perm[v])
+		if g.IsTrafficLight(oldV) {
+			newNodeTrafficLight.Set(uint(v))
+		}
+
+		newVerticesOsmIds.Append(g.GetVertexOsmId(oldV))
+	}
+
+	g.verticesOsmIds = newVerticesOsmIds
+	g.graphStorage.nodeTrafficLight = newNodeTrafficLight
+}
+
+func (g *Graph) ApplyEdgesMetadataPermutation(perm, ePerm []int) {
+	m := len(perm)
+	edgeGeohashes := make([]uint32, m)
+	for e := Index(0); e < Index(m); e++ {
+		tailCoord := g.GetVertexCoordinate(g.GetTailOfOutedge(e))
+		eGeoHash := geohash.EncodeIntWithPrecision(tailCoord.GetLat(), tailCoord.GetLon(), GeohashBits)
+		edgeGeohashes[e] = uint32(eGeoHash)
+	}
+	g.graphStorage.edgeGeohashes = edgeGeohashes
+	g.graphStorage.ApplyEdgesPermutation(perm, ePerm)
 }

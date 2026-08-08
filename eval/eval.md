@@ -156,8 +156,70 @@ avg path unpacking runtime: 0.003100
 
 runtime in milliseconds
 
-# Input DIMACS California (CAL)
 
+update
+```
+Algoritma kueri kombinasi CRP dan ALT (with turn costs) : 
+avg query times: 1.743100
+avg efficiency: 0.508859
+avg number of vertices explored: 1339
+avg query runtime: 1.228300
+avg path unpacking runtime: 0.080100
+avg travel time: 198.661795
+min travel time: 0.000000
+max travel time: 479.50183
+
+Algoritma kueri CRP (with turn costs): 
+avg query times: 2.271500
+avg efficiency: 0.346214
+avg number of vertices explored: 1902
+avg query runtime: 1.976800
+avg path unpacking runtime: 0.012500
+avg travel time: 199.956639
+min travel time: 0.909667
+max travel time: 474.456500
+
+Algoritma kueri kombinasi CRP dan ALT (without turn costs): 
+avg query times: 2.155300
+avg efficiency: 0.717872
+avg number of vertices explored: 973
+avg query runtime: 2.016900
+avg path unpacking runtime: 0.000600
+avg travel time: 196.350382
+min travel time: 1.095833
+max travel time: 478.175167
+
+Algoritma kueri CRP (without turn costs): 
+avg query times: 3.465100
+avg efficiency: 0.438108
+avg number of vertices explored: 1526
+avg query runtime: 3.277000
+avg path unpacking runtime: 0.004900
+avg travel time: 197.127807
+min travel time: 1.215000
+max travel time: 494.824333
+
+Algoritma kueri ALT untuk P2PSP (without turn costs): 
+avg query times: 220.603100
+avg efficiency: 0.003338
+avg number of vertices explored: 743975
+avg query runtime: 215.430400
+avg travel time: 192.582530
+min travel time: 1.707500
+max travel time: 460.150167
+
+Algoritma kueri Dijkstra untuk P2PSP (without turn costs): 
+avg query times: 468.423900
+avg efficiency: 0.001088
+avg number of vertices explored: 1423822
+avg query runtime: 463.255800
+avg travel time: 191.989539
+min travel time: 0.282833
+max travel time: 485.620833
+```
+
+
+# Input DIMACS California (CAL)
 ## Preprocessing
 
 ```

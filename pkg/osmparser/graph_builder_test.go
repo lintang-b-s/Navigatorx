@@ -30,7 +30,7 @@ func TestBuildGraphSimple(t *testing.T) {
 	numV := uint32(3)
 	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
-	graph, _, edgeInfoIds := buildGraph(p, scannedEdges, graphStorage, numV, true)
+	graph, _, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, numV, true)
 
 	if graph == nil {
 		t.Fatal("buildGraph returned nil")
@@ -88,7 +88,7 @@ func TestBuildGraphWithTurnRestrictions(t *testing.T) {
 	numV := uint32(3)
 	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
-	graph, _, _ := buildGraph(p, scannedEdges, graphStorage, numV, true)
+	graph, _, _ := p.BuildGraph(scannedEdges, graphStorage, numV, true)
 
 	if graph == nil {
 		t.Fatal("buildGraph returned nil")

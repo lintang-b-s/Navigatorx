@@ -54,7 +54,6 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPathNoTurnCost(forwardMid d
 			curInfo = fpq.Get(crp.offsetOverlayNoTurnCost(parentVertex))
 		} else {
 			curInfo = fpq.Get(parentVertex)
-
 		}
 
 		svPackedPath = append(svPackedPath, parent)

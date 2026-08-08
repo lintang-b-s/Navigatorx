@@ -666,7 +666,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 
 	routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
 
-	finalPath, totalDistance := h.re.GetEdgePath(edgePath, 0)
+	finalPath, totalDistance := h.re.GetEdgePath(edgePath)
 	routeDistance += totalDistance
 
 	path := make([]da.Coordinate, 0, len(sp.GetForwardGeometry())+len(*finalPath)+len(tp.GetReverseGeometry())+2)

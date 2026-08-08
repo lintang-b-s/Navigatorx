@@ -178,9 +178,10 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 
 	if !rs.engine.IsDummyOutEdge(sp.GetOutEdgeId()) {
 		if !rs.isSameSourceDestinationSegment(sp, tp) {
-			path.PrependCoordinateAndSlice(sp.GetSnappedCoord(), sp.GetForwardGeometry())
+			spgeom := sp.GetForwardGeometry()
+			path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, spgeom...))
 		} else {
-			path.PrependCoordinateAndSlice(sp.GetSnappedCoord(), nil)
+			path.Prepend([]da.Coordinate{sp.GetSnappedCoord()})
 		}
 		travelTime += sp.GetForwardTravelTime()
 		dist += sp.GetForwardDistance()

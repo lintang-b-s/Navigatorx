@@ -131,9 +131,9 @@ func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *co
 	})
 	scanner := osmpbf.New(context.Background(), f, 0)
 	scannedWays := 0
-	logger.Sugar().Infof("parsing openstreetmap .pbf file......")
 	// scan osm ways and relations
 	// store relations and way.nodes
+	logger.Sugar().Infof("parsing openstreetmap .pbf file....")
 
 	for scanner.Scan() {
 		o := scanner.Object()
@@ -339,7 +339,7 @@ func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *co
 	p.ways = make(map[int64]osmWay, scannedWays)
 	streetDirection := make(map[int64][2]bool)
 	countWays := 0
-	logger.Sugar().Infof("processing openstreetmap .pbf file: 0%.... ")
+	logger.Sugar().Infof("processing openstreetmap .pbf file....")
 	outputEvery := 5
 	pg := make([]bool, 101)
 	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
@@ -362,9 +362,12 @@ func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *co
 				}
 
 				progress := int(((float64(countWays) + 1) / float64(scannedWays)) * 100)
-				if progress > 0 && progress%outputEvery == 0 && !pg[progress] {
+				if progress%outputEvery == 0 && !pg[progress] {
 					pg[progress] = true
-					logger.Sugar().Infof("processing openstreetmap .pbf file: %v %% .....  ", int(progress))
+					fmt.Printf("%v%%....", int(progress))
+					if progress == 100 {
+						fmt.Printf("\n")
+					}
 				}
 
 				countWays++

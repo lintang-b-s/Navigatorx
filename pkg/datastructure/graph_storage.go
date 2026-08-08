@@ -5,6 +5,7 @@ import (
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // GraphStorage stores metadata and supplementary information for the graph.
@@ -268,21 +269,6 @@ func (gs *GraphStorage) AppendEdgeMetadata(osmWayId int64,
 	gs.lanes = append(gs.lanes, lanes)
 }
 
-func (gs *GraphStorage) SetNewEdgeMetadata(osmWayIds *PackedSlice,
-	edgeStartPointsIndex, // edge geometry start index di gs.osmNodePoints
-	edgeEndPointsIndex []Index,
-	streetName []uint32,
-	roadClass, roadClassLink []pkg.OsmHighwayType,
-	lanes []uint8) {
-	gs.edgeOsmWayId = osmWayIds
-	gs.edgeStartPointsIndex = edgeStartPointsIndex
-	gs.edgeEndPointsIndex = edgeEndPointsIndex
-	gs.streetName = streetName
-	gs.roadClass = roadClass
-	gs.roadClassLink = roadClassLink
-	gs.lanes = lanes
-}
-
 func (gs *GraphStorage) GetOsmNodePointsCount() int {
 	return len(gs.osmNodePoints)
 }
@@ -387,4 +373,52 @@ func (gs *GraphStorage) SetEdgeGeohash(edgeId Index, geohash uint64) {
 
 func (gs *GraphStorage) GetEdgeGeohash(edgeId Index) uint64 {
 	return uint64(gs.edgeGeohashes[edgeId])
+}
+
+// ApplyEdgesPermutation. apply permutation to edges metadata
+// perm=permutation that maps from old edge metadata id to new edge id
+// ePerm=permutation that maps from old edge id to new edge id
+func (gs *GraphStorage) ApplyEdgesPermutation(perm, ePerm []int) {
+	m := len(perm)
+
+	gs.lanes = util.ApplyPermutation(gs.lanes, perm)
+	gs.roadClass = util.ApplyPermutation(gs.roadClass, perm)
+	gs.roadClassLink = util.ApplyPermutation(gs.roadClassLink, perm)
+	gs.streetName = util.ApplyPermutation(gs.streetName, perm)
+	gs.edgeStartPointsIndex = util.ApplyPermutation(gs.edgeStartPointsIndex, perm)
+	gs.edgeEndPointsIndex = util.ApplyPermutation(gs.edgeEndPointsIndex, perm)
+
+	newIsCurvedFlag := bitset.New(gs.isCurvedFlag.Len())
+	newStreetDirectionForward := bitset.New(gs.streetDirectionForward.Len())
+	newStreetDirectionBackward := bitset.New(gs.streetDirectionForward.Len())
+	newRoundaboutFlags := bitset.New(gs.roundaboutFlag.Len())
+
+	newOsmWayIds := NewPackedSlice(gs.osmwayBitSize, uint64(m))
+	for e := Index(0); e < Index(m); e++ {
+		oldE := Index(perm[e])
+		if gs.IsCurved(oldE) {
+			newIsCurvedFlag.Set(uint(e))
+		}
+		if gs.IsRoundabout(oldE) {
+			newRoundaboutFlags.Set(uint(e))
+		}
+		newOsmWayIds.Append(gs.GetOsmWayId(oldE))
+
+		oldEId := Index(ePerm[e])
+		streetdir := gs.GetStreetDirection(oldEId)
+		if streetdir[0] {
+			newStreetDirectionForward.Set(uint(e))
+		}
+
+		if streetdir[1] {
+			newStreetDirectionBackward.Set(uint(e))
+		}
+	}
+
+	gs.streetDirectionBackward = newStreetDirectionBackward
+	gs.streetDirectionForward = newStreetDirectionForward
+	gs.edgeOsmWayId = newOsmWayIds
+	gs.roundaboutFlag = newRoundaboutFlags
+	gs.isCurvedFlag = newIsCurvedFlag
+
 }

@@ -1,6 +1,8 @@
 package osmparser
 
 import (
+	"maps"
+
 	"github.com/bits-and-blooms/bitset"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -33,18 +35,6 @@ step buat compress nya:
 */
 
 // compressOSMGraph replaces compatible directed edge chains with single edges.
-//
-// Compression is limited to OSM input because it depends on OSM metadata and
-// parser bookkeeping. A vertex may be removed only when it has exactly one
-// incoming and one outgoing edge, is not protected by routing semantics, and
-// both adjacent edges describe the same continuous road.
-//
-// The pass has five stages:
-//  1. Build incoming and outgoing edge indexes.
-//  2. Mark protected and contractible vertices.
-//  3. Assign compact IDs to the vertices that remain.
-//  4. Merge each maximal edge chain and rebuild edge metadata.
-//  5. Remap OSM-node, way, and restriction references to compact IDs.
 func (p *OsmParser[W]) compressOSMGraph(
 	edges []Edge[W],
 	storage *da.GraphStorage,
@@ -52,7 +42,6 @@ func (p *OsmParser[W]) compressOSMGraph(
 ) ([]Edge[W], *da.GraphStorage, uint32) {
 	numVertices := len(p.nodeToOsmId)
 
-	// Edge indexes make degree checks and chain traversal constant time.
 	inEdges := make([][]int, numVertices)
 	outEdges := make([][]int, numVertices)
 	for edgeId := range edges {
@@ -60,6 +49,7 @@ func (p *OsmParser[W]) compressOSMGraph(
 		outEdges[edge.from] = append(outEdges[edge.from], edgeId)
 		inEdges[edge.to] = append(inEdges[edge.to], edgeId)
 	}
+
 	dfsState := make([]int, numVertices)
 
 	// A 1-in/1-out vertex is only a candidate. Metadata compatibility below
@@ -75,6 +65,7 @@ func (p *OsmParser[W]) compressOSMGraph(
 		inID := inEdges[vertex][0]
 		outID := outEdges[vertex][0]
 		if inID == outID {
+			// cycle edge
 			continue
 		}
 		contractible[vertex] = canCompress(
@@ -92,8 +83,9 @@ func (p *OsmParser[W]) compressOSMGraph(
 		}
 	}
 
-	// Removed vertices keep INVALID_VERTEX_ID. Every surviving vertex receives
-	// a dense ID so the compressed graph does not need placeholder vertices.
+	// Removed vertices keep INVALID_VERTEX_ID.
+	// only store uncontractible vertices
+	// remap vertex ids
 	oldToNew := make([]da.Index, numVertices)
 	for i := range oldToNew {
 		oldToNew[i] = da.INVALID_VERTEX_ID
@@ -107,6 +99,7 @@ func (p *OsmParser[W]) compressOSMGraph(
 			continue
 		}
 		oldToNew[oldVertex] = newVertexID
+
 		osmID := p.nodeToOsmId[da.Index(oldVertex)]
 		newNodeToOSMID[newVertexID] = osmID
 		newNodeIDMap[osmID] = newVertexID
@@ -114,16 +107,16 @@ func (p *OsmParser[W]) compressOSMGraph(
 	}
 
 	m := len(edges)
-	compressed := make([]Edge[W], 0, m)
-	compressedStorage := da.NewGraphStorage(storage.GetOsmwayBitSize())
+	compEdges := make([]Edge[W], 0, m)
+	compGraphStorage := da.NewGraphStorage(storage.GetOsmwayBitSize())
 	discovered := make([]bool, numVertices)
-	compressedEdgesSet := bitset.New(uint(m))
+	compEdgesSet := bitset.New(uint(m))
 
-	appendEdgeToStorage := func(sourceID, newEdgeId da.Index, mergedEdge Edge[W], geometry []da.Coordinate, curved bool) {
-		start := da.Index(compressedStorage.GetOsmNodePointsCount())
-		compressedStorage.AppendOsmNodePoints(geometry)
-		end := da.Index(compressedStorage.GetOsmNodePointsCount())
-		compressedStorage.AppendEdgeMetadata(
+	appendCompressedEdge := func(sourceID, newEdgeId da.Index, mergedEdge Edge[W], geometry []da.Coordinate, curved bool) {
+		start := da.Index(compGraphStorage.GetOsmNodePointsCount())
+		compGraphStorage.AppendOsmNodePoints(geometry)
+		end := da.Index(compGraphStorage.GetOsmNodePointsCount())
+		compGraphStorage.AppendEdgeMetadata(
 			mergedEdge.osmwayId,
 			start,
 			end,
@@ -132,18 +125,19 @@ func (p *OsmParser[W]) compressOSMGraph(
 			storage.GetRoadClassLink(sourceID),
 			storage.GetRoadLanes(sourceID),
 		)
-		compressedStorage.SetRoundabout(newEdgeId, storage.IsRoundabout(sourceID))
-		compressedStorage.SetIsCurved(newEdgeId, curved)
-		compressed = append(compressed, mergedEdge)
+		compGraphStorage.SetRoundabout(newEdgeId, storage.IsRoundabout(sourceID))
+		compGraphStorage.SetIsCurved(newEdgeId, curved)
+		compEdges = append(compEdges, mergedEdge)
 	}
 
+	// merge osm edges around contractible vertex v
 	emit := func(v da.Index) {
 		compressibleEdges := make([]int, 0, 4)
 
 		edgeId := inEdges[v][0]
 		for {
 			compressibleEdges = append(compressibleEdges, edgeId)
-			compressedEdgesSet.Set(uint(edgeId))
+			compEdgesSet.Set(uint(edgeId))
 			tail := edges[edgeId].from
 			if !contractible[tail] || discovered[tail] {
 				break
@@ -156,7 +150,7 @@ func (p *OsmParser[W]) compressOSMGraph(
 		edgeId = outEdges[v][0]
 		for {
 			compressibleEdges = append(compressibleEdges, edgeId)
-			compressedEdgesSet.Set(uint(edgeId))
+			compEdgesSet.Set(uint(edgeId))
 			head := edges[edgeId].to
 			if !contractible[head] || discovered[head] {
 				break
@@ -165,11 +159,11 @@ func (p *OsmParser[W]) compressOSMGraph(
 			edgeId = outEdges[head][0]
 		}
 
-		mergedEdge, geometry, curved := mergeOSMEdgeChain(edges, storage, compressibleEdges, oldToNew)
+		mergedEdge, geometry, curved := mergeOSMEdges(edges, storage, compressibleEdges, oldToNew)
 
 		sourceID := da.Index(compressibleEdges[0])
-		newEId := da.Index(len(compressed))
-		appendEdgeToStorage(sourceID, newEId, mergedEdge, geometry, curved)
+		newEId := da.Index(len(compEdges))
+		appendCompressedEdge(sourceID, newEId, mergedEdge, geometry, curved)
 	}
 
 	for v := da.Index(0); v < da.Index(numVertices); v++ {
@@ -182,16 +176,16 @@ func (p *OsmParser[W]) compressOSMGraph(
 
 	// sisa edges yang non-compressible
 	for eId := da.Index(0); eId < da.Index(m); eId++ {
-		if compressedEdgesSet.Test(uint(eId)) {
+		if compEdgesSet.Test(uint(eId)) {
 			continue
 		}
 		e := edges[eId]
 		e.from = uint32(oldToNew[e.from])
 		e.to = uint32(oldToNew[e.to])
-		newEId := da.Index(len(compressed))
+		newEId := da.Index(len(compEdges))
 		geometry := storage.GetEdgeGeometry(eId)
 		curved := storage.IsCurved(eId)
-		appendEdgeToStorage(eId, newEId, e, geometry, curved)
+		appendCompressedEdge(eId, newEId, e, geometry, curved)
 	}
 
 	// Traffic-light vertices are protected, so their compact IDs are always
@@ -201,22 +195,21 @@ func (p *OsmParser[W]) compressOSMGraph(
 			continue
 		}
 		if storage.GetTrafficLight(da.Index(oldVertex)) {
-			compressedStorage.SetTrafficLight(newID, true)
+			compGraphStorage.SetTrafficLight(newID, true)
 		}
 	}
+
 	p.nodeToOsmId = newNodeToOSMID
 	p.nodeIDMap = newNodeIDMap
-	p.remapCompressedGraphNodes(oldToNew)
-	return compressed, compressedStorage, uint32(newVertexID)
+	p.applyOsmWayGraphNodesPermutation(oldToNew)
+	return compEdges, compGraphStorage, uint32(newVertexID)
 }
 
 // compressionProtectedVertices marks vertices that carry semantics an edge
 // merge cannot represent safely.
 //
 // This includes barriers, traffic lights, turn-restriction participants, and
-// endpoints of conditionally restricted ways. Protecting both endpoints of a
-// conditional edge keeps later time-dependent customization attached to the
-// same graph locations.
+// endpoints of conditionally restricted ways.
 func (p *OsmParser[W]) compressionProtectedVertices(
 	edges []Edge[W],
 	storage *da.GraphStorage,
@@ -238,9 +231,7 @@ func (p *OsmParser[W]) compressionProtectedVertices(
 		for _, restriction := range restrictions {
 			protectWayGraphNodes(protected, p.ways[restriction.to])
 			if !restriction.isWay {
-				if int(restriction.via) < len(protected) {
-					protected[restriction.via] = true
-				}
+				protected[restriction.via] = true
 				continue
 			}
 			for _, viaWay := range restriction.viaWays {
@@ -265,9 +256,7 @@ func (p *OsmParser[W]) compressionProtectedVertices(
 // way because a turn restriction may depend on any position along that way.
 func protectWayGraphNodes(protected []bool, way osmWay) {
 	for _, vertex := range way.graphNodes {
-		if int(vertex) < len(protected) {
-			protected[vertex] = true
-		}
+		protected[vertex] = true
 	}
 }
 
@@ -282,9 +271,7 @@ const (
 //
 // OSM way IDs intentionally do not need to match. Adjacent ways may be merged
 // when their road metadata, direction, speed, and geometry describe the same
-// continuous road. If explicit way speeds are unavailable, equal
-// weight-to-distance ratios provide the equivalent speed check without
-// floating-point division.
+// continuous road.
 func canCompress[W util.RoutingNumber](
 	inEdge, outEdge *Edge[W],
 	storage *da.GraphStorage,
@@ -316,15 +303,16 @@ func canCompress[W util.RoutingNumber](
 		return false
 	}
 
+	return isSameSpeed(inEdge, outEdge, waySpeeds)
+}
+
+func isSameSpeed[W util.RoutingNumber](inEdge *Edge[W], outEdge *Edge[W], waySpeeds map[int64]float64) bool {
 	inSpeed, hasInSpeed := waySpeeds[inEdge.osmwayId]
 	outSpeed, hasOutSpeed := waySpeeds[outEdge.osmwayId]
-	if hasInSpeed && hasOutSpeed {
-		return inSpeed == outSpeed
-	}
+
 	return inEdge.distance > 0 && outEdge.distance > 0 &&
-		inEdge.weight > 0 && outEdge.weight > 0 &&
-		int64(inEdge.weight)*int64(outEdge.distance) ==
-			int64(outEdge.weight)*int64(inEdge.distance)
+		inEdge.weight > 0 && outEdge.weight > 0 && hasInSpeed && hasOutSpeed &&
+		inSpeed == outSpeed
 }
 
 // cycleCheck. find cycle of contractible vertices.
@@ -347,14 +335,8 @@ func cycleCheck[W util.RoutingNumber](u uint32, dfsState []int, outEdges [][]int
 	return false, 0
 }
 
-// mergeOSMEdgeChain combines one maximal chain into a single edge.
-//
-// Weight and distance are accumulated in int64 so overflow is detected before
-// narrowing to their stored int32 and uint32 types. Geometry is appended into
-// new storage and duplicate coordinates at edge boundaries are omitted. The
-// first edge supplies compatible road metadata, while the last edge supplies
-// destination-specific OSM and junction fields.
-func mergeOSMEdgeChain[W util.RoutingNumber](
+// mergeOSMEdges combines one maximal chain of edges into a single edge.
+func mergeOSMEdges[W util.RoutingNumber](
 	edges []Edge[W],
 	storage *da.GraphStorage,
 	edgeIds []int,
@@ -393,33 +375,32 @@ func mergeOSMEdgeChain[W util.RoutingNumber](
 	return merged, geometry, curved
 }
 
-// remapCompressedGraphNodes updates parser-owned references after compaction.
-//
-// Removed vertices disappear from way.graphNodes, consecutive duplicate IDs
-// are collapsed, and node-based restriction via vertices are translated to
-// their compact IDs. Restriction participants were protected earlier, so a
-// node-based via vertex must always have a valid mapping here.
-func (p *OsmParser[W]) remapCompressedGraphNodes(oldToNew []da.Index) {
+// applyOsmWayGraphNodesPermutation updates parser-owned references after compaction.
+func (p *OsmParser[W]) applyOsmWayGraphNodesPermutation(oldToNew []da.Index) {
+	newWayMap := make(map[int64]osmWay, len(p.ways))
 	for wayID, way := range p.ways {
-		graphNodes := way.graphNodes[:0]
+		graphNodes := make([]da.Index, 0)
 		for _, oldVertex := range way.graphNodes {
 			newVertex := oldToNew[oldVertex]
 			if newVertex == da.INVALID_VERTEX_ID {
 				continue
 			}
-			if len(graphNodes) == 0 || graphNodes[len(graphNodes)-1] != newVertex {
-				graphNodes = append(graphNodes, newVertex)
-			}
+			graphNodes = append(graphNodes, newVertex)
 		}
 		way.graphNodes = graphNodes
-		p.ways[wayID] = way
+		newWayMap[wayID] = way
 	}
+	p.ways = newWayMap
+
+	newRestricions := make(map[int64][]restriction, len(p.restrictions))
+	maps.Copy(newRestricions, p.restrictions)
 	for fromWay, restrictions := range p.restrictions {
 		for i := range restrictions {
 			if !restrictions[i].isWay { // via-node turn restrictions
-				restrictions[i].via = oldToNew[restrictions[i].via]
+				newRestricions[fromWay][i].via = oldToNew[restrictions[i].via]
 			}
 		}
-		p.restrictions[fromWay] = restrictions
+		newRestricions[fromWay] = restrictions
 	}
+	p.restrictions = newRestricions
 }

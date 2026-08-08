@@ -69,10 +69,6 @@ func NewFixedCoordinate(lat, lon int32) Coordinate {
 	return Coordinate{lat: lat, lon: lon}
 }
 
-func NewUninitializedCoordinate() Coordinate {
-	return NewFixedCoordinate(invalidFixedCoordinate, invalidFixedCoordinate)
-}
-
 func coordinateToFixed(value float64, name string) (int32, error) {
 	fixed := math.Round(value * CoordinatePrecision)
 	if fixed <= math.MinInt32 || fixed > math.MaxInt32 {
@@ -105,42 +101,15 @@ func (cs *Coordinates) Append(newCoords []Coordinate) {
 	*cs = slice
 }
 
-// PrependCoordinateAndSlice grows once before adding a point and geometry prefix.
-func (cs *Coordinates) PrependCoordinateAndSlice(coord Coordinate, coords []Coordinate) {
+func (cs *Coordinates) Prepend(newCoords []Coordinate) {
 	slice := *cs
-	oldLength := len(slice)
-	added := len(coords) + 1
-	newLength := oldLength + added
-	if cap(slice) < newLength {
-		grown := make(Coordinates, newLength)
-		grown[0] = coord
-		copy(grown[1:], coords)
-		copy(grown[added:], slice)
-		*cs = grown
-		return
-	}
-	slice = slice[:newLength]
-	copy(slice[added:], slice[:oldLength])
-	slice[0] = coord
-	copy(slice[1:added], coords)
-	*cs = slice
+	newCoords = append(newCoords, slice...)
+	*cs = newCoords
 }
 
 // AppendCoordinate appends one coordinate without creating a temporary slice.
 func (cs *Coordinates) AppendCoordinate(coord Coordinate) {
 	*cs = append(*cs, coord)
-}
-
-// Grow reserves room for additional coordinates while preserving the current length.
-func (cs *Coordinates) Grow(additional int) {
-	slice := *cs
-	required := len(slice) + additional
-	if cap(slice) >= required {
-		return
-	}
-	grown := make(Coordinates, len(slice), required)
-	copy(grown, slice)
-	*cs = grown
 }
 
 // https://go.dev/doc/effective_go#pointers_vs_values

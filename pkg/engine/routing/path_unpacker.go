@@ -374,7 +374,7 @@ func (pu *PathUnpacker[W]) GetStats() int64 {
 	return pu.runtime
 }
 
-func (crp *CRPRoutingEngine[W]) GetEdgePath(edgeIdPath []da.Index, reserve int) (*da.Coordinates, float64) {
+func (crp *CRPRoutingEngine[W]) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates, float64) {
 
 	totalDistance := 0.0
 
@@ -387,7 +387,6 @@ func (crp *CRPRoutingEngine[W]) GetEdgePath(edgeIdPath []da.Index, reserve int) 
 	}
 
 	path := crp.GetCoordsFromPool()
-	path.Grow(capacity + reserve)
 
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
