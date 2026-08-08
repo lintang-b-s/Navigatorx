@@ -128,7 +128,7 @@ func (h *DAryHeap[T, W]) parent(index uint32) uint32 {
 	return (index - 1) / h.d
 }
 
-// heapifyUp mempertahankan heap property. check apakah parent dari index lebih besar kalau iya swap, then recursive ke parent.  O(logN) tree height.
+// heapifyUp mempertahankan heap property. check apakah parent dari index lebih besar kalau iya swap, then recursive ke parent.  O(logN) complete 2/4-ary tree height.
 func (h *DAryHeap[T, W]) heapifyUp(index uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
 	for index != 0 && util.Lt(h.heap[index].rank, h.heap[h.parent(index)].rank) {
 		h.Swap(index, h.parent(index), updatePos)
@@ -136,11 +136,11 @@ func (h *DAryHeap[T, W]) heapifyUp(index uint32, updatePos func(queryInfoId, new
 	}
 }
 
-// heapifyDown mempertahankan heap property. check apakah nilai salah satu children dari index lebih kecil kalau iya swap, then recursive ke children yang kecil tadi.  O(logN) tree height.
+// heapifyDown mempertahankan heap property. check apakah nilai salah satu children dari index lebih kecil kalau iya swap, then recursive ke children yang kecil tadi.  O(logN) complete 2/4-ary tree height.
 func (h *DAryHeap[T, W]) heapifyDown(index uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
 
 	leftMostChild := index*h.d + 1
-	if leftMostChild >= uint32(len(h.heap)) {
+	if leftMostChild >= uint32(len(h.heap)) { // this node (index) dont have any children nodes
 		return
 	}
 

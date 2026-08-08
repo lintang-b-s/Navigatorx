@@ -1,7 +1,7 @@
 package util
 
 func ApplyPermutation[T any](slice []T, perm []int) []T {
-
+	AssertPanic(len(slice) == len(perm), "length of permutation slice & slice not same")
 	n := len(slice)
 	applied := make([]T, n)
 	for i := 0; i < n; i++ {
@@ -11,6 +11,7 @@ func ApplyPermutation[T any](slice []T, perm []int) []T {
 }
 
 func ApplyInversePermutation[T any](slice []T, perm []int) []T {
+	AssertPanic(len(slice) == len(perm), "length of permutation slice & slice not same")
 
 	n := len(slice)
 	applied := make([]T, n)

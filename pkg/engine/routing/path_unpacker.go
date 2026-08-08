@@ -378,12 +378,9 @@ func (crp *CRPRoutingEngine[W]) GetEdgePath(edgeIdPath []da.Index) (*da.Coordina
 
 	totalDistance := 0.0
 
-	capacity := 0
-
 	for i := 0; i < len(edgeIdPath); i++ {
 		eId := edgeIdPath[i]
 		totalDistance += crp.GetSegmentLength(eId, true)
-		capacity += crp.graph.GetEdgeGeometryLength(eId)
 	}
 
 	path := crp.GetCoordsFromPool()

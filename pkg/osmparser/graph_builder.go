@@ -121,6 +121,19 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 		}
 	}
 
+	if !roadNetwork {
+		for i := 0; i < len(scannedEdges); i++ {
+			graphStorage.AppendEdgeMetadata(
+				-1,
+				1, 1,
+				p.tagStringIdMap.GetID(""),
+				pkg.INVALID_HIGHWAY,
+				pkg.INVALID_HIGHWAY,
+				uint8(0),
+			)
+		}
+	}
+
 	fmt.Printf("25%%...")
 
 	// T[u][i*outDegree[u]+j] = turn type from entryPoint i (inEdge ke-i dari vertex u) to exitPoint j  (outEdge ke-j dari vertex u)  at vertex u.
