@@ -85,7 +85,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 	newEInfoId := len(scannedEdges)
 	// tambahin parallel edges dulu buat via-way turn restrictions
 	for wayId, way := range p.ways {
-		newEInfoId = addParallelViaEdges(p, wayId, way, len(scannedEdges), outEdges, inEdges, graphStorage, edgeInfoIds, outWeights, outLengths,
+		newEInfoId = addParallelViaEdges(p, wayId, way, newEInfoId, outEdges, inEdges, graphStorage, edgeInfoIds, outWeights, outLengths,
 			inLengths, outDegree, inDegree)
 	}
 
@@ -117,6 +117,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 				pkg.INVALID_HIGHWAY,
 				uint8(0),
 			)
+			newEInfoId++
 		}
 	}
 
