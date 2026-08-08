@@ -1072,20 +1072,23 @@ func (g *Graph) GetEdgeGeohash(edgeId Index) uint64 {
 func (g *Graph) ApplyVerticesPermutation(perm []int) {
 	g.vertices = util.ApplyPermutation(g.vertices, perm)
 
-	newNodeTrafficLight := bitset.New(g.graphStorage.nodeTrafficLight.Len())
-	newVerticesOsmIds := NewPackedSlice(BIT_SIZE_OSM_NODE_ID, uint64(g.NumberOfVertices())+1)
+	if g.roadNetwork {
+		newNodeTrafficLight := bitset.New(g.graphStorage.nodeTrafficLight.Len())
+		newVerticesOsmIds := NewPackedSlice(BIT_SIZE_OSM_NODE_ID, uint64(g.NumberOfVertices())+1)
 
-	for v := Index(0); v < Index(g.NumberOfVertices()); v++ {
-		oldV := Index(perm[v])
-		if g.IsTrafficLight(oldV) {
-			newNodeTrafficLight.Set(uint(v))
+		for v := Index(0); v < Index(g.NumberOfVertices()); v++ {
+			oldV := Index(perm[v])
+			if g.IsTrafficLight(oldV) {
+				newNodeTrafficLight.Set(uint(v))
+			}
+
+			newVerticesOsmIds.Append(g.GetVertexOsmId(oldV))
 		}
 
-		newVerticesOsmIds.Append(g.GetVertexOsmId(oldV))
+		g.verticesOsmIds = newVerticesOsmIds
+		g.graphStorage.nodeTrafficLight = newNodeTrafficLight
 	}
 
-	g.verticesOsmIds = newVerticesOsmIds
-	g.graphStorage.nodeTrafficLight = newNodeTrafficLight
 }
 
 func (g *Graph) ApplyEdgesMetadataPermutation(perm, ePerm []int) {

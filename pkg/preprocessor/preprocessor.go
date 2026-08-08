@@ -266,7 +266,9 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 	}
 
 	p.graph.ApplyVerticesPermutation(vertexIdsPerm)
-	p.graph.ApplyEdgesMetadataPermutation(edgeMetaIdsPerm, edgeIdsPerm)
+	if p.graph.IsRoadNetworkGraph() {
+		p.graph.ApplyEdgesMetadataPermutation(edgeMetaIdsPerm, edgeIdsPerm)
+	}
 	p.timeFunction.ApplyEdgesPermutation(edgeIdsPerm)
 }
 

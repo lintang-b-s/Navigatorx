@@ -120,6 +120,7 @@ func (us *DijkstraP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 	}
 
 	curInfo := us.pq.Get(t)
+	spPath = append(spPath, t)
 
 	for curInfo.GetParent().GetVertex() != s {
 		parent := curInfo.GetParent()
@@ -128,6 +129,7 @@ func (us *DijkstraP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 
 		curInfo = us.pq.Get(parent.GetVertex())
 	}
+	spPath = append(spPath, s)
 
 	util.ReverseG(spPath)
 	return sp, spPath
