@@ -1100,5 +1100,7 @@ func (g *Graph) ApplyEdgesMetadataPermutation(perm, ePerm []int) {
 		edgeGeohashes[e] = uint32(eGeoHash)
 	}
 	g.graphStorage.edgeGeohashes = edgeGeohashes
-	g.graphStorage.ApplyEdgesPermutation(perm, ePerm)
+	if g.roadNetwork {
+		g.graphStorage.ApplyEdgesPermutation(perm, ePerm)
+	}
 }
