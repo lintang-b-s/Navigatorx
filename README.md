@@ -106,6 +106,11 @@ load tests result: https://github.com/lintang-b-s/skripsi_code
 
 The OpenAPI specification is available at [swagger.yaml](./swagger.yaml).
 
+## Frontend Demo
+
+nextjs frontend demo: [navigatorx-crp-fe](https://github.com/lintang-b-s/navigatorx-crp-fe) <br>
+online routing engine demo: [demo](https://navigatorx-crp-fe.vercel.app/)
+
 ## References & Acknowledgments
 
 ### References
@@ -134,6 +139,3 @@ i would like to express my deepest gratitude to the contributors to the open sou
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-
-

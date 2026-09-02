@@ -1088,7 +1088,6 @@ func (g *Graph) ApplyVerticesPermutation(perm []int) {
 		g.verticesOsmIds = newVerticesOsmIds
 		g.graphStorage.nodeTrafficLight = newNodeTrafficLight
 	}
-
 }
 
 func (g *Graph) ApplyEdgesMetadataPermutation(perm, ePerm []int) {
