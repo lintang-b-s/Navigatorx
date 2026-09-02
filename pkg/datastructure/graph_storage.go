@@ -359,18 +359,6 @@ func (gs *GraphStorage) GetConditionalTurnRestrictions() []ConditionalTurnRestri
 	return gs.conditionalTurnRestrictions
 }
 
-func (gs *GraphStorage) SetEdgeGeohashes(edgeGeohashes []uint32) {
-	gs.edgeGeohashes = edgeGeohashes
-}
-
-func (gs *GraphStorage) AppendEdgeGeohash(geohash uint64) {
-	gs.edgeGeohashes = append(gs.edgeGeohashes, uint32(geohash))
-}
-
-func (gs *GraphStorage) SetEdgeGeohash(edgeId Index, geohash uint64) {
-	gs.edgeGeohashes[edgeId] = uint32(geohash)
-}
-
 func (gs *GraphStorage) GetEdgeGeohash(edgeId Index) uint64 {
 	return uint64(gs.edgeGeohashes[edgeId])
 }
@@ -420,5 +408,4 @@ func (gs *GraphStorage) ApplyEdgesPermutation(perm, ePerm []int) {
 	gs.edgeOsmWayId = newOsmWayIds
 	gs.roundaboutFlag = newRoundaboutFlags
 	gs.isCurvedFlag = newIsCurvedFlag
-
 }
