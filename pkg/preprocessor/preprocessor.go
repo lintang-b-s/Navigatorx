@@ -38,7 +38,7 @@ func NewPreprocessor[W util.RoutingNumber](graph *da.Graph, timeFunction *costfu
 		preprocessingTimeFunctionFilename: costfunction.PreprocessingTimeFunctionPath(gFilename),
 		edgeInfoIds:                       edgeInfoIds,
 		timeFunction:                      timeFunction,
-		writeTiles:                        true,
+		writeTiles:                        false,
 	}
 }
 

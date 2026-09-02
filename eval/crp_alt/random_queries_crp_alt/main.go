@@ -460,5 +460,4 @@ func main() {
 	fmt.Printf("avg travel time: %f\n", (avgTravelTime/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
 	fmt.Printf("min travel time: %f\n", minTravelTime*CENTISECONDS_TO_MINUTES)
 	fmt.Printf("max travel time: %f\n", maxTravelTime*CENTISECONDS_TO_MINUTES)
-
 }
