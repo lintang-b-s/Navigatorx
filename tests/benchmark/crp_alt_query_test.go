@@ -218,7 +218,7 @@ func BenchmarkCRPALTQuery(b *testing.B) {
 		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
 		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
 
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
+		crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0)
 		crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 	}

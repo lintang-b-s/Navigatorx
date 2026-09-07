@@ -177,43 +177,43 @@ func (s *MapStorage) ForAllItems(handle func(offsetedVId Index, queryInfoId uint
 	}
 }
 
-type ScannedBitsetStorage struct {
+type ExploredBitsetStorage struct {
 	scanned *bitset.BitSet // https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 }
 
-func NewScannedBitsetStorage(approxMaxSearchSize uint32) *ScannedBitsetStorage {
-	return &ScannedBitsetStorage{bitset.New(uint(approxMaxSearchSize))}
+func NewExploredBitsetStorage(approxMaxSearchSize uint32) *ExploredBitsetStorage {
+	return &ExploredBitsetStorage{bitset.New(uint(approxMaxSearchSize))}
 }
 
-func (sc *ScannedBitsetStorage) Test(queryInfoId uint32) bool {
+func (sc *ExploredBitsetStorage) Test(queryInfoId uint32) bool {
 	return sc.scanned.Test(uint(queryInfoId))
 }
 
-func (sc *ScannedBitsetStorage) Set(queryInfoId uint32) {
+func (sc *ExploredBitsetStorage) Set(queryInfoId uint32) {
 	sc.scanned.Set(uint(queryInfoId))
 }
 
-func (sc *ScannedBitsetStorage) Clear(maxEdgesInCell uint32) {
+func (sc *ExploredBitsetStorage) Clear(maxEdgesInCell uint32) {
 	sc.scanned.ClearAll()
 }
 
-type ScannedSettorage struct {
+type ExploredSettorage struct {
 	scanned hashset.Uint32Set
 }
 
-func NewScannedSettorage(approxMaxSearchSize uint32) *ScannedSettorage {
-	return &ScannedSettorage{hashset.NewUint32WithSize(int(approxMaxSearchSize))}
+func NewExploredSettorage(approxMaxSearchSize uint32) *ExploredSettorage {
+	return &ExploredSettorage{hashset.NewUint32WithSize(int(approxMaxSearchSize))}
 }
 
-func (sc *ScannedSettorage) Test(queryInfoId uint32) bool {
+func (sc *ExploredSettorage) Test(queryInfoId uint32) bool {
 	return sc.scanned.Contains(queryInfoId)
 }
 
-func (sc *ScannedSettorage) Set(queryInfoId uint32) {
+func (sc *ExploredSettorage) Set(queryInfoId uint32) {
 	sc.scanned.Add(queryInfoId)
 }
 
-func (sc *ScannedSettorage) Clear(maxEdgesInCell uint32) {
+func (sc *ExploredSettorage) Clear(maxEdgesInCell uint32) {
 	sc.scanned.Range(func(value uint32) bool {
 		sc.scanned.Remove(value)
 		return true

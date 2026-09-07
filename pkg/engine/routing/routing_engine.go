@@ -156,13 +156,13 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 
 	crp.bidirSearchPool = sync.Pool{
 		New: func() any {
-			return newCRPBidirectionalSearchAlloc[W](crp)
+			return newCRPQueryTurnCostAlloc[W](crp)
 		},
 	}
 
 	crp.altBidirSearchPool = sync.Pool{
 		New: func() any {
-			return newCRPALTBidirectionalSearchAlloc[W](crp)
+			return newCRPALTQueryTurnCostAlloc[W](crp)
 		},
 	}
 
@@ -196,7 +196,7 @@ func (crp *CRPRoutingEngine[W]) Close() {
 // GetWeight. get weight of outEdge/inEdge
 func (crp *CRPRoutingEngine[W]) getWeight(eId da.Index, outEdge bool) W {
 	if !outEdge {
-		eId = crp.graph.GetExitIdOfInEdge(eId)
+		eId = crp.graph.GetOutIdOfInEdge(eId)
 	}
 	return crp.metrics.GetWeight(eId)
 }
@@ -207,7 +207,7 @@ func (crp *CRPRoutingEngine[W]) GetWeightSeconds(eId da.Index, outEdge bool) flo
 
 func (crp *CRPRoutingEngine[W]) getWeightFromLength(eId da.Index, outEdge bool, eLength uint32) W {
 	if !outEdge {
-		eId = crp.graph.GetExitIdOfInEdge(eId)
+		eId = crp.graph.GetOutIdOfInEdge(eId)
 	}
 	return crp.metrics.GetWeightFromLength(eId, eLength)
 }
@@ -221,7 +221,7 @@ func (crp *CRPRoutingEngine[W]) GetWeightFromLength(eId da.Index, outEdge bool, 
 
 func (crp *CRPRoutingEngine[W]) getSegmentLength(eId da.Index, outEdge bool) uint32 {
 	if !outEdge {
-		eId = crp.graph.GetExitIdOfInEdge(eId)
+		eId = crp.graph.GetOutIdOfInEdge(eId)
 	}
 	return crp.metrics.GetSegmentLength(eId)
 }
@@ -237,7 +237,7 @@ func (crp *CRPRoutingEngine[W]) GetSegmentSpeed(eId da.Index, outEdge bool) floa
 		return crp.metrics.GetCostFunction().SpeedToMetersPerSecond(crp.metrics.GetSegmentSpeed(eId))
 	}
 
-	eExitId := crp.graph.GetExitIdOfInEdge(eId)
+	eExitId := crp.graph.GetOutIdOfInEdge(eId)
 	return crp.metrics.GetCostFunction().SpeedToMetersPerSecond(crp.metrics.GetSegmentSpeed(eExitId))
 }
 
@@ -265,7 +265,7 @@ func (crp *CRPRoutingEngine[W]) GetCoordsFromPool() *da.Coordinates {
 }
 
 func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool) {
-	crpQuery := NewCRPALTBidirectionalSearch(crp, 1.0)
+	crpQuery := NewCRPALTQueryTurnCost(crp, 1.0)
 	if reroute {
 		crpQuery.SetReroute()
 	}

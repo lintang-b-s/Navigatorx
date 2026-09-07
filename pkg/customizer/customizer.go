@@ -361,7 +361,7 @@ func (c *Customizer[W]) makeTurnTable(
 			absRelativeBearing := math.Abs(relativeBearing)
 			turnAngleDeg := util.RadiansToDegree(absRelativeBearing)
 
-			fromOutEdgeId := c.graph.GetExitIdOfInEdge(fromInEdgeId)
+			fromOutEdgeId := c.graph.GetOutIdOfInEdge(fromInEdgeId)
 			l := c.preprocessingTimeFunction.DistanceToMeters(c.preprocessingTimeFunction.GetSegmentLength(fromOutEdgeId))
 			lPrime := c.preprocessingTimeFunction.DistanceToMeters(c.preprocessingTimeFunction.GetSegmentLength(eIdTo))
 			turningSpeed := pkg.CalcTurningSpeed(l, lPrime, minResolution, turnAngleDeg)
@@ -480,6 +480,9 @@ func (cc cellCustomizationRes[W]) getIndex() int {
 	return cc.index
 }
 
+// penjelasan fase kustomisasi (dengan turn cost) dari Customizable Route Planning ada di section 3.5:  https://drive.google.com/file/d/1Ek7xLIsl5Kv-CSR6RdlRNYuA5iFIJaDl/view
+// pdf password: <my-github-username>-<my-birth-year>-<my gdrive email without @gmail.com>
+
 /*
 // buildLowestLevel. build clique of each cell in the lowest level (level 1)
 1.  query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
@@ -520,9 +523,9 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 
 			*/
 			for i := range entries {
-				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
+				startOverlayVertexId := c.overlayGraph.GetInId(cell, i)
 				overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
-				start := overlayVertex.GetOriginalVertex()
+				start := overlayVertex.GetOrigVId()
 				maxSearchSize := c.graph.GetMaxEdgesInCell()
 
 				pq := c.lowestHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey, W])
@@ -540,7 +543,7 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 					overlayTravelTime[q] = util.Infinity[W]()
 				}
 				forwardCellOffset := c.graph.GetInEdgeCellOffset(start)
-				startInEdgeOffset := overlayVertex.GetOriginalEdge() - forwardCellOffset
+				startInEdgeOffset := overlayVertex.GetCutEdge() - forwardCellOffset
 
 				travelTime[startInEdgeOffset] = 0
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
@@ -602,7 +605,7 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
+					exitOverlayVId := c.overlayGraph.GetOutId(cell, j)
 					ok := util.Lt(overlayTravelTime[exitOverlayVId], util.Infinity[W]())
 
 					if !ok {
@@ -720,7 +723,7 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 				for v := 0; v < c.overlayGraph.NumberOfOverlayVertices(); v++ {
 					travelTime[v] = util.Infinity[W]()
 				}
-				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
+				startOverlayVertexId := c.overlayGraph.GetInId(cell, i)
 
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 				sVertexInfo := da.NewVertexInfo(W(0), noPar)
@@ -753,7 +756,7 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 							neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
 							neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)
 							// cut edge (exitOverlayVertex, neighborOverlayVertex)
-							cutOutEdgeId := exitOverlayVertex.GetOriginalEdge()
+							cutOutEdgeId := exitOverlayVertex.GetCutEdge()
 
 							if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
 								boundaryArcWeight := costFunction.GetWeight(cutOutEdgeId)
@@ -781,7 +784,7 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
+					exitOverlayVId := c.overlayGraph.GetOutId(cell, j)
 
 					ok := util.Lt(travelTime[exitOverlayVId], util.Infinity[W]())
 					if !ok {

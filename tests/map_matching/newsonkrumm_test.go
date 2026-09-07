@@ -319,7 +319,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	}
 
 	computeRoute := func(q nkQuery) []da.Index {
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 		as := g.GetDummyOutEdgeId(q.s)
 		at := g.GetDummyInEdgeId(q.t)
 		sVertex := g.GetVertex(q.s)

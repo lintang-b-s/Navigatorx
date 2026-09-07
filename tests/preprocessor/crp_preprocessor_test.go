@@ -557,7 +557,7 @@ func TestPreprocessorSimple(t *testing.T) {
 				}
 
 				// cek id original vId dari v in range [0,n)
-				vId := v.GetOriginalVertex()
+				vId := v.GetOrigVId()
 				if vId >= da.Index(n) {
 					t.Errorf("expected vertex id < n, got: %d", vId)
 				}
@@ -663,9 +663,9 @@ func TestPreprocessorSimple(t *testing.T) {
 
 					expectedEntries := tc.entryVertices[l-1][cellIdInLevelL]
 					for i := da.Index(0); i < da.Index(cell.GetNumEntryPoints()); i++ {
-						entryOvId := og.GetEntryId(cell, i)
+						entryOvId := og.GetInId(cell, i)
 						overlayVertex := og.GetVertex(entryOvId)
-						oriVId := newToOldVidMap[overlayVertex.GetOriginalVertex()]
+						oriVId := newToOldVidMap[overlayVertex.GetOrigVId()]
 
 						isCorrectEntry := false
 						for _, entVId := range expectedEntries {
@@ -681,9 +681,9 @@ func TestPreprocessorSimple(t *testing.T) {
 
 					expectedExit := tc.exitVertices[l-1][cellIdInLevelL]
 					for i := da.Index(0); i < da.Index(cell.GetNumExitPoints()); i++ {
-						entryOvId := og.GetExitId(cell, i)
+						entryOvId := og.GetOutId(cell, i)
 						overlayVertex := og.GetVertex(entryOvId)
-						oriVId := newToOldVidMap[overlayVertex.GetOriginalVertex()]
+						oriVId := newToOldVidMap[overlayVertex.GetOrigVId()]
 
 						isCorrectExit := false
 						for _, entVId := range expectedExit {

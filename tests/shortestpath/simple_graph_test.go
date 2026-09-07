@@ -78,7 +78,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 
 	re, g, oldToNewVIdMap, _ := buildCRP(t, nodeCoords, adjList, n, []int{1, 2}, true)
 
-	crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+	crpQuery := routing.NewCRPQueryTurnCost(re.GetRoutingEngine(), 1.0)
 
 	sid := oldToNewVIdMap[da.Index(0)]
 	tid := oldToNewVIdMap[da.Index(n-1)]
@@ -144,7 +144,7 @@ func TestCRPQuerySimpleGraph(t *testing.T) {
 		testPath := filepath.Join(dirPath, baseName)
 
 		t.Logf("solving test case: %v", baseName)
-		t.Run("Multilevel-Dijkstra with turn costs equal to 0"+dirPath+"/"+baseName, func(t *testing.T) {
+		t.Run("Multilevel-Dijkstra with turn costs equal to 0/"+dirPath+"/"+baseName, func(t *testing.T) {
 			solveSimpleGraph(t, testPath)
 
 			runtime.GC()

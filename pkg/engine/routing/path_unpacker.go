@@ -76,8 +76,8 @@ func (pu *PathUnpacker[W]) unpackPath(packedPath []da.VertexEdgePair, sCellNumbe
 			exitOverlayId := offBit(packedPath[i+1].GetEdge(), UNPACK_OVERLAY_OFFSET)
 			exitVertex := pu.eng.overlayGraph.GetVertex(exitOverlayId)
 
-			enOriVId := entryVertex.GetOriginalVertex()
-			exOriVId := exitVertex.GetOriginalVertex()
+			enOriVId := entryVertex.GetOrigVId()
+			exOriVId := exitVertex.GetOrigVId()
 			shortcutPathSet[util.Bitpack(uint32(enOriVId), uint32(exOriVId))] = queryLevel
 
 			unpackedEdgePath = pu.unpackInLevelCell(entryOverlayId, exitOverlayId, queryLevel, unpackedEdgePath)
@@ -100,11 +100,11 @@ func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
 
 	if level == 1 {
 		sourceOverlayVertex := pu.eng.overlayGraph.GetVertex(sourceOverlayId)
-		sourceEntryId := sourceOverlayVertex.GetOriginalEdge()
+		sourceEntryId := sourceOverlayVertex.GetCutEdge()
 		targetOverlayVertex := pu.eng.overlayGraph.GetVertex(targetOverlayId)
 		neighborOfTarget := targetOverlayVertex.GetNeighborOverlayVertex()
 		neighborOverlayVertex := pu.eng.overlayGraph.GetVertex(neighborOfTarget)
-		targetEntryId := neighborOverlayVertex.GetOriginalEdge()
+		targetEntryId := neighborOverlayVertex.GetCutEdge()
 
 		edgePath = pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId,
 			sourceOverlayId, targetOverlayId, edgePath)
@@ -141,7 +141,7 @@ func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
 		u := pq.ExtractMin()
 
 		uOverlayId := u.GetItem()
-		pq.Scan(uOverlayId)
+		pq.Explore(uOverlayId)
 
 		if uOverlayId == targetOverlayId {
 			break
@@ -163,9 +163,9 @@ func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
 			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(vOverlayId))) {
 				// relax shortcut edge
 
-				pq.Scan(vOverlayId) // langsung scan exit overlay vertex v
+				pq.Explore(vOverlayId) // langsung scan exit overlay vertex v
 				uOverlayVertex := pu.eng.overlayGraph.GetVertex(uOverlayId)
-				originalUId := uOverlayVertex.GetOriginalVertex()
+				originalUId := uOverlayVertex.GetOrigVId()
 
 				if vOverlayId == targetOverlayId {
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
@@ -198,16 +198,16 @@ func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
 				}
 
 				// get out edge that point to wEntryVertex from vOverlayId
-				newTravelTime += pu.eng.getWeight(vOverlayVertex.GetOriginalEdge(), true)
+				newTravelTime += pu.eng.getWeight(vOverlayVertex.GetCutEdge(), true)
 				// relax edge
 				wAlreadyLabelled := labelled(pq, wNeighborId)
 				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(wNeighborId))) {
 					if !wAlreadyLabelled {
-						wVertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						wVertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
 							vOverlayId, true))
 						pq.Insert(wNeighborId, newTravelTime, wVertexInfo, wNeighborId)
 					} else {
-						wNewPar := da.NewVertexEdgePair(vOverlayVertex.GetOriginalVertex(),
+						wNewPar := da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
 							vOverlayId, true)
 						pq.DecreaseKey(wNeighborId, newTravelTime, newTravelTime, wNewPar)
 					}
@@ -290,7 +290,7 @@ func (pu *PathUnpacker[W]) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 		uEntryId := uItem.GetEntryExitPoint()
 		uOutEdgeId := uItem.GetOutInEdgeId()
 
-		pq.Scan(uEntryId)
+		pq.Explore(uEntryId)
 
 		adjuEntryId := pu.eng.adjustForward(uId, uEntryId)
 

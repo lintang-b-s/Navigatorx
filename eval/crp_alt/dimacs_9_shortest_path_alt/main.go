@@ -308,7 +308,7 @@ func main() {
 		s := oldToNewVIdMap[query.GetSource()]
 		t := oldToNewVIdMap[query.GetTarget()]
 
-		crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 		sp, _, _ := crpQuery.ShortestPathSearch(s, t)
 		if (id+1)%progress == 0 {
 			logger.Sugar().Infof("done query id: %v/%v", id+1, q*n)

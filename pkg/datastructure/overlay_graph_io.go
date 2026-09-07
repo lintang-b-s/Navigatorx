@@ -24,7 +24,7 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 			if err := w.Uint64(uint64(vertex.cellNumber)); err != nil {
 				return err
 			}
-			for _, value := range []Index{vertex.neighborOverlayVertex, vertex.originalVertex, vertex.originalEdge} {
+			for _, value := range []Index{vertex.neighborOverlayVertex, vertex.vId, vertex.cutEdge} {
 				if err := w.Uint32(uint32(value)); err != nil {
 					return err
 				}
@@ -105,7 +105,7 @@ func ReadOverlayGraph(filename string, _ *bufio.Reader) (*OverlayGraph, error) {
 			return nil, err
 		}
 		vertices[i].cellNumber = Pv(cellNumber)
-		fields := []*Index{&vertices[i].neighborOverlayVertex, &vertices[i].originalVertex, &vertices[i].originalEdge}
+		fields := []*Index{&vertices[i].neighborOverlayVertex, &vertices[i].vId, &vertices[i].cutEdge}
 		for _, field := range fields {
 			value, err := r.Uint32()
 			if err != nil {

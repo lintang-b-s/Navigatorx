@@ -237,7 +237,7 @@ func solve(t *testing.T, filepath string) {
 
 	re, g, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{7, 11, 14}, true)
 
-	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+	crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 
 	sid := oldToNewVIdMap[da.Index(source)]
 	tid := oldToNewVIdMap[da.Index(target)]
@@ -311,7 +311,7 @@ func TestCRPQueryDelftDistanceMALT(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-ALT with turn costs equal to 0"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT with turn costs equal to 0/"+dir+"/"+baseName, func(t *testing.T) {
 				solve(t, testPath)
 
 			})

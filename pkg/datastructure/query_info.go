@@ -55,15 +55,6 @@ func (ve VertexEdgePair) GetQueryLevel() uint8 {
 	return ve.queryLevel
 }
 
-func (ve VertexEdgePair) GetFirstOverlayEntryExitId() Index {
-	firstEntryExitId := ve.outInEdgeId
-	return firstEntryExitId
-}
-
-func (ve *VertexEdgePair) SetFirstOverlayEntryExitId(vEntryExitId Index) {
-	ve.outInEdgeId = vEntryExitId
-}
-
 func (ve VertexEdgePair) IsFirstOverlayVertex() bool {
 	return ve.outInEdgeId != INVALID_EDGE_ID
 }
@@ -120,10 +111,6 @@ func (vi *VertexInfo[W]) SetHeapNodeId(id uint32) {
 
 func (vi *VertexInfo[W]) GetHeapNodeId() uint32 {
 	return vi.heapNodeId
-}
-
-func (vi *VertexInfo[W]) SetFirstOverlayEntryExitId(id Index) {
-	vi.parent.SetFirstOverlayEntryExitId(id)
 }
 
 func (vi VertexInfo[W]) GetParent() VertexEdgePair {

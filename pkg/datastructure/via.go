@@ -3,14 +3,14 @@ package datastructure
 type ViaVertex struct {
 	v                         Index
 	originalVId               Index
-	entryId                   Index
-	exitId                    Index
+	inId                      Index
+	outId                     Index
 	overlay                   bool
 	plv, lv, approxSharedDist float64
 }
 
-func NewViaVertex(v, entryId, exitId, originalVId Index, overlay bool) ViaVertex {
-	return ViaVertex{v: v, entryId: entryId, exitId: exitId, originalVId: originalVId, overlay: overlay}
+func NewViaVertex(v, inId, outId, originalVId Index, overlay bool) ViaVertex {
+	return ViaVertex{v: v, inId: inId, outId: outId, originalVId: originalVId, overlay: overlay}
 }
 
 func NewEmptyViaVertex() ViaVertex {
@@ -21,12 +21,12 @@ func IsEmptyViaVertex(v ViaVertex) bool {
 	return v.v == INVALID_VERTEX_ID
 }
 
-func (v *ViaVertex) GetEntryId() Index {
-	return v.entryId
+func (v *ViaVertex) GetInId() Index {
+	return v.inId
 }
 
-func (v *ViaVertex) GetExitId() Index {
-	return v.exitId
+func (v *ViaVertex) GetOutId() Index {
+	return v.outId
 }
 
 func (v *ViaVertex) GetVId() Index {

@@ -345,7 +345,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 	atTransit := g.GetEntryOffset(tidTransit) + g.GetInDegree(tidTransit) - 1
 
-	crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+	crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 
 	sVertex := g.GetVertex(sid)
 	tVertex := g.GetVertex(tid)
@@ -355,7 +355,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 	spLength, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
-	crpQuery2 := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+	crpQuery2 := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 
 	tTransitPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), atTransit, 0, 0, emptyCoords, emptyCoords)
 
@@ -425,7 +425,7 @@ func TestOSN2024KRLMALT(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-ALT with turn costs equal to 0"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT with turn costs equal to 0/"+dir+"/"+baseName, func(t *testing.T) {
 				SolveOSN2024KRL(t, testPath)
 
 			})

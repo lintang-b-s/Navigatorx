@@ -494,7 +494,7 @@ func buildCRPGraph() (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseM
 
 	computeRoute := func(q query) []da.Index {
 		s, t := q.s, q.t
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 		as := graph.GetDummyOutEdgeId(s)
 		at := graph.GetDummyInEdgeId(t)
 

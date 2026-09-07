@@ -186,7 +186,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		snId := cellToNId(p.first, p.second)
 		sid := oldToNewVIdMap[da.Index(snId)]
 
-		crpQuery := routing.NewCRPBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+		crpQuery := routing.NewCRPQuery(re.GetRoutingEngine())
 
 		spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
 

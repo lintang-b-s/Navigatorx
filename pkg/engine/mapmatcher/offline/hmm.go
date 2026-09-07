@@ -463,7 +463,7 @@ type transitionRoute struct {
 
 func (h *HMM) newPhantomNodeFromCandidate(cand *ma.Candidate) da.PhantomNode {
 	edgeId := cand.EdgeId()
-	inEdgeId := h.graph.GetEntryIdOfOutEdge(edgeId)
+	inEdgeId := h.graph.GetInIdOfOutEdge(edgeId)
 
 	forwardDistance := cand.GetDistanceFromHead()
 	reverseDistance := cand.GetDistanceFromTail()
@@ -646,7 +646,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 
 	longerDur := longerDist / MaxSpeedMS
 
-	crpQuery := routing.NewCRPBidirectionalSearch(h.re, 1.0)
+	crpQuery := routing.NewCRPQueryTurnCost(h.re, 1.0)
 	defer crpQuery.Done()
 	crpQuery.SetMaxSearchRadiusSecs(longerDur)
 	weight, edgePath, found := crpQuery.ShortestPathSearch(sp, tp)

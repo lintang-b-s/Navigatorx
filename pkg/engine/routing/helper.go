@@ -37,27 +37,27 @@ func removeConsecutiveDuplicates(arr []da.Index) []da.Index {
 	return slices.Compact(arr)
 }
 
-func (bs *CRPBidirectionalSearch[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
+func (bs *CRPQueryTurnCost[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	return bs.forwardPq
 }
 
-func (bs *CRPBidirectionalSearch[W]) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
+func (bs *CRPQueryTurnCost[W]) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	return bs.backwardPq
 }
 
-func (bs *CRPBidirectionalSearch[W]) GetSCellNumber() da.Pv {
+func (bs *CRPQueryTurnCost[W]) GetSCellNumber() da.Pv {
 	return bs.sCellNumber
 }
 
-func (bs *CRPBidirectionalSearch[W]) GetTCellNumber() da.Pv {
+func (bs *CRPQueryTurnCost[W]) GetTCellNumber() da.Pv {
 	return bs.tCellNumber
 }
 
-func (bs *CRPBidirectionalSearch[W]) GetNumScannedNodes() int {
+func (bs *CRPQueryTurnCost[W]) GetNumScannedNodes() int {
 	return bs.numScannedVertices
 }
 
-func (bs *CRPALTBidirectionalSearch[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
+func (bs *CRPALTQueryTurnCost[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	// karena queryHeap diambil dari sync.Pool & a pointer,
 	// bisa ada dipakai query lain buat write ke map & sekaligus dipakai alternative routes finder buat read map nya
 	// udah coba load test endpoint alternative routes, dapet error concurrent map read & write
@@ -66,32 +66,20 @@ func (bs *CRPALTBidirectionalSearch[W]) GetForwardPQ() *da.QueryHeap[da.CRPQuery
 	return bs.forwardPq
 }
 
-func (bs *CRPALTBidirectionalSearch[W]) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
+func (bs *CRPALTQueryTurnCost[W]) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
 	return bs.backwardPq
 }
 
-func (bs *CRPALTBidirectionalSearch[W]) GetSCellNumber() da.Pv {
+func (bs *CRPALTQueryTurnCost[W]) GetSCellNumber() da.Pv {
 	return bs.sCellNumber
 }
 
-func (bs *CRPALTBidirectionalSearch[W]) GetNumScannedVertices() int {
+func (bs *CRPALTQueryTurnCost[W]) GetNumScannedVertices() int {
 	return bs.numScannedVertices
 }
 
-func (bs *CRPALTBidirectionalSearch[W]) GetNumScannedOverlayVertices() int {
+func (bs *CRPALTQueryTurnCost[W]) GetNumScannedOverlayVertices() int {
 	return bs.numScannedOverlayVertices
-}
-
-func (bs *BidirectionalDijkstra[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
-	return bs.forwardPq
-}
-
-func (bs *BidirectionalDijkstra[W]) GetBackwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
-	return bs.backwardPq
-}
-
-func (bs *BidirectionalDijkstra[W]) GetSCellNumber() da.Pv {
-	return 0
 }
 
 func initInfWeight[W util.RoutingNumber](dist []W) {

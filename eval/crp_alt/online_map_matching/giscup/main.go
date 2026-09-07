@@ -520,7 +520,7 @@ func buildOrReadTransitionMatrix(re *engine.Engine[int32], graph *da.Graph, logg
 	}
 
 	computeRoute := func(q query) []da.Index {
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 		as := graph.GetDummyOutEdgeId(q.s)
 		at := graph.GetDummyInEdgeId(q.t)
 		sVertex := graph.GetVertex(q.s)

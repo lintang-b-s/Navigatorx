@@ -341,11 +341,11 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	tid := oldToNewVIdMap[da.Index(Q)]
 	tidTransit := oldToNewVIdMap[da.Index(Q+N)]
 
-	crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+	crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 
 	spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
 
-	crpQuery2 := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+	crpQuery2 := routing.NewCRPALTQuery(re.GetRoutingEngine())
 
 	spLengthTransit, _, _ := crpQuery2.ShortestPathSearch(sid, tidTransit)
 

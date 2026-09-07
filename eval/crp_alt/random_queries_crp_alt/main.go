@@ -127,7 +127,7 @@ func main() {
 		var spcost int32
 		if alt {
 
-			crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+			crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 			spcost, _, _, spEdges, _ = crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 			dur := time.Since(now).Milliseconds()
 			durations += float64(dur)
@@ -140,7 +140,7 @@ func main() {
 			travelTimes = append(travelTimes, spcost)
 		} else {
 
-			crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+			crpQuery := routing.NewCRPQueryTurnCost(re.GetRoutingEngine(), 1.0)
 			spcost, spEdges, _ = crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 			dur := time.Since(now).Milliseconds()
 			durations += float64(dur)
@@ -235,7 +235,7 @@ func main() {
 
 		now := time.Now()
 		if alt {
-			crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+			crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 			spcost, vertexPath, _ := crpQuery.ShortestPathSearch(s, t)
 			dur := time.Since(now).Milliseconds()
 			durations += float64(dur)
@@ -248,7 +248,7 @@ func main() {
 			travelTimes = append(travelTimes, spcost)
 		} else {
 
-			crpQuery := routing.NewCRPBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+			crpQuery := routing.NewCRPQuery(re.GetRoutingEngine())
 			spcost, vertexPath, _ := crpQuery.ShortestPathSearch(s, t)
 			dur := time.Since(now).Milliseconds()
 			durations += float64(dur)

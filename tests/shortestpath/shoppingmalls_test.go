@@ -195,7 +195,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 		at := g.GetEntryOffset(tid) + g.GetInDegree(tid) - 1
 
-		crpQuery := routing.NewCRPBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPQueryTurnCost(re.GetRoutingEngine(), 1.0)
 
 		sVertex := g.GetVertex(sid)
 		tVertex := g.GetVertex(tid)
@@ -270,7 +270,7 @@ func TestCRPQueryShoppingMalls(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-Dijkstra with turn costs equal to 0"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-Dijkstra with turn costs equal to 0/"+dir+"/"+baseName, func(t *testing.T) {
 				solveShoppingMalls(t, testPath)
 
 			})

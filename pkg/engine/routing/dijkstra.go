@@ -190,7 +190,7 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 				parent := curInfo.GetParent()
 				parentEdge := parent.GetEdge() // in inEdgeId
 
-				outEdgeId := us.engine.graph.GetExitIdOfInEdge(parentEdge)
+				outEdgeId := us.engine.graph.GetOutIdOfInEdge(parentEdge)
 
 				// jadiin outEdge semua
 				spPath[t] = append(spPath[t], outEdgeId)

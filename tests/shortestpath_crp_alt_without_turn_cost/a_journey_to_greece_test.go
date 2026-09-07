@@ -228,20 +228,20 @@ func solveGreece(t *testing.T, filepath string) {
 		place := placeStay[i]
 
 		vid := oldToNewVIdMap[da.Index(place.v)]
-		crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 		spLength, _, _ := crpQuery.ShortestPathSearch(sid, vid)
 		dist[0][i+1] = int64(spLength)
 
 		for j := 0; j < p; j++ {
 			wplace := placeStay[j]
-			crpQuery = routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+			crpQuery = routing.NewCRPALTQuery(re.GetRoutingEngine())
 			wid := oldToNewVIdMap[da.Index(wplace.v)]
 			spLength, _, _ = crpQuery.ShortestPathSearch(vid, wid)
 
 			dist[i+1][j+1] = int64(spLength)
 		}
 
-		crpQuery = routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+		crpQuery = routing.NewCRPALTQuery(re.GetRoutingEngine())
 		spLength, _, _ = crpQuery.ShortestPathSearch(vid, sid)
 		dist[i+1][0] = int64(spLength)
 

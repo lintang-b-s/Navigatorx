@@ -245,7 +245,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	}
 
 	for _, at := range atIds {
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 
 		sVertex := g.GetVertex(sid)
 		emptyCoords := make([]da.Coordinate, 0)
@@ -348,7 +348,7 @@ func TestCRPQueryGalaxyQuestMALT(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-ALT with turn costs equal to 0"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT with turn costs equal to 0/"+dir+"/"+baseName, func(t *testing.T) {
 				solveGalaxyQuest(t, testPath)
 
 			})

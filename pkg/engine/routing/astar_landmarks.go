@@ -7,6 +7,9 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// penjelasan algoritma ALT (A* Search, Landmarks, and Triangle Inequality) ada di section 3.4:  https://drive.google.com/file/d/1Ek7xLIsl5Kv-CSR6RdlRNYuA5iFIJaDl/view
+// pdf password: <my-github-username>-<my-birth-year>-<my gdrive email without @gmail.com>
+
 type ALTP2P[W util.RoutingNumber] struct {
 	engine *CRPRoutingEngine[W]
 
@@ -67,31 +70,31 @@ func (us *ALTP2P[W]) graphSearchUni(source, target da.Index) bool {
 	us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
 		head := us.engine.graph.GetHeadOfOutEdge(eId)
 		vId := head
-		edgeWeight := us.engine.getWeight(eId, true)
+		eWeight := us.engine.getWeight(eId, true)
 		// get cost to reach v through u
-		newTravelTime := us.pq.GetPriority(uId) + edgeWeight
+		newTT := us.pq.GetPriority(uId) + eWeight
 
-		if util.Ge(newTravelTime, util.Infinity[W]()) {
+		if util.Ge(newTT, util.Infinity[W]()) {
 			return
 		}
 
-		vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
-		if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
-			// newTravelTime is not better, do nothing
+		vLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
+		if vLabelled && util.Ge(newTT, us.pq.GetPriority(vId)) {
+			// newTT is not better, do nothing
 			return
 		}
 
 		pfv := us.engine.lm.FindTighestLowerBound(vId, target, us.activeLandmarks)
-		priority := newTravelTime + pfv
+		priority := newTT + pfv
 
-		// newTravelTime is better, update the forwardInfo
-		if vAlreadyLabelled {
+		// newTT is better, update the forwardInfo
+		if vLabelled {
 			newPar := da.NewVertexEdgePair(uId, eId, false)
 			// is key already in the priority queue, decrease its key
-			us.pq.DecreaseKey(vId, priority, newTravelTime, newPar)
-		} else if !vAlreadyLabelled {
+			us.pq.DecreaseKey(vId, priority, newTT, newPar)
+		} else if !vLabelled {
 			queryKey := da.NewDijkstraKey(vId, vId)
-			vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+			vertexInfo := da.NewVertexInfo(newTT, da.NewVertexEdgePair(uId, eId, false))
 			// is key not in the priority queue, insert it
 			us.pq.Insert(vId, priority, vertexInfo, queryKey)
 		}

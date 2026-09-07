@@ -305,7 +305,7 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 			us.pq.SetQueryLevel(vId, uint8(uQueryLevel))
 
 			// traverse edge to next cell
-			vOriEdgeId := vVertex.GetOriginalEdge()
+			vOriEdgeId := vVertex.GetCutEdge()
 
 			edgeWeight := us.engine.getWeight(vOriEdgeId, true)
 			// w is in the next cell from v cell
@@ -323,7 +323,7 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 				}
 			}
 
-			originalW := wVertex.GetOriginalVertex()
+			originalW := wVertex.GetOrigVId()
 
 			newTravelTime = us.pq.GetPriority(vId) + edgeWeight
 
@@ -345,12 +345,12 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 				}
 
 				if wAlreadyLabelled {
-					newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
+					newPar := da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false)
 					us.pq.DecreaseKey(wEntryId, newTravelTime, newTravelTime, newPar)
 				} else {
 					queryKey := da.NewCRPQueryKey(originalW, wEntryId, false)
 					vertexInfo := da.NewVertexInfo(newTravelTime,
-						da.NewVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
+						da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false))
 
 					us.pq.Insert(wEntryId, newTravelTime, vertexInfo, queryKey)
 				}
@@ -366,11 +366,11 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 					if !wAlreadyLabelled {
 						queryKey := da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel), true)
 						vertexInfo := da.NewVertexInfo(newTravelTime,
-							da.NewVertexEdgePair(vVertex.GetOriginalVertex(), vId, false))
+							da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false))
 
 						us.pq.Insert(wId, newTravelTime, vertexInfo, queryKey)
 					} else {
-						newPar := da.NewVertexEdgePair(vVertex.GetOriginalVertex(), vId, false)
+						newPar := da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false)
 
 						us.pq.DecreaseKey(wId, newTravelTime, newTravelTime, newPar)
 					}

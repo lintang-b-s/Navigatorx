@@ -191,7 +191,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		sid := oldToNewVIdMap[da.Index(a)]
 		tid := oldToNewVIdMap[da.Index(b)]
 
-		crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 
 		_, spPath, _ := crpQuery.ShortestPathSearch(sid, tid)
 		path := make([]int, 0)

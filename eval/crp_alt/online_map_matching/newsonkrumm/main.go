@@ -468,7 +468,7 @@ func buildRoadNetworkCRPGraph(filepath string) (*engine.Engine[int32], *da.Graph
 
 	computeRoute := func(q query) []da.Index {
 		s, t := q.s, q.t
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 		as := g.GetDummyOutEdgeId(s)
 		at := g.GetDummyInEdgeId(t)
 

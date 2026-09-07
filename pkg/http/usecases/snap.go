@@ -179,7 +179,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	tEdgeLength := rs.engine.GetSegmentLength(bestPair.destEdgeId, false)
 	tReverseTravelTime := rs.engine.GetWeightFromLength(bestPair.destEdgeId, false, tEdgeLength)
 
-	destExitId := rs.graph.GetExitIdOfInEdge(bestPair.destEdgeId) // outEdgeId of destination road segment
+	destExitId := rs.graph.GetOutIdOfInEdge(bestPair.destEdgeId) // outEdgeId of destination road segment
 
 	tp := da.NewPhantomNode(bestPair.destCoord, 0.0, tReverseTravelTime, destExitId, bestPair.destEdgeId, 0, tEdgeLength, make([]da.Coordinate, 0),
 		bestDestBefCoords)

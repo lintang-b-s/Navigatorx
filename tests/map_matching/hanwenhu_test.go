@@ -191,7 +191,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	}
 
 	computeRoute := func(q hhQuery) []da.Index {
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 		as := graph.GetDummyOutEdgeId(q.s)
 		at := graph.GetDummyInEdgeId(q.t)
 		sVertex := graph.GetVertex(q.s)

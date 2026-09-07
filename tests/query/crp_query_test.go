@@ -302,7 +302,7 @@ func TestCRPQuerySimple(t *testing.T) {
 				for target := da.Index(0); target < da.Index(n); target++ {
 					as := graph.GetDummyOutEdgeId(source)
 					at := graph.GetDummyInEdgeId(target)
-					crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
+					crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0)
 					oldS := newToOldVidMap[source]
 					oldT := newToOldVidMap[target]
 
@@ -532,8 +532,8 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
 		outEdgeFromTarget := g.GetExitOffset(target) + g.GetOutDegree(target) - 1
 		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
-		// crpQuery := routing.NewCRPBidirectionalSearch(re, 1.0)
+		crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0)
+		// crpQuery := routing.NewCRPQueryTurnCost(re, 1.0)
 
 		sVertex := g.GetVertex(s)
 		tVertex := g.GetVertex(target)
@@ -727,7 +727,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
 		outEdgeFromTarget := g.GetDummyOutEdgeId(target)
 		tail, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0) // salah kalau u-turn cost > 0
+		crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0) // salah kalau u-turn cost > 0
 
 		util.AssertPanic(tail == target, "dummy target edge is invalid")
 		sVertex := g.GetVertex(s)
@@ -943,7 +943,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 			qOrigin := tc.queryOrigin
 			qDestination := tc.queryDestination
 			sp, tp := routingService.Snap(context.Background(), qOrigin.GetLat(), qOrigin.GetLon(), qDestination.GetLat(), qDestination.GetLon())
-			crpQuery := routing.NewCRPALTBidirectionalSearch(re, 1.0)
+			crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0)
 
 			_, _, _, path, _ := crpQuery.ShortestPathSearch(sp, tp)
 			if subPath, correct := isCorrect(path, tc.turnRestriction); !correct {

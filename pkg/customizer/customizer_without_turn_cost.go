@@ -10,6 +10,9 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// penjelasan fase kustomisasi (tanpa turn cost) dari Customizable Route Planning ada di section 3.5:  https://drive.google.com/file/d/1Ek7xLIsl5Kv-CSR6RdlRNYuA5iFIJaDl/view
+// pdf password: <my-github-username>-<my-birth-year>-<my gdrive email without @gmail.com>
+
 /*
 // buildLowestLevelWithoutTurnCost. build clique of each cell in the lowest level (level 1)
 // using Dijkstra algorithm (restricted to cell C) from each entry point of the cell to all exit points of the cell
@@ -47,9 +50,9 @@ func (c *Customizer[W]) buildLowestLevelWithoutTurnCost(costFunction *costfuncti
 
 			*/
 			for i := range entries {
-				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
+				startOverlayVertexId := c.overlayGraph.GetInId(cell, i)
 				overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
-				start := overlayVertex.GetOriginalVertex()
+				start := overlayVertex.GetOrigVId()
 				maxSearchSize := c.graph.GetMaxEdgesInCell()
 
 				pq := c.lowestHeapNoTurnCostPool.Get().(*da.QueryHeap[da.CRPQueryKey, W])
@@ -117,7 +120,7 @@ func (c *Customizer[W]) buildLowestLevelWithoutTurnCost(costFunction *costfuncti
 
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
+					exitOverlayVId := c.overlayGraph.GetOutId(cell, j)
 					_, ok := overlayTravelTime[exitOverlayVId]
 					if !ok {
 						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
@@ -229,7 +232,7 @@ func (c *Customizer[W]) buildLevelWithoutTurnCost(costFunction *costfunction.Tim
 
 				travelTime := make(map[da.Index]W, da.OVERLAY_CELL_INFO_SIZE)
 
-				startOverlayVertexId := c.overlayGraph.GetEntryId(cell, i)
+				startOverlayVertexId := c.overlayGraph.GetInId(cell, i)
 
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 				sVertexInfo := da.NewVertexInfo(W(0), noPar)
@@ -262,7 +265,7 @@ func (c *Customizer[W]) buildLevelWithoutTurnCost(costFunction *costfunction.Tim
 							neighborVertex := exitOverlayVertex.GetNeighborOverlayVertex()
 							neighborOverlayVertex := c.overlayGraph.GetVertex(neighborVertex)
 							// cut edge (exitOverlayVertex, neighborOverlayVertex)
-							cutOutEdgeId := exitOverlayVertex.GetOriginalEdge()
+							cutOutEdgeId := exitOverlayVertex.GetCutEdge()
 
 							if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
 								boundaryArcWeight := costFunction.GetWeight(cutOutEdgeId)
@@ -290,7 +293,7 @@ func (c *Customizer[W]) buildLevelWithoutTurnCost(costFunction *costfunction.Tim
 
 				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exitOverlayVId := c.overlayGraph.GetExitId(cell, j)
+					exitOverlayVId := c.overlayGraph.GetOutId(cell, j)
 
 					_, ok := travelTime[exitOverlayVId]
 					if !ok {

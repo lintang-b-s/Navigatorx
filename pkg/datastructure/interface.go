@@ -8,7 +8,7 @@ type QueryInfoStorage interface {
 	ForAllItems(handle func(offsetedVId Index, queryInfoId uint32))
 }
 
-type ScannedSetStorage interface {
+type ExploredSetStorage interface {
 	Test(queryInfoId uint32) bool
 	Set(queryInfoId uint32)
 	Clear(maxEdgesInCell uint32)

@@ -52,8 +52,6 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(forwardMid da.VertexEd
 	fMidEdge := forwardMid.GetEdge()
 	curInfo := fpq.Get(fMidEdge)
 
-	lastParVertex := forwardMid.GetVertex()
-
 	for curInfo.GetParent().GetEdge() != sForwardId {
 		parent := curInfo.GetParent()
 		parentEdge := parent.GetEdge()
@@ -61,67 +59,23 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(forwardMid da.VertexEd
 
 		if crp.isOverlay(parentCopy.GetEdge()) {
 
-			// shortcut
-			adjForwEdge := crp.adjustOverlay(parentCopy.GetEdge())
-			parentCopy.SetEdge(adjForwEdge)
+			// overlay vertex
+			ov := crp.adjustOverlay(parentCopy.GetEdge())
+			parentCopy.SetEdge(ov)
 		} else {
-
 			adjForwEdge := crp.adjustForward(parentCopy.GetVertex(), parentCopy.GetEdge())
 
 			// jadiin outEdge semua
 			inEdge := crp.graph.GetInEdge(adjForwEdge)
-			_, outEdgeId := crp.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-			parentCopy.SetEdge(outEdgeId)
+			_, outEId := crp.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
+			parentCopy.SetEdge(outEId)
 		}
 
 		svPackedPath = append(svPackedPath, parentCopy)
 		curInfo = fpq.Get(parentEdge)
-
-		if curInfo.GetParent().GetEdge() != sForwardId && curInfo.GetParent().IsFirstOverlayVertex() {
-			// first entry ke overlay graph
-			// lihat line 517 sampai akhir dari fungsi forwardGraphSearch,
-			// dari  uParent -uEntryEdge-> u -vEntryEdge-> vOverlay
-			// kita gak simpan parent dari vOverlay sebagai vEntryEdge tapi langsung uEntryEdge
-			// sedangkan fungsi calculatePlateau di admissible_paths_alternatives.go buat cari alternative routes pakai plateau method,
-			// kita butuh simpan parent dari vOverlay sebagai vEntryEdge, karena mungkin aja plateau (s-> .... -> u -> ..plateau... -> mid <- ...plateau... <- v <- .... <-  t) nya di di backward search
-			// fInfo[vOverlay].GetParent().edge == uEntryEdge
-
-			v := parentCopy.GetVertex()
-			vEntryId := curInfo.GetParent().GetFirstOverlayEntryExitId()
-			// jadiin outEdge semua
-			inEdge := crp.graph.GetInEdge(vEntryId)
-			_, outEdgeId := crp.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-
-			firstOvArc := da.NewVertexEdgePair(v, outEdgeId, true)
-			svPackedPath = append(svPackedPath, firstOvArc)
-
-		}
-	}
-
-	if curInfo.GetParent().IsFirstOverlayVertex() {
-		// first arc ke overlay graph
-		// lihat line 517 sampai akhir dari fungsi forwardGraphSearch,
-		// dari  uParent -uEntryEdge-> u -vEntryEdge-> vOverlay
-		// kita gak simpan parent dari vOverlay sebagai vEntryEdge tapi langsung uEntryEdge
-		// ini buat case:  anyVertex/dummyVertex-sForwardEdge-> s -vEntryId-> vOverlay
-
-		vEntryId := curInfo.GetParent().GetFirstOverlayEntryExitId()
-		inEdge := crp.graph.GetInEdge(vEntryId)
-		_, outEdgeId := crp.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-		v := lastParVertex
-
-		firstOvArc := da.NewVertexEdgePair(v, outEdgeId, true)
-		svPackedPath = append(svPackedPath, firstOvArc)
 	}
 
 	util.ReverseG[da.VertexEdgePair](svPackedPath)
-
-	if len(svPackedPath) == 1 {
-		tail := crp.graph.GetTailFromOutEdge(svPackedPath[0].GetEdge())
-		if tail != s {
-			return svPackedPath[:0]
-		}
-	}
 
 	return svPackedPath
 }
@@ -156,59 +110,25 @@ func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(backwardMid da.Vertex
 	bMidEdge := backwardMid.GetEdge()
 	curInfo := bpq.Get(bMidEdge)
 
-	lastParVertex := backwardMid.GetVertex()
-
 	for curInfo.GetParent().GetEdge() != tBackwardId {
 		parent := curInfo.GetParent()
 		parentEdge := parent.GetEdge()
 		parentCopy := parent
-		lastParVertex = parentCopy.GetVertex()
 
 		if crp.isOverlay(parentCopy.GetEdge()) {
 
 			// overlay vertex
-			adjBackEdge := crp.adjustOverlay(parentCopy.GetEdge())
-			parentCopy.SetEdge(adjBackEdge)
+			ov := crp.adjustOverlay(parentCopy.GetEdge())
+			parentCopy.SetEdge(ov)
 		} else {
 
-			adjBackEdge := crp.adjustBackward(parentCopy.GetVertex(), parentCopy.GetEdge())
-			parentCopy.SetEdge(adjBackEdge)
+			adjEdge := crp.adjustBackward(parentCopy.GetVertex(), parentCopy.GetEdge())
+			parentCopy.SetEdge(adjEdge)
 		}
 
 		vtPackedPath = append(vtPackedPath, parentCopy)
 		curInfo = bpq.Get(parentEdge)
 
-		if curInfo.GetParent().GetEdge() != tBackwardId && curInfo.GetParent().IsFirstOverlayVertex() {
-			v := parentCopy.GetVertex()
-			vExitId := curInfo.GetParent().GetFirstOverlayEntryExitId()
-
-			// first arc ke overlay graph
-			firstOvArc := da.NewVertexEdgePair(v, vExitId, true)
-			vtPackedPath = append(vtPackedPath, firstOvArc)
-
-		}
-	}
-
-	if curInfo.GetParent().IsFirstOverlayVertex() {
-		// first arc ke overlay graph (dari backward search)
-		// lihat line 677 sampai akhir dari fungsi backwardGraphSearch,
-		// dari  uParent  vOverlay <-vExitId- u <-uExitId-
-		// kita gak simpan parent dari vOverlay sebagai vExitId tapi langsung uExitId
-		// ini buat case:  vOverlay <-vExitId- t <-tBackwardEdge- anyVertex/dummyVertex
-
-		vExitId := curInfo.GetParent().GetFirstOverlayEntryExitId()
-		v := lastParVertex
-
-		firstOvArc := da.NewVertexEdgePair(v, vExitId, true)
-		vtPackedPath = append(vtPackedPath, firstOvArc)
-
-	}
-
-	if len(vtPackedPath) == 1 {
-		head := crp.graph.GetHeadOfOutEdge(vtPackedPath[0].GetEdge())
-		if head != t {
-			return vtPackedPath[:0]
-		}
 	}
 
 	return vtPackedPath

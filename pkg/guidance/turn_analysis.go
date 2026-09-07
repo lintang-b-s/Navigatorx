@@ -194,7 +194,7 @@ func (db *DirectionBuilder) isStreetSplitSkip(currentEdge, prevEdge da.Index, cu
 		if !db.graph.IsTraversableInEdge(inEdgeId) {
 			continue
 		}
-		outEdgeId := db.graph.GetExitIdOfInEdge(inEdgeId)
+		outEdgeId := db.graph.GetOutIdOfInEdge(inEdgeId)
 
 		inEdgeStreetName := db.graph.GetStreetName(outEdgeId)
 		inEdgeTail := db.graph.GetTailOfOutedge(outEdgeId)
@@ -216,7 +216,7 @@ func (db *DirectionBuilder) isStreetSplitSkip(currentEdge, prevEdge da.Index, cu
 		return false
 	}
 
-	otherEdgeOutEdgeId := db.graph.GetExitIdOfInEdge(otherEdge)
+	otherEdgeOutEdgeId := db.graph.GetOutIdOfInEdge(otherEdge)
 
 	otherEdgeLanes := db.graph.GetRoadLanes(otherEdgeOutEdgeId)
 
@@ -265,7 +265,7 @@ func (db *DirectionBuilder) isStreetMerged(currentEdge, prevEdge da.Index, currS
 		if !db.graph.IsTraversableInEdge(inEdgeId) {
 			continue
 		}
-		outEdgeId := db.graph.GetExitIdOfInEdge(inEdgeId)
+		outEdgeId := db.graph.GetOutIdOfInEdge(inEdgeId)
 
 		edgeStreetName := db.graph.GetStreetName(outEdgeId)
 

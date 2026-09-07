@@ -15,7 +15,7 @@ type QueryHeap[T comparable, W util.RoutingNumber] struct {
 	storage        QueryInfoStorage // map dari nodeId/edgeId/overlayVertexId dari graph & overlay graph ke index dari queryInfos
 	maxEdgesInCell uint32
 	storageType    QueryInfoStorageType
-	scanned        ScannedSetStorage
+	explored       ExploredSetStorage
 }
 
 func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell uint32, tipe QueryInfoStorageType, preallocateMinHeap bool) *QueryHeap[T, W] {
@@ -29,17 +29,17 @@ func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell u
 
 	switch tipe {
 	case TWO_LEVEL_STORAGE:
-		scanned := NewScannedBitsetStorage(approxMaxSearchSize)
+		explored := NewExploredBitsetStorage(approxMaxSearchSize)
 		return &QueryHeap[T, W]{
 			heap:           minHeap,
 			queryInfos:     make([]VertexInfo[W], 0, approxMaxSearchSize),
 			storage:        NewTwoLevelStorage(baseSize, maxEdgesInCell),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
-			scanned:        scanned,
+			explored:       explored,
 		}
 	case ARRAY_STORAGE:
-		scanned := NewScannedBitsetStorage(approxMaxSearchSize)
+		explored := NewExploredBitsetStorage(approxMaxSearchSize)
 
 		return &QueryHeap[T, W]{
 			heap:           minHeap,
@@ -47,10 +47,10 @@ func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell u
 			storage:        NewArrayStorage(baseSize),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
-			scanned:        scanned,
+			explored:       explored,
 		}
 	case MAP_STORAGE:
-		scanned := NewScannedSettorage(approxMaxSearchSize)
+		explored := NewExploredSettorage(approxMaxSearchSize)
 
 		return &QueryHeap[T, W]{
 			heap:           minHeap,
@@ -58,17 +58,17 @@ func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell u
 			storage:        NewMapStorage(baseSize),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
-			scanned:        scanned,
+			explored:       explored,
 		}
 	default:
-		scanned := NewScannedBitsetStorage(approxMaxSearchSize)
+		explored := NewExploredBitsetStorage(approxMaxSearchSize)
 		return &QueryHeap[T, W]{
 			heap:           minHeap,
 			queryInfos:     make([]VertexInfo[W], 0, approxMaxSearchSize),
 			storage:        NewTwoLevelStorage(baseSize, maxEdgesInCell),
 			maxEdgesInCell: maxEdgesInCell,
 			storageType:    tipe,
-			scanned:        scanned,
+			explored:       explored,
 		}
 	}
 }
@@ -126,7 +126,7 @@ func (qh *QueryHeap[T, W]) Clear() {
 	qh.queryInfos = qh.queryInfos[:0] //  buat slice length jadi 0, tapi capacity tetep sama, buat prevent array doubling dari dynamic array (slice)
 	// ingat: reslicing slice gak bakal bikin slice baru/resliced slices tetep refer ke original slice (https://go.dev/blog/slices-intro)
 	qh.heap.Clear()
-	qh.scanned.Clear(qh.maxEdgesInCell)
+	qh.explored.Clear(qh.maxEdgesInCell)
 }
 
 // Get. get queryInfo dari node
@@ -150,16 +150,11 @@ func (qh *QueryHeap[T, W]) GetMinrank() W {
 	return qh.heap.GetMinrank()
 }
 
-// Scan. mark node as scanned
+// Explore. mark node as explored
 // node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
-func (qh *QueryHeap[T, W]) Scan(id Index) {
+func (qh *QueryHeap[T, W]) Explore(id Index) {
 	qInfoId := qh.storage.Get(id)
-	qh.scanned.Set(qInfoId)
-}
-
-func (qh *QueryHeap[T, W]) SetFirstOverlayEntryExitId(id Index, firstEntryExitId Index) {
-	qInfoId := qh.storage.Get(id)
-	qh.queryInfos[qInfoId].SetFirstOverlayEntryExitId(firstEntryExitId)
+	qh.explored.Set(qInfoId)
 }
 
 func (qh *QueryHeap[T, W]) Set(id Index, vInfo VertexInfo[W], queryKey T) {
@@ -184,17 +179,17 @@ func (qh *QueryHeap[T, W]) SetQueryLevel(id Index, qLevel uint8) {
 	qh.queryInfos[qInfoId].parent.SetQueryLevel(qLevel)
 }
 
-func (qh *QueryHeap[T, W]) IsScanned(id Index) bool {
+func (qh *QueryHeap[T, W]) IsExplored(id Index) bool {
 	qInfoId := qh.storage.Get(id)
-	if qInfoId == math.MaxUint32 { // belum ke label & ke scan
+	if qInfoId == math.MaxUint32 { // belum ke label & ke explored
 		return false
 	}
-	return qh.scanned.Test(qInfoId)
+	return qh.explored.Test(qInfoId)
 }
 
 func (qh *QueryHeap[T, W]) IsLabelled(id Index) bool {
 	qInfoId := qh.storage.Get(id)
-	if qInfoId == math.MaxUint32 { // belum ke label & ke scan
+	if qInfoId == math.MaxUint32 { // belum ke label & ke explored
 		return false
 	}
 	return true
@@ -206,7 +201,7 @@ func (qh *QueryHeap[T, W]) IsLabelled(id Index) bool {
 func (qh *QueryHeap[T, W]) ForLabelledItems(handle func(offsetedVId Index, vInfo VertexInfo[W])) {
 	qh.storage.ForAllItems(func(offsetedVId Index, queryInfoId uint32) {
 		if queryInfoId == math.MaxUint32 {
-			return //  belum ke label & ke scan
+			return //  belum ke label & ke explored
 		}
 		handle(offsetedVId, qh.queryInfos[queryInfoId])
 	})

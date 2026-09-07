@@ -243,7 +243,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	}
 
 	for _, tid := range tIds {
-		crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 
 		sp, _, _ := crpQuery.ShortestPathSearch(sid, tid)
 		target := newtidToOldtid[tid]

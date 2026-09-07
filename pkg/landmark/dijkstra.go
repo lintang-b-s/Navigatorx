@@ -126,7 +126,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			vId := tail
 
-			eExitId := us.graph.GetExitIdOfInEdge(eId)
+			eExitId := us.graph.GetOutIdOfInEdge(eId)
 			edgeWeight := us.cf.GetWeight(eExitId)
 
 			newTravelTime := us.pq.GetPriority(uId) + edgeWeight

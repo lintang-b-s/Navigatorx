@@ -340,14 +340,14 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			for cellId, cell := range cellMapInLevelOne {
 				cellIdInLevel := og.OffUpperBit(cellId, 1)
 				for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
-					startOverlayVertexId := og.GetEntryId(cell, i)
+					startOverlayVertexId := og.GetInId(cell, i)
 					enOverlayVertex := og.GetVertex(startOverlayVertexId)
-					enOriVId := newToOldVidMap[enOverlayVertex.GetOriginalVertex()]
+					enOriVId := newToOldVidMap[enOverlayVertex.GetOrigVId()]
 
 					for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-						exitOverlayVId := og.GetExitId(cell, j)
+						exitOverlayVId := og.GetOutId(cell, j)
 						exOverlayVertex := og.GetVertex(exitOverlayVId)
-						exOriVId := newToOldVidMap[exOverlayVertex.GetOriginalVertex()]
+						exOriVId := newToOldVidMap[exOverlayVertex.GetOrigVId()]
 
 						shortcutId := da.Index(cell.GetShortcutWeightId(i, j))
 						got := m.GetShortcutWeight(shortcutId)
@@ -372,14 +372,14 @@ func TestCRPCustomizerSimple(t *testing.T) {
 					cellIdInLevel := og.OffUpperBit(cellId, uint8(level))
 
 					for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
-						startOverlayVertexId := og.GetEntryId(cell, i)
+						startOverlayVertexId := og.GetInId(cell, i)
 						enOverlayVertex := og.GetVertex(startOverlayVertexId)
-						enOriVId := newToOldVidMap[enOverlayVertex.GetOriginalVertex()]
+						enOriVId := newToOldVidMap[enOverlayVertex.GetOrigVId()]
 
 						for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-							exitOverlayVId := og.GetExitId(cell, j)
+							exitOverlayVId := og.GetOutId(cell, j)
 							exOverlayVertex := og.GetVertex(exitOverlayVId)
-							exOriVId := newToOldVidMap[exOverlayVertex.GetOriginalVertex()]
+							exOriVId := newToOldVidMap[exOverlayVertex.GetOrigVId()]
 
 							shortcutId := da.Index(cell.GetShortcutWeightId(i, j))
 							got := m.GetShortcutWeight(shortcutId)

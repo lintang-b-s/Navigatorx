@@ -237,7 +237,7 @@ func solve(t *testing.T, filepath string) {
 
 	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{7, 11, 14}, true)
 
-	crpQuery := routing.NewCRPALTBidirectionalSearchWithoutTurnCost(re.GetRoutingEngine())
+	crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 
 	sid := oldToNewVIdMap[da.Index(source)]
 	tid := oldToNewVIdMap[da.Index(target)]

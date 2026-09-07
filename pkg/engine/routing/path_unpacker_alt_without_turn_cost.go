@@ -104,8 +104,8 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 	pq.Insert(sourceOverlayId, 0, sVertexInfo, sourceOverlayId)
 
-	s := sVertex.GetOriginalVertex()
-	t := tVertex.GetOriginalVertex()
+	s := sVertex.GetOrigVId()
+	t := tVertex.GetOrigVId()
 	activeLandmarks := pu.eng.lm.SelectBestQueryLandmarks(s, t)
 
 	for pq.Size() > 0 {
@@ -113,7 +113,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 		u := pq.ExtractMin()
 
 		uOverlayId := u.GetItem()
-		pq.Scan(uOverlayId)
+		pq.Explore(uOverlayId)
 
 		if uOverlayId == targetOverlayId {
 			break
@@ -126,7 +126,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 			vOverlayVertex := pu.eng.overlayGraph.GetVertex(vOverlayId)
 
 			newTravelTime := pq.GetPriority(uOverlayId) + shortcutOutEdgeWeight
-			originalVId := vOverlayVertex.GetOriginalVertex()
+			originalVId := vOverlayVertex.GetOrigVId()
 			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 			pfv := pu.eng.lm.FindTighestLowerBound(originalVId, t, activeLandmarks)
 
@@ -140,7 +140,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(vOverlayId))) {
 				// relax shortcut edge
 
-				pq.Scan(vOverlayId) // langsung scan exit overlay vertex v
+				pq.Explore(vOverlayId) // langsung scan exit overlay vertex v
 
 				vNewPar := da.NewVertexEdgePair(uOverlayId,
 					da.INVALID_EDGE_ID, true)
@@ -172,9 +172,9 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 				}
 
 				// get out edge that point to wEntryVertex from vOverlayId
-				newTravelTime += pu.eng.getWeight(vOverlayVertex.GetOriginalEdge(), true)
+				newTravelTime += pu.eng.getWeight(vOverlayVertex.GetCutEdge(), true)
 
-				wOriginalId := wNeigborVertex.GetOriginalVertex()
+				wOriginalId := wNeigborVertex.GetOrigVId()
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 				pfw := pu.eng.lm.FindTighestLowerBound(wOriginalId, t, activeLandmarks)
 				priority = newTravelTime + pfw
@@ -233,10 +233,10 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLowestLevelCell(
 	pq := pu.eng.pufBaseNoTurnCostHeapPool.Get().(*da.QueryHeap[da.Index, W])
 
 	sOverlayVertex := pu.eng.overlayGraph.GetVertex(sourceOverlayId)
-	s := sOverlayVertex.GetOriginalVertex()
+	s := sOverlayVertex.GetOrigVId()
 
 	tOverlayVertex := pu.eng.overlayGraph.GetVertex(targetOverlayId)
-	t := tOverlayVertex.GetOriginalVertex()
+	t := tOverlayVertex.GetOrigVId()
 
 	sInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 	sourceCellNumber := pu.eng.graph.GetCellNumber(s)
@@ -251,7 +251,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLowestLevelCell(
 
 		uId := queryKey.GetItem()
 
-		pq.Scan(uId)
+		pq.Explore(uId)
 		uTravelTime := pq.GetPriority(uId)
 
 		if uId == t {

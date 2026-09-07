@@ -399,6 +399,14 @@ func (g *Graph) GetEntryOffset(u Index) Index {
 	return g.vertices[u].firstIn
 }
 
+func (g *Graph) GetInEdgeId(u Index, enPoint Index) Index {
+	return g.vertices[u].firstIn + enPoint
+}
+
+func (g *Graph) GetOutEdgeId(u Index, exPoint Index) Index {
+	return g.vertices[u].firstOut + exPoint
+}
+
 func (g *Graph) GetOutEdge(e Index) *OutEdge {
 	return &g.outEdges[e]
 }
@@ -449,13 +457,13 @@ func (g *Graph) GetTailOfOutedgeWithInEdge(e Index) (Index, Index) {
 }
 
 // get inEdgeId of outEdgeId e
-func (g *Graph) GetEntryIdOfOutEdge(e Index) Index {
+func (g *Graph) GetInIdOfOutEdge(e Index) Index {
 	head := g.vertices[g.outEdges[e].head]
 	return head.firstIn + Index(g.outEdges[e].entryPoint)
 }
 
 // get outEdgeId of inEdgeId e
-func (g *Graph) GetExitIdOfInEdge(e Index) Index {
+func (g *Graph) GetOutIdOfInEdge(e Index) Index {
 	tail := g.vertices[g.inEdges[e].tail]
 	return tail.firstOut + Index(g.inEdges[e].exitPoint)
 }

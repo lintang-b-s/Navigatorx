@@ -235,7 +235,7 @@ func TestOriginDestinationSnap(t *testing.T) {
 
 			sourceRoadSegmentName := g.GetStreetName(sp.GetOutEdgeId())
 
-			destinationExitId := g.GetExitIdOfInEdge(tp.GetInEdgeId())
+			destinationExitId := g.GetOutIdOfInEdge(tp.GetInEdgeId())
 			destinationRoadSegmentName := g.GetStreetName(destinationExitId)
 			if sourceRoadSegmentName != tc.wantOrigin {
 				t.Errorf("want origin road segment: %v, got: %v", tc.wantOrigin, sourceRoadSegmentName)

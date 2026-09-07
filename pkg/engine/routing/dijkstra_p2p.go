@@ -71,30 +71,30 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 	us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
 		head := us.engine.graph.GetHeadOfOutEdge(eId)
 		vId := head
-		edgeWeight := us.engine.getWeight(eId, true)
+		eWeight := us.engine.getWeight(eId, true)
 		// get cost to reach v through u
-		newTravelTime := us.pq.GetPriority(uId) + edgeWeight
+		newTT := us.pq.GetPriority(uId) + eWeight
 
-		if util.Ge(newTravelTime, util.Infinity[W]()) {
+		if util.Ge(newTT, util.Infinity[W]()) {
 			return
 		}
 
-		vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
-		if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
-			// newTravelTime is not better, do nothing
+		vLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
+		if vLabelled && util.Ge(newTT, us.pq.GetPriority(vId)) {
+			// newTT is not better, do nothing
 			return
 		}
 
-		// newTravelTime is better, update the forwardInfo
-		if vAlreadyLabelled {
+		// newTT is better, update the forwardInfo
+		if vLabelled {
 			newPar := da.NewVertexEdgePair(uId, eId, false)
 			// is key already in the priority queue, decrease its key
-			us.pq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
-		} else if !vAlreadyLabelled {
+			us.pq.DecreaseKey(vId, newTT, newTT, newPar)
+		} else if !vLabelled {
 			queryKey := da.NewDijkstraKey(vId, vId)
-			vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+			vertexInfo := da.NewVertexInfo(newTT, da.NewVertexEdgePair(uId, eId, false))
 			// is key not in the priority queue, insert it
-			us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
+			us.pq.Insert(vId, newTT, vertexInfo, queryKey)
 		}
 	})
 

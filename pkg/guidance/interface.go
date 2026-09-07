@@ -29,7 +29,7 @@ type Graph interface {
 	GetHeadOfOutEdge(e da.Index) da.Index
 	GetTailOfInedge(e da.Index) da.Index
 	IsStreetBidirectional(edgeId da.Index) bool
-	GetExitIdOfInEdge(e da.Index) da.Index
+	GetOutIdOfInEdge(e da.Index) da.Index
 	GetOsmWayId(edgeId da.Index) int64
 	GetStrFromId(stNameId uint32) string
 	GetStreetNameId(edgeId da.Index) uint32

@@ -189,7 +189,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 		as := g.GetExitOffset(sid) + g.GetOutDegree(sid) - 1
 
-		crpQuery := routing.NewCRPALTBidirectionalSearch(re.GetRoutingEngine(), 1.0)
+		crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
 
 		sVertex := g.GetVertex(sid)
 		tVertex := g.GetVertex(tid)
@@ -276,7 +276,7 @@ func TestShowroomMALT(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-ALT with turn costs equal to 0"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT with turn costs equal to 0/"+dir+"/"+baseName, func(t *testing.T) {
 				SolveShowroom(t, testPath)
 
 			})

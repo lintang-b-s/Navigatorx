@@ -246,7 +246,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(sp, tp da.PhantomNod
 
 	param := ars.parameterByRequest(s, t)
 
-	crpQuery := NewCRPBidirectionalSearch(ars.engine, param.getUpperbound())
+	crpQuery := NewCRPQueryTurnCost(ars.engine, param.getUpperbound())
 	crpQuery.SetForAlternativeRoutes(true)
 	if reroute {
 		crpQuery.SetReroute()
@@ -277,7 +277,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(sp, tp da.PhantomNod
 	shortcutPathSet := crpQuery.getShortcutPathSet()
 	unpacker := NewPathUnpackerALT(ars.engine)
 	defer unpacker.DonePooled()
-	arf := NewAlternativeRouteFilter(ars, fpq, bpq, crpQuery.sForwardId, crpQuery.tBackwardId,
+	arf := NewAlternativeRouteFilter(ars, fpq, bpq, crpQuery.inSId, crpQuery.outTId,
 		sCellNumber, tCellNumber, s, t, optPathSet, motorwaySet, shortcutPathSet, param, optTravelTime, unpacker)
 
 	filteredCandidates := viaVertices[:0]
@@ -424,8 +424,8 @@ func (arf *AlternativeRouteFilter[W]) filterCandidate(v da.ViaVertex) da.ViaVert
 
 	if !v.IsOverlay() {
 		// via vertex is an overlay vertex
-		svTravelTime = arf.ars.engine.GetCostFunction().WeightToSeconds(arf.fpq.GetPriority(v.GetEntryId()))
-		vtTravelTime = arf.ars.engine.GetCostFunction().WeightToSeconds(arf.bpq.GetPriority(v.GetExitId()))
+		svTravelTime = arf.ars.engine.GetCostFunction().WeightToSeconds(arf.fpq.GetPriority(v.GetInId()))
+		vtTravelTime = arf.ars.engine.GetCostFunction().WeightToSeconds(arf.bpq.GetPriority(v.GetOutId()))
 	} else {
 		// via vertex is not an overlay vertex
 		svTravelTime = arf.ars.engine.GetCostFunction().WeightToSeconds(arf.fpq.GetPriority(v.GetVId()))
@@ -440,7 +440,7 @@ func (arf *AlternativeRouteFilter[W]) filterCandidate(v da.ViaVertex) da.ViaVert
 		return da.NewEmptyViaVertex()
 	}
 
-	plv := arf.ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetEntryId(), v.GetExitId(), arf.sForwardId, arf.tBackwardId,
+	plv := arf.ars.calculatePlateau(v.GetVId(), v.GetOriginalVId(), v.GetInId(), v.GetOutId(), arf.sForwardId, arf.tBackwardId,
 		arf.fpq, arf.bpq, arf.sCellNumber, lv, v.IsOverlay())
 
 	T := arf.param.getAlpha() * arf.optTravelTime
@@ -456,11 +456,11 @@ func (arf *AlternativeRouteFilter[W]) filterCandidate(v da.ViaVertex) da.ViaVert
 
 	if !v.IsOverlay() {
 		// forward
-		svPackedPath = arf.ars.engine.RetrieveForwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetEntryId(), false),
+		svPackedPath = arf.ars.engine.RetrieveForwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetInId(), false),
 			arf.fpq, arf.sForwardId, arf.sCellNumber, arf.s)
 
 		// backward
-		vtPackedPath = arf.ars.engine.RetrieveBackwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetExitId(), true),
+		vtPackedPath = arf.ars.engine.RetrieveBackwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetOutId(), true),
 			arf.bpq, arf.tBackwardId, arf.sCellNumber, arf.t)
 
 	} else {
@@ -495,11 +495,11 @@ func (arf *AlternativeRouteFilter[W]) unpackViaPath(v da.ViaVertex) ([]da.Index,
 
 	if !v.IsOverlay() {
 		// forward
-		svPackedPath = arf.ars.engine.RetrieveForwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetEntryId(), false),
+		svPackedPath = arf.ars.engine.RetrieveForwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetInId(), false),
 			arf.fpq, arf.sForwardId, arf.sCellNumber, arf.s)
 
 		// backward
-		vtPackedPath = arf.ars.engine.RetrieveBackwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetExitId(), true),
+		vtPackedPath = arf.ars.engine.RetrieveBackwardPackedPath(da.NewVertexEdgePair(v.GetOriginalVId(), v.GetOutId(), true),
 			arf.bpq, arf.tBackwardId, arf.sCellNumber, arf.t)
 
 	} else {
@@ -690,8 +690,8 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(svPackedPath,
 			entryVertex := ars.engine.overlayGraph.GetVertex(entryVertexId)
 			exitVertex := ars.engine.overlayGraph.GetVertex(exitVertexId)
 
-			enoriVid := entryVertex.GetOriginalVertex()
-			exitoriVId := exitVertex.GetOriginalVertex()
+			enoriVid := entryVertex.GetOrigVId()
+			exitoriVId := exitVertex.GetOrigVId()
 			_, ok1 := optPathSet[enoriVid]
 			_, ok2 := optPathSet[exitoriVId]
 
@@ -740,7 +740,7 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(svPackedPath,
 // plateau u-w dari st-path: path dari s ke u + path dari u ke w + path dari w ke t
 // semua item (pasangan (entry/exit point, vertex) atau overlay vertex) path u-w dari u ke w tedapat pada kedua shortest path tree
 // atau semua item dari path u-w sudah di scan oleh kedua search.
-func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, viaExitId, sForwardId, tBackwardId da.Index,
+func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, viaOutId, sForwardId, tBackwardId da.Index,
 	ps, pb *da.QueryHeap[da.CRPQueryKey, W], sCellNumber da.Pv, lv float64, overlay bool) float64 {
 
 	var (
@@ -750,7 +750,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 	if overlay {
 		u = vId
 	} else {
-		u = viaEntryId
+		u = viaInId
 	}
 
 	// shortest path tree from s to v: all scanned (already extracted using extractMin from pq) vertices in forward search
@@ -772,12 +772,12 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 		x tepat berada sebelum u dan y tepat setelah w, x-y bukan plateau karena subpath x-y bukan shortest path, shg u-w adalah maximal paths that appear in both trees simultaneously
 	*/
 
-	// u = vEntryId/vId  dari via
+	// u = vInId/vId  dari via
 	// vId = overlayId dari via kalau via nya overlay vertex
 	// s-> .... -> u -vInEdge-> via (bisa aja sebuah overlay vertex) <-vExitEdge- w <- ..... <-t
 
 	// task kita disini adalah find total length dari plateau u-w dari definisi platau diatas
-	// so kita harus backtrack dari vEntryId/vOverlayId dari via vertex ke vertex awal dari plateau (atau vertex u dari definisi diatas)
+	// so kita harus backtrack dari vInId/vOverlayId dari via vertex ke vertex awal dari plateau (atau vertex u dari definisi diatas)
 	// bisa backtrack ke parent(u) kalau parent(u) scanned in backward search, atau in shortest path tree dari backward search
 	// let n=number of edges in s-via-t path
 	// worst case: O(n)
@@ -790,7 +790,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 			if !oki {
 				break
 			}
-			if scanned := pb.IsScanned(ps.Get(u).GetParent().GetEdge()); !scanned {
+			if scanned := pb.IsExplored(ps.Get(u).GetParent().GetEdge()); !scanned {
 				// qParentOverlay -qShortcut-> qOverlay -vShortcut-> vOverlay
 				// u == vOverlay, ps.Get(u).GetParent().GetEdge() == qOverlay
 				// kalau qOverlay udah di scan di backward search kita bisa lanjut backtrack
@@ -804,23 +804,23 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 			// u == vInEdge,  ps.Get(u).GetParent().GetEdge() == qInEdge
 
 			// kalau u == entryId  dari edge, sedangkan di pb isinya exitId dari edge, shg u harus dijadiin exitId dari edgenya
-			vEntryId := ars.engine.adjustForward(uVId, u)
-			_, vExitId := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vEntryId)
+			vInId := ars.engine.adjustForward(uVId, u)
+			_, vOutId := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vInId)
 
-			q := ars.engine.graph.GetTailOfOutedge(vExitId)
+			q := ars.engine.graph.GetTailOfOutedge(vOutId)
 			qInEdge := ps.Get(u).GetParent().GetEdge()
-			qEntryId := ars.engine.adjustForward(q, qInEdge)
-			_, qExitId := ars.engine.graph.GetHeadOfInedgeWithOutEdge(qEntryId)
-			qParent := ars.engine.graph.GetTailOfOutedge(qExitId)
+			qInId := ars.engine.adjustForward(q, qInEdge)
+			_, qOutId := ars.engine.graph.GetHeadOfInedgeWithOutEdge(qInId)
+			qParent := ars.engine.graph.GetTailOfOutedge(qOutId)
 
-			offQExitId := ars.engine.offsetBackward(qParent, qExitId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
-			oki := util.Lt(pb.GetPriority(offQExitId), util.Infinity[W]())
+			offQOutId := ars.engine.offsetBackward(qParent, qOutId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
+			oki := util.Lt(pb.GetPriority(offQOutId), util.Infinity[W]())
 
 			if !oki {
 				break
 			}
 
-			if scanned := pb.IsScanned(offQExitId); !scanned {
+			if scanned := pb.IsExplored(offQOutId); !scanned {
 				// kalau qInEdge udah di scan di backward search kita bisa lanjut backtrack
 				// else: vInEdge (atau u) adalah entryEdge pertama dari plateau path
 				break
@@ -834,7 +834,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 
 			vOverlay := ps.Get(u).GetParent().GetEdge()
 
-			notOki := !util.Lt(pb.GetPriority(vOverlay), util.Infinity[W]()) && !pb.IsScanned(vOverlay)
+			notOki := !util.Lt(pb.GetPriority(vOverlay), util.Infinity[W]()) && !pb.IsExplored(vOverlay)
 
 			if notOki {
 				break
@@ -845,22 +845,22 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 			// q -vInEdge/qOutEdge-> vOverlay
 			// u == vOverlay,  ps.Get(u).GetParent().GetEdge() == vInEdge
 
-			// cek apakah vExitId scanned di backward search
+			// cek apakah vOutId scanned di backward search
 
 			// vOverlay := u
 
-			vEntryId := ps.Get(u).GetParent().GetFirstOverlayEntryExitId()
+			vInId := ps.Get(u).GetParent().GetEdge()
 
-			_, qExitId := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vEntryId)
+			_, qOutId := ars.engine.graph.GetHeadOfInedgeWithOutEdge(vInId)
 
-			q := ars.engine.graph.GetTailOfOutedge(qExitId)
+			q := ars.engine.graph.GetTailOfOutedge(qOutId)
 
-			offQExitId := ars.engine.offsetBackward(q, qExitId, ars.engine.graph.GetCellNumber(q), sCellNumber)
-			oki := util.Lt(pb.GetPriority(offQExitId), util.Infinity[W]())
+			offQOutId := ars.engine.offsetBackward(q, qOutId, ars.engine.graph.GetCellNumber(q), sCellNumber)
+			oki := util.Lt(pb.GetPriority(offQOutId), util.Infinity[W]())
 			if !oki {
 				break
 			}
-			if scanned := pb.IsScanned(offQExitId); !scanned {
+			if scanned := pb.IsExplored(offQOutId); !scanned {
 				// kalau qOutEdge scanned di backward search, kita bisa lanjut backtrack
 				// else: vOverlay (atau u) adalah overlayVertex pertama dari plateau path
 
@@ -869,7 +869,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 		}
 
 		uPar := ps.Get(u).GetParent()
-		if !ps.IsScanned(uPar.GetEdge()) { // syarat parent(u) ada di shortest path tree forward search
+		if !ps.IsExplored(uPar.GetEdge()) { // syarat parent(u) ada di shortest path tree forward search
 			break
 		}
 		u = uPar.GetEdge()
@@ -881,7 +881,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 	if overlay {
 		u = vId
 	} else {
-		u = viaExitId
+		u = viaOutId
 	}
 	uVId = oriVId
 
@@ -892,7 +892,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 			if !oki {
 				break
 			}
-			if scanned := ps.IsScanned(pb.Get(u).GetParent().GetEdge()); !scanned {
+			if scanned := ps.IsExplored(pb.Get(u).GetParent().GetEdge()); !scanned {
 				// vOverlay -vShortcut-> qOverlay -qShortcut-> qParentOverlay
 				// u == vOverlay, pb.Get(u).GetParent().GetEdge() == qOverlay
 				// cek kalau qOverlay scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOverlay
@@ -906,25 +906,25 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 
 			// cek qParentInEdge udah di scan di forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOutEdge
 			v := uVId
-			vExitId := ars.engine.adjustBackward(v, u)
-			_, qInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(vExitId)
+			vOutId := ars.engine.adjustBackward(v, u)
+			_, qInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(vOutId)
 
 			q := ars.engine.graph.GetHeadOfInedge(qInEdge)
-			offQExitId := pb.Get(u).GetParent().GetEdge()
-			qExitId := ars.engine.adjustBackward(q, offQExitId)
+			offQOutId := pb.Get(u).GetParent().GetEdge()
+			qOutId := ars.engine.adjustBackward(q, offQOutId)
 
-			qExitEdge := ars.engine.graph.GetOutEdge(qExitId)
+			qExitEdge := ars.engine.graph.GetOutEdge(qOutId)
 			qParent := qExitEdge.GetHead()
-			_, qParentInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(qExitId)
-			qParentEntryId := qParentInEdge
+			_, qParentInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(qOutId)
+			qParentInId := qParentInEdge
 
-			offQParentEntryId := ars.engine.offsetForward(qParent, qParentEntryId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
-			oki := util.Lt(ps.GetPriority(offQParentEntryId), util.Infinity[W]())
+			offQParentInId := ars.engine.offsetForward(qParent, qParentInId, ars.engine.graph.GetCellNumber(qParent), sCellNumber)
+			oki := util.Lt(ps.GetPriority(offQParentInId), util.Infinity[W]())
 
 			if !oki {
 				break
 			}
-			if scanned := ps.IsScanned(offQParentEntryId); !scanned {
+			if scanned := ps.IsExplored(offQParentInId); !scanned {
 				break
 			}
 		} else if !ars.engine.isOverlay(u) && ars.engine.isOverlay(pb.Get(u).GetParent().GetEdge()) {
@@ -935,7 +935,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 
 			vOverlay := pb.Get(u).GetParent().GetEdge()
 
-			notOki := !util.Lt(ps.GetPriority(vOverlay), util.Infinity[W]()) && !ps.IsScanned(vOverlay)
+			notOki := !util.Lt(ps.GetPriority(vOverlay), util.Infinity[W]()) && !ps.IsExplored(vOverlay)
 
 			if notOki {
 				break
@@ -943,28 +943,28 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaEntryId, 
 		} else {
 			// u overlay vertex tapi pb.Get(u).GetParent().GetEdge() bukan overlay vertex
 			// vOverlay -vExitEdge/qInEdge-> q -qExitEdge/qParentInEdge-> qParent
-			// u == vOverlay,  pb.Get(u).GetParent().GetEdge() == vExitId
+			// u == vOverlay,  pb.Get(u).GetParent().GetEdge() == vOutId
 
 			// cek qParentInEdge scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qExitEdge
 
 			// vOverlay := u
-			vExitId := pb.Get(u).GetParent().GetFirstOverlayEntryExitId()
+			vOutId := pb.Get(u).GetParent().GetEdge()
 
-			_, qEntryId := ars.engine.graph.GetTailOfOutedgeWithInEdge(vExitId)
-			q := ars.engine.graph.GetHeadOfInedge(qEntryId)
+			_, qInId := ars.engine.graph.GetTailOfOutedgeWithInEdge(vOutId)
+			q := ars.engine.graph.GetHeadOfInedge(qInId)
 
-			offQEntryId := ars.engine.offsetForward(q, qEntryId, ars.engine.graph.GetCellNumber(q), sCellNumber)
-			oki := util.Lt(ps.GetPriority(offQEntryId), util.Infinity[W]())
+			offQInId := ars.engine.offsetForward(q, qInId, ars.engine.graph.GetCellNumber(q), sCellNumber)
+			oki := util.Lt(ps.GetPriority(offQInId), util.Infinity[W]())
 			if !oki {
 				break
 			}
-			if scanned := ps.IsScanned(offQEntryId); !scanned {
+			if scanned := ps.IsExplored(offQInId); !scanned {
 				break
 			}
 		}
 
 		uPar := pb.Get(u).GetParent()
-		if !pb.IsScanned(uPar.GetEdge()) {
+		if !pb.IsExplored(uPar.GetEdge()) {
 			break
 		}
 		u = uPar.GetEdge()
