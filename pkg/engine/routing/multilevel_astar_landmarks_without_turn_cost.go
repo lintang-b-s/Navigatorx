@@ -425,9 +425,9 @@ func (bs *CRPALTQuery[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCo
 		ovVId := bs.engine.offsetOverlayNoTurnCost(v)
 
 		// traverse edge to next cell
-		vOriEdgeId := vVertex.GetCutEdge()
+		vCutEdgeId := vVertex.GetCutEdge()
 
-		eWeight := bs.engine.getWeight(vOriEdgeId, true)
+		eWeight := bs.engine.getWeight(vCutEdgeId, true)
 
 		w := vVertex.GetNeighborOverlayVertex()
 		wVertex := bs.engine.overlayGraph.GetVertex(w)
@@ -556,9 +556,9 @@ func (bs *CRPALTQuery[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnC
 
 		ovVId := bs.engine.offsetOverlayNoTurnCost(v)
 		// traverse edge to next cell
-		vOriEdgeId := vVertex.GetCutEdge()
+		vCutEdgeId := vVertex.GetCutEdge()
 
-		inEdgeWeight := bs.engine.getWeight(vOriEdgeId, false)
+		inEdgeWeight := bs.engine.getWeight(vCutEdgeId, false)
 
 		w := vVertex.GetNeighborOverlayVertex()
 		wVertex := bs.engine.overlayGraph.GetVertex(w)

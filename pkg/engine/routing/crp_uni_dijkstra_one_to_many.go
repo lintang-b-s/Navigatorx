@@ -305,9 +305,9 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 			us.pq.SetQueryLevel(vId, uint8(uQueryLevel))
 
 			// traverse edge to next cell
-			vOriEdgeId := vVertex.GetCutEdge()
+			vCutEdgeId := vVertex.GetCutEdge()
 
-			edgeWeight := us.engine.getWeight(vOriEdgeId, true)
+			edgeWeight := us.engine.getWeight(vCutEdgeId, true)
 			// w is in the next cell from v cell
 			w := vVertex.GetNeighborOverlayVertex()
 			wVertex := us.engine.overlayGraph.GetVertex(w)
@@ -333,7 +333,7 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 
 			if lowestWQueryLevel == 0 {
 				// w is in the same cell as s or t
-				entryPoint := us.engine.graph.GetEntryPointOfOutEdge(vOriEdgeId)
+				entryPoint := us.engine.graph.GetEntryPointOfOutEdge(vCutEdgeId)
 				wEntryId := us.engine.graph.GetEntryOffset(originalW) + entryPoint
 
 				// relax entry Edge of w
