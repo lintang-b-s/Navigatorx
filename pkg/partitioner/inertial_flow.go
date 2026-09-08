@@ -43,6 +43,8 @@ func (inf *inertialFlow) getPartitionGraph() *da.PartitionGraph {
 computeInertialFlowDinic.
 [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
 
+this implementation inspired by this doc: https://github.com/Telenav/open-source-spec/blob/master/routing_basic/doc/inertial_flow.md
+
 return st-mincut dengan partisi S, T yang saling disjoint.
 time complexity:
 karena cuma call algoritma dinic unit capacity berkali kali sejumlah iterations, let k = number of iterations+2
