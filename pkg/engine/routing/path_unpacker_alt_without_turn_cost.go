@@ -101,8 +101,8 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 
 	tVertex := pu.eng.overlayGraph.GetVertex(targetOverlayId)
 
-	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
-	pq.Insert(sourceOverlayId, 0, sVertexInfo, sourceOverlayId)
+	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	pq.Insert(sourceOverlayId, 0, sVertexData, sourceOverlayId)
 
 	s := sVertex.GetOrigVId()
 	t := tVertex.GetOrigVId()
@@ -149,15 +149,15 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 					// if v is the target overlay vertex, insert/decrease its key  pq
 					if !vAlreadyLabelled {
-						vVertexInfo := da.NewVertexInfo(newTravelTime, vNewPar)
-						pq.Insert(vOverlayId, priority, vVertexInfo, uOverlayId)
+						vVertexData := da.NewVertexData(newTravelTime, vNewPar)
+						pq.Insert(vOverlayId, priority, vVertexData, uOverlayId)
 					} else {
 
 						pq.DecreaseKey(vOverlayId, priority, newTravelTime, vNewPar)
 					}
 
 				} else {
-					pq.Set(vOverlayId, da.NewVertexInfo(newTravelTime, vNewPar), vOverlayId)
+					pq.Set(vOverlayId, da.NewVertexData(newTravelTime, vNewPar), vOverlayId)
 				}
 
 				// visit next cell neighbor
@@ -184,8 +184,8 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 				wAlreadyLabelled := util.Lt(pq.GetPriority(wNeighborId), util.Infinity[W]())
 				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(wNeighborId))) {
 					if !wAlreadyLabelled {
-						wVertexInfo := da.NewVertexInfo(newTravelTime, wPar)
-						pq.Insert(wNeighborId, priority, wVertexInfo, wNeighborId)
+						wVertexData := da.NewVertexData(newTravelTime, wPar)
+						pq.Insert(wNeighborId, priority, wVertexData, wNeighborId)
 					} else {
 						pq.DecreaseKey(wNeighborId, priority, newTravelTime, wPar)
 					}
@@ -238,7 +238,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLowestLevelCell(
 	tOverlayVertex := pu.eng.overlayGraph.GetVertex(targetOverlayId)
 	t := tOverlayVertex.GetOrigVId()
 
-	sInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sInfo := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 	sourceCellNumber := pu.eng.graph.GetCellNumber(s)
 
 	pq.Insert(s, 0, sInfo, s)
@@ -282,7 +282,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLowestLevelCell(
 				priority := newTravelTime + pfv
 
 				if !vAlreadyLabelled {
-					vInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
+					vInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
 
 					pq.Insert(vId, priority, vInfo, vId)
 				} else {

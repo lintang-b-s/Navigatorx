@@ -10,7 +10,7 @@ type DijkstraWithTurnCost[W util.RoutingNumber] struct {
 	engine *CRPRoutingEngine[W]
 
 	finalCost           []W
-	finalQueryKey       []da.VertexInfo[W]
+	finalQueryKey       []da.VertexData[W]
 	finalEdge           []da.Index
 	shortestTravelTimes []W
 
@@ -28,7 +28,7 @@ func NewDijkstraWithTurnCost[W util.RoutingNumber](
 ) DijkstraWithTurnCost[W] {
 	dj := DijkstraWithTurnCost[W]{
 		engine:        engine,
-		finalQueryKey: make([]da.VertexInfo[W], 0),
+		finalQueryKey: make([]da.VertexData[W], 0),
 
 		numSettledNodes:     0,
 		shortestTravelTimes: make([]W, 0),
@@ -81,10 +81,10 @@ func (us *DijkstraWithTurnCost[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) 
 	}
 	us.sForwardId = sForwardId
 
-	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
 	djKey := da.NewDijkstraKey(s, sForwardId)
-	us.pq.Insert(sForwardId, 0, sVertexInfo, djKey)
+	us.pq.Insert(sForwardId, 0, sVertexData, djKey)
 
 	for !us.pq.IsEmpty() {
 
@@ -261,7 +261,7 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vEntryId)
-				vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, uEntryId, false))
+				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, uEntryId, false))
 
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vEntryId, newTravelTime, vertexInfo, queryKey)
@@ -318,7 +318,7 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vExitId)
-				vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, uExitId, false))
+				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, uExitId, false))
 
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vExitId, newTravelTime, vertexInfo, queryKey)
@@ -333,9 +333,9 @@ func (us *DijkstraWithTurnCost[W]) Preallocate() {
 	numberOfEdges := us.engine.graph.NumberOfEdges()
 	maxSearchSize := numberOfEdges
 	numberOfVerties := us.engine.graph.NumberOfVertices()
-	us.finalQueryKey = make([]da.VertexInfo[W], numberOfVerties)
+	us.finalQueryKey = make([]da.VertexData[W], numberOfVerties)
 	for i := 0; i < numberOfVerties; i++ {
-		us.finalQueryKey[i] = da.NewVertexInfo(util.Infinity[W](), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+		us.finalQueryKey[i] = da.NewVertexData(util.Infinity[W](), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 	}
 	us.finalEdge = make([]da.Index, numberOfVerties)
 	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()

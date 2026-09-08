@@ -454,10 +454,10 @@ func dijkstra(adjList [][]PairEdge, s da.Index) []float64 {
 	}
 
 	pq := da.NewQueryHeap[da.Index, float64](uint32(n), 100, da.ARRAY_STORAGE, true)
-	emptyVertexInfo := da.NewVertexInfo(float64(0), da.NewVertexEdgePair(0, 0, false))
+	emptyVertexData := da.NewVertexData(float64(0), da.NewVertexEdgePair(0, 0, false))
 
 	dist[s] = 0
-	pq.Insert(s, 0, emptyVertexInfo, s)
+	pq.Insert(s, 0, emptyVertexData, s)
 
 	for !pq.IsEmpty() {
 		uNode := pq.ExtractMin()
@@ -470,9 +470,9 @@ func dijkstra(adjList [][]PairEdge, s da.Index) []float64 {
 			if !vLabelled || (vLabelled && newVCost <= dist[v]) {
 				dist[v] = uNode.GetRank() + e.Weight
 				if !vLabelled {
-					pq.Insert(v, newVCost, emptyVertexInfo, v)
+					pq.Insert(v, newVCost, emptyVertexData, v)
 				} else {
-					pq.DecreaseKey(v, newVCost, newVCost, emptyVertexInfo.GetParent())
+					pq.DecreaseKey(v, newVCost, newVCost, emptyVertexData.GetParent())
 				}
 			}
 		}

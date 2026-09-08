@@ -353,12 +353,12 @@ func (bs *CRPQueryTurnCost[W]) ShortestPathSearch(sp, tp da.PhantomNode) (W, []d
 
 	bs.shortestTT = 2 * util.Infinity[W]()
 
-	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, inSId, false))
-	tVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, outTId, true))
+	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, inSId, false))
+	tVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, outTId, true))
 	sQueryKey := da.NewCRPQueryKey(s, inSId, false)
 	tQueryKey := da.NewCRPQueryKey(t, outTId, false)
-	bs.forwardPq.Insert(inSId, 0, sVertexInfo, sQueryKey)
-	bs.backwardPq.Insert(outTId, 0, tVertexInfo, tQueryKey)
+	bs.forwardPq.Insert(inSId, 0, sVertexData, sQueryKey)
+	bs.backwardPq.Insert(outTId, 0, tVertexData, tQueryKey)
 
 	addViaVertex := func(uItem da.CRPQueryKey, forward bool, overlay bool) {
 		if !overlay && forward {
@@ -550,7 +550,7 @@ func (bs *CRPQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, source, 
 					bs.forwardPq.DecreaseKey(vInId, newTT, newTT, newPar)
 				} else if !vLabelled {
 
-					vertexInfo := da.NewVertexInfo(newTT,
+					vertexInfo := da.NewVertexData(newTT,
 						da.NewVertexEdgePair(uId, uInId, false))
 					queryKey := da.NewCRPQueryKey(vId, vInId, false)
 					// is key not in the priority queue, insert it
@@ -597,7 +597,7 @@ func (bs *CRPQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, source, 
 				newPar := da.NewVertexEdgePair(uId, uInId, false)
 				if !vLabelled {
 					queryKey := da.NewCRPQueryKey(v, da.Index(vQueryLevel), true)
-					vInfo := da.NewVertexInfo(newTT, newPar)
+					vInfo := da.NewVertexData(newTT, newPar)
 					bs.forwardPq.Insert(ovVId, newTT, vInfo, queryKey)
 				} else {
 					bs.forwardPq.DecreaseKey(ovVId, newTT, newTT, newPar)
@@ -684,7 +684,7 @@ func (bs *CRPQueryTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKey, source,
 					newPar := da.NewVertexEdgePair(uId, uOutId, true)
 					bs.backwardPq.DecreaseKey(vOutId, newTT, newTT, newPar)
 				} else {
-					vertexInfo := da.NewVertexInfo(newTT,
+					vertexInfo := da.NewVertexData(newTT,
 						da.NewVertexEdgePair(uId, uOutId, false))
 					queryKey := da.NewCRPQueryKey(vId, vOutId, false)
 					bs.backwardPq.Insert(vOutId, newTT, vertexInfo, queryKey)
@@ -730,7 +730,7 @@ func (bs *CRPQueryTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKey, source,
 
 				newPar := da.NewVertexEdgePair(uId, uOutId, true)
 				if !vLabelled {
-					vInfo := da.NewVertexInfo(newTT, newPar)
+					vInfo := da.NewVertexData(newTT, newPar)
 					queryKey := da.NewCRPQueryKey(v, da.Index(vQueryLevel), true)
 					bs.backwardPq.Insert(ovVId, newTT, vInfo, queryKey)
 				} else {
@@ -787,7 +787,7 @@ func (bs *CRPQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey, s
 		oldOvVIdTT := bs.forwardPq.GetPriority(ovVId)
 		vLabelled := util.Lt(oldOvVIdTT, util.Infinity[W]())
 		if !vLabelled || (vLabelled && util.Lt(newTT, oldOvVIdTT)) {
-			bs.forwardPq.Set(ovVId, da.NewVertexInfo(newTT,
+			bs.forwardPq.Set(ovVId, da.NewVertexData(newTT,
 				da.NewVertexEdgePair(uVertex.GetOrigVId(), uId, false)), da.NewCRPQueryKey(da.INVALID_VERTEX_ID,
 				da.INVALID_EDGE_ID, true))
 
@@ -818,7 +818,7 @@ func (bs *CRPQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey, s
 						bs.forwardPq.DecreaseKey(wInId, newTT, newTT, newPar)
 					} else {
 
-						vertexInfo := da.NewVertexInfo(newTT,
+						vertexInfo := da.NewVertexData(newTT,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, false))
 						queryKey := da.NewCRPQueryKey(oriWId, wInId, false)
 						bs.forwardPq.Insert(wInId, newTT, vertexInfo, queryKey)
@@ -859,7 +859,7 @@ func (bs *CRPQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey, s
 				if !wLabelled || (wLabelled && util.Lt(newTT, oldOvWIdTT)) {
 
 					if !wLabelled {
-						vertexInfo := da.NewVertexInfo(newTT,
+						vertexInfo := da.NewVertexData(newTT,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, false))
 						queryKey := da.NewCRPQueryKey(w, da.Index(wQueryLevel), true)
 						bs.forwardPq.Insert(overlayWId, newTT, vertexInfo, queryKey)
@@ -934,7 +934,7 @@ func (bs *CRPQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKey, 
 		vLabelled := util.Lt(oldOvVIdTT, util.Infinity[W]())
 		if !vLabelled || (vLabelled && util.Lt(newTT, oldOvVIdTT)) {
 
-			bs.backwardPq.Set(ovVId, da.NewVertexInfo(newTT,
+			bs.backwardPq.Set(ovVId, da.NewVertexData(newTT,
 				da.NewVertexEdgePair(uVertex.GetOrigVId(), uId, true)), da.NewCRPQueryKey(da.INVALID_VERTEX_ID,
 				da.INVALID_EDGE_ID, true))
 
@@ -963,7 +963,7 @@ func (bs *CRPQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKey, 
 					} else {
 						queryKey := da.NewCRPQueryKey(oriWId, wOutId, false)
 
-						vertexInfo := da.NewVertexInfo(newTT,
+						vertexInfo := da.NewVertexData(newTT,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, true))
 						bs.backwardPq.Insert(wOutId, newTT, vertexInfo, queryKey)
 					}
@@ -1003,7 +1003,7 @@ func (bs *CRPQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKey, 
 					if !wLabelled {
 						queryKey := da.NewCRPQueryKey(w, da.Index(wQueryLevel), true)
 
-						vertexInfo := da.NewVertexInfo(newTT,
+						vertexInfo := da.NewVertexData(newTT,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, true))
 						bs.backwardPq.Insert(overlayWId, newTT, vertexInfo, queryKey)
 					} else {

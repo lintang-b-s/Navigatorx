@@ -22,10 +22,10 @@ const (
 	GeohashBits                             = 6 * 5
 )
 
-type QueryInfoStorageType int
+type IndexStorageType int
 
 const (
-	TWO_LEVEL_STORAGE QueryInfoStorageType = iota
+	TWO_LEVEL_STORAGE IndexStorageType = iota
 	ARRAY_STORAGE
 	MAP_STORAGE
 )

@@ -104,9 +104,9 @@ func SolveRideHailing(t *testing.T, filepath string) {
 		djdist[s] = 0
 		noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
-		sVertexInfo := da.NewVertexInfo(float64(0), noPar)
+		sVertexData := da.NewVertexData(float64(0), noPar)
 
-		pq.Insert(da.Index(s), 0, sVertexInfo, da.Index(s))
+		pq.Insert(da.Index(s), 0, sVertexData, da.Index(s))
 
 		for !pq.IsEmpty() {
 
@@ -122,9 +122,9 @@ func SolveRideHailing(t *testing.T, filepath string) {
 				if !ok || uDist+vDist < djdist[v] {
 					djdist[v] = uDist + vDist
 					if !ok {
-						vVertexInfo := da.NewVertexInfo(float64(0), noPar)
+						vVertexData := da.NewVertexData(float64(0), noPar)
 
-						pq.Insert(da.Index(v), float64(djdist[v]), vVertexInfo, da.Index(v))
+						pq.Insert(da.Index(v), float64(djdist[v]), vVertexData, da.Index(v))
 					} else {
 						pq.DecreaseKey(da.Index(v), float64(djdist[v]), float64(djdist[v]),
 							noPar)

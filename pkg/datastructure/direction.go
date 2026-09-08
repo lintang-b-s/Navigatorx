@@ -371,7 +371,7 @@ func (d *DrivingDirection) GetStreetName() string {
 	return d.streetName
 }
 
-func (d *DrivingDirection) GetTravelTime() float64 {
+func (d *DrivingDirection) GetCost() float64 {
 	return d.travelTime
 }
 

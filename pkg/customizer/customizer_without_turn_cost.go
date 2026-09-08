@@ -67,8 +67,8 @@ func (c *Customizer[W]) buildLowestLevelWithoutTurnCost(costFunction *costfuncti
 				travelTime[start] = 0
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
-				sVertexInfo := da.NewVertexInfo(W(0), noPar)
-				pq.Insert(start, 0, sVertexInfo, da.NewDijkstraKeyNoTurnCost(start))
+				sVertexData := da.NewVertexData(W(0), noPar)
+				pq.Insert(start, 0, sVertexData, da.NewDijkstraKeyNoTurnCost(start))
 
 				for !pq.IsEmpty() {
 					pqNode := pq.ExtractMin()
@@ -99,8 +99,8 @@ func (c *Customizer[W]) buildLowestLevelWithoutTurnCost(costFunction *costfuncti
 								if ok {
 									pq.DecreaseKey(v, newTravelTime, newTravelTime, noPar)
 								} else {
-									vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
-									pq.Insert(v, newTravelTime, vVertexInfo, da.NewDijkstraKeyNoTurnCost(v))
+									vVertexData := da.NewVertexData(newTravelTime, noPar)
+									pq.Insert(v, newTravelTime, vVertexData, da.NewDijkstraKeyNoTurnCost(v))
 								}
 							}
 						} else {
@@ -235,9 +235,9 @@ func (c *Customizer[W]) buildLevelWithoutTurnCost(costFunction *costfunction.Tim
 				startOverlayVertexId := c.overlayGraph.GetInId(cell, i)
 
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
-				sVertexInfo := da.NewVertexInfo(W(0), noPar)
+				sVertexData := da.NewVertexData(W(0), noPar)
 
-				pq.Insert(startOverlayVertexId, 0, sVertexInfo, startOverlayVertexId)
+				pq.Insert(startOverlayVertexId, 0, sVertexData, startOverlayVertexId)
 
 				for !pq.IsEmpty() {
 					pqNode := pq.ExtractMin()
@@ -279,8 +279,8 @@ func (c *Customizer[W]) buildLevelWithoutTurnCost(costFunction *costfunction.Tim
 									travelTime[neighborVertex] = newNeighborTravelTime
 
 									if !nAlreadyLabelled {
-										vVertexInfo := da.NewVertexInfo(newTravelTime, noPar)
-										pq.Insert(neighborVertex, newNeighborTravelTime, vVertexInfo, neighborVertex)
+										vVertexData := da.NewVertexData(newTravelTime, noPar)
+										pq.Insert(neighborVertex, newNeighborTravelTime, vVertexData, neighborVertex)
 									} else {
 										pq.DecreaseKey(neighborVertex, newNeighborTravelTime,
 											newNeighborTravelTime, noPar)

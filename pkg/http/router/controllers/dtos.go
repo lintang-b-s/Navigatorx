@@ -99,7 +99,7 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirec
 		Instruction:         d.GetInstruction(),
 		Point:               d.GetPoint().ToFloatCoordinate(),
 		StreetName:          d.GetStreetName(),
-		TravelTime:          util.SecondsToMinutes(d.GetTravelTime()),
+		TravelTime:          util.SecondsToMinutes(d.GetCost()),
 		Distance:            d.GetDistance(),
 		TurnBearing:         d.GetTurnBearing(),
 		TurnType:            d.GetTurnTableId(),

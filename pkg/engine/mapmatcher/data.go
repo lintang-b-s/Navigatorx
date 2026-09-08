@@ -120,7 +120,7 @@ func (c *Candidate) SetTravelTimeFromTail(dist float64) {
 	c.travelTimeFromTail = dist
 }
 
-func (c *Candidate) GetTravelTimeFromTail() float64 {
+func (c *Candidate) GetCostFromTail() float64 {
 	return c.travelTimeFromTail
 }
 
@@ -128,6 +128,6 @@ func (c *Candidate) SetTravelTimeFromHead(dist float64) {
 	c.travelTimeFromHead = dist
 }
 
-func (c *Candidate) GetTravelTimeFromHead() float64 {
+func (c *Candidate) GetCostFromHead() float64 {
 	return c.travelTimeFromHead
 }

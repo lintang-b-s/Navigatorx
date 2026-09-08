@@ -468,8 +468,8 @@ func (h *HMM) newPhantomNodeFromCandidate(cand *ma.Candidate) da.PhantomNode {
 	forwardDistance := cand.GetDistanceFromHead()
 	reverseDistance := cand.GetDistanceFromTail()
 
-	forwardTravelTime := cand.GetTravelTimeFromHead()
-	reverseTravelTime := cand.GetTravelTimeFromTail()
+	forwardTravelTime := cand.GetCostFromHead()
+	reverseTravelTime := cand.GetCostFromTail()
 
 	forwardGeometry, reverseGeometry := h.candidatePhantomGeometries(cand)
 

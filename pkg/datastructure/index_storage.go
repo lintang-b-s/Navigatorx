@@ -47,12 +47,12 @@ func (s *TwoLevelStorage) Get(id Index) uint32 {
 	return s.base[id]
 }
 
-func (s *TwoLevelStorage) Set(id Index, queryInfoId uint32) {
+func (s *TwoLevelStorage) Set(id Index, vertexIndex uint32) {
 	if isOverlay(id, s.maxEdgesInCell) {
-		s.overlay[id] = queryInfoId
+		s.overlay[id] = vertexIndex
 		return
 	}
-	s.base[id] = queryInfoId
+	s.base[id] = vertexIndex
 }
 
 func (s *TwoLevelStorage) Clear() {
@@ -66,7 +66,7 @@ func (s *TwoLevelStorage) Clear() {
 	}
 }
 
-func (s *TwoLevelStorage) Clone() QueryInfoStorage {
+func (s *TwoLevelStorage) Clone() IndexStorage {
 	overlayClone := make(map[Index]uint32, len(s.overlay))
 	maps.Copy(overlayClone, s.overlay)
 	base := make([]uint32, len(s.base))
@@ -76,13 +76,13 @@ func (s *TwoLevelStorage) Clone() QueryInfoStorage {
 		base: base, maxEdgesInCell: s.maxEdgesInCell}
 }
 
-func (s *TwoLevelStorage) ForAllItems(handle func(offsetedVId Index, queryInfoId uint32)) {
-	for offsetedEdgeId, queryInfoId := range s.base {
-		handle(Index(offsetedEdgeId), queryInfoId)
+func (s *TwoLevelStorage) ForAllItems(handle func(offsetedVId Index, vertexIndex uint32)) {
+	for offsetedEdgeId, vertexIndex := range s.base {
+		handle(Index(offsetedEdgeId), vertexIndex)
 	}
 
-	for overlayVId, queryInfoId := range s.overlay {
-		handle(overlayVId, queryInfoId)
+	for overlayVId, vertexIndex := range s.overlay {
+		handle(overlayVId, vertexIndex)
 	}
 }
 
@@ -114,7 +114,7 @@ func (s *ArrayStorage) Clear() {
 	}
 }
 
-func (s *ArrayStorage) Clone() QueryInfoStorage {
+func (s *ArrayStorage) Clone() IndexStorage {
 	base := make([]uint32, len(s.base))
 	copy(base, s.base)
 
@@ -122,9 +122,9 @@ func (s *ArrayStorage) Clone() QueryInfoStorage {
 		base: base}
 }
 
-func (s *ArrayStorage) ForAllItems(handle func(offsetedVId Index, queryInfoId uint32)) {
-	for offsetedEdgeId, queryInfoId := range s.base {
-		handle(Index(offsetedEdgeId), queryInfoId)
+func (s *ArrayStorage) ForAllItems(handle func(offsetedVId Index, vertexIndex uint32)) {
+	for offsetedEdgeId, vertexIndex := range s.base {
+		handle(Index(offsetedEdgeId), vertexIndex)
 	}
 
 }
@@ -152,8 +152,8 @@ func (s *MapStorage) Get(id Index) uint32 {
 	return val
 }
 
-func (s *MapStorage) Set(id Index, queryInfoId uint32) {
-	s.overlay[id] = queryInfoId
+func (s *MapStorage) Set(id Index, vertexIndex uint32) {
+	s.overlay[id] = vertexIndex
 }
 
 func (s *MapStorage) Clear() {
@@ -163,17 +163,17 @@ func (s *MapStorage) Clear() {
 	}
 }
 
-func (s *MapStorage) Clone() QueryInfoStorage {
+func (s *MapStorage) Clone() IndexStorage {
 	overlayClone := make(map[Index]uint32, len(s.overlay))
 	maps.Copy(overlayClone, s.overlay)
 
 	return &MapStorage{overlay: overlayClone}
 }
 
-func (s *MapStorage) ForAllItems(handle func(offsetedVId Index, queryInfoId uint32)) {
+func (s *MapStorage) ForAllItems(handle func(offsetedVId Index, vertexIndex uint32)) {
 
-	for overlayVId, queryInfoId := range s.overlay {
-		handle(overlayVId, queryInfoId)
+	for overlayVId, vertexIndex := range s.overlay {
+		handle(overlayVId, vertexIndex)
 	}
 }
 
@@ -185,12 +185,12 @@ func NewExploredBitsetStorage(approxMaxSearchSize uint32) *ExploredBitsetStorage
 	return &ExploredBitsetStorage{bitset.New(uint(approxMaxSearchSize))}
 }
 
-func (sc *ExploredBitsetStorage) Test(queryInfoId uint32) bool {
-	return sc.scanned.Test(uint(queryInfoId))
+func (sc *ExploredBitsetStorage) Test(vertexIndex uint32) bool {
+	return sc.scanned.Test(uint(vertexIndex))
 }
 
-func (sc *ExploredBitsetStorage) Set(queryInfoId uint32) {
-	sc.scanned.Set(uint(queryInfoId))
+func (sc *ExploredBitsetStorage) Set(vertexIndex uint32) {
+	sc.scanned.Set(uint(vertexIndex))
 }
 
 func (sc *ExploredBitsetStorage) Clear(maxEdgesInCell uint32) {
@@ -205,12 +205,12 @@ func NewExploredSettorage(approxMaxSearchSize uint32) *ExploredSettorage {
 	return &ExploredSettorage{hashset.NewUint32WithSize(int(approxMaxSearchSize))}
 }
 
-func (sc *ExploredSettorage) Test(queryInfoId uint32) bool {
-	return sc.scanned.Contains(queryInfoId)
+func (sc *ExploredSettorage) Test(vertexIndex uint32) bool {
+	return sc.scanned.Contains(vertexIndex)
 }
 
-func (sc *ExploredSettorage) Set(queryInfoId uint32) {
-	sc.scanned.Add(queryInfoId)
+func (sc *ExploredSettorage) Set(vertexIndex uint32) {
+	sc.scanned.Add(vertexIndex)
 }
 
 func (sc *ExploredSettorage) Clear(maxEdgesInCell uint32) {

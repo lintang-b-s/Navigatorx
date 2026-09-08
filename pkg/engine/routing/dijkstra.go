@@ -37,10 +37,10 @@ useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 */
 func (us *Dijkstra[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) {
 
-	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 
 	djKey := da.NewDijkstraKey(s, s)
-	us.pq.Insert(s, 0, sVertexInfo, djKey)
+	us.pq.Insert(s, 0, sVertexData, djKey)
 
 	for !us.pq.IsEmpty() {
 
@@ -86,7 +86,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 				us.pq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
 			}
@@ -122,7 +122,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
 
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)

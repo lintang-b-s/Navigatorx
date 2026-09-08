@@ -1,15 +1,15 @@
 package datastructure
 
-type QueryInfoStorage interface {
+type IndexStorage interface {
 	Get(id Index) uint32
 	Set(id Index, info uint32)
 	Clear()
-	Clone() QueryInfoStorage
-	ForAllItems(handle func(offsetedVId Index, queryInfoId uint32))
+	Clone() IndexStorage
+	ForAllItems(handle func(offsetedVId Index, vertexIndex uint32))
 }
 
 type ExploredSetStorage interface {
-	Test(queryInfoId uint32) bool
-	Set(queryInfoId uint32)
+	Test(vertexIndex uint32) bool
+	Set(vertexIndex uint32)
 	Clear(maxEdgesInCell uint32)
 }

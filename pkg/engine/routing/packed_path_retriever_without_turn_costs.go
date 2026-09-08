@@ -37,7 +37,7 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPathNoTurnCost(forwardMid d
 		mid.SetVertex(adjMidVertex)
 	}
 	svPackedPath = append(svPackedPath, mid)
-	var curInfo da.VertexInfo[W]
+	var curInfo da.VertexData[W]
 	if mid.IsOverlayVertex() {
 		curInfo = fpq.Get(crp.offsetOverlayNoTurnCost(midVertex))
 	} else {
@@ -71,7 +71,7 @@ func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPathNoTurnCost(backwardMid
 	vtPackedPath := make([]da.VertexEdgePair, 0, 32)
 	mid := backwardMid
 
-	var curInfo da.VertexInfo[W]
+	var curInfo da.VertexData[W]
 	if mid.IsOverlayVertex() {
 		curInfo = bpq.Get(crp.offsetOverlayNoTurnCost(mid.GetVertex()))
 	} else {

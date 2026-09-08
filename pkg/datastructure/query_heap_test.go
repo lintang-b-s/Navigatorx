@@ -18,7 +18,7 @@ func TestQueryHeap(t *testing.T) {
 		for i := 0; i < numInputs; i++ {
 			rdNum := rd.Intn(numInputs)
 			sortedArr[i] = rdNum
-			pq.Insert(Index(rdNum), float64(rdNum), NewVertexInfo(float64(0), NewVertexEdgePair(0, 0, false)), rdNum)
+			pq.Insert(Index(rdNum), float64(rdNum), NewVertexData(float64(0), NewVertexEdgePair(0, 0, false)), rdNum)
 		}
 
 		sort.Ints(sortedArr)

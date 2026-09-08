@@ -189,8 +189,8 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sourceOverlayId da.Index,
 
 	tVertex := pu.eng.overlayGraph.GetVertex(targetOverlayId)
 
-	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
-	pq.Insert(sourceOverlayId, 0, sVertexInfo, sourceOverlayId)
+	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	pq.Insert(sourceOverlayId, 0, sVertexData, sourceOverlayId)
 
 	s := sVertex.GetOrigVId()
 	t := tVertex.GetOrigVId()
@@ -236,9 +236,9 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sourceOverlayId da.Index,
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 					// if v is the target overlay vertex, insert/decrease its key  pq
 					if !vAlreadyLabelled {
-						wVertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(originalUId,
+						wVertexData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(originalUId,
 							uOverlayId, true))
-						pq.Insert(vOverlayId, priority, wVertexInfo, uOverlayId)
+						pq.Insert(vOverlayId, priority, wVertexData, uOverlayId)
 					} else {
 						wNewPar := da.NewVertexEdgePair(originalUId,
 							uOverlayId, true)
@@ -246,7 +246,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sourceOverlayId da.Index,
 					}
 
 				} else {
-					pq.Set(vOverlayId, da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(originalUId,
+					pq.Set(vOverlayId, da.NewVertexData(newTravelTime, da.NewVertexEdgePair(originalUId,
 						uOverlayId, true)), vOverlayId)
 				}
 
@@ -273,9 +273,9 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sourceOverlayId da.Index,
 				wAlreadyLabelled := util.Lt(pq.GetPriority(wNeighborId), util.Infinity[W]())
 				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(wNeighborId))) {
 					if !wAlreadyLabelled {
-						wVertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
+						wVertexData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
 							vOverlayId, true))
-						pq.Insert(wNeighborId, priority, wVertexInfo, wNeighborId)
+						pq.Insert(wNeighborId, priority, wVertexData, wNeighborId)
 					} else {
 						wNewPar := da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
 							vOverlayId, true)
@@ -343,7 +343,7 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(sourceEntryId, targetEntry
 	offSourceEntryId := pu.eng.offsetForward(s, sourceEntryId, sourceCellNumber, sourceCellNumber)
 
 	sQueryKey := da.NewCRPQueryKeyWithOutInEdgeId(s, offSourceEntryId, sOutEdge)
-	sInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePairWithOutEdgeId(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID,
+	sInfo := da.NewVertexData(W(0), da.NewVertexEdgePairWithOutEdgeId(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID,
 		da.INVALID_EDGE_ID, false))
 
 	pq.Insert(offSourceEntryId, 0, sInfo, sQueryKey)
@@ -400,7 +400,7 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(sourceEntryId, targetEntry
 
 				if !vAlreadyLabelled {
 					queryKey := da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, eId)
-					vInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
+					vInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
 
 					pq.Insert(offVEntryId, priority, vInfo, queryKey)
 				} else {

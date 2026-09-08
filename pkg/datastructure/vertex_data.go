@@ -79,40 +79,40 @@ func (ve VertexEdgePair) GetOutInEdgeId() Index {
 	return ve.outInEdgeId
 }
 
-type VertexInfo[W util.RoutingNumber] struct {
+type VertexData[W util.RoutingNumber] struct {
 	parent     VertexEdgePair // 13 byte
-	travelTime W
+	cost       W
 	heapNodeId uint32 // 4 byte
 }
 
-func NewVertexInfo[W util.RoutingNumber](travelTime W, parent VertexEdgePair) VertexInfo[W] {
-	return VertexInfo[W]{
-		travelTime: travelTime,
+func NewVertexData[W util.RoutingNumber](cost W, parent VertexEdgePair) VertexData[W] {
+	return VertexData[W]{
+		cost:       cost,
 		parent:     parent,
 		heapNodeId: 0,
 	}
 }
 
-func (vi *VertexInfo[W]) GetTravelTime() W {
-	return vi.travelTime
+func (vi *VertexData[W]) GetCost() W {
+	return vi.cost
 }
 
-func (vi *VertexInfo[W]) UpdateTravelTime(tt W) {
-	vi.travelTime = tt
+func (vi *VertexData[W]) UpdateCost(tt W) {
+	vi.cost = tt
 }
 
-func (vi *VertexInfo[W]) UpdateParent(par VertexEdgePair) {
+func (vi *VertexData[W]) UpdateParent(par VertexEdgePair) {
 	vi.parent = par
 }
 
-func (vi *VertexInfo[W]) SetHeapNodeId(id uint32) {
+func (vi *VertexData[W]) SetHeapNodeId(id uint32) {
 	vi.heapNodeId = id
 }
 
-func (vi *VertexInfo[W]) GetHeapNodeId() uint32 {
+func (vi *VertexData[W]) GetHeapNodeId() uint32 {
 	return vi.heapNodeId
 }
 
-func (vi VertexInfo[W]) GetParent() VertexEdgePair {
+func (vi VertexData[W]) GetParent() VertexEdgePair {
 	return vi.parent
 }

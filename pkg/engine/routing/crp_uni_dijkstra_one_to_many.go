@@ -82,8 +82,8 @@ func (us *CRPUniDijkstraOneToMany[W]) ShortestPathOneToManySearch(asId da.Index,
 	sForwardId := us.engine.graph.GetEntryOffset(s) + da.Index(asEdge.GetEntryPoint())
 
 	sQueryKey := da.NewCRPQueryKey(s, sForwardId, false)
-	sVertexInfo := da.NewVertexInfo(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
-	us.pq.Insert(sForwardId, 0, sVertexInfo, sQueryKey)
+	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	us.pq.Insert(sForwardId, 0, sVertexData, sQueryKey)
 
 	finished := false
 
@@ -244,7 +244,7 @@ func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, sourc
 
 				queryKey := da.NewCRPQueryKey(vId, vEntryId, false)
 				// newTravelTime is better, update the forwardInfo
-				vertexInfo := da.NewVertexInfo(newTravelTime,
+				vertexInfo := da.NewVertexData(newTravelTime,
 					da.NewVertexEdgePair(uId, uEntryId, false))
 
 				// is key not in the priority queue, insert it
@@ -264,7 +264,7 @@ func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, sourc
 				if !vAlreadyLabelled {
 					queryKey := da.NewCRPQueryKey(v, da.Index(lowestVQueryLevel), true)
 
-					vertexInfo := da.NewVertexInfo(newTravelTime,
+					vertexInfo := da.NewVertexData(newTravelTime,
 						da.NewVertexEdgePair(vId, vEntryId, false))
 
 					us.pq.Insert(overlayVId, newTravelTime, vertexInfo, queryKey)
@@ -349,7 +349,7 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 					us.pq.DecreaseKey(wEntryId, newTravelTime, newTravelTime, newPar)
 				} else {
 					queryKey := da.NewCRPQueryKey(originalW, wEntryId, false)
-					vertexInfo := da.NewVertexInfo(newTravelTime,
+					vertexInfo := da.NewVertexData(newTravelTime,
 						da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false))
 
 					us.pq.Insert(wEntryId, newTravelTime, vertexInfo, queryKey)
@@ -365,7 +365,7 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 
 					if !wAlreadyLabelled {
 						queryKey := da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel), true)
-						vertexInfo := da.NewVertexInfo(newTravelTime,
+						vertexInfo := da.NewVertexData(newTravelTime,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false))
 
 						us.pq.Insert(wId, newTravelTime, vertexInfo, queryKey)

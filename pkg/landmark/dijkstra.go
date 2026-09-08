@@ -57,7 +57,7 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
 	noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
 	djKey := da.NewDijkstraKey(s, s)
-	us.pq.Insert(s, 0, da.NewVertexInfo(W(0),
+	us.pq.Insert(s, 0, da.NewVertexData(W(0),
 		noPar), djKey)
 
 	for !us.pq.IsEmpty() {
@@ -111,7 +111,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
 
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
@@ -149,7 +149,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vertexInfo := da.NewVertexInfo(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
 
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)

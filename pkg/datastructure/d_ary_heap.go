@@ -75,7 +75,7 @@ func NewCRPQueryKeyNoTurnCost(node Index, queryLevel uint8, overlay bool) CRPQue
 type PriorityQueueNode[T comparable, W util.RoutingNumber] struct {
 	item        T
 	rank        W
-	queryInfoId uint32
+	vertexIndex uint32
 }
 
 func (p *PriorityQueueNode[T, W]) GetItem() T {
@@ -90,12 +90,12 @@ func (p *PriorityQueueNode[T, W]) SetRank(rank W) {
 	p.rank = rank
 }
 
-func (p *PriorityQueueNode[T, W]) getQueryInfoId() uint32 {
-	return p.queryInfoId
+func (p *PriorityQueueNode[T, W]) getVertexIndex() uint32 {
+	return p.vertexIndex
 }
 
-func NewPriorityQueueNode[T comparable, W util.RoutingNumber](rank W, item T, queryInfoId uint32) PriorityQueueNode[T, W] {
-	return PriorityQueueNode[T, W]{rank: rank, item: item, queryInfoId: queryInfoId}
+func NewPriorityQueueNode[T comparable, W util.RoutingNumber](rank W, item T, vertexIndex uint32) PriorityQueueNode[T, W] {
+	return PriorityQueueNode[T, W]{rank: rank, item: item, vertexIndex: vertexIndex}
 }
 
 // DAryHeap d-ary heap priorityqueue
@@ -129,7 +129,7 @@ func (h *DAryHeap[T, W]) parent(index uint32) uint32 {
 }
 
 // heapifyUp mempertahankan heap property. check apakah parent dari index lebih besar kalau iya swap, then recursive ke parent.  O(logN) complete 2/4-ary tree height.
-func (h *DAryHeap[T, W]) heapifyUp(index uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
+func (h *DAryHeap[T, W]) heapifyUp(index uint32, updatePos func(vertexIndex, newHeapNodeId uint32)) {
 	for index != 0 && util.Lt(h.heap[index].rank, h.heap[h.parent(index)].rank) {
 		h.Swap(index, h.parent(index), updatePos)
 		index = h.parent(index)
@@ -137,7 +137,7 @@ func (h *DAryHeap[T, W]) heapifyUp(index uint32, updatePos func(queryInfoId, new
 }
 
 // heapifyDown mempertahankan heap property. check apakah nilai salah satu children dari index lebih kecil kalau iya swap, then recursive ke children yang kecil tadi.  O(logN) complete 2/4-ary tree height.
-func (h *DAryHeap[T, W]) heapifyDown(index uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
+func (h *DAryHeap[T, W]) heapifyDown(index uint32, updatePos func(vertexIndex, newHeapNodeId uint32)) {
 
 	leftMostChild := index*h.d + 1
 	if leftMostChild >= uint32(len(h.heap)) { // this node (index) dont have any children nodes
@@ -161,11 +161,11 @@ func (h *DAryHeap[T, W]) heapifyDown(index uint32, updatePos func(queryInfoId, n
 	}
 }
 
-func (h *DAryHeap[T, W]) Swap(i, j uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
+func (h *DAryHeap[T, W]) Swap(i, j uint32, updatePos func(vertexIndex, newHeapNodeId uint32)) {
 	h.heap[i], h.heap[j] = h.heap[j], h.heap[i]
 
-	updatePos(h.heap[i].getQueryInfoId(), i)
-	updatePos(h.heap[j].getQueryInfoId(), j)
+	updatePos(h.heap[i].getVertexIndex(), i)
+	updatePos(h.heap[j].getVertexIndex(), j)
 }
 
 // isEmpty check apakah heap kosong
@@ -203,16 +203,16 @@ func (h *DAryHeap[T, W]) GetMinrank() W {
 }
 
 // insert item baru
-func (h *DAryHeap[T, W]) Insert(key PriorityQueueNode[T, W], queryInfoId uint32, updatePos func(queryInfoId, newHeapNodeId uint32)) {
+func (h *DAryHeap[T, W]) Insert(key PriorityQueueNode[T, W], vertexIndex uint32, updatePos func(vertexIndex, newHeapNodeId uint32)) {
 	h.heap = append(h.heap, key)
 	index := uint32(h.Size() - 1)
-	updatePos(queryInfoId, uint32(index))
+	updatePos(vertexIndex, uint32(index))
 
 	h.heapifyUp(index, updatePos)
 }
 
 // extractMin ambil node dg nilai minimum dari min-heap (index 0) & pop dari heap. O(logN), heapifyDown(0) O(logN)
-func (h *DAryHeap[T, W]) ExtractMin(updatePos func(queryInfoId, newHeapNodeId uint32)) (PriorityQueueNode[T, W], error) {
+func (h *DAryHeap[T, W]) ExtractMin(updatePos func(vertexIndex, newHeapNodeId uint32)) (PriorityQueueNode[T, W], error) {
 	if h.isEmpty() {
 		return PriorityQueueNode[T, W]{}, ErrHeapEmpty
 	}
@@ -230,7 +230,7 @@ func (h *DAryHeap[T, W]) ExtractMin(updatePos func(queryInfoId, newHeapNodeId ui
 }
 
 // decreaseKey update rank dari item min-heap.   O(logN) heapify.
-func (h *DAryHeap[T, W]) DecreaseKey(itemPos uint32, rank W, updatePos func(queryInfoId, newHeapNodeId uint32)) {
+func (h *DAryHeap[T, W]) DecreaseKey(itemPos uint32, rank W, updatePos func(vertexIndex, newHeapNodeId uint32)) {
 
 	h.heap[itemPos].SetRank(rank)
 	h.heapifyUp(itemPos, updatePos)
