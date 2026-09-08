@@ -1070,7 +1070,9 @@ func (ars *AlternativeRouteSearch[W]) makePackedViaPathOverlayEven(svPackedPath,
 		}
 	}
 
-	if lSV != 0 && (nSV-lSV)%2 != 0 && isBitOn(svPackedPath[nSV-1].GetEdge(), UNPACK_OVERLAY_OFFSET) {
+	// todo: kok ada svPath yang semua nya overlay/boundary vertices ya pas didebug di latest changes??
+
+	if (nSV-lSV)%2 != 0 && isBitOn(svPackedPath[nSV-1].GetEdge(), UNPACK_OVERLAY_OFFSET) {
 		svPackedPath = append(svPackedPath, vtPackedPath[0])
 		vtPackedPath = vtPackedPath[1:]
 	}

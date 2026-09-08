@@ -133,6 +133,7 @@ func (pu *PathUnpackerALT[W]) unpackPathEdgesOnly(packedPath []da.VertexEdgePair
 			i++
 		} else {
 			// overlay vertex
+
 			entryOverlayId := offBit(cur.GetEdge(), UNPACK_OVERLAY_OFFSET)
 
 			entryVertex := pu.eng.overlayGraph.GetVertex(entryOverlayId)
