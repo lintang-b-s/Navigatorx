@@ -6,7 +6,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// inspired by OSRM QueryHeap
+// inspired by OSRM QueryHeap https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/query_heap.hpp
 
 type QueryHeap[T comparable, W util.RoutingNumber] struct {
 	heap       *DAryHeap[T, W] // 4-ary minheap

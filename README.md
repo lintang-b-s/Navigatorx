@@ -31,7 +31,6 @@ sh scripts/build_pgo.sh
 run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1)) algorithm is available. The CRP pre-processing phase creates multilevel partitions using Inertial Flow Algorithm ([[4]](#ref4)) and overlay graph data structures.
 
 ```
-export GOFLAGS="-buildvcs=false"
 go build -o ./bin/preprocessor ./cmd/preprocessor
 ./bin/preprocessor
 ```
@@ -67,7 +66,7 @@ For changes in the duration (weight) of road segments, the csv file follows the 
 from_osm_id, to_osm_id, road_segment_speed_in_km_h
 ```
 
-from/to OSM node IDs must be connected. Note that for some OSM nodes that only have indegree and outdegree equal to 1, the node may be compressed/contracted so that only the two adjacent nodes to the contracted node remain in the compressed graph. <br>
+from/to OSM node IDs are [OpenStreetMap Node](https://wiki.openstreetmap.org/wiki/Node) Id.from/to OSM node IDs must be connected. Note that for some OSM nodes that only have indegree and outdegree equal to 1, the node may be compressed/contracted so that only the two adjacent nodes to the contracted node remain in the compressed graph. <br>
 
 After you run the command above, the query engine will provide the following log: <br>
 
