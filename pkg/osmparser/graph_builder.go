@@ -16,7 +16,7 @@ import (
 // jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph, untuk correctness test.
 // karena Customizable Route Planning (CRP) Query phase (with turn costs) mengasumsikan setiap vertices memiliki setidaknya 1 incoming edge & 1 outgoing edge biar bisa point-to-point shortest path (p2p) with turn costs ke/dari setiap vertices.
 // untuk roadNetwork=true, inputnya file OpenStreetMap pbf, kita support hampir semua tipe osm turn restrictions.
-func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, *costfunction.TimeFunction[W], [][]da.Index) {
+func (p *OsmParser[W]) BuildGraph(edges []Edge[W], graphStorage *da.GraphStorage, numV uint32, roadNetwork bool) (*da.Graph, *costfunction.TimeFunction[W], [][]da.Index) {
 	util.ActivateMode[W]()
 
 	var (
@@ -33,7 +33,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 
 	fmt.Printf("0%%...")
 	vertexOsmIds := make([]uint64, numV)
-	for eID, e := range scannedEdges {
+	for eID, e := range edges {
 		u := da.Index(e.from)
 		v := da.Index(e.to)
 
@@ -82,7 +82,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 	}
 
 	fmt.Printf("10%%...")
-	newEDataId := len(scannedEdges)
+	newEDataId := len(edges)
 	// tambahin parallel edges dulu buat via-way turn restrictions
 	for wayId, way := range p.ways {
 		newEDataId = addParallelViaEdges(p, wayId, way, newEDataId, outEdges, inEdges, graphStorage, edgeDataIds, outWeights, outLengths,
@@ -122,7 +122,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 	}
 
 	if !roadNetwork {
-		for i := 0; i < len(scannedEdges); i++ {
+		for i := 0; i < len(edges); i++ {
 			graphStorage.AppendEdgeMetadata(
 				-1,
 				1, 1,

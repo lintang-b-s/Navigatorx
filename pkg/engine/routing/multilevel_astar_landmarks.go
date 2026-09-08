@@ -38,10 +38,10 @@ type CRPALTQueryTurnCost[W util.RoutingNumber] struct {
 	inSId  da.Index
 	outTId da.Index
 
-	numScannedVertices        int
-	numScannedOverlayVertices int
-	runtime                   int64
-	pathUnpackingRuntime      int64
+	numExploredVertices        int
+	numExploredOverlayVertices int
+	runtime                    int64
+	pathUnpackingRuntime       int64
 
 	forAlternativeRoutes bool
 	reroute              bool
@@ -61,15 +61,15 @@ func newCRPALTQueryTurnCostAlloc[W util.RoutingNumber](
 ) *CRPALTQueryTurnCost[W] {
 	maxEdgesInCell := engine.graph.GetMaxEdgesInCell()
 	return &CRPALTQueryTurnCost[W]{
-		engine:                    engine,
-		forwMid:                   da.NewVertexEdgePair(0, 0, false),
-		backwMid:                  da.NewVertexEdgePair(0, 0, true),
-		stallingEn:                make([]W, maxEdgesInCell*2),
-		stallingEx:                make([]W, maxEdgesInCell*2),
-		numScannedVertices:        0,
-		runtime:                   0,
-		pathUnpackingRuntime:      0,
-		numScannedOverlayVertices: 0,
+		engine:                     engine,
+		forwMid:                    da.NewVertexEdgePair(0, 0, false),
+		backwMid:                   da.NewVertexEdgePair(0, 0, true),
+		stallingEn:                 make([]W, maxEdgesInCell*2),
+		stallingEx:                 make([]W, maxEdgesInCell*2),
+		numExploredVertices:        0,
+		runtime:                    0,
+		pathUnpackingRuntime:       0,
+		numExploredOverlayVertices: 0,
 	}
 }
 
@@ -88,8 +88,8 @@ func (bs *CRPALTQueryTurnCost[W]) Reset(upperBound float64) {
 	bs.inSId = 0
 	bs.outTId = 0
 
-	bs.numScannedVertices = 0
-	bs.numScannedOverlayVertices = 0
+	bs.numExploredVertices = 0
+	bs.numExploredOverlayVertices = 0
 	bs.runtime = 0
 	bs.pathUnpackingRuntime = 0
 
@@ -118,7 +118,7 @@ decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shor
 extract-min at most O(m_p+n_o) operations
 
 
-ingat bahwa pada graf standard (tanpa incorporate turn costs), kita menjalankan dijkstra dengan repeatly memilih vertex u  dengan minimum shortest path estimate dari priority queue, add ke  set of scanned vertices S
+ingat bahwa pada graf standard (tanpa incorporate turn costs), kita menjalankan dijkstra dengan repeatly memilih vertex u  dengan minimum shortest path estimate dari priority queue, add ke  set of explored vertices S
 dan relax semua out edges dari vertex u
 
 karena kita incorporate turn costs, kita menggunakan turn-aware dijkstra (see ref[1]) pada forwardGraphSearch dan backwardGraphSearch :
@@ -140,9 +140,9 @@ disini kita simpan turn cost dari i1->u->i2 di graph.turnTables[u.turnTablePtr +
 
 
 state dari setiap item (bisa berupa (entry/exit point, vertex) atau overlay vertex) dibagi menjadi tiga:
-unreachable, labelled, dan scanned. pada awal algoritma pencarian (sebelum scan s), semua item memiliki state unreacahble
+unreachable, labelled, dan explored. pada awal algoritma pencarian (sebelum scan s), semua item memiliki state unreacahble
 sesudah relaksasi edge (v,w) dengan entry point i item (i,w) memiliki state labelled
-setiap item yang sudah di extractMin prioirty queue memiliki state scanned.
+setiap item yang sudah di extractMin prioirty queue memiliki state explored.
 
 kita represent turn cost dari entry i1 ke exit i2 melalui u dengna T_u[i1,i2]
 misal kita udah scan (i1,u,d_{i1}) sebelumnya
@@ -347,7 +347,7 @@ func (bs *CRPALTQueryTurnCost[W]) ShortestPathSearch(sp, tp da.PhantomNode) (W, 
 		} else {
 			bs.forwardPq.Explore(bs.engine.offsetOverlay(uItem.GetNode()))
 			bs.forwardOverlayGraphSearch(uItem, s, t)
-			bs.numScannedOverlayVertices++
+			bs.numExploredOverlayVertices++
 		}
 
 		queryKey = bs.backwardPq.ExtractMin()
@@ -358,10 +358,10 @@ func (bs *CRPALTQueryTurnCost[W]) ShortestPathSearch(sp, tp da.PhantomNode) (W, 
 		} else {
 			bs.backwardPq.Explore(bs.engine.offsetOverlay(uItem.GetNode()))
 			bs.backwardOverlayGraphSearch(uItem, s, t)
-			bs.numScannedOverlayVertices++
+			bs.numExploredOverlayVertices++
 		}
 
-		bs.numScannedVertices += 2
+		bs.numExploredVertices += 2
 	}
 
 	if util.Ge(bs.shortestCost, util.Infinity[W]()) {
@@ -480,7 +480,7 @@ func (bs *CRPALTQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 			bs.engine.graph.ForOutEdgesOf(vId, enPoint, func(_, _ da.Index, _, _, turnTableId2 da.Index, turnType2 pkg.TurnType,
 				_ pkg.OsmHighwayType) {
 
-				// check if forward and backward search already scanned entry point and  exit point of v. if so, check whether we can improve the shortest path
+				// check if forward and backward search already explored entry point and  exit point of v. if so, check whether we can improve the shortest path
 				exploredByBackwSearch := bs.backwardPq.IsExplored(vOutId)
 				vOutIdCost := bs.backwardPq.GetCost(vOutId)
 
@@ -519,7 +519,7 @@ func (bs *CRPALTQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 			}
 
 			exploredByBackwSearch := bs.backwardPq.IsExplored(ovVId)
-			// if v scanned by backward search, check whether we can improve the shortestPath
+			// if v explored by backward search, check whether we can improve the shortestPath
 			newEstSpCost := bs.forwardPq.GetCost(ovVId) + bs.backwardPq.GetCost(ovVId)
 			if exploredByBackwSearch && util.Lt(newEstSpCost, bs.shortestCost) {
 				bs.shortestCost = newEstSpCost
@@ -738,7 +738,7 @@ func (bs *CRPALTQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 				wOutId := outOffset
 				bs.engine.graph.ForOutEdgesOf(oriWId, wEnPoint, func(_, _ da.Index, _, _, turnTableId da.Index, _ pkg.TurnType,
 					_ pkg.OsmHighwayType) {
-					// check if forward and backward search already scanned exit point of w. if so, check whether we can improve the shortest path
+					// check if forward and backward search already explored exit point of w. if so, check whether we can improve the shortest path
 					exploredByBackwSearch := bs.backwardPq.IsExplored(wOutId)
 					wOutIdCost := bs.backwardPq.GetCost(wOutId)
 
@@ -777,7 +777,7 @@ func (bs *CRPALTQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 				exploredByBackwSearch := bs.backwardPq.IsExplored(overlayWId)
 				newEstSpCost := bs.forwardPq.GetCost(overlayWId) + bs.backwardPq.GetCost(overlayWId)
 				if exploredByBackwSearch && util.Lt(newEstSpCost, bs.shortestCost) {
-					// if overlay vertex w scanned by backward search, check whether we can improve the shortestPath
+					// if overlay vertex w explored by backward search, check whether we can improve the shortestPath
 					bs.shortestCost = newEstSpCost
 
 					bs.forwMid = da.NewVertexEdgePair(wVertex.GetOrigVId(), overlayWId, false)
@@ -876,7 +876,7 @@ func (bs *CRPALTQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 					}
 				}
 
-				// check whether we already scanned an entry point of w in forward search
+				// check whether we already explored an entry point of w in forward search
 				inOffset := bs.engine.graph.GetEntryOffset(oriWId)
 				inOffset = bs.engine.offsetForward(oriWId, inOffset, wVertex.GetCellNumber(), bs.sCellNumber)
 				wInId := inOffset
@@ -964,8 +964,8 @@ func (bs *CRPALTQueryTurnCost[W]) GetStats(n int) (float64, int, int64, int64) {
 	// efficiency:
 	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf
 
-	efficiency := float64(n) / float64(bs.numScannedVertices)
-	return efficiency, bs.numScannedVertices, bs.runtime, bs.pathUnpackingRuntime
+	efficiency := float64(n) / float64(bs.numExploredVertices)
+	return efficiency, bs.numExploredVertices, bs.runtime, bs.pathUnpackingRuntime
 }
 
 func (bs *CRPALTQueryTurnCost[W]) GetActiveLandmarks() []da.Index {

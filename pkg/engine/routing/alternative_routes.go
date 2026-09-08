@@ -734,8 +734,8 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(svPackedPath,
 
 // calculatePlateau. calculate plateau pl(v)
 // pada CRP query, kita build shortest path trees dari s dan ke t
-// forward search membuat shortest path tree dari s ke every scanned vertices di forward search
-// backward search membuat shortest path tree dari every vertices scanned di backward search ke t (karena backward search pakai reversed edges)
+// forward search membuat shortest path tree dari s ke every explored vertices di forward search
+// backward search membuat shortest path tree dari every vertices explored di backward search ke t (karena backward search pakai reversed edges)
 // plateaus adalah maximal paths yang muncul  di kedua shortest path trees
 // plateau u-w dari st-path: path dari s ke u + path dari u ke w + path dari w ke t
 // semua item (pasangan (entry/exit point, vertex) atau overlay vertex) path u-w dari u ke w tedapat pada kedua shortest path tree
@@ -753,9 +753,9 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 		u = viaInId
 	}
 
-	// shortest path tree from s to v: all scanned (already extracted using extractMin from pq) vertices in forward search
-	// shortest path tree from v to t: all scanned (already extracted using extractMin from pq) vertices in backward search
-	// note that karena backward search pakai reversed edges (dengan bobot setiap rev edge (v,u) sama dengan bobot edge (u,v)), kalau v scanned -> est sp cost dari t ke v di backward search equal to sp cost dari v ke t (kalau pakai original edges)
+	// shortest path tree from s to v: all explored (already extracted using extractMin from pq) vertices in forward search
+	// shortest path tree from v to t: all explored (already extracted using extractMin from pq) vertices in backward search
+	// note that karena backward search pakai reversed edges (dengan bobot setiap rev edge (v,u) sama dengan bobot edge (u,v)), kalau v explored -> est sp cost dari t ke v di backward search equal to sp cost dari v ke t (kalau pakai original edges)
 	/*
 		Intuisi dari plateau (ref: https://dl.acm.org/doi/abs/10.1145/2444016.2444019):
 		buat ngecek apakah alternative route P_v T-Localy Optimall (T-LO): every subpath P' of P_v with l(P') <= T adalah shortest path
@@ -765,7 +765,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 		proof:
 		karena semua item antara u-w di scan forward search dan u-w discan backward search, pakai lemma every subpath of shortest path is shortest path (CLRS): subpath u-w is shortest path
 		pakai lemma every subpath of shortest path is shortest path (CLRS) lagi: every subpath P' dari path u ke w, l(P') <= dist(u,w) is shortest path
-		karena s-u scanned di forward search dan w-t scanned di backward search: subpath s-u is shortest path dan subpath w-t is shortest path
+		karena s-u explored di forward search dan w-t explored di backward search: subpath s-u is shortest path dan subpath w-t is shortest path
 		pakai lemma every subpath of shortest path is shortest path lagi: every subpath dari shortest su-path dan wt-path adalah shortest path
 		sehingga didapat every subpath P' of P_v with l(P') <= dist(u,w) adalah shortest path.
 		perhatikan juga karena P_v bukan shortest path (rute alternative), terdapat item x yang belum di scan backward search (x-t is not shortest path) dan item y yang belum di scan forward search (s-y is not shortest path)
@@ -778,19 +778,19 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 
 	// task kita disini adalah find total length dari plateau u-w dari definisi platau diatas
 	// so kita harus backtrack dari vInId/vOverlayId dari via vertex ke vertex awal dari plateau (atau vertex u dari definisi diatas)
-	// bisa backtrack ke parent(u) kalau parent(u) scanned in backward search, atau in shortest path tree dari backward search
+	// bisa backtrack ke parent(u) kalau parent(u) explored in backward search, atau in shortest path tree dari backward search
 	// let n=number of edges in s-via-t path
 	// worst case: O(n)
 	for u != sForwardId {
 
 		if ars.engine.isOverlay(u) {
-			// parent_forward_search(u) is in plateau iff parent_forward_search(u) scanned in backward search
+			// parent_forward_search(u) is in plateau iff parent_forward_search(u) explored in backward search
 
 			oki := util.Lt(pb.GetCost(ps.Get(u).GetParent().GetEdge()), util.Infinity[W]())
 			if !oki {
 				break
 			}
-			if scanned := pb.IsExplored(ps.Get(u).GetParent().GetEdge()); !scanned {
+			if explored := pb.IsExplored(ps.Get(u).GetParent().GetEdge()); !explored {
 				// qParentOverlay -qShortcut-> qOverlay -vShortcut-> vOverlay
 				// u == vOverlay, ps.Get(u).GetParent().GetEdge() == qOverlay
 				// kalau qOverlay udah di scan di backward search kita bisa lanjut backtrack
@@ -820,7 +820,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 				break
 			}
 
-			if scanned := pb.IsExplored(offQOutId); !scanned {
+			if explored := pb.IsExplored(offQOutId); !explored {
 				// kalau qInEdge udah di scan di backward search kita bisa lanjut backtrack
 				// else: vInEdge (atau u) adalah entryEdge pertama dari plateau path
 				break
@@ -829,7 +829,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			// q -vShortcut-> vOverlay -boundaryEdge/wInEdge-> w -> wOutEdge
 			// u == wInEdge, ps.Get(u).GetParent().GetEdge() == vOverlay
 
-			// cek apakah vOverlay already scanned di backward search, kalau iya bisa lanjut backtrack ke parent_forward_search(u)
+			// cek apakah vOverlay already explored di backward search, kalau iya bisa lanjut backtrack ke parent_forward_search(u)
 			// di backward search: parent dari vOverlay adalah wOutEdge
 
 			vOverlay := ps.Get(u).GetParent().GetEdge()
@@ -845,7 +845,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			// q -vInEdge/qOutEdge-> vOverlay
 			// u == vOverlay,  ps.Get(u).GetParent().GetEdge() == vInEdge
 
-			// cek apakah vOutId scanned di backward search
+			// cek apakah vOutId explored di backward search
 
 			// vOverlay := u
 
@@ -860,8 +860,8 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			if !oki {
 				break
 			}
-			if scanned := pb.IsExplored(offQOutId); !scanned {
-				// kalau qOutEdge scanned di backward search, kita bisa lanjut backtrack
+			if explored := pb.IsExplored(offQOutId); !explored {
+				// kalau qOutEdge explored di backward search, kita bisa lanjut backtrack
 				// else: vOverlay (atau u) adalah overlayVertex pertama dari plateau path
 
 				break
@@ -892,10 +892,10 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			if !oki {
 				break
 			}
-			if scanned := ps.IsExplored(pb.Get(u).GetParent().GetEdge()); !scanned {
+			if explored := ps.IsExplored(pb.Get(u).GetParent().GetEdge()); !explored {
 				// vOverlay -vShortcut-> qOverlay -qShortcut-> qParentOverlay
 				// u == vOverlay, pb.Get(u).GetParent().GetEdge() == qOverlay
-				// cek kalau qOverlay scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOverlay
+				// cek kalau qOverlay explored in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOverlay
 				break
 			}
 		} else if !ars.engine.isOverlay(u) && !ars.engine.isOverlay(pb.Get(u).GetParent().GetEdge()) {
@@ -924,14 +924,14 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			if !oki {
 				break
 			}
-			if scanned := ps.IsExplored(offQParentInId); !scanned {
+			if explored := ps.IsExplored(offQParentInId); !explored {
 				break
 			}
 		} else if !ars.engine.isOverlay(u) && ars.engine.isOverlay(pb.Get(u).GetParent().GetEdge()) {
 			// wInEdge -> w -boundaryEdge/vInEdge/wExitEdge-> vOverlay -qShortcut-> q
 			// u == wExitEdge, pb.Get(u).GetParent().GetEdge() == vOverlay
 
-			// cek apakah vOverlay scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau vOverlay
+			// cek apakah vOverlay explored in forward search, kalau yes, backtrack ke parent_backward_search(u) atau vOverlay
 
 			vOverlay := pb.Get(u).GetParent().GetEdge()
 
@@ -945,7 +945,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			// vOverlay -vExitEdge/qInEdge-> q -qExitEdge/qParentInEdge-> qParent
 			// u == vOverlay,  pb.Get(u).GetParent().GetEdge() == vOutId
 
-			// cek qParentInEdge scanned in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qExitEdge
+			// cek qParentInEdge explored in forward search, kalau yes, backtrack ke parent_backward_search(u) atau qExitEdge
 
 			// vOverlay := u
 			vOutId := pb.Get(u).GetParent().GetEdge()
@@ -958,7 +958,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			if !oki {
 				break
 			}
-			if scanned := ps.IsExplored(offQInId); !scanned {
+			if explored := ps.IsExplored(offQInId); !explored {
 				break
 			}
 		}
@@ -1060,7 +1060,7 @@ func (ars *AlternativeRouteSearch[W]) makePackedViaPathOverlayEven(svPackedPath,
 
 	lSV := 0 // first overlayVertex
 	// dari crp query, bisa aja via vertex nya di entryVertex sel sebelah
-	// s-> u1 -> u2 -cutEdge-> v1 -shortcut-> v2 -cutEdge-> v3-> via <- ...... vertices scanned by backward search
+	// s-> u1 -> u2 -cutEdge-> v1 -shortcut-> v2 -cutEdge-> v3-> via <- ...... vertices explored by backward search
 	// karena sv overlayPath  nya [v1,v2,v3] ganjil dan syarat dari pathUnpacker: len(overlayPath) even, kita harus buat jadi even
 
 	nSV := len(svPackedPath)

@@ -93,7 +93,7 @@ func NewMetric[W util.RoutingNumber](
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
 
-ingat bahwa pada graf standard (tanpa incorporate turn costs), kita menjalankan dijkstra dengan repeatly memilih vertex u  dengan minimum shortest path estimate dari priority queue, add ke  set of scanned vertices S
+ingat bahwa pada graf standard (tanpa incorporate turn costs), kita menjalankan dijkstra dengan repeatly memilih vertex u  dengan minimum shortest path estimate dari priority queue, add ke  set of explored vertices S
 dan relax semua out edges dari vertex u
 
 karena kita incorporate turn costs, kita menggunakan turn-aware dijkstra (see ref[1]) pada forwardGraphSearch dan backwardGraphSearch :

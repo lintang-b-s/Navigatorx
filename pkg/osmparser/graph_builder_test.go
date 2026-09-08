@@ -13,7 +13,7 @@ func TestBuildGraphSimple(t *testing.T) {
 	p := NewOSMParserV2[float64]()
 
 	// Create some mocked edges
-	scannedEdges := []Edge[float64]{
+	edges := []Edge[float64]{
 		NewEdge(0, 1, 10.0, 100, false, 1),
 		NewEdge(1, 2, 15.0, 150, false, 2),
 	}
@@ -30,7 +30,7 @@ func TestBuildGraphSimple(t *testing.T) {
 	numV := uint32(3)
 	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
-	graph, _, edgeDataIds := p.BuildGraph(scannedEdges, graphStorage, numV, true)
+	graph, _, edgeDataIds := p.BuildGraph(edges, graphStorage, numV, true)
 
 	if graph == nil {
 		t.Fatal("buildGraph returned nil")
@@ -72,7 +72,7 @@ func TestBuildGraphWithTurnRestrictions(t *testing.T) {
 		},
 	}
 
-	scannedEdges := []Edge[float64]{
+	edges := []Edge[float64]{
 		NewEdge(0, 1, 10.0, 100, false, 1),
 		NewEdge(1, 2, 15.0, 150, false, 2),
 	}
@@ -88,7 +88,7 @@ func TestBuildGraphWithTurnRestrictions(t *testing.T) {
 	numV := uint32(3)
 	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
-	graph, _, _ := p.BuildGraph(scannedEdges, graphStorage, numV, true)
+	graph, _, _ := p.BuildGraph(edges, graphStorage, numV, true)
 
 	if graph == nil {
 		t.Fatal("buildGraph returned nil")

@@ -335,7 +335,7 @@ func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *co
 
 	// scan osm way and store graph edges
 	scanner = osmpbf.New(context.Background(), f, 0)
-	scannedEdges := make([]Edge[W], 0)
+	edges := make([]Edge[W], 0)
 	p.ways = make(map[int64]osmWay, scannedWays)
 	streetDirection := make(map[int64][2]bool)
 	countWays := 0
@@ -373,7 +373,7 @@ func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *co
 				countWays++
 				tempMap := make(map[string]string)
 
-				hwTag, err := p.processWay(way, graphStorage, streetDirection, &scannedEdges, tempMap)
+				hwTag, err := p.processWay(way, graphStorage, streetDirection, &edges, tempMap)
 				if err != nil {
 					continue
 				}
@@ -452,12 +452,12 @@ func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *co
 		p.ways[wayId] = way
 	}
 
-	scannedEdges, graphStorage, numVertices := p.compressOSMGraph(
-		scannedEdges, graphStorage, streetDirection,
+	edges, graphStorage, numVertices := p.compressOSMGraph(
+		edges, graphStorage, streetDirection,
 	)
 
 	graph, timeFunction, edgeDataIds := p.BuildGraph(
-		scannedEdges, graphStorage, numVertices, true,
+		edges, graphStorage, numVertices, true,
 	)
 
 	graph.SetBoundingBox(p.bb)
@@ -500,7 +500,7 @@ type wayExtraInfo struct {
 
 func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 	streetDirection map[int64][2]bool,
-	scannedEdges *[]Edge[W], tempMap map[string]string) (string, error) {
+	edges *[]Edge[W], tempMap map[string]string) (string, error) {
 	var err error
 
 	getName(way, tempMap)
@@ -629,7 +629,7 @@ func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		if p.isJunctionNode(nodeId) {
 			waySegment = append(waySegment, nodeData)
 			p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraData,
-				scannedEdges, int64(way.ID))
+				edges, int64(way.ID))
 			waySegment = make([]node, 0, 16)
 
 			waySegment = append(waySegment, nodeData)
@@ -638,7 +638,7 @@ func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		}
 	}
 	if len(waySegment) > 1 {
-		p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraData, scannedEdges,
+		p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraData, edges,
 			int64(way.ID))
 	}
 
@@ -647,22 +647,22 @@ func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 }
 
 func (p *OsmParser[W]) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraData wayExtraInfo, scannedEdges *[]Edge[W], id int64) {
+	wayExtraData wayExtraInfo, edges *[]Edge[W], id int64) {
 
 	if len(segment) == 2 && segment[0].id == segment[1].id {
 		// skip loop edge
 		return
 	} else if len(segment) > 2 && segment[0].id == segment[len(segment)-1].id {
 		// loop
-		p.processSegment2(segment[0:len(segment)-1], tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
-		p.processSegment2(segment[len(segment)-2:], tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
+		p.processSegment2(segment[0:len(segment)-1], tempMap, speed, graphStorage, wayExtraData, edges, id)
+		p.processSegment2(segment[len(segment)-2:], tempMap, speed, graphStorage, wayExtraData, edges, id)
 	} else {
-		p.processSegment2(segment, tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
+		p.processSegment2(segment, tempMap, speed, graphStorage, wayExtraData, edges, id)
 	}
 }
 
 func (p *OsmParser[W]) processSegment2(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraData wayExtraInfo, scannedEdges *[]Edge[W], id int64,
+	wayExtraData wayExtraInfo, edges *[]Edge[W], id int64,
 ) {
 	waySegment := []node{}
 	for i := 0; i < len(segment); i++ {
@@ -673,7 +673,7 @@ func (p *OsmParser[W]) processSegment2(segment []node, tempMap map[string]string
 				// if current node is a barrier
 				// add the barrier node and process the segment (add edge)
 				waySegment = append(waySegment, nodeData)
-				p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
+				p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraData, edges, id)
 				waySegment = []node{}
 			}
 			// copy the barrier node but with different id so that previous edge (with barrier) not connected with the new edge
@@ -686,7 +686,7 @@ func (p *OsmParser[W]) processSegment2(segment []node, tempMap map[string]string
 		}
 	}
 	if len(waySegment) > 1 {
-		p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
+		p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraData, edges, id)
 	}
 }
 
@@ -709,7 +709,7 @@ func (p *OsmParser[W]) copyNode(nodeData node) node {
 }
 
 func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraData wayExtraInfo, scannedEdges *[]Edge[W], id int64) {
+	wayExtraData wayExtraInfo, edges *[]Edge[W], id int64) {
 	var (
 		lanes int
 	)
@@ -815,7 +815,7 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 				uint8(lanes),
 			)
 
-			graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
+			graphStorage.SetRoundabout(da.Index(len(*edges)), isRoundabout)
 
 			e := NewEdge(
 				uint32(fromNId),
@@ -837,9 +837,9 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 				e.SetJunctionHead()
 			}
 
-			graphStorage.SetIsCurved(da.Index(len(*scannedEdges)), isCurved)
+			graphStorage.SetIsCurved(da.Index(len(*edges)), isCurved)
 
-			*scannedEdges = append(*scannedEdges, e)
+			*edges = append(*edges, e)
 
 		} else {
 
@@ -859,7 +859,7 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 				uint8(lanes),
 			)
 
-			graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
+			graphStorage.SetRoundabout(da.Index(len(*edges)), isRoundabout)
 			e := NewEdge[W](
 				uint32(toNId),
 				uint32(fromNId),
@@ -881,9 +881,9 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 				e.SetJunctionHead()
 			}
 
-			graphStorage.SetIsCurved(da.Index(len(*scannedEdges)), isCurved)
+			graphStorage.SetIsCurved(da.Index(len(*edges)), isCurved)
 
-			*scannedEdges = append(*scannedEdges, e)
+			*edges = append(*edges, e)
 		}
 	} else {
 
@@ -902,7 +902,7 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 			uint8(lanes),
 		)
 
-		graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
+		graphStorage.SetRoundabout(da.Index(len(*edges)), isRoundabout)
 
 		e := NewEdge(
 			uint32(fromNId),
@@ -924,9 +924,9 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 			e.SetJunctionHead()
 		}
 
-		graphStorage.SetIsCurved(da.Index(len(*scannedEdges)), isCurved)
+		graphStorage.SetIsCurved(da.Index(len(*edges)), isCurved)
 
-		*scannedEdges = append(*scannedEdges, e)
+		*edges = append(*edges, e)
 
 		// add reversed edge
 
@@ -939,7 +939,7 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 			uint8(lanes),
 		)
 
-		graphStorage.SetRoundabout(da.Index(len(*scannedEdges)), isRoundabout)
+		graphStorage.SetRoundabout(da.Index(len(*edges)), isRoundabout)
 
 		e = NewEdge(
 			uint32(toNId),
@@ -962,9 +962,9 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 			e.SetJunctionHead()
 		}
 
-		graphStorage.SetIsCurved(da.Index(len(*scannedEdges)), isCurved)
+		graphStorage.SetIsCurved(da.Index(len(*edges)), isCurved)
 
-		*scannedEdges = append(*scannedEdges, e)
+		*edges = append(*edges, e)
 	}
 }
 

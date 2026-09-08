@@ -178,7 +178,7 @@ func (s *MapStorage) ForAllItems(handle func(offsetedVId Index, vertexIndex uint
 }
 
 type ExploredBitsetStorage struct {
-	scanned *bitset.BitSet // https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
+	explored *bitset.BitSet // https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 }
 
 func NewExploredBitsetStorage(approxMaxSearchSize uint32) *ExploredBitsetStorage {
@@ -186,19 +186,19 @@ func NewExploredBitsetStorage(approxMaxSearchSize uint32) *ExploredBitsetStorage
 }
 
 func (sc *ExploredBitsetStorage) Test(vertexIndex uint32) bool {
-	return sc.scanned.Test(uint(vertexIndex))
+	return sc.explored.Test(uint(vertexIndex))
 }
 
 func (sc *ExploredBitsetStorage) Set(vertexIndex uint32) {
-	sc.scanned.Set(uint(vertexIndex))
+	sc.explored.Set(uint(vertexIndex))
 }
 
 func (sc *ExploredBitsetStorage) Clear(maxEdgesInCell uint32) {
-	sc.scanned.ClearAll()
+	sc.explored.ClearAll()
 }
 
 type ExploredSettorage struct {
-	scanned hashset.Uint32Set
+	explored hashset.Uint32Set
 }
 
 func NewExploredSettorage(approxMaxSearchSize uint32) *ExploredSettorage {
@@ -206,16 +206,16 @@ func NewExploredSettorage(approxMaxSearchSize uint32) *ExploredSettorage {
 }
 
 func (sc *ExploredSettorage) Test(vertexIndex uint32) bool {
-	return sc.scanned.Contains(vertexIndex)
+	return sc.explored.Contains(vertexIndex)
 }
 
 func (sc *ExploredSettorage) Set(vertexIndex uint32) {
-	sc.scanned.Add(vertexIndex)
+	sc.explored.Add(vertexIndex)
 }
 
 func (sc *ExploredSettorage) Clear(maxEdgesInCell uint32) {
-	sc.scanned.Range(func(value uint32) bool {
-		sc.scanned.Remove(value)
+	sc.explored.Range(func(value uint32) bool {
+		sc.explored.Remove(value)
 		return true
 	})
 }

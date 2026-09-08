@@ -24,10 +24,10 @@ type CRPALTQuery[W util.RoutingNumber] struct {
 	sCellNumber da.Pv
 	tCellNumber da.Pv
 
-	numScannedVertices        int
-	numScannedOverlayVertices int
-	runtime                   int64
-	pathUnpackingRuntime      int64
+	numExploredVertices        int
+	numExploredOverlayVertices int
+	runtime                    int64
+	pathUnpackingRuntime       int64
 }
 
 func NewCRPALTQuery[W util.RoutingNumber](
@@ -39,10 +39,10 @@ func NewCRPALTQuery[W util.RoutingNumber](
 		forwMid:  da.NewVertexEdgePair(0, 0, false),
 		backwMid: da.NewVertexEdgePair(0, 0, true),
 
-		numScannedVertices:        0,
-		numScannedOverlayVertices: 0,
-		runtime:                   0,
-		pathUnpackingRuntime:      0,
+		numExploredVertices:        0,
+		numExploredOverlayVertices: 0,
+		runtime:                    0,
+		pathUnpackingRuntime:       0,
 	}
 
 	crpQuery.Preallocate()
@@ -61,8 +61,8 @@ func (bs *CRPALTQuery[W]) Reset() {
 	bs.sCellNumber = 0
 	bs.tCellNumber = 0
 
-	bs.numScannedVertices = 0
-	bs.numScannedOverlayVertices = 0
+	bs.numExploredVertices = 0
+	bs.numExploredOverlayVertices = 0
 	bs.runtime = 0
 	bs.pathUnpackingRuntime = 0
 }
@@ -175,7 +175,7 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 		} else {
 			bs.forwPq.Explore(uItem.GetNode())
 			bs.forwardOverlayGraphSearch(uItem, s, t)
-			bs.numScannedOverlayVertices++
+			bs.numExploredOverlayVertices++
 		}
 
 		queryKey = bs.backwPq.ExtractMin()
@@ -188,10 +188,10 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 			bs.backwPq.Explore(uItem.GetNode())
 
 			bs.backwardOverlayGraphSearch(uItem, s, t)
-			bs.numScannedOverlayVertices++
+			bs.numExploredOverlayVertices++
 		}
 
-		bs.numScannedVertices += 2
+		bs.numExploredVertices += 2
 	}
 
 	if bs.shortestCost == 2*util.Infinity[W]() {
@@ -676,6 +676,6 @@ func (bs *CRPALTQuery[W]) GetStats(n int) (float64, int, int64, int64) {
 	// efficiency:
 	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf
 
-	efficiency := float64(n) / float64(bs.numScannedVertices)
-	return efficiency, bs.numScannedVertices, bs.runtime, bs.pathUnpackingRuntime
+	efficiency := float64(n) / float64(bs.numExploredVertices)
+	return efficiency, bs.numExploredVertices, bs.runtime, bs.pathUnpackingRuntime
 }

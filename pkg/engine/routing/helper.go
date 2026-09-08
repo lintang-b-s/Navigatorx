@@ -53,8 +53,8 @@ func (bs *CRPQueryTurnCost[W]) GetTCellNumber() da.Pv {
 	return bs.tCellNumber
 }
 
-func (bs *CRPQueryTurnCost[W]) GetNumScannedNodes() int {
-	return bs.numScannedVertices
+func (bs *CRPQueryTurnCost[W]) GetNumExploredNodes() int {
+	return bs.numExploredVertices
 }
 
 func (bs *CRPALTQueryTurnCost[W]) GetForwardPQ() *da.QueryHeap[da.CRPQueryKey, W] {
@@ -74,12 +74,12 @@ func (bs *CRPALTQueryTurnCost[W]) GetSCellNumber() da.Pv {
 	return bs.sCellNumber
 }
 
-func (bs *CRPALTQueryTurnCost[W]) GetNumScannedVertices() int {
-	return bs.numScannedVertices
+func (bs *CRPALTQueryTurnCost[W]) GetNumExploredVertices() int {
+	return bs.numExploredVertices
 }
 
-func (bs *CRPALTQueryTurnCost[W]) GetNumScannedOverlayVertices() int {
-	return bs.numScannedOverlayVertices
+func (bs *CRPALTQueryTurnCost[W]) GetNumExploredOverlayVertices() int {
+	return bs.numExploredOverlayVertices
 }
 
 func initInfWeight[W util.RoutingNumber](dist []W) {

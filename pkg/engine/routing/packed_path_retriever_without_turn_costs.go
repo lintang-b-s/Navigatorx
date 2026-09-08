@@ -7,10 +7,10 @@ import (
 
 func (crp *CRPRoutingEngine[W]) RetrievePackedPathNoTurnCost(forwardMid,
 	backwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKeyNoTurnCost, W],
-	bpq *da.QueryHeap[da.CRPQueryKeyNoTurnCost, W], sCellNumber da.Pv, s, t da.Index) []da.VertexEdgePair {
+	bpq *da.QueryHeap[da.CRPQueryKeyNoTurnCost, W], sCellNum da.Pv, s, t da.Index) []da.VertexEdgePair {
 
-	forwardPackedPath := crp.RetrieveForwardPackedPathNoTurnCost(forwardMid, fpq, sCellNumber, s)
-	backwardPackedPath := crp.RetrieveBackwardPackedPathNoTurnCost(backwardMid, bpq, sCellNumber, t)
+	forwardPackedPath := crp.RetrieveForwardPackedPathNoTurnCost(forwardMid, fpq, sCellNum, s)
+	backwardPackedPath := crp.RetrieveBackwardPackedPathNoTurnCost(backwardMid, bpq, sCellNum, t)
 
 	result := append(forwardPackedPath, backwardPackedPath...)
 
@@ -27,7 +27,7 @@ func (crp *CRPRoutingEngine[W]) RetrievePackedPathNoTurnCost(forwardMid,
 // kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya
 // sehingga untuk unpacking shortcut edges ada tahapan di CRP bernama Path Unpacking (path_unpacker_alt.go)
 func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPathNoTurnCost(forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKeyNoTurnCost, W],
-	sCellNumber da.Pv, s da.Index) []da.VertexEdgePair {
+	sCellNum da.Pv, s da.Index) []da.VertexEdgePair {
 	svPackedPath := make([]da.VertexEdgePair, 0, 32) // list of vertices/overlay vertices di s-v packed path
 	mid := forwardMid
 
@@ -67,7 +67,7 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPathNoTurnCost(forwardMid d
 
 // RetrieveBackwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari mid ke t.
 func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPathNoTurnCost(backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKeyNoTurnCost, W],
-	sCellNumber da.Pv, t da.Index) []da.VertexEdgePair {
+	sCellNum da.Pv, t da.Index) []da.VertexEdgePair {
 	vtPackedPath := make([]da.VertexEdgePair, 0, 32)
 	mid := backwardMid
 
