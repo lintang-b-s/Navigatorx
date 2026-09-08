@@ -211,7 +211,7 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 }
 
 /*
-graphSearch. forward search dari bidirectional ALT di sel c1(s) atau c1(t).
+forwardGraphSearch. forward search dari bidirectional ALT di sel c1(s) atau c1(t).
 */
 func (bs *CRPALTQuery[W]) forwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
 
@@ -309,6 +309,9 @@ func (bs *CRPALTQuery[W]) forwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, sou
 	})
 }
 
+/*
+backwardGraphSearch. backward search dari bidirectional ALT di sel c1(s) atau c1(t).
+*/
 func (bs *CRPALTQuery[W]) backwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source, target da.Index) {
 	// search backward on graph level 1
 
