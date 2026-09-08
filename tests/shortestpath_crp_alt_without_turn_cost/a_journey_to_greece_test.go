@@ -19,7 +19,7 @@ import (
 const (
 	MAX_N                    = 16
 	INF               int64  = 1 << 60
-	greeceTestDataUrl string = "https://drive.google.com/uc?export=download&id=1m60bikUCostMVTm3ATja8AwETi3W0GfJqu"
+	greeceTestDataUrl string = "https://drive.google.com/uc?export=download&id=1m60bikUTTMVTm3ATja8AwETi3W0GfJqu"
 	greeceZipFilePath        = "../shortestpath/data/tests/shortestpath/gcpc2015_a_journey_to_greece/greece.zip"
 	greeceZipDirPath         = "../shortestpath/data/tests/shortestpath/gcpc2015_a_journey_to_greece"
 )
