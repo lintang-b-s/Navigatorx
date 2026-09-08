@@ -7,7 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// penjelasan algoritma kueri (tanpa turn cost) dari Customizable Route Planning + ALT ada di section 3.5 & 3.6:  https://drive.google.com/file/d/1Ek7xLIsl5Kv-CSR6RdlRNYuA5iFIJaDl/view
+// penjelasan algoritma kueri (tanpa turn cost) dari Customizable Route Planning + ALT ada di section 3.5 & 3.6:  https://drive.google.com/file/d/16X4_D82-dBz5CEKTLBWPb8DtG52eVMl5/view
 // pdf password: <my-github-username>-<my-birth-year>-<my gdrive email without @gmail.com>
 
 type CRPALTQuery[W util.RoutingNumber] struct {

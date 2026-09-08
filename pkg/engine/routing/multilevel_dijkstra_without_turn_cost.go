@@ -7,7 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// penjelasan algoritma kueri (tanpa turn cost) dari Customizable Route Planning ada di section 3.5:  https://drive.google.com/file/d/1Ek7xLIsl5Kv-CSR6RdlRNYuA5iFIJaDl/view
+// penjelasan algoritma kueri (tanpa turn cost) dari Customizable Route Planning ada di section 3.5:  https://drive.google.com/file/d/16X4_D82-dBz5CEKTLBWPb8DtG52eVMl5/view
 // pdf password: <my-github-username>-<my-birth-year>-<my gdrive email without @gmail.com>
 
 type CRPQuery[W util.RoutingNumber] struct {

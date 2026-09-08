@@ -12,9 +12,9 @@ import (
 // atau edge-based model (sama aja) disini: https://drops.dagstuhl.de/storage/01oasics/oasics-vol085-atmos2020/OASIcs.ATMOS.2020.9/OASIcs.ATMOS.2020.9.pdf
 // ntar query with turn cost bisa pakai kode multilevel_dijkstra_without_turn_cost.go kalau pakai edge-based model
 // this compact model buat support query with turn cost (& turn restrictions) ribet bgt gokil
-// biar gak kena paten ini juga, CRP yg dijelasin disini pakai compact representation: https://patents.google.com/patent/US20130231862A1/en
+// biar gak sama kaya paten ini juga, CRP yg dijelasin disini pakai compact representation: https://patents.google.com/patent/US20130231862A1/en
 
-// penjelasan algoritma kueri (dengan turn cost) dari Customizable Route Planning ada di section 3.5:  https://drive.google.com/file/d/1Ek7xLIsl5Kv-CSR6RdlRNYuA5iFIJaDl/view
+// penjelasan algoritma kueri (dengan turn cost) dari Customizable Route Planning ada di section 3.5:  https://drive.google.com/file/d/16X4_D82-dBz5CEKTLBWPb8DtG52eVMl5/view
 // pdf password: <my-github-username>-<my-birth-year>-<my gdrive email without @gmail.com>
 // without turn costs & turn restrictions: multilevel_dijkstra_without_turn_cost.go
 

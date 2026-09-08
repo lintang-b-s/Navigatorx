@@ -63,39 +63,7 @@ let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pad
 b=SOURCE_SINK_RATE atau parameter balance b dari algoritma inertial flow ref1. 0<b<=1/2
 worst case ketika hasil st b-balanced mincut selalu |S|=b*n, |T|=(1-b)*n
 
-klaim 1: \sum{i=1}^{k} (n_i)^{3/2} <= n^{3/2}. integer n,n_i > 0, bil. real 0<b<=1/2. dengan n=n_1+n_2+....+n_k
-untuk membuktikan klaim 1, kita perlu membuktikan klaim 2 dibawah:
-
-klaim 2: P: (a_1+a_2+...+a_m)^p >= a_1^p+a_2^p+....a_m^p. bil. real p >= 1, integer a_i > 0.
-bukti klaim 2:
-base case: m=2
-let q=p-1, q >= 0. p=q+1
-(a_1+a_2)^p = (a_1+a_2)^{1+q} = a_1(a_1+a_2)^q+a_2(a_1+a_2)^q >= a_1*a_1^q + a_2*a_2^q = a_1^p+a_2^p
-induction hypothesis:
-assume P true for k-1 terms.
-induction step:
-(a_1+a_2+...+a_k)^p = ((a_1+a_2+...+a_{k-1})+a_k)^p
-				   >= (a_1+a_2+...+a_{k-1})^p + a_k^p
-				   >= a_1^p+a_2^p+...+a_{k-1}^p + a_k^p    [induction hypothesis]
-
-kita bisa buktikan klaim 1 dengan pakai klaim 2.
-
-
-depth dari recurrence tree:
-let n^i = subproblem size untuk node at depth i di recurrence tree.
-nb < n(1-b), for 0<b<=1/2
-base case ketika subporoblem size equal to 1. consider longest path dari root ke leaf.
-n(1-b)^d=1
-d = log_{1/(1-b)} n
-
-worst case time complexity:
-let cost^i = total cost over all nodes in depth i di recurrence tree. kalau complete binary tree.
-T(n) = n^{3/2} + cost^1 + cost^2 + .... + cost^{d-1} + Theta(n^{log_{1/(1-b)}  2})
-	<= n^{3/2} +  n^{3/2}+  n^{3/2} + ... + n^{3/2} + Theta(n^{log_{1/(1-b)}  2}) [klaim 1]
-	=   O(log_{1/(1-b)} (n) * n^{3/2})
-
-karena recurrence tree nya bisa bukan complete binary tree, we can also use subtitution method to get T(n)=O(log_{1/(1-b)} (n) * n^{3/2}).
-
+O(n*sqrt(n)*log_{1/(1-b)}n)
 
 */ // nolint: gofmt
 func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
