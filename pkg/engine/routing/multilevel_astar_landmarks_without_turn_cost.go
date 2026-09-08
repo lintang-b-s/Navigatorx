@@ -182,11 +182,9 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 		uItem = queryKey.GetItem()
 		if !uItem.IsOverlay() {
 			bs.backwPq.Explore(uItem.GetNode())
-
 			bs.backwardGraphSearch(uItem, s, t)
 		} else {
 			bs.backwPq.Explore(uItem.GetNode())
-
 			bs.backwardOverlayGraphSearch(uItem, s, t)
 			bs.numExploredOverlayVertices++
 		}
@@ -246,9 +244,9 @@ func (bs *CRPALTQuery[W]) forwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, sou
 			// then, we just do edge relaxation as usual in dijkstra
 
 			// relax edge
-			oldVIdCost := bs.forwPq.GetCost(vId)
-			vLabelled := util.Lt(oldVIdCost, util.Infinity[W]())
-			if !vLabelled || (vLabelled && util.Lt(newVCost, oldVIdCost)) {
+			oldVCost := bs.forwPq.GetCost(vId)
+			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
+			if !vLabelled || (vLabelled && util.Lt(newVCost, oldVCost)) {
 				if vLabelled {
 					// newVCost is bsCellNumberetter, update the forwardData
 					// is key already in the priority queue, decrease its key
@@ -339,9 +337,9 @@ func (bs *CRPALTQuery[W]) backwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, so
 		if vQueryLevel == 0 {
 
 			// relax edge
-			oldVIdCost := bs.backwPq.GetCost(vId)
-			vLabelled := util.Lt(oldVIdCost, util.Infinity[W]())
-			if !vLabelled || (vLabelled && util.Lt(newVCost, oldVIdCost)) {
+			oldVCost := bs.backwPq.GetCost(vId)
+			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
+			if !vLabelled || (vLabelled && util.Lt(newVCost, oldVCost)) {
 
 				if vLabelled {
 					newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, true)

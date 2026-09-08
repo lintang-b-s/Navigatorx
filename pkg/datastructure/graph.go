@@ -294,8 +294,8 @@ type Pv uint64
 // Graph represents the main Customizable Route Planning (CRP) compact graph.
 // uses adjacency arrays / Compressed Sparse Row (CSR) and a compact graph representation.
 // See section 4.1 & 4.3: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-// CSR graph nya C++ Boost library: https://www.boost.org/doc/libs/latest/libs/graph/doc/compressed_sparse_row.html
-// ini terinspirasi dari implementasi CRP yang dibuat oleh Michael Wegner: https://github.com/michaelwegner/CRP
+// CSR graph nya C++ Boost library: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/compressed_sparse_row.html
+// kode ini terinspirasi dari implementasi CRP yang dibuat oleh Michael Wegner: https://github.com/michaelwegner/CRP
 type Graph struct {
 	graphStorage      *GraphStorage
 	vertices          []Vertex
