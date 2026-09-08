@@ -53,7 +53,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 	op.SetNodeToOsmId(nodeToOsmId)
 
 	gs := da.NewGraphStorageWithSize(len(es), n)
-	g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+	g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -80,7 +80,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 
 	mlp := mp.BuildMLP()
 
-	prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 	err = prep.PreProcessing(false)
 	if err != nil {
 		t.Fatalf("err: %v", err)

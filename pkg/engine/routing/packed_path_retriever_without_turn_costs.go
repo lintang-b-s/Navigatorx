@@ -37,23 +37,23 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPathNoTurnCost(forwardMid d
 		mid.SetVertex(adjMidVertex)
 	}
 	svPackedPath = append(svPackedPath, mid)
-	var curInfo da.VertexData[W]
+	var vData da.VertexData[W]
 	if mid.IsOverlayVertex() {
-		curInfo = fpq.Get(crp.offsetOverlayNoTurnCost(midVertex))
+		vData = fpq.Get(crp.offsetOverlayNoTurnCost(midVertex))
 	} else {
-		curInfo = fpq.Get(midVertex)
+		vData = fpq.Get(midVertex)
 	}
 
-	for curInfo.GetParent().GetVertex() != da.INVALID_VERTEX_ID {
-		parent := curInfo.GetParent()
+	for vData.GetParent().GetVertex() != da.INVALID_VERTEX_ID {
+		parent := vData.GetParent()
 		parentVertex := parent.GetVertex()
 
 		if parent.IsOverlayVertex() {
 			offParentVertex := onBit(parentVertex, UNPACK_OVERLAY_OFFSET)
 			parent.SetVertex(offParentVertex)
-			curInfo = fpq.Get(crp.offsetOverlayNoTurnCost(parentVertex))
+			vData = fpq.Get(crp.offsetOverlayNoTurnCost(parentVertex))
 		} else {
-			curInfo = fpq.Get(parentVertex)
+			vData = fpq.Get(parentVertex)
 		}
 
 		svPackedPath = append(svPackedPath, parent)
@@ -71,23 +71,23 @@ func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPathNoTurnCost(backwardMid
 	vtPackedPath := make([]da.VertexEdgePair, 0, 32)
 	mid := backwardMid
 
-	var curInfo da.VertexData[W]
+	var vData da.VertexData[W]
 	if mid.IsOverlayVertex() {
-		curInfo = bpq.Get(crp.offsetOverlayNoTurnCost(mid.GetVertex()))
+		vData = bpq.Get(crp.offsetOverlayNoTurnCost(mid.GetVertex()))
 	} else {
-		curInfo = bpq.Get(mid.GetVertex())
+		vData = bpq.Get(mid.GetVertex())
 	}
 
-	for curInfo.GetParent().GetVertex() != da.INVALID_VERTEX_ID {
-		parent := curInfo.GetParent()
+	for vData.GetParent().GetVertex() != da.INVALID_VERTEX_ID {
+		parent := vData.GetParent()
 		parentVertex := parent.GetVertex()
 
 		if parent.IsOverlayVertex() {
 			offParentVertex := onBit(parentVertex, UNPACK_OVERLAY_OFFSET)
 			parent.SetVertex(offParentVertex)
-			curInfo = bpq.Get(crp.offsetOverlayNoTurnCost(parentVertex))
+			vData = bpq.Get(crp.offsetOverlayNoTurnCost(parentVertex))
 		} else {
-			curInfo = bpq.Get(parentVertex)
+			vData = bpq.Get(parentVertex)
 		}
 
 		vtPackedPath = append(vtPackedPath, parent)

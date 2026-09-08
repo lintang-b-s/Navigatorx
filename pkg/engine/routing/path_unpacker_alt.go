@@ -185,7 +185,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sourceOverlayId da.Index,
 
 	pq := pu.eng.pufOverlayHeapPool.Get().(*da.QueryHeap[da.Index, W])
 
-	truncatedSourceCellNumber := pu.eng.overlayGraph.GetLevelInfo().TruncateToLevel(sourceCellNumber, level)
+	truncatedSourceCellNumber := pu.eng.overlayGraph.GetLevelData().TruncateToLevel(sourceCellNumber, level)
 
 	tVertex := pu.eng.overlayGraph.GetVertex(targetOverlayId)
 
@@ -255,7 +255,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sourceOverlayId da.Index,
 				wNeigborVertex := pu.eng.overlayGraph.GetVertex(wNeighborId)
 
 				wCellNumber := wNeigborVertex.GetCellNumber()
-				truncatedWCellNumber := pu.eng.overlayGraph.GetLevelInfo().TruncateToLevel(wCellNumber, uint8(level))
+				truncatedWCellNumber := pu.eng.overlayGraph.GetLevelData().TruncateToLevel(wCellNumber, uint8(level))
 				if truncatedWCellNumber != truncatedSourceCellNumber {
 					// if w is not in the same cell as sourceOverlayId in level l, dont visit w
 					return
@@ -343,10 +343,10 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(sourceEntryId, targetEntry
 	offSourceEntryId := pu.eng.offsetForward(s, sourceEntryId, sourceCellNumber, sourceCellNumber)
 
 	sQueryKey := da.NewCRPQueryKeyWithOutInEdgeId(s, offSourceEntryId, sOutEdge)
-	sInfo := da.NewVertexData(W(0), da.NewVertexEdgePairWithOutEdgeId(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID,
+	sData := da.NewVertexData(W(0), da.NewVertexEdgePairWithOutEdgeId(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID,
 		da.INVALID_EDGE_ID, false))
 
-	pq.Insert(offSourceEntryId, 0, sInfo, sQueryKey)
+	pq.Insert(offSourceEntryId, 0, sData, sQueryKey)
 
 	activeLandmarks := pu.eng.lm.SelectBestQueryLandmarks(s, t)
 	offTargetEntryId := da.INVALID_EDGE_ID
@@ -400,9 +400,9 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(sourceEntryId, targetEntry
 
 				if !vAlreadyLabelled {
 					queryKey := da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, eId)
-					vInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
+					vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
 
-					pq.Insert(offVEntryId, priority, vInfo, queryKey)
+					pq.Insert(offVEntryId, priority, vData, queryKey)
 				} else {
 					newPar := da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false)
 					pq.DecreaseKey(offVEntryId, priority, newTravelTime, newPar)

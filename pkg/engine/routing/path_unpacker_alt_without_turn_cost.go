@@ -97,7 +97,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 
 	pq := pu.eng.pufOverlayHeapPool.Get().(*da.QueryHeap[da.Index, W])
 
-	truncatedSourceCellNumber := pu.eng.overlayGraph.GetLevelInfo().TruncateToLevel(sourceCellNumber, level)
+	truncatedSourceCellNumber := pu.eng.overlayGraph.GetLevelData().TruncateToLevel(sourceCellNumber, level)
 
 	tVertex := pu.eng.overlayGraph.GetVertex(targetOverlayId)
 
@@ -136,8 +136,8 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 
 			priority := newTravelTime + pfv
 
-			vAlreadyLabelled := util.Lt(pq.GetPriority(vOverlayId), util.Infinity[W]())
-			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(vOverlayId))) {
+			vLabelled := util.Lt(pq.GetPriority(vOverlayId), util.Infinity[W]())
+			if !vLabelled || (vLabelled && util.Lt(newTravelTime, pq.GetPriority(vOverlayId))) {
 				// relax shortcut edge
 
 				pq.Explore(vOverlayId) // langsung scan exit overlay vertex v
@@ -148,7 +148,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 					// if v is the target overlay vertex, insert/decrease its key  pq
-					if !vAlreadyLabelled {
+					if !vLabelled {
 						vVertexData := da.NewVertexData(newTravelTime, vNewPar)
 						pq.Insert(vOverlayId, priority, vVertexData, uOverlayId)
 					} else {
@@ -165,7 +165,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 				wNeigborVertex := pu.eng.overlayGraph.GetVertex(wNeighborId)
 
 				wCellNumber := wNeigborVertex.GetCellNumber()
-				truncatedWCellNumber := pu.eng.overlayGraph.GetLevelInfo().TruncateToLevel(wCellNumber, uint8(level))
+				truncatedWCellNumber := pu.eng.overlayGraph.GetLevelData().TruncateToLevel(wCellNumber, uint8(level))
 				if truncatedWCellNumber != truncatedSourceCellNumber {
 					// if w is not in the same cell as sourceOverlayId in level l, dont visit w
 					return
@@ -181,9 +181,9 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sourceOverlayId da.Ind
 				wPar := da.NewVertexEdgePair(vOverlayId, da.INVALID_EDGE_ID, true)
 
 				// relax edge
-				wAlreadyLabelled := util.Lt(pq.GetPriority(wNeighborId), util.Infinity[W]())
-				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(wNeighborId))) {
-					if !wAlreadyLabelled {
+				wLabelled := util.Lt(pq.GetPriority(wNeighborId), util.Infinity[W]())
+				if !wLabelled || (wLabelled && util.Lt(newTravelTime, pq.GetPriority(wNeighborId))) {
+					if !wLabelled {
 						wVertexData := da.NewVertexData(newTravelTime, wPar)
 						pq.Insert(wNeighborId, priority, wVertexData, wNeighborId)
 					} else {
@@ -238,10 +238,10 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLowestLevelCell(
 	tOverlayVertex := pu.eng.overlayGraph.GetVertex(targetOverlayId)
 	t := tOverlayVertex.GetOrigVId()
 
-	sInfo := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
 	sourceCellNumber := pu.eng.graph.GetCellNumber(s)
 
-	pq.Insert(s, 0, sInfo, s)
+	pq.Insert(s, 0, sData, s)
 
 	activeLandmarks := pu.eng.lm.SelectBestQueryLandmarks(s, t)
 
@@ -275,16 +275,16 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLowestLevelCell(
 			}
 
 			// relax edge
-			vAlreadyLabelled := util.Lt(pq.GetPriority(vId), util.Infinity[W]())
-			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(vId))) {
+			vLabelled := util.Lt(pq.GetPriority(vId), util.Infinity[W]())
+			if !vLabelled || (vLabelled && util.Lt(newTravelTime, pq.GetPriority(vId))) {
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 				pfv := pu.eng.lm.FindTighestLowerBound(vId, t, activeLandmarks)
 				priority := newTravelTime + pfv
 
-				if !vAlreadyLabelled {
-					vInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
+				if !vLabelled {
+					vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
 
-					pq.Insert(vId, priority, vInfo, vId)
+					pq.Insert(vId, priority, vData, vId)
 				} else {
 					newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false)
 					pq.DecreaseKey(vId, priority, newTravelTime, newPar)

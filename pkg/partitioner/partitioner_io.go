@@ -99,7 +99,7 @@ type cellVis struct {
 func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel(filename string) error {
 
 	mlp := mp.BuildMLP()
-	levelInfo := da.NewLevelInfo(mlp.GetPVOffsets())
+	levelData := da.NewLevelData(mlp.GetPVOffsets())
 	overlayVerticesByLevel := make([]map[da.Pv][]da.Vertex, mp.l)
 	for i := 0; i < mp.l; i++ {
 		overlayVerticesByLevel[i] = make(map[da.Pv][]da.Vertex)
@@ -112,7 +112,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel(filename string) er
 
 			uPv := mlp.GetCellNumber(u)
 			vPv := mlp.GetCellNumber(v)
-			overlayLevel := levelInfo.GetHighestDifferingLevel(uPv, vPv)
+			overlayLevel := levelData.GetHighestDifferingLevel(uPv, vPv)
 
 			if overlayLevel > 0 {
 				overlayVerticesByLevel[overlayLevel-1][uPv] = append(overlayVerticesByLevel[overlayLevel-1][uPv], uVertex)
@@ -178,7 +178,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel(filename string) er
 func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel(filename string) error {
 
 	mlp := mp.BuildMLP()
-	levelInfo := da.NewLevelInfo(mlp.GetPVOffsets())
+	levelData := da.NewLevelData(mlp.GetPVOffsets())
 	overlayVerticesByLevel := make([]map[da.Pv][]da.Vertex, mp.l)
 	for i := 0; i < mp.l; i++ {
 		overlayVerticesByLevel[i] = make(map[da.Pv][]da.Vertex)
@@ -188,7 +188,7 @@ func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel(filename string) e
 
 		for l := 0; l < mp.l; l++ {
 			uPv := mlp.GetCellNumber(u)
-			uPvl := levelInfo.GetCellNumberOnLevel(uint8(l+1), uPv)
+			uPvl := levelData.GetCellNumberOnLevel(uint8(l+1), uPv)
 			overlayVerticesByLevel[l][uPvl] = append(overlayVerticesByLevel[l][uPvl], uVertex)
 		}
 

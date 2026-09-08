@@ -21,7 +21,7 @@ func NewTwoLevelStorage(baseSize, maxEdgesInCell uint32) *TwoLevelStorage {
 	}
 
 	return &TwoLevelStorage{
-		overlay:        make(map[Index]uint32, OVERLAY_INFO_SIZE),
+		overlay:        make(map[Index]uint32, OVERLAY_VERTICES_SIZE),
 		base:           base,
 		maxEdgesInCell: maxEdgesInCell,
 	}
@@ -136,7 +136,7 @@ type MapStorage struct {
 func NewMapStorage(baseSize uint32) *MapStorage {
 
 	return &MapStorage{
-		overlay: make(map[Index]uint32, OVERLAY_INFO_SIZE),
+		overlay: make(map[Index]uint32, OVERLAY_VERTICES_SIZE),
 	}
 }
 

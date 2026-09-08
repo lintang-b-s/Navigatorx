@@ -115,7 +115,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+		g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -136,7 +136,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prepr := prep.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prepr := prep.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 		err = prepr.PreProcessing(false)
 
 		return prepr, err
@@ -495,7 +495,7 @@ func TestPreprocessorSimple(t *testing.T) {
 					t.Errorf("expected vertex cellId in level 1: %v, got: %v", expectedCellIdInLevelOne, vCellIdInLevelOne)
 				}
 
-				for level := 2; level <= og.GetLevelInfo().GetLevelCount(); level++ {
+				for level := 2; level <= og.GetLevelData().GetLevelCount(); level++ {
 					// validating shortcut weights di level l
 
 					vCellIdInLevelL := og.GetCellNumberOnLevel(vCell, uint8(level))
@@ -590,7 +590,7 @@ func TestPreprocessorSimple(t *testing.T) {
 			}
 
 			maxOverlayIdOffset := 0
-			for l := 1; l <= og.GetLevelInfo().GetLevelCount(); l++ {
+			for l := 1; l <= og.GetLevelData().GetLevelCount(); l++ {
 				cellMapInLevelL := og.GetAllCellsInLevel(l)
 
 				// cek cellNumber in level l
@@ -652,7 +652,7 @@ func TestPreprocessorSimple(t *testing.T) {
 			// kita bisa test overlayIdMapping dengan cara:
 			// iterate setiap entry/exit overlay vertices di setiap cells apakah vertices merupakan entry/exit (diasssert dengan cara cek vId in tc.exitVertices/tc.entryVertices)
 
-			for l := 1; l <= og.GetLevelInfo().GetLevelCount(); l++ {
+			for l := 1; l <= og.GetLevelData().GetLevelCount(); l++ {
 				cellMapInLevelL := og.GetAllCellsInLevel(l)
 
 				// cek cellNumber in level l
@@ -705,15 +705,15 @@ func TestPreprocessorSimple(t *testing.T) {
 				t.Errorf("expected shorcut size greater than or equal to: %v, got: %v", uint32(tc.minNumShortcuts), gotShortcutWeightSize)
 			}
 
-			levelInfo := og.GetLevelInfo()
+			levelData := og.GetLevelData()
 
-			expectedPvOffset := make([]uint8, levelInfo.GetLevelCount()+1)
-			for l := 0; l < levelInfo.GetLevelCount(); l++ {
+			expectedPvOffset := make([]uint8, levelData.GetLevelCount()+1)
+			for l := 0; l < levelData.GetLevelCount(); l++ {
 				numCell := len(tc.cellVertices[l])
 				expectedPvOffset[l+1] = expectedPvOffset[l] + uint8(math.Ceil(math.Log2(float64(numCell))))
 			}
 
-			gotPvOffset := levelInfo.GetOffsets()
+			gotPvOffset := levelData.GetOffsets()
 			if len(expectedPvOffset) != len(gotPvOffset) {
 				t.Errorf("expected pv offset length: %v, got: %v", len(expectedPvOffset), len(gotPvOffset))
 			}
@@ -846,7 +846,7 @@ func setup(t *testing.T, osmFileTest string) *prep.Preprocessor[int32] {
 
 	op := osmparser.NewOSMParserV2[int32]()
 
-	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
+	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -880,7 +880,7 @@ func setup(t *testing.T, osmFileTest string) *prep.Preprocessor[int32] {
 	if err != nil {
 		panic(err)
 	}
-	prepr := prep.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prepr := prep.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 	err = prepr.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

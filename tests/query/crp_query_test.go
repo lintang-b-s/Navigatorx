@@ -201,7 +201,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+		g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -222,7 +222,7 @@ func TestCRPQuerySimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -356,7 +356,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 	}
 
 	op := osmparser.NewOSMParserV2[int32]()
-	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
+	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -391,7 +391,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocesser.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocesser.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

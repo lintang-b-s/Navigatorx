@@ -102,7 +102,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 				return
 			}
 
-			// newTravelTime is better, update the forwardInfo
+			// newTravelTime is better, update the forwardData
 
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, eId, false)
@@ -111,10 +111,10 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
+				us.pq.Insert(vId, newTravelTime, vData, queryKey)
 			}
 		})
 	} else {
@@ -141,7 +141,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 				return
 			}
 
-			// newTravelTime is better, update the forwardInfo
+			// newTravelTime is better, update the forwardData
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, eId, false)
 				// is key already in the priority queue, decrease its key
@@ -149,10 +149,10 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
+				us.pq.Insert(vId, newTravelTime, vData, queryKey)
 			}
 		})
 	}

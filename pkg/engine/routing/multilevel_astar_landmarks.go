@@ -456,16 +456,16 @@ func (bs *CRPALTQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 				newPar := da.NewVertexEdgePair(uId, uInId, false)
 
 				if vLabelled {
-					// newTT is better, update the forwardInfo
+					// newTT is better, update the forwardData
 					// is key already in the priority queue, decrease its key
 
 					bs.forwardPq.DecreaseKey(vInId, priority, newTT, newPar)
 				} else if !vLabelled {
 
-					vertexInfo := da.NewVertexData(newTT, newPar)
+					vData := da.NewVertexData(newTT, newPar)
 					queryKey := da.NewCRPQueryKey(vId, vInId, false)
 					// is key not in the priority queue, insert it
-					bs.forwardPq.Insert(vInId, priority, vertexInfo, queryKey)
+					bs.forwardPq.Insert(vInId, priority, vData, queryKey)
 				}
 			}
 
@@ -510,9 +510,9 @@ func (bs *CRPALTQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, sourc
 
 				newPar := da.NewVertexEdgePair(uId, uInId, false)
 				if !vLabelled {
-					vInfo := da.NewVertexData(newTT, newPar)
+					vData := da.NewVertexData(newTT, newPar)
 					queryKey := da.NewCRPQueryKey(v, da.Index(vQueryLevel), true)
-					bs.forwardPq.Insert(ovVId, priority, vInfo, queryKey)
+					bs.forwardPq.Insert(ovVId, priority, vData, queryKey)
 				} else {
 					bs.forwardPq.DecreaseKey(ovVId, priority, newTT, newPar)
 				}
@@ -601,9 +601,9 @@ func (bs *CRPALTQueryTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKey, sour
 				if vLabelled {
 					bs.backwardPq.DecreaseKey(vOutId, priority, newTT, newPar)
 				} else {
-					vertexInfo := da.NewVertexData(newTT, newPar)
+					vData := da.NewVertexData(newTT, newPar)
 					queryKey := da.NewCRPQueryKey(vId, vOutId, false)
-					bs.backwardPq.Insert(vOutId, priority, vertexInfo, queryKey)
+					bs.backwardPq.Insert(vOutId, priority, vData, queryKey)
 				}
 			}
 
@@ -638,9 +638,9 @@ func (bs *CRPALTQueryTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKey, sour
 
 				newPar := da.NewVertexEdgePair(uId, uOutId, true)
 				if !vLabelled {
-					vInfo := da.NewVertexData(newTT, newPar)
+					vData := da.NewVertexData(newTT, newPar)
 					queryKey := da.NewCRPQueryKey(v, da.Index(vQueryLevel), true)
-					bs.backwardPq.Insert(ovVId, priority, vInfo, queryKey)
+					bs.backwardPq.Insert(ovVId, priority, vData, queryKey)
 				} else {
 					bs.backwardPq.DecreaseKey(ovVId, priority, newTT, newPar)
 				}
@@ -726,9 +726,9 @@ func (bs *CRPALTQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 					if wLabelled {
 						bs.forwardPq.DecreaseKey(wInId, priority, newTT, newPar)
 					} else {
-						vertexInfo := da.NewVertexData(newTT, newPar)
+						vData := da.NewVertexData(newTT, newPar)
 						queryKey := da.NewCRPQueryKey(oriWId, wInId, false)
-						bs.forwardPq.Insert(wInId, priority, vertexInfo, queryKey)
+						bs.forwardPq.Insert(wInId, priority, vData, queryKey)
 					}
 				}
 
@@ -765,9 +765,9 @@ func (bs *CRPALTQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 
 					if !wLabelled {
 
-						vertexInfo := da.NewVertexData(newTT, newPar)
+						vData := da.NewVertexData(newTT, newPar)
 						queryKey := da.NewCRPQueryKey(w, da.Index(wQueryLevel), true)
-						bs.forwardPq.Insert(overlayWId, priority, vertexInfo, queryKey)
+						bs.forwardPq.Insert(overlayWId, priority, vData, queryKey)
 					} else {
 
 						bs.forwardPq.DecreaseKey(overlayWId, priority, newTT, newPar)
@@ -871,8 +871,8 @@ func (bs *CRPALTQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 						bs.backwardPq.DecreaseKey(wOutId, priority, newTT, newPar)
 					} else {
 						queryKey := da.NewCRPQueryKey(oriWId, wOutId, false)
-						vertexInfo := da.NewVertexData(newTT, newPar)
-						bs.backwardPq.Insert(wOutId, priority, vertexInfo, queryKey)
+						vData := da.NewVertexData(newTT, newPar)
+						bs.backwardPq.Insert(wOutId, priority, vData, queryKey)
 					}
 				}
 
@@ -907,8 +907,8 @@ func (bs *CRPALTQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKe
 
 					if !wLabelled {
 						queryKey := da.NewCRPQueryKey(w, da.Index(wQueryLevel), true)
-						vertexInfo := da.NewVertexData(newTT, newPar)
-						bs.backwardPq.Insert(overlayWId, priority, vertexInfo, queryKey)
+						vData := da.NewVertexData(newTT, newPar)
+						bs.backwardPq.Insert(overlayWId, priority, vData, queryKey)
 					} else {
 						bs.backwardPq.DecreaseKey(overlayWId, priority, newTT, newPar)
 					}

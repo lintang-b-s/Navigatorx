@@ -162,7 +162,7 @@ func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
 
 	c.levelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -174,7 +174,7 @@ func (c *Customizer[W]) Customize() (*metrics.Metric[W], error) {
 
 	c.levelHeapNoTurnCostPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -235,7 +235,7 @@ func (c *Customizer[W]) CustomizeDirect() (*metrics.Metric[W], error) {
 
 	c.levelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -247,7 +247,7 @@ func (c *Customizer[W]) CustomizeDirect() (*metrics.Metric[W], error) {
 
 	c.levelHeapNoTurnCostPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_INFO_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 
@@ -453,7 +453,7 @@ func (c *Customizer[W]) Build(costFunction *costfunction.TimeFunction[W]) {
 		c.buildLowestLevelWithoutTurnCost(costFunction)
 	}
 	c.logger.Info("finished crp customization level 1")
-	for level := 2; level <= c.overlayGraph.GetLevelInfo().GetLevelCount(); level++ {
+	for level := 2; level <= c.overlayGraph.GetLevelData().GetLevelCount(); level++ {
 		if c.turnCost {
 			c.buildLevel(costFunction, level)
 		} else {
@@ -683,7 +683,7 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 // this function is parallelized using goroutines worker pool
 func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], level int) {
 
-	levelInfo := c.overlayGraph.GetLevelInfo()
+	levelData := c.overlayGraph.GetLevelData()
 	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
 
 	cellCliqueOutChan := make(chan []cellCustomizationRes[W], cellCliqueOutChanSize)
@@ -758,7 +758,7 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 							// cut edge (exitOverlayVertex, neighborOverlayVertex)
 							cutOutEdgeId := exitOverlayVertex.GetCutEdge()
 
-							if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
+							if levelData.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
 								boundaryArcWeight := costFunction.GetWeight(cutOutEdgeId)
 
 								newNeighborTravelTime := newTravelTime + boundaryArcWeight

@@ -61,7 +61,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmfFile), logger)
+	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(workingDir, osmfFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -95,7 +95,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

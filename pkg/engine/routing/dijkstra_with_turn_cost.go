@@ -97,7 +97,7 @@ func (us *DijkstraWithTurnCost[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) 
 	if !us.useReversedEdges {
 
 		for t := da.Index(0); t < da.Index(n); t++ {
-			curInfo := us.finalQueryKey[t]
+			vData := us.finalQueryKey[t]
 			tEntryId := us.finalEdge[t]
 			sp := us.finalCost[t]
 
@@ -115,8 +115,8 @@ func (us *DijkstraWithTurnCost[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) 
 			_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 			spEdges[t] = append(spEdges[t], outEdge)
 
-			for curInfo.GetParent().GetEdge() != sForwardId {
-				parent := curInfo.GetParent()
+			for vData.GetParent().GetEdge() != sForwardId {
+				parent := vData.GetParent()
 				parentEdge := parent.GetEdge()
 
 				// jadiin outEdge semua
@@ -124,7 +124,7 @@ func (us *DijkstraWithTurnCost[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) 
 				_, outEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
 				spEdges[t] = append(spEdges[t], outEdge)
 
-				curInfo = us.pq.Get(parentEdge)
+				vData = us.pq.Get(parentEdge)
 			}
 
 			util.ReverseG(spEdges[t])
@@ -133,7 +133,7 @@ func (us *DijkstraWithTurnCost[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) 
 	} else {
 		//  use reversed edges
 		for t := da.Index(0); t < da.Index(n); t++ {
-			curInfo := us.finalQueryKey[t]
+			vData := us.finalQueryKey[t]
 			tExitId := us.finalEdge[t]
 			sp := us.finalCost[t]
 
@@ -149,15 +149,15 @@ func (us *DijkstraWithTurnCost[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) 
 			outEdge := us.engine.graph.GetOutEdge(tExitId)
 			spEdges[t] = append(spEdges[t], outEdge.GetEdgeId())
 
-			for curInfo.GetParent().GetEdge() != sForwardId {
-				parent := curInfo.GetParent()
+			for vData.GetParent().GetEdge() != sForwardId {
+				parent := vData.GetParent()
 				parentEdge := parent.GetEdge()
 
 				// jadiin outEdge semua
 				outEdge := us.engine.graph.GetOutEdge(parentEdge)
 				spEdges[t] = append(spEdges[t], outEdge.GetEdgeId())
 
-				curInfo = us.pq.Get(parentEdge)
+				vData = us.pq.Get(parentEdge)
 			}
 		}
 
@@ -252,7 +252,7 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 				return
 			}
 
-			// newTravelTime is better, update the forwardInfo
+			// newTravelTime is better, update the forwardData
 
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, uEntryId, false)
@@ -261,10 +261,10 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vEntryId)
-				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, uEntryId, false))
+				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, uEntryId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vEntryId, newTravelTime, vertexInfo, queryKey)
+				us.pq.Insert(vEntryId, newTravelTime, vData, queryKey)
 			}
 		})
 	} else {
@@ -309,7 +309,7 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 				return
 			}
 
-			// newTravelTime is better, update the forwardInfo
+			// newTravelTime is better, update the forwardData
 
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, uExitId, false)
@@ -318,10 +318,10 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vExitId)
-				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, uExitId, false))
+				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, uExitId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vExitId, newTravelTime, vertexInfo, queryKey)
+				us.pq.Insert(vExitId, newTravelTime, vData, queryKey)
 			}
 		})
 	}

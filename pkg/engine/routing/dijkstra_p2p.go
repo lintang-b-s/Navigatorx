@@ -85,16 +85,16 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 			return
 		}
 
-		// newTT is better, update the forwardInfo
+		// newTT is better, update the forwardData
 		if vLabelled {
 			newPar := da.NewVertexEdgePair(uId, eId, false)
 			// is key already in the priority queue, decrease its key
 			us.pq.DecreaseKey(vId, newTT, newTT, newPar)
 		} else if !vLabelled {
 			queryKey := da.NewDijkstraKey(vId, vId)
-			vertexInfo := da.NewVertexData(newTT, da.NewVertexEdgePair(uId, eId, false))
+			vData := da.NewVertexData(newTT, da.NewVertexEdgePair(uId, eId, false))
 			// is key not in the priority queue, insert it
-			us.pq.Insert(vId, newTT, vertexInfo, queryKey)
+			us.pq.Insert(vId, newTT, vData, queryKey)
 		}
 	})
 
@@ -119,15 +119,15 @@ func (us *DijkstraP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 		return sp, spPath
 	}
 
-	curInfo := us.pq.Get(t)
+	vData := us.pq.Get(t)
 	spPath = append(spPath, t)
 
-	for curInfo.GetParent().GetVertex() != s {
-		parent := curInfo.GetParent()
+	for vData.GetParent().GetVertex() != s {
+		parent := vData.GetParent()
 
 		spPath = append(spPath, parent.GetVertex())
 
-		curInfo = us.pq.Get(parent.GetVertex())
+		vData = us.pq.Get(parent.GetVertex())
 	}
 	spPath = append(spPath, s)
 

@@ -50,10 +50,10 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(forwardMid da.VertexEd
 	}
 
 	fMidEdge := forwardMid.GetEdge()
-	curInfo := fpq.Get(fMidEdge)
+	vData := fpq.Get(fMidEdge)
 
-	for curInfo.GetParent().GetEdge() != sForwardId {
-		parent := curInfo.GetParent()
+	for vData.GetParent().GetEdge() != sForwardId {
+		parent := vData.GetParent()
 		parentEdge := parent.GetEdge()
 		parentCopy := parent
 
@@ -72,7 +72,7 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(forwardMid da.VertexEd
 		}
 
 		svPackedPath = append(svPackedPath, parentCopy)
-		curInfo = fpq.Get(parentEdge)
+		vData = fpq.Get(parentEdge)
 	}
 
 	util.ReverseG[da.VertexEdgePair](svPackedPath)
@@ -108,10 +108,10 @@ func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(backwardMid da.Vertex
 	}
 
 	bMidEdge := backwardMid.GetEdge()
-	curInfo := bpq.Get(bMidEdge)
+	vData := bpq.Get(bMidEdge)
 
-	for curInfo.GetParent().GetEdge() != tBackwardId {
-		parent := curInfo.GetParent()
+	for vData.GetParent().GetEdge() != tBackwardId {
+		parent := vData.GetParent()
 		parentEdge := parent.GetEdge()
 		parentCopy := parent
 
@@ -127,7 +127,7 @@ func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(backwardMid da.Vertex
 		}
 
 		vtPackedPath = append(vtPackedPath, parentCopy)
-		curInfo = bpq.Get(parentEdge)
+		vData = bpq.Get(parentEdge)
 
 	}
 

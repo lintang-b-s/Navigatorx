@@ -25,7 +25,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 		outWeights  = make([][]W, numV)
 		outLengths  = make([][]uint32, numV)
 		inLengths   = make([][]uint32, numV)
-		edgeInfoIds = make([][]da.Index, numV)
+		edgeDataIds = make([][]da.Index, numV)
 		inDegree    = make([]int, numV)
 		outDegree   = make([]int, numV)
 		vertices    = make([]da.Vertex, numV+1)
@@ -72,7 +72,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 		vertices[v] = da.NewVertex(vData.lat, vData.lon, v)
 		vertexOsmIds[u] = e.GetFromOsmId()
 		vertexOsmIds[v] = e.GetToOsmId()
-		edgeInfoIds[u] = append(edgeInfoIds[u], da.Index(eID))
+		edgeDataIds[u] = append(edgeDataIds[u], da.Index(eID))
 
 	}
 
@@ -82,10 +82,10 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 	}
 
 	fmt.Printf("10%%...")
-	newEInfoId := len(scannedEdges)
+	newEDataId := len(scannedEdges)
 	// tambahin parallel edges dulu buat via-way turn restrictions
 	for wayId, way := range p.ways {
-		newEInfoId = addParallelViaEdges(p, wayId, way, newEInfoId, outEdges, inEdges, graphStorage, edgeInfoIds, outWeights, outLengths,
+		newEDataId = addParallelViaEdges(p, wayId, way, newEDataId, outEdges, inEdges, graphStorage, edgeDataIds, outWeights, outLengths,
 			inLengths, outDegree, inDegree)
 	}
 
@@ -99,7 +99,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 			outEdges[v] = append(outEdges[v], dummyOut)
 			outWeights[v] = append(outWeights[v], util.Infinity[W]())
 			outLengths[v] = append(outLengths[v], 1)
-			edgeInfoIds[v] = append(edgeInfoIds[v], da.Index(newEInfoId))
+			edgeDataIds[v] = append(edgeDataIds[v], da.Index(newEDataId))
 			outDegree[v]++
 
 			dummyIn := da.NewInEdge(da.INVALID_EDGE_ID, da.Index(v),
@@ -117,7 +117,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 				pkg.INVALID_HIGHWAY,
 				uint8(0),
 			)
-			newEInfoId++
+			newEDataId++
 		}
 	}
 
@@ -216,7 +216,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 			if !restriction.isWay {
 				addViaNodeTurnRestriction(p, wayId, way, fromNodes, restriction, fromResId, outEdges, inEdges, outDegree, vertices, turnMatrices, &conditionalTurnRestrictions)
 			} else if restriction.isWay {
-				addViaWayTurnRestriction(p, wayId, way, fromNodes, restriction, fromResId, outEdges, inEdges, graphStorage, edgeInfoIds, turnMatrices, outDegree, inDegree)
+				addViaWayTurnRestriction(p, wayId, way, fromNodes, restriction, fromResId, outEdges, inEdges, graphStorage, edgeDataIds, turnMatrices, outDegree, inDegree)
 			}
 		}
 	}
@@ -275,7 +275,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 	graph := da.NewGraph(vertices, flattenOutEdges, flattenInEdges, matrices, roadNetwork, verticesOsmIdsPs)
 	graphStorage.BuildNameTable(p.tagStringIdMap.GetIdToStr())
 
-	setConditionalRestrictions(p, roadNetwork, graph, graphStorage, edgeInfoIds, conditionalTurnRestrictions)
+	setConditionalRestrictions(p, roadNetwork, graph, graphStorage, edgeDataIds, conditionalTurnRestrictions)
 
 	graph.SetGraphStorage(graphStorage)
 
@@ -288,7 +288,7 @@ func (p *OsmParser[W]) BuildGraph(scannedEdges []Edge[W], graphStorage *da.Graph
 	)
 
 	fmt.Printf("100%%...\n")
-	return graph, timeFunction, edgeInfoIds
+	return graph, timeFunction, edgeDataIds
 }
 
 func flatten[T any](container [][]T) []T {

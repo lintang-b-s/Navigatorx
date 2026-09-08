@@ -20,7 +20,7 @@ type QueryHeap[T comparable, W util.RoutingNumber] struct {
 
 func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell uint32, tipe IndexStorageType, preallocateMinHeap bool) *QueryHeap[T, W] {
 	minHeap := NewFourAryHeap[T, W]()
-	approxMaxSearchSize := maxEdgesInCell*2 + OVERLAY_INFO_SIZE
+	approxMaxSearchSize := maxEdgesInCell*2 + OVERLAY_VERTICES_SIZE
 
 	if preallocateMinHeap {
 		// buat clone queryHeap dari crpQuery di alternativeRoutes gak perlu preallocate heap
@@ -80,10 +80,10 @@ func (qh *QueryHeap[T, W]) updatePosition(nodeIndex uint32, newHeapNodeId uint32
 
 // Insert. insert node ke priority queue
 // node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
-func (qh *QueryHeap[T, W]) Insert(id Index, priority W, vInfo VertexData[W], queryKey T) {
+func (qh *QueryHeap[T, W]) Insert(id Index, priority W, vData VertexData[W], queryKey T) {
 	newVertexIndex := uint32(len(qh.verticesData))
 
-	qh.verticesData = append(qh.verticesData, vInfo)
+	qh.verticesData = append(qh.verticesData, vData)
 
 	qh.verticesIndex.Set(id, newVertexIndex)
 
@@ -158,17 +158,17 @@ func (qh *QueryHeap[T, W]) Explore(id Index) {
 	qh.explored.Set(vertexIndex)
 }
 
-func (qh *QueryHeap[T, W]) Set(id Index, vInfo VertexData[W], queryKey T) {
+func (qh *QueryHeap[T, W]) Set(id Index, vData VertexData[W], queryKey T) {
 	vertexIndex := qh.verticesIndex.Get(id)
 	if vertexIndex == math.MaxUint32 {
 		newVertexIndex := uint32(len(qh.verticesData))
-		qh.verticesData = append(qh.verticesData, vInfo)
+		qh.verticesData = append(qh.verticesData, vData)
 		qh.verticesIndex.Set(id, newVertexIndex)
 		return
 	}
 
-	qh.verticesData[vertexIndex].UpdateParent(vInfo.GetParent())
-	qh.verticesData[vertexIndex].UpdateCost(vInfo.GetCost())
+	qh.verticesData[vertexIndex].UpdateParent(vData.GetParent())
+	qh.verticesData[vertexIndex].UpdateCost(vData.GetCost())
 }
 
 func (qh *QueryHeap[T, W]) IsEmpty() bool {
@@ -199,7 +199,7 @@ func (qh *QueryHeap[T, W]) IsLabelled(id Index) bool {
 // ForLabelledItems. get all items inserted to pq.
 // karena kita support turn costs:
 // offsetedVId bisa berupa edgeId atau overlay vertex id.
-func (qh *QueryHeap[T, W]) ForLabelledItems(handle func(offsetedVId Index, vInfo VertexData[W])) {
+func (qh *QueryHeap[T, W]) ForLabelledItems(handle func(offsetedVId Index, vData VertexData[W])) {
 	qh.verticesIndex.ForAllItems(func(offsetedVId Index, nodeIndex uint32) {
 		if nodeIndex == math.MaxUint32 {
 			return //  belum ke label & ke explored

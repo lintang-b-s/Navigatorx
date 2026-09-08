@@ -120,15 +120,15 @@ func (us *CRPUniDijkstraOneToMany[W]) ShortestPathOneToManySearch(asId da.Index,
 			continue
 		}
 		idPath := make([]da.VertexEdgePair, 0) // contains all outedges that make up the shortest path
-		curInfo := us.pq.Get(tEntryId)
+		vData := us.pq.Get(tEntryId)
 
 		_, tOutEdge := us.engine.graph.GetHeadOfInedgeWithOutEdge(tEntryId)
 		toutEdgeId := tOutEdge
 		tpair := da.NewVertexEdgePair(t.gettId(), toutEdgeId, true)
 		idPath = append(idPath, tpair)
 
-		for curInfo.GetParent().GetEdge() != sForwardId {
-			parent := curInfo.GetParent()
+		for vData.GetParent().GetEdge() != sForwardId {
+			parent := vData.GetParent()
 			parentCopy := parent
 
 			if parentCopy.GetEdge() >= da.Index(us.engine.graph.NumberOfEdges()) {
@@ -147,7 +147,7 @@ func (us *CRPUniDijkstraOneToMany[W]) ShortestPathOneToManySearch(asId da.Index,
 
 			idPath = append(idPath, parentCopy)
 
-			curInfo = us.pq.Get(parent.GetEdge())
+			vData = us.pq.Get(parent.GetEdge())
 		}
 
 		util.ReverseG[da.VertexEdgePair](idPath)
@@ -243,12 +243,12 @@ func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, sourc
 			} else if !vAlreadyLabelled {
 
 				queryKey := da.NewCRPQueryKey(vId, vEntryId, false)
-				// newTravelTime is better, update the forwardInfo
-				vertexInfo := da.NewVertexData(newTravelTime,
+				// newTravelTime is better, update the forwardData
+				vData := da.NewVertexData(newTravelTime,
 					da.NewVertexEdgePair(uId, uEntryId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vEntryId, newTravelTime, vertexInfo, queryKey)
+				us.pq.Insert(vEntryId, newTravelTime, vData, queryKey)
 			}
 
 		} else {
@@ -264,10 +264,10 @@ func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, sourc
 				if !vAlreadyLabelled {
 					queryKey := da.NewCRPQueryKey(v, da.Index(lowestVQueryLevel), true)
 
-					vertexInfo := da.NewVertexData(newTravelTime,
+					vData := da.NewVertexData(newTravelTime,
 						da.NewVertexEdgePair(vId, vEntryId, false))
 
-					us.pq.Insert(overlayVId, newTravelTime, vertexInfo, queryKey)
+					us.pq.Insert(overlayVId, newTravelTime, vData, queryKey)
 				} else {
 					newPar := da.NewVertexEdgePair(uId, uEntryId, false)
 					us.pq.DecreaseKey(overlayVId, newTravelTime, newTravelTime,
@@ -349,10 +349,10 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 					us.pq.DecreaseKey(wEntryId, newTravelTime, newTravelTime, newPar)
 				} else {
 					queryKey := da.NewCRPQueryKey(originalW, wEntryId, false)
-					vertexInfo := da.NewVertexData(newTravelTime,
+					vData := da.NewVertexData(newTravelTime,
 						da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false))
 
-					us.pq.Insert(wEntryId, newTravelTime, vertexInfo, queryKey)
+					us.pq.Insert(wEntryId, newTravelTime, vData, queryKey)
 				}
 
 			} else {
@@ -365,10 +365,10 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 
 					if !wAlreadyLabelled {
 						queryKey := da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel), true)
-						vertexInfo := da.NewVertexData(newTravelTime,
+						vData := da.NewVertexData(newTravelTime,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false))
 
-						us.pq.Insert(wId, newTravelTime, vertexInfo, queryKey)
+						us.pq.Insert(wId, newTravelTime, vData, queryKey)
 					} else {
 						newPar := da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false)
 

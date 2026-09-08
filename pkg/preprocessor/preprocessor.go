@@ -18,14 +18,14 @@ type Preprocessor[W util.RoutingNumber] struct {
 	logger                                                                 *zap.Logger
 	newVIdMap                                                              []da.Index
 	newToOldVIdMap                                                         map[da.Index]da.Index
-	edgeInfoIds                                                            [][]da.Index
+	edgeDataIds                                                            [][]da.Index
 	timeFunction                                                           *costfunction.TimeFunction[W]
 	graphFilename, overlayGraphFilename, preprocessingTimeFunctionFilename string
 	writeTiles                                                             bool
 }
 
 func NewPreprocessor[W util.RoutingNumber](graph *da.Graph, timeFunction *costfunction.TimeFunction[W], mlp *da.MultilevelPartition,
-	logger *zap.Logger, gFilename string, ogFilename string, edgeInfoIds [][]da.Index,
+	logger *zap.Logger, gFilename string, ogFilename string, edgeDataIds [][]da.Index,
 ) *Preprocessor[W] {
 	return &Preprocessor[W]{
 		graph:                             graph,
@@ -36,7 +36,7 @@ func NewPreprocessor[W util.RoutingNumber](graph *da.Graph, timeFunction *costfu
 		graphFilename:                     gFilename,
 		overlayGraphFilename:              ogFilename,
 		preprocessingTimeFunctionFilename: costfunction.PreprocessingTimeFunctionPath(gFilename),
-		edgeInfoIds:                       edgeInfoIds,
+		edgeDataIds:                       edgeDataIds,
 		timeFunction:                      timeFunction,
 		writeTiles:                        true,
 	}
@@ -58,7 +58,7 @@ func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Building Overlay Graph of each levels....")
 	p.overlayGraph = da.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.ngraph")
-	for l := p.overlayGraph.GetLevelInfo().GetLevelCount(); l >= 1; l-- {
+	for l := p.overlayGraph.GetLevelData().GetLevelCount(); l >= 1; l-- {
 		p.logger.Sugar().Infof("overlay graph level %v: number of overlay vertices %v", l, p.overlayGraph.NumberOfVerticesInLevel(l))
 	}
 
@@ -242,7 +242,7 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
 
 				vExitPoint := oldOutEdge.GetEdgeId() - cellVertices[i][v].vertex.GetFirstOut()
-				oldEdgeMetaId := p.edgeInfoIds[vOldId][vExitPoint]
+				oldEdgeMetaId := p.edgeDataIds[vOldId][vExitPoint]
 				edgeMetaIdsPerm[newOutEdgeId] = int(oldEdgeMetaId)
 
 				edgeIdsPerm[newOutEdgeId] = int(oldOutEdge.GetEdgeId())

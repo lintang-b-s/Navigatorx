@@ -250,18 +250,18 @@ func (bs *CRPALTQuery[W]) forwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, sou
 			vLabelled := util.Lt(oldVIdTT, util.Infinity[W]())
 			if !vLabelled || (vLabelled && util.Lt(newTT, oldVIdTT)) {
 				if vLabelled {
-					// newTT is bsCellNumberetter, update the forwardInfo
+					// newTT is bsCellNumberetter, update the forwardData
 					// is key already in the priority queue, decrease its key
 
 					newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false)
 					bs.forwPq.DecreaseKey(vId, priority, newTT, newPar)
 				} else if !vLabelled {
 
-					vertexInfo := da.NewVertexData(newTT,
+					vData := da.NewVertexData(newTT,
 						da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
 					queryKey := da.NewCRPQueryKeyNoTurnCost(vId, 0, false)
 					// is key not in the priority queue, insert it
-					bs.forwPq.Insert(vId, priority, vertexInfo, queryKey)
+					bs.forwPq.Insert(vId, priority, vData, queryKey)
 				}
 			}
 
@@ -286,11 +286,11 @@ func (bs *CRPALTQuery[W]) forwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, sou
 				newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false)
 
 				if !vLabelled {
-					vertexInfo := da.NewVertexData(newTT,
+					vData := da.NewVertexData(newTT,
 						newPar)
 
 					queryKey := da.NewCRPQueryKeyNoTurnCost(ovVId, vQueryLevel, true)
-					bs.forwPq.Insert(ovVId, priority, vertexInfo, queryKey)
+					bs.forwPq.Insert(ovVId, priority, vData, queryKey)
 				} else {
 					bs.forwPq.DecreaseKey(ovVId, priority, newTT, newPar)
 				}
@@ -347,10 +347,10 @@ func (bs *CRPALTQuery[W]) backwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, so
 					newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, true)
 					bs.backwPq.DecreaseKey(vId, priority, newTT, newPar)
 				} else {
-					vertexInfo := da.NewVertexData(newTT,
+					vData := da.NewVertexData(newTT,
 						da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
 					queryKey := da.NewCRPQueryKeyNoTurnCost(vId, 0, false)
-					bs.backwPq.Insert(vId, priority, vertexInfo, queryKey)
+					bs.backwPq.Insert(vId, priority, vData, queryKey)
 				}
 			}
 
@@ -468,9 +468,9 @@ func (bs *CRPALTQuery[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCo
 					if wLabelled {
 						bs.forwPq.DecreaseKey(wId, priority, newTT, newPar)
 					} else {
-						vertexInfo := da.NewVertexData(newTT, newPar)
+						vData := da.NewVertexData(newTT, newPar)
 						queryKey := da.NewCRPQueryKeyNoTurnCost(wId, 0, false)
-						bs.forwPq.Insert(wId, priority, vertexInfo, queryKey)
+						bs.forwPq.Insert(wId, priority, vData, queryKey)
 					}
 				}
 
@@ -500,9 +500,9 @@ func (bs *CRPALTQuery[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCo
 					newPar.SetIsOverlayVertex()
 
 					if !wLabelled {
-						vertexInfo := da.NewVertexData(newTT, newPar)
+						vData := da.NewVertexData(newTT, newPar)
 						queryKey := da.NewCRPQueryKeyNoTurnCost(ovWId, wQueryLevel, true)
-						bs.forwPq.Insert(ovWId, priority, vertexInfo, queryKey)
+						bs.forwPq.Insert(ovWId, priority, vData, queryKey)
 					} else {
 						bs.forwPq.DecreaseKey(ovWId, priority, newTT, newPar)
 					}
@@ -601,8 +601,8 @@ func (bs *CRPALTQuery[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnC
 						bs.backwPq.DecreaseKey(wId, priority, newTT, newPar)
 					} else {
 						queryKey := da.NewCRPQueryKeyNoTurnCost(wId, 0, false)
-						vertexInfo := da.NewVertexData(newTT, newPar)
-						bs.backwPq.Insert(wId, priority, vertexInfo, queryKey)
+						vData := da.NewVertexData(newTT, newPar)
+						bs.backwPq.Insert(wId, priority, vData, queryKey)
 					}
 				}
 
@@ -627,8 +627,8 @@ func (bs *CRPALTQuery[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnC
 					newPar.SetIsOverlayVertex()
 					if !wLabelled {
 						queryKey := da.NewCRPQueryKeyNoTurnCost(ovWId, wQueryLevel, true)
-						vertexInfo := da.NewVertexData(newTT, newPar)
-						bs.backwPq.Insert(ovWId, priority, vertexInfo, queryKey)
+						vData := da.NewVertexData(newTT, newPar)
+						bs.backwPq.Insert(ovWId, priority, vData, queryKey)
 					} else {
 						bs.backwPq.DecreaseKey(ovWId, priority, newTT, newPar)
 					}

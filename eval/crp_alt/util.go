@@ -58,7 +58,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 	op.SetNodeToOsmId(nodeToOsmId)
 
 	gs := da.NewGraphStorageWithSize(len(es), n)
-	g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false) // roadnetwork false biar ada dummy edge (v,v)
+	g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false) // roadnetwork false biar ada dummy edge (v,v)
 
 	logger, err := logger.New()
 	if err != nil {
@@ -91,7 +91,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 			panic(err)
 		}
 
-		prep = preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prep = preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(true)
 		if err != nil {
@@ -104,7 +104,7 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		if err != nil {
 			panic(err)
 		}
-		prep = preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prep = preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(false)
 		if err != nil {

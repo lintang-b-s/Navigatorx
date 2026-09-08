@@ -4,26 +4,26 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type LevelInfo struct {
+type LevelData struct {
 	offset []uint8 // offset of each level in the bitpacked cell numbers
 }
 
-func NewLevelInfo(offset []uint8) *LevelInfo {
-	return &LevelInfo{offset: offset}
+func NewLevelData(offset []uint8) *LevelData {
+	return &LevelData{offset: offset}
 }
 
 // off bits above the given level
-func (li *LevelInfo) OffUpperBit(l uint8, cellNumber Pv) Pv {
+func (li *LevelData) OffUpperBit(l uint8, cellNumber Pv) Pv {
 	return (cellNumber & ^(^Pv(0) << Pv(li.offset[l])))
 }
 
-func (li *LevelInfo) GetCellNumberOnLevel(l uint8, cellNumber Pv) Pv {
+func (li *LevelData) GetCellNumberOnLevel(l uint8, cellNumber Pv) Pv {
 	withoutUpperBit := li.OffUpperBit(l, cellNumber)
 	return withoutUpperBit >> li.offset[l-1]
 }
 
 // GetHighestDifferingLevel. get the highest level(1-indexed) where two cell numbers differ
-func (li *LevelInfo) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
+func (li *LevelData) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 	diff := c1 ^ c2
 	if diff == 0 {
 		return 0
@@ -42,7 +42,7 @@ func (li *LevelInfo) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 /*
 highest level s.t. vertex v is not at the same cell as s or t.
 */
-func (li *LevelInfo) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
+func (li *LevelData) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
 	l_sv := li.GetHighestDifferingLevel(sCellNumber, vCellNumber)
 	l_tv := li.GetHighestDifferingLevel(tCellNumber, vCellNumber)
 
@@ -50,20 +50,20 @@ func (li *LevelInfo) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uin
 }
 
 // get cell number. level is 1-indexed
-func (li *LevelInfo) TruncateToLevel(cellNumber Pv, level uint8) Pv {
+func (li *LevelData) TruncateToLevel(cellNumber Pv, level uint8) Pv {
 	// shift right to remove bits below the given level (but still contains bits above the level)
 	return cellNumber >> Pv(li.offset[level-1])
 }
 
-func (li *LevelInfo) GetLevelCount() int {
+func (li *LevelData) GetLevelCount() int {
 	return len(li.offset) - 1
 }
 
-func (li *LevelInfo) GetOffsets() []uint8 {
+func (li *LevelData) GetOffsets() []uint8 {
 	return li.offset
 }
 
 // l is 1-indexed level
-func (li *LevelInfo) GetOffsetInLevel(l int) uint8 {
+func (li *LevelData) GetOffsetInLevel(l int) uint8 {
 	return li.offset[l-1]
 }

@@ -267,7 +267,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeInfoIds := op.BuildGraph(es, gs, uint32(n), false)
+		g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -287,7 +287,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocessor.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+		prep := preprocessor.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -364,7 +364,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				gotNumOfShortcuts += int(cell.GetNumEntryPoints() * cell.GetNumExitPoints())
 			}
 
-			for level := 2; level <= og.GetLevelInfo().GetLevelCount(); level++ {
+			for level := 2; level <= og.GetLevelData().GetLevelCount(); level++ {
 				// validating shortcut weights di level l
 				cellMapInLevel := og.GetAllCellsInLevel(level)
 
@@ -484,7 +484,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 
 	op := osmparser.NewOSMParserV2[int32]()
 
-	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
+	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -518,7 +518,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -584,7 +584,7 @@ func TestCRPCustomizer(t *testing.T) {
 		expectedNumOfShortcuts += int(cell.GetNumEntryPoints() * cell.GetNumExitPoints())
 	}
 
-	for level := 2; level <= og.GetLevelInfo().GetLevelCount(); level++ {
+	for level := 2; level <= og.GetLevelData().GetLevelCount(); level++ {
 		// validating shortcut weights di level l
 		cellMapInLevel := og.GetAllCellsInLevel(level)
 

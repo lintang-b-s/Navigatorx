@@ -131,7 +131,7 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	// path unpacking heap pool
 	crp.pufOverlayHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](da.OVERLAY_CELL_INFO_SIZE, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](da.OVERLAY_CELL_SIZE, uint32(maxEdgesInCell), da.MAP_STORAGE, true)
 		},
 	}
 

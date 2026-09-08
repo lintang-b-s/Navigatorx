@@ -62,7 +62,7 @@ func (c *Customizer[W]) buildLowestLevelWithoutTurnCost(costFunction *costfuncti
 				}
 
 				travelTime := make(map[da.Index]W, maxSearchSize)
-				overlayTravelTime := make(map[da.Index]W, da.OVERLAY_CELL_INFO_SIZE)
+				overlayTravelTime := make(map[da.Index]W, da.OVERLAY_CELL_SIZE)
 
 				travelTime[start] = 0
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
@@ -194,7 +194,7 @@ func (c *Customizer[W]) buildLowestLevelWithoutTurnCost(costFunction *costfuncti
 // this function is parallelized using goroutines worker pool
 func (c *Customizer[W]) buildLevelWithoutTurnCost(costFunction *costfunction.TimeFunction[W], level int) {
 
-	levelInfo := c.overlayGraph.GetLevelInfo()
+	levelData := c.overlayGraph.GetLevelData()
 	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
 
 	cellCliqueOutChan := make(chan []cellCustomizationRes[W], cellCliqueOutChanSize)
@@ -230,7 +230,7 @@ func (c *Customizer[W]) buildLevelWithoutTurnCost(costFunction *costfunction.Tim
 					c.levelHeapNoTurnCostPool.Put(pq)
 				}
 
-				travelTime := make(map[da.Index]W, da.OVERLAY_CELL_INFO_SIZE)
+				travelTime := make(map[da.Index]W, da.OVERLAY_CELL_SIZE)
 
 				startOverlayVertexId := c.overlayGraph.GetInId(cell, i)
 
@@ -267,7 +267,7 @@ func (c *Customizer[W]) buildLevelWithoutTurnCost(costFunction *costfunction.Tim
 							// cut edge (exitOverlayVertex, neighborOverlayVertex)
 							cutOutEdgeId := exitOverlayVertex.GetCutEdge()
 
-							if levelInfo.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
+							if levelData.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
 								boundaryArcWeight := costFunction.GetWeight(cutOutEdgeId)
 
 								newNeighborTravelTime := newTravelTime + boundaryArcWeight

@@ -219,18 +219,18 @@ func (bs *CRPQuery[W]) forwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source
 			vLabelled := util.Lt(oldVIdTT, util.Infinity[W]())
 			if !vLabelled || (vLabelled && util.Lt(newTT, oldVIdTT)) {
 				if vLabelled {
-					// newTT is bsCellNumberetter, update the forwardInfo
+					// newTT is bsCellNumberetter, update the forwardData
 					// is key already in the priority queue, decrease its key
 
 					newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false)
 					bs.forwPq.DecreaseKey(vId, newTT, newTT, newPar)
 				} else if !vLabelled {
 
-					vertexInfo := da.NewVertexData(newTT,
+					vData := da.NewVertexData(newTT,
 						da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
 					queryKey := da.NewCRPQueryKeyNoTurnCost(vId, 0, false)
 					// is key not in the priority queue, insert it
-					bs.forwPq.Insert(vId, newTT, vertexInfo, queryKey)
+					bs.forwPq.Insert(vId, newTT, vData, queryKey)
 				}
 			}
 
@@ -255,11 +255,11 @@ func (bs *CRPQuery[W]) forwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, source
 				newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false)
 
 				if !vLabelled {
-					vertexInfo := da.NewVertexData(newTT,
+					vData := da.NewVertexData(newTT,
 						newPar)
 
 					queryKey := da.NewCRPQueryKeyNoTurnCost(ovVId, vQueryLevel, true)
-					bs.forwPq.Insert(ovVId, newTT, vertexInfo, queryKey)
+					bs.forwPq.Insert(ovVId, newTT, vData, queryKey)
 				} else {
 					bs.forwPq.DecreaseKey(ovVId, newTT, newTT, newPar)
 				}
@@ -312,10 +312,10 @@ func (bs *CRPQuery[W]) backwardGraphSearch(uItem da.CRPQueryKeyNoTurnCost, sourc
 					newPar := da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, true)
 					bs.backwPq.DecreaseKey(vId, newTT, newTT, newPar)
 				} else {
-					vertexInfo := da.NewVertexData(newTT,
+					vData := da.NewVertexData(newTT,
 						da.NewVertexEdgePair(uId, da.INVALID_EDGE_ID, false))
 					queryKey := da.NewCRPQueryKeyNoTurnCost(vId, 0, false)
-					bs.backwPq.Insert(vId, newTT, vertexInfo, queryKey)
+					bs.backwPq.Insert(vId, newTT, vData, queryKey)
 				}
 			}
 
@@ -430,9 +430,9 @@ func (bs *CRPQuery[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCost,
 					if wLabelled {
 						bs.forwPq.DecreaseKey(wId, newTT, newTT, newPar)
 					} else {
-						vertexInfo := da.NewVertexData(newTT, newPar)
+						vData := da.NewVertexData(newTT, newPar)
 						queryKey := da.NewCRPQueryKeyNoTurnCost(wId, 0, false)
-						bs.forwPq.Insert(wId, newTT, vertexInfo, queryKey)
+						bs.forwPq.Insert(wId, newTT, vData, queryKey)
 					}
 				}
 
@@ -462,9 +462,9 @@ func (bs *CRPQuery[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCost,
 					newPar.SetIsOverlayVertex()
 
 					if !wLabelled {
-						vertexInfo := da.NewVertexData(newTT, newPar)
+						vData := da.NewVertexData(newTT, newPar)
 						queryKey := da.NewCRPQueryKeyNoTurnCost(ovWId, wQueryLevel, true)
-						bs.forwPq.Insert(ovWId, newTT, vertexInfo, queryKey)
+						bs.forwPq.Insert(ovWId, newTT, vData, queryKey)
 					} else {
 						bs.forwPq.DecreaseKey(ovWId, newTT, newTT, newPar)
 					}
@@ -559,8 +559,8 @@ func (bs *CRPQuery[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCost
 						bs.backwPq.DecreaseKey(wId, newTT, newTT, newPar)
 					} else {
 						queryKey := da.NewCRPQueryKeyNoTurnCost(wId, 0, false)
-						vertexInfo := da.NewVertexData(newTT, newPar)
-						bs.backwPq.Insert(wId, newTT, vertexInfo, queryKey)
+						vData := da.NewVertexData(newTT, newPar)
+						bs.backwPq.Insert(wId, newTT, vData, queryKey)
 					}
 				}
 
@@ -585,8 +585,8 @@ func (bs *CRPQuery[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKeyNoTurnCost
 					newPar.SetIsOverlayVertex()
 					if !wLabelled {
 						queryKey := da.NewCRPQueryKeyNoTurnCost(ovWId, wQueryLevel, true)
-						vertexInfo := da.NewVertexData(newTT, newPar)
-						bs.backwPq.Insert(ovWId, newTT, vertexInfo, queryKey)
+						vData := da.NewVertexData(newTT, newPar)
+						bs.backwPq.Insert(ovWId, newTT, vData, queryKey)
 					} else {
 						bs.backwPq.DecreaseKey(ovWId, newTT, newTT, newPar)
 					}

@@ -44,12 +44,12 @@ func setup(t *testing.T, osmFileTest string) (*da.Graph, [][]da.Index, *osmparse
 
 	osmParser := osmparser.NewOSMParserV2[int32]()
 
-	graph, _, edgeInfoIds, err := osmParser.Parse(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
+	graph, _, edgeDataIds, err := osmParser.Parse(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return graph, edgeInfoIds, osmParser
+	return graph, edgeDataIds, osmParser
 }
 
 // go test ./tests/osmparser -run .
@@ -88,7 +88,7 @@ func TestOSMParser(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		graph, edgeInfoIds, op := setup(t, tc.osmFileTest)
+		graph, edgeDataIds, op := setup(t, tc.osmFileTest)
 		n := graph.NumberOfVertices()
 		osmNodeIdMap := op.GetNodeIdMap()
 		matrixOffset := da.Index(0)
@@ -127,33 +127,33 @@ func TestOSMParser(t *testing.T) {
 				}
 
 				vExitPoint := graph.GetExitOrder(v.GetID(), eId)
-				edgeInfoId := edgeInfoIds[v.GetID()][vExitPoint]
+				edgeDataId := edgeDataIds[v.GetID()][vExitPoint]
 
 				// cek roundabout
-				if _, roundabout := tc.roundAboutWay[graph.GetOsmWayId(edgeInfoId)]; roundabout && !graph.IsRoundabout(edgeInfoId) {
-					t.Errorf("expected edge with osm way id %v is a roundabout, got no", graph.GetOsmWayId(edgeInfoId))
+				if _, roundabout := tc.roundAboutWay[graph.GetOsmWayId(edgeDataId)]; roundabout && !graph.IsRoundabout(edgeDataId) {
+					t.Errorf("expected edge with osm way id %v is a roundabout, got no", graph.GetOsmWayId(edgeDataId))
 				}
 
 				// cek edge geometry
-				if len(graph.GetEdgeGeometry(edgeInfoId)) < 2 {
-					t.Errorf("expected number of edge geometry coordinates is greater than or equal to 2, got: %v", len(graph.GetEdgeGeometry(edgeInfoId)))
+				if len(graph.GetEdgeGeometry(edgeDataId)) < 2 {
+					t.Errorf("expected number of edge geometry coordinates is greater than or equal to 2, got: %v", len(graph.GetEdgeGeometry(edgeDataId)))
 				}
 
 				// cek street name dari edge
 
-				eOsmwayId := graph.GetOsmWayId(edgeInfoId)
+				eOsmwayId := graph.GetOsmWayId(edgeDataId)
 
-				gotStreetName := graph.GetStreetName(edgeInfoId)
+				gotStreetName := graph.GetStreetName(edgeDataId)
 				if expectedStreetname, ok := tc.streetNameWay[eOsmwayId]; ok && expectedStreetname != gotStreetName {
 					t.Errorf("expected edge with osm way id %v street name: %v, got: %v", eOsmwayId, expectedStreetname, gotStreetName)
 				}
 
-				gotRoadClass := graph.GetRoadClass(edgeInfoId)
+				gotRoadClass := graph.GetRoadClass(edgeDataId)
 				if expectedHighwayType, ok := tc.highwayTypeWay[eOsmwayId]; ok && expectedHighwayType != gotRoadClass {
 					t.Errorf("expected edge with osm way id %v highway type: %v, got: %v", eOsmwayId, expectedHighwayType, gotRoadClass)
 				}
 
-				gotRoadLanes := graph.GetRoadLanes(edgeInfoId)
+				gotRoadLanes := graph.GetRoadLanes(edgeDataId)
 				if expectedRoadLane, ok := tc.roadLanes[eOsmwayId]; ok && expectedRoadLane != gotRoadLanes {
 					t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, expectedRoadLane, gotRoadLanes)
 				}

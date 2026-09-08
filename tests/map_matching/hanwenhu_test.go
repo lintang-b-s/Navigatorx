@@ -139,7 +139,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	if err != nil {
 		t.Fatalf("download osm failed: %v", err)
 	}
-	graph, timeFunction, edgeInfoIds, err := op.Parse(hhOsmFile, logger)
+	graph, timeFunction, edgeDataIds, err := op.Parse(hhOsmFile, logger)
 	if err != nil {
 		t.Fatalf("osm parse failed: %v", err)
 	}
@@ -157,7 +157,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	if err = mlp.ReadMlpFile(hhMlpFile); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, hhGraphFile, hhOverlayGraphFile, edgeInfoIds)
+	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, hhGraphFile, hhOverlayGraphFile, edgeDataIds)
 	if err = prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}

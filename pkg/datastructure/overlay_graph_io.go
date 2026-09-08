@@ -11,7 +11,7 @@ import (
 func (og *OverlayGraph) WriteToFile(filename string) error {
 	return util.WriteCompressedArtifact(filename, func(w *util.BinaryWriter) error {
 
-		if err := w.Blob(og.levelInfo.offset); err != nil {
+		if err := w.Blob(og.levelData.offset); err != nil {
 			return err
 		}
 		if err := writeIndices(w, og.vertexCountInLevel); err != nil {
@@ -169,7 +169,7 @@ func ReadOverlayGraph(filename string, _ *bufio.Reader) (*OverlayGraph, error) {
 		vertexCountInLevel,
 		cellMapping,
 		overlayIDMapping,
-		NewLevelInfo(offsets),
+		NewLevelData(offsets),
 		weightVectorSize,
 	), nil
 }

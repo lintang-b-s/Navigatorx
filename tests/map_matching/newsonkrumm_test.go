@@ -268,7 +268,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	}
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	g, timeFunction, edgeInfoIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true)
+	g, timeFunction, edgeDataIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeIdMap)), true)
 	g.SetGraphStorage(graphStorage)
 
 	us := []int{8, 11, 14, 16}
@@ -285,7 +285,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	if err := mlp.ReadMlpFile(mlpFile); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, zlog, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, zlog, graphFile, overlayGraphFile, edgeDataIds)
 	if err := prep.PreProcessing(true); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}

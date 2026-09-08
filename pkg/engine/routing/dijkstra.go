@@ -79,16 +79,16 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 				return
 			}
 
-			// newTravelTime is better, update the forwardInfo
+			// newTravelTime is better, update the forwardData
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, eId, false)
 				// is key already in the priority queue, decrease its key
 				us.pq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
+				us.pq.Insert(vId, newTravelTime, vData, queryKey)
 			}
 		})
 	} else {
@@ -114,7 +114,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 				return
 			}
 
-			// newTravelTime is better, update the forwardInfo
+			// newTravelTime is better, update the forwardData
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, eId, false)
 				// is key already in the priority queue, decrease its key
@@ -122,10 +122,10 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vertexInfo := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newTravelTime, vertexInfo, queryKey)
+				us.pq.Insert(vId, newTravelTime, vData, queryKey)
 			}
 		})
 	}
@@ -158,14 +158,14 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 				continue
 			}
 
-			curInfo := us.pq.Get(t)
+			vData := us.pq.Get(t)
 
-			for curInfo.GetParent().GetVertex() != s {
-				parent := curInfo.GetParent()
+			for vData.GetParent().GetVertex() != s {
+				parent := vData.GetParent()
 
 				spPath[t] = append(spPath[t], parent.GetEdge())
 
-				curInfo = us.pq.Get(parent.GetVertex())
+				vData = us.pq.Get(parent.GetVertex())
 			}
 
 			util.ReverseG(spPath[t])
@@ -184,10 +184,10 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 				continue
 			}
 
-			curInfo := us.pq.Get(t)
+			vData := us.pq.Get(t)
 
-			for curInfo.GetParent().GetVertex() != s {
-				parent := curInfo.GetParent()
+			for vData.GetParent().GetVertex() != s {
+				parent := vData.GetParent()
 				parentEdge := parent.GetEdge() // in inEdgeId
 
 				outEdgeId := us.engine.graph.GetOutIdOfInEdge(parentEdge)
@@ -195,7 +195,7 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 				// jadiin outEdge semua
 				spPath[t] = append(spPath[t], outEdgeId)
 
-				curInfo = us.pq.Get(parent.GetVertex())
+				vData = us.pq.Get(parent.GetVertex())
 			}
 		}
 

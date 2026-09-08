@@ -456,7 +456,7 @@ func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *co
 		scannedEdges, graphStorage, streetDirection,
 	)
 
-	graph, timeFunction, edgeInfoIds := p.BuildGraph(
+	graph, timeFunction, edgeDataIds := p.BuildGraph(
 		scannedEdges, graphStorage, numVertices, true,
 	)
 
@@ -466,7 +466,7 @@ func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *co
 	streetDirectionBackward := bitset.New(uint(graph.NumberOfEdges()))
 
 	graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, eId da.Index) {
-		edgeInfoId := edgeInfoIds[tail][exitPoint]
+		edgeInfoId := edgeDataIds[tail][exitPoint]
 		if edgeInfoId == da.INVALID_EDGE_INFO_ID { // skip dummy edges
 			return
 		}
@@ -490,7 +490,7 @@ func (p *OsmParser[W]) Parse(mapFile string, logger *zap.Logger) (*da.Graph, *co
 		return nil, nil, make([][]da.Index, 0), fmt.Errorf("osmParser.Parse: failed to Close scanner: %s: %w", mapFile, err)
 	}
 
-	return graph, timeFunction, edgeInfoIds, nil
+	return graph, timeFunction, edgeDataIds, nil
 }
 
 type wayExtraInfo struct {
@@ -508,7 +508,7 @@ func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 	maxSpeed := 0.0
 	highwayTypeSpeed := 0.0
 
-	wayExtraInfoData := wayExtraInfo{}
+	wayExtraData := wayExtraInfo{}
 
 	for _, tag := range way.Tags {
 		switch tag.Key {
@@ -579,20 +579,20 @@ func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		(tempMap[ROAD_CLASS] == "unclassified" || tempMap[ROAD_CLASS] == "residential") && (val == "yes" || val == "-1")) ||
 		(!pkg.IsVehicleEnabled && (tempMap[ROAD_CLASS] == "via_ferrata" || tempMap[ROAD_CLASS] == "steps") && (val == "yes" || val == "-1")) ||
 		tempMap[JUNCTION] == "roundabout" || (tempMap[ROAD_CLASS] == "motorway" && val != "no" && val != "") || (ok && (vehicleTypeOneway == "yes" || vehicleTypeOneway == "-1")) {
-		wayExtraInfoData.oneWay = true
+		wayExtraData.oneWay = true
 
 		if way.Tags.Find("oneway") == "-1" || restrictedForward {
 			// restrictedForward = restricted/not allowed forward.
-			wayExtraInfoData.forward = false
+			wayExtraData.forward = false
 
 		} else {
 			// kalau gak restrictedForward berarti forward directionnya
 			// https://www.openstreetmap.org/way/141318123
-			wayExtraInfoData.forward = true
+			wayExtraData.forward = true
 		}
 	} else if val == "reversible" {
 		//  https://wiki.openstreetmap.org/wiki/Tag:oneway%3Dreversible
-		wayExtraInfoData.oneWay = true
+		wayExtraData.oneWay = true
 		reversibleVal := way.Tags.Find("oneway:conditional")
 		if reversibleVal != "" {
 
@@ -600,14 +600,14 @@ func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		} else {
 			// https://wiki.openstreetmap.org/wiki/Tag:oneway=reversible?uselang=en
 			// If a vehicle travels a oneway=reversible in any direction, routing engines should infer u-turn restriction
-			wayExtraInfoData.oneWay = false
+			wayExtraData.oneWay = false
 			// tandain osm way ini dengan u-turn restriction
 			p.reversibleOsmWay[int64(way.ID)] = struct{}{}
 		}
 	}
 
-	if wayExtraInfoData.oneWay {
-		if wayExtraInfoData.forward {
+	if wayExtraData.oneWay {
+		if wayExtraData.forward {
 			streetDirection[int64(way.ID)] = [2]bool{true, false} // {forward, backward}
 		} else {
 			streetDirection[int64(way.ID)] = [2]bool{false, true}
@@ -628,7 +628,7 @@ func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		}
 		if p.isJunctionNode(nodeId) {
 			waySegment = append(waySegment, nodeData)
-			p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraInfoData,
+			p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraData,
 				scannedEdges, int64(way.ID))
 			waySegment = make([]node, 0, 16)
 
@@ -638,7 +638,7 @@ func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 		}
 	}
 	if len(waySegment) > 1 {
-		p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraInfoData, scannedEdges,
+		p.processSegment(waySegment, tempMap, maxSpeed, graphStorage, wayExtraData, scannedEdges,
 			int64(way.ID))
 	}
 
@@ -647,22 +647,22 @@ func (p *OsmParser[W]) processWay(way *osm.Way, graphStorage *da.GraphStorage,
 }
 
 func (p *OsmParser[W]) processSegment(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[W], id int64) {
+	wayExtraData wayExtraInfo, scannedEdges *[]Edge[W], id int64) {
 
 	if len(segment) == 2 && segment[0].id == segment[1].id {
 		// skip loop edge
 		return
 	} else if len(segment) > 2 && segment[0].id == segment[len(segment)-1].id {
 		// loop
-		p.processSegment2(segment[0:len(segment)-1], tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
-		p.processSegment2(segment[len(segment)-2:], tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
+		p.processSegment2(segment[0:len(segment)-1], tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
+		p.processSegment2(segment[len(segment)-2:], tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
 	} else {
-		p.processSegment2(segment, tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
+		p.processSegment2(segment, tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
 	}
 }
 
 func (p *OsmParser[W]) processSegment2(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[W], id int64,
+	wayExtraData wayExtraInfo, scannedEdges *[]Edge[W], id int64,
 ) {
 	waySegment := []node{}
 	for i := 0; i < len(segment); i++ {
@@ -673,7 +673,7 @@ func (p *OsmParser[W]) processSegment2(segment []node, tempMap map[string]string
 				// if current node is a barrier
 				// add the barrier node and process the segment (add edge)
 				waySegment = append(waySegment, nodeData)
-				p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
+				p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
 				waySegment = []node{}
 			}
 			// copy the barrier node but with different id so that previous edge (with barrier) not connected with the new edge
@@ -686,7 +686,7 @@ func (p *OsmParser[W]) processSegment2(segment []node, tempMap map[string]string
 		}
 	}
 	if len(waySegment) > 1 {
-		p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraInfoData, scannedEdges, id)
+		p.addEdge(waySegment, tempMap, speed, graphStorage, wayExtraData, scannedEdges, id)
 	}
 }
 
@@ -709,7 +709,7 @@ func (p *OsmParser[W]) copyNode(nodeData node) node {
 }
 
 func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed float64, graphStorage *da.GraphStorage,
-	wayExtraInfoData wayExtraInfo, scannedEdges *[]Edge[W], id int64) {
+	wayExtraData wayExtraInfo, scannedEdges *[]Edge[W], id int64) {
 	var (
 		lanes int
 	)
@@ -798,8 +798,8 @@ func (p *OsmParser[W]) addEdge(segment []node, tempMap map[string]string, speed 
 	hwType := pkg.GetHighwayType(roadClass)
 	isCurved := geo.IsPolylineCurved(edgePoints)
 
-	if wayExtraInfoData.oneWay {
-		if wayExtraInfoData.forward {
+	if wayExtraData.oneWay {
+		if wayExtraData.forward {
 
 			startPointsIndex := graphStorage.GetOsmNodePointsCount()
 

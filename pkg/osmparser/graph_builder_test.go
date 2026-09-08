@@ -30,7 +30,7 @@ func TestBuildGraphSimple(t *testing.T) {
 	numV := uint32(3)
 	graphStorage := da.NewGraphStorage(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
-	graph, _, edgeInfoIds := p.BuildGraph(scannedEdges, graphStorage, numV, true)
+	graph, _, edgeDataIds := p.BuildGraph(scannedEdges, graphStorage, numV, true)
 
 	if graph == nil {
 		t.Fatal("buildGraph returned nil")
@@ -45,8 +45,8 @@ func TestBuildGraphSimple(t *testing.T) {
 		t.Errorf("expected at least 2 edges, got %d", graph.NumberOfEdges())
 	}
 
-	if len(edgeInfoIds) != int(numV) {
-		t.Errorf("expected edgeInfoIds length %d, got %d", numV, len(edgeInfoIds))
+	if len(edgeDataIds) != int(numV) {
+		t.Errorf("expected edgeDataIds length %d, got %d", numV, len(edgeDataIds))
 	}
 }
 

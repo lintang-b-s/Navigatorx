@@ -10,8 +10,8 @@ const (
 	INVALID_ENTRY_POINT      Index = 10e8 + 4
 	INVALID_EXIT_POINT       Index = 10e8 + 5
 
-	OVERLAY_INFO_SIZE                       = 32 // 2 ini kecil aja, biar gak consume memory banyak pas load test
-	OVERLAY_CELL_INFO_SIZE                  = 16
+	OVERLAY_VERTICES_SIZE                   = 32 // 2 ini kecil aja, biar gak consume memory banyak pas load test
+	OVERLAY_CELL_SIZE                       = 16
 	INVALID_OSM_WAY_ID               int64  = 1<<34 - 1
 	INITIAL_BIT_VECTOR_SIZE                 = 1000
 	DEFAULT_BIT_SIZE_OSM_WAY_ID             = 34

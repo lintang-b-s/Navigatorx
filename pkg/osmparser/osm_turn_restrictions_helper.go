@@ -400,8 +400,8 @@ func addViaNodeTurnRestriction[W util.RoutingNumber](p *OsmParser[W], wayId int6
 	}
 }
 
-func addParallelViaEdges[W util.RoutingNumber](p *OsmParser[W], wayId int64, way osmWay, newEInfoId int, outEdges [][]da.OutEdge, inEdges [][]da.InEdge, graphStorage *da.GraphStorage,
-	edgeInfoIds [][]da.Index, outWeights [][]W, outLengths, inLengths [][]uint32, outDegree, inDegree []int,
+func addParallelViaEdges[W util.RoutingNumber](p *OsmParser[W], wayId int64, way osmWay, newEDataId int, outEdges [][]da.OutEdge, inEdges [][]da.InEdge, graphStorage *da.GraphStorage,
+	edgeDataIds [][]da.Index, outWeights [][]W, outLengths, inLengths [][]uint32, outDegree, inDegree []int,
 ) int {
 	fromRestrictions := p.restrictions[wayId]
 	for fromResId, restriction := range fromRestrictions {
@@ -539,24 +539,24 @@ func addParallelViaEdges[W util.RoutingNumber](p *OsmParser[W], wayId int64, way
 				viaWayEdge := da.NewEmptyOutEdge()
 				viaExitPoint := 0
 
-				viaWayEInfoId := da.Index(da.INVALID_EDGE_ID)
+				viaWayEDataId := da.Index(da.INVALID_EDGE_ID)
 				for tailExitPoint, outEdge := range outEdges[tail] {
-					eInfoId := edgeInfoIds[tail][tailExitPoint]
+					eDataId := edgeDataIds[tail][tailExitPoint]
 					eHead := outEdge.GetHead()
-					if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head {
-						viaWayEInfoId = eInfoId
+					if graphStorage.GetOsmWayId(eDataId) == uint64(viaWay) && eHead == head {
+						viaWayEDataId = eDataId
 						viaWayEdge = outEdge
 						viaExitPoint = tailExitPoint
 						break
 					}
 				}
 
-				if viaWayEInfoId == da.INVALID_EDGE_ID {
+				if viaWayEDataId == da.INVALID_EDGE_ID {
 					continue
 				}
 
-				isRoundabout := graphStorage.IsRoundabout(viaWayEInfoId)
-				graphStorage.SetRoundabout(da.Index(newEInfoId), isRoundabout)
+				isRoundabout := graphStorage.IsRoundabout(viaWayEDataId)
+				graphStorage.SetRoundabout(da.Index(newEDataId), isRoundabout)
 				viaHead := viaWayEdge.GetHead()
 				viaHeadNewEdgeEntryPoint := da.Index(len(inEdges[viaHead]))
 				viaParallelOutEdge := da.NewOutEdge(da.INVALID_PARALLEL_EDGE_ID+da.Index(fromResId)*da.Index(q), viaHead,
@@ -566,7 +566,7 @@ func addParallelViaEdges[W util.RoutingNumber](p *OsmParser[W], wayId int64, way
 
 				outWeights[tail] = append(outWeights[tail], outWeights[tail][viaExitPoint])
 				outLengths[tail] = append(outLengths[tail], outLengths[tail][viaExitPoint])
-				edgeInfoIds[tail] = append(edgeInfoIds[tail], da.Index(newEInfoId))
+				edgeDataIds[tail] = append(edgeDataIds[tail], da.Index(newEDataId))
 				outDegree[tail]++
 
 				tailNewEdgeExitPoint := da.Index(len(outEdges[tail]) - 1)
@@ -576,26 +576,26 @@ func addParallelViaEdges[W util.RoutingNumber](p *OsmParser[W], wayId int64, way
 				inEdges[viaHead] = append(inEdges[viaHead], viaParallelInEdge)
 				inLengths[viaHead] = append(inLengths[viaHead], outLengths[tail][viaExitPoint])
 				inDegree[viaHead]++
-				startPointId, endPointId := graphStorage.GetEdgeGeometryEndpoints(viaWayEInfoId)
+				startPointId, endPointId := graphStorage.GetEdgeGeometryEndpoints(viaWayEDataId)
 				graphStorage.AppendEdgeMetadata(
-					int64(graphStorage.GetOsmWayId(viaWayEInfoId)),
+					int64(graphStorage.GetOsmWayId(viaWayEDataId)),
 					startPointId, endPointId,
-					graphStorage.GetStreetNameId(viaWayEInfoId),
-					graphStorage.GetRoadClass(viaWayEInfoId),
-					graphStorage.GetRoadClassLink(viaWayEInfoId),
-					graphStorage.GetRoadLanes(viaWayEInfoId),
+					graphStorage.GetStreetNameId(viaWayEDataId),
+					graphStorage.GetRoadClass(viaWayEDataId),
+					graphStorage.GetRoadClassLink(viaWayEDataId),
+					graphStorage.GetRoadLanes(viaWayEDataId),
 				)
-				newEInfoId++
+				newEDataId++
 				fromNodes = viaWayNodes
 			}
 		}
 	}
-	return newEInfoId
+	return newEDataId
 }
 
 // handler via-way turn restriction (dan multiple via-ways turn restriction)
 func addViaWayTurnRestriction[W util.RoutingNumber](p *OsmParser[W], wayId int64, way osmWay, fromNodes []da.Index, restriction restriction, fromResId int, outEdges [][]da.OutEdge,
-	inEdges [][]da.InEdge, graphStorage *da.GraphStorage, edgeInfoIds [][]da.Index, turnMatrices [][]pkg.TurnType, outDegree, inDegree []int) {
+	inEdges [][]da.InEdge, graphStorage *da.GraphStorage, edgeDataIds [][]da.Index, turnMatrices [][]pkg.TurnType, outDegree, inDegree []int) {
 	if !IsNotAllowedToTurnType(restriction.turnRestriction) || restriction.conditional {
 		// currently only support via-way turn restriction yang no_* (no_left_turn, no_u_turn, etc.)
 		// currently gak support conditional via-way turn restriction  (30 april 2026).
@@ -736,23 +736,23 @@ func addViaWayTurnRestriction[W util.RoutingNumber](p *OsmParser[W], wayId int64
 
 		tailNewViaEdgeExitPoint := da.Index(0)
 
-		viaWayEInfoId := da.Index(da.INVALID_EDGE_ID)
+		viaWayEDataId := da.Index(da.INVALID_EDGE_ID)
 		for i := 0; i < len(outEdges[tail]); i++ {
-			eInfoId := edgeInfoIds[tail][i]
+			eDataId := edgeDataIds[tail][i]
 			outEdge := outEdges[tail][i]
 			if outEdge.GetHighwayType() == pkg.INVALID_HIGHWAY {
 				// skip dummy edges
 				continue
 			}
 			eHead := outEdge.GetHead()
-			if graphStorage.GetOsmWayId(eInfoId) == uint64(viaWay) && eHead == head &&
+			if graphStorage.GetOsmWayId(eDataId) == uint64(viaWay) && eHead == head &&
 				isParallelEdge(outEdge.GetEdgeId(), da.Index(fromResId), da.Index(q)) {
 				tailNewViaEdgeExitPoint = da.Index(i)
-				viaWayEInfoId = eInfoId
+				viaWayEDataId = eDataId
 			}
 		}
 
-		if viaWayEInfoId == da.INVALID_EDGE_ID {
+		if viaWayEDataId == da.INVALID_EDGE_ID {
 			continue
 		}
 
@@ -903,7 +903,7 @@ func addViaWayTurnRestriction[W util.RoutingNumber](p *OsmParser[W], wayId int64
 	}
 }
 
-func setConditionalRestrictions[W util.RoutingNumber](p *OsmParser[W], roadNetwork bool, graph *da.Graph, graphStorage *da.GraphStorage, edgeInfoIds [][]da.Index,
+func setConditionalRestrictions[W util.RoutingNumber](p *OsmParser[W], roadNetwork bool, graph *da.Graph, graphStorage *da.GraphStorage, edgeDataIds [][]da.Index,
 	conditionalTurnRestrictions []da.ConditionalTurnRestriction,
 ) {
 	conditionalReversibleEdges := make([]da.ConditionalReversibleEdge, 0)
@@ -911,8 +911,8 @@ func setConditionalRestrictions[W util.RoutingNumber](p *OsmParser[W], roadNetwo
 	conditionalTrafficModesVal := make([]da.ConditionalTrafficMode, 0)
 	if roadNetwork {
 		graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, eId da.Index) {
-			eInfoId := edgeInfoIds[tail][exitPoint]
-			eWayId := graphStorage.GetOsmWayId(eInfoId)
+			eDataId := edgeDataIds[tail][exitPoint]
+			eWayId := graphStorage.GetOsmWayId(eDataId)
 			reversibleVal := p.conditionalReversibleWayVals[int64(eWayId)]
 			if reversibleVal != "" {
 				cre := da.NewConditionalReversibleEdge(eId, reversibleVal)

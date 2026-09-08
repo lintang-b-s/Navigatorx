@@ -58,7 +58,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 	}
 
 	op := osmparser.NewOSMParserV2[int32]()
-	graph, timeFunction, edgeInfoIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
+	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -92,7 +92,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

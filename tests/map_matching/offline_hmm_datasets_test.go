@@ -156,7 +156,7 @@ func ohmmProjectPath(workingDir, path string) string {
 	return filepath.Join(workingDir, strings.TrimPrefix(path, "./"))
 }
 
-func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfunction.TimeFunction[int32], edgeInfoIDs [][]da.Index, logger *zap.Logger, partitionSizes []int,
+func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfunction.TimeFunction[int32], edgeDataIds [][]da.Index, logger *zap.Logger, partitionSizes []int,
 	mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile string) *engine.Engine[int32] {
 	t.Helper()
 
@@ -181,7 +181,7 @@ func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfuncti
 	if err := mlp.ReadMlpFile(mlpFile); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIDs)
+	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
 	if err := prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
@@ -459,9 +459,9 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 	op := osmparser.NewOSMParserV2[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, timeFunction, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeCoords)), true)
+	graph, timeFunction, edgeDataIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeCoords)), true)
 	graph.SetGraphStorage(graphStorage)
-	return graph, timeFunction, edgeInfoIDs, edgeLengths, nil
+	return graph, timeFunction, edgeDataIds, edgeLengths, nil
 }
 
 // https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
@@ -475,7 +475,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 		t.Fatalf("log.New failed: %v", err)
 	}
 	paths := ohmmEnsureGisCupRoadNetwork(t, workingDir, logger)
-	graph, timeFunction, edgeInfoIDs, edgeLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
+	graph, timeFunction, edgeDataIds, edgeLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
 	if err != nil {
 		t.Fatalf("build GIS Cup graph failed: %v", err)
 	}
@@ -494,7 +494,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 			t.Fatalf("load GIS Cup engine failed: %v", err)
 		}
 	} else {
-		re = ohmmPrepareCRPFiles(t, graph, timeFunction, edgeInfoIDs, logger, []int{8, 11, 14, 16},
+		re = ohmmPrepareCRPFiles(t, graph, timeFunction, edgeDataIds, logger, []int{8, 11, 14, 16},
 			mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile)
 	}
 	return re, re.GetRoutingEngine().GetGraph(), logger, edgeLengths
@@ -923,7 +923,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	op := osmparser.NewOSMParserV2[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, timeFunction, edgeInfoIDs := op.BuildGraph(graphEdges, graphStorage, uint32(len(vertices)), true)
+	graph, timeFunction, edgeDataIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(vertices)), true)
 	graph.SetGraphStorage(graphStorage)
 
 	graphFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_original_hl.ngraph")
@@ -940,7 +940,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 			t.Fatalf("load Melbourne engine failed: %v", err)
 		}
 	} else {
-		re = ohmmPrepareCRPFiles(t, graph, timeFunction, edgeInfoIDs, logger, []int{8, 11, 13, 14, 15},
+		re = ohmmPrepareCRPFiles(t, graph, timeFunction, edgeDataIds, logger, []int{8, 11, 13, 14, 15},
 			mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile)
 	}
 
