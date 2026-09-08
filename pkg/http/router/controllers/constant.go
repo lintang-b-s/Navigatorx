@@ -1,4 +1,4 @@
-// Package controllers defines the HTTP controllers for the routing engine.
+// Package controllers defines the HCostP controllers for the routing engine.
 package controllers
 
 import (

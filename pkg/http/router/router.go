@@ -30,8 +30,8 @@ type API struct {
 }
 
 var (
-	listenAndServeHTTP = func(s *http.Server) error { return s.ListenAndServe() }
-	shutdownHTTP       = func(s *http.Server, ctx context.Context) error { return s.Shutdown(ctx) }
+	listenAndServeHCostP = func(s *http.Server) error { return s.ListenAndServe() }
+	shutdownHCostP       = func(s *http.Server, ctx context.Context) error { return s.Shutdown(ctx) }
 )
 
 func NewAPI(log *zap.Logger) *API {
@@ -119,7 +119,7 @@ func (api *API) Run(
 
 	serverErr := make(chan error, 1)
 	go func() {
-		serverErr <- listenAndServeHTTP(srv)
+		serverErr <- listenAndServeHCostP(srv)
 	}()
 
 	shutdownSignals := make(chan os.Signal, 1)
@@ -135,7 +135,7 @@ func (api *API) Run(
 	shutdownCtx, cancelShutdownCtx := context.WithTimeout(context.Background(), shutdownPeriod)
 	defer cancelShutdownCtx()
 	shutdown := func() {
-		err := shutdownHTTP(srv, shutdownCtx)
+		err := shutdownHCostP(srv, shutdownCtx)
 		if err != nil {
 			// dari docs nya:  Make sure the program doesn't exit and waits instead for Shutdown to return.
 			log.Error("Failed to wait for ongoing requests to finish, waiting for forced cancellation.")
@@ -151,7 +151,7 @@ func (api *API) Run(
 
 	select {
 	case err := <-serverErr:
-		log.Info("HTTP server stopped", zap.Error(err))
+		log.Info("HCostP server stopped", zap.Error(err))
 		isShuttingDown.Store(true)
 
 		return err

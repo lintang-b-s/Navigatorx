@@ -7,8 +7,8 @@ import (
 )
 
 type CRPUniDijkstraOneToMany[W util.RoutingNumber] struct {
-	engine              *CRPRoutingEngine[W]
-	shortestTravelTimes map[da.Index]W
+	engine        *CRPRoutingEngine[W]
+	shortestCosts map[da.Index]W
 
 	stallingEntry []W
 	stallingExit  []W
@@ -35,9 +35,9 @@ func NewCRPUniDijkstraOneToMany[W util.RoutingNumber](
 
 		numSettledNodes: 0,
 
-		tEntryIds:           make(map[target]da.Index, 0),
-		shortestTravelTimes: make(map[da.Index]W),
-		targetsSettled:      make(map[da.Index]struct{}),
+		tEntryIds:      make(map[target]da.Index, 0),
+		shortestCosts:  make(map[da.Index]W),
+		targetsSettled: make(map[da.Index]struct{}),
 	}
 	crpQuery.Preallocate()
 	return crpQuery
@@ -161,7 +161,7 @@ func (us *CRPUniDijkstraOneToMany[W]) ShortestPathOneToManySearch(asId da.Index,
 		us.engine.PutCoordsToPool(finalPath)
 	}
 
-	return us.shortestTravelTimes, tdists, tfinalPath, tfinalEdgePath
+	return us.shortestCosts, tdists, tfinalPath, tfinalEdgePath
 }
 
 func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, source da.Index, targets []target) bool {
@@ -177,7 +177,7 @@ func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, sourc
 		}
 		if uId == t.gettId() {
 			us.targetsSettled[t.gettId()] = struct{}{}
-			us.shortestTravelTimes[t.getatId()] = us.pq.GetPriority(uEntryId)
+			us.shortestCosts[t.getatId()] = us.pq.GetCost(uEntryId)
 			us.tEntryIds[t] = uEntryId
 		}
 	}
@@ -211,9 +211,9 @@ func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, sourc
 		turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
-		newTravelTime := us.pq.GetPriority(uEntryId) + edgeWeight + turnCost
+		newVCost := us.pq.GetCost(uEntryId) + edgeWeight + turnCost
 
-		if util.Ge(newTravelTime, util.Infinity[W]()) {
+		if util.Ge(newVCost, util.Infinity[W]()) {
 			return
 		}
 
@@ -223,14 +223,14 @@ func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, sourc
 			// if query level of v is 0, then v is in the same cell as s or t in the lowest level
 			// then, we just do edge relaxation as usual in turn-aware dijkstra
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), util.Infinity[W]())
-			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vEntryId)) {
-				// newTravelTime is not better, do nothing
+			vAlreadyLabelled := util.Lt(us.pq.GetCost(vEntryId), util.Infinity[W]())
+			if vAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(vEntryId)) {
+				// newVCost is not better, do nothing
 
 				return
 			}
 
-			if bvi := us.stallingEntry[vEntryId]; util.Lt(bvi, util.Infinity[W]()) && util.Gt(newTravelTime, bvi) {
+			if bvi := us.stallingEntry[vEntryId]; util.Lt(bvi, util.Infinity[W]()) && util.Gt(newVCost, bvi) {
 				// stalled
 				return
 			}
@@ -238,17 +238,17 @@ func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, sourc
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, uEntryId, false)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime,
+				us.pq.DecreaseKey(vEntryId, newVCost, newVCost,
 					newPar)
 			} else if !vAlreadyLabelled {
 
 				queryKey := da.NewCRPQueryKey(vId, vEntryId, false)
-				// newTravelTime is better, update the forwardData
-				vData := da.NewVertexData(newTravelTime,
+				// newVCost is better, update the forwardData
+				vData := da.NewVertexData(newVCost,
 					da.NewVertexEdgePair(uId, uEntryId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vEntryId, newTravelTime, vData, queryKey)
+				us.pq.Insert(vEntryId, newVCost, vData, queryKey)
 			}
 
 		} else {
@@ -258,19 +258,19 @@ func (us *CRPUniDijkstraOneToMany[W]) graphSearchUni(uItem da.CRPQueryKey, sourc
 			v, _ := us.engine.graph.GetOverlayVertex(vId, entryPoint, false)
 			overlayVId := v + da.Index(us.engine.graph.NumberOfEdges())
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(overlayVId), util.Infinity[W]())
-			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, us.pq.GetPriority(overlayVId))) {
+			vAlreadyLabelled := util.Lt(us.pq.GetCost(overlayVId), util.Infinity[W]())
+			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newVCost, us.pq.GetCost(overlayVId))) {
 
 				if !vAlreadyLabelled {
 					queryKey := da.NewCRPQueryKey(v, da.Index(lowestVQueryLevel), true)
 
-					vData := da.NewVertexData(newTravelTime,
+					vData := da.NewVertexData(newVCost,
 						da.NewVertexEdgePair(vId, vEntryId, false))
 
-					us.pq.Insert(overlayVId, newTravelTime, vData, queryKey)
+					us.pq.Insert(overlayVId, newVCost, vData, queryKey)
 				} else {
 					newPar := da.NewVertexEdgePair(uId, uEntryId, false)
-					us.pq.DecreaseKey(overlayVId, newTravelTime, newTravelTime,
+					us.pq.DecreaseKey(overlayVId, newVCost, newVCost,
 						newPar)
 				}
 			}
@@ -292,15 +292,15 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 	us.engine.overlayGraph.ForOutNeighborsOf(u, uQueryLevel, func(v da.Index, wOffset da.Index) {
 		shortcutOutEdgeWeight := us.engine.metrics.GetShortcutWeight(wOffset)
 
-		newTravelTime := us.pq.GetPriority(uId) + shortcutOutEdgeWeight
-		if util.Ge(newTravelTime, util.Infinity[W]()) {
+		newVCost := us.pq.GetCost(uId) + shortcutOutEdgeWeight
+		if util.Ge(newVCost, util.Infinity[W]()) {
 			return
 		}
 		vVertex := us.engine.overlayGraph.GetVertex(v)
 
 		vId := v + da.Index(us.engine.graph.NumberOfEdges())
-		vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
-		if !vAlreadyLabelled || (vAlreadyLabelled && newTravelTime < us.pq.GetPriority(vId)) {
+		vAlreadyLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
+		if !vAlreadyLabelled || (vAlreadyLabelled && newVCost < us.pq.GetCost(vId)) {
 
 			us.pq.SetQueryLevel(vId, uint8(uQueryLevel))
 
@@ -325,9 +325,9 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 
 			originalW := wVertex.GetOrigVId()
 
-			newTravelTime = us.pq.GetPriority(vId) + edgeWeight
+			newVCost = us.pq.GetCost(vId) + edgeWeight
 
-			if util.Ge(newTravelTime, util.Infinity[W]()) {
+			if util.Ge(newVCost, util.Infinity[W]()) {
 				return
 			}
 
@@ -338,21 +338,21 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 
 				// relax entry Edge of w
 				// update travelTime to reach entry point of w and insert entryPoint of w to forwardPq
-				wAlreadyLabelled := util.Lt(us.pq.GetPriority(wEntryId), util.Infinity[W]())
-				if wAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(wEntryId)) {
+				wAlreadyLabelled := util.Lt(us.pq.GetCost(wEntryId), util.Infinity[W]())
+				if wAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(wEntryId)) {
 
 					return
 				}
 
 				if wAlreadyLabelled {
 					newPar := da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false)
-					us.pq.DecreaseKey(wEntryId, newTravelTime, newTravelTime, newPar)
+					us.pq.DecreaseKey(wEntryId, newVCost, newVCost, newPar)
 				} else {
 					queryKey := da.NewCRPQueryKey(originalW, wEntryId, false)
-					vData := da.NewVertexData(newTravelTime,
+					vData := da.NewVertexData(newVCost,
 						da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false))
 
-					us.pq.Insert(wEntryId, newTravelTime, vData, queryKey)
+					us.pq.Insert(wEntryId, newVCost, vData, queryKey)
 				}
 
 			} else {
@@ -360,19 +360,19 @@ func (us *CRPUniDijkstraOneToMany[W]) overlayGraphSearchUni(uItem da.CRPQueryKey
 				// update new travelTime to reach overlay vertex w
 				// insert item overlay vertex w and its query level to pq, because we need to traverse & relax shortcut edges in overlay graph
 				wId := w + da.Index(us.engine.graph.NumberOfEdges())
-				wAlreadyLabelled := util.Lt(us.pq.GetPriority(wId), util.Infinity[W]())
-				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, us.pq.GetPriority(wId))) {
+				wAlreadyLabelled := util.Lt(us.pq.GetCost(wId), util.Infinity[W]())
+				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newVCost, us.pq.GetCost(wId))) {
 
 					if !wAlreadyLabelled {
 						queryKey := da.NewCRPQueryKey(w, da.Index(lowestWQueryLevel), true)
-						vData := da.NewVertexData(newTravelTime,
+						vData := da.NewVertexData(newVCost,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false))
 
-						us.pq.Insert(wId, newTravelTime, vData, queryKey)
+						us.pq.Insert(wId, newVCost, vData, queryKey)
 					} else {
 						newPar := da.NewVertexEdgePair(vVertex.GetOrigVId(), vId, false)
 
-						us.pq.DecreaseKey(wId, newTravelTime, newTravelTime, newPar)
+						us.pq.DecreaseKey(wId, newVCost, newVCost, newPar)
 					}
 				}
 			}

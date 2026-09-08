@@ -112,7 +112,7 @@ func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newPriority, vCost W, newPar Ve
 
 // Get. Get sp cost dari node
 // node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
-func (qh *QueryHeap[T, W]) GetPriority(id Index) W {
+func (qh *QueryHeap[T, W]) GetCost(id Index) W {
 	vertexIndex := qh.verticesIndex.Get(id)
 	if vertexIndex == math.MaxUint32 {
 		return util.Infinity[W]()

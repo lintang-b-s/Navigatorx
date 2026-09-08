@@ -1,4 +1,4 @@
-// Package http implements the HTTP server and API handlers.
+// Package http implements the HCostP server and API handlers.
 package http
 
 import (
@@ -40,7 +40,7 @@ func (s *Server) Use(
 		Port:    viper.GetInt("http_port"),
 		Timeout: viper.GetDuration("server.api_timeout"),
 	}
-	log.Info("HTTP server config",
+	log.Info("HCostP server config",
 		zap.Int("port", config.Port),
 		zap.Duration("api_timeout", config.Timeout),
 		zap.Duration("read_timeout", viper.GetDuration("server.read_timeout")),

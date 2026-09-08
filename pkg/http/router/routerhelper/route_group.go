@@ -1,4 +1,4 @@
-// Package routerhelper provides helper functions for HTTP routing.
+// Package routerhelper provides helper functions for HCostP routing.
 package routerhelper
 
 import (

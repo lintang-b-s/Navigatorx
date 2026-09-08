@@ -67,28 +67,28 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 			vId := head
 			edgeWeight := us.engine.getWeight(eId, true)
 			// get cost to reach v through u
-			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
+			newVCost := us.pq.GetCost(uId) + edgeWeight
 
-			if util.Ge(newTravelTime, util.Infinity[W]()) {
+			if util.Ge(newVCost, util.Infinity[W]()) {
 				return
 			}
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
-			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
-				// newTravelTime is not better, do nothing
+			vAlreadyLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
+			if vAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(vId)) {
+				// newVCost is not better, do nothing
 				return
 			}
 
-			// newTravelTime is better, update the forwardData
+			// newVCost is better, update the forwardData
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, eId, false)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
+				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, eId, false))
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newTravelTime, vData, queryKey)
+				us.pq.Insert(vId, newVCost, vData, queryKey)
 			}
 		})
 	} else {
@@ -102,30 +102,30 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			edgeWeight := us.engine.getWeight(eId, false)
 
-			newTravelTime := us.pq.GetPriority(uId) + edgeWeight
+			newVCost := us.pq.GetCost(uId) + edgeWeight
 
-			if util.Ge(newTravelTime, util.Infinity[W]()) {
+			if util.Ge(newVCost, util.Infinity[W]()) {
 				return
 			}
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
-			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vId)) {
-				// newTravelTime is not better, do nothing
+			vAlreadyLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
+			if vAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(vId)) {
+				// newVCost is not better, do nothing
 				return
 			}
 
-			// newTravelTime is better, update the forwardData
+			// newVCost is better, update the forwardData
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, eId, false)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vId, newTravelTime, newTravelTime, newPar)
+				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vId)
-				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, eId, false))
+				vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, eId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newTravelTime, vData, queryKey)
+				us.pq.Insert(vId, newVCost, vData, queryKey)
 			}
 		})
 	}
@@ -147,7 +147,7 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 	if !us.useReversedEdges {
 
 		for t := da.Index(0); t < da.Index(n); t++ {
-			sp := us.pq.GetPriority(t)
+			sp := us.pq.GetCost(t)
 
 			if s == t {
 				continue // sp == 0
@@ -174,7 +174,7 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 	} else {
 		//  use reversed edges
 		for t := da.Index(0); t < da.Index(n); t++ {
-			sp := us.pq.GetPriority(t)
+			sp := us.pq.GetCost(t)
 
 			if s == t {
 				continue // sp == 0

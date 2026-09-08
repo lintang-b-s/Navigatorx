@@ -132,7 +132,7 @@ func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
 
 	labelled := func(pq *da.QueryHeap[da.Index, W], v da.Index) bool {
 
-		ok := util.Lt(pq.GetPriority(v), util.Infinity[W]())
+		ok := util.Lt(pq.GetCost(v), util.Infinity[W]())
 		return ok
 	}
 
@@ -153,14 +153,14 @@ func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
 			shortcutOutEdgeWeight := pu.eng.metrics.GetShortcutWeight(wOffset)
 			vOverlayVertex := pu.eng.overlayGraph.GetVertex(vOverlayId)
 
-			newTravelTime := pq.GetPriority(uOverlayId) + shortcutOutEdgeWeight
+			newVCost := pq.GetCost(uOverlayId) + shortcutOutEdgeWeight
 
-			if util.Ge(newTravelTime, util.Infinity[W]()) {
+			if util.Ge(newVCost, util.Infinity[W]()) {
 				return
 			}
 
 			vAlreadyLabelled := labelled(pq, vOverlayId)
-			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(vOverlayId))) {
+			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newVCost, pq.GetCost(vOverlayId))) {
 				// relax shortcut edge
 
 				pq.Explore(vOverlayId) // langsung scan exit overlay vertex v
@@ -172,17 +172,17 @@ func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
 					// if v is the target overlay vertex, insert/decrease its key  pq
 
 					if !vAlreadyLabelled {
-						wVertexData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(originalUId,
+						wVertexData := da.NewVertexData(newVCost, da.NewVertexEdgePair(originalUId,
 							uOverlayId, true))
-						pq.Insert(vOverlayId, newTravelTime, wVertexData, uOverlayId)
+						pq.Insert(vOverlayId, newVCost, wVertexData, uOverlayId)
 					} else {
 						wNewPar := da.NewVertexEdgePair(originalUId,
 							uOverlayId, true)
-						pq.DecreaseKey(vOverlayId, newTravelTime, newTravelTime, wNewPar)
+						pq.DecreaseKey(vOverlayId, newVCost, newVCost, wNewPar)
 					}
 
 				} else {
-					pq.Set(vOverlayId, da.NewVertexData(newTravelTime, da.NewVertexEdgePair(originalUId,
+					pq.Set(vOverlayId, da.NewVertexData(newVCost, da.NewVertexEdgePair(originalUId,
 						uOverlayId, true)), vOverlayId)
 				}
 
@@ -198,18 +198,18 @@ func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
 				}
 
 				// get out edge that point to wEntryVertex from vOverlayId
-				newTravelTime += pu.eng.getWeight(vOverlayVertex.GetCutEdge(), true)
+				newVCost += pu.eng.getWeight(vOverlayVertex.GetCutEdge(), true)
 				// relax edge
 				wAlreadyLabelled := labelled(pq, wNeighborId)
-				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(wNeighborId))) {
+				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newVCost, pq.GetCost(wNeighborId))) {
 					if !wAlreadyLabelled {
-						wVertexData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
+						wVertexData := da.NewVertexData(newVCost, da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
 							vOverlayId, true))
-						pq.Insert(wNeighborId, newTravelTime, wVertexData, wNeighborId)
+						pq.Insert(wNeighborId, newVCost, wVertexData, wNeighborId)
 					} else {
 						wNewPar := da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
 							vOverlayId, true)
-						pq.DecreaseKey(wNeighborId, newTravelTime, newTravelTime, wNewPar)
+						pq.DecreaseKey(wNeighborId, newVCost, newVCost, wNewPar)
 					}
 				}
 
@@ -307,31 +307,31 @@ func (pu *PathUnpacker[W]) unpackInLowestLevelCell(sourceEntryId, targetEntryId 
 			vEntryId := pu.eng.graph.GetEntryOffset(vId) + entryPoint
 			edgeWeight := pu.eng.getWeight(eId, true)
 
-			newTravelTime := pq.GetPriority(uEntryId) + edgeWeight + pu.eng.metrics.GetTurnCost(turnTableId)
+			newVCost := pq.GetCost(uEntryId) + edgeWeight + pu.eng.metrics.GetTurnCost(turnTableId)
 
 			if pu.eng.graph.GetCellNumber(vId) != sourceCellNumber && vEntryId != targetEntryId {
 				// do not cross cell boundary
 				return
 			}
 
-			if util.Ge(newTravelTime, util.Infinity[W]()) {
+			if util.Ge(newVCost, util.Infinity[W]()) {
 				return
 			}
 
 			offVEntryId := pu.eng.offsetForward(vId, vEntryId, pu.eng.graph.GetCellNumber(vId), sourceCellNumber)
 
 			// relax edge
-			vAlreadyLabelled := util.Lt(pq.GetPriority(offVEntryId), util.Infinity[W]())
-			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newTravelTime, pq.GetPriority(offVEntryId))) {
+			vAlreadyLabelled := util.Lt(pq.GetCost(offVEntryId), util.Infinity[W]())
+			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newVCost, pq.GetCost(offVEntryId))) {
 
 				if !vAlreadyLabelled {
 					queryKey := da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, eId)
-					vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
+					vData := da.NewVertexData(newVCost, da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
 
-					pq.Insert(offVEntryId, newTravelTime, vData, queryKey)
+					pq.Insert(offVEntryId, newVCost, vData, queryKey)
 				} else {
 					newPar := da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false)
-					pq.DecreaseKey(offVEntryId, newTravelTime, newTravelTime, newPar)
+					pq.DecreaseKey(offVEntryId, newVCost, newVCost, newPar)
 				}
 			}
 

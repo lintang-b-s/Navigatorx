@@ -468,15 +468,15 @@ func (h *HMM) newPhantomNodeFromCandidate(cand *ma.Candidate) da.PhantomNode {
 	forwardDistance := cand.GetDistanceFromHead()
 	reverseDistance := cand.GetDistanceFromTail()
 
-	forwardTravelTime := cand.GetCostFromHead()
-	reverseTravelTime := cand.GetCostFromTail()
+	forwardCost := cand.GetCostFromHead()
+	reverseCost := cand.GetCostFromTail()
 
 	forwardGeometry, reverseGeometry := h.candidatePhantomGeometries(cand)
 
 	return da.NewPhantomNode(
 		cand.GetProjectedCoord(),
-		forwardTravelTime,
-		reverseTravelTime,
+		forwardCost,
+		reverseCost,
 		edgeId,
 		inEdgeId,
 		forwardDistance,
@@ -617,7 +617,7 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 		if util.Gt(sameSegmentRevDist, 0) {
 			sameSegmentDist = sameSegmentRevDist
 			eDuration := h.re.GetWeightSeconds(sOutEdgeId, true)
-			sameSegmentDur = eDuration - sp.GetReverseTravelTime() - tp.GetReverseTravelTime()
+			sameSegmentDur = eDuration - sp.GetReverseCost() - tp.GetReverseCost()
 		}
 
 		minSegmentDist = min(sameSegmentDist, nextSegmentDist)
@@ -751,8 +751,8 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 		distanceFromHead := max(edgeLength-minDistr, 0)
 		cand.SetDistanceFromHead(distanceFromHead)
 
-		cand.SetTravelTimeFromTail(h.re.GetWeightFromLength(cand.EdgeId(), true, minDistr))
-		cand.SetTravelTimeFromHead(h.re.GetWeightFromLength(cand.EdgeId(), true, distanceFromHead))
+		cand.SetCostFromTail(h.re.GetWeightFromLength(cand.EdgeId(), true, minDistr))
+		cand.SetCostFromHead(h.re.GetWeightFromLength(cand.EdgeId(), true, distanceFromHead))
 
 		cand.SetEdgeBearing(candEdgeBearing)
 	}

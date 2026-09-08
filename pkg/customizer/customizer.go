@@ -464,16 +464,16 @@ func (c *Customizer[W]) Build(costFunction *costfunction.TimeFunction[W]) {
 }
 
 type cellCustomizationRes[W util.RoutingNumber] struct {
-	travelTime W
-	index      int
+	cost  W
+	index int
 }
 
-func NewCellCustomizationResult[W util.RoutingNumber](travelTime W, index int) cellCustomizationRes[W] {
-	return cellCustomizationRes[W]{travelTime, index}
+func NewCellCustomizationResult[W util.RoutingNumber](cost W, index int) cellCustomizationRes[W] {
+	return cellCustomizationRes[W]{cost, index}
 }
 
-func (cc cellCustomizationRes[W]) getTravelTime() W {
-	return cc.travelTime
+func (cc cellCustomizationRes[W]) getCost() W {
+	return cc.cost
 }
 
 func (cc cellCustomizationRes[W]) getIndex() int {
@@ -534,18 +534,18 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 					c.lowestHeapPool.Put(pq)
 				}
 
-				travelTime := make([]W, maxSearchSize)
-				overlayTravelTime := make([]W, c.overlayGraph.NumberOfOverlayVertices())
-				for q := 0; q < len(travelTime); q++ {
-					travelTime[q] = util.Infinity[W]()
+				cost := make([]W, maxSearchSize)
+				overlayCost := make([]W, c.overlayGraph.NumberOfOverlayVertices())
+				for q := 0; q < len(cost); q++ {
+					cost[q] = util.Infinity[W]()
 				}
-				for q := 0; q < len(overlayTravelTime); q++ {
-					overlayTravelTime[q] = util.Infinity[W]()
+				for q := 0; q < len(overlayCost); q++ {
+					overlayCost[q] = util.Infinity[W]()
 				}
 				forwardCellOffset := c.graph.GetInEdgeCellOffset(start)
 				startInEdgeOffset := overlayVertex.GetCutEdge() - forwardCellOffset
 
-				travelTime[startInEdgeOffset] = 0
+				cost[startInEdgeOffset] = 0
 				noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
 
 				sVertexData := da.NewVertexData(W(0), noPar)
@@ -556,7 +556,7 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 					uKey := pqNode.GetItem()
 					uId := uKey.GetNode()
 					uEntryId := uKey.GetEntryExitPoint()
-					uTravelTime := pqNode.GetRank()
+					uCost := pqNode.GetRank()
 
 					c.graph.ForOutEdgesOf(uId, c.graph.GetEntryOrder(uId, uEntryId+forwardCellOffset),
 						func(eId, head da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
@@ -567,12 +567,12 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 
 							turnCost := costFunction.GetTurnCost(turnTableId)
 
-							uTravelTimeWithTurnCost := uTravelTime + turnCost
+							uCostWithTurnCost := uCost + turnCost
 							outArcCost := costFunction.GetWeight(eId)
 
-							newTravelTime := uTravelTimeWithTurnCost + outArcCost
+							newVCost := uCostWithTurnCost + outArcCost
 
-							if util.Ge(newTravelTime, util.Infinity[W]()) {
+							if util.Ge(newVCost, util.Infinity[W]()) {
 								return
 							}
 
@@ -580,38 +580,38 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 							if vTruncatedCellNumber == cellNumber {
 								vEntryId := c.graph.GetEntryOffset(v) + da.Index(entryPoint) - forwardCellOffset
 
-								ok := util.Lt(travelTime[vEntryId], util.Infinity[W]())
-								if oldvTT := travelTime[vEntryId]; !ok || (ok && util.Lt(newTravelTime, oldvTT)) {
-									travelTime[vEntryId] = newTravelTime
+								ok := util.Lt(cost[vEntryId], util.Infinity[W]())
+								if oldvCost := cost[vEntryId]; !ok || (ok && util.Lt(newVCost, oldvCost)) {
+									cost[vEntryId] = newVCost
 									if ok {
-										pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, noPar)
+										pq.DecreaseKey(vEntryId, newVCost, newVCost, noPar)
 									} else {
-										vVertexData := da.NewVertexData(newTravelTime, noPar)
-										pq.Insert(vEntryId, newTravelTime, vVertexData, da.NewDijkstraKey(v, vEntryId))
+										vVertexData := da.NewVertexData(newVCost, noPar)
+										pq.Insert(vEntryId, newVCost, vVertexData, da.NewDijkstraKey(v, vEntryId))
 									}
 								}
 							} else {
 								// found an exit vertex of the cell
-								// save this shortcut travelTime
-								exitVertexTravelTime := uTravelTimeWithTurnCost
+								// save this shortcut cost
+								exitVertexCost := uCostWithTurnCost
 								exitOverlayVId, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
-								ok := util.Lt(overlayTravelTime[exitOverlayVId], util.Infinity[W]())
-								if !ok || (ok && util.Lt(exitVertexTravelTime, overlayTravelTime[exitOverlayVId])) {
-									overlayTravelTime[exitOverlayVId] = exitVertexTravelTime
+								ok := util.Lt(overlayCost[exitOverlayVId], util.Infinity[W]())
+								if !ok || (ok && util.Lt(exitVertexCost, overlayCost[exitOverlayVId])) {
+									overlayCost[exitOverlayVId] = exitVertexCost
 								}
 							}
 						})
 				}
 
-				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
+				// stores all cost of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					exitOverlayVId := c.overlayGraph.GetOutId(cell, j)
-					ok := util.Lt(overlayTravelTime[exitOverlayVId], util.Infinity[W]())
+					ok := util.Lt(overlayCost[exitOverlayVId], util.Infinity[W]())
 
 					if !ok {
 						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					} else {
-						dijkstraResChan <- NewCellCustomizationResult(overlayTravelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(overlayCost[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					}
 				}
 
@@ -652,7 +652,7 @@ func (c *Customizer[W]) buildLowestLevel(costFunction *costfunction.TimeFunction
 	go func() {
 		for cellWeights := range cellCliqueOutChan {
 			for _, w := range cellWeights {
-				c.ow.SetWeight(w.getIndex(), w.getTravelTime())
+				c.ow.SetWeight(w.getIndex(), w.getCost())
 			}
 			wg.Done()
 		}
@@ -719,9 +719,9 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 					c.levelHeapPool.Put(pq)
 				}
 
-				travelTime := make([]W, c.overlayGraph.NumberOfOverlayVertices())
+				cost := make([]W, c.overlayGraph.NumberOfOverlayVertices())
 				for v := 0; v < c.overlayGraph.NumberOfOverlayVertices(); v++ {
-					travelTime[v] = util.Infinity[W]()
+					cost[v] = util.Infinity[W]()
 				}
 				startOverlayVertexId := c.overlayGraph.GetInId(cell, i)
 
@@ -733,23 +733,23 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 				for !pq.IsEmpty() {
 					pqNode := pq.ExtractMin()
 					uOverlayId := pqNode.GetItem()
-					uTravelTime := pqNode.GetRank()
+					uCost := pqNode.GetRank()
 
 					c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exitOverlayVertex da.Index, wOffset da.Index) {
 						// iterate all shortcuts (u, \cdot)
 
 						shortcutWeight := c.ow.GetWeight(wOffset)
 
-						newTravelTime := uTravelTime + shortcutWeight
+						newVCost := uCost + shortcutWeight
 
-						if util.Ge(newTravelTime, util.Infinity[W]()) {
+						if util.Ge(newVCost, util.Infinity[W]()) {
 							return
 						}
 
-						oldExitTravelTime := travelTime[exitOverlayVertex]
-						exitAlreadyLabelled := util.Lt(travelTime[exitOverlayVertex], util.Infinity[W]())
-						if !exitAlreadyLabelled || (exitAlreadyLabelled && util.Lt(newTravelTime, oldExitTravelTime)) {
-							travelTime[exitOverlayVertex] = newTravelTime
+						oldExitCost := cost[exitOverlayVertex]
+						exitAlreadyLabelled := util.Lt(cost[exitOverlayVertex], util.Infinity[W]())
+						if !exitAlreadyLabelled || (exitAlreadyLabelled && util.Lt(newVCost, oldExitCost)) {
+							cost[exitOverlayVertex] = newVCost
 							// visit neighbor of exitOverlayVertex
 							//
 							exitOverlayVertex := c.overlayGraph.GetVertex(exitOverlayVertex)
@@ -761,20 +761,20 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 							if levelData.TruncateToLevel(neighborOverlayVertex.GetCellNumber(), uint8(level)) == cellNumber {
 								boundaryArcWeight := costFunction.GetWeight(cutOutEdgeId)
 
-								newNeighborTravelTime := newTravelTime + boundaryArcWeight
-								oldNTravelTime := travelTime[neighborVertex]
-								nAlreadyLabelled := util.Lt(travelTime[neighborVertex], util.Infinity[W]())
+								newNeighborCost := newVCost + boundaryArcWeight
+								oldNCost := cost[neighborVertex]
+								nAlreadyLabelled := util.Lt(cost[neighborVertex], util.Infinity[W]())
 
 								if !nAlreadyLabelled ||
-									(nAlreadyLabelled && util.Lt(newNeighborTravelTime, oldNTravelTime)) {
-									travelTime[neighborVertex] = newNeighborTravelTime
+									(nAlreadyLabelled && util.Lt(newNeighborCost, oldNCost)) {
+									cost[neighborVertex] = newNeighborCost
 
 									if !nAlreadyLabelled {
-										vVertexData := da.NewVertexData(newTravelTime, noPar)
-										pq.Insert(neighborVertex, newNeighborTravelTime, vVertexData, neighborVertex)
+										vVertexData := da.NewVertexData(newVCost, noPar)
+										pq.Insert(neighborVertex, newNeighborCost, vVertexData, neighborVertex)
 									} else {
-										pq.DecreaseKey(neighborVertex, newNeighborTravelTime,
-											newNeighborTravelTime, noPar)
+										pq.DecreaseKey(neighborVertex, newNeighborCost,
+											newNeighborCost, noPar)
 									}
 								}
 							}
@@ -782,15 +782,15 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 					})
 				}
 
-				// stores all travelTime of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
+				// stores all cost of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					exitOverlayVId := c.overlayGraph.GetOutId(cell, j)
 
-					ok := util.Lt(travelTime[exitOverlayVId], util.Infinity[W]())
+					ok := util.Lt(cost[exitOverlayVId], util.Infinity[W]())
 					if !ok {
 						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					} else {
-						dijkstraResChan <- NewCellCustomizationResult(travelTime[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(cost[exitOverlayVId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
 					}
 				}
 
@@ -831,7 +831,7 @@ func (c *Customizer[W]) buildLevel(costFunction *costfunction.TimeFunction[W], l
 	go func() {
 		for cellWeights := range cellCliqueOutChan {
 			for _, w := range cellWeights {
-				c.ow.SetWeight(w.getIndex(), w.getTravelTime())
+				c.ow.SetWeight(w.getIndex(), w.getCost())
 			}
 			wg.Done()
 		}

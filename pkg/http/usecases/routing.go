@@ -146,8 +146,8 @@ func (rs *RoutingService) AlternativeRouteSearch(
 		var drivingDirections []da.DrivingDirection
 
 		altPathCoords := alt.GetCoords()
-		newTravelTime, dist := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alt.GetDrivingTravelTime(), alt.GetDist())
-		alternatives[i].SetDrivingTravelTime(newTravelTime) // in seconds
+		newCost, dist := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alt.GetDrivingCost(), alt.GetDist())
+		alternatives[i].SetDrivingCost(newCost) // in seconds
 		alternatives[i].SetDist(dist)
 
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
@@ -183,7 +183,7 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 		} else {
 			path.Prepend([]da.Coordinate{sp.GetSnappedCoord()})
 		}
-		travelTime += sp.GetForwardTravelTime()
+		travelTime += sp.GetForwardCost()
 		dist += sp.GetForwardDistance()
 	}
 
@@ -195,7 +195,7 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 			path.AppendCoordinate(tp.GetSnappedCoord())
 		}
 
-		travelTime += tp.GetReverseTravelTime()
+		travelTime += tp.GetReverseCost()
 		dist += tp.GetReverseDistance()
 	}
 

@@ -90,33 +90,33 @@ type Instruction struct {
 	annotation Annotation
 	edgeIds    []Index
 
-	roundabout           RoundaboutInstruction
-	heading              float64
-	hasHeading           bool
-	point                Coordinate
-	streetname           string
-	cumulativeDistance   float64
-	cumulativeTravelTime float64
-	turnBearing          float64
-	turnType             string
-	turnSign             TurnType
-	isRoundabout         bool
-	suggestAlternatives  bool
+	roundabout          RoundaboutInstruction
+	heading             float64
+	hasHeading          bool
+	point               Coordinate
+	streetname          string
+	cumulativeDistance  float64
+	cumulativeCost      float64
+	turnBearing         float64
+	turnType            string
+	turnSign            TurnType
+	isRoundabout        bool
+	suggestAlternatives bool
 }
 
 func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
-	cumulativeDist, cumulativeTravelTime float64, turnBearing float64, ann Annotation,
+	cumulativeDist, cumulativeCost float64, turnBearing float64, ann Annotation,
 	clockwise bool) Instruction {
 	ins := Instruction{
-		annotation:           ann,
-		turnSign:             sign,
-		streetname:           name,
-		point:                p,
-		isRoundabout:         isRoundAbout,
-		cumulativeTravelTime: cumulativeTravelTime,
-		cumulativeDistance:   cumulativeDist,
-		edgeIds:              edgeIds,
-		turnBearing:          turnBearing,
+		annotation:         ann,
+		turnSign:           sign,
+		streetname:         name,
+		point:              p,
+		isRoundabout:       isRoundAbout,
+		cumulativeCost:     cumulativeCost,
+		cumulativeDistance: cumulativeDist,
+		edgeIds:            edgeIds,
+		turnBearing:        turnBearing,
 	}
 
 	_, ins.turnType = getDirectionDescription(sign, ins.roundabout.exited, ins.roundabout.exitNumber, clockwise)
@@ -125,19 +125,19 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 }
 
 func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRoundAbout bool, roundabout RoundaboutInstruction,
-	cumulativeDistance, cumulativeTravelTime float64, edgeIds []Index, ann Annotation, turnBearing float64) Instruction {
+	cumulativeDistance, cumulativeCost float64, edgeIds []Index, ann Annotation, turnBearing float64) Instruction {
 
 	ins := Instruction{
-		annotation:           ann,
-		turnSign:             sign,
-		streetname:           name,
-		point:                p,
-		roundabout:           roundabout,
-		isRoundabout:         isRoundAbout,
-		cumulativeDistance:   cumulativeDistance,
-		cumulativeTravelTime: cumulativeTravelTime,
-		edgeIds:              edgeIds,
-		turnBearing:          turnBearing,
+		annotation:         ann,
+		turnSign:           sign,
+		streetname:         name,
+		point:              p,
+		roundabout:         roundabout,
+		isRoundabout:       isRoundAbout,
+		cumulativeDistance: cumulativeDistance,
+		cumulativeCost:     cumulativeCost,
+		edgeIds:            edgeIds,
+		turnBearing:        turnBearing,
 	}
 	ins.turnType = "ROUNDABOUT"
 	return ins
@@ -184,8 +184,8 @@ func (ins *Instruction) GetCumulativeDistance() float64 {
 	return ins.cumulativeDistance
 }
 
-func (ins *Instruction) GetCumulativeTravelTime() float64 {
-	return ins.cumulativeTravelTime
+func (ins *Instruction) GetCumulativeCost() float64 {
+	return ins.cumulativeCost
 }
 
 func (ins *Instruction) GetAnnotation() Annotation {
@@ -342,13 +342,13 @@ type DrivingDirection struct {
 	suggestAlternatives bool
 }
 
-func NewDrivingDirection(ins Instruction, description string, prevTravelTime, prevDist float64,
+func NewDrivingDirection(ins Instruction, description string, prevCost, prevDist float64,
 	edgeIds []Index, turnBearing float64, ann Annotation) DrivingDirection {
 	return DrivingDirection{
 		instruction:         description,
 		point:               ins.point,
 		streetName:          ins.streetname,
-		travelTime:          util.RoundFloat(prevTravelTime, 2),
+		travelTime:          util.RoundFloat(prevCost, 2),
 		distance:            util.RoundFloat(prevDist, 2),
 		edgeIds:             edgeIds,
 		turnBearing:         util.RoundFloat(turnBearing, 2),

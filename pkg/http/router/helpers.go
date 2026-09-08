@@ -1,4 +1,4 @@
-// Package router defines the HTTP router and associated handlers.
+// Package router defines the HCostP router and associated handlers.
 package router
 
 import (

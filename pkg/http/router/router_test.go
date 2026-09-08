@@ -85,21 +85,21 @@ func TestAPI_Run_InjectedServerError(t *testing.T) {
 		return ctx != nil && ctx.Err() == nil
 	})).Return()
 
-	origListenAndServe := listenAndServeHTTP
-	origShutdown := shutdownHTTP
-	listenAndServeHTTP = func(s *http.Server) error {
+	origListenAndServe := listenAndServeHCostP
+	origShutdown := shutdownHCostP
+	listenAndServeHCostP = func(s *http.Server) error {
 		if s.Addr == ":9102" {
 			return errors.New("main server error")
 		}
 		time.Sleep(50 * time.Millisecond)
 		return http.ErrServerClosed
 	}
-	shutdownHTTP = func(*http.Server, context.Context) error {
+	shutdownHCostP = func(*http.Server, context.Context) error {
 		return nil
 	}
 	t.Cleanup(func() {
-		listenAndServeHTTP = origListenAndServe
-		shutdownHTTP = origShutdown
+		listenAndServeHCostP = origListenAndServe
+		shutdownHCostP = origShutdown
 	})
 
 	err := api.Run(http_server.Config{Port: 9102}, log, true, mockRS, mockTS, 50*time.Millisecond)

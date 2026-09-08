@@ -111,7 +111,7 @@ func TestAlternativeRoutes(t *testing.T) {
 
 				sp := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, sVertex.GetFirstOut(), sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
 				tp := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), tVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-				alts, optTravelTime, dur := altSearch.FindAlternativeRoutes(sp, tp, 4, false, 0)
+				alts, optCost, dur := altSearch.FindAlternativeRoutes(sp, tp, 4, false, 0)
 
 				if (i+1)%100 == 0 {
 					t.Logf("processed %d queries\n", i+1)
@@ -122,7 +122,7 @@ func TestAlternativeRoutes(t *testing.T) {
 					continue
 				}
 
-				stretch += altSearch.GetStretch(alts, optTravelTime)
+				stretch += altSearch.GetStretch(alts, optCost)
 				diversity += altSearch.GetDiversity(alts)
 
 				successRate += 1.0

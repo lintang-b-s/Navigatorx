@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func skipHTTPServerSocketPermission(t *testing.T, err error) {
+func skipHCostPServerSocketPermission(t *testing.T, err error) {
 	t.Helper()
 	if err != nil && strings.Contains(err.Error(), "operation not permitted") {
 		t.Skipf("local sockets are not permitted in this sandbox: %v", err)
@@ -52,7 +52,7 @@ func TestServer_Use(t *testing.T) {
 	}()
 
 	err := srv.Use(log, false, mockRS, mockTS, 100*time.Millisecond)
-	skipHTTPServerSocketPermission(t, err)
+	skipHCostPServerSocketPermission(t, err)
 	assert.NoError(t, err)
 }
 

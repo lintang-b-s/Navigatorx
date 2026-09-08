@@ -19,7 +19,7 @@ func TestDTOS(t *testing.T) {
 
 		dd := NewDrivingDirection(d, true)
 		assert.Equal(t, "turn left", dd.Instruction)
-		assert.Equal(t, 1.0, dd.TravelTime) // 60s / 60
+		assert.Equal(t, 1.0, dd.Cost) // 60s / 60
 		assert.Equal(t, 100.0, dd.Distance)
 		assert.Equal(t, 90.0, dd.TurnBearing)
 		assert.True(t, dd.SuggestAlternatives)
@@ -27,7 +27,7 @@ func TestDTOS(t *testing.T) {
 
 	t.Run("NewAlternativeRoutesResponse", func(t *testing.T) {
 		alt := routing.AlternativeRoute{}
-		alt.SetDrivingTravelTime(120.0)
+		alt.SetDrivingCost(120.0)
 		alt.SetDist(2000.0)
 		alt.SetPolylinePath("polyline")
 		ins := da.Instruction{}
@@ -38,7 +38,7 @@ func TestDTOS(t *testing.T) {
 
 		res := NewAlternativeRoutesResponse([]routing.AlternativeRoute{alt}, true)
 		assert.Len(t, res.Routes, 1)
-		assert.Equal(t, 2.0, res.Routes[0].TravelTime) // 120s / 60
+		assert.Equal(t, 2.0, res.Routes[0].Cost) // 120s / 60
 		assert.Equal(t, 2000.0, res.Routes[0].Dist)
 		assert.Len(t, res.Routes[0].DrivingDirections, 1)
 	})

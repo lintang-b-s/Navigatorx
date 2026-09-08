@@ -170,14 +170,14 @@ func main() {
 	sort.Slice(travelTimes, func(i, j int) bool {
 		return travelTimes[i] < travelTimes[j]
 	})
-	avgTravelTime := 0.0
-	minTravelTime := float64(travelTimes[0])
-	maxTravelTime := float64(0)
+	avgCost := 0.0
+	minCost := float64(travelTimes[0])
+	maxCost := float64(0)
 	for _, tt := range travelTimes {
 
 		if tt != util.Infinity[int32]() {
-			maxTravelTime = float64(tt)
-			avgTravelTime += float64(tt)
+			maxCost = float64(tt)
+			avgCost += float64(tt)
 		}
 	}
 
@@ -187,9 +187,9 @@ func main() {
 	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
 	fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
 	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f\n", (avgTravelTime/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f\n", minTravelTime*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f\n", maxTravelTime*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
 
 	durations = 0.0
 	efficiency = 0.0
@@ -206,14 +206,14 @@ func main() {
 	sort.Slice(travelTimes, func(i, j int) bool {
 		return travelTimes[i] < travelTimes[j]
 	})
-	avgTravelTime = 0.0
-	minTravelTime = float64(travelTimes[0])
-	maxTravelTime = 0
+	avgCost = 0.0
+	minCost = float64(travelTimes[0])
+	maxCost = 0
 	for _, tt := range travelTimes {
 
 		if tt != util.Infinity[int32]() {
-			maxTravelTime = float64(tt)
-			avgTravelTime += float64(tt)
+			maxCost = float64(tt)
+			avgCost += float64(tt)
 		}
 	}
 
@@ -223,9 +223,9 @@ func main() {
 	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
 	fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
 	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f\n", (avgTravelTime/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f\n", minTravelTime*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f\n", maxTravelTime*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
 
 	// gak support turn restrictions & turn costs
 	calcsSPWithoutTurnCosts := func(i int, p spParam, alt bool) any {
@@ -283,14 +283,14 @@ func main() {
 	sort.Slice(travelTimes, func(i, j int) bool {
 		return travelTimes[i] < travelTimes[j]
 	})
-	avgTravelTime = 0.0
-	minTravelTime = float64(travelTimes[0])
-	maxTravelTime = 0
+	avgCost = 0.0
+	minCost = float64(travelTimes[0])
+	maxCost = 0
 	for _, tt := range travelTimes {
 
 		if tt != util.Infinity[int32]() {
-			maxTravelTime = float64(tt)
-			avgTravelTime += float64(tt)
+			maxCost = float64(tt)
+			avgCost += float64(tt)
 		}
 	}
 
@@ -300,9 +300,9 @@ func main() {
 	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
 	fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
 	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f\n", (avgTravelTime/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f\n", minTravelTime*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f\n", maxTravelTime*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
 
 	durations = 0.0
 	efficiency = 0.0
@@ -319,14 +319,14 @@ func main() {
 	sort.Slice(travelTimes, func(i, j int) bool {
 		return travelTimes[i] < travelTimes[j]
 	})
-	avgTravelTime = 0.0
-	minTravelTime = float64(travelTimes[0])
-	maxTravelTime = 0
+	avgCost = 0.0
+	minCost = float64(travelTimes[0])
+	maxCost = 0
 	for _, tt := range travelTimes {
 
 		if tt != util.Infinity[int32]() {
-			maxTravelTime = float64(tt)
-			avgTravelTime += float64(tt)
+			maxCost = float64(tt)
+			avgCost += float64(tt)
 		}
 	}
 
@@ -336,9 +336,9 @@ func main() {
 	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
 	fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
 	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f\n", (avgTravelTime/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f\n", minTravelTime*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f\n", maxTravelTime*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
 
 	durations = 0.0
 	efficiency = 0.0
@@ -380,14 +380,14 @@ func main() {
 	sort.Slice(travelTimes, func(i, j int) bool {
 		return travelTimes[i] < travelTimes[j]
 	})
-	avgTravelTime = 0.0
-	minTravelTime = float64(travelTimes[0])
-	maxTravelTime = 0
+	avgCost = 0.0
+	minCost = float64(travelTimes[0])
+	maxCost = 0
 	for _, tt := range travelTimes {
 
 		if tt != util.Infinity[int32]() {
-			maxTravelTime = float64(tt)
-			avgTravelTime += float64(tt)
+			maxCost = float64(tt)
+			avgCost += float64(tt)
 		}
 	}
 
@@ -396,9 +396,9 @@ func main() {
 	fmt.Printf("avg efficiency: %f\n", efficiency/NUM_QUERIES)
 	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
 	fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f\n", (avgTravelTime/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f\n", minTravelTime*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f\n", maxTravelTime*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
 
 	durations = 0.0
 	efficiency = 0.0
@@ -441,14 +441,14 @@ func main() {
 	sort.Slice(travelTimes, func(i, j int) bool {
 		return travelTimes[i] < travelTimes[j]
 	})
-	avgTravelTime = 0.0
-	minTravelTime = float64(travelTimes[0])
-	maxTravelTime = 0
+	avgCost = 0.0
+	minCost = float64(travelTimes[0])
+	maxCost = 0
 	for _, tt := range travelTimes {
 
 		if tt != util.Infinity[int32]() {
-			maxTravelTime = float64(tt)
-			avgTravelTime += float64(tt)
+			maxCost = float64(tt)
+			avgCost += float64(tt)
 		}
 	}
 
@@ -457,7 +457,7 @@ func main() {
 	fmt.Printf("avg efficiency: %f\n", efficiency/NUM_QUERIES)
 	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
 	fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f\n", (avgTravelTime/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f\n", minTravelTime*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f\n", maxTravelTime*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
 }

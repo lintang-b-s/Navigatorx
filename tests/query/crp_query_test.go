@@ -461,7 +461,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 	}
 	numberOfVertices := g.NumberOfVertices()
 
-	expectedSPTravelTimes := make([][]int32, n)
+	expectedSPCosts := make([][]int32, n)
 
 	t.Logf("start dijkstra query for some sources to all other vertices...")
 
@@ -476,7 +476,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 
 		lock.Lock()
 
-		expectedSPTravelTimes[i] = sps
+		expectedSPCosts[i] = sps
 
 		if (i+1)%5 == 0 {
 			t.Logf("done query from source number: %v\n", i+1)
@@ -544,7 +544,7 @@ func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
 		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
 		// sp, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-		expectedSp := expectedSPTravelTimes[i][target]
+		expectedSp := expectedSPCosts[i][target]
 
 		counterexample := !util.Eq(expectedSp, sp)
 
@@ -635,7 +635,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 	}
 	numberOfVertices := g.NumberOfVertices()
 
-	expectedSPTravelTimes := make([][]int32, n)
+	expectedSPCosts := make([][]int32, n)
 
 	t.Logf("start dijkstra query for all sources...")
 
@@ -658,7 +658,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 			expectedPolyline := da.GooglePoylineFromCoords(*expectedpathCoords)
 			expectedSpPaths[s][target] = expectedPolyline
 		}
-		expectedSPTravelTimes[i] = sps
+		expectedSPCosts[i] = sps
 
 		if (i+1)%5 == 0 {
 			t.Logf("done query from source number: %v\n", i+1)
@@ -738,7 +738,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 
 		sp, _, _, _, found := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
 
-		expectedSp := expectedSPTravelTimes[i][target] // in nanoseconds
+		expectedSp := expectedSPCosts[i][target] // in nanoseconds
 		// expectedPolyline := expectedSpPaths[s][target]
 
 		// gotPolyline := da.GooglePoylineFromCoords(*pathCoords)

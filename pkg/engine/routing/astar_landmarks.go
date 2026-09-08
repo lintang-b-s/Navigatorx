@@ -72,29 +72,29 @@ func (us *ALTP2P[W]) graphSearchUni(source, target da.Index) bool {
 		vId := head
 		eWeight := us.engine.getWeight(eId, true)
 		// get cost to reach v through u
-		newTT := us.pq.GetPriority(uId) + eWeight
+		newVCost := us.pq.GetCost(uId) + eWeight
 
-		if util.Ge(newTT, util.Infinity[W]()) {
+		if util.Ge(newVCost, util.Infinity[W]()) {
 			return
 		}
 
-		vLabelled := util.Lt(us.pq.GetPriority(vId), util.Infinity[W]())
-		if vLabelled && util.Ge(newTT, us.pq.GetPriority(vId)) {
-			// newTT is not better, do nothing
+		vLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
+		if vLabelled && util.Ge(newVCost, us.pq.GetCost(vId)) {
+			// newVCost is not better, do nothing
 			return
 		}
 
 		pfv := us.engine.lm.FindTighestLowerBound(vId, target, us.activeLandmarks)
-		priority := newTT + pfv
+		priority := newVCost + pfv
 
-		// newTT is better, update the forwardData
+		// newVCost is better, update the forwardData
 		if vLabelled {
 			newPar := da.NewVertexEdgePair(uId, eId, false)
 			// is key already in the priority queue, decrease its key
-			us.pq.DecreaseKey(vId, priority, newTT, newPar)
+			us.pq.DecreaseKey(vId, priority, newVCost, newPar)
 		} else if !vLabelled {
 			queryKey := da.NewDijkstraKey(vId, vId)
-			vData := da.NewVertexData(newTT, da.NewVertexEdgePair(uId, eId, false))
+			vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, eId, false))
 			// is key not in the priority queue, insert it
 			us.pq.Insert(vId, priority, vData, queryKey)
 		}
@@ -115,7 +115,7 @@ func (us *ALTP2P[W]) Preallocate() {
 func (us *ALTP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 	spPath := make([]da.Index, 0)
 
-	sp := us.pq.GetPriority(t)
+	sp := us.pq.GetCost(t)
 
 	if s == t || sp == util.Infinity[W]() {
 		return sp, spPath

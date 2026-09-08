@@ -14,8 +14,8 @@ hasil dari snapping adalah PhantomNode yaitu semacam virtual node hasil proyeksi
 
 PhantomNode dari Navigatorx (dan juga OSRM karena ini terinspirasi dari OSRM wkwkwk) berisi:
 snappedCoordinate: coordinate dari PhantomNode
-forwardTravelTime: travel time dari snappedCoordinate ke head dari edge
-reverseTravelTime: travel time dari tail  dari edge ke snappedCoordinate
+forwardCost: travel time dari snappedCoordinate ke head dari edge
+reverseCost: travel time dari tail  dari edge ke snappedCoordinate
 outEdgeId: id dari outEdge segmen jalan terdekat
 inEdgeId: id dari inEdge segmen jalan terdekat
 forwardCoords: edgeGeometry dari snappedCoordinate ke head dari edge
@@ -40,8 +40,8 @@ setiap graph edge di routing engine punya geometry buat representasi bentuk asli
 
 type PhantomNode struct {
 	snappedCoordinate Coordinate
-	forwardTravelTime float64
-	reverseTravelTime float64
+	forwardCost       float64
+	reverseCost       float64
 	forwardDistance   float64
 	reverseDistance   float64
 	outEdgeId         Index
@@ -51,14 +51,14 @@ type PhantomNode struct {
 }
 
 func NewPhantomNode(snappedCoordinate Coordinate,
-	forwardTravelTime float64,
-	reverseTravelTime float64,
+	forwardCost float64,
+	reverseCost float64,
 	outEdgeId Index,
 	inEdgeid Index, forwardDistance float64,
 	reverseDistance float64,
 	forwardGeometry []Coordinate,
 	reverseGeometry []Coordinate) PhantomNode {
-	return PhantomNode{snappedCoordinate: snappedCoordinate, forwardTravelTime: forwardTravelTime, reverseTravelTime: reverseTravelTime,
+	return PhantomNode{snappedCoordinate: snappedCoordinate, forwardCost: forwardCost, reverseCost: reverseCost,
 		outEdgeId: outEdgeId, inEdgeid: inEdgeid, forwardGeometry: forwardGeometry, reverseGeometry: reverseGeometry, forwardDistance: forwardDistance, reverseDistance: reverseDistance}
 }
 
@@ -74,16 +74,16 @@ func (p *PhantomNode) GetSnappedCoord() Coordinate {
 	return p.snappedCoordinate
 }
 
-func (p *PhantomNode) GetForwardTravelTime() float64 {
-	return p.forwardTravelTime
+func (p *PhantomNode) GetForwardCost() float64 {
+	return p.forwardCost
 }
 
-func (p *PhantomNode) GetReverseTravelTime() float64 {
-	return p.reverseTravelTime
+func (p *PhantomNode) GetReverseCost() float64 {
+	return p.reverseCost
 }
 
-func (p *PhantomNode) SetReverseTravelTime(reverseTravelTime float64) {
-	p.reverseTravelTime = reverseTravelTime
+func (p *PhantomNode) SetReverseCost(reverseCost float64) {
+	p.reverseCost = reverseCost
 }
 
 func (p *PhantomNode) GetForwardDistance() float64 {

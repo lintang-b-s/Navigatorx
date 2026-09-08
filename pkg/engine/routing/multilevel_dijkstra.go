@@ -18,10 +18,10 @@ import (
 // without turn costs & turn restrictions: multilevel_dijkstra_without_turn_cost.go
 
 type CRPQueryTurnCost[W util.RoutingNumber] struct {
-	engine      *CRPRoutingEngine[W]
-	shortestTT  W
-	forwardMid  da.VertexEdgePair
-	backwardMid da.VertexEdgePair
+	engine       *CRPRoutingEngine[W]
+	shortestCost W
+	forwardMid   da.VertexEdgePair
+	backwardMid  da.VertexEdgePair
 
 	forwardPq  *da.QueryHeap[da.CRPQueryKey, W]
 	backwardPq *da.QueryHeap[da.CRPQueryKey, W]
@@ -97,7 +97,7 @@ func newCRPQueryTurnCostAlloc[W util.RoutingNumber](
 // be reused.
 func (bs *CRPQueryTurnCost[W]) Reset(upperBound float64) {
 	bs.upperBound = upperBound
-	bs.shortestTT = 2 * util.Infinity[W]()
+	bs.shortestCost = 2 * util.Infinity[W]()
 
 	bs.forwardMid = da.NewVertexEdgePair(0, 0, false)
 	bs.backwardMid = da.NewVertexEdgePair(0, 0, true)
@@ -351,7 +351,7 @@ func (bs *CRPQueryTurnCost[W]) ShortestPathSearch(sp, tp da.PhantomNode) (W, []d
 	bs.inSId = inSId
 	bs.outTId = outTId
 
-	bs.shortestTT = 2 * util.Infinity[W]()
+	bs.shortestCost = 2 * util.Infinity[W]()
 
 	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, inSId, false))
 	tVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, outTId, true))
@@ -417,7 +417,7 @@ func (bs *CRPQueryTurnCost[W]) ShortestPathSearch(sp, tp da.PhantomNode) (W, []d
 	for bs.forwardPq.Size() > 0 && bs.backwardPq.Size() > 0 {
 		minForward := bs.forwardPq.GetMinrank()
 		minBackward := bs.backwardPq.GetMinrank()
-		if util.Ge(minForward+minBackward, W(float64(bs.shortestTT)*(bs.upperBound))) || util.Ge(minForward+minBackward, W(bs.maxSearchRadius)) {
+		if util.Ge(minForward+minBackward, W(float64(bs.shortestCost)*(bs.upperBound))) || util.Ge(minForward+minBackward, W(bs.maxSearchRadius)) {
 
 			bs.lastpqSum = bs.engine.GetCostFunction().WeightToSeconds(minForward + minBackward)
 			break
@@ -453,7 +453,7 @@ func (bs *CRPQueryTurnCost[W]) ShortestPathSearch(sp, tp da.PhantomNode) (W, []d
 		bs.numScannedVertices += 2
 	}
 
-	if bs.shortestTT == 2*util.Infinity[W]() {
+	if bs.shortestCost == 2*util.Infinity[W]() {
 		return util.Infinity[W](), EmptyIndexSet, false
 	}
 
@@ -469,7 +469,7 @@ func (bs *CRPQueryTurnCost[W]) ShortestPathSearch(sp, tp da.PhantomNode) (W, []d
 	bs.shortcutPathSet = shortcutPathSet
 	bs.pathUnpackingRuntime = unpacker.GetStats()
 
-	return bs.shortestTT, edgeIdPath, true
+	return bs.shortestCost, edgeIdPath, true
 }
 
 /*
@@ -486,11 +486,11 @@ func (bs *CRPQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, source, 
 	uInDeg := bs.engine.graph.GetInDegree(uId)
 	otherUInId := bs.engine.offsetForward(uId, bs.engine.graph.GetEntryOffset(uId), bs.engine.graph.GetCellNumber(uId), bs.sCellNumber)
 
-	uInIdTT := bs.forwardPq.GetPriority(uInId)
+	uInIdCost := bs.forwardPq.GetCost(uInId)
 	for j := da.Index(0); j < uInDeg; j++ {
 
 		stallingOffset := uInDeg*uEnPoint + j
-		bui := max(uInIdTT+
+		bui := max(uInIdCost+
 			bs.engine.metrics.GetEntryStallingTableCost(uId, stallingOffset), 0)
 
 		if val := bs.stallingEn[otherUInId]; util.Eq(val, util.Infinity[W]()) {
@@ -519,9 +519,9 @@ func (bs *CRPQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, source, 
 		turnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
 		// get cost to reach v through u + turn cost from inEdge to outEdge of u
-		newTT := uInIdTT + edgeWeight + turnCost
+		newVCost := uInIdCost + edgeWeight + turnCost
 
-		if util.Ge(newTT, util.Infinity[W]()) {
+		if util.Ge(newVCost, util.Infinity[W]()) {
 			return
 		}
 		vInId := bs.engine.graph.GetInEdgeId(vId, da.Index(enPoint))
@@ -533,28 +533,28 @@ func (bs *CRPQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, source, 
 			// then, we just do edge relaxation as usual in turn-aware dijkstra
 
 			// relax edge
-			oldVInIdTT := bs.forwardPq.GetPriority(vInId)
-			vLabelled := util.Lt(oldVInIdTT, util.Infinity[W]())
-			if !vLabelled || (vLabelled && util.Lt(newTT, oldVInIdTT)) {
-				if bvi := bs.stallingEn[vInId]; util.Lt(bvi, util.Infinity[W]()) && util.Gt(newTT, bvi) {
+			oldVInIdCost := bs.forwardPq.GetCost(vInId)
+			vLabelled := util.Lt(oldVInIdCost, util.Infinity[W]())
+			if !vLabelled || (vLabelled && util.Lt(newVCost, oldVInIdCost)) {
+				if bvi := bs.stallingEn[vInId]; util.Lt(bvi, util.Infinity[W]()) && util.Gt(newVCost, bvi) {
 					// stalled, newTraveltime= dist'(s,(vInId, v))
 					// dist'(s,(vInId, v)) > dist'(s, (, v)) + max_k { T_u[, k] -  T_u[vInId,k]}
 					return
 				}
 
 				if vLabelled {
-					// newTT is better, update the forwardData
+					// newVCost is better, update the forwardData
 					// is key already in the priority queue, decrease its key
 
 					newPar := da.NewVertexEdgePair(uId, uInId, false)
-					bs.forwardPq.DecreaseKey(vInId, newTT, newTT, newPar)
+					bs.forwardPq.DecreaseKey(vInId, newVCost, newVCost, newPar)
 				} else if !vLabelled {
 
-					vData := da.NewVertexData(newTT,
+					vData := da.NewVertexData(newVCost,
 						da.NewVertexEdgePair(uId, uInId, false))
 					queryKey := da.NewCRPQueryKey(vId, vInId, false)
 					// is key not in the priority queue, insert it
-					bs.forwardPq.Insert(vInId, newTT, vData, queryKey)
+					bs.forwardPq.Insert(vInId, newVCost, vData, queryKey)
 				}
 			}
 
@@ -564,21 +564,21 @@ func (bs *CRPQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, source, 
 
 			vOutId := outOffset
 
-			newVInIdTT := bs.forwardPq.GetPriority(vInId)
+			newVInIdCost := bs.forwardPq.GetCost(vInId)
 			// traverse outEdges of v
 			bs.engine.graph.ForOutEdgesOf(vId, enPoint, func(_, _ da.Index, _, _, turnTableId2 da.Index, turnType2 pkg.TurnType,
 				_ pkg.OsmHighwayType) {
 
 				// check if forward and backward search already scanned entry point and  exit point of v. if so, check whether we can improve the shortest path
 				scannedByBackwardSearch := bs.backwardPq.IsExplored(vOutId)
-				vOutIdTT := bs.backwardPq.GetPriority(vOutId)
+				vOutIdCost := bs.backwardPq.GetCost(vOutId)
 
 				midTurnCost := bs.engine.metrics.GetTurnCost(turnTableId2)
 
-				newPathTT := newVInIdTT + midTurnCost +
-					vOutIdTT
-				if scannedByBackwardSearch && util.Lt(newPathTT, bs.shortestTT) {
-					bs.shortestTT = newPathTT
+				newPathCost := newVInIdCost + midTurnCost +
+					vOutIdCost
+				if scannedByBackwardSearch && util.Lt(newPathCost, bs.shortestCost) {
+					bs.shortestCost = newPathCost
 					bs.forwardMid = da.NewVertexEdgePair(vId, vInId, false)
 					bs.backwardMid = da.NewVertexEdgePair(vId, vOutId, true)
 				}
@@ -590,25 +590,25 @@ func (bs *CRPQueryTurnCost[W]) forwardGraphSearch(uItem da.CRPQueryKey, source, 
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
 			v, _ := bs.engine.graph.GetOverlayVertex(vId, enPoint, false)
 			ovVId := bs.engine.offsetOverlay(v)
-			oldOvVIdTT := bs.forwardPq.GetPriority(ovVId)
-			vLabelled := util.Lt(oldOvVIdTT, util.Infinity[W]())
-			if !vLabelled || (vLabelled && util.Lt(newTT, oldOvVIdTT)) {
+			oldOvVIdCost := bs.forwardPq.GetCost(ovVId)
+			vLabelled := util.Lt(oldOvVIdCost, util.Infinity[W]())
+			if !vLabelled || (vLabelled && util.Lt(newVCost, oldOvVIdCost)) {
 
 				newPar := da.NewVertexEdgePair(uId, uInId, false)
 				if !vLabelled {
 					queryKey := da.NewCRPQueryKey(v, da.Index(vQueryLevel), true)
-					vData := da.NewVertexData(newTT, newPar)
-					bs.forwardPq.Insert(ovVId, newTT, vData, queryKey)
+					vData := da.NewVertexData(newVCost, newPar)
+					bs.forwardPq.Insert(ovVId, newVCost, vData, queryKey)
 				} else {
-					bs.forwardPq.DecreaseKey(ovVId, newTT, newTT, newPar)
+					bs.forwardPq.DecreaseKey(ovVId, newVCost, newVCost, newPar)
 				}
 			}
 
 			scannedByBackwardSearch := bs.backwardPq.IsExplored(ovVId)
 			// if v scanned by backward search, check whether we can improve the shortestPath
-			newEstSpCost := bs.forwardPq.GetPriority(ovVId) + bs.backwardPq.GetPriority(ovVId)
-			if scannedByBackwardSearch && util.Lt(newEstSpCost, bs.shortestTT) {
-				bs.shortestTT = newEstSpCost
+			newEstSpCost := bs.forwardPq.GetCost(ovVId) + bs.backwardPq.GetCost(ovVId)
+			if scannedByBackwardSearch && util.Lt(newEstSpCost, bs.shortestCost) {
+				bs.shortestCost = newEstSpCost
 
 				bs.forwardMid = da.NewVertexEdgePair(vId, ovVId, false)
 				bs.backwardMid = da.NewVertexEdgePair(vId, ovVId, true)
@@ -632,11 +632,11 @@ func (bs *CRPQueryTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKey, source,
 	otherUOutId := bs.engine.offsetBackward(uId, bs.engine.graph.GetExitOffset(uId),
 		bs.engine.graph.GetCellNumber(uId), bs.sCellNumber)
 
-	uOutIdTT := bs.backwardPq.GetPriority(uOutId)
+	uOutIdCost := bs.backwardPq.GetCost(uOutId)
 	for j := da.Index(0); j < uOutDeg; j++ {
 
 		stallingOffset := uOutDeg*uExitPoint + j
-		bui := max(0, uOutIdTT+
+		bui := max(0, uOutIdCost+
 			bs.engine.metrics.GetExitStallingTableCost(uId, stallingOffset))
 
 		if val := bs.stallingEx[otherUOutId]; util.Eq(val, util.Infinity[W]()) {
@@ -658,9 +658,9 @@ func (bs *CRPQueryTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKey, source,
 
 		turnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
-		newTT := uOutIdTT + edgeWeight + turnCost
+		newVCost := uOutIdCost + edgeWeight + turnCost
 
-		if util.Ge(newTT, util.Infinity[W]()) {
+		if util.Ge(newVCost, util.Infinity[W]()) {
 			return
 		}
 
@@ -671,23 +671,23 @@ func (bs *CRPQueryTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKey, source,
 			vOutId = bs.engine.offsetBackward(vId, vOutId, bs.engine.graph.GetCellNumber(vId), bs.sCellNumber)
 
 			// relax edge
-			oldVOutIdTT := bs.backwardPq.GetPriority(vOutId)
-			vLabelled := util.Lt(oldVOutIdTT, util.Infinity[W]())
-			if !vLabelled || (vLabelled && util.Lt(newTT, oldVOutIdTT)) {
+			oldVOutIdCost := bs.backwardPq.GetCost(vOutId)
+			vLabelled := util.Lt(oldVOutIdCost, util.Infinity[W]())
+			if !vLabelled || (vLabelled && util.Lt(newVCost, oldVOutIdCost)) {
 
-				if bvi := bs.stallingEx[vOutId]; util.Lt(bvi, util.Infinity[W]()) && util.Gt(newTT, bvi) {
+				if bvi := bs.stallingEx[vOutId]; util.Lt(bvi, util.Infinity[W]()) && util.Gt(newVCost, bvi) {
 					// stalled
 					return
 				}
 
 				if vLabelled {
 					newPar := da.NewVertexEdgePair(uId, uOutId, true)
-					bs.backwardPq.DecreaseKey(vOutId, newTT, newTT, newPar)
+					bs.backwardPq.DecreaseKey(vOutId, newVCost, newVCost, newPar)
 				} else {
-					vData := da.NewVertexData(newTT,
+					vData := da.NewVertexData(newVCost,
 						da.NewVertexEdgePair(uId, uOutId, false))
 					queryKey := da.NewCRPQueryKey(vId, vOutId, false)
-					bs.backwardPq.Insert(vOutId, newTT, vData, queryKey)
+					bs.backwardPq.Insert(vOutId, newVCost, vData, queryKey)
 				}
 			}
 
@@ -697,19 +697,19 @@ func (bs *CRPQueryTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKey, source,
 
 			vInId := inOffset
 
-			newVOutIdTT := bs.backwardPq.GetPriority(vOutId)
+			newVOutIdCost := bs.backwardPq.GetCost(vOutId)
 			bs.engine.graph.ForInEdgesOf(vId, exPoint, func(_, _ da.Index, _, _, turnTableId2 da.Index,
 				turnType2 pkg.TurnType, _ pkg.OsmHighwayType) {
 				scannedByForwardSearch := bs.forwardPq.IsExplored(vInId)
-				vInIdTT := bs.forwardPq.GetPriority(vInId)
+				vInIdCost := bs.forwardPq.GetCost(vInId)
 
 				midTurnCost := bs.engine.metrics.GetTurnCost(turnTableId2)
 
-				newPathTT := vInIdTT + midTurnCost +
-					newVOutIdTT
-				if scannedByForwardSearch && util.Lt(newPathTT, bs.shortestTT) {
+				newPathCost := vInIdCost + midTurnCost +
+					newVOutIdCost
+				if scannedByForwardSearch && util.Lt(newPathCost, bs.shortestCost) {
 
-					bs.shortestTT = newPathTT
+					bs.shortestCost = newPathCost
 
 					bs.forwardMid = da.NewVertexEdgePair(vId, vInId, false)
 					bs.backwardMid = da.NewVertexEdgePair(vId, vOutId, true)
@@ -724,24 +724,24 @@ func (bs *CRPQueryTurnCost[W]) backwardGraphSearch(uItem da.CRPQueryKey, source,
 			// i.e. if v not in the same cell as s and t then v query level is different from u query level.
 			v, _ := bs.engine.graph.GetOverlayVertex(vId, exPoint, true)
 			ovVId := bs.engine.offsetOverlay(v)
-			oldOvVIdTT := bs.backwardPq.GetPriority(ovVId)
-			vLabelled := util.Lt(oldOvVIdTT, util.Infinity[W]())
-			if !vLabelled || (vLabelled && util.Lt(newTT, oldOvVIdTT)) {
+			oldOvVIdCost := bs.backwardPq.GetCost(ovVId)
+			vLabelled := util.Lt(oldOvVIdCost, util.Infinity[W]())
+			if !vLabelled || (vLabelled && util.Lt(newVCost, oldOvVIdCost)) {
 
 				newPar := da.NewVertexEdgePair(uId, uOutId, true)
 				if !vLabelled {
-					vData := da.NewVertexData(newTT, newPar)
+					vData := da.NewVertexData(newVCost, newPar)
 					queryKey := da.NewCRPQueryKey(v, da.Index(vQueryLevel), true)
-					bs.backwardPq.Insert(ovVId, newTT, vData, queryKey)
+					bs.backwardPq.Insert(ovVId, newVCost, vData, queryKey)
 				} else {
-					bs.backwardPq.DecreaseKey(ovVId, newTT, newTT, newPar)
+					bs.backwardPq.DecreaseKey(ovVId, newVCost, newVCost, newPar)
 				}
 			}
 
 			scannedByForwardSearch := bs.forwardPq.IsExplored(ovVId)
-			newEstSpCost := bs.forwardPq.GetPriority(ovVId) + bs.backwardPq.GetPriority(ovVId)
-			if scannedByForwardSearch && util.Lt(newEstSpCost, bs.shortestTT) {
-				bs.shortestTT = newEstSpCost
+			newEstSpCost := bs.forwardPq.GetCost(ovVId) + bs.backwardPq.GetCost(ovVId)
+			if scannedByForwardSearch && util.Lt(newEstSpCost, bs.shortestCost) {
+				bs.shortestCost = newEstSpCost
 
 				bs.forwardMid = da.NewVertexEdgePair(vId, ovVId, false)
 				bs.backwardMid = da.NewVertexEdgePair(vId, ovVId, true)
@@ -765,9 +765,9 @@ func (bs *CRPQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey, s
 
 		vVertex := bs.engine.overlayGraph.GetVertex(v)
 
-		newTT := bs.forwardPq.GetPriority(uId) + shortcutWeight
+		newVCost := bs.forwardPq.GetCost(uId) + shortcutWeight
 
-		if util.Ge(newTT, util.Infinity[W]()) {
+		if util.Ge(newVCost, util.Infinity[W]()) {
 			return
 		}
 		ovVId := bs.engine.offsetOverlay(v)
@@ -784,19 +784,19 @@ func (bs *CRPQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey, s
 		oriWId := wVertex.GetOrigVId()
 
 		// relax edge
-		oldOvVIdTT := bs.forwardPq.GetPriority(ovVId)
-		vLabelled := util.Lt(oldOvVIdTT, util.Infinity[W]())
-		if !vLabelled || (vLabelled && util.Lt(newTT, oldOvVIdTT)) {
-			bs.forwardPq.Set(ovVId, da.NewVertexData(newTT,
+		oldOvVIdCost := bs.forwardPq.GetCost(ovVId)
+		vLabelled := util.Lt(oldOvVIdCost, util.Infinity[W]())
+		if !vLabelled || (vLabelled && util.Lt(newVCost, oldOvVIdCost)) {
+			bs.forwardPq.Set(ovVId, da.NewVertexData(newVCost,
 				da.NewVertexEdgePair(uVertex.GetOrigVId(), uId, false)), da.NewCRPQueryKey(da.INVALID_VERTEX_ID,
 				da.INVALID_EDGE_ID, true))
 
 			// karena kita langsung scan v & traverse to its neighbor (exit vertex dari suatu cell), kita harus tandain kalau v udah di scan
 			bs.forwardPq.Explore(ovVId)
 
-			newTT = bs.forwardPq.GetPriority(ovVId) + edgeWeight
+			newVCost = bs.forwardPq.GetCost(ovVId) + edgeWeight
 
-			if util.Ge(newTT, util.Infinity[W]()) {
+			if util.Ge(newVCost, util.Infinity[W]()) {
 				return
 			}
 
@@ -809,40 +809,40 @@ func (bs *CRPQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey, s
 
 				// relax entry Edge of w
 				// update travelTime to reach entry point of w and insert enPoint of w to forwardPq
-				oldWInIdTT := bs.forwardPq.GetPriority(wInId)
-				wLabelled := util.Lt(oldWInIdTT, util.Infinity[W]())
-				if !wLabelled || (wLabelled && util.Lt(newTT, oldWInIdTT)) {
+				oldWInIdCost := bs.forwardPq.GetCost(wInId)
+				wLabelled := util.Lt(oldWInIdCost, util.Infinity[W]())
+				if !wLabelled || (wLabelled && util.Lt(newVCost, oldWInIdCost)) {
 					if wLabelled {
 
 						newPar := da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, false)
-						bs.forwardPq.DecreaseKey(wInId, newTT, newTT, newPar)
+						bs.forwardPq.DecreaseKey(wInId, newVCost, newVCost, newPar)
 					} else {
 
-						vData := da.NewVertexData(newTT,
+						vData := da.NewVertexData(newVCost,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, false))
 						queryKey := da.NewCRPQueryKey(oriWId, wInId, false)
-						bs.forwardPq.Insert(wInId, newTT, vData, queryKey)
+						bs.forwardPq.Insert(wInId, newVCost, vData, queryKey)
 					}
 				}
 
 				outOffset := bs.engine.graph.GetExitOffset(oriWId)
 				outOffset = bs.engine.offsetBackward(oriWId, outOffset, wVertex.GetCellNumber(), bs.sCellNumber)
 
-				newWInIdTT := bs.forwardPq.GetPriority(wInId)
+				newWInIdCost := bs.forwardPq.GetCost(wInId)
 				wOutId := outOffset
 				bs.engine.graph.ForOutEdgesOf(oriWId, wEnPoint, func(_, _ da.Index, _, _, turnTableId da.Index, turn pkg.TurnType,
 					_ pkg.OsmHighwayType) {
 					// check if forward and backward search already scanned exit point of w. if so, check whether we can improve the shortest path
 					scannedByBackwardSearch := bs.backwardPq.IsExplored(wOutId)
-					wOutIdTT := bs.backwardPq.GetPriority(wOutId)
+					wOutIdCost := bs.backwardPq.GetCost(wOutId)
 
 					midTurnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
-					newPathTT := newWInIdTT + midTurnCost +
-						wOutIdTT
-					if scannedByBackwardSearch && util.Lt(newPathTT, bs.shortestTT) {
+					newPathCost := newWInIdCost + midTurnCost +
+						wOutIdCost
+					if scannedByBackwardSearch && util.Lt(newPathCost, bs.shortestCost) {
 
-						bs.shortestTT = newPathTT
+						bs.shortestCost = newPathCost
 
 						bs.forwardMid = da.NewVertexEdgePair(oriWId, wInId, false)
 						bs.backwardMid = da.NewVertexEdgePair(oriWId, wOutId, true)
@@ -854,27 +854,27 @@ func (bs *CRPQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey, s
 				// update new travelTime to reach overlay vertex w
 				// insert item overlay vertex w and its query level to forwardP
 				overlayWId := bs.engine.offsetOverlay(w)
-				oldOvWIdTT := bs.forwardPq.GetPriority(overlayWId)
-				wLabelled := util.Lt(oldOvWIdTT, util.Infinity[W]())
-				if !wLabelled || (wLabelled && util.Lt(newTT, oldOvWIdTT)) {
+				oldOvWIdCost := bs.forwardPq.GetCost(overlayWId)
+				wLabelled := util.Lt(oldOvWIdCost, util.Infinity[W]())
+				if !wLabelled || (wLabelled && util.Lt(newVCost, oldOvWIdCost)) {
 
 					if !wLabelled {
-						vData := da.NewVertexData(newTT,
+						vData := da.NewVertexData(newVCost,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, false))
 						queryKey := da.NewCRPQueryKey(w, da.Index(wQueryLevel), true)
-						bs.forwardPq.Insert(overlayWId, newTT, vData, queryKey)
+						bs.forwardPq.Insert(overlayWId, newVCost, vData, queryKey)
 					} else {
 
 						newPar := da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, false)
-						bs.forwardPq.DecreaseKey(overlayWId, newTT, newTT, newPar)
+						bs.forwardPq.DecreaseKey(overlayWId, newVCost, newVCost, newPar)
 					}
 				}
 
 				scannedByBackwardSearch := bs.backwardPq.IsExplored(overlayWId)
-				newEstSpCost := bs.forwardPq.GetPriority(overlayWId) + bs.backwardPq.GetPriority(overlayWId)
-				if scannedByBackwardSearch && util.Lt(newEstSpCost, bs.shortestTT) {
+				newEstSpCost := bs.forwardPq.GetCost(overlayWId) + bs.backwardPq.GetCost(overlayWId)
+				if scannedByBackwardSearch && util.Lt(newEstSpCost, bs.shortestCost) {
 					// if overlay vertex w scanned by backward search, check whether we can improve the shortestPath
-					bs.shortestTT = newEstSpCost
+					bs.shortestCost = newEstSpCost
 					bs.forwardMid = da.NewVertexEdgePair(wVertex.GetOrigVId(), overlayWId, false)
 					bs.backwardMid = da.NewVertexEdgePair(wVertex.GetOrigVId(), overlayWId, true)
 
@@ -883,9 +883,9 @@ func (bs *CRPQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey, s
 		}
 
 		scannedByBackwardSearch := bs.backwardPq.IsExplored(ovVId)
-		newEstSpCost := bs.forwardPq.GetPriority(ovVId) + bs.backwardPq.GetPriority(ovVId)
-		if scannedByBackwardSearch && util.Lt(newEstSpCost, bs.shortestTT) {
-			bs.shortestTT = newEstSpCost
+		newEstSpCost := bs.forwardPq.GetCost(ovVId) + bs.backwardPq.GetCost(ovVId)
+		if scannedByBackwardSearch && util.Lt(newEstSpCost, bs.shortestCost) {
+			bs.shortestCost = newEstSpCost
 			bs.forwardMid = da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, false)
 			bs.backwardMid = da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, true)
 
@@ -911,9 +911,9 @@ func (bs *CRPQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKey, 
 
 		vVertex := bs.engine.overlayGraph.GetVertex(v)
 
-		newTT := bs.backwardPq.GetPriority(uId) + shotcutWeight
+		newVCost := bs.backwardPq.GetCost(uId) + shotcutWeight
 
-		if util.Ge(newTT, util.Infinity[W]()) {
+		if util.Ge(newVCost, util.Infinity[W]()) {
 			return
 		}
 
@@ -930,19 +930,19 @@ func (bs *CRPQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKey, 
 		oriWId := wVertex.GetOrigVId()
 
 		// relax edge
-		oldOvVIdTT := bs.backwardPq.GetPriority(ovVId)
-		vLabelled := util.Lt(oldOvVIdTT, util.Infinity[W]())
-		if !vLabelled || (vLabelled && util.Lt(newTT, oldOvVIdTT)) {
+		oldOvVIdCost := bs.backwardPq.GetCost(ovVId)
+		vLabelled := util.Lt(oldOvVIdCost, util.Infinity[W]())
+		if !vLabelled || (vLabelled && util.Lt(newVCost, oldOvVIdCost)) {
 
-			bs.backwardPq.Set(ovVId, da.NewVertexData(newTT,
+			bs.backwardPq.Set(ovVId, da.NewVertexData(newVCost,
 				da.NewVertexEdgePair(uVertex.GetOrigVId(), uId, true)), da.NewCRPQueryKey(da.INVALID_VERTEX_ID,
 				da.INVALID_EDGE_ID, true))
 
 			bs.backwardPq.Explore(ovVId)
 
-			newTT = bs.backwardPq.GetPriority(ovVId) + cutEWeight
+			newVCost = bs.backwardPq.GetCost(ovVId) + cutEWeight
 
-			if util.Ge(newTT, util.Infinity[W]()) {
+			if util.Ge(newVCost, util.Infinity[W]()) {
 				return
 			}
 
@@ -954,18 +954,18 @@ func (bs *CRPQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKey, 
 				wOutId = bs.engine.offsetBackward(oriWId, wOutId, wVertex.GetCellNumber(), bs.sCellNumber)
 
 				// relax edge
-				oldWOutIdTT := bs.backwardPq.GetPriority(wOutId)
-				wLabelled := util.Lt(oldWOutIdTT, util.Infinity[W]())
-				if !wLabelled || (wLabelled && util.Lt(newTT, oldWOutIdTT)) {
+				oldWOutIdCost := bs.backwardPq.GetCost(wOutId)
+				wLabelled := util.Lt(oldWOutIdCost, util.Infinity[W]())
+				if !wLabelled || (wLabelled && util.Lt(newVCost, oldWOutIdCost)) {
 					if wLabelled {
 						newPar := da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, true)
-						bs.backwardPq.DecreaseKey(wOutId, newTT, newTT, newPar)
+						bs.backwardPq.DecreaseKey(wOutId, newVCost, newVCost, newPar)
 					} else {
 						queryKey := da.NewCRPQueryKey(oriWId, wOutId, false)
 
-						vData := da.NewVertexData(newTT,
+						vData := da.NewVertexData(newVCost,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, true))
-						bs.backwardPq.Insert(wOutId, newTT, vData, queryKey)
+						bs.backwardPq.Insert(wOutId, newVCost, vData, queryKey)
 					}
 				}
 
@@ -976,18 +976,18 @@ func (bs *CRPQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKey, 
 
 				wInId := inOffset
 
-				newWOutIdTT := bs.backwardPq.GetPriority(wOutId)
+				newWOutIdCost := bs.backwardPq.GetCost(wOutId)
 				bs.engine.graph.ForInEdgesOf(oriWId, inEdgeExPoint, func(_, _ da.Index, _, _, turnTableId da.Index,
 					turn pkg.TurnType, _ pkg.OsmHighwayType) {
 					scannedByForwardSearch := bs.forwardPq.IsExplored(wInId)
-					wInIdTT := bs.forwardPq.GetPriority(wInId)
+					wInIdCost := bs.forwardPq.GetCost(wInId)
 					midTurnCost := bs.engine.metrics.GetTurnCost(turnTableId)
 
-					newPathTT := wInIdTT + midTurnCost +
-						newWOutIdTT
-					if scannedByForwardSearch && util.Lt(newPathTT, bs.shortestTT) {
+					newPathCost := wInIdCost + midTurnCost +
+						newWOutIdCost
+					if scannedByForwardSearch && util.Lt(newPathCost, bs.shortestCost) {
 
-						bs.shortestTT = newPathTT
+						bs.shortestCost = newPathCost
 						bs.forwardMid = da.NewVertexEdgePair(oriWId, wInId, false)
 						bs.backwardMid = da.NewVertexEdgePair(oriWId, wOutId, true)
 
@@ -996,26 +996,26 @@ func (bs *CRPQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKey, 
 				})
 			} else {
 				overlayWId := bs.engine.offsetOverlay(w)
-				oldOvWIdTT := bs.backwardPq.GetPriority(overlayWId)
-				wLabelled := util.Lt(oldOvWIdTT, util.Infinity[W]())
-				if !wLabelled || (wLabelled && util.Lt(newTT, oldOvWIdTT)) {
+				oldOvWIdCost := bs.backwardPq.GetCost(overlayWId)
+				wLabelled := util.Lt(oldOvWIdCost, util.Infinity[W]())
+				if !wLabelled || (wLabelled && util.Lt(newVCost, oldOvWIdCost)) {
 
 					if !wLabelled {
 						queryKey := da.NewCRPQueryKey(w, da.Index(wQueryLevel), true)
 
-						vData := da.NewVertexData(newTT,
+						vData := da.NewVertexData(newVCost,
 							da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, true))
-						bs.backwardPq.Insert(overlayWId, newTT, vData, queryKey)
+						bs.backwardPq.Insert(overlayWId, newVCost, vData, queryKey)
 					} else {
 						newPar := da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, true)
-						bs.backwardPq.DecreaseKey(overlayWId, newTT, newTT, newPar)
+						bs.backwardPq.DecreaseKey(overlayWId, newVCost, newVCost, newPar)
 					}
 				}
 
 				scannedByForwardSearch := bs.forwardPq.IsExplored(overlayWId)
-				newEstSpCost := bs.forwardPq.GetPriority(overlayWId) + bs.backwardPq.GetPriority(overlayWId)
-				if scannedByForwardSearch && util.Lt(newEstSpCost, bs.shortestTT) {
-					bs.shortestTT = newEstSpCost
+				newEstSpCost := bs.forwardPq.GetCost(overlayWId) + bs.backwardPq.GetCost(overlayWId)
+				if scannedByForwardSearch && util.Lt(newEstSpCost, bs.shortestCost) {
+					bs.shortestCost = newEstSpCost
 
 					bs.forwardMid = da.NewVertexEdgePair(wVertex.GetOrigVId(), overlayWId, false)
 					bs.backwardMid = da.NewVertexEdgePair(wVertex.GetOrigVId(), overlayWId, true)
@@ -1024,10 +1024,10 @@ func (bs *CRPQueryTurnCost[W]) backwardOverlayGraphSearch(uItem da.CRPQueryKey, 
 		}
 
 		scannedByForwardSearch := bs.forwardPq.IsExplored(ovVId)
-		newEstSpCost := bs.backwardPq.GetPriority(ovVId) + bs.forwardPq.GetPriority(ovVId)
-		if scannedByForwardSearch && util.Lt(newEstSpCost, bs.shortestTT) {
+		newEstSpCost := bs.backwardPq.GetCost(ovVId) + bs.forwardPq.GetCost(ovVId)
+		if scannedByForwardSearch && util.Lt(newEstSpCost, bs.shortestCost) {
 
-			bs.shortestTT = newEstSpCost
+			bs.shortestCost = newEstSpCost
 			bs.forwardMid = da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, false)
 			bs.backwardMid = da.NewVertexEdgePair(vVertex.GetOrigVId(), ovVId, true)
 		}

@@ -9,10 +9,10 @@ import (
 type DijkstraWithTurnCost[W util.RoutingNumber] struct {
 	engine *CRPRoutingEngine[W]
 
-	finalCost           []W
-	finalQueryKey       []da.VertexData[W]
-	finalEdge           []da.Index
-	shortestTravelTimes []W
+	finalCost     []W
+	finalQueryKey []da.VertexData[W]
+	finalEdge     []da.Index
+	shortestCosts []W
 
 	pq *da.QueryHeap[da.CRPQueryKey, W]
 
@@ -30,9 +30,9 @@ func NewDijkstraWithTurnCost[W util.RoutingNumber](
 		engine:        engine,
 		finalQueryKey: make([]da.VertexData[W], 0),
 
-		numSettledNodes:     0,
-		shortestTravelTimes: make([]W, 0),
-		useReversedEdges:    useReversedEdges,
+		numSettledNodes:  0,
+		shortestCosts:    make([]W, 0),
+		useReversedEdges: useReversedEdges,
 	}
 
 	dj.Preallocate()
@@ -212,17 +212,17 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 
 		us.engine.graph.ForOutEdgesOf(uId, uEntryPoint, func(eId, head da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
-			newCost := uCost + turnCost
+			newVCost := uCost + turnCost
 
 			headEntryId := us.engine.graph.GetEntryOffset(head) + da.Index(entryPoint)
 			if headEntryId != at {
 				return
 			}
 
-			if util.Eq(us.finalCost[uId], util.Infinity[W]()) || util.Lt(newCost, us.finalCost[uId]) {
+			if util.Eq(us.finalCost[uId], util.Infinity[W]()) || util.Lt(newVCost, us.finalCost[uId]) {
 				us.finalQueryKey[uId] = us.pq.Get(uEntryId)
 				us.finalEdge[uId] = uEntryId
-				us.finalCost[uId] = newCost
+				us.finalCost[uId] = newVCost
 			}
 		})
 
@@ -237,34 +237,34 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 
 			// get cost to reach v through u + turn cost from inEdge to outEdge of u
-			newTravelTime := uCost + edgeWeight + turnCost
+			newVCost := uCost + edgeWeight + turnCost
 
-			if util.Ge(newTravelTime, util.Infinity[W]()) {
+			if util.Ge(newVCost, util.Infinity[W]()) {
 				return
 			}
 
 			vEntryId := us.engine.graph.GetEntryOffset(vId) + da.Index(entryPoint)
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vEntryId), util.Infinity[W]())
-			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vEntryId)) {
-				// newTravelTime is not better, do nothing
+			vAlreadyLabelled := util.Lt(us.pq.GetCost(vEntryId), util.Infinity[W]())
+			if vAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(vEntryId)) {
+				// newVCost is not better, do nothing
 
 				return
 			}
 
-			// newTravelTime is better, update the forwardData
+			// newVCost is better, update the forwardData
 
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, uEntryId, false)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vEntryId, newTravelTime, newTravelTime, newPar)
+				us.pq.DecreaseKey(vEntryId, newVCost, newVCost, newPar)
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vEntryId)
-				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, uEntryId, false))
+				vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, uEntryId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vEntryId, newTravelTime, vData, queryKey)
+				us.pq.Insert(vEntryId, newVCost, vData, queryKey)
 			}
 		})
 	} else {
@@ -276,12 +276,12 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 		uExitPoint := uExitId - us.engine.graph.GetExitOffset(uId)
 		us.engine.graph.ForInEdgesOf(uId, uExitPoint, func(eId, tail da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType, hwType pkg.OsmHighwayType) {
 			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
-			newCost := uCost + turnCost
+			newVCost := uCost + turnCost
 
-			if util.Eq(us.finalCost[uId], util.Infinity[W]()) || util.Lt(newCost, us.finalCost[uId]) {
+			if util.Eq(us.finalCost[uId], util.Infinity[W]()) || util.Lt(newVCost, us.finalCost[uId]) {
 				us.finalQueryKey[uId] = us.pq.Get(uExitId)
 				us.finalEdge[uId] = uExitId
-				us.finalCost[uId] = newCost
+				us.finalCost[uId] = newVCost
 			}
 		})
 
@@ -295,33 +295,33 @@ func (us *DijkstraWithTurnCost[W]) graphSearchUni(source da.Index) bool {
 
 			turnCost := us.engine.metrics.GetTurnCost(turnTableId)
 
-			newTravelTime := us.pq.GetPriority(uExitId) + edgeWeight + turnCost
+			newVCost := us.pq.GetCost(uExitId) + edgeWeight + turnCost
 
-			if util.Ge(newTravelTime, util.Infinity[W]()) {
+			if util.Ge(newVCost, util.Infinity[W]()) {
 				return
 			}
 
 			vExitId := us.engine.graph.GetExitOffset(vId) + da.Index(exitPoint)
 
-			vAlreadyLabelled := util.Lt(us.pq.GetPriority(vExitId), util.Infinity[W]())
-			if vAlreadyLabelled && util.Ge(newTravelTime, us.pq.GetPriority(vExitId)) {
-				// newTravelTime is not better, do nothing
+			vAlreadyLabelled := util.Lt(us.pq.GetCost(vExitId), util.Infinity[W]())
+			if vAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(vExitId)) {
+				// newVCost is not better, do nothing
 				return
 			}
 
-			// newTravelTime is better, update the forwardData
+			// newVCost is better, update the forwardData
 
 			if vAlreadyLabelled {
 				newPar := da.NewVertexEdgePair(uId, uExitId, false)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vExitId, newTravelTime, newTravelTime, newPar)
+				us.pq.DecreaseKey(vExitId, newVCost, newVCost, newPar)
 
 			} else if !vAlreadyLabelled {
 				queryKey := da.NewDijkstraKey(vId, vExitId)
-				vData := da.NewVertexData(newTravelTime, da.NewVertexEdgePair(uId, uExitId, false))
+				vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, uExitId, false))
 
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vExitId, newTravelTime, vData, queryKey)
+				us.pq.Insert(vExitId, newVCost, vData, queryKey)
 			}
 		})
 	}

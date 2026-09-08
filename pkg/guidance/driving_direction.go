@@ -39,7 +39,7 @@ type DirectionBuilder struct {
 	prevInitialBearing       float64
 	doublePrevInitialBearing float64
 	cumulativeDistance       float64
-	cumulativeTravelTime     float64
+	cumulativeCost           float64
 	doublePrevNode           da.Index
 	prevNode                 da.Index
 	prevPoint                da.Coordinate
@@ -116,7 +116,7 @@ func (db *DirectionBuilder) Reset() {
 	db.prevInitialBearing = 0
 	db.doublePrevInitialBearing = 0
 	db.cumulativeDistance = 0
-	db.cumulativeTravelTime = 0
+	db.cumulativeCost = 0
 	db.doublePrevNode = 0
 	db.lastPathId = 0
 	db.nextStreetName = da.INVALID_STREET_NAME_ID
@@ -187,15 +187,15 @@ func (db *DirectionBuilder) GetDrivingDirections(
 
 	for i := range db.instructions {
 		var (
-			currStepTravelTime, currStepDistance float64
+			currStepCost, currStepDistance float64
 		)
 		if i > 0 {
-			currStepTravelTime = db.instructions[i].GetCumulativeTravelTime() - db.instructions[i-1].GetCumulativeTravelTime()
+			currStepCost = db.instructions[i].GetCumulativeCost() - db.instructions[i-1].GetCumulativeCost()
 			currStepDistance = db.instructions[i].GetCumulativeDistance() - db.instructions[i-1].GetCumulativeDistance()
 		}
 
 		db.drivingDirections = append(db.drivingDirections, da.NewDrivingDirection(db.instructions[i], db.turnDescriptions[i],
-			currStepTravelTime, currStepDistance, db.instructions[i].GetEdgeIds(), db.instructions[i].GetTurnBearing(), db.instructions[i].GetAnnotation()))
+			currStepCost, currStepDistance, db.instructions[i].GetEdgeIds(), db.instructions[i].GetTurnBearing(), db.instructions[i].GetAnnotation()))
 	}
 
 	return db.drivingDirections
@@ -237,7 +237,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 			edgeIds = []da.Index{edgeId}
 		}
 		newIns := da.NewInstruction(sign, streetName, point, false,
-			edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
+			edgeIds, db.cumulativeDistance, db.cumulativeCost,
 			turnBearing, ann, db.clockwise)
 
 		newIns.SetHeading(turnBearing)
@@ -264,7 +264,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 			turnBearing := geo.ComputeFinalBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(), tail.GetLon())
 			ann := db.annotation()
 			prevIns := da.NewInstructionWithRoundabout(sign, streetName, point, true, roundaboutInstruction, db.cumulativeDistance,
-				db.cumulativeTravelTime, db.edgeIds, ann, turnBearing)
+				db.cumulativeCost, db.edgeIds, ann, turnBearing)
 			db.instructions = append(db.instructions, prevIns)
 			db.prevInstruction = len(db.instructions) - 1
 
@@ -300,7 +300,7 @@ func (db *DirectionBuilder) buildInstruction(edgeId da.Index, sp da.PhantomNode)
 				nextStreetName := db.graph.GetStrFromId(db.nextStreetName)
 				suggestAlternatives := db.IsSuggestAlternatives(edgeId)
 				ann := db.annotation()
-				ins := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime,
+				ins := da.NewInstruction(turnSign, nextStreetName, tailCoord, false, db.edgeIds, db.cumulativeDistance, db.cumulativeCost,
 					turnBearing, ann, db.clockwise)
 				ins.SetSuggestAlternatives(suggestAlternatives)
 
@@ -338,7 +338,7 @@ func (db *DirectionBuilder) buildFinalInstruction(edgeId da.Index, tp da.Phantom
 	ann := db.annotation()
 
 	finishInstruction := da.NewInstruction(da.FINISH, db.graph.GetStreetName(edgeId), point, false,
-		db.edgeIds, db.cumulativeDistance, db.cumulativeTravelTime, turnBearing, ann, db.clockwise)
+		db.edgeIds, db.cumulativeDistance, db.cumulativeCost, turnBearing, ann, db.clockwise)
 	finishInstruction.SetHeading(geo.BearingTo(doublePrevNode.GetLat(), doublePrevNode.GetLon(), tail.GetLat(), tail.GetLon()))
 
 	db.instructions = append(db.instructions, finishInstruction)

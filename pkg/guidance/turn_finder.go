@@ -404,7 +404,7 @@ func (db *DirectionBuilder) updateState(edgeId da.Index, isInRoundabout bool) {
 	db.prevEdge = edgeId
 
 	db.cumulativeDistance += db.engine.GetSegmentLength(edgeId, true)
-	db.cumulativeTravelTime += db.engine.GetWeightSeconds(edgeId, true)
+	db.cumulativeCost += db.engine.GetWeightSeconds(edgeId, true)
 
 	if db.useAnnotation {
 		db.edgeIds = append(db.edgeIds, edgeId)

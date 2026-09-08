@@ -26,7 +26,7 @@ type alternativeRoutesRequest struct {
 }
 
 type shortestPathResponse struct {
-	TravelTime        float64            `json:"travel_time"`
+	Cost              float64            `json:"travel_time"`
 	Path              string             `json:"path"`
 	Dist              float64            `json:"distance"`
 	DrivingDirections []drivingDirection `json:"driving_directions"`
@@ -72,7 +72,7 @@ type drivingDirection struct {
 	Annotation          annotation         `json:"annotation,omitzero"`
 	Point               da.FloatCoordinate `json:"turn_point"`
 	StreetName          string             `json:"street_name"`
-	TravelTime          float64            `json:"travel_time"`
+	Cost                float64            `json:"travel_time"`
 	Distance            float64            `json:"distance"`
 	TurnBearing         float64            `json:"turn_bearing"`
 	TurnType            string             `json:"turn_type"`
@@ -99,7 +99,7 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirec
 		Instruction:         d.GetInstruction(),
 		Point:               d.GetPoint().ToFloatCoordinate(),
 		StreetName:          d.GetStreetName(),
-		TravelTime:          util.SecondsToMinutes(d.GetCost()),
+		Cost:                util.SecondsToMinutes(d.GetCost()),
 		Distance:            d.GetDistance(),
 		TurnBearing:         d.GetTurnBearing(),
 		TurnType:            d.GetTurnTableId(),
@@ -127,7 +127,7 @@ func NewDrivingDirections(d []da.DrivingDirection, useAnnotation bool) []driving
 // travelTime in seconds we need to convert it in minutes
 func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirections []drivingDirection) shortestPathResponse {
 	return shortestPathResponse{
-		TravelTime:        util.SecondsToMinutes(travelTime), // in
+		Cost:              util.SecondsToMinutes(travelTime), // in
 		Path:              path,
 		Dist:              dist,
 		DrivingDirections: drivingDirections,
@@ -138,7 +138,7 @@ func NewAlternativeRoutesResponse(alts []routing.AlternativeRoute, useAnnotation
 	altRes := alternativeRoutesResponse{Routes: make([]shortestPathResponse, len(alts))}
 	for i, alt := range alts {
 		altRes.Routes[i] = NewShortestPathResponse(
-			alt.GetDrivingTravelTime(),
+			alt.GetDrivingCost(),
 			alt.GetDist(), alt.GetPolylinePath(), NewDrivingDirections(alt.GetDrivingDirections(), useAnnotation),
 		)
 	}
