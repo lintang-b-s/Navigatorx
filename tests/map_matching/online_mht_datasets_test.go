@@ -15,6 +15,7 @@ import (
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -140,7 +141,13 @@ func ommRunOnlineMHT(graph *da.Graph, rtree *spatialindex.Rtree, transitionMatri
 
 	matchedPoints := make([]*da.MatchedGPSPoint, 0, len(gpsTraj))
 	totalRuntimeMicros := 0.0
+	prevGps := da.NewGPSPoint(0, 0, time.Now(), 0, 0)
 	for i, gps := range gpsTraj {
+		heading := 0.0
+		if i > 0 {
+			heading = geo.BearingTo(prevGps.Lat(), prevGps.Lon(), gps.Lat(), gps.Lon())
+		}
+		gps.SetDirectionAngle(heading)
 		start := time.Now()
 		matchedPoint, nextCandidates, nextSpeedMeanK, nextSpeedStdK := onlineMM.OnlineMapMatch(
 			gps,
@@ -157,6 +164,7 @@ func ommRunOnlineMHT(graph *da.Graph, rtree *spatialindex.Rtree, transitionMatri
 		speedStdK = nextSpeedStdK
 		lastBearing = matchedPoint.GetBearing()
 		matchedPoints = append(matchedPoints, matchedPoint)
+		prevGps = gps
 	}
 
 	if len(gpsTraj) == 0 {
@@ -237,7 +245,8 @@ func ommComputeGisCupPointAccuracy(graph *da.Graph, groundTruthEdgeIDs []int64, 
 		if matchedPoints[i].GetEdgeId() == da.INVALID_EDGE_ID {
 			continue
 		}
-		if graph.GetOsmWayId(matchedPoints[i].GetEdgeId()) == groundTruthEdgeIDs[i] {
+		matchedEdgeId := graph.GetOsmWayId(matchedPoints[i].GetEdgeId())
+		if matchedEdgeId == groundTruthEdgeIDs[i] {
 			correct++
 		}
 	}
@@ -289,7 +298,7 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 
 		crp, rmf := ommComputeGisCupEdgeSetMetrics(graph, groundTruthEdgeIDs, matchedPoints, edgeLengths)
 		pointAccuracy := ommComputeGisCupPointAccuracy(graph, groundTruthEdgeIDs, matchedPoints)
-		t.Logf("GIS Cup online MHT case %s: CRP=%v RMF=%v point_accuracy=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
+		t.Logf("GIS Cup online MHT case %s: Accuracy=%v RMF=%v point_accuracy=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
 			tc.id, crp, rmf, pointAccuracy, len(matchedPoints), len(gpsTraj), avgRuntimeMicros)
 
 		totalCRP += crp
@@ -301,7 +310,7 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 	avgCRP := totalCRP / float64(len(cases))
 	avgRMF := totalRMF / float64(len(cases))
 	avgPointAccuracy := totalPointAccuracy / float64(len(cases))
-	t.Logf("GIS Cup online MHT aggregate: cases=%d points=%d avg_CRP=%v avg_RMF=%v avg_point_accuracy=%v",
+	t.Logf("GIS Cup online MHT aggregate: cases=%d points=%d avg_Accuracy=%v avg_RMF=%v avg_point_accuracy=%v",
 		len(cases), totalPoints, avgCRP, avgRMF, avgPointAccuracy)
 
 	if avgCRP < ommExpectedMinGisCupAccuracy {
@@ -349,7 +358,7 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compute Melbourne metrics failed: %v", err)
 	}
-	t.Logf("Hengfeng Li online MHT: CRP=%v RMF=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
+	t.Logf("Hengfeng Li online MHT: Accuracy=%v RMF=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
 		crp, rmf, len(matchedPoints), len(gpsTraj), avgRuntimeMicros)
 
 	if crp < ommExpectedMinMelbAccuracy {

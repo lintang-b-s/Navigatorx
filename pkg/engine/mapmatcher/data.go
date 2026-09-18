@@ -13,7 +13,7 @@ type Candidate struct {
 	travelTimeFromHead float64
 	edgeBearing        float64 // in degrees
 
-	weight                     float64
+	weight                     float64 // posterior probability dari this road segment candidate at time step k
 	length                     float64
 	projectedLat, projectedLon float64
 	dist                       float64 // distance to current gps point

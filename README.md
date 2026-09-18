@@ -92,7 +92,6 @@ sh ./scripts/run_test.sh
 
 ## Load Test
 
-
 load tests result: https://github.com/lintang-b-s/skripsi_code
 
 ## API Documentation
@@ -108,11 +107,9 @@ online routing engine demo: [demo](https://navigatorx-crp-fe.vercel.app/)
 
 ### References
 
-<a id="ref1"></a>1. Delling, D. et al. (2015) “Customizable Route Planning in Road
-Networks,” Transportation Science [Preprint]. Available at:
-https://doi.org/10.1287/trsc.2014.0579 .
+<a id="ref1"></a>1.Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable Route Planning in Road Networks. Transportation Science, No. 2, Volume 51, pages 566-591
 
-<a id="ref2"></a>2. Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
+<a id="ref2"></a>2. Abraham, I., Delling, D., Goldberg, A. V., Werneck R. F. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
 https://doi.org/10.1007/978-3-642-13193-6_3 .
 
 <a id="ref3"></a>3. Goldberg, A. and Harrelson, C. (2005) “Computing the shortest path: A\* search meets graph theory,” in. ACM-SIAM Symposium on Discrete Algorithms. Vancouver:

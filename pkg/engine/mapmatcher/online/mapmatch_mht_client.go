@@ -18,6 +18,8 @@ Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), p
 
 ini buat golang mobile app library (client-side real-time map matching). terinspirasi dari: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 lihat ./pkg/mobile/mobile.go
+
+evaluation/tests suite di: tests/mapmatching/ (cari yang ada nama Online di test funtions nya)
 */
 
 type OnlineMapMatchMHTClient struct {
@@ -53,7 +55,7 @@ func NewOnlineMapMatchMHTClient(graph *da.MapMatchingGraph, rt *spatialindex.Rtr
 // OnlineMapMatch. perform online map matching using Multiple Hypothesis Technique
 // speed in meter/s, arc length in meter, k is current time step (1-based)
 // Algorithm 1 in ref[1]
-// O( b^{d_p}), b=max outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
+// O( b^{d_p}), b=avg outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
 // candidates edgeId dan matchedSegment edgeId  adalah MapMatchGraph edge id
 func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
@@ -118,14 +120,14 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
 			speedStd = speedStdK
 		}
 
-		newCandidates := make([]*ma.Candidate, 0, len(candidates))
+		newCandidates := make([]*ma.Candidate, 0, len(candidates)) // newCandidates is next road segment candidates r_{k+1} di current time step
 
-		for _, cand := range candidates {
+		for _, rkCand := range candidates {
 			tau := make([]da.Index, 0, 5)
-			tau = append(tau, cand.EdgeId())
-			ptau := 1.0
+			tau = append(tau, rkCand.EdgeId())
+			ptau := 1.0 // markov chain path probability that start at this road segment candidate rkCand
 			hpre := 1.0
-			newCandidates = om.recur(newCandidates, cand.Weight(), tau, ptau, speedMean, hpre, speedStd, gps.DeltaTime())
+			newCandidates = om.recur(newCandidates, rkCand.Weight(), tau, ptau, speedMean, hpre, speedStd, gps.DeltaTime())
 		}
 		speedMeanK, speedStdK = om.kalmanFilter(speedMean, speedStd, gps.Speed(), gps.DeltaTime())
 
@@ -143,6 +145,7 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
 
 // recur. prediction step of multiple hypothesis technique (compute prior)
 // Algorithm 2 in ref[1]
+// route prediction buat compute prior probability dari next road segment candidates r_{k+1}
 func (om *OnlineMapMatchMHTClient) recur(newCands []*ma.Candidate, w float64, tau []da.Index, ptau float64,
 	speedMean, hpre, speedStd, deltaTime float64) []*ma.Candidate {
 	hnew := om.computeHProb(tau, speedMean, speedStd, deltaTime)
@@ -156,17 +159,31 @@ func (om *OnlineMapMatchMHTClient) recur(newCands []*ma.Candidate, w float64, ta
 			eNext = append(eNext, eId)
 		})
 
-		for _, nextEdgeId := range eNext {
+		for _, nextSegment := range eNext {
+			// iterate all road segment connected to last road segment (atau last state) dari current markov chain path
 			tauPrime := make([]da.Index, len(tau))
 			copy(tauPrime, tau)
-			tauPrime = append(tauPrime, nextEdgeId)
+			tauPrime = append(tauPrime, nextSegment)
 			nj := len(eNext)
-			ptauPrime := ptau * om.computEdgeTransitionProb(lastEdgeId, nextEdgeId, nj)
+
+			// compute new markov chain path probability that enter this next state (road segment nextSegment)
+			ptauPrime := ptau * om.computEdgeTransitionProb(lastEdgeId, nextSegment, nj)
 			hprePrime := hnew
 			newCands = om.recur(newCands, w, tauPrime, ptauPrime, speedMean, hprePrime, speedStd, deltaTime)
 		}
 	}
-	wprime := w * ptau * (hpre - hnew)
+	// compute route prediction probability that defined in eq [1] or eq [17] in ref 1
+	// route prediction probability in eq [1] in ref [1]
+	// route prediction probability p(r_{k+1}|r_k)  defined as marginalized joint pmf of r_{k+1},tau|r_k. using total probability theorem we can get eq [1] in ref 1
+	// (hpre-hnew) is for computing p(r_{k+1}| r_{k}, tau) defined in eq [18] in ref 1
+	// ptau is markov chain path tau probability that start di current road segment r_k ending at r_{k+1}
+	// r_k adalah rkCand di fungsi OnlineMapMatch
+	// r_{k+1} adalah  tau[len(tau)-1] atau last state dari current markov chain path tau
+
+	routePredProb := ptau * (hpre - hnew) // route prediction probability
+
+	// calculate prior probability in eq [12] ref 1, prior probability p(r_{k+1}|g_{1:k}) calculated as marginalized joint pmf p(r_{k+1}, r_{k}|g_{1:k}), this joint pmf can be written as conditional probability like in eq [12] row 2 by total probability theorem.
+	wprime := w * routePredProb // prior probability. w adalah posterior probability dari candidate (road segment) di previous time step
 	var cnew *ma.Candidate
 	for _, cand := range newCands {
 		if cand.EdgeId() == tau[len(tau)-1] { // tau[len(tau)-1]=r_{k+1}
@@ -183,27 +200,31 @@ func (om *OnlineMapMatchMHTClient) recur(newCands []*ma.Candidate, w float64, ta
 	return newCands
 }
 
-// filterLog. filter step of multiple hypothesis technique (compute posterior & pick most probable road segment)
+// filterLog. filter step of multiple hypothesis technique (compute posterior & pick most probable road segment).
 //
 //	normalization use log-sum-exp trick to avoid numerical underflow/overflow (https://gregorygundersen.com/blog/2020/02/09/log-sum-exp/)
 func (om *OnlineMapMatchMHTClient) filterLog(gps *da.GPSPoint, candidates []*ma.Candidate) (*da.MatchedGPSPoint, []*ma.Candidate, bool) {
-	logAllCandWeights := make([]float64, 0, len(candidates))
+	logDenominator := make([]float64, 0, len(candidates))
 
 	for _, cand := range candidates {
 		obsLogLikelihood := om.computeEmissionLogProb(cand)
-		logAllCandWeights = append(logAllCandWeights, math.Log(cand.Weight())+obsLogLikelihood)
+		logDenominator = append(logDenominator, math.Log(cand.Weight())+obsLogLikelihood)
 	}
 
-	allCandsWeightLSE := logSumExp(logAllCandWeights)
-	sumPosterior := 0.0 // should \approx 1
+	logDenominatorLSE := logSumExp(logDenominator) // log-sum-exp trick
+	sumPosterior := 0.0                            // should approx 1
 
 	for i, cand := range candidates {
+		// computing posterior for each road segment candidate, each road segment candidate is mutually exclusive/disjoint
 		obsLogLikelihood := om.computeEmissionLogProb(cand)
-		posterior := (obsLogLikelihood + math.Log(cand.Weight())) - (allCandsWeightLSE)
-		candidates[i] = ma.NewCandidate(cand.EdgeId(), math.Exp(posterior), cand.Length())
+		logNumerator := (obsLogLikelihood + math.Log(cand.Weight())) // cand.Weight is the prior probability dari road segment cand hasil dari fungsi recur()
+		posterior := logNumerator - (logDenominatorLSE)              // log of equation (11) in ref[1] using log-sum-exp trick.
+
+		posteriorProb := math.Exp(posterior) // posterior back to [0,1]. hasil rewriting eq (3) di https://gregorygundersen.com/blog/2020/02/09/log-sum-exp/
+		candidates[i] = ma.NewCandidate(cand.EdgeId(), posteriorProb, cand.Length())
 		candidates[i].SetProjectedCoord(cand.GetProjectedCoord().GetLat(), cand.GetProjectedCoord().GetLon())
 		candidates[i].SetEdgeBearing(cand.GetEdgeBearing())
-		sumPosterior += math.Exp(posterior)
+		sumPosterior += posteriorProb // karena  value posteriorProb [0,1], sum over all candidate yg saling mutually exlusive must approx to 1
 	}
 
 	// filter candidate yang memiliki weight < posteriorThreshold
@@ -249,11 +270,15 @@ func (om *OnlineMapMatchMHTClient) needToReset(gps *da.GPSPoint, matchedSegment 
 	return util.Gt(dist, DISTANCE_RESET_THRESHOLD)
 }
 
-// logarithm of equation [1]  in https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
+// computeEmissionLogProb. logarithm of equation [1]  in https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
+// give the likelihood that a gps measurement/observation resulted from a given road segment candidate
+// that hmm newson paper model absolute distance from gps point to candidate road segment as zero-mean gaussian distribution
 func (om *OnlineMapMatchMHTClient) computeEmissionLogProb(cand *ma.Candidate) float64 {
 	obsStateDist := cand.GetDist()
 	sigma := om.gpsStd
-	return -0.5*(math.Log(2.0*math.Pi)+(obsStateDist/sigma)*(obsStateDist/sigma)) - math.Log(sigma)
+
+	emsLogProb := -0.5*(math.Log(2.0*math.Pi)+(obsStateDist/sigma)*(obsStateDist/sigma)) - math.Log(sigma)
+	return emsLogProb
 }
 
 // // logarithm of equation 21 ref[1]
@@ -271,24 +296,33 @@ func (om *OnlineMapMatchMHTClient) computeEmissionLogProb(cand *ma.Candidate) fl
 // }
 
 // equation 23 & 24 in ref[1]
+// linear kalman filter buat estimate vehicle velocity at time step k.
+// velocity constant model, state nya cuma velocity at time k.
+// karena velocity constant model, transition model nya: velocity di time step k sama dengan velocity dengan time step k-1.
+// measurement cuma speed dari gps data (bisa didapet dari Android FusedLocationProvider API/ expo location API https://docs.expo.dev/versions/latest/sdk/location/)
+// ref for kalman filter: https://porabook.com/book/approximate-filters/#S2
 func (om *OnlineMapMatchMHTClient) kalmanFilter(speedMeanKprev, speedStdKprev, gpsSpeed, deltaTime float64) (float64, float64) {
-	speedMeanK := speedMeanKprev
+	// prediction step dari kalman filter
+	speedMeanK := speedMeanKprev // transition model. calculate prediction state
 	speedStdK := math.Sqrt(speedStdKprev*speedStdKprev + om.accelerationStd*om.accelerationStd*deltaTime*deltaTime)
+
+	// correction/measurement update step dari kalman filter
 	numerator := om.initialSpeedStd*om.initialSpeedStd*speedMeanK + speedStdK*speedStdK*gpsSpeed
 	denominator := om.initialSpeedStd*om.initialSpeedStd + speedStdK*speedStdK
 	speedMean := numerator / denominator
-
 	speedStdK = math.Sqrt(1 / (1/(om.initialSpeedStd*om.initialSpeedStd) + 1/(speedStdK*speedStdK)))
 	return speedMean, speedStdK
 }
 
-// equation 3 in ref[1]
+// equation 3 in ref[1]. compute edge (state) transition probability, modeled as markov chain
+// satisfies markov property: next state only depends on current state.
+// use add-one smoothing
 func (om *OnlineMapMatchMHTClient) computEdgeTransitionProb(eFromId, eToId da.Index, nj int) float64 {
 
 	eFrom := om.graph.GetOutEdge(eFromId)
-	eFromOriginalId := eFrom.GetRoadNetworkEdgeId()
+	eFromRNId := eFrom.GetRoadNetworkEdgeId()
 	eTo := om.graph.GetOutEdge(eToId)
-	eToOriginalId := eTo.GetRoadNetworkEdgeId()
+	eToRNId := eTo.GetRoadNetworkEdgeId()
 
 	branch := make([]da.Index, 0, 4)
 	e := om.graph.GetOutEdge(eFromId)
@@ -297,16 +331,19 @@ func (om *OnlineMapMatchMHTClient) computEdgeTransitionProb(eFromId, eToId da.In
 		e := om.graph.GetOutEdge(eId)
 		branch = append(branch, e.GetRoadNetworkEdgeId())
 	})
-	sumNej := 0.0
+	sumNeij := 0.0
 	for _, jOriginal := range branch {
-		trans := float64(om.N.Get(int(eFromOriginalId), int(jOriginal)))
-
-		sumNej += trans
+		trans := float64(om.N.Get(int(eFromRNId), int(jOriginal)))
+		sumNeij += trans
 	}
-	return (1.0 + float64(om.N.Get(int(eFromOriginalId), int(eToOriginalId)))) / (sumNej + float64(nj))
+	return (1.0 + float64(om.N.Get(int(eFromRNId), int(eToRNId)))) / (sumNeij + float64(nj))
 }
 
 // equation 20 in ref[1]
+//
+//	h(τ_{1:n}, \hat{v}_k ,σ_v,k ,t_k ) denotes the probability of the vehicle traveling further than e_n
+//
+// ini dipakai untuk compute route prediction probability
 func (om *OnlineMapMatchMHTClient) computeHProb(tau []da.Index, speedMean, speedStd, deltaTime float64) float64 {
 	tauLength := 0.0
 	for _, edgeId := range tau {

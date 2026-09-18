@@ -443,18 +443,22 @@ func TestHanwenhuOnlineMapMatching(t *testing.T) {
 			}
 			deltaTime := 2.0
 			speed := 8.333
+			heading := 0.0
 			if hasPrev {
 				if util.Gt(deltaTime, 0) {
 					dist := geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon)
 					speed = util.KilometerToMeter(dist) / deltaTime
 				}
+				heading = geo.BearingTo(prevLat, prevLon, lat, lon)
 			} else {
 				hasPrev = true
+				heading = 0.0
 			}
 			prevLat, prevLon = lat, lon
 			gpsTrackPolyline = append(gpsTrackPolyline, da.NewCoordinate(lat, lon))
 			now := time.Now()
 			curGps := da.NewGPSPoint(lat, lon, curGpsTime, speed, deltaTime)
+			curGps.SetDirectionAngle(heading)
 
 			currGeohash := geohash.EncodeIntWithPrecision(curGps.Lat(), curGps.Lon(), tiler.GeohashBits)
 			if centerGeohash != currGeohash {

@@ -140,7 +140,7 @@ func (pu *PathUnpackerALTNoTurnCost[W]) unpackInLevelCell(sOvId da.Index,
 			if !vLabelled || (vLabelled && util.Lt(newVCost, pq.GetCost(vOvId))) {
 				// relax shortcut edge
 
-				pq.Explore(vOvId) // langsung scan exit overlay vertex v
+				pq.Explore(vOvId) // langsung explore exit overlay vertex v
 
 				vNewPar := da.NewVertexEdgePair(uOvId,
 					da.INVALID_EDGE_ID, true)

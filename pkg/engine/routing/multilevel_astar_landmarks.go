@@ -14,6 +14,8 @@ import (
 // ntar query with turn cost bisa pakai kode multilevel_astar_landmarks_without_turn_cost.go kalau pakai edge-based model
 // this compact model buat support query with turn cost (& turn restrictions) ribet bgt gokil
 // biar gak sama paten kaya juga, CRP yg dijelasin disini pakai compact representation: https://patents.google.com/patent/US20130231862A1/en
+// banyak yang diganti terutama driving direction and map matching. tapi harusnya gak susah...
+// referensi lain buat bikin edge-based graph (or expanded graph whatever): https://i11www.iti.kit.edu/_media/teaching/theses/ba-zuendorf-19.pdf
 
 // penjelasan algoritma kueri (dengan turn cost) dari Customizable Route Planning + ALT ada di section 3.5 & 3.6:  https://drive.google.com/file/d/16X4_D82-dBz5CEKTLBWPb8DtG52eVMl5/view
 // pdf password: <my-github-username>-<my-birth-year>-<my gdrive email without @gmail.com>
@@ -115,7 +117,7 @@ time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
 let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any cell
 let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
 time complexity of CRP query is: O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o)), in this implementation, priority queue (4-ary heap) contains at most all edges in lowest level cell that containing s or t and all overlay vertices in all cell other than level 1 cell that containing s or t
-decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately scan v and add neighbor of v (vertex w) to priority queue
+decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately explore v and add neighbor of v (vertex w) to priority queue
 extract-min at most O(m_p+n_o) operations
 
 
@@ -141,12 +143,12 @@ disini kita simpan turn cost dari i1->u->i2 di graph.turnTables[u.turnTablePtr +
 
 
 state dari setiap item (bisa berupa (entry/exit point, vertex) atau overlay vertex) dibagi menjadi tiga:
-unreachable, labelled, dan explored. pada awal algoritma pencarian (sebelum scan s), semua item memiliki state unreacahble
+unreachable, labelled, dan explored. pada awal algoritma pencarian (sebelum explore s), semua item memiliki state unreacahble
 sesudah relaksasi edge (v,w) dengan entry point i item (i,w) memiliki state labelled
 setiap item yang sudah di extractMin prioirty queue memiliki state explored.
 
 kita represent turn cost dari entry i1 ke exit i2 melalui u dengna T_u[i1,i2]
-misal kita udah scan (i1,u,d_{i1}) sebelumnya
+misal kita udah explore (i1,u,d_{i1}) sebelumnya
 (i2, u, d_{i2}) bisa lebih baik dari (i1,u,d_{i1}) iff (lebih baik maksudnya shortest path estimate dari s ke u dengan turn costs lebih baik melalui entry point i2 dibanding i1):
 terdapat k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] <= dist'(s, (i1, u)) + T_u[i1, k]
 
@@ -155,10 +157,10 @@ untuk semua k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] > dist'(s, (i1, u)) + T_
 atau
 dist'(s,(i2, u)) > dist'(s, (i1, u)) + max_k { T_u[i1, k] -  T_u[i2,k]}
 
-setiap kali kita scan entry point i dari vertex v with distance dist'(s,(i,v))
+setiap kali kita explore entry point i dari vertex v with distance dist'(s,(i,v))
 kita set b_v (bs.stallingEn di implementasi ini, tapi langsung pakai edgeId instead of (enPoint, v)) setiap entry point k dari v, dengan
 b_v[k] = min{ b_v[k], dist'(s,(i,v)) + max_j { T_v[i, j] -  T_v[k,j]} }, inisialisasi awal dari b_v[⋅] adalah infinity utk semua vertices v
-setelah scan (i,v, dist'(s,(i,v))), kita relaksasi semua out edges dari v
+setelah explore (i,v, dist'(s,(i,v))), kita relaksasi semua out edges dari v
 misal salah satu edge nya adalah (v,w) dengan entry point wi1
 kita gak insert (wi1, w, dist'(s,(wi1,w))) ke heap jika dist'(s,(wi1,w)) > b_w[wi1]
 max_j { T_v[i, j] -  T_v[k,j]}  kita precompute untuk setiap pasang (i,k) di metric.go
@@ -191,21 +193,21 @@ exitVertex adalah overlay vertex yang memiliki setidaknya satu 1 out edge yang h
 
 setiap shortcut edges yang dikunjungi forwardOverlayGraphSearch(), adalah (entryVertex, exitVertex)
 di implementasi ini melakukan optimasi pada overlay graph search yang dilakukan pada ref[1]:
-setiap kali relax shortcut edge (u,v) (misal di forwardOverlayGraphSearch()), kita langsung scan v dan relax cut edge (v,w) dari overlay vertex v.
+setiap kali relax shortcut edge (u,v) (misal di forwardOverlayGraphSearch()), kita langsung explore v dan relax cut edge (v,w) dari overlay vertex v.
 cut edge adalah edge yang tail dan head nya berada di sel yang berbeda (di suatu level).
 setiap vertex u yang memiliki cut edges > 1 akan dibuatkan overlay vertices untuk masing masing cut edges.
 
 karena kita appply bidirectional dijkstra (ke base graph dan overlay graph) di implementasi ini, kita melakukan hal yang mirip seperti di ref[1] dan ref[6]:
 untuk base graph:
-(misal untuk forwardGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah vertex) dengan entry point i, kita cek semua possible turns pada vertex v
-kita cek semua exit point dari v dan cek apakah salah satu (exit point, v) sudah di scan di backward search
-kalau sudah discan  -> kita bisa update \mu (shortest st-path estimate)
-\mu diupdate kalau sum dari shortest path estimate dari s ke v melalui entry point i + sp estimate dari v ke t (melalui exit point yang discan backward search) kurang dari \mu
+(misal untuk forwardGraphSearch) setiap kali kita explore item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah vertex) dengan entry point i, kita cek semua possible turns pada vertex v
+kita cek semua exit point dari v dan cek apakah salah satu (exit point, v) sudah di explore di backward search
+kalau sudah diexplore  -> kita bisa update \mu (shortest st-path estimate)
+\mu diupdate kalau sum dari shortest path estimate dari s ke v melalui entry point i + sp estimate dari v ke t (melalui exit point yang diexplore backward search) kurang dari \mu
 
 untuk overlay graph:
-(misal untuk forwardOverlayGraphSearch) setiap kali kita scan item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah overlay vertex)
-kita cek apakah overlay vertex v udah di scan oleh backward search
-kalau udha di scan -> kita bisa update \mu (shortest st-path estimate)
+(misal untuk forwardOverlayGraphSearch) setiap kali kita explore item u (u bisa berupa pasangan (entry,vertex) atau overlay vertex) dan relax edge (u,v) (v adalah overlay vertex)
+kita cek apakah overlay vertex v udah di explore oleh backward search
+kalau udha di explore -> kita bisa update \mu (shortest st-path estimate)
 \mu diupdate kalau sum dari shortest path estimate dari s ke v + sp estimate dari v ke t kurang dari \mu.
 
 search terminates ketika sum dari minimum keys of both priority queues exceeds \mu. (proof of correctness dari kriteria pemberhentian ini dapat dilihat pada ref[6])
@@ -253,14 +255,14 @@ sebenarnya setelah multilevel-dijkstra selesai (di routing.go), kita tambahin sp
 
 
 inti dari multilevel-ALT (A*, landmarks, and triangle inequality) [1] dan [2]:
-- ketika kita scan vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra [7] (without turn cost) -> est cost dari s to v udah equal to shortest path cost
-- ketika kita scan vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra [7] (without turn cost) -> est cost dari v to t udah equal to shortest path cost, kenapa??
+- ketika kita explore vertex v (extracted from pq) di forward search, by proof of correctness dari alg dijkstra [7] (without turn cost) -> est cost dari s to v udah equal to shortest path cost
+- ketika kita explore vertex v (extracted from pq) di backward search (pakai reversed edges), by proof of correctness dari alg dijkstra [7] (without turn cost) -> est cost dari v to t udah equal to shortest path cost, kenapa??
 karena di backward search kita pakai reversed edges: semua edges (v,u) dengan (u,v)\in E, l(v,u)=l(u,v)  (see Single-destination shortest-paths problem in ref[7])
 - setelah forward search keluar dari cell level 1 dari s (sebelum masuk ke cell level 1 nya t), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
 - setelah backward search keluar dari cell level 1 dari t (sebelum masuk ke cell level 1 nya s), kita relax only shortcut edges di cell level >= 1 selain sel nya s atau t
 - saat forward search masuk ke cell level 1 dari t, kita relax original edges (yang contained in cell level 1 dari t) dari graph nya.
 - saat backward search masuk ke cell level 1 dari s, kita relax reversed edges (yang contained in cell level 1 dari s) dari graph nya.
-- karena bidirectional search, kita pakai kriteria pemberhentian dari algoritma 2 [6] dan update esimated sp cost dari s ke t (\mu) setiap kali relax edge(u,v) yang head nya (v) udah di scan (extracted from pq) oleh another search seperti pada ref [6]: https://kam.mff.cuni.cz/~spring/media/papers/5/bidirectional_dijkstra.pdf
+- karena bidirectional search, kita pakai kriteria pemberhentian dari algoritma 2 [6] dan update esimated sp cost dari s ke t (\mu) setiap kali relax edge(u,v) yang head nya (v) udah di explore (extracted from pq) oleh another search seperti pada ref [6]: https://kam.mff.cuni.cz/~spring/media/papers/5/bidirectional_dijkstra.pdf
 - karena pakai turn cost pakai trik dijskstra with turn cost on compact graph yang dijelaskan pada section 4.2 ref[1]: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 - di graph_builder.go kita tambahkan dummy Outedge/InEdge (dengan turn cost ke other edge dari headnya/tailnya sama dengan 0) pada vertex yang outDegree/inDegree nya 0 agar saat kita tetap bisa compute shortest path dari s (yang inDegre nya 0) ke t (yang outDegree nya 0) (tested on tests/shortestpath dan tests/shortestpath_crp_alt)
 misal:
@@ -698,7 +700,7 @@ func (bs *CRPALTQueryTurnCost[W]) forwardOverlayGraphSearch(uItem da.CRPQueryKey
 				da.NewVertexEdgePair(uVertex.GetOrigVId(), uId, false)), da.NewCRPQueryKey(da.INVALID_VERTEX_ID,
 				da.INVALID_EDGE_ID, true))
 
-			// karena kita langsung scan v & traverse to its neighbor (exit vertex dari suatu cell), kita harus tandain kalau v udah di scan
+			// karena kita langsung explore v & traverse to its neighbor (exit vertex dari suatu cell), kita harus tandain kalau v udah di scan
 			bs.forwardPq.Explore(ovVId)
 
 			newVCost = bs.forwardPq.GetCost(ovVId) + eWeight

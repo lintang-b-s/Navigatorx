@@ -112,7 +112,7 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 	vsCopy := make([]da.Vertex, n)
 	copy(vsCopy, vs)
 
-	// mirip algoritma graham scan buat bikin convex hull
+	// mirip algoritma graham explore buat bikin convex hull
 	// graham scan: sort Points by their polar angles around a p0 (bottomost point or rightmost & bottomost point if tie)
 	// ini: sort Points by their initial bearing angles around a p0 (center point/coordinate)
 	// karena geographic coordinate, sort by initial bearing angle (sudut clockwise antara garis yang menghubungkan titik pivot ke other point dan garis meridian)

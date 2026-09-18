@@ -8,6 +8,8 @@ import (
 
 // https://web.stanford.edu/~jurafsky/slp3/A.pdf
 
+// inspired by BMW Car IT implementation of viterbi algorithm: https://github.com/bmwcarit/hmm-lib/blob/master/src/main/java/com/bmw/hmm/ViterbiAlgorithm.java
+
 type Transition struct {
 	from, to int
 }

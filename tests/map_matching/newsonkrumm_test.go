@@ -612,19 +612,23 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 
 		deltaTime := 1.0
 		speed := 8.333
+		heading := 0.0
 		if hasPrev {
 			deltaTime = curGPSTime.Sub(prevTime).Seconds()
 			if util.Gt(deltaTime, 0) {
 				dist := geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon)
 				speed = util.KilometerToMeter(dist) / deltaTime
 			}
+			heading = geo.BearingTo(prevLat, prevLon, lat, lon)
 		} else {
 			hasPrev = true
+			heading = 0.0
 		}
 		prevLat, prevLon, prevTime = lat, lon, curGPSTime
 
 		now := time.Now()
 		curGPS := da.NewGPSPoint(lat, lon, curGPSTime, speed, deltaTime)
+		curGPS.SetDirectionAngle(heading)
 
 		currGeohash := geohash.EncodeIntWithPrecision(curGPS.Lat(), curGPS.Lon(), tiler.GeohashBits)
 		if centerGeohash != currGeohash {
@@ -693,7 +697,6 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 		}
 		mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
 		avgRuntimePerGPSPoint += float64(time.Since(now).Microseconds())
-
 	}
 
 	totalPoints := float64(k - 1)

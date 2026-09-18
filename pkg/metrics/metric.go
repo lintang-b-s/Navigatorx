@@ -113,7 +113,7 @@ contoh turn cost dari case ini adalah ketika kita keluar dari vertex u melalui e
 disini kita simpan turn cost dari i1->u->i2 di graph.turnTables[u.turnTablePtr + 0*2+1]
 
 kita represent turn cost dari entry i1 ke exit i2 melalui u dengna T_u[i1,i2]
-misal kita udah scan (i1,u,d_{i1}) sebelumnya
+misal kita udah explore (i1,u,d_{i1}) sebelumnya
 (i2, u, d_{i2}) bisa lebih baik dari (i1,u,d_{i1}) iff (lebih baik maksudnya shortest path estimate dari s ke u dengan turn costs lebih baik melalui entry point i2 dibanding i1):
 terdapat k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] <= dist'(s, (i1, u)) + T_u[i1, k]
 
@@ -122,10 +122,10 @@ untuk semua k in {j1, j2}, dist'(s,(i2, u)) + T_u[i2,k] > dist'(s, (i1, u)) + T_
 atau
 dist'(s,(i2, u)) > dist'(s, (i1, u)) + max_k { T_u[i1, k] -  T_u[i2,k]}
 
-setiap kali kita scan entry point i dari vertex v with distance dist'(s,(i,v))
+setiap kali kita explore entry point i dari vertex v with distance dist'(s,(i,v))
 kita set b_v (bs.stallingEntry di implementasi ini, tapi langsung pakai edgeId instead of (entryPoint, v)) setiap entry point k dari v, dengan
 b_v[k] = min{ b_v[k], dist'(s,(i,v)) + max_j { T_v[i, j] -  T_v[k,j]} }, inisialisasi awal dari b_v[⋅] adalah infinity utk semua vertices v
-setelah scan (i,v, dist'(s,(i,v))), kita relaksasi semua out edges dari v
+setelah explore (i,v, dist'(s,(i,v))), kita relaksasi semua out edges dari v
 misal salah satu edge nya adalah (v,w) dengan entry point wi1
 kita gak insert (wi1, w, dist'(s,(wi1,w))) ke heap jika dist'(s,(wi1,w)) > b_w[wi1]
 max_j { T_v[i, j] -  T_v[k,j]}  kita precompute untuk setiap pasang (i,k) di metric.go

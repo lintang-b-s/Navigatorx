@@ -228,7 +228,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sourceOvId da.Index,
 			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newVCost, pq.GetCost(vOvId))) {
 				// relax shortcut edge
 
-				pq.Explore(vOvId) // langsung scan exit overlay vertex v
+				pq.Explore(vOvId) // langsung explore exit overlay vertex v
 				uOvVertex := pu.eng.overlayGraph.GetVertex(uOvId)
 				originalUId := uOvVertex.GetOrigVId()
 

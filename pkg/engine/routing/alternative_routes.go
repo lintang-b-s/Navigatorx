@@ -220,7 +220,7 @@ ref[1] setiap st-path P dikatakan admissible jika memenuhi kondisi:
 3. every subpath P' dari P dengan endpoints s', t', kita memiliki l(P') <= (1+eps)l(Opt(s,t)) (path P' dari s' ke t' tidak lebih panjang 1+eps relative to shortest path dari s' ke t')
 
 inti dari FindAlternativeRoutes:
-1. retrieve semua via vertices yang sudah discan (beberapa entry & exit points dari vertex v discan atau overlay vertex v sudah discan) oleh forward search dan backward search dari CRP query
+1. retrieve semua via vertices yang sudah diexplore (vertex v diexplore atau overlay vertex v sudah discan) oleh forward search dan backward search dari CRP query
 2. susun kandidat alternative route s-v-t  untuk setiap via vertices v.
 3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
 
@@ -232,7 +232,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(sp, tp da.PhantomNod
 		let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any cell
 		let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
 		time complexity of CRP query is: O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o)), in this implementation, priority queue (4-ary heap) contains at most all edges in lowest level cell that containing s or t and all overlay vertices in all cell other than cell that containing s or t
-		decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately scan v and add neighbor of v (vertex w) to priority queue
+		decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately explore v and add neighbor of v (vertex w) to priority queue
 		extract-min at most O(m_p+n_o) operations
 	*/
 	now := time.Now()
@@ -738,8 +738,8 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(svPackedPath,
 // backward search membuat shortest path tree dari every vertices explored di backward search ke t (karena backward search pakai reversed edges)
 // plateaus adalah maximal paths yang muncul  di kedua shortest path trees
 // plateau u-w dari st-path: path dari s ke u + path dari u ke w + path dari w ke t
-// semua item (pasangan (entry/exit point, vertex) atau overlay vertex) path u-w dari u ke w tedapat pada kedua shortest path tree
-// atau semua item dari path u-w sudah di scan oleh kedua search.
+// semua vertices (vertex atau overlay vertex) path u-w dari u ke w tedapat pada kedua shortest path tree
+// atau semua vertex dari path u-w sudah di explore oleh kedua search.
 func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, viaOutId, sForwardId, tBackwardId da.Index,
 	ps, pb *da.QueryHeap[da.CRPQueryKey, W], sCellNumber da.Pv, lv float64, overlay bool) float64 {
 
@@ -763,12 +763,12 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 		lemma 4.4 dari ref[1]:
 		If P_v corresponds to a plateau u-w, P_v is dist(u,w)-LO
 		proof:
-		karena semua item antara u-w di scan forward search dan u-w discan backward search, pakai lemma every subpath of shortest path is shortest path (CLRS): subpath u-w is shortest path
+		karena semua vertex antara u-w di explore forward search dan u-w diexplore backward search, pakai lemma every subpath of shortest path is shortest path (CLRS): subpath u-w is shortest path
 		pakai lemma every subpath of shortest path is shortest path (CLRS) lagi: every subpath P' dari path u ke w, l(P') <= dist(u,w) is shortest path
 		karena s-u explored di forward search dan w-t explored di backward search: subpath s-u is shortest path dan subpath w-t is shortest path
 		pakai lemma every subpath of shortest path is shortest path lagi: every subpath dari shortest su-path dan wt-path adalah shortest path
 		sehingga didapat every subpath P' of P_v with l(P') <= dist(u,w) adalah shortest path.
-		perhatikan juga karena P_v bukan shortest path (rute alternative), terdapat item x yang belum di scan backward search (x-t is not shortest path) dan item y yang belum di scan forward search (s-y is not shortest path)
+		perhatikan juga karena P_v bukan shortest path (rute alternative), terdapat vertex x yang belum di explore backward search (x-t is not shortest path) dan vertex y yang belum di explore forward search (s-y is not shortest path)
 		x tepat berada sebelum u dan y tepat setelah w, x-y bukan plateau karena subpath x-y bukan shortest path, shg u-w adalah maximal paths that appear in both trees simultaneously
 	*/
 
@@ -793,7 +793,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			if explored := pb.IsExplored(ps.Get(u).GetParent().GetEdge()); !explored {
 				// qParentOverlay -qShortcut-> qOverlay -vShortcut-> vOverlay
 				// u == vOverlay, ps.Get(u).GetParent().GetEdge() == qOverlay
-				// kalau qOverlay udah di scan di backward search kita bisa lanjut backtrack
+				// kalau qOverlay udah di explore di backward search kita bisa lanjut backtrack
 				// else: vOverlay (atau u) adalah overlayVertex pertama dari plateau path
 
 				break
@@ -821,7 +821,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			}
 
 			if explored := pb.IsExplored(offQOutId); !explored {
-				// kalau qInEdge udah di scan di backward search kita bisa lanjut backtrack
+				// kalau qInEdge udah di explore di backward search kita bisa lanjut backtrack
 				// else: vInEdge (atau u) adalah entryEdge pertama dari plateau path
 				break
 			}
@@ -904,7 +904,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, oriVId, viaInId, via
 			// v -vOutEdge/qInEdge-> q -qOutEdge/qParentInEdge-> qParent
 			// u == vOutEdge,  pb.Get(u).GetParent().GetEdge() == qOutEdge, pb.Get(u).GetParent().vertex=q
 
-			// cek qParentInEdge udah di scan di forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOutEdge
+			// cek qParentInEdge udah di explore di forward search, kalau yes, backtrack ke parent_backward_search(u) atau qOutEdge
 			v := uVId
 			vOutId := ars.engine.adjustBackward(v, u)
 			_, qInEdge := ars.engine.graph.GetTailOfOutedgeWithInEdge(vOutId)

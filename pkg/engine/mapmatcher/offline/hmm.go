@@ -56,6 +56,8 @@ implementation of:
 Newson, P. & Krumm, J., (2009). "Hidden Markov map matching through noise and
 sparseness". Proceedings of the 17th ACM SIGSPATIAL International Conference
 on Advances in Geographic Information Systems (GIS ‘09), pp.336–343.
+
+evaluation/tests suite di: tests/mapmatching/ (cari yang ada nama Offline di test funtions nya)
 */
 func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate) {
 	return h.mapMatchWithGPSRadiuses(gpsTraj, gpsRadiusesM)

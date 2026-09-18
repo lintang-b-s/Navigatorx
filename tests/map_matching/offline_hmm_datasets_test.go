@@ -1313,7 +1313,7 @@ func TestGisCupOfflineHMMMapMatching(t *testing.T) {
 		}
 
 		crp, rmf := ohmmComputeEdgeSetMetrics(graph, groundTruthEdgeIDs, matchedPoints, edgeLengths)
-		t.Logf("GIS Cup case %s: CRP=%v RMF=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
+		t.Logf("GIS Cup case %s: Accuracy=%v RMF=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
 			tc.id, crp, rmf, len(matchedPoints), len(gpsTraj), avgRuntime)
 
 		ohmmWritePolyline(t, filepath.Join(workingDir, "data/eval/mapmatching/GisContestTrainingData/polylines/offline_hmm_result_polyline_"+tc.id+".txt"), matchedPoints)
@@ -1324,7 +1324,7 @@ func TestGisCupOfflineHMMMapMatching(t *testing.T) {
 
 	avgCRP := totalCRP / float64(len(cases))
 	avgRMF := totalRMF / float64(len(cases))
-	t.Logf("GIS Cup offline HMM aggregate: cases=%d points=%d avg_CRP=%v avg_RMF=%v", len(cases), totalPoints, avgCRP, avgRMF)
+	t.Logf("GIS Cup offline HMM aggregate: cases=%d points=%d avg_Accuracy=%v avg_RMF=%v", len(cases), totalPoints, avgCRP, avgRMF)
 	if avgCRP < ohmmExpectedMinGisCupAccuracy {
 		t.Fatalf("GIS Cup accuracy below threshold: got %v, want >= %v", avgCRP, ohmmExpectedMinGisCupAccuracy)
 	}
@@ -1365,7 +1365,7 @@ func TestHengfengLiOfflineHMMMapMatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("compute Melbourne metrics failed: %v", err)
 	}
-	t.Logf("Hengfeng Li offline HMM: CRP=%v RMF=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
+	t.Logf("Hengfeng Li offline HMM: Accuracy=%v RMF=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
 		crp, rmf, len(matchedPoints), len(gpsTraj), avgRuntime)
 
 	ohmmWritePolyline(t, filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_result_polyline.txt"), matchedPoints)
