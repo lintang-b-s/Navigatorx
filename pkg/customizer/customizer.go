@@ -95,7 +95,7 @@ func NewCustomizerDirect[W util.RoutingNumber](
 func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 	c.turnCost = true
 	var err error
-	if pkg.TIPE == pkg.ROUTER {
+	if pkg.TIPE == pkg.ROUTER || pkg.TIPE == pkg.TEST {
 		// only for osm routiing engine
 		rf := config.ProfilesRoot()
 		seglkFilename := fmt.Sprintf("%s/%s/%s_segment.nlk", rf, pkg.ProfileName, pkg.RegionName)

@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -24,6 +26,8 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 	const filename = "yogyakarta"
 	eng, logger, cust := tests.Setup(t, filename)
 	re := eng.GetRoutingEngine()
+
+	config.InitRegionName(filename, pkg.TEST)
 
 	rtree := spatialindex.NewRtree()
 	altSearch := routing.NewAlternativeRouteSearch(re)
@@ -299,6 +303,8 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 				}
 				t.Errorf("expected pass through the updated road segments: %t, got: %t.\n updated road segments: %v .\n reason: %v", beforeCustomizationWantPassThroughTheUpdatedRoadSegments, gotPassThrough,
 					tc.updatedSegmentSpeeds, valhallaVisualizerPolylineUrl(spPolyline))
+			} else {
+				t.Logf("before customization/traffic-update route polyline: %s", valhallaVisualizerPolylineUrl(spPolyline))
 			}
 
 			// kustomisasi  kustomisasi pakai segment speeds csv file...
@@ -319,7 +325,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 			}
 
 			logger.Sugar().Infof("waiting for the routing engine to update its metrics...")
-			time.Sleep(2 * time.Second) // biarkan  engine_background_worker.go bekerja dulu
+			time.Sleep(6 * time.Second) // biarkan  engine_background_worker.go bekerja dulu
 			// setelah kustomisasi, rute yang direturn harus gak lewat jalan jalan yang diblokade (tc.updatedSegments)
 
 			// cek shortest path route
@@ -332,13 +338,15 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 				spPathAfter = append(spPathAfter, stepSegmentIds...)
 			}
 
+			t.Logf("after customization/traffic-update route polyline: %s", valhallaVisualizerPolylineUrl(spPolyline))
+
 			if reason, correct := isCorrect(spPathAfter, tc.updatedSegmentSpeeds, tc.wantToPassThroughTheUpdatedRoadSegments); !correct {
 				gotPassThrough := false
 				if tc.wantToPassThroughTheUpdatedRoadSegments == false {
 					gotPassThrough = true
 				}
-				t.Errorf("expected pass through the updated road segments: %t, got: %t.\n updated road segments: %v .\n reason: %v.", tc.wantToPassThroughTheUpdatedRoadSegments, gotPassThrough,
-					tc.updatedSegmentSpeeds, reason)
+				t.Errorf("expected pass through the updated road segments: %t, got: %t.\n updated road segments: %v .\n reason: %v. polyline: %s", tc.wantToPassThroughTheUpdatedRoadSegments, gotPassThrough,
+					tc.updatedSegmentSpeeds, reason, valhallaVisualizerPolylineUrl(spPolyline))
 			}
 		})
 	}
