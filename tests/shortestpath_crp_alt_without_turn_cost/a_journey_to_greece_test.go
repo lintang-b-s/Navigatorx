@@ -46,6 +46,8 @@ dp(S,j) = min(dp(S\{j}, i) + w(i,j)), for all i != j
 solution:
 min(dp(V,j)+w(j,0)), for all j.
 
+it is easy to see that this dp recurrence has optimal substructure & overlapping subproblems.
+
 dpTSP compute minimum cost at vertex u and have visited all vertices described by off bit in mask.
 time: O(2^{n-1}*n^2), number of subsets 2^{n-1} * number of possible value of j * worst case O(n) works for each state
 */
@@ -216,7 +218,7 @@ func solveGreece(t *testing.T, filepath string) {
 		// jumlah cut edges dari partition banyak -> shortcut edges banyak & gak make sense
 		us = []int{25, 26}
 	}
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, us, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "a_journey_to_greece", nodeCoords, adjList, n, us, true)
 
 	source := 0
 
@@ -341,7 +343,7 @@ func TestCRPQueryAJourneyToGreeceMALT(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-ALT without turn cost"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT without turn cost/"+dir+"/"+baseName, func(t *testing.T) {
 				solveGreece(t, testPath)
 			})
 

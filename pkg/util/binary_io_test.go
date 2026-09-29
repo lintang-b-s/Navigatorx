@@ -14,7 +14,7 @@ import (
 
 func TestCompressedArtifactRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "artifact.bin")
-	if err := WriteCompressedArtifact(path, func(w *BinaryWriter) error {
+	if err := WriteCompressedFile(path, func(w *BinaryWriter) error {
 		if err := w.Uint32(42); err != nil {
 			return err
 		}
@@ -22,7 +22,7 @@ func TestCompressedArtifactRoundTrip(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	file, reader, err := OpenCompressedArtifact(path)
+	file, reader, err := OpenCompressedFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestCompressedArtifactRoundTrip(t *testing.T) {
 	if err != nil || value != 42 {
 		t.Fatalf("Uint32() = %d, %v", value, err)
 	}
-	text, err := reader.String(32)
+	text, err := reader.String()
 	if err != nil || text != "navigatorx" {
 		t.Fatalf("String() = %q, %v", text, err)
 	}
@@ -45,15 +45,8 @@ func TestBinaryWriterWriteFloat64s(t *testing.T) {
 	}
 
 	reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
-	length, err := reader.Length(uint32(len(values)))
+	got, err := reader.ReadFloat64s()
 	if err != nil {
-		t.Fatal(err)
-	}
-	if length != uint32(len(values)) {
-		t.Fatalf("length = %d, want %d", length, len(values))
-	}
-	got := make([]float64, length)
-	if err := reader.ReadFloat64s(got); err != nil {
 		t.Fatal(err)
 	}
 	for i := range values {
@@ -65,7 +58,7 @@ func TestBinaryWriterWriteFloat64s(t *testing.T) {
 
 func TestCompressedArtifactHeader(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "artifact.bin")
-	if err := WriteCompressedArtifact(path, func(*BinaryWriter) error { return nil }); err != nil {
+	if err := WriteCompressedFile(path, func(*BinaryWriter) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
 	file, err := os.Open(path)
@@ -110,9 +103,9 @@ func TestCompressedArtifactRejectsInvalidEnvelope(t *testing.T) {
 			if err := os.WriteFile(path, header, 0600); err != nil {
 				t.Fatal(err)
 			}
-			_, _, err := OpenCompressedArtifact(path)
+			_, _, err := OpenCompressedFile(path)
 			if err == nil || !strings.Contains(err.Error(), tt.want) {
-				t.Fatalf("OpenCompressedArtifact() error = %v, want %q", err, tt.want)
+				t.Fatalf("OpenCompressedFile() error = %v, want %q", err, tt.want)
 			}
 		})
 	}
@@ -120,7 +113,7 @@ func TestCompressedArtifactRejectsInvalidEnvelope(t *testing.T) {
 
 func TestCompressedArtifactRejectsTruncatedPayload(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "artifact.bin")
-	if err := WriteCompressedArtifact(path, func(w *BinaryWriter) error {
+	if err := WriteCompressedFile(path, func(w *BinaryWriter) error {
 		return w.Uint64(42)
 	}); err != nil {
 		t.Fatal(err)
@@ -132,7 +125,7 @@ func TestCompressedArtifactRejectsTruncatedPayload(t *testing.T) {
 	if err := os.Truncate(path, info.Size()-1); err != nil {
 		t.Fatal(err)
 	}
-	file, reader, err := OpenCompressedArtifact(path)
+	file, reader, err := OpenCompressedFile(path)
 	if err != nil {
 		t.Fatal(err)
 	}

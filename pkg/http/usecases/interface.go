@@ -8,7 +8,7 @@ import (
 )
 
 type AlternativeRouteAlgorithm interface {
-	FindAlternativeRoutes(sp, tp da.PhantomNode, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, float64, int64)
+	FindAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, float64, int64)
 }
 
 type SpatialIndex interface {

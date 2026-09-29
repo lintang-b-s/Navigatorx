@@ -3,23 +3,23 @@ package landmark
 import (
 	"sync"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type Dijkstra[W util.RoutingNumber] struct {
 	graph *da.Graph
-	cf    *costfunction.TimeFunction[W]
+	cf    *met.TimeFunction[W]
 
-	pq *da.QueryHeap[da.CRPQueryKey, W]
+	pq *da.QueryHeap[da.QueryKey, W]
 
 	useReverseGraph bool
 
 	numSettledNodes int
 }
 
-func NewDijkstra[W util.RoutingNumber](graph *da.Graph, cf *costfunction.TimeFunction[W], useReverseGraph bool) *Dijkstra[W] {
+func NewDijkstra[W util.RoutingNumber](graph *da.Graph, cf *met.TimeFunction[W], useReverseGraph bool) *Dijkstra[W] {
 	dj := &Dijkstra[W]{
 		graph:           graph,
 		useReverseGraph: useReverseGraph,
@@ -46,7 +46,7 @@ buat precalculated landmark sp distances (untuk potential/heuristic ALT (A*, lan
 kita gak perlu pakai turn costs karena kalau misal pake turn costs di fase query Customizable Route Planning (CRP), potential/heuristic nya masih underestimate true sp dist dan masih memenuhi sifat konsisten/feasible...
 */
 func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
-	us.pq = heapPool.Get().(*da.QueryHeap[da.CRPQueryKey, W])
+	us.pq = heapPool.Get().(*da.QueryHeap[da.QueryKey, W])
 	us.pq.Clear()
 
 	done := func() {
@@ -54,10 +54,10 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
 	}
 	defer done()
 
-	noPar := da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false)
+	noPar := da.NewParentVertex(da.INVALID_VERTEX_ID)
 
-	djKey := da.NewDijkstraKey(s, s)
-	us.pq.Insert(s, 0, da.NewVertexData(W(0),
+	djKey := da.NewDijkstraKey(s)
+	us.pq.Insert(s, 0, da.NewVData(W(0),
 		noPar), djKey)
 
 	for !us.pq.IsEmpty() {
@@ -79,78 +79,54 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 	if !us.useReverseGraph {
 
 		// traverse outEdges of u
-		us.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
-			head := us.graph.GetHeadOfOutEdge(eId)
-
+		us.graph.ForOutEdgesOf(uId, func(eId, head, entryPoint da.Index) {
 			vId := head
-
 			edgeWeight := us.cf.GetWeight(eId)
-
 			// get cost to reach v through u
 			newVCost := us.pq.GetCost(uId) + edgeWeight
 
-			if util.Ge(newVCost, util.Infinity[W]()) {
-
-				return
-			}
-
-			vAlreadyLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
-
-			if vAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(vId)) {
+			ovCost := us.pq.GetCost(vId)
+			if util.Ge(newVCost, ovCost) {
 				// newVCost is not better, do nothing
-
 				return
 			}
 
+			vLabelled := util.Lt(ovCost, util.Infinity[W]())
 			// newVCost is better, update the forwardData
-
-			if vAlreadyLabelled {
-				newPar := da.NewVertexEdgePair(uId, eId, false)
+			if vLabelled {
+				newPar := da.NewParentVertex(uId)
 				// is key already in the priority queue, decrease its key
 				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
-
-			} else if !vAlreadyLabelled {
-				queryKey := da.NewDijkstraKey(vId, vId)
-				vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, eId, false))
-
+			} else if !vLabelled {
+				queryKey := da.NewDijkstraKey(vId)
+				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newVCost, vData, queryKey)
 			}
 		})
 	} else {
 		// use reversed edges
-
 		// traverse inEdges of u
-		us.graph.ForInEdgeIdsOf(uId, func(eId da.Index) {
-			tail := us.graph.GetTailOfInedge(eId)
-
+		us.graph.ForInEdgesOf(uId, func(eId, tail, exitPoint da.Index) {
 			vId := tail
-
-			eExitId := us.graph.GetOutIdOfInEdge(eId)
-			edgeWeight := us.cf.GetWeight(eExitId)
-
+			oeId := us.graph.GetOutId(eId)
+			edgeWeight := us.cf.GetWeight(oeId)
 			newVCost := us.pq.GetCost(uId) + edgeWeight
-
-			if util.Ge(newVCost, util.Infinity[W]()) {
-				return
-			}
-
-			vAlreadyLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
-			if vAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(vId)) {
+			ovCost := us.pq.GetCost(vId)
+			if util.Ge(newVCost, ovCost) {
 				// newVCost is not better, do nothing
 				return
 			}
 
+			vLabelled := util.Lt(ovCost, util.Infinity[W]())
 			// newVCost is better, update the forwardData
-			if vAlreadyLabelled {
-				newPar := da.NewVertexEdgePair(uId, eId, false)
+			if vLabelled {
+				newPar := da.NewParentVertex(uId)
 				// is key already in the priority queue, decrease its key
 				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
-
-			} else if !vAlreadyLabelled {
-				queryKey := da.NewDijkstraKey(vId, vId)
-				vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, eId, false))
-
+			} else if !vLabelled {
+				queryKey := da.NewDijkstraKey(vId)
+				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newVCost, vData, queryKey)
 			}

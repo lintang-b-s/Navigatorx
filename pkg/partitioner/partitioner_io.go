@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -96,7 +97,8 @@ type cellVis struct {
 // buat nampilin kaya figure 1 di: https://www.microsoft.com/en-us/research/wp-content/uploads/2010/12/punchTR.pdf
 // atau figure 1 di: https://aschild.github.io/papers/roadseparator.pdf
 // buat visualizer nya ada di  eval/crp_alt/visualization/multilevel_partition_mlp_cells.html
-func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel(filename string) error {
+func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
+	filename := fmt.Sprintf("./data/inertial_flow_%s_%s.mlp", pkg.ProfileName, pkg.RegionName)
 
 	mlp := mp.BuildMLP()
 	levelData := da.NewLevelData(mlp.GetPVOffsets())
@@ -106,7 +108,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel(filename string) er
 	}
 	for u := da.Index(0); u < da.Index(mp.graph.NumberOfVertices()); u++ {
 		uVertex := mp.graph.GetVertex(u)
-		mp.graph.ForOutEdgesOfVertex(u, func(head, exitPoint da.Index) {
+		mp.graph.ForOutEdgesOf(u, func(eId da.Index, head da.Index, _ da.Index) {
 			v := head
 			vVertex := mp.graph.GetVertex(v)
 
@@ -175,7 +177,8 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel(filename string) er
 }
 
 // WriteOverlayVerticesInLevel write vertices inside each cells ke file.
-func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel(filename string) error {
+func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel() error {
+	filename := fmt.Sprintf("./data/inertial_flow_%s_%s.mlp", pkg.ProfileName, pkg.RegionName)
 
 	mlp := mp.BuildMLP()
 	levelData := da.NewLevelData(mlp.GetPVOffsets())

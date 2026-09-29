@@ -10,7 +10,7 @@ import (
 type DijkstraP2P[W util.RoutingNumber] struct {
 	engine *CRPRoutingEngine[W]
 
-	pq              *da.QueryHeap[da.CRPQueryKey, W]
+	pq              *da.QueryHeap[da.QueryKey, W]
 	runtime         int64
 	numSettledNodes int
 }
@@ -34,11 +34,11 @@ ini implementasi dijkstra point-to-point shortest path (p2psp)
 */
 func (us *DijkstraP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 
-	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
 
 	now := time.Now()
 
-	djKey := da.NewDijkstraKey(s, s)
+	djKey := da.NewDijkstraKey(s)
 	us.pq.Insert(s, 0, sVertexData, djKey)
 
 	for !us.pq.IsEmpty() {
@@ -69,30 +69,27 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 
 	// traverse outEdges of u
 	us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
-		head := us.engine.graph.GetHeadOfOutEdge(eId)
+		head := us.engine.graph.GetHead(eId)
 		vId := head
 		eWeight := us.engine.getWeight(eId, true)
 		// get cost to reach v through u
 		newVCost := us.pq.GetCost(uId) + eWeight
 
-		if util.Ge(newVCost, util.Infinity[W]()) {
-			return
-		}
-
-		vLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
-		if vLabelled && util.Ge(newVCost, us.pq.GetCost(vId)) {
+		ovCost := us.pq.GetCost(vId)
+		if util.Ge(newVCost, ovCost) {
 			// newVCost is not better, do nothing
 			return
 		}
 
+		vLabelled := util.Lt(ovCost, util.Infinity[W]())
 		// newVCost is better, update the forwardData
 		if vLabelled {
-			newPar := da.NewVertexEdgePair(uId, eId, false)
+			newPar := da.NewParentVertex(uId)
 			// is key already in the priority queue, decrease its key
 			us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
 		} else if !vLabelled {
-			queryKey := da.NewDijkstraKey(vId, vId)
-			vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, eId, false))
+			queryKey := da.NewDijkstraKey(vId)
+			vData := da.NewVData(newVCost, da.NewParentVertex(uId))
 			// is key not in the priority queue, insert it
 			us.pq.Insert(vId, newVCost, vData, queryKey)
 		}
@@ -105,8 +102,8 @@ func (us *DijkstraP2P[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
 
-	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
-	us.pq = da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+	maxVerticesInCell := us.engine.graph.GetMaxVerticesInCell()
+	us.pq = da.NewQueryHeap[da.QueryKey, W](uint32(maxSearchSize), uint32(maxVerticesInCell), da.ARRAY_STORAGE, true)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
 

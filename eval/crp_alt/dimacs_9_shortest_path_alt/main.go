@@ -12,12 +12,13 @@ import (
 	"strings"
 
 	crpalt "github.com/lintang-b-s/Navigatorx/eval/crp_alt"
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	op "github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	op "github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -103,6 +104,7 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	config.InitRegionName(*problemName, pkg.EVAL)
 
 	inputCoordPath := resolveProjectPath(workingDir, *inputCoordFilePath)
 	inputEdgesPath := resolveProjectPath(workingDir, *inputEdgesFilePath)

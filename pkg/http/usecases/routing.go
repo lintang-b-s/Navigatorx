@@ -3,14 +3,13 @@ package usecases
 import (
 	"context"
 	"fmt"
-	"sync"
 
-	"github.com/bytedance/gopkg/collection/hashset"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/offline"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/guidance"
-	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
+
+	cont "github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/maypok86/otter/v2"
@@ -19,21 +18,18 @@ import (
 
 type RoutingService struct {
 	log             *zap.Logger
-	engine          controllers.RoutingEngine
+	engine          cont.RoutingEngine
 	graph           *da.Graph
+	rn              *da.RoadNetworkDataContainer
 	spatialIndex    SpatialIndex
 	altRouting      AlternativeRouteAlgorithm
 	searchRadius    float64
 	lefthandDriving bool
 
-	// sync pools
-
-	directionBuilderPool *sync.Pool
-	candidatePairSetPool *sync.Pool
-	turnSignCache        *otter.Cache[uint64, uint64]
+	turnSignCache *otter.Cache[uint64, uint64]
 }
 
-func NewRoutingService(log *zap.Logger, engine controllers.RoutingEngine, spatialIndex SpatialIndex, altRouting AlternativeRouteAlgorithm,
+func NewRoutingService(log *zap.Logger, engine cont.RoutingEngine, rn *da.RoadNetworkDataContainer, spatialIndex SpatialIndex, altRouting AlternativeRouteAlgorithm,
 	searchRadius float64, lefthandDriving bool,
 ) (*RoutingService, error) {
 	rs := &RoutingService{
@@ -44,24 +40,10 @@ func NewRoutingService(log *zap.Logger, engine controllers.RoutingEngine, spatia
 		lefthandDriving: lefthandDriving,
 		graph:           engine.GetGraph(),
 		altRouting:      altRouting,
+		rn:              rn,
 	}
 
 	rs.turnSignCache = da.NewTurnSignCache()
-
-	rs.directionBuilderPool = &sync.Pool{
-		New: func() any {
-			return guidance.NewDirectionBuilder(rs.engine,
-				rs.engine.GetGraph(), rs.lefthandDriving,
-				rs.turnSignCache,
-			)
-		},
-	}
-	const candidatePairCapacity = (spatialindex.MAX_CANDIDATES * spatialindex.MAX_CANDIDATES) / 10
-	rs.candidatePairSetPool = &sync.Pool{
-		New: func() any {
-			return hashset.NewUint64WithSize(candidatePairCapacity)
-		},
-	}
 
 	return rs, nil
 }
@@ -70,19 +52,19 @@ func (rs *RoutingService) ShortestPath(
 	ctx context.Context,
 	qOrigLat, qOrigLon, qDstLat, qDstLon float64,
 	reroute bool,
-	startEdgeId da.Index,
+	startSegId da.Index,
 	useAnnotation bool,
 	useSteps bool,
 ) (float64, float64, string, []da.DrivingDirection, bool, error) {
 	var (
 		travelTime, dist  float64
 		pathCoords        *da.Coordinates
-		edgePath          []da.Index
+		segmentPath       []da.Index
 		found             bool
 		drivingDirections []da.DrivingDirection
 	)
 
-	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startEdgeId)
+	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startSegId)
 
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
@@ -90,7 +72,7 @@ func (rs *RoutingService) ShortestPath(
 	}
 
 	if !rs.isSameSourceDestinationSegment(sp, tp) {
-		travelTime, dist, pathCoords, edgePath, found = rs.engine.ShortestPathSearch(sp, tp, reroute)
+		travelTime, dist, pathCoords, segmentPath, found = rs.engine.ShortestPathSearch(sp, tp, reroute)
 	}
 
 	if !found {
@@ -103,13 +85,15 @@ func (rs *RoutingService) ShortestPath(
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 
 	if useSteps {
-		directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
+		directionBuilder := guidance.NewDirectionBuilder(rs.engine,
+			rs.engine.GetGraph(), rs.rn, rs.lefthandDriving,
+			rs.turnSignCache,
+		)
 		if reroute {
-			directionBuilder.SetReroute(startEdgeId)
+			directionBuilder.SetReroute(startSegId)
 		}
-		drivingDirections = directionBuilder.GetDrivingDirections(edgePath, sp, tp, useAnnotation)
-		directionBuilder.Reset()
-		rs.directionBuilderPool.Put(directionBuilder)
+		drivingDirections = directionBuilder.GetDrivingDirections(segmentPath, sp, tp, useAnnotation)
+
 	}
 
 	rs.engine.PutCoordsToPool(pathCoords)
@@ -121,12 +105,12 @@ func (rs *RoutingService) AlternativeRouteSearch(
 	qOrigLat, qOrigLon, qDstLat, qDstLon float64,
 	k int,
 	reroute bool,
-	startEdgeId da.Index,
+	startSegId da.Index,
 	useAnnotation bool,
 	useSteps bool,
 ) ([]routing.AlternativeRoute, error) {
 
-	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startEdgeId)
+	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startSegId)
 
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 		return make([]routing.AlternativeRoute, 0), util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
@@ -137,7 +121,7 @@ func (rs *RoutingService) AlternativeRouteSearch(
 		return make([]routing.AlternativeRoute, 0), nil
 	}
 
-	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp, tp, k, reroute, startEdgeId)
+	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp.GetVId(), tp.GetVId(), k, reroute, startSegId)
 	if len(alternatives) == 0 {
 		return make([]routing.AlternativeRoute, 0), nil
 	}
@@ -146,20 +130,21 @@ func (rs *RoutingService) AlternativeRouteSearch(
 		var drivingDirections []da.DrivingDirection
 
 		altPathCoords := alt.GetCoords()
-		newCost, dist := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alt.GetDrivingCost(), alt.GetDist())
-		alternatives[i].SetDrivingCost(newCost) // in seconds
+		newCost, dist := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alt.GetTravelTime(), alt.GetDist())
+		alternatives[i].SetTravelTime(newCost) // in seconds
 		alternatives[i].SetDist(dist)
 
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
 		alternatives[i].SetPolylinePath(pathPolyline)
 		if useSteps {
-			directionBuilder := rs.directionBuilderPool.Get().(*guidance.DirectionBuilder)
+			directionBuilder := guidance.NewDirectionBuilder(rs.engine,
+				rs.engine.GetGraph(), rs.rn, rs.lefthandDriving,
+				rs.turnSignCache,
+			)
 			if reroute {
-				directionBuilder.SetReroute(startEdgeId)
+				directionBuilder.SetReroute(startSegId)
 			}
-			drivingDirections = directionBuilder.GetDrivingDirections(alt.GetEdgeIdPath(), sp, tp, useAnnotation)
-			directionBuilder.Reset()
-			rs.directionBuilderPool.Put(directionBuilder)
+			drivingDirections = directionBuilder.GetDrivingDirections(alt.GetSegmentPath(), sp, tp, useAnnotation)
 		}
 
 		alternatives[i].SetDrivingDirections(drivingDirections)
@@ -176,33 +161,29 @@ func (rs *RoutingService) Close() {
 
 func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64, dist float64) (float64, float64) {
 
-	if !rs.engine.IsDummyOutEdge(sp.GetOutEdgeId()) {
-		if !rs.isSameSourceDestinationSegment(sp, tp) {
-			spgeom := sp.GetForwardGeometry()
-			path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, spgeom...))
-		} else {
-			path.Prepend([]da.Coordinate{sp.GetSnappedCoord()})
-		}
-		travelTime += sp.GetForwardCost()
-		dist += sp.GetForwardDistance()
+	if !rs.isSameSourceDestinationSegment(sp, tp) {
+		spgeom := sp.GetForwardGeometry()
+		path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, spgeom...))
+	} else {
+		path.Prepend([]da.Coordinate{sp.GetSnappedCoord()})
+	}
+	travelTime -= sp.GetForwardCost() // by default pakai edge-based graph, hasil router added duration/travelTime dari road segment s
+	dist += sp.GetForwardDistance()   // kita gak tambahin distance dari projected s ke head dari road segment s di GetEdgePath()
+
+	if !rs.isSameSourceDestinationSegment(sp, tp) {
+		path.Append(tp.GetReverseGeometry())
+		path.AppendCoordinate(tp.GetSnappedCoord())
+	} else {
+		path.AppendCoordinate(tp.GetSnappedCoord())
 	}
 
-	if !rs.engine.IsDummyInEdge(tp.GetInEdgeId()) {
-		if !rs.isSameSourceDestinationSegment(sp, tp) {
-			path.Append(tp.GetReverseGeometry())
-			path.AppendCoordinate(tp.GetSnappedCoord())
-		} else {
-			path.AppendCoordinate(tp.GetSnappedCoord())
-		}
-
-		travelTime += tp.GetReverseCost()
-		dist += tp.GetReverseDistance()
-	}
+	travelTime += tp.GetReverseCost() // by default pakai edge-based graph, hasil router gak add duration/travelTime dari road segment t
+	dist += tp.GetReverseDistance()   // kita gak tambahin distance dari projected t ke head dari road segment t di GetEdgePath()
 
 	return travelTime, dist
 }
 
-func (rs *RoutingService) GetRoutingEngine() controllers.RoutingEngine {
+func (rs *RoutingService) GetRoutingEngine() cont.RoutingEngine {
 	return rs.engine
 }
 
@@ -211,7 +192,7 @@ func (rs *RoutingService) Snap(ctx context.Context, qOrigLat, qOrigLon, qDstLat,
 		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
 	}
 
-	return rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, false, da.INVALID_EDGE_ID)
+	return rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, false, da.INVALID_SEGMENT_ID)
 }
 
 func (rs *RoutingService) GetBoundingBox(ctx context.Context) da.BoundingBox {

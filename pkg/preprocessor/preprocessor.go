@@ -2,43 +2,56 @@
 package preprocessor
 
 import (
+	"fmt"
 	"math"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
 type Preprocessor[W util.RoutingNumber] struct {
-	graph                                                                  *da.Graph
-	mlp                                                                    *da.MultilevelPartition
-	overlayGraph                                                           *da.OverlayGraph
-	logger                                                                 *zap.Logger
-	newVIdMap                                                              []da.Index
-	newToOldVIdMap                                                         map[da.Index]da.Index
-	edgeDataIds                                                            [][]da.Index
-	timeFunction                                                           *costfunction.TimeFunction[W]
-	graphFilename, overlayGraphFilename, preprocessingTimeFunctionFilename string
-	writeTiles                                                             bool
+	graph                                                                              *da.Graph
+	rn                                                                                 *da.RoadNetworkDataContainer
+	mlp                                                                                *da.MultilevelPartition
+	overlayGraph                                                                       *da.OverlayGraph
+	logger                                                                             *zap.Logger
+	oToNewVId                                                                          []da.Index
+	nToOldVId                                                                          map[da.Index]da.Index
+	timeFunction                                                                       *met.TimeFunction[W]
+	graphFilename, overlayGraphFilename, prepCostFunctionFilename, rnContainerFilename string
+	writeTiles                                                                         bool
 }
 
-func NewPreprocessor[W util.RoutingNumber](graph *da.Graph, timeFunction *costfunction.TimeFunction[W], mlp *da.MultilevelPartition,
-	logger *zap.Logger, gFilename string, ogFilename string, edgeDataIds [][]da.Index,
+func getPrepFilePath(fileType pkg.FILE_TYPE) (graph, overlayGraph, roadNetwork string) {
+	root := config.ProfilesRoot()
+	base := fmt.Sprintf("%s/%s/%s", root, pkg.ProfileName, pkg.RegionName)
+	return base + ".ngraph",
+		base + "_overlay_graph.ngraph",
+		base + "_road_network.ndata"
+}
+
+func NewPreprocessor[W util.RoutingNumber](graph *da.Graph, rn *da.RoadNetworkDataContainer, timeFunction *met.TimeFunction[W], mlp *da.MultilevelPartition,
+	logger *zap.Logger, fileType pkg.FILE_TYPE,
 ) *Preprocessor[W] {
+	gf, ogf, rnf := getPrepFilePath(fileType)
 	return &Preprocessor[W]{
-		graph:                             graph,
-		mlp:                               mlp,
-		logger:                            logger,
-		newVIdMap:                         make([]da.Index, graph.NumberOfVertices()),
-		newToOldVIdMap:                    make(map[da.Index]da.Index, graph.NumberOfVertices()),
-		graphFilename:                     gFilename,
-		overlayGraphFilename:              ogFilename,
-		preprocessingTimeFunctionFilename: costfunction.PreprocessingTimeFunctionPath(gFilename),
-		edgeDataIds:                       edgeDataIds,
-		timeFunction:                      timeFunction,
-		writeTiles:                        true,
+		graph:                    graph,
+		mlp:                      mlp,
+		rn:                       rn,
+		logger:                   logger,
+		oToNewVId:                make([]da.Index, graph.NumberOfVertices()),
+		nToOldVId:                make(map[da.Index]da.Index, graph.NumberOfVertices()),
+		graphFilename:            gf,
+		overlayGraphFilename:     ogf,
+		prepCostFunctionFilename: met.PrepTimeFunctionPath(),
+		timeFunction:             timeFunction,
+		rnContainerFilename:      rnf,
+		writeTiles:               true,
 	}
 }
 
@@ -53,7 +66,9 @@ func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Assign each vertices cell numbers....")
 	p.BuildCellNumber()
 	p.logger.Sugar().Infof("Sort vertices by its level-1 cell....")
-	p.SortByCellNumber()
+	if err := p.SortByCellNumber(); err != nil {
+		return err
+	}
 
 	p.logger.Sugar().Infof("Building Overlay Graph of each levels....")
 	p.overlayGraph = da.NewOverlayGraph(p.graph, p.mlp)
@@ -64,8 +79,14 @@ func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 
 	p.logger.Sugar().Infof("Running Kosaraju's algorithm to find strongly connected components (SCCs)...")
 	p.graph.RunKosaraju()
-
 	p.logger.Sugar().Infof("Writing graph to ./data/original.ngraph")
+
+	if p.graph.IsRoadNetworkGraph() {
+		err := p.buildLookupTable()
+		if err != nil {
+			return err
+		}
+	}
 
 	if writefile {
 		err := p.overlayGraph.WriteToFile(p.overlayGraphFilename)
@@ -75,7 +96,7 @@ func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 
 		// write graph tiles
 		if p.writeTiles {
-			tilingEngine := tiler.NewTilingEngine(p.graph, p.logger, p.timeFunction)
+			tilingEngine := tiler.NewTilingEngine(p.graph, p.rn, p.logger, p.timeFunction)
 			if err := tilingEngine.PreprocessTiles(); err != nil {
 				return err
 			}
@@ -84,9 +105,45 @@ func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 		if err := p.graph.WriteGraph(p.graphFilename); err != nil {
 			return err
 		}
-		return p.timeFunction.WritePreprocessingToFile(p.preprocessingTimeFunctionFilename)
+
+		if err := p.rn.WriteToFile(p.rnContainerFilename); err != nil {
+			return err
+		}
+
+		return p.timeFunction.WriteToFile(p.prepCostFunctionFilename)
 	}
 
+	return nil
+}
+
+func (p *Preprocessor[W]) buildLookupTable() error {
+	ebgvNum := p.graph.NumberOfVertices()
+	segmentKVs := make([]*da.SegmentKV, 0, ebgvNum)
+	segmentTurnKVs := make([]*da.TurnKV, 0, ebgvNum)
+
+	p.graph.ForVertices(func(_ da.Vertex, u da.Index) {
+		uOsmId, vOsmId := p.rn.GetTailHeadOsmNodeId(u)
+		p.graph.ForOutEdgesOf(u, func(eId, v, entryPoint da.Index) {
+			_, wOsmId := p.rn.GetTailHeadOsmNodeId(v)
+			segmentTurnKVs = append(segmentTurnKVs, da.NewTurnKV(uint64(uOsmId), uint64(vOsmId), uint64(wOsmId), eId))
+		})
+		segmentKVs = append(segmentKVs, da.NewSegmentKV(uint64(uOsmId), uint64(vOsmId), u))
+	})
+
+	p.logger.Sugar().Infof("writing segments & turn lookup table...")
+	segmentLookupTable := da.NewLookupTable[*da.SegmentKV](segmentKVs)
+	turnLookupTable := da.NewLookupTable[*da.TurnKV](segmentTurnKVs)
+	rf := config.ProfilesRoot()
+	seglkFilename := fmt.Sprintf("%s/%s/%s_segment.nlk", rf, pkg.ProfileName, pkg.RegionName)
+	turnlkFilename := fmt.Sprintf("%s/%s/%s_turn.nlk", rf, pkg.ProfileName, pkg.RegionName)
+	err := segmentLookupTable.WriteToFile(seglkFilename)
+	if err != nil {
+		return fmt.Errorf("preprocessor.buildLookupTable: failed to write segmentkvs lookup table: %w", err)
+	}
+	err = turnLookupTable.WriteToFile(turnlkFilename)
+	if err != nil {
+		return fmt.Errorf("preprocessor.buildLookupTable: failed to write turnkvs lookup table: %w", err)
+	}
 	return nil
 }
 
@@ -111,9 +168,10 @@ func (p *Preprocessor[W]) BuildCellNumber() {
 }
 
 /*
-group vertices s.t. vertices within the same cell are adjacent to each other
+SortByCellNumber. group vertices s.t. vertices within the same cell are adjacent to each other
+adapted from https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.cpp
 */
-func (p *Preprocessor[W]) SortByCellNumber() {
+func (p *Preprocessor[W]) SortByCellNumber() error {
 	cellVertices := make([][]struct {
 		vertex        da.Vertex
 		originalIndex da.Index
@@ -122,13 +180,18 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 	minLat, minLon := math.MaxFloat64, math.MaxFloat64
 	maxLat, maxLon := math.Inf(-1), math.Inf(-1)
 
-	numOutEdgesInCell := make([]da.Index, p.graph.GetNumberOfCellsNumbers()) // number of outEdges in each cell
-	numInEdgesInCell := make([]da.Index, p.graph.GetNumberOfCellsNumbers())
+	numVerticesInCell := make([]da.Index, p.graph.GetNumberOfCellsNumbers()) // number of outEdges in each cell
 
-	oEdges := make([][]da.OutEdge, p.graph.NumberOfVertices()) // copy of original outEdges of each vertex
-	iEdges := make([][]da.InEdge, p.graph.NumberOfVertices())
+	type oldEdge struct {
+		id da.Index
+		v  da.Index // head if outgoing Edge. tail if incoming edge.
+	}
 
-	p.graph.SetMaxEdgesInCell(da.Index(0)) // maximum number of edges in any cell
+	oEdges := make([][]oldEdge, p.graph.NumberOfVertices()) //
+	iEdges := make([][]oldEdge, p.graph.NumberOfVertices())
+
+	p.graph.SetMaxVerticesInCell(da.Index(0)) // maximum number of edges in any cell
+
 	for i := da.Index(0); i < da.Index(p.graph.NumberOfVertices()); i++ {
 		cell := p.graph.GetVertexPvPtr(i) // cellNumber
 
@@ -138,21 +201,15 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 			originalIndex da.Index
 		}{vertex: vertex, originalIndex: i})
 
-		oEdges[i] = make([]da.OutEdge, p.graph.GetOutDegree(i))
-		iEdges[i] = make([]da.InEdge, p.graph.GetInDegree(i))
+		oEdges[i] = make([]oldEdge, p.graph.GetOutDegree(i))
+		iEdges[i] = make([]oldEdge, p.graph.GetInDegree(i))
 
 		k := da.Index(0)
 		eOut := p.graph.GetVertexFirstOut(i)
 		for eOut < p.graph.GetVertexFirstOut(i+1) {
-			oEdge := p.graph.GetOutEdge(eOut)
-			newOEdge := da.NewOutEdge(
-				oEdge.GetEdgeId(),
-				oEdge.GetHead(),
-				oEdge.GetEntryPoint(),
-				oEdge.GetHighwayType(),
-			)
-			newOEdge.SetFlag(oEdge.GetFlag())
-			oEdges[i][k] = newOEdge
+			head := p.graph.GetHead(eOut)
+
+			oEdges[i][k] = oldEdge{id: eOut, v: head}
 			eOut++
 			k++
 		}
@@ -160,29 +217,14 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 		k = da.Index(0)
 		eIn := p.graph.GetVertexFirstIn(i)
 		for eIn < p.graph.GetVertexFirstIn(i+1) {
-			inEdge := p.graph.GetInEdge(eIn)
-			newInEdge := da.NewInEdge(
-				inEdge.GetEdgeId(),
-				inEdge.GetTail(),
-				inEdge.GetExitPoint(),
-				inEdge.GetHighwayType(),
-			)
-			newInEdge.SetFlag(inEdge.GetFlag())
-			iEdges[i][k] = newInEdge
+			tail := p.graph.GetTail(eIn)
+
+			iEdges[i][k] = oldEdge{id: eIn, v: tail}
 			eIn++
 			k++
 		}
 
-		numOutEdgesInCell[cell] += p.graph.GetOutDegree(i)
-		numInEdgesInCell[cell] += p.graph.GetInDegree(i)
-
-		if p.graph.GetMaxEdgesInCell() < numOutEdgesInCell[cell] {
-			p.graph.SetMaxEdgesInCell(numOutEdgesInCell[cell])
-		}
-
-		if p.graph.GetMaxEdgesInCell() < numInEdgesInCell[cell] {
-			p.graph.SetMaxEdgesInCell(numInEdgesInCell[cell])
-		}
+		numVerticesInCell[cell] += 1
 
 		vCoord := p.graph.GetVertexCoordinate(i)
 		minLat = min(minLat, vCoord.GetLat())
@@ -191,91 +233,92 @@ func (p *Preprocessor[W]) SortByCellNumber() {
 		maxLon = max(maxLon, vCoord.GetLon())
 	}
 
+	for _, nv := range numVerticesInCell {
+		if nv > p.graph.GetMaxVerticesInCell() {
+			p.graph.SetMaxVerticesInCell(nv)
+		}
+	}
+
 	p.graph.SetBoundingBox(da.NewBoundingBox(minLat, minLon, maxLat, maxLon))
 
-	p.newVIdMap = make([]da.Index, p.graph.NumberOfVertices()) // new vertex id after sorting by cell number
-	newVid := da.Index(0)                                      // new vertex id after sorting by cell number
+	p.oToNewVId = make([]da.Index, p.graph.NumberOfVertices()+1) // new vertex id after sorting by cell number
+	newVid := da.Index(0)                                        // new vertex id after sorting by cell number
 	for i := 0; i < len(cellVertices); i++ {
 		for v := 0; v < len(cellVertices[i]); v++ {
-			p.newVIdMap[cellVertices[i][v].originalIndex] = newVid
-			p.newToOldVIdMap[newVid] = cellVertices[i][v].originalIndex
+			p.oToNewVId[cellVertices[i][v].originalIndex] = newVid
+			p.nToOldVId[newVid] = cellVertices[i][v].originalIndex
 			newVid++
 		}
 	}
 
-	newOutEdgeId := da.Index(0)                                      // new id for outEdges for each vertex for each cell
+	noeId := da.Index(0)                                             // new id for outEdges for each vertex for each cell
 	p.graph.MakeOutEdgeCellOffset(p.graph.GetNumberOfCellsNumbers()) // offset of first outEdge for each cell
-	newInEdgeId := da.Index(0)                                       // new id for inEdges for each vertex for each cell
+	nieId := da.Index(0)                                             // new id for inEdges for each vertex for each cell
 	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
 
 	vId := da.Index(0)
 
-	edgeIdsPerm := make([]int, p.graph.NumberOfOutEdges())
-	edgeMetaIdsPerm := make([]int, p.graph.NumberOfOutEdges())
-	vertexIdsPerm := make([]int, p.graph.GetNumberOfVerticesWithDummyVertex())
-	vertexIdsPerm[len(vertexIdsPerm)-1] = len(vertexIdsPerm) - 1
+	ePerm := make([]int, p.graph.NumberOfEdges()) // permutation that maps new edge id to old edge id
+	eRevPerm := make([]int, p.graph.NumberOfEdges())
+	nPerm := make([]int, p.graph.NumberOfVertices()+1)
+	nPerm[len(nPerm)-1] = len(nPerm) - 1
 
 	for i := da.Index(0); i < da.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
-		p.graph.SetOutEdgeCellOffset(i, newOutEdgeId)
-		p.graph.SetInEdgeCellOffset(i, newInEdgeId)
+		p.graph.SetHeadCellOffset(i, noeId)
+		p.graph.SetTailCellOffset(i, nieId)
 
 		for v := da.Index(0); v < da.Index(len(cellVertices[i])); v++ {
 			// update vertex to use new vId
 			// in the end of the outer loop, graph vertices are sorted by cell number
 
 			vOldId := cellVertices[i][v].originalIndex
-			vertexIdsPerm[vId] = int(vOldId)
+			nPerm[vId] = int(vOldId)
 
-			p.graph.SetFirstOut(vOldId, newOutEdgeId)
-			p.graph.SetFirstIn(vOldId, newInEdgeId)
+			p.graph.SetFirstOut(vOldId, noeId)
+			p.graph.SetFirstIn(vOldId, nieId)
 			p.graph.SetVId(vOldId, vId)
 
 			// update outedges & inedges
 			for k := da.Index(0); k < da.Index(len(oEdges[vOldId])); k++ {
 
-				oldOutEdge := oEdges[vOldId][k]
-				newOutEdgeHead := p.newVIdMap[oldOutEdge.GetHead()]
-				newOutEdge := da.NewOutEdge(
-					newOutEdgeId, newOutEdgeHead, oldOutEdge.GetEntryPoint(), oldOutEdge.GetHighwayType(),
-				)
-				newOutEdge.SetFlag(oldOutEdge.GetFlag())
-				p.graph.SetOutEdge(newOutEdgeId, newOutEdge)
+				oe := oEdges[vOldId][k]
+				nHead := p.oToNewVId[oe.v]
+				p.graph.SetHead(noeId, nHead)
+				ePerm[noeId] = int(oe.id)
 
-				vExitPoint := oldOutEdge.GetEdgeId() - cellVertices[i][v].vertex.GetFirstOut()
-				oldEdgeMetaId := p.edgeDataIds[vOldId][vExitPoint]
-				edgeMetaIdsPerm[newOutEdgeId] = int(oldEdgeMetaId)
-
-				edgeIdsPerm[newOutEdgeId] = int(oldOutEdge.GetEdgeId())
-				newOutEdgeId++
+				noeId++
 			}
 
 			for k := da.Index(0); k < da.Index(len(iEdges[vOldId])); k++ {
-				oldInEdge := iEdges[vOldId][k]
-				newInEdgeTail := p.newVIdMap[oldInEdge.GetTail()]
-				newInEdge := da.NewInEdge(
-					newInEdgeId, newInEdgeTail, oldInEdge.GetExitPoint(),
-					oldInEdge.GetHighwayType(),
-				)
-				newInEdge.SetFlag(oldInEdge.GetFlag())
-				p.graph.SetInEdge(newInEdgeId, newInEdge)
-				newInEdgeId++
+				oie := iEdges[vOldId][k]
+				nTail := p.oToNewVId[oie.v]
+				p.graph.SetTail(nieId, nTail)
+				eRevPerm[nieId] = int(oie.id)
+				nieId++
 			}
 
 			vId++
 		}
 	}
 
-	p.graph.ApplyVerticesPermutation(vertexIdsPerm)
-	p.graph.ApplyEdgesMetadataPermutation(edgeMetaIdsPerm, edgeIdsPerm)
-	p.timeFunction.ApplyEdgesPermutation(edgeIdsPerm)
+	isRn := p.graph.IsRoadNetworkGraph()
+	p.graph.ApplyGraphPermutation(nPerm, ePerm, eRevPerm)
+	if isRn {
+		p.rn.ApplySegmentsPermutation(nPerm)
+		p.timeFunction.ApplySegmentsPermutation(ePerm, nPerm, isRn)
+	} else {
+		p.timeFunction.ApplySegmentsPermutation(ePerm, ePerm, isRn)
+	}
+
+	return nil
 }
 
-func (p *Preprocessor[W]) GetOldToNewVIdMap() []da.Index {
-	return p.newVIdMap
+func (p *Preprocessor[W]) GetOldToNewVId() []da.Index {
+	return p.oToNewVId
 }
 
-func (p *Preprocessor[W]) GetNewToOldVIdMap() map[da.Index]da.Index {
-	return p.newToOldVIdMap
+func (p *Preprocessor[W]) GetNewToOldVId() map[da.Index]da.Index {
+	return p.nToOldVId
 }
 
 func (p *Preprocessor[W]) GetOverlayGraph() *da.OverlayGraph {
@@ -286,6 +329,6 @@ func (p *Preprocessor[W]) GetGraph() *da.Graph {
 	return p.graph
 }
 
-func (p *Preprocessor[W]) GetTimeFunction() *costfunction.TimeFunction[W] {
+func (p *Preprocessor[W]) GetTimeFunction() *met.TimeFunction[W] {
 	return p.timeFunction
 }

@@ -6,7 +6,7 @@ import da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 type Candidate struct {
 	stateId            int
 	projectionId       da.Index
-	edgeId             da.Index // MapMatchGraph EdgeId
+	segmentId          da.Index // MapMatchGraph segmentId
 	distanceFromTail   float64
 	distanceFromHead   float64
 	travelTimeFromTail float64
@@ -21,9 +21,9 @@ type Candidate struct {
 
 }
 
-// EdgeId return MapMatchGraph EdgeId dari candidate
-func (c *Candidate) EdgeId() da.Index {
-	return c.edgeId
+// segmentId return MapMatchGraph segmentId dari candidate
+func (c *Candidate) GetSegmentId() da.Index {
+	return c.segmentId
 }
 
 func (c *Candidate) Weight() float64 {
@@ -50,10 +50,10 @@ func (c *Candidate) GetStateId() int {
 	return c.stateId
 }
 
-func NewCandidate(edgeId da.Index, weight, length float64,
+func NewCandidate(segmentId da.Index, weight, length float64,
 ) *Candidate {
 	return &Candidate{
-		edgeId:       edgeId,
+		segmentId:    segmentId,
 		weight:       weight,
 		length:       length,
 		projectionId: da.INVALID_VERTEX_ID,

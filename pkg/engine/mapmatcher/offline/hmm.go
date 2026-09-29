@@ -16,6 +16,7 @@ import (
 
 type HMM struct {
 	graph *da.Graph
+	rn    *da.RoadNetworkDataContainer
 	re    *routing.CRPRoutingEngine[int32]
 	rt    *spatialindex.Rtree
 }
@@ -238,13 +239,12 @@ func (h *HMM) mapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 		s := stateData[p.GetStateId()]
 		gps := gpsTraj[p.GetObservationId()]
 
-		stateEdgeId := s.EdgeId()
-		e := h.graph.GetOutEdge(stateEdgeId)
-		tail := h.graph.GetVertex(h.graph.GetTailOfOutedge(e.GetEdgeId()))
-		head := h.graph.GetVertex(e.GetHead())
+		sSegId := s.GetSegmentId()
+		tail := h.rn.GetSegmentTailCoord(sSegId)
+		head := h.rn.GetSegmentHeadCoord(sSegId)
 		eInitialBearing := geo.BearingTo(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
-		streetName := h.graph.GetStreetName(e.GetEdgeId())
-		matchedSegment := da.NewMatchedGPSPoint(gps, stateEdgeId, s.GetProjectedCoord(), eInitialBearing,
+		streetName := h.rn.GetStreetName(sSegId)
+		matchedSegment := da.NewMatchedGPSPoint(gps, sSegId, s.GetProjectedCoord(), eInitialBearing,
 			uint32(p.GetObservationId()), streetName)
 		mapMatchingResult = append(mapMatchingResult, matchedSegment)
 
@@ -318,7 +318,7 @@ func (h *HMM) projectAllGpsWithRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []f
 		candidates := make([]*ma.Candidate, 0, len(nearbyArcs))
 
 		for _, arcEndpoint := range nearbyArcs {
-			eLength := h.re.GetSegmentLength(arcEndpoint, true)
+			eLength := h.re.GetSegmentLength(arcEndpoint)
 			cand := ma.NewCandidate(arcEndpoint, 0, eLength)
 			candidates = append(candidates, cand)
 		}
@@ -464,8 +464,7 @@ type transitionRoute struct {
 }
 
 func (h *HMM) newPhantomNodeFromCandidate(cand *ma.Candidate) da.PhantomNode {
-	edgeId := cand.EdgeId()
-	inEdgeId := h.graph.GetInIdOfOutEdge(edgeId)
+	segmentId := cand.GetSegmentId()
 
 	forwardDistance := cand.GetDistanceFromHead()
 	reverseDistance := cand.GetDistanceFromTail()
@@ -476,11 +475,10 @@ func (h *HMM) newPhantomNodeFromCandidate(cand *ma.Candidate) da.PhantomNode {
 	forwardGeometry, reverseGeometry := h.candidatePhantomGeometries(cand)
 
 	return da.NewPhantomNode(
+		segmentId,
 		cand.GetProjectedCoord(),
 		forwardCost,
 		reverseCost,
-		edgeId,
-		inEdgeId,
 		forwardDistance,
 		reverseDistance,
 		forwardGeometry,
@@ -489,7 +487,7 @@ func (h *HMM) newPhantomNodeFromCandidate(cand *ma.Candidate) da.PhantomNode {
 }
 
 func (h *HMM) candidatePhantomGeometries(cand *ma.Candidate) ([]da.Coordinate, []da.Coordinate) {
-	eGeometry := h.graph.GetEdgeGeometry(cand.EdgeId())
+	eGeometry := h.rn.GetSegmentGeometry(cand.GetSegmentId())
 	if len(eGeometry) < 2 {
 		return []da.Coordinate{}, []da.Coordinate{}
 	}
@@ -521,7 +519,7 @@ func (h *HMM) projectedSegmentIndex(projectedCoord da.Coordinate, eGeometry []da
 }
 
 func (h *HMM) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) (transitionRoute, bool) {
-	if sp.GetOutEdgeId() != tp.GetOutEdgeId() {
+	if sp.GetVId() != tp.GetVId() {
 		return transitionRoute{}, false
 	}
 
@@ -534,25 +532,23 @@ func (h *HMM) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) (transit
 
 	distance = math.Abs(distance)
 
-	travelTime := h.re.GetWeightFromLength(sp.GetOutEdgeId(), true, distance)
+	travelTime := h.re.GetDurationFromLength(sp.GetVId(), distance)
 
 	return transitionRoute{distance: distance, travelTime: travelTime}, true
 }
 
 func (h *HMM) isReversedEdge(e1, e2 da.Index) bool {
-	e1Tail := h.graph.GetTailOfOutedge(e1)
-	e1Head := h.graph.GetHeadOfOutEdge(e1)
 
-	e2Tail := h.graph.GetTailOfOutedge(e2)
-	e2Head := h.graph.GetHeadOfOutEdge(e2)
+	e1Tail, e1Head := h.rn.GetSegmentGeometryEndpoints(e1)
+	e2Tail, e2Head := h.rn.GetSegmentGeometryEndpoints(e2)
 
 	return e1Tail == e2Head && e1Head == e2Tail
 }
 
 func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode, allowUTurn bool) (transitionRoute, bool) {
-	sourceHead := h.graph.GetHeadOfOutEdge(sp.GetOutEdgeId())
-	destinationTail := h.graph.GetTailOfOutedge(tp.GetOutEdgeId())
-	if sourceHead != destinationTail {
+	_, sHead := h.rn.GetTailHeadOsmNodeId(sp.GetVId())
+	tTail, _ := h.rn.GetTailHeadOsmNodeId(tp.GetVId())
+	if sHead != tTail {
 		return transitionRoute{}, false
 	}
 
@@ -577,9 +573,9 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 	minSegmentDur := pkg.INF_WEIGHT
 	minSegmentDist := pkg.INF_WEIGHT
 
-	sOutEdgeId := sp.GetOutEdgeId()
-	tOutEdgeId := tp.GetOutEdgeId()
-	if h.isReversedEdge(sOutEdgeId, tOutEdgeId) {
+	sSegId := sp.GetVId()
+	tSegId := tp.GetVId()
+	if h.isReversedEdge(sSegId, tSegId) {
 		/*
 			buat handle case:
 			oi = gps measurement ke-i (sorted by timestamp)
@@ -613,12 +609,12 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 		sameSegmentDur := pkg.INF_WEIGHT
 		sameSegmentDist := pkg.INF_WEIGHT
 
-		eLength := h.re.GetSegmentLength(sOutEdgeId, true)
+		eLength := h.re.GetSegmentLength(sSegId)
 
 		sameSegmentRevDist := eLength - sp.GetReverseDistance() - tp.GetReverseDistance()
 		if util.Gt(sameSegmentRevDist, 0) {
 			sameSegmentDist = sameSegmentRevDist
-			eDuration := h.re.GetWeightSeconds(sOutEdgeId, true)
+			eDuration := h.re.GetDurationSeconds(sSegId)
 			sameSegmentDur = eDuration - sp.GetReverseCost() - tp.GetReverseCost()
 		}
 
@@ -648,19 +644,19 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 
 	longerDur := longerDist / MaxSpeedMS
 
-	crpQuery := routing.NewCRPQueryTurnCost(h.re, 1.0)
+	crpQuery := routing.NewCRPQuery(h.re)
 	defer crpQuery.Done()
 	crpQuery.SetMaxSearchRadiusSecs(longerDur)
-	weight, edgePath, found := crpQuery.ShortestPathSearch(sp, tp)
+	weight, edgePath, found := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
 	if !found {
 		return transitionRoute{}, false
 	}
-	travelTime := h.re.GetCostFunction().WeightToSeconds(weight)
+	travelTime := util.WeightToSeconds(weight)
 
 	if !addPath {
 		routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
-		for _, edgeId := range edgePath {
-			routeDistance += h.re.GetSegmentLength(edgeId, true)
+		for _, segmentId := range edgePath {
+			routeDistance += h.re.GetSegmentLength(segmentId)
 		}
 
 		return transitionRoute{distance: routeDistance, travelTime: travelTime}, true
@@ -697,7 +693,7 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 
 		gpsCoord := da.NewCoordinate(gps.Lat(), gps.Lon())
 
-		eGeometry := h.graph.GetEdgeGeometry(cand.EdgeId())
+		eGeometry := h.rn.GetSegmentGeometry(cand.GetSegmentId())
 
 		candEdgeBearing := 0.0
 
@@ -749,12 +745,12 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 		cand.SetDistr(minDistr)
 		cand.SetDistanceFromTail(minDistr)
 
-		edgeLength := h.re.GetSegmentLength(cand.EdgeId(), true)
+		edgeLength := h.re.GetSegmentLength(cand.GetSegmentId())
 		distanceFromHead := max(edgeLength-minDistr, 0)
 		cand.SetDistanceFromHead(distanceFromHead)
 
-		cand.SetCostFromTail(h.re.GetWeightFromLength(cand.EdgeId(), true, minDistr))
-		cand.SetCostFromHead(h.re.GetWeightFromLength(cand.EdgeId(), true, distanceFromHead))
+		cand.SetCostFromTail(h.re.GetDurationFromLength(cand.GetSegmentId(), minDistr))
+		cand.SetCostFromHead(h.re.GetDurationFromLength(cand.GetSegmentId(), distanceFromHead))
 
 		cand.SetEdgeBearing(candEdgeBearing)
 	}

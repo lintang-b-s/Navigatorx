@@ -7,11 +7,16 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
+
+func init() {
+	config.InitConfig()
+}
 
 /*
 
@@ -128,9 +133,9 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	es := tests.FlattenEdges(adjList)
 
-	op := osmparser.NewOSMParserV2[float64]()
-	gs := datastructure.NewGraphStorageWithSize(len(es), n)
-	g, _, _ := op.BuildGraph(es, gs, uint32(n), false)
+	op := extractor.NewExtractor[float64]()
+	gs := datastructure.NewRoadNetworkDataContainerWithSize(len(es), n)
+	g, _, _, _, _ := op.BuildGraph(es, gs, uint32(n), false)
 
 	g.RunKosaraju()
 

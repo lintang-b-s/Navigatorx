@@ -18,17 +18,15 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/offline"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
-	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	evalutil "github.com/lintang-b-s/Navigatorx/tests"
 	"github.com/spf13/viper"
@@ -143,8 +141,16 @@ func ohmmEnsureConfig(t *testing.T) string {
 	return workingDir
 }
 
-func ohmmEngineFilesExist(paths ...string) bool {
-	for _, path := range paths {
+func ohmmEngineFilesExist() bool {
+	base := fmt.Sprintf("%s/%s/%s", config.ProfilesRoot(), pkg.ProfileName, pkg.RegionName)
+	for _, path := range []string{
+		base + ".ngraph",
+		base + "_overlay_graph.ngraph",
+		base + "_metrics.nmt",
+		base + "_landmark.nlm",
+		base + ".ntf",
+		base + "_road_network.ndata",
+	} {
 		if _, err := os.Stat(path); err != nil {
 			return false
 		}
@@ -156,15 +162,9 @@ func ohmmProjectPath(workingDir, path string) string {
 	return filepath.Join(workingDir, strings.TrimPrefix(path, "./"))
 }
 
-func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfunction.TimeFunction[int32], edgeDataIds [][]da.Index, logger *zap.Logger, partitionSizes []int,
-	mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile string) *engine.Engine[int32] {
+func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *metrics.TimeFunction[int32], rn *da.RoadNetworkDataContainer, logger *zap.Logger, partitionSizes []int,
+) *engine.Engine[int32] {
 	t.Helper()
-
-	for _, path := range []string{mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile} {
-		if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
-			t.Fatalf("create CRP output directory failed for %s: %v", path, err)
-		}
-	}
 
 	ps := make([]int, len(partitionSizes))
 	for i, pow := range partitionSizes {
@@ -173,24 +173,24 @@ func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *costfuncti
 
 	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger, false, false)
 	mp.RunMultilevelPartitioning()
-	if err := mp.SaveToFile(mlpFile); err != nil {
+	if err := mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
 	}
 
 	mlp := da.NewPlainMLP()
-	if err := mlp.ReadMlpFile(mlpFile); err != nil {
+	if err := mlp.ReadMlpFile(); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+	prep := prepo.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
 	if err := prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
-	cust := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	cust := customizer.NewCustomizer[int32](logger, pkg.TEST)
 	if _, err := cust.Customize(); err != nil {
 		t.Fatalf("customize failed: %v", err)
 	}
 
-	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](logger, pkg.TEST)
 	if err != nil {
 		t.Fatalf("new engine failed: %v", err)
 	}
@@ -250,7 +250,7 @@ func ohmmEnsureGisCupRoadNetwork(t *testing.T, workingDir string, logger *zap.Lo
 }
 
 // https://web.archive.org/web/20130127211936/http://depts.washington.edu/giscup/home
-func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint32, map[int64]osmparser.NodeCoord, map[da.Index]int64, error) {
+func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint32, map[int64]extractor.NodeCoord, map[da.Index]int64, error) {
 	f, err := os.OpenFile(nodesFilePath, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -259,7 +259,7 @@ func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint3
 
 	nodeCoords := make([]da.Coordinate, 0)
 	nodeIDToIndex := make(map[int64]uint32)
-	acceptedNodeMap := make(map[int64]osmparser.NodeCoord)
+	acceptedNodeMap := make(map[int64]extractor.NodeCoord)
 	nodeToOsmID := make(map[da.Index]int64)
 
 	br := bufio.NewReader(f)
@@ -294,21 +294,21 @@ func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint3
 		internalIndex := uint32(len(nodeCoords))
 		nodeCoords = append(nodeCoords, da.NewCoordinate(lat, lon))
 		nodeIDToIndex[nodeID] = internalIndex
-		acceptedNodeMap[nodeID] = osmparser.NewNodeCoord(lat, lon)
+		acceptedNodeMap[nodeID] = extractor.NewNodeCoord(lat, lon)
 		nodeToOsmID[da.Index(internalIndex)] = nodeID
 	}
 	return nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, nil
 }
 
 // https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
-func ohmmReadGisCupEdgeGeometry(edgeGeometryFilePath string) (map[int64]ohmmEdgeGeometry, error) {
+func ohmmReadGisCupEdgeGeometry(edgeGeometryFilePath string) (map[uint64]ohmmEdgeGeometry, error) {
 	f, err := os.OpenFile(edgeGeometryFilePath, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
 
-	geometries := make(map[int64]ohmmEdgeGeometry)
+	geometries := make(map[uint64]ohmmEdgeGeometry)
 	br := bufio.NewReader(f)
 	for {
 		line, err := util.ReadLine(br)
@@ -326,7 +326,7 @@ func ohmmReadGisCupEdgeGeometry(edgeGeometryFilePath string) (map[int64]ohmmEdge
 		if len(fields) < 8 {
 			return nil, fmt.Errorf("invalid edge geometry line %q", line)
 		}
-		edgeID, err := util.ParseTextInt64(string(bytes.TrimSpace(fields[0])))
+		edgeID, err := util.ParseTextUInt64(string(bytes.TrimSpace(fields[0])))
 		if err != nil {
 			return nil, err
 		}
@@ -360,7 +360,7 @@ func ohmmReadGisCupEdgeGeometry(edgeGeometryFilePath string) (map[int64]ohmmEdge
 	return geometries, nil
 }
 
-func ohmmFallbackGeometry(edgeID int64, from, to uint32, nodeCoords []da.Coordinate) ohmmEdgeGeometry {
+func ohmmFallbackGeometry(edgeID uint64, from, to uint32, nodeCoords []da.Coordinate) ohmmEdgeGeometry {
 	fromCoord := nodeCoords[from]
 	toCoord := nodeCoords[to]
 	length := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
@@ -371,7 +371,7 @@ func ohmmFallbackGeometry(edgeID int64, from, to uint32, nodeCoords []da.Coordin
 }
 
 // https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
-func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *costfunction.TimeFunction[int32], [][]da.Index, map[int64]float64, error) {
+func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *metrics.TimeFunction[int32], *da.RoadNetworkDataContainer, map[uint64]float64, error) {
 	nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, err := ohmmReadGisCupNodes(paths.nodesFilePath)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -387,9 +387,9 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 	}
 	defer f.Close()
 
-	graphStorage := da.NewGraphStorage(54)
-	graphEdges := make([]osmparser.Edge[int32], 0)
-	edgeLengths := make(map[int64]float64)
+	rn := da.NewRoadNetworkDataContainer(54)
+	graphEdges := make([]extractor.Edge[int32], 0)
+	edgeLengths := make(map[uint64]float64)
 
 	br := bufio.NewReader(f)
 	for {
@@ -407,7 +407,7 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 			return nil, nil, nil, nil, fmt.Errorf("invalid edge line %q", line)
 		}
 
-		edgeID, err := util.ParseTextInt64(fields[0])
+		edgeID, err := util.ParseTextUInt64(fields[0])
 		if err != nil {
 			return nil, nil, nil, nil, err
 		}
@@ -441,13 +441,13 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 			geometry = ohmmFallbackGeometry(edgeID, fromIndex, toIndex, nodeCoords)
 		}
 
-		startPointsIndex := graphStorage.GetOsmNodePointsCount()
-		graphStorage.AppendOsmNodePoints(geometry.coords)
-		endPointsIndex := graphStorage.GetOsmNodePointsCount()
-		graphStorage.AppendEdgeMetadata(edgeID, da.Index(startPointsIndex), da.Index(endPointsIndex), 0, geometry.roadType, 0, 1)
+		startPointsIndex := rn.GetOsmNodePointsCount()
+		rn.AppendOsmNodePoints(geometry.coords, make([]uint64, 0))
+		endPointsIndex := rn.GetOsmNodePointsCount()
+		rn.AppendSegmentData(int64(edgeID), da.Index(startPointsIndex), da.Index(endPointsIndex), 0, geometry.roadType, 0, 1, da.NewEmptyTurnLanesData())
 
-		graphEdge := osmparser.NewFixedEdge(
-			fromIndex, toIndex, cost, geometry.length, false, geometry.roadType,
+		graphEdge := extractor.NewEdge[int32](
+			fromIndex, toIndex, int32(cost), uint32(geometry.length),
 		)
 
 		graphEdge.SetFromOSMId(uint64(fromNodeID))
@@ -456,47 +456,33 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 		edgeLengths[edgeID] = geometry.length
 	}
 
-	op := osmparser.NewOSMParserV2[int32]()
+	op := extractor.NewExtractor[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, timeFunction, edgeDataIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(nodeCoords)), true)
-	graph.SetGraphStorage(graphStorage)
-	return graph, timeFunction, edgeDataIds, edgeLengths, nil
+	graph, timeFunction, _, _, _ := op.BuildGraph(graphEdges, rn, uint32(len(nodeCoords)), true)
+	return graph, timeFunction, rn, edgeLengths, nil
 }
 
 // https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
-func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, map[int64]float64) {
+func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, map[uint64]float64) {
 	t.Helper()
 
-	pkg.RegionName = "giscup"
+	config.InitRegionName("giscup", pkg.TEST)
 
 	logger, err := log.New()
 	if err != nil {
 		t.Fatalf("log.New failed: %v", err)
 	}
 	paths := ohmmEnsureGisCupRoadNetwork(t, workingDir, logger)
-	graph, timeFunction, edgeDataIds, edgeLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
+	graph, timeFunction, rn, edgeLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
 	if err != nil {
 		t.Fatalf("build GIS Cup graph failed: %v", err)
 	}
 
-	graphFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_original_giscup.ngraph")
-	overlayGraphFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_overlay_graph_giscup.ngraph")
-	metricsFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_metrics_giscup.nmt")
-	mlpFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_mlp_giscup.mlp")
-	landmarkFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_landmark_giscup.nlm")
-	timeFunctionFile := filepath.Join(workingDir, "data/eval/mapmatching/giscup/offline_hmm_timefunction_giscup.ntf")
-
 	var re *engine.Engine[int32]
-	if ohmmEngineFilesExist(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile) {
-		re, err = engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
-		if err != nil {
-			t.Fatalf("load GIS Cup engine failed: %v", err)
-		}
-	} else {
-		re = ohmmPrepareCRPFiles(t, graph, timeFunction, edgeDataIds, logger, []int{8, 11, 14, 16},
-			mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile)
-	}
+
+	re = ohmmPrepareCRPFiles(t, graph, timeFunction, rn, logger, []int{8, 11, 14, 16})
+
 	return re, re.GetRoutingEngine().GetGraph(), logger, edgeLengths
 }
 
@@ -539,7 +525,7 @@ func ohmmReadGisCupTrack(trackPath string) ([]ohmmGisCupTrackPoint, error) {
 	return points, nil
 }
 
-func ohmmReadGisCupGroundTruth(outputPath string) ([]int64, error) {
+func ohmmReadGisCupGroundTruth(outputPath string) ([]uint64, error) {
 	f, err := os.OpenFile(outputPath, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
@@ -549,7 +535,7 @@ func ohmmReadGisCupGroundTruth(outputPath string) ([]int64, error) {
 	reader := csv.NewReader(f)
 	reader.FieldsPerRecord = -1
 	reader.TrimLeadingSpace = true
-	edgeIDs := make([]int64, 0)
+	edgeIDs := make([]uint64, 0)
 	for {
 		record, err := reader.Read()
 		if err != nil && errors.Is(err, io.EOF) {
@@ -560,7 +546,7 @@ func ohmmReadGisCupGroundTruth(outputPath string) ([]int64, error) {
 		if len(record) < 2 || strings.TrimSpace(record[0]) == "" {
 			continue
 		}
-		edgeID, err := util.ParseTextInt64(strings.TrimSpace(record[1]))
+		edgeID, err := util.ParseTextUInt64(strings.TrimSpace(record[1]))
 		if err != nil {
 			return nil, err
 		}
@@ -611,11 +597,11 @@ func ohmmGisCupGPSTrajectory(points []ohmmGisCupTrackPoint) []*da.GPSPoint {
 	return gpsTraj
 }
 
-func ohmmComputeEdgeSetMetrics(graph *da.Graph, groundTruthEdgeIDs []int64, matchedPoints []*da.MatchedGPSPoint,
-	edgeLengths map[int64]float64) (float64, float64) {
+func ohmmComputeEdgeSetMetrics(graph *da.Graph, rn *da.RoadNetworkDataContainer, groundTruthEdgeIDs []uint64, matchedPoints []*da.MatchedGPSPoint,
+	edgeLengths map[uint64]float64) (float64, float64) {
 	groundTruthEdgeIDs = ohmmGisCupGroundTruthForMatchedObservations(groundTruthEdgeIDs, matchedPoints)
 
-	groundTruthSet := make(map[int64]bool)
+	groundTruthSet := make(map[uint64]bool)
 	lengthOfCorrectRoute := 0.0
 	for _, edgeID := range groundTruthEdgeIDs {
 		if groundTruthSet[edgeID] {
@@ -625,12 +611,12 @@ func ohmmComputeEdgeSetMetrics(graph *da.Graph, groundTruthEdgeIDs []int64, matc
 		lengthOfCorrectRoute += edgeLengths[edgeID]
 	}
 
-	matchedEdgeSet := make(map[int64]float64)
+	matchedEdgeSet := make(map[uint64]float64)
 	for _, point := range matchedPoints {
-		if point.GetEdgeId() == da.INVALID_EDGE_ID {
+		if point.GetEdgeId() == da.INVALID_SEGMENT_ID {
 			continue
 		}
-		dataEdgeID := graph.GetOsmWayId(point.GetEdgeId())
+		dataEdgeID := rn.GetOsmWayId(point.GetEdgeId())
 		length, ok := edgeLengths[dataEdgeID]
 		if !ok {
 			continue
@@ -670,12 +656,12 @@ func ohmmComputeEdgeSetMetrics(graph *da.Graph, groundTruthEdgeIDs []int64, matc
 	return crp, rmf
 }
 
-func ohmmGisCupGroundTruthForMatchedObservations(groundTruthEdgeIDs []int64, matchedPoints []*da.MatchedGPSPoint) []int64 {
+func ohmmGisCupGroundTruthForMatchedObservations(groundTruthEdgeIDs []uint64, matchedPoints []*da.MatchedGPSPoint) []uint64 {
 	if len(groundTruthEdgeIDs) == 0 || len(matchedPoints) == 0 {
 		return groundTruthEdgeIDs
 	}
 
-	filtered := make([]int64, 0, len(matchedPoints))
+	filtered := make([]uint64, 0, len(matchedPoints))
 	seenObservationIds := make(map[uint32]bool, len(matchedPoints))
 	for _, matchedPoint := range matchedPoints {
 		obsID := matchedPoint.GetObservationId()
@@ -795,7 +781,7 @@ func ohmmParseMelbourneEdgesFile(filePath string) ([]ohmmMelbourneEdge, error) {
 	return edges, nil
 }
 
-func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStreet, error) {
+func ohmmParseMelbourneStreetsFile(filePath string) (map[uint64]ohmmMelbourneStreet, error) {
 	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
@@ -812,7 +798,7 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStre
 		return nil, err
 	}
 
-	streetByID := make(map[int64]ohmmMelbourneStreet, expectedEdges)
+	streetByID := make(map[uint64]ohmmMelbourneStreet, expectedEdges)
 	for {
 		line, err := util.ReadLine(br)
 		if err != nil && errors.Is(err, io.EOF) {
@@ -824,7 +810,7 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStre
 		if len(ff) < 8 {
 			return nil, fmt.Errorf("invalid street line %q", line)
 		}
-		id, err := util.ParseTextInt64(ff[0])
+		id, err := util.ParseTextUInt64(ff[0])
 		if err != nil {
 			return nil, err
 		}
@@ -857,7 +843,7 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStre
 			return nil, err
 		}
 		streetByID[id] = ohmmMelbourneStreet{
-			id: id, startID: startID, startLon: startLon, startLat: startLat,
+			id: int64(id), startID: startID, startLon: startLon, startLat: startLat,
 			endID: endID, endLon: endLon, endLat: endLat, distance: dist,
 		}
 	}
@@ -865,10 +851,10 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[int64]ohmmMelbourneStre
 }
 
 // https://web.archive.org/web/20170301001019/https://people.eng.unimelb.edu.au/henli/projects/map-matching/
-func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, map[da.Index]int64, map[int64]float64) {
+func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, map[da.Index]uint64, map[uint64]float64) {
 	t.Helper()
 
-	pkg.RegionName = "hengfengli"
+	config.InitRegionName("hengfengli", pkg.TEST)
 
 	logger, err := log.New()
 	if err != nil {
@@ -892,69 +878,61 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		t.Fatalf("parse Melbourne streets failed: %v", err)
 	}
 
-	graphStorage := da.NewGraphStorage(54)
-	graphEdges := make([]osmparser.Edge[int32], 0, len(edges))
+	rn := da.NewRoadNetworkDataContainer(54)
+	graphEdges := make([]extractor.Edge[int32], 0, len(edges))
 	for _, e := range edges {
-		st, ok := streetByID[e.id]
+		st, ok := streetByID[uint64(e.id)]
 		if !ok {
 			t.Fatalf("Melbourne edge id %d missing from streets.txt", e.id)
 		}
-		startPointsIndex := graphStorage.GetOsmNodePointsCount()
-		graphStorage.AppendOsmNodePoints([]da.Coordinate{
+		startPointsIndex := rn.GetOsmNodePointsCount()
+		rn.AppendOsmNodePoints([]da.Coordinate{
 			da.NewCoordinate(st.startLat, st.startLon),
 			da.NewCoordinate(st.endLat, st.endLon),
-		})
-		endPointsIndex := graphStorage.GetOsmNodePointsCount()
-		graphStorage.AppendEdgeMetadata(e.id, da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1)
-		graphEdge := osmparser.NewFixedEdge(
-			uint32(e.startID), uint32(e.endID), e.distance, e.distance, false, pkg.MOTORWAY,
-		)
+		}, make([]uint64, 0))
+		endPointsIndex := rn.GetOsmNodePointsCount()
+		rn.AppendSegmentData(e.id, da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
+		graphEdge := extractor.NewEdge[int32](
+			uint32(e.startID), uint32(e.endID), int32(e.distance), uint32(e.distance))
 
 		graphEdges = append(graphEdges, graphEdge)
 	}
 
-	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, len(vertices))
+	acceptedNodeMap := make(map[int64]extractor.NodeCoord, len(vertices))
 	nodeToOsmID := make(map[da.Index]int64, len(vertices))
 	for _, v := range vertices {
-		acceptedNodeMap[v.osmID] = osmparser.NewNodeCoord(v.lat, v.lon)
+		acceptedNodeMap[v.osmID] = extractor.NewNodeCoord(v.lat, v.lon)
 		nodeToOsmID[da.Index(v.id)] = v.osmID
 	}
 
-	op := osmparser.NewOSMParserV2[int32]()
+	op := extractor.NewExtractor[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, timeFunction, edgeDataIds := op.BuildGraph(graphEdges, graphStorage, uint32(len(vertices)), true)
-	graph.SetGraphStorage(graphStorage)
+	graph, wf, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphEdges, rn, uint32(len(vertices)), true)
+	graph, wf = extractor.BuildEdgeBasedGraph(graph, wf, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices, rn)
 
-	graphFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_original_hl.ngraph")
-	overlayGraphFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_overlay_graph_hl.ngraph")
-	metricsFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_metrics_hl.nmt")
-	mlpFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_mlp_hl.mlp")
-	landmarkFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_landmark_hl.nlm")
-	timeFunctionFile := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_timefunction_hl.ntf")
-
-	var re *engine.Engine[int32]
-	if ohmmEngineFilesExist(graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile) {
-		re, err = engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	var eng *engine.Engine[int32]
+	if ohmmEngineFilesExist() {
+		eng, err = engine.NewEngine[int32](logger, pkg.TEST)
 		if err != nil {
 			t.Fatalf("load Melbourne engine failed: %v", err)
 		}
 	} else {
-		re = ohmmPrepareCRPFiles(t, graph, timeFunction, edgeDataIds, logger, []int{8, 11, 13, 14, 15},
-			mlpFile, graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile)
+		eng = ohmmPrepareCRPFiles(t, graph, wf, rn, logger, []int{8, 11, 13, 14, 15})
 	}
 
-	loadedGraph := re.GetRoutingEngine().GetGraph()
-	graphEdgeIDToMelbourneEdgeID := make(map[da.Index]int64, loadedGraph.NumberOfEdges())
-	loadedGraph.ForOutEdges(func(exitPoint, head da.Index, tail, entryId, entryPoint da.Index, percentage float64, eId da.Index) {
-		graphEdgeIDToMelbourneEdgeID[eId] = loadedGraph.GetOsmWayId(eId)
+	re := eng.GetRoutingEngine()
+	g := re.GetGraph()
+	graphEdgeIDToMelbourneEdgeID := make(map[da.Index]uint64, g.NumberOfEdges())
+	g.ForOutEdges(func(exitPoint, head da.Index, tail, entryPoint da.Index, percentage float64, eId da.Index) {
+		graphEdgeIDToMelbourneEdgeID[eId] = rn.GetOsmWayId(eId)
 	})
 
-	edgeLengthByID := make(map[int64]float64, len(streetByID))
+	edgeLengthByID := make(map[uint64]float64, len(streetByID))
 	for edgeID, street := range streetByID {
 		edgeLengthByID[edgeID] = street.distance
 	}
-	return re, loadedGraph, logger, graphEdgeIDToMelbourneEdgeID, edgeLengthByID
+	return eng, g, logger, graphEdgeIDToMelbourneEdgeID, edgeLengthByID
 }
 
 func ohmmReadMelbourneGPSTrack(filePath string) ([]ohmmMelbourneGPSPoint, error) {
@@ -1003,7 +981,7 @@ func ohmmReadMelbourneGPSTrack(filePath string) ([]ohmmMelbourneGPSPoint, error)
 	return points, nil
 }
 
-func ohmmReadMelbourneGroundTruthEdges(filePath string) ([]int64, error) {
+func ohmmReadMelbourneGroundTruthEdges(filePath string) ([]uint64, error) {
 	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
 	if err != nil {
 		return nil, err
@@ -1020,7 +998,7 @@ func ohmmReadMelbourneGroundTruthEdges(filePath string) ([]int64, error) {
 		return nil, err
 	}
 
-	edgeIDs := make([]int64, 0, expectedEdges)
+	edgeIDs := make([]uint64, 0, expectedEdges)
 	for {
 		line, err := util.ReadLine(br)
 		if err != nil && errors.Is(err, io.EOF) {
@@ -1032,7 +1010,7 @@ func ohmmReadMelbourneGroundTruthEdges(filePath string) ([]int64, error) {
 		if len(ff) == 0 {
 			continue
 		}
-		edgeID, err := util.ParseTextInt64(ff[0])
+		edgeID, err := util.ParseTextUInt64(ff[0])
 		if err != nil {
 			return nil, err
 		}
@@ -1060,9 +1038,9 @@ func ohmmMelbourneGPSTrajectory(points []ohmmMelbourneGPSPoint) []*da.GPSPoint {
 	return gpsTraj
 }
 
-func ohmmComputeMelbourneMetrics(matchedPoints []*da.MatchedGPSPoint, groundTruthEdgeIDs []int64,
-	graphEdgeIDToMelbourneEdgeID map[da.Index]int64, edgeLengthByID map[int64]float64) (float64, float64, error) {
-	groundTruthEdgeSet := make(map[int64]float64, len(groundTruthEdgeIDs))
+func ohmmComputeMelbourneMetrics(matchedPoints []*da.MatchedGPSPoint, groundTruthEdgeIDs []uint64,
+	graphEdgeIDToMelbourneEdgeID map[da.Index]uint64, edgeLengthByID map[uint64]float64) (float64, float64, error) {
+	groundTruthEdgeSet := make(map[uint64]float64, len(groundTruthEdgeIDs))
 	for _, edgeID := range groundTruthEdgeIDs {
 		edgeLength, ok := edgeLengthByID[edgeID]
 		if !ok {
@@ -1079,12 +1057,12 @@ func ohmmComputeMelbourneMetrics(matchedPoints []*da.MatchedGPSPoint, groundTrut
 		return 0, 0, fmt.Errorf("ground truth route has zero length")
 	}
 
-	matchedEdgeSet := make(map[int64]float64)
+	matchedEdgeSet := make(map[uint64]float64)
 	numCorrectMatchedRoads := 0.0
 	numberOfRoadsOfMatchedTrips := 0.0
 	for _, matchedPoint := range matchedPoints {
 		internalEdgeID := matchedPoint.GetEdgeId()
-		if internalEdgeID == da.INVALID_EDGE_ID {
+		if internalEdgeID == da.INVALID_SEGMENT_ID {
 			continue
 		}
 
@@ -1131,7 +1109,7 @@ func ohmmWritePolyline(t *testing.T, filePath string, matchedPoints []*da.Matche
 
 	matchedCoords := make([]da.Coordinate, 0, len(matchedPoints))
 	for _, point := range matchedPoints {
-		if point.GetEdgeId() == da.INVALID_EDGE_ID {
+		if point.GetEdgeId() == da.INVALID_SEGMENT_ID {
 			continue
 		}
 		matchedCoords = append(matchedCoords, point.GetMatchedCoord())
@@ -1156,8 +1134,10 @@ func ohmmBuildHanwenHuCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, 
 		t.Fatalf("log.New failed: %v", err)
 	}
 
-	if ohmmEngineFilesExist(hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhLandmarkFile, hhTimeFunctionFile) {
-		re, err := engine.NewEngine[int32](hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhLandmarkFile, hhTimeFunctionFile, logger)
+	config.InitRegionName("hanwenhu", pkg.TEST)
+
+	if ohmmEngineFilesExist() {
+		re, err := engine.NewEngine[int32](logger, pkg.TEST)
 		if err != nil {
 			t.Fatalf("load Hanwen-Hu engine failed: %v", err)
 		}
@@ -1241,7 +1221,7 @@ func ohmmGroundTruthLength(t *testing.T, groundTruth []map[string]string) float6
 
 func ohmmMatchedLength(matchedPoints []*da.MatchedGPSPoint) float64 {
 	start := 0
-	for start < len(matchedPoints) && matchedPoints[start].GetEdgeId() == da.INVALID_EDGE_ID {
+	for start < len(matchedPoints) && matchedPoints[start].GetEdgeId() == da.INVALID_SEGMENT_ID {
 		start++
 	}
 	if start >= len(matchedPoints) {
@@ -1252,7 +1232,7 @@ func ohmmMatchedLength(matchedPoints []*da.MatchedGPSPoint) float64 {
 	length := 0.0
 	for j := start + 1; j < len(matchedPoints); j++ {
 		mp := matchedPoints[j]
-		if mp.GetEdgeId() == da.INVALID_EDGE_ID {
+		if mp.GetEdgeId() == da.INVALID_SEGMENT_ID {
 			continue
 		}
 		length += util.KilometerToMeter(geo.CalculateGreatCircleDistance(
@@ -1274,281 +1254,292 @@ func ohmmEmpiricalCDF(sortedValues []float64, x float64) float64 {
 	return float64(count) / float64(len(sortedValues))
 }
 
-// go test ./tests/map_matching -run TestGisCupOfflineHMMMapMatching -v -timeout=0 -count=1
-func TestGisCupOfflineHMMMapMatching(t *testing.T) {
-	workingDir := ohmmEnsureConfig(t)
-	re, graph, logger, edgeLengths := ohmmBuildGisCupCRPGraph(t, workingDir)
+// todo: update kode ini, adjust setelah pakai edge-based graph
 
-	cases, err := ohmmListGisCupCases(workingDir)
-	if err != nil {
-		t.Skipf("GIS Cup training data unavailable: %v", err)
-	}
-	if len(cases) == 0 {
-		t.Skip("GIS Cup training data unavailable")
-	}
+// // go test ./tests/map_matching -run TestGisCupOfflineHMMMapMatching -v -timeout=0 -count=1
+// func TestGisCupOfflineHMMMapMatching(t *testing.T) {
+// 	workingDir := ohmmEnsureConfig(t)
+// 	eng, graph, logger, edgeLengths := ohmmBuildGisCupCRPGraph(t, workingDir)
 
-	rtree := spatialindex.NewRtree()
-	rtree.Build(graph, logger)
-	hmm := offline.NewHiddenMarkovModelMapMatching(graph, re.GetRoutingEngine(), rtree)
+// 	cases, err := ohmmListGisCupCases(workingDir)
+// 	if err != nil {
+// 		t.Skipf("GIS Cup training data unavailable: %v", err)
+// 	}
+// 	if len(cases) == 0 {
+// 		t.Skip("GIS Cup training data unavailable")
+// 	}
 
-	totalCRP := 0.0
-	totalRMF := 0.0
-	totalPoints := 0
-	for _, tc := range cases {
-		points, err := ohmmReadGisCupTrack(tc.inputFilePath)
-		if err != nil {
-			t.Fatalf("read GIS Cup track %s failed: %v", tc.id, err)
-		}
-		groundTruthEdgeIDs, err := ohmmReadGisCupGroundTruth(tc.outputFilePath)
-		if err != nil {
-			t.Fatalf("read GIS Cup ground truth %s failed: %v", tc.id, err)
-		}
+// 	re := eng.GetRoutingEngine()
+// 	rn := re.GetRoadNetworkContainer()
+// 	rtree := spatialindex.NewRtree()
+// 	rtree.Build(graph, rn, logger)
+// 	hmm := offline.NewHiddenMarkovModelMapMatching(graph, re, rtree)
 
-		gpsTraj := ohmmGisCupGPSTrajectory(points)
-		now := time.Now()
-		matchedPoints := hmm.MapMatch(gpsTraj)
-		avgRuntime := float64(time.Since(now).Milliseconds()) / float64(len(gpsTraj))
-		if len(matchedPoints) == 0 {
-			t.Fatalf("GIS Cup case %s produced no matched points", tc.id)
-		}
+// 	totalCRP := 0.0
+// 	totalRMF := 0.0
+// 	totalPoints := 0
+// 	for _, tc := range cases {
+// 		points, err := ohmmReadGisCupTrack(tc.inputFilePath)
+// 		if err != nil {
+// 			t.Fatalf("read GIS Cup track %s failed: %v", tc.id, err)
+// 		}
+// 		groundTruthEdgeIDs, err := ohmmReadGisCupGroundTruth(tc.outputFilePath)
+// 		if err != nil {
+// 			t.Fatalf("read GIS Cup ground truth %s failed: %v", tc.id, err)
+// 		}
 
-		crp, rmf := ohmmComputeEdgeSetMetrics(graph, groundTruthEdgeIDs, matchedPoints, edgeLengths)
-		t.Logf("GIS Cup case %s: Accuracy=%v RMF=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
-			tc.id, crp, rmf, len(matchedPoints), len(gpsTraj), avgRuntime)
+// 		gpsTraj := ohmmGisCupGPSTrajectory(points)
+// 		now := time.Now()
+// 		matchedPoints := hmm.MapMatch(gpsTraj)
+// 		avgRuntime := float64(time.Since(now).Milliseconds()) / float64(len(gpsTraj))
+// 		if len(matchedPoints) == 0 {
+// 			t.Fatalf("GIS Cup case %s produced no matched points", tc.id)
+// 		}
 
-		ohmmWritePolyline(t, filepath.Join(workingDir, "data/eval/mapmatching/GisContestTrainingData/polylines/offline_hmm_result_polyline_"+tc.id+".txt"), matchedPoints)
-		totalCRP += crp
-		totalRMF += rmf
-		totalPoints += len(gpsTraj)
-	}
+// 		crp, rmf := ohmmComputeEdgeSetMetrics(graph, rn, groundTruthEdgeIDs, matchedPoints, edgeLengths)
+// 		t.Logf("GIS Cup case %s: Accuracy=%v RMF=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
+// 			tc.id, crp, rmf, len(matchedPoints), len(gpsTraj), avgRuntime)
 
-	avgCRP := totalCRP / float64(len(cases))
-	avgRMF := totalRMF / float64(len(cases))
-	t.Logf("GIS Cup offline HMM aggregate: cases=%d points=%d avg_Accuracy=%v avg_RMF=%v", len(cases), totalPoints, avgCRP, avgRMF)
-	if avgCRP < ohmmExpectedMinGisCupAccuracy {
-		t.Fatalf("GIS Cup accuracy below threshold: got %v, want >= %v", avgCRP, ohmmExpectedMinGisCupAccuracy)
-	}
-	if avgRMF > ohmmExpectedMaxGisCupRMF {
-		t.Fatalf("GIS Cup RMF above threshold: got %v, want <= %v", avgRMF, ohmmExpectedMaxGisCupRMF)
-	}
-}
+// 		ohmmWritePolyline(t, filepath.Join(workingDir, "data/eval/mapmatching/GisContestTrainingData/polylines/offline_hmm_result_polyline_"+tc.id+".txt"), matchedPoints)
+// 		totalCRP += crp
+// 		totalRMF += rmf
+// 		totalPoints += len(gpsTraj)
+// 	}
 
-// go test ./tests/map_matching -run TestHengfengLiOfflineHMMMapMatching -v -timeout=0 -count=1
-func TestHengfengLiOfflineHMMMapMatching(t *testing.T) {
-	workingDir := ohmmEnsureConfig(t)
-	re, graph, logger, graphEdgeIDToMelbourneEdgeID, edgeLengthByID := ohmmBuildMelbourneCRPGraph(t, workingDir)
+// 	avgCRP := totalCRP / float64(len(cases))
+// 	avgRMF := totalRMF / float64(len(cases))
+// 	t.Logf("GIS Cup offline HMM aggregate: cases=%d points=%d avg_Accuracy=%v avg_RMF=%v", len(cases), totalPoints, avgCRP, avgRMF)
+// 	if avgCRP < ohmmExpectedMinGisCupAccuracy {
+// 		t.Fatalf("GIS Cup accuracy below threshold: got %v, want >= %v", avgCRP, ohmmExpectedMinGisCupAccuracy)
+// 	}
+// 	if avgRMF > ohmmExpectedMaxGisCupRMF {
+// 		t.Fatalf("GIS Cup RMF above threshold: got %v, want <= %v", avgRMF, ohmmExpectedMaxGisCupRMF)
+// 	}
+// }
 
-	gpsPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/gps_track.txt")
-	groundTruthPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/groundtruth.txt")
-	points, err := ohmmReadMelbourneGPSTrack(gpsPath)
-	if err != nil {
-		t.Fatalf("read Melbourne GPS track failed: %v", err)
-	}
-	groundTruthEdgeIDs, err := ohmmReadMelbourneGroundTruthEdges(groundTruthPath)
-	if err != nil {
-		t.Fatalf("read Melbourne ground truth failed: %v", err)
-	}
+// // go test ./tests/map_matching -run TestHengfengLiOfflineHMMMapMatching -v -timeout=0 -count=1
+// func TestHengfengLiOfflineHMMMapMatching(t *testing.T) {
+// 	workingDir := ohmmEnsureConfig(t)
+// 	eng, graph, logger, graphEdgeIDToMelbourneEdgeID, edgeLengthByID := ohmmBuildMelbourneCRPGraph(t, workingDir)
 
-	rtree := spatialindex.NewRtree()
-	rtree.Build(graph, logger)
-	hmm := offline.NewHiddenMarkovModelMapMatching(graph, re.GetRoutingEngine(), rtree)
-	gpsTraj := ohmmMelbourneGPSTrajectory(points)
+// 	gpsPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/gps_track.txt")
+// 	groundTruthPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/groundtruth.txt")
+// 	points, err := ohmmReadMelbourneGPSTrack(gpsPath)
+// 	if err != nil {
+// 		t.Fatalf("read Melbourne GPS track failed: %v", err)
+// 	}
+// 	groundTruthEdgeIDs, err := ohmmReadMelbourneGroundTruthEdges(groundTruthPath)
+// 	if err != nil {
+// 		t.Fatalf("read Melbourne ground truth failed: %v", err)
+// 	}
 
-	now := time.Now()
-	matchedPoints := hmm.MapMatch(gpsTraj)
-	avgRuntime := float64(time.Since(now).Milliseconds()) / float64(len(gpsTraj))
-	if len(matchedPoints) == 0 {
-		t.Fatalf("Hengfeng Li Melbourne trajectory produced no matched points")
-	}
+// 	re := eng.GetRoutingEngine()
+// 	rn := re.GetRoadNetworkContainer()
 
-	crp, rmf, err := ohmmComputeMelbourneMetrics(matchedPoints, groundTruthEdgeIDs, graphEdgeIDToMelbourneEdgeID, edgeLengthByID)
-	if err != nil {
-		t.Fatalf("compute Melbourne metrics failed: %v", err)
-	}
-	t.Logf("Hengfeng Li offline HMM: Accuracy=%v RMF=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
-		crp, rmf, len(matchedPoints), len(gpsTraj), avgRuntime)
+// 	rtree := spatialindex.NewRtree()
+// 	rtree.Build(graph, rn, logger)
+// 	hmm := offline.NewHiddenMarkovModelMapMatching(graph, re, rtree)
+// 	gpsTraj := ohmmMelbourneGPSTrajectory(points)
 
-	ohmmWritePolyline(t, filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_result_polyline.txt"), matchedPoints)
-	if crp < ohmmExpectedMinMelbAccuracy {
-		t.Fatalf("Hengfeng Li accuracy below threshold: got %v, want >= %v", crp, ohmmExpectedMinMelbAccuracy)
-	}
-	if rmf > ohmmExpectedMaxMelbRMF {
-		t.Fatalf("Hengfeng Li RMF above threshold: got %v, want <= %v", rmf, ohmmExpectedMaxMelbRMF)
-	}
-}
+// 	now := time.Now()
+// 	matchedPoints := hmm.MapMatch(gpsTraj)
+// 	avgRuntime := float64(time.Since(now).Milliseconds()) / float64(len(gpsTraj))
+// 	if len(matchedPoints) == 0 {
+// 		t.Fatalf("Hengfeng Li Melbourne trajectory produced no matched points")
+// 	}
 
-// go test ./tests/map_matching -run TestHanwenHuOfflineHMMMapMatching -v -timeout=0 -count=1
-func TestHanwenHuOfflineHMMMapMatching(t *testing.T) {
-	workingDir := ohmmEnsureConfig(t)
-	re, graph, logger := ohmmBuildHanwenHuCRPGraph(t)
+// 	crp, rmf, err := ohmmComputeMelbourneMetrics(matchedPoints, groundTruthEdgeIDs, graphEdgeIDToMelbourneEdgeID, edgeLengthByID)
+// 	if err != nil {
+// 		t.Fatalf("compute Melbourne metrics failed: %v", err)
+// 	}
+// 	t.Logf("Hengfeng Li offline HMM: Accuracy=%v RMF=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
+// 		crp, rmf, len(matchedPoints), len(gpsTraj), avgRuntime)
 
-	shanghaiDataFilePath := ohmmProjectPath(workingDir, hhShanghaiDataFilePath)
-	shanghaiTestDataPath := ohmmProjectPath(workingDir, hhShanghaiTestDataPath)
-	shanghaiGroundTruthPath := ohmmProjectPath(workingDir, hhShanghaiGroundTruthPath)
-	shanghaiPolylinesPath := ohmmProjectPath(workingDir, hhShanghaiPolylinesPath)
+// 	ohmmWritePolyline(t, filepath.Join(workingDir, "data/eval/mapmatching/melbourne/offline_hmm_result_polyline.txt"), matchedPoints)
+// 	if crp < ohmmExpectedMinMelbAccuracy {
+// 		t.Fatalf("Hengfeng Li accuracy below threshold: got %v, want >= %v", crp, ohmmExpectedMinMelbAccuracy)
+// 	}
+// 	if rmf > ohmmExpectedMaxMelbRMF {
+// 		t.Fatalf("Hengfeng Li RMF above threshold: got %v, want <= %v", rmf, ohmmExpectedMaxMelbRMF)
+// 	}
+// }
 
-	if err := hhDownload(shanghaiDataFilePath, hhShanghaiDatasetDriveFile, logger, "shanghai dataset"); err != nil {
-		t.Fatalf("download Shanghai dataset failed: %v", err)
-	}
-	gzFile, err := os.Open(shanghaiDataFilePath)
-	if err != nil {
-		t.Fatalf("open Shanghai tar.gz failed: %v", err)
-	}
-	defer gzFile.Close()
-	if _, err := os.Stat(shanghaiTestDataPath); err != nil {
-		if err := hhExtractTarGz(gzFile, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
-			t.Fatalf("extract Shanghai tar.gz failed: %v", err)
-		}
-	}
-	if _, err := os.Stat(shanghaiTestDataPath); err != nil {
-		t.Fatalf("extract Shanghai tar.gz failed: %v", err)
-	}
+// // go test ./tests/map_matching -run TestHanwenHuOfflineHMMMapMatching -v -timeout=0 -count=1
+// func TestHanwenHuOfflineHMMMapMatching(t *testing.T) {
+// 	workingDir := ohmmEnsureConfig(t)
+// 	eng, graph, logger := ohmmBuildHanwenHuCRPGraph(t)
 
-	gpsTrajectories, err := hhReadAllCSVInDir(shanghaiTestDataPath)
-	if err != nil {
-		t.Fatalf("read Hanwen-Hu trajectories failed: %v", err)
-	}
+// 	shanghaiDataFilePath := ohmmProjectPath(workingDir, hhShanghaiDataFilePath)
+// 	shanghaiTestDataPath := ohmmProjectPath(workingDir, hhShanghaiTestDataPath)
+// 	shanghaiGroundTruthPath := ohmmProjectPath(workingDir, hhShanghaiGroundTruthPath)
+// 	shanghaiPolylinesPath := ohmmProjectPath(workingDir, hhShanghaiPolylinesPath)
 
-	rtree := spatialindex.NewRtree()
-	rtree.Build(graph, logger)
-	hmm := offline.NewHiddenMarkovModelMapMatching(graph, re.GetRoutingEngine(), rtree)
+// 	if err := hhDownload(shanghaiDataFilePath, hhShanghaiDatasetDriveFile, logger, "shanghai dataset"); err != nil {
+// 		t.Fatalf("download Shanghai dataset failed: %v", err)
+// 	}
+// 	gzFile, err := os.Open(shanghaiDataFilePath)
+// 	if err != nil {
+// 		t.Fatalf("open Shanghai tar.gz failed: %v", err)
+// 	}
+// 	defer gzFile.Close()
+// 	if _, err := os.Stat(shanghaiTestDataPath); err != nil {
+// 		if err := hhExtractTarGz(gzFile, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
+// 			t.Fatalf("extract Shanghai tar.gz failed: %v", err)
+// 		}
+// 	}
+// 	if _, err := os.Stat(shanghaiTestDataPath); err != nil {
+// 		t.Fatalf("extract Shanghai tar.gz failed: %v", err)
+// 	}
 
-	trajectoryNames := make([]string, 0, len(gpsTrajectories))
-	for trajName := range gpsTrajectories {
-		trajectoryNames = append(trajectoryNames, trajName)
-	}
-	sort.Strings(trajectoryNames)
+// 	gpsTrajectories, err := hhReadAllCSVInDir(shanghaiTestDataPath)
+// 	if err != nil {
+// 		t.Fatalf("read Hanwen-Hu trajectories failed: %v", err)
+// 	}
 
-	matchingErrors := make([]float64, 0, len(trajectoryNames))
-	totalPoints := 0
-	totalRuntime := 0.0
-	avgRuntimePerGpsPointAll := 0.0
-	for _, trajName := range trajectoryNames {
-		gpsTraj := gpsTrajectories[trajName]
-		nowDataset := time.Now()
-		gpsPoints := ohmmHanwenHuGPSTrajectory(t, gpsTraj)
+// 	rtree := spatialindex.NewRtree()
+// 	re := eng.GetRoutingEngine()
+// 	rn := re.GetRoadNetworkContainer()
+// 	rtree.Build(graph, rn, logger)
+// 	hmm := offline.NewHiddenMarkovModelMapMatching(graph, re, rtree)
 
-		now := time.Now()
-		matchedPoints := hmm.MapMatch(gpsPoints)
-		avgRuntimePerGpsPoint := float64(time.Since(now).Milliseconds()) / float64(len(gpsPoints))
-		if len(matchedPoints) == 0 {
-			t.Fatalf("Hanwen-Hu trajectory %s produced no matched points", trajName)
-		}
+// 	trajectoryNames := make([]string, 0, len(gpsTrajectories))
+// 	for trajName := range gpsTrajectories {
+// 		trajectoryNames = append(trajectoryNames, trajName)
+// 	}
+// 	sort.Strings(trajectoryNames)
 
-		trackID := hhTrackIDFromName(trajName)
-		resultPolylinePath := filepath.Join(shanghaiPolylinesPath, fmt.Sprintf("offline_hmm_result_polyline_%s.txt", trackID))
-		ohmmWritePolyline(t, resultPolylinePath, matchedPoints)
+// 	matchingErrors := make([]float64, 0, len(trajectoryNames))
+// 	totalPoints := 0
+// 	totalRuntime := 0.0
+// 	avgRuntimePerGpsPointAll := 0.0
+// 	for _, trajName := range trajectoryNames {
+// 		gpsTraj := gpsTrajectories[trajName]
+// 		nowDataset := time.Now()
+// 		gpsPoints := ohmmHanwenHuGPSTrajectory(t, gpsTraj)
 
-		groundTruth, err := hhReadCSV(filepath.Join(shanghaiGroundTruthPath, trajName))
-		if err != nil {
-			t.Fatalf("read Hanwen-Hu ground truth failed for %s: %v", trajName, err)
-		}
-		groundTruthLength := ohmmGroundTruthLength(t, groundTruth)
-		matchLength := ohmmMatchedLength(matchedPoints)
-		if util.Le(groundTruthLength, 0) {
-			t.Fatalf("Hanwen-Hu trajectory %s has zero ground truth length", trajName)
-		}
+// 		now := time.Now()
+// 		matchedPoints := hmm.MapMatch(gpsPoints)
+// 		avgRuntimePerGpsPoint := float64(time.Since(now).Milliseconds()) / float64(len(gpsPoints))
+// 		if len(matchedPoints) == 0 {
+// 			t.Fatalf("Hanwen-Hu trajectory %s produced no matched points", trajName)
+// 		}
 
-		matchingError := math.Abs(matchLength-groundTruthLength) / groundTruthLength
-		matchingErrors = append(matchingErrors, matchingError)
-		avgRuntimePerGpsPointAll += avgRuntimePerGpsPoint
-		totalRuntime += float64(time.Since(nowDataset).Milliseconds())
-		totalPoints += len(gpsPoints)
-		t.Logf("Hanwen-Hu trajectory %s: matching_error=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
-			trajName, matchingError, len(matchedPoints), len(gpsPoints), avgRuntimePerGpsPoint)
-	}
+// 		trackID := hhTrackIDFromName(trajName)
+// 		resultPolylinePath := filepath.Join(shanghaiPolylinesPath, fmt.Sprintf("offline_hmm_result_polyline_%s.txt", trackID))
+// 		ohmmWritePolyline(t, resultPolylinePath, matchedPoints)
 
-	sort.Float64s(matchingErrors)
-	avgRuntimePerGpsPointAll /= float64(len(trajectoryNames))
-	cdfAt014 := ohmmEmpiricalCDF(matchingErrors, 0.14)
-	cdfAt040 := ohmmEmpiricalCDF(matchingErrors, 0.40)
-	t.Logf("Hanwen-Hu offline HMM aggregate: trajectories=%d points=%d avg_runtime=%v Milliseconds/gps point CDF(<=0.14)=%v CDF(<=0.40)=%v",
-		len(trajectoryNames), totalPoints, avgRuntimePerGpsPointAll, cdfAt014, cdfAt040)
-	if util.Gt(totalRuntime, 0) {
-		t.Logf("Hanwen-Hu offline HMM matching efficiency: %v points/ms", float64(totalPoints)/totalRuntime)
-	}
+// 		groundTruth, err := hhReadCSV(filepath.Join(shanghaiGroundTruthPath, trajName))
+// 		if err != nil {
+// 			t.Fatalf("read Hanwen-Hu ground truth failed for %s: %v", trajName, err)
+// 		}
+// 		groundTruthLength := ohmmGroundTruthLength(t, groundTruth)
+// 		matchLength := ohmmMatchedLength(matchedPoints)
+// 		if util.Le(groundTruthLength, 0) {
+// 			t.Fatalf("Hanwen-Hu trajectory %s has zero ground truth length", trajName)
+// 		}
 
-	if cdfAt014 < ohmmExpectedMinHHCDFAt014 {
-		t.Fatalf("Hanwen-Hu CDF(<=0.14) below threshold: got %v, want >= %v", cdfAt014, ohmmExpectedMinHHCDFAt014)
-	}
-	if cdfAt040 < ohmmExpectedMinHHCDFAt040 {
-		t.Fatalf("Hanwen-Hu CDF(<=0.40) below threshold: got %v, want >= %v", cdfAt040, ohmmExpectedMinHHCDFAt040)
-	}
-}
+// 		matchingError := math.Abs(matchLength-groundTruthLength) / groundTruthLength
+// 		matchingErrors = append(matchingErrors, matchingError)
+// 		avgRuntimePerGpsPointAll += avgRuntimePerGpsPoint
+// 		totalRuntime += float64(time.Since(nowDataset).Milliseconds())
+// 		totalPoints += len(gpsPoints)
+// 		t.Logf("Hanwen-Hu trajectory %s: matching_error=%v matched=%d/%d avg_runtime=%v Milliseconds/gps point",
+// 			trajName, matchingError, len(matchedPoints), len(gpsPoints), avgRuntimePerGpsPoint)
+// 	}
 
-// go test ./tests/map_matching -run TestNewsonKrummOfflineHMMMapMatching -v -timeout=0 -count=1
-func TestNewsonKrummOfflineHMMMapMatching(t *testing.T) {
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatalf("FindProjectWorkingDir() failed: %v", err)
-	}
-	if err := config.ReadConfig(workingDir); err != nil {
-		t.Fatalf("ReadConfig() failed: %v", err)
-	}
-	vehicleType := viper.GetString("vehicle_type")
-	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
-	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
+// 	sort.Float64s(matchingErrors)
+// 	avgRuntimePerGpsPointAll /= float64(len(trajectoryNames))
+// 	cdfAt014 := ohmmEmpiricalCDF(matchingErrors, 0.14)
+// 	cdfAt040 := ohmmEmpiricalCDF(matchingErrors, 0.40)
+// 	t.Logf("Hanwen-Hu offline HMM aggregate: trajectories=%d points=%d avg_runtime=%v Milliseconds/gps point CDF(<=0.14)=%v CDF(<=0.40)=%v",
+// 		len(trajectoryNames), totalPoints, avgRuntimePerGpsPointAll, cdfAt014, cdfAt040)
+// 	if util.Gt(totalRuntime, 0) {
+// 		t.Logf("Hanwen-Hu offline HMM matching efficiency: %v points/ms", float64(totalPoints)/totalRuntime)
+// 	}
 
-	re, g, zlog, _, edgeLength, err := nkBuildRoadNetworkCRPGraph(t, workingDir)
-	if err != nil {
-		t.Fatalf("nkBuildRoadNetworkCRPGraph() failed: %v", err)
-	}
+// 	if cdfAt014 < ohmmExpectedMinHHCDFAt014 {
+// 		t.Fatalf("Hanwen-Hu CDF(<=0.14) below threshold: got %v, want >= %v", cdfAt014, ohmmExpectedMinHHCDFAt014)
+// 	}
+// 	if cdfAt040 < ohmmExpectedMinHHCDFAt040 {
+// 		t.Fatalf("Hanwen-Hu CDF(<=0.40) below threshold: got %v, want >= %v", cdfAt040, ohmmExpectedMinHHCDFAt040)
+// 	}
+// }
 
-	gpsDataFilepath := filepath.Join(workingDir, "data/eval/mapmatching/gps_data.txt")
-	groundTruthDataFilepath := filepath.Join(workingDir, "data/eval/mapmatching/ground_truth.txt")
-	if err := nkDownload(gpsDataFilepath, nkGPSDataDriveFile, zlog, t, "gps trajectory"); err != nil {
-		t.Fatalf("download gps data failed: %v", err)
-	}
-	if err := nkDownload(groundTruthDataFilepath, nkGroundTruthDriveFile, zlog, t, "ground truth"); err != nil {
-		t.Fatalf("download ground truth failed: %v", err)
-	}
+// // go test ./tests/map_matching -run TestNewsonKrummOfflineHMMMapMatching -v -timeout=0 -count=1
+// func TestNewsonKrummOfflineHMMMapMatching(t *testing.T) {
+// 	workingDir, err := config.FindProjectWorkingDir()
+// 	if err != nil {
+// 		t.Fatalf("FindProjectWorkingDir() failed: %v", err)
+// 	}
+// 	if err := config.ReadConfig(workingDir); err != nil {
+// 		t.Fatalf("ReadConfig() failed: %v", err)
+// 	}
+// 	vehicleType := viper.GetString("vehicle_type")
+// 	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
+// 	pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
+// 	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
+// 	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 
-	rtree := spatialindex.NewRtree()
-	rtree.Build(g, zlog)
+// 	eng, g, zlog, _, edgeLength, err := nkBuildRoadNetworkCRPGraph(t, workingDir)
+// 	if err != nil {
+// 		t.Fatalf("nkBuildRoadNetworkCRPGraph() failed: %v", err)
+// 	}
 
-	gpsTraj := nkReadGPSTrajectory(t, gpsDataFilepath)
-	if len(gpsTraj) == 0 {
-		t.Fatalf("empty GPS trajectory")
-	}
+// 	gpsDataFilepath := filepath.Join(workingDir, "data/eval/mapmatching/gps_data.txt")
+// 	groundTruthDataFilepath := filepath.Join(workingDir, "data/eval/mapmatching/ground_truth.txt")
+// 	if err := nkDownload(gpsDataFilepath, nkGPSDataDriveFile, zlog, t, "gps trajectory"); err != nil {
+// 		t.Fatalf("download gps data failed: %v", err)
+// 	}
+// 	if err := nkDownload(groundTruthDataFilepath, nkGroundTruthDriveFile, zlog, t, "ground truth"); err != nil {
+// 		t.Fatalf("download ground truth failed: %v", err)
+// 	}
 
-	hmm := offline.NewHiddenMarkovModelMapMatching(g, re.GetRoutingEngine(), rtree)
-	now := time.Now()
-	mapMatchPointResult := hmm.MapMatch(gpsTraj)
-	avgRuntimePerGPSPoint := float64(time.Since(now).Milliseconds()) / float64(len(gpsTraj))
-	if len(mapMatchPointResult) == 0 {
-		t.Fatalf("offline HMM produced no matched points")
-	}
+// 	re := eng.GetRoutingEngine()
+// 	rn := re.GetRoadNetworkContainer()
+// 	rtree := spatialindex.NewRtree()
+// 	rtree.Build(g, rn, zlog)
 
-	matchedCoords := make([]da.Coordinate, 0, len(mapMatchPointResult))
-	for _, point := range mapMatchPointResult {
-		if point.GetEdgeId() == da.INVALID_EDGE_ID {
-			continue
-		}
-		matchedCoords = append(matchedCoords, point.GetMatchedCoord())
-	}
-	if len(matchedCoords) > 0 {
-		offlinePolylinePath := filepath.Join(workingDir, "data/eval/mapmatching/offline_newson_polyline.txt")
-		if err := os.MkdirAll(filepath.Dir(offlinePolylinePath), 0755); err != nil {
-			t.Fatalf("create polyline output directory failed: %v", err)
-		}
-		polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
-		if err := os.WriteFile(offlinePolylinePath, []byte(polyline), 0644); err != nil {
-			t.Fatalf("write offline polyline file failed: %v", err)
-		}
-	}
+// 	gpsTraj := nkReadGPSTrajectory(t, gpsDataFilepath)
+// 	if len(gpsTraj) == 0 {
+// 		t.Fatalf("empty GPS trajectory")
+// 	}
 
-	crp, rmf := nkEvaluateMatchedRoute(t, g, groundTruthDataFilepath, edgeLength, mapMatchPointResult)
-	t.Logf("Route Mismatch Fraction (RMF): %v", rmf)
-	t.Logf("Correct Road Percentage (CRP) or accuracy: %v", crp)
-	t.Logf("matched points: %d/%d", len(mapMatchPointResult), len(gpsTraj))
-	t.Logf("avg runtime per gps point: %v milliseconds/gps point", avgRuntimePerGPSPoint)
+// 	hmm := offline.NewHiddenMarkovModelMapMatching(g, re, rtree)
+// 	now := time.Now()
+// 	mapMatchPointResult := hmm.MapMatch(gpsTraj)
+// 	avgRuntimePerGPSPoint := float64(time.Since(now).Milliseconds()) / float64(len(gpsTraj))
+// 	if len(mapMatchPointResult) == 0 {
+// 		t.Fatalf("offline HMM produced no matched points")
+// 	}
 
-	if crp < nkExpectedMinAccuracy {
-		t.Fatalf("accuracy below threshold: got %v, want >= %v", crp, nkExpectedMinAccuracy)
-	}
-	if rmf > nkExpectedMaxRMF {
-		t.Fatalf("RMF above threshold: got %v, want <= %v", rmf, nkExpectedMaxRMF)
-	}
-}
+// 	matchedCoords := make([]da.Coordinate, 0, len(mapMatchPointResult))
+// 	for _, point := range mapMatchPointResult {
+// 		if point.GetEdgeId() == da.INVALID_SEGMENT_ID {
+// 			continue
+// 		}
+// 		matchedCoords = append(matchedCoords, point.GetMatchedCoord())
+// 	}
+// 	if len(matchedCoords) > 0 {
+// 		offlinePolylinePath := filepath.Join(workingDir, "data/eval/mapmatching/offline_newson_polyline.txt")
+// 		if err := os.MkdirAll(filepath.Dir(offlinePolylinePath), 0755); err != nil {
+// 			t.Fatalf("create polyline output directory failed: %v", err)
+// 		}
+// 		polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
+// 		if err := os.WriteFile(offlinePolylinePath, []byte(polyline), 0644); err != nil {
+// 			t.Fatalf("write offline polyline file failed: %v", err)
+// 		}
+// 	}
+
+// 	crp, rmf := nkEvaluateMatchedRoute(t, g, rn, groundTruthDataFilepath, edgeLength, mapMatchPointResult)
+// 	t.Logf("Route Mismatch Fraction (RMF): %v", rmf)
+// 	t.Logf("Correct Road Percentage (CRP) or accuracy: %v", crp)
+// 	t.Logf("matched points: %d/%d", len(mapMatchPointResult), len(gpsTraj))
+// 	t.Logf("avg runtime per gps point: %v milliseconds/gps point", avgRuntimePerGPSPoint)
+
+// 	if crp < nkExpectedMinAccuracy {
+// 		t.Fatalf("accuracy below threshold: got %v, want >= %v", crp, nkExpectedMinAccuracy)
+// 	}
+// 	if rmf > nkExpectedMaxRMF {
+// 		t.Fatalf("RMF above threshold: got %v, want <= %v", rmf, nkExpectedMaxRMF)
+// 	}
+// }

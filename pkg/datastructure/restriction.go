@@ -3,6 +3,7 @@ package datastructure
 import "github.com/lintang-b-s/Navigatorx/pkg"
 
 // ConditionalBarrierNode https://wiki.openstreetmap.org/wiki/Conditional_restrictions#Turn_restrictions
+// todo: ini haruse semuanya bisa dijadiin satu struct aja biar lebih clean
 type ConditionalBarrierNode struct {
 	osmNodeId    int64  // osm node id (bukan graph vertex id)
 	timeRangeVal string // yes @ Dec 25

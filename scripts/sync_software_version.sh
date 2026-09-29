@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repo_root=$(git rev-parse --show-toplevel)
-version_file="$repo_root/pkg/util/binary_io.go"
+version_file="$repo_root/pkg/util/binary_io_writer.go"
 tag=$(
   git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-version:refname |
     grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' |

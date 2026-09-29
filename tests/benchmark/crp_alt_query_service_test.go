@@ -34,12 +34,12 @@ func BenchmarkShortestPathService(b *testing.B) {
 	eng, queries, g, logger := setup()
 	start := time.Now()
 	re := eng.GetRoutingEngine()
-
+	rn := re.GetRoadNetworkContainer()
 	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), logger)
+	rtree.Build(re.GetGraph(), rn, logger)
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
-	rs, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true)
+	rs, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
 	if err != nil {
 		b.Fatal(err)
 	}

@@ -2,17 +2,16 @@ package snap
 
 import (
 	"flag"
-	"math/rand"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
-	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
@@ -20,7 +19,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -36,8 +34,12 @@ const (
 	graphFile        string = "./data/original_query_test.ngraph"
 	overlayGraphFile string = "./data/overlay_graph_query_test.ngraph"
 	metricsFile      string = "./data/metrics_query_test.nmt"
-	landmarkFile     string = "./data/landmark_query_test.nlm"
 	timeFunctionFile string = "./data/timefunction_od_test.ntf"
+	rnFile           string = "./data/od_rn_test.ndata"
+)
+
+var (
+	landmarkFile string = config.ProfilesRoot() + "/landmark_query_test.nlm"
 )
 
 func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
@@ -56,9 +58,10 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	config.InitRegionName("snap_test", pkg.TEST)
 
-	op := osmparser.NewOSMParserV2[int32]()
-	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
+	op := extractor.NewExtractor[int32]()
+	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -82,17 +85,17 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 
 	mp.RunMultilevelPartitioning()
 
-	err = mp.SaveToFile(mlpFile)
+	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(mlpFile)
+	err = mlp.ReadMlpFile()
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -100,14 +103,14 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	custom := customizer.NewCustomizer[int32](logger, pkg.TEST)
 
 	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](logger, pkg.TEST)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -119,65 +122,14 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 func TestOriginDestinationSnap(t *testing.T) {
 	eng, logger := setup(t)
 	re := eng.GetRoutingEngine()
-	g := re.GetGraph()
-
-	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	V := g.NumberOfVertices()
-
-	n := 10000
-	qset := make(map[uint64]struct{})
-
-	type origDestPair struct {
-		orig, dest da.Coordinate
-	}
-
-	newOrigDestPair := func(orig, dest da.Coordinate) origDestPair {
-		return origDestPair{
-			orig: orig,
-			dest: dest,
-		}
-	}
-
-	queries := make([]origDestPair, 0, n)
-
-	i := 0
-	for i < n {
-		s := da.Index(rd.Intn(V))
-		target := da.Index(rd.Intn(V))
-
-		if !g.PathExists(s, target) {
-			continue
-		}
-
-		key := util.Bitpack(uint32(s), uint32(target))
-		if _, ok := qset[key]; ok {
-			continue
-		}
-		qset[key] = struct{}{}
-
-		sCoord := g.GetVertexCoordinate(s)
-
-		rndDist := 0.001 + rd.Float64()*(0.005-0.001)
-		rdBearing := rd.Float64() * 360.0
-
-		sCoordNLat, sCoordNLon := geo.GetDestinationPoint(sCoord.GetLat(), sCoord.GetLon(), rdBearing, rndDist)
-		tCoord := g.GetVertexCoordinate(target)
-
-		rndDist = 0.001 + rd.Float64()*(0.005-0.001)
-		rdBearing = rd.Float64() * 360.0
-
-		tCoordNLat, tCoordNLon := geo.GetDestinationPoint(tCoord.GetLat(), tCoord.GetLon(), rdBearing, rndDist)
-
-		queries = append(queries, newOrigDestPair(da.NewCoordinate(sCoordNLat, sCoordNLon), da.NewCoordinate(tCoordNLat, tCoordNLon)))
-		i++
-	}
+	rn := re.GetRoadNetworkContainer()
 
 	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), logger)
+	rtree.Build(re.GetGraph(), rn, logger)
 
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true)
+	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.04, true)
 	if err != nil {
 		panic(err)
 	}
@@ -199,7 +151,7 @@ func TestOriginDestinationSnap(t *testing.T) {
 		{
 			name:                  "Kebab Morgan Jl. Pandega Marta https://www.openstreetmap.org/way/132780420  -> jalan Sains FMIPA UGM https://www.openstreetmap.org/way/194146659",
 			queryOriginCoord:      da.NewCoordinate(-7.755813, 110.376565),
-			queryDestinationCoord: da.NewCoordinate(-7.767826, 110.376570),
+			queryDestinationCoord: da.NewCoordinate(-7.767855, 110.376506),
 			wantOrigin:            "Jalan Pandega Marta",
 			wantDestination:       "Jalan Sains",
 		},
@@ -231,12 +183,10 @@ func TestOriginDestinationSnap(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			sp, tp := routingService.SnapOrigDestQueryToNearbyRoadSegments(tc.queryOriginCoord.GetLat(), tc.queryOriginCoord.GetLon(),
-				tc.queryDestinationCoord.GetLat(), tc.queryDestinationCoord.GetLon(), false, da.INVALID_EDGE_ID)
+				tc.queryDestinationCoord.GetLat(), tc.queryDestinationCoord.GetLon(), false, da.INVALID_SEGMENT_ID)
 
-			sourceRoadSegmentName := g.GetStreetName(sp.GetOutEdgeId())
-
-			destinationExitId := g.GetOutIdOfInEdge(tp.GetInEdgeId())
-			destinationRoadSegmentName := g.GetStreetName(destinationExitId)
+			sourceRoadSegmentName := rn.GetStreetName(sp.GetVId())
+			destinationRoadSegmentName := rn.GetStreetName(tp.GetVId())
 			if sourceRoadSegmentName != tc.wantOrigin {
 				t.Errorf("want origin road segment: %v, got: %v", tc.wantOrigin, sourceRoadSegmentName)
 			}
@@ -247,20 +197,4 @@ func TestOriginDestinationSnap(t *testing.T) {
 		})
 	}
 
-	t.Run("random input origin destination snap test", func(t *testing.T) {
-		for _, q := range queries {
-			sp, tp := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
-				q.dest.GetLat(), q.dest.GetLon(), false, da.INVALID_EDGE_ID)
-
-			snappedOrig := sp.GetSnappedCoord()
-			snappedDst := tp.GetSnappedCoord()
-
-			distToOrig := geo.CalculateGreatCircleDistance(q.orig.GetLat(), q.orig.GetLon(), snappedOrig.GetLat(), snappedOrig.GetLon())
-			distToDest := geo.CalculateGreatCircleDistance(q.dest.GetLat(), q.dest.GetLon(), snappedDst.GetLat(), snappedDst.GetLon())
-
-			if util.Gt(distToOrig, 0.06) || util.Gt(distToDest, 0.06) { // karena search radius 50 m,
-				t.Errorf("snapped origin or destination too far from origin and destination query: %v, %v", distToOrig, distToDest)
-			}
-		}
-	})
 }

@@ -50,7 +50,8 @@ func TestAlternativeRoutes(t *testing.T) {
 			rtree := spatialindex.NewRtree()
 			altSearch := routing.NewAlternativeRouteSearch(re)
 			g := re.GetGraph()
-			rtree.Build(re.GetGraph(), logger)
+			rn := re.GetRoadNetworkContainer()
+			rtree.Build(re.GetGraph(), rn, logger)
 
 			n := 5000
 			qset := make(map[uint64]struct{})
@@ -100,18 +101,11 @@ func TestAlternativeRoutes(t *testing.T) {
 
 			foundAltCount := 0
 
-			emptyCoords := make([]da.Coordinate, 0)
-
 			for i := 0; i < len(queries); i++ {
-				ssource := queries[i].s
+				source := queries[i].s
 				target := queries[i].t
 
-				sVertex := g.GetVertex(ssource)
-				tVertex := g.GetVertex(target)
-
-				sp := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, sVertex.GetFirstOut(), sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-				tp := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), tVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-				alts, optCost, dur := altSearch.FindAlternativeRoutes(sp, tp, 4, false, 0)
+				alts, optCost, dur := altSearch.FindAlternativeRoutes(source, target, 4, false, 0)
 
 				if (i+1)%100 == 0 {
 					t.Logf("processed %d queries\n", i+1)

@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var CoordinatePrecision = 1e7
@@ -21,7 +22,7 @@ func NewFloatCoordinate(lat, lon float64) FloatCoordinate {
 }
 
 type Coordinate struct {
-	lat int32 // latitude * 10^7 .terinspirasi dari how OSRM store osm node coordinates & save space
+	lat int32 // latitude * 10^7 .terinspirasi dari how OSRM store osm node coordinates & save space (https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/coordinate.hpp)
 	lon int32 // longitude * 10^7
 }
 
@@ -45,12 +46,8 @@ func (c Coordinate) ToFloatCoordinate() FloatCoordinate {
 	return NewFloatCoordinate(c.GetLat(), c.GetLon())
 }
 
-func (c Coordinate) IsValid() bool {
-	return c.lat != invalidFixedCoordinate && c.lon != invalidFixedCoordinate
-}
-
 func IsSameCoordinate(a, b Coordinate) bool {
-	return a == b
+	return util.Eq(a.lat, b.lat) && util.Eq(a.lon, b.lon)
 }
 
 func NewCoordinate(lat, lon float64) Coordinate {

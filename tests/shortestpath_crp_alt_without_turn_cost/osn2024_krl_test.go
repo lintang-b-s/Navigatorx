@@ -12,7 +12,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -320,20 +320,20 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	P--
 	Q--
 
-	nodeCoords := make([]osmparser.NodeCoord, 0)
+	nodeCoords := make([]extractor.NodeCoord, 0)
 	for i := 0; i < N; i++ {
-		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(i)))
+		nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
 	}
 
 	for i := N; i < 2*N; i++ {
-		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i*3), float64(i*3)))
+		nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i*3), float64(i*3)))
 	}
 
 	u1, u2, u3, u4 := 7, 11, 14, 16
 	if (2.0*float64(e))/math.Pow(float64(N)*2.0, 2) >= 0.00005 {
 		u1, u2, u3, u4 = 22, 23, 24, 25 // gak bikin partisi
 	} // jumlah shortcuts nya kebanyakan aowkwowk > 100jt kalau test case nya dense
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, N*2, []int{u1, u2, u3, u4}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "osn2024_krl", nodeCoords, adjList, N*2, []int{u1, u2, u3, u4}, true)
 
 	t.Logf("calculating shortest path from P: %v, to: Q: %v\n", P+1, Q+1)
 
@@ -413,7 +413,7 @@ func TestOSN2024KRLMALT(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-ALT without turn cost"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-ALT without turn cost/"+dir+"/"+baseName, func(t *testing.T) {
 				SolveOSN2024KRL(t, testPath)
 
 			})

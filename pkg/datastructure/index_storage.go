@@ -9,46 +9,49 @@ import (
 )
 
 type TwoLevelStorage struct {
-	overlay        map[Index]uint32
-	base           []uint32
-	maxEdgesInCell uint32
+	overlay     []uint32
+	base        map[Index]uint32
+	numVertices uint32
 }
 
-func NewTwoLevelStorage(baseSize, maxEdgesInCell uint32) *TwoLevelStorage {
-	base := make([]uint32, baseSize)
-	for i := uint32(0); i < baseSize; i++ {
-		base[i] = math.MaxUint32
+func NewTwoLevelStorage(numOverlayVertices, numVertices uint32) *TwoLevelStorage {
+	overlay := make([]uint32, numOverlayVertices)
+	for i := uint32(0); i < numOverlayVertices; i++ {
+		overlay[i] = math.MaxUint32
 	}
 
 	return &TwoLevelStorage{
-		overlay:        make(map[Index]uint32, OVERLAY_VERTICES_SIZE),
-		base:           base,
-		maxEdgesInCell: maxEdgesInCell,
+		overlay:     overlay,
+		base:        make(map[Index]uint32, BASE_VERTICES_SIZE),
+		numVertices: numVertices,
 	}
 }
 
-func isOverlay(u Index, maxEdgesInCell uint32) bool {
-	return u >= Index(maxEdgesInCell)*2
+func isOverlay(u Index, numVertices uint32) bool {
+	return u >= Index(numVertices)
 }
 
 func (s *TwoLevelStorage) Get(id Index) uint32 {
-	if isOverlay(id, s.maxEdgesInCell) {
+	if isOverlay(id, s.numVertices) {
 		// https://go.dev/blog/swisstable
 		// go1.24 use swiss table for its hash table (open addressing)
 		// a=load factor=n/m, n=number of items to be mapped, m=size of hash table
 		// open addressing avg case: unsuccessful search & insert in O(1/(1-a)) or O(1)
-		val, ok := s.overlay[id]
-		if !ok {
-			return math.MaxUint32
-		}
+		id -= Index(s.numVertices)
+		val := s.overlay[id]
 		return val
 	}
 
-	return s.base[id]
+	val, ok := s.base[id]
+	if !ok {
+		return math.MaxUint32
+	}
+	return val
 }
 
 func (s *TwoLevelStorage) Set(id Index, vertexIndex uint32) {
-	if isOverlay(id, s.maxEdgesInCell) {
+	if isOverlay(id, s.numVertices) {
+		id -= Index(s.numVertices)
 		s.overlay[id] = vertexIndex
 		return
 	}
@@ -56,33 +59,33 @@ func (s *TwoLevelStorage) Set(id Index, vertexIndex uint32) {
 }
 
 func (s *TwoLevelStorage) Clear() {
-	for i := 0; i < len(s.base); i++ {
-		s.base[i] = math.MaxUint32
+	for i := 0; i < len(s.overlay); i++ {
+		s.overlay[i] = math.MaxUint32
 	}
 
 	// https://go101.org/optimizations/6-map.html
-	for key := range s.overlay {
-		delete(s.overlay, key)
+	for key := range s.base {
+		delete(s.base, key)
 	}
 }
 
 func (s *TwoLevelStorage) Clone() IndexStorage {
-	overlayClone := make(map[Index]uint32, len(s.overlay))
-	maps.Copy(overlayClone, s.overlay)
-	base := make([]uint32, len(s.base))
-	copy(base, s.base)
+	base := make(map[Index]uint32, len(s.overlay))
+	maps.Copy(base, s.base)
+	overlay := make([]uint32, len(s.overlay))
+	copy(overlay, s.overlay)
 
-	return &TwoLevelStorage{overlay: overlayClone,
-		base: base, maxEdgesInCell: s.maxEdgesInCell}
+	return &TwoLevelStorage{base: base,
+		overlay: overlay, numVertices: s.numVertices}
 }
 
 func (s *TwoLevelStorage) ForAllItems(handle func(offsetedVId Index, vertexIndex uint32)) {
-	for offsetedEdgeId, vertexIndex := range s.base {
-		handle(Index(offsetedEdgeId), vertexIndex)
+	for ovId, vertexIndex := range s.overlay {
+		handle(Index(ovId), vertexIndex)
 	}
 
-	for overlayVId, vertexIndex := range s.overlay {
-		handle(overlayVId, vertexIndex)
+	for vId, vertexIndex := range s.base {
+		handle(vId, vertexIndex)
 	}
 }
 
@@ -193,7 +196,7 @@ func (sc *ExploredBitsetStorage) Set(vertexIndex uint32) {
 	sc.explored.Set(uint(vertexIndex))
 }
 
-func (sc *ExploredBitsetStorage) Clear(maxEdgesInCell uint32) {
+func (sc *ExploredBitsetStorage) Clear(numberOfOverlayVertices uint32) {
 	sc.explored.ClearAll()
 }
 
@@ -213,7 +216,7 @@ func (sc *ExploredSettorage) Set(vertexIndex uint32) {
 	sc.explored.Add(vertexIndex)
 }
 
-func (sc *ExploredSettorage) Clear(maxEdgesInCell uint32) {
+func (sc *ExploredSettorage) Clear(numberOfOverlayVertices uint32) {
 	sc.explored.Range(func(value uint32) bool {
 		sc.explored.Remove(value)
 		return true

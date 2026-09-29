@@ -21,15 +21,14 @@ type RoutingService interface {
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
-	GetWeightSeconds(eId da.Index, outEdge bool) float64
-	GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64
-	GetSegmentLength(eId da.Index, outEdge bool) float64
-	IsDummyOutEdge(eId da.Index) bool
-	IsDummyInEdge(eId da.Index) bool
+	GetDurationSeconds(segId da.Index) float64
+	GetDurationFromLength(segId da.Index, eLength float64) float64
+	GetSegmentLength(segId da.Index) float64
+	GetSegmentSpeed(segId da.Index) float64
+
 	InitBackgroundWorker(ctx context.Context)
 	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
 	Close()
-	GetSegmentSpeed(eId da.Index, outEdge bool) float64
 	PutCoordsToPool(coords *da.Coordinates)
 }
 

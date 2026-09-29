@@ -11,7 +11,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -217,13 +217,13 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		adjList[v] = append(adjList[v], tests.NewPairEdge(u, dist))
 	}
 
-	nodeCoords := make([]osmparser.NodeCoord, 0)
+	nodeCoords := make([]extractor.NodeCoord, 0)
 	for i := 0; i < n; i++ {
 		planet := galaxy[i]
-		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(planet.x+planet.z), float64(planet.y+planet.z)))
+		nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(planet.x+planet.z), float64(planet.y+planet.z)))
 	}
 
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{4, 5, 6}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "galaxyquest2", nodeCoords, adjList, n, []int{4, 5, 6}, true)
 	s := 0
 	sid := oldToNewVIdMap[da.Index(s)]
 
@@ -314,18 +314,14 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 // please run the test using command: "go test ./tests/shortestpath_without_turn_cost -run TestCRPQueryGalaxyQuestMLD  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
 func TestCRPQueryGalaxyQuestMLD(t *testing.T) {
-
 	dirPath := "../shortestpath/data/tests/shortestpath/icpc_nwerc2023_galaxyquest/"
 	testDirs := []string{"sample", "secret"}
-
 	for _, dir := range testDirs {
 		fullDir := filepath.Join(dirPath, dir)
-
 		files, err := os.ReadDir(fullDir)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-
 		for _, entry := range files {
 
 			name := entry.Name()
@@ -339,7 +335,7 @@ func TestCRPQueryGalaxyQuestMLD(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-Dijkstra without turn cost"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-Dijkstra without turn cost/"+dir+"/"+baseName, func(t *testing.T) {
 				solveGalaxyQuest(t, testPath)
 
 			})

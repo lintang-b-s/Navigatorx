@@ -124,7 +124,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		return
 	}
 
-	startEdgeId := da.INVALID_EDGE_ID
+	startEdgeId := da.INVALID_SEGMENT_ID
 	rerouteStr := query.Get("reroute")
 	reroute := false
 	if rerouteStr != "" {
@@ -232,7 +232,7 @@ func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request,
 
 	newCtx := r.Context()
 
-	startEdgeId := da.INVALID_EDGE_ID
+	startEdgeId := da.INVALID_SEGMENT_ID
 	rerouteStr := query.Get("reroute")
 	reroute := false
 	if rerouteStr != "" {

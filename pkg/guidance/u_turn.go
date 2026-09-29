@@ -22,19 +22,18 @@ D <--currentEdge---C
 
 If from A->B turn right, and from B->C turn right, and the relative bearing between A->B and C->D is close to 180 degrees, then it can be considered a U-turn.
 */ // nolint: gofmt
-func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, edgeId da.Index) (bool, da.TurnType) {
+func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, segmentId da.Index) (bool, da.TurnType) {
 	isUTurn := false
 	uTurnType := da.U_TURN_UNKNOWN
-
-	headId := db.graph.GetHeadOfOutEdge(edgeId)
 
 	if db.doublePrevInitialBearing != 0 && (db.prevSign != da.IGNORE) &&
 		db.isSameConsecutiveTurn(db.prevSign, sign) &&
 		isSamePrimaryName(db.doublePrevStreetName, name) {
-		head := db.graph.GetVertex(headId)
-		headLat, headLon := head.GetLat(), head.GetLon()
-		tail := db.graph.GetVertex(db.graph.GetTailOfOutedge(edgeId))
-		currentInitialBearing := geo.ComputeInitialBearing(tail.GetLat(), tail.GetLon(), headLat, headLon)
+
+		tail := db.rn.GetSegmentTailCoord(segmentId)
+		head := db.GetHeadPoint(segmentId, tail, 10)
+
+		currentInitialBearing := geo.ComputeInitialBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
 		relativeBearing := math.Abs(db.doublePrevInitialBearing - currentInitialBearing)
 		relativeBearingDeg := util.RadiansToDegree(relativeBearing)
 		if relativeBearingDeg > U_TURN_RELATIVE_BEARING_MIN && relativeBearingDeg < U_TURN_RELATIVE_BEARING_MAX {

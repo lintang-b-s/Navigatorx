@@ -11,5 +11,5 @@ type IndexStorage interface {
 type ExploredSetStorage interface {
 	Test(vertexIndex uint32) bool
 	Set(vertexIndex uint32)
-	Clear(maxEdgesInCell uint32)
+	Clear(maxVerticesInCell uint32)
 }

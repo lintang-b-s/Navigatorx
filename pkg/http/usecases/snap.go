@@ -11,7 +11,7 @@ import (
 type candidateSnap struct {
 	coord      da.Coordinate
 	dist       float64
-	distToEnd  float64
+	tailDist   float64
 	nextCoords []da.Coordinate
 }
 
@@ -26,7 +26,7 @@ kalau tidak ada nearby road segments (dari source dan destination query) atau se
 jalanin lagi SnapOrigDestToNearbyRoadSegmentsByradius() dengan search radius 2x dari radius sebelumnya dan kita gak evaluate lagi evaluated candidate pairs di all previous rounds.
 kenapa??
 1. karena kita tahu evaluated candidate pairs gak ada path (dari w ke q) di all previous rounds.
-2. masih ada kemungkinan terdapat path dari old origCandidates ke new dstCandidates
+2. masih ada kemungkinan terdapat path dari old origCands ke new dstCands
 
 let q=number of rounds until searchRead exceeds MAX_SEARCH_RADIUS
 let M=number of road segments/edges in the graph
@@ -34,30 +34,25 @@ let c=max number of road segments/edges returned by rtree spatial index
 avg case: O(q*(logM + c^2))
 
 return:
-outEdgeId dari source road segment.
-inEdgeId dari destination road segment.
+s dari source road segment.
+t dari destination road segment.
 snapped point (proyeksi titik query source ke road segment terdekat) of source.
 snapped point (proyeksi titik query destination ke road segment terdekat) of destination.
 edgeGeometry dari source road segment setelah snappedPoint of destination.
 edgeGeometry dari source road segment sebelum snappedPoint of destination.
 */
-func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon float64, reroute bool, startEdgeId da.Index,
+func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon float64, reroute bool, startSegmentId da.Index,
 ) (da.PhantomNode, da.PhantomNode) {
 	searchRad := rs.searchRadius
 	var (
 		sp = da.NewInvalidPhantomNode()
 		tp = da.NewInvalidPhantomNode()
 	)
-	removedPrevPairSet := rs.candidatePairSetPool.Get().(hashset.Uint64Set)
-	defer func() {
-		clear(removedPrevPairSet)
-		rs.candidatePairSetPool.Put(removedPrevPairSet)
-	}()
-
+	removedPrevPairSet := hashset.NewUint64WithSize(candidatePairCapacity)
 	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
 		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 
-		sp, tp = rs.SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet, reroute, startEdgeId)
+		sp, tp = rs.SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet, reroute, startSegmentId)
 		if !rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 			// break loop early if found connected origin and destination
 			break
@@ -78,45 +73,43 @@ kalau tidak ada nearby road segments (dari source dan destination query) atau se
 jalanin lagi SnapOrigDestToNearbyRoadSegmentsByradius() dengan search radius 2x dari radius sebelumnya dan kita gak evaluate lagi evaluated candidate pairs di all previous rounds.
 kenapa??
 1. karena kita tahu evaluated candidate pairs di all previous rounds gak ada path (dari w ke q).
-2. masih ada kemungkinan terdapat path dari old origCandidates ke new dstCandidates
+2. masih ada kemungkinan terdapat path dari old origCands ke new dstCands
 
 let M=number of road segments/edges in the graph, MAX_CANDIDATES (see spatial_index/constant.go dan rtree.go) adalah jumlah leafs data maksimum yang direturn oleh Search() nya r-tree
 let c=max number of road segments/edges returned by rtree spatial index
 avg case: O(logM + c^2)
 */
 func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
-	removedPrevPairSet hashset.Uint64Set, reroute bool, startEdgeId da.Index) (da.PhantomNode, da.PhantomNode) {
+	removedPrevPairSet hashset.Uint64Set, reroute bool, startSegmentId da.Index) (da.PhantomNode, da.PhantomNode) {
 	var (
-		projectedLat, projectedLon float64
-		origCandidates             []da.Index
+		pLat, pLon float64
+		origCands  []da.Index
 	)
 
 	// let M=number of road segments/edges in the graph, MAX_CANDIDATES (see spatial_index/constant.go dan rtree.go) adalah jumlah leafs data maksimum yang direturn oleh Search() nya r-tree
 	// SearchWithinRadius worst case is O(M), avg case is O(logM)
-	// find nearest orig edge (inEdgeOffset) to qOrigLat, qOrigLon
+	// find nearest orig edge (inSegmentOffset) to qOrigLat, qOrigLon
 	if !reroute {
-		origCandidates = rs.spatialIndex.SearchWithinRadius(qOrigLat, qOrigLon, searchRad, 0)
+		origCands = rs.spatialIndex.SearchWithinRadius(qOrigLat, qOrigLon, searchRad, 0)
 	} else {
-		origCandidates = append(origCandidates, startEdgeId)
+		origCands = append(origCands, startSegmentId)
 	}
 
-	// find nearest dst edge (outEdgeOffset) to qDstLat, qDstLon
-	dstCandidates := rs.spatialIndex.SearchWithinRadius(qDstLat, qDstLon, searchRad, 1)
+	// find nearest dst edge (outSegmentOffset) to qDstLat, qDstLon
+	dstCands := rs.spatialIndex.SearchWithinRadius(qDstLat, qDstLon, searchRad, 1)
 
-	origSnaps := make([]candidateSnap, len(origCandidates))
-	dstSnaps := make([]candidateSnap, len(dstCandidates))
+	origSnaps := make([]candidateSnap, len(origCands))
+	dstSnaps := make([]candidateSnap, len(dstCands))
 
-	for i, c := range origCandidates {
-		projectedLat, projectedLon, origSnaps[i].dist, origSnaps[i].distToEnd, origSnaps[i].nextCoords = rs.ProjectCoordinateToEdge(qOrigLat, qOrigLon, c, true)
-		origSnaps[i].coord = da.NewCoordinate(projectedLat, projectedLon)
+	for i, c := range origCands {
+		pLat, pLon, origSnaps[i].dist, origSnaps[i].tailDist, origSnaps[i].nextCoords = rs.projectCoordinateToSegment(qOrigLat, qOrigLon, c, true)
+		origSnaps[i].coord = da.NewCoordinate(pLat, pLon)
 	}
 
-	for i, c := range dstCandidates {
-		projectedLat, projectedLon, dstSnaps[i].dist, dstSnaps[i].distToEnd, dstSnaps[i].nextCoords = rs.ProjectCoordinateToEdge(qDstLat, qDstLon, c, false)
-		dstSnaps[i].coord = da.NewCoordinate(projectedLat, projectedLon)
+	for i, c := range dstCands {
+		pLat, pLon, dstSnaps[i].dist, dstSnaps[i].tailDist, dstSnaps[i].nextCoords = rs.projectCoordinateToSegment(qDstLat, qDstLon, c, false)
+		dstSnaps[i].coord = da.NewCoordinate(pLat, pLon)
 	}
-
-	g := rs.graph
 
 	// origDestination
 
@@ -124,16 +117,16 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 	// worst case of this loop: O(c^2)
 	minDist := pkg.INF_WEIGHT
-	minDistToEndpoint := pkg.INF_WEIGHT
-	bestPair := newOriginDestination(da.INVALID_EDGE_ID, da.INVALID_EDGE_ID,
+	minEndpointDist := pkg.INF_WEIGHT
+	bestPair := newOriginDestination(da.INVALID_SEGMENT_ID, da.INVALID_SEGMENT_ID,
 		da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON), da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON))
-	var bestOriginNextCoords []da.Coordinate
-	var bestDestBefCoords []da.Coordinate
+	var oCoords []da.Coordinate
+	var dRevCoords []da.Coordinate
+	var oLength, dLength float64
 
-	for i, o := range origCandidates {
-		for j, d := range dstCandidates {
-			destinationTail, dstInEdge := g.GetTailOfOutedgeWithInEdge(d)
-			originHead := g.GetHeadOfOutEdge(o)
+	for i, o := range origCands {
+		for j, d := range dstCands {
+
 			if rs.isPairAlreadyEvaluated(o, d, removedPrevPairSet) {
 				continue
 			}
@@ -142,49 +135,50 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 			rs.evaluate(o, d, removedPrevPairSet)
 
 			// O(1)
-			if !rs.engine.PathExists(originHead, destinationTail) {
+			if !rs.engine.PathExists(o, d) {
 				continue
 			}
 
-			origDestSnapDist := origSnaps[i].dist + dstSnaps[j].dist
+			odSnapDist := origSnaps[i].dist + dstSnaps[j].dist
 
-			origDestSnapToEndpointDist := origSnaps[i].distToEnd + dstSnaps[j].distToEnd
+			oSegLength := rs.engine.GetSegmentLength(o)
+			odEndDist := (oSegLength - origSnaps[i].tailDist) + dstSnaps[j].tailDist
 
-			if util.Lt(origDestSnapDist, minDist) {
-				minDist = origDestSnapDist
-				minDistToEndpoint = origDestSnapToEndpointDist
-				bestPair = newOriginDestination(o, dstInEdge, origSnaps[i].coord, dstSnaps[j].coord)
-				bestOriginNextCoords = origSnaps[i].nextCoords
-				bestDestBefCoords = dstSnaps[j].nextCoords
-			} else if util.Eq(origDestSnapDist, minDist) && util.Lt(origDestSnapToEndpointDist, minDistToEndpoint) {
-				minDist = origDestSnapDist
-				minDistToEndpoint = origDestSnapToEndpointDist
-				bestPair = newOriginDestination(o, dstInEdge, origSnaps[i].coord, dstSnaps[j].coord)
-				bestOriginNextCoords = origSnaps[i].nextCoords
-				bestDestBefCoords = dstSnaps[j].nextCoords
+			if util.Lt(odSnapDist, minDist) {
+				minDist = odSnapDist
+				minEndpointDist = odEndDist
+				bestPair = newOriginDestination(o, d, origSnaps[i].coord, dstSnaps[j].coord)
+				oCoords = origSnaps[i].nextCoords
+				dRevCoords = dstSnaps[j].nextCoords
+				oLength = origSnaps[i].tailDist
+				dLength = dstSnaps[j].tailDist
+			} else if util.Eq(odSnapDist, minDist) && util.Lt(odEndDist, minEndpointDist) {
+				minDist = odSnapDist
+				minEndpointDist = odEndDist
+				bestPair = newOriginDestination(o, d, origSnaps[i].coord, dstSnaps[j].coord)
+				oCoords = origSnaps[i].nextCoords
+				dRevCoords = dstSnaps[j].nextCoords
+				oLength = origSnaps[i].tailDist
+				dLength = dstSnaps[j].tailDist
 			}
 		}
 	}
 
-	if bestPair.origEdgeId == da.INVALID_EDGE_ID && bestPair.destEdgeId == da.INVALID_EDGE_ID {
+	if bestPair.s == da.INVALID_SEGMENT_ID && bestPair.t == da.INVALID_SEGMENT_ID {
 		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
 	}
 
-	sEdgeLength := rs.engine.GetSegmentLength(bestPair.origEdgeId, true)
-	sForwardCost := rs.engine.GetWeightFromLength(bestPair.origEdgeId, true, sEdgeLength)
+	sfCost := rs.engine.GetDurationFromLength(bestPair.s, oLength)
 
-	sp := da.NewPhantomNode(bestPair.origCoord, sForwardCost, 0, bestPair.origEdgeId, da.INVALID_EDGE_ID, sEdgeLength, 0, bestOriginNextCoords,
+	sp := da.NewPhantomNode(bestPair.s, bestPair.spCoord, sfCost, 0, oLength, 0, oCoords,
 		make([]da.Coordinate, 0))
 
-	tEdgeLength := rs.engine.GetSegmentLength(bestPair.destEdgeId, false)
-	tReverseCost := rs.engine.GetWeightFromLength(bestPair.destEdgeId, false, tEdgeLength)
+	trCost := rs.engine.GetDurationFromLength(bestPair.t, dLength)
 
-	destExitId := rs.graph.GetOutIdOfInEdge(bestPair.destEdgeId) // outEdgeId of destination road segment
+	tp := da.NewPhantomNode(bestPair.t, bestPair.dpCoord, 0.0, trCost, 0, dLength, make([]da.Coordinate, 0),
+		dRevCoords)
 
-	tp := da.NewPhantomNode(bestPair.destCoord, 0.0, tReverseCost, destExitId, bestPair.destEdgeId, 0, tEdgeLength, make([]da.Coordinate, 0),
-		bestDestBefCoords)
-
-	// handle case when bestPair.origEdgeId == bestPair.destEdgeId
+	// handle case when bestPair.s == bestPair.t
 	if rs.isSameSourceDestinationSegment(sp, tp) {
 		sp, tp = rs.handleSameSourceDestinationSegment(sp, tp)
 	}
@@ -193,7 +187,7 @@ func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 }
 
 func (rs *RoutingService) isSameSourceDestinationSegment(sp, tp da.PhantomNode) bool {
-	return sp.GetOutEdgeId() == tp.GetOutEdgeId()
+	return sp.GetVId() == tp.GetVId()
 }
 
 func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) (da.PhantomNode, da.PhantomNode) {
@@ -218,7 +212,7 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 		di case ini, kita return geometry (sCoord, xCoord, wCoord, zCoord, tCoord)  buat shortest path nya (kalau source dan destination road segment sama dan edgeGeometry > 2)....
 	*/
 
-	edgeId := sp.GetOutEdgeId()
+	edgeId := sp.GetVId()
 	spProjectedCoord := sp.GetSnappedCoord()
 	lastIndexForward, _, _, _, _ := rs.project(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(), edgeId, true)
 	tpProjectedCoord := tp.GetSnappedCoord()
@@ -241,18 +235,18 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 		}
 
 		// dist (sp, newSourceForwardGeom[0])
-		firstCoord := newSourceForwardGeom[0]
+		fCoord := newSourceForwardGeom[0]
 		newSPLength += geo.CalculateGreatCircleDistance(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(),
-			firstCoord.GetLat(), firstCoord.GetLon())
+			fCoord.GetLat(), fCoord.GetLon())
 
 		// dist (newSourceForwardGeom[len(newSourceForwardGeom)-1], tp)
 		lastCoord := newSourceForwardGeom[len(newSourceForwardGeom)-1]
 		newSPLength += geo.CalculateGreatCircleDistance(lastCoord.GetLat(), lastCoord.GetLon(),
 			tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
 
-		newSPCost := rs.engine.GetWeightFromLength(sp.GetOutEdgeId(), true, newSPLength)
-		newSP := da.NewPhantomNode(sp.GetSnappedCoord(), newSPCost, 0, sp.GetOutEdgeId(),
-			da.INVALID_EDGE_ID, newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
+		newSPCost := rs.engine.GetDurationFromLength(sp.GetVId(), newSPLength)
+		newSP := da.NewPhantomNode(sp.GetVId(), sp.GetSnappedCoord(), newSPCost, 0,
+			newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
 
 		return newSP, tp
 	}
@@ -260,30 +254,30 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 	// case 1 tinggal return empty newSourceForwardGeom, geometry dist & traveltime (sCoord, tCoord) dihandle di sini
 	newSPLength += geo.CalculateGreatCircleDistance(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(),
 		tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
-	newSPCost := rs.engine.GetWeightFromLength(sp.GetOutEdgeId(), true, newSPLength)
-	newSP := da.NewPhantomNode(sp.GetSnappedCoord(), newSPCost, 0, sp.GetOutEdgeId(),
-		da.INVALID_EDGE_ID, newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
+	newSPCost := rs.engine.GetDurationFromLength(sp.GetVId(), newSPLength)
+	newSP := da.NewPhantomNode(sp.GetVId(), sp.GetSnappedCoord(), newSPCost, 0,
+		newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
 
 	return newSP, tp
 }
 
 type originDestination struct {
-	origEdgeId, destEdgeId da.Index
-	origCoord, destCoord   da.Coordinate
+	s, t             da.Index
+	spCoord, dpCoord da.Coordinate // projected origin query coordinate to road segment, projected destination query coordinate to road segment.
 }
 
-func newOriginDestination(origEdgeId, destEdgeId da.Index, origCoord, destCoord da.Coordinate) originDestination {
+func newOriginDestination(s, t da.Index, spCoord, dpCoord da.Coordinate) originDestination {
 	return originDestination{
-		origEdgeId: origEdgeId,
-		destEdgeId: destEdgeId,
-		origCoord:  origCoord,
-		destCoord:  destCoord,
+		s:       s,
+		t:       t,
+		spCoord: spCoord,
+		dpCoord: dpCoord,
 	}
 }
 
-func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.Index, origin bool) (float64, float64, float64, float64, []da.Coordinate) {
+func (rs *RoutingService) projectCoordinateToSegment(lat, lon float64, id da.Index, origin bool) (float64, float64, float64, float64, []da.Coordinate) {
 
-	lastIndex, eGeometry, bestProjectedPoint, minDist, distToEdgeEndpoint := rs.project(lat, lon, edgeId, origin)
+	lastIndex, eGeometry, pPoint, minDist, tailDist := rs.project(lat, lon, id, origin)
 
 	/*
 		misal untuk origin: out edge (u,v) paling dekat dengan origin
@@ -311,57 +305,53 @@ func (rs *RoutingService) ProjectCoordinateToEdge(lat, lon float64, edgeId da.In
 		karena osm way yang two-way edge geometry untuk arah forward dan backward sama di openstreetmap.
 	*/
 
-	// eGeometry lives for the engine lifetime, so a sub-slice avoids allocating
-	// a new buffer. Callers (PhantomNode.forwardGeometry) only read the values
-	// and copy them into the response path.
-	var nextEdgeGeometry []da.Coordinate
+	var nextSegGeometry []da.Coordinate
 	if !origin {
-		nextEdgeGeometry = eGeometry[:lastIndex+1]
+		nextSegGeometry = eGeometry[:lastIndex+1]
 	} else {
-		nextEdgeGeometry = eGeometry[lastIndex+1:]
+		nextSegGeometry = eGeometry[lastIndex+1:]
 	}
 
-	return bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon(), minDist, distToEdgeEndpoint, nextEdgeGeometry
+	return pPoint.GetLat(), pPoint.GetLon(), minDist, tailDist, nextSegGeometry
 }
 
-func (rs *RoutingService) project(lat, lon float64, edgeId da.Index, origin bool) (da.Index, []da.Coordinate, da.Coordinate, float64, float64) {
+func (rs *RoutingService) project(lat, lon float64, id da.Index, origin bool) (da.Index, []da.Coordinate, da.Coordinate, float64, float64) {
 
-	eGeometry := rs.graph.GetEdgeGeometry(edgeId)
+	segGeometry := rs.rn.GetSegmentGeometry(id)
 	minDist := pkg.INF_WEIGHT
-	var bestProjectedPoint da.Coordinate
-	n := len(eGeometry)
+	var pPoint da.Coordinate //  best projected point
+	n := len(segGeometry)
 
-	edgeHeadCoord := eGeometry[n-1]
-	edgeTailCoord := eGeometry[0]
-	distToEdgeEndpoint := pkg.INF_WEIGHT //  dist dari titik proyeksi ke head dari edge (kalau origin = true), else dist: dari titik proyeksi ke tail dari edge
+	stailDist := pkg.INF_WEIGHT //  dist dari tail  vertex dari this road segment id ke titik proyeksi (lat,lon) to this road segment
+	cumDist := 0.0
 
 	lastIndex := 0
 	for i := 0; i < n-1; i++ {
-		tail := eGeometry[i]
-		head := eGeometry[i+1]
+		tail := segGeometry[i]
+		head := segGeometry[i+1]
 		projectedPoint := geo.ProjectPointOnSegment(
 			tail,
 			head,
 			da.Coordinate(da.NewCoordinate(lat, lon)),
 		)
 
-		dist := geo.CalculateEuclideanDistMercatorProj(projectedPoint.GetLat(), projectedPoint.GetLon(),
+		plat, plon := projectedPoint.GetLat(), projectedPoint.GetLon()
+		dist := geo.CalculateEuclideanDistMercatorProj(plat, plon,
 			lat, lon) // dist dari (lat,lon) ke titik proyeksi
 
 		if util.Lt(dist, minDist) {
 			minDist = dist
-			bestProjectedPoint = projectedPoint
+			pPoint = projectedPoint
 			lastIndex = i
-			if origin {
-				distToEdgeEndpoint = geo.CalculateEuclideanDistMercatorProj(projectedPoint.GetLat(), projectedPoint.GetLon(),
-					edgeHeadCoord.GetLat(), edgeHeadCoord.GetLon())
-			} else {
-				distToEdgeEndpoint = geo.CalculateEuclideanDistMercatorProj(projectedPoint.GetLat(), projectedPoint.GetLon(),
-					edgeTailCoord.GetLat(), edgeTailCoord.GetLon())
-			}
+			cumDist += geo.CalculateEuclideanDistMercatorProj(tail.GetLat(), tail.GetLon(),
+				plat, plon) // dist dari (lat,lon) ke titik proyeksi
+			stailDist = cumDist
 		}
+
+		cumDist += geo.CalculateEuclideanDistMercatorProj(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
 	}
-	return da.Index(lastIndex), eGeometry, bestProjectedPoint, minDist, distToEdgeEndpoint
+
+	return da.Index(lastIndex), segGeometry, pPoint, minDist, stailDist
 }
 
 func (rs *RoutingService) notFoundOriginDestinationWithinRadius(sp, tp da.PhantomNode) bool {

@@ -9,11 +9,10 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/spf13/viper"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 )
 
@@ -22,20 +21,8 @@ const (
 )
 
 func init() {
-
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	err = config.ReadConfig(workingDir)
-	if err != nil {
-		panic(err)
-	}
-	vehicleType := viper.GetString("vehicle_type")
-	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
-	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
+	config.InitConfig()
+	config.InitRegionName("partitioner_test", pkg.TEST)
 }
 
 func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
@@ -47,9 +34,9 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 		panic(err)
 	}
 
-	op := osmparser.NewOSMParserV2[int32]()
+	op := extractor.NewExtractor[int32]()
 
-	graph, _, _, err := op.Parse(filepath.Join(pkg.WorkingDir, osmFile), logger)
+	graph, _, _, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -83,6 +70,7 @@ const (
 // go tool cover -func=part_coverage.out
 // go tool cover -html=part_coverage.out
 // karena bakal timeout kalau pakai run test vscode
+// this graph partitioning with minimized cut edges also np-hard, so we only check if each vertex lies inside one cell & union all cell vertices are the graph vertices .
 func TestInertialFlowMLP(t *testing.T) {
 	g, mp := setup()
 	mp.RunMultilevelPartitioning()

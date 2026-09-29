@@ -9,8 +9,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -26,42 +28,35 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
 func init() {
-	config.InitProfileConfig("car", "test_region")
+	config.InitProfileConfig("car", "test_region", pkg.TEST)
 }
 
 func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *customizer.Customizer[int32]) {
-	var (
-		mlpFile          = fmt.Sprintf("./data/stress_test_%s.mlp", fileName)
-		osmfFile         = fmt.Sprintf("./data/%s.osm.pbf", fileName)
-		graphFile        = fmt.Sprintf("./data/original_%s_test.ngraph", fileName)
-		overlayGraphFile = fmt.Sprintf("./data/overlay_graph_%s_test.ngraph", fileName)
-		metricsFile      = fmt.Sprintf("./data/metrics_%s_test.nmt", fileName)
-		landmarkFile     = fmt.Sprintf("./data/landmark_%s_test.nlm", fileName)
-		timeFunctionFile = fmt.Sprintf("./data/timefunction_%s_test.ntf", fileName)
-	)
+	osmfFile := fmt.Sprintf("./data/%s.osm.pbf", fileName)
 
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
+
+	config.InitRegionName(fileName, pkg.TEST)
 
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	op := osmparser.NewOSMParserV2[int32]()
+	op := extractor.NewExtractor[int32]()
 
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		t.Fatal(err)
 	}
-	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(workingDir, osmfFile), logger)
+	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmfFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,17 +80,17 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 
 	mp.RunMultilevelPartitioning()
 
-	err = mp.SaveToFile(mlpFile)
+	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(mlpFile)
+	err = mlp.ReadMlpFile()
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -103,14 +98,14 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	custom := customizer.NewCustomizer[int32](logger, pkg.TEST)
 
 	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](logger, pkg.TEST)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -127,15 +122,15 @@ func NewPairEdge(to int, weight float64) PairEdge {
 	return PairEdge{To: to, Weight: weight}
 }
 
-func FlattenEdges(es [][]PairEdge) []osmparser.Edge[float64] {
-	flatten := make([]osmparser.Edge[float64], 0, len(es))
+func FlattenEdges(es [][]PairEdge) []extractor.Edge[float64] {
+	flatten := make([]extractor.Edge[float64], 0, len(es))
 
 	eid := 0
 
 	for from, edges := range es {
 		for _, e := range edges {
 			length := uint32(math.Round(e.Weight * 100))
-			flatten = append(flatten, osmparser.NewEdge(uint32(from), uint32(e.To), e.Weight, length, false, 0))
+			flatten = append(flatten, extractor.NewEdge(uint32(from), uint32(e.To), e.Weight, length))
 			eid++
 		}
 	}
@@ -377,9 +372,9 @@ func Density(n, m int, directed bool) float64 {
 	return mf / (nf * (nf - 1))
 }
 
-func AssignNodeCoordinates(adjList [][]PairEdge) []osmparser.NodeCoord {
+func AssignNodeCoordinates(adjList [][]PairEdge) []extractor.NodeCoord {
 	n := len(adjList)
-	nodeCoords := make([]osmparser.NodeCoord, n)
+	nodeCoords := make([]extractor.NodeCoord, n)
 	lmOne := da.Index(0)
 
 	distLmOne := dijkstra(adjList, lmOne)
@@ -410,14 +405,14 @@ func AssignNodeCoordinates(adjList [][]PairEdge) []osmparser.NodeCoord {
 	distLmTwoThree := float64(distLmTwo[lmThree])
 	distLmOneThree := float64(distLmOne[lmThree])
 
-	nodeCoords[lmOne] = osmparser.NewNodeCoord(0, 0)
-	nodeCoords[lmTwo] = osmparser.NewNodeCoord(distLmOneTwo, 0)
+	nodeCoords[lmOne] = extractor.NewNodeCoord(0, 0)
+	nodeCoords[lmTwo] = extractor.NewNodeCoord(distLmOneTwo, 0)
 
 	nume := distLmOneThree*distLmOneThree - distLmTwoThree*distLmTwoThree + distLmOneTwo*distLmOneTwo
 	denom := 2 * distLmOneTwo
 	x3 := nume / denom
 	y3 := math.Sqrt(distLmOneThree*distLmOneThree - x3*x3)
-	nodeCoords[lmThree] = osmparser.NewNodeCoord(x3, y3)
+	nodeCoords[lmThree] = extractor.NewNodeCoord(x3, y3)
 
 	distLmThree := dijkstra(adjList, lmThree)
 
@@ -439,7 +434,7 @@ func AssignNodeCoordinates(adjList [][]PairEdge) []osmparser.NodeCoord {
 		}
 		y := nume / denom
 
-		nodeCoords[v] = osmparser.NewNodeCoord(y, x)
+		nodeCoords[v] = extractor.NewNodeCoord(y, x)
 	}
 
 	return nodeCoords
@@ -454,7 +449,7 @@ func dijkstra(adjList [][]PairEdge, s da.Index) []float64 {
 	}
 
 	pq := da.NewQueryHeap[da.Index, float64](uint32(n), 100, da.ARRAY_STORAGE, true)
-	emptyVertexData := da.NewVertexData(float64(0), da.NewVertexEdgePair(0, 0, false))
+	emptyVertexData := da.NewVData(float64(0), da.NewParentVertex(0))
 
 	dist[s] = 0
 	pq.Insert(s, 0, emptyVertexData, s)
@@ -467,7 +462,7 @@ func dijkstra(adjList [][]PairEdge, s da.Index) []float64 {
 			v := da.Index(e.To)
 			newVCost := uNode.GetRank() + e.Weight
 			vLabelled := util.Lt(dist[v], util.INF_WEIGHT_FLOAT)
-			if !vLabelled || (vLabelled && newVCost <= dist[v]) {
+			if newVCost <= dist[v] {
 				dist[v] = uNode.GetRank() + e.Weight
 				if !vLabelled {
 					pq.Insert(v, newVCost, emptyVertexData, v)

@@ -10,8 +10,8 @@ import (
 
 	"github.com/cockroachdb/errors"
 	"github.com/klauspost/compress/s2"
-	"github.com/lintang-b-s/Navigatorx/pkg/costfunction"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/mmcloughlin/geohash"
 	"go.uber.org/zap"
@@ -20,13 +20,15 @@ import (
 // TilingEngine engine untuk get subset of RoadNetworkGraph yang berada didalam userGeohash cell. terinspirasi dari: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 type TilingEngine[W util.RoutingNumber] struct {
 	graph        *da.Graph
-	timeFunction *costfunction.TimeFunction[W]
+	rn           *da.RoadNetworkDataContainer
+	timeFunction *met.TimeFunction[W]
 	logger       *zap.Logger
 }
 
-func NewTilingEngine[W util.RoutingNumber](graph *da.Graph, logger *zap.Logger, timeFunction *costfunction.TimeFunction[W]) *TilingEngine[W] {
+func NewTilingEngine[W util.RoutingNumber](graph *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger, timeFunction *met.TimeFunction[W]) *TilingEngine[W] {
 	engine := &TilingEngine[W]{
 		graph:        graph,
+		rn:           rn,
 		logger:       logger,
 		timeFunction: timeFunction,
 	}
@@ -46,9 +48,10 @@ func (te *TilingEngine[W]) GetNumberOfVertices() int {
 
 func (te *TilingEngine[W]) PreprocessTiles() error {
 	eTileMap := make(map[uint64][]da.Index)
-	te.graph.ForOutEdges(func(exitPoint, head, tail, entryId, entryPoint da.Index, percentage float64, eId da.Index) {
-		eGeoHashInt := te.graph.GetEdgeGeohash(eId)
-		eTileMap[eGeoHashInt] = append(eTileMap[eGeoHashInt], eId)
+
+	te.graph.ForVertices(func(_ da.Vertex, segId da.Index) {
+		eGeoHashInt := te.rn.GetSegmentGeohash(segId)
+		eTileMap[eGeoHashInt] = append(eTileMap[eGeoHashInt], segId)
 	})
 
 	te.logger.Sugar().Infof("writing %v graph tiles to files... ", len(eTileMap))
@@ -82,7 +85,7 @@ func (te *TilingEngine[W]) PreprocessTiles() error {
 	return nil
 }
 
-func (te *TilingEngine[W]) writeTileToFile(currGeohash string, eIds []da.Index, neighbors []uint64, eTileMap map[uint64][]da.Index, s2w *s2.Writer, bw *bufio.Writer) error {
+func (te *TilingEngine[W]) writeTileToFile(currGeohash string, segIds []da.Index, neighbors []uint64, eTileMap map[uint64][]da.Index, s2w *s2.Writer, bw *bufio.Writer) error {
 	filePath := filepath.Join(MapTileFilePathPrefix(), currGeohash+".tile")
 	dir := filepath.Dir(filePath)
 	if _, err := os.Stat(dir); os.IsNotExist(err) {
@@ -102,19 +105,19 @@ func (te *TilingEngine[W]) writeTileToFile(currGeohash string, eIds []da.Index, 
 	bw.Reset(s2w)
 	binaryWriter := util.NewBinaryWriter(bw)
 
-	// eIds adalah id dari edges yang inside currGeohash
-	for _, eId := range eIds {
-		if err := te.writeEdge(binaryWriter, eId); err != nil {
-			return errors.Wrapf(err, "tilingEngine.writeTileToFile: failed to writeEdge: %s, eId: %v", filePath, eId)
+	// eIds adalah id dari road segments yang inside currGeohash
+	for _, segId := range segIds {
+		if err := te.writeSegment(binaryWriter, segId); err != nil {
+			return errors.Wrapf(err, "tilingEngine.writeTileToFile: failed to writeSegment: %s, segId: %v", filePath, segId)
 		}
 	}
 
-	// edges yang inside neighbor geohashes (8 neighbors dari currGeohash)
+	// road segments yang inside neighbor geohashes (8 neighbors dari currGeohash)
 	for _, nGh := range neighbors {
 		if neighborEIds, ok := eTileMap[nGh]; ok {
-			for _, eId := range neighborEIds {
-				if err := te.writeEdge(binaryWriter, eId); err != nil {
-					return errors.Wrapf(err, "tilingEngine.writeTileToFile: failed to writeEdge (neighbor): %s, eId: %v", filePath, eId)
+			for _, segId := range neighborEIds {
+				if err := te.writeSegment(binaryWriter, segId); err != nil {
+					return errors.Wrapf(err, "tilingEngine.writeTileToFile: failed to writeSegment (neighbor): %s, segId: %v", filePath, segId)
 				}
 			}
 		}
@@ -126,23 +129,15 @@ func (te *TilingEngine[W]) writeTileToFile(currGeohash string, eIds []da.Index, 
 	return s2w.Close()
 }
 
-func (te *TilingEngine[W]) writeEdge(w *util.BinaryWriter, eId da.Index) error {
-	if err := w.Uint32(uint32(eId)); err != nil {
+func (te *TilingEngine[W]) writeSegment(w *util.BinaryWriter, segId da.Index) error {
+	if err := w.Uint32(uint32(segId)); err != nil {
 		return err
 	}
-	tailVId := te.graph.GetTailOfOutedge(eId)
-	if err := w.Uint32(uint32(tailVId)); err != nil {
+	l := util.DistanceToMeters(te.timeFunction.GetSegmentLength(segId))
+	if err := w.Float64(l); err != nil {
 		return err
 	}
-	headVId := te.graph.GetHeadOfOutEdge(eId)
-	if err := w.Uint32(uint32(headVId)); err != nil {
-		return err
-	}
-	if err := w.Float64(te.timeFunction.DistanceToMeters(te.timeFunction.GetSegmentLength(eId))); err != nil {
-		return err
-	}
-
-	eGeom := te.graph.GetEdgeGeometry(eId)
+	eGeom := te.rn.GetSegmentGeometry(segId)
 	if err := w.Length(len(eGeom)); err != nil {
 		return err
 	}
