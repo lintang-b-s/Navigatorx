@@ -17,11 +17,11 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
@@ -31,14 +31,8 @@ var (
 )
 
 const (
-	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmfFile                = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_eval_alt.ngraph"
-	overlayGraphFile string = "./data/overlay_graph_eval_alt.ngraph"
-	metricsFile      string = "./data/metrics_eval_alt.nmt"
-	landmarkFile     string = "./data/landmark_eval_alt.nlm"
-	timeFunctionFile string = "./data/timefunction_eval_alt.ntf"
+	url      = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
+	osmfFile = "./data/yogyakarta.osm.pbf"
 )
 
 func init() {
@@ -56,6 +50,8 @@ func init() {
 	pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
 	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
 	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
+
+	config.InitRegionName("yogyakarta", pkg.EVAL)
 }
 
 /*
@@ -119,9 +115,9 @@ func main() {
 		logger.Sugar().Infof("download complete")
 	}
 
-	op := osmparser.NewOSMParserV2[int32]()
+	op := extractor.NewExtractor[int32]()
 
-	graph, timeFunction, edgeInfoIds, err := op.Parse(osmfFile, logger)
+	graph, rn, timeFunction, err := op.Extract(osmfFile, logger)
 
 	if err != nil {
 		panic(err)
@@ -146,17 +142,18 @@ func main() {
 
 	mp.RunMultilevelPartitioning()
 
-	err = mp.SaveToFile(mlpFile)
+	err = mp.SaveToFile()
 	if err != nil {
 		panic(err)
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(mlpFile)
+	err = mlp.ReadMlpFile()
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	// rn := re.
+	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.EVAL)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)
@@ -164,14 +161,14 @@ func main() {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	custom := customizer.NewCustomizer[int32](logger, pkg.EVAL)
 
 	_, err = custom.Customize()
 	if err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](logger, pkg.EVAL)
 	if err != nil {
 		panic(err)
 	}
@@ -228,19 +225,11 @@ func main() {
 	foundAltCount := 0
 	altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine())
 
-	emptyCoords := make([]da.Coordinate, 0)
-
 	for i := 0; i < len(queries); i++ {
 		s := queries[i].s
 		t := queries[i].t
 
-		sVertex := g.GetVertex(s)
-		tVertex := g.GetVertex(t)
-
-		sp := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, sVertex.GetFirstOut(), sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-		tp := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), tVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-
-		alts, optCost, dur := altSearch.FindAlternativeRoutes(sp, tp, 4, false, 0)
+		alts, optCost, dur := altSearch.FindAlternativeRoutes(s, t, 4, false, 0)
 
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)

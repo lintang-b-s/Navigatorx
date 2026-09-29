@@ -14,7 +14,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -165,14 +165,14 @@ func SolveShowroom(t *testing.T, filepath string) {
 	tx--
 	ty--
 
-	nodeCoords := make([]osmparser.NodeCoord, 0)
+	nodeCoords := make([]extractor.NodeCoord, 0)
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
-			nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(j)))
+			nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(j)))
 		}
 	}
 
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, r*c, []int{7, 8, 14, 17}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "showroom", nodeCoords, adjList, r*c, []int{7, 8, 14, 17}, true)
 
 	tnId := cellToNId(tx, ty)
 	tid := oldToNewVIdMap[da.Index(tnId)]
@@ -267,7 +267,7 @@ func TestShowroomMLD(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-Dijkstra without turn cost"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-Dijkstra without turn cost/"+dir+"/"+baseName, func(t *testing.T) {
 				SolveShowroom(t, testPath)
 
 			})

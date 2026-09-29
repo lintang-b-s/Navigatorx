@@ -1,7 +1,6 @@
 package routing
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -84,13 +83,12 @@ func (crp *CRPRoutingEngine[W]) updateMetrics() (err error) {
 			err = fmt.Errorf("panic recovered: %v", r)
 		}
 	}()
-	readBuf := bufio.NewReaderSize(nil, 4096*4)
-	err = crp.metrics.UpdateMetrics(readBuf)
+	err = crp.metrics.UpdateMetrics()
 	if err != nil {
 		crp.logger.Sugar().Errorf("engine.checkCustomizerUpdate: failed to update metrics data: %v\n", err)
 		return err
 	}
-	err = crp.lm.UpdateLandmarks(crp.landmarkFile, readBuf)
+	err = crp.lm.UpdateLandmarks(crp.landmarkFile)
 	if err != nil {
 		crp.logger.Sugar().Errorf("engine.checkCustomizerUpdate: failed to update precalculated landmark distances: %v\n", err)
 		return err

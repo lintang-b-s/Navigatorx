@@ -11,7 +11,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -223,19 +223,19 @@ func solve(t *testing.T, filepath string) {
 
 	n := h*w*4 + 2
 
-	nodeCoords := make([]osmparser.NodeCoord, 0)
+	nodeCoords := make([]extractor.NodeCoord, 0)
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
 			for k := 0; k < 4; k++ {
-				nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(j)))
+				nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(j)))
 			}
 		}
 	}
 
-	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(0), float64(0)))
-	nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(h-1), float64(w-1)))
+	nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(0), float64(0)))
+	nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(h-1), float64(w-1)))
 
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{7, 11, 14}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "delftdistance", nodeCoords, adjList, n, []int{7, 11, 14}, true)
 
 	crpQuery := routing.NewCRPQuery(re.GetRoutingEngine())
 
@@ -302,7 +302,7 @@ func TestCRPQueryDelftDistanceMLD(t *testing.T) {
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)
-			t.Run("Multilevel-Dijkstra without turn cost"+dir+"/"+baseName, func(t *testing.T) {
+			t.Run("Multilevel-Dijkstra without turn cost/"+dir+"/"+baseName, func(t *testing.T) {
 				solve(t, testPath)
 
 			})

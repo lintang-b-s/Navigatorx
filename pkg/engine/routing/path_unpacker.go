@@ -3,404 +3,299 @@ package routing
 import (
 	"time"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type PathUnpacker[W util.RoutingNumber] struct {
-	eng     *CRPRoutingEngine[W]
-	runtime int64
+type PathUnpackerALT[W util.RoutingNumber] struct {
+	eng        *CRPRoutingEngine[W]
+	scSet      map[uint64]uint8
+	buildSCSet bool
+	runtime    int64
 }
 
-func NewPathUnpacker[W util.RoutingNumber](
+func newPathUnpackerALT[W util.RoutingNumber](
 	engine *CRPRoutingEngine[W],
-) *PathUnpacker[W] {
-	return &PathUnpacker[W]{
-		eng:     engine,
-		runtime: 0,
+	buildSCSet bool,
+) *PathUnpackerALT[W] {
+	pu := &PathUnpackerALT[W]{eng: engine}
+	pu.runtime = 0
+	if buildSCSet {
+		pu.scSet = make(map[uint64]uint8, 10)
+		pu.buildSCSet = true
 	}
+	return pu
 }
 
-/*
-[1] Path Unpacking phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
-Networks,” Transportation Science [Preprint]. Available at:
-https://doi.org/10.1287/trsc.2014.0579.
+func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.ParentVertex, sCellNum, tCellNum da.Pv) []da.Index {
 
-unpackPath. unpack a level-i shortcut (v, w) by running Dijkstra  between v and w on level i − 1, restricted to subcells of the level-i cell containing the shortcut.
-jika level i-1 >= 1, kita menggunakan shortcut edges (dari subcells dari level-i cell containing the shortcut) di overlay graph level i-1
-jika level i-1 = 0, kita menggunakan base edges yang terletak pada level-i cell containing the shortcut
-
-this path unpacking use dijkstra
-
-time complexity:
-let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcuts within any cell
-let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
-lowest level cell: O(m_p*log(m_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most m_p (compact graph CRP graph), decrease-key and insert at most O(m_p) operations, extract-min at-most O(m_p) operations
-cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
-let q = number of shorcut edges in packedPath
-let L = highest level of multilevel partition
-time complexity of unpackPath: O(q * ( L *  (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p) ) )
-*/
-func (pu *PathUnpacker[W]) unpackPath(packedPath []da.VertexEdgePair, sCellNumber, tCellNumber da.Pv, oneToMany bool) ([]da.Index, map[uint64]uint8) {
-
-	unpackedEdgePath := make([]da.Index, 0, len(packedPath))
-
+	unpackedVertexPath := make([]da.Index, 0, len(packedPath)) // unpacked vertex path
 	now := time.Now()
-
-	shortcutPathSet := make(map[uint64]uint8)
 
 	for i := 0; i < len(packedPath); {
 		cur := packedPath[i]
-		if !isBitOn(cur.GetEdge(), UNPACK_OVERLAY_OFFSET) {
+		if !isBitOn(cur.GetVertex(), UNPACK_OVERLAY_OFFSET) {
 			// original vertex (non-overlay vertex)
-
-			unpackedEdgePath = append(unpackedEdgePath, cur.GetEdge())
-
+			unpackedVertexPath = append(unpackedVertexPath, cur.GetVertex())
 			i++
 		} else {
 			// overlay vertex
-			entryOverlayId := offBit(cur.GetEdge(), UNPACK_OVERLAY_OFFSET)
-
-			entryVertex := pu.eng.overlayGraph.GetVertex(entryOverlayId)
-			entryCellNumber := entryVertex.GetCellNumber()
-			var queryLevel uint8
-
-			if !oneToMany {
-				queryLevel = pu.eng.overlayGraph.GetQueryLevel(sCellNumber, tCellNumber, entryCellNumber)
-
-			} else {
-				queryLevel = cur.GetQueryLevel()
+			entryOvId := offBit(cur.GetVertex(), UNPACK_OVERLAY_OFFSET)
+			entryVertex := pu.eng.overlayGraph.GetVertex(entryOvId)
+			entryCellNum := entryVertex.GetCellNumber()
+			queryLevel := pu.eng.overlayGraph.GetQueryLevel(sCellNum, tCellNum, entryCellNum)
+			exitOvId := offBit(packedPath[i+1].GetVertex(), UNPACK_OVERLAY_OFFSET)
+			exitVertex := pu.eng.overlayGraph.GetVertex(exitOvId)
+			if pu.buildSCSet {
+				envId := uint32(entryVertex.GetOrigVId())
+				exvId := uint32(exitVertex.GetOrigVId())
+				pu.scSet[util.Bitpack(uint32(envId), uint32(exvId))] = queryLevel
 			}
-
-			exitOverlayId := offBit(packedPath[i+1].GetEdge(), UNPACK_OVERLAY_OFFSET)
-			exitVertex := pu.eng.overlayGraph.GetVertex(exitOverlayId)
-
-			enOriVId := entryVertex.GetOrigVId()
-			exOriVId := exitVertex.GetOrigVId()
-			shortcutPathSet[util.Bitpack(uint32(enOriVId), uint32(exOriVId))] = queryLevel
-
-			unpackedEdgePath = pu.unpackInLevelCell(entryOverlayId, exitOverlayId, queryLevel, unpackedEdgePath)
+			unpackedVertexPath = pu.unpackInLevelCell(entryOvId, exitOvId, queryLevel, unpackedVertexPath)
 			i += 2
 		}
 	}
 
-	unpackedEdgePath = removeConsecutiveDuplicates(unpackedEdgePath)
+	unpackedVertexPath = removeConsecutiveDuplicates(unpackedVertexPath)
 
 	dur := time.Since(now).Milliseconds()
 	pu.runtime = dur
-	return unpackedEdgePath, shortcutPathSet
+	return unpackedVertexPath
 }
 
-func (pu *PathUnpacker[W]) unpackInLevelCell(sourceOverlayId da.Index,
-	targetOverlayId da.Index,
+func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOvId da.Index,
+	tOvId da.Index,
 	level uint8,
-	edgePath []da.Index,
+	verticesPath []da.Index,
 ) []da.Index {
 
 	if level == 1 {
-		sourceOverlayVertex := pu.eng.overlayGraph.GetVertex(sourceOverlayId)
-		sourceEntryId := sourceOverlayVertex.GetCutEdge()
-		targetOverlayVertex := pu.eng.overlayGraph.GetVertex(targetOverlayId)
-		neighborOfTarget := targetOverlayVertex.GetNeighborOverlayVertex()
-		neighborOverlayVertex := pu.eng.overlayGraph.GetVertex(neighborOfTarget)
-		targetEntryId := neighborOverlayVertex.GetCutEdge()
 
-		edgePath = pu.unpackInLowestLevelCell(sourceEntryId, targetEntryId,
-			sourceOverlayId, targetOverlayId, edgePath)
-		return edgePath
+		verticesPath = pu.unpackInLowestLevelCell(
+			sOvId, tOvId, verticesPath)
+		return verticesPath
 	}
 
-	if overlayPath, ok := pu.eng.puCache.GetIfPresent(da.NewPUCacheKey(sourceOverlayId, targetOverlayId, level)); ok {
+	if overlayPath, ok := pu.eng.puCache.GetIfPresent(da.NewPUCacheKey(sOvId, tOvId, level)); ok {
 		for i := 0; i < len(overlayPath); i += 2 {
-			edgePath = pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, edgePath)
+			verticesPath = pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, verticesPath)
 		}
-		return edgePath
+		return verticesPath
 	}
 
-	sVertex := pu.eng.overlayGraph.GetVertex(sourceOverlayId)
-	sourceCellNumber := sVertex.GetCellNumber()
+	sVertex := pu.eng.overlayGraph.GetVertex(sOvId)
+	sCellNum := sVertex.GetCellNumber()
 
-	pq := pu.eng.pufOverlayHeapPool.Get().(*da.QueryHeap[da.Index, W])
+	pq := pu.eng.puovHeapPool.Get().(*da.QueryHeap[da.Index, W])
 
-	pq.Clear()
+	truncSourceCellNum := pu.eng.overlayGraph.GetLevelData().TruncateToLevel(sCellNum, level)
 
-	truncatedSourceCellNumber := pu.eng.overlayGraph.GetLevelData().TruncateToLevel(sourceCellNumber, level)
+	tVertex := pu.eng.overlayGraph.GetVertex(tOvId)
 
-	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
-	pq.Insert(sourceOverlayId, 0, sVertexData, sourceOverlayId)
+	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
+	pq.Insert(sOvId, 0, sVertexData, sOvId)
 
-	labelled := func(pq *da.QueryHeap[da.Index, W], v da.Index) bool {
-
-		ok := util.Lt(pq.GetCost(v), util.Infinity[W]())
-		return ok
-	}
+	s := sVertex.GetOrigVId()
+	t := tVertex.GetOrigVId()
+	activeLandmarks := pu.eng.lm.SelectBestQueryLandmarks(s, t)
 
 	for pq.Size() > 0 {
 
 		u := pq.ExtractMin()
 
-		uOverlayId := u.GetItem()
-		pq.Explore(uOverlayId)
+		uOvId := u.GetItem()
+		pq.Explore(uOvId)
 
-		if uOverlayId == targetOverlayId {
+		if uOvId == tOvId {
 			break
 		}
 
 		// traverse all out neighbor of u in level l-1 in the same cell as u
-		pu.eng.overlayGraph.ForOutNeighborsOf(uOverlayId, int(level-1), func(vOverlayId da.Index, wOffset da.Index) {
+		pu.eng.overlayGraph.ForOutNeighborsOf(uOvId, int(level-1), func(vOvId da.Index, wOffset da.Index) {
 
 			shortcutOutEdgeWeight := pu.eng.metrics.GetShortcutWeight(wOffset)
-			vOverlayVertex := pu.eng.overlayGraph.GetVertex(vOverlayId)
+			vOv := pu.eng.overlayGraph.GetVertex(vOvId)
 
-			newVCost := pq.GetCost(uOverlayId) + shortcutOutEdgeWeight
+			newVCost := pq.GetCost(uOvId) + shortcutOutEdgeWeight
+			originalVId := vOv.GetOrigVId()
+			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+			pfv := pu.eng.lm.FindTighestLowerBound(originalVId, t, activeLandmarks)
 
-			if util.Ge(newVCost, util.Infinity[W]()) {
-				return
-			}
+			priority := newVCost + pfv
 
-			vAlreadyLabelled := labelled(pq, vOverlayId)
-			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newVCost, pq.GetCost(vOverlayId))) {
+			vLabelled := util.Lt(pq.GetCost(vOvId), util.Infinity[W]())
+			if util.Lt(newVCost, pq.GetCost(vOvId)) {
 				// relax shortcut edge
 
-				pq.Explore(vOverlayId) // langsung explore exit overlay vertex v
-				uOverlayVertex := pu.eng.overlayGraph.GetVertex(uOverlayId)
-				originalUId := uOverlayVertex.GetOrigVId()
+				pq.Explore(vOvId) // langsung explore exit overlay vertex v
 
-				if vOverlayId == targetOverlayId {
+				vNewPar := da.NewParentVertex(uOvId)
+				if vOvId == tOvId {
+
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 					// if v is the target overlay vertex, insert/decrease its key  pq
-
-					if !vAlreadyLabelled {
-						wVertexData := da.NewVertexData(newVCost, da.NewVertexEdgePair(originalUId,
-							uOverlayId, true))
-						pq.Insert(vOverlayId, newVCost, wVertexData, uOverlayId)
+					if !vLabelled {
+						vVertexData := da.NewVData(newVCost, vNewPar)
+						pq.Insert(vOvId, priority, vVertexData, uOvId)
 					} else {
-						wNewPar := da.NewVertexEdgePair(originalUId,
-							uOverlayId, true)
-						pq.DecreaseKey(vOverlayId, newVCost, newVCost, wNewPar)
+
+						pq.DecreaseKey(vOvId, priority, newVCost, vNewPar)
 					}
 
 				} else {
-					pq.Set(vOverlayId, da.NewVertexData(newVCost, da.NewVertexEdgePair(originalUId,
-						uOverlayId, true)), vOverlayId)
+					pq.Set(vOvId, da.NewVData(newVCost, vNewPar), vOvId)
 				}
 
 				// visit next cell neighbor
-				wNeighborId := vOverlayVertex.GetNeighborOverlayVertex()
+				wNeighborId := vOv.GetNeighborOverlayVertex()
 				wNeigborVertex := pu.eng.overlayGraph.GetVertex(wNeighborId)
 
-				wCellNumber := wNeigborVertex.GetCellNumber()
-				truncatedWCellNumber := pu.eng.overlayGraph.GetLevelData().TruncateToLevel(wCellNumber, uint8(level))
-				if truncatedWCellNumber != truncatedSourceCellNumber {
-					// if w is not in the same cell as sourceOverlayId in level l, dont visit w
+				wCellNum := wNeigborVertex.GetCellNumber()
+				truncatedWCellNum := pu.eng.overlayGraph.GetLevelData().TruncateToLevel(wCellNum, uint8(level))
+				if truncatedWCellNum != truncSourceCellNum {
+					// if w is not in the same cell as sOvId in level l, dont visit w
 					return
 				}
 
-				// get out edge that point to wEntryVertex from vOverlayId
-				newVCost += pu.eng.getWeight(vOverlayVertex.GetCutEdge(), true)
+				// get out edge that point to wEntryVertex from vOvId
+				newVCost += pu.eng.getWeight(vOv.GetCutEdge(), true)
+
+				wOriginalId := wNeigborVertex.GetOrigVId()
+				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+				pfw := pu.eng.lm.FindTighestLowerBound(wOriginalId, t, activeLandmarks)
+				priority = newVCost + pfw
+				wPar := da.NewParentVertex(vOvId)
+
 				// relax edge
-				wAlreadyLabelled := labelled(pq, wNeighborId)
-				if !wAlreadyLabelled || (wAlreadyLabelled && util.Lt(newVCost, pq.GetCost(wNeighborId))) {
-					if !wAlreadyLabelled {
-						wVertexData := da.NewVertexData(newVCost, da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
-							vOverlayId, true))
-						pq.Insert(wNeighborId, newVCost, wVertexData, wNeighborId)
+				wLabelled := util.Lt(pq.GetCost(wNeighborId), util.Infinity[W]())
+				if util.Lt(newVCost, pq.GetCost(wNeighborId)) {
+					if !wLabelled {
+						wVertexData := da.NewVData(newVCost, wPar)
+						pq.Insert(wNeighborId, priority, wVertexData, wNeighborId)
 					} else {
-						wNewPar := da.NewVertexEdgePair(vOverlayVertex.GetOrigVId(),
-							vOverlayId, true)
-						pq.DecreaseKey(wNeighborId, newVCost, newVCost, wNewPar)
+						pq.DecreaseKey(wNeighborId, priority, newVCost, wPar)
 					}
 				}
-
 			}
-
 		})
-
 	}
 
 	overlayPath := make([]da.Index, 0, 64)
-	overlayPath = append(overlayPath, targetOverlayId)
+	overlayPath = append(overlayPath, tOvId)
 
-	curOverlayId := pq.Get(targetOverlayId).GetParent().GetEdge()
-	for curOverlayId != da.INVALID_EDGE_ID {
-		overlayPath = append(overlayPath, curOverlayId)
-		curOverlayId = pq.Get(curOverlayId).GetParent().GetEdge()
+	curOvId := pq.Get(tOvId).GetParent().GetVertex()
+	for curOvId != da.INVALID_VERTEX_ID {
+		overlayPath = append(overlayPath, curOvId)
+		curOvId = pq.Get(curOvId).GetParent().GetVertex()
 	}
 
 	util.ReverseG(overlayPath)
 
-	pu.eng.puCache.Set(da.NewPUCacheKey(sourceOverlayId, targetOverlayId, level), overlayPath)
+	pu.eng.puCache.Set(da.NewPUCacheKey(sOvId, tOvId, level), overlayPath)
 
 	pq.Clear()
-	pu.eng.pufOverlayHeapPool.Put(pq)
+	pu.eng.puovHeapPool.Put(pq)
 
 	for i := 0; i < len(overlayPath); i += 2 {
 		curV := overlayPath[i]
 		nextV := overlayPath[i+1]
-		edgePath = pu.unpackInLevelCell(curV, nextV, level-1, edgePath)
+
+		verticesPath = pu.unpackInLevelCell(curV, nextV, level-1, verticesPath)
 	}
 
-	return edgePath
+	return verticesPath
 }
 
-func (pu *PathUnpacker[W]) unpackInLowestLevelCell(sourceEntryId, targetEntryId da.Index,
-	sourceOverlayId, targetOverlayId da.Index, edgePath []da.Index) []da.Index {
+func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
+	sOvId, tOvId da.Index, verticesPath []da.Index) []da.Index {
 
-	if edgeIds, ok := pu.eng.puCache.GetIfPresent(da.NewPUCacheKey(sourceOverlayId, targetOverlayId, 1)); ok {
+	if edgeIds, ok := pu.eng.puCache.GetIfPresent(da.NewPUCacheKey(sOvId, tOvId, 1)); ok {
 		// fetch from cache
-		return append(edgePath, edgeIds...)
+		return append(verticesPath, edgeIds...)
 	}
 
-	// sourceEntryId inEdge that point to source vertex
-	pq := pu.eng.pufBaseHeapPool.Get().(*da.QueryHeap[da.CRPQueryKey, W])
-	pq.Clear()
+	pq := pu.eng.puHeapPool.Get().(*da.QueryHeap[da.Index, W])
 
-	// sourceEntryId: id buat inEdge u->s
-	// targetEntryId: id buat inEdge t->v
+	sOv := pu.eng.overlayGraph.GetVertex(sOvId)
+	s := sOv.GetOrigVId()
 
-	// get source vertex
-	sourceVertex := pu.eng.graph.GetVertex(pu.eng.graph.GetHeadFromInEdge(sourceEntryId))
+	tOv := pu.eng.overlayGraph.GetVertex(tOvId)
+	t := tOv.GetOrigVId()
 
-	s := sourceVertex.GetID()
+	sData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
+	sCellNum := pu.eng.graph.GetCellNumber(s)
 
-	// s and t in same cell in level 1 and both are overlay vertices
-	// s is entry vertex, t is exit vertex of this cell
+	pq.Insert(s, 0, sData, s)
 
-	_, sOutEdge := pu.eng.graph.GetHeadOfInedgeWithOutEdge(sourceEntryId)
-
-	sourceCellNumber := pu.eng.graph.GetCellNumber(s)
-
-	offSourceEntryId := pu.eng.offsetForward(s, sourceEntryId, sourceCellNumber, sourceCellNumber)
-
-	sQueryKey := da.NewCRPQueryKeyWithOutInEdgeId(s, offSourceEntryId, sOutEdge)
-	sData := da.NewVertexData(W(0), da.NewVertexEdgePairWithOutEdgeId(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID,
-		da.INVALID_EDGE_ID, false))
-
-	pq.Insert(offSourceEntryId, 0, sData, sQueryKey)
-
-	offTargetEntryId := da.INVALID_EDGE_ID
+	activeLandmarks := pu.eng.lm.SelectBestQueryLandmarks(s, t)
 
 	for pq.Size() > 0 {
 
 		queryKey := pq.ExtractMin()
 
-		uItem := queryKey.GetItem()
-		uId := uItem.GetNode()
-		uEntryId := uItem.GetEntryExitPoint()
-		uOutEdgeId := uItem.GetOutInEdgeId()
+		uId := queryKey.GetItem()
 
-		pq.Explore(uEntryId)
+		pq.Explore(uId)
+		uCost := pq.GetCost(uId)
 
-		adjuEntryId := pu.eng.adjustForward(uId, uEntryId)
-
-		if adjuEntryId == targetEntryId {
-			offTargetEntryId = uEntryId
+		if uId == t {
 			break
 		}
 
 		// relax all out edges of u
-		pu.eng.graph.ForOutEdgesOf(uId, pu.eng.graph.GetEntryOrder(uId, adjuEntryId), func(eId, head da.Index, exitPoint, entryPoint, turnTableId da.Index, turnType pkg.TurnType,
-			hwType pkg.OsmHighwayType) {
-			vId := head
+		pu.eng.graph.ForOutEdgesOf(uId, func(eId, head, _ da.Index) {
 
-			vEntryId := pu.eng.graph.GetEntryOffset(vId) + entryPoint
+			vId := head
 			edgeWeight := pu.eng.getWeight(eId, true)
 
-			newVCost := pq.GetCost(uEntryId) + edgeWeight + pu.eng.metrics.GetTurnCost(turnTableId)
-
-			if pu.eng.graph.GetCellNumber(vId) != sourceCellNumber && vEntryId != targetEntryId {
+			newVCost := uCost + edgeWeight
+			if pu.eng.graph.GetCellNumber(vId) != sCellNum && vId != t {
 				// do not cross cell boundary
 				return
 			}
 
-			if util.Ge(newVCost, util.Infinity[W]()) {
-				return
-			}
-
-			offVEntryId := pu.eng.offsetForward(vId, vEntryId, pu.eng.graph.GetCellNumber(vId), sourceCellNumber)
-
 			// relax edge
-			vAlreadyLabelled := util.Lt(pq.GetCost(offVEntryId), util.Infinity[W]())
-			if !vAlreadyLabelled || (vAlreadyLabelled && util.Lt(newVCost, pq.GetCost(offVEntryId))) {
+			vLabelled := util.Lt(pq.GetCost(vId), util.Infinity[W]())
+			if util.Lt(newVCost, pq.GetCost(vId)) {
+				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+				pfv := pu.eng.lm.FindTighestLowerBound(vId, t, activeLandmarks)
+				priority := newVCost + pfv
 
-				if !vAlreadyLabelled {
-					queryKey := da.NewCRPQueryKeyWithOutInEdgeId(vId, offVEntryId, eId)
-					vData := da.NewVertexData(newVCost, da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false))
+				if !vLabelled {
+					vData := da.NewVData(newVCost, da.NewParentVertex(uId))
 
-					pq.Insert(offVEntryId, newVCost, vData, queryKey)
+					pq.Insert(vId, priority, vData, vId)
 				} else {
-					newPar := da.NewVertexEdgePairWithOutEdgeId(uId, uEntryId, uOutEdgeId, false)
-					pq.DecreaseKey(offVEntryId, newVCost, newVCost, newPar)
+					newPar := da.NewParentVertex(uId)
+					pq.DecreaseKey(vId, priority, newVCost, newPar)
 				}
 			}
-
 		})
-
 	}
 
-	startLen := len(edgePath)
+	startLen := len(verticesPath)
 
-	_, midOutEdgeId := pu.eng.graph.GetHeadOfInedgeWithOutEdge(targetEntryId)
-	if util.Gt(pu.eng.getWeight(midOutEdgeId, true), W(0)) {
-		edgePath = append(edgePath, midOutEdgeId)
+	uId := t
+	verticesPath = append(verticesPath, t)
+	for pq.Get(uId).GetParent().GetVertex() != da.INVALID_VERTEX_ID {
+		prevVertex := pq.Get(uId).GetParent().GetVertex()
+		verticesPath = append(verticesPath, prevVertex)
+		uId = prevVertex
 	}
 
-	uId := offTargetEntryId
-	for pq.Get(uId).GetParent().GetEdge() != da.INVALID_EDGE_ID { // sampai parent.edge = sourceEntryId, include sp edges didalam current cell & sp edge entry cell ini
-		prevOutEdgeId := pq.Get(uId).GetParent().GetOutInEdgeId()
-
-		edgePath = append(edgePath, prevOutEdgeId)
-
-		pEId := pq.Get(uId).GetParent().GetEdge()
-
-		uId = pEId
-	}
-
-	subPath := edgePath[startLen:]
+	subPath := verticesPath[startLen:]
 	util.ReverseG(subPath)
 
 	subPathCop := make([]da.Index, len(subPath))
 	copy(subPathCop, subPath) // harus di copy, karena bisa aja keubah di remove removeConsecutiveDuplicates
-	pu.eng.puCache.Set(da.NewPUCacheKey(sourceOverlayId, targetOverlayId, 1), subPathCop)
+	pu.eng.puCache.Set(da.NewPUCacheKey(sOvId, tOvId, 1), subPathCop)
 
 	pq.Clear()
-	pu.eng.pufBaseHeapPool.Put(pq)
+	pu.eng.puHeapPool.Put(pq)
 
-	return edgePath
+	return verticesPath
 }
 
-func (pu *PathUnpacker[W]) GetStats() int64 {
+func (pu *PathUnpackerALT[W]) GetStats() int64 {
 	return pu.runtime
-}
-
-func (crp *CRPRoutingEngine[W]) GetEdgePath(edgeIdPath []da.Index) (*da.Coordinates, float64) {
-
-	totalDistance := 0.0
-
-	for i := 0; i < len(edgeIdPath); i++ {
-		eId := edgeIdPath[i]
-		totalDistance += crp.GetSegmentLength(eId, true)
-	}
-
-	path := crp.GetCoordsFromPool()
-
-	for i := 0; i < len(edgeIdPath); i++ {
-		eId := edgeIdPath[i]
-		crp.graph.AppendPathWithEdgeGeometry(path, eId)
-	}
-
-	return path, totalDistance
-}
-
-func (crp *CRPRoutingEngine[W]) GetPathDistance(edgeIdPath []da.Index) float64 {
-
-	totalDistance := 0.0
-
-	for i := 0; i < len(edgeIdPath); i++ {
-		eId := edgeIdPath[i]
-		totalDistance += crp.GetSegmentLength(eId, true)
-	}
-
-	return totalDistance
 }

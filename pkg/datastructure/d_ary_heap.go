@@ -6,70 +6,32 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// ErrHeapEmpty is a sentinel error returned by GetMin/ExtractMin on an
-// empty d-ary heap. Re-using a package-level error avoids the heap
-// allocation that errors.New causes on the hot query path.
 var ErrHeapEmpty = errors.New("heap is empty")
 
-type CRPQueryKey struct {
-	node           Index // nodeId or boundary/overlay nodeId
-	entryExitPoint Index // edgeId or node query level (if node is an overlay vertex)
-	outInEdgeId    Index //
-	overlay        bool  // is node a boundary/overlay vertex
+func NewDijkstraKey(node Index) QueryKey {
+	return QueryKey{node: node}
 }
 
-func (qk *CRPQueryKey) GetNode() Index {
-	return qk.node
-}
-
-func (qk *CRPQueryKey) GetEntryExitPoint() Index {
-	return qk.entryExitPoint
-}
-
-func (qk *CRPQueryKey) GetOutInEdgeId() Index {
-	return qk.outInEdgeId
-}
-
-func (qk *CRPQueryKey) IsOverlay() bool {
-	return qk.overlay
-}
-
-func NewDijkstraKey(node Index, entryExitPoint Index) CRPQueryKey {
-	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint}
-}
-
-func NewDijkstraKeyNoTurnCost(node Index) CRPQueryKey {
-	return CRPQueryKey{node: node}
-}
-
-func NewCRPQueryKey(node Index, entryExitPoint Index, overlay bool) CRPQueryKey {
-	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, overlay: overlay}
-}
-
-func NewCRPQueryKeyWithOutInEdgeId(node, entryExitPoint, outInEdgeId Index) CRPQueryKey {
-	return CRPQueryKey{node: node, entryExitPoint: entryExitPoint, outInEdgeId: outInEdgeId}
-}
-
-type CRPQueryKeyNoTurnCost struct {
+type QueryKey struct {
 	node       Index // nodeId or boundary/overlay nodeId
 	queryLevel uint8
 	overlay    bool // is node a boundary/overlay vertex
 }
 
-func (qk *CRPQueryKeyNoTurnCost) GetNode() Index {
+func (qk *QueryKey) GetNode() Index {
 	return qk.node
 }
 
-func (qk *CRPQueryKeyNoTurnCost) IsOverlay() bool {
+func (qk *QueryKey) IsOverlay() bool {
 	return qk.overlay
 }
 
-func (qk *CRPQueryKeyNoTurnCost) GetQueryLevel() int {
+func (qk *QueryKey) GetQueryLevel() int {
 	return int(qk.queryLevel)
 }
 
-func NewCRPQueryKeyNoTurnCost(node Index, queryLevel uint8, overlay bool) CRPQueryKeyNoTurnCost {
-	return CRPQueryKeyNoTurnCost{node: node, queryLevel: queryLevel, overlay: overlay}
+func NewQKey(node Index, queryLevel uint8, overlay bool) QueryKey {
+	return QueryKey{node: node, queryLevel: queryLevel, overlay: overlay}
 }
 
 type PriorityQueueNode[T comparable, W util.RoutingNumber] struct {

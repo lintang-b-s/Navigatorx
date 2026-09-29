@@ -29,6 +29,10 @@ func (gp *GPSPoint) Lat() float64 {
 	return gp.lat
 }
 
+func (gp *GPSPoint) GetCoordinate() Coordinate {
+	return NewCoordinate(gp.lat, gp.lon)
+}
+
 func (gp *GPSPoint) Time() time.Time {
 	return gp.time
 }

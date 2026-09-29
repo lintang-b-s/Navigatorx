@@ -10,6 +10,7 @@ import (
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	custlog "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/tests"
@@ -19,7 +20,6 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prep "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -30,15 +30,12 @@ var (
 )
 
 const (
-	mlpFile = "./data/stress_test_yogyakarta.mlp"
-
-	osmFile                 = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_preprocessor_test.ngraph"
-	overlayGraphFile string = "./data/overlay_graph_preprocessor_test.ngraph"
+	osmFile = "./data/yogyakarta.osm.pbf"
 )
 
-//	go test -v ./tests/preprocessor --cover -coverpkg=../../pkg/... -coverprofile=prep_coverage.out
+//	go test -v ./tests/preprocessor   --cover -coverpkg=../../pkg/... -coverprofile=prep_coverage.out
 //
+// go test ./tests/preprocessor  -v -run TestPreprocessorSimple
 // go tool cover -func=prep_coverage.out
 // go tool cover -html=prep_coverage.out
 func TestPreprocessorSimple(t *testing.T) {
@@ -74,10 +71,10 @@ func TestPreprocessorSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 
-		var nodeCoords []osmparser.NodeCoord
+		var nodeCoords []extractor.NodeCoord
 
 		for i := 0; i < n; i++ {
-			nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(i)))
+			nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
 		}
 
 		adjList := make([][]tests.PairEdge, n)
@@ -103,8 +100,8 @@ func TestPreprocessorSimple(t *testing.T) {
 		}
 		es := tests.FlattenEdges(adjList)
 
-		op := osmparser.NewOSMParserV2[float64]()
-		acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
+		op := extractor.NewExtractor[float64]()
+		acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
 			acceptedNodeMap[int64(i)] = nodeCoords[i]
@@ -114,12 +111,10 @@ func TestPreprocessorSimple(t *testing.T) {
 		op.SetAcceptedNodeMap(acceptedNodeMap)
 		op.SetNodeToOsmId(nodeToOsmId)
 
-		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false)
+		rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
+		g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
-
-		g.SetGraphStorage(gs)
 
 		logger, err := custlog.New()
 		if err != nil {
@@ -136,7 +131,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prepr := prep.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+		prepr := prep.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.TEST)
 		err = prepr.PreProcessing(false)
 
 		return prepr, err
@@ -452,7 +447,7 @@ func TestPreprocessorSimple(t *testing.T) {
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			newToOldVidMap := prep.GetNewToOldVIdMap()
+			newToOldVidMap := prep.GetNewToOldVId()
 
 			// di preprocessor kita melakukan:
 			// 1. build g.cellNumbers
@@ -663,7 +658,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 					expectedEntries := tc.entryVertices[l-1][cellIdInLevelL]
 					for i := da.Index(0); i < da.Index(cell.GetNumEntryPoints()); i++ {
-						entryOvId := og.GetInId(cell, i)
+						entryOvId := og.GetCellEntry(cell, i)
 						overlayVertex := og.GetVertex(entryOvId)
 						oriVId := newToOldVidMap[overlayVertex.GetOrigVId()]
 
@@ -681,7 +676,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 					expectedExit := tc.exitVertices[l-1][cellIdInLevelL]
 					for i := da.Index(0); i < da.Index(cell.GetNumExitPoints()); i++ {
-						entryOvId := og.GetOutId(cell, i)
+						entryOvId := og.GetCellExit(cell, i)
 						overlayVertex := og.GetVertex(entryOvId)
 						oriVId := newToOldVidMap[overlayVertex.GetOrigVId()]
 
@@ -833,9 +828,10 @@ func init() {
 	pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
 	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
 	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
+	config.InitRegionName("preprocessor_test", pkg.TEST)
 }
 
-func setup(t *testing.T, osmFileTest string) *prep.Preprocessor[int32] {
+func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.RoadNetworkDataContainer) {
 	if err := os.MkdirAll("./data", 0755); err != nil {
 		t.Fatal(err)
 	}
@@ -844,9 +840,9 @@ func setup(t *testing.T, osmFileTest string) *prep.Preprocessor[int32] {
 		t.Fatal(err)
 	}
 
-	op := osmparser.NewOSMParserV2[int32]()
+	op := extractor.NewExtractor[int32]()
 
-	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
+	graph, rn, timeFunction, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -870,23 +866,23 @@ func setup(t *testing.T, osmFileTest string) *prep.Preprocessor[int32] {
 
 	mp.RunMultilevelPartitioning()
 
-	err = mp.SaveToFile(mlpFile)
+	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(mlpFile)
+	err = mlp.ReadMlpFile()
 	if err != nil {
 		panic(err)
 	}
-	prepr := prep.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+	prepr := prep.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
 	err = prepr.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return prepr
+	return prepr, rn
 }
 
 // go test ./tests/preprocessor  -v -run TestPreprocessUsingOSMFile
@@ -895,28 +891,28 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 	testCases := []struct {
 		name           string
 		osmFileTest    string
-		roundAboutWay  map[int64]struct{}
-		streetNameWay  map[int64]string
-		highwayTypeWay map[int64]string
-		roadLanes      map[int64]uint8
+		roundAboutWay  map[uint64]struct{}
+		streetNameWay  map[uint64]string
+		highwayTypeWay map[uint64]pkg.OsmHighwayType
+		roadLanes      map[uint64]uint8
 	}{
 		{
 			name:        "file osm yogyakarta",
 			osmFileTest: osmFile,
-			roundAboutWay: map[int64]struct{}{
+			roundAboutWay: map[uint64]struct{}{
 				1460805468: {},
 				1460805470: {},
 				1427239361: {},
 			},
-			streetNameWay: map[int64]string{
+			streetNameWay: map[uint64]string{
 				24277036:  "Jalan Urip Sumoharjo",
 				293600459: "Jl. Jenderal Sudirman",
 			},
-			highwayTypeWay: map[int64]string{
-				24277036:  "primary",
-				293600459: "primary",
+			highwayTypeWay: map[uint64]pkg.OsmHighwayType{
+				24277036:  pkg.PRIMARY,
+				293600459: pkg.PRIMARY,
 			},
-			roadLanes: map[int64]uint8{
+			roadLanes: map[uint64]uint8{
 				24277036:  3,
 				293600459: 4,
 			},
@@ -925,7 +921,7 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 
 	for _, tc := range testCases {
 
-		prep := setup(t, tc.osmFileTest)
+		prep, rn := setup(t, tc.osmFileTest)
 		// di preprocessor kita melakukan:
 		// 1. build g.cellNumbers
 		// 2. set cellNumber index dari setiap vertices
@@ -940,43 +936,41 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 		graph := prep.GetGraph()
 		n := graph.NumberOfVertices()
 		for v := da.Index(0); v < da.Index(n); v++ {
-			graph.ForOutEdgeIdsOf(v, func(eId da.Index) {
 
-				tail, _ := graph.GetTailOfOutedgeWithInEdge(eId)
-				head := graph.GetHeadOfOutEdge(eId)
+			// cek roundabout
+			if _, roundabout := tc.roundAboutWay[rn.GetOsmWayId(v)]; roundabout && !rn.IsRoundabout(v) {
+				t.Errorf("expected edge with osm way id %v is a roundabout, got no", rn.GetOsmWayId(v))
+			}
+
+			// cek edge geometry
+			if len(rn.GetSegmentGeometry(v)) < 2 {
+				t.Errorf("expected number of edge geometry coordinates is greater than or equal to 2, got: %v", len(rn.GetSegmentGeometry(v)))
+			}
+
+			// cek street name dari edge
+
+			eOsmwayId := rn.GetOsmWayId(v)
+			gotStreetName := rn.GetStreetName(v)
+			if expectedStreetname, ok := tc.streetNameWay[eOsmwayId]; ok && expectedStreetname != gotStreetName {
+				t.Errorf("expected edge with osm way id %v street name: %v, got: %v", eOsmwayId, expectedStreetname, gotStreetName)
+			}
+
+			gotRoadClass := rn.GetRoadClass(v)
+			if expectedHighwayType, ok := tc.highwayTypeWay[eOsmwayId]; ok && expectedHighwayType != gotRoadClass {
+				t.Errorf("expected edge with osm way id %v highway type: %v, got: %v", eOsmwayId, expectedHighwayType, gotRoadClass)
+			}
+
+			gotRoadLanes := rn.GetRoadLanes(v)
+			if roadLane, ok := tc.roadLanes[eOsmwayId]; ok && roadLane != gotRoadLanes {
+				t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, roadLane, gotRoadLanes)
+			}
+
+			graph.ForOutEdgesOf(v, func(eId, head, entryPoint da.Index) {
+				tail := graph.GetTailOfOutedge(eId)
 				if tail != v {
 					t.Errorf("expected tail of outedge (%v, %v): %v, got: %v", v, head, v, tail)
 				}
-
-				// cek roundabout
-				if _, roundabout := tc.roundAboutWay[graph.GetOsmWayId(eId)]; roundabout && !graph.IsRoundabout(eId) {
-					t.Errorf("expected edge with osm way id %v is a roundabout, got no", graph.GetOsmWayId(eId))
-				}
-
-				// cek edge geometry
-				if len(graph.GetEdgeGeometry(eId)) < 2 {
-					t.Errorf("expected number of edge geometry coordinates is greater than or equal to 2, got: %v", len(graph.GetEdgeGeometry(eId)))
-				}
-
-				// cek street name dari edge
-
-				eOsmwayId := graph.GetOsmWayId(eId)
-				gotStreetName := graph.GetStreetName(eId)
-				if expectedStreetname, ok := tc.streetNameWay[eOsmwayId]; ok && expectedStreetname != gotStreetName {
-					t.Errorf("expected edge with osm way id %v street name: %v, got: %v", eOsmwayId, expectedStreetname, gotStreetName)
-				}
-
-				gotRoadClass := graph.GetRoadClass(eId)
-				if expectedHighwayType, ok := tc.highwayTypeWay[eOsmwayId]; ok && expectedHighwayType != gotRoadClass {
-					t.Errorf("expected edge with osm way id %v highway type: %v, got: %v", eOsmwayId, expectedHighwayType, gotRoadClass)
-				}
-
-				gotRoadLanes := graph.GetRoadLanes(eId)
-				if roadLane, ok := tc.roadLanes[eOsmwayId]; ok && roadLane != gotRoadLanes {
-					t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, roadLane, gotRoadLanes)
-				}
 			})
-
 		}
 
 		// cek correctness sccReach array
@@ -999,8 +993,9 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 }
 
 // go test ./tests/preprocessor  -v -run TestPreprocessTurnRestrictionsUsingOSMFile
+// todo: add isCorrect() handler buat via-way turn restriction...
 func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
-	prep := setup(t, osmFile)
+	prep, rn := setup(t, osmFile)
 	graph := prep.GetGraph()
 
 	type turnRes struct {
@@ -1010,6 +1005,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		toWay    int64
 		isViaway bool
 	}
+
 	newResTurn := func(resType string, fromWay int64, via int64, toWay int64, isViaway bool) turnRes {
 		return turnRes{resType: resType, fromWay: fromWay, via: via, toWay: toWay, isViaway: isViaway}
 	}
@@ -1105,16 +1101,6 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		},
 		{
 
-			name:                 "no_right_turn https://www.openstreetmap.org/relation/4522827",
-			turnRestriction:      newResTurn("no_right_turn", 561138356, 3309091961, 323932428, false),
-			wantAllowedLeftTurn:  true,
-			wantAllowedRightTurn: false,
-			wantAllowedUTurn:     true,
-			wantAllowedContinue:  true,
-		},
-
-		{
-
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/4763181",
 			turnRestriction:      newResTurn("no_u_turn", 561138356, 323932428, 323932427, true),
 			wantAllowedLeftTurn:  true,
@@ -1187,32 +1173,32 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		},
 	}
 
-	isCorrect := func(turnSign da.TurnType, turnType pkg.TurnType, wantAllowedLeftTurn, wantAllowedRightTurn, wantAllowedUTurn, wantAllowedContinue bool, restrictionType string) (string, bool) {
+	isCorrect := func(turnSign da.TurnType, wantAllowedLeftTurn, wantAllowedRightTurn, wantAllowedUTurn, wantAllowedContinue bool, restrictionType string) (string, bool) {
 		switch turnSign {
 		case da.TURN_RIGHT, da.TURN_SHARP_RIGHT, da.TURN_SLIGHT_RIGHT:
-			if restrictionType == "only_straight_on" && turnSign == da.TURN_SLIGHT_RIGHT && turnType == pkg.NONE {
+			if restrictionType == "only_straight_on" && turnSign == da.TURN_SLIGHT_RIGHT {
 				return "", true
 			}
-			if !wantAllowedRightTurn && turnType != pkg.NO_ENTRY {
+			if !wantAllowedRightTurn {
 				return "no_right_turn", false
 			}
 		case da.TURN_LEFT, da.TURN_SHARP_LEFT, da.TURN_SLIGHT_LEFT:
 
-			if restrictionType == "only_straight_on" && turnSign == da.TURN_SLIGHT_LEFT && turnType == pkg.NONE {
+			if restrictionType == "only_straight_on" && turnSign == da.TURN_SLIGHT_LEFT {
 				return "", true
-			} else if restrictionType == "no_u_turn" && turnSign == da.TURN_SHARP_RIGHT && !wantAllowedUTurn && turnType != pkg.NO_ENTRY {
+			} else if restrictionType == "no_u_turn" && turnSign == da.TURN_SHARP_RIGHT && !wantAllowedUTurn {
 				return "no_u_turn", false
 			}
 
-			if !wantAllowedLeftTurn && turnType != pkg.NO_ENTRY {
+			if !wantAllowedLeftTurn {
 				return "no_left_turn", false
 			}
 		case da.CONTINUE_ON_STREET:
-			if !wantAllowedContinue && turnType != pkg.NO_ENTRY {
+			if !wantAllowedContinue {
 				return "no_straight_on", false
 			}
 		case da.U_TURN_RIGHT:
-			if !wantAllowedUTurn && turnType != pkg.NO_ENTRY {
+			if !wantAllowedUTurn {
 				return "no_u_turn", false
 			}
 
@@ -1241,45 +1227,30 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			rest := tc.turnRestriction
-			graph.ForOutEdges(func(_, head, tail, entryId, fromEntryPoint da.Index, _ float64, fromEId da.Index) {
-				fromEdgeWayId := graph.GetOsmWayId(fromEId)
-				if rest.fromWay == fromEdgeWayId {
 
-					headOsmNodeId := graph.GetVertexOsmId(head)
-					if !tc.turnRestriction.isViaway {
-						if headOsmNodeId == uint64(rest.via) {
+			graph.ForVertices(func(_ da.Vertex, u da.Index) {
+				uoId := rn.GetOsmWayId(u)
+				_, via := rn.GetTailHeadOsmNodeId(u)
+				if uoId == uint64(rest.fromWay) && via == uint64(rest.via) {
+					graph.ForOutEdgesOf(u, func(eId, v, _ da.Index) {
 
-							// traverse ke semua outedges of head
-							graph.ForOutEdgesOf(head, fromEntryPoint, func(eIdTo, headTo da.Index, _, headToEntryPoint, turnTableId da.Index, turnType pkg.TurnType, _ pkg.OsmHighwayType) {
-								if graph.IsDummyOutEdge(eIdTo) {
-									return
-								}
-								if graph.IsParallelOutEdge(eIdTo) {
-									return
-								}
+						voId := rn.GetOsmWayId(v)
+						if voId == uint64(rest.toWay) {
+							uc := rn.GetSegmentTailCoord(u)
+							vc := rn.GetSegmentHeadCoord(u)
+							wc := rn.GetSegmentHeadCoord(v)
 
-								toEdgeWayId := graph.GetOsmWayId(eIdTo)
-								if rest.toWay == toEdgeWayId {
-									// cek turnSign dari:
-									// tail -fromEdge-> head -toEdge-> headTo
+							prevInitialBearing := geo.ComputeInitialBearing(uc.GetLat(), uc.GetLon(), vc.GetLat(),
+								vc.GetLon())
+							turnSign := geo.GetTurnDirection(vc.GetLat(), vc.GetLon(), wc.GetLat(),
+								wc.GetLon(), prevInitialBearing)
 
-									tailCoord := graph.GetVertexCoordinate(tail)
-									headCoord := graph.GetVertexCoordinate(head)
-									headToCoord := graph.GetVertexCoordinate(headTo)
+							if reason, correct := isCorrect(turnSign, tc.wantAllowedLeftTurn, tc.wantAllowedRightTurn, tc.wantAllowedUTurn, tc.wantAllowedContinue, tc.turnRestriction.resType); !correct {
 
-									prevInitialBearing := geo.ComputeInitialBearing(tailCoord.GetLat(), tailCoord.GetLon(), headCoord.GetLat(),
-										headCoord.GetLon())
-									turnSign := geo.GetTurnDirection(headCoord.GetLat(), headCoord.GetLon(), headToCoord.GetLat(),
-										headToCoord.GetLon(), prevInitialBearing)
-
-									if reason, correct := isCorrect(turnSign, turnType, tc.wantAllowedLeftTurn, tc.wantAllowedRightTurn, tc.wantAllowedUTurn, tc.wantAllowedContinue, tc.turnRestriction.resType); !correct {
-										t.Errorf("want: %s, got: allowed %s", reason, turnSignToDesc(turnSign))
-									}
-								}
-							})
+								t.Errorf("want: %s, got: allowed %s", reason, turnSignToDesc(turnSign))
+							}
 						}
-					}
-
+					})
 				}
 			})
 

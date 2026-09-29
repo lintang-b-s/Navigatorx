@@ -35,18 +35,19 @@ func BenchmarkAlternativeRoutesController(b *testing.B) {
 
 	g := re.GetGraph()
 	bb := g.GetBoundingBox()
+	rn := re.GetRoadNetworkContainer()
 	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), logger)
+	rtree.Build(re.GetGraph(), rn, logger)
 	altSearch := routing.NewAlternativeRouteSearch(re)
 	start := time.Now()
 
-	rs, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true)
+	rs, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
 	if err != nil {
 		b.Fatal(err)
 	}
 
 	cf := re.GetCostFunction()
-	tilingEngine := tiler.NewTilingEngine(g, logger, cf)
+	tilingEngine := tiler.NewTilingEngine(g, rn, logger, cf)
 	tilingService := usecases.NewTileService(logger, tilingEngine)
 
 	api := controllers.New(rs, logger, tilingService)

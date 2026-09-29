@@ -10,6 +10,7 @@ import (
 	"sort"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -19,17 +20,13 @@ import (
 )
 
 const (
-	graphFile        string = "./data/profiles/car/jateng_jabar_original.ngraph"
-	overlayGraphFile string = "./data/profiles/car/jateng_jabar_overlay_graph.ngraph"
-	metricsFile      string = "./data/profiles/car/jateng_jabar_metrics.nmt"
-	landmarkFile     string = "./data/profiles/car/jateng_jabar_landmark.nlm"
-	timeFunctionFile string = "./data/profiles/car/jateng_jabar_timefunction.ntf"
-)
-
-const (
 	NUM_QUERIES             = 10000
 	CENTISECONDS_TO_MINUTES = 1.0 / 6000
 )
+
+func init() {
+	config.InitRegionName("jateng_jabar", pkg.ROUTER)
+}
 
 func main() {
 	flag.Parse()
@@ -47,7 +44,9 @@ func main() {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	config.InitRegionName("jateng_jabar", pkg.ROUTER)
+
+	re, err := engine.NewEngine[int32](logger, pkg.ROUTER)
 	if err != nil {
 		panic(err)
 	}
@@ -96,8 +95,6 @@ func main() {
 		n++
 	}
 
-	g := re.GetRoutingEngine().GetGraph()
-
 	logger.Sugar().Infof("starting benchmark")
 
 	travelTimes := []int32{0}
@@ -113,26 +110,17 @@ func main() {
 		s := p.s
 		t := p.t
 
-		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
-		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
-
-		sVertex := g.GetVertex(s)
-		tVertex := g.GetVertex(t)
-		emptyCoords := make([]da.Coordinate, 0)
-		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-
 		now := time.Now()
-		var spEdges []da.Index
+		var spPath []da.Index
 		var spcost int32
 		if alt {
 
-			crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
-			spcost, _, _, spEdges, _ = crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+			crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
+			spcost, spPath, _ = crpQuery.ShortestPathSearch(s, t)
 			dur := time.Since(now).Milliseconds()
 			durations += float64(dur)
 
-			eff, numExploredVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spEdges) + 1)
+			eff, numExploredVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spPath) + 1)
 			qRuntime += float64(queryRuntime)
 			puRuntime += float64(pathUnpackingRuntime)
 			efficiency += eff
@@ -140,12 +128,12 @@ func main() {
 			travelTimes = append(travelTimes, spcost)
 		} else {
 
-			crpQuery := routing.NewCRPQueryTurnCost(re.GetRoutingEngine(), 1.0)
-			spcost, spEdges, _ = crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+			crpQuery := routing.NewCRPQuery(re.GetRoutingEngine())
+			spcost, spPath, _ = crpQuery.ShortestPathSearch(s, t)
 			dur := time.Since(now).Milliseconds()
 			durations += float64(dur)
 
-			eff, numExploredVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spEdges) + 1)
+			eff, numExploredVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(spPath) + 1)
 			qRuntime += float64(queryRuntime)
 			puRuntime += float64(pathUnpackingRuntime)
 			efficiency += eff
@@ -227,118 +215,118 @@ func main() {
 	fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
 	fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
 
-	// gak support turn restrictions & turn costs
-	calcsSPWithoutTurnCosts := func(i int, p spParam, alt bool) any {
+	// // gak support turn restrictions & turn costs
+	// calcsSPWithoutTurnCosts := func(i int, p spParam, alt bool) any {
 
-		s := p.s
-		t := p.t
+	// 	s := p.s
+	// 	t := p.t
 
-		now := time.Now()
-		if alt {
-			crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
-			spcost, vertexPath, _ := crpQuery.ShortestPathSearch(s, t)
-			dur := time.Since(now).Milliseconds()
-			durations += float64(dur)
+	// 	now := time.Now()
+	// 	if alt {
+	// 		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
+	// 		spcost, vertexPath, _ := crpQuery.ShortestPathSearch(s, t)
+	// 		dur := time.Since(now).Milliseconds()
+	// 		durations += float64(dur)
 
-			eff, numExploredVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(vertexPath))
-			qRuntime += float64(queryRuntime)
-			puRuntime += float64(pathUnpackingRuntime)
-			efficiency += eff
-			totExploredVertices += numExploredVertices
-			travelTimes = append(travelTimes, spcost)
-		} else {
+	// 		eff, numExploredVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(vertexPath))
+	// 		qRuntime += float64(queryRuntime)
+	// 		puRuntime += float64(pathUnpackingRuntime)
+	// 		efficiency += eff
+	// 		totExploredVertices += numExploredVertices
+	// 		travelTimes = append(travelTimes, spcost)
+	// 	} else {
 
-			crpQuery := routing.NewCRPQuery(re.GetRoutingEngine())
-			spcost, vertexPath, _ := crpQuery.ShortestPathSearch(s, t)
-			dur := time.Since(now).Milliseconds()
-			durations += float64(dur)
+	// 		crpQuery := routing.NewCRPQuery(re.GetRoutingEngine())
+	// 		spcost, vertexPath, _ := crpQuery.ShortestPathSearch(s, t)
+	// 		dur := time.Since(now).Milliseconds()
+	// 		durations += float64(dur)
 
-			eff, numExploredVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(vertexPath))
-			qRuntime += float64(queryRuntime)
-			puRuntime += float64(pathUnpackingRuntime)
-			efficiency += eff
-			totExploredVertices += numExploredVertices
-			travelTimes = append(travelTimes, spcost)
-		}
+	// 		eff, numExploredVertices, queryRuntime, pathUnpackingRuntime := crpQuery.GetStats(len(vertexPath))
+	// 		qRuntime += float64(queryRuntime)
+	// 		puRuntime += float64(pathUnpackingRuntime)
+	// 		efficiency += eff
+	// 		totExploredVertices += numExploredVertices
+	// 		travelTimes = append(travelTimes, spcost)
+	// 	}
 
-		if (i+1)%1000 == 0 {
-			logger.Sugar().Infof("done query %v", i+1)
-		}
+	// 	if (i+1)%1000 == 0 {
+	// 		logger.Sugar().Infof("done query %v", i+1)
+	// 	}
 
-		return nil
-	}
+	// 	return nil
+	// }
 
-	durations = 0.0
-	efficiency = 0.0
-	qRuntime = 0.0
-	puRuntime = 0.0
-	totExploredVertices = 0
-	travelTimes = travelTimes[:0]
+	// durations = 0.0
+	// efficiency = 0.0
+	// qRuntime = 0.0
+	// puRuntime = 0.0
+	// totExploredVertices = 0
+	// travelTimes = travelTimes[:0]
 
-	rdStartId = rd.Intn(len(queries) - 10000)
-	for i, q := range queries[rdStartId : rdStartId+10000] {
-		calcsSPWithoutTurnCosts(i, q, true)
-	}
+	// rdStartId = rd.Intn(len(queries) - 10000)
+	// for i, q := range queries[rdStartId : rdStartId+10000] {
+	// 	calcsSPWithoutTurnCosts(i, q, true)
+	// }
 
-	sort.Slice(travelTimes, func(i, j int) bool {
-		return travelTimes[i] < travelTimes[j]
-	})
-	avgCost = 0.0
-	minCost = float64(travelTimes[0])
-	maxCost = 0
-	for _, tt := range travelTimes {
+	// sort.Slice(travelTimes, func(i, j int) bool {
+	// 	return travelTimes[i] < travelTimes[j]
+	// })
+	// avgCost = 0.0
+	// minCost = float64(travelTimes[0])
+	// maxCost = 0
+	// for _, tt := range travelTimes {
 
-		if tt != util.Infinity[int32]() {
-			maxCost = float64(tt)
-			avgCost += float64(tt)
-		}
-	}
+	// 	if tt != util.Infinity[int32]() {
+	// 		maxCost = float64(tt)
+	// 		avgCost += float64(tt)
+	// 	}
+	// }
 
-	fmt.Printf("Algoritma kueri kombinasi CRP dan ALT (without turn costs): \n")
-	fmt.Printf("avg query times: %f\n", durations/NUM_QUERIES)
-	fmt.Printf("avg efficiency: %f\n", efficiency/NUM_QUERIES)
-	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
-	fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
-	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
+	// fmt.Printf("Algoritma kueri kombinasi CRP dan ALT (without turn costs): \n")
+	// fmt.Printf("avg query times: %f\n", durations/NUM_QUERIES)
+	// fmt.Printf("avg efficiency: %f\n", efficiency/NUM_QUERIES)
+	// fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
+	// fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
+	// fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
+	// fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
+	// fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
+	// fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
 
-	durations = 0.0
-	efficiency = 0.0
-	qRuntime = 0.0
-	puRuntime = 0.0
-	totExploredVertices = 0
-	travelTimes = travelTimes[:0]
+	// durations = 0.0
+	// efficiency = 0.0
+	// qRuntime = 0.0
+	// puRuntime = 0.0
+	// totExploredVertices = 0
+	// travelTimes = travelTimes[:0]
 
-	rdStartId = rd.Intn(len(queries) - 10000)
-	for i, q := range queries[rdStartId : rdStartId+10000] {
-		calcsSPWithoutTurnCosts(i, q, false)
-	}
+	// rdStartId = rd.Intn(len(queries) - 10000)
+	// for i, q := range queries[rdStartId : rdStartId+10000] {
+	// 	calcsSPWithoutTurnCosts(i, q, false)
+	// }
 
-	sort.Slice(travelTimes, func(i, j int) bool {
-		return travelTimes[i] < travelTimes[j]
-	})
-	avgCost = 0.0
-	minCost = float64(travelTimes[0])
-	maxCost = 0
-	for _, tt := range travelTimes {
+	// sort.Slice(travelTimes, func(i, j int) bool {
+	// 	return travelTimes[i] < travelTimes[j]
+	// })
+	// avgCost = 0.0
+	// minCost = float64(travelTimes[0])
+	// maxCost = 0
+	// for _, tt := range travelTimes {
 
-		if tt != util.Infinity[int32]() {
-			maxCost = float64(tt)
-			avgCost += float64(tt)
-		}
-	}
+	// 	if tt != util.Infinity[int32]() {
+	// 		maxCost = float64(tt)
+	// 		avgCost += float64(tt)
+	// 	}
+	// }
 
-	fmt.Printf("Algoritma kueri CRP (without turn costs): \n")
-	fmt.Printf("avg query times: %f\n", durations/NUM_QUERIES)
-	fmt.Printf("avg efficiency: %f\n", efficiency/NUM_QUERIES)
-	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
-	fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
-	fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
+	// fmt.Printf("Algoritma kueri CRP (without turn costs): \n")
+	// fmt.Printf("avg query times: %f\n", durations/NUM_QUERIES)
+	// fmt.Printf("avg efficiency: %f\n", efficiency/NUM_QUERIES)
+	// fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
+	// fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
+	// fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
+	// fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
+	// fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
+	// fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
 
 	durations = 0.0
 	efficiency = 0.0

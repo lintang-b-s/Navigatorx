@@ -5,16 +5,11 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// todo: ini bisa di refactor jadi lebih clean lagi... tapi harus diubah dulu predecessor dari setiap explored vertex di multilevel_astar_landmarks.go/multilevel_dijkstra.go
-// kerjain setelah submit revisi
-// done
+func (crp *CRPRoutingEngine[W]) RetrievePackedPath(mid da.ParentVertex, fpq *da.QueryHeap[da.QueryKey, W],
+	bpq *da.QueryHeap[da.QueryKey, W], sCellNum da.Pv, s, t da.Index) []da.ParentVertex {
 
-func (crp *CRPRoutingEngine[W]) RetrievePackedPath(forwardMid,
-	backwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey, W],
-	bpq *da.QueryHeap[da.CRPQueryKey, W], sForwardId, tBackwardId da.Index, sCellNumber da.Pv, s, t da.Index) []da.VertexEdgePair {
-
-	forwardPackedPath := crp.RetrieveForwardPackedPath(forwardMid, fpq, sForwardId, sCellNumber, s)
-	backwardPackedPath := crp.RetrieveBackwardPackedPath(backwardMid, bpq, tBackwardId, sCellNumber, t)
+	forwardPackedPath := crp.RetrieveForwardPackedPath(mid, fpq, sCellNum, s)
+	backwardPackedPath := crp.RetrieveBackwardPackedPath(mid, bpq, sCellNum, t)
 
 	result := append(forwardPackedPath, backwardPackedPath...)
 
@@ -30,106 +25,72 @@ func (crp *CRPRoutingEngine[W]) RetrievePackedPath(forwardMid,
 // shortcut edge (u,v) disusun oleh base edges yang menyusun shortest path dari overlay vertex u ke overlay vertex v
 // kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya
 // sehingga untuk unpacking shortcut edges ada tahapan di CRP bernama Path Unpacking (path_unpacker_alt.go)
-func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(forwardMid da.VertexEdgePair, fpq *da.QueryHeap[da.CRPQueryKey, W],
-	sForwardId da.Index, sCellNumber da.Pv, s da.Index) []da.VertexEdgePair {
-	svPackedPath := make([]da.VertexEdgePair, 0, 32)
-	// let n = number of edges in shortest path from s to mid, (from forward search)
-	// O(n)
-	mid := forwardMid
+func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(mid da.ParentVertex, fpq *da.QueryHeap[da.QueryKey, W],
+	sCellNum da.Pv, s da.Index) []da.ParentVertex {
+	svPackedPath := make([]da.ParentVertex, 0, 32) // list of vertices/overlay vertices di s-v packed path
 
-	if !crp.isOverlay(mid.GetEdge()) {
-		adjustedMidEdge := crp.adjustForward(mid.GetVertex(), mid.GetEdge())
-		mid.SetEdge(adjustedMidEdge)
-
-		midOutHead, midOutEdgeId := crp.graph.GetHeadOfInedgeWithOutEdge(mid.GetEdge())
-		mid.SetEdge(midOutEdgeId)
-
-		tail := crp.graph.GetTailFromOutEdge(midOutEdgeId)
-		if tail != midOutHead {
-			svPackedPath = append(svPackedPath, mid)
-		}
+	midvId := mid.GetVertex()
+	if mid.IsOverlayVertex() {
+		amvId := crp.adjustoffsetOverlay(midvId)
+		omvId := onBit(amvId, UNPACK_OVERLAY_OFFSET)
+		mid.SetVertex(omvId)
+	}
+	svPackedPath = append(svPackedPath, mid)
+	var vData da.VertexData[W]
+	if mid.IsOverlayVertex() {
+		vData = fpq.Get(midvId)
+	} else {
+		vData = fpq.Get(midvId)
 	}
 
-	fMidEdge := forwardMid.GetEdge()
-	vData := fpq.Get(fMidEdge)
-
-	for vData.GetParent().GetEdge() != sForwardId {
-		parent := vData.GetParent()
-		parentEdge := parent.GetEdge()
-		parentCopy := parent
-
-		if crp.isOverlay(parentCopy.GetEdge()) {
-
-			// overlay vertex
-			ov := crp.adjustOverlay(parentCopy.GetEdge())
-			parentCopy.SetEdge(ov)
+	vPar := vData.GetParent()
+	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
+		parvId := vPar.GetVertex()
+		if vPar.IsOverlayVertex() {
+			aparvId := crp.adjustoffsetOverlay(parvId)
+			offpvId := onBit(aparvId, UNPACK_OVERLAY_OFFSET)
+			vPar.SetVertex(offpvId)
+			vData = fpq.Get(parvId)
 		} else {
-			adjForwEdge := crp.adjustForward(parentCopy.GetVertex(), parentCopy.GetEdge())
-
-			// jadiin outEdge semua
-			inEdge := crp.graph.GetInEdge(adjForwEdge)
-			_, outEId := crp.graph.GetHeadOfInedgeWithOutEdge(inEdge.GetEdgeId())
-			parentCopy.SetEdge(outEId)
+			vData = fpq.Get(parvId)
 		}
 
-		svPackedPath = append(svPackedPath, parentCopy)
-		vData = fpq.Get(parentEdge)
+		svPackedPath = append(svPackedPath, vPar)
+		vPar = vData.GetParent()
 	}
 
-	util.ReverseG[da.VertexEdgePair](svPackedPath)
+	util.ReverseG(svPackedPath)
 
 	return svPackedPath
 }
 
 // RetrieveBackwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari mid ke t.
-func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(backwardMid da.VertexEdgePair, bpq *da.QueryHeap[da.CRPQueryKey, W],
-	tBackwardId da.Index, sCellNumber da.Pv, t da.Index) []da.VertexEdgePair {
-	vtPackedPath := make([]da.VertexEdgePair, 0, 32)
+func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(mid da.ParentVertex, bpq *da.QueryHeap[da.QueryKey, W],
+	sCellNum da.Pv, t da.Index) []da.ParentVertex {
+	vtPackedPath := make([]da.ParentVertex, 0, 32)
 
-	// let n = number of edges in shortest path from mid to t, (from backward search)
-	// worst: case O(n)
-
-	mid := backwardMid
-	if crp.isOverlay(mid.GetEdge()) {
-		// overlay vertex
-		adjustedMidEdge := crp.adjustOverlay(mid.GetEdge())
-		mid.SetEdge(adjustedMidEdge)
-		vtPackedPath = append(vtPackedPath, mid)
-
+	midvId := mid.GetVertex()
+	var vData da.VertexData[W]
+	if mid.IsOverlayVertex() {
+		vData = bpq.Get(midvId)
 	} else {
-
-		adjustedMidEdge := crp.adjustBackward(mid.GetVertex(), mid.GetEdge())
-		mid.SetEdge(adjustedMidEdge)
-
-		midOutEdge := crp.graph.GetOutEdge(mid.GetEdge())
-		tail := crp.graph.GetTailFromOutEdge(midOutEdge.GetEdgeId())
-		if tail != midOutEdge.GetHead() {
-			vtPackedPath = append(vtPackedPath, mid)
-		}
+		vData = bpq.Get(midvId)
 	}
 
-	bMidEdge := backwardMid.GetEdge()
-	vData := bpq.Get(bMidEdge)
-
-	for vData.GetParent().GetEdge() != tBackwardId {
-		parent := vData.GetParent()
-		parentEdge := parent.GetEdge()
-		parentCopy := parent
-
-		if crp.isOverlay(parentCopy.GetEdge()) {
-
-			// overlay vertex
-			ov := crp.adjustOverlay(parentCopy.GetEdge())
-			parentCopy.SetEdge(ov)
+	vPar := vData.GetParent()
+	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
+		parvId := vPar.GetVertex()
+		if vPar.IsOverlayVertex() {
+			aparvId := crp.adjustoffsetOverlay(parvId)
+			offpvId := onBit(aparvId, UNPACK_OVERLAY_OFFSET)
+			vPar.SetVertex(offpvId)
+			vData = bpq.Get(parvId)
 		} else {
-
-			adjEdge := crp.adjustBackward(parentCopy.GetVertex(), parentCopy.GetEdge())
-			parentCopy.SetEdge(adjEdge)
+			vData = bpq.Get(parvId)
 		}
 
-		vtPackedPath = append(vtPackedPath, parentCopy)
-		vData = bpq.Get(parentEdge)
-
+		vtPackedPath = append(vtPackedPath, vPar)
+		vPar = vData.GetParent()
 	}
 
 	return vtPackedPath

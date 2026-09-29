@@ -20,10 +20,10 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
@@ -33,13 +33,11 @@ import (
 )
 
 const (
-	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	osmFile                 = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_query_test.ngraph"
-	overlayGraphFile string = "./data/overlay_graph_query_test.ngraph"
-	metricsFile      string = "./data/metrics_query_test.nmt"
-	landmarkFile     string = "./data/landmark_query_test.nlm"
-	timeFunctionFile string = "./data/timefunction_query_test.ntf"
+	osmFile = "./data/yogyakarta.osm.pbf"
+)
+
+var (
+	landmarkFile string = config.ProfilesRoot() + "/landmark_query_test.nlm"
 )
 
 // there is also tests for crp query using test cases taken from
@@ -160,10 +158,10 @@ func TestCRPQuerySimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 
-		var nodeCoords []osmparser.NodeCoord
+		var nodeCoords []extractor.NodeCoord
 
 		for i := 0; i < n; i++ {
-			nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(i)))
+			nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
 		}
 
 		adjList := make([][]tests.PairEdge, n)
@@ -189,8 +187,8 @@ func TestCRPQuerySimple(t *testing.T) {
 		}
 		es := tests.FlattenEdges(adjList)
 
-		op := osmparser.NewOSMParserV2[float64]()
-		acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
+		op := extractor.NewExtractor[float64]()
+		acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
 			acceptedNodeMap[int64(i)] = nodeCoords[i]
@@ -200,12 +198,10 @@ func TestCRPQuerySimple(t *testing.T) {
 		op.SetAcceptedNodeMap(acceptedNodeMap)
 		op.SetNodeToOsmId(nodeToOsmId)
 
-		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false)
+		rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
+		g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
-
-		g.SetGraphStorage(gs)
 
 		logger, err := log.New()
 		if err != nil {
@@ -222,7 +218,7 @@ func TestCRPQuerySimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+		prep := preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.TEST)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -248,12 +244,12 @@ func TestCRPQuerySimple(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		eng, err := engine.NewEngineDirect(g, og, mt, logger, landmarkFile)
+		eng, err := engine.NewEngineDirect(g, rn, og, mt, logger, landmarkFile)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		newToOldVidMap := prep.GetNewToOldVIdMap()
+		newToOldVidMap := prep.GetNewToOldVId()
 		return eng.GetRoutingEngine(), lm, newToOldVidMap, err
 	}
 
@@ -300,25 +296,18 @@ func TestCRPQuerySimple(t *testing.T) {
 
 			for source := da.Index(0); source < da.Index(n); source++ {
 				for target := da.Index(0); target < da.Index(n); target++ {
-					as := graph.GetDummyOutEdgeId(source)
-					at := graph.GetDummyInEdgeId(target)
-					crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0)
-					oldS := newToOldVidMap[source]
-					oldT := newToOldVidMap[target]
 
-					query := bitpack(oldS, oldT)
+					crpQuery := routing.NewCRPALTQuery(re)
+					ss := newToOldVidMap[source]
+					tt := newToOldVidMap[target]
+
+					query := bitpack(ss, tt)
 					expectedSpCost := apsp[query]
 
-					sVertex := graph.GetVertex(source)
-					tVertex := graph.GetVertex(target)
-					emptyCoords := make([]da.Coordinate, 0)
-					sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-					tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-
-					spCost, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+					spCost, _, _ := crpQuery.ShortestPathSearch(source, target)
 
 					if !util.Eq(spCost, expectedSpCost) {
-						t.Errorf("expected shortest path cost from %v to %v: %v, got: %v", oldS, oldT, expectedSpCost, spCost)
+						t.Errorf("expected shortest path cost from %v to %v: %v, got: %v", ss, tt, expectedSpCost, spCost)
 					}
 
 				}
@@ -329,6 +318,7 @@ func TestCRPQuerySimple(t *testing.T) {
 
 func init() {
 	config.InitConfig()
+	config.InitRegionName("query_test", pkg.TEST)
 }
 
 func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
@@ -349,14 +339,8 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 		panic(err)
 	}
 
-	if !turnCost {
-		pkg.OffTurnCost()
-	} else {
-		pkg.OnTurnCost()
-	}
-
-	op := osmparser.NewOSMParserV2[int32]()
-	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
+	op := extractor.NewExtractor[int32]()
+	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -381,17 +365,18 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 
 	mp.RunMultilevelPartitioning()
 
-	err = mp.SaveToFile(mlpFile)
+	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(mlpFile)
+	err = mlp.ReadMlpFile()
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocesser.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+
+	prep := preprocesser.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -399,14 +384,14 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	custom := customizer.NewCustomizer[int32](logger, pkg.TEST)
 
 	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](logger, pkg.TEST)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -415,197 +400,12 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 }
 
 /*
-stress test ini bertujuan untuk mencari apakah ada counterexample (output dari ALT CRP query bukan shortest path) dari implementasi  A*, landmarks, and triangle inequality (ALT) untuk query Customizable Route Planning (CRP) pada file
-multilevel_astar_landmarks.go
 
-untuk plain dijkstra find single source shortest paths (sssp), from s to all other vertices
-untuk alt query crp find point-to-point(p2p) shortest paths, untuk semua p2p sp queries diatas
-note that Customizable Route Planning (CRP) query/multilevel dijkstra (MLD) [https://github.com/Project-OSRM/osrm-backend]/ multilevel A*, landmarks, and triangle inequality (ALT) hanya mempercepat p2p sp query bukan mempercepat sssp query
-
-stress tests ini selesai dalam 7 menit
-dan akan berhenti ketika ada counterexample
-cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphic #6 cpu cores #12 threads
-ram: 16gb
-
-please run the test using command: "cd tests/query && go test -run TestCRPQueryStressNoTurnCostTest  -v -timeout=0  -count=1"
+please run the test using command: "cd tests/query && go test -run TestCRPQueryStressTest  -v -timeout=0  -count=1"
 karena bakal time out kalau pakai vscode
 */
 
-func TestCRPQueryStressNoTurnCostTest(t *testing.T) {
-	eng, _ := setup(t, false)
-	re := eng.GetRoutingEngine()
-	g := re.GetGraph()
-
-	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	V := g.NumberOfVertices()
-
-	n := 50
-	qset := make(map[da.Index]struct{})
-
-	queries := make([]da.Index, 0, n)
-
-	i := 0
-	for i < n {
-		s := da.Index(rd.Intn(V))
-		if g.GetOutDegree(s) == 0 || g.GetInDegree(s) == 0 {
-			continue
-		}
-
-		if _, ok := qset[s]; ok {
-			continue
-		}
-
-		qset[s] = struct{}{}
-		queries = append(queries, da.Index(s))
-		i++
-	}
-	numberOfVertices := g.NumberOfVertices()
-
-	expectedSPCosts := make([][]int32, n)
-
-	t.Logf("start dijkstra query for some sources to all other vertices...")
-
-	lock := sync.Mutex{}
-
-	calcSpDijkstra := func(i int) any {
-		s := queries[i]
-
-		dijkstraQuery := routing.NewDijkstra(re, false)
-
-		sps, _ := dijkstraQuery.ShortestPath(s)
-
-		lock.Lock()
-
-		expectedSPCosts[i] = sps
-
-		if (i+1)%5 == 0 {
-			t.Logf("done query from source number: %v\n", i+1)
-		}
-		lock.Unlock()
-
-		return nil
-	}
-
-	workersDijkstra := concurrent.NewWorkerPool[int, any](70, 25_000)
-	ctx, cancel := context.WithCancel(context.Background())
-	workersDijkstra.StartWithContext(ctx, calcSpDijkstra)
-	go func() {
-		for range workersDijkstra.CollectResults() {
-		}
-	}()
-
-	for i := 0; i < n; i++ {
-		workersDijkstra.AddJob(i)
-	}
-	workersDijkstra.Close()
-	workersDijkstra.Wait()
-
-	cancel()
-
-	type query struct {
-		i, s, t da.Index
-		id      da.Index
-	}
-
-	newQuery := func(i, s, t, id da.Index) query {
-		return query{i, s, t, id}
-	}
-
-	type counterExampleData struct {
-		expectedSp, crpALTSP           int32
-		expectedSpEdges, crpALTSPEdges []da.Index
-		source, target                 da.Index
-		counterexample                 bool
-	}
-
-	newCounterExampleData := func(expectedSp, crpALTSP int32, expectedSpEdges, crpALTSPEdges []da.Index, source, target da.Index, cx bool) counterExampleData {
-		return counterExampleData{expectedSp: expectedSp, crpALTSP: crpALTSP, expectedSpEdges: expectedSpEdges, crpALTSPEdges: crpALTSPEdges,
-			source: source, target: target, counterexample: cx}
-	}
-
-	calcSp := func(q query) counterExampleData {
-		i := q.i
-		s := q.s
-		target := q.t
-		id := q.id
-		inEdgeToS := g.GetEntryOffset(s) + g.GetInDegree(s) - 1
-		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
-		outEdgeFromTarget := g.GetExitOffset(target) + g.GetOutDegree(target) - 1
-		_, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
-		crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0)
-		// crpQuery := routing.NewCRPQueryTurnCost(re, 1.0)
-
-		sVertex := g.GetVertex(s)
-		tVertex := g.GetVertex(target)
-		emptyCoords := make([]da.Coordinate, 0)
-		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-
-		sp, _, _, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-
-		// sp, _, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-		expectedSp := expectedSPCosts[i][target]
-
-		counterexample := !util.Eq(expectedSp, sp)
-
-		if (id+1)%5000 == 0 {
-			t.Logf("done query id: %v\n", id+1)
-		}
-		if counterexample {
-
-			return newCounterExampleData(expectedSp, sp, []da.Index{}, []da.Index{}, s, target, true)
-		}
-
-		return newCounterExampleData(0, 0, nil, nil, 0, 0, false)
-	}
-
-	workers := concurrent.NewWorkerPool[query, counterExampleData](70, 25_000)
-
-	ctx, cancel = context.WithCancel(context.Background())
-	defer cancel()
-	workers.StartWithContext(ctx, calcSp)
-
-	done := make(chan struct{}, 1)
-	go func() {
-		for i := 0; i < n; i++ {
-			s := queries[i]
-
-			for t := da.Index(0); t < da.Index(numberOfVertices); t++ {
-				workers.AddJob(newQuery(da.Index(i), s, t, da.Index(i)*da.Index(numberOfVertices)+t))
-			}
-		}
-		done <- struct{}{}
-	}()
-	t.Logf("start crp query...")
-
-	go func() {
-		<-done
-		workers.Close()
-		workers.Wait()
-	}()
-
-	t.Run("stress test crp query", func(t *testing.T) {
-		for res := range workers.CollectResults() {
-			if res.counterexample {
-				t.Fatalf(
-					"found counterexample from %d to %d: expected shortest path cost %d, got %d",
-					res.source,
-					res.target,
-					res.expectedSp,
-					res.crpALTSP,
-				)
-			}
-		}
-	})
-}
-
-/*
-
-please run the test using command: "cd tests/query && go test -run TestCRPQueryStressWithTurnCostTest  -v -timeout=0  -count=1"
-karena bakal time out kalau pakai vscode
-*/
-
-func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
+func TestCRPQueryStressTest(t *testing.T) {
 	eng, _ := setup(t, true)
 	re := eng.GetRoutingEngine()
 	g := re.GetGraph()
@@ -646,7 +446,7 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 	calcSpDijkstra := func(i int) any {
 		s := queries[i]
 
-		dijkstraQuery := routing.NewDijkstraWithTurnCost(re, false)
+		dijkstraQuery := routing.NewDijkstra(re, false)
 
 		sps, spPath := dijkstraQuery.ShortestPath(s)
 
@@ -723,20 +523,8 @@ func TestCRPQueryStressWithTurnCostTest(t *testing.T) {
 		target := q.t
 
 		id := q.id
-		inEdgeToS := g.GetDummyInEdgeId(s)
-		_, as := g.GetHeadOfInedgeWithOutEdge(inEdgeToS)
-		outEdgeFromTarget := g.GetDummyOutEdgeId(target)
-		tail, at := g.GetTailOfOutedgeWithInEdge(outEdgeFromTarget)
-		crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0) // salah kalau u-turn cost > 0
-
-		util.AssertPanic(tail == target, "dummy target edge is invalid")
-		sVertex := g.GetVertex(s)
-		tVertex := g.GetVertex(target)
-		emptyCoords := make([]da.Coordinate, 0)
-		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-
-		sp, _, _, _, found := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
+		crpQuery := routing.NewCRPALTQuery(re) // salah kalau u-turn cost > 0
+		sp, _, found := crpQuery.ShortestPathSearch(s, target)
 
 		expectedSp := expectedSPCosts[i][target] // in nanoseconds
 		// expectedPolyline := expectedSpPaths[s][target]
@@ -806,14 +594,13 @@ karena bakal time out kalau pakai vscode
 func TestCRPQueryTurnRestriction(t *testing.T) {
 	eng, logger := setup(t, true)
 	re := eng.GetRoutingEngine()
-	g := re.GetGraph()
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
 	type turnResType struct {
 		restriction string
-		from, to    int64
-		viaWays     []int64
-		viaNode     int64
+		from, to    uint64
+		viaWays     []uint64
+		viaNode     uint64
 		isViaWay    bool
 	}
 	testCases := []struct {
@@ -825,26 +612,26 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 			name:             "Simpang Pingit U-turn Restriction https://www.openstreetmap.org/relation/17842412 ,  example correct route:  https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.782881%2C110.361282%3B-7.782681%2C110.361341#map=19/-7.781811/110.361046",
 			queryOrigin:      da.NewCoordinate(-7.782881, 110.361282),
 			queryDestination: da.NewCoordinate(-7.782681, 110.361341),
-			turnRestriction:  turnResType{restriction: "no_u_turn", from: 263612372, isViaWay: true, viaWays: []int64{590074069, 1490467372}, to: 898190693},
+			turnRestriction:  turnResType{restriction: "no_u_turn", from: 263612372, isViaWay: true, viaWays: []uint64{590074069, 1490467372}, to: 898190693},
 		},
 		{
 			name:             "Simpang Pingit U-turn Restriction 2 https://www.openstreetmap.org/relation/4763182 ,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.781084%2C110.361035%3B-7.781015%2C110.360724#map=17/-7.784382/110.360112",
 			queryOrigin:      da.NewCoordinate(-7.781084, 110.361035),
 			queryDestination: da.NewCoordinate(-7.781015, 110.360724),
-			turnRestriction:  turnResType{restriction: "no_u_turn", from: 898190692, isViaWay: true, viaWays: []int64{1459769996, 263612372}, to: 590074069},
+			turnRestriction:  turnResType{restriction: "no_u_turn", from: 898190692, isViaWay: true, viaWays: []uint64{1459769996, 263612372}, to: 590074069},
 		},
 
 		{
 			name:             "Cik di Tiro u-turn restriction https://www.openstreetmap.org/relation/13427535,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.782253%2C110.374966%3B-7.782219%2C110.375243#map=17/-7.779046/110.375637",
 			queryOrigin:      da.NewCoordinate(-7.782253, 110.374966),
 			queryDestination: da.NewCoordinate(-7.782219, 110.375243),
-			turnRestriction:  turnResType{restriction: "no_u_turn", from: 153821715, isViaWay: true, viaWays: []int64{1001303583}, to: 1001303581},
+			turnRestriction:  turnResType{restriction: "no_u_turn", from: 153821715, isViaWay: true, viaWays: []uint64{1001303583}, to: 1001303581},
 		},
 		{
 			name:             "Simpang tugu jogja u-turn restriction https://www.openstreetmap.org/relation/17670402,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.783003%2C110.369079%3B-7.782729%2C110.367582#map=18/-7.782897/110.367665",
 			queryOrigin:      da.NewCoordinate(-7.783003, 110.369079),
 			queryDestination: da.NewCoordinate(-7.782729, 110.367582),
-			turnRestriction:  turnResType{restriction: "no_u_turn", from: 357658481, isViaWay: true, viaWays: []int64{1110178248}, to: 1108475786},
+			turnRestriction:  turnResType{restriction: "no_u_turn", from: 357658481, isViaWay: true, viaWays: []uint64{1110178248}, to: 1108475786},
 		},
 
 		{
@@ -861,8 +648,9 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 			turnRestriction:  turnResType{restriction: "no_right_turn", from: 1124615933, isViaWay: false, viaNode: 1390908542, to: 586534196},
 		},
 	}
+	rn := re.GetRoadNetworkContainer()
 
-	isSame := func(a []int64, b []int64) bool {
+	isSame := func(a []uint64, b []uint64) bool {
 		if len(a) != len(b) {
 			return false
 		}
@@ -877,7 +665,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 
 	// path= list of edgeIds
 	// cek palo path contain turn restriction (from-way,via-node/via-ways,to-way)
-	isCorrect := func(path []da.Index, tr turnResType) ([]int64, bool) {
+	isCorrect := func(path []da.Index, tr turnResType) ([]uint64, bool) {
 		restrictedPathLength := 0
 		if tr.isViaWay {
 			restrictedPathLength = len(tr.viaWays) + 2 // len(via-ways) + from + to. example: https://www.openstreetmap.org/relation/17842412
@@ -885,7 +673,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 			restrictedPathLength = 2 // from + to . (via Node ada di head nya from edge)
 		}
 
-		restrictedPath := make([]int64, restrictedPathLength)
+		restrictedPath := make([]uint64, restrictedPathLength)
 		restrictedPath[0] = tr.from
 		restrictedPath[restrictedPathLength-1] = tr.to
 		if tr.isViaWay {
@@ -897,27 +685,26 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 		}
 
 		for i := 0; i < len(path)-(restrictedPathLength-1); i++ {
-			subPath := make([]int64, 0, restrictedPathLength)
+			subPath := make([]uint64, 0, restrictedPathLength)
 
 			if tr.isViaWay {
 				cur := path[i]
-				currOsmWayId := g.GetOsmWayId(cur)
+				currOsmWayId := rn.GetOsmWayId(cur)
 				subPath = append(subPath, currOsmWayId)
 				for j := 1; j <= restrictedPathLength-1; j++ {
 					next := path[i+j]
-					nextOsmWayId := g.GetOsmWayId(next)
+					nextOsmWayId := rn.GetOsmWayId(next)
 					subPath = append(subPath, nextOsmWayId)
 				}
 			} else {
 				from := path[i]
-				viaNode := g.GetHeadOfOutEdge(from)
+				viaOsmId, _ := rn.GetTailHeadOsmNodeId(from)
 				to := path[i+1]
 
-				fromWayId := g.GetOsmWayId(from)
-				viaOsmNodeId := int64(g.GetVertexOsmId(viaNode))
-				toWayId := g.GetOsmWayId(to)
+				fromWayId := rn.GetOsmWayId(from)
+				toWayId := rn.GetOsmWayId(to)
 				subPath = append(subPath, fromWayId)
-				subPath = append(subPath, viaOsmNodeId)
+				subPath = append(subPath, viaOsmId)
 				subPath = append(subPath, toWayId)
 			}
 			if isSame(subPath, restrictedPath) {
@@ -925,7 +712,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 			}
 		}
 
-		return []int64{0}, true
+		return []uint64{0}, true
 	}
 
 	for _, tc := range testCases {
@@ -933,9 +720,9 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 
 			rtree := spatialindex.NewRtree()
 
-			rtree.Build(re.GetGraph(), logger)
+			rtree.Build(re.GetGraph(), rn, logger)
 
-			routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true)
+			routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
 			if err != nil {
 				panic(err)
 			}
@@ -943,17 +730,17 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 			qOrigin := tc.queryOrigin
 			qDestination := tc.queryDestination
 			sp, tp := routingService.Snap(context.Background(), qOrigin.GetLat(), qOrigin.GetLon(), qDestination.GetLat(), qDestination.GetLon())
-			crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0)
+			crpQuery := routing.NewCRPALTQuery(re)
 
-			_, _, _, path, _ := crpQuery.ShortestPathSearch(sp, tp)
+			_, path, _ := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
 			if subPath, correct := isCorrect(path, tc.turnRestriction); !correct {
 				t.Errorf("%s: expected not contain path %v, got contain the path", tc.name, subPath)
 			}
 
-			alts, _, _ := altSearch.FindAlternativeRoutes(sp, tp, 3, false, 0)
+			alts, _, _ := altSearch.FindAlternativeRoutes(sp.GetVId(), tp.GetVId(), 3, false, 0)
 
 			for i := 0; i < len(alts); i++ {
-				altPath := alts[i].GetEdgeIdPath()
+				altPath := alts[i].GetSegmentPath()
 				if subPath, correct := isCorrect(altPath, tc.turnRestriction); !correct {
 					t.Errorf("%s: expected not contain path %v, got contain the path, restriction: %v", tc.name, subPath, tc.turnRestriction.restriction)
 				}

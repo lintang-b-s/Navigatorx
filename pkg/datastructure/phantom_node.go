@@ -13,13 +13,13 @@ sehingga biasanya routing engine seperti Navigatorx, OSRM (https://github.com/Pr
 hasil dari snapping adalah PhantomNode yaitu semacam virtual node hasil proyeksi dari query coordinate ke road segment terdekat.
 
 PhantomNode dari Navigatorx (dan juga OSRM karena ini terinspirasi dari OSRM wkwkwk) berisi:
+v: edge-based (or expanded) graph node id. atau id dari road segment
 snappedCoordinate: coordinate dari PhantomNode
 forwardCost: travel time dari snappedCoordinate ke head dari edge
 reverseCost: travel time dari tail  dari edge ke snappedCoordinate
 outEdgeId: id dari outEdge segmen jalan terdekat
-inEdgeId: id dari inEdge segmen jalan terdekat
-forwardCoords: edgeGeometry dari snappedCoordinate ke head dari edge
-reverseCoords: edgeGeometry dari tail ke snappedCoordinate dari edge
+forwardGeometry: edgeGeometry dari snappedCoordinate ke head dari edge
+reverseGeometry: edgeGeometry dari tail ke snappedCoordinate dari edge
 
 note that outEdge dan inEdge merepresentasikan segment jalan yang sama hanya traverse edge nya dari head ke tail (dibalik)..
 misal outEdge (u,v) dengan tail u dan head v, inEdgenya adalah (v,u) dengan tail v dan head u.
@@ -39,35 +39,34 @@ setiap graph edge di routing engine punya geometry buat representasi bentuk asli
 */
 
 type PhantomNode struct {
+	v                 Index
 	snappedCoordinate Coordinate
 	forwardCost       float64
 	reverseCost       float64
 	forwardDistance   float64
 	reverseDistance   float64
-	outEdgeId         Index
-	inEdgeid          Index
 	forwardGeometry   []Coordinate
 	reverseGeometry   []Coordinate
 }
 
-func NewPhantomNode(snappedCoordinate Coordinate,
+func NewPhantomNode(v Index,
+	snappedCoordinate Coordinate,
 	forwardCost float64,
 	reverseCost float64,
-	outEdgeId Index,
-	inEdgeid Index, forwardDistance float64,
+	forwardDistance float64,
 	reverseDistance float64,
 	forwardGeometry []Coordinate,
 	reverseGeometry []Coordinate) PhantomNode {
 	return PhantomNode{snappedCoordinate: snappedCoordinate, forwardCost: forwardCost, reverseCost: reverseCost,
-		outEdgeId: outEdgeId, inEdgeid: inEdgeid, forwardGeometry: forwardGeometry, reverseGeometry: reverseGeometry, forwardDistance: forwardDistance, reverseDistance: reverseDistance}
+		v: v, forwardGeometry: forwardGeometry, reverseGeometry: reverseGeometry, forwardDistance: forwardDistance, reverseDistance: reverseDistance}
 }
 
 func NewInvalidPhantomNode() PhantomNode {
-	return PhantomNode{outEdgeId: INVALID_EDGE_ID, inEdgeid: INVALID_EDGE_ID}
+	return PhantomNode{v: INVALID_VERTEX_ID}
 }
 
 func IsPhantomNodeInvalid(pp PhantomNode) bool {
-	return pp.outEdgeId == INVALID_EDGE_ID && pp.inEdgeid == INVALID_EDGE_ID
+	return pp.v == INVALID_VERTEX_ID
 }
 
 func (p *PhantomNode) GetSnappedCoord() Coordinate {
@@ -98,12 +97,8 @@ func (p *PhantomNode) SetReverseDistance(reverseDistance float64) {
 	p.reverseDistance = reverseDistance
 }
 
-func (p *PhantomNode) GetOutEdgeId() Index {
-	return p.outEdgeId
-}
-
-func (p *PhantomNode) GetInEdgeId() Index {
-	return p.inEdgeid
+func (p *PhantomNode) GetVId() Index {
+	return p.v
 }
 
 func (p *PhantomNode) GetForwardGeometry() []Coordinate {

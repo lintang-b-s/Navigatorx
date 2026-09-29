@@ -8,10 +8,11 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -21,28 +22,19 @@ import (
 var (
 	profileFilePath        = flag.String("profile", "./data/car.yaml", "profile file path")
 	osmFile                = flag.String("osm_file", "./data/diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
-	mlpFile                = flag.String("mlp_file", "./data/crp_inertial_flow_diy_solo_semarang.mlp", "Multilevel partition filepath")
 	regionName             = flag.String("region", "diy_solo_semarang", "region name")
 	partitionSizes         = flag.String("us", "8,11,14,17,18", "Multilevel Partition Sizes")
 	directed               = flag.Bool("directed_graph", true, "directed/undirected partition graph")
 	prePartitionWithSCC    = flag.Bool("prepartition_with_scc", false, "prepartition graph with strongly connected components")
 	inertialFlowIterations = flag.Int("iflow_iterations", 10, "number of iterations of the inertial flow algorithm (schild dan sommer (2015)) (https://link.springer.com/chapter/10.1007/978-3-319-20086-6_22)")
 	visualizationFile      = flag.Bool("visualization", false, "write multilevel partition visualization to json file")
-	graphFile              string
-	overlayGraphFile       string
 	profileName            string
-	transitionMHTFile      string
 )
 
 func init() {
 	flag.Parse()
-
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.ngraph", profileName, *regionName)
-	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.ngraph", profileName, *regionName)
-	transitionMHTFile = fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.ntm", profileName, *regionName)
-
-	config.InitProfileConfig(profileName, *regionName)
+	config.InitProfileConfig(profileName, *regionName, pkg.ROUTER)
 }
 
 // penjelasan fase preprocessing dari Customizable Route Planning ada di section 3.5:  https://drive.google.com/file/d/16X4_D82-dBz5CEKTLBWPb8DtG52eVMl5/view
@@ -55,9 +47,9 @@ func main() {
 	}
 
 	now := time.Now()
-	op := osmparser.NewOSMParserV2[int32]()
+	op := extractor.NewExtractor[int32]()
 
-	graph, timeFunction, edgeInfoIds, err := op.Parse(*osmFile, logger)
+	graph, rn, wf, err := op.Extract(*osmFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -72,7 +64,6 @@ func main() {
 		ps[i] = 1 << pow // 2^pow
 	}
 
-	mlpPath := *mlpFile
 	mp := partitioner.NewMultilevelPartitioner(
 		ps,
 		len(ps),
@@ -83,15 +74,15 @@ func main() {
 	)
 
 	mp.RunMultilevelPartitioning()
-	if err := mp.SaveToFile(mlpPath); err != nil {
+	if err := mp.SaveToFile(); err != nil {
 		panic(err)
 	}
 
 	if *visualizationFile {
-		if err := mp.WriteOverlayVerticesInLevel(mlpPath); err != nil {
+		if err := mp.WriteOverlayVerticesInLevel(); err != nil {
 			panic(err)
 		}
-		if err := mp.WriteMLPVisualizationInLevel(mlpPath); err != nil {
+		if err := mp.WriteMLPVisualizationInLevel(); err != nil {
 			panic(err)
 		}
 	}
@@ -100,11 +91,12 @@ func main() {
 	logger.Sugar().Infof("done partitioning... time taken: %v s", duration.Seconds())
 
 	mlp := datastructure.NewPlainMLP()
-	err = mlp.ReadMlpFile(mlpPath)
+	err = mlp.ReadMlpFile()
 	if err != nil {
 		panic(err)
 	}
 
+	transitionMHTFile := fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.ntm", profileName, *regionName)
 	if _, err := os.Stat(transitionMHTFile); err == nil {
 		logger.Info("removing existing transition matrix file", zap.String("filename", transitionMHTFile))
 		if err := os.Remove(transitionMHTFile); err != nil {
@@ -112,9 +104,8 @@ func main() {
 		}
 	}
 
-	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeInfoIds)
+	prep := prepo.NewPreprocessor(graph, rn, wf, mlp, logger, pkg.ROUTER)
 	prep.SetWriteTiles(true)
-
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

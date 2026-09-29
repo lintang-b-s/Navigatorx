@@ -6,34 +6,33 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
+
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
 // ini buat dimacs 9th implmenetation challenge correctness test
-func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
+func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
 
+	config.InitRegionName(name, pkg.EVAL)
+
 	outputDir := filepath.Join(workingDir, "data", "eval")
 	var (
-		graphFile        = filepath.Join(outputDir, fmt.Sprintf("original_dimacs_%s.ngraph", name))
-		overlayGraphFile = filepath.Join(outputDir, fmt.Sprintf("overlay_graph_dimacs_%s.ngraph", name))
-		metricsFile      = filepath.Join(outputDir, fmt.Sprintf("metrics_dimacs_%s.nmt", name))
-		landmarkFile     = filepath.Join(outputDir, fmt.Sprintf("landmark_dimacs_%s.nlm", name))
-		mlpFile          = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s.mlp", name))
-		timeFunctionFile = filepath.Join(outputDir, fmt.Sprintf("dimacs_%s_timefunction.ntf", name))
-
-		prep *preprocesser.Preprocessor[int64]
+		// config
+		metricsFile = fmt.Sprintf("%s/%s/%s_metrics.nmt", config.ProfilesRoot(), pkg.ProfileName, pkg.RegionName)
+		prep        *preprocesser.Preprocessor[int64]
 	)
 
 	if err := os.MkdirAll(outputDir, 0755); err != nil {
@@ -47,8 +46,8 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 
 	es := flattenEdges(adjList)
 
-	op := osmparser.NewOSMParserV2[int64]()
-	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
+	op := extractor.NewExtractor[int64]()
+	acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
 		acceptedNodeMap[int64(i)] = nodeCoords[i]
@@ -57,8 +56,8 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmId)
 
-	gs := da.NewGraphStorageWithSize(len(es), n)
-	g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false) // roadnetwork false biar ada dummy edge (v,v)
+	rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
+	g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false) // roadnetwork false biar ada dummy edge (v,v)
 
 	logger, err := logger.New()
 	if err != nil {
@@ -80,18 +79,18 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		)
 		mp.RunMultilevelPartitioning()
 
-		err = mp.SaveToFile(mlpFile)
+		err = mp.SaveToFile()
 		if err != nil {
 			panic(err)
 		}
 
 		mlp := da.NewPlainMLP()
-		err = mlp.ReadMlpFile(mlpFile)
+		err = mlp.ReadMlpFile()
 		if err != nil {
 			panic(err)
 		}
 
-		prep = preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.EVAL)
 		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(true)
 		if err != nil {
@@ -100,11 +99,11 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 
 	} else {
 		mlp := da.NewPlainMLP()
-		err = mlp.ReadMlpFile(mlpFile)
+		err = mlp.ReadMlpFile()
 		if err != nil {
 			panic(err)
 		}
-		prep = preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.EVAL)
 		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(false)
 		if err != nil {
@@ -112,20 +111,20 @@ func BuildCRP(nodeCoords []osmparser.NodeCoord, adjList [][]PairEdge, n int, Us 
 		}
 	}
 
-	cust := customizer.NewCustomizer[int64](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	cust := customizer.NewCustomizer[int64](logger, pkg.EVAL)
 
 	_, err = cust.Customize()
 	if err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine[int64](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int64](logger, pkg.EVAL)
 	if err != nil {
 		panic(err)
 	}
 
-	oldToNewVIdMap := prep.GetOldToNewVIdMap()
-	newToOldVidMap := prep.GetNewToOldVIdMap()
+	oldToNewVIdMap := prep.GetOldToNewVId()
+	newToOldVidMap := prep.GetNewToOldVId()
 
 	return re, g, oldToNewVIdMap, newToOldVidMap
 }
@@ -139,14 +138,14 @@ func NewPairEdge(to int, weight float64) PairEdge {
 	return PairEdge{to, weight}
 }
 
-func flattenEdges(es [][]PairEdge) []osmparser.Edge[int64] {
-	flatten := make([]osmparser.Edge[int64], 0, len(es))
+func flattenEdges(es [][]PairEdge) []extractor.Edge[int64] {
+	flatten := make([]extractor.Edge[int64], 0, len(es))
 
 	eid := 0
 
 	for from, edges := range es {
 		for _, e := range edges {
-			flatten = append(flatten, osmparser.NewEdge[int64](uint32(from), uint32(e.to), int64(e.weight), uint32(e.weight), false, 0))
+			flatten = append(flatten, extractor.NewEdge[int64](uint32(from), uint32(e.to), int64(e.weight), uint32(e.weight)))
 			eid++
 		}
 	}

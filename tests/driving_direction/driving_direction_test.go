@@ -22,9 +22,10 @@ func TestDrivingDirection(t *testing.T) {
 	rtree := spatialindex.NewRtree()
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
-	rtree.Build(re.GetGraph(), logger)
+	rn := re.GetRoadNetworkContainer()
+	rtree.Build(re.GetGraph(), rn, logger)
 
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true)
+	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
 	if err != nil {
 		panic(err)
 	}
@@ -35,21 +36,18 @@ func TestDrivingDirection(t *testing.T) {
 		wantDirections    []string
 	}{
 		{
-
 			// https://valhalla.github.io/demos/polyline/?unescape=true&polyline6=false#`uam@ybdcTA@CN??s@OKESEeAa@[M??MZ??{DoA??KC??ME??FW??R_A??Ja@??Nu@??Ns@??Jm@??Lk@??Lm@??DM??Je@??Ja@??FY??DS??Lm@??VoA??XkA??\_B??Jg@??Ja@??Ps@??Lo@??H]??Je@??Nq@Lk@??H]??Pw@??`@iB??Jc@??R{@??HY??FY??Lc@??F[??Hc@??\sA??Ls@??Ni@??@G??\wA??R{@??z@{DTgA|@yD??d@sB??T{@??XkA??H]DU??Ry@??TgA??FY??Ps@@E??XgA??ZeA??f@_B??Vu@??\qA??Vu@Le@???C??AC@E@CBCDC??@?B???Ps@b@gB??|@gC??JE??@EDKZ_A??^mA??^y@??N_@??FK??Vk@??LY??^{@??BO??|@oB??pB{D??vCmFpAeC??T_@??@?@ABA??????pAeC^s@LUHKJKLGNCL???ZBbBVtHpA??@???\@??fFbA??hEz@??jB\zAV??lDf@DBDB??H@??b@qBd@yB??DU@E??\_B@I??@C??ZwA??FY??h@eCTiA??Jm@??DM??`@wB??h@eC??\aB??Nm@Ns@@E??Py@??Ha@??Pq@??`@qB??BK??Lk@??Ls@BO??Lc@F[??Py@@G??BM@CHa@??Li@??DS??^eB??@G??H]??TmA??BI??Lk@??Pu@BQ??Nu@DU????@C??DU\{A??ZcB^gB??Rw@Ha@BM??XsA??RaA??VkA??TcA??x@kE??f@cC??DWDS??FW??DQ??He@??Jc@??^iB??XuA??BK??F@D@D@??~@V??t@R??bAV??|Ab@??zA`@??xA`@??t@T??hAZ??~@X??|A^??ZaB??h@}C??f@H??TkB??h@sE??f@cELeA??{B[??W|A
 			name:              "Fastest path Karangasem -> Pasar Klewer Solo ",
-			qOriginCoord:      da.NewCoordinate(-7.550373, 110.782061),
+			qOriginCoord:      da.NewCoordinate(-7.550412018284675, 110.7821585913967),
 			qDestinationCoord: da.NewCoordinate(-7.575219943065335, 110.8267931836022),
 			wantDirections: []string{
-				"Head West",
-				"Turn right",
-				"Turn left",
-				"Turn right",
-				"Turn right onto Jalan Adi Sucipto",
-				"At Roundabout, take the exit point 2 clockwise onto Jalan Adi Sucipto",
-				"Keep right continue on Fly Over Manahan",
-				"Merge onto onto Jalan Dokter Muwardi",
-				"Turn left onto Jalan Brigadir Jenderal Slamet Riyadi",
+				"Head East",
+				"Turn right onto Jalan Sawo Raya",
+				"Turn left onto Jalan Sawo Raya",
+				"Turn left onto Jalan Jenderal Ahmad Yani",
+				"Continue onto Jalan Brigadir Jenderal Slamet Riyadi",
+				"Continue",
+				"Turn slight left onto Jalan Brigadir Jenderal Slamet Riyadi",
 				"Turn right onto Jalan Yos Sudarso",
 				"Turn left",
 				"Turn right onto Jalan Reksoniten",
@@ -75,7 +73,6 @@ func TestDrivingDirection(t *testing.T) {
 				"you have arrived at your destination",
 			},
 		},
-
 		{
 			// https://www.google.com/maps/dir/Sans+Guest+House+2,+Jl.+Mulwo,+Karangasem,+Kec.+Laweyan,+Kota+Surakarta,+Jawa+Tengah+57145/Pusat+Bersejarah+Yahudi+Solo,+FR43%2B5X9,+Jl.+Kutai+Utara,+Sumber,+Kec.+Banjarsari,+Kota+Surakarta,+Jawa+Tengah+57138/@-7.5479247,110.7887684,16z/am=t/data=!3m1!4b1!4m15!4m14!1m5!1m1!1s0x2e7a14403c5830dd:0x5a2e99d453ee8b46!2m2!1d110.7819826!2d-7.5504398!1m5!1m1!1s0x2e7a150057096b2b:0xdd08bc5e5019dae!2m2!1d110.8049463!2d-7.5444278!3e0!5i1?entry=ttu&g_ep=EgoyMDI2MDQwOC4wIKXMDSoASAFQAw%3D%3D
 			// https://valhalla.github.io/demos/polyline/?unescape=true&polyline6=false#`uam@ybdcTA@CN??s@OKESEeAa@[M??MZ??{DoA??KC??ME??FW??R_A??Ja@??Nu@??Ns@??Jm@??Lk@??Lm@??DM??Je@??Ja@??FY??DS??Lm@??VoA??XkA??\_B??Jg@??Ja@??Ps@??Lo@??H]??Je@??Nq@Lk@??H]??Pw@??`@iB??Jc@??R{@??HY??FY??Lc@??F[??Hc@??\sA??Ls@??Ni@??@G??\wA??R{@??z@{DTgA|@yD??d@sB??T{@??XkA??H]DU??Ry@??TgA??FY??Ps@@E??XgA??ZeA??f@_B??Vu@??\qA??Vu@Le@???C??OW??OWi@o@??y@aA??y@aASU??W_@AC??KWI[AG??m@c@??sAgAKU??KG??EC??SM??CC??y@q@q@i@??cBoA??AAsA_Ai@a@UMWMeAg@??GA??sBu@??i@S??wAi@??_A_@??w@_@??y@a@??mAi@??a@O??{BcAw@_@??_@~@Ob@]jA??EJ??QGcDcA??FO
@@ -109,7 +106,8 @@ func TestDrivingDirection(t *testing.T) {
 				"Turn left onto Jalan Sawo Raya",
 				"Turn left onto Jalan Jenderal Ahmad Yani",
 				"Continue onto Jalan Brigadir Jenderal Slamet Riyadi",
-				"Keep right",
+				"Continue",
+				"Turn slight left onto Jalan Brigadir Jenderal Slamet Riyadi",
 				"Turn right onto Jalan Bhayangkara",
 				"Turn left onto Jalan Veteran",
 				"Turn right onto Jalan Yos Sudarso",
@@ -134,7 +132,10 @@ func TestDrivingDirection(t *testing.T) {
 				"Turn right onto Jalan Insinyur Sutami",
 				"At Roundabout, take the exit point 1 clockwise onto Jalan Kolonel Sutarto",
 				"Continue onto Jalan Jenderal Achmad Yani",
-				"Turn slight right onto Jalan Jenderal Achmad Yani",
+				"Turn slight left",
+				"Continue",
+				"Continue",
+				"Turn left onto Jalan Jenderal Achmad Yani",
 				"At Roundabout, take the exit point 2 clockwise onto Jalan Jenderal Achmad Yani",
 				"Continue onto Jalan Jenderal Ahmad Yani",
 				"Turn right onto Jalan Brigadir Jenderal Slamet Riyadi",
@@ -151,23 +152,19 @@ func TestDrivingDirection(t *testing.T) {
 			wantDirections: []string{
 				"Head South toward Jalan Tulang Bawang Utara 1",
 				"Turn right",
-				"Turn left",
-				"Turn left onto Jalan Pamugaran Utama",
-				"Turn sharp right onto Jalan Pamugaran Utama",
-				"Turn left onto Jalan Pamugaran Utama",
-				"Turn right onto Simpang Joglo",
-				"Turn right onto Jalan Kapten Pierre Tendean",
-				"Continue onto Jembatan Kalianyar",
-				"Turn left onto Jalan Jenderal Achmad Yani",
-				"Turn right onto Jalan Letnan Jenderal S. Parman",
-				"Turn right onto Jalan Sultan Syahrir",
-				"Turn left onto Jalan R.M. Said",
-				"Turn right onto Jalan Teuku Umar",
-				"Turn right onto Jalan Ronggowarsito",
-				"Turn left",
-				"Turn left",
-				"Turn right onto Jalan Kyai Haji Ahmad Dahlan",
-				"Continue onto Jalan Yos Sudarso",
+				"Turn left onto Jalan Samudra Pasai",
+				"Turn right onto Jalan Mangun Sarkoro",
+				"Turn slight left",
+				"Turn left onto Jalan Letnan Jenderal Suprapto",
+				"Keep right continue on Jalan Letnan Jenderal Suprapto",
+				"Continue onto Jalan M.H. Thamrin",
+				"Turn left onto Jalan Adi Sucipto",
+				"Keep right continue on Fly Over Manahan",
+				"Merge onto onto Jalan Dokter Muwardi",
+				"Turn left onto Jalan Brigadir Jenderal Slamet Riyadi",
+				"Turn right onto Jalan Bhayangkara",
+				"Turn left onto Jalan Veteran",
+				"Turn right onto Jalan Yos Sudarso",
 				"Turn right",
 				"Turn left",
 				"Turn right onto Jalan Paris 1",
@@ -175,6 +172,7 @@ func TestDrivingDirection(t *testing.T) {
 			},
 		},
 	}
+
 	valhallaVisualizerPolylineUrl := func(polyline string) string {
 		return fmt.Sprintf("https://valhalla.github.io/demos/polyline/?unescape=true&polyline6=false#%s", polyline)
 	}

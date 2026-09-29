@@ -27,7 +27,7 @@ func TestDTOS(t *testing.T) {
 
 	t.Run("NewAlternativeRoutesResponse", func(t *testing.T) {
 		alt := routing.AlternativeRoute{}
-		alt.SetDrivingCost(120.0)
+		alt.SetTravelTime(120.0)
 		alt.SetDist(2000.0)
 		alt.SetPolylinePath("polyline")
 		ins := da.Instruction{}
@@ -62,7 +62,7 @@ func TestDTOS(t *testing.T) {
 		cands := []*Candidate{{EdgeId: 1, Weight: 10.0, Length: 100.0}}
 		oCands := ToOnlineCandidates(cands)
 		assert.Len(t, oCands, 1)
-		assert.Equal(t, da.Index(1), oCands[0].EdgeId())
+		assert.Equal(t, da.Index(1), oCands[0].GetSegmentId())
 	})
 
 	t.Run("mapMatchRequest_GetBearing", func(t *testing.T) {

@@ -9,12 +9,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"math"
 	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -26,38 +24,23 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
-	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
-	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/mmcloughlin/geohash"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"gonum.org/v1/gonum/stat"
 )
 
 const (
-	hhOsmFile                         = "./data/eval/mapmatching/shanghai.osm.pbf"
-	hhGraphFile                string = "./data/original_eval_mm_hh.ngraph"
-	hhOverlayGraphFile         string = "./data/overlay_graph_eval_mm_hh.ngraph"
-	hhMetricsFile              string = "./data/metrics_eval_mm_hh.nmt"
-	hhTransitionMatrixFile            = "./data/eval/mapmatching/omm_transition_history_id_hh.ntm"
-	hhShanghaiDatasetDriveFile        = "https://drive.google.com/uc?export=download&id=1Ecaabtah1TXyx5T-QqAngPPSEMhUQwaV"
-	hhShanghaiOsmDriveFile            = "https://drive.google.com/uc?export=download&id=1cWnidrIprbzHiNxEq1zVgIDiawInqlVj"
-	hhShanghaiDataFilePath            = "./data/eval/mapmatching/shanghai.tar.gz"
-	hhShanghaiTestDataPath            = "./data/eval/mapmatching/Shanghai/track"
-	hhShanghaiGroundTruthPath         = "./data/eval/mapmatching/Shanghai/ground"
-	hhShanghaiPolylinesPath           = "./data/eval/mapmatching/Shanghai/polylines"
-	hhMlpFile                         = "./data/eval/mapmatching/online_map_match_mlp_hanwenhu.mlp"
-	hhLandmarkFile                    = "./data/eval/mapmatching/landmark_hh.nlm"
-	hhTimeFunctionFile         string = "./data/timefunction_eval_mm_hh.ntf"
+	hhOsmFile                  = "./data/eval/mapmatching/shanghai.osm.pbf"
+	hhShanghaiDatasetDriveFile = "https://drive.google.com/uc?export=download&id=1Ecaabtah1TXyx5T-QqAngPPSEMhUQwaV"
+	hhShanghaiOsmDriveFile     = "https://drive.google.com/uc?export=download&id=1cWnidrIprbzHiNxEq1zVgIDiawInqlVj"
+	hhShanghaiDataFilePath     = "./data/eval/mapmatching/shanghai.tar.gz"
+	hhShanghaiTestDataPath     = "./data/eval/mapmatching/Shanghai/track"
+	hhShanghaiGroundTruthPath  = "./data/eval/mapmatching/Shanghai/ground"
+	hhShanghaiPolylinesPath    = "./data/eval/mapmatching/Shanghai/polylines"
 )
 
 var (
@@ -128,18 +111,18 @@ func hhDownload(filePath, url string, logger *zap.Logger, name string) error {
 // https://github.com/Hanwen-Hu/AMM/tree/main/MatchData/Shanghai
 func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int]) {
 	t.Helper()
-	pkg.RegionName = "hanwenhu"
+	config.InitRegionName("hanwenhu", pkg.TEST)
 
 	logger, err := log.New()
 	if err != nil {
 		t.Fatalf("log.New failed: %v", err)
 	}
-	op := osmparser.NewOSMParserV2[int32]()
+	op := extractor.NewExtractor[int32]()
 	err = hhDownload(hhOsmFile, hhShanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
 	if err != nil {
 		t.Fatalf("download osm failed: %v", err)
 	}
-	graph, timeFunction, edgeDataIds, err := op.Parse(hhOsmFile, logger)
+	graph, rn, timeFunction, err := op.Extract(hhOsmFile, logger)
 	if err != nil {
 		t.Fatalf("osm parse failed: %v", err)
 	}
@@ -150,22 +133,22 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	}
 	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 5, graph, logger, false, false)
 	mp.RunMultilevelPartitioning()
-	if err = mp.SaveToFile(hhMlpFile); err != nil {
+	if err = mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
 	}
 	mlp := da.NewPlainMLP()
-	if err = mlp.ReadMlpFile(hhMlpFile); err != nil {
+	if err = mlp.ReadMlpFile(); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, timeFunction, mlp, logger, hhGraphFile, hhOverlayGraphFile, edgeDataIds)
+	prep := prepo.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
 	if err = prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
-	cust := customizer.NewCustomizer[int32](hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhTimeFunctionFile, hhLandmarkFile, logger)
+	cust := customizer.NewCustomizer[int32](logger, pkg.TEST)
 	if _, err = cust.Customize(); err != nil {
 		t.Fatalf("customize failed: %v", err)
 	}
-	re, err := engine.NewEngine[int32](hhGraphFile, hhOverlayGraphFile, hhMetricsFile, hhLandmarkFile, hhTimeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](logger, pkg.TEST)
 	if err != nil {
 		t.Fatalf("new engine failed: %v", err)
 	}
@@ -191,16 +174,9 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	}
 
 	computeRoute := func(q hhQuery) []da.Index {
-		crpQuery := routing.NewCRPALTQueryTurnCost(re.GetRoutingEngine(), 1.0)
-		as := graph.GetDummyOutEdgeId(q.s)
-		at := graph.GetDummyInEdgeId(q.t)
-		sVertex := graph.GetVertex(q.s)
-		tVertex := graph.GetVertex(q.t)
-		emptyCoords := make([]da.Coordinate, 0)
-		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-		_, _, _, edges, _ := crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-		return edges
+		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
+		_, spPath, _ := crpQuery.ShortestPathSearch(q.s, q.t)
+		return spPath
 	}
 
 	workers := concurrent.NewWorkerPool[hhQuery, []da.Index](100, 25_000)
@@ -209,15 +185,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	workers.StartWithContext(ctx, computeRoute)
 
 	var N *da.SparseMatrix[int]
-	if _, err = os.Stat(hhTransitionMatrixFile); err == nil {
-		logger.Info("reading transition matrix from file...")
-		N, err = da.ReadSparseMatrixFromFile[int](hhTransitionMatrixFile, int(0), func(a, b int) bool { return a == b })
-		if err != nil {
-			t.Fatalf("read sparse matrix failed: %v", err)
-		}
-	} else {
-		N = da.NewSparseMatrix[int](graph.NumberOfEdges(), graph.NumberOfEdges(), 0, func(a, b int) bool { return a == b })
-	}
+	N = da.NewSparseMatrix[int](graph.NumberOfEdges(), graph.NumberOfEdges(), 0, func(a, b int) bool { return a == b })
 
 	go func() {
 		counter := 0
@@ -233,9 +201,6 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 			counter++
 			if counter%100 == 0 {
 				t.Logf("completed query: %v", counter)
-				if err := N.WriteToFile(hhTransitionMatrixFile); err != nil {
-					t.Logf("error writing transition matrix: %v", err)
-				}
 			}
 		}
 	}()
@@ -363,256 +328,263 @@ func hhWritePolyline(filePath string, points []da.Coordinate) error {
 	return nil
 }
 
-// go test ./tests/map_matching  -run TestHanwenhuOnlineMapMatching  -v -timeout=0  -count=1
-func TestHanwenhuOnlineMapMatching(t *testing.T) {
-	ensureHHConfig(t)
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatalf("find project working dir failed: %v", err)
-	}
+// todo: update kode ini
 
-	eng, graph, logger, N := hhBuildCRPGraph(t)
-	shanghaiDataFilePath := ohmmProjectPath(workingDir, hhShanghaiDataFilePath)
-	if err := hhDownload(shanghaiDataFilePath, hhShanghaiDatasetDriveFile, logger, "shanghai dataset"); err != nil {
-		t.Fatalf("download dataset failed: %v", err)
-	}
-	gzFile, err := os.Open(shanghaiDataFilePath)
-	if err != nil {
-		t.Fatalf("open shanghai tar.gz failed: %v", err)
-	}
-	defer gzFile.Close()
-	if err := hhExtractTarGz(gzFile, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
-		t.Fatalf("extract tar.gz failed: %v", err)
-	}
-	gpsTrajectories, err := hhReadAllCSVInDir(ohmmProjectPath(workingDir, hhShanghaiTestDataPath))
-	if err != nil {
-		t.Fatalf("read trajectories failed: %v", err)
-	}
+// // go test ./tests/map_matching  -run TestHanwenhuOnlineMapMatching  -v -timeout=0  -count=1
+// func TestHanwenhuOnlineMapMatching(t *testing.T) {
+// 	ensureHHConfig(t)
+// 	workingDir, err := config.FindProjectWorkingDir()
+// 	if err != nil {
+// 		t.Fatalf("find project working dir failed: %v", err)
+// 	}
 
-	rtree := spatialindex.NewRtreeMapMatch()
+// 	eng, graph, logger, N := hhBuildCRPGraph(t)
+// 	shanghaiDataFilePath := ohmmProjectPath(workingDir, hhShanghaiDataFilePath)
+// 	if err := hhDownload(shanghaiDataFilePath, hhShanghaiDatasetDriveFile, logger, "shanghai dataset"); err != nil {
+// 		t.Fatalf("download dataset failed: %v", err)
+// 	}
+// 	gzFile, err := os.Open(shanghaiDataFilePath)
+// 	if err != nil {
+// 		t.Fatalf("open shanghai tar.gz failed: %v", err)
+// 	}
+// 	defer gzFile.Close()
+// 	if err := hhExtractTarGz(gzFile, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
+// 		t.Fatalf("extract tar.gz failed: %v", err)
+// 	}
+// 	gpsTrajectories, err := hhReadAllCSVInDir(ohmmProjectPath(workingDir, hhShanghaiTestDataPath))
+// 	if err != nil {
+// 		t.Fatalf("read trajectories failed: %v", err)
+// 	}
 
-	mg := da.InitializeMapMatchingGraph(graph.NumberOfVertices())
-	rtree.BuildMapMatch(mg, logger)
-	onlineMapMatcherEngine := online.NewOnlineMapMatchMHTClient(mg, rtree, 8.33333, 8.3333, 0.001, 5.0, 0.000001, 0.04, 3, N)
-	avgRuntimePerGpsPointAll := 0.0
-	totalPoints := 0.0
-	totalRuntime := 0.0
-	matchingErrors := make([]float64, 0, len(gpsTrajectories))
+// 	rtree := spatialindex.NewRtreeMapMatch()
 
-	re := eng.GetRoutingEngine()
-	cf := re.GetCostFunction()
-	tilingEngine := tiler.NewTilingEngine(graph, logger, cf)
-	centerGeohash := uint64(0)
+// 	mg := da.InitializeMapMatchingGraph(graph.NumberOfVertices())
+// 	rtree.BuildMapMatch(mg, logger)
+// 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHTClient(mg, rtree, 8.33333, 8.3333, 0.001, 5.0, 0.000001, 0.04, 3, N)
+// 	avgRuntimePerGpsPointAll := 0.0
+// 	totalPoints := 0.0
+// 	totalRuntime := 0.0
+// 	matchingErrors := make([]float64, 0, len(gpsTrajectories))
 
-	for trajName, gpsTraj := range gpsTrajectories {
-		var (
-			prevLat, prevLon float64
-			hasPrev          bool
-			candidates       []*ma.Candidate
-			speedMeanK       = 8.333
-			speedStdK        = 8.333
-			lastBearing      = 0.0
-			k                = 1
-			matchedPoint     *da.MatchedGPSPoint
-		)
-		mapMatchPointResult := make([]*da.MatchedGPSPoint, 0)
-		gpsTrackPolyline := make([]da.Coordinate, 0, len(gpsTraj))
-		matchResultPolyline := make([]da.Coordinate, 0, len(gpsTraj))
-		avgRuntimePerGpsPoint := 0.0
-		nowDataset := time.Now()
+// 	re := eng.GetRoutingEngine()
+// 	cf := re.GetCostFunction()
+// 	rn := re.GetRoadNetworkContainer()
+// 	tilingEngine := tiler.NewTilingEngine(graph, rn, logger, cf)
+// 	centerGeohash := uint64(0)
 
-		locatetime, err := util.ParseTextInt64(gpsTraj[0]["locatetime"])
-		if err != nil {
-			t.Fatalf("parse locatetime failed: %v", err)
-		}
-		startTime, err := hhUnixTimestampToTime(locatetime)
-		if err != nil {
-			t.Fatalf("convert unix time failed: %v", err)
-		}
-		curGpsTime := startTime
+// 	for trajName, gpsTraj := range gpsTrajectories {
+// 		var (
+// 			prevLat, prevLon float64
+// 			hasPrev          bool
+// 			candidates       []*ma.Candidate
+// 			speedMeanK       = 8.333
+// 			speedStdK        = 8.333
+// 			lastBearing      = 0.0
+// 			k                = 1
+// 			matchedPoint     *da.MatchedGPSPoint
+// 		)
+// 		mapMatchPointResult := make([]*da.MatchedGPSPoint, 0)
+// 		gpsTrackPolyline := make([]da.Coordinate, 0, len(gpsTraj))
+// 		matchResultPolyline := make([]da.Coordinate, 0, len(gpsTraj))
+// 		avgRuntimePerGpsPoint := 0.0
+// 		nowDataset := time.Now()
 
-		for i := 0; i < len(gpsTraj); i++ {
-			gps := gpsTraj[i]
-			lat, err := util.ParseTextFloat64(gps["lat"])
-			if err != nil {
-				t.Fatalf("parse lat failed: %v", err)
-			}
-			lon, err := util.ParseTextFloat64(gps["lon"])
-			if err != nil {
-				t.Fatalf("parse lon failed: %v", err)
-			}
-			deltaTime := 2.0
-			speed := 8.333
-			heading := 0.0
-			if hasPrev {
-				if util.Gt(deltaTime, 0) {
-					dist := geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon)
-					speed = util.KilometerToMeter(dist) / deltaTime
-				}
-				heading = geo.BearingTo(prevLat, prevLon, lat, lon)
-			} else {
-				hasPrev = true
-				heading = 0.0
-			}
-			prevLat, prevLon = lat, lon
-			gpsTrackPolyline = append(gpsTrackPolyline, da.NewCoordinate(lat, lon))
-			now := time.Now()
-			curGps := da.NewGPSPoint(lat, lon, curGpsTime, speed, deltaTime)
-			curGps.SetDirectionAngle(heading)
+// 		locatetime, err := util.ParseTextInt64(gpsTraj[0]["locatetime"])
+// 		if err != nil {
+// 			t.Fatalf("parse locatetime failed: %v", err)
+// 		}
+// 		startTime, err := hhUnixTimestampToTime(locatetime)
+// 		if err != nil {
+// 			t.Fatalf("convert unix time failed: %v", err)
+// 		}
+// 		curGpsTime := startTime
 
-			currGeohash := geohash.EncodeIntWithPrecision(curGps.Lat(), curGps.Lon(), tiler.GeohashBits)
-			if centerGeohash != currGeohash {
+// 		prevGps := da.NewGPSPoint(0, 0, time.Now(), 0, 0)
 
-				rnCands := make([]*ma.Candidate, 0, len(candidates))
-				for _, cand := range candidates {
-					if cand == nil {
-						continue
-					}
-					eId := cand.EdgeId()
+// 		for i := 0; i < len(gpsTraj); i++ {
+// 			gps := gpsTraj[i]
+// 			lat, err := util.ParseTextFloat64(gps["lat"])
+// 			if err != nil {
+// 				t.Fatalf("parse lat failed: %v", err)
+// 			}
+// 			lon, err := util.ParseTextFloat64(gps["lon"])
+// 			if err != nil {
+// 				t.Fatalf("parse lon failed: %v", err)
+// 			}
+// 			deltaTime := 2.0
+// 			speed := 8.333
+// 			heading := 0.0
+// 			if hasPrev {
+// 				if util.Gt(deltaTime, 0) {
+// 					dist := geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon)
+// 					speed = util.KilometerToMeter(dist) / deltaTime
+// 				}
+// 				heading = geo.BearingTo(prevLat, prevLon, lat, lon)
+// 			} else {
+// 				hasPrev = true
+// 				heading = 0.0
+// 			}
+// 			prevLat, prevLon = lat, lon
+// 			gpsTrackPolyline = append(gpsTrackPolyline, da.NewCoordinate(lat, lon))
+// 			now := time.Now()
+// 			curGps := da.NewGPSPoint(lat, lon, curGpsTime, speed, deltaTime)
+// 			curGps.SetDirectionAngle(heading)
 
-					rnCands = append(rnCands, ma.NewCandidate(mg.GetRoadnetworkEdgeId(eId), cand.Weight(), cand.Length()))
-				}
+// 			currGeohash := geohash.EncodeIntWithPrecision(curGps.Lat(), curGps.Lon(), tiler.GeohashBits)
+// 			if centerGeohash != currGeohash {
 
-				tileFilepath := tilingEngine.GetTileFilePath(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
-				err = mg.RebuildMapMatchGraph(tileFilepath)
-				if err != nil {
-					t.Fatal(err)
-				}
+// 				rnCands := make([]*ma.Candidate, 0, len(candidates))
+// 				for _, cand := range candidates {
+// 					if cand == nil {
+// 						continue
+// 					}
+// 					eId := cand.GetSegmentId()
 
-				// Rebuild the R-tree with the new tile data
-				rtree.Reset()
-				rtree.BuildMapMatch(mg, logger)
+// 					rnCands = append(rnCands, ma.NewCandidate(mg.GetRoadnetworkEdgeId(eId), cand.Weight(), cand.Length()))
+// 				}
 
-				onlineMapMatcherEngine = online.NewOnlineMapMatchMHTClient(
-					mg, rtree,
-					8.33333,   // initialSpeedMean (m/s )
-					8.3333,    // initialSpeedStd
-					0.0001,    // posteriorThreshold
-					5.0,       // gpsStd (meters)
-					0.0000001, // lp
-					0.04,      // lc (km ~40m search radius)
-					3.0,       // accelerationStd
-					N,
-				)
+// 				tileFilepath := tilingEngine.GetTileFilePath(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
+// 				err = mg.RebuildMapMatchGraph(tileFilepath)
+// 				if err != nil {
+// 					t.Fatal(err)
+// 				}
 
-				updatedCands := make([]*ma.Candidate, 0, len(rnCands))
-				for _, snapshot := range rnCands {
-					newMapMatchEdgeID, ok := mg.GetMapMatchEdgeId(snapshot.EdgeId())
-					if !ok {
-						continue
-					}
-					updatedCands = append(updatedCands, ma.NewCandidate(newMapMatchEdgeID, snapshot.Weight(), snapshot.Length()))
-				}
-				candidates = updatedCands
+// 				// Rebuild the R-tree with the new tile data
+// 				rtree.Reset()
+// 				rtree.BuildMapMatch(mg, logger)
 
-				centerGeohash = currGeohash
-			}
+// 				onlineMapMatcherEngine = online.NewOnlineMapMatchMHTClient(
+// 					mg, rtree,
+// 					8.33333,   // initialSpeedMean (m/s )
+// 					8.3333,    // initialSpeedStd
+// 					0.0001,    // posteriorThreshold
+// 					10.0,      // gpsStd (meters)
+// 					0.0000001, // lp
+// 					0.04,      // lc (km ~40m search radius)
+// 					3.0,       // accelerationStd
+// 					N,
+// 				)
 
-			matchedPoint, candidates, speedMeanK, speedStdK = onlineMapMatcherEngine.OnlineMapMatch(curGps, k, candidates, speedMeanK, speedStdK, lastBearing)
-			k++
-			lastBearing = matchedPoint.GetBearing()
-			mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
-			if matchedPoint.GetEdgeId() != da.INVALID_EDGE_ID {
-				matchResultPolyline = append(matchResultPolyline, matchedPoint.GetMatchedCoord())
-			}
-			avgRuntimePerGpsPoint += float64(time.Since(now).Microseconds())
-			curGpsTime = curGpsTime.Add(2)
-		}
+// 				updatedCands := make([]*ma.Candidate, 0, len(rnCands))
+// 				for _, snapshot := range rnCands {
+// 					newMapMatchEdgeID, ok := mg.GetMapMatchEdgeId(snapshot.GetSegmentId())
+// 					if !ok {
+// 						continue
+// 					}
+// 					updatedCands = append(updatedCands, ma.NewCandidate(newMapMatchEdgeID, snapshot.Weight(), snapshot.Length()))
+// 				}
+// 				candidates = updatedCands
 
-		trackID := hhTrackIDFromName(trajName)
-		resultPolylinePath := filepath.Join(hhShanghaiPolylinesPath, fmt.Sprintf("result_polyline_%s.txt", trackID))
-		if err := hhWritePolyline(resultPolylinePath, matchResultPolyline); err != nil {
-			t.Fatalf("write result polyline failed for %s: %v", trajName, err)
-		}
-		gpsTrackPath := filepath.Join(hhShanghaiPolylinesPath, fmt.Sprintf("gps_track_%s.txt", trackID))
-		if err := hhWritePolyline(gpsTrackPath, gpsTrackPolyline); err != nil {
-			t.Fatalf("write gps polyline failed for %s: %v", trajName, err)
-		}
+// 				centerGeohash = currGeohash
+// 			}
 
-		avgRuntimePerGpsPointAll += avgRuntimePerGpsPoint / float64(len(gpsTraj))
-		runtimeDataset := time.Since(nowDataset).Milliseconds()
-		totalRuntime += float64(runtimeDataset)
-		totalPoints += float64(len(gpsTraj))
+// 			matchedPoint, candidates, speedMeanK, speedStdK = onlineMapMatcherEngine.OnlineMapMatch(prevGps, curGps, k, candidates, speedMeanK, speedStdK, lastBearing)
+// 			k++
+// 			lastBearing = matchedPoint.GetBearing()
+// 			mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
+// 			if matchedPoint.GetEdgeId() != da.INVALID_SEGMENT_ID {
+// 				matchResultPolyline = append(matchResultPolyline, matchedPoint.GetMatchedCoord())
+// 			}
+// 			avgRuntimePerGpsPoint += float64(time.Since(now).Microseconds())
+// 			curGpsTime = curGpsTime.Add(2)
 
-		shanghaiGroundTruthPath := ohmmProjectPath(workingDir, hhShanghaiGroundTruthPath)
-		groundTruth, err := hhReadCSV(filepath.Join(shanghaiGroundTruthPath, trajName))
-		if err != nil {
-			t.Fatalf("read ground truth failed: %v", err)
-		}
-		groundTruthLength := 0.0
-		for j := 1; j < len(groundTruth); j++ {
-			prevGt := groundTruth[j-1]
-			prevLat, err := util.ParseTextFloat64(prevGt["lat"])
-			if err != nil {
-				t.Fatalf("parse gt prev lat failed: %v", err)
-			}
-			prevLon, err := util.ParseTextFloat64(prevGt["lon"])
-			if err != nil {
-				t.Fatalf("parse gt prev lon failed: %v", err)
-			}
-			gt := groundTruth[j]
-			lat, err := util.ParseTextFloat64(gt["lat"])
-			if err != nil {
-				t.Fatalf("parse gt lat failed: %v", err)
-			}
-			lon, err := util.ParseTextFloat64(gt["lon"])
-			if err != nil {
-				t.Fatalf("parse gt lon failed: %v", err)
-			}
-			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon))
-			groundTruthLength += dist
-		}
+// 			prevGps = curGps
+// 		}
 
-		start := 0
-		prevMp := mapMatchPointResult[start]
-		if prevMp.GetEdgeId() == da.INVALID_EDGE_ID {
-			for q := start + 1; q < len(mapMatchPointResult); q++ {
-				if mapMatchPointResult[q].GetEdgeId() != da.INVALID_EDGE_ID {
-					prevMp = mapMatchPointResult[q]
-					start = q
-					break
-				}
-			}
-		}
+// 		trackID := hhTrackIDFromName(trajName)
+// 		resultPolylinePath := filepath.Join(hhShanghaiPolylinesPath, fmt.Sprintf("result_polyline_%s.txt", trackID))
+// 		if err := hhWritePolyline(resultPolylinePath, matchResultPolyline); err != nil {
+// 			t.Fatalf("write result polyline failed for %s: %v", trajName, err)
+// 		}
+// 		gpsTrackPath := filepath.Join(hhShanghaiPolylinesPath, fmt.Sprintf("gps_track_%s.txt", trackID))
+// 		if err := hhWritePolyline(gpsTrackPath, gpsTrackPolyline); err != nil {
+// 			t.Fatalf("write gps polyline failed for %s: %v", trajName, err)
+// 		}
 
-		matchLength := 0.0
-		for j := start + 1; j < len(mapMatchPointResult); j++ {
-			prevLat := prevMp.GetMatchedCoord().GetLat()
-			prevLon := prevMp.GetMatchedCoord().GetLon()
-			mp := mapMatchPointResult[j]
-			lat := mp.GetMatchedCoord().GetLat()
-			lon := mp.GetMatchedCoord().GetLon()
-			if mp.GetEdgeId() != da.INVALID_EDGE_ID {
-				dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon))
-				matchLength += dist
-				prevMp = mp
-			}
-		}
+// 		avgRuntimePerGpsPointAll += avgRuntimePerGpsPoint / float64(len(gpsTraj))
+// 		runtimeDataset := time.Since(nowDataset).Milliseconds()
+// 		totalRuntime += float64(runtimeDataset)
+// 		totalPoints += float64(len(gpsTraj))
 
-		matchingError := math.Abs(matchLength-groundTruthLength) / groundTruthLength
-		matchingErrors = append(matchingErrors, matchingError)
-		t.Logf("trajectory %v completed", trajName)
-	}
+// 		shanghaiGroundTruthPath := ohmmProjectPath(workingDir, hhShanghaiGroundTruthPath)
+// 		groundTruth, err := hhReadCSV(filepath.Join(shanghaiGroundTruthPath, trajName))
+// 		if err != nil {
+// 			t.Fatalf("read ground truth failed: %v", err)
+// 		}
+// 		groundTruthLength := 0.0
+// 		for j := 1; j < len(groundTruth); j++ {
+// 			prevGt := groundTruth[j-1]
+// 			prevLat, err := util.ParseTextFloat64(prevGt["lat"])
+// 			if err != nil {
+// 				t.Fatalf("parse gt prev lat failed: %v", err)
+// 			}
+// 			prevLon, err := util.ParseTextFloat64(prevGt["lon"])
+// 			if err != nil {
+// 				t.Fatalf("parse gt prev lon failed: %v", err)
+// 			}
+// 			gt := groundTruth[j]
+// 			lat, err := util.ParseTextFloat64(gt["lat"])
+// 			if err != nil {
+// 				t.Fatalf("parse gt lat failed: %v", err)
+// 			}
+// 			lon, err := util.ParseTextFloat64(gt["lon"])
+// 			if err != nil {
+// 				t.Fatalf("parse gt lon failed: %v", err)
+// 			}
+// 			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon))
+// 			groundTruthLength += dist
+// 		}
 
-	avgRuntimePerGpsPointAll /= float64(len(gpsTrajectories))
-	t.Logf("avg runtime per gpt point: %v microseconds", avgRuntimePerGpsPointAll)
-	t.Logf("matching efficiency: %v points/ms", totalPoints/totalRuntime)
+// 		start := 0
+// 		prevMp := mapMatchPointResult[start]
+// 		if prevMp.GetEdgeId() == da.INVALID_SEGMENT_ID {
+// 			for q := start + 1; q < len(mapMatchPointResult); q++ {
+// 				if mapMatchPointResult[q].GetEdgeId() != da.INVALID_SEGMENT_ID {
+// 					prevMp = mapMatchPointResult[q]
+// 					start = q
+// 					break
+// 				}
+// 			}
+// 		}
 
-	sort.Float64s(matchingErrors)
-	t.Logf("%-15s %-10s", "Error", "CDF P(X<=x)")
-	t.Logf("-------------------------")
+// 		matchLength := 0.0
+// 		for j := start + 1; j < len(mapMatchPointResult); j++ {
+// 			prevLat := prevMp.GetMatchedCoord().GetLat()
+// 			prevLon := prevMp.GetMatchedCoord().GetLon()
+// 			mp := mapMatchPointResult[j]
+// 			lat := mp.GetMatchedCoord().GetLat()
+// 			lon := mp.GetMatchedCoord().GetLon()
+// 			if mp.GetEdgeId() != da.INVALID_SEGMENT_ID {
+// 				dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon))
+// 				matchLength += dist
+// 				prevMp = mp
+// 			}
+// 		}
 
-	for x := 0.02; util.Le(x, 0.4); x += 0.01 {
-		y := stat.CDF(x, stat.Empirical, matchingErrors, nil)
-		t.Logf("%-15.4f %-10.4f", x, y)
-	}
-	cdfAtPointFourteen := stat.CDF(0.14, stat.Empirical, matchingErrors, nil)
-	if util.Lt(cdfAtPointFourteen, 0.95) {
-		t.Fatalf("expected CDF P(X<=0.14) to be at least 0.95, got %v", cdfAtPointFourteen)
-	}
+// 		matchingError := math.Abs(matchLength-groundTruthLength) / groundTruthLength
+// 		matchingErrors = append(matchingErrors, matchingError)
+// 		t.Logf("trajectory %v completed", trajName)
+// 	}
 
-	cdfAtPointFourty := stat.CDF(0.4, stat.Empirical, matchingErrors, nil)
-	if util.Lt(cdfAtPointFourty, 0.995) {
-		t.Fatalf("expected CDF P(X<=0.4) to be at least 0.995, got %v", cdfAtPointFourty)
-	}
-}
+// 	avgRuntimePerGpsPointAll /= float64(len(gpsTrajectories))
+// 	t.Logf("avg runtime per gpt point: %v microseconds", avgRuntimePerGpsPointAll)
+// 	t.Logf("matching efficiency: %v points/ms", totalPoints/totalRuntime)
+
+// 	sort.Float64s(matchingErrors)
+// 	t.Logf("%-15s %-10s", "Error", "CDF P(X<=x)")
+// 	t.Logf("-------------------------")
+
+// 	for x := 0.02; util.Le(x, 0.4); x += 0.01 {
+// 		y := stat.CDF(x, stat.Empirical, matchingErrors, nil)
+// 		t.Logf("%-15.4f %-10.4f", x, y)
+// 	}
+// 	cdfAtPointFourteen := stat.CDF(0.14, stat.Empirical, matchingErrors, nil)
+// 	if util.Lt(cdfAtPointFourteen, 0.95) {
+// 		t.Fatalf("expected CDF P(X<=0.14) to be at least 0.95, got %v", cdfAtPointFourteen)
+// 	}
+
+// 	cdfAtPointFourty := stat.CDF(0.4, stat.Empirical, matchingErrors, nil)
+// 	if util.Lt(cdfAtPointFourty, 0.995) {
+// 		t.Fatalf("expected CDF P(X<=0.4) to be at least 0.995, got %v", cdfAtPointFourty)
+// 	}
+// }

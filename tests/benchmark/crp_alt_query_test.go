@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
@@ -19,7 +20,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
@@ -29,13 +30,7 @@ var (
 )
 
 const (
-	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	osmFile                 = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_benchmark.ngraph"
-	overlayGraphFile string = "./data/overlay_graph_benchmark.ngraph"
-	metricsFile      string = "./data/metrics_benchmark.nmt"
-	landmarkFile     string = "./data/landmark_benchmark.nlm"
-	timeFunctionFile string = "./data/timeFunctionFile_benchmark.ntf"
+	osmFile = "./data/yogyakarta.osm.pbf"
 )
 
 type query struct {
@@ -58,10 +53,10 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 	if err != nil {
 		panic(err)
 	}
+	config.InitRegionName("benchmark_test", pkg.TEST)
 
-	op := osmparser.NewOSMParserV2[int32]()
-
-	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
+	op := extractor.NewExtractor[int32]()
+	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -85,18 +80,18 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 
 	mp.RunMultilevelPartitioning()
 
-	err = mp.SaveToFile(mlpFile)
+	err = mp.SaveToFile()
 	if err != nil {
 		panic(err)
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(mlpFile)
+	err = mlp.ReadMlpFile()
 	if err != nil {
 		panic(err)
 	}
 
-	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)
@@ -104,14 +99,14 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	custom := customizer.NewCustomizer[int32](logger, pkg.TEST)
 
 	_, err = custom.Customize()
 	if err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](logger, pkg.TEST)
 	if err != nil {
 		panic(err)
 	}
@@ -196,7 +191,7 @@ ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       35.488s
 func BenchmarkCRPALTQuery(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
 
-	eng, queries, g, _ := setup()
+	eng, queries, _, _ := setup()
 	start := time.Now()
 	re := eng.GetRoutingEngine()
 
@@ -205,22 +200,10 @@ func BenchmarkCRPALTQuery(b *testing.B) {
 	for b.Loop() {
 		i := rd.Intn(n)
 		q := queries[i]
-
 		s := q.s
 		t := q.t
-
-		as := g.GetExitOffset(s) + g.GetOutDegree(s) - 1
-		at := g.GetEntryOffset(t) + g.GetInDegree(t) - 1
-
-		sVertex := g.GetVertex(s)
-		tVertex := g.GetVertex(t)
-		emptyCoords := make([]da.Coordinate, 0)
-		sPhantomNode := da.NewPhantomNode(sVertex.GetCoordinate(), 0, 0, as, sVertex.GetFirstIn(), 0, 0, emptyCoords, emptyCoords)
-		tPhantomNode := da.NewPhantomNode(tVertex.GetCoordinate(), 0, 0, tVertex.GetFirstOut(), at, 0, 0, emptyCoords, emptyCoords)
-
-		crpQuery := routing.NewCRPALTQueryTurnCost(re, 1.0)
-		crpQuery.ShortestPathSearch(sPhantomNode, tPhantomNode)
-
+		crpQuery := routing.NewCRPALTQuery(re)
+		crpQuery.ShortestPathSearch(s, t)
 	}
 
 	now := time.Since(start)
@@ -229,5 +212,4 @@ func BenchmarkCRPALTQuery(b *testing.B) {
 
 	b.ReportMetric(msPerOp, "ms/op")
 	b.ReportMetric(throughput, "ops/sec")
-
 }

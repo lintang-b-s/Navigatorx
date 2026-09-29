@@ -64,21 +64,18 @@ func CalcTurningCost(turningSpeed, vlimitFrom, vlimitTo float64) float64 {
 	return decCost + accCost
 }
 
-// TurnType represents the type of turn at a junction.
-type TurnType uint8
-
 type VehicleTypeT uint8
 
 const (
-	BICYCLE    VehicleTypeT = iota
-	FOOT       VehicleTypeT = iota
-	MOTORCAR   VehicleTypeT = iota
-	MOTORCYCLE VehicleTypeT = iota
-	BUS        VehicleTypeT = iota
-	HGV        VehicleTypeT = iota
-	GOODS      VehicleTypeT = iota
-	TAXI       VehicleTypeT = iota
-	MINIBUS    VehicleTypeT = iota
+	BICYCLE VehicleTypeT = iota
+	FOOT
+	MOTORCAR
+	MOTORCYCLE
+	BUS
+	HGV
+	GOODS
+	TAXI
+	MINIBUS
 )
 
 var (
@@ -86,6 +83,7 @@ var (
 	ProfileName = "car"
 	RegionName  = ""
 	WorkingDir  = ""
+	TIPE        = ROUTER
 
 	// supported: bicycle, foot, motorcycle, bus, hgv, goods, taxi, minibus, motorcar
 	VehicleType VehicleTypeT = MOTORCAR
@@ -171,13 +169,16 @@ func GetIsVehicle() bool {
 
 }
 
+// TurnType represents the type of turn at a junction.
+type TurnType uint8
+
 const (
-	NONE        TurnType = iota // turn cost  = 0
-	LEFT_TURN   TurnType = iota
-	RIGHT_TURN  TurnType = iota
-	STRAIGHT_ON TurnType = iota
-	U_TURN      TurnType = iota
-	NO_ENTRY    TurnType = iota // turn cost = INF_WEIGHT
+	NONE TurnType = iota // turn cost  = 0
+	LEFT_TURN
+	RIGHT_TURN
+	STRAIGHT_ON
+	U_TURN
+	NO_ENTRY // turn cost = INF_WEIGHT
 )
 
 const (
@@ -344,14 +345,34 @@ func GetHighwayTypeString(highwayType OsmHighwayType) string {
 	}
 }
 
-var (
-	WITH_TURN_COSTS bool = true
+/*
+turn lanes constants. menyimpan semua tipe tag turn:lanes values
+https://wiki.openstreetmap.org/wiki/Key:turn#Values
+*/
+
+type TurnLaneType uint16
+
+// cuma 11 bit
+
+const (
+	LANE_NO_ENTRY              = 0
+	LANE_NONE     TurnLaneType = 1 << iota // none or ""
+	LANE_STRAIGHT
+	LANE_SHARP_LEFT
+	LANE_LEFT
+	LANE_SLIGHT_LEFT
+	LANE_SLIGHT_RIGHT
+	LANE_RIGHT
+	LANE_SHARP_RIGHT
+	LANE_UTURN
+	LANE_MERGE_TO_LEFT
+	LANE_MERGE_TO_RIGHT
 )
 
-func OffTurnCost() {
-	WITH_TURN_COSTS = false
-}
+type FILE_TYPE int
 
-func OnTurnCost() {
-	WITH_TURN_COSTS = true
-}
+const (
+	ROUTER FILE_TYPE = iota
+	EVAL
+	TEST
+)

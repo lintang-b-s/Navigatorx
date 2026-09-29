@@ -99,7 +99,7 @@ func (m *MockRoutingEngine) GetWeight(eId da.Index, outEdge bool) float64 {
 	return args.Get(0).(float64)
 }
 
-func (m *MockRoutingEngine) GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64 {
+func (m *MockRoutingEngine) GetLength(eId da.Index, outEdge bool, eLength float64) float64 {
 	args := m.Called(eId, eLength, outEdge)
 	return args.Get(0).(float64)
 }

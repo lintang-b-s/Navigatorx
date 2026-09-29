@@ -1,7 +1,6 @@
 package datastructure
 
 import (
-	"bufio"
 	"fmt"
 	"sort"
 
@@ -9,7 +8,7 @@ import (
 )
 
 func (og *OverlayGraph) WriteToFile(filename string) error {
-	return util.WriteCompressedArtifact(filename, func(w *util.BinaryWriter) error {
+	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 
 		if err := w.Blob(og.levelData.offset); err != nil {
 			return err
@@ -73,14 +72,14 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 	})
 }
 
-func ReadOverlayGraph(filename string, _ *bufio.Reader) (*OverlayGraph, error) {
-	file, r, err := util.OpenCompressedArtifact(filename)
+func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
+	file, r, err := util.OpenCompressedFile(filename)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	offsets, err := r.Blob(maxGraphItems)
+	offsets, err := r.Blob()
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +93,7 @@ func ReadOverlayGraph(filename string, _ *bufio.Reader) (*OverlayGraph, error) {
 	if len(vertexCountInLevel) != len(offsets)-1 {
 		return nil, fmt.Errorf("overlay level count does not match vertex-count levels")
 	}
-	vertexCount, err := r.Length(maxGraphItems)
+	vertexCount, err := r.Length()
 	if err != nil {
 		return nil, err
 	}
@@ -129,7 +128,7 @@ func ReadOverlayGraph(filename string, _ *bufio.Reader) (*OverlayGraph, error) {
 	if err != nil {
 		return nil, err
 	}
-	levelCount, err := r.Length(maxGraphItems)
+	levelCount, err := r.Length()
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +137,7 @@ func ReadOverlayGraph(filename string, _ *bufio.Reader) (*OverlayGraph, error) {
 	}
 	cellMapping := make([]map[Pv]Cell, levelCount)
 	for level := range cellMapping {
-		cellCount, err := r.Length(maxGraphItems)
+		cellCount, err := r.Length()
 		if err != nil {
 			return nil, err
 		}

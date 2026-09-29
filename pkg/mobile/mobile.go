@@ -2,16 +2,6 @@
 package mobile
 
 import (
-	"bytes"
-	"encoding/json"
-	"sync"
-	"time"
-
-	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher/online"
-	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
-	"go.uber.org/zap"
 	_ "golang.org/x/mobile/bind"
 	_ "golang.org/x/mod/modfile"
 )
@@ -48,218 +38,224 @@ tapi karena di mobile app road segment candidates edgeIds nya adalah RoadNetwork
 
 */
 
-// MobileMapMatcher provides a high-level API for mobile real time map matching.
-type MobileMapMatcher struct {
-	om     *online.OnlineMapMatchMHTClient
-	graph  *da.MapMatchingGraph
-	rt     *spatialindex.RtreeMapMatch
-	matrix *da.SparseMatrix[int]
-	logger *zap.Logger
-	mut    sync.RWMutex
-}
+// todo: update kode ini
 
-func NewMobileMapMatcher() *MobileMapMatcher {
-	config := zap.NewDevelopmentConfig()
-	logger, _ := config.Build()
-	return &MobileMapMatcher{
-		rt:     spatialindex.NewRtreeMapMatch(),
-		logger: logger,
-		mut:    sync.RWMutex{},
-	}
-}
+// // todo: ini bisa direfactor dan didesign ulang kodenya.... terlalu ai slop & not good wkwkwk kemarin digenerate sama codex (gpt-5.3-codex ?) bagian ini
+// // bisa ngikutin kode https://github.com/miguelespinoza/goku untuk gomobile library
 
-func (m *MobileMapMatcher) InitializeGraph(numVertices int) {
-	m.mut.Lock()
-	defer m.mut.Unlock()
-	m.graph = da.InitializeMapMatchingGraph(numVertices)
-}
+// // MobileMapMatcher provides a high-level API for mobile real time map matching.
+// type MobileMapMatcher struct {
+// 	om     *online.OnlineMapMatchMHTClient
+// 	graph  *da.MapMatchingGraph
+// 	rt     *spatialindex.RtreeMapMatch
+// 	matrix *da.SparseMatrix[int]
+// 	logger *zap.Logger
+// 	mut    sync.RWMutex
+// }
 
-func (m *MobileMapMatcher) RebuildGraph(tileBytes []byte) error {
-	m.mut.Lock()
-	defer m.mut.Unlock()
+// func NewMobileMapMatcher() *MobileMapMatcher {
+// 	config := zap.NewDevelopmentConfig()
+// 	logger, _ := config.Build()
+// 	return &MobileMapMatcher{
+// 		rt:     spatialindex.NewRtreeMapMatch(),
+// 		logger: logger,
+// 		mut:    sync.RWMutex{},
+// 	}
+// }
 
-	if err := m.graph.RebuildMapMatchGraphFromReader(bytes.NewReader(tileBytes)); err != nil {
-		return err
-	}
-	// Rebuild the R-tree with the new tile data
-	m.rt.Reset()
+// func (m *MobileMapMatcher) InitializeGraph(numVertices int) {
+// 	m.mut.Lock()
+// 	defer m.mut.Unlock()
+// 	m.graph = da.InitializeMapMatchingGraph(numVertices)
+// }
 
-	m.rt.BuildMapMatch(m.graph, m.logger)
-	m.om = online.NewOnlineMapMatchMHTClient(
-		m.graph, m.rt,
-		8.33333,   // initialSpeedMean (m/s )
-		8.3333,    // initialSpeedStd
-		0.0001,    // posteriorThreshold
-		5.0,       // gpsStd (meters)
-		0.0000001, // lp
-		0.04,      // lc (km ~40m search radius)
-		3.0,       // accelerationStd
-		m.matrix,
-	)
+// func (m *MobileMapMatcher) RebuildGraph(tileBytes []byte) error {
+// 	m.mut.Lock()
+// 	defer m.mut.Unlock()
 
-	return nil
-}
+// 	if err := m.graph.RebuildMapMatchGraphFromReader(bytes.NewReader(tileBytes)); err != nil {
+// 		return err
+// 	}
+// 	// Rebuild the R-tree with the new tile data
+// 	m.rt.Reset()
 
-func (m *MobileMapMatcher) SetMatrix(matrixBytes []byte) error {
-	matrix, err := da.ReadSparseMatrixFromReader[int](bytes.NewReader(matrixBytes), int(0),
-		func(a, b int) bool { return a == b })
-	if err != nil {
-		return err
-	}
-	m.matrix = matrix
-	return nil
-}
+// 	m.rt.BuildMapMatch(m.graph, m.logger)
+// 	m.om = online.NewOnlineMapMatchMHTClient(
+// 		m.graph, m.rt,
+// 		8.33333,   // initialSpeedMean (m/s )
+// 		8.3333,    // initialSpeedStd
+// 		0.0001,    // posteriorThreshold
+// 		5.0,       // gpsStd (meters)
+// 		0.0000001, // lp
+// 		0.04,      // lc (km ~40m search radius)
+// 		3.0,       // accelerationStd
+// 		m.matrix,
+// 	)
 
-// CandidateDTO is a JSON-serializable version of mapmatcher.Candidate
-type CandidateDTO struct {
-	RoadNetworkEdgeId uint32  `json:"roadnetwork_edge_id"`
-	Weight            float64 `json:"weight"`
-	Length            float64 `json:"length"`
-}
+// 	return nil
+// }
 
-// MatchedGPSPointDTO is a JSON-serializable version of datastructure.MatchedGPSPoint
-type MatchedGPSPointDTO struct {
-	GPSPoint           GPSPointDTO `json:"gps_point"`
-	RoadNetworkEdgeId  uint32      `json:"roadnetwork_edge_id"`
-	MatchedCoord       CoordDTO    `json:"matched_coord"`
-	PredictedGPSCoord  CoordDTO    `json:"predicted_gps_coord"`
-	EdgeInitialBearing float64     `json:"edge_initial_bearing"`
-}
+// func (m *MobileMapMatcher) SetMatrix(matrixBytes []byte) error {
+// 	matrix, err := da.ReadSparseMatrixFromReader[int](bytes.NewReader(matrixBytes), int(0),
+// 		func(a, b int) bool { return a == b })
+// 	if err != nil {
+// 		return err
+// 	}
+// 	m.matrix = matrix
+// 	return nil
+// }
 
-type GPSPointDTO struct {
-	Lat           float64 `json:"lat"`
-	Lon           float64 `json:"lon"`
-	TimeUnix      int64   `json:"time_unix"`
-	Speed         float64 `json:"speed"`
-	DeltaTime     float64 `json:"delta_time"`
-	DeadReckoning bool    `json:"dead_reckoning"`
-}
+// // CandidateDTO is a JSON-serializable version of mapmatcher.Candidate
+// // TODO: harus e ini ada distr, dist, candEdgeBearing, dll...
+// type CandidateDTO struct {
+// 	RoadNetworkEdgeId uint32  `json:"roadnetwork_edge_id"`
+// 	Weight            float64 `json:"weight"`
+// 	Length            float64 `json:"length"`
+// }
 
-type CoordDTO struct {
-	Lat float64 `json:"lat"`
-	Lon float64 `json:"lon"`
-}
+// // MatchedGPSPointDTO is a JSON-serializable version of datastructure.MatchedGPSPoint
+// type MatchedGPSPointDTO struct {
+// 	GPSPoint           GPSPointDTO `json:"gps_point"`
+// 	RoadNetworkEdgeId  uint32      `json:"roadnetwork_edge_id"`
+// 	MatchedCoord       CoordDTO    `json:"matched_coord"`
+// 	PredictedGPSCoord  CoordDTO    `json:"predicted_gps_coord"`
+// 	EdgeInitialBearing float64     `json:"edge_initial_bearing"`
+// }
 
-// MatchResult holds the output of the map matching process to be returned as JSON.
-type MatchResult struct {
-	MatchedGPSPoint *MatchedGPSPointDTO `json:"matched_gps_point"`
-	NewCandidates   []CandidateDTO      `json:"new_candidates"`
-	NewSpeedMean    float64             `json:"new_speed_mean"`
-	NewSpeedStd     float64             `json:"new_speed_std"`
-}
+// type GPSPointDTO struct {
+// 	Lat           float64 `json:"lat"`
+// 	Lon           float64 `json:"lon"`
+// 	TimeUnix      int64   `json:"time_unix"`
+// 	Speed         float64 `json:"speed"`
+// 	DeltaTime     float64 `json:"delta_time"`
+// 	DeadReckoning bool    `json:"dead_reckoning"`
+// }
 
-// toCandidateDTO converts a mapmatcher.Candidate to a JSON-serializable CandidateDTO
-func (m *MobileMapMatcher) toCandidateDTO(c *ma.Candidate) CandidateDTO {
-	// c.EdgeId() masih MapMatchGraph edgeId
-	roadnetworkEdgeId := m.graph.GetRoadnetworkEdgeId(c.EdgeId())
-	return CandidateDTO{
-		RoadNetworkEdgeId: uint32(roadnetworkEdgeId),
-		Weight:            c.Weight(),
-		Length:            c.Length(),
-	}
-}
+// type CoordDTO struct {
+// 	Lat float64 `json:"lat"`
+// 	Lon float64 `json:"lon"`
+// }
 
-// toMatchedGPSPointDTO converts a datastructure.MatchedGPSPoint to a JSON-serializable MatchedGPSPointDTO
-func (m *MobileMapMatcher) toMatchedGPSPointDTO(mgps *da.MatchedGPSPoint) *MatchedGPSPointDTO {
-	// mgps.GetEdgeId() masih MapMatchGraph edgeId
-	matchedMapMatchEdgeId := mgps.GetEdgeId()
-	matchedRoadNetworkEdgeId := da.INVALID_EDGE_ID
+// // MatchResult holds the output of the map matching process to be returned as JSON.
+// type MatchResult struct {
+// 	MatchedGPSPoint *MatchedGPSPointDTO `json:"matched_gps_point"`
+// 	NewCandidates   []CandidateDTO      `json:"new_candidates"`
+// 	NewSpeedMean    float64             `json:"new_speed_mean"`
+// 	NewSpeedStd     float64             `json:"new_speed_std"`
+// }
 
-	if matchedMapMatchEdgeId != da.INVALID_EDGE_ID {
-		matchedRoadNetworkEdgeId = m.graph.GetRoadnetworkEdgeId(matchedMapMatchEdgeId)
-	}
+// // toCandidateDTO converts a mapmatcher.Candidate to a JSON-serializable CandidateDTO
+// func (m *MobileMapMatcher) toCandidateDTO(c *ma.Candidate) CandidateDTO {
+// 	// c.EdgeId() masih MapMatchGraph edgeId
+// 	roadnetworkEdgeId := m.graph.GetRoadnetworkEdgeId(c.GetSegmentId())
+// 	return CandidateDTO{
+// 		RoadNetworkEdgeId: uint32(roadnetworkEdgeId),
+// 		Weight:            c.Weight(),
+// 		Length:            c.Length(),
+// 	}
+// }
 
-	gps := mgps.GetGpsPoint()
+// // toMatchedGPSPointDTO converts a datastructure.MatchedGPSPoint to a JSON-serializable MatchedGPSPointDTO
+// func (m *MobileMapMatcher) toMatchedGPSPointDTO(mgps *da.MatchedGPSPoint) *MatchedGPSPointDTO {
+// 	// mgps.GetEdgeId() masih MapMatchGraph edgeId
+// 	matchedMapMatchEdgeId := mgps.GetEdgeId()
+// 	matchedRoadNetworkEdgeId := da.INVALID_SEGMENT_ID
 
-	gpsDTO := GPSPointDTO{
-		Lat:       gps.Lat(),
-		Lon:       gps.Lon(),
-		TimeUnix:  gps.Time().Unix(),
-		Speed:     gps.Speed(),
-		DeltaTime: gps.DeltaTime(),
-	}
+// 	if matchedMapMatchEdgeId != da.INVALID_SEGMENT_ID {
+// 		matchedRoadNetworkEdgeId = m.graph.GetRoadnetworkEdgeId(matchedMapMatchEdgeId)
+// 	}
 
-	matchedCoord := mgps.GetMatchedCoord()
-	predCoord := mgps.GetPredictedGpsCoord()
+// 	gps := mgps.GetGpsPoint()
 
-	return &MatchedGPSPointDTO{
-		GPSPoint:          gpsDTO,
-		RoadNetworkEdgeId: uint32(matchedRoadNetworkEdgeId),
-		MatchedCoord: CoordDTO{
-			Lat: matchedCoord.GetLat(),
-			Lon: matchedCoord.GetLon(),
-		},
-		PredictedGPSCoord: CoordDTO{
-			Lat: predCoord.GetLat(),
-			Lon: predCoord.GetLon(),
-		},
-		EdgeInitialBearing: mgps.GetBearing(),
-	}
-}
+// 	gpsDTO := GPSPointDTO{
+// 		Lat:       gps.Lat(),
+// 		Lon:       gps.Lon(),
+// 		TimeUnix:  gps.Time().Unix(),
+// 		Speed:     gps.Speed(),
+// 		DeltaTime: gps.DeltaTime(),
+// 	}
 
-func (m *MobileMapMatcher) Match(
-	lat float64,
-	lon float64,
-	timeUnix int64,
-	gpsSpeed float64,
-	deltaTime float64,
-	deadReckoning bool,
-	k int,
-	candidatesJSON string,
-	speedMeanK float64,
-	speedStdK float64,
-	lastBearing float64,
-) (string, error) {
-	m.mut.RLock()
-	defer m.mut.RUnlock()
+// 	matchedCoord := mgps.GetMatchedCoord()
+// 	predCoord := mgps.GetPredictedGpsCoord()
 
-	gps := da.NewGPSPoint(
-		lat,
-		lon,
-		time.Unix(timeUnix, 0),
-		gpsSpeed,
-		deltaTime,
-	)
+// 	return &MatchedGPSPointDTO{
+// 		GPSPoint:          gpsDTO,
+// 		RoadNetworkEdgeId: uint32(matchedRoadNetworkEdgeId),
+// 		MatchedCoord: CoordDTO{
+// 			Lat: matchedCoord.GetLat(),
+// 			Lon: matchedCoord.GetLon(),
+// 		},
+// 		PredictedGPSCoord: CoordDTO{
+// 			Lat: predCoord.GetLat(),
+// 			Lon: predCoord.GetLon(),
+// 		},
+// 		EdgeInitialBearing: mgps.GetBearing(),
+// 	}
+// }
 
-	// Unmarshal into DTOs
-	var inputCandidates []CandidateDTO
-	err := json.Unmarshal([]byte(candidatesJSON), &inputCandidates)
-	if err != nil {
-		return "", err
-	}
+// func (m *MobileMapMatcher) Match(
+// 	lat float64,
+// 	lon float64,
+// 	timeUnix int64,
+// 	gpsSpeed float64,
+// 	deltaTime float64,
+// 	deadReckoning bool,
+// 	k int,
+// 	candidatesJSON string,
+// 	speedMeanK float64,
+// 	speedStdK float64,
+// 	lastBearing float64,
+// ) (string, error) {
+// 	m.mut.RLock()
+// 	defer m.mut.RUnlock()
 
-	// Convert DTOs to Candidate objects
-	candidates := make([]*ma.Candidate, 0, len(inputCandidates))
+// 	gps := da.NewGPSPoint(
+// 		lat,
+// 		lon,
+// 		time.Unix(timeUnix, 0),
+// 		gpsSpeed,
+// 		deltaTime,
+// 	)
 
-	for _, dto := range inputCandidates {
-		roadnetworkEdgeId := da.Index(dto.RoadNetworkEdgeId)
-		mapmatchEdgeId, ok := m.graph.GetMapMatchEdgeId(roadnetworkEdgeId)
-		if !ok {
-			// edgeId gak included di current graph tile
-			continue
-		}
+// 	// Unmarshal into DTOs
+// 	var inputCandidates []CandidateDTO
+// 	err := json.Unmarshal([]byte(candidatesJSON), &inputCandidates)
+// 	if err != nil {
+// 		return "", err
+// 	}
 
-		candidates = append(candidates, ma.NewCandidate(mapmatchEdgeId, dto.Weight, dto.Length))
-	}
+// 	// Convert DTOs to Candidate objects
+// 	candidates := make([]*ma.Candidate, 0, len(inputCandidates))
 
-	matched, newCandidates, newSpeedmeanK, newSpeedStdK := m.om.OnlineMapMatch(gps, k, candidates, speedMeanK, speedStdK, lastBearing)
+// 	for _, dto := range inputCandidates {
+// 		roadnetworkEdgeId := da.Index(dto.RoadNetworkEdgeId)
+// 		mapmatchEdgeId, ok := m.graph.GetMapMatchEdgeId(roadnetworkEdgeId)
+// 		if !ok {
+// 			// edgeId gak included di current graph tile
+// 			continue
+// 		}
 
-	dtoMatched := m.toMatchedGPSPointDTO(matched)
-	dtoCandidates := make([]CandidateDTO, len(newCandidates))
-	for i, c := range newCandidates {
-		dtoCandidates[i] = m.toCandidateDTO(c)
-	}
+// 		candidates = append(candidates, ma.NewCandidate(mapmatchEdgeId, dto.Weight, dto.Length))
+// 	}
 
-	result := MatchResult{
-		MatchedGPSPoint: dtoMatched,
-		NewCandidates:   dtoCandidates,
-		NewSpeedMean:    newSpeedmeanK,
-		NewSpeedStd:     newSpeedStdK,
-	}
-	res, err := json.Marshal(result)
-	if err != nil {
-		return "", err
-	}
+// 	matched, newCandidates, newSpeedmeanK, newSpeedStdK := m.om.OnlineMapMatch(nil, gps, k, candidates, speedMeanK, speedStdK, lastBearing)
 
-	return string(res), nil
-}
+// 	dtoMatched := m.toMatchedGPSPointDTO(matched)
+// 	dtoCandidates := make([]CandidateDTO, len(newCandidates))
+// 	for i, c := range newCandidates {
+// 		dtoCandidates[i] = m.toCandidateDTO(c)
+// 	}
+
+// 	result := MatchResult{
+// 		MatchedGPSPoint: dtoMatched,
+// 		NewCandidates:   dtoCandidates,
+// 		NewSpeedMean:    newSpeedmeanK,
+// 		NewSpeedStd:     newSpeedStdK,
+// 	}
+// 	res, err := json.Marshal(result)
+// 	if err != nil {
+// 		return "", err
+// 	}
+
+// 	return string(res), nil
+// }

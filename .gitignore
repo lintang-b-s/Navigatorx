@@ -72,3 +72,6 @@ bin/default.pgo
 !data/traffic_solo.csv
 !data/blokade_solo.csv
 tests/shortestpath/data/tests/shortestpath/gcpc2015_a_journey_to_greece
+*.ndata
+*.nlk
+

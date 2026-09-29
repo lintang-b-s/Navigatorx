@@ -2,11 +2,16 @@ package datastructure
 
 import (
 	"bufio"
+	"fmt"
 	"math"
 	"os"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
+
+// adapted from: https://github.com/michaelwegner/CRP/blob/master/datastructures/MultiLevelPartition.h
 
 // MultilevelPartition stores every cell information of each vertex on every level.
 type MultilevelPartition struct {
@@ -86,8 +91,9 @@ func (mp *MultilevelPartition) GetNumCells() []uint32 {
 	return mp.numCells
 }
 
-func (mp *MultilevelPartition) ReadMlpFile(filename string) error {
-
+func (mp *MultilevelPartition) ReadMlpFile() error {
+	root := config.ProfilesRoot()
+	filename := fmt.Sprintf("%s/inertial_flow_%s_%s.mlp", root, pkg.ProfileName, pkg.RegionName)
 	f, err := os.Open(filename)
 
 	if err != nil {

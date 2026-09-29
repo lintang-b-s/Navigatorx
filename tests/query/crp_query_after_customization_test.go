@@ -29,9 +29,10 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 	altSearch := routing.NewAlternativeRouteSearch(re)
 
 	g := re.GetGraph()
-	rtree.Build(re.GetGraph(), logger)
+	rn := re.GetRoadNetworkContainer()
+	rtree.Build(g, rn, logger)
 
-	routingService, err := usecases.NewRoutingService(logger, re, rtree, altSearch, 0.05, true)
+	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
 	ctx, cleanup := router.NewContext(re, routingService)
 	defer cleanup()
 	routingService.InitBackgroundWorker(ctx)
@@ -227,20 +228,16 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 
 			edgeId := path[i]
 
-			from := g.GetTailOfOutedge(edgeId)
-			to := g.GetHeadOfOutEdge(edgeId)
+			tailOsmId, headOsmId := rn.GetTailHeadOsmNodeId(edgeId)
 
-			fromOsmId := g.GetVertexOsmId(from)
-			toOsmId := g.GetVertexOsmId(to)
-
-			subPath = append(subPath, fromOsmId)
-			subPath = append(subPath, toOsmId)
+			subPath = append(subPath, tailOsmId)
+			subPath = append(subPath, headOsmId)
 			// (fromOsmNodeId, toOsmNodeId)
 			if i == 0 {
-				fullPathOsmIds = append(fullPathOsmIds, fromOsmId)
+				fullPathOsmIds = append(fullPathOsmIds, tailOsmId)
 			}
 
-			fullPathOsmIds = append(fullPathOsmIds, toOsmId)
+			fullPathOsmIds = append(fullPathOsmIds, headOsmId)
 
 			for j := 0; j < len(updatedSegmentSpeeds); j++ {
 				updatedSegments := make([]uint64, 0, 2)
@@ -288,14 +285,14 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 			_, _, spPolyline, drivingDirections, _, _ := routingService.ShortestPath(context.Background(), q.originLat, q.originLon,
 				q.destLat, q.destLon, false, 0, true, true)
 
-			spPathEdgeIds := make([]da.Index, 0, len(drivingDirections))
+			spPathSegmentIds := make([]da.Index, 0, len(drivingDirections))
 			for _, dd := range drivingDirections {
-				legEdgeIds := dd.GetEdgesIds()
-				spPathEdgeIds = append(spPathEdgeIds, legEdgeIds...)
+				stepSegmentIds := dd.GetSegmentsIds()
+				spPathSegmentIds = append(spPathSegmentIds, stepSegmentIds...)
 			}
 
 			beforeCustomizationWantPassThroughTheUpdatedRoadSegments := true
-			if _, correct := isCorrect(spPathEdgeIds, tc.updatedSegmentSpeeds, beforeCustomizationWantPassThroughTheUpdatedRoadSegments); !correct {
+			if _, correct := isCorrect(spPathSegmentIds, tc.updatedSegmentSpeeds, beforeCustomizationWantPassThroughTheUpdatedRoadSegments); !correct {
 				gotPassThrough := false
 				if beforeCustomizationWantPassThroughTheUpdatedRoadSegments == false {
 					gotPassThrough = true
@@ -326,21 +323,21 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 			// setelah kustomisasi, rute yang direturn harus gak lewat jalan jalan yang diblokade (tc.updatedSegments)
 
 			// cek shortest path route
-			_, _, _, drivingDirections, _, _ = routingService.ShortestPath(context.Background(), q.originLat, q.originLon,
+			_, _, spPolyline, drivingDirections, _, _ = routingService.ShortestPath(context.Background(), q.originLat, q.originLon,
 				q.destLat, q.destLon, false, 0, true, true)
 
-			spPathEdgeIdsAfterCustomization := make([]da.Index, 0, len(drivingDirections))
+			spPathAfter := make([]da.Index, 0, len(drivingDirections))
 			for _, dd := range drivingDirections {
-				legEdgeIds := dd.GetEdgesIds()
-				spPathEdgeIdsAfterCustomization = append(spPathEdgeIdsAfterCustomization, legEdgeIds...)
+				stepSegmentIds := dd.GetSegmentsIds()
+				spPathAfter = append(spPathAfter, stepSegmentIds...)
 			}
 
-			if reason, correct := isCorrect(spPathEdgeIdsAfterCustomization, tc.updatedSegmentSpeeds, tc.wantToPassThroughTheUpdatedRoadSegments); !correct {
+			if reason, correct := isCorrect(spPathAfter, tc.updatedSegmentSpeeds, tc.wantToPassThroughTheUpdatedRoadSegments); !correct {
 				gotPassThrough := false
 				if tc.wantToPassThroughTheUpdatedRoadSegments == false {
 					gotPassThrough = true
 				}
-				t.Errorf("exected pass through the updated road segments: %t, got: %t.\n updated road segments: %v .\n reason: %v.", tc.wantToPassThroughTheUpdatedRoadSegments, gotPassThrough,
+				t.Errorf("expected pass through the updated road segments: %t, got: %t.\n updated road segments: %v .\n reason: %v.", tc.wantToPassThroughTheUpdatedRoadSegments, gotPassThrough,
 					tc.updatedSegmentSpeeds, reason)
 			}
 		})

@@ -12,7 +12,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -48,10 +48,10 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	var nodeCoords []osmparser.NodeCoord
+	var nodeCoords []extractor.NodeCoord
 
 	for i := 0; i < n; i++ {
-		nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(i)))
+		nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
 	}
 
 	adjList := make([][]tests.PairEdge, n)
@@ -76,7 +76,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		adjList[u] = append(adjList[u], tests.NewPairEdge(v, float64(w)))
 	}
 
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, nodeCoords, adjList, n, []int{1, 2}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "simple_graph", nodeCoords, adjList, n, []int{1, 2}, true)
 
 	crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 
@@ -127,7 +127,6 @@ func TestCRPQuerySimpleGraphMALT(t *testing.T) {
 	for _, entry := range files {
 
 		name := entry.Name()
-
 		if !strings.HasSuffix(name, ".in") {
 			continue
 		}
@@ -137,12 +136,11 @@ func TestCRPQuerySimpleGraphMALT(t *testing.T) {
 		testPath := filepath.Join(dirPath, baseName)
 
 		t.Logf("solving test case: %v", baseName)
-		t.Run("Multilevel-ALT without turn cost"+dirPath+"/"+baseName, func(t *testing.T) {
+		t.Run("Multilevel-ALT without turn cost/"+dirPath+"/"+baseName, func(t *testing.T) {
 			solveSimpleGraph(t, testPath)
 
 			runtime.GC()
 			debug.FreeOSMemory()
 		})
-
 	}
 }

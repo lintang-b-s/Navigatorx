@@ -12,15 +12,15 @@ type QueryHeap[T comparable, W util.RoutingNumber] struct {
 	heap         *DAryHeap[T, W] // 4-ary minheap
 	verticesData []VertexData[W] // berisi cost, parent, heapNodeId (vertexIndex dari heapNode di 4-ary minheap array)
 
-	verticesIndex     IndexStorage // map dari nodeId/edgeId/overlayVertexId dari graph & overlay graph ke vertexIndex dari verticesData
-	maxEdgesInCell    uint32
+	verticesIndex     IndexStorage // map dari nodeId/overlayVertexId dari graph & overlay graph ke vertexIndex dari verticesData
+	offset            uint32
 	verticesIndexType IndexStorageType
 	explored          ExploredSetStorage
 }
 
-func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell uint32, tipe IndexStorageType, preallocateMinHeap bool) *QueryHeap[T, W] {
+func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, offset uint32, tipe IndexStorageType, preallocateMinHeap bool) *QueryHeap[T, W] {
 	minHeap := NewFourAryHeap[T, W]()
-	approxMaxSearchSize := maxEdgesInCell*2 + OVERLAY_VERTICES_SIZE
+	approxMaxSearchSize := uint32(BASE_VERTICES_SIZE)
 
 	if preallocateMinHeap {
 		// buat clone queryHeap dari crpQuery di alternativeRoutes gak perlu preallocate heap
@@ -33,8 +33,8 @@ func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell u
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
 			verticesData:      make([]VertexData[W], 0, approxMaxSearchSize),
-			verticesIndex:     NewTwoLevelStorage(baseSize, maxEdgesInCell),
-			maxEdgesInCell:    maxEdgesInCell,
+			verticesIndex:     NewTwoLevelStorage(baseSize, offset),
+			offset:            offset,
 			verticesIndexType: tipe,
 			explored:          explored,
 		}
@@ -45,7 +45,7 @@ func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell u
 			heap:              minHeap,
 			verticesData:      make([]VertexData[W], 0, approxMaxSearchSize),
 			verticesIndex:     NewArrayStorage(baseSize),
-			maxEdgesInCell:    maxEdgesInCell,
+			offset:            offset,
 			verticesIndexType: tipe,
 			explored:          explored,
 		}
@@ -56,7 +56,7 @@ func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell u
 			heap:              minHeap,
 			verticesData:      make([]VertexData[W], 0, approxMaxSearchSize),
 			verticesIndex:     NewMapStorage(baseSize),
-			maxEdgesInCell:    maxEdgesInCell,
+			offset:            offset,
 			verticesIndexType: tipe,
 			explored:          explored,
 		}
@@ -65,8 +65,8 @@ func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell u
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
 			verticesData:      make([]VertexData[W], 0, approxMaxSearchSize),
-			verticesIndex:     NewTwoLevelStorage(baseSize, maxEdgesInCell),
-			maxEdgesInCell:    maxEdgesInCell,
+			verticesIndex:     NewTwoLevelStorage(baseSize, offset),
+			offset:            offset,
 			verticesIndexType: tipe,
 			explored:          explored,
 		}
@@ -75,18 +75,15 @@ func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize, maxEdgesInCell u
 
 // updatePosition. buat update heapNodeId dari vertexIndex (dipake pas heapifyUp dan heapifyDown)
 func (qh *QueryHeap[T, W]) updatePosition(nodeIndex uint32, newHeapNodeId uint32) {
-	qh.verticesData[nodeIndex].SetHeapNodeId(newHeapNodeId)
+	qh.verticesData[nodeIndex].heapNodeId = newHeapNodeId
 }
 
 // Insert. insert node ke priority queue
-// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) Insert(id Index, priority W, vData VertexData[W], queryKey T) {
 	newVertexIndex := uint32(len(qh.verticesData))
-
 	qh.verticesData = append(qh.verticesData, vData)
-
 	qh.verticesIndex.Set(id, newVertexIndex)
-
 	heapNode := NewPriorityQueueNode[T, W](priority,
 		queryKey, newVertexIndex)
 	qh.heap.Insert(heapNode, newVertexIndex, qh.updatePosition)
@@ -99,25 +96,25 @@ func (qh *QueryHeap[T, W]) ExtractMin() PriorityQueueNode[T, W] {
 }
 
 // DecreaseKey. decreaseKey() operation dari min heap. decrease priority dari node ke newPriority
-// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 // newPriority adlh priority dari vertex di 4-ary min heap, kalau ALT priority dari pq beda sama estimated sp cost/vCost
 // vCost adalah estimate sp cost dari vertex
-func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newPriority, vCost W, newPar VertexEdgePair) {
+func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newPriority, vCost W, newPar ParentVertex) {
 	vertexIndex := qh.verticesIndex.Get(id)
-	heapNodeId := qh.verticesData[vertexIndex].GetHeapNodeId()
-	qh.verticesData[vertexIndex].UpdateParent(newPar)
-	qh.verticesData[vertexIndex].UpdateCost(vCost)
+	heapNodeId := qh.verticesData[vertexIndex].heapNodeId
+	qh.verticesData[vertexIndex].parent = newPar
+	qh.verticesData[vertexIndex].cost = vCost
 	qh.heap.DecreaseKey(heapNodeId, newPriority, qh.updatePosition)
 }
 
 // Get. Get sp cost dari node
-// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) GetCost(id Index) W {
 	vertexIndex := qh.verticesIndex.Get(id)
 	if vertexIndex == math.MaxUint32 {
 		return util.Infinity[W]()
 	}
-	return qh.verticesData[vertexIndex].GetCost()
+	return qh.verticesData[vertexIndex].cost
 }
 
 // Clear. ya clear
@@ -127,11 +124,11 @@ func (qh *QueryHeap[T, W]) Clear() {
 	qh.verticesData = qh.verticesData[:0] //  buat slice length jadi 0, tapi capacity tetep sama, buat prevent array doubling dari dynamic array (slice)
 	// ingat: reslicing slice gak bakal bikin slice baru/resliced slices tetep refer ke original slice (https://go.dev/blog/slices-intro)
 	qh.heap.Clear()
-	qh.explored.Clear(qh.maxEdgesInCell)
+	qh.explored.Clear(qh.offset)
 }
 
 // Get. get vertexIndex dari node
-// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) Get(id Index) VertexData[W] {
 	vertexIndex := qh.verticesIndex.Get(id)
 	return qh.verticesData[vertexIndex]
@@ -152,7 +149,7 @@ func (qh *QueryHeap[T, W]) GetMinrank() W {
 }
 
 // Explore. mark node as explored
-// node/id bisa berupa nodeId/edgeId/overlayVertexId dari graph & overlay graph
+// node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) Explore(id Index) {
 	vertexIndex := qh.verticesIndex.Get(id)
 	qh.explored.Set(vertexIndex)
@@ -167,8 +164,8 @@ func (qh *QueryHeap[T, W]) Set(id Index, vData VertexData[W], queryKey T) {
 		return
 	}
 
-	qh.verticesData[vertexIndex].UpdateParent(vData.GetParent())
-	qh.verticesData[vertexIndex].UpdateCost(vData.GetCost())
+	qh.verticesData[vertexIndex].parent = vData.parent
+	qh.verticesData[vertexIndex].cost = vData.cost
 }
 
 func (qh *QueryHeap[T, W]) IsEmpty() bool {
@@ -177,7 +174,7 @@ func (qh *QueryHeap[T, W]) IsEmpty() bool {
 
 func (qh *QueryHeap[T, W]) SetQueryLevel(id Index, qLevel uint8) {
 	vertexIndex := qh.verticesIndex.Get(id)
-	qh.verticesData[vertexIndex].parent.SetQueryLevel(qLevel)
+	qh.verticesData[vertexIndex].parent.queryLevel = qLevel
 }
 
 func (qh *QueryHeap[T, W]) IsExplored(id Index) bool {
@@ -198,7 +195,7 @@ func (qh *QueryHeap[T, W]) IsLabelled(id Index) bool {
 
 // ForLabelledItems. get all items inserted to pq.
 // karena kita support turn costs:
-// offsetedVId bisa berupa edgeId atau overlay vertex id.
+// offsetedVId bisa berupa vertex id atau overlay vertex id.
 func (qh *QueryHeap[T, W]) ForLabelledItems(handle func(offsetedVId Index, vData VertexData[W])) {
 	qh.verticesIndex.ForAllItems(func(offsetedVId Index, nodeIndex uint32) {
 		if nodeIndex == math.MaxUint32 {

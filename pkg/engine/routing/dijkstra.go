@@ -8,7 +8,7 @@ import (
 type Dijkstra[W util.RoutingNumber] struct {
 	engine *CRPRoutingEngine[W]
 
-	pq *da.QueryHeap[da.CRPQueryKey, W]
+	pq *da.QueryHeap[da.QueryKey, W]
 
 	numSettledNodes  int
 	useReversedEdges bool
@@ -37,9 +37,9 @@ useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 */
 func (us *Dijkstra[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) {
 
-	sVertexData := da.NewVertexData(W(0), da.NewVertexEdgePair(da.INVALID_VERTEX_ID, da.INVALID_EDGE_ID, false))
+	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
 
-	djKey := da.NewDijkstraKey(s, s)
+	djKey := da.NewDijkstraKey(s)
 	us.pq.Insert(s, 0, sVertexData, djKey)
 
 	for !us.pq.IsEmpty() {
@@ -63,30 +63,26 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 		// traverse outEdges of u
 		us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
-			head := us.engine.graph.GetHeadOfOutEdge(eId)
+			head := us.engine.graph.GetHead(eId)
 			vId := head
 			edgeWeight := us.engine.getWeight(eId, true)
 			// get cost to reach v through u
 			newVCost := us.pq.GetCost(uId) + edgeWeight
 
-			if util.Ge(newVCost, util.Infinity[W]()) {
-				return
-			}
-
-			vAlreadyLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
-			if vAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(vId)) {
+			vLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
+			if util.Ge(newVCost, us.pq.GetCost(vId)) {
 				// newVCost is not better, do nothing
 				return
 			}
 
 			// newVCost is better, update the forwardData
-			if vAlreadyLabelled {
-				newPar := da.NewVertexEdgePair(uId, eId, false)
+			if vLabelled {
+				newPar := da.NewParentVertex(uId)
 				// is key already in the priority queue, decrease its key
 				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
-			} else if !vAlreadyLabelled {
-				queryKey := da.NewDijkstraKey(vId, vId)
-				vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, eId, false))
+			} else if !vLabelled {
+				queryKey := da.NewDijkstraKey(vId)
+				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newVCost, vData, queryKey)
 			}
@@ -96,7 +92,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 		// traverse inEdges of u
 		us.engine.graph.ForInEdgeIdsOf(uId, func(eId da.Index) {
-			tail := us.engine.graph.GetTailOfInedge(eId)
+			tail := us.engine.graph.GetTail(eId)
 
 			vId := tail
 
@@ -104,25 +100,21 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			newVCost := us.pq.GetCost(uId) + edgeWeight
 
-			if util.Ge(newVCost, util.Infinity[W]()) {
-				return
-			}
-
-			vAlreadyLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
-			if vAlreadyLabelled && util.Ge(newVCost, us.pq.GetCost(vId)) {
+			vLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
+			if util.Ge(newVCost, us.pq.GetCost(vId)) {
 				// newVCost is not better, do nothing
 				return
 			}
 
 			// newVCost is better, update the forwardData
-			if vAlreadyLabelled {
-				newPar := da.NewVertexEdgePair(uId, eId, false)
+			if vLabelled {
+				newPar := da.NewParentVertex(uId)
 				// is key already in the priority queue, decrease its key
 				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
 
-			} else if !vAlreadyLabelled {
-				queryKey := da.NewDijkstraKey(vId, vId)
-				vData := da.NewVertexData(newVCost, da.NewVertexEdgePair(uId, eId, false))
+			} else if !vLabelled {
+				queryKey := da.NewDijkstraKey(vId)
+				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
 
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newVCost, vData, queryKey)
@@ -135,8 +127,8 @@ func (us *Dijkstra[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
 
-	maxEdgesInCell := us.engine.graph.GetMaxEdgesInCell()
-	us.pq = da.NewQueryHeap[da.CRPQueryKey, W](uint32(maxSearchSize), uint32(maxEdgesInCell), da.ARRAY_STORAGE, true)
+	maxVerticesInCell := us.engine.graph.GetMaxVerticesInCell()
+	us.pq = da.NewQueryHeap[da.QueryKey, W](uint32(maxSearchSize), uint32(maxVerticesInCell), da.ARRAY_STORAGE, true)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
 
@@ -163,7 +155,7 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 			for vData.GetParent().GetVertex() != s {
 				parent := vData.GetParent()
 
-				spPath[t] = append(spPath[t], parent.GetEdge())
+				spPath[t] = append(spPath[t], parent.GetVertex())
 
 				vData = us.pq.Get(parent.GetVertex())
 			}
@@ -188,12 +180,9 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 
 			for vData.GetParent().GetVertex() != s {
 				parent := vData.GetParent()
-				parentEdge := parent.GetEdge() // in inEdgeId
-
-				outEdgeId := us.engine.graph.GetOutIdOfInEdge(parentEdge)
 
 				// jadiin outEdge semua
-				spPath[t] = append(spPath[t], outEdgeId)
+				spPath[t] = append(spPath[t], parent.GetVertex())
 
 				vData = us.pq.Get(parent.GetVertex())
 			}

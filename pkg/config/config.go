@@ -71,7 +71,7 @@ func InitConfig() {
 	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 }
 
-func InitProfileConfig(profileName string, regionName string) {
+func InitProfileConfig(profileName string, regionName string, fileType pkg.FILE_TYPE) {
 	workingDir, err := FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
@@ -87,4 +87,27 @@ func InitProfileConfig(profileName string, regionName string) {
 	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
 	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 	pkg.RegionName = regionName
+	pkg.TIPE = fileType
+}
+
+func InitRegionName(regionName string, fileType pkg.FILE_TYPE) {
+	pkg.ProfileName = "car"
+	pkg.RegionName = regionName
+	pkg.TIPE = fileType
+}
+
+func ProfilesRoot() string {
+	var root string
+	switch pkg.TIPE {
+	case pkg.ROUTER:
+		root = "./data/profiles"
+	case pkg.EVAL:
+		root = "./data/evals/profiles"
+	case pkg.TEST:
+		root = "./data/tests/profiles"
+	default:
+		return ""
+	}
+
+	return root
 }

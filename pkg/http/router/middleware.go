@@ -23,7 +23,15 @@ func (api *API) recoverPanic(next http.Handler) http.Handler {
 
 		defer func() {
 			if err := recover(); err != nil {
-				api.log.Error("panic recovered. err: ", zap.String("err", string(debug.Stack())))
+				// api.log.Error("panic recovered. err: ", zap.String("err", string(debug.Stack())))
+
+				stack := debug.Stack()
+
+				api.log.Error(
+					"panic recovered",
+					zap.Any("panic", err),
+					zap.String("stack", string(stack)),
+				)
 
 				w.Header().Set("Connection:", "close")
 

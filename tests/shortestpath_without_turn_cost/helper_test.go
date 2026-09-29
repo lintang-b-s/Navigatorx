@@ -8,12 +8,15 @@ import (
 	"testing"
 
 	"github.com/bytedance/gopkg/util/gopool"
+
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	"github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -25,14 +28,10 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-const (
-	graphFile        string = "./data/original_sp_test.ngraph"
-	overlayGraphFile string = "./data/overlay_graph_sp_test.ngraph"
-	landmarkFile     string = "./data/landmark_sp_test.nlm"
-)
-
-func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine[float64], *da.Graph,
+func buildCRP(t *testing.T, problemName string, nodeCoords []extractor.NodeCoord, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine[float64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[float64]) {
+
+	config.InitRegionName(problemName, pkg.TEST)
 
 	da.CoordinatePrecision = 1e6
 	if strings.Contains(strings.ToUpper(t.Name()), "KRL") {
@@ -41,8 +40,8 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 
 	es := tests.FlattenEdges(adjList)
 
-	op := osmparser.NewOSMParserV2[float64]()
-	acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
+	op := extractor.NewExtractor[float64]()
+	acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
 		acceptedNodeMap[int64(i)] = nodeCoords[i]
@@ -52,12 +51,10 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmId)
 
-	gs := da.NewGraphStorageWithSize(len(es), n)
-	g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false)
+	rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
+	g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
-
-	g.SetGraphStorage(gs)
 
 	logger, err := logger.New()
 	if err != nil {
@@ -80,7 +77,7 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 
 	mlp := mp.BuildMLP()
 
-	prep := preprocesser.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+	prep := preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.TEST)
 	err = prep.PreProcessing(false)
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -100,17 +97,14 @@ func buildCRP(t *testing.T, nodeCoords []osmparser.NodeCoord, adjList [][]tests.
 	if err != nil {
 		panic(err)
 	}
-	if err := lm.WriteLandmark(landmarkFile, g.NumberOfVertices()); err != nil {
-		t.Fatalf("err: %v", err)
-	}
 
-	re, err := engine.NewEngineDirect(g, og, m, logger, landmarkFile)
+	re, err := engine.NewEngineDirect(g, rn, og, m, logger, "")
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	oldToNewVIdMap := prep.GetOldToNewVIdMap()
-	newToOldVidMap := prep.GetNewToOldVIdMap()
+	oldToNewVIdMap := prep.GetOldToNewVId()
+	newToOldVidMap := prep.GetNewToOldVId()
 
 	return re, g, oldToNewVIdMap, newToOldVidMap, lm
 }

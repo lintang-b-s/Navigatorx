@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"errors"
 	"flag"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -16,9 +17,9 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
-	"github.com/lintang-b-s/Navigatorx/pkg/osmparser"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocessor "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -30,14 +31,12 @@ var (
 )
 
 const (
-	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	url                     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
-	osmFile                 = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_customizer_test.ngraph"
-	overlayGraphFile string = "./data/overlay_graph_customizer_test.ngraph"
-	metricsFile      string = "./data/metrics_customizer_test.nmt"
-	landmarkFile     string = "./data/landmark_customizer_test.nlm"
-	timeFunctionFile string = "./data/timefunction_customizer_test.ntf"
+	url     = "https://docs.google.com/uc?export=download&id=1gxrkLPTfuyDl_3KzlcV4MpGXxCKkgDlx"
+	osmFile = "./data/yogyakarta.osm.pbf"
+)
+
+var (
+	landmarkFile string = config.ProfilesRoot() + "/landmark_customizer_test.nlm"
 )
 
 const (
@@ -45,7 +44,7 @@ const (
 	CELL_WORKERS = 5
 )
 
-// cd tests/customizer &&  go test -v . --cover -coverpkg=../../pkg/... -coverprofile=cust_coverage.out
+// cd tests/customizer &&  go test -v  . --cover -coverpkg=../../pkg/... -coverprofile=cust_coverage.out
 // go tool cover -func=cust_coverage.out
 // go tool cover -html=cust_coverage.out
 func TestCRPCustomizerSimple(t *testing.T) {
@@ -226,10 +225,10 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 
-		var nodeCoords []osmparser.NodeCoord
+		var nodeCoords []extractor.NodeCoord
 
 		for i := 0; i < n; i++ {
-			nodeCoords = append(nodeCoords, osmparser.NewNodeCoord(float64(i), float64(i)))
+			nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
 		}
 
 		adjList := make([][]tests.PairEdge, n)
@@ -255,8 +254,8 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		}
 		es := tests.FlattenEdges(adjList)
 
-		op := osmparser.NewOSMParserV2[float64]()
-		acceptedNodeMap := make(map[int64]osmparser.NodeCoord, n)
+		op := extractor.NewExtractor[float64]()
+		acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
 			acceptedNodeMap[int64(i)] = nodeCoords[i]
@@ -266,12 +265,10 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		op.SetAcceptedNodeMap(acceptedNodeMap)
 		op.SetNodeToOsmId(nodeToOsmId)
 
-		gs := da.NewGraphStorageWithSize(len(es), n)
-		g, timeFunction, edgeDataIds := op.BuildGraph(es, gs, uint32(n), false)
+		rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
+		g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
-
-		g.SetGraphStorage(gs)
 
 		logger, err := log.New()
 		if err != nil {
@@ -287,7 +284,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocessor.NewPreprocessor(g, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+		prep := preprocessor.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.TEST)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -313,12 +310,12 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		re, err := engine.NewEngineDirect(g, og, mt, logger, landmarkFile)
+		re, err := engine.NewEngineDirect(g, rn, og, mt, logger, landmarkFile)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
-		newToOldVidMap := prep.GetNewToOldVIdMap()
+		newToOldVidMap := prep.GetNewToOldVId()
 		return re, lm, newToOldVidMap, err
 	}
 
@@ -340,12 +337,12 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			for cellId, cell := range cellMapInLevelOne {
 				cellIdInLevel := og.OffUpperBit(cellId, 1)
 				for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
-					startOverlayVertexId := og.GetInId(cell, i)
+					startOverlayVertexId := og.GetCellEntry(cell, i)
 					enOverlayVertex := og.GetVertex(startOverlayVertexId)
 					enOriVId := newToOldVidMap[enOverlayVertex.GetOrigVId()]
 
 					for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-						exitOverlayVId := og.GetOutId(cell, j)
+						exitOverlayVId := og.GetCellExit(cell, j)
 						exOverlayVertex := og.GetVertex(exitOverlayVId)
 						exOriVId := newToOldVidMap[exOverlayVertex.GetOrigVId()]
 
@@ -372,12 +369,12 @@ func TestCRPCustomizerSimple(t *testing.T) {
 					cellIdInLevel := og.OffUpperBit(cellId, uint8(level))
 
 					for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
-						startOverlayVertexId := og.GetInId(cell, i)
+						startOverlayVertexId := og.GetCellEntry(cell, i)
 						enOverlayVertex := og.GetVertex(startOverlayVertexId)
 						enOriVId := newToOldVidMap[enOverlayVertex.GetOrigVId()]
 
 						for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-							exitOverlayVId := og.GetOutId(cell, j)
+							exitOverlayVId := og.GetCellExit(cell, j)
 							exOverlayVertex := og.GetVertex(exitOverlayVId)
 							exOriVId := newToOldVidMap[exOverlayVertex.GetOrigVId()]
 
@@ -481,10 +478,11 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	config.InitRegionName("customizer_test", pkg.TEST)
 
-	op := osmparser.NewOSMParserV2[int32]()
+	op := extractor.NewExtractor[int32]()
 
-	graph, timeFunction, edgeDataIds, err := op.Parse(filepath.Join(workingDir, osmFile), logger)
+	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -508,17 +506,17 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 
 	mp.RunMultilevelPartitioning()
 
-	err = mp.SaveToFile(mlpFile)
+	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile(mlpFile)
+	err = mlp.ReadMlpFile()
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, timeFunction, mlp, logger, graphFile, overlayGraphFile, edgeDataIds)
+	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -526,20 +524,20 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](graphFile, overlayGraphFile, metricsFile, timeFunctionFile, landmarkFile, logger)
+	custom := customizer.NewCustomizer[int32](logger, pkg.TEST)
 
 	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](logger, pkg.TEST)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	readBuf := bufio.NewReaderSize(nil, 4096*4)
-	lm, err := landmark.ReadLandmark[int32](landmarkFile, readBuf)
+	landmarkPath := fmt.Sprintf("%s/%s/%s_landmark.nlm", config.ProfilesRoot(), pkg.ProfileName, pkg.RegionName)
+	lm, err := landmark.ReadLandmark[int32](landmarkPath)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -568,7 +566,7 @@ func TestCRPCustomizer(t *testing.T) {
 	// Note that the theorem holds even though some shortcuts added to H are not necessarily shortest path
 	// in either G or H. Such shortcuts are redundant, but do not affect correctness
 
-	// meskipun shortcuts weight bukan shortest path di graf G (kalau pakai semua vertices & edges dari original graf G), gak affect correctness dari CRP query
+	// meskipun shortcuts weight bukan shortest path di graf G (kalau pakai semua vertices & edges dari graf G), gak affect correctness dari CRP query
 
 	expectedNumOfShortcuts := 0
 	for _, cell := range cellMapInLevelOne {

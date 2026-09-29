@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"go.uber.org/zap"
 )
@@ -114,8 +116,10 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	}
 }
 
-func (mp *MultilevelPartitioner) SaveToFile(filename string) error {
-	return mp.writeMLPToMLPFile(filename)
+func (mp *MultilevelPartitioner) SaveToFile() error {
+	root := config.ProfilesRoot()
+	mlpFileName := fmt.Sprintf("%s/inertial_flow_%s_%s.mlp", root, pkg.ProfileName, pkg.RegionName)
+	return mp.writeMLPToMLPFile(mlpFileName)
 }
 
 func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Index {

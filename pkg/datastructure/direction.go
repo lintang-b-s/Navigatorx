@@ -88,7 +88,7 @@ func (ann *Annotation) GetEdgeGeomOffset() []Index {
 
 type Instruction struct {
 	annotation Annotation
-	edgeIds    []Index
+	segmentIds []Index
 
 	roundabout          RoundaboutInstruction
 	heading             float64
@@ -104,7 +104,7 @@ type Instruction struct {
 	suggestAlternatives bool
 }
 
-func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, edgeIds []Index,
+func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, segmentIds []Index,
 	cumulativeDist, cumulativeCost float64, turnBearing float64, ann Annotation,
 	clockwise bool) Instruction {
 	ins := Instruction{
@@ -115,7 +115,7 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 		isRoundabout:       isRoundAbout,
 		cumulativeCost:     cumulativeCost,
 		cumulativeDistance: cumulativeDist,
-		edgeIds:            edgeIds,
+		segmentIds:         segmentIds,
 		turnBearing:        turnBearing,
 	}
 
@@ -125,7 +125,7 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 }
 
 func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRoundAbout bool, roundabout RoundaboutInstruction,
-	cumulativeDistance, cumulativeCost float64, edgeIds []Index, ann Annotation, turnBearing float64) Instruction {
+	cumulativeDistance, cumulativeCost float64, segmentIds []Index, ann Annotation, turnBearing float64) Instruction {
 
 	ins := Instruction{
 		annotation:         ann,
@@ -136,7 +136,7 @@ func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRo
 		isRoundabout:       isRoundAbout,
 		cumulativeDistance: cumulativeDistance,
 		cumulativeCost:     cumulativeCost,
-		edgeIds:            edgeIds,
+		segmentIds:         segmentIds,
 		turnBearing:        turnBearing,
 	}
 	ins.turnType = "ROUNDABOUT"
@@ -172,8 +172,8 @@ func (ins *Instruction) GetTurnSign() TurnType {
 	return ins.turnSign
 }
 
-func (ins *Instruction) GetEdgeIds() []Index {
-	return ins.edgeIds
+func (ins *Instruction) GetSegmentIds() []Index {
+	return ins.segmentIds
 }
 
 func (ins *Instruction) GetPoint() Coordinate {
@@ -331,7 +331,7 @@ func (ins *Instruction) SetExited() {
 
 type DrivingDirection struct {
 	instruction         string
-	edgeIds             []Index
+	segmentIds          []Index
 	annotation          Annotation
 	streetName          string
 	point               Coordinate
@@ -343,14 +343,14 @@ type DrivingDirection struct {
 }
 
 func NewDrivingDirection(ins Instruction, description string, prevCost, prevDist float64,
-	edgeIds []Index, turnBearing float64, ann Annotation) DrivingDirection {
+	segmentIds []Index, turnBearing float64, ann Annotation) DrivingDirection {
 	return DrivingDirection{
 		instruction:         description,
 		point:               ins.point,
 		streetName:          ins.streetname,
 		travelTime:          util.RoundFloat(prevCost, 2),
 		distance:            util.RoundFloat(prevDist, 2),
-		edgeIds:             edgeIds,
+		segmentIds:          segmentIds,
 		turnBearing:         util.RoundFloat(turnBearing, 2),
 		turnType:            ins.turnType,
 		suggestAlternatives: ins.suggestAlternatives,
@@ -379,8 +379,8 @@ func (d *DrivingDirection) GetDistance() float64 {
 	return d.distance
 }
 
-func (d *DrivingDirection) GetEdgesIds() []Index {
-	return d.edgeIds
+func (d *DrivingDirection) GetSegmentsIds() []Index {
+	return d.segmentIds
 }
 
 func (d *DrivingDirection) GetTurnBearing() float64 {

@@ -5,29 +5,27 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 )
 
-func (db *DirectionBuilder) buildSimplifiedAnnotation(edgeIds []da.Index, geometry da.Coordinates) da.Annotation {
+func (db *DirectionBuilder) buildSimplifiedAnnotation(segIds []da.Index, geometry da.Coordinates) da.Annotation {
 	avgSpeed := 0.0
-
-	for _, edgeID := range edgeIds {
-		avgSpeed += db.engine.GetSegmentSpeed(edgeID, true)
+	for _, segID := range segIds {
+		avgSpeed += db.engine.GetSegmentSpeed(segID)
 	}
-	avgSpeed /= max(float64(len(edgeIds)), 1)
-	avgSpeed = max(avgSpeed, 1.0)
+	avgSpeed /= max(float64(len(segIds)), 1)
 
-	m := len(edgeIds)
+	m := len(segIds)
 	if m > 0 {
-		lastEdgeID := edgeIds[m-1]
-		lastEdgeGeomIdx := db.graph.GetEdgeGeometryLength(lastEdgeID) - 1
-		if lastEdgeGeomIdx >= 0 {
-			lastEdgeGeomPoint := db.graph.GetEdgeGeometryPoint(lastEdgeID, lastEdgeGeomIdx)
-			geometry = append(geometry, lastEdgeGeomPoint)
+		lSegId := segIds[m-1]
+		l := int(db.rn.GetSegmentGeometryLength(lSegId)) - 1
+		if l >= 0 {
+			lPoint := db.rn.GetSegmentGeometryPoint(lSegId, int(l))
+			geometry = append(geometry, lPoint)
 		}
 	}
 	n := len(geometry)
 
 	if n <= 1 {
-		edgeGeomOffset := db.buildEdgeGeomOffsetFromGeometry(edgeIds, geometry)
-		return da.NewAnnotation([]float64{}, []float64{}, geometry, edgeGeomOffset)
+		segGeomOffset := db.buildEdgeGeomOffsetFromGeometry(segIds, geometry)
+		return da.NewAnnotation([]float64{}, []float64{}, geometry, segGeomOffset)
 	}
 
 	simplifiedDistance := make([]float64, 0, n)
@@ -40,24 +38,24 @@ func (db *DirectionBuilder) buildSimplifiedAnnotation(edgeIds []da.Index, geomet
 		simplifiedDuration = append(simplifiedDuration, dist/avgSpeed)
 	}
 
-	edgeGeomOffset := db.buildEdgeGeomOffsetFromGeometry(edgeIds, geometry)
-	return da.NewAnnotation(simplifiedDuration, simplifiedDistance, geometry, edgeGeomOffset)
+	segGeomOffset := db.buildEdgeGeomOffsetFromGeometry(segIds, geometry)
+	return da.NewAnnotation(simplifiedDuration, simplifiedDistance, geometry, segGeomOffset)
 }
 
-func (db *DirectionBuilder) buildEdgeGeomOffsetFromGeometry(edgeIds []da.Index, geometry da.Coordinates) []da.Index {
-	if len(edgeIds) == 0 || len(geometry) == 0 {
+func (db *DirectionBuilder) buildEdgeGeomOffsetFromGeometry(segIds []da.Index, geometry da.Coordinates) []da.Index {
+	if len(segIds) == 0 || len(geometry) == 0 {
 		return []da.Index{}
 	}
 
-	edgeGeomOffset := make([]da.Index, 0, len(edgeIds))
+	segGeomOffset := make([]da.Index, 0, len(segIds))
 
 	offset := da.Index(0)
-	for i := 0; i < len(edgeIds); i++ { // O(n)
-		edgeId := edgeIds[i]
-		geomLength := db.graph.GetEdgeGeometryLength(edgeId)
-		edgeGeomOffset = append(edgeGeomOffset, offset)
+	for i := 0; i < len(segIds); i++ { // O(n)
+		segId := segIds[i]
+		geomLength := db.rn.GetSegmentGeometryLength(segId)
+		segGeomOffset = append(segGeomOffset, offset)
 		offset += da.Index(geomLength - 1)
 	}
 
-	return edgeGeomOffset
+	return segGeomOffset
 }

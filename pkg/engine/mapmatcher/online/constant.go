@@ -9,4 +9,12 @@ const (
 	MAX_SEARCH_RADIUS         = 0.04 // 40m
 
 	SEARCH_RADIUS_MULTIPLIER = 1.1
+	beta                     = 10.0
+)
+
+type TIPE_MHT int
+
+const (
+	MHT_TIPE_ONE = iota
+	MHT_TIPE_TWO
 )

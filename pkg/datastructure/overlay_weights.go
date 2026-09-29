@@ -7,10 +7,10 @@ import (
 // OverlayWeights stores shortcut weights in the overlay graph.
 /*
 for each cell C, we have:
-qC = number of exit points (vertex that have at least one out edge that point to vertex in other cell)
-pC = number of entry points (vertex that have at least one in edge that point to vertex in other cell)
-fC = poisition in OverlayWeights.weights where the first entry of C is represented
-shortcut betweeb i-th entry point and the j-th exit point of C will be stored in W [fC + iqC + j].
+qC = number of exit points (vertex that have at least one outgoing edge that point to vertex in other cell)
+pC = number of entry points (vertex that have at least one incoming edge that point to vertex in other cell)
+fC = poisition in OverlayWeights.weights where the first entry of cell C is represented
+shortcut between i-th entry point and the j-th exit point of cell C will be stored in W [fC + iqC + j].
 */
 type OverlayWeights[W util.RoutingNumber] struct {
 	weights []W

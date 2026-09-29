@@ -1,48 +1,46 @@
 package guidance
 
-import da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+import (
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+)
 
 type Graph interface {
-	GetTailOfOutedge(e da.Index) da.Index
 	GetVertex(u da.Index) da.Vertex
 	GetVertexCoordinate(u da.Index) da.Coordinate
-	GetOutEdge(eId da.Index) *da.OutEdge
-
-	IsRoundabout(edgeId da.Index) bool
-	GetStreetName(edgeId da.Index) string
-	GetEdgeGeometry(edgeID da.Index) []da.Coordinate
-	GetEdgeGeometryLength(edgeID da.Index) int
-	GetEdgeGeometryPoint(edgeID da.Index, point int) da.Coordinate
-	AppendEdgeGeometryWithoutLast(path *da.Coordinates, edgeID da.Index)
-	GetOutEdgeBounds(u da.Index) (da.Index, da.Index)
-	IsTraversableOutEdge(e da.Index) bool
-	GetRoadClass(edgeId da.Index) string
 	ForOutEdgeIdsOf(u da.Index, handle func(eId da.Index))
-	GetRoadClassLink(edgeId da.Index) string
-	GetStreetDirection(edgeId da.Index) [2]bool
-	GetRoadLanes(edgeId da.Index) uint8
-	GetInEdgeBounds(v da.Index) (da.Index, da.Index)
-	IsTraversableInEdge(e da.Index) bool
-	GetHeadFromInEdge(entryId da.Index) da.Index
-	IsTrafficLight(vertexId da.Index) bool
-	IsDummyOutEdge(eId da.Index) bool
-	GetHeadOfOutEdge(e da.Index) da.Index
-	GetTailOfInedge(e da.Index) da.Index
-	IsStreetBidirectional(edgeId da.Index) bool
-	GetOutIdOfInEdge(e da.Index) da.Index
-	GetOsmWayId(edgeId da.Index) int64
+	ForOutEdgesOf(u da.Index, handle func(eId, head da.Index, entryPoint da.Index))
+	ForInEdgesOf(v da.Index, handle func(eId, tail da.Index, exitPoint da.Index))
+	GetHead(e da.Index) da.Index
+	GetTail(e da.Index) da.Index
+	GetOutId(e da.Index) da.Index
+}
+
+type RoadNetworkDataContainer interface {
+	IsRoundabout(segmentId da.Index) bool
+	GetStreetName(segmentId da.Index) string
+	GetSegmentGeometry(edgeID da.Index) []da.Coordinate
+	GetRoadClass(segmentId da.Index) pkg.OsmHighwayType
+	GetRoadClassLink(segmentId da.Index) pkg.OsmHighwayType
+	GetStreetDirection(segmentId da.Index) [2]bool
+	GetStreetNameId(id da.Index) uint32
+	GetOsmWayId(segmentId da.Index) uint64
 	GetStrFromId(stNameId uint32) string
-	GetStreetNameId(edgeId da.Index) uint32
-	IsCurved(edgeId da.Index) bool
+	IsCurved(segmentId da.Index) bool
+	GetRoadLanes(segmentId da.Index) uint8
+	IsStreetBidirectional(segmentId da.Index) bool
+	GetSegmentTailCoord(id da.Index) da.Coordinate
+	GetSegmentHeadCoord(id da.Index) da.Coordinate
+	GetSegmentGeometryPoint(id da.Index, point int) da.Coordinate
+	GetSegmentGeometryLength(id da.Index) da.Index
+	GetTailHeadOsmNodeId(id da.Index) (uint64, uint64)
+	IsParallelVia(id da.Index) bool
 }
 
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
-	GetWeightSeconds(eId da.Index, outEdge bool) float64
-	GetSegmentSpeed(eId da.Index, outEdge bool) float64
-	GetSegmentLength(eId da.Index, outEdge bool) float64
-	GetWeightFromLength(eId da.Index, outEdge bool, eLength float64) float64
-	IsDummyOutEdge(eId da.Index) bool
-	IsDummyInEdge(eId da.Index) bool
+	GetDurationSeconds(segId da.Index) float64
+	GetSegmentSpeed(segId da.Index) float64
+	GetSegmentLength(segId da.Index) float64
 }

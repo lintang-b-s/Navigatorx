@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -18,27 +19,15 @@ import (
 )
 
 var (
-	profileFilePath  = flag.String("profile", "./data/car.yaml", "profile file path")
-	profileName      string
-	regionName       = flag.String("region", "diy_solo_semarang", "region name")
-	graphFile        string
-	overlayGraphFile string
-	metricsFile      string
-	landmarkFile     string
-	timeFunctionFile string
+	profileFilePath = flag.String("profile", "./data/car.yaml", "profile file path")
+	profileName     string
+	regionName      = flag.String("region", "diy_solo_semarang", "region name")
 )
 
 func init() {
 	flag.Parse()
-
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	graphFile = fmt.Sprintf("./data/profiles/%s/%s_original.ngraph", profileName, *regionName)
-	overlayGraphFile = fmt.Sprintf("./data/profiles/%s/%s_overlay_graph.ngraph", profileName, *regionName)
-	landmarkFile = fmt.Sprintf("./data/profiles/%s/%s_landmark.nlm", profileName, *regionName)
-	metricsFile = fmt.Sprintf("./data/profiles/%s/%s_metrics.nmt", profileName, *regionName)
-	timeFunctionFile = fmt.Sprintf("./data/profiles/%s/%s_timefunction.ntf", profileName, *regionName)
-
-	config.InitProfileConfig(profileName, *regionName)
+	config.InitProfileConfig(profileName, *regionName, pkg.EVAL)
 }
 func main() {
 	flag.Parse()
@@ -47,7 +36,7 @@ func main() {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine[int32](graphFile, overlayGraphFile, metricsFile, landmarkFile, timeFunctionFile, logger)
+	re, err := engine.NewEngine[int32](logger, pkg.ROUTER)
 	if err != nil {
 		panic(err)
 	}

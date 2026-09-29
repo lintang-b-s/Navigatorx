@@ -93,7 +93,7 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirec
 
 	ann := annotation{}
 	if useAnnotation {
-		ann = NewAnnotationDTO(d.GetAnnotation(), d.GetEdgesIds())
+		ann = NewAnnotationDTO(d.GetAnnotation(), d.GetSegmentsIds())
 	}
 	return drivingDirection{
 		Instruction:         d.GetInstruction(),
@@ -138,7 +138,7 @@ func NewAlternativeRoutesResponse(alts []routing.AlternativeRoute, useAnnotation
 	altRes := alternativeRoutesResponse{Routes: make([]shortestPathResponse, len(alts))}
 	for i, alt := range alts {
 		altRes.Routes[i] = NewShortestPathResponse(
-			alt.GetDrivingCost(),
+			alt.GetTravelTime(),
 			alt.GetDist(), alt.GetPolylinePath(), NewDrivingDirections(alt.GetDrivingDirections(), useAnnotation),
 		)
 	}
@@ -231,7 +231,7 @@ func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.C
 		mgps.DeltaTime()), matchedPoint.GetEdgeId(), matchedPoint.GetMatchedCoord(), matchedPoint.GetPredictedGpsCoord(), matchedPoint.GetBearing())
 	cands := make([]Candidate, len(candidates))
 	for i, cand := range candidates {
-		cands[i] = NewCandidate(cand.EdgeId(), cand.Weight(), cand.Length())
+		cands[i] = NewCandidate(cand.GetSegmentId(), cand.Weight(), cand.Length())
 	}
 	return &mapmatchingResponse{
 		MatchedGpsPoint: matchedGpsPoint,

@@ -204,3 +204,20 @@ func IsTimeout(ctx context.Context) bool {
 		return false
 	}
 }
+
+func Flatten[T any](container [][]T) []T {
+	finalSize := 0
+	for _, part := range container {
+		finalSize += len(part)
+	}
+
+	result := make([]T, finalSize)
+	idx := 0
+	for _, part := range container {
+		for _, elem := range part {
+			result[idx] = elem
+			idx++
+		}
+	}
+	return result
+}

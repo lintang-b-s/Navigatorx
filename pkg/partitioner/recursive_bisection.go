@@ -8,7 +8,7 @@ import (
 )
 
 type RecursiveBisection struct {
-	originalGraph          *da.Graph
+	g                      *da.Graph
 	maximumCellSize        int
 	finalPartition         []int // map from vertex id to partition id
 	partitionCount         int
@@ -31,7 +31,7 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 	}
 
 	return &RecursiveBisection{
-		originalGraph:   graph,
+		g:               graph,
 		maximumCellSize: maximumCellSize,
 		finalPartition:  finalPartitions,
 		partitionCount:  0,
@@ -211,10 +211,10 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *da.PartitionGraph)
 		}
 	})
 
-	for _, uVertex := range pg.GetVertices() { // O(n+m), m = number of edges in pgs
+	for _, uVertex := range pg.GetVertices() { // O(m), m = number of edges in pgs
 		uOriVId := uVertex.GetOriginalVertexID()
 
-		rb.originalGraph.ForOutEdgesOfVertex(uOriVId, func(head, exitPoint da.Index) {
+		rb.g.ForOutEdgesOf(uOriVId, func(eId, head, _ da.Index) {
 			v, ok := origVIdToPgVIdMap[head] // get vertex id di current partition graph pg
 			if !ok {
 				// v not in current partition Graph
@@ -275,15 +275,15 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []da.
 	newVid := da.Index(0)
 	newMapVid := make(map[da.Index]da.Index, len(initialVerticeIds))
 	for _, vId := range initialVerticeIds { // O(n)
-		lat, lon := rb.originalGraph.GetVertexCoordinates(vId)
+		lat, lon := rb.g.GetVertexCoordinates(vId)
 		vertex := da.NewPartitionVertex(newVid, vId, lat, lon)
 		newMapVid[vId] = newVid
 		pg.AddVertex(vertex)
 		newVid++
 	}
 
-	for _, vId := range initialVerticeIds { // O(n+m), m = number of edges that its tail vertex in initialVerticeIds
-		rb.originalGraph.ForOutEdgesOfVertex(vId, func(head, exitPoint da.Index) {
+	for _, vId := range initialVerticeIds { // O(m), m = number of edges that its tail vertex in initialVerticeIds
+		rb.g.ForOutEdgesOf(vId, func(eId da.Index, head da.Index, _ da.Index) {
 			if _, headInSet := initialVerticeIdSet[head]; !headInSet {
 				// skip arc that its head outside current cell
 				return
