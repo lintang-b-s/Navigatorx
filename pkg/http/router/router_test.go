@@ -68,7 +68,6 @@ func TestAPI_Run(t *testing.T) {
 		err = api.Run(configErr, log, false, mockRS, mockTS, 100*time.Millisecond)
 		assert.Error(t, err)
 	})
-
 }
 
 func TestAPI_Run_InjectedServerError(t *testing.T) {
