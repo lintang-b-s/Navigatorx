@@ -321,9 +321,7 @@ func readRoadNetworkDataContainer(r *util.BinaryReader) (*RoadNetworkDataContain
 	if err != nil {
 		return nil, err
 	}
-	if len(rn.segmentGeohashes) != 0 && len(rn.segmentGeohashes) != int(metadataCount) {
-		return nil, fmt.Errorf("edge geohash count %d does not match edge count %d", len(rn.segmentGeohashes), metadataCount)
-	}
+
 	nameCount, err := r.Length()
 	if err != nil {
 		return nil, err

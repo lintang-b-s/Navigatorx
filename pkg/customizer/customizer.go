@@ -95,17 +95,21 @@ func NewCustomizerDirect[W util.RoutingNumber](
 func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 	c.turnCost = true
 	var err error
-	rf := config.ProfilesRoot()
-	seglkFilename := fmt.Sprintf("%s/%s/%s_segment.nlk", rf, pkg.ProfileName, pkg.RegionName)
-	turnlkFilename := fmt.Sprintf("%s/%s/%s_turn.nlk", rf, pkg.ProfileName, pkg.RegionName)
-	c.segmentLookupTable, err = da.ReadSegmentTable(seglkFilename)
-	if err != nil {
-		return nil, fmt.Errorf("Customize: failed to read segmentLookupTable from %s: %w", seglkFilename, err)
+	if pkg.TIPE == pkg.ROUTER {
+		// only for osm routiing engine
+		rf := config.ProfilesRoot()
+		seglkFilename := fmt.Sprintf("%s/%s/%s_segment.nlk", rf, pkg.ProfileName, pkg.RegionName)
+		turnlkFilename := fmt.Sprintf("%s/%s/%s_turn.nlk", rf, pkg.ProfileName, pkg.RegionName)
+		c.segmentLookupTable, err = da.ReadSegmentTable(seglkFilename)
+		if err != nil {
+			return nil, fmt.Errorf("Customize: failed to read segmentLookupTable from %s: %w", seglkFilename, err)
+		}
+		c.turnLookupTable, err = da.ReadTurnTable(turnlkFilename)
+		if err != nil {
+			return nil, fmt.Errorf("Customize: failed to read turnLookupTable from %s: %w", turnlkFilename, err)
+		}
 	}
-	c.turnLookupTable, err = da.ReadTurnTable(turnlkFilename)
-	if err != nil {
-		return nil, fmt.Errorf("Customize: failed to read turnLookupTable from %s: %w", turnlkFilename, err)
-	}
+
 	c.logger.Sugar().Infof("Starting customization step of Customizable Route Planning...")
 	c.logger.Sugar().Infof("Reading graph from %s", c.graphFilePath)
 	c.graph, err = da.ReadGraph(c.graphFilePath)
