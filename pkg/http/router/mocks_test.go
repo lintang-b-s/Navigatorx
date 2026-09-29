@@ -82,21 +82,21 @@ func (m *MockRoutingEngine) PathExists(u, v da.Index) bool {
 	args := m.Called(u, v)
 	return args.Bool(0)
 }
-func (m *MockRoutingEngine) GetDurationSeconds(eId da.Index, outEdge bool) float64 {
-	args := m.Called(eId, outEdge)
+func (m *MockRoutingEngine) GetDurationSeconds(segId da.Index) float64 {
+	args := m.Called(segId)
 	return args.Get(0).(float64)
 }
-func (m *MockRoutingEngine) GetLength(eId da.Index, outEdge bool, eLength float64) float64 {
-	args := m.Called(eId, eLength, outEdge)
+func (m *MockRoutingEngine) GetDurationFromLength(segId da.Index, eLength float64) float64 {
+	args := m.Called(segId, eLength)
 	return args.Get(0).(float64)
 }
-func (m *MockRoutingEngine) GetSegmentSpeed(eId da.Index, outEdge bool) float64 {
-	args := m.Called(eId, outEdge)
+func (m *MockRoutingEngine) GetSegmentSpeed(segId da.Index) float64 {
+	args := m.Called(segId)
 	return args.Get(0).(float64)
 }
 
-func (m *MockRoutingEngine) GetSegmentLength(eId da.Index, outEdge bool) float64 {
-	args := m.Called(eId, outEdge)
+func (m *MockRoutingEngine) GetSegmentLength(segId da.Index) float64 {
+	args := m.Called(segId)
 	return args.Get(0).(float64)
 }
 func (m *MockRoutingEngine) IsDummyOutEdge(edgeId da.Index) bool {

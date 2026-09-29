@@ -31,7 +31,7 @@ type Graph struct {
 	// overlay graph related
 	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
 	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
-	outEdgeCellOffset []Index             // offset of first outEdge for each cellNumber
+	outEdgeCellOffset []Index             // offset of first outEdge for each cellNumber // todo: ganti ke vertexCellOffset
 	inEdgeCellOffset  []Index             // offset of first inEdge for each cellNumber
 
 	// strongly connected components related
