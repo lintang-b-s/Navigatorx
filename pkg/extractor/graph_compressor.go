@@ -5,6 +5,7 @@ import (
 
 	"github.com/bits-and-blooms/bitset"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -163,7 +164,15 @@ func (p *Extractor[W]) appendCompSegments(sId, nSegId da.Index, merged Edge[W], 
 		rn.GetRoadLanes(sId),
 		da.NewEmptyTurnLanesData(),
 	)
-	crn.SetSegmentFlag(nSegId, rn.GetSegmentFlag(sId))
+	iscurved := geo.IsPolylineCurved(geometry)
+	flag := rn.GetSegmentFlag(sId)
+	if iscurved {
+		flag |= da.FlagIsCurved
+	} else {
+		flag &= ^da.FlagIsCurved
+	}
+
+	crn.SetSegmentFlag(nSegId, flag)
 
 	*compEdges = append(*compEdges, merged)
 }

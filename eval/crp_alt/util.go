@@ -57,7 +57,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 	op.SetNodeToOsmId(nodeToOsmId)
 
 	rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
-	g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false) // roadnetwork false biar ada dummy edge (v,v)
+	g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 	logger, err := logger.New()
 	if err != nil {

@@ -189,6 +189,8 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 	landmarks := make([]da.Index, k)
 	vlw := make([]W, n*da.Index(k))
 	landmarksVertices := lm.SelectLandmarksTwo(k, graph)
+	lm.k = da.Index(k)
+	lm.n = n
 
 	maxSearchSize := graph.NumberOfVertices()
 	maxVerticesInCell := graph.GetMaxVerticesInCell()
@@ -291,6 +293,7 @@ func (lm *Landmark[W]) vlwAt(v, l da.Index) W {
 func (lm *Landmark[W]) matrix(r, c da.Index, lw bool) [][]W {
 	w := make([][]W, r)
 	for i := da.Index(0); i < r; i++ {
+		w[i] = make([]W, c)
 		for j := da.Index(0); j < c; j++ {
 			if lw {
 				w[i][j] = lm.lwAt(i, j)

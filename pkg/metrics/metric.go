@@ -76,7 +76,7 @@ func (met *Metric[W]) GetSegmentLength(segId da.Index) uint32 {
 
 func (met *Metric[W]) GetSegmentSpeed(segId da.Index) float64 {
 	cf := met.costFunction.Load()
-	if util.Ge(cf.weights[segId], util.Infinity[W]()) {
+	if util.Ge(int32(cf.segmentDurations[segId]), util.INF_WEIGHT_FIXED) {
 		return 0
 	}
 	return float64(cf.segmentLengths[segId]) / float64(cf.segmentDurations[segId])

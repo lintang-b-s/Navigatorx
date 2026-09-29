@@ -57,6 +57,7 @@ func (tf *TimeFunction[W]) Update(
 	for i, eId := range upEbgEdgeIds {
 		segmentId := upEbgNodeIds[i]
 		dur := tf.weightFromSpeed(upSpLimits[i], tf.segmentLengths[segmentId])
+
 		tf.weights[eId] = dur
 		tf.segmentDurations[segmentId] = uint32(dur)
 	}

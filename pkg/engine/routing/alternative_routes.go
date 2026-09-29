@@ -619,9 +619,8 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, s, t da.Index,
 	// lv - dist(u,t) = dist(s,u)
 	lastPlateauCost = lv - lastPlateauCost
 
-	firstPlateauCostSeconds := util.WeightToSeconds(firstPlateauCost)
 	plateau := max(
-		lastPlateauCost-firstPlateauCostSeconds,
+		lastPlateauCost-firstPlateauCost,
 		0,
 	)
 

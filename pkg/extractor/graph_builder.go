@@ -87,20 +87,6 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 			inLengths, outDegree, inDegree, isParallelOutEdge, isParallelInEdge)
 	}
 
-	if !roadNetwork {
-		for i := 0; i < len(edges); i++ {
-			rn.AppendSegmentData(
-				-1,
-				1, 1,
-				p.tagStringIdMap.GetID(""),
-				pkg.INVALID_HIGHWAY,
-				pkg.INVALID_HIGHWAY,
-				uint8(0),
-				da.NewEmptyTurnLanesData(),
-			)
-		}
-	}
-
 	fmt.Printf("25%%...")
 
 	// T[u][i*outDegree[u]+j] = turn type from entryPoint i (inEdge ke-i dari vertex u) to exitPoint j  (outEdge ke-j dari vertex u)  at vertex u.
