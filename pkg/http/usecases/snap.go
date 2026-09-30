@@ -23,7 +23,7 @@ see: https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-searc
 
 let w adalah head dari kandidat road segment origin dan q adalah tail dari kandidat road segment destination
 kalau tidak ada nearby road segments (dari source dan destination query) atau setiap pair road segments yang dievaluate dari round ini gak ada path (dari w ke q),
-jalanin lagi SnapOrigDestToNearbyRoadSegmentsByradius() dengan search radius 2x dari radius sebelumnya dan kita gak evaluate lagi evaluated candidate pairs di all previous rounds.
+jalanin lagi snapOrigDestToNearbyRoadSegmentsByradius() dengan search radius 2x dari radius sebelumnya dan kita gak evaluate lagi evaluated candidate pairs di all previous rounds.
 kenapa??
 1. karena kita tahu evaluated candidate pairs gak ada path (dari w ke q) di all previous rounds.
 2. masih ada kemungkinan terdapat path dari old origCands ke new dstCands
@@ -52,7 +52,7 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
 		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 
-		sp, tp = rs.SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet, reroute, startSegmentId)
+		sp, tp = rs.snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet, reroute, startSegmentId)
 		if !rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 			// break loop early if found connected origin and destination
 			break
@@ -64,13 +64,13 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 }
 
 /*
-SnapOrigDestToNearbyRoadSegmentsByradius. snap origin dan destination query ke road segment terdekatnya dalam radius=searchRad,
+snapOrigDestToNearbyRoadSegmentsByradius. snap origin dan destination query ke road segment terdekatnya dalam radius=searchRad,
 serta terdapat path dari head dari road segment origin ke tail dari road segment destination hasil snap.
 edge (u,v) dari road segment. tail = u, head = v.
 
 let w adalah head dari kandidat road segment origin dan q adalah tail dari kandidat road segment destination
 kalau tidak ada nearby road segments (dari source dan destination query) atau setiap pair road segments yang dievaluate dari round ini gak ada path (dari w ke q),
-jalanin lagi SnapOrigDestToNearbyRoadSegmentsByradius() dengan search radius 2x dari radius sebelumnya dan kita gak evaluate lagi evaluated candidate pairs di all previous rounds.
+jalanin lagi snapOrigDestToNearbyRoadSegmentsByradius() dengan search radius 2x dari radius sebelumnya dan kita gak evaluate lagi evaluated candidate pairs di all previous rounds.
 kenapa??
 1. karena kita tahu evaluated candidate pairs di all previous rounds gak ada path (dari w ke q).
 2. masih ada kemungkinan terdapat path dari old origCands ke new dstCands
@@ -79,7 +79,7 @@ let M=number of road segments/edges in the graph, MAX_CANDIDATES (see spatial_in
 let c=max number of road segments/edges returned by rtree spatial index
 avg case: O(logM + c^2)
 */
-func (rs *RoutingService) SnapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
+func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
 	removedPrevPairSet hashset.Uint64Set, reroute bool, startSegmentId da.Index) (da.PhantomNode, da.PhantomNode) {
 	var (
 		pLat, pLon float64
@@ -361,13 +361,13 @@ func (rs *RoutingService) notFoundOriginDestinationWithinRadius(sp, tp da.Phanto
 	return false
 }
 
-// isPairAlreadyEvaluated. check (orig,dest) pair evaluated==true
+// isPairAlreadyEvaluated. check (orig,dest) pair evaluated==true. avg case O(1) hashtable
 func (rs *RoutingService) isPairAlreadyEvaluated(orig, dest da.Index, removedPrevPairSet hashset.Uint64Set) bool {
 	pairKey := util.Bitpack(uint32(orig), uint32(dest))
 	return removedPrevPairSet.Contains(pairKey)
 }
 
-// evaluate. set (orig,dest) pair evaluated=true
+// evaluate. set (orig,dest) pair evaluated=true. avg case O(1) hashtable
 func (rs *RoutingService) evaluate(orig, dest da.Index, removedPrevPairSet hashset.Uint64Set) {
 	pairKey := util.Bitpack(uint32(orig), uint32(dest))
 	removedPrevPairSet.Add(pairKey)

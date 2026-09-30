@@ -36,7 +36,7 @@ func (s *TwoLevelStorage) Get(id Index) uint32 {
 		// https://go.dev/blog/swisstable
 		// go1.24 use swiss table for its hash table (open addressing)
 		// a=load factor=n/m, n=number of items to be mapped, m=size of hash table
-		// open addressing avg case: unsuccessful search & insert in O(1/(1-a)) or O(1)
+		// open addressing avg case: unsuccessful search & insert in O(1/(1-a)) or O(1), assuming uniform hashing.
 		id -= Index(s.numVertices)
 		val := s.overlay[id]
 		return val
@@ -147,7 +147,7 @@ func (s *MapStorage) Get(id Index) uint32 {
 	// https://go.dev/blog/swisstable
 	// go1.24 use swiss table for its hash table (open addressing)
 	// a=load factor=n/m, n=number of items to be mapped, m=size of hash table
-	// open addressing avg case: unsuccessful search & insert in O(1/(1-a)) or O(1)
+	// open addressing avg case: unsuccessful search & insert in O(1/(1-a)) or O(1), assuming uniform hashing.
 	val, ok := s.overlay[id]
 	if !ok {
 		return math.MaxUint32

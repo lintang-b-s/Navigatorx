@@ -46,6 +46,8 @@ go build -o ./bin/customizer ./cmd/customizer
 
 ### Query Engine
 
+The point-to-point fastest path query, similar to the one in ref ([5](#ref5)), running Bidirectional ALT (A\*, Landmarks, and Triangle Inequality) ([[3]](#ref3)) on a graph formed by the union of the overlay graph and the original graph, resulting from the preprocessing and customization phases of the Customizable Route Planning (CRP) ([[1]](#ref1)) technique.
+
 ```
 go build -o ./bin/engine -pgo=./bin/default.pgo  ./cmd/engine
 ./bin/engine
@@ -117,6 +119,8 @@ ACM, pp. 156 - 165.
 
 <a id="ref4"></a>4. Schild, A. and Sommer, C. (2015) ‘On Balanced Separators in Road Networks’, in E. Bampis (ed.) Experimental Algorithms. Cham: Springer International Publishing, pp. 286–297.
 
+<a id ="ref5"></a>5. Efentakis, A., Pfoser, D. dan Vassiliou, Y. (2015). SALT. A Unified Framework for All Shortest-Path Query Variants on Road Networks. In Proceedings of the 14th International Symposium on Experimental Algorithms, Volume 9125, pages 298–311, Paris.
+
 ### Acknowledgments
 
 i would like to express my deepest gratitude to the contributors to the open source projects below. The code in the Navigatorx project is heavily adapted and inspired by the following open source projects:
@@ -125,6 +129,7 @@ i would like to express my deepest gratitude to the contributors to the open sou
 2. [OSRM Backend](https://github.com/Project-OSRM/osrm-backend)
 3. [GraphHopper](https://github.com/graphhopper/graphhopper)
 4. [Telenav](https://github.com/Telenav/open-source-spec)
+5. [CP4BookCode](https://github.com/stevenhalim/cpbook-code)
 
 ## License
 

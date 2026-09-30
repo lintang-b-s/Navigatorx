@@ -565,7 +565,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, s, t da.Index,
 	*/
 
 	// u = vertex id/overlay vertex id  dari via
-	// s-> .... -> u -vInEdge-> via (bisa aja sebuah overlay vertex) <-vExitEdge- w <- ..... <-t
+	// s-> .... -> u -e1-> via (bisa aja sebuah overlay vertex) <-e2- w <- ..... <-t
 
 	// task kita disini adalah find total length dari plateau u-w dari definisi platau diatas
 	// so kita harus backtrack dari vId/vOverlayId dari via vertex ke vertex awal dari plateau (atau vertex u dari definisi diatas)

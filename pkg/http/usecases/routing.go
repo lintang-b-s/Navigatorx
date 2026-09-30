@@ -93,7 +93,6 @@ func (rs *RoutingService) ShortestPath(
 			directionBuilder.SetReroute(startSegId)
 		}
 		drivingDirections = directionBuilder.GetDrivingDirections(segmentPath, sp, tp, useAnnotation)
-
 	}
 
 	rs.engine.PutCoordsToPool(pathCoords)
@@ -149,7 +148,6 @@ func (rs *RoutingService) AlternativeRouteSearch(
 
 		alternatives[i].SetDrivingDirections(drivingDirections)
 		rs.engine.PutCoordsToPool(altPathCoords)
-
 	}
 	return alternatives, nil
 }
