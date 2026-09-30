@@ -161,9 +161,9 @@ func (g *Graph) Dfs(v Index, output *[]Index, visited []bool,
 	*output = append(*output, v)
 }
 
-// PathExistsFromUToVUsingCondensationGraph. cek apakah ada path (tanpa costs) dari u ke v
+// pathExistsCondensationGraph. cek apakah ada path (tanpa costs) dari u ke v
 // O(1)
-func (g *Graph) PathExistsFromUToVUsingCondensationGraph(u, v Index) bool {
+func (g *Graph) pathExistsCondensationGraph(u, v Index) bool {
 	sccOfU := g.sccs[u]
 	sccOfV := g.sccs[v]
 
@@ -214,7 +214,7 @@ func (g *Graph) PathExists(u, v Index) bool {
 		return true
 	}
 
-	return g.PathExistsFromUToVUsingCondensationGraph(u, v)
+	return g.pathExistsCondensationGraph(u, v)
 }
 
 func (g *Graph) SetSCCs(sccs []Index) {

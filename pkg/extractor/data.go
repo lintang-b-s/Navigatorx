@@ -91,11 +91,11 @@ func (n *NodeCoord) GetY() float64 {
 }
 
 type restriction struct {
-	id              int64
-	via             da.Index
-	viaWays         []int64
-	to              int64
-	turnRestriction TurnRestriction
+	id              int64           // id dari relation turn restriction
+	via             da.Index        // via-node graph node id
+	viaWays         []int64         // via-ways osm id
+	to              int64           // to-way osm id
+	turnRestriction TurnRestriction // tipe turn restriction
 	timeRangeVal    string
 	isWay           bool
 	conditional     bool

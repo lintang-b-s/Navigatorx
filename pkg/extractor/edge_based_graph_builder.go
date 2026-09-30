@@ -119,7 +119,6 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 
 	sl := wf.GetSegmentLengths()
 	sl = append(sl, 0) // dummy last ebg vertex segment length
-
 	segDur := wf.GetSegmentDurations()
 	segDur = append(segDur, 0)
 	ebgWf := met.NewTimeCostFunction(true, ebgWeights, sl, segDur)
@@ -172,7 +171,7 @@ func makeTurnTable[W util.RoutingNumber](
 
 	minResolution := g.GetMinResolution()
 
-	// T(n) = \sum_{v in V} outDeg(v)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
+	// T(n) = \sum_{u in V} outDeg(u)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
 	g.ForOutEdges(func(_, v, u, i da.Index, percentage float64, eIdFrom da.Index) {
 
 		vLimitFrom := util.SpeedToMetersPerSecond(eSpeedLimit[eIdFrom])
@@ -200,19 +199,18 @@ func makeTurnTable[W util.RoutingNumber](
 			vLimitTo := util.SpeedToMetersPerSecond(eSpeedLimit[eIdTo])
 			currentTurnCost := turnTableSeconds[turnTableId]
 
-			prevVertex := g.GetVertex(u)
-			tailVertex := g.GetVertex(v)
-			headVertex := g.GetVertex(w)
+			prev := g.GetVertex(u)
+			tail := g.GetVertex(v)
+			head := g.GetVertex(w)
 
-			prevInitialBearing := geo.ComputeInitialBearing(prevVertex.GetLat(), prevVertex.GetLon(), tailVertex.GetLat(),
-				tailVertex.GetLon())
-			relativeBearing := geo.ComputeRelativeBearing(tailVertex.GetLat(), tailVertex.GetLon(), headVertex.GetLat(),
-				headVertex.GetLon(), prevInitialBearing)
-			absRelativeBearing := math.Abs(relativeBearing)
+			prevInitialBearing := geo.ComputeInitialBearing(prev.GetLat(), prev.GetLon(), tail.GetLat(),
+				tail.GetLon())
+			relBearing := geo.ComputeRelativeBearing(tail.GetLat(), tail.GetLon(), head.GetLat(),
+				head.GetLon(), prevInitialBearing)
+			absRelativeBearing := math.Abs(relBearing)
 			turnAngleDeg := util.RadiansToDegree(absRelativeBearing)
 
-			fromOutEdgeId := g.GetOutId(eIdFrom)
-			l := util.DistanceToMeters(wf.GetSegmentLength(fromOutEdgeId))
+			l := util.DistanceToMeters(wf.GetSegmentLength(eIdFrom))
 			lPrime := util.DistanceToMeters(wf.GetSegmentLength(eIdTo))
 			turningSpeed := pkg.CalcTurningSpeed(l, lPrime, minResolution, turnAngleDeg)
 
@@ -221,11 +219,9 @@ func makeTurnTable[W util.RoutingNumber](
 				return
 			}
 
-			turnCostByAngleBetweenEdges := pkg.CalcTurningCost(turningSpeed, vLimitFrom, vLimitTo)
-
-			turnCostByAngleBetweenEdges = min(turnCostByAngleBetweenEdges, turnCostByAngleThreshold)
-
-			turnTableSeconds[turnTableId] += turnCostByAngleBetweenEdges
+			tcByAngle := pkg.CalcTurningCost(turningSpeed, vLimitFrom, vLimitTo)
+			tcByAngle = min(tcByAngle, turnCostByAngleThreshold)
+			turnTableSeconds[turnTableId] += tcByAngle
 		})
 	})
 

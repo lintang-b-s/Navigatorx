@@ -96,7 +96,7 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	minResolution := pkg.INF_WEIGHT
 
 	// init turn matrices. (only for road network OpenStreetMap input file)
-	// T(n) = \sum_{v in V} outDeg(v)*inDeg(v) <= \sum_{v in V} outDeg(v) * max(outDeg(v),inDeg(v))=O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
+	// T(n) = \sum_{v in V} outDeg(v)*inDeg(v) <= \sum_{v in V} c^2 =O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
 	for v := 0; v < len(turnMatrices); v++ {
 		turnMatrices[v] = make([]pkg.TurnType, outDegree[v]*inDegree[v])
 
@@ -105,6 +105,7 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 		}
 
 		if !roadNetwork {
+			//
 			continue
 		}
 
@@ -194,7 +195,6 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 		}
 
 		matrixOffset += len(turnMatrices[u])
-
 	}
 
 	outEdgeOffset := da.Index(0)

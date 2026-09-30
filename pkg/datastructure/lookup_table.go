@@ -17,7 +17,7 @@ func NewKeyVal(keys []uint64, val Index) KeyVal {
 	return KeyVal{keys: keys, val: val}
 }
 
-// compare. lexicographic order compare.
+// compare. lexicographic order less comparation.
 func (kv KeyVal) compare(kvb KeyVal) bool {
 	for i := 0; i < len(kv.keys); i++ {
 		if kv.keys[i] != kvb.keys[i] {

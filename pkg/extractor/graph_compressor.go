@@ -5,7 +5,6 @@ import (
 
 	"github.com/bits-and-blooms/bitset"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -58,6 +57,7 @@ func (p *Extractor[W]) compressOSMGraph(
 	protected := p.compressionProtectedVertices(edges, rn)
 	contractible := make([]bool, numVertices) // if contractible[vertex] == true, incomingEdge->vertex->outgouingEdge can be compressed as one edge
 	for vertex := range contractible {
+		// O(n).n=number of vertices
 		dfsState[vertex] = unvisited
 		if protected[vertex] || len(inEdges[vertex]) != 1 || len(outEdges[vertex]) != 1 {
 			// only compress vertices that only have inDegree=1 & outDegree=1
@@ -76,6 +76,8 @@ func (p *Extractor[W]) compressOSMGraph(
 		)
 	}
 
+	// tandain satu vertex di cycle of contractible vertices sebagai non-contractible
+	// O(n+m) dfs
 	for u := range contractible {
 		if dfsState[u] == unvisited && contractible[u] {
 			cycle, v := cycleCheck(uint32(u), dfsState, outEdges, edges, contractible)
@@ -95,6 +97,7 @@ func (p *Extractor[W]) compressOSMGraph(
 	newNodeToOSMID := make(map[da.Index]int64, numVertices)
 	newNodeIDMap := make(map[int64]da.Index, numVertices)
 	var nVID da.Index
+	// O(n)
 	for oVId := range contractible {
 		if contractible[oVId] {
 			// karena kita remove compressible vertices
@@ -123,6 +126,7 @@ func (p *Extractor[W]) compressOSMGraph(
 	}
 
 	// sisa edges yang non-compressible
+	// O(m)
 	for eId := da.Index(0); eId < da.Index(m); eId++ {
 		if compEdgesSet.Test(uint(eId)) {
 			continue
@@ -135,12 +139,6 @@ func (p *Extractor[W]) compressOSMGraph(
 		nIds := rn.GetSegmentOsmNodeIds(eId)
 		curved := rn.IsCurved(eId)
 		p.appendCompSegments(eId, neId, e, geometry, nIds, curved, crn, rn, &compEdges)
-	}
-
-	for _, newID := range oldToNew {
-		if newID == da.INVALID_VERTEX_ID {
-			continue
-		}
 	}
 
 	p.nodeToOsmId = newNodeToOSMID
@@ -164,16 +162,15 @@ func (p *Extractor[W]) appendCompSegments(sId, nSegId da.Index, merged Edge[W], 
 		rn.GetRoadLanes(sId),
 		da.NewEmptyTurnLanesData(),
 	)
-	iscurved := geo.IsPolylineCurved(geometry)
+
 	flag := rn.GetSegmentFlag(sId)
-	if iscurved {
+	if curved {
 		flag |= da.FlagIsCurved
 	} else {
 		flag &= ^da.FlagIsCurved
 	}
 
 	crn.SetSegmentFlag(nSegId, flag)
-
 	*compEdges = append(*compEdges, merged)
 }
 
@@ -265,12 +262,17 @@ func (p *Extractor[W]) compressionProtectedVertices(
 	rn *da.RoadNetworkDataContainer,
 ) []bool {
 	protected := make([]bool, len(p.nodeToOsmId))
+	// O(n). n=number of vertices
 	for vertex, osmID := range p.nodeToOsmId {
+
 		if p.barrierNodes[osmID] {
+			// protect barrier nodes
 			protected[vertex] = true
 		}
 	}
+
 	for _, barrier := range p.conditionalBarrierNodes {
+		// protect barrier nodes
 		if vertex, ok := p.nodeIDMap[barrier.GetOsmNodeId()]; ok {
 			protected[vertex] = true
 		}
@@ -289,7 +291,9 @@ func (p *Extractor[W]) compressionProtectedVertices(
 			}
 		}
 	}
+	// O(m). m = number of edges
 	for edgeId := range edges {
+		// nodes contained in conditional restriction
 		edge := &edges[edgeId]
 		_, conditionalSpeed := p.conditionalSpeedLimits[edge.osmwayId]
 		_, conditionalDirection := p.conditionalReversibleWayVals[edge.osmwayId]
@@ -351,7 +355,7 @@ func isSameSpeed[W util.RoutingNumber](inEdge *Edge[W], outEdge *Edge[W], waySpe
 		inSpeed == outSpeed
 }
 
-// cycleCheck. find cycle of contractible vertices.
+// cycleCheck. find cycle of contractible vertices using dfs.
 func cycleCheck[W util.RoutingNumber](u uint32, dfsState []int, outEdges [][]int, edges []Edge[W], contractible []bool) (bool, uint32) {
 	dfsState[u] = explored
 	for _, eId := range outEdges[u] {
