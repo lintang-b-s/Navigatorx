@@ -31,6 +31,7 @@ my c++ solution (got AC di semua subtasks tlx: https://tlx.toki.id/problems/osn-
 https://drive.google.com/file/d/1KMMGWNHz4eAvEDppBrRUhN4vCdhzbIQT/view?usp=sharing
 */
 
+// adapted from segment tree code cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch2/ourown/segmenttree_ds.cpp
 type SegmentTree struct {
 	n       int
 	A       []int64

@@ -209,6 +209,7 @@ func dot(x1, y1, x2, y2 float64) float64 {
 // randomizedSelect. return the i-th smallest element (or largest depends on comp) of the array arr[p...r]
 // & partition the arr such that all elements (arr[p,..q]) left of i-th smallest element  are smaller (or largest depends on comp) than  the pivot element arr[q] & all elements (arr[q+1,...,r]) in the right of i-th smallest element
 // expected runtime O(n), n=len(arr). worst case O(n^2)
+// read chapter 9.2 CLRS (introduction to algorithm by Cormen, et al. 3rd edition) for the time complexity analysis
 func (dmf *DinicMaxFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func(left, right int) bool) int {
 	if p == r {
 		return p
