@@ -316,10 +316,12 @@ ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.p
 
 time complexity:
 general capacity graph:
-see lemama 4.1 ref1, O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
+see lemma 4.1 ref1, O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
 
 for unit capacity graph:
-see lemama 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
+see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
+
+inspired from dinic code implementation cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch8/maxflow.cpp
 */
 func (dmf *DinicMaxFlow) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
 	var (
@@ -336,7 +338,7 @@ func (dmf *DinicMaxFlow) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
 		// time complexity of dinic algorithm: O(n^2*m)
 
 		// for unit capacity graph:
-		// see lemama 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
+		// see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 		dmf.resetCurrentEdges()
 		blockingFlowVal := dmf.blockingFlow(s, t) // O(nm)
 		maxFlow += blockingFlowVal

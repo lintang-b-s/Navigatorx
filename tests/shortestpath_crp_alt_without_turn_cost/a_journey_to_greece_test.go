@@ -46,10 +46,14 @@ dp(S,j) = min(dp(S\{j}, i) + w(i,j)), for all i != j
 solution:
 min(dp(V,j)+w(j,0)), for all j.
 
-it is easy to see that this dp recurrence has optimal substructure & overlapping subproblems.
+https://www.cs.cmu.edu/~15451-f23/lectures/lecture10-dp2.pdf
+
+it is easy to see that this tsp problem has optimal substructure & overlapping subproblems.
 
 dpTSP compute minimum cost at vertex u and have visited all vertices described by off bit in mask.
 time: O(2^{n-1}*n^2), number of subsets 2^{n-1} * number of possible value of j * worst case O(n) works for each state
+
+this dp tsp code inspired from dp tsp code cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch3/dp/beepers_UVa10496.cpp
 */
 func dpTSP(u, mask int, dp *[MAX_N][1 << (MAX_N - 1)]int64, dist [MAX_N][MAX_N]int64) int64 {
 	if mask == 0 {

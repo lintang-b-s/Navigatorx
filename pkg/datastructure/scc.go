@@ -6,6 +6,7 @@ import (
 )
 
 // https://cp-algorithms.com/graph/strongly-connected-components.html
+// inspired from kosaraju code implementation cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch4/traversal/UVa11838.cpp
 func (g *Graph) RunKosaraju() {
 	// O(V+E)
 	n := Index(g.NumberOfVertices())

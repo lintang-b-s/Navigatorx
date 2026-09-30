@@ -356,6 +356,7 @@ func isSameSpeed[W util.RoutingNumber](inEdge *Edge[W], outEdge *Edge[W], waySpe
 }
 
 // cycleCheck. find cycle of contractible vertices using dfs.
+// inspired from cycle detection code cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch4/traversal/cyclecheck.cpp
 func cycleCheck[W util.RoutingNumber](u uint32, dfsState []int, outEdges [][]int, edges []Edge[W], contractible []bool) (bool, uint32) {
 	dfsState[u] = explored
 	for _, eId := range outEdges[u] {
