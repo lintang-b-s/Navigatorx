@@ -173,9 +173,17 @@ func (w *BinaryWriter) String(value string) error {
 	return w.Blob([]byte(value))
 }
 
-func WriteCompressedFile(filename string, writePayload func(*BinaryWriter) error) error {
+func IsPathExists(filename string) error {
 	dir := filepath.Dir(filename)
 	if err := os.MkdirAll(dir, 0755); err != nil {
+		return err
+	}
+	return nil
+}
+
+func WriteCompressedFile(filename string, writePayload func(*BinaryWriter) error) error {
+	dir := filepath.Dir(filename)
+	if err := IsPathExists(filename); err != nil {
 		return err
 	}
 	file, err := os.CreateTemp(dir, "."+filepath.Base(filename)+".tmp-*")

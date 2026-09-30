@@ -11,7 +11,7 @@ import (
 
 func PrepTimeFunctionPath() string {
 	root := config.ProfilesRoot()
-	fpath := fmt.Sprintf("%s/%s_%s_prep.ntf", root, pkg.ProfileName, pkg.RegionName)
+	fpath := fmt.Sprintf("%s/%s/%s_prep.ntf", root, pkg.ProfileName, pkg.RegionName)
 	return fpath
 }
 
@@ -57,7 +57,6 @@ func (tf *TimeFunction[W]) Update(
 	for i, eId := range upEbgEdgeIds {
 		segmentId := upEbgNodeIds[i]
 		dur := tf.weightFromSpeed(upSpLimits[i], tf.segmentLengths[segmentId])
-
 		tf.weights[eId] = dur
 		tf.segmentDurations[segmentId] = uint32(dur)
 	}

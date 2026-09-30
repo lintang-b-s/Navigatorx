@@ -14,7 +14,7 @@ type Metric[W util.RoutingNumber] struct {
 	// https://go101.org/article/concurrent-atomic-operation.html   https://pkg.go.dev/sync/atomic#Pointer.Load   https://go.dev/ref/mem#atomic
 	// https://goperf.dev/01-common-patterns/atomic-ops/
 	// https://github.com/cockroachdb/cockroach/blob/d30c905fff79ef825adc96bcc647f1872a90f2ff/pkg/util/syncutil/map.go#L59
-	weights                                     atomic.Pointer[da.OverlayWeights[W]]
+	shortcutWeights                             atomic.Pointer[da.OverlayWeights[W]]
 	costFunction                                atomic.Pointer[TimeFunction[W]]
 	lastSegmentSpeedFiles, lastTurnPenaltyFiles atomic.Pointer[[]string]
 	metricFilepath, timeFunctionFilePath        string
@@ -32,15 +32,15 @@ func NewMetric[W util.RoutingNumber](
 		timeFunctionFilePath: timeFunctionFilePath,
 		mu:                   sync.Mutex{},
 	}
-	m.weights.Store(overlayWeights)
+	m.shortcutWeights.Store(overlayWeights)
 	m.lastSegmentSpeedFiles.Store(&[]string{})
 	m.lastTurnPenaltyFiles.Store(&[]string{})
 
 	return m
 }
 
-func (met *Metric[W]) GetWeights() *da.OverlayWeights[W] {
-	return met.weights.Load()
+func (met *Metric[W]) GetShortcutWeights() *da.OverlayWeights[W] {
+	return met.shortcutWeights.Load()
 }
 
 func (met *Metric[W]) SetTimeFunction(tf *TimeFunction[W]) {
@@ -83,7 +83,7 @@ func (met *Metric[W]) GetSegmentSpeed(segId da.Index) float64 {
 }
 
 func (met *Metric[W]) GetShortcutWeight(offset da.Index) W {
-	cf := met.weights.Load()
+	cf := met.shortcutWeights.Load()
 	return cf.GetWeight(offset)
 }
 
@@ -116,7 +116,7 @@ func (met *Metric[W]) UpdateMetrics() error {
 
 	met.mu.Lock()
 	defer met.mu.Unlock()
-	met.weights.Store(newMet.weights.Load())
+	met.shortcutWeights.Store(newMet.shortcutWeights.Load())
 	met.costFunction.Store(newMet.costFunction.Load())
 	return nil
 }

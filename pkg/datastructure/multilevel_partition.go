@@ -93,7 +93,7 @@ func (mp *MultilevelPartition) GetNumCells() []uint32 {
 
 func (mp *MultilevelPartition) ReadMlpFile() error {
 	root := config.ProfilesRoot()
-	filename := fmt.Sprintf("%s/inertial_flow_%s_%s.mlp", root, pkg.ProfileName, pkg.RegionName)
+	filename := fmt.Sprintf("%s/%s/inertial_flow_%s.mlp", root, pkg.ProfileName, pkg.RegionName)
 	f, err := os.Open(filename)
 
 	if err != nil {

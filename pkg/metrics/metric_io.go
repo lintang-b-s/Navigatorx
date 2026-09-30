@@ -14,7 +14,7 @@ func (met *Metric[W]) WriteToFile(filename string) error {
 		if err := w.Uint8(NumericMarker[W]()); err != nil {
 			return err
 		}
-		weights := met.weights.Load()
+		weights := met.shortcutWeights.Load()
 		return WriteRoutingNumbers(w, weights.GetWeights())
 	})
 }
@@ -55,7 +55,7 @@ func ReadFromFile[W util.RoutingNumber](
 		timeFunctionFilePath: timeFunctionFilePath,
 		mu:                   sync.Mutex{},
 	}
-	metric.weights.Store(overlayWeights)
+	metric.shortcutWeights.Store(overlayWeights)
 	metric.costFunction.Store(timeFunction)
 	metric.lastSegmentSpeedFiles.Store(&[]string{})
 	metric.lastTurnPenaltyFiles.Store(&[]string{})

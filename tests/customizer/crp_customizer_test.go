@@ -600,7 +600,7 @@ func TestCRPCustomizer(t *testing.T) {
 		}
 	}
 
-	ow := m.GetWeights()
+	ow := m.GetShortcutWeights()
 	gotNumOfShortcuts := ow.GetNumberOfShortcuts()
 	if gotNumOfShortcuts != expectedNumOfShortcuts {
 		t.Errorf("expected number of shortcuts: %v, got: %v", expectedNumOfShortcuts, gotNumOfShortcuts)
