@@ -2,6 +2,8 @@
 package http
 
 import (
+	"os"
+	"strconv"
 	"time"
 
 	http_router "github.com/lintang-b-s/Navigatorx/pkg/http/router"
@@ -39,6 +41,15 @@ func (s *Server) Use(
 	config := http_server.Config{
 		Port:    viper.GetInt("http_port"),
 		Timeout: viper.GetDuration("server.api_timeout"),
+	}
+
+	envPort := os.Getenv("PORT") // biar bisa dideploy di railway https://railway.com/deploy/go--q5VPer
+	if envPort != "" {
+		port, err := strconv.Atoi(envPort)
+		if err != nil {
+			return err
+		}
+		config.Port = port
 	}
 	log.Info("HTTP server config",
 		zap.Int("port", config.Port),

@@ -63,12 +63,12 @@ func newSegmentKey(osmId uint64, tail, head da.Coordinate) segmentKey {
 // Build. build r-tree
 func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger) {
 	logger.Info("Building R-tree spatial index...")
-	m := g.NumberOfEdges()
-	mins := make([][2]int32, 0, m)
-	maxs := make([][2]int32, 0, m)
-	items := make([]leafData, 0, m)
+	n := g.NumberOfVertices()
+	mins := make([][2]int32, 0, n)
+	maxs := make([][2]int32, 0, n)
+	items := make([]leafData, 0, n)
 
-	segmentSet := make(map[segmentKey]segmentVal, m/2) // segmentKey -> road segment (forward direction), mbr
+	segmentSet := make(map[segmentKey]segmentVal, n/10) // segmentKey -> road segment (forward direction), mbr
 
 	g.ForVertices(func(v da.Vertex, segId da.Index) {
 

@@ -104,13 +104,22 @@ func (api *API) Run(
 	navigatorRoutes.Routes(group)
 
 	var mwChain []alice.Constructor
+
+	railway := viper.GetBool("railway")
+	var healthEndpoint string
+	if railway { // https://railway.com/deploy/go--q5VPer
+		healthEndpoint = "/v1/healthcheck"
+	} else {
+		healthEndpoint = "healthz"
+	}
+
 	if useRateLimit {
 		// useRateLimit = true ->  dideploy pakai nginx reverse proxy (udah ada gzip nya).
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, api.Limit)
+			RealIP, api.Heartbeat(healthEndpoint), Logger(log), Labels, api.Limit)
 	} else {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, api.Heartbeat("healthz"), Logger(log), Labels, gziphandler.GzipHandler)
+			RealIP, api.Heartbeat(healthEndpoint), Logger(log), Labels, gziphandler.GzipHandler)
 	}
 	mainMwChain := alice.New(mwChain...).Then(router)
 
@@ -146,7 +155,6 @@ func (api *API) Run(
 				log.Error("Failed to wait for ongoing requests to finish, waiting for forced cancellation.")
 			}
 		}
-
 	}
 
 	select {

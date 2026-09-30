@@ -18,6 +18,7 @@ func New(ctx context.Context, h http.Handler, config Config) *http.Server {
 	httpVersion := viper.GetString("server.http_version")
 
 	port := config.Port
+
 	protocol := &http.Protocols{}
 
 	switch httpVersion {

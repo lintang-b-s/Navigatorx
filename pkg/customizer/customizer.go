@@ -18,15 +18,14 @@ import (
 )
 
 type Customizer[W util.RoutingNumber] struct {
-	ow                       *da.OverlayWeights[W]
-	graph                    *da.Graph
-	overlayGraph             *da.OverlayGraph
-	lowestHeapPool           sync.Pool
-	levelHeapPool            sync.Pool
-	lowestHeapNoTurnCostPool sync.Pool
-	levelHeapNoTurnCostPool  sync.Pool
-	segmentLookupTable       *da.LookupTable[*da.SegmentKV]
-	turnLookupTable          *da.LookupTable[*da.TurnKV]
+	ow           *da.OverlayWeights[W]
+	graph        *da.Graph
+	overlayGraph *da.OverlayGraph
+
+	levelOneHeapPool   sync.Pool
+	upperLevelHeapPool sync.Pool
+	segmentLookupTable *da.LookupTable[*da.SegmentKV]
+	turnLookupTable    *da.LookupTable[*da.TurnKV]
 
 	logger                              *zap.Logger
 	edgeSpeedsFilePath, turnPenFilePath []string
@@ -166,25 +165,13 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 	wf := c.update(upSegmentIds, upSegmentSpeedLimits, upTurnIds, upTurnPenalties)
 	maxVerticesIncell := c.graph.GetMaxVerticesInCell()
 
-	c.lowestHeapPool = sync.Pool{
-		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](uint32(maxVerticesIncell), uint32(maxVerticesIncell), da.ARRAY_STORAGE, true)
-		},
-	}
-
-	c.levelHeapPool = sync.Pool{
-		New: func() any {
-			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
-		},
-	}
-
-	c.lowestHeapNoTurnCostPool = sync.Pool{
+	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
 			return da.NewQueryHeap[da.QueryKey, W](uint32(maxVerticesIncell), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
 		},
 	}
 
-	c.levelHeapNoTurnCostPool = sync.Pool{
+	c.upperLevelHeapPool = sync.Pool{
 		New: func() any {
 			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
 		},
@@ -241,25 +228,13 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	maxVerticesIncell := c.graph.GetMaxVerticesInCell()
 
-	c.lowestHeapPool = sync.Pool{
-		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](uint32(maxVerticesIncell), uint32(maxVerticesIncell), da.ARRAY_STORAGE, true)
-		},
-	}
-
-	c.levelHeapPool = sync.Pool{
-		New: func() any {
-			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
-		},
-	}
-
-	c.lowestHeapNoTurnCostPool = sync.Pool{
+	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
 			return da.NewQueryHeap[da.QueryKey, W](uint32(maxVerticesIncell), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
 		},
 	}
 
-	c.levelHeapNoTurnCostPool = sync.Pool{
+	c.upperLevelHeapPool = sync.Pool{
 		New: func() any {
 			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
 		},
@@ -363,9 +338,6 @@ func (cc cellCustomizationRes[W]) getIndex() int {
 	return cc.index
 }
 
-// penjelasan fase kustomisasi (dengan turn cost) dari Customizable Route Planning ada di section 3.5:  https://drive.google.com/file/d/16X4_D82-dBz5CEKTLBWPb8DtG52eVMl5/view
-// pdf password: <my-github-username>-<my-birth-year>-<my gdrive email without @gmail.com>
-
 /*
 // buildLowestLevel. build clique of each cell in the lowest level (level 1)
 1.  query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
@@ -376,9 +348,6 @@ https://doi.org/10.1287/trsc.2014.0579.
 // restricted to cell C: menggunakan only vertices dan edges yang terletak pada cell C.
 // this function is parallelized using goroutines worker pool
 */
-
-// penjelasan fase kustomisasi (tanpa turn cost) dari Customizable Route Planning ada di section 3.5:  https://drive.google.com/file/d/16X4_D82-dBz5CEKTLBWPb8DtG52eVMl5/view
-// pdf password: <my-github-username>-<my-birth-year>-<my gdrive email without @gmail.com>
 
 /*
 // buildLowestLevel. build clique of each cell in the lowest level (level 1)
@@ -422,10 +391,10 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 				start := overlayVertex.GetOrigVId()
 				maxSearchSize := c.graph.GetMaxVerticesInCell()
 
-				pq := c.lowestHeapNoTurnCostPool.Get().(*da.QueryHeap[da.QueryKey, W])
+				pq := c.levelOneHeapPool.Get().(*da.QueryHeap[da.QueryKey, W])
 				pq.Clear()
 				done := func() {
-					c.lowestHeapNoTurnCostPool.Put(pq)
+					c.levelOneHeapPool.Put(pq)
 				}
 
 				cost := make(map[da.Index]W, maxSearchSize)
@@ -587,10 +556,10 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 			*/
 			for i := range entries {
 
-				pq := c.levelHeapNoTurnCostPool.Get().(*da.QueryHeap[da.Index, W])
+				pq := c.upperLevelHeapPool.Get().(*da.QueryHeap[da.Index, W])
 				pq.Clear()
 				done := func() {
-					c.levelHeapNoTurnCostPool.Put(pq)
+					c.upperLevelHeapPool.Put(pq)
 				}
 
 				cost := make(map[da.Index]W, da.OVERLAY_CELL_SIZE)

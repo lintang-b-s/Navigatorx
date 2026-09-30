@@ -19,6 +19,7 @@ import (
 // biar gak sama kaya paten ini juga, CRP yg dijelasin disini pakai compact representation: https://patents.google.com/patent/US20130231862A1/en
 // banyak yang diganti terutama driving direction and map matching. tapi harusnya gak susah..
 // referensi lain buat bikin edge-based graph (or expanded graph whatever): https://i11www.iti.kit.edu/_media/teaching/theses/ba-zuendorf-19.pdf
+// DONE :)
 
 /*
 buildEdgeBasedGraph. build edge-based (or expanded) graph following:  https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation

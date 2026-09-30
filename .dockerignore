@@ -1,0 +1,12 @@
+*
+!go.mod
+!go.sum
+!cmd/
+!cmd/engine/
+!cmd/engine/**
+!pkg/
+!pkg/**
+!data/car.yaml
+!data/profiles/car/
+!data/profiles/car/**
+!bin/default.pgo

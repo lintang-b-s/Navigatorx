@@ -24,7 +24,6 @@ idk/
 *.xlsx
 *.mm
 cmd/ttf_generator/
-dataori/
 *.tpgr
 *.coordinate
 *.nlm
