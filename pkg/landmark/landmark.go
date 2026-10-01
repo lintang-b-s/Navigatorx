@@ -430,9 +430,12 @@ func (lm *Landmark[W]) UpdateLandmarks(landmarkFilePath string) error {
 		return fmt.Errorf("UpdateLandmarks: failed to read new precalculated landmark distances: %v: %w", err, err)
 	}
 
-	lm.landmarks.Store(newLandmark.landmarks.Load())
-	lm.lw.Store(newLandmark.lw.Load())
-	lm.vlw.Store(newLandmark.vlw.Load())
+	lmLm := newLandmark.landmarks.Load()
+	lmLw := newLandmark.lw.Load()
+	lmVlw := newLandmark.vlw.Load()
+	lm.landmarks.Store(lmLm)
+	lm.lw.Store(lmLw)
+	lm.vlw.Store(lmVlw)
 
 	return nil
 }

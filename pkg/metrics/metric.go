@@ -116,7 +116,9 @@ func (met *Metric[W]) UpdateMetrics() error {
 
 	met.mu.Lock()
 	defer met.mu.Unlock()
-	met.shortcutWeights.Store(newMet.shortcutWeights.Load())
-	met.costFunction.Store(newMet.costFunction.Load())
+	nmw := newMet.shortcutWeights.Load()
+	nmcf := newMet.costFunction.Load()
+	met.shortcutWeights.Store(nmw)
+	met.costFunction.Store(nmcf)
 	return nil
 }

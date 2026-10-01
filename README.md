@@ -76,8 +76,8 @@ from/to OSM node IDs are [OpenStreetMap Node](https://wiki.openstreetmap.org/wik
 After you run the command above, the query engine will provide the following log: <br>
 
 ```
-2026-10-01T11:01:05.66432674+07:00      info    engine.checkCustomizerUpdate: file modification time changed old=2026-10-01 10:54:23 WIB new=2026-10-01 11:01:05 WIB. updating the metrics...
-2026-10-01T11:01:05.817556447+07:00     info    engine.checkCustomizerUpdate: the metrics was successfully updated.
+2026-10-01T11:04:36.432041559+07:00     info    engine.checkCustomizerUpdate: metrics file modification time changed old=2026-10-01 11:03:58 WIB new=2026-10-01 11:04:35 WIB. updating the metrics...
+2026-10-01T11:04:36.623123575+07:00     info    engine.checkCustomizerUpdate: the metrics was successfully updated.
 ```
 
 navigatorx also supports updating turn penalties with the customizer cmd flag "--turn-penalty-file", whose csv file follows the following format:

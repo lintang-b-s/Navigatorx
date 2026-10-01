@@ -6,6 +6,8 @@ import (
 	"log"
 	"os"
 	"time"
+
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 func (crp *CRPRoutingEngine[W]) InitBackgroundWorker(ctx context.Context) {
@@ -37,7 +39,7 @@ func (crp *CRPRoutingEngine[W]) checkCustomizerUpdate(metricsFilePath string, ct
 				oldTime := time.Unix(lastModifiedTime, 0).Local()
 				newTime := time.Unix(currModifiedTime, 0).Local()
 				crp.logger.Sugar().Infof(
-					"engine.checkCustomizerUpdate: file modification time changed old=%s new=%s. updating the metrics...",
+					"engine.checkCustomizerUpdate: metrics file modification time changed old=%s new=%s. updating the metrics...",
 					oldTime.Format("2006-01-02 15:04:05 MST"),
 					newTime.Format("2006-01-02 15:04:05 MST"),
 				)
@@ -101,7 +103,7 @@ func (crp *CRPRoutingEngine[W]) updateMetrics() (err error) {
 	}
 	crp.puCache.InvalidateAll()
 	crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: the metrics was successfully updated.")
-
+	util.FreeMemory()
 	return nil
 }
 
