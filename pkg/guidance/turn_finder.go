@@ -20,7 +20,7 @@ todo4: add test expected outputnya pake driving direction google map (dengan rut
 // jumlah semua turnSign untuk setiap possible (e1, e2) di every intersections cuma O(n). n= number of intersections.
 // hal ini karena outDegree(v)=inDegree(v)=O(1) untuk every intersection/vertex v di road network.
 // rata-rata outDegree of any intersection=2.43 untuk graf road network Amerika Serikat 9th DIMACS Implementation Challenge - Shortest Paths(Demetrescu et al. (2006)) (https://www.diag.uniroma1.it/challenge9/download.shtml)
-// misal rata-rata outDegree & indegree =2.5. setiap turnType 1 byte, key nya (e1,e2) 8byte .
+// misal rata-rata outDegree & indegree = 2.5. setiap turnType 1 byte, key nya (e1,e2) 8byte .
 // misal jumlah intersections 5juta, ada 31.25 juta pair (e1, e2) di every intersections, cuma simpan additional ~281.5mb di memory, not bad. tapi bisa speedup GetDrivingDirections().
 // mungkin bisa jadi opsi/cmd flag nya preprocessor buat speedup driving directions...
 

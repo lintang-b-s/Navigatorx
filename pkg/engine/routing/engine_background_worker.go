@@ -34,7 +34,13 @@ func (crp *CRPRoutingEngine[W]) checkCustomizerUpdate(metricsFilePath string, ct
 			}
 
 			if currModifiedTime != lastModifiedTime {
-				crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: file modification time changed  old=%d  new=%d\n, updating the metrics and costFunction....", lastModifiedTime, currModifiedTime)
+				oldTime := time.Unix(lastModifiedTime, 0).Local()
+				newTime := time.Unix(currModifiedTime, 0).Local()
+				crp.logger.Sugar().Infof(
+					"engine.checkCustomizerUpdate: file modification time changed old=%s new=%s. updating the metrics...",
+					oldTime.Format("2006-01-02 15:04:05 MST"),
+					newTime.Format("2006-01-02 15:04:05 MST"),
+				)
 				err := crp.updateMetrics()
 				if err != nil {
 					success := false
@@ -94,13 +100,12 @@ func (crp *CRPRoutingEngine[W]) updateMetrics() (err error) {
 		return err
 	}
 	crp.puCache.InvalidateAll()
-	crp.logger.Sugar().Infof("updated the metrics and costFunction....")
+	crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: the metrics was successfully updated.")
 
 	return nil
 }
 
 func isFileUpdated(path string) (int64, error) {
-
 	info, err := os.Stat(path)
 	if err != nil {
 		return 0, fmt.Errorf("isFileUpdated: failed to os.Stat file: %s", path)

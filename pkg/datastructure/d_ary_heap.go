@@ -52,10 +52,6 @@ func (p *PriorityQueueNode[T, W]) SetRank(rank W) {
 	p.rank = rank
 }
 
-func (p *PriorityQueueNode[T, W]) getVertexIndex() uint32 {
-	return p.vertexIndex
-}
-
 func NewPriorityQueueNode[T comparable, W util.RoutingNumber](rank W, item T, vertexIndex uint32) PriorityQueueNode[T, W] {
 	return PriorityQueueNode[T, W]{rank: rank, item: item, vertexIndex: vertexIndex}
 }
@@ -126,8 +122,8 @@ func (h *DAryHeap[T, W]) heapifyDown(index uint32, updatePos func(vertexIndex, n
 func (h *DAryHeap[T, W]) Swap(i, j uint32, updatePos func(vertexIndex, newHeapNodeId uint32)) {
 	h.heap[i], h.heap[j] = h.heap[j], h.heap[i]
 
-	updatePos(h.heap[i].getVertexIndex(), i)
-	updatePos(h.heap[j].getVertexIndex(), j)
+	updatePos(h.heap[i].vertexIndex, i)
+	updatePos(h.heap[j].vertexIndex, j)
 }
 
 // isEmpty check apakah heap kosong
