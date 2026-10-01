@@ -11,7 +11,8 @@ Routing Engine For Openstreetmap data. Supports fast traffic updates and most ty
 
 ### Download OpenStreetMap Data (.osm.pbf format)
 
-You can download OpenStreetMap data from geofabrik (https://download.geofabrik.de/index.html)
+You can download OpenStreetMap data from geofabrik (https://download.geofabrik.de/index.html) <br>
+for this quick start, you can download this OSM map data.
 
 ```
 pip install gdown
@@ -19,6 +20,8 @@ gdown https://drive.google.com/uc?id=1uBoFWUSRka9pqH2dVPKpcystxXmkkSgs --output 
 ```
 
 ### Collect cpu profiles (for profile guided optimization)
+
+This is optional and serves to accelerate the query engine. For this quick start, we will use Profile Guided Optimization (PGO).
 
 ```
 gdown https://drive.google.com/uc?id=1HBswl5-JkFXWh--AFLC2ElYC4Tbsj1i0   --output ./data

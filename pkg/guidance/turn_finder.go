@@ -16,6 +16,11 @@ todo3: pake tag osm way ini: https://wiki.openstreetmap.org/wiki/Key:turn , http
 todo4: add test expected outputnya pake driving direction google map (dengan rute yang sama) (DONE).
 */
 
+// kayake ini turnSign untuk setiap possible (e1, e2) di every intersections bisa di precompute di fase preprocessing.
+// jumlah semua turnSign untuk setiap possible (e1, e2) cuma O(n). n= number of intersections.
+// hal ini karena outDegree(v)=inDegree(v)=O(1) untuk every intersection/vertex v di road network.
+// rata-rata outDegree of any intersection=2.43 untuk graf road network Amerika Serikat 9th DIMACS Implementation Challenge - Shortest Paths(Demetrescu et al. (2006)) (https://www.diag.uniroma1.it/challenge9/download.shtml)
+
 func (db *DirectionBuilder) getTurnSign(segmentId da.Index, name string) da.TurnType {
 
 	key := util.Bitpack(uint32(db.prevSegmentId), uint32(segmentId))
