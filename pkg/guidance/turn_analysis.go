@@ -201,9 +201,7 @@ func (db *DirectionBuilder) isStreetSplitSkip(prevSegment, segmentId da.Index, c
 		return false
 	}
 
-	otherSegmentOutEdgeId := db.graph.GetOutId(otherSegment)
-
-	oSegmentLanes := db.rn.GetRoadLanes(otherSegmentOutEdgeId)
+	oSegmentLanes := db.rn.GetRoadLanes(otherSegment)
 
 	laneDiff := int(db.rn.GetRoadLanes(prevSegment)) - int((oSegmentLanes + db.rn.GetRoadLanes(segmentId))) // lane dari  otherSegment  & segmentId cuma 1
 	return laneDiff <= 1
