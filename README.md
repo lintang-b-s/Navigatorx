@@ -21,7 +21,7 @@ gdown https://drive.google.com/uc?id=1uBoFWUSRka9pqH2dVPKpcystxXmkkSgs --output 
 
 ### Collect cpu profiles (for profile guided optimization)
 
-This is optional and serves to accelerate the query engine. For this quick start, we will use Profile Guided Optimization (PGO).
+This is optional and serves to accelerate the query engine. For this quick start, we will use Profile Guided Optimization ([[PGO]](https://go.dev/doc/pgo)).
 
 ```
 gdown https://drive.google.com/uc?id=1HBswl5-JkFXWh--AFLC2ElYC4Tbsj1i0   --output ./data
@@ -113,11 +113,9 @@ online routing engine demo: [demo](https://navigatorx-crp-fe.vercel.app/)
 
 <a id="ref1"></a>1.Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable Route Planning in Road Networks. Transportation Science, No. 2, Volume 51, pages 566-591
 
-<a id="ref2"></a>2. Abraham, I., Delling, D., Goldberg, A. V., Werneck R. F. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
-https://doi.org/10.1007/978-3-642-13193-6_3 .
+<a id="ref2"></a>2. Abraham, I., Delling, D., Goldberg, A. V., Werneck R. F. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at: https://doi.org/10.1007/978-3-642-13193-6_3 .
 
-<a id="ref3"></a>3. Goldberg, A. and Harrelson, C. (2005) “Computing the shortest path: A\* search meets graph theory,” in. ACM-SIAM Symposium on Discrete Algorithms. Vancouver:
-ACM, pp. 156 - 165.
+<a id="ref3"></a>3. Goldberg, A. and Harrelson, C. (2005) “Computing the shortest path: A\* search meets graph theory,” in. ACM-SIAM Symposium on Discrete Algorithms. Vancouver: ACM, pp. 156 - 165.
 
 <a id="ref4"></a>4. Schild, A. and Sommer, C. (2015) ‘On Balanced Separators in Road Networks’, in E. Bampis (ed.) Experimental Algorithms. Cham: Springer International Publishing, pp. 286–297.
 
@@ -138,3 +136,5 @@ i would like to express my deepest gratitude to the contributors to the open sou
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+

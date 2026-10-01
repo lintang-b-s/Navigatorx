@@ -17,7 +17,6 @@ type RoadNetworkDataContainer struct {
 	osmNodeIds    []uint64
 
 	nameTable []string // map dari integer ke string (tag name di osm way)
-
 	// dua ini di set sebelum buildGraph()
 
 	// di set saat sortByCell
@@ -291,7 +290,6 @@ func (rn *RoadNetworkDataContainer) GetRoadClass(id Index) pkg.OsmHighwayType {
 }
 
 func (rn *RoadNetworkDataContainer) IsStreetBidirectional(segmentId Index) bool {
-
 	dir := rn.GetStreetDirection(segmentId)
 	return dir[0] && dir[1]
 }

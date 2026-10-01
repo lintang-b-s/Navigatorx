@@ -27,7 +27,7 @@ var (
 func init() {
 	flag.Parse()
 	profileName = strings.ReplaceAll(filepath.Base(*profileFilePath), ".yaml", "")
-	config.InitProfileConfig(profileName, *regionName, pkg.EVAL)
+	config.InitProfileConfig(profileName, *regionName, pkg.ROUTER)
 }
 func main() {
 	flag.Parse()

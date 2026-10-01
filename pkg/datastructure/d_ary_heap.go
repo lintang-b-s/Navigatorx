@@ -165,7 +165,6 @@ func (h *DAryHeap[T, W]) Insert(key PriorityQueueNode[T, W], vertexIndex uint32,
 	h.heap = append(h.heap, key)
 	index := uint32(h.Size() - 1)
 	updatePos(vertexIndex, uint32(index))
-
 	h.heapifyUp(index, updatePos)
 }
 
@@ -189,7 +188,6 @@ func (h *DAryHeap[T, W]) ExtractMin(updatePos func(vertexIndex, newHeapNodeId ui
 
 // decreaseKey update rank dari item min-heap.   O(logN) heapify.
 func (h *DAryHeap[T, W]) DecreaseKey(itemPos uint32, rank W, updatePos func(vertexIndex, newHeapNodeId uint32)) {
-
 	h.heap[itemPos].SetRank(rank)
 	h.heapifyUp(itemPos, updatePos)
 }

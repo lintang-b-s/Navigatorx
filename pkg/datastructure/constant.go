@@ -33,14 +33,14 @@ const (
 type SegmentFlagType uint8
 
 const (
-	FlagParallel             SegmentFlagType = 1 << iota
-	FlagJunctionHead                         // flag yang nandain kalo head dari edge adalah junction node
-	FlagJunctionTail                         // flag yang nandain kalo tail dari edge adalah junction node
-	FlagContainsTrafficLight                 // flag yang nandain di edge/road segment ini terdapat traffic light/bangjo
-	FlagIsRoundabout                         // flag yang nandain jalan ini adalah bundaran
-	FlagIsCurved                             // flag yang nandain jalan ini curved/gak lurus straight line in mercator projected 2d coordinate
-	FlagIsForward                            // flag yang nandain jalan ini arahnya forward (dari list of nodes data osm way). by default true kalau one-way road.
-	FlagIsBackward                           //flag yang nandain jalan ini arahnya backward (dari list of nodes data osm way)
+	FlagParallel             SegmentFlagType = 1 << iota //  flag yang nandain kalau this road segment adalah parallel via-way yang termasuk dalam via-ways turn restrictions
+	FlagJunctionHead                                     // flag yang nandain kalo head dari road segment adalah junction node
+	FlagJunctionTail                                     // flag yang nandain kalo tail dari road segment adalah junction node
+	FlagContainsTrafficLight                             // flag yang nandain di road segment ini terdapat traffic light/bangjo
+	FlagIsRoundabout                                     // flag yang nandain road segment ini adalah bundaran
+	FlagIsCurved                                         // flag yang nandain road segment ini curved/gak lurus straight line in mercator projected 2d coordinate
+	FlagIsForward                                        // flag yang nandain road segment ini arahnya forward (dari list of nodes data osm way). by default true kalau one-way road.
+	FlagIsBackward                                       //flag yang nandain road segment ini arahnya backward (dari list of nodes data osm way)
 )
 
 type NodeFlagType uint8
