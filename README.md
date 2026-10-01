@@ -11,8 +11,8 @@ Routing Engine For Openstreetmap data. Supports fast traffic updates and most ty
 
 ### Download OpenStreetMap Data (.osm.pbf format)
 
-You can download OpenStreetMap data from geofabrik (https://download.geofabrik.de/index.html) <br>
-for this quick start, you can download this OSM map data.
+You can download OpenStreetMap data from geofabrik (https://download.geofabrik.de/index.html). <br>
+For this quick start, you can download this OSM map data.
 
 ```
 pip install gdown
@@ -31,7 +31,7 @@ sh scripts/build_pgo.sh
 
 ### Pre-processing
 
-run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1)) algorithm is available. The CRP pre-processing phase creates multilevel partitions using Inertial Flow Algorithm ([[4]](#ref4)) and overlay graph data structures.
+run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) algorithm is available. The CRP pre-processing phase creates multilevel partitions using Inertial Flow Algorithm ([[4]](#ref4)) and overlay graph data structures.
 
 ```
 go build -o ./bin/preprocessor ./cmd/preprocessor
@@ -40,7 +40,7 @@ go build -o ./bin/preprocessor ./cmd/preprocessor
 
 ### Customization
 
-The Customizable Route Planning CRP customization phase ([[1]](#ref1)) computes the shortcut weights at each cell of the multilevel partitioning result. The customizer also computes landmark distances for the ALT algorithm (A\* search, landmarks, and triangle inequality) ([[3]](#ref3)).
+The Customizable Route Planning CRP customization phase ([[1]](#ref1), [[6]](#ref6)) computes the shortcut weights at each cell of the multilevel partitioning result. The customizer also computes landmark distances for the ALT algorithm (A\* Search, Landmarks, and Triangle Inequality) ([[3]](#ref3)).
 
 ```
 go build -o ./bin/customizer ./cmd/customizer
@@ -49,7 +49,7 @@ go build -o ./bin/customizer ./cmd/customizer
 
 ### Query Engine
 
-The point-to-point fastest path query, similar to the one in ref ([5](#ref5)), running Bidirectional ALT (A\*, Landmarks, and Triangle Inequality) ([[3]](#ref3)) on a graph formed by the union of the overlay graph, level-1 cell containing vertex s, and level-1 cell containing vertex t , resulting from the preprocessing and customization phases of the Customizable Route Planning (CRP) ([[1]](#ref1)) technique.
+The point-to-point fastest path query, similar to the one in ref ([[5]](#ref5)), running Bidirectional ALT (A\* Search, Landmarks, and Triangle Inequality) ([[3]](#ref3)) on the graph consisting of the union of overlay Graph, _C_s_ , and _C_t_ . (Here _C_v_ denotes the subgraph of G induced by the vertices in the cell containing v.), resulting from the preprocessing and customization phases of the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) technique.
 
 ```
 go build -o ./bin/engine -pgo=./bin/default.pgo  ./cmd/engine
@@ -124,6 +124,8 @@ ACM, pp. 156 - 165.
 
 <a id ="ref5"></a>5. Efentakis, A., Pfoser, D. dan Vassiliou, Y. (2015). SALT. A Unified Framework for All Shortest-Path Query Variants on Road Networks. In Proceedings of the 14th International Symposium on Experimental Algorithms, Volume 9125, pages 298–311, Paris.
 
+<a id="ref6"></a>6. Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2011). Customizable Route Planning. In: Pardalos, P.M., Rebennack, S. (eds) Experimental Algorithms, Volume 6630. Springer, Berlin, Heidelberg.
+
 ### Acknowledgments
 
 i would like to express my deepest gratitude to the contributors to the open source projects below. The code in the Navigatorx project is heavily adapted and inspired by the following open source projects:
@@ -132,7 +134,7 @@ i would like to express my deepest gratitude to the contributors to the open sou
 2. [OSRM Backend](https://github.com/Project-OSRM/osrm-backend)
 3. [GraphHopper](https://github.com/graphhopper/graphhopper)
 4. [Telenav](https://github.com/Telenav/open-source-spec)
-5. [CP4BookCode](https://github.com/stevenhalim/cpbook-code)
+5. [CP4 Book Code](https://github.com/stevenhalim/cpbook-code)
 
 ## License
 
