@@ -216,7 +216,7 @@ func (dmf *DinicMaxFlow) bfsLevelGraph(
 		dmf.SetVertexLevel(v.GetID(), INVALID_LEVEL)
 	})
 
-	levelQueue := make([]da.Index, 0)
+	levelQueue := make([]da.Index, 0, dmf.graph.NumberOfVertices())
 	levelQueue = append(levelQueue, source)
 	dmf.SetVertexLevel(source, 0)
 

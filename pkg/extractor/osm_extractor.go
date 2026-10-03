@@ -119,6 +119,13 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 	defer f.Close()
 
+	stat, err := f.Stat()
+	if err != nil {
+		panic(err)
+	}
+
+	totBytes := stat.Size()
+
 	restrictions := make(map[int64][]struct {
 		id              int64
 		via             int64
@@ -134,12 +141,19 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 	// scan osm ways and relations
 	// store relations and way.nodes
 	logger.Sugar().Infof("parsing openstreetmap .pbf file....")
+	pg := make([]bool, 101)
 
 	for scanner.Scan() {
 		o := scanner.Object()
 
-		tipe := o.ObjectID().Type()
+		scanned := scanner.FullyScannedBytes()
+		progress := int(float64(scanned) / float64(totBytes) * 100)
+		if progress%outputEvery == 0 && !pg[progress] {
+			pg[progress] = true
+			fmt.Printf("%v%%....", int(progress))
+		}
 
+		tipe := o.ObjectID().Type()
 		switch tipe {
 		case osm.TypeWay:
 			{
@@ -263,6 +277,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 			}
 		}
 	}
+	fmt.Printf("100%% \n")
 
 	err = scanner.Close()
 	if err != nil {
@@ -342,8 +357,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 	streetDirection := make(map[int64][2]bool)
 	countWays := 0
 	logger.Sugar().Infof("processing openstreetmap .pbf file....")
-	outputEvery := 5
-	pg := make([]bool, 101)
+	pg = make([]bool, 101)
 	rn := da.NewRoadNetworkDataContainer(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
 	for scanner.Scan() {
@@ -363,12 +377,13 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 					continue
 				}
 
-				progress := int(((float64(countWays) + 1) / float64(scannedWays)) * 100)
+				progress := int((float64(countWays) + 1) / float64(scannedWays) * 100)
 				if progress%outputEvery == 0 && !pg[progress] {
 					pg[progress] = true
-					fmt.Printf("%v%%....", int(progress))
 					if progress == 100 {
-						fmt.Printf("\n")
+						fmt.Printf("100%%\n")
+					} else {
+						fmt.Printf("%v%%....", int(progress))
 					}
 				}
 

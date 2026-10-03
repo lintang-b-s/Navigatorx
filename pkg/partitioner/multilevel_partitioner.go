@@ -63,21 +63,28 @@ for each level l, time complexity recursiveBisection.Partition() in each cell is
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
 	nodeIDs := mp.graph.GetVerticeIds()
+	progress := newPartitionProgress(mp.graph.NumberOfVertices())
 	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l, mp.u[mp.l-1])
+	fmt.Printf("Level %d progress: 0%%...", mp.l)
 	if len(nodeIDs) > mp.u[mp.l-1] {
 
 		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger,
 			mp.prePartitionWithSCC, mp.inertialFlowIterations, mp.directed)
+		inertialFlowPartitioner.setProgress(progress)
 		inertialFlowPartitioner.Partition(nodeIDs)
 		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
 	} else {
 		mp.cellVertices[mp.l-1] = [][]da.Index{nodeIDs}
+		progress.add(len(nodeIDs))
 	}
+	progress.finish()
 	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.cellVertices[mp.l-1]))
 
-	// next partition each cell in previous level
+	// percent partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
+		progress = newPartitionProgress(mp.graph.NumberOfVertices())
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
+		fmt.Printf("Level %d progress: 0%%...", level+1)
 
 		cellInChan := make(chan []da.Index, CellInOutChanSize)
 		cellOutchan := make(chan [][]da.Index, CellInOutChanSize)
@@ -86,6 +93,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 			for cell := range cellInChan {
 				inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, mp.prePartitionWithSCC,
 					mp.inertialFlowIterations, mp.directed)
+				inertialFlowPartitioner.setProgress(progress)
 				inertialFlowPartitioner.Partition(cell)
 				partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
 				cellOutchan <- partitions
@@ -113,8 +121,36 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		wg.Wait()
 		close(cellOutchan)
 
+		progress.finish()
 		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.cellVertices[level]))
 	}
+}
+
+type partitionProgress struct {
+	mu        sync.Mutex
+	total     int
+	completed int
+	percent   int
+}
+
+func newPartitionProgress(total int) *partitionProgress {
+	return &partitionProgress{total: total, percent: 2}
+}
+
+func (p *partitionProgress) add(vertices int) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	p.completed += vertices
+	for p.percent <= 100 && p.total > 0 && p.completed*100 >= p.percent*p.total {
+		// while completed/total >= percent/100
+		fmt.Printf("%d%%...", p.percent)
+		p.percent += 2
+	}
+}
+
+func (p *partitionProgress) finish() {
+	fmt.Println()
 }
 
 func (mp *MultilevelPartitioner) SaveToFile() error {

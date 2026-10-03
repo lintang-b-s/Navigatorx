@@ -20,9 +20,7 @@ COPY ./cmd/engine ./cmd/engine
 COPY ./data/car.yaml ./data/car.yaml
 COPY ./data/profiles/car ./data/profiles/car
 COPY ./pkg ./pkg
-COPY ./bin/default.pgo ./bin/default.pgo
-RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
-    go build -ldflags '-extldflags "-static"' -pgo=./bin/default.pgo -o /bin/engine ./cmd/engine
+RUN  go build -ldflags '-extldflags "-static"' -o /bin/engine ./cmd/engine
 
 
 # Step 3: Final

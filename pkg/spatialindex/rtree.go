@@ -71,7 +71,6 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 	segmentSet := make(map[segmentKey]segmentVal, n/10) // segmentKey -> road segment (forward direction), mbr
 
 	g.ForVertices(func(v da.Vertex, segId da.Index) {
-
 		eGeom := rn.GetSegmentGeometry(segId)
 		if len(eGeom) < 2 {
 			return
