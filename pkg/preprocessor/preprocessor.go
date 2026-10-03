@@ -298,7 +298,6 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 		p.rn.ApplySegmentsPermutation(nPerm)
 		p.timeFunction.ApplySegmentsPermutation(ePerm, nPerm, isRn)
 	} else {
-		p.rn.ApplySegmentsPermutation(ePerm)
 		p.timeFunction.ApplySegmentsPermutation(ePerm, ePerm, isRn)
 	}
 

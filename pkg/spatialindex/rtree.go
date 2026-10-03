@@ -160,7 +160,7 @@ type candidate struct {
 // OSRM static_rtree: https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/static_rtree.hpp
 // OSRM pakai packed Hilbert-R-Tree, dengan alasan yang sama dengan diatas. kita pakai packed Sort-Tile-Recursive (STR) R-tree.
 // karena di ref1 table 5, STR punya number of disk accesses (nodes visited) yang sedikit lebih kecil dari HS (packed Hilbert-R-Tree) pada graf road network Long Beach Data.
-// mode=0  origin, mode=1 destination, mode=2 not both, mode=3 returned road segments not capped MAX_CANDIDATES
+// mode=0  origin, mode=1 destination, mode=2 not both
 func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da.Index {
 
 	qy, qx := geo.CalcLatToY(qLat), geo.CalcLonToX(qLon)
@@ -194,12 +194,9 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 			return true
 		})
 
-	capped := mode != 3
-	if capped {
-		sort.Slice(cands, func(i, j int) bool { return cands[i].dist < cands[j].dist })
-		if len(cands) > MAX_CANDIDATES {
-			cands = cands[:MAX_CANDIDATES]
-		}
+	sort.Slice(cands, func(i, j int) bool { return cands[i].dist < cands[j].dist })
+	if len(cands) > MAX_CANDIDATES {
+		cands = cands[:MAX_CANDIDATES]
 	}
 
 	res := make([]da.Index, len(cands))

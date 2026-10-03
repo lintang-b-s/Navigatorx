@@ -311,7 +311,7 @@ func (h *HMM) projectAllGpsWithRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []f
 		searchRadiusM := gpsRadiusesM[i] * candidateSearchRadiusMultiplier
 		searchRadiusKM := util.MeterToKilometer(searchRadiusM)
 
-		nearbyArcs := h.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), searchRadiusKM, 3)
+		nearbyArcs := h.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), searchRadiusKM, 2)
 
 		candidates := make([]*ma.Candidate, 0, len(nearbyArcs))
 
