@@ -12,6 +12,7 @@ RUN go mod download
 
 # Step 2: Builder
 FROM golang:1.27.1-alpine3.24 AS builder
+RUN apk add --no-cache gcc musl-dev
 COPY --from=modules /go/pkg /go/pkg
 WORKDIR /engine
 COPY go.mod go.sum ./
@@ -20,8 +21,8 @@ COPY ./data/car.yaml ./data/car.yaml
 COPY ./data/profiles/car ./data/profiles/car
 COPY ./pkg ./pkg
 COPY ./bin/default.pgo ./bin/default.pgo
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
-    go build -pgo=./bin/default.pgo -o /bin/engine ./cmd/engine
+RUN CGO_ENABLED=1 GOOS=linux GOARCH=amd64 \
+    go build -ldflags '-extldflags "-static"' -pgo=./bin/default.pgo -o /bin/engine ./cmd/engine
 
 
 # Step 3: Final
