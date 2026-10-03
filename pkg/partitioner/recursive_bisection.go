@@ -18,6 +18,11 @@ type RecursiveBisection struct {
 	prePartitionWithSCC    bool
 	inertialFlowIterations int
 	directed               bool
+	progress               *partitionProgress
+}
+
+func (rb *RecursiveBisection) setProgress(progress *partitionProgress) {
+	rb.progress = progress
 }
 
 func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Logger, prePartitionWithSCC bool,
@@ -177,8 +182,8 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *da.PartitionGraph)
 	)
 
 	// remap id untuk partisi S dan T
-	partOneId := da.Index(0)
-	partTwoId := da.Index(0)
+	povId := da.Index(0)
+	ptvId := da.Index(0)
 
 	n := pg.NumberOfVertices()
 	partOneNewVIdMap := make([]da.Index, n)
@@ -186,28 +191,31 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *da.PartitionGraph)
 	origVIdToPgVIdMap := make(map[da.Index]da.Index, n*2) // map from original vertex id to partition pg vertex id
 
 	pg.ForEachVertices(func(v da.PartitionVertex) { // O(n), n=number of vertices in pg
-		if v.GetOriginalVertexID() == da.Index(ARTIFICIAL_SOURCE_ID) ||
-			v.GetOriginalVertexID() == da.Index(ARTIFICIAL_SINK_ID) {
+		vId := v.GetOriginalVertexID()
+		if vId == da.Index(ARTIFICIAL_SOURCE_ID) ||
+			vId == da.Index(ARTIFICIAL_SINK_ID) {
 			// skip artificial source and sink
 			return
 		}
-		origVIdToPgVIdMap[v.GetOriginalVertexID()] = v.GetID()
+		origVIdToPgVIdMap[vId] = v.GetID()
 
 		lat, lon := v.GetVertexCoordinate()
 		if cut.GetFlag(v.GetID()) {
 			// v in partisi S
-			newVertex := da.NewPartitionVertex(partOneId, v.GetOriginalVertexID(),
+			newVertex := da.NewPartitionVertex(povId, vId,
 				lat, lon)
 			partitionOne.AddVertex(newVertex)
-			partOneNewVIdMap[v.GetID()] = partOneId
-			partOneId++
+			pg.InitAdjListDeg(povId, rb.g.GetOutDegree(vId))
+			partOneNewVIdMap[v.GetID()] = povId
+			povId++
 		} else {
 			// v in partisi T
-			newVertex := da.NewPartitionVertex(partTwoId, v.GetOriginalVertexID(),
+			newVertex := da.NewPartitionVertex(ptvId, vId,
 				lat, lon)
 			partitionTwo.AddVertex(newVertex)
-			partTwoNewVIdMapMap[v.GetID()] = partTwoId
-			partTwoId++
+			pg.InitAdjListDeg(ptvId, rb.g.GetOutDegree(vId))
+			partTwoNewVIdMapMap[v.GetID()] = ptvId
+			ptvId++
 		}
 	})
 
@@ -253,6 +261,7 @@ func (rb *RecursiveBisection) assignFinalPartition(partitionGraph *da.PartitionG
 		rb.finalPartition[originalVId] = rb.partitionCount
 		rb.numVerticesAssigned++
 	}
+	rb.progress.add(partitionGraph.NumberOfVertices())
 	rb.partitionCount++
 }
 
@@ -272,14 +281,15 @@ func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []da.
 
 	initialVerticeIdSet := makeNodeSet(initialVerticeIds) // O(n), n= len(initialVerticeIds)
 
-	newVid := da.Index(0)
+	nvId := da.Index(0)
 	newMapVid := make(map[da.Index]da.Index, len(initialVerticeIds))
 	for _, vId := range initialVerticeIds { // O(n)
 		lat, lon := rb.g.GetVertexCoordinates(vId)
-		vertex := da.NewPartitionVertex(newVid, vId, lat, lon)
-		newMapVid[vId] = newVid
+		vertex := da.NewPartitionVertex(nvId, vId, lat, lon)
+		newMapVid[vId] = nvId
 		pg.AddVertex(vertex)
-		newVid++
+		pg.InitAdjListDeg(nvId, rb.g.GetOutDegree(vId))
+		nvId++
 	}
 
 	for _, vId := range initialVerticeIds { // O(m), m = number of edges that its tail vertex in initialVerticeIds

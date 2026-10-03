@@ -163,6 +163,10 @@ func (g *PartitionGraph) ForEdges(handle func(i int, e MaxFlowEdge)) {
 	}
 }
 
+func (g *PartitionGraph) InitAdjListDeg(u, outDeg Index) {
+	g.adjacencyList[u] = make([]int, 0, outDeg)
+}
+
 func (g *PartitionGraph) AddEdge(u, v Index, w int64, directed bool) {
 	if u == v {
 		return

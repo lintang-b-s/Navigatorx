@@ -243,6 +243,6 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 		roadNetwork, weights, segmentLengths, segmentDurations,
 	)
 
-	fmt.Printf("100%%...\n")
+	fmt.Printf("100%%\n")
 	return graph, timeFunction, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices
 }

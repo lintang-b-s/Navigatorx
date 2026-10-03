@@ -3,7 +3,7 @@ name: dockerhub
 on:
   push:
     branches:
-      - main
+      - lintang-b-s/deployment
   workflow_dispatch:
 
 permissions:
@@ -63,5 +63,3 @@ jobs:
           context: .
           push: true
           tags: lintangbirdas/navigatorx:latest
-
-          

@@ -134,3 +134,7 @@ func initializeHighwayWhitelist() map[string]struct{} {
 var (
 	roundaboutSubName []string = []string{"roundabout", "bundaran"}
 )
+
+const (
+	outputEvery = 5
+)
