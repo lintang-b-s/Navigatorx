@@ -131,7 +131,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prepr := prep.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.TEST)
+		prepr := prep.NewPreprocessor(g, rn, timeFunction, mlp, logger)
 		err = prepr.PreProcessing(false)
 
 		return prepr, err
@@ -876,7 +876,7 @@ func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.Roa
 	if err != nil {
 		panic(err)
 	}
-	prepr := prep.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
+	prepr := prep.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
 	err = prepr.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

@@ -46,7 +46,7 @@ func main() {
 
 	config.InitRegionName("jateng_jabar", pkg.ROUTER)
 
-	re, err := engine.NewEngine[int32](logger, pkg.ROUTER)
+	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
 		panic(err)
 	}

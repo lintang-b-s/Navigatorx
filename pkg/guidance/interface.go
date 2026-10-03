@@ -40,6 +40,9 @@ type RoadNetworkDataContainer interface {
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
+}
+
+type Metrics interface {
 	GetDurationSeconds(segId da.Index) float64
 	GetSegmentSpeed(segId da.Index) float64
 	GetSegmentLength(segId da.Index) float64

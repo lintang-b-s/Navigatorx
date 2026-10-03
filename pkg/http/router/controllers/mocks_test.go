@@ -149,17 +149,17 @@ func (m *MockRoutingEngine) Close() {
 	m.Called()
 }
 
-type MockTilingService struct {
+type MockMapAttributesService struct {
 	mock.Mock
 }
 
-// GetNumberOfVertices implements [TilingService].
-func (m *MockTilingService) GetNumberOfVertices(ctx context.Context) int {
+// GetNumberOfVertices implements [MapAttributesService].
+func (m *MockMapAttributesService) GetNumberOfVertices(ctx context.Context) int {
 	args := m.Called(ctx)
 	return args.Int(0)
 }
 
-func (m *MockTilingService) GetTileFilePath(ctx context.Context, userGeohash string) string {
-	args := m.Called(ctx, userGeohash)
-	return args.String(0)
+func (m *MockMapAttributesService) GetMapAttributes(ctx context.Context, h3CellId string) ([]byte, error) {
+	args := m.Called(ctx, h3CellId)
+	return []byte(args.String(0)), args.Error(1)
 }

@@ -30,7 +30,7 @@ kenapa??
 
 let q=number of rounds until searchRead exceeds MAX_SEARCH_RADIUS
 let M=number of road segments/edges in the graph
-let c=max number of road segments/edges returned by rtree spatial index
+let c=max number of road segments/edges returned by rtree spatial index (max 35)
 avg case: O(q*(logM + c^2))
 
 return:
@@ -115,7 +115,6 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 	// let c=max number of road segments/edges returned by rtree spatial index
 
-	// worst case of this loop: O(c^2)
 	minDist := pkg.INF_WEIGHT
 	minEndpointDist := pkg.INF_WEIGHT
 	bestPair := newOriginDestination(da.INVALID_SEGMENT_ID, da.INVALID_SEGMENT_ID,
@@ -124,6 +123,7 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	var dRevCoords []da.Coordinate
 	var oLength, dLength float64
 
+	// worst case of this loop: O(c^2)
 	for i, o := range origCands {
 		for j, d := range dstCands {
 
@@ -320,38 +320,9 @@ func (rs *RoutingService) project(lat, lon float64, id da.Index, origin bool) (d
 	segGeometry := rs.rn.GetSegmentGeometry(id)
 	minDist := pkg.INF_WEIGHT
 	var pPoint da.Coordinate //  best projected point
-	n := len(segGeometry)
 
-	stailDist := pkg.INF_WEIGHT //  dist dari tail  vertex dari this road segment id ke titik proyeksi (lat,lon) to this road segment
-	cumDist := 0.0
-
-	lastIndex := 0
-	for i := 0; i < n-1; i++ {
-		tail := segGeometry[i]
-		head := segGeometry[i+1]
-		projectedPoint := geo.ProjectPointOnSegment(
-			tail,
-			head,
-			da.Coordinate(da.NewCoordinate(lat, lon)),
-		)
-
-		plat, plon := projectedPoint.GetLat(), projectedPoint.GetLon()
-		dist := geo.CalculateEuclideanDistMercatorProj(plat, plon,
-			lat, lon) // dist dari (lat,lon) ke titik proyeksi
-
-		if util.Lt(dist, minDist) {
-			minDist = dist
-			pPoint = projectedPoint
-			lastIndex = i
-			cumDist += geo.CalculateEuclideanDistMercatorProj(tail.GetLat(), tail.GetLon(),
-				plat, plon) // dist dari (lat,lon) ke titik proyeksi
-			stailDist = cumDist
-		}
-
-		cumDist += geo.CalculateEuclideanDistMercatorProj(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
-	}
-
-	return da.Index(lastIndex), segGeometry, pPoint, minDist, stailDist
+	lastIndex, pPoint, minDist, stailDist := geo.ProjectPointOnSegmentGeometry(segGeometry, lat, lon)
+	return lastIndex, segGeometry, pPoint, minDist, stailDist
 }
 
 func (rs *RoutingService) notFoundOriginDestinationWithinRadius(sp, tp da.PhantomNode) bool {

@@ -158,8 +158,8 @@ func (crp *CRPRoutingEngine[W]) getWeight(eId da.Index, out bool) W {
 }
 
 func (crp *CRPRoutingEngine[W]) GetDurationSeconds(segId da.Index) float64 {
-	w := crp.metrics.GetDuration(segId)
-	return util.WeightToSeconds(w)
+	w := crp.metrics.GetDurationSeconds(segId)
+	return w
 }
 
 // GetLength. get weight (traveltime /duration) of a road segment given road segment length
@@ -176,7 +176,7 @@ func (crp *CRPRoutingEngine[W]) GetSegmentSpeed(segId da.Index) float64 {
 // GetSegmentLength. get road segment (edge) length in meters
 func (crp *CRPRoutingEngine[W]) GetSegmentLength(segId da.Index) float64 {
 	l := crp.metrics.GetSegmentLength(segId)
-	return util.DistanceToMeters(l)
+	return l
 }
 
 func (crp *CRPRoutingEngine[W]) PutCoordsToPool(coords *da.Coordinates) {

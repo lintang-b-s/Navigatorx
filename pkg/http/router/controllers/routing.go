@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mmcloughlin/geohash"
 	"github.com/spf13/viper"
 
 	"github.com/go-playground/locales/en"
@@ -22,8 +21,8 @@ import (
 )
 
 type routingAPI struct {
-	routingService RoutingService
-	tilingService  TilingService
+	routingService       RoutingService
+	mapAttributesService MapAttributesService
 
 	log *zap.Logger
 
@@ -33,7 +32,7 @@ type routingAPI struct {
 	maxRequestBodySize int64
 }
 
-func New(routingService RoutingService, log *zap.Logger, tilingService TilingService) *routingAPI {
+func New(routingService RoutingService, log *zap.Logger, mapAttributesService MapAttributesService) *routingAPI {
 	validate := validator.New()
 	english := en.New()
 	uni := ut.New(english, english)
@@ -44,12 +43,12 @@ func New(routingService RoutingService, log *zap.Logger, tilingService TilingSer
 	maxRequestBodySize := viper.GetInt64("server.max_request_body_size") * MB_TO_BYTES
 
 	return &routingAPI{
-		routingService:     routingService,
-		log:                log,
-		validate:           validate,
-		tilingService:      tilingService,
-		trans:              trans,
-		maxRequestBodySize: maxRequestBodySize,
+		routingService:       routingService,
+		log:                  log,
+		validate:             validate,
+		mapAttributesService: mapAttributesService,
+		trans:                trans,
+		maxRequestBodySize:   maxRequestBodySize,
 	}
 
 }
@@ -59,10 +58,8 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes)
 	group.GET("/boundingBox", api.GetBoundingBox)
 
-	group.GET("/tile/:userGeohash", api.getTile)
-	group.GET("/tile-init", api.initClientSideRealTimeMapMatching)
-	group.GET("/tile-init-transition-matrix", api.initClientSideRealTimeMapMatchingTransitionMatrix)
-	group.GET("/tile-init-transition-matrix/", api.initClientSideRealTimeMapMatchingTransitionMatrix)
+	group.GET("/mapAttributes/:h3Cellid", api.getMapAttributes)
+	group.GET("/init-transition-matrix", api.initTransitionMatrix)
 	group.POST("/mapmatching", api.offlineMapMatching) // offline map-matching
 }
 
@@ -275,33 +272,25 @@ func (api *routingAPI) GetBoundingBox(w http.ResponseWriter, r *http.Request, p 
 	}
 }
 
-func (api *routingAPI) getTile(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	userGeohash := p.ByName("userGeohash")
-	if userGeohash == "" {
-		api.BadRequestResponse(w, r, errors.New("userGeohash is required"))
-		return
-	}
-
-	// validate request
-	if err := geohash.Validate(userGeohash); err != nil {
-		api.BadRequestResponse(w, r, err)
+func (api *routingAPI) getMapAttributes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	h3CellidStr := p.ByName("h3Cellid")
+	if h3CellidStr == "" {
+		api.BadRequestResponse(w, r, errors.New("h3Cellid is required"))
 		return
 	}
 
 	ctx := r.Context()
-	tileFilePath := api.tilingService.GetTileFilePath(ctx, userGeohash)
-	http.ServeFile(w, r, tileFilePath)
-}
-
-func (api *routingAPI) initClientSideRealTimeMapMatching(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	numberOfVertices := api.tilingService.GetNumberOfVertices(r.Context())
-	if err := api.writeJSON(w, http.StatusOK, startClientSideRealtimeMapMatchingEnvelope{Data: *NewStartClientSideRealtimeMapMatchingResponse(numberOfVertices)}); err != nil {
+	buf, err := api.mapAttributesService.GetMapAttributes(ctx, h3CellidStr) // masih todo
+	if err != nil {
 		api.ServerErrorResponse(w, r, err)
-		return
+	}
+	_, err = w.Write(buf)
+	if err != nil {
+		api.ServerErrorResponse(w, r, err)
 	}
 }
 
-func (api *routingAPI) initClientSideRealTimeMapMatchingTransitionMatrix(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (api *routingAPI) initTransitionMatrix(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	r.Header.Del("If-Modified-Since")
 	r.Header.Del("If-None-Match")
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")

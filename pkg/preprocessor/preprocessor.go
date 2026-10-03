@@ -8,7 +8,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -36,9 +35,9 @@ func getPrepFilePath(fileType pkg.FILE_TYPE) (graph, overlayGraph, roadNetwork s
 }
 
 func NewPreprocessor[W util.RoutingNumber](graph *da.Graph, rn *da.RoadNetworkDataContainer, timeFunction *met.TimeFunction[W], mlp *da.MultilevelPartition,
-	logger *zap.Logger, fileType pkg.FILE_TYPE,
+	logger *zap.Logger,
 ) *Preprocessor[W] {
-	gf, ogf, rnf := getPrepFilePath(fileType)
+	gf, ogf, rnf := getPrepFilePath(pkg.TIPE)
 	return &Preprocessor[W]{
 		graph:                    graph,
 		mlp:                      mlp,
@@ -92,14 +91,6 @@ func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 		err := p.overlayGraph.WriteToFile(p.overlayGraphFilename)
 		if err != nil {
 			return err
-		}
-
-		// write graph tiles
-		if p.writeTiles {
-			tilingEngine := tiler.NewTilingEngine(p.graph, p.rn, p.logger, p.timeFunction)
-			if err := tilingEngine.PreprocessTiles(); err != nil {
-				return err
-			}
 		}
 
 		if err := p.graph.WriteGraph(p.graphFilename); err != nil {
@@ -239,7 +230,7 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 		}
 	}
 
-	p.graph.SetBoundingBox(da.NewBoundingBox(minLat, minLon, maxLat, maxLon))
+	p.rn.SetBoundingBox(da.NewBoundingBox(minLat, minLon, maxLat, maxLon))
 
 	p.oToNewVId = make([]da.Index, p.graph.NumberOfVertices()+1) // new vertex id after sorting by cell number
 	newVid := da.Index(0)                                        // new vertex id after sorting by cell number
@@ -307,6 +298,7 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 		p.rn.ApplySegmentsPermutation(nPerm)
 		p.timeFunction.ApplySegmentsPermutation(ePerm, nPerm, isRn)
 	} else {
+		p.rn.ApplySegmentsPermutation(ePerm)
 		p.timeFunction.ApplySegmentsPermutation(ePerm, ePerm, isRn)
 	}
 

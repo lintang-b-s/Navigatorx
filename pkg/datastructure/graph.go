@@ -40,7 +40,6 @@ type Graph struct {
 	// sccCondensationAdj [][]Index // condensation graph connection of scc of u -> scc of v
 	sccReach []*bitset.BitSet // sccId v -> bitset dari list dari other sccIds u yang dapat reach sccId v
 
-	boundingBox       *BoundingBox
 	minResolution     float64
 	maxVerticesInCell Index // maximum number of vertices in any level 1 cell
 	roadNetwork       bool
@@ -53,6 +52,7 @@ func NewGraph(vertices []Vertex, heads []Index, tails []Index, roadNetwork bool,
 
 // ---- graph data stucture related ----
 
+// NumberOfVertices return number of graph vertices excluding last dummy vertex
 func (g *Graph) NumberOfVertices() int {
 	return len(g.vertices) - 1
 }
@@ -242,7 +242,7 @@ func (g *Graph) ForVertices(handle func(v Vertex, id Index)) {
 }
 
 func (g *Graph) SetVertexPvPtr(id Index, pvPtr Index) {
-	g.vertices[id].SetPvPtr(pvPtr)
+	g.vertices[id].pvPtr = pvPtr
 }
 
 func (g *Graph) SetFirstOut(id Index, firstOut Index) {
@@ -254,7 +254,7 @@ func (g *Graph) SetFirstIn(id Index, firstIn Index) {
 }
 
 func (g *Graph) SetVId(id Index, vId Index) {
-	g.vertices[id].SetId(vId)
+	g.vertices[id].id = vId
 }
 
 func (g *Graph) GetVertices() []Vertex {
@@ -310,15 +310,15 @@ func (g *Graph) GetVertexCoordinate(u Index) Coordinate {
 }
 
 func (g *Graph) GetVertexPvPtr(u Index) Index {
-	return g.vertices[u].GetPvPtr()
+	return g.vertices[u].pvPtr
 }
 
 func (g *Graph) GetVertexFirstOut(u Index) Index {
-	return g.vertices[u].GetFirstOut()
+	return g.vertices[u].firstOut
 }
 
 func (g *Graph) GetVertexFirstIn(u Index) Index {
-	return g.vertices[u].GetFirstIn()
+	return g.vertices[u].firstIn
 }
 
 func (g *Graph) SetHead(eId Index, v Index) {
@@ -335,16 +335,6 @@ func (g *Graph) GetVerticeIds() []Index {
 		nodeIds = append(nodeIds, Index(i))
 	}
 	return nodeIds
-}
-
-// ---- road network data related ----
-
-func (g *Graph) SetBoundingBox(bb *BoundingBox) {
-	g.boundingBox = bb
-}
-
-func (g *Graph) GetBoundingBox() *BoundingBox {
-	return g.boundingBox
 }
 
 // ---- nodes & edges permutation related ----

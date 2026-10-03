@@ -27,8 +27,7 @@ func (s *Server) Use(
 
 	useRateLimit bool,
 	routingService controllers.RoutingService,
-
-	tilingService controllers.TilingService,
+	mapAttributesService controllers.MapAttributesService,
 	shutdownPeriod time.Duration,
 
 ) error {
@@ -68,7 +67,7 @@ func (s *Server) Use(
 	g.Go(func() error {
 		return server.Run(
 			config, log,
-			useRateLimit, routingService, tilingService,
+			useRateLimit, routingService, mapAttributesService,
 			shutdownPeriod,
 		)
 	})

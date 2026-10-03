@@ -7,6 +7,7 @@ import (
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -99,6 +100,14 @@ func (m *MockRoutingEngine) GetSegmentLength(segId da.Index) float64 {
 	args := m.Called(segId)
 	return args.Get(0).(float64)
 }
+
+func (m *MockRoutingEngine) GetMetrics() *met.Metric[int32] {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(*met.Metric[int32])
+}
 func (m *MockRoutingEngine) IsDummyOutEdge(edgeId da.Index) bool {
 	args := m.Called(edgeId)
 	return args.Bool(0)
@@ -119,16 +128,11 @@ func (m *MockRoutingEngine) PutPathToPool([]da.Index) {}
 
 func (m *MockRoutingEngine) PutCoordsToPool(*da.Coordinates) {}
 
-type MockTilingService struct {
+type MockMapAttributesService struct {
 	mock.Mock
 }
 
-func (m *MockTilingService) GetTileFilePath(ctx context.Context, userGeohash string) string {
-	args := m.Called(ctx, userGeohash)
-	return args.String(0)
-}
-
-func (m *MockTilingService) GetNumberOfVertices(ctx context.Context) int {
-	args := m.Called(ctx)
-	return args.Int(0)
+func (m *MockMapAttributesService) GetMapAttributes(ctx context.Context, h3CellId string) ([]byte, error) {
+	args := m.Called(ctx, h3CellId)
+	return []byte(args.String(0)), args.Error(1)
 }

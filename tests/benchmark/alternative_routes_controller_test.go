@@ -10,8 +10,8 @@ import (
 
 	"github.com/julienschmidt/httprouter"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapattributes"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
@@ -34,8 +34,8 @@ func BenchmarkAlternativeRoutesController(b *testing.B) {
 	re := eng.GetRoutingEngine()
 
 	g := re.GetGraph()
-	bb := g.GetBoundingBox()
 	rn := re.GetRoadNetworkContainer()
+	bb := rn.GetBoundingBox()
 	rtree := spatialindex.NewRtree()
 	rtree.Build(re.GetGraph(), rn, logger)
 	altSearch := routing.NewAlternativeRouteSearch(re)
@@ -46,11 +46,11 @@ func BenchmarkAlternativeRoutesController(b *testing.B) {
 		b.Fatal(err)
 	}
 
-	cf := re.GetCostFunction()
-	tilingEngine := tiler.NewTilingEngine(g, rn, logger, cf)
-	tilingService := usecases.NewTileService(logger, tilingEngine)
+	met := re.GetMetrics()
+	mapAttributesEngine := mapattributes.NewMapAttributesEngine(g, rn, logger, met, rtree)
+	mapAttributesService := usecases.NewMapAttributesService(logger, mapAttributesEngine)
 
-	api := controllers.New(rs, logger, tilingService)
+	api := controllers.New(rs, logger, mapAttributesService)
 
 	params := httprouter.Params{}
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))

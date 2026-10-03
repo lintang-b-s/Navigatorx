@@ -54,12 +54,12 @@ func TestDTOS(t *testing.T) {
 
 	t.Run("NewCandidate", func(t *testing.T) {
 		c := NewCandidate(1, 10.5, 100.0)
-		assert.Equal(t, da.Index(1), c.EdgeId)
+		assert.Equal(t, da.Index(1), c.SegmentId)
 		assert.Equal(t, 10.5, c.Weight)
 	})
 
 	t.Run("ToOnlineCandidates", func(t *testing.T) {
-		cands := []*Candidate{{EdgeId: 1, Weight: 10.0, Length: 100.0}}
+		cands := []*Candidate{{SegmentId: 1, Weight: 10.0, Length: 100.0}}
 		oCands := ToOnlineCandidates(cands)
 		assert.Len(t, oCands, 1)
 		assert.Equal(t, da.Index(1), oCands[0].GetSegmentId())
@@ -73,12 +73,12 @@ func TestDTOS(t *testing.T) {
 	t.Run("NewMapmatchingResponse With Candidate", func(t *testing.T) {
 		now := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
 		gpsPoint := da.NewGPSPoint(yogyakartaOriginLat, yogyakartaOriginLon, now, 10.0, 1.0)
-		matched := da.NewMatchedGPSPoint(gpsPoint, 1, da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 90.0, 0, "")
+		matched := da.NewMatchedGPSPoint(gpsPoint, 1, da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 90.0, 0)
 		candidates := []*ma.Candidate{ma.NewCandidate(1, 12.0, 120.0)}
 
 		res := NewMapmatchingResponse(matched, candidates, 3.0, 1.5, 90.0)
 
-		assert.Equal(t, da.Index(1), res.MatchedGpsPoint.EdgeId)
+		assert.Equal(t, da.Index(1), res.MatchedGpsPoint.SegmentId)
 		assert.Len(t, res.Candidates, 1)
 		assert.Equal(t, 12.0, res.Candidates[0].Weight)
 		assert.Equal(t, 3.0, res.SpeedMeanK)

@@ -23,7 +23,7 @@ func TestAPI_Run(t *testing.T) {
 	api := NewAPI(log)
 
 	mockRS := new(MockRoutingService)
-	mockTS := new(MockTilingService)
+	mockTS := new(MockMapAttributesService)
 	mockEngine := new(MockRoutingEngine)
 
 	mockRS.On("GetRoutingEngine").Return(mockEngine)
@@ -74,7 +74,7 @@ func TestAPI_Run_InjectedServerError(t *testing.T) {
 	log := zap.NewNop()
 	api := NewAPI(log)
 	mockRS := new(MockRoutingService)
-	mockTS := new(MockTilingService)
+	mockTS := new(MockMapAttributesService)
 	mockEngine := new(MockRoutingEngine)
 
 	mockRS.On("GetRoutingEngine").Return(mockEngine)

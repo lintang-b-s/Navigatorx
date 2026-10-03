@@ -175,7 +175,7 @@ func makeTurnTable[W util.RoutingNumber](
 	// T(n) = \sum_{u in V} outDeg(u)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
 	g.ForOutEdges(func(_, v, u, i da.Index, percentage float64, eIdFrom da.Index) {
 
-		vLimitFrom := util.SpeedToMetersPerSecond(eSpeedLimit[eIdFrom])
+		vLimitFrom := float64(eSpeedLimit[eIdFrom])
 		g.ForOutEdgesOfWithTurn(v, i, func(eIdTo, w da.Index, j, _ da.Index) {
 			turnTableId := vTurnTableIds[v] + da.Index(i)*g.GetOutDegree(v) + da.Index(j)
 			turnType := turnMatrix[turnTableId]
@@ -197,7 +197,7 @@ func makeTurnTable[W util.RoutingNumber](
 				return
 			}
 
-			vLimitTo := util.SpeedToMetersPerSecond(eSpeedLimit[eIdTo])
+			vLimitTo := float64(eSpeedLimit[eIdTo])
 			currentTurnCost := turnTableSeconds[turnTableId]
 
 			prev := g.GetVertex(u)

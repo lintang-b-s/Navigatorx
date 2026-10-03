@@ -90,7 +90,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 			panic(err)
 		}
 
-		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.EVAL)
+		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger)
 		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(true)
 		if err != nil {
@@ -103,7 +103,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 		if err != nil {
 			panic(err)
 		}
-		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.EVAL)
+		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger)
 		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(false)
 		if err != nil {
@@ -111,14 +111,14 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 		}
 	}
 
-	cust := customizer.NewCustomizer[int64](logger, pkg.EVAL)
+	cust := customizer.NewCustomizer[int64](logger)
 
 	_, err = cust.Customize()
 	if err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine[int64](logger, pkg.EVAL)
+	re, err := engine.NewEngine[int64](logger)
 	if err != nil {
 		panic(err)
 	}

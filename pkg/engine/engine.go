@@ -35,9 +35,9 @@ func getEngineFilePath(fileType pkg.FILE_TYPE) (
 		base + "_road_network.ndata"
 }
 
-func NewEngine[W util.RoutingNumber](logger *zap.Logger, fileType pkg.FILE_TYPE) (*Engine[W], error) {
+func NewEngine[W util.RoutingNumber](logger *zap.Logger) (*Engine[W], error) {
 	util.ActivateMode[W]()
-	gf, ogf, lmf, metf, tff, rnf := getEngineFilePath(fileType)
+	gf, ogf, lmf, metf, tff, rnf := getEngineFilePath(pkg.TIPE)
 	re, err := initializeRoutingEngine[W](gf, ogf, rnf, metf, lmf, tff,
 		logger)
 	if err != nil {

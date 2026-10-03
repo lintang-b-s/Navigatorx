@@ -16,9 +16,9 @@ func PrepTimeFunctionPath() string {
 }
 
 type TimeFunction[W util.RoutingNumber] struct {
-	weights          []W      // centisecond (if the input is openstreetmap file)
-	segmentLengths   []uint32 // centimeter
-	segmentDurations []uint32 // centisecond. duration of traveling road segments
+	weights          []W      // centisecond (if the input is openstreetmap file). weight of each graph edge.
+	segmentLengths   []uint32 // centimeter. length of each road segment.
+	segmentDurations []uint32 // centisecond. duration of each road segments.
 	isRoadNetwork    bool
 }
 
@@ -80,6 +80,14 @@ func (tf *TimeFunction[W]) weightFromSpeed(speed uint32, length uint32) W {
 // GetSegmentLength. get road segment lengths in centimeter
 func (tf *TimeFunction[W]) GetSegmentLength(segId da.Index) uint32 {
 	return tf.segmentLengths[segId]
+}
+
+// GetSegmentSpeed return road segment speed in meter/second
+func (tf *TimeFunction[W]) GetSegmentSpeed(segId da.Index) float64 {
+	dur := float64(tf.segmentDurations[segId])
+	length := float64(tf.segmentLengths[segId])
+	speed := length / dur
+	return speed
 }
 
 func (tf *TimeFunction[W]) Getweights() []W {

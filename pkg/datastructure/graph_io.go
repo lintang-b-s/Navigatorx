@@ -289,13 +289,6 @@ func (g *Graph) WriteGraph(filename string) error {
 			}
 		}
 
-		// bounding box related
-		for _, value := range []float64{g.boundingBox.minLat, g.boundingBox.minLon, g.boundingBox.maxLat, g.boundingBox.maxLon} {
-			if err := w.Float64(value); err != nil {
-				return err
-			}
-		}
-
 		return nil
 	})
 }
@@ -432,14 +425,6 @@ func ReadGraph(filename string) (*Graph, error) {
 		}
 	}
 
-	bounds := [4]float64{}
-	for i := range bounds {
-		bounds[i], err = r.Float64()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	graph := NewGraph(vertices, heads, tails, roadNetwork, entryPoints, exitPoints)
 	graph.cellNumbers = cellNumbers
 	graph.overlayVertices = overlay
@@ -449,7 +434,6 @@ func ReadGraph(filename string) (*Graph, error) {
 	graph.sccs = sccs
 	graph.sccCondensationAdj = sccAdj
 	graph.sccReach = sccReach
-	graph.boundingBox = NewBoundingBox(bounds[0], bounds[1], bounds[2], bounds[3])
 	graph.minResolution = minResolution
 	return graph, nil
 }

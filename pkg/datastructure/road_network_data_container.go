@@ -1,12 +1,13 @@
 package datastructure
 
 import (
+	"math"
 	"sort"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/mmcloughlin/geohash"
+	"github.com/uber/h3-go/v4"
 )
 
 // RoadNetworkDataContainer stores annotation and supplementary information for the osm road network  data.
@@ -18,9 +19,6 @@ type RoadNetworkDataContainer struct {
 
 	nameTable []string // map dari integer ke string (tag name di osm way)
 	// dua ini di set sebelum buildGraph()
-
-	// di set saat sortByCell
-	segmentGeohashes []uint32 // geohash precision 6 uses 30 bits
 
 	// conditional restrictions
 	conditionalBarrierNodes     []ConditionalBarrierNode
@@ -35,6 +33,7 @@ type RoadNetworkDataContainer struct {
 	segmentOsmWayId         *PackedSlice    // map dari outEdgid ke osm way id dari edge
 	segmentStartPointsIndex []Index
 	segmentEndPointsIndex   []Index
+	segmentH3CellId         map[string][]Index
 	streetName              []uint32
 	roadClass               []pkg.OsmHighwayType
 	roadClassLink           []pkg.OsmHighwayType
@@ -42,13 +41,13 @@ type RoadNetworkDataContainer struct {
 	osmwayBitSize           uint8
 	segmentHighwayType      []pkg.OsmHighwayType
 	segmentFlags            []SegmentFlagType
+
+	boundingBox *BoundingBox
 }
 
 func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer {
 
 	return &RoadNetworkDataContainer{
-
-		segmentGeohashes:        make([]uint32, 0),
 		osmNodePoints:           make([]Coordinate, 0),
 		osmNodeIds:              make([]uint64, 0),
 		segmentOsmWayId:         NewPackedSlice(osmwayBitSize, INITIAL_APPROX_SEGMENT_SIZE), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
@@ -60,6 +59,7 @@ func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer 
 		roadClassLink:           make([]pkg.OsmHighwayType, 0),
 		lanes:                   make([]uint8, 0),
 		segmentFlags:            make([]SegmentFlagType, 0),
+		segmentH3CellId:         make(map[string][]Index, 0),
 	}
 }
 
@@ -73,19 +73,18 @@ func BuildRoadNetworkDataContainer(osmNodePoints []Coordinate, nodeTrafficLight 
 
 func NewRoadNetworkDataContainerWithSize(numberOfEdges int, numberOfVertices int) *RoadNetworkDataContainer {
 	return &RoadNetworkDataContainer{
-
-		segmentGeohashes:        make([]uint32, numberOfEdges),
 		osmNodePoints:           make([]Coordinate, 1),
 		segmentOsmWayId:         NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID, uint64(numberOfEdges)),
 		segmentStartPointsIndex: make([]Index, 0),
 		osmNodeIds:              make([]uint64, 0),
-
-		segmentEndPointsIndex: make([]Index, 0),
-		streetName:            make([]uint32, 0),
-		osmwayBitSize:         DEFAULT_BIT_SIZE_OSM_WAY_ID,
-		roadClass:             make([]pkg.OsmHighwayType, 0),
-		roadClassLink:         make([]pkg.OsmHighwayType, 0),
-		lanes:                 make([]uint8, 0)}
+		segmentEndPointsIndex:   make([]Index, 0),
+		streetName:              make([]uint32, 0),
+		osmwayBitSize:           DEFAULT_BIT_SIZE_OSM_WAY_ID,
+		roadClass:               make([]pkg.OsmHighwayType, 0),
+		roadClassLink:           make([]pkg.OsmHighwayType, 0),
+		lanes:                   make([]uint8, 0),
+		segmentH3CellId:         make(map[string][]Index, 0),
+	}
 }
 
 func (rn *RoadNetworkDataContainer) IsSegmentFlagBitOn(id Index, mask SegmentFlagType) bool {
@@ -217,7 +216,8 @@ func (rn *RoadNetworkDataContainer) GetSegmentTailCoord(id Index) Coordinate {
 
 // GetSegmentHeadCoord. get coordinate of head node v of road segment/edge (u,v)
 func (rn *RoadNetworkDataContainer) GetSegmentHeadCoord(id Index) Coordinate {
-	return rn.GetSegmentGeometryPoint(id, int(rn.GetSegmentGeometryLength(id))-1)
+	l := int(rn.GetSegmentGeometryLength(id))
+	return rn.GetSegmentGeometryPoint(id, l-1)
 }
 
 func (rn *RoadNetworkDataContainer) GetSegmentGeometryEndpoints(id Index) (Index, Index) {
@@ -317,8 +317,7 @@ func (rn *RoadNetworkDataContainer) GetTurnLaneData(id Index) TurnLanesData {
 // perm=permutation that maps from new edge annotation id to old edge id
 // nPerm=permutation that maps from new vertex id to old vertex id
 func (rn *RoadNetworkDataContainer) ApplySegmentsPermutation(nPerm []int) {
-	m := len(nPerm)
-
+	m := Index(len(nPerm))
 	// apply permutation edge annotation data
 	rn.lanes = util.ApplyPermutation(rn.lanes, nPerm)
 	rn.roadClass = util.ApplyPermutation(rn.roadClass, nPerm)
@@ -326,23 +325,43 @@ func (rn *RoadNetworkDataContainer) ApplySegmentsPermutation(nPerm []int) {
 	rn.streetName = util.ApplyPermutation(rn.streetName, nPerm)
 	rn.segmentStartPointsIndex = util.ApplyPermutation(rn.segmentStartPointsIndex, nPerm)
 	rn.segmentEndPointsIndex = util.ApplyPermutation(rn.segmentEndPointsIndex, nPerm)
-
 	newOsmWayIds := NewPackedSlice(rn.osmwayBitSize, uint64(m))
-	for e := Index(0); e < Index(m); e++ {
+	for e := Index(0); e < m; e++ {
 		oldE := Index(nPerm[e])
 		newOsmWayIds.Append(rn.GetOsmWayId(oldE))
 	}
-
 	rn.segmentFlags = util.ApplyPermutation(rn.segmentFlags, nPerm)
 	rn.segmentOsmWayId = newOsmWayIds
-
-	edgeGeohashes := make([]uint32, m)
-	for e := Index(0); e < Index(m); e++ {
-		tailCoord := rn.GetSegmentTailCoord(e)
-		eGeoHash := geohash.EncodeIntWithPrecision(tailCoord.GetLat(), tailCoord.GetLon(), GeohashBits)
-		edgeGeohashes[e] = uint32(eGeoHash)
+	// precompute h3CellId of each road segments
+	rn.segmentH3CellId = make(map[string][]Index)
+	for segId := Index(0); segId < m; segId++ {
+		geom := rn.GetSegmentGeometry(segId)
+		var (
+			minLat, minLon int64 = math.MaxInt64, math.MaxInt64 // biar penjumlahan di cLat/cLon dibawah gak overflow
+			maxLat, maxLon int64 = -math.MaxInt64, -math.MaxInt64
+			cLat, cLon     float64
+		)
+		for i := 0; i < len(geom); i++ {
+			p := geom[i]
+			minLat = min(minLat, int64(p.lat))
+			minLon = min(minLon, int64(p.lon))
+			maxLat = max(maxLat, int64(p.lat))
+			maxLon = max(maxLon, int64(p.lon))
+		}
+		cLat = float64((minLat + maxLat) / 2)
+		cLon = float64((minLon + maxLon) / 2)
+		cLatf, cLonf := cLat/CoordinatePrecision, cLon/CoordinatePrecision
+		cell, err := h3.NewLatLng(cLatf, cLonf).Cell(8)
+		if err != nil {
+			panic(err)
+		}
+		cellId := cell.String()
+		rn.segmentH3CellId[cellId] = append(rn.segmentH3CellId[cellId], segId)
 	}
-	rn.segmentGeohashes = edgeGeohashes
+}
+
+func (rn *RoadNetworkDataContainer) GetH3CellSegments(cellId string) []Index {
+	return rn.segmentH3CellId[cellId]
 }
 
 // is parallel via-way
@@ -350,8 +369,12 @@ func (rn *RoadNetworkDataContainer) IsParallelVia(id Index) bool {
 	return rn.segmentFlags[id]&FlagParallel != 0
 }
 
-func (rn *RoadNetworkDataContainer) GetSegmentGeohash(id Index) uint64 {
-	return uint64(rn.segmentGeohashes[id])
+func (rn *RoadNetworkDataContainer) SetBoundingBox(bb *BoundingBox) {
+	rn.boundingBox = bb
+}
+
+func (rn *RoadNetworkDataContainer) GetBoundingBox() *BoundingBox {
+	return rn.boundingBox
 }
 
 // ----  conditonal restrictions related ----

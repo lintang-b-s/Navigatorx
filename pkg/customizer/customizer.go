@@ -36,7 +36,6 @@ type Customizer[W util.RoutingNumber] struct {
 	prepWeightFunctionFilePath          string
 	prepWeightFunction                  *met.TimeFunction[W]
 	landmarkFile                        string
-	turnCost                            bool
 }
 
 func getCustomizerFilePath(fileType pkg.FILE_TYPE) (
@@ -52,9 +51,9 @@ func getCustomizerFilePath(fileType pkg.FILE_TYPE) (
 }
 
 func NewCustomizer[W util.RoutingNumber](
-	logger *zap.Logger, fileType pkg.FILE_TYPE) *Customizer[W] {
+	logger *zap.Logger) *Customizer[W] {
 	util.ActivateMode[W]()
-	gf, ogf, lmf, metf, tff := getCustomizerFilePath(fileType)
+	gf, ogf, lmf, metf, tff := getCustomizerFilePath(pkg.TIPE)
 	cst := &Customizer[W]{
 		graphFilePath:              gf,
 		overlayGraphFilePath:       ogf,
@@ -92,7 +91,7 @@ func NewCustomizerDirect[W util.RoutingNumber](
 }
 
 func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
-	c.turnCost = true
+
 	var err error
 	if pkg.TIPE == pkg.ROUTER || pkg.TIPE == pkg.TEST {
 		// only for osm routiing engine
@@ -218,7 +217,6 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 // just for shortest path test
 func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
-	c.turnCost = false
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights[W](c.overlayGraph.GetWeightVectorSize())
@@ -305,18 +303,12 @@ worst case buildLevel in level l:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op)
 worst case crp customization: O(  c_1 * n_op * (m_p* log(m_p)) + c_l * n_op * (n_op + \hat{m_p}) * log(n_op)  )
 */
 func (c *Customizer[W]) Build(wf *met.TimeFunction[W]) {
-	if c.turnCost {
-		c.buildLowestLevel(wf)
-	} else {
-		c.buildLowestLevel(wf)
-	}
+	c.buildLowestLevel(wf)
+
 	c.logger.Info("finished crp customization level 1")
-	for level := 2; level <= c.overlayGraph.GetLevelData().GetLevelCount(); level++ {
-		if c.turnCost {
-			c.buildLevel(wf, level)
-		} else {
-			c.buildLevel(wf, level)
-		}
+	totLevel := c.overlayGraph.GetLevelData().GetLevelCount()
+	for level := 2; level <= totLevel; level++ {
+		c.buildLevel(wf, level)
 		c.logger.Sugar().Infof("finished crp customization level %v", level)
 	}
 }

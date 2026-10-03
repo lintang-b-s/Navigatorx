@@ -1,0 +1,65 @@
+name: dockerhub
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Go
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Install gdown and download data
+        run: |
+          pip install gdown
+          gdown https://drive.google.com/uc?id=1uBoFWUSRka9pqH2dVPKpcystxXmkkSgs --output ./data
+          gdown https://drive.google.com/uc?id=1HBswl5-JkFXWh--AFLC2ElYC4Tbsj1i0   --output ./data
+          gdown https://drive.google.com/uc?id=1pRmqUFgNc_p0lEKmfzLcn3IRhUW4Cm4c  --output ./data
+
+      - name: Collect PGO profiles
+        run: sh scripts/build_pgo.sh
+
+      - name: Build and run preprocessor
+        run: |
+          go build -o ./bin/preprocessor ./cmd/preprocessor
+          ./bin/preprocessor
+
+      - name: Build and run customizer
+        run: |
+          go build -o ./bin/customizer ./cmd/customizer
+          ./bin/customizer
+
+      - name: Build engine
+        run: go build -o ./bin/engine -pgo=./bin/default.pgo ./cmd/engine
+
+      - name: Login to Docker Hub
+        env:
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: echo "$DOCKERHUB_TOKEN" | docker login -u lintangbirdas --password-stdin
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: true
+          tags: lintangbirdas/navigatorx:latest

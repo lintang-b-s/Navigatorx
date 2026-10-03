@@ -6,6 +6,7 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 )
 
 type RoutingService interface {
@@ -25,7 +26,7 @@ type RoutingEngine interface {
 	GetDurationFromLength(segId da.Index, eLength float64) float64
 	GetSegmentLength(segId da.Index) float64
 	GetSegmentSpeed(segId da.Index) float64
-
+	GetMetrics() *met.Metric[int32]
 	InitBackgroundWorker(ctx context.Context)
 	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
 	Close()
@@ -37,7 +38,7 @@ type MapMatcherService interface {
 		candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64, error)
 }
 
-type TilingService interface {
-	GetTileFilePath(ctx context.Context, userGeohash string) string
-	GetNumberOfVertices(ctx context.Context) int
+// MapAttributesService  https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+type MapAttributesService interface {
+	GetMapAttributes(ctx context.Context, h3CellId string) ([]byte, error)
 }

@@ -31,7 +31,7 @@ const (
 func TestRoutingAPI_ShortestPath(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockTS := new(MockTilingService)
+	mockTS := new(MockMapAttributesService)
 	api := New(mockRS, log, mockTS)
 
 	t.Run("Missing Params", func(t *testing.T) {
@@ -174,7 +174,7 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockTS := new(MockTilingService)
+	mockTS := new(MockMapAttributesService)
 	api := New(mockRS, log, mockTS)
 
 	t.Run("Success", func(t *testing.T) {
@@ -304,7 +304,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 func TestRoutingAPI_GetBoundingBox(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockTS := new(MockTilingService)
+	mockTS := new(MockMapAttributesService)
 	api := New(mockRS, log, mockTS)
 
 	t.Run("Success", func(t *testing.T) {
@@ -334,7 +334,7 @@ func TestRoutingAPI_GetBoundingBox(t *testing.T) {
 func TestRoutingAPI_Routes(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockTS := new(MockTilingService)
+	mockTS := new(MockMapAttributesService)
 	api := New(mockRS, log, mockTS)
 
 	router := httprouter.New()
@@ -353,7 +353,7 @@ func TestRoutingAPI_Routes(t *testing.T) {
 func TestRoutingAPI_TransitionMatrixTrailingSlashDoesNotRedirect(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockTS := new(MockTilingService)
+	mockTS := new(MockMapAttributesService)
 	api := New(mockRS, log, mockTS)
 
 	router := httprouter.New()
@@ -391,12 +391,12 @@ func TestRoutingAPI_TransitionMatrixIgnoresConditionalCacheHeaders(t *testing.T)
 	assert.NoError(t, os.WriteFile(matrixPath, []byte("matrix"), 0o644))
 	assert.NoError(t, os.Chtimes(matrixPath, time.Now().Add(-time.Hour), time.Now().Add(-time.Hour)))
 
-	api := New(new(MockRoutingService), zap.NewNop(), new(MockTilingService))
+	api := New(new(MockRoutingService), zap.NewNop(), new(MockMapAttributesService))
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/api/tile-init-transition-matrix/", nil)
 	req.Header.Set("If-Modified-Since", time.Now().UTC().Format(http.TimeFormat))
 
-	api.initClientSideRealTimeMapMatchingTransitionMatrix(w, req, nil)
+	api.initTransitionMatrix(w, req, nil)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 	assert.Equal(t, "matrix", w.Body.String())
@@ -406,7 +406,7 @@ func TestRoutingAPI_TransitionMatrixIgnoresConditionalCacheHeaders(t *testing.T)
 func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
 	log := zap.NewNop()
 	mockRS := new(MockRoutingService)
-	mockTS := new(MockTilingService)
+	mockTS := new(MockMapAttributesService)
 	api := New(mockRS, log, mockTS)
 
 	validGPX := `<?xml version="1.0" encoding="UTF-8"?>

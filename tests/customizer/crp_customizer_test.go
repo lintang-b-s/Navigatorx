@@ -284,7 +284,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 		mlp := mp.BuildMLP()
 
-		prep := preprocessor.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.TEST)
+		prep := preprocessor.NewPreprocessor(g, rn, timeFunction, mlp, logger)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			t.Fatalf("err: %v", err)
@@ -516,7 +516,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
+	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -524,14 +524,14 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](logger, pkg.TEST)
+	custom := customizer.NewCustomizer[int32](logger)
 
 	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine[int32](logger, pkg.TEST)
+	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
 		t.Fatal(err)
 	}

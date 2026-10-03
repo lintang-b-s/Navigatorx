@@ -24,7 +24,3 @@ func DistanceToMeters(value uint32) float64 {
 func DistanceFromMeters(value float64) uint32 {
 	return uint32(math.Round(value * CentiScale))
 }
-
-func SpeedToMetersPerSecond(value uint32) float64 {
-	return float64(value)
-}

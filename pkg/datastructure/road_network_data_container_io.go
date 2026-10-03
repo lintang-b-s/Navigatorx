@@ -135,9 +135,6 @@ func writeRoadNetworkDataContainer(w *util.BinaryWriter, rn *RoadNetworkDataCont
 	if err := writeTurnLanesData(w, rn.segmentTurnLanesData); err != nil {
 		return err
 	}
-	if err := w.WriteUint32s(rn.segmentGeohashes); err != nil {
-		return err
-	}
 	if err := w.Length(len(rn.nameTable)); err != nil {
 		return err
 	}
@@ -214,6 +211,30 @@ func writeRoadNetworkDataContainer(w *util.BinaryWriter, rn *RoadNetworkDataCont
 			return err
 		}
 	}
+
+	// bounding box related
+	for _, value := range []float64{rn.boundingBox.minLat, rn.boundingBox.minLon, rn.boundingBox.maxLat, rn.boundingBox.maxLon} {
+		if err := w.Float64(value); err != nil {
+			return err
+		}
+	}
+
+	if err := w.Length(len(rn.segmentH3CellId)); err != nil {
+		return err
+	}
+	for key, value := range rn.segmentH3CellId {
+		if err := w.String(key); err != nil {
+			return err
+		}
+		vals := make([]uint32, len(value))
+		for i := 0; i < len(value); i++ {
+			vals[i] = uint32(value[i])
+		}
+		if err := w.WriteUint32s(vals); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 
@@ -317,11 +338,6 @@ func readRoadNetworkDataContainer(r *util.BinaryReader) (*RoadNetworkDataContain
 	if err != nil {
 		return nil, err
 	}
-	rn.segmentGeohashes, err = r.ReadUint32s()
-	if err != nil {
-		return nil, err
-	}
-
 	nameCount, err := r.Length()
 	if err != nil {
 		return nil, err
@@ -429,5 +445,37 @@ func readRoadNetworkDataContainer(r *util.BinaryReader) (*RoadNetworkDataContain
 			return nil, err
 		}
 	}
+
+	bounds := [4]float64{}
+	for i := range bounds {
+		bounds[i], err = r.Float64()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	rn.boundingBox = NewBoundingBox(bounds[0], bounds[1], bounds[2], bounds[3])
+
+	h3CellCount, err := r.Length()
+	if err != nil {
+		return nil, err
+	}
+	rn.segmentH3CellId = make(map[string][]Index, h3CellCount)
+	for range h3CellCount {
+		key, err := r.String()
+		if err != nil {
+			return nil, err
+		}
+		vals, err := r.ReadUint32s()
+		if err != nil {
+			return nil, err
+		}
+		values := make([]Index, len(vals))
+		for i := 0; i < len(values); i++ {
+			values[i] = Index(vals[i])
+		}
+		rn.segmentH3CellId[key] = values
+	}
+
 	return rn, nil
 }

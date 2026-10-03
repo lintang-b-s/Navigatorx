@@ -91,7 +91,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 		panic(err)
 	}
 
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
+	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)
@@ -99,14 +99,14 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](logger, pkg.TEST)
+	custom := customizer.NewCustomizer[int32](logger)
 
 	_, err = custom.Customize()
 	if err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine[int32](logger, pkg.TEST)
+	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
 		panic(err)
 	}

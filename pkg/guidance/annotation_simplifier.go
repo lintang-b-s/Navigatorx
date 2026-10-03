@@ -8,7 +8,7 @@ import (
 func (db *DirectionBuilder) buildSimplifiedAnnotation(segIds []da.Index, geometry da.Coordinates) da.Annotation {
 	avgSpeed := 0.0
 	for _, segID := range segIds {
-		avgSpeed += db.engine.GetSegmentSpeed(segID)
+		avgSpeed += db.metrics.GetSegmentSpeed(segID)
 	}
 	avgSpeed /= max(float64(len(segIds)), 1)
 

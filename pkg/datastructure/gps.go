@@ -60,22 +60,20 @@ func (gp *GPSPoint) SetDirectionAngle(directionAngle float64) {
 
 type MatchedGPSPoint struct {
 	gpsPoint          *GPSPoint
-	edgeId            Index
-	streetName        string
+	segmentId         Index
 	matchedCoord      Coordinate
 	predictedGpsCoord Coordinate
 	bearing           float64 // bearing dari road segment yang ke match
 	observationId     uint32
 }
 
-func NewMatchedGPSPoint(gpsPoint *GPSPoint, edgeId Index, matchedCoord Coordinate, bearing float64, observationId uint32, streetName string) *MatchedGPSPoint {
+func NewMatchedGPSPoint(gpsPoint *GPSPoint, segmentId Index, matchedCoord Coordinate, bearing float64, observationId uint32) *MatchedGPSPoint {
 	return &MatchedGPSPoint{
 		gpsPoint:      gpsPoint,
-		edgeId:        edgeId,
+		segmentId:     segmentId,
 		matchedCoord:  matchedCoord,
 		bearing:       bearing,
 		observationId: observationId,
-		streetName:    streetName,
 	}
 }
 
@@ -91,12 +89,12 @@ func (m *MatchedGPSPoint) GetGpsPoint() *GPSPoint {
 	return m.gpsPoint
 }
 
-func (m *MatchedGPSPoint) GetEdgeId() Index {
-	return m.edgeId
+func (m *MatchedGPSPoint) GetSegmentId() Index {
+	return m.segmentId
 }
 
-func (m *MatchedGPSPoint) SetEdgeId(edgeId Index) {
-	m.edgeId = edgeId
+func (m *MatchedGPSPoint) SetSegmentId(segmentId Index) {
+	m.segmentId = segmentId
 }
 
 func (m *MatchedGPSPoint) GetMatchedCoord() Coordinate {
@@ -109,8 +107,4 @@ func (m *MatchedGPSPoint) GetBearing() float64 {
 
 func (m *MatchedGPSPoint) GetObservationId() uint32 {
 	return m.observationId
-}
-
-func (m *MatchedGPSPoint) GetStreetName() string {
-	return m.streetName
 }

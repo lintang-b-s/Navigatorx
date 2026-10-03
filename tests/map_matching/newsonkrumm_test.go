@@ -35,8 +35,7 @@ const (
 	nkRoadNetworkDriveFile = "https://drive.google.com/uc?export=download&id=1ba1CcLbTRerbDVNN91wTNfrS85EJGhG6"
 	nkGPSDataDriveFile     = "https://drive.google.com/uc?export=download&id=1QCrMnchOjCfOMQet9Oon-dmZ36MasTjA"
 	nkGroundTruthDriveFile = "https://drive.google.com/uc?export=download&id=11LxzpV-VDCImDq3OWN3m3tukFKmwl9Fn"
-	nkExpectedMinAccuracy  = 0.90
-	nkExpectedMaxRMF       = 0.15
+	nkExpectedMaxRMF       = 0.001
 )
 
 type nkEdge struct {
@@ -225,20 +224,23 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		edgeLength[e.eId] = distanceInMeter
 
 		startPointsIndex := rn.GetOsmNodePointsCount()
-		rn.AppendOsmNodePoints(e.geometry, make([]uint64, 0))
+		rn.AppendOsmNodePoints(e.geometry, make([]uint64, len(e.geometry)))
 		endPointsIndex := rn.GetOsmNodePointsCount()
 		rn.AppendSegmentData(int64(e.eId), da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
+		eId := len(graphEdges)
+		rn.SetSegmentFlag(da.Index(eId), 0)
+
 		graphEdge := extractor.NewEdge[int32](
-			e.fromId, e.toId, int32(travelTimeWeight), uint32(distanceInMeter),
+			e.fromId, e.toId, int32(util.RoundCentiseconds(travelTimeWeight)), util.RoundCentimeters(distanceInMeter),
 		)
-
 		graphEdges = append(graphEdges, graphEdge)
-
 		if e.twoWay {
 			rn.AppendSegmentData(int64(e.eId)*2, da.Index(endPointsIndex), da.Index(startPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
 			reverseEdge := extractor.NewEdge[int32](
-				e.toId, e.fromId, int32(travelTimeWeight), uint32(distanceInMeter),
+				e.toId, e.fromId, int32(util.RoundCentiseconds(travelTimeWeight)), util.RoundCentimeters(distanceInMeter),
 			)
+			eId := len(graphEdges)
+			rn.SetSegmentFlag(da.Index(eId), 0)
 
 			graphEdges = append(graphEdges, reverseEdge)
 		}
@@ -254,7 +256,9 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	}
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	g, timeFunction, _, _, _ := op.BuildGraph(graphEdges, rn, uint32(len(nodeIdMap)), true)
+	g, timeFunction, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphEdges, rn, uint32(len(nodeIdMap)), true)
+	rn.BuildNameTable(map[uint32]string{0: ""})
+	g, timeFunction = extractor.BuildEdgeBasedGraph(g, timeFunction, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices, rn)
 
 	us := []int{8, 11, 14, 16}
 	ps := make([]int, len(us))
@@ -270,19 +274,22 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	if err := mlp.ReadMlpFile(); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	prep := preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, zlog, pkg.TEST)
-	if err := prep.PreProcessing(true); err != nil {
+	prep := preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, zlog)
+	if err := prep.PreProcessing(false); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	cust := customizer.NewCustomizer[int32](zlog, pkg.TEST)
-	if _, err := cust.Customize(); err != nil {
-		return nil, nil, nil, nil, nil, err
-	}
-	re, err := engine.NewEngine[int32](zlog, pkg.TEST)
+	g = prep.GetGraph()
+	og := prep.GetOverlayGraph()
+	ptf := prep.GetTimeFunction()
+	cust := customizer.NewCustomizerDirect[int32](g, og, ptf, zlog)
+	met, err := cust.CustomizeDirect()
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	g = re.GetRoutingEngine().GetGraph()
+	re, err := engine.NewEngineDirect[int32](g, rn, og, met, zlog, "")
+	if err != nil {
+		return nil, nil, nil, nil, nil, err
+	}
 
 	t.Logf("customization phase of Customizable Route Planning CRP done....")
 	zlog.Sugar().Infof("customization phase of Customizable Route Planning CRP done....")
@@ -408,7 +415,7 @@ func nkReadGPSTrajectory(t *testing.T, gpsDataFilepath string) []*da.GPSPoint {
 }
 
 func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataContainer, groundTruthDataFilepath string, edgeLength map[uint64]float64,
-	mapMatchPointResult []*da.MatchedGPSPoint) (float64, float64) {
+	mapMatchPointResult []*da.MatchedGPSPoint) float64 {
 	t.Helper()
 
 	groundTruthFile, err := os.Open(groundTruthDataFilepath)
@@ -450,7 +457,7 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 	matchedEdgeSet := make(map[uint64]float64)
 
 	for _, point := range mapMatchPointResult {
-		curMatchedEID := point.GetEdgeId()
+		curMatchedEID := point.GetSegmentId()
 		if curMatchedEID == da.INVALID_SEGMENT_ID {
 			continue
 		}
@@ -484,12 +491,10 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 			lengthOfErrSubtracted += eLength
 		}
 	}
-
+	// section 6  route mismatch fraction (rmf): https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
 	rmf := (lengthOfErrAdded + lengthOfErrSubtracted) / lengthOfCorrectRoute
-	crp := 0.0
 
-	crp = numOfCorrectMatchedRoads / numberOfRoadsOfMatchedTrips // section V Accuracy: https://mod.wict.pku.edu.cn/docs/20240422170836017278.pdf
-	return crp, rmf
+	return rmf
 }
 
 // todo: update kode ini
@@ -554,7 +559,7 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 	re := eng.GetRoutingEngine()
 // 	cf := re.GetCostFunction()
 // 	rn := re.GetRoadNetworkContainer()
-// 	tilingEngine := tiler.NewTilingEngine(g, rn, zlog, cf)
+// 	mapAttributesEngine := tiler.NewMapAttributesEngine(g, rn, zlog, cf)
 
 // 	prevGps := da.NewGPSPoint(0, 0, time.Now(), 0, 0)
 // 	for {
@@ -615,7 +620,7 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 				rnCands = append(rnCands, ma.NewCandidate(mg.GetRoadnetworkEdgeId(eId), cand.Weight(), cand.Length()))
 // 			}
 
-// 			tileFilepath := tilingEngine.GetTileFilePath(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
+// 			tileFilepath := mapAttributesEngine.GetMapAttributes(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
 // 			err = mg.RebuildMapMatchGraph(tileFilepath)
 // 			if err != nil {
 // 				if errors.Is(err, os.ErrNotExist) {
@@ -663,8 +668,8 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 		k++
 // 		lastBearing = matchedPoint.GetBearing()
 
-// 		if matchedPoint.GetEdgeId() != da.INVALID_SEGMENT_ID {
-// 			rnEdgeId := mg.GetRoadnetworkEdgeId(matchedPoint.GetEdgeId())
+// 		if matchedPoint.GetSegmentId() != da.INVALID_SEGMENT_ID {
+// 			rnEdgeId := mg.GetRoadnetworkEdgeId(matchedPoint.GetSegmentId())
 // 			matchedPoint.SetEdgeId(rnEdgeId)
 // 		}
 // 		mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
@@ -716,7 +721,7 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 	matchedCoords := make([]da.Coordinate, 0, len(mapMatchPointResult))
 
 // 	for _, point := range mapMatchPointResult {
-// 		curMatchedEID := point.GetEdgeId()
+// 		curMatchedEID := point.GetSegmentId()
 // 		if curMatchedEID == da.INVALID_SEGMENT_ID {
 // 			continue
 // 		}

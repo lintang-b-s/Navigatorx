@@ -153,7 +153,7 @@ func main() {
 		panic(err)
 	}
 	// rn := re.
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.EVAL)
+	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)
@@ -161,14 +161,14 @@ func main() {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](logger, pkg.EVAL)
+	custom := customizer.NewCustomizer[int32](logger)
 
 	_, err = custom.Customize()
 	if err != nil {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine[int32](logger, pkg.EVAL)
+	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
 		panic(err)
 	}

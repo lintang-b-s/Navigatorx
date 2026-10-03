@@ -59,12 +59,12 @@ type annotation struct {
 	Duration       []float64  `json:"duration"`
 	Distance       []float64  `json:"distance"`
 	Geometry       string     `json:"geometry"`
-	EdgeIds        []da.Index `json:"edge_ids"`
+	SegmentIds     []da.Index `json:"segment_ids"`
 	EdgeGeomOffset []da.Index `json:"edge_geometry_offset"`
 }
 
-func NewAnnotation(duration, distance []float64, geometry string, edgeGeomOffset, edgeIds []da.Index) annotation {
-	return annotation{Duration: duration, Distance: distance, Geometry: geometry, EdgeGeomOffset: edgeGeomOffset, EdgeIds: edgeIds}
+func NewAnnotation(duration, distance []float64, geometry string, edgeGeomOffset, segmentIds []da.Index) annotation {
+	return annotation{Duration: duration, Distance: distance, Geometry: geometry, EdgeGeomOffset: edgeGeomOffset, SegmentIds: segmentIds}
 }
 
 type drivingDirection struct {
@@ -79,13 +79,13 @@ type drivingDirection struct {
 	SuggestAlternatives bool               `json:"suggest_alternatives"`
 }
 
-func NewAnnotationDTO(ann da.Annotation, edgeIds []da.Index) annotation {
+func NewAnnotationDTO(ann da.Annotation, segmentIds []da.Index) annotation {
 	return NewAnnotation(
 		ann.GetDuration(),
 		ann.GetDistance(),
 		da.GooglePoylineFromCoords(ann.GetGeometry()),
 		ann.GetEdgeGeomOffset(),
-		edgeIds,
+		segmentIds,
 	)
 }
 
@@ -168,20 +168,20 @@ func (g *gps) ToDataGPS() *da.GPSPoint {
 }
 
 type Candidate struct {
-	EdgeId da.Index `json:"edge_id" validate:"min=0"`
-	Weight float64  `json:"weight" validate:"min=0"`
-	Length float64  `json:"length" validate:"min=0"`
+	SegmentId da.Index `json:"segment_id" validate:"min=0"`
+	Weight    float64  `json:"weight" validate:"min=0"`
+	Length    float64  `json:"length" validate:"min=0"`
 }
 
 func NewCandidate(eId da.Index, weight float64, length float64) Candidate {
-	return Candidate{EdgeId: eId, Weight: weight, Length: length}
+	return Candidate{SegmentId: eId, Weight: weight, Length: length}
 }
 
 func ToOnlineCandidates(cands []*Candidate) []*ma.Candidate {
 	oCands := make([]*ma.Candidate, len(cands))
 	for i, cand := range cands {
 
-		oCands[i] = ma.NewCandidate(cand.EdgeId, cand.Weight, cand.Length)
+		oCands[i] = ma.NewCandidate(cand.SegmentId, cand.Weight, cand.Length)
 	}
 	return oCands
 }
@@ -201,16 +201,16 @@ func (mr *mapMatchRequest) GetBearing() float64 {
 
 type MatchedGPSPoint struct {
 	GpsPoint       *gps          `json:"gps_point"`
-	EdgeId         da.Index      `json:"edge_id"`
+	SegmentId      da.Index      `json:"segment_id"`
 	MatchedCoord   da.Coordinate `json:"matched_coord"`
 	PredictedCoord da.Coordinate `json:"predicted_gps_coord"`
 	Bearing        float64       `json:"edge_initial_bearing"`
 }
 
-func NewMatchedGPSPoint(gpsPoint *gps, edgeId da.Index, matchedCoord, predictedCoord da.Coordinate, initialBearing float64) *MatchedGPSPoint {
+func NewMatchedGPSPoint(gpsPoint *gps, segmentId da.Index, matchedCoord, predictedCoord da.Coordinate, initialBearing float64) *MatchedGPSPoint {
 	return &MatchedGPSPoint{
 		GpsPoint:       gpsPoint,
-		EdgeId:         edgeId,
+		SegmentId:      segmentId,
 		MatchedCoord:   matchedCoord,
 		Bearing:        initialBearing,
 		PredictedCoord: predictedCoord,
@@ -228,7 +228,7 @@ type mapmatchingResponse struct {
 func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.Candidate, speedMeanK float64, speedStdK, bearing float64) *mapmatchingResponse {
 	mgps := matchedPoint.GetGpsPoint()
 	matchedGpsPoint := NewMatchedGPSPoint(newGPS(mgps.Lat(), mgps.Lon(), mgps.Time(), mgps.Speed(),
-		mgps.DeltaTime()), matchedPoint.GetEdgeId(), matchedPoint.GetMatchedCoord(), matchedPoint.GetPredictedGpsCoord(), matchedPoint.GetBearing())
+		mgps.DeltaTime()), matchedPoint.GetSegmentId(), matchedPoint.GetMatchedCoord(), matchedPoint.GetPredictedGpsCoord(), matchedPoint.GetBearing())
 	cands := make([]Candidate, len(candidates))
 	for i, cand := range candidates {
 		cands[i] = NewCandidate(cand.GetSegmentId(), cand.Weight(), cand.Length())
@@ -240,18 +240,6 @@ func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.C
 		SpeedStdK:       speedStdK,
 		Bearing:         bearing,
 	}
-}
-
-type startClientSideRealtimeMapMatchingEnvelope struct {
-	Data startClientSideRealtimeMapMatchingResponse `json:"data"`
-}
-
-type startClientSideRealtimeMapMatchingResponse struct {
-	NumberOfVertices int `json:"number_of_vertices"`
-}
-
-func NewStartClientSideRealtimeMapMatchingResponse(n int) *startClientSideRealtimeMapMatchingResponse {
-	return &startClientSideRealtimeMapMatchingResponse{NumberOfVertices: n}
 }
 
 type GPX struct {
@@ -295,7 +283,7 @@ func NewOfflineMapMatchingResponse(matchedPoints []*da.MatchedGPSPoint, routePat
 				Lon:  mgps.Lon(),
 				Time: mgps.Time(),
 			},
-			mp.GetEdgeId(),
+			mp.GetSegmentId(),
 			mp.GetMatchedCoord(),
 			mp.GetPredictedGpsCoord(),
 			mp.GetBearing(),

@@ -24,6 +24,23 @@ v0-------e1----->v1-----e2----->v2
 v1,v2 punya inDegree=1 & outDegree=1 & beberapa kriteria lainnya (spt. highway key & osm way id kedua edge nya sama, speed limit kedua edge sama,dll)
 kita bisa compress e1,e2 jadi satu edge e6:
 v0----e6--->v2
+			|
+			|
+			e3
+			|
+			|
+			\/
+...<---e5----v3-----e4---->...
+
+
+kita bisa compress e6,e3 jadi satu edge e7
+v0 -------e7
+		  |
+		  |
+		  |
+		  \/
+<---e5----v3-----e4---->..
+
 
 step buat compress nya:
 1. tandain vertices yang bisa di compress
@@ -138,6 +155,7 @@ func (p *Extractor[W]) compressOSMGraph(
 		geometry := rn.GetSegmentGeometry(eId)
 		nIds := rn.GetSegmentOsmNodeIds(eId)
 		curved := rn.IsCurved(eId)
+
 		p.appendCompSegments(eId, neId, e, geometry, nIds, curved, crn, rn, &compEdges)
 	}
 
@@ -209,6 +227,7 @@ func (p *Extractor[W]) merge(inEdges, outEdges [][]int, compEdgesSet *bitset.Bit
 
 	sId := da.Index(compressibleEdges[0])
 	neId := da.Index(len(*compEdges))
+
 	p.appendCompSegments(sId, neId, merged, geometry, osmNodeIds, curved, crn, rn, compEdges)
 }
 
@@ -241,7 +260,7 @@ func mergeOsmSegments[W util.RoutingNumber](
 		}
 		geometry = append(geometry, points...)
 		osmNodeIds = append(osmNodeIds, nIds...)
-		curved = curved || rn.IsCurved(da.Index(edgeId))
+		curved = curved && rn.IsCurved(da.Index(edgeId))
 	}
 	merged := first
 	merged.from = uint32(oldToNew[first.from])
@@ -333,6 +352,13 @@ func canCompress[W util.RoutingNumber](
 ) bool {
 
 	if rn.IsRoundabout(inID) || rn.IsRoundabout(outID) {
+		// not contractible if outEdge & inEdge of this vertex is a roundabout
+		return false
+	}
+	if inEdge.from == outEdge.to && inEdge.to == outEdge.from {
+		// not contractible if outEdge & inEdge of this vertex are the same road segment but just reversed direction
+		// like in this two-way road segment https://www.openstreetmap.org/way/582835360
+		// ini penting, jangan dihapus, kalau dihapus gabakal bisa snap ke road segment yang only tail/head nya junction (not both).
 		return false
 	}
 
@@ -340,7 +366,9 @@ func canCompress[W util.RoutingNumber](
 		rn.GetRoadLanes(inID) != rn.GetRoadLanes(outID) ||
 		rn.GetRoadClass(inID) != rn.GetRoadClass(outID) ||
 		rn.GetRoadClassLink(inID) != rn.GetRoadClassLink(outID) ||
-		streetDirection[inEdge.osmwayId] != streetDirection[outEdge.osmwayId] {
+		streetDirection[inEdge.osmwayId][0] != streetDirection[outEdge.osmwayId][0] ||
+		streetDirection[inEdge.osmwayId][1] != streetDirection[outEdge.osmwayId][1] {
+		// not contractible if outEdge & inEdge of this vertex is have different annotation data
 		return false
 	}
 

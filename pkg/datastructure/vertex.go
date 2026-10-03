@@ -35,13 +35,6 @@ func (v *Vertex) SetFirstIn(firstIn Index) {
 	v.firstIn = firstIn
 }
 
-func (v *Vertex) SetId(id Index) {
-	v.id = id
-}
-func (v *Vertex) SetPvPtr(pvPtr Index) {
-	v.pvPtr = pvPtr
-}
-
 func (v *Vertex) GetID() Index {
 	return v.id
 }
@@ -56,16 +49,4 @@ func (v *Vertex) GetLon() float64 {
 
 func (v *Vertex) GetCoordinate() Coordinate {
 	return NewFixedCoordinate(v.lat, v.lon)
-}
-
-func (v *Vertex) GetFirstOut() Index {
-	return v.firstOut
-}
-
-func (v *Vertex) GetFirstIn() Index {
-	return v.firstIn
-}
-
-func (v *Vertex) GetPvPtr() Index {
-	return v.pvPtr
 }

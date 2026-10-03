@@ -459,7 +459,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 		edges, rn, numVertices, true,
 	)
 
-	graph.SetBoundingBox(p.bb)
+	rn.SetBoundingBox(p.bb)
 	graph.ForOutEdges(func(exitPoint, head, tail, entryPoint da.Index, percentage float64, eId da.Index) {
 		oemId := segmentDataIds[tail][exitPoint]
 
@@ -779,7 +779,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 
 	travelTimeWeight := distanceInMeter / util.KMHToMSeconds(speed) // in seconds
 	fixedWeight := W(util.RoundCentiseconds(travelTimeWeight))
-	fixedDistance := uint32(util.RoundCentimeters(distanceInMeter))
+	fixedDistance := util.RoundCentimeters(distanceInMeter)
 
 	p.osmWayDefaultSpeed[id] = speed
 

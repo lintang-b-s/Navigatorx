@@ -90,7 +90,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
+	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -98,14 +98,14 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 
 	t.Logf("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](logger, pkg.TEST)
+	custom := customizer.NewCustomizer[int32](logger)
 
 	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine[int32](logger, pkg.TEST)
+	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -62,6 +62,15 @@ func NewCoordinate(lat, lon float64) Coordinate {
 	return NewFixedCoordinate(fixedLat, fixedLon)
 }
 
+// NewCoordinates build []Coordinate from coords array. coords[i][0] is lat of i-th coordinate, coords[i][1] is lon of i-th coordinate.
+func NewCoordinates(coords [][]float64) []Coordinate {
+	res := make([]Coordinate, len(coords))
+	for i := 0; i < len(coords); i++ {
+		res[i] = NewCoordinate(coords[i][0], coords[i][1])
+	}
+	return res
+}
+
 func NewFixedCoordinate(lat, lon int32) Coordinate {
 	return Coordinate{lat: lat, lon: lon}
 }

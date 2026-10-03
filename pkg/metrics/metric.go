@@ -64,14 +64,16 @@ func (met *Metric[W]) GetDurationFromLength(segId da.Index, length uint32) W {
 	return W(float64(cf.segmentDurations[segId]) * r)
 }
 
-func (met *Metric[W]) GetDuration(segId da.Index) W {
+func (met *Metric[W]) GetDurationSeconds(segId da.Index) float64 {
 	cf := met.costFunction.Load()
-	return W(cf.segmentDurations[segId])
+	dur := W(cf.segmentDurations[segId])
+	return util.WeightToSeconds(dur)
 }
 
-func (met *Metric[W]) GetSegmentLength(segId da.Index) uint32 {
+func (met *Metric[W]) GetSegmentLength(segId da.Index) float64 {
 	cf := met.costFunction.Load()
-	return cf.GetSegmentLength(segId)
+	l := cf.GetSegmentLength(segId)
+	return util.DistanceToMeters(l)
 }
 
 func (met *Metric[W]) GetSegmentSpeed(segId da.Index) float64 {

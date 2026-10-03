@@ -81,20 +81,10 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 		minLat, minLon := math.MaxFloat64, math.MaxFloat64
 		for i := 0; i < len(eGeom); i++ {
 			point := eGeom[i]
-			if point.GetLat() > maxLat {
-				maxLat = point.GetLat()
-			}
-
-			if point.GetLon() > maxLon {
-				maxLon = point.GetLon()
-			}
-
-			if point.GetLat() < minLat {
-				minLat = point.GetLat()
-			}
-			if point.GetLon() < minLon {
-				minLon = point.GetLon()
-			}
+			maxLat = max(maxLat, point.GetLat())
+			maxLon = max(maxLon, point.GetLon())
+			minLat = min(minLat, point.GetLat())
+			minLon = min(minLon, point.GetLon())
 		}
 
 		// use mercator projected coordinate
@@ -107,12 +97,18 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 		head := eGeom[len(eGeom)-1]
 		segKey := newSegmentKey(rn.GetOsmWayId(segId), tail, head)
 
+		if da.IsSameCoordinate(tail, head) {
+			return
+		}
+
+		dir := rn.GetStreetDirection(segId)
+		f, b := dir[0], dir[1]
+
 		if odSeg, ok := segmentSet[segKey]; ok {
-			dir := rn.GetStreetDirection(segId)
-			b := dir[1]
+
 			fId := uint64(segId)
 			bId := uint64(odSeg.id)
-			flag := rt.getFlag(rn, segId, false)
+			flag := rt.getFlag(rn, segId, f, true)
 			flag |= odSeg.flag
 			if b {
 				fId = uint64(odSeg.id)
@@ -125,8 +121,7 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 			items = append(items, leaf)
 			delete(segmentSet, segKey)
 		} else {
-
-			flag := rt.getFlag(rn, segId, true)
+			flag := rt.getFlag(rn, segId, f, false)
 			segmentSet[segKey] = newSegmentVal(minX, minY, maxX, maxY, segId, flag)
 		}
 	})
@@ -140,6 +135,11 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 
 	rt.tr.Bulk(mins, maxs, items)
 	logger.Info("R-tree spatial index built.")
+}
+
+type candidate struct {
+	id   da.Index
+	dist int64
 }
 
 // SearchWithinRadius search for all arc endpoints within radius (in km) from the query point (qLat, qLon)
@@ -160,23 +160,18 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 // OSRM static_rtree: https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/static_rtree.hpp
 // OSRM pakai packed Hilbert-R-Tree, dengan alasan yang sama dengan diatas. kita pakai packed Sort-Tile-Recursive (STR) R-tree.
 // karena di ref1 table 5, STR punya number of disk accesses (nodes visited) yang sedikit lebih kecil dari HS (packed Hilbert-R-Tree) pada graf road network Long Beach Data.
-// mode=0  origin, mode=1 destination, mode=2 not both
+// mode=0  origin, mode=1 destination, mode=2 not both, mode=3 returned road segments not capped MAX_CANDIDATES
 func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da.Index {
 
 	qy, qx := geo.CalcLatToY(qLat), geo.CalcLonToX(qLon)
-
-	lowerY, lowerX := qy-radius, qx-radius
-	upperY, upperX := qy+radius, qx+radius
-
 	qxR, qyR := spatialRound(qx), spatialRound(qy)
 
-	type candidate struct {
-		id   da.Index
-		dist int64
-	}
+	lowerY, lowerX := spatialRound(qy-radius), spatialRound(qx-radius)
+	upperY, upperX := spatialRound(qy+radius), spatialRound(qx+radius)
+
 	cands := make([]candidate, 0, 16)
 
-	rt.tr.Search([2]int32{spatialRound(lowerX), spatialRound(lowerY)}, [2]int32{spatialRound(upperX), spatialRound(upperY)},
+	rt.tr.Search([2]int32{lowerX, lowerY}, [2]int32{upperX, upperY},
 		func(min, max [2]int32, data leafData) bool {
 			if mode == 0 && !rt.IsJunctionHead(data) {
 				// skip road  segment yang head nya gak junction
@@ -185,7 +180,6 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 				// skip road segment yang tail nya gak junction
 				return true
 			}
-
 			midx := (max[0] + min[0]) / 2
 			midy := (max[1] + min[1]) / 2
 			dx, dy := int64(qxR-midx), int64(qyR-midy)
@@ -200,27 +194,32 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 			return true
 		})
 
-	sort.Slice(cands, func(i, j int) bool { return cands[i].dist < cands[j].dist })
-	if len(cands) > MAX_CANDIDATES {
-		cands = cands[:MAX_CANDIDATES]
+	capped := mode != 3
+	if capped {
+		sort.Slice(cands, func(i, j int) bool { return cands[i].dist < cands[j].dist })
+		if len(cands) > MAX_CANDIDATES {
+			cands = cands[:MAX_CANDIDATES]
+		}
 	}
 
-	results := make([]da.Index, len(cands))
+	res := make([]da.Index, len(cands))
 	for i, c := range cands {
-		results[i] = c.id
+		res[i] = c.id
 	}
-	return results
+	return res
 }
 
-func (rt *Rtree) getFlag(rn *da.RoadNetworkDataContainer, id da.Index, forward bool) uint8 {
+func (rt *Rtree) getFlag(rn *da.RoadNetworkDataContainer, id da.Index, forward, bidir bool) uint8 {
 	flag := uint8(0)
+	if bidir {
+		flag |= BIDIRECTIONAL
+	}
 	if rn.IsSegmentFlagBitOn(id, da.FlagJunctionHead) {
 		switch forward {
 		case true:
 			flag |= JUNCTION_FORWARD_HEAD_FLAG
 		default:
 			flag |= JUNCTION_BACKWARD_HEAD_FLAG
-			flag |= BIDIRECTIONAL
 		}
 	}
 	if rn.IsSegmentFlagBitOn(id, da.FlagJunctionTail) {
@@ -229,7 +228,6 @@ func (rt *Rtree) getFlag(rn *da.RoadNetworkDataContainer, id da.Index, forward b
 			flag |= JUNCTION_FORWARD_TAIL_FLAG
 		default:
 			flag |= JUNCTION_BACKWARD_TAIL_FLAG
-			flag |= BIDIRECTIONAL
 		}
 	}
 	return flag

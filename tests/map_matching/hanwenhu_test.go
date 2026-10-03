@@ -140,15 +140,15 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	if err = mlp.ReadMlpFile(); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, rn, timeFunction, mlp, logger, pkg.TEST)
+	prep := prepo.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
 	if err = prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
-	cust := customizer.NewCustomizer[int32](logger, pkg.TEST)
+	cust := customizer.NewCustomizer[int32](logger)
 	if _, err = cust.Customize(); err != nil {
 		t.Fatalf("customize failed: %v", err)
 	}
-	re, err := engine.NewEngine[int32](logger, pkg.TEST)
+	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
 		t.Fatalf("new engine failed: %v", err)
 	}
@@ -249,9 +249,6 @@ func hhReadAllCSVInDir(dirPath string) (map[string][]map[string]string, error) {
 	matches, err := filepath.Glob(filepath.Join(dirPath, "*.csv"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to glob directory: %w", err)
-	}
-	if len(matches) == 0 {
-		return nil, fmt.Errorf("no CSV files found in: %s", dirPath)
 	}
 	results := make(map[string][]map[string]string)
 	for _, filePath := range matches {
@@ -369,7 +366,7 @@ func hhWritePolyline(filePath string, points []da.Coordinate) error {
 // 	re := eng.GetRoutingEngine()
 // 	cf := re.GetCostFunction()
 // 	rn := re.GetRoadNetworkContainer()
-// 	tilingEngine := tiler.NewTilingEngine(graph, rn, logger, cf)
+// 	mapAttributesEngine := tiler.NewMapAttributesEngine(graph, rn, logger, cf)
 // 	centerGeohash := uint64(0)
 
 // 	for trajName, gpsTraj := range gpsTrajectories {
@@ -443,7 +440,7 @@ func hhWritePolyline(filePath string, points []da.Coordinate) error {
 // 					rnCands = append(rnCands, ma.NewCandidate(mg.GetRoadnetworkEdgeId(eId), cand.Weight(), cand.Length()))
 // 				}
 
-// 				tileFilepath := tilingEngine.GetTileFilePath(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
+// 				tileFilepath := mapAttributesEngine.GetMapAttributes(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
 // 				err = mg.RebuildMapMatchGraph(tileFilepath)
 // 				if err != nil {
 // 					t.Fatal(err)

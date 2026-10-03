@@ -12,8 +12,8 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
+	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapattributes"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/tiler"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
 	http_router "github.com/lintang-b-s/Navigatorx/pkg/http/router"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
@@ -60,7 +60,7 @@ func main() {
 		panic(err)
 	}
 
-	eng, err := engine.NewEngine[int32](logger, pkg.ROUTER)
+	eng, err := engine.NewEngine[int32](logger)
 	if err != nil {
 		panic(err)
 	}
@@ -81,13 +81,13 @@ func main() {
 		panic(err)
 	}
 
-	cf := re.GetCostFunction()
+	met := re.GetMetrics()
 	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
-	tilingEngine := tiler.NewTilingEngine(graph, rn, logger, cf)
-	tilingService := usecases.NewTileService(logger, tilingEngine)
+	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, rtree)
+	mapAttributesService := usecases.NewMapAttributesService(logger, mapAttributesEngine)
 	util.FreeMemory()
 	serverErr := api.Use(
-		logger, *useRateLimiter, routingService, tilingService, shutdownPeriod*time.Second)
+		logger, *useRateLimiter, routingService, mapAttributesService, shutdownPeriod*time.Second)
 
 	if serverErr != nil {
 		logger.Error("server exited unexpectedly", zap.Error(err))

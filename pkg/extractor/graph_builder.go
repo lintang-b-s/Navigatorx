@@ -13,7 +13,6 @@ import (
 // BuildGraph build graph data structure from list of edges.
 // roadNetwork = flag if the graph is a road network graph.
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
-// jika roadNetwork=false, kita harus tambahkan dummy edge (v,v) untuk setiap vertex v di graph, untuk correctness test.
 // untuk roadNetwork=true, inputnya file OpenStreetMap pbf, kita support hampir semua tipe osm turn restrictions.
 func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContainer, numV uint32, roadNetwork bool) (*da.Graph,
 	*met.TimeFunction[W], [][]da.Index, []da.Index, []pkg.TurnType) {
@@ -148,7 +147,7 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 
 	conditionalTurnRestrictions := make([]da.ConditionalTurnRestriction, 0)
 
-	// let w=number of ways , q = max number of nodes of any osm ways, r = max number of restrictions of any osm ways
+	// let w=number of osm ways , q = max number of nodes of any osm ways, r = max number of restrictions of any osm ways
 	// O(w*r*q^2)
 	for wayId, way := range p.ways {
 		addTwoWayTurnCost(p, wayId, way, outEdges, inEdges, turnMatrices, outDegree)
@@ -231,13 +230,13 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 
 	setConditionalRestrictions(p, roadNetwork, graph, rn, segmentDataIds, conditionalTurnRestrictions)
 
-	segmentDurations := make([]uint32, 0)
+	segmentDurations := make([]uint32, len(weights))
+	for i := 0; i < len(weights); i++ {
+		segmentDurations[i] = uint32(weights[i])
+	}
 	if roadNetwork {
 		graph.SetMinResolution(minResolution)
-		segmentDurations = make([]uint32, len(weights))
-		for i := 0; i < len(weights); i++ {
-			segmentDurations[i] = uint32(weights[i])
-		}
+
 	}
 
 	timeFunction := met.NewTimeCostFunction(

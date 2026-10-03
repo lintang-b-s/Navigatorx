@@ -85,8 +85,8 @@ func (rs *RoutingService) ShortestPath(
 	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 
 	if useSteps {
-		directionBuilder := guidance.NewDirectionBuilder(rs.engine,
-			rs.engine.GetGraph(), rs.rn, rs.lefthandDriving,
+		directionBuilder := guidance.NewDirectionBuilder(
+			rs.engine.GetGraph(), rs.rn, rs.engine.GetMetrics(), rs.lefthandDriving,
 			rs.turnSignCache,
 		)
 		if reroute {
@@ -136,8 +136,8 @@ func (rs *RoutingService) AlternativeRouteSearch(
 		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
 		alternatives[i].SetPolylinePath(pathPolyline)
 		if useSteps {
-			directionBuilder := guidance.NewDirectionBuilder(rs.engine,
-				rs.engine.GetGraph(), rs.rn, rs.lefthandDriving,
+			directionBuilder := guidance.NewDirectionBuilder(
+				rs.engine.GetGraph(), rs.rn, rs.engine.GetMetrics(), rs.lefthandDriving,
 				rs.turnSignCache,
 			)
 			if reroute {
@@ -194,7 +194,7 @@ func (rs *RoutingService) Snap(ctx context.Context, qOrigLat, qOrigLon, qDstLat,
 }
 
 func (rs *RoutingService) GetBoundingBox(ctx context.Context) da.BoundingBox {
-	return *rs.graph.GetBoundingBox()
+	return *rs.rn.GetBoundingBox()
 }
 
 func (rs *RoutingService) InitBackgroundWorker(ctx context.Context) {

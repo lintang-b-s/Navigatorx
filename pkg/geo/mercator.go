@@ -42,6 +42,7 @@ func Degrees(rad float64) float64 {
 	return rad * 180 / math.Pi
 }
 
+// https://wiki.openstreetmap.org/wiki/Mercator
 func CalcYToLat(y float64) float64 {
 	return Degrees(2*math.Atan(math.Exp(y/R)) - math.Pi/2)
 }

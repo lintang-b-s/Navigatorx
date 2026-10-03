@@ -43,7 +43,7 @@ func TestServer_Use(t *testing.T) {
 	mockRS.On("Close").Return()
 	mockRE.On("Close").Return()
 
-	mockTS := &mockTilingService{}
+	mockTS := &mockmapAttributesService{}
 
 	go func() {
 		time.Sleep(1000 * time.Millisecond)
@@ -75,7 +75,7 @@ func (m *mockRoutingService) GetRoutingEngine() controllers.RoutingEngine {
 }
 func (m *mockRoutingService) InitBackgroundWorker(ctx context.Context) { m.Called(ctx) }
 
-type mockTilingService struct {
-	controllers.TilingService
+type mockmapAttributesService struct {
+	controllers.MapAttributesService
 	mock.Mock
 }

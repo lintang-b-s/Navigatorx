@@ -35,7 +35,7 @@ func main() {
 		panic(err)
 	}
 
-	custom := customizer.NewCustomizer[int32](logger, pkg.ROUTER)
+	custom := customizer.NewCustomizer[int32](logger)
 	custom.SetEdgeSpeedsFilePath(*edgeSpeedsFile)
 	custom.SetTurnPenaltiesFilePath(*turnPenaltiesFile)
 

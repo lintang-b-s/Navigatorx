@@ -57,19 +57,10 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 	minLat := math.MaxFloat64
 	maxLat := math.Inf(-1)
 	for _, v := range ivs {
-		if v.GetLon() > maxLon {
-			maxLon = v.GetLon()
-		}
-		if v.GetLon() < minLon {
-			minLon = v.GetLon()
-		}
-
-		if v.GetLat() > maxLat {
-			maxLat = v.GetLat()
-		}
-		if v.GetLat() < minLat {
-			minLat = v.GetLat()
-		}
+		maxLon = max(maxLon, v.GetLon())
+		maxLat = max(maxLat, v.GetLat())
+		minLon = min(minLon, v.GetLon())
+		minLat = min(minLat, v.GetLat())
 	}
 
 	centerLat := (maxLat + minLat) / 2.0
@@ -172,7 +163,7 @@ preprocessing phase of A*, landmark, and triangle inequality (ALT) described in 
 
 time complexity of ALT preprocessing:
 
-O(m*logm * k), m=number of edges,k=number of landmarks
+O((n+m)logn * k), m=number of edges,k=number of landmarks
 */
 func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.Graph, logger *zap.Logger) error {
 	if k > 64 {

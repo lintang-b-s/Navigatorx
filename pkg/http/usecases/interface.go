@@ -20,9 +20,8 @@ type OnlineMapMatcherEngine interface {
 		candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64)
 }
 
-type TilingEngine interface {
-	GetTileFilePath(userGeohash string) string
-	GetNumberOfVertices() int
+type MapAttributesEngine interface {
+	GetMapAttributes(h3CellId string) ([]byte, error)
 }
 
 type OfflineMapMatcherEngine interface {

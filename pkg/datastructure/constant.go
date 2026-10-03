@@ -40,7 +40,7 @@ const (
 	FlagIsRoundabout                                     // flag yang nandain road segment ini adalah bundaran
 	FlagIsCurved                                         // flag yang nandain road segment ini curved/gak lurus straight line in mercator projected 2d coordinate
 	FlagIsForward                                        // flag yang nandain road segment ini arahnya forward (dari list of nodes data osm way). by default true kalau one-way road.
-	FlagIsBackward                                       //flag yang nandain road segment ini arahnya backward (dari list of nodes data osm way)
+	FlagIsBackward                                       // flag yang nandain road segment ini arahnya backward (dari list of nodes data osm way)
 )
 
 type NodeFlagType uint8

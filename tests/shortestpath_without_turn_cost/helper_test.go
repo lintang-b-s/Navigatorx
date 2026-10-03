@@ -77,7 +77,7 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []extractor.NodeCoord
 
 	mlp := mp.BuildMLP()
 
-	prep := preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger, pkg.TEST)
+	prep := preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(false)
 	if err != nil {
 		t.Fatalf("err: %v", err)

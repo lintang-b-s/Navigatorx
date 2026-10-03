@@ -95,13 +95,13 @@ func main() {
 
 	transitionMHTFile := fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.ntm", profileName, *regionName)
 	if _, err := os.Stat(transitionMHTFile); err == nil {
-		logger.Info("removing existing transition matrix file", zap.String("filename", transitionMHTFile))
+		logger.Info("removing old transition matrix file", zap.String("filename", transitionMHTFile))
 		if err := os.Remove(transitionMHTFile); err != nil {
 			panic(err)
 		}
 	}
 
-	prep := prepo.NewPreprocessor(graph, rn, wf, mlp, logger, pkg.ROUTER)
+	prep := prepo.NewPreprocessor(graph, rn, wf, mlp, logger)
 	prep.SetWriteTiles(true)
 	err = prep.PreProcessing(true)
 	if err != nil {

@@ -36,24 +36,24 @@ func Infinity[T RoutingNumber]() T {
 		}
 		return any(INF_WEIGHT_FLOAT).(T)
 	}
-	return any(INF_WEIGHT_FIXED).(T)
+	return T(INF_WEIGHT_FIXED)
 }
 
-func RoundCentiseconds(seconds float64) int32 {
+func RoundCentiseconds(seconds float64) uint32 {
 	return roundFixedPoint(seconds)
 }
 
-func RoundCentimeters(meters float64) int32 {
+func RoundCentimeters(meters float64) uint32 {
 	return roundFixedPoint(meters)
 }
 
-func RoundCentimetersPerSecond(metersPerSecond float64) int32 {
+func RoundCentimetersPerSecond(metersPerSecond float64) uint32 {
 	return roundFixedPoint(metersPerSecond)
 }
 
-func roundFixedPoint(value float64) int32 {
+func roundFixedPoint(value float64) uint32 {
 	scaled := math.Round(value * CentiScale)
-	return int32(scaled)
+	return uint32(scaled)
 }
 
 func SecondsFromCentiseconds(value int32) float64 {

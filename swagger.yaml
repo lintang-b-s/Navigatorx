@@ -29,28 +29,28 @@ paths:
       summary: Compute shortest path
       description: Calculates the shortest path between an origin and destination coordinate.
       parameters:
-        - $ref: '#/components/parameters/OriginLat'
-        - $ref: '#/components/parameters/OriginLon'
-        - $ref: '#/components/parameters/DestinationLat'
-        - $ref: '#/components/parameters/DestinationLon'
-        - $ref: '#/components/parameters/UseAnnotation'
-        - $ref: '#/components/parameters/Reroute'
-        - $ref: '#/components/parameters/StartEdgeId'
+        - $ref: "#/components/parameters/OriginLat"
+        - $ref: "#/components/parameters/OriginLon"
+        - $ref: "#/components/parameters/DestinationLat"
+        - $ref: "#/components/parameters/DestinationLon"
+        - $ref: "#/components/parameters/UseAnnotation"
+        - $ref: "#/components/parameters/Reroute"
+        - $ref: "#/components/parameters/StartEdgeId"
       responses:
-        '200':
+        "200":
           description: Successful routing response.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ShortestPathEnvelope'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
-          $ref: '#/components/responses/NotFound'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/ShortestPathEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/computeAlternativeRoutes:
     get:
       tags:
@@ -58,10 +58,10 @@ paths:
       summary: Compute alternative routes
       description: Calculates up to `k` alternative routes between an origin and destination coordinate.
       parameters:
-        - $ref: '#/components/parameters/OriginLat'
-        - $ref: '#/components/parameters/OriginLon'
-        - $ref: '#/components/parameters/DestinationLat'
-        - $ref: '#/components/parameters/DestinationLon'
+        - $ref: "#/components/parameters/OriginLat"
+        - $ref: "#/components/parameters/OriginLon"
+        - $ref: "#/components/parameters/DestinationLat"
+        - $ref: "#/components/parameters/DestinationLon"
         - in: query
           name: k
           required: true
@@ -69,22 +69,22 @@ paths:
           schema:
             type: integer
             minimum: 1
-        - $ref: '#/components/parameters/UseAnnotation'
-        - $ref: '#/components/parameters/Reroute'
-        - $ref: '#/components/parameters/StartEdgeId'
+        - $ref: "#/components/parameters/UseAnnotation"
+        - $ref: "#/components/parameters/Reroute"
+        - $ref: "#/components/parameters/StartEdgeId"
       responses:
-        '200':
+        "200":
           description: Successful alternative-routes response. The route list can be empty when no alternatives are available.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AlternativeRoutesEnvelope'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/AlternativeRoutesEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/mapmatching:
     post:
       tags:
@@ -121,23 +121,23 @@ paths:
         content:
           application/gpx+xml:
             schema:
-              $ref: '#/components/schemas/GPX'
+              $ref: "#/components/schemas/GPX"
           application/xml:
             schema:
-              $ref: '#/components/schemas/GPX'
+              $ref: "#/components/schemas/GPX"
       responses:
-        '200':
+        "200":
           description: Successful offline map-matching response.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/OfflineMapMatchingEnvelope'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/OfflineMapMatchingEnvelope"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/boundingBox:
     get:
       tags:
@@ -145,16 +145,16 @@ paths:
       summary: Get map bounding box
       description: Returns the bounding box of the loaded routing graph.
       responses:
-        '200':
+        "200":
           description: Successful bounding-box response.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BoundingBoxEnvelope'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/BoundingBoxEnvelope"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/tile/{userGeohash}:
     get:
       tags:
@@ -171,16 +171,16 @@ paths:
             minLength: 1
           example: qq7wqd
       responses:
-        '200':
-          $ref: '#/components/responses/MapMatchingTile'
-        '400':
-          $ref: '#/components/responses/BadRequest'
-        '404':
+        "200":
+          $ref: "#/components/responses/MapMatchingTile"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
           description: Tile file not found.
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/tile-init:
     get:
       tags:
@@ -188,16 +188,16 @@ paths:
       summary: Initialize client-side map matching
       description: Returns the number of vertices in the loaded road-network graph so clients can initialize their local map-matching graph.
       responses:
-        '200':
+        "200":
           description: Successful map-matching initialization response.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TileInitEnvelope'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+                $ref: "#/components/schemas/TileInitEnvelope"
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /api/tile-init-transition-matrix:
     get:
       tags:
@@ -205,18 +205,18 @@ paths:
       summary: Get map-matching transition matrix
       description: Returns the transition-count matrix file used by client-side real-time map matching.
       responses:
-        '200':
+        "200":
           description: Transition matrix text file.
           content:
             text/plain:
               schema:
                 type: string
-        '404':
+        "404":
           description: Transition matrix file not found.
-        '500':
-          $ref: '#/components/responses/InternalServerError'
-        '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+        "500":
+          $ref: "#/components/responses/InternalServerError"
+        "503":
+          $ref: "#/components/responses/ServiceUnavailable"
   /healthz:
     get:
       tags:
@@ -224,14 +224,14 @@ paths:
       summary: Health check
       description: Returns a plain-text heartbeat while the server is ready to receive traffic.
       responses:
-        '200':
+        "200":
           description: Server is healthy.
           content:
             text/plain:
               schema:
                 type: string
                 example: .
-        '503':
+        "503":
           description: Server is shutting down.
           content:
             text/plain:
@@ -311,31 +311,31 @@ components:
       content:
         application/octet-stream:
           schema:
-            $ref: '#/components/schemas/MapMatchingTile'
+            $ref: "#/components/schemas/MapMatchingTile"
     BadRequest:
       description: Bad request or validation error.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
+            $ref: "#/components/schemas/ErrorEnvelope"
     NotFound:
       description: No route could be found from the origin coordinate to the destination coordinate.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
+            $ref: "#/components/schemas/ErrorEnvelope"
     InternalServerError:
       description: Internal server error.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
+            $ref: "#/components/schemas/ErrorEnvelope"
     ServiceUnavailable:
       description: Server is shutting down or unavailable.
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/ErrorEnvelope'
+            $ref: "#/components/schemas/ErrorEnvelope"
   schemas:
     ShortestPathEnvelope:
       type: object
@@ -343,28 +343,28 @@ components:
         - data
       properties:
         data:
-          $ref: '#/components/schemas/ShortestPathResponse'
+          $ref: "#/components/schemas/ShortestPathResponse"
     AlternativeRoutesEnvelope:
       type: object
       required:
         - data
       properties:
         data:
-          $ref: '#/components/schemas/AlternativeRoutesResponse'
+          $ref: "#/components/schemas/AlternativeRoutesResponse"
     BoundingBoxEnvelope:
       type: object
       required:
         - data
       properties:
         data:
-          $ref: '#/components/schemas/BoundingBoxResponse'
+          $ref: "#/components/schemas/BoundingBoxResponse"
     TileInitEnvelope:
       type: object
       required:
         - data
       properties:
         data:
-          $ref: '#/components/schemas/TileInitResponse'
+          $ref: "#/components/schemas/TileInitResponse"
     ErrorEnvelope:
       type: object
       required:
@@ -405,7 +405,7 @@ components:
           type: array
           description: Driving directions and maneuvers for the route.
           items:
-            $ref: '#/components/schemas/DrivingDirection'
+            $ref: "#/components/schemas/DrivingDirection"
     AlternativeRoutesResponse:
       type: object
       required:
@@ -415,7 +415,7 @@ components:
           type: array
           description: Alternative routes ordered by the routing engine.
           items:
-            $ref: '#/components/schemas/ShortestPathResponse'
+            $ref: "#/components/schemas/ShortestPathResponse"
     BoundingBoxResponse:
       type: object
       required:
@@ -452,7 +452,7 @@ components:
     MapMatchingTile:
       type: string
       format: binary
-      description: S2-compressed tile file generated by `TilingEngine.PreprocessTiles`. The uncompressed stream contains one `MapTileEdgeRecord` per line for every edge in the requested geohash cell and every edge in its neighboring cells.
+      description: S2-compressed tile file generated by `MapAttributesEngine.PreprocessTiles`. The uncompressed stream contains one `MapTileEdgeRecord` per line for every edge in the requested geohash cell and every edge in its neighboring cells.
     MapTileEdgeRecord:
       type: object
       description: Logical structure of one decompressed tile line. The wire format is whitespace-delimited text, not JSON.
@@ -492,7 +492,7 @@ components:
           type: array
           description: Edge geometry coordinates, serialized on the wire as repeated `lat lon` pairs.
           items:
-            $ref: '#/components/schemas/Coordinate'
+            $ref: "#/components/schemas/Coordinate"
     DrivingDirection:
       type: object
       required:
@@ -509,10 +509,10 @@ components:
           type: string
           description: Human-readable driving instruction.
         annotation:
-          $ref: '#/components/schemas/Annotation'
+          $ref: "#/components/schemas/Annotation"
         turn_point:
           description: Coordinate where the maneuver occurs.
-          $ref: '#/components/schemas/Coordinate'
+          $ref: "#/components/schemas/Coordinate"
         street_name:
           type: string
           description: Name of the street the user is navigating on.
@@ -594,7 +594,7 @@ components:
                 trkpt:
                   type: array
                   items:
-                    $ref: '#/components/schemas/TrkPt'
+                    $ref: "#/components/schemas/TrkPt"
     TrkPt:
       type: object
       description: A single trackpoint within a GPX track segment.
@@ -624,7 +624,7 @@ components:
         - data
       properties:
         data:
-          $ref: '#/components/schemas/OfflineMapMatchingResponse'
+          $ref: "#/components/schemas/OfflineMapMatchingResponse"
     OfflineMapMatchingResponse:
       type: object
       required:
@@ -635,12 +635,12 @@ components:
           type: array
           description: GPS points matched to the road network.
           items:
-            $ref: '#/components/schemas/MatchedGPSPoint'
+            $ref: "#/components/schemas/MatchedGPSPoint"
         route_path:
           type: array
           description: Coordinates of the reconstructed route path.
           items:
-            $ref: '#/components/schemas/Coordinate'
+            $ref: "#/components/schemas/Coordinate"
     MatchedGPSPoint:
       type: object
       required:
@@ -651,16 +651,16 @@ components:
         - edge_initial_bearing
       properties:
         gps_point:
-          $ref: '#/components/schemas/GPSPoint'
+          $ref: "#/components/schemas/GPSPoint"
         edge_id:
           type: integer
           format: int32
           minimum: 0
           description: Road-segment ID matched to this GPS point.
         matched_coord:
-          $ref: '#/components/schemas/Coordinate'
+          $ref: "#/components/schemas/Coordinate"
         predicted_gps_coord:
-          $ref: '#/components/schemas/Coordinate'
+          $ref: "#/components/schemas/Coordinate"
         edge_initial_bearing:
           type: number
           format: double

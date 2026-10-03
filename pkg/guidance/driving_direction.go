@@ -34,9 +34,9 @@ type DirectionBuilder struct {
 	lastPathId     int
 	nextStreetName uint32 // streetName Id
 
-	engine RoutingEngine
-	graph  Graph
-	rn     RoadNetworkDataContainer
+	metrics Metrics
+	graph   Graph
+	rn      RoadNetworkDataContainer
 
 	doublePrevSegmentId da.Index
 	prevSegmentId       da.Index
@@ -54,13 +54,13 @@ type DirectionBuilder struct {
 	useAnnotation bool
 }
 
-func NewDirectionBuilder(engine RoutingEngine, graph Graph, rn RoadNetworkDataContainer, lefthand bool,
+func NewDirectionBuilder(graph Graph, rn RoadNetworkDataContainer, metrics Metrics, lefthand bool,
 	turnSignCache *otter.Cache[uint64, uint64]) *DirectionBuilder {
 
 	clockwise := lefthand
 
 	db := &DirectionBuilder{
-		engine:              engine,
+		metrics:             metrics,
 		graph:               graph,
 		rn:                  rn,
 		prevSegmentId:       da.INVALID_SEGMENT_ID,

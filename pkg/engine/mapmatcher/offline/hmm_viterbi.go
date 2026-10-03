@@ -39,6 +39,7 @@ func NewHiddenMarkovModelMapMatching(graph *da.Graph, re *routing.CRPRoutingEngi
 		graph: graph,
 		re:    re,
 		rt:    rt,
+		rn:    re.GetRoadNetworkContainer(),
 	}
 }
 
@@ -61,10 +62,7 @@ on Advances in Geographic Information Systems (GIS ‘09), pp.336–343.
 evaluation/tests suite di: tests/mapmatching/ (cari yang ada nama Offline di test funtions nya)
 */
 func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate) {
-	return h.mapMatchWithGPSRadiuses(gpsTraj, gpsRadiusesM)
-}
 
-func (h *HMM) mapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate) {
 	if len(gpsTraj) == 0 {
 		return []*da.MatchedGPSPoint{}, []da.Coordinate{}
 	}
@@ -119,6 +117,7 @@ func (h *HMM) mapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 	}
 
 	for t := 0; t < numberOfObservations; t++ {
+		// O(t*n^2). n=max number of hidden states of any time step.
 		emissionProbMatrix := make(map[int]float64)
 		states := make([]int, 0)
 		gps := gpsTraj[t]
@@ -225,7 +224,8 @@ func (h *HMM) mapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 		}
 	}
 
-	path = append(path, viterbiDecoder.RetrieveMostLikelyStateSequence()...)
+	finalSegments := viterbiDecoder.RetrieveMostLikelyStateSequence()
+	path = append(path, finalSegments...)
 
 	mapMatchingResult := make([]*da.MatchedGPSPoint, 0, len(path))
 
@@ -243,9 +243,8 @@ func (h *HMM) mapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 		tail := h.rn.GetSegmentTailCoord(sSegId)
 		head := h.rn.GetSegmentHeadCoord(sSegId)
 		eInitialBearing := geo.BearingTo(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
-		streetName := h.rn.GetStreetName(sSegId)
 		matchedSegment := da.NewMatchedGPSPoint(gps, sSegId, s.GetProjectedCoord(), eInitialBearing,
-			uint32(p.GetObservationId()), streetName)
+			uint32(p.GetObservationId()))
 		mapMatchingResult = append(mapMatchingResult, matchedSegment)
 
 		if i == 0 {
@@ -268,7 +267,6 @@ func (h *HMM) mapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 			}
 
 			matchedRoutePath = appendRoutePath(matchedRoutePath, route.path)
-
 			prevMatchedCand = s
 			prevGps = gps
 		}
@@ -317,9 +315,9 @@ func (h *HMM) projectAllGpsWithRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []f
 
 		candidates := make([]*ma.Candidate, 0, len(nearbyArcs))
 
-		for _, arcEndpoint := range nearbyArcs {
-			eLength := h.re.GetSegmentLength(arcEndpoint)
-			cand := ma.NewCandidate(arcEndpoint, 0, eLength)
+		for _, eId := range nearbyArcs {
+			eLength := h.re.GetSegmentLength(eId)
+			cand := ma.NewCandidate(eId, 0, eLength)
 			candidates = append(candidates, cand)
 		}
 
@@ -546,9 +544,13 @@ func (h *HMM) isReversedEdge(e1, e2 da.Index) bool {
 }
 
 func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode, allowUTurn bool) (transitionRoute, bool) {
-	_, sHead := h.rn.GetTailHeadOsmNodeId(sp.GetVId())
-	tTail, _ := h.rn.GetTailHeadOsmNodeId(tp.GetVId())
-	if sHead != tTail {
+	next := false
+	h.graph.ForOutEdgesOf(sp.GetVId(), func(_ da.Index, head da.Index, _ da.Index) {
+		if head == tp.GetVId() {
+			next = true
+		}
+	})
+	if !next {
 		return transitionRoute{}, false
 	}
 
