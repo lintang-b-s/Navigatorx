@@ -22,7 +22,6 @@ todo4: add test expected outputnya pake driving direction google map (dengan rut
 // rata-rata outDegree of any intersection=2.43 untuk graf road network Amerika Serikat 9th DIMACS Implementation Challenge - Shortest Paths(Demetrescu et al. (2006)) (https://www.diag.uniroma1.it/challenge9/download.shtml)
 // misal rata-rata outDegree & indegree = 2.5. setiap turnType 1 byte, key nya (e1,e2) 8byte .
 // misal jumlah intersections 5juta, ada 31.25 juta pair (e1, e2) di every intersections, cuma simpan additional ~281.5mb di memory, not bad. tapi bisa speedup GetDrivingDirections().
-// mungkin bisa jadi opsi/cmd flag nya preprocessor buat speedup driving directions...
 // kaya osrm ProcessGuidanceTurns di: https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/extractor.cpp ??
 // lihat komen di dalam isStreetMergedSkip() karena ada masalah kalau turn sign di setiap intersection gak diprecompute...
 

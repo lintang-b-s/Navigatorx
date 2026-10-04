@@ -528,10 +528,10 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 		t.Fatalf("download ground truth failed: %v", err)
 // 	}
 
-// 	rtree := spatialindex.NewRtreeMapMatch()
+// 	rtree := spatialindex.NewDynamicRtree()
 
-// 	mg := da.InitializeMapMatchingGraph(g.NumberOfVertices())
-// 	onlineMM := online.NewOnlineMapMatchMHTClient(mg, rtree, 8.33333, 8.3333, 0.0001, 9.0, 0.0000001, 0.04, 3, N)
+// 	dg := da.NewDynamicGraph()
+// 	onlineMM := online.NewOnlineMapMatchMHT(dg, rtree, 8.33333, 8.3333, 0.0001, 9.0, 0.0000001, 0.04, 3, N)
 
 // 	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0644)
 // 	if err != nil {
@@ -555,11 +555,11 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 	totalRuntime := 0.0
 // 	nowDataset := time.Now()
 
-// 	centerGeohash := uint64(0)
+// 	centerGeohash := h3.Cell(-99999999)
 // 	re := eng.GetRoutingEngine()
-// 	cf := re.GetCostFunction()
+// 	met := re.GetMetrics()
 // 	rn := re.GetRoadNetworkContainer()
-// 	mapAttributesEngine := tiler.NewMapAttributesEngine(g, rn, zlog, cf)
+// 	mapAttributesEngine := mapattributes.NewMapAttributesEngine(g, rn, zlog, met)
 
 // 	prevGps := da.NewGPSPoint(0, 0, time.Now(), 0, 0)
 // 	for {
@@ -607,8 +607,9 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 		curGPS := da.NewGPSPoint(lat, lon, curGPSTime, speed, deltaTime)
 // 		curGPS.SetDirectionAngle(heading)
 
-// 		currGeohash := geohash.EncodeIntWithPrecision(curGPS.Lat(), curGPS.Lon(), tiler.GeohashBits)
-// 		if centerGeohash != currGeohash {
+// 		currs2CellId, err := h3.NewLatLng(curGPS.Lat(), curGPS.Lon()).Cell(8)
+
+// 		if centerGeohash != currs2CellId {
 
 // 			rnCands := make([]*ma.Candidate, 0, len(candidates))
 // 			for _, cand := range candidates {
@@ -617,16 +618,16 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 				}
 // 				eId := cand.GetSegmentId()
 
-// 				rnCands = append(rnCands, ma.NewCandidate(mg.GetRoadnetworkEdgeId(eId), cand.Weight(), cand.Length()))
+// 				rnCands = append(rnCands, ma.NewCandidate(dg.GetRoadNetworkSegmentId(eId), cand.GetWeight(), cand.Length()))
 // 			}
 
-// 			tileFilepath := mapAttributesEngine.GetMapAttributes(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
-// 			err = mg.RebuildMapMatchGraph(tileFilepath)
+// 			buf, err := mapAttributesEngine.GetMapAttributes(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
+// 			err = dg.RebuildMapMatchGraph(tileFilepath)
 // 			if err != nil {
 // 				if errors.Is(err, os.ErrNotExist) {
 // 					centerGeohash = currGeohash
 // 					candidates = candidates[:0]
-// 					mg.Reset()
+// 					dg.Reset()
 // 					rtree.Reset()
 // 					continue
 // 				}
@@ -637,7 +638,7 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 			rtree.Reset()
 // 			rtree.BuildMapMatch(mg, zlog)
 
-// 			onlineMM = online.NewOnlineMapMatchMHTClient(
+// 			onlineMM = online.NewOnlineMapMatchMHT(
 // 				mg, rtree,
 // 				8.33333,   // initialSpeedMean (m/s )
 // 				8.3333,    // initialSpeedStd
@@ -651,7 +652,7 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 
 // 			updatedCands := make([]*ma.Candidate, 0, len(rnCands))
 // 			for _, snapshot := range rnCands {
-// 				newMapMatchEdgeID, ok := mg.GetMapMatchEdgeId(snapshot.GetSegmentId())
+// 				newMapMatchEdgeID, ok := dg.GetMapMatchEdgeId(snapshot.GetSegmentId())
 // 				if !ok {
 // 					continue
 // 				}
@@ -669,7 +670,7 @@ func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataCon
 // 		lastBearing = matchedPoint.GetBearing()
 
 // 		if matchedPoint.GetSegmentId() != da.INVALID_SEGMENT_ID {
-// 			rnEdgeId := mg.GetRoadnetworkEdgeId(matchedPoint.GetSegmentId())
+// 			rnEdgeId := dg.GetRoadNetworkSegmentId(matchedPoint.GetSegmentId())
 // 			matchedPoint.SetEdgeId(rnEdgeId)
 // 		}
 // 		mapMatchPointResult = append(mapMatchPointResult, matchedPoint)

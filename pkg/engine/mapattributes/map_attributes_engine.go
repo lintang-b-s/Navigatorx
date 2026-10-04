@@ -1,36 +1,37 @@
-// Package mapattributes berisi MapAttributesEngine (see  https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e)
+// Package mapattributes berisi MapAttributes Engine (see  https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e)
 package mapattributes
 
 import (
 	"bytes"
 	"fmt"
 
+	s2geo "github.com/golang/geo/s2"
 	"github.com/klauspost/compress/s2"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/uber/h3-go/v4"
 	"go.uber.org/zap"
 )
 
-// MapAttributesEngine engine untuk get subset of RoadNetworkGraph yang berada didalam quadKey web mercator tiles. terinspirasi dari: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+// MapAttributesEngine engine untuk get subset of RoadNetworkGraph yang berada didalam quadKey web mercator tiles. terinspirasi dari MapAttributes service: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 type MapAttributesEngine[W util.RoutingNumber] struct {
 	g      *da.Graph
 	rn     *da.RoadNetworkDataContainer
-	rt     *spatialindex.Rtree
 	met    *met.Metric[W]
+	idx    *spatialindex.S2RoadSegmentsIndex
 	logger *zap.Logger
 }
 
-func NewMapAttributesEngine[W util.RoutingNumber](graph *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger, met *met.Metric[W], rt *spatialindex.Rtree) *MapAttributesEngine[W] {
+func NewMapAttributesEngine[W util.RoutingNumber](graph *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger, met *met.Metric[W], idx *spatialindex.S2RoadSegmentsIndex) *MapAttributesEngine[W] {
+
 	engine := &MapAttributesEngine[W]{
 		g:      graph,
 		rn:     rn,
-		rt:     rt,
 		logger: logger,
 		met:    met,
+		idx:    idx,
 	}
 
 	return engine
@@ -52,28 +53,19 @@ func NewMapAttributesEngine[W util.RoutingNumber](graph *da.Graph, rn *da.RoadNe
 // 	v      da.Index //  id of road segment e2
 // }
 
-// GetMapAttributes get MapAttributes by web mercator quadKey and zoom level. also return MapAttributes of 4 cells neighbor of this (quadKey,zoom) cell
-func (me *MapAttributesEngine[W]) GetMapAttributes(h3CellId string) ([]byte, error) {
-	cell := h3.CellFromString(h3CellId)
-	cells, err := cell.GridRing(1)
-	if err != nil {
-		return make([]byte, 0), fmt.Errorf("failed to retrieve cell.GridRing of grid distance 1 :%w", err)
-	}
-
-	cells = append(cells, cell)
-	segmentIds := make([]da.Index, 0, SEGMENTS_SIZE)
-	for _, c := range cells {
-		fSegments := me.rn.GetH3CellSegments(c.String())
-		segmentIds = append(segmentIds, fSegments...)
-	}
+// GetMapAttributes get MapAttributes by s2 CellId.
+func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId s2geo.CellID) ([]byte, error) {
+	// query road segments from s2 index
+	segmentIds := me.idx.GetCellSegments(s2CellId)
 
 	buf := &bytes.Buffer{}
 	sn := s2.NewWriter(buf)
 	bw := util.NewBinaryWriter(sn)
-	err = bw.Length(len(segmentIds))
+	err := bw.Length(len(segmentIds))
 	if err != nil {
 		return make([]byte, 0), fmt.Errorf("failed to write uint32: %w", err)
 	}
+
 	nt := uint32(0)
 	for _, segId := range segmentIds {
 		speed := me.met.GetSegmentSpeed(segId)
@@ -124,7 +116,7 @@ func (me *MapAttributesEngine[W]) GetMapAttributes(h3CellId string) ([]byte, err
 
 // jangan dihapus.. ini buat tile service aja.
 // // GetMapAttributes get MapAttributes by web mercator quadKey and zoom level. also return MapAttributes of 4 cells neighbor of this (quadKey,zoom) cell
-// func (me *MapAttributesEngine[W]) GetMapAttributes(h3CellId string) ([]byte, error) {
+// func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId string) ([]byte, error) {
 // 	segmentIds := make([]da.Index, 0, SEGMENTS_SIZE)
 // 	segments := make([]segment, 0, SEGMENTS_SIZE)
 // 	segmentGeometries := []*da.Coordinates{} // geometry of the road segment in google polyline format

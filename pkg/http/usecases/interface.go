@@ -2,6 +2,7 @@
 package usecases
 
 import (
+	"github.com/golang/geo/s2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -21,7 +22,7 @@ type OnlineMapMatcherEngine interface {
 }
 
 type MapAttributesEngine interface {
-	GetMapAttributes(h3CellId string) ([]byte, error)
+	GetMapAttributes(s2CellId s2.CellID) ([]byte, error)
 }
 
 type OfflineMapMatcherEngine interface {

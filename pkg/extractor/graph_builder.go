@@ -82,9 +82,11 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	newEDataId := len(edges)
 
 	// tambahin parallel edges dulu buat via-way turn restrictions
-	for wayId, way := range p.ways {
-		newEDataId = addParallelViaEdges(p, wayId, way, newEDataId, outEdges, inEdges, entryPointsAdjList, exitPointsAdjList, rn, segmentDataIds, outWeights, outLengths,
-			inLengths, outDegree, inDegree, isParallelOutEdge, isParallelInEdge)
+	if roadNetwork {
+		for wayId, way := range p.ways {
+			newEDataId = addParallelViaEdges(p, wayId, way, newEDataId, outEdges, inEdges, entryPointsAdjList, exitPointsAdjList, rn, segmentDataIds, outWeights, outLengths,
+				inLengths, outDegree, inDegree, isParallelOutEdge, isParallelInEdge)
+		}
 	}
 
 	fmt.Printf("25%%...")
@@ -97,48 +99,45 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 
 	// init turn matrices. (only for road network OpenStreetMap input file)
 	// T(n) = \sum_{v in V} outDeg(v)*inDeg(v) <= \sum_{v in V} c^2 =O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
-	for v := 0; v < len(turnMatrices); v++ {
-		turnMatrices[v] = make([]pkg.TurnType, outDegree[v]*inDegree[v])
+	if roadNetwork {
+		for v := 0; v < len(turnMatrices); v++ {
+			turnMatrices[v] = make([]pkg.TurnType, outDegree[v]*inDegree[v])
 
-		for j := 0; j < len(turnMatrices[v]); j++ {
-			turnMatrices[v][j] = pkg.NONE
-		}
+			for j := 0; j < len(turnMatrices[v]); j++ {
+				turnMatrices[v][j] = pkg.NONE
+			}
 
-		if !roadNetwork {
-			//
-			continue
-		}
+			// tambahin turn type buat turn left/ turn right
+			for entryPoint := 0; entryPoint < len(inEdges[v]); entryPoint++ {
+				u := inEdges[v][entryPoint]
+				rowOffset := entryPoint * outDegree[v]
 
-		// tambahin turn type buat turn left/ turn right
-		for entryPoint := 0; entryPoint < len(inEdges[v]); entryPoint++ {
-			u := inEdges[v][entryPoint]
-			rowOffset := entryPoint * outDegree[v]
+				for exitPoint := 0; exitPoint < len(outEdges[v]); exitPoint++ {
+					w := outEdges[v][exitPoint]
 
-			for exitPoint := 0; exitPoint < len(outEdges[v]); exitPoint++ {
-				w := outEdges[v][exitPoint]
+					prevPoint := vertices[u].GetCoordinate()
+					tail := vertices[v].GetCoordinate()
+					headPoint := vertices[w].GetCoordinate()
 
-				prevPoint := vertices[u].GetCoordinate()
-				tail := vertices[v].GetCoordinate()
-				headPoint := vertices[w].GetCoordinate()
+					prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
+						tail.GetLon())
+					turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
+						headPoint.GetLon(), prevInitialBearing)
 
-				prevInitialBearing := geo.ComputeInitialBearing(prevPoint.GetLat(), prevPoint.GetLon(), tail.GetLat(),
-					tail.GetLon())
-				turn := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), headPoint.GetLat(),
-					headPoint.GetLon(), prevInitialBearing)
+					l := util.MetersFromCentimeters(inLengths[v][entryPoint])
+					lPrime := util.MetersFromCentimeters(outLengths[v][exitPoint])
 
-				l := util.MetersFromCentimeters(inLengths[v][entryPoint])
-				lPrime := util.MetersFromCentimeters(outLengths[v][exitPoint])
+					if !util.Eq(l, 0) && !util.Eq(lPrime, 0) {
+						delta := pkg.CalcResolution(l, lPrime, pkg.INF_WEIGHT)
+						minResolution = min(minResolution, delta)
+					}
 
-				if !util.Eq(l, 0) && !util.Eq(lPrime, 0) {
-					delta := pkg.CalcResolution(l, lPrime, pkg.INF_WEIGHT)
-					minResolution = min(minResolution, delta)
-				}
-
-				switch turn {
-				case da.TURN_SLIGHT_LEFT, da.TURN_LEFT, da.TURN_SHARP_LEFT:
-					turnMatrices[v][rowOffset+exitPoint] = pkg.LEFT_TURN
-				case da.TURN_SLIGHT_RIGHT, da.TURN_RIGHT, da.TURN_SHARP_RIGHT:
-					turnMatrices[v][rowOffset+exitPoint] = pkg.RIGHT_TURN
+					switch turn {
+					case da.TURN_SLIGHT_LEFT, da.TURN_LEFT, da.TURN_SHARP_LEFT:
+						turnMatrices[v][rowOffset+exitPoint] = pkg.LEFT_TURN
+					case da.TURN_SLIGHT_RIGHT, da.TURN_RIGHT, da.TURN_SHARP_RIGHT:
+						turnMatrices[v][rowOffset+exitPoint] = pkg.RIGHT_TURN
+					}
 				}
 			}
 		}
@@ -150,30 +149,32 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 
 	// let w=number of osm ways , q = max number of nodes of any osm ways, r = max number of restrictions of any osm ways
 	// O(w*r*q^2)
-	for wayId, way := range p.ways {
-		addTwoWayTurnCost(p, wayId, way, outEdges, inEdges, turnMatrices, outDegree)
+	if roadNetwork {
+		for wayId, way := range p.ways {
+			addTwoWayTurnCost(p, wayId, way, outEdges, inEdges, turnMatrices, outDegree)
 
-		// store turn restrictions https://wiki.openstreetmap.org/wiki/Relation:restriction
+			// store turn restrictions https://wiki.openstreetmap.org/wiki/Relation:restriction
 
-		fromNodes := way.graphNodes
-		fromRestrictions := p.restrictions[wayId]
-		for fromResId, restriction := range fromRestrictions {
+			fromNodes := way.graphNodes
+			fromRestrictions := p.restrictions[wayId]
+			for fromResId, restriction := range fromRestrictions {
 
-			if wayId == int64(restriction.to) { // ignore restrictions from wayId == restriction.to
-				continue
-			}
+				if wayId == int64(restriction.to) { // ignore restrictions from wayId == restriction.to
+					continue
+				}
 
-			_, acceptedWay := p.ways[int64(restriction.to)]
-			if !acceptedWay {
-				continue
-			}
+				_, acceptedWay := p.ways[int64(restriction.to)]
+				if !acceptedWay {
+					continue
+				}
 
-			if !restriction.isWay {
-				addViaNodeTurnRestriction(p, wayId, way, fromNodes, restriction, fromResId, outEdges, inEdges,
-					outDegree, vertices, turnMatrices, &conditionalTurnRestrictions, isParallelOutEdge, isParallelInEdge)
-			} else if restriction.isWay {
-				addViaWayTurnRestriction(p, wayId, way, fromNodes, restriction, fromResId, outEdges, inEdges,
-					rn, segmentDataIds, turnMatrices, outDegree, inDegree, isParallelOutEdge, isParallelInEdge)
+				if !restriction.isWay {
+					addViaNodeTurnRestriction(p, wayId, way, fromNodes, restriction, fromResId, outEdges, inEdges,
+						outDegree, vertices, turnMatrices, &conditionalTurnRestrictions, isParallelOutEdge, isParallelInEdge)
+				} else if restriction.isWay {
+					addViaWayTurnRestriction(p, wayId, way, fromNodes, restriction, fromResId, outEdges, inEdges,
+						rn, segmentDataIds, turnMatrices, outDegree, inDegree, isParallelOutEdge, isParallelInEdge)
+				}
 			}
 		}
 	}
@@ -184,17 +185,19 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	matrixOffset := 0
 	vertexTurnTablePtr := make([]da.Index, len(vertices)-1)
 
-	// O(n)
-	for u := 0; u < len(vertices)-1; u++ {
-		// set the turnTablePtr of vertex v to the current matrixOffset
-		// matrix offset is index of the first element of turnMatrices[v] in the flattened matrices array
-		vertexTurnTablePtr[u] = da.Index(matrixOffset)
-		// flatten the turnMatrices
-		for i := 0; i < len(turnMatrices[u]); i++ {
-			flattenTurnMatrices = append(flattenTurnMatrices, turnMatrices[u][i])
-		}
+	if roadNetwork {
+		// O(n)
+		for u := 0; u < len(vertices)-1; u++ {
+			// set the turnTablePtr of vertex v to the current matrixOffset
+			// matrix offset is index of the first element of turnMatrices[v] in the flattened matrices array
+			vertexTurnTablePtr[u] = da.Index(matrixOffset)
+			// flatten the turnMatrices
+			for i := 0; i < len(turnMatrices[u]); i++ {
+				flattenTurnMatrices = append(flattenTurnMatrices, turnMatrices[u][i])
+			}
 
-		matrixOffset += len(turnMatrices[u])
+			matrixOffset += len(turnMatrices[u])
+		}
 	}
 
 	outEdgeOffset := da.Index(0)

@@ -3,6 +3,7 @@ package usecases
 import (
 	"context"
 
+	"github.com/golang/geo/s2"
 	"go.uber.org/zap"
 )
 
@@ -19,7 +20,7 @@ func NewMapAttributesService(log *zap.Logger, mapAttributesEngine MapAttributesE
 	}
 }
 
-func (ms *MapAttributesService) GetMapAttributes(ctx context.Context, h3CellId string) ([]byte, error) {
-	mvt, err := ms.mapAttributesEngine.GetMapAttributes(h3CellId)
+func (ms *MapAttributesService) GetMapAttributes(ctx context.Context, s2CellId s2.CellID) ([]byte, error) {
+	mvt, err := ms.mapAttributesEngine.GetMapAttributes(s2CellId)
 	return mvt, err
 }

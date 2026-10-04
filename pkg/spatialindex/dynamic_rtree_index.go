@@ -49,11 +49,11 @@ func (dr *DynamicRtree) Rebuild(g *da.DynamicGraph) {
 		maxX := geo.CalcLonToX(maxLon)
 
 		rnId := g.GetRoadNetworkSegmentId(segId)
-		newEId := dr.Bitpack(da.Index(segId), rnId)
+		nSegId := dr.Bitpack(da.Index(segId), rnId)
 
 		mins = append(mins, [2]int32{spatialRound(minX), spatialRound(minY)})
 		maxs = append(maxs, [2]int32{spatialRound(maxX), spatialRound(maxY)})
-		items = append(items, newEId)
+		items = append(items, nSegId)
 	}
 
 	tr := &rtree.RTreeGN[int32, uint64]{}

@@ -465,7 +465,7 @@ func (h *HMM) newPhantomNodeFromCandidate(cand *ma.Candidate) da.PhantomNode {
 	segmentId := cand.GetSegmentId()
 
 	forwardDistance := cand.GetDistanceFromHead()
-	reverseDistance := cand.GetDistanceFromTail()
+	reverseDistance := cand.GetDistr()
 
 	forwardCost := cand.GetCostFromHead()
 	reverseCost := cand.GetCostFromTail()
@@ -745,7 +745,7 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 		cand.SetProjectedCoord(bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon())
 		cand.SetDist(minDist)
 		cand.SetDistr(minDistr)
-		cand.SetDistanceFromTail(minDistr)
+		cand.SetDistr(minDistr)
 
 		edgeLength := h.re.GetSegmentLength(cand.GetSegmentId())
 		distanceFromHead := max(edgeLength-minDistr, 0)
@@ -754,6 +754,6 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 		cand.SetCostFromTail(h.re.GetDurationFromLength(cand.GetSegmentId(), minDistr))
 		cand.SetCostFromHead(h.re.GetDurationFromLength(cand.GetSegmentId(), distanceFromHead))
 
-		cand.SetEdgeBearing(candEdgeBearing)
+		cand.SetSegmentBearing(candEdgeBearing)
 	}
 }

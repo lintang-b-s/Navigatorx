@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"sort"
 	"sync/atomic"
 
 	"github.com/klauspost/compress/s2"
@@ -28,6 +29,12 @@ func NewClientVertex(rnId Index) ClientVertex {
 // DynamicGraph read MapDataManager in this article: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 type DynamicGraph struct {
 	g atomic.Pointer[AdjacencyArray]
+}
+
+func NewDynamicGraph() *DynamicGraph {
+	dg := &DynamicGraph{}
+	dg.g.Store(&AdjacencyArray{})
+	return dg
 }
 
 // AdjacencyArray store client road network graph
@@ -146,6 +153,17 @@ func (dg *DynamicGraph) Rebuild(r io.Reader) error {
 		heads[i] = Index(v)
 		weights[i] = weight
 	}
+
+	// sort edges (u,v) by tail vertex u
+	ePerm := make([]int, nt) // map from new edge id to old edge id
+	for i := 0; i < int(nt); i++ {
+		ePerm[i] = i
+	}
+	sort.Slice(ePerm, func(i, j int) bool {
+		return tails[ePerm[i]] < tails[ePerm[j]]
+	})
+	heads = util.ApplyPermutation(heads, ePerm)
+	weights = util.ApplyPermutation(weights, ePerm)
 
 	g := &AdjacencyArray{}
 	g.weights = weights

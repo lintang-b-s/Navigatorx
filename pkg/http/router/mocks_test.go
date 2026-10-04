@@ -3,6 +3,7 @@ package router
 import (
 	"context"
 
+	"github.com/golang/geo/s2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -132,7 +133,7 @@ type MockMapAttributesService struct {
 	mock.Mock
 }
 
-func (m *MockMapAttributesService) GetMapAttributes(ctx context.Context, h3CellId string) ([]byte, error) {
-	args := m.Called(ctx, h3CellId)
+func (m *MockMapAttributesService) GetMapAttributes(ctx context.Context, s2CellId s2.CellID) ([]byte, error) {
+	args := m.Called(ctx, s2CellId)
 	return []byte(args.String(0)), args.Error(1)
 }

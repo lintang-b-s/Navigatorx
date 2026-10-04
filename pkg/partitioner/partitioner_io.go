@@ -13,7 +13,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-func (mp *MultilevelPartitioner) writeMLPToMLPFile(filename string) error {
+func (mp *MultilevelPartitioner) writeMLPToFile(filename string) error {
 
 	mlp := mp.BuildMLP()
 

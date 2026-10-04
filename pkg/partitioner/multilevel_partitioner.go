@@ -159,7 +159,7 @@ func (mp *MultilevelPartitioner) SaveToFile() error {
 	if err := util.IsPathExists(filename); err != nil {
 		return err
 	}
-	return mp.writeMLPToMLPFile(filename)
+	return mp.writeMLPToFile(filename)
 }
 
 func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Index {

@@ -7,11 +7,10 @@ type Candidate struct {
 	stateId            int
 	projectionId       da.Index
 	segmentId          da.Index // MapMatchGraph segmentId
-	distanceFromTail   float64
 	distanceFromHead   float64
 	travelTimeFromTail float64
 	travelTimeFromHead float64
-	edgeBearing        float64 // in degrees
+	segmentBearing     float64 // in degrees
 
 	weight                     float64 // posterior probability dari this road segment candidate at time step k
 	length                     float64
@@ -26,11 +25,11 @@ func (c *Candidate) GetSegmentId() da.Index {
 	return c.segmentId
 }
 
-func (c *Candidate) Weight() float64 {
+func (c *Candidate) GetWeight() float64 {
 	return c.weight
 }
 
-func (c *Candidate) Length() float64 {
+func (c *Candidate) GetLength() float64 {
 	return c.length
 }
 
@@ -64,12 +63,12 @@ func (c *Candidate) SetProjectedCoord(lat, lon float64) {
 	c.projectedLat, c.projectedLon = lat, lon
 }
 
-func (c *Candidate) SetEdgeBearing(edgeBearingDeg float64) {
-	c.edgeBearing = edgeBearingDeg
+func (c *Candidate) SetSegmentBearing(segmentBearingDeg float64) {
+	c.segmentBearing = segmentBearingDeg
 }
 
-func (c *Candidate) GetEdgeBearing() float64 {
-	return c.edgeBearing
+func (c *Candidate) GetSegmentBearing() float64 {
+	return c.segmentBearing
 }
 
 func (c *Candidate) GetProjectedCoord() da.Coordinate {
@@ -96,16 +95,9 @@ func (c *Candidate) GetDist() float64 {
 	return c.dist
 }
 
+// GetDistr get distance from tail vertex to projected gps point
 func (c *Candidate) GetDistr() float64 {
 	return c.distr
-}
-
-func (c *Candidate) SetDistanceFromTail(dist float64) {
-	c.distanceFromTail = dist
-}
-
-func (c *Candidate) GetDistanceFromTail() float64 {
-	return c.distanceFromTail
 }
 
 func (c *Candidate) SetDistanceFromHead(dist float64) {

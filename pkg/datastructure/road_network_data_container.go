@@ -1,13 +1,11 @@
 package datastructure
 
 import (
-	"math"
 	"sort"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/uber/h3-go/v4"
 )
 
 // RoadNetworkDataContainer stores annotation and supplementary information for the osm road network  data.
@@ -33,7 +31,6 @@ type RoadNetworkDataContainer struct {
 	segmentOsmWayId         *PackedSlice    // map dari segment id ke osm way id dari edge
 	segmentStartPointsIndex []Index
 	segmentEndPointsIndex   []Index
-	segmentH3CellId         map[string][]Index
 	streetName              []uint32
 	roadClass               []pkg.OsmHighwayType
 	roadClassLink           []pkg.OsmHighwayType
@@ -59,7 +56,6 @@ func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer 
 		roadClassLink:           make([]pkg.OsmHighwayType, 0),
 		lanes:                   make([]uint8, 0),
 		segmentFlags:            make([]SegmentFlagType, 0),
-		segmentH3CellId:         make(map[string][]Index, 0),
 	}
 }
 
@@ -83,7 +79,6 @@ func NewRoadNetworkDataContainerWithSize(numberOfEdges int, numberOfVertices int
 		roadClass:               make([]pkg.OsmHighwayType, 0),
 		roadClassLink:           make([]pkg.OsmHighwayType, 0),
 		lanes:                   make([]uint8, 0),
-		segmentH3CellId:         make(map[string][]Index, 0),
 	}
 }
 
@@ -332,36 +327,7 @@ func (rn *RoadNetworkDataContainer) ApplySegmentsPermutation(nPerm []int) {
 	}
 	rn.segmentFlags = util.ApplyPermutation(rn.segmentFlags, nPerm)
 	rn.segmentOsmWayId = newOsmWayIds
-	// precompute h3CellId of each road segments
-	rn.segmentH3CellId = make(map[string][]Index)
-	for segId := Index(0); segId < m; segId++ {
-		geom := rn.GetSegmentGeometry(segId)
-		var (
-			minLat, minLon int64 = math.MaxInt64, math.MaxInt64 // biar penjumlahan di cLat/cLon dibawah gak overflow
-			maxLat, maxLon int64 = -math.MaxInt64, -math.MaxInt64
-			cLat, cLon     float64
-		)
-		for i := 0; i < len(geom); i++ {
-			p := geom[i]
-			minLat = min(minLat, int64(p.lat))
-			minLon = min(minLon, int64(p.lon))
-			maxLat = max(maxLat, int64(p.lat))
-			maxLon = max(maxLon, int64(p.lon))
-		}
-		cLat = float64((minLat + maxLat) / 2)
-		cLon = float64((minLon + maxLon) / 2)
-		cLatf, cLonf := cLat/CoordinatePrecision, cLon/CoordinatePrecision
-		cell, err := h3.NewLatLng(cLatf, cLonf).Cell(8)
-		if err != nil {
-			panic(err)
-		}
-		cellId := cell.String()
-		rn.segmentH3CellId[cellId] = append(rn.segmentH3CellId[cellId], segId)
-	}
-}
 
-func (rn *RoadNetworkDataContainer) GetH3CellSegments(cellId string) []Index {
-	return rn.segmentH3CellId[cellId]
 }
 
 // is parallel via-way

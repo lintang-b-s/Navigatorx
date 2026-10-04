@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/golang/geo/s2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -40,5 +41,5 @@ type MapMatcherService interface {
 
 // MapAttributesService  https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 type MapAttributesService interface {
-	GetMapAttributes(ctx context.Context, h3CellId string) ([]byte, error)
+	GetMapAttributes(ctx context.Context, s2CellId s2.CellID) ([]byte, error)
 }

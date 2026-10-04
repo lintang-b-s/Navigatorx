@@ -231,7 +231,7 @@ func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.C
 		mgps.DeltaTime()), matchedPoint.GetSegmentId(), matchedPoint.GetMatchedCoord(), matchedPoint.GetPredictedGpsCoord(), matchedPoint.GetBearing())
 	cands := make([]Candidate, len(candidates))
 	for i, cand := range candidates {
-		cands[i] = NewCandidate(cand.GetSegmentId(), cand.Weight(), cand.Length())
+		cands[i] = NewCandidate(cand.GetSegmentId(), cand.GetWeight(), cand.GetLength())
 	}
 	return &mapmatchingResponse{
 		MatchedGpsPoint: matchedGpsPoint,

@@ -15,6 +15,7 @@ import (
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
+	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
@@ -107,4 +108,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	sidx := spatialindex.NewS2RoadSegmentsIndex(graph, rn, logger)
+	logger.Sugar().Infof("writing s2 cells road segment spatial index....")
+	err = sidx.WriteToFile()
+	if err != nil {
+		panic(err)
+	}
+	logger.Sugar().Infof("s2 cells road segment spatial index written....")
 }

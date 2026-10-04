@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/golang/geo/s2"
 	"github.com/spf13/viper"
 
 	"github.com/go-playground/locales/en"
@@ -58,7 +59,7 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes)
 	group.GET("/boundingBox", api.GetBoundingBox)
 
-	group.GET("/mapAttributes/:h3Cellid", api.getMapAttributes)
+	group.GET("/mapAttributes/:s2CellId", api.getMapAttributes)
 	group.GET("/init-transition-matrix", api.initTransitionMatrix)
 	group.POST("/mapmatching", api.offlineMapMatching) // offline map-matching
 }
@@ -273,14 +274,20 @@ func (api *routingAPI) GetBoundingBox(w http.ResponseWriter, r *http.Request, p 
 }
 
 func (api *routingAPI) getMapAttributes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	h3CellidStr := p.ByName("h3Cellid")
-	if h3CellidStr == "" {
-		api.BadRequestResponse(w, r, errors.New("h3Cellid is required"))
+	s2CellIdStr := p.ByName("s2CellId")
+	if s2CellIdStr == "" {
+		api.BadRequestResponse(w, r, errors.New("s2CellId is required"))
+		return
+	}
+
+	s2CellId, err := strconv.Atoi(s2CellIdStr)
+	if err != nil {
+		api.BadRequestResponse(w, r, errors.New("s2CellId is must be a valid s2 cell id"))
 		return
 	}
 
 	ctx := r.Context()
-	buf, err := api.mapAttributesService.GetMapAttributes(ctx, h3CellidStr) // masih todo
+	buf, err := api.mapAttributesService.GetMapAttributes(ctx, s2.CellID(s2CellId)) // masih todo
 	if err != nil {
 		api.ServerErrorResponse(w, r, err)
 	}

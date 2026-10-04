@@ -73,4 +73,5 @@ bin/default.pgo
 tests/shortestpath/data/tests/shortestpath/gcpc2015_a_journey_to_greece
 *.ndata
 *.nlk
+*.nsidx
 

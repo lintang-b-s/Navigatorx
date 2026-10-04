@@ -67,7 +67,7 @@ value L_u after filtering.
 
 */
 
-type OnlineMapMatchMHTClient struct {
+type OnlineMapMatchMHT struct {
 	g                 *da.DynamicGraph
 	rt                *spatialindex.DynamicRtree
 	initialSpeedMean  float64 // \overline{v}
@@ -81,10 +81,10 @@ type OnlineMapMatchMHTClient struct {
 	tipe              TIPE_MHT
 }
 
-func NewOnlineMapMatchMHTClient(graph *da.DynamicGraph, rt *spatialindex.DynamicRtree, initialSpeedMean, initialSpeedStd float64,
+func NewOnlineMapMatchMHT(graph *da.DynamicGraph, rt *spatialindex.DynamicRtree, initialSpeedMean, initialSpeedStd float64,
 	posteriorThresold, gpsStd, lp, lc, accelerationStd float64,
-	N *da.SparseMatrix[int]) *OnlineMapMatchMHTClient {
-	return &OnlineMapMatchMHTClient{
+	N *da.SparseMatrix[int]) *OnlineMapMatchMHT {
+	return &OnlineMapMatchMHT{
 		g:                 graph,
 		rt:                rt,
 		initialSpeedMean:  initialSpeedMean,
@@ -104,7 +104,7 @@ func NewOnlineMapMatchMHTClient(graph *da.DynamicGraph, rt *spatialindex.Dynamic
 // Algorithm 1 in ref[1]
 // O( b^{d_p}), b=avg outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
 // candidates segmentId dan matchedSegment segmentId  adalah MapMatchGraph edge id
-func (om *OnlineMapMatchMHTClient) OnlineMapMatch(prevGps, gps *da.GPSPoint, k int,
+func (om *OnlineMapMatchMHT) OnlineMapMatch(prevGps, gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 
 	if k == 1 || len(candidates) == 0 {
@@ -124,23 +124,21 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(prevGps, gps *da.GPSPoint, k i
 
 		sumLength := 0.0
 
-		var initialCandidateSegmentId da.Index
+		var initCandSegId da.Index
 		if startOfTheRoute {
-			initialCandidateSegmentId = candidates[0].GetSegmentId()
+			initCandSegId = candidates[0].GetSegmentId()
 		}
 
-		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 		for _, segmentId := range nearbyArcs {
-
-			if !startOfTheRoute || (startOfTheRoute && segmentId == initialCandidateSegmentId) {
+			if !startOfTheRoute || (startOfTheRoute && segmentId == initCandSegId) {
 				l := om.g.GetSegmentLength(segmentId)
 				sumLength += l
 			}
 		}
 
+		candidates = make([]*ma.Candidate, 0, len(nearbyArcs))
 		for _, segId := range nearbyArcs {
-
-			if !startOfTheRoute || (startOfTheRoute && segId == initialCandidateSegmentId) {
+			if !startOfTheRoute || (startOfTheRoute && segId == initCandSegId) {
 				// biar candidates nya cuma first segmentId dari rute yang dipilih user (see https://github.com/lintang-b-s/navigatorx-rn/blob/main/hooks/useNavigation.ts).
 				eLength := om.g.GetSegmentLength(segId)
 				c := ma.NewCandidate(segId, eLength/sumLength, eLength)
@@ -164,8 +162,6 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(prevGps, gps *da.GPSPoint, k i
 			speedStd = speedStdK
 		}
 
-		om.projectAllCandidates(prevGps, candidates)
-
 		newCandidates := make([]*ma.Candidate, 0, len(candidates)) // newCandidates is next road segment candidates r_{k+1} di current time step
 
 		for _, rkCand := range candidates {
@@ -173,7 +169,7 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(prevGps, gps *da.GPSPoint, k i
 			tau = append(tau, rkCand.GetSegmentId())
 			ptau := 1.0 // markov chain path probability that start at this road segment candidate rkCand
 			hpre := 1.0
-			newCandidates = om.recur(newCandidates, rkCand.Weight(), tau, ptau, speedMean, hpre, speedStd, gps.DeltaTime(), prevGps, gps, rkCand)
+			newCandidates = om.recur(newCandidates, rkCand.GetWeight(), tau, ptau, speedMean, hpre, speedStd, gps.DeltaTime(), prevGps, gps, rkCand)
 		}
 		speedMeanK, speedStdK = om.kalmanFilter(speedMean, speedStd, gps.Speed(), gps.DeltaTime())
 
@@ -192,7 +188,7 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(prevGps, gps *da.GPSPoint, k i
 // recur. prediction step of multiple hypothesis technique (compute prior)
 // Algorithm 2 in ref[1]
 // route prediction buat compute prior probability dari next road segment candidates r_{k+1}
-func (om *OnlineMapMatchMHTClient) recur(newCands []*ma.Candidate, w float64, tau []da.Index, ptau float64,
+func (om *OnlineMapMatchMHT) recur(newCands []*ma.Candidate, w float64, tau []da.Index, ptau float64,
 	speedMean, hpre, speedStd, deltaTime float64, prevGps, gps *da.GPSPoint, prevCand *ma.Candidate) []*ma.Candidate {
 	hnew := om.computeHProb(tau, speedMean, speedStd, deltaTime)
 
@@ -245,7 +241,7 @@ func (om *OnlineMapMatchMHTClient) recur(newCands []*ma.Candidate, w float64, ta
 		newCands = append(newCands, ma.NewCandidate(tau[len(tau)-1], wprime,
 			lastTauSegLength))
 	} else {
-		cnew.SetWeight(cnew.Weight() + wprime)
+		cnew.SetWeight(cnew.GetWeight() + wprime)
 	}
 	return newCands
 }
@@ -253,12 +249,12 @@ func (om *OnlineMapMatchMHTClient) recur(newCands []*ma.Candidate, w float64, ta
 // filterLog. filter step of multiple hypothesis technique (compute posterior & pick most probable road segment).
 //
 //	normalization use log-sum-exp trick to avoid numerical underflow/overflow (https://gregorygundersen.com/blog/2020/02/09/log-sum-exp/)
-func (om *OnlineMapMatchMHTClient) filterLog(gps *da.GPSPoint, candidates []*ma.Candidate) (*da.MatchedGPSPoint, []*ma.Candidate, bool) {
+func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candidate) (*da.MatchedGPSPoint, []*ma.Candidate, bool) {
 	logDenominator := make([]float64, 0, len(candidates))
 
 	for _, cand := range candidates {
 		obsLogLikelihood := om.computeEmissionLogProb(cand)
-		logDenominator = append(logDenominator, math.Log(cand.Weight())+obsLogLikelihood)
+		logDenominator = append(logDenominator, math.Log(cand.GetWeight())+obsLogLikelihood)
 	}
 
 	logDenominatorLSE := logSumExp(logDenominator) // log-sum-exp trick
@@ -267,8 +263,8 @@ func (om *OnlineMapMatchMHTClient) filterLog(gps *da.GPSPoint, candidates []*ma.
 	for i, cand := range candidates {
 		// computing posterior for each road segment candidate, each road segment candidate is mutually exclusive/disjoint
 		obsLogLikelihood := om.computeEmissionLogProb(cand)
-		logNumerator := (obsLogLikelihood + math.Log(cand.Weight())) // cand.Weight is the prior probability dari road segment cand hasil dari fungsi recur()
-		posterior := logNumerator - (logDenominatorLSE)              // log of equation (11) in ref[1] using log-sum-exp trick.
+		logNumerator := (obsLogLikelihood + math.Log(cand.GetWeight())) // cand.GetWeight is the prior probability dari road segment cand hasil dari fungsi recur()
+		posterior := logNumerator - (logDenominatorLSE)                 // log of equation (11) in ref[1] using log-sum-exp trick.
 
 		posteriorProb := math.Exp(posterior) // posterior back to [0,1]. hasil rewriting eq (3) di https://gregorygundersen.com/blog/2020/02/09/log-sum-exp/
 		candidates[i].SetWeight(posteriorProb)
@@ -278,10 +274,10 @@ func (om *OnlineMapMatchMHTClient) filterLog(gps *da.GPSPoint, candidates []*ma.
 	// filter candidate yang memiliki weight < posteriorThreshold
 	filteredCands := make([]*ma.Candidate, 0, len(candidates))
 	for _, cand := range candidates {
-		if math.IsNaN(cand.Weight()) {
+		if math.IsNaN(cand.GetWeight()) {
 			continue
 		}
-		if cand.Weight() > om.posteriorThresold {
+		if cand.GetWeight() > om.posteriorThresold {
 			filteredCands = append(filteredCands, cand)
 		}
 	}
@@ -290,12 +286,12 @@ func (om *OnlineMapMatchMHTClient) filterLog(gps *da.GPSPoint, candidates []*ma.
 	var matchedSegment *da.MatchedGPSPoint
 	maxWeight := -1.0
 	for _, cand := range filteredCands {
-		if util.Gt(cand.Weight(), maxWeight) {
+		if util.Gt(cand.GetWeight(), maxWeight) {
 			projectedPointCoord := cand.GetProjectedCoord()
-			eInitialBearing := cand.GetEdgeBearing()
+			segBearing := cand.GetSegmentBearing()
 
-			matchedSegment = da.NewMatchedGPSPoint(gps, cand.GetSegmentId(), projectedPointCoord, eInitialBearing, 0) // kita gak pake obsId online map matching
-			maxWeight = cand.Weight()
+			matchedSegment = da.NewMatchedGPSPoint(gps, cand.GetSegmentId(), projectedPointCoord, segBearing, 0) // kita gak pake obsId online map matching
+			maxWeight = cand.GetWeight()
 		}
 	}
 
@@ -308,7 +304,7 @@ func (om *OnlineMapMatchMHTClient) filterLog(gps *da.GPSPoint, candidates []*ma.
 	return matchedSegment, filteredCands, om.needToReset(gps, matchedSegment)
 }
 
-func (om *OnlineMapMatchMHTClient) needToReset(gps *da.GPSPoint, matchedSegment *da.MatchedGPSPoint) bool {
+func (om *OnlineMapMatchMHT) needToReset(gps *da.GPSPoint, matchedSegment *da.MatchedGPSPoint) bool {
 	gpsLat, gpsLon := gps.Lat(), gps.Lon()
 	matchCoord := matchedSegment.GetMatchedCoord()
 	dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(
@@ -321,7 +317,7 @@ func (om *OnlineMapMatchMHTClient) needToReset(gps *da.GPSPoint, matchedSegment 
 // computeEmissionLogProb. logarithm of equation [1]  in https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
 // give the likelihood that a gps measurement/observation resulted from a given road segment candidate
 // that hmm newson paper model absolute distance from gps point to candidate road segment as zero-mean gaussian distribution
-func (om *OnlineMapMatchMHTClient) computeEmissionLogProb(cand *ma.Candidate) float64 {
+func (om *OnlineMapMatchMHT) computeEmissionLogProb(cand *ma.Candidate) float64 {
 	obsStateDist := cand.GetDist()
 	sigma := om.gpsStd
 
@@ -330,7 +326,7 @@ func (om *OnlineMapMatchMHTClient) computeEmissionLogProb(cand *ma.Candidate) fl
 }
 
 // // logarithm of equation 21 ref[1]
-// func (om *OnlineMapMatchMHTClient) computeObservationLogLikelihood(cand *ma.Candidate) float64 {
+// func (om *OnlineMapMatchMHT) computeObservationLogLikelihood(cand *ma.Candidate) float64 {
 
 // 	xi := func(x float64) float64 {
 // 		return (1 / (1 + math.Exp(-(math.Pi*(x-cand.GetDistr()))/(math.Sqrt(3)*om.gpsStd))))
@@ -349,7 +345,7 @@ func (om *OnlineMapMatchMHTClient) computeEmissionLogProb(cand *ma.Candidate) fl
 // karena velocity constant model, transition model nya: velocity di time step k sama dengan velocity dengan time step k-1.
 // measurement cuma speed dari gps data (bisa didapet dari Android FusedLocationProvider API/ expo location API https://docs.expo.dev/versions/latest/sdk/location/)
 // ref for kalman filter: https://porabook.com/book/approximate-filters/#S2
-func (om *OnlineMapMatchMHTClient) kalmanFilter(speedMeanKprev, speedStdKprev, gpsSpeed, deltaTime float64) (float64, float64) {
+func (om *OnlineMapMatchMHT) kalmanFilter(speedMeanKprev, speedStdKprev, gpsSpeed, deltaTime float64) (float64, float64) {
 	// prediction step dari kalman filter
 	speedMeanK := speedMeanKprev // transition model. calculate prediction state
 	speedStdK := math.Sqrt(speedStdKprev*speedStdKprev + om.accelerationStd*om.accelerationStd*deltaTime*deltaTime)
@@ -365,7 +361,7 @@ func (om *OnlineMapMatchMHTClient) kalmanFilter(speedMeanKprev, speedStdKprev, g
 // equation 3 in ref[1]. compute edge (state) transition probability, modeled as homogeneous markov chain
 // satisfies markov property: next state only depends on current state.
 // use add-one smoothing
-func (om *OnlineMapMatchMHTClient) computEdgeTransitionProb(eFromId, eToId da.Index, nj int) float64 {
+func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFromId, eToId da.Index, nj int) float64 {
 
 	eFromRNId := om.g.GetRoadNetworkSegmentId(eFromId)
 	eToRNId := om.g.GetRoadNetworkSegmentId(eToId)
@@ -385,7 +381,7 @@ func (om *OnlineMapMatchMHTClient) computEdgeTransitionProb(eFromId, eToId da.In
 	return (1.0 + float64(om.N.Get(int(eFromRNId), int(eToRNId)))) / (sumNeij + float64(nj))
 }
 
-func (om *OnlineMapMatchMHTClient) computeSegmentTransitionProb(tau []da.Index, prevGps, curGps *da.GPSPoint, prevCand *ma.Candidate) float64 {
+func (om *OnlineMapMatchMHT) computeSegmentTransitionProb(tau []da.Index, prevGps, curGps *da.GPSPoint, prevCand *ma.Candidate) float64 {
 	tauLength := 0.0
 	lid := max(0, len(tau)-1)
 	for _, segmentId := range tau[:lid] {
@@ -411,7 +407,7 @@ func (om *OnlineMapMatchMHTClient) computeSegmentTransitionProb(tau []da.Index, 
 //	h(τ_{1:n}, \hat{v}_k ,σ_v,k ,t_k ) denotes the probability of the vehicle traveling further than e_n
 //
 // ini dipakai untuk compute route prediction probability
-func (om *OnlineMapMatchMHTClient) computeHProb(tau []da.Index, speedMean, speedStd, deltaTime float64) float64 {
+func (om *OnlineMapMatchMHT) computeHProb(tau []da.Index, speedMean, speedStd, deltaTime float64) float64 {
 	tauLength := 0.0
 	for _, segmentId := range tau {
 		eLength := om.g.GetSegmentLength(segmentId)
@@ -433,7 +429,7 @@ func (om *OnlineMapMatchMHTClient) computeHProb(tau []da.Index, speedMean, speed
 	return out * (f(fsLength) - f(0))
 }
 
-func (om *OnlineMapMatchMHTClient) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate) {
+func (om *OnlineMapMatchMHT) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate) {
 	for _, cand := range candidates {
 
 		gpsCoord := da.NewCoordinate(gps.Lat(), gps.Lon())
@@ -442,7 +438,7 @@ func (om *OnlineMapMatchMHTClient) projectAllCandidates(gps *da.GPSPoint, candid
 		cand.SetProjectedCoord(bp.GetLat(), bp.GetLon())
 		cand.SetDist(minDist)
 		cand.SetDistr(minDistr)
-		cand.SetEdgeBearing(segmentBearing)
+		cand.SetSegmentBearing(segmentBearing)
 	}
 }
 
@@ -467,7 +463,7 @@ func logSumExp(ps []float64) float64 {
 	return maxP + math.Log(sumExp)
 }
 
-func (om *OnlineMapMatchMHTClient) projectGpsToRoadSegment(gpsCoord da.Coordinate, eId da.Index) (da.Coordinate, float64, float64, float64) {
+func (om *OnlineMapMatchMHT) projectGpsToRoadSegment(gpsCoord da.Coordinate, eId da.Index) (da.Coordinate, float64, float64, float64) {
 	eGeometry := om.g.GetSegmentGeometry(eId)
 
 	var (
@@ -502,8 +498,8 @@ func (om *OnlineMapMatchMHTClient) projectGpsToRoadSegment(gpsCoord da.Coordinat
 			minDist = dist
 			minDistr = distr
 			bp = projectedPoint
-			eInitialBearing := geo.BearingTo(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
-			segmentBearing = eInitialBearing
+			segBearing := geo.BearingTo(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
+			segmentBearing = segBearing
 		}
 
 		cumLength += util.KilometerToMeter(geo.CalculateGreatCircleDistance(
