@@ -48,7 +48,7 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []extractor.NodeCoord
 	op.SetNodeToOsmId(nodeToOsmId)
 
 	rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
-	g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
+	g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 

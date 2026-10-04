@@ -135,7 +135,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	op := extractor.NewExtractor[float64]()
 	gs := datastructure.NewRoadNetworkDataContainerWithSize(len(es), n)
-	g, _, _, _, _ := op.BuildGraph(es, gs, uint32(n), false)
+	g, _, _, _ := op.BuildGraph(es, gs, uint32(n), false)
 
 	g.RunKosaraju()
 

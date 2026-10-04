@@ -12,27 +12,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-// todo: yg query pakai turn cost ganti pakai pendekatan OSRM aja https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation  atau
-// atau edge-based model (sama aja) disini: https://drops.dagstuhl.de/storage/01oasics/oasics-vol085-atmos2020/OASIcs.ATMOS.2020.9/OASIcs.ATMOS.2020.9.pdf
-// ntar query with turn cost bisa pakai kode multilevel_dijkstra_without_turn_cost.go kalau pakai edge-based model
-// this compact model buat support query with turn cost (& turn restrictions) ribet bgt gokil
-// biar gak sama kaya paten ini juga, CRP yg dijelasin disini pakai compact representation: https://patents.google.com/patent/US20130231862A1/en
-// banyak yang diganti terutama driving direction and map matching. tapi harusnya gak susah..
-// referensi lain buat bikin edge-based graph (or expanded graph whatever): https://i11www.iti.kit.edu/_media/teaching/theses/ba-zuendorf-19.pdf
-// DONE :)
-
 /*
 buildEdgeBasedGraph. build edge-based (or expanded) graph following:  https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
+https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/edge_based_graph_factory.cpp
 another reference:  https://drops.dagstuhl.de/storage/01oasics/oasics-vol085-atmos2020/OASIcs.ATMOS.2020.9/OASIcs.ATMOS.2020.9.pdf
 https://i11www.iti.kit.edu/_media/teaching/theses/ba-zuendorf-19.pdf
-https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/edge_based_graph_factory.cpp
 parameter:
 graph: node-based graph datastructure
 weightFunction: weight (duration/travel time) of each edges of node-based graph
 
 only for road network OpenStreetMap input file.
 */
-func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction[W], segmentDataIds [][]da.Index,
+func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction[W],
 	vTurnTableIds []da.Index, turnMatrix []pkg.TurnType, rn *da.RoadNetworkDataContainer) (*da.Graph, *met.TimeFunction[W]) {
 	ebgvNum := da.Index(g.NumberOfEdges())
 	ebgVertices := make([]da.Vertex, ebgvNum+1)
@@ -62,10 +53,9 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 	// T(n) = \sum_{u in V} \sum_{v in edges(u,v)} outDeg(u)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
 	g.ForVertices(func(_ da.Vertex, u da.Index) {
 		g.ForOutEdgesOf(u, func(ueId, v, i da.Index) {
-			uep := g.GetExitOrder(u, ueId)
-			uoemId := segmentDataIds[u][uep]
-			uc := rn.GetSegmentTailCoord(uoemId)
-			vc := rn.GetSegmentHeadCoord(uoemId)
+
+			uc := rn.GetSegmentTailCoord(ueId)
+			vc := rn.GetSegmentHeadCoord(ueId)
 			mpLat := (uc.GetLat() + vc.GetLat()) / 2
 			mpLon := (uc.GetLon() + vc.GetLon()) / 2
 			ebgVertices[ebgvId] = da.NewVertex(mpLat, mpLon, ueId)
@@ -92,7 +82,7 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 				ebgeId++
 			})
 
-			emPerm[ebgvId] = int(uoemId)
+			emPerm[ebgvId] = int(ueId)
 			ebgvId++
 		})
 	})
@@ -172,7 +162,7 @@ func makeTurnTable[W util.RoutingNumber](
 
 	minResolution := g.GetMinResolution()
 
-	// T(n) = \sum_{u in V} outDeg(u)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
+	// T(n) = \sum_{u in V} \sum_{v in edges(u,v)} outDeg(u)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
 	g.ForOutEdges(func(_, v, u, i da.Index, percentage float64, eIdFrom da.Index) {
 
 		vLimitFrom := float64(eSpeedLimit[eIdFrom])

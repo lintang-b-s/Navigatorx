@@ -30,7 +30,7 @@ type RoadNetworkDataContainer struct {
 	// annotation data dari edges
 	// diset saat osmparser
 	segmentTurnLanesData    []TurnLanesData // segmentTurnLanesData[i] is the turnLanesData for road segment/edge with id=i
-	segmentOsmWayId         *PackedSlice    // map dari outEdgid ke osm way id dari edge
+	segmentOsmWayId         *PackedSlice    // map dari segment id ke osm way id dari edge
 	segmentStartPointsIndex []Index
 	segmentEndPointsIndex   []Index
 	segmentH3CellId         map[string][]Index

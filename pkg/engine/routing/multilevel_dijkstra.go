@@ -7,15 +7,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// todo: yg query pakai turn cost ganti pakai pendekatan OSRM aja https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation  atau
-// atau edge-based model (sama aja) disini: https://drops.dagstuhl.de/storage/01oasics/oasics-vol085-atmos2020/OASIcs.ATMOS.2020.9/OASIcs.ATMOS.2020.9.pdf
-// ntar query with turn cost bisa pakai kode multilevel_dijkstra_without_turn_cost.go kalau pakai edge-based model
-// this compact model buat support query with turn cost (& turn restrictions) ribet bgt gokil
-// biar gak sama kaya paten ini juga, CRP yg dijelasin disini pakai compact representation: https://patents.google.com/patent/US20130231862A1/en
-// banyak yang diganti terutama driving direction and map matching. tapi harusnya gak susah..
-// referensi lain buat bikin edge-based graph (or expanded graph whatever): https://i11www.iti.kit.edu/_media/teaching/theses/ba-zuendorf-19.pdf
-// DONE :)
-
 type CRPQuery[W util.RoutingNumber] struct {
 	engine               *CRPRoutingEngine[W]
 	shortestCost         W
@@ -64,6 +55,7 @@ keywords: {Computational modeling;Roads;Navigation;Computational efficiency;Perf
 4. query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
 Networks,” Transportation Science [Preprint]. Available at:
 https://doi.org/10.1287/trsc.2014.0579.
+5. Towers, M. (2020). Bidirectional Dijkstra. https://www.homepages.ucl.ac.uk/~ucahmto/math/2020/05/30/bidirectional-dijkstra.html. Diakses tanggal: 5 Agustus 2026.
 
 ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1] / multilevel-dijkstra tanpa incorporate turn costs.
 intinya cuma bidirectional dijkstra pada graf yang consisiting of overlay graph H, cell C_s, cell C_t. C_s adalah cell level 1 yang mengandung vertex s hasil multilevel partition (lihat package partitioner).
@@ -77,16 +69,16 @@ shortcut dari setiap cell di overlay graph adalah shortest path dari entry bound
 Customizable Route Planning (CRP) adalah extensi dari algoritma HiTi [2] yang diterapkan pada road network graph.
 correctness dari algoritma ini dapat dilihat pada proof dari theorem 4.4 ref [2]. inti dari theorem 4.4 adalah shortest path dari simpul s ke simpul t pada graf yang terdiri dari overlay graph H, cell C_s, cell C_t ekuivalen
 dengan s-t shortest path pada graf G.
-untuk any s-t shortest path, kita bisa decompose edges penyusun s-t shortest path dengan edges inside cell C_s, edges inside C_t, cut edges in any cells, atau edges inside any cell (selain C_s dan C_t).
-tapi karena di fase kustomisasi CRP [1] dan HiTi [2], kita compute shortcuts di setiap cell yang mana adalah shortest path dari entry boundary vertex ke exit boundary vertex dengan hanya menggunakan vertices and edges inside that cell.
-bagian "edges inside any cell (selain C_s dan C_t)" bisa kita ganti dengan shortcuts di overlay graph H yang udah kita precompute di fase kustomisasi.
+untuk any s-t shortest path, kita bisa decompose edges penyusun s-t shortest path dengan edges inside cell C_s, edges inside C_t, cut edges in any cells, atau edges inside any other cell (selain C_s dan C_t).
+tapi karena di fase kustomisasi CRP [1] dan HiTi [2], kita compute shortcut edges di setiap cell yang mana adalah shortest path dari entry boundary vertex ke exit boundary vertex dengan hanya menggunakan vertices and edges inside that cell.
+dengan menggunakan sifat optimal substructure dari shortest path, bagian "edges inside any cell (selain C_s dan C_t)" bisa kita ganti dengan shortcut edges di overlay graph H yang udah kita precompute di fase kustomisasi.
 
-proof of correctness bidirectional dijkstra bisa dilihat di proof of correctness Algorithm 2 di ref [3]. di implementasi ini, kita apply bidirectional dijkstra pada graf consisting of overlay graph H, cell C_s, cell C_t yang mana s-t shortest path yang dihasilkan
+proof of correctness bidirectional dijkstra bisa dilihat di proof of correctness Algorithm 2 di ref [5] dan [3]. di implementasi ini, kita apply bidirectional dijkstra pada graf consisting of overlay graph H, cell C_s, cell C_t yang mana s-t shortest path yang dihasilkan
 ekuivalen dengan s-t shortest path pada graf G.
 
 
 time complexity (ref: https://www.vldb.org/pvldb/vol18/p3326-farhan.pdf):
-let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any cell
+let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcut edges within any cell
 let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
 time complexity of CRP query is: O((n_o + n_p + m_p + k * \hat{m_p}) * log (n_p+n_o)), in this implementation, priority queue (4-ary heap) contains at most all vertices in lowest level cell that containing s or t and all overlay vertices in all cell other than level 1 cell that containing s or t
 decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, di C_s/C_t kita masih relax all edges inside C_s/C_t yang mana at most m_p, ketika di overlay graph H, kita relax shortcut edges yang mana at most k * \hat{m_p}

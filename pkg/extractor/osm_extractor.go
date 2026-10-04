@@ -470,22 +470,21 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 	)
 
 	// node-based graph
-	graph, weightFunction, segmentDataIds, vertexTurnTablePtr, turnMatrix := p.BuildGraph(
+	graph, weightFunction, vertexTurnTablePtr, turnMatrix := p.BuildGraph(
 		edges, rn, numVertices, true,
 	)
 
 	rn.SetBoundingBox(p.bb)
 	graph.ForOutEdges(func(exitPoint, head, tail, entryPoint da.Index, percentage float64, eId da.Index) {
-		oemId := segmentDataIds[tail][exitPoint]
 
-		eOsmWayId := rn.GetOsmWayId(oemId)
+		eOsmWayId := rn.GetOsmWayId(eId)
 		direction := streetDirection[int64(eOsmWayId)]
 		if direction[0] {
-			rn.SetSegmentBit(oemId, da.FlagIsForward, true) // harus set pakai oemId dulu...
+			rn.SetSegmentBit(eId, da.FlagIsForward, true)
 		}
 
 		if direction[1] {
-			rn.SetSegmentBit(oemId, da.FlagIsBackward, true)
+			rn.SetSegmentBit(eId, da.FlagIsBackward, true)
 		}
 	})
 
@@ -494,7 +493,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 	logger.Sugar().Infof("converting node-based graph to edge-based graph...")
 	// edge-based graph
-	graph, weightFunction = BuildEdgeBasedGraph(graph, weightFunction, segmentDataIds, vertexTurnTablePtr, turnMatrix, rn)
+	graph, weightFunction = BuildEdgeBasedGraph(graph, weightFunction, vertexTurnTablePtr, turnMatrix, rn)
 	logger.Sugar().Infof("number of vertices of edge-based graph: %v", graph.NumberOfVertices())
 	logger.Sugar().Infof("number of edges of edge-based graph: %v", graph.NumberOfEdges())
 

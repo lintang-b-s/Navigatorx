@@ -25,11 +25,12 @@ func NewClientVertex(rnId Index) ClientVertex {
 	}
 }
 
+// DynamicGraph read MapDataManager in this article: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 type DynamicGraph struct {
 	g atomic.Pointer[AdjacencyArray]
 }
 
-// AdjacencyArray read MapDataManager in this article: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+// AdjacencyArray store client road network graph
 // DynamicGraph adjacency array graph terinspirasi dari CSR graphnya C++ Boost libary: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/compressed_sparse_row.html
 // https://www.usenix.org/system/files/login/articles/login_winter20_16_kelly.pdf
 // edge-based graph

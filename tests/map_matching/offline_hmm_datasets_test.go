@@ -360,9 +360,9 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 	op := extractor.NewExtractor[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	g, timeFunction, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphSegments, rn, uint32(len(nodeCoords)), true)
+	g, timeFunction, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphSegments, rn, uint32(len(nodeCoords)), true)
 	rn.BuildNameTable(map[uint32]string{0: ""})
-	g, timeFunction = extractor.BuildEdgeBasedGraph(g, timeFunction, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices, rn)
+	g, timeFunction = extractor.BuildEdgeBasedGraph(g, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
 
 	return g, timeFunction, rn, SegmentLengths, nil
 }
@@ -830,9 +830,9 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	op := extractor.NewExtractor[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, wf, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphSegments, rn, uint32(len(vertices)), true)
+	graph, wf, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphSegments, rn, uint32(len(vertices)), true)
 	rn.BuildNameTable(map[uint32]string{0: ""})
-	graph, wf = extractor.BuildEdgeBasedGraph(graph, wf, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices, rn)
+	graph, wf = extractor.BuildEdgeBasedGraph(graph, wf, vertexTurnTablePtr, flattenTurnMatrices, rn)
 
 	eng := ohmmPrepareCRPFiles(t, graph, wf, rn, logger, []int{8, 11, 13, 14, 15})
 

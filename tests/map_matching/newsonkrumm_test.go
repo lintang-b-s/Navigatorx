@@ -256,9 +256,9 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	}
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	g, timeFunction, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphEdges, rn, uint32(len(nodeIdMap)), true)
+	g, timeFunction, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphEdges, rn, uint32(len(nodeIdMap)), true)
 	rn.BuildNameTable(map[uint32]string{0: ""})
-	g, timeFunction = extractor.BuildEdgeBasedGraph(g, timeFunction, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices, rn)
+	g, timeFunction = extractor.BuildEdgeBasedGraph(g, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
 
 	us := []int{8, 11, 14, 16}
 	ps := make([]int, len(us))

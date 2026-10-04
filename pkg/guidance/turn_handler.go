@@ -23,6 +23,8 @@ todo4: add test expected outputnya pake driving direction google map (dengan rut
 // misal rata-rata outDegree & indegree = 2.5. setiap turnType 1 byte, key nya (e1,e2) 8byte .
 // misal jumlah intersections 5juta, ada 31.25 juta pair (e1, e2) di every intersections, cuma simpan additional ~281.5mb di memory, not bad. tapi bisa speedup GetDrivingDirections().
 // mungkin bisa jadi opsi/cmd flag nya preprocessor buat speedup driving directions...
+// kaya osrm ProcessGuidanceTurns di: https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/extractor.cpp ??
+// lihat komen di dalam isStreetMergedSkip() karena ada masalah kalau turn sign di setiap intersection gak diprecompute...
 
 func (db *DirectionBuilder) getTurnSign(segmentId da.Index, name string) da.TurnType {
 
@@ -96,17 +98,17 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(prevSegmentId, segmentId d
 	currRoadClass := db.rn.GetRoadClass(segmentId)
 	currRoadClassLink := db.rn.GetRoadClassLink(segmentId)
 
-	prevStreetName := db.rn.GetStreetName(db.prevSegmentId)
-	prevRoadClass := db.rn.GetRoadClass(db.prevSegmentId)
+	prevStreetName := db.rn.GetStreetName(prevSegmentId)
+	prevRoadClass := db.rn.GetRoadClass(prevSegmentId)
 
 	isTertiary := (currRoadClass == pkg.TERTIARY || currRoadClassLink == pkg.TERTIARY_LINK)
 
-	streetSplitSkip := db.isStreetSplitSkip(db.prevSegmentId, segmentId, currStreetName, prevStreetName, prevRoadClass, currRoadClass,
-		isSameResidentialName, head) && isTertiary
-	streetMergedSkip := db.isStreetMergedSkip(db.prevSegmentId, segmentId, currStreetName, prevStreetName, prevRoadClass, currRoadClass,
-		isSameResidentialName) && isTertiary
+	streetSplitSkip := db.isStreetSplitSkip(prevSegmentId, segmentId, currStreetName, prevStreetName, prevRoadClass, currRoadClass,
+		isSameName, head) && isTertiary
+	streetMergedSkip := db.isStreetMergedSkip(prevSegmentId, segmentId, currStreetName, prevStreetName, prevRoadClass, currRoadClass,
+		isSameName) && isTertiary
 
-	leavingPrevStreet := !isSameResidentialName(prevStreetName, currStreetName)
+	leavingPrevStreet := !isSameName(prevStreetName, currStreetName)
 	alternativeTurnsCount, alternativeTurns := db.GetAlternativeTurns(prevSegmentId, segmentId)
 
 	if !da.IsTurnSlight(sign) {
@@ -132,17 +134,7 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(prevSegmentId, segmentId d
 	return da.IGNORE
 }
 
-func isSameResidentialName(name1, name2 string) bool {
-	if name1 == "" || name2 == "" {
-		// seringkali di osm, nama street kosong "" (terutama di residential/living street/tertiary osm ways), better dianggap false
-		// biar kalo belok masih ada turn instructionnya
-		// contoh tertiary osm way yang gak ada namanya:  https://www.openstreetmap.org/way/332233207#map=17/-7.555473/110.769728
-		return false
-	}
-	return name1 == name2
-}
-
-func isSamePrimaryName(name1, name2 string) bool {
+func isSameName(name1, name2 string) bool {
 	if name1 == "" || name2 == "" {
 		// seringkali di osm, nama street kosong "" (terutama di residential/living street/tertiary osm ways), better dianggap false
 		// biar kalo belok masih ada turn instructionnya
@@ -164,14 +156,14 @@ https://www.google.com/maps/dir/-7.5501666,110.7820614/Kasunanan+Palace,+Surakar
 
 */ // nolint: gofmt
 func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.Index, currStreetName string) da.TurnType {
-	key := util.Bitpack(uint32(db.prevSegmentId), uint32(segmentId))
+	key := util.Bitpack(uint32(prevSegmentId), uint32(segmentId))
 
 	curved := db.rn.IsCurved(segmentId)
 
 	tail := db.rn.GetSegmentGeometryPoint(segmentId, 0)
 	head := db.GetHeadPoint(segmentId, tail, 25)
 
-	prev := db.GetPrevPoint(db.prevSegmentId, tail, 25)
+	prev := db.GetPrevPoint(prevSegmentId, tail, 25)
 
 	db.nextStreetName = db.rn.GetStreetNameId(segmentId)
 
@@ -185,13 +177,13 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 
 	currRoadClass := db.rn.GetRoadClass(segmentId)
 
-	prevStreetName := db.rn.GetStreetName(db.prevSegmentId)
-	prevRoadClass := db.rn.GetRoadClass(db.prevSegmentId)
+	prevStreetName := db.rn.GetStreetName(prevSegmentId)
+	prevRoadClass := db.rn.GetRoadClass(prevSegmentId)
 
-	streetSplitSkip := db.isStreetSplitSkip(db.prevSegmentId, segmentId, currStreetName, prevStreetName, prevRoadClass, currRoadClass,
-		isSamePrimaryName, head)
+	streetSplitSkip := db.isStreetSplitSkip(prevSegmentId, segmentId, currStreetName, prevStreetName, prevRoadClass, currRoadClass,
+		isSameName, head)
 
-	streetMergedSkip := db.isStreetMergedSkip(db.prevSegmentId, segmentId, currStreetName, prevStreetName, prevRoadClass, currRoadClass,
+	streetMergedSkip := db.isStreetMergedSkip(prevSegmentId, segmentId, currStreetName, prevStreetName, prevRoadClass, currRoadClass,
 		func(currStreetName, prevStreetName string) bool {
 			if prevStreetName == "" && currStreetName == "" {
 				return true
@@ -199,7 +191,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 			return prevStreetName != currStreetName
 		})
 
-	leavingPrevStreet := !isSamePrimaryName(prevStreetName, currStreetName)
+	leavingPrevStreet := !isSameName(prevStreetName, currStreetName)
 	alternativeTurnsCount, alternativeTurns := db.GetAlternativeTurns(prevSegmentId, segmentId)
 
 	if !da.IsTurnSlight(sign) {
@@ -256,7 +248,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 		// google.com/maps/dir/-7.5501666,110.7820614/Kasunanan+Palace,+Surakarta+Hadiningrat,+Jl.+Sasono+Mulyo,+Baluwarti,+Pasar+Kliwon,+Surakarta+City,+Central+Java+57144/@-7.5724056,110.8273447,17z/am=t/data=!4m15!4m14!1m1!4e1!1m5!1m1!1s0x2e7a1666277a94b3:0xe54ac955c7781a7b!2m2!1d110.8279099!2d-7.5777426!3e0!5i2!6m3!1i0!2i1!3i5?entry=ttu&g_ep=EgoyMDI2MDQwNy4wIKXMDSoASAFQAw%3D%3D
 		// di titik -7.572258961155632, 110.82862613980265 , turn instructionnya Slight right to stay on Jl. Slamet Riyadi
 
-		if db.isStreetMerged(db.prevSegmentId, segmentId, currStreetName, prevStreetName, isSamePrimaryName) {
+		if db.isStreetMerged(prevSegmentId, segmentId, currStreetName, prevStreetName, isSameName) {
 			sign = da.MERGE_ONTO
 			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
@@ -358,14 +350,14 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 	}
 
 	// lagi karena di if diatas kita update leavingPrevStreet = leavingPrevStreet || foundNextTurn
-	leavingPrevStreet = !isSamePrimaryName(prevStreetName, currStreetName)
+	leavingPrevStreet = !isSameName(prevStreetName, currStreetName)
 
 	currStreetNameId := db.rn.GetStreetNameId(segmentId)
 
 	// kalau gak ada ocSegment
 	// kita cuma output CONTINUE_ON_STREET jika current edge street name beda dari street name prev edge
 	if leavingPrevStreet && currStreetName != "" && prevStreetName != "" {
-		if db.isStreetMerged(db.prevSegmentId, segmentId, currStreetName, prevStreetName, isSamePrimaryName) {
+		if db.isStreetMerged(prevSegmentId, segmentId, currStreetName, prevStreetName, isSameName) {
 			sign = da.MERGE_ONTO
 			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
@@ -384,15 +376,15 @@ updateState. update state dari DirectionBuilder.
 
 contoh:
 prev----prevEdge----tail
-							|
-							|
-							currentEdge
-							|
-							|
-							headPoint
+					|
+					|
+					currentEdge
+					|
+					|
+					headPoint
 
 setelah evaluate turn dari currentEdge:
-kita update prev, doublePrevPoint, prevNode, prevEdge, doublePrevNode, etc..
+kita update prev, doublePrevPoint, prevSegment, etc..
 */ // nolint: gofmt
 func (db *DirectionBuilder) updateState(segmentId da.Index, isInRoundabout bool) {
 	if db.prevSegmentId != da.INVALID_SEGMENT_ID {

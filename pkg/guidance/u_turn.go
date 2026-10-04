@@ -28,7 +28,7 @@ func (db *DirectionBuilder) checkUTurn(sign da.TurnType, name string, segmentId 
 
 	if db.doublePrevInitialBearing != 0 && (db.prevSign != da.IGNORE) &&
 		db.isSameConsecutiveTurn(db.prevSign, sign) &&
-		isSamePrimaryName(db.doublePrevStreetName, name) {
+		isSameName(db.doublePrevStreetName, name) {
 
 		tail := db.rn.GetSegmentTailCoord(segmentId)
 		head := db.GetHeadPoint(segmentId, tail, 10)

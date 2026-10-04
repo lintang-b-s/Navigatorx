@@ -15,7 +15,7 @@ import (
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
 // untuk roadNetwork=true, inputnya file OpenStreetMap pbf, kita support hampir semua tipe osm turn restrictions.
 func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContainer, numV uint32, roadNetwork bool) (*da.Graph,
-	*met.TimeFunction[W], [][]da.Index, []da.Index, []pkg.TurnType) {
+	*met.TimeFunction[W], []da.Index, []pkg.TurnType) {
 	util.ActivateMode[W]()
 
 	var (
@@ -67,14 +67,15 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 		outDegree[v] = len(outEdges[v])
 		inDegree[v] = len(inEdges[v])
 
-		for q := 0; q < (outDegree[v]); q++ {
-			isParallelOutEdge[v] = append(isParallelOutEdge[v], false)
-		}
+		if roadNetwork {
+			for q := 0; q < (outDegree[v]); q++ {
+				isParallelOutEdge[v] = append(isParallelOutEdge[v], false)
+			}
 
-		for q := 0; q < (inDegree[v]); q++ {
-			isParallelInEdge[v] = append(isParallelInEdge[v], false)
+			for q := 0; q < (inDegree[v]); q++ {
+				isParallelInEdge[v] = append(isParallelInEdge[v], false)
+			}
 		}
-
 	}
 
 	fmt.Printf("10%%...")
@@ -218,6 +219,15 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	tails := util.Flatten(inEdges)
 	entryPoints := util.Flatten(entryPointsAdjList)
 	exitPoints := util.Flatten(exitPointsAdjList)
+	if roadNetwork {
+		flDataIds := util.Flatten(segmentDataIds)
+		nPerm := make([]int, len(flDataIds))
+		for i := 0; i < len(flDataIds); i++ {
+			nPerm[i] = int(flDataIds[i])
+		}
+
+		rn.ApplySegmentsPermutation(nPerm)
+	}
 
 	verticesOsmIdsPs := da.NewPackedSlice(da.BIT_SIZE_OSM_NODE_ID, uint64(numV)+1)
 
@@ -228,7 +238,7 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	graph := da.NewGraph(vertices, heads, tails, roadNetwork, entryPoints, exitPoints)
 	rn.BuildNameTable(p.tagStringIdMap.GetIdToStr())
 
-	setConditionalRestrictions(p, roadNetwork, graph, rn, segmentDataIds, conditionalTurnRestrictions)
+	setConditionalRestrictions(p, roadNetwork, graph, rn, conditionalTurnRestrictions)
 
 	segmentDurations := make([]uint32, len(weights))
 	for i := 0; i < len(weights); i++ {
@@ -236,7 +246,6 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	}
 	if roadNetwork {
 		graph.SetMinResolution(minResolution)
-
 	}
 
 	timeFunction := met.NewTimeCostFunction(
@@ -244,5 +253,5 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	)
 
 	fmt.Printf("100%%\n")
-	return graph, timeFunction, segmentDataIds, vertexTurnTablePtr, flattenTurnMatrices
+	return graph, timeFunction, vertexTurnTablePtr, flattenTurnMatrices
 }

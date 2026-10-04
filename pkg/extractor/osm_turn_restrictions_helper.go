@@ -573,7 +573,6 @@ func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way
 				rn.SetSegmentBit(da.Index(newDataId), da.FlagParallel, true)
 
 				// add via-node turn restriction dari this via-edge to this new parallel via edge
-
 				newDataId++
 				fromNodes = viaWayNodes
 			}
@@ -892,7 +891,7 @@ func addViaWayTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int64
 	}
 }
 
-func setConditionalRestrictions[W util.RoutingNumber](p *Extractor[W], roadNetwork bool, graph *da.Graph, rn *da.RoadNetworkDataContainer, segmentDataIds [][]da.Index,
+func setConditionalRestrictions[W util.RoutingNumber](p *Extractor[W], roadNetwork bool, graph *da.Graph, rn *da.RoadNetworkDataContainer,
 	conditionalTurnRestrictions []da.ConditionalTurnRestriction,
 ) {
 	conditionalReversibleEdges := make([]da.ConditionalReversibleEdge, 0)
@@ -900,8 +899,8 @@ func setConditionalRestrictions[W util.RoutingNumber](p *Extractor[W], roadNetwo
 	conditionalTrafficModesVal := make([]da.ConditionalTrafficMode, 0)
 	if roadNetwork {
 		graph.ForOutEdges(func(exitPoint, head, tail, entryPoint da.Index, percentage float64, eId da.Index) {
-			eDataId := segmentDataIds[tail][exitPoint]
-			eWayId := rn.GetOsmWayId(eDataId)
+
+			eWayId := rn.GetOsmWayId(eId)
 			reversibleVal := p.conditionalReversibleWayVals[int64(eWayId)]
 			if reversibleVal != "" {
 				cre := da.NewConditionalReversibleEdge(eId, reversibleVal)
