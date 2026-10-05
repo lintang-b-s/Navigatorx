@@ -85,6 +85,7 @@ decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, di C_s/C_t ki
 extract-min at most O(n_p+n_o) operations, yang kita insert di pq adlaah vertices inside C_s/C_t yang mana at most n_p dan overlay vertices in overlay graph H yang mana at most n_o.
 
 
+inspired by crp query code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
 
 */
 

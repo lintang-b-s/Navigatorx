@@ -330,16 +330,7 @@ func (cc cellCustomizationRes[W]) getIndex() int {
 	return cc.index
 }
 
-/*
-// buildLowestLevel. build clique of each cell in the lowest level (level 1)
-1.  query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
-Networks,” Transportation Science [Preprint]. Available at:
-https://doi.org/10.1287/trsc.2014.0579.
-// using turn-aware implementation of Dijkstra algorithm [1] (restricted to cell C) from each entry point of the cell to all exit points of the cell
-// and store the result in ow.weights
-// restricted to cell C: menggunakan only vertices dan edges yang terletak pada cell C.
-// this function is parallelized using goroutines worker pool
-*/
+// (acknowledgment) inspired by crp customization code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayWeights.cpp
 
 /*
 // buildLowestLevel. build clique of each cell in the lowest level (level 1)

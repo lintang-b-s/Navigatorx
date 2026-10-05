@@ -290,7 +290,7 @@ func hhExtractTarGz(gzipStream io.Reader, destDir string) error {
 		targetPath := filepath.Join(destDir, header.Name)
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.MkdirAll(targetPath, 0700); err != nil {
+			if err := util.EnsureDirExists(targetPath); err != nil {
 				return fmt.Errorf("extractTarGz: mkdir failed: %v", err)
 			}
 		case tar.TypeReg:

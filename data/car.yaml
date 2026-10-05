@@ -76,7 +76,7 @@ alternatives:
     50: 5
     100: 2
     default: 2
-
+    
 server:
   api_timeout: 5s
   read_timeout: 60s

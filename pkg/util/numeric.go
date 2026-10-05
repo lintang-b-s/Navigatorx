@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	USE_INT32 = false // biar gak interface boxing wkwkwk. biar tetep cepet routing nya, meski tipe weight nya generic.
+	USE_INT32 = false // biar gak interface boxing wkwkwk. biar tetep cepet routing (int32) nya, meski tipe weight nya generic.
 	USE_INT64 = false
 )
 
