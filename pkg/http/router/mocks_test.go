@@ -44,15 +44,15 @@ func (m *MockRoutingService) InitBackgroundWorker(ctx context.Context) {
 	m.Called(ctx)
 }
 
-func (m *MockRoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate, error) {
+func (m *MockRoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate, error) {
 	args := m.Called(ctx, gpsTraj, gpsRadiusesM)
 	var r0 []*da.MatchedGPSPoint
 	if args.Get(0) != nil {
 		r0 = args.Get(0).([]*da.MatchedGPSPoint)
 	}
-	var r1 []da.Coordinate
+	var r1 []da.FloatCoordinate
 	if args.Get(1) != nil {
-		r1 = args.Get(1).([]da.Coordinate)
+		r1 = args.Get(1).([]da.FloatCoordinate)
 	}
 	return r0, r1, args.Error(2)
 }

@@ -4,6 +4,7 @@ package mapattributes
 import (
 	"bytes"
 	"fmt"
+	"sort"
 
 	s2geo "github.com/golang/geo/s2"
 	"github.com/klauspost/compress/s2"
@@ -66,51 +67,89 @@ func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId s2geo.CellID) ([]byt
 		return make([]byte, 0), fmt.Errorf("failed to write uint32: %w", err)
 	}
 
-	nt := uint32(0)
+	segSet := make(map[da.Index]struct{})
 	for _, segId := range segmentIds {
+		segSet[segId] = struct{}{}
+	}
+
+	sort.Slice(segmentIds, func(i, j int) bool {
+		return segmentIds[i] < segmentIds[j]
+	})
+
+	n := len(segmentIds)
+	outDegs := make([]da.Index, n)
+	nt := da.Index(0)
+	for i, segId := range segmentIds {
 		speed := me.met.GetSegmentSpeed(segId)
 		length := me.met.GetSegmentLength(segId)
 		geom := me.rn.GetSegmentGeometry(segId)
 		polyline := da.GooglePoylineFromCoords(geom)
 		err = bw.Uint32(uint32(segId))
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("failed to write uint32: %w", err)
+			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write uint32: %w", err)
 		}
 		err = bw.Float64(speed)
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("failed to write float64: %w", err)
+			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write float64: %w", err)
 		}
 		err = bw.Float64(length)
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("failed to write float64: %w", err)
+			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write float64: %w", err)
 		}
 		err = bw.String(polyline)
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("failed to write string: %w", err)
+			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write string: %w", err)
 		}
-		nt += uint32(me.g.GetOutDegree(segId))
+
+		outDeg := da.Index(0)
+		u := segId
+		me.g.ForOutEdgesOf(u, func(eId, v, _ da.Index) {
+			_, ok := segSet[v]
+			if ok {
+				outDeg++
+			}
+		})
+
+		outDegs[i] = outDeg
+		nt += outDeg
 	}
 
-	err = bw.Uint32(nt)
+	err = bw.Uint32(uint32(nt))
 	if err != nil {
-		return make([]byte, 0), fmt.Errorf("failed to write uint32: %w", err)
+		return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write uint32: %w", err)
 	}
-	for _, u := range segmentIds {
+	for i, u := range segmentIds {
+		if outDegs[i] == 0 {
+			continue
+		}
 		var err error
 		me.g.ForOutEdgesOf(u, func(eId, v, _ da.Index) {
+			_, ok := segSet[v]
+			if !ok {
+				return
+			}
+			if err != nil {
+				return
+			}
 			weight := me.met.GetWeight(eId)
-			err = bw.Uint32(uint32(weight))
-			err = bw.Uint32(uint32(u))
+			if err = bw.Uint32(uint32(weight)); err != nil {
+				return
+			}
+			if err = bw.Uint32(uint32(u)); err != nil {
+				return
+			}
 			err = bw.Uint32(uint32(v))
 		})
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("failed to write uint32: %w", err)
+			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write uint32: %w", err)
 		}
 	}
+
 	err = sn.Close()
 	if err != nil {
-		return make([]byte, 0), fmt.Errorf("failed to close snappy: %w", err)
+		return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to close snappy: %w", err)
 	}
+
 	return buf.Bytes(), nil
 }
 

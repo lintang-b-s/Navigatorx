@@ -23,6 +23,11 @@ func NewDynamicRtree() *DynamicRtree {
 	return dr
 }
 
+func (dr *DynamicRtree) Reset() {
+	var tr rtree.RTreeGN[int32, uint64]
+	dr.tr.Store(&tr)
+}
+
 func (dr *DynamicRtree) Rebuild(g *da.DynamicGraph) {
 	m := g.NumVertices()
 

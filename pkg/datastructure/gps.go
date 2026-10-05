@@ -60,7 +60,7 @@ func (gp *GPSPoint) SetDirectionAngle(directionAngle float64) {
 
 type MatchedGPSPoint struct {
 	gpsPoint          *GPSPoint
-	segmentId         Index
+	segmentId         Index // routing engine segment id in graph.gos
 	matchedCoord      Coordinate
 	predictedGpsCoord Coordinate
 	bearing           float64 // bearing dari road segment yang ke match

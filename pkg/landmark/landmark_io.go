@@ -2,7 +2,6 @@ package landmark
 
 import (
 	"fmt"
-	"sync/atomic"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -78,9 +77,6 @@ func ReadLandmark[W util.RoutingNumber](
 		return nil, err
 	}
 	lm := NewLandmark[W]()
-	cl := &atomic.Bool{}
-	cl.Store(false)
-	lm.cl = cl
 	lm.landmarks.Store(&landmarks)
 	lm.lw.Store(&lw)
 	lm.vlw.Store(&vlw)

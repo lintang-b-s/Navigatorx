@@ -281,7 +281,7 @@ func (api *routingAPI) getMapAttributes(w http.ResponseWriter, r *http.Request, 
 	}
 
 	s2CellId, err := strconv.Atoi(s2CellIdStr)
-	if err != nil {
+	if err != nil || s2CellId < 0 || uint64(s2CellId) >= uint64(s2.SentinelCellID) {
 		api.BadRequestResponse(w, r, errors.New("s2CellId is must be a valid s2 cell id"))
 		return
 	}

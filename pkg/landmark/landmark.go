@@ -22,16 +22,10 @@ type Landmark[W util.RoutingNumber] struct {
 	landmarks atomic.Pointer[[]da.Index]
 	n         da.Index
 	k         da.Index
-	cl        *atomic.Bool
 }
 
 func NewLandmark[W util.RoutingNumber]() *Landmark[W] {
-	cl := &atomic.Bool{}
-	cl.Store(false)
-
-	lm := &Landmark[W]{
-		cl: cl,
-	}
+	lm := &Landmark[W]{}
 	lm.lw.Store(&[]W{})
 	lm.vlw.Store(&[]W{})
 	landmarks := make([]da.Index, 0)

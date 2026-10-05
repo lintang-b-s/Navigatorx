@@ -45,12 +45,6 @@ func NewS2RoadSegmentsIndex(g *da.Graph, rn *da.RoadNetworkDataContainer, log *z
 
 /*
 GetCellSegments find road segments inside s2 cell with id=s2CellId and inside its neighbor cells .
-https://s2geometry.io/devguide/s2closestedgequery
-https://s2geometry.io/devguide/s2shapeindex
-https://s2geometry.io/devguide/cpp/quickstart
-https://github.com/buckhx/gofence/blob/master/geofence/s2.go
-https://pkg.go.dev/github.com/golang/geo/s2#example-EdgeQuery.FindEdges-FindClosestEdges
-https://pkg.go.dev/github.com/golang/geo/earth
 */
 func (si *S2RoadSegmentsIndex) GetCellSegments(s2CellId s2.CellID) []da.Index {
 
@@ -113,7 +107,6 @@ func (si *S2RoadSegmentsIndex) WriteToFile() error {
 				return err
 			}
 		}
-
 		return nil
 	})
 }

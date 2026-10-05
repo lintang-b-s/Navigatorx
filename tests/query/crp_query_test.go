@@ -454,7 +454,7 @@ func TestCRPQueryStressTest(t *testing.T) {
 
 		expectedSpPaths[s] = make([]string, numberOfVertices)
 		for target := 0; target < numberOfVertices; target++ {
-			expectedpathCoords, _ := re.GetEdgePath(spPath[target])
+			expectedpathCoords, _ := re.GetSegmentPath(spPath[target])
 			expectedPolyline := da.GooglePoylineFromCoords(*expectedpathCoords)
 			expectedSpPaths[s][target] = expectedPolyline
 		}

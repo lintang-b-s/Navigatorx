@@ -12,6 +12,18 @@ import (
 	"go.uber.org/zap"
 )
 
+// todo: kode di package ini bisa dioptimze secara space (memory usage) ketika partitioning
+// dengan cara not creating PartitionGraph edges, vertices, etc..
+// kita bisa tinggal pake pointer Graph (di graph.go) di PartitionGraph
+// terus tandain pakai bitmask vertices mana aja yang masuk ke current cell yang sedang dipartisi
+// mungkin cuma bikin sice of vertices bitmask dan slice of vertices data??
+// tambahin wrapper ForOutEdgesOf(u, handle func(...)) dengan only iterate outgoing edges (u,v) yang v in this current cell..
+// setiap kali inertial flow selesai, kita applyPermutation vertices yang masuk di current cell aja.
+// sources dan sinks di ujung-ujung range slice of vertices di current cell, dan other vertices yang masuk cell S dan T di applyPermutation di selain range ujung itu.
+// saat ini di commit 15e4cbe6c154b41a71d8b9abff09ddfdd97c43a0 , pakai diy_solo_semarang.osm.pbf (dengan size ~105mb) partitioner makan RAM htop RES/RSS sekitar 3GB
+// setiap kali panggil selectFirstLastKthVertices() kita only cell vertices (pakai bitmask diatas)
+//  osrm-partition ./data/diy_solo_semarang.osrm --max-cell-sizes 256,2048,16384,131072,262144  -> cuma ~911mb
+
 type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
 	// best parameter for customizable route planning by delling et al:

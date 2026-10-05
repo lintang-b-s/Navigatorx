@@ -1,7 +1,7 @@
 package spatialindex
 
 const (
-	MAX_CANDIDATES                   = 40
+	MAX_CANDIDATES                   = 35
 	MAX_CANDIDATES_MAP_MATCHING      = 70
 	FILTERED_CANDIDATES_MAP_MATCHING = 25
 	outputEvery                      = 5

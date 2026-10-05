@@ -11,6 +11,8 @@ import (
 )
 
 // todo: update kode ini
+// todo2: implement eddy online map matching: https://dl.acm.org/doi/epdf/10.1145/2666310.2666383
+// di figure 7 (a) https://dl.acm.org/doi/epdf/10.1145/2666310.2666383  dengan matching latency 1s RMF di seattle dataset (sama kaya TestNewsonKrummOnlineMapMatching) cuma ~7%, sedangkan ini ~11.1%
 
 /*
 implementation of:
@@ -278,6 +280,10 @@ func (om *OnlineMapMatchMHT) filterLog(gps *da.GPSPoint, candidates []*ma.Candid
 			continue
 		}
 		if cand.GetWeight() > om.posteriorThresold {
+			// set road network id
+			segId := cand.GetSegmentId()
+			rnId := om.g.GetRoadNetworkSegmentId(segId)
+			cand.SetRoadNetworkId(rnId)
 			filteredCands = append(filteredCands, cand)
 		}
 	}
@@ -374,8 +380,8 @@ func (om *OnlineMapMatchMHT) computEdgeTransitionProb(eFromId, eToId da.Index, n
 	})
 
 	sumNeij := 0.0
-	for _, jOriginal := range branch {
-		trans := float64(om.N.Get(int(eFromRNId), int(jOriginal)))
+	for _, jRnId := range branch {
+		trans := float64(om.N.Get(int(eFromRNId), int(jRnId)))
 		sumNeij += trans
 	}
 	return (1.0 + float64(om.N.Get(int(eFromRNId), int(eToRNId)))) / (sumNeij + float64(nj))

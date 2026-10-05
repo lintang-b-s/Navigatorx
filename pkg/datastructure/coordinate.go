@@ -136,3 +136,11 @@ func (cs *Coordinates) Length() int {
 	slice := *cs
 	return len(slice)
 }
+
+func (cs *Coordinates) ToFloatCoordinates() []FloatCoordinate {
+	coords := make([]FloatCoordinate, cs.Length())
+	for i := 0; i < cs.Length(); i++ {
+		coords[i] = cs.Get(i).ToFloatCoordinate()
+	}
+	return coords
+}

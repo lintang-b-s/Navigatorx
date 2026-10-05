@@ -61,18 +61,18 @@ on Advances in Geographic Information Systems (GIS ‘09), pp.336–343.
 
 evaluation/tests suite di: tests/mapmatching/ (cari yang ada nama Offline di test funtions nya)
 */
-func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate) {
+func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate) {
 
 	if len(gpsTraj) == 0 {
-		return []*da.MatchedGPSPoint{}, []da.Coordinate{}
+		return []*da.MatchedGPSPoint{}, []da.FloatCoordinate{}
 	}
 	if len(gpsRadiusesM) != len(gpsTraj) {
-		return []*da.MatchedGPSPoint{}, []da.Coordinate{}
+		return []*da.MatchedGPSPoint{}, []da.FloatCoordinate{}
 	}
 
 	candidates, numberOfStates := h.projectAllGpsWithRadiuses(gpsTraj, gpsRadiusesM)
 	if numberOfStates == 0 {
-		return []*da.MatchedGPSPoint{}, []da.Coordinate{}
+		return []*da.MatchedGPSPoint{}, []da.FloatCoordinate{}
 	}
 
 	allowUTurns := h.buildAllowUturnSlice(gpsTraj)
@@ -232,7 +232,7 @@ func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 	var (
 		prevMatchedCand  *ma.Candidate
 		prevGps          *da.GPSPoint
-		matchedRoutePath []da.Coordinate
+		matchedRoutePath da.Coordinates
 	)
 
 	for i, p := range path {
@@ -266,13 +266,15 @@ func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 				route, _ = h.shortestPathDistance(sp, tp, deltaTime, true)
 			}
 
-			matchedRoutePath = appendRoutePath(matchedRoutePath, route.path)
+			path := route.path
+			matchedRoutePath = appendRoutePath(matchedRoutePath, path)
 			prevMatchedCand = s
 			prevGps = gps
 		}
 	}
 
-	return mapMatchingResult, matchedRoutePath
+	fp := matchedRoutePath.ToFloatCoordinates()
+	return mapMatchingResult, fp
 }
 
 // buildAllowUturnSlice. allowUTurns slice. allowUTurns[i] true jika gpsTraj[i] kemungkinan jadi titik u-turn
@@ -632,9 +634,6 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 }
 
 func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float64, addPath bool) (transitionRoute, bool) {
-	if h.re == nil {
-		return transitionRoute{}, false
-	}
 
 	longerDist := MaxSpeedMS * deltaTimeSeconds
 	spCoord := sp.GetSnappedCoord()
@@ -649,7 +648,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	crpQuery := routing.NewCRPQuery(h.re)
 	defer crpQuery.Done()
 	crpQuery.SetMaxSearchRadiusSecs(longerDur)
-	weight, edgePath, found := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
+	weight, segmentPath, found := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
 	if !found {
 		return transitionRoute{}, false
 	}
@@ -657,7 +656,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 
 	if !addPath {
 		routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
-		for _, segmentId := range edgePath {
+		for _, segmentId := range segmentPath {
 			routeDistance += h.re.GetSegmentLength(segmentId)
 		}
 
@@ -666,7 +665,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 
 	routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
 
-	finalPath, totalDistance := h.re.GetEdgePath(edgePath)
+	finalPath, totalDistance := h.re.GetSegmentPath(segmentPath)
 	routeDistance += totalDistance
 
 	path := make([]da.Coordinate, 0, len(sp.GetForwardGeometry())+len(*finalPath)+len(tp.GetReverseGeometry())+2)
@@ -681,7 +680,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	return transitionRoute{distance: routeDistance, travelTime: travelTime, path: path}, true
 }
 
-func appendRoutePath(path []da.Coordinate, segment []da.Coordinate) []da.Coordinate {
+func appendRoutePath(path da.Coordinates, segment da.Coordinates) da.Coordinates {
 	for _, coord := range segment {
 		if len(path) == 0 || !da.IsSameCoordinate(path[len(path)-1], coord) {
 			path = append(path, coord)

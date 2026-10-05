@@ -137,19 +137,20 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 
 	for len(queue) > 0 || numUncompletedJob > 0 {
 		var (
-			job     *da.PartitionGraph
-			jobChan chan *da.PartitionGraph
+			pg     *da.PartitionGraph
+			inChan chan *da.PartitionGraph
 		)
-
+		// https://go.dev/talks/2013/advconc.slide#30
+		// https://go.dev/talks/2013/advconc.slide#31
 		if len(queue) > 0 {
-			job = queue[0]
-			queue = queue[1:]
-			jobChan = iflowInChan
+			pg = queue[0]
+			inChan = iflowInChan
 		}
 
 		select {
-		case jobChan <- job:
+		case inChan <- pg: // enable send only when queue is non-empty (https://go.dev/talks/2013/advconc.slide#30)
 			numUncompletedJob++
+			queue = queue[1:]
 		case res := <-iflowOutChan:
 			// only stop when wp.jobQueue closed && wp.jobQueue empty -> wp.results closed -> this loop terminate
 			partOne := res.partOne

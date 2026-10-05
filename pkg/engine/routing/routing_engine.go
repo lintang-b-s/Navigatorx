@@ -198,14 +198,14 @@ func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, rerout
 	s := sp.GetVId()
 	t := tp.GetVId()
 	weight, segmentPath, found := crpQuery.ShortestPathSearch(s, t)
-	segmentIdPath, dist := crp.GetEdgePath(segmentPath)
+	segmentIdPath, dist := crp.GetSegmentPath(segmentPath)
 	return util.WeightToSeconds(weight), dist, segmentIdPath, segmentPath, found
 }
 
 var EmptyCoords = da.NewCoordinatesWithCap(0)
 var EmptyIndexSet = []da.Index{}
 
-func (crp *CRPRoutingEngine[W]) GetEdgePath(segmentIdPath []da.Index) (*da.Coordinates, float64) {
+func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index) (*da.Coordinates, float64) {
 
 	totalDistance := 0.0
 

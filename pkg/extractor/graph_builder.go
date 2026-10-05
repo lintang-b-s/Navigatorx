@@ -14,6 +14,7 @@ import (
 // roadNetwork = flag if the graph is a road network graph.
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
 // untuk roadNetwork=true, inputnya file OpenStreetMap pbf, kita support hampir semua tipe osm turn restrictions.
+// terinspirasi dari https://github.com/michaelwegner/CRP/blob/master/io/OSMParser.cpp
 func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContainer, numV uint32, roadNetwork bool) (*da.Graph,
 	*met.TimeFunction[W], []da.Index, []pkg.TurnType) {
 	util.ActivateMode[W]()
