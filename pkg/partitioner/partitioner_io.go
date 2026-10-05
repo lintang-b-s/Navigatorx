@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -116,15 +115,20 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 		}
 
 		levelFile := fmt.Sprintf("%s_boundary_level_%d.json", dir, l+1)
-		f, err := os.OpenFile(levelFile, os.O_WRONLY|os.O_CREATE, 0600)
+		if err := util.EnsureDirExists(levelFile); err != nil {
+			return err
+		}
+		f, err := os.OpenFile(levelFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			return err
 		}
 		data, err := json.Marshal(cells)
 		if err != nil {
+			f.Close()
 			return err
 		}
 		_, err = f.Write(data)
+		f.Close()
 		if err != nil {
 			return err
 		}
@@ -174,7 +178,7 @@ func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel() error {
 		}
 
 		levelFile := fmt.Sprintf("%s_mlp_level_%d.json", dir, l+1)
-		if err := os.MkdirAll(filepath.Dir(levelFile), 0700); err != nil {
+		if err := util.EnsureDirExists(levelFile); err != nil {
 			return err
 		}
 		data, err := json.Marshal(cells)

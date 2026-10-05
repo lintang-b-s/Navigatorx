@@ -457,6 +457,7 @@ func ohmmReadGisCupTrack(trackPath string) ([]ohmmGisCupTrackPoint, error) {
 }
 
 func ohmmReadGisCupGroundTruth(outputPath string) ([]uint64, error) {
+
 	f, err := os.OpenFile(outputPath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
@@ -1003,7 +1004,7 @@ func ohmmWritePolyline(t *testing.T, filePath string, matchedPoints []*da.Matche
 	for _, point := range matchedPoints {
 		matchedCoords = append(matchedCoords, point.GetMatchedCoord())
 	}
-	if err := os.MkdirAll(filepath.Dir(filePath), 0700); err != nil {
+	if err := util.EnsureDirExists(filePath); err != nil {
 		t.Fatalf("create polyline output dir failed: %v", err)
 	}
 	polyline := ""
@@ -1388,7 +1389,7 @@ func TestNewsonKrummOfflineHMMMapMatching(t *testing.T) {
 	}
 	if len(matchedCoords) > 0 {
 		offlinePolylinePath := filepath.Join(workingDir, "data/eval/mapmatching/offline_newson_polyline.txt")
-		if err := os.MkdirAll(filepath.Dir(offlinePolylinePath), 0700); err != nil {
+		if err := util.EnsureDirExists(offlinePolylinePath); err != nil {
 			t.Fatalf("create polyline output directory failed: %v", err)
 		}
 		polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))

@@ -1,7 +1,6 @@
 package extractor
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -10,6 +9,7 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 const (
@@ -27,7 +27,7 @@ func setup(t *testing.T, osmFileTest string) (*da.Graph, *da.RoadNetworkDataCont
 		panic(err)
 	}
 	outputDir := filepath.Join(workingDir, "data")
-	if err := os.MkdirAll(outputDir, 0700); err != nil {
+	if err := util.EnsureDirExists(outputDir); err != nil {
 		panic(err)
 	}
 	logger, err := log.New()

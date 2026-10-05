@@ -83,9 +83,8 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 		t.Logf("downloading evaluation %s dataset.....", name)
 		zlog.Sugar().Infof("downloading evaluation %s dataset.....", name)
 
-		dir := filepath.Dir(filePath)
-		if err := os.MkdirAll(dir, 0700); err != nil {
-			return fmt.Errorf("download: MkdirAll failed %v", err)
+		if err := util.EnsureDirExists(filePath); err != nil {
+			return fmt.Errorf("download: %w", err)
 		}
 
 		output, err := os.Create(filePath)

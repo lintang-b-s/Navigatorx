@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"path/filepath"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/klauspost/compress/s2"
@@ -183,9 +184,19 @@ func (w *BinaryWriter) String(value string) error {
 	return w.Blob([]byte(value))
 }
 
-func WriteCompressedFile(filename string, writePayload func(*BinaryWriter) error) error {
+func EnsureDirExists(filename string) error {
+	if err := os.MkdirAll(filepath.Dir(filename), 0700); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+	return nil
+}
 
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
+func WriteCompressedFile(filename string, writePayload func(*BinaryWriter) error) error {
+	err := EnsureDirExists(filename)
+	if err != nil {
+		return err
+	}
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}

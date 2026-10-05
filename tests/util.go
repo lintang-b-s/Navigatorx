@@ -45,7 +45,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 
 	osmfFile := fmt.Sprintf("%s/%s.osm.pbf", outputDir, fileName)
 
-	if err := os.MkdirAll(outputDir, 0700); err != nil {
+	if err := util.EnsureDirExists(outputDir); err != nil {
 		panic(err)
 	}
 
@@ -143,9 +143,8 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		logger.Sugar().Infof("downloading evaluation %s dataset.....", name)
 
-		dir := filepath.Dir(filePath)
-		if err := os.MkdirAll(dir, 0700); err != nil {
-			return fmt.Errorf("download: MkdirAll failed %v", err)
+		if err := util.EnsureDirExists(filePath); err != nil {
+			return fmt.Errorf("download: EnsureDirExists failed %v", err)
 		}
 
 		tmpFilePath := filePath + ".tmp"
@@ -303,7 +302,7 @@ func ExtractZip(zipPath, destDir string) error {
 	}
 	defer reader.Close()
 
-	if err := os.MkdirAll(destDir, 0700); err != nil {
+	if err := util.EnsureDirExists(destDir); err != nil {
 		return fmt.Errorf("extractZip: MkdirAll failed %v", err)
 	}
 
@@ -319,15 +318,14 @@ func ExtractZip(zipPath, destDir string) error {
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(cleanTargetPath, 0700); err != nil {
+			if err := util.EnsureDirExists(targetPath); err != nil {
 				return fmt.Errorf("extractZip: MkdirAll failed %v", err)
 			}
 			continue
 		}
 
-		parentDir := filepath.Dir(cleanTargetPath)
-		if err := os.MkdirAll(parentDir, 0700); err != nil {
-			return fmt.Errorf("extractZip: MkdirAll parent failed %v", err)
+		if err := util.EnsureDirExists(cleanTargetPath); err != nil {
+			return fmt.Errorf("extractZip: EnsureDirExists failed %v", err)
 		}
 
 		src, err := file.Open()

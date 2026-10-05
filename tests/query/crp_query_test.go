@@ -327,7 +327,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 		panic(err)
 	}
 	outputDir := filepath.Join(workingDir, "data")
-	if err := os.MkdirAll(outputDir, 0700); err != nil {
+	if err := util.EnsureDirExists(outputDir); err != nil {
 		panic(err)
 	}
 	logger, err := log.New()

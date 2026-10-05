@@ -15,6 +15,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
@@ -366,6 +367,9 @@ func NewUpdatedSegment(fromOsmId, toOsmId int64, speed float64) UpdatedSegment {
 
 // WriteUpdatedSegmentsToCSV. write segment csv file
 func WriteUpdatedSegmentsToCSV(filepath string, segments []UpdatedSegment) error {
+	if err := util.EnsureDirExists(filepath); err != nil {
+		return fmt.Errorf("WriteUpdatedSegmentsToCSV: %w", err)
+	}
 	f, err := os.Create(filepath)
 	if err != nil {
 		return fmt.Errorf("WriteUpdatedSegmentsToCSV: failed to create file %v: %w", filepath, err)

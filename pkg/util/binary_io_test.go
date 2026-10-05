@@ -12,7 +12,7 @@ import (
 	"testing"
 )
 
-func TestCompressedArtifactRoundTrip(t *testing.T) {
+func TestCompressedFileRoundTrip(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "artifact.bin")
 	if err := WriteCompressedFile(path, func(w *BinaryWriter) error {
 		if err := w.Uint32(42); err != nil {
@@ -56,7 +56,7 @@ func TestBinaryWriterWriteFloat64s(t *testing.T) {
 	}
 }
 
-func TestCompressedArtifactHeader(t *testing.T) {
+func TestCompressedFileHeader(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "artifact.bin")
 	if err := WriteCompressedFile(path, func(*BinaryWriter) error { return nil }); err != nil {
 		t.Fatal(err)
@@ -80,7 +80,7 @@ func TestCompressedArtifactHeader(t *testing.T) {
 	}
 }
 
-func TestCompressedArtifactRejectsInvalidEnvelope(t *testing.T) {
+func TestCompressedFileRejectsInvalidEnvelope(t *testing.T) {
 	tests := []struct {
 		name   string
 		header func([]byte)
@@ -111,7 +111,7 @@ func TestCompressedArtifactRejectsInvalidEnvelope(t *testing.T) {
 	}
 }
 
-func TestCompressedArtifactRejectsTruncatedPayload(t *testing.T) {
+func TestCompressedFileRejectsTruncatedPayload(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "artifact.bin")
 	if err := WriteCompressedFile(path, func(w *BinaryWriter) error {
 		return w.Uint64(42)

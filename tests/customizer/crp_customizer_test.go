@@ -468,7 +468,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 		panic(err)
 	}
 	outputDir := filepath.Join(workingDir, "data")
-	if err := os.MkdirAll(outputDir, 0700); err != nil {
+	if err := util.EnsureDirExists(outputDir); err != nil {
 		panic(err)
 	}
 	logger, err := log.New()

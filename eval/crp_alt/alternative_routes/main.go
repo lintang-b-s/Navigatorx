@@ -77,7 +77,7 @@ func main() {
 		panic(err)
 	}
 	outputDir := filepath.Join(workingDir, "data")
-	if err := os.MkdirAll(outputDir, 0700); err != nil {
+	if err := util.EnsureDirExists(outputDir); err != nil {
 		panic(err)
 	}
 
@@ -92,6 +92,9 @@ func main() {
 	}
 
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
+		if err := util.EnsureDirExists(osmfFile); err != nil {
+			panic(err)
+		}
 		output, err := os.Create(osmfFile)
 		if err != nil {
 			panic(err)

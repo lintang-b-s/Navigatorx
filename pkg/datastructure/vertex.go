@@ -5,7 +5,7 @@ type Vertex struct {
 	lon   int32
 	pvPtr Index // pointer index to cellNumbers slice
 
-	firstOut Index // index of the first outEdge of this vertex in the flattened graph.outEdges array (see CSR Graph nya C++ Boost Library: https://www.boost.org/doc/libs/latest/libs/graph/doc/compressed_sparse_row.html)
+	firstOut Index // index of the first outEdge of this vertex in the flattened graph.outEdges array (see CSR Graph nya C++ Boost Library: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/compressed_sparse_row.html)
 	firstIn  Index // index of the first inEdge of this vertex in the flattened graph.inEdges array
 	id       Index
 }

@@ -91,7 +91,7 @@ func main() {
 		panic(err)
 	}
 	outputDir := filepath.Join(workingDir, "data")
-	if err := os.MkdirAll(outputDir, 0700); err != nil {
+	if err := util.EnsureDirExists(outputDir); err != nil {
 		panic(err)
 	}
 	logger, err := log.New()
@@ -350,7 +350,10 @@ func main() {
 		logger.Sugar().Infof("done source %d/%d: %d", i+1, len(sources), s)
 	}
 
-	// write to ss correctness output file. see: https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk
+	//	// write to ss correctness output file. see: https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk
+	if err := util.EnsureDirExists(outputPath); err != nil {
+		panic(fmt.Errorf("err: %w", err))
+	}
 	fOut, err = os.Create(outputPath)
 	if err != nil {
 		panic(fmt.Errorf("err: %w", err))

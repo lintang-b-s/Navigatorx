@@ -28,7 +28,7 @@ type Graph struct {
 	entryPoints []Index  // map from outgoing edge id (u,v) to index of this edge in the list of incoming edges of v.
 	exitPoints  []Index  // map from incoming (reversed) edge id (v,u) to index of this edge in the of outgoing edges of v.
 
-	// overlay graph related
+	// overlay graph related https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.h
 	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
 	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
 	outEdgeCellOffset []Index             // offset of first outEdge for each cellNumber // todo: ganti ke vertexCellOffset
