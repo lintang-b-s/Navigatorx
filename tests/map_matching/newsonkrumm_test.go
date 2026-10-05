@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -325,6 +326,8 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	var N *da.SparseMatrix
 	N = da.NewSparseMatrix(g.NumberOfEdges(), g.NumberOfEdges(), 0, func(a, b uint32) bool { return a == b })
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
 		counter := 0
 		for spEdges := range workers.CollectResults() {
@@ -341,6 +344,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 				t.Logf("completed query: %v", counter)
 			}
 		}
+		wg.Done()
 	}()
 
 	for _, q := range queries {
@@ -349,6 +353,8 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	workers.Close()
 	workers.Wait()
 	cancel()
+
+	wg.Wait()
 
 	t.Logf(" transition matrix built....")
 	zlog.Sugar().Infof(" transition matrix built....")

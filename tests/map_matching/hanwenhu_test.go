@@ -187,6 +187,8 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	var N *da.SparseMatrix
 	N = da.NewSparseMatrix(graph.NumberOfEdges(), graph.NumberOfEdges(), 0, func(a, b uint32) bool { return a == b })
 
+	wg := sync.WaitGroup{}
+	wg.Add(1)
 	go func() {
 		counter := 0
 		for spEdges := range workers.CollectResults() {
@@ -203,6 +205,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 				t.Logf("completed query: %v", counter)
 			}
 		}
+		wg.Done()
 	}()
 
 	for _, qq := range queries {
@@ -211,6 +214,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	workers.Close()
 	workers.Wait()
 	cancel()
+	wg.Wait()
 	logger.Sugar().Infof(" transition matrix built....")
 	t.Logf("transition matrix built....")
 	return re, graph, logger, N

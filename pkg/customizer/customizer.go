@@ -504,7 +504,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 }
 
 // buildLevel. build clique of each cell in the level (level > 1)
-// using Dijkstra algorithm (menggunakan shortcut edges pada subcells of the level-i cell) from each entry vertices of the cell to all exit vertices of the cell
+// using Dijkstra algorithm (menggunakan shortcut edges & cut edges pada subcells of the level-i cell) from each entry boundary vertices of the cell to all exit boundary vertices of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
 func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
