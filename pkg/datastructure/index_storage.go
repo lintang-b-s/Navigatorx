@@ -8,6 +8,8 @@ import (
 	"github.com/bytedance/gopkg/collection/hashset"
 )
 
+// inspired by OSRM QueryHeap https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/query_heap.hpp
+
 type TwoLevelStorage struct {
 	overlay     []uint32
 	base        map[Index]uint32

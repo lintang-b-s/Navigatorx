@@ -202,7 +202,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			f    *os.File
 		)
 
-		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 		if err != nil {
 			t.Fatalf("could not open test file: %v", err)
 		}
@@ -278,7 +278,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
 			2, 1,
-			g, logger, false, false,
+			g, logger, false,
 		)
 		mp.SetCellVertices(cellVertices)
 
@@ -403,7 +403,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			vlw := lm.GetVerticesLandmarkWeights()
 			n := g.NumberOfVertices()
 
-			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0644)
+			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0600)
 			if err != nil {
 				t.Fatalf("could not open test file: %v", err)
 			}
@@ -463,17 +463,19 @@ func TestCRPCustomizerSimple(t *testing.T) {
 }
 
 func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		panic(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		t.Fatal(err)
@@ -501,7 +503,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, false,
+		graph, logger, false,
 	)
 
 	mp.RunMultilevelPartitioning()

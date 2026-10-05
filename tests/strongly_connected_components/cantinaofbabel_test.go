@@ -32,7 +32,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 		line    string
 		f, fOut *os.File
 	)
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -153,7 +153,7 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	ans := n - maxsccSize
 
-	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}

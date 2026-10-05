@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -15,17 +16,16 @@ type RecursiveBisection struct {
 	numVerticesAssigned    int
 	logger                 *zap.Logger
 	mu                     sync.Mutex
-	prePartitionWithSCC    bool
 	inertialFlowIterations int
 	directed               bool
-	progress               *partitionProgress
+	progress               *util.Progress
 }
 
-func (rb *RecursiveBisection) setProgress(progress *partitionProgress) {
+func (rb *RecursiveBisection) setProgress(progress *util.Progress) {
 	rb.progress = progress
 }
 
-func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Logger, prePartitionWithSCC bool,
+func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Logger,
 	inertialFlowIterations int, directed bool,
 ) *RecursiveBisection {
 
@@ -36,13 +36,11 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 	}
 
 	return &RecursiveBisection{
-		g:               graph,
-		maximumCellSize: maximumCellSize,
-		finalPartition:  finalPartitions,
-		partitionCount:  0,
-		logger:          logger,
-
-		prePartitionWithSCC:    prePartitionWithSCC,
+		g:                      graph,
+		maximumCellSize:        maximumCellSize,
+		finalPartition:         finalPartitions,
+		partitionCount:         0,
+		logger:                 logger,
 		inertialFlowIterations: inertialFlowIterations,
 		directed:               directed,
 	}
@@ -92,16 +90,6 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 		return bisectionRes{partOne: partOne, partTwo: partTwo}
 	}
 
-	var (
-		components []*da.PartitionGraph
-	)
-
-	if rb.prePartitionWithSCC {
-		components = prePartitionWithSCC(initialPg, rb.maximumCellSize) // O(n+m)
-	} else {
-		components = append(components, initialPg)
-	}
-
 	iflowInChan := make(chan *da.PartitionGraph, InertialFlowChanSize)
 	iflowOutChan := make(chan bisectionRes, InertialFlowChanSize)
 
@@ -118,16 +106,14 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 		go computeIflow()
 	}
 
-	queue := make([]*da.PartitionGraph, 0, len(components))
+	queue := make([]*da.PartitionGraph, 0, 10)
 	numJobs := 0
-	for _, component := range components {
-		if tooSmall(component.NumberOfVertices()) {
-			rb.assignFinalPartition(component)
-			continue
-		}
-		queue = append(queue, component)
-		numJobs++
+	if tooSmall(initialPg.NumberOfVertices()) {
+		rb.assignFinalPartition(initialPg)
+		return
 	}
+	queue = append(queue, initialPg)
+	numJobs++
 
 	if numJobs == 0 {
 		close(iflowInChan)
@@ -262,7 +248,7 @@ func (rb *RecursiveBisection) assignFinalPartition(partitionGraph *da.PartitionG
 		rb.finalPartition[originalVId] = rb.partitionCount
 		rb.numVerticesAssigned++
 	}
-	rb.progress.add(partitionGraph.NumberOfVertices())
+	rb.progress.Add(partitionGraph.NumberOfVertices())
 	rb.partitionCount++
 }
 

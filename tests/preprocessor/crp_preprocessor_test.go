@@ -48,7 +48,7 @@ func TestPreprocessorSimple(t *testing.T) {
 			f    *os.File
 		)
 
-		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 		if err != nil {
 			t.Fatalf("could not open test file: %v", err)
 		}
@@ -124,7 +124,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
 			2, 1,
-			g, logger, true, true,
+			g, logger, true,
 		)
 
 		mp.SetCellVertices(cellVertices)
@@ -832,8 +832,13 @@ func init() {
 }
 
 func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.RoadNetworkDataContainer) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		panic(err)
 	}
 	logger, err := custlog.New()
 	if err != nil {
@@ -861,7 +866,7 @@ func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.Roa
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, false,
+		graph, logger, false,
 	)
 
 	mp.RunMultilevelPartitioning()

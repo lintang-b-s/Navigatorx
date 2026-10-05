@@ -107,7 +107,7 @@ func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newPriority, vCost W, newPar Pa
 	qh.heap.DecreaseKey(heapNodeId, newPriority, qh.updatePosition)
 }
 
-// Get. Get sp cost dari node
+// Get. Get est sp cost dari node
 // node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) GetCost(id Index) W {
 	vertexIndex := qh.verticesIndex.Get(id)

@@ -35,7 +35,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 		prep        *preprocesser.Preprocessor[int64]
 	)
 
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
 		panic(err)
 	}
 
@@ -75,7 +75,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 		mp := partitioner.NewMultilevelPartitioner(
 			ps,
 			len(ps), 1,
-			g, logger, true, true,
+			g, logger, true,
 		)
 		mp.RunMultilevelPartitioning()
 

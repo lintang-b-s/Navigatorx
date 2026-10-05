@@ -1,14 +1,10 @@
 package datastructure
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
 
-	"github.com/klauspost/compress/s2"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"golang.org/x/exp/constraints"
 )
 
 /*
@@ -26,22 +22,26 @@ by convention, we define row_ptr(n+1)=nnz+1, where nnz is the number of nonzeros
 Instead of storing O(n^2) elements, we need only O(2nnz+n+1) space
 */
 
-type SparseMatrix[T constraints.Integer | constraints.Float] struct {
+type SparseMatrix struct {
 	m, n int
-	vals []T
-	cols []int
-	rows []int
-	zero T
-	eq   func(a, b T) bool
+	vals []uint32
+	cols []uint32
+	rows []uint32
+	zero uint32
+	eq   func(a, b uint32) bool
 }
 
-func NewSparseMatrix[T constraints.Integer | constraints.Float](m, n int, zero T, eq func(a, b T) bool) *SparseMatrix[T] {
-	rows := make([]int, m+1)
+func NewSparseMatrix(m, n int, zero uint32, eq func(a, b uint32) bool) *SparseMatrix {
+	rows := make([]uint32, m+1)
 	for i := range rows {
 		rows[i] = 1
 	}
 
-	return &SparseMatrix[T]{
+	if eq == nil {
+		eq = func(a, b uint32) bool { return a == b }
+	}
+
+	return &SparseMatrix{
 		m:    m,
 		n:    n,
 		rows: rows,
@@ -50,42 +50,42 @@ func NewSparseMatrix[T constraints.Integer | constraints.Float](m, n int, zero T
 	}
 }
 
-func (sm *SparseMatrix[T]) Set(val T, row, col int) {
+func (sm *SparseMatrix) Set(val uint32, row, col int) {
 	row += 1 // 1-based
 	col += 1
 
 	pos := sm.rows[row-1] - 1
-	currCol := 0
+	currCol := uint32(0)
 
 	for ; pos < sm.rows[row]-1; pos++ {
 		currCol = sm.cols[pos]
-		if currCol >= col {
+		if currCol >= uint32(col) {
 			break
 		}
 	}
 
-	if currCol != col {
+	if currCol != uint32(col) {
 		if !sm.eq(val, sm.zero) {
-			sm.insert(pos, row, col, val)
+			sm.insert(int(pos), row, col, val)
 		}
 	} else if sm.eq(val, sm.zero) {
-		sm.remove(pos, row)
+		sm.remove(int(pos), row)
 	} else {
 		sm.vals[pos] = val
 	}
 }
 
-func (sm *SparseMatrix[T]) Get(row, col int) T {
+func (sm *SparseMatrix) Get(row, col int) uint32 {
 	row += 1 // 1-based
 	col += 1
 
-	var currCol int
+	var currCol uint32
 
 	for pos := sm.rows[row-1] - 1; pos < sm.rows[row]-1; pos++ {
 		currCol = sm.cols[pos]
-		if currCol == col {
+		if currCol == uint32(col) {
 			return sm.vals[pos]
-		} else if currCol > col {
+		} else if currCol > uint32(col) {
 			break
 		}
 	}
@@ -93,15 +93,15 @@ func (sm *SparseMatrix[T]) Get(row, col int) T {
 	return sm.zero
 }
 
-func (sm *SparseMatrix[T]) insert(index, row, col int, val T) {
+func (sm *SparseMatrix) insert(index, row, col int, val uint32) {
 	if sm.vals == nil {
-		sm.vals = make([]T, 1)
+		sm.vals = make([]uint32, 1)
 		sm.vals[0] = val
-		sm.cols = make([]int, 1)
-		sm.cols[0] = col
+		sm.cols = make([]uint32, 1)
+		sm.cols[0] = uint32(col)
 	} else {
-		sm.vals = append(sm.vals[:index], append([]T{val}, sm.vals[index:]...)...)
-		sm.cols = append(sm.cols[:index], append([]int{col}, sm.cols[index:]...)...)
+		sm.vals = append(sm.vals[:index], append([]uint32{val}, sm.vals[index:]...)...)
+		sm.cols = append(sm.cols[:index], append([]uint32{uint32(col)}, sm.cols[index:]...)...)
 	}
 
 	for i := row; i <= sm.m; i++ {
@@ -109,7 +109,7 @@ func (sm *SparseMatrix[T]) insert(index, row, col int, val T) {
 	}
 }
 
-func (sm *SparseMatrix[T]) remove(index, row int) {
+func (sm *SparseMatrix) remove(index, row int) {
 	sm.vals = append(sm.vals[:index], sm.vals[index+1:]...)
 	sm.cols = append(sm.cols[:index], sm.cols[index+1:]...)
 
@@ -118,184 +118,60 @@ func (sm *SparseMatrix[T]) remove(index, row int) {
 	}
 }
 
-func (sm *SparseMatrix[T]) WriteToFile(filename string) error {
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-
-	snp := s2.NewWriter(f)
-
-	defer snp.Close()
-
-	w := bufio.NewWriter(snp)
-
-	fmt.Fprintf(w, "%d %d %d %d %d\n", sm.m, sm.n, len(sm.vals), len(sm.cols), len(sm.rows))
-
-	for i := 0; i < len(sm.vals); i++ {
-		fmt.Fprintf(w, "%v", sm.vals[i])
-		if i < len(sm.vals)-1 {
-			fmt.Fprintf(w, " ")
+func (sm *SparseMatrix) WriteToFile(filename string) error {
+	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
+		if err := w.Length(sm.m); err != nil {
+			return err
 		}
-	}
-	fmt.Fprintf(w, "\n")
-
-	for i := 0; i < len(sm.cols); i++ {
-		fmt.Fprintf(w, "%v", sm.cols[i])
-		if i < len(sm.cols)-1 {
-			fmt.Fprintf(w, " ")
+		if err := w.Length(sm.n); err != nil {
+			return err
 		}
-	}
-	fmt.Fprintf(w, "\n")
-
-	for i := 0; i < len(sm.rows); i++ {
-		fmt.Fprintf(w, "%v", sm.rows[i])
-		if i < len(sm.rows)-1 {
-			fmt.Fprintf(w, " ")
+		if err := w.WriteUint32s(sm.vals); err != nil {
+			return err
 		}
-	}
-	fmt.Fprintf(w, "\n")
-
-	if err = w.Flush(); err != nil {
-		return fmt.Errorf("csr.WriteToFile: failed to flush bufio writer: %w", err)
-	}
-	return nil
+		if err := w.WriteUint32s(sm.cols); err != nil {
+			return err
+		}
+		return w.WriteUint32s(sm.rows)
+	})
 }
 
-func ReadSparseMatrixFromFile[T constraints.Integer | constraints.Float](filename string,
-	zero T, eq func(a, b T) bool) (*SparseMatrix[T], error) {
-	f, err := os.Open(filename)
-
+func ReadSparseMatrixFromFile(filename string, zero uint32, eq func(a, b uint32) bool) (*SparseMatrix, error) {
+	file, r, err := util.OpenCompressedFile(filename)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return NewSparseMatrix[T](0, 0, zero, eq), nil
+			return NewSparseMatrix(0, 0, zero, eq), nil
 		}
 		return nil, fmt.Errorf("ReadSparseMatrixFromFile: failed to open file %s: %w", filename, err)
 	}
+	defer file.Close()
 
-	defer f.Close()
-
-	sm, err := ReadSparseMatrixFromReader(f, zero, eq)
+	m, err := r.Length()
 	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromFile: failed to read sparse matrix from file %s: %w", filename, err)
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read m: %w", err)
 	}
-
-	return sm, nil
-}
-
-func ReadSparseMatrixFromReader[T constraints.Integer | constraints.Float](r io.Reader,
-	zero T, eq func(a, b T) bool) (*SparseMatrix[T], error) {
-	snp := s2.NewReader(r)
-
-	br := bufio.NewReader(snp)
-
-	line, err := util.ReadLine(br)
+	n, err := r.Length()
 	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read header line: %w", err)
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read n: %w", err)
 	}
 
-	tokens := util.Fields(line)
-	if len(tokens) != 5 {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: invalid header token count, expected 5 got %d, line=%q", len(tokens), line)
-	}
-
-	m, err := util.ParseTextInt(tokens[0])
+	vals, err := r.ReadUint32s()
 	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse m: %v: %w", tokens[0], err)
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read vals: %w", err)
 	}
-
-	n, err := util.ParseTextInt(tokens[1])
+	cols, err := r.ReadUint32s()
 	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse n: %v: %w", tokens[1], err)
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read cols: %w", err)
 	}
-
-	valsLen, err := util.ParseTextInt(tokens[2])
+	rows, err := r.ReadUint32s()
 	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse valsLen: %v: %w", tokens[2], err)
+		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read rows: %w", err)
 	}
 
-	colsLen, err := util.ParseTextInt(tokens[3])
-	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse colsLen: %v: %w", tokens[3], err)
-	}
-
-	rowsLen, err := util.ParseTextInt(tokens[4])
-	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse rowsLen: %v: %w", tokens[4], err)
-	}
-
-	sm := NewSparseMatrix[T](m, n, zero, eq)
-	sm.vals = make([]T, valsLen)
-	sm.cols = make([]int, colsLen)
-	sm.rows = make([]int, rowsLen)
-
-	// vals
-	line, err = util.ReadLine(br)
-	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read vals line: %w", err)
-	}
-
-	tokens = util.Fields(line)
-	if len(tokens) != valsLen {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: invalid vals token count, expected %d got %d", valsLen, len(tokens))
-	}
-
-	for i := 0; i < valsLen; i++ {
-		token := tokens[i]
-		if intVal, err := util.ParseTextInt(token); err == nil {
-			sm.vals[i] = any(intVal).(T)
-			continue
-		}
-
-		if floatVal, err := util.ParseTextFloat64(token); err == nil {
-			sm.vals[i] = any(floatVal).(T)
-			continue
-		}
-
-	}
-
-	// cols
-	line, err = util.ReadLine(br)
-	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read cols line: %w", err)
-	}
-
-	tokens = util.Fields(line)
-	if len(tokens) != colsLen {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: invalid cols token count, expected %d got %d", colsLen, len(tokens))
-	}
-
-	for i := 0; i < colsLen; i++ {
-		token := tokens[i]
-
-		val, err := util.ParseTextInt(token)
-		if err != nil {
-			return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse cols[i]: %v: %w", token, err)
-		}
-		sm.cols[i] = val
-	}
-
-	// rows
-	line, err = util.ReadLine(br)
-	if err != nil {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to read rows line: %w", err)
-	}
-
-	tokens = util.Fields(line)
-	if len(tokens) != rowsLen {
-		return nil, fmt.Errorf("ReadSparseMatrixFromReader: invalid rows token count, expected %d got %d", rowsLen, len(tokens))
-	}
-
-	for i := 0; i < rowsLen; i++ {
-		token := tokens[i]
-
-		val, err := util.ParseTextInt(token)
-		if err != nil {
-			return nil, fmt.Errorf("ReadSparseMatrixFromReader: failed to parse rows[i]: %v: %w", token, err)
-		}
-		sm.rows[i] = val
-	}
+	sm := NewSparseMatrix(int(m), int(n), zero, eq)
+	sm.vals = vals
+	sm.cols = cols
+	sm.rows = rows
 
 	return sm, nil
 }

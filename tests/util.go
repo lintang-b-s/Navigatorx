@@ -37,10 +37,16 @@ func init() {
 }
 
 func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *customizer.Customizer[int32]) {
-	osmfFile := fmt.Sprintf("./data/%s.osm.pbf", fileName)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
 
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	osmfFile := fmt.Sprintf("%s/%s.osm.pbf", outputDir, fileName)
+
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		panic(err)
 	}
 
 	config.InitRegionName(fileName, pkg.TEST)
@@ -51,12 +57,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	}
 
 	op := extractor.NewExtractor[int32]()
-
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmfFile), logger)
+	graph, rn, timeFunction, err := op.Extract(osmfFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,7 +76,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, true,
+		graph, logger, false,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -143,7 +144,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 		logger.Sugar().Infof("downloading evaluation %s dataset.....", name)
 
 		dir := filepath.Dir(filePath)
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(dir, 0700); err != nil {
 			return fmt.Errorf("download: MkdirAll failed %v", err)
 		}
 
@@ -208,7 +209,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 }
 
 func isHTMLDocument(path string) (bool, error) {
-	f, err := os.OpenFile(path, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(path, os.O_RDONLY, 0600)
 	if err != nil {
 		return false, err
 	}
@@ -302,7 +303,7 @@ func ExtractZip(zipPath, destDir string) error {
 	}
 	defer reader.Close()
 
-	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
+	if err := os.MkdirAll(destDir, 0700); err != nil {
 		return fmt.Errorf("extractZip: MkdirAll failed %v", err)
 	}
 
@@ -318,14 +319,14 @@ func ExtractZip(zipPath, destDir string) error {
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(cleanTargetPath, file.Mode()); err != nil {
+			if err := os.MkdirAll(cleanTargetPath, 0700); err != nil {
 				return fmt.Errorf("extractZip: MkdirAll failed %v", err)
 			}
 			continue
 		}
 
 		parentDir := filepath.Dir(cleanTargetPath)
-		if err := os.MkdirAll(parentDir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(parentDir, 0700); err != nil {
 			return fmt.Errorf("extractZip: MkdirAll parent failed %v", err)
 		}
 
@@ -334,7 +335,7 @@ func ExtractZip(zipPath, destDir string) error {
 			return fmt.Errorf("extractZip: File.Open failed %v", err)
 		}
 
-		dst, err := os.OpenFile(cleanTargetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		dst, err := os.OpenFile(cleanTargetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			src.Close()
 			return fmt.Errorf("extractZip: OpenFile failed %v", err)

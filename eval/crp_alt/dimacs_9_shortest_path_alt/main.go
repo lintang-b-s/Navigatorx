@@ -86,7 +86,12 @@ func main() {
 		f, fOut *os.File
 	)
 
-	if err := os.MkdirAll("./data", 0755); err != nil {
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
 		panic(err)
 	}
 	logger, err := log.New()
@@ -96,10 +101,6 @@ func main() {
 
 	flag.Parse()
 
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
@@ -111,7 +112,7 @@ func main() {
 	inputQueriesPath := resolveProjectPath(workingDir, *inputSSQueriesFilePath)
 	outputPath := resolveProjectPath(workingDir, *outputFileName)
 
-	f, err = os.OpenFile(inputCoordPath, os.O_RDONLY, 0644)
+	f, err = os.OpenFile(inputCoordPath, os.O_RDONLY, 0600)
 	if err != nil {
 		panic(fmt.Errorf("could not open test file: %v", inputCoordPath))
 	}
@@ -174,7 +175,7 @@ func main() {
 		nodeCoords[id] = op.NewNodeCoord(float64(x)/rounder, float64(y)/rounder)
 	}
 
-	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0644)
+	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0600)
 	if err != nil {
 		panic(fmt.Errorf("could not open test file: %v", inputEdgesPath))
 	}
@@ -241,7 +242,7 @@ func main() {
 	}
 
 	// read sssp queries
-	fInputQueries, err := os.OpenFile(inputQueriesPath, os.O_RDONLY, 0644)
+	fInputQueries, err := os.OpenFile(inputQueriesPath, os.O_RDONLY, 0600)
 	if err != nil {
 		panic(fmt.Errorf("could not open test file: %v", inputQueriesPath))
 	}

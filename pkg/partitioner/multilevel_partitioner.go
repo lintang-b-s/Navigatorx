@@ -32,12 +32,11 @@ type MultilevelPartitioner struct {
 	cellVertices           [][][]da.Index // nodes in each cells in each level
 	graph                  *da.Graph
 	logger                 *zap.Logger
-	prePartitionWithSCC    bool
 	inertialFlowIterations int
 	directed               bool
 }
 
-func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.Graph, logger *zap.Logger, prePartitionWithSCC, directed bool) *MultilevelPartitioner {
+func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.Graph, logger *zap.Logger, directed bool) *MultilevelPartitioner {
 	if len(u) != l {
 		panic(fmt.Errorf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
@@ -48,7 +47,6 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.
 		cellVertices:           make([][][]da.Index, l),
 		graph:                  graph,
 		logger:                 logger,
-		prePartitionWithSCC:    prePartitionWithSCC,
 		inertialFlowIterations: inertialFlowIterations,
 		directed:               directed,
 	}
@@ -75,26 +73,26 @@ for each level l, time complexity recursiveBisection.Partition() in each cell is
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
 	nodeIDs := mp.graph.GetVerticeIds()
-	progress := newPartitionProgress(mp.graph.NumberOfVertices())
+	progress := util.NewProgress(mp.graph.NumberOfVertices())
 	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l, mp.u[mp.l-1])
 	fmt.Printf("Level %d progress: 0%%...", mp.l)
 	if len(nodeIDs) > mp.u[mp.l-1] {
 
 		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger,
-			mp.prePartitionWithSCC, mp.inertialFlowIterations, mp.directed)
+			mp.inertialFlowIterations, mp.directed)
 		inertialFlowPartitioner.setProgress(progress)
 		inertialFlowPartitioner.Partition(nodeIDs)
 		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
 	} else {
 		mp.cellVertices[mp.l-1] = [][]da.Index{nodeIDs}
-		progress.add(len(nodeIDs))
+		progress.Add(len(nodeIDs))
 	}
-	progress.finish()
+	progress.Finish()
 	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.cellVertices[mp.l-1]))
 
 	// percent partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
-		progress = newPartitionProgress(mp.graph.NumberOfVertices())
+		progress = util.NewProgress(mp.graph.NumberOfVertices())
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
 		fmt.Printf("Level %d progress: 0%%...", level+1)
 
@@ -103,7 +101,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		wg := sync.WaitGroup{}
 		computeRecursiveBisection := func() {
 			for cell := range cellInChan {
-				inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, mp.prePartitionWithSCC,
+				inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger,
 					mp.inertialFlowIterations, mp.directed)
 				inertialFlowPartitioner.setProgress(progress)
 				inertialFlowPartitioner.Partition(cell)
@@ -133,45 +131,70 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		wg.Wait()
 		close(cellOutchan)
 
-		progress.finish()
+		progress.Finish()
 		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.cellVertices[level]))
 	}
-}
-
-type partitionProgress struct {
-	mu        sync.Mutex
-	total     int
-	completed int
-	percent   int
-}
-
-func newPartitionProgress(total int) *partitionProgress {
-	return &partitionProgress{total: total, percent: 2}
-}
-
-func (p *partitionProgress) add(vertices int) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.completed += vertices
-	for p.percent <= 100 && p.total > 0 && p.completed*100 >= p.percent*p.total {
-		// while completed/total >= percent/100
-		fmt.Printf("%d%%...", p.percent)
-		p.percent += 2
-	}
-}
-
-func (p *partitionProgress) finish() {
-	fmt.Println()
 }
 
 func (mp *MultilevelPartitioner) SaveToFile() error {
 	root := config.ProfilesRoot()
 	filename := fmt.Sprintf("%s/%s/inertial_flow_%s.mlp", root, pkg.ProfileName, pkg.RegionName)
-	if err := util.IsPathExists(filename); err != nil {
-		return err
-	}
 	return mp.writeMLPToFile(filename)
+}
+
+func (mp *MultilevelPartitioner) writeMLPToFile(filename string) error {
+	mlp := mp.BuildMLP()
+	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
+		numCells := mlp.GetNumCells()
+		cellNumbers := mlp.GetCellNumbers()
+		if err := w.WriteUint32s(numCells); err != nil {
+			return err
+		}
+		if err := w.Length(len(cellNumbers)); err != nil {
+			return err
+		}
+		for _, value := range cellNumbers {
+			if err := w.Uint64(uint64(value)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (mp *MultilevelPartitioner) ReadMLPFromFile(filename string) (*da.MultilevelPartition, error) {
+	file, r, err := util.OpenCompressedFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	numCells, err := r.ReadUint32s()
+	if err != nil {
+		return nil, err
+	}
+
+	cellValues, err := r.ReadUint64s()
+	if err != nil {
+		return nil, err
+	}
+
+	cellNumbers := make([]da.Pv, len(cellValues))
+	for i, value := range cellValues {
+		cellNumbers[i] = da.Pv(value)
+	}
+
+	mlp := da.NewPlainMLP()
+	mlp.SetNumberOflevels(len(numCells))
+	for i, c := range numCells {
+		mlp.SetNumberOfCellsInLevel(i, int(c))
+	}
+	mlp.ComputeBitmap()
+	mlp.SetNumberOfVertices(len(cellNumbers))
+	for i, c := range cellNumbers {
+		mlp.SetCellNumber(i, c)
+	}
+	return mlp, nil
 }
 
 func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Index {

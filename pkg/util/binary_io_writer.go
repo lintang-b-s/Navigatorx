@@ -7,7 +7,6 @@ import (
 	"io"
 	"math"
 	"os"
-	"path/filepath"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/klauspost/compress/s2"
@@ -154,6 +153,17 @@ func (w *BinaryWriter) WriteUint16s(values []uint16) error {
 	}
 	return nil
 }
+func (w *BinaryWriter) WriteInts(values []int) error {
+	if err := w.Length(len(values)); err != nil {
+		return err
+	}
+	for _, value := range values {
+		if err := w.Int64(int64(value)); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func (w *BinaryWriter) Length(length int) error {
 	if uint64(length) > math.MaxUint32 {
@@ -173,31 +183,13 @@ func (w *BinaryWriter) String(value string) error {
 	return w.Blob([]byte(value))
 }
 
-func IsPathExists(filename string) error {
-	dir := filepath.Dir(filename)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return err
-	}
-	return nil
-}
-
 func WriteCompressedFile(filename string, writePayload func(*BinaryWriter) error) error {
-	dir := filepath.Dir(filename)
-	if err := IsPathExists(filename); err != nil {
-		return err
-	}
-	file, err := os.CreateTemp(dir, "."+filepath.Base(filename)+".tmp-*")
+
+	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
 	defer file.Close()
-	tempName := file.Name()
-	succeeded := false
-	defer func() {
-		if !succeeded {
-			_ = os.Remove(tempName)
-		}
-	}()
 
 	header := NewBinaryWriter(file)
 	if err := header.Bytes(magicNumber[:]); err != nil {
@@ -238,9 +230,5 @@ func WriteCompressedFile(filename string, writePayload func(*BinaryWriter) error
 	if err := file.Close(); err != nil {
 		return err
 	}
-	if err := os.Rename(tempName, filename); err != nil {
-		return err
-	}
-	succeeded = true
 	return nil
 }

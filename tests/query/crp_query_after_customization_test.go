@@ -3,12 +3,13 @@ package query
 import (
 	"context"
 	"fmt"
+	"os"
+	"strconv"
 	"testing"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
-	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router"
@@ -308,12 +309,12 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 			}
 
 			// kustomisasi  kustomisasi pakai segment speeds csv file...
-			cUpdatedSegments := make([]customizer.UpdatedSegment, len(tc.updatedSegmentSpeeds))
+			cUpdatedSegments := make([]UpdatedSegment, len(tc.updatedSegmentSpeeds))
 			for k := 0; k < len(tc.updatedSegmentSpeeds); k++ {
 				ups := tc.updatedSegmentSpeeds[k]
-				cUpdatedSegments[k] = customizer.NewUpdatedSegment(ups.fromOsmId, ups.toOsmId, ups.speed)
+				cUpdatedSegments[k] = NewUpdatedSegment(ups.fromOsmId, ups.toOsmId, ups.speed)
 			}
-			err = customizer.WriteUpdatedSegmentsToCSV(segmentFile, cUpdatedSegments)
+			err = WriteUpdatedSegmentsToCSV(segmentFile, cUpdatedSegments)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -350,4 +351,34 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 			}
 		})
 	}
+}
+
+// UpdatedSegment is one row in a segment-speed CSV file; speed is kilometers per hour.
+type UpdatedSegment struct {
+	fromOsmId int64
+	toOsmId   int64
+	speed     float64 // in km/h
+}
+
+func NewUpdatedSegment(fromOsmId, toOsmId int64, speed float64) UpdatedSegment {
+	return UpdatedSegment{fromOsmId: fromOsmId, toOsmId: toOsmId, speed: speed}
+}
+
+// WriteUpdatedSegmentsToCSV. write segment csv file
+func WriteUpdatedSegmentsToCSV(filepath string, segments []UpdatedSegment) error {
+	f, err := os.Create(filepath)
+	if err != nil {
+		return fmt.Errorf("WriteUpdatedSegmentsToCSV: failed to create file %v: %w", filepath, err)
+	}
+	defer f.Close()
+
+	for _, seg := range segments {
+		speedStr := strconv.FormatFloat(seg.speed, 'f', -1, 64)
+		_, err := fmt.Fprintf(f, "%d, %d, %s\n", seg.fromOsmId, seg.toOsmId, speedStr)
+		if err != nil {
+			return fmt.Errorf("WriteUpdatedSegmentsToCSV: failed to write row for segment (%d,%d): %w", seg.fromOsmId, seg.toOsmId, err)
+		}
+	}
+
+	return nil
 }

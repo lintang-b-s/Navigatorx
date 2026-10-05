@@ -26,7 +26,12 @@ func init() {
 }
 
 func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
 		panic(err)
 	}
 	logger, err := log.New()
@@ -55,7 +60,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, true, true,
+		graph, logger, true,
 	)
 
 	return graph, mp

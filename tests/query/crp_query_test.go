@@ -135,7 +135,7 @@ func TestCRPQuerySimple(t *testing.T) {
 			f    *os.File
 		)
 
-		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 		if err != nil {
 			t.Fatalf("could not open test file: %v", err)
 		}
@@ -211,7 +211,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
 			2, 1,
-			g, logger, true, true,
+			g, logger, true,
 		)
 
 		mp.RunMultilevelPartitioning()
@@ -262,7 +262,7 @@ func TestCRPQuerySimple(t *testing.T) {
 			graph := re.GetGraph()
 			n := graph.NumberOfVertices()
 
-			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0644)
+			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0600)
 			if err != nil {
 				t.Fatalf("could not open test file: %v", err)
 			}
@@ -322,18 +322,19 @@ func init() {
 }
 
 func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		panic(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatal(err)
-	}
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
@@ -360,7 +361,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, false,
+		graph, logger, false,
 	)
 
 	mp.RunMultilevelPartitioning()

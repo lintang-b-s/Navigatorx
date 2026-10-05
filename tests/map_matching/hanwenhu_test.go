@@ -86,7 +86,7 @@ func hhDownload(filePath, url string, logger *zap.Logger, name string) error {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		logger.Sugar().Infof("downloading evaluation %s dataset.....", name)
 		dir := filepath.Dir(filePath)
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(dir, 0700); err != nil {
 			return fmt.Errorf("download: MkdirAll failed %v", err)
 		}
 		output, err := os.Create(filePath)
@@ -109,7 +109,7 @@ func hhDownload(filePath, url string, logger *zap.Logger, name string) error {
 }
 
 // https://github.com/Hanwen-Hu/AMM/tree/main/MatchData/Shanghai
-func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int]) {
+func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix) {
 	t.Helper()
 	config.InitRegionName("hanwenhu", pkg.TEST)
 
@@ -131,7 +131,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	for i := 0; i < len(ps); i++ {
 		ps[i] = 1 << hhPartitionSizes[i]
 	}
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 5, graph, logger, false, false)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 5, graph, logger, false)
 	mp.RunMultilevelPartitioning()
 	if err = mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
@@ -184,8 +184,8 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)
 
-	var N *da.SparseMatrix[int]
-	N = da.NewSparseMatrix[int](graph.NumberOfEdges(), graph.NumberOfEdges(), 0, func(a, b int) bool { return a == b })
+	var N *da.SparseMatrix
+	N = da.NewSparseMatrix(graph.NumberOfEdges(), graph.NumberOfEdges(), 0, func(a, b uint32) bool { return a == b })
 
 	go func() {
 		counter := 0
@@ -267,8 +267,12 @@ func hhUnixTimestampToTime(ut int64) (time.Time, error) {
 }
 
 func hhExtractTarGz(gzipStream io.Reader, destDir string) error {
-	if _, err := os.Stat(filepath.Join(destDir, "Shanghai")); err == nil {
-		return nil
+	trackDir := filepath.Join(destDir, "Shanghai/track")
+	groundDir := filepath.Join(destDir, "Shanghai/ground")
+	if _, err := os.Stat(trackDir); err == nil {
+		if _, err := os.Stat(groundDir); err == nil {
+			return nil
+		}
 	}
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
@@ -286,11 +290,11 @@ func hhExtractTarGz(gzipStream io.Reader, destDir string) error {
 		targetPath := filepath.Join(destDir, header.Name)
 		switch header.Typeflag {
 		case tar.TypeDir:
-			if err := os.Mkdir(targetPath, 0755); err != nil {
+			if err := os.MkdirAll(targetPath, 0700); err != nil {
 				return fmt.Errorf("extractTarGz: mkdir failed: %v", err)
 			}
 		case tar.TypeReg:
-			if err := os.MkdirAll(filepath.Dir(targetPath), 0755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0700); err != nil {
 				return fmt.Errorf("extractTarGz: mkdir for file failed: %v", err)
 			}
 			outFile, err := os.Create(targetPath)
@@ -298,6 +302,7 @@ func hhExtractTarGz(gzipStream io.Reader, destDir string) error {
 				return fmt.Errorf("extractTarGz: Create failed: %v", err)
 			}
 			if _, err := io.Copy(outFile, tarReader); err != nil {
+				outFile.Close()
 				return fmt.Errorf("extractTarGz: Copy failed: %v", err)
 			}
 			outFile.Close()
@@ -315,11 +320,11 @@ func hhTrackIDFromName(trajName string) string {
 }
 
 func hhWritePolyline(filePath string, points []da.Coordinate) error {
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0700); err != nil {
 		return fmt.Errorf("write polyline: mkdir failed: %v", err)
 	}
 	polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(points))
-	if err := os.WriteFile(filePath, []byte(polyline), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(polyline), 0600); err != nil {
 		return fmt.Errorf("write polyline: write file failed: %v", err)
 	}
 	return nil

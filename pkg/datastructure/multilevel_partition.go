@@ -1,18 +1,16 @@
 package datastructure
 
 import (
-	"bufio"
 	"fmt"
 	"math"
-	"os"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// adapted from: https://github.com/michaelwegner/CRP/blob/master/datastructures/MultiLevelPartition.h
-
+// MultilevelPartition adapted from: https://github.com/michaelwegner/CRP/blob/master/datastructures/MultiLevelPartition.h
+// https://github.com/michaelwegner/CRP/blob/master/datastructures/MultiLevelPartition.cpp
 // MultilevelPartition stores every cell information of each vertex on every level.
 type MultilevelPartition struct {
 	numCells    []uint32 // number of cells in the level-index overlay graph
@@ -87,85 +85,69 @@ func (mp *MultilevelPartition) GetCellNumbers() []Pv {
 	return mp.cellNumbers
 }
 
+func (mp *MultilevelPartition) SetCellNumber(i int, c Pv) {
+	mp.cellNumbers[i] = c
+}
+
 func (mp *MultilevelPartition) GetNumCells() []uint32 {
 	return mp.numCells
+}
+
+func (mp *MultilevelPartition) WriteToFile(filename string) error {
+	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
+		if err := w.WriteUint32s(mp.numCells); err != nil {
+			return err
+		}
+		if err := w.Length(len(mp.cellNumbers)); err != nil {
+			return err
+		}
+		for _, value := range mp.cellNumbers {
+			if err := w.Uint64(uint64(value)); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (mp *MultilevelPartition) ReadFromFile(filename string) error {
+	file, r, err := util.OpenCompressedFile(filename)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	numCells, err := r.ReadUint32s()
+	if err != nil {
+		return err
+	}
+
+	cellValues, err := r.ReadUint64s()
+	if err != nil {
+		return err
+	}
+
+	cellNumbers := make([]Pv, len(cellValues))
+	for i, value := range cellValues {
+		cellNumbers[i] = Pv(value)
+	}
+
+	mp.numCells = numCells
+	mp.ComputeBitmap()
+	mp.cellNumbers = cellNumbers
+	return nil
 }
 
 func (mp *MultilevelPartition) ReadMlpFile() error {
 	root := config.ProfilesRoot()
 	filename := fmt.Sprintf("%s/%s/inertial_flow_%s.mlp", root, pkg.ProfileName, pkg.RegionName)
-	f, err := os.Open(filename)
+	return mp.ReadFromFile(filename)
+}
 
-	if err != nil {
-		return err
+func ReadMultilevelPartitionFromFile(filename string) (*MultilevelPartition, error) {
+	mp := NewPlainMLP()
+	if err := mp.ReadFromFile(filename); err != nil {
+		return nil, err
 	}
-
-	defer f.Close()
-
-	scanner := bufio.NewScanner(f)
-
-	if scanner.Scan() {
-		line := scanner.Text()
-		var numLevels int
-		numLevels, err := util.ParseTextInt(string(line))
-		if err != nil {
-			return err
-		}
-		mp.SetNumberOflevels(numLevels)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	mp.numCells = make([]uint32, mp.GetNumberOfLevels())
-	for i := 0; i < len(mp.numCells); i++ {
-		if scanner.Scan() {
-			line := scanner.Text()
-			mp.numCells[i], err = util.ParseTextUInt32(string(line))
-			if err != nil {
-				return err
-			}
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	mp.ComputeBitmap()
-	var numVertices int
-	if scanner.Scan() {
-		line := scanner.Text()
-
-		numVertices, err = util.ParseTextInt(string(line))
-		if err != nil {
-			return err
-		}
-		mp.SetNumberOfVertices(numVertices)
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	mp.cellNumbers = make([]Pv, numVertices)
-
-	for i := 0; i < mp.GetNumberOfVertices(); i++ {
-		if scanner.Scan() {
-			line := scanner.Text()
-			cellNumberUint, err := util.ParseTextUInt64(string(line))
-			cellNumber := Pv(cellNumberUint)
-			if err != nil {
-				return err
-			}
-			mp.cellNumbers[i] = cellNumber
-		}
-	}
-
-	if err := scanner.Err(); err != nil {
-		return err
-	}
-
-	return nil
+	return mp, nil
 }

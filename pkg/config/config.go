@@ -16,7 +16,7 @@ func FindProjectWorkingDir() (string, error) {
 		return "", err
 	}
 	startDir := dir
-	for i := 0; i < 10; i++ {
+	for i := 0; i < 4; i++ {
 		if _, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil {
 			return dir, nil
 		}

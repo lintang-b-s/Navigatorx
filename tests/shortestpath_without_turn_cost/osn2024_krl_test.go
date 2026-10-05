@@ -180,7 +180,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -358,7 +358,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 	// assert expected output dari test cases soal
 
-	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0644)
+	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}

@@ -22,8 +22,13 @@ func init() {
 }
 
 func setup(t *testing.T, osmFileTest string) (*da.Graph, *da.RoadNetworkDataContainer, *extractor.Extractor[int32]) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		panic(err)
 	}
 	logger, err := log.New()
 	if err != nil {

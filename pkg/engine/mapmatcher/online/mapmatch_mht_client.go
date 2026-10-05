@@ -79,13 +79,13 @@ type OnlineMapMatchMHT struct {
 	accelerationStd   float64
 	lp                float64 // L_p
 	lc                float64 // L_c
-	N                 *da.SparseMatrix[int]
+	N                 *da.SparseMatrix
 	tipe              TIPE_MHT
 }
 
 func NewOnlineMapMatchMHT(graph *da.DynamicGraph, rt *spatialindex.DynamicRtree, initialSpeedMean, initialSpeedStd float64,
 	posteriorThresold, gpsStd, lp, lc, accelerationStd float64,
-	N *da.SparseMatrix[int]) *OnlineMapMatchMHT {
+	N *da.SparseMatrix) *OnlineMapMatchMHT {
 	return &OnlineMapMatchMHT{
 		g:                 graph,
 		rt:                rt,

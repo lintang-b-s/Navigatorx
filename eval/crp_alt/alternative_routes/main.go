@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -71,17 +72,20 @@ todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , va
 ....
 */
 func main() {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		panic(err)
-	}
-	logger, err := log.New()
-	if err != nil {
-		panic(err)
-	}
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		panic(err)
+	}
+
+	logger, err := log.New()
+	if err != nil {
+		panic(err)
+	}
+
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
@@ -137,7 +141,7 @@ func main() {
 		ps,
 		len(ps),
 		25,
-		graph, logger, false, false,
+		graph, logger, false,
 	)
 
 	mp.RunMultilevelPartitioning()

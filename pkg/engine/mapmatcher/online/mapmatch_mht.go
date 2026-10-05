@@ -68,13 +68,13 @@ value L_u after filtering.
 // 	accelerationStd   float64
 // 	lp                float64 // L_p
 // 	lc                float64 // L_c
-// 	N                 *da.SparseMatrix[int]
+// 	N                 *da.SparseMatrix
 // 	tipe              TIPE_MHT
 // }
 
 // func NewOnlineMapMatchMHT(graph *da.Graph, rt *spatialindex.Rtree, initialSpeedMean, initialSpeedStd float64,
 // 	posteriorThresold, gpsStd, lp, lc, accelerationStd float64,
-// 	N *da.SparseMatrix[int], getSegmentLength func(da.Index) float64) *OnlineMapMatchMHT {
+// 	N *da.SparseMatrix, getSegmentLength func(da.Index) float64) *OnlineMapMatchMHT {
 // 	return &OnlineMapMatchMHT{
 // 		graph:             graph,
 // 		getSegmentLength:  getSegmentLength,

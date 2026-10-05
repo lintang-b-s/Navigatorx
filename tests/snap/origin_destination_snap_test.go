@@ -46,17 +46,19 @@ var (
 )
 
 func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
+		panic(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		t.Fatal(err)
@@ -83,7 +85,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, false,
+		graph, logger, false,
 	)
 
 	mp.RunMultilevelPartitioning()

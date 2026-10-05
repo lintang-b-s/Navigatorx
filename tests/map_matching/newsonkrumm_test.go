@@ -84,7 +84,7 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 		zlog.Sugar().Infof("downloading evaluation %s dataset.....", name)
 
 		dir := filepath.Dir(filePath)
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+		if err := os.MkdirAll(dir, 0700); err != nil {
 			return fmt.Errorf("download: MkdirAll failed %v", err)
 		}
 
@@ -114,7 +114,7 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 }
 
 // https://www.microsoft.com/en-us/research/publication/hidden-markov-map-matching-noise-sparseness/
-func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix[int], map[uint64]float64, error) {
+func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix, map[uint64]float64, error) {
 	zlog, err := logger.New()
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -130,7 +130,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	t.Logf("building road network graph & running preprocessing, customization phase of Customizable Route Planning CRP....")
 	zlog.Sugar().Infof("building road network graph & running preprocessing, customization phase of Customizable Route Planning CRP....")
 
-	f, err := os.OpenFile(roadnetworkFilepath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(roadnetworkFilepath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -266,7 +266,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	for i := range ps {
 		ps[i] = 1 << us[i]
 	}
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, g, zlog, false, false)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, g, zlog, false)
 	mp.RunMultilevelPartitioning()
 	if err := mp.SaveToFile(); err != nil {
 		return nil, nil, nil, nil, nil, err
@@ -323,8 +323,8 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)
 
-	var N *da.SparseMatrix[int]
-	N = da.NewSparseMatrix[int](g.NumberOfEdges(), g.NumberOfEdges(), 0, func(a, b int) bool { return a == b })
+	var N *da.SparseMatrix
+	N = da.NewSparseMatrix(g.NumberOfEdges(), g.NumberOfEdges(), 0, func(a, b uint32) bool { return a == b })
 
 	go func() {
 		counter := 0
@@ -360,7 +360,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 func nkReadGPSTrajectory(t *testing.T, gpsDataFilepath string) []*da.GPSPoint {
 	t.Helper()
 
-	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("OpenFile(gps) failed: %v", err)
 	}

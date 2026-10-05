@@ -54,10 +54,10 @@ type ommTransitionQuery struct {
 }
 
 func ommBuildOrReadTransitionMatrix(t *testing.T, re *engine.Engine[int32], graph *da.Graph, matrixPath string,
-	numQueries int) *da.SparseMatrix[int] {
+	numQueries int) *da.SparseMatrix {
 	t.Helper()
 
-	matrix := da.NewSparseMatrix[int](graph.NumberOfVertices(), graph.NumberOfVertices(), 0, func(a, b int) bool { return a == b })
+	matrix := da.NewSparseMatrix(graph.NumberOfVertices(), graph.NumberOfVertices(), 0, func(a, b uint32) bool { return a == b })
 	rd := rand.New(rand.NewSource(1))
 	queries := make([]ommTransitionQuery, 0, numQueries)
 	for i := 0; len(queries) < numQueries && i < numQueries*100; i++ {
@@ -101,7 +101,7 @@ func ommBuildOrReadTransitionMatrix(t *testing.T, re *engine.Engine[int32], grap
 	cancel()
 	<-done
 
-	if err := os.MkdirAll(filepath.Dir(matrixPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(matrixPath), 0700); err != nil {
 		t.Fatalf("create transition matrix directory failed: %v", err)
 	}
 	if err := matrix.WriteToFile(matrixPath); err != nil {
@@ -144,7 +144,7 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 	dg := da.NewDynamicGraph()
 	onlineMM := online.NewOnlineMapMatchMHT(dg, rtree, 8.33333, 8.3333, 0.0001, 9.0, 0.0000001, 0.04, 3, N)
 
-	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("OpenFile(gps) failed: %v", err)
 	}
@@ -555,12 +555,12 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 // 			matchedCoords = append(matchedCoords, p.GetMatchedCoord())
 // 		}
 
-// 		if err := os.MkdirAll(filepath.Dir(fmt.Sprintf(giscupGPSPolyline, tc.id)), 0755); err != nil {
+// 		if err := os.MkdirAll(filepath.Dir(fmt.Sprintf(giscupGPSPolyline, tc.id)), 0700); err != nil {
 // 			t.Fatalf("create polyline directory failed: %v", err)
 // 		}
 
 // 		gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
-// 		if err := os.WriteFile(fmt.Sprintf(giscupGPSPolyline, tc.id), []byte(gpsTrackPolyline), 0644); err != nil {
+// 		if err := os.WriteFile(fmt.Sprintf(giscupGPSPolyline, tc.id), []byte(gpsTrackPolyline), 0600); err != nil {
 // 			panic(err)
 // 		}
 
@@ -568,7 +568,7 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 // 		if len(matchedCoords) > 0 {
 // 			matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
 // 		}
-// 		if err := os.WriteFile(fmt.Sprintf(giscupResultPolyline, tc.id), []byte(matchedPolyline), 0644); err != nil {
+// 		if err := os.WriteFile(fmt.Sprintf(giscupResultPolyline, tc.id), []byte(matchedPolyline), 0600); err != nil {
 // 			panic(err)
 // 		}
 // 		fmt.Printf("wrote matched polyline to %s\n", fmt.Sprintf(giscupResultPolyline, tc.id))
@@ -636,12 +636,12 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 // 		matchedCoords = append(matchedCoords, p.GetMatchedCoord())
 // 	}
 
-// 	if err := os.MkdirAll(filepath.Dir(melbourneGPSPolyline), 0755); err != nil {
+// 	if err := os.MkdirAll(filepath.Dir(melbourneGPSPolyline), 0700); err != nil {
 // 		t.Fatalf("create polyline directory failed: %v", err)
 // 	}
 
 // 	gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
-// 	if err := os.WriteFile(melbourneGPSPolyline, []byte(gpsTrackPolyline), 0644); err != nil {
+// 	if err := os.WriteFile(melbourneGPSPolyline, []byte(gpsTrackPolyline), 0600); err != nil {
 // 		panic(err)
 // 	}
 
@@ -649,7 +649,7 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 // 	if len(matchedCoords) > 0 {
 // 		matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
 // 	}
-// 	if err := os.WriteFile(melbourneResultPolyline, []byte(matchedPolyline), 0644); err != nil {
+// 	if err := os.WriteFile(melbourneResultPolyline, []byte(matchedPolyline), 0600); err != nil {
 // 		panic(err)
 // 	}
 // 	fmt.Printf("wrote matched polyline to %s\n", melbourneResultPolyline)

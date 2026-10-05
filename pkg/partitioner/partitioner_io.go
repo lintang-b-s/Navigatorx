@@ -13,51 +13,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-func (mp *MultilevelPartitioner) writeMLPToFile(filename string) error {
-
-	mlp := mp.BuildMLP()
-
-	if err := os.MkdirAll(filepath.Dir(filename), 0755); err != nil {
-		return err
-	}
-
-	f, err := os.Create(filename)
-	if err != nil {
-		return err
-	}
-
-	defer f.Close()
-
-	numCells := mlp.GetNumCells()
-	cellNumbers := mlp.GetCellNumbers()
-
-	_, err = fmt.Fprintf(f, "%d\n", len(numCells))
-	if err != nil {
-		return err
-	}
-
-	for i := 0; i < len(numCells); i++ {
-		_, err := fmt.Fprintf(f, "%d\n", numCells[i])
-		if err != nil {
-			return err
-		}
-	}
-
-	_, err = fmt.Fprintf(f, "%d\n", mp.graph.NumberOfVertices())
-	if err != nil {
-		return err
-	}
-
-	for _, vertexID := range mp.graph.GetVerticeIds() {
-		_, err := fmt.Fprintf(f, "%d\n", cellNumbers[vertexID])
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func (mp *MultilevelPartitioner) BuildMLP() *da.MultilevelPartition {
 	numCells := make([]uint32, mp.l)
 	for i := 0; i < mp.l; i++ {
@@ -161,14 +116,16 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 		}
 
 		levelFile := fmt.Sprintf("%s_boundary_level_%d.json", dir, l+1)
-		if err := os.MkdirAll(filepath.Dir(levelFile), 0755); err != nil {
+		f, err := os.OpenFile(levelFile, os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
 			return err
 		}
 		data, err := json.Marshal(cells)
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(levelFile, data, 0644); err != nil {
+		_, err = f.Write(data)
+		if err != nil {
 			return err
 		}
 	}
@@ -217,14 +174,14 @@ func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel() error {
 		}
 
 		levelFile := fmt.Sprintf("%s_mlp_level_%d.json", dir, l+1)
-		if err := os.MkdirAll(filepath.Dir(levelFile), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(levelFile), 0700); err != nil {
 			return err
 		}
 		data, err := json.Marshal(cells)
 		if err != nil {
 			return err
 		}
-		if err := os.WriteFile(levelFile, data, 0644); err != nil {
+		if err := os.WriteFile(levelFile, data, 0600); err != nil {
 			return err
 		}
 	}

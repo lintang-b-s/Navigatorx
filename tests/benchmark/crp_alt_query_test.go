@@ -38,17 +38,19 @@ type query struct {
 }
 
 func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := os.MkdirAll(outputDir, 0700); err != nil {
 		panic(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		panic(err)
 	}
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
+
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
@@ -75,7 +77,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 		ps,
 		len(ps),
 		25,
-		graph, logger, false, false,
+		graph, logger, false,
 	)
 
 	mp.RunMultilevelPartitioning()

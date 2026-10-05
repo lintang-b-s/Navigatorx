@@ -162,7 +162,7 @@ func ohmmEnsureGisCupRoadNetwork(t *testing.T, workingDir string, logger *zap.Lo
 
 // https://web.archive.org/web/20130127211936/http://depts.washington.edu/giscup/home
 func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint32, map[int64]extractor.NodeCoord, map[da.Index]int64, error) {
-	f, err := os.OpenFile(nodesFilePath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(nodesFilePath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -213,7 +213,7 @@ func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint3
 
 // https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
 func ohmmReadGisCupSegmentGeometry(EdgeGeometryFilePath string) (map[uint64]ohmmSegmentGeometry, error) {
-	f, err := os.OpenFile(EdgeGeometryFilePath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(EdgeGeometryFilePath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -282,7 +282,7 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 		return nil, nil, nil, nil, err
 	}
 
-	f, err := os.OpenFile(paths.EdgesFilePath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(paths.EdgesFilePath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
@@ -389,7 +389,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 		ps[i] = 1 << pow
 	}
 
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger, false, false)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger, false)
 	mp.RunMultilevelPartitioning()
 	if err := mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
@@ -418,7 +418,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 }
 
 func ohmmReadGisCupTrack(trackPath string) ([]ohmmGisCupTrackPoint, error) {
-	f, err := os.OpenFile(trackPath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(trackPath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -457,7 +457,7 @@ func ohmmReadGisCupTrack(trackPath string) ([]ohmmGisCupTrackPoint, error) {
 }
 
 func ohmmReadGisCupGroundTruth(outputPath string) ([]uint64, error) {
-	f, err := os.OpenFile(outputPath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(outputPath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -567,7 +567,7 @@ func ohmmComputeGiscupMetrics(graph *da.Graph, rn *da.RoadNetworkDataContainer, 
 }
 
 func ohmmParseMelbourneVertexFile(filePath string) ([]ohmmMelbourneVertex, error) {
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(filePath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -617,7 +617,7 @@ func ohmmParseMelbourneVertexFile(filePath string) ([]ohmmMelbourneVertex, error
 }
 
 func ohmmParseMelbourneEdgesFile(filePath string) ([]ohmmMelbourneSegment, error) {
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(filePath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -670,7 +670,7 @@ func ohmmParseMelbourneEdgesFile(filePath string) ([]ohmmMelbourneSegment, error
 }
 
 func ohmmParseMelbourneStreetsFile(filePath string) (map[uint64]ohmmMelbourneStreet, error) {
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(filePath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -747,7 +747,7 @@ func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *metrics.Ti
 		ps[i] = 1 << pow
 	}
 
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger, false, false)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger, false)
 	mp.RunMultilevelPartitioning()
 	if err := mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
@@ -852,7 +852,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 }
 
 func ohmmReadMelbourneGPSTrack(filePath string) ([]ohmmMelbourneGPSPoint, error) {
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(filePath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -898,7 +898,7 @@ func ohmmReadMelbourneGPSTrack(filePath string) ([]ohmmMelbourneGPSPoint, error)
 }
 
 func ohmmReadMelbourneGroundTruthSegments(filePath string) ([]uint64, error) {
-	f, err := os.OpenFile(filePath, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(filePath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, err
 	}
@@ -1003,14 +1003,14 @@ func ohmmWritePolyline(t *testing.T, filePath string, matchedPoints []*da.Matche
 	for _, point := range matchedPoints {
 		matchedCoords = append(matchedCoords, point.GetMatchedCoord())
 	}
-	if err := os.MkdirAll(filepath.Dir(filePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(filePath), 0700); err != nil {
 		t.Fatalf("create polyline output dir failed: %v", err)
 	}
 	polyline := ""
 	if len(matchedCoords) > 0 {
 		polyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
 	}
-	if err := os.WriteFile(filePath, []byte(polyline), 0644); err != nil {
+	if err := os.WriteFile(filePath, []byte(polyline), 0600); err != nil {
 		t.Fatalf("write polyline failed: %v", err)
 	}
 }
@@ -1256,13 +1256,16 @@ func TestHanwenHuOfflineHMMMapMatching(t *testing.T) {
 		t.Fatalf("open Shanghai tar.gz failed: %v", err)
 	}
 	defer gzFile.Close()
-	if _, err := os.Stat(shanghaiTestDataPath); err != nil {
+	if _, err := os.Stat(shanghaiTestDataPath); err != nil || func() bool { _, err := os.Stat(shanghaiGroundTruthPath); return err != nil }() {
 		if err := hhExtractTarGz(gzFile, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
 			t.Fatalf("extract Shanghai tar.gz failed: %v", err)
 		}
 	}
 	if _, err := os.Stat(shanghaiTestDataPath); err != nil {
 		t.Fatalf("extract Shanghai tar.gz failed: %v", err)
+	}
+	if _, err := os.Stat(shanghaiGroundTruthPath); err != nil {
+		t.Fatalf("extract Shanghai ground truth failed: %v", err)
 	}
 
 	gpsTrajectories, err := hhReadAllCSVInDir(shanghaiTestDataPath)
@@ -1385,11 +1388,11 @@ func TestNewsonKrummOfflineHMMMapMatching(t *testing.T) {
 	}
 	if len(matchedCoords) > 0 {
 		offlinePolylinePath := filepath.Join(workingDir, "data/eval/mapmatching/offline_newson_polyline.txt")
-		if err := os.MkdirAll(filepath.Dir(offlinePolylinePath), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(offlinePolylinePath), 0700); err != nil {
 			t.Fatalf("create polyline output directory failed: %v", err)
 		}
 		polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
-		if err := os.WriteFile(offlinePolylinePath, []byte(polyline), 0644); err != nil {
+		if err := os.WriteFile(offlinePolylinePath, []byte(polyline), 0600); err != nil {
 			t.Fatalf("write offline polyline file failed: %v", err)
 		}
 	}

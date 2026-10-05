@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -161,34 +160,4 @@ func (c *Customizer[W]) readTurnPenaltiesFromFile(filepath string) ([]da.Index, 
 	}
 
 	return upTurnIds, upTurnPenalties, nil
-}
-
-// UpdatedSegment is one row in a segment-speed CSV file; speed is kilometers per hour.
-type UpdatedSegment struct {
-	fromOsmId int64
-	toOsmId   int64
-	speed     float64 // in km/h
-}
-
-func NewUpdatedSegment(fromOsmId, toOsmId int64, speed float64) UpdatedSegment {
-	return UpdatedSegment{fromOsmId: fromOsmId, toOsmId: toOsmId, speed: speed}
-}
-
-// WriteUpdatedSegmentsToCSV. write segment csv file
-func WriteUpdatedSegmentsToCSV(filepath string, segments []UpdatedSegment) error {
-	f, err := os.Create(filepath)
-	if err != nil {
-		return fmt.Errorf("WriteUpdatedSegmentsToCSV: failed to create file %v: %w", filepath, err)
-	}
-	defer f.Close()
-
-	for _, seg := range segments {
-		speedStr := strconv.FormatFloat(seg.speed, 'f', -1, 64)
-		_, err := fmt.Fprintf(f, "%d, %d, %s\n", seg.fromOsmId, seg.toOsmId, speedStr)
-		if err != nil {
-			return fmt.Errorf("WriteUpdatedSegmentsToCSV: failed to write row for segment (%d,%d): %w", seg.fromOsmId, seg.toOsmId, err)
-		}
-	}
-
-	return nil
 }
