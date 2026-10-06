@@ -133,7 +133,7 @@ type MockMapAttributesService struct {
 	mock.Mock
 }
 
-func (m *MockMapAttributesService) GetMapAttributes(ctx context.Context, s2CellId s2.CellID) ([]byte, error) {
-	args := m.Called(ctx, s2CellId)
+func (m *MockMapAttributesService) GetMapAttributes(ctx context.Context, s2CellId s2.CellID, radius float64) ([]byte, error) {
+	args := m.Called(ctx, s2CellId, radius)
 	return []byte(args.String(0)), args.Error(1)
 }

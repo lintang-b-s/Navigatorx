@@ -243,8 +243,7 @@ func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 		tail := h.rn.GetSegmentTailCoord(sSegId)
 		head := h.rn.GetSegmentHeadCoord(sSegId)
 		eInitialBearing := geo.BearingTo(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
-		matchedSegment := da.NewMatchedGPSPoint(gps, sSegId, s.GetProjectedCoord(), eInitialBearing,
-			uint32(p.GetObservationId()))
+		matchedSegment := da.NewMatchedGPSPoint(gps, sSegId, s.GetProjectedCoord(), eInitialBearing)
 		mapMatchingResult = append(mapMatchingResult, matchedSegment)
 
 		if i == 0 {

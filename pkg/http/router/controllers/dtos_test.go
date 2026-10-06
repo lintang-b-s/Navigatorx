@@ -73,7 +73,7 @@ func TestDTOS(t *testing.T) {
 	t.Run("NewMapmatchingResponse With Candidate", func(t *testing.T) {
 		now := time.Date(2026, 4, 29, 10, 0, 0, 0, time.UTC)
 		gpsPoint := da.NewGPSPoint(yogyakartaOriginLat, yogyakartaOriginLon, now, 10.0, 1.0)
-		matched := da.NewMatchedGPSPoint(gpsPoint, 1, da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 90.0, 0)
+		matched := da.NewMatchedGPSPoint(gpsPoint, 1, da.NewCoordinate(yogyakartaOriginLat, yogyakartaOriginLon), 90.0)
 		candidates := []*ma.Candidate{ma.NewCandidate(1, 12.0, 120.0)}
 
 		res := NewMapmatchingResponse(matched, candidates, 3.0, 1.5, 90.0)

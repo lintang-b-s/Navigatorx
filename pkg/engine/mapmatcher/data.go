@@ -8,16 +8,16 @@ type Candidate struct {
 
 	segmentId        da.Index // the road segment id in graph.go (for offline map matching) or dynamic_graph.go (for online map matching)
 	rnId             da.Index // road segment in in graph.go when doing online map matching
-	distanceFromHead float64
+	distanceFromHead float64  // in meter
 	costFromTail     float64
 	costFromHead     float64
 	segmentBearing   float64 // in degrees
 
 	weight                     float64 // posterior probability dari this road segment candidate at time step k
-	length                     float64
+	length                     float64 //
 	projectedLat, projectedLon float64
-	dist                       float64 // distance to current gps point
-	distr                      float64 // distance from tail vertex to projected gps point
+	dist                       float64 // distance to current gps point in meter
+	distr                      float64 // distance from tail vertex to projected gps point in meter
 
 }
 

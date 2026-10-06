@@ -22,7 +22,7 @@ type OnlineMapMatcherEngine interface {
 }
 
 type MapAttributesEngine interface {
-	GetMapAttributes(s2CellId s2.CellID) ([]byte, error)
+	GetMapAttributes(s2CellId s2.CellID, radius float64) ([]byte, error)
 }
 
 type OfflineMapMatcherEngine interface {

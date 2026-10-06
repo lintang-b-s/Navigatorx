@@ -60,20 +60,18 @@ func (gp *GPSPoint) SetDirectionAngle(directionAngle float64) {
 
 type MatchedGPSPoint struct {
 	gpsPoint          *GPSPoint
-	segmentId         Index // routing engine segment id in graph.gos
+	segmentId         Index // routing engine segment id in graph.go
 	matchedCoord      Coordinate
 	predictedGpsCoord Coordinate
 	bearing           float64 // bearing dari road segment yang ke match
-	observationId     uint32
 }
 
-func NewMatchedGPSPoint(gpsPoint *GPSPoint, segmentId Index, matchedCoord Coordinate, bearing float64, observationId uint32) *MatchedGPSPoint {
+func NewMatchedGPSPoint(gpsPoint *GPSPoint, segmentId Index, matchedCoord Coordinate, bearing float64) *MatchedGPSPoint {
 	return &MatchedGPSPoint{
-		gpsPoint:      gpsPoint,
-		segmentId:     segmentId,
-		matchedCoord:  matchedCoord,
-		bearing:       bearing,
-		observationId: observationId,
+		gpsPoint:     gpsPoint,
+		segmentId:    segmentId,
+		matchedCoord: matchedCoord,
+		bearing:      bearing,
 	}
 }
 
@@ -103,8 +101,4 @@ func (m *MatchedGPSPoint) GetMatchedCoord() Coordinate {
 
 func (m *MatchedGPSPoint) GetBearing() float64 {
 	return m.bearing
-}
-
-func (m *MatchedGPSPoint) GetObservationId() uint32 {
-	return m.observationId
 }

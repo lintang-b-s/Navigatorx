@@ -13,7 +13,7 @@ type Progress struct {
 }
 
 func NewProgress(total int) *Progress {
-	return &Progress{total: total, percent: 2}
+	return &Progress{total: total, percent: 4}
 }
 
 func (p *Progress) Add(vertices int) {

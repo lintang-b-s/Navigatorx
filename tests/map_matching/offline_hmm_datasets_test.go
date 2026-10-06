@@ -970,13 +970,12 @@ func ohmmComputeMelbourneMetrics(matchedPoints []*da.MatchedGPSPoint, groundTrut
 
 	matchedSegmentSet := make(map[uint64]float64)
 
-	numMatchedPoints := 0.0
 	for _, matchedPoint := range matchedPoints {
 		geId := matchedPoint.GetSegmentId()
 		dataSegmentID := graphEdgeIdToDataEdgeId[geId]
 		segmentLength := segmentLengthByID[dataSegmentID]
 		matchedSegmentSet[dataSegmentID] = segmentLength
-		numMatchedPoints++
+
 	}
 
 	lengthOfErrAdded := 0.0
@@ -993,7 +992,11 @@ func ohmmComputeMelbourneMetrics(matchedPoints []*da.MatchedGPSPoint, groundTrut
 		}
 	}
 
+	// Route Mismatch Fraction (RMF):  https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
+	// or Route Mismatch Fraction (RMF):  https://dl.acm.org/doi/epdf/10.1145/2666310.2666383
+	// section 6.1 accuracy: https://dl.acm.org/doi/epdf/10.1145/3725346
 	rmf := (lengthOfErrAdded + lengthOfErrSubtracted) / lengthOfCorrectRoute
+
 	return rmf
 }
 

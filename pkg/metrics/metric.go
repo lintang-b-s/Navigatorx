@@ -1,4 +1,4 @@
-// Package metrics provides utilities for managing and calculating graph metrics (edge & turn costs) and stalling tables.
+// Package metrics provides utilities for managing and calculating graph metrics (edge & turn costs).
 package metrics
 
 import (

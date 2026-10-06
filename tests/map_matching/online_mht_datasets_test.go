@@ -4,17 +4,20 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"math/rand"
 	"os"
 	"path/filepath"
+	"sort"
 	"testing"
 	"time"
 
+	"strings"
+
 	"github.com/golang/geo/s2"
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
-	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapattributes"
@@ -24,20 +27,21 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/spf13/viper"
 )
 
 const (
 	ommInitialSpeedMean   = 8.33333
 	ommInitialSpeedStd    = 8.3333
 	ommPosteriorThreshold = 0.001
-	ommGPSStd             = 11.0
+	ommGPSStd             = 8.0
 	ommLP                 = 0.000001
-	ommLC                 = 0.06
+	ommLC                 = 0.05
 	ommAccelerationStd    = 3.0
 
-	ommExpectedMaxGisCupRMF = 0.25
-	ommExpectedMaxMelbRMF   = 0.11
+	ommExpectedMaxGisCupRMF      = 0.25
+	ommExpectedMinGiscupAccuracy = 0.88
+	ommExpectedMaxMelbRMF        = 0.15
+	ommExpectedMaxHanwenhuRMF    = 0.12
 
 	melbourneResultPolyline = "data/eval/mapmatching/melbourne/result_polyline.txt"
 	melbourneGPSPolyline    = "data/eval/mapmatching/melbourne/gps_track_polyline.txt"
@@ -56,6 +60,16 @@ type ommTransitionQuery struct {
 func ommBuildOrReadTransitionMatrix(t *testing.T, re *engine.Engine[int32], graph *da.Graph, matrixPath string,
 	numQueries int) *da.SparseMatrix {
 	t.Helper()
+
+	if _, err := os.Stat(matrixPath); err == nil {
+		matrix, err := da.ReadSparseMatrixFromFile(matrixPath, 0, func(a, b uint32) bool { return a == b })
+		if err != nil {
+			t.Fatalf("read transition matrix %s failed: %v", matrixPath, err)
+		}
+		return matrix
+	} else if !os.IsNotExist(err) {
+		t.Fatalf("stat transition matrix %s failed: %v", matrixPath, err)
+	}
 
 	matrix := da.NewSparseMatrix(graph.NumberOfVertices(), graph.NumberOfVertices(), 0, func(a, b uint32) bool { return a == b })
 	rd := rand.New(rand.NewSource(1))
@@ -112,18 +126,7 @@ func ommBuildOrReadTransitionMatrix(t *testing.T, re *engine.Engine[int32], grap
 
 // go test ./tests/map_matching  -run TestNewsonKrummOnlineMapMatching  -v -timeout=0  -count=1
 func TestNewsonKrummOnlineMapMatching(t *testing.T) {
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatalf("FindProjectWorkingDir() failed: %v", err)
-	}
-	if err := config.ReadConfig(workingDir); err != nil {
-		t.Fatalf("ReadConfig() failed: %v", err)
-	}
-	vehicleType := viper.GetString("vehicle_type")
-	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-	pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
-	pkg.IsVehicleEnabled = pkg.GetIsVehicle()
-	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
+	workingDir := ohmmEnsureConfig(t)
 
 	eng, g, zlog, N, edgeLength, err := nkBuildRoadNetworkCRPGraph(t, workingDir)
 	if err != nil {
@@ -139,131 +142,17 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 		t.Fatalf("download ground truth failed: %v", err)
 	}
 
-	rtree := spatialindex.NewDynamicRtree()
-	dg := da.NewDynamicGraph()
-	onlineMM := online.NewOnlineMapMatchMHT(dg, rtree, 8.33333, 8.3333, 0.0001, 9.0, 0.0000001, 0.04, 3, N)
-
-	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0600)
-	if err != nil {
-		t.Fatalf("OpenFile(gps) failed: %v", err)
-	}
-	defer f.Close()
-	br := bufio.NewReader(f)
-
-	var (
-		prevLat, prevLon float64
-		prevTime         time.Time
-		hasPrev          bool
-		candidates       []*ma.Candidate
-		speedMeanK       = 8.333
-		speedStdK        = 8.333
-		lastBearing      = 0.0
-		k                = 1
-	)
-
-	mapMatchRes := make([]*da.MatchedGPSPoint, 0)
-	avgRuntimePerGPSPoint := 0.0
-	nowDataset := time.Now()
-
-	centerS2CellId := s2.SentinelCellID
 	re := eng.GetRoutingEngine()
 	met := re.GetMetrics()
 	rn := re.GetRoadNetworkContainer()
 	sidx := spatialindex.NewS2RoadSegmentsIndex(g, rn, zlog)
 	mapAttributesEngine := mapattributes.NewMapAttributesEngine(g, rn, zlog, met, sidx)
 
-	prevGps := da.NewGPSPoint(0, 0, time.Now(), 0, 0)
-	for {
-		line, err := util.ReadLine(br)
-		if err != nil && errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			t.Fatalf("read gps line failed: %v", err)
-		}
-		ff := util.Fields(line)
-		if ff[0] == "Date" {
-			continue
-		}
-		dateTime := string(ff[0]) + " " + string(ff[1])
-		lat, err := util.ParseTextFloat64(ff[2])
-		if err != nil {
-			t.Fatalf("parse lat failed: %v", err)
-		}
-		lon, err := util.ParseTextFloat64(ff[3])
-		if err != nil {
-			t.Fatalf("parse lon failed: %v", err)
-		}
-		curGPSTime, err := time.Parse("02-Jan-2006 15:04:05", dateTime)
-		if err != nil {
-			t.Fatalf("parse timestamp failed: %v", err)
-		}
-
-		deltaTime := 1.0
-		speed := 8.333
-		heading := 0.0
-		if hasPrev {
-			deltaTime = curGPSTime.Sub(prevTime).Seconds()
-			if util.Gt(deltaTime, 0) {
-				dist := geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon)
-				speed = util.KilometerToMeter(dist) / deltaTime
-			}
-			heading = geo.BearingTo(prevLat, prevLon, lat, lon)
-		} else {
-			hasPrev = true
-			heading = 0.0
-		}
-		prevLat, prevLon, prevTime = lat, lon, curGPSTime
-
-		now := time.Now()
-		curGPS := da.NewGPSPoint(lat, lon, curGPSTime, speed, deltaTime)
-		curGPS.SetDirectionAngle(heading)
-
-		currS2CellId := s2.CellIDFromLatLng(s2.LatLngFromDegrees(lat, lon)).Parent(15)
-
-		if centerS2CellId != currS2CellId {
-
-			buf, err := mapAttributesEngine.GetMapAttributes(currS2CellId)
-			err = dg.Rebuild(buf)
-			if err != nil {
-				if errors.Is(err, os.ErrNotExist) {
-					centerS2CellId = currS2CellId
-					candidates = candidates[:0]
-					dg.Reset()
-					rtree.Reset()
-					continue
-				}
-				t.Fatal(err)
-			}
-
-			// Rebuild the R-tree with the new tile data
-			rtree.Reset()
-			rtree.Rebuild(dg)
-
-			updatedCands := make([]*ma.Candidate, 0, len(candidates))
-			for _, c := range candidates {
-				segId := dg.GetGraphSegmentId(c.GetRoadNetworkId())
-				updatedCands = append(updatedCands, ma.NewCandidate(segId, c.GetWeight(), c.GetLength()))
-			}
-			candidates = updatedCands
-			centerS2CellId = currS2CellId
-		}
-
-		matchedPoint, nextCandidates, nextSpeedMeanK, nextSpeedStdK := onlineMM.OnlineMapMatch(prevGps, curGPS, k, candidates, speedMeanK, speedStdK, lastBearing)
-		candidates, speedMeanK, speedStdK = nextCandidates, nextSpeedMeanK, nextSpeedStdK
-		k++
-
-		if matchedPoint.GetSegmentId() != da.INVALID_SEGMENT_ID {
-			rnEdgeId := dg.GetRoadNetworkSegmentId(matchedPoint.GetSegmentId())
-			matchedPoint.SetSegmentId(rnEdgeId)
-		}
-
-		mapMatchRes = append(mapMatchRes, matchedPoint)
-		avgRuntimePerGPSPoint += float64(time.Since(now).Microseconds())
-		prevGps = curGPS
+	gpsTraj := nkReadGPSTrajectory(t, gpsDataFilepath)
+	matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(t, N, mapAttributesEngine, gpsTraj)
+	if len(matchedPoints) == 0 {
+		t.Fatalf("Newson-Krumm online MHT produced no matched points")
 	}
-
-	totalPoints := float64(k - 1)
-	totalRuntime := float64(time.Since(nowDataset).Milliseconds())
 
 	groundTruthFile, err := os.Open(groundTruthDataFilepath)
 	if err != nil {
@@ -300,9 +189,9 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 	lengthOfErrAdded := 0.0
 	lengthOfErrSubtracted := 0.0
 	matchedEdgeSet := make(map[uint64]float64)
-	matchedCoords := make([]da.Coordinate, 0, len(mapMatchRes))
+	matchedCoords := make([]da.Coordinate, 0, len(matchedPoints))
 
-	for _, point := range mapMatchRes {
+	for _, point := range matchedPoints {
 		mSegId := point.GetSegmentId()
 		if mSegId == da.INVALID_SEGMENT_ID {
 			continue
@@ -333,14 +222,15 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 		}
 	}
 
-	avgRuntimePerGPSPoint /= float64(k - 1)
+	// Route Mismatch Fraction (RMF):  https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
+	// or Route Mismatch Fraction (RMF):  https://dl.acm.org/doi/epdf/10.1145/2666310.2666383
 	rmf := (lengthOfErrAdded + lengthOfErrSubtracted) / lengthOfCorrectRoute
 	t.Logf("Route Mismatch Fraction (RMF): %v", rmf)
-	t.Logf("avg runtime per gpt point: %v microseconds/gps point", avgRuntimePerGPSPoint)
-	t.Logf("matching efficiency: %v points/ms", totalPoints/totalRuntime)
+	t.Logf("avg runtime per gps point: %v microseconds/gps point", avgRuntimeMicros)
+	t.Logf("total matched points: %v/%v", len(matchedPoints), len(gpsTraj))
 
 	polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
-	polyPath := filepath.Join(workingDir, "polyline.txt")
+	polyPath := filepath.Join(workingDir, "./data/eval/mapmatching/newsonkrumm/polyline.txt")
 	if err := util.EnsureDirExists(polyPath); err != nil {
 		t.Fatalf("ensure polyline dir failed: %v", err)
 	}
@@ -357,509 +247,421 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 	}
 }
 
-// func ommRunOnlineMHT(graph *da.Graph, rn *da.RoadNetworkDataContainer, transitionMatrix *da.SparseMatrix,
-// 	gpsTraj []*da.GPSPoint) ([]*da.MatchedGPSPoint, float64) {
+func ommRunOnlineMHT(t *testing.T,
+	transitionMatrix *da.SparseMatrix, mapAttributesEngine *mapattributes.MapAttributesEngine[int32],
+	gpsTraj []*da.GPSPoint) ([]*da.MatchedGPSPoint, float64) {
 
-// 	var (
-// 		candidates  []*ma.Candidate
-// 		speedMeanK  = ommInitialSpeedMean
-// 		speedStdK   = ommInitialSpeedStd
-// 		lastBearing = 0.0
-// 	)
+	var (
+		candidates     []*ma.Candidate
+		speedMeanK     = ommInitialSpeedMean
+		speedStdK      = ommInitialSpeedStd
+		lastBearing    = 0.0
+		centerS2CellId = s2.SentinelCellID
+	)
 
-// 	matchedPoints := make([]*da.MatchedGPSPoint, 0, len(gpsTraj))
-// 	totalRuntimeMicros := 0.0
-// 	prevGps := da.NewGPSPoint(0, 0, time.Now(), 0, 0)
+	matchedPoints := make([]*da.MatchedGPSPoint, 0, len(gpsTraj))
+	totalRuntimeMicros := 0.0
+	prevGps := da.NewGPSPoint(0, 0, time.Now(), 0, 0)
 
-// 	rtree := spatialindex.NewDynamicRtree()
-// 	dg := da.NewDynamicGraph()
-// 	onlineMM := online.NewOnlineMapMatchMHT(dg, rtree, 8.33333, 8.3333, 0.0001, 9.0, 0.0000001, 0.04, 3, N)
+	rtree := spatialindex.NewDynamicRtree()
+	dg := da.NewDynamicGraph()
+	onlineMM := online.NewOnlineMapMatchMHTClient(
+		dg,
+		rtree,
+		ommInitialSpeedMean,
+		ommInitialSpeedStd,
+		ommPosteriorThreshold,
+		ommGPSStd,
+		ommLP,
+		ommLC,
+		ommAccelerationStd,
+		transitionMatrix,
+	)
 
-// 	for i, gps := range gpsTraj {
-// 		heading := 0.0
-// 		if i > 0 {
-// 			heading = geo.BearingTo(prevGps.Lat(), prevGps.Lon(), gps.Lat(), gps.Lon())
-// 		}
-// 		gps.SetDirectionAngle(heading)
-// 		start := time.Now()
-// 		matchedPoint, nextCandidates, nextSpeedMeanK, nextSpeedStdK := onlineMM.OnlineMapMatch(
-// 			prevGps,
-// 			gps,
-// 			i+1,
-// 			candidates,
-// 			speedMeanK,
-// 			speedStdK,
-// 			lastBearing,
-// 		)
-// 		totalRuntimeMicros += float64(time.Since(start).Microseconds())
+	for i, gps := range gpsTraj {
+		deltaDist := 0.0
+		heading := 0.0
+		if i > 0 {
+			heading = geo.BearingTo(prevGps.Lat(), prevGps.Lon(), gps.Lat(), gps.Lon())
+			deltaDist = geo.CalculateGreatCircleDistance(prevGps.Lat(), prevGps.Lon(), gps.Lat(), gps.Lon())
+		}
+		gps.SetDirectionAngle(heading)
+		start := time.Now()
 
-// 		candidates = nextCandidates
-// 		speedMeanK = nextSpeedMeanK
-// 		speedStdK = nextSpeedStdK
-// 		lastBearing = matchedPoint.GetBearing()
-// 		matchedPoints = append(matchedPoints, matchedPoint)
-// 		prevGps = gps
-// 	}
+		currS2CellId := s2.CellIDFromLatLng(s2.LatLngFromDegrees(gps.Lat(), gps.Lon())).Parent(15)
+		if centerS2CellId != currS2CellId {
+			buf, err := mapAttributesEngine.GetMapAttributes(currS2CellId, deltaDist)
+			if err != nil {
+				t.Fatalf("GetMapAttributes failed: %v", err)
+			}
+			err = dg.Rebuild(buf)
+			if err != nil {
+				t.Fatalf("dg.Rebuild failed: %v", err)
+			}
+			rtree.Reset()
+			rtree.Rebuild(dg)
 
-// 	if len(gpsTraj) == 0 {
-// 		return matchedPoints, 0
-// 	}
-// 	return matchedPoints, totalRuntimeMicros / float64(len(gpsTraj))
-// }
+			updatedCands := make([]*ma.Candidate, 0, len(candidates))
+			for _, c := range candidates {
+				segId := dg.GetGraphSegmentId(c.GetRoadNetworkId())
+				if segId == da.INVALID_SEGMENT_ID {
+					continue
+				}
+				newC := ma.NewCandidate(segId, c.GetWeight(), c.GetLength())
+				newC.SetRoadNetworkId(c.GetRoadNetworkId())
+				updatedCands = append(updatedCands, newC)
+			}
+			candidates = updatedCands
+			centerS2CellId = currS2CellId
+		}
 
-// func ommComputeGisCupEdgeSetMetrics(graph *da.Graph, rn *da.RoadNetworkDataContainer, groundTruthEdgeIDs []uint64, matchedPoints []*da.MatchedGPSPoint,
-// 	edgeLengths map[uint64]float64) float64 {
-// 	groundTruthSet := make(map[uint64]bool)
-// 	lengthOfCorrectRoute := 0.0
-// 	for _, segmentId := range groundTruthEdgeIDs {
-// 		if groundTruthSet[segmentId] {
-// 			continue
-// 		}
-// 		groundTruthSet[segmentId] = true
-// 		lengthOfCorrectRoute += edgeLengths[segmentId]
-// 	}
+		matchedPoint, currCandidates, nextSpeedMeanK, nextSpeedStdK := onlineMM.OnlineMapMatch(
+			prevGps,
+			gps,
+			i+1,
+			candidates,
+			speedMeanK,
+			speedStdK,
+			lastBearing,
+		)
+		totalRuntimeMicros += float64(time.Since(start).Microseconds())
 
-// 	matchedEdgeSet := make(map[uint64]float64)
-// 	for _, point := range matchedPoints {
-// 		if point.GetSegmentId() == da.INVALID_SEGMENT_ID {
-// 			continue
-// 		}
-// 		dataEdgeID := rn.GetOsmWayId(point.GetSegmentId())
-// 		length, ok := edgeLengths[dataEdgeID]
-// 		if !ok {
-// 			continue
-// 		}
-// 		matchedEdgeSet[dataEdgeID] = length
-// 	}
+		candidates = currCandidates
+		speedMeanK = nextSpeedMeanK
+		speedStdK = nextSpeedStdK
+		lastBearing = matchedPoint.GetBearing()
+		matchedPoints = append(matchedPoints, matchedPoint)
+		prevGps = gps
+	}
 
-// 	lengthOfErrAdded := 0.0
-// 	for segmentId, length := range matchedEdgeSet {
-// 		if !groundTruthSet[segmentId] {
-// 			lengthOfErrAdded += length
-// 		}
-// 	}
+	if len(gpsTraj) == 0 {
+		return matchedPoints, 0
+	}
+	return matchedPoints, totalRuntimeMicros / float64(len(gpsTraj))
+}
 
-// 	lengthOfErrSubtracted := 0.0
-// 	for segmentId := range groundTruthSet {
-// 		if _, ok := matchedEdgeSet[segmentId]; !ok {
-// 			lengthOfErrSubtracted += edgeLengths[segmentId]
-// 		}
-// 	}
+func ommComputeGisCupOnlineMetrics(graph *da.Graph, rn *da.RoadNetworkDataContainer, groundTruthEdgeIDs []uint64, matchedPoints []*da.MatchedGPSPoint,
+	edgeLengths map[uint64]float64) (float64, float64) {
+	groundTruthSet := make(map[uint64]bool)
+	lengthOfCorrectRoute := 0.0
+	for _, segmentId := range groundTruthEdgeIDs {
+		if groundTruthSet[segmentId] {
+			continue
+		}
+		groundTruthSet[segmentId] = true
+		lengthOfCorrectRoute += edgeLengths[segmentId]
+	}
 
-// 	rmf := (lengthOfErrAdded + lengthOfErrSubtracted) / lengthOfCorrectRoute
-// 	return rmf
-// }
+	correct := 0.0
+	matchedEdgeSet := make(map[uint64]float64)
+	for i, point := range matchedPoints {
+		dataEdgeID := rn.GetOsmWayId(point.GetSegmentId())
+		length, ok := edgeLengths[dataEdgeID]
+		if !ok {
+			continue
+		}
+		matchedEdgeSet[dataEdgeID] = length
+		if groundTruthEdgeIDs[i] == dataEdgeID {
+			correct++
+		}
+	}
 
-// // todo: update kode ini, adjust setelah pakai edge-based graph
-// // https://web.archive.org/web/20130127211936/http://depts.washington.edu/giscup/home
-// // go test ./tests/map_matching  -run TestGisCupOnlineMHTMapMatching  -v -timeout=0  -count=1
-// func TestGisCupOnlineMHTMapMatching(t *testing.T) {
-// 	workingDir := ohmmEnsureConfig(t)
-// 	eng, graph, logger, edgeLengths := ohmmBuildGisCupCRPGraph(t, workingDir)
-// 	transitionMatrix := ommBuildOrReadTransitionMatrix(
-// 		t,
-// 		eng,
-// 		graph,
-// 		filepath.Join(workingDir, "data/eval/mapmatching/giscup/omm_transition_history_giscup.ntm"),
-// 		5000,
-// 	)
+	lengthOfErrAdded := 0.0
+	for segmentId, length := range matchedEdgeSet {
+		if !groundTruthSet[segmentId] {
+			lengthOfErrAdded += length
+		}
+	}
 
-// 	re := eng.GetRoutingEngine()
-// 	rn := re.GetRoadNetworkContainer()
-// 	cases, err := ohmmListGisCupCases(workingDir)
-// 	if err != nil {
-// 		t.Fatalf("list GIS Cup cases failed: %v", err)
-// 	}
+	lengthOfErrSubtracted := 0.0
+	for segmentId := range groundTruthSet {
+		if _, ok := matchedEdgeSet[segmentId]; !ok {
+			lengthOfErrSubtracted += edgeLengths[segmentId]
+		}
+	}
 
-// 	totalRMF := 0.0
-// 	totalPointAccuracy := 0.0
-// 	totalPoints := 0
-// 	for _, tc := range cases {
-// 		points, err := ohmmReadGisCupTrack(tc.inputFilePath)
-// 		if err != nil {
-// 			t.Fatalf("read GIS Cup track %s failed: %v", tc.id, err)
-// 		}
-// 		groundTruthEdgeIDs, err := ohmmReadGisCupGroundTruth(tc.outputFilePath)
-// 		if err != nil {
-// 			t.Fatalf("read GIS Cup ground truth %s failed: %v", tc.id, err)
-// 		}
+	// Route Mismatch Fraction (RMF):  https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf
+	// or Route Mismatch Fraction (RMF):  https://dl.acm.org/doi/epdf/10.1145/2666310.2666383
+	// section 6.1 accuracy: https://dl.acm.org/doi/epdf/10.1145/3725346
+	rmf := (lengthOfErrAdded + lengthOfErrSubtracted) / lengthOfCorrectRoute
+	n := float64(len(groundTruthEdgeIDs))
+	m := float64(len(matchedPoints))
+	if n != m {
+		return -1, rmf
+	}
+	acc := correct / n
+	return acc, rmf
+}
 
-// 		gpsTraj := ohmmGisCupGPSTrajectory(points)
-// 		matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(graph, rn, transitionMatrix, gpsTraj)
-// 		if len(matchedPoints) == 0 {
-// 			t.Fatalf("GIS Cup case %s produced no matched points", tc.id)
-// 		}
+// https://web.archive.org/web/20130127211936/http://depts.washington.edu/giscup/home
+// go test ./tests/map_matching  -run TestGisCupOnlineMHTMapMatching  -v -timeout=0  -count=1
+func TestGisCupOnlineMHTMapMatching(t *testing.T) {
+	workingDir := ohmmEnsureConfig(t)
+	eng, graph, zlog, edgeLengths := ohmmBuildGisCupCRPGraph(t, workingDir)
+	transitionMatrix := ommBuildOrReadTransitionMatrix(
+		t,
+		eng,
+		graph,
+		filepath.Join(workingDir, "data/eval/mapmatching/giscup/omm_transition_history_giscup.ntm"),
+		5000,
+	)
 
-// 		rmf := ommComputeGisCupEdgeSetMetrics(graph, rn, groundTruthEdgeIDs, matchedPoints, edgeLengths)
-// 		t.Logf("GIS Cup online MHT case %s: RMF=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
-// 			tc.id, rmf, len(matchedPoints), len(gpsTraj), avgRuntimeMicros)
+	re := eng.GetRoutingEngine()
+	rn := re.GetRoadNetworkContainer()
+	cases, err := ohmmListGisCupCases(workingDir)
+	if err != nil {
+		t.Fatalf("list GIS Cup cases failed: %v", err)
+	}
 
-// 		totalRMF += rmf
-// 		totalPoints += len(gpsTraj)
+	met := re.GetMetrics()
+	sidx := spatialindex.NewS2RoadSegmentsIndex(graph, rn, zlog)
+	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, zlog, met, sidx)
 
-// 		gpsCoords := make([]da.Coordinate, 0, len(gpsTraj))
-// 		matchedCoords := make([]da.Coordinate, 0, len(matchedPoints))
-// 		for i, p := range matchedPoints {
-// 			gpsCoords = append(gpsCoords, gpsTraj[i].GetCoordinate())
-// 			matchedCoords = append(matchedCoords, p.GetMatchedCoord())
-// 		}
+	totalRMF := 0.0
+	totalAcc := 0.0
+	totalPoints := 0
+	for _, tc := range cases {
+		points, err := ohmmReadGisCupTrack(tc.inputFilePath)
+		if err != nil {
+			t.Fatalf("read GIS Cup track %s failed: %v", tc.id, err)
+		}
+		groundTruthEdgeIDs, err := ohmmReadGisCupGroundTruth(tc.outputFilePath)
+		if err != nil {
+			t.Fatalf("read GIS Cup ground truth %s failed: %v", tc.id, err)
+		}
 
-// 		if err := os.MkdirAll(filepath.Dir(fmt.Sprintf(giscupGPSPolyline, tc.id)), 0700); err != nil {
-// 			t.Fatalf("create polyline directory failed: %v", err)
-// 		}
+		gpsTraj := ohmmGisCupGPSTrajectory(points)
+		matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(t, transitionMatrix, mapAttributesEngine, gpsTraj)
+		if len(matchedPoints) == 0 {
+			t.Fatalf("GIS Cup case %s produced no matched points", tc.id)
+		}
 
-// 		gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
-// 		if err := os.WriteFile(fmt.Sprintf(giscupGPSPolyline, tc.id), []byte(gpsTrackPolyline), 0600); err != nil {
-// 			panic(err)
-// 		}
+		acc, rmf := ommComputeGisCupOnlineMetrics(graph, rn, groundTruthEdgeIDs, matchedPoints, edgeLengths)
+		t.Logf("GIS Cup online MHT case %s: Accuracy=%v RMF=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
+			tc.id, acc, rmf, len(matchedPoints), len(gpsTraj), avgRuntimeMicros)
 
-// 		matchedPolyline := ""
-// 		if len(matchedCoords) > 0 {
-// 			matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
-// 		}
-// 		if err := os.WriteFile(fmt.Sprintf(giscupResultPolyline, tc.id), []byte(matchedPolyline), 0600); err != nil {
-// 			panic(err)
-// 		}
-// 		fmt.Printf("wrote matched polyline to %s\n", fmt.Sprintf(giscupResultPolyline, tc.id))
-// 		fmt.Printf("wrote gps trajectory polyline to %s\n", fmt.Sprintf(giscupGPSPolyline, tc.id))
-// 	}
+		totalAcc += acc
+		totalRMF += rmf
+		totalPoints += len(gpsTraj)
 
-// 	avgRMF := totalRMF / float64(len(cases))
-// 	avgPointAccuracy := totalPointAccuracy / float64(len(cases))
-// 	t.Logf("GIS Cup online MHT aggregate: cases=%d points=%d avg_RMF=%v avg_point_accuracy=%v",
-// 		len(cases), totalPoints, avgRMF, avgPointAccuracy)
+		gpsCoords := make([]da.Coordinate, 0, len(gpsTraj))
+		matchedCoords := make([]da.Coordinate, 0, len(matchedPoints))
+		for i, p := range matchedPoints {
+			gpsCoords = append(gpsCoords, gpsTraj[i].GetCoordinate())
+			matchedCoords = append(matchedCoords, p.GetMatchedCoord())
+		}
 
-// 	if avgRMF > ommExpectedMaxGisCupRMF {
-// 		t.Fatalf("GIS Cup online MHT RMF above threshold: got %v, want <= %v", avgRMF, ommExpectedMaxGisCupRMF)
-// 	}
+		if err := util.EnsureDirExists(fmt.Sprintf(giscupGPSPolyline, tc.id)); err != nil {
+			t.Fatalf("create polyline directory failed: %v", err)
+		}
 
-// }
+		gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
+		if err := os.WriteFile(fmt.Sprintf(giscupGPSPolyline, tc.id), []byte(gpsTrackPolyline), 0600); err != nil {
+			panic(err)
+		}
 
-// // // go test ./tests/map_matching  -run TestHengfengLiOnlineMHTMapMatching  -v -timeout=0  -count=1
-// // func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
-// // 	workingDir := ohmmEnsureConfig(t)
-// // 	eng, graph, logger, graphEdgeIDToMelbourneEdgeID, edgeLengthByID := ohmmBuildMelbourneCRPGraph(t, workingDir)
-// // 	transitionMatrix := ommBuildOrReadTransitionMatrix(
-// // 		t,
-// // 		eng,
-// // 		graph,
-// // 		filepath.Join(workingDir, "data/eval/mapmatching/melbourne/online_mht_transition_hl.ntm"),
-// // 		1000,
-// // 	)
+		matchedPolyline := ""
+		if len(matchedCoords) > 0 {
+			matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
+		}
+		if err := os.WriteFile(fmt.Sprintf(giscupResultPolyline, tc.id), []byte(matchedPolyline), 0600); err != nil {
+			panic(err)
+		}
+		fmt.Printf("wrote matched polyline to %s\n", fmt.Sprintf(giscupResultPolyline, tc.id))
+		fmt.Printf("wrote gps trajectory polyline to %s\n", fmt.Sprintf(giscupGPSPolyline, tc.id))
+	}
+	avgAcc := totalAcc / float64(len(cases))
+	avgRMF := totalRMF / float64(len(cases))
+	t.Logf("GIS Cup online MHT aggregate: cases=%d points=%d avg_Accuracy=%v avg_RMF=%v ",
+		len(cases), totalPoints, avgAcc, avgRMF)
 
-// // 	gpsPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/gps_track.txt")
-// // 	groundTruthPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/groundtruth.txt")
-// // 	points, err := ohmmReadMelbourneGPSTrack(gpsPath)
-// // 	if err != nil {
-// // 		t.Fatalf("read Melbourne GPS track failed: %v", err)
-// // 	}
-// // 	groundTruthEdgeIDs, err := ohmmReadMelbourneGroundTruthSegments(groundTruthPath)
-// // 	if err != nil {
-// // 		t.Fatalf("read Melbourne ground truth failed: %v", err)
-// // 	}
+	if avgRMF > ommExpectedMaxGisCupRMF {
+		t.Fatalf("GIS Cup online MHT RMF above threshold: got %v, want <= %v", avgRMF, ommExpectedMaxGisCupRMF)
+	}
 
-// // 	re := eng.GetRoutingEngine()
-// // 	rn := re.GetRoadNetworkContainer()
-// // 	rtree := spatialindex.NewRtree()
-// // 	rtree.Build(graph, rn, logger)
-// // 	gpsTraj := ohmmMelbourneGPSTrajectory(points)
-// // 	matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(graph, rtree, transitionMatrix, gpsTraj, func(eID da.Index) float64 {
-// // 		return re.GetSegmentLength(eID)
-// // 	})
-// // 	if len(matchedPoints) == 0 {
-// // 		t.Fatalf("Hengfeng Li online MHT produced no matched points")
-// // 	}
+	if util.Lt(avgAcc, ommExpectedMinGiscupAccuracy) {
+		t.Fatalf("GIS Cup online MHT Average Accuracy below threshold: got %v, want >= %v", avgAcc, ommExpectedMinGiscupAccuracy)
+	}
+}
 
-// // 	rmf := ohmmComputeMelbourneMetrics(matchedPoints, groundTruthEdgeIDs, graphEdgeIDToMelbourneEdgeID, edgeLengthByID)
-// // 	t.Logf("Hengfeng Li online MHT: RMF=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
-// // 		rmf, len(matchedPoints), len(gpsTraj), avgRuntimeMicros)
+// go test ./tests/map_matching  -run TestHengfengLiOnlineMHTMapMatching  -v -timeout=0  -count=1
+func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
+	workingDir := ohmmEnsureConfig(t)
+	eng, graph, logger, graphEdgeIDToMelbourneEdgeID, edgeLengthByID := ohmmBuildMelbourneCRPGraph(t, workingDir)
+	transitionMatrix := ommBuildOrReadTransitionMatrix(
+		t,
+		eng,
+		graph,
+		filepath.Join(workingDir, "data/eval/mapmatching/melbourne/online_mht_transition_hl.ntm"),
+		1000,
+	)
 
-// // 	if rmf > ommExpectedMaxMelbRMF {
-// // 		t.Fatalf("Hengfeng Li online MHT RMF above threshold: got %v, want <= %v", rmf, ommExpectedMaxMelbRMF)
-// // 	}
+	gpsPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/gps_track.txt")
+	groundTruthPath := filepath.Join(workingDir, "data/eval/mapmatching/melbourne/groundtruth.txt")
+	points, err := ohmmReadMelbourneGPSTrack(gpsPath)
+	if err != nil {
+		t.Fatalf("read Melbourne GPS track failed: %v", err)
+	}
+	groundTruthEdgeIDs, err := ohmmReadMelbourneGroundTruthSegments(groundTruthPath)
+	if err != nil {
+		t.Fatalf("read Melbourne ground truth failed: %v", err)
+	}
 
-// // 	gpsCoords := make([]da.Coordinate, 0, len(gpsTraj))
-// // 	matchedCoords := make([]da.Coordinate, 0, len(matchedPoints))
-// // 	for i, p := range matchedPoints {
-// // 		gpsCoords = append(gpsCoords, gpsTraj[i].GetCoordinate())
-// // 		matchedCoords = append(matchedCoords, p.GetMatchedCoord())
-// // 	}
+	re := eng.GetRoutingEngine()
+	rn := re.GetRoadNetworkContainer()
+	rtree := spatialindex.NewRtree()
+	rtree.Build(graph, rn, logger)
+	gpsTraj := ohmmMelbourneGPSTrajectory(points)
+	met := re.GetMetrics()
+	sidx := spatialindex.NewS2RoadSegmentsIndex(graph, rn, logger)
+	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, sidx)
 
-// // 	if err := os.MkdirAll(filepath.Dir(melbourneGPSPolyline), 0700); err != nil {
-// // 		t.Fatalf("create polyline directory failed: %v", err)
-// // 	}
+	matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(t, transitionMatrix, mapAttributesEngine, gpsTraj)
+	if len(matchedPoints) == 0 {
+		t.Fatalf("Hengfeng Li online MHT produced no matched points")
+	}
 
-// // 	gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
-// // 	if err := os.WriteFile(melbourneGPSPolyline, []byte(gpsTrackPolyline), 0600); err != nil {
-// // 		panic(err)
-// // 	}
+	rmf := ohmmComputeMelbourneMetrics(matchedPoints, groundTruthEdgeIDs, graphEdgeIDToMelbourneEdgeID, edgeLengthByID)
 
-// // 	matchedPolyline := ""
-// // 	if len(matchedCoords) > 0 {
-// // 		matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
-// // 	}
-// // 	if err := os.WriteFile(melbourneResultPolyline, []byte(matchedPolyline), 0600); err != nil {
-// // 		panic(err)
-// // 	}
-// // 	fmt.Printf("wrote matched polyline to %s\n", melbourneResultPolyline)
-// // 	fmt.Printf("wrote gps trajectory polyline to %s\n", melbourneGPSPolyline)
-// // }
+	t.Logf("Hengfeng Li online MHT: RMF=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
+		rmf, len(matchedPoints), len(gpsTraj), avgRuntimeMicros)
 
-// // // go test ./tests/map_matching  -run TestHanwenhuOnlineMapMatching  -v -timeout=0  -count=1
-// // func TestHanwenhuOnlineMapMatching(t *testing.T) {
-// // 	ensureHHConfig(t)
-// // 	workingDir, err := config.FindProjectWorkingDir()
-// // 	if err != nil {
-// // 		t.Fatalf("find project working dir failed: %v", err)
-// // 	}
+	if rmf > ommExpectedMaxMelbRMF {
+		t.Fatalf("Hengfeng Li online MHT RMF above threshold: got %v, want <= %v", rmf, ommExpectedMaxMelbRMF)
+	}
 
-// // 	eng, graph, logger, N := hhBuildCRPGraph(t)
-// // 	shanghaiDataFilePath := ohmmProjectPath(workingDir, hhShanghaiDataFilePath)
-// // 	if err := hhDownload(shanghaiDataFilePath, hhShanghaiDatasetDriveFile, logger, "shanghai dataset"); err != nil {
-// // 		t.Fatalf("download dataset failed: %v", err)
-// // 	}
-// // 	gzFile, err := os.Open(shanghaiDataFilePath)
-// // 	if err != nil {
-// // 		t.Fatalf("open shanghai tar.gz failed: %v", err)
-// // 	}
-// // 	defer gzFile.Close()
-// // 	if err := hhExtractTarGz(gzFile, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
-// // 		t.Fatalf("extract tar.gz failed: %v", err)
-// // 	}
-// // 	gpsTrajectories, err := hhReadAllCSVInDir(ohmmProjectPath(workingDir, hhShanghaiTestDataPath))
-// // 	if err != nil {
-// // 		t.Fatalf("read trajectories failed: %v", err)
-// // 	}
+	gpsCoords := make([]da.Coordinate, 0, len(gpsTraj))
+	matchedCoords := make([]da.Coordinate, 0, len(matchedPoints))
+	for i, p := range matchedPoints {
+		gpsCoords = append(gpsCoords, gpsTraj[i].GetCoordinate())
+		matchedCoords = append(matchedCoords, p.GetMatchedCoord())
+	}
 
-// // 	rtree := spatialindex.NewRtreeMapMatch()
+	if err := os.MkdirAll(filepath.Dir(melbourneGPSPolyline), 0700); err != nil {
+		t.Fatalf("create polyline directory failed: %v", err)
+	}
 
-// // 	mg := da.InitializeMapMatchingGraph(graph.NumberOfVertices())
-// // 	rtree.BuildMapMatch(mg, logger)
-// // 	onlineMapMatcherEngine := online.NewOnlineMapMatchMHTClient(mg, rtree, 8.33333, 8.3333, 0.001, 5.0, 0.000001, 0.04, 3, N)
-// // 	avgRuntimePerGpsPointAll := 0.0
-// // 	totalPoints := 0.0
-// // 	totalRuntime := 0.0
-// // 	matchingErrors := make([]float64, 0, len(gpsTrajectories))
+	gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
+	if err := os.WriteFile(melbourneGPSPolyline, []byte(gpsTrackPolyline), 0600); err != nil {
+		panic(err)
+	}
 
-// // 	re := eng.GetRoutingEngine()
-// // 	cf := re.GetCostFunction()
-// // 	rn := re.GetRoadNetworkContainer()
-// // 	mapAttributesEngine := tiler.NewMapAttributesEngine(graph, rn, logger, cf)
-// // 	centerGeohash := uint64(0)
+	matchedPolyline := ""
+	if len(matchedCoords) > 0 {
+		matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
+	}
+	if err := os.WriteFile(melbourneResultPolyline, []byte(matchedPolyline), 0600); err != nil {
+		panic(err)
+	}
+	fmt.Printf("wrote matched polyline to %s\n", melbourneResultPolyline)
+	fmt.Printf("wrote gps trajectory polyline to %s\n", melbourneGPSPolyline)
+}
 
-// // 	for trajName, gpsTraj := range gpsTrajectories {
-// // 		var (
-// // 			prevLat, prevLon float64
-// // 			hasPrev          bool
-// // 			candidates       []*ma.Candidate
-// // 			speedMeanK       = 8.333
-// // 			speedStdK        = 8.333
-// // 			lastBearing      = 0.0
-// // 			k                = 1
-// // 			matchedPoint     *da.MatchedGPSPoint
-// // 		)
-// // 		mapMatchPointResult := make([]*da.MatchedGPSPoint, 0)
-// // 		gpsTrackPolyline := make([]da.Coordinate, 0, len(gpsTraj))
-// // 		matchResultPolyline := make([]da.Coordinate, 0, len(gpsTraj))
-// // 		avgRuntimePerGpsPoint := 0.0
-// // 		nowDataset := time.Now()
+// go test ./tests/map_matching  -run TestHanwenhuOnlineMapMatching  -v -timeout=0  -count=1
+func TestHanwenhuOnlineMapMatching(t *testing.T) {
+	workingDir := ohmmEnsureConfig(t)
+	eng, graph, logger := ohmmBuildHanwenHuCRPGraph(t)
+	transitionMatrix := ommBuildOrReadTransitionMatrix(
+		t,
+		eng,
+		graph,
+		filepath.Join(workingDir, "data/eval/mapmatching/Shanghai/online_mht_transition_hh.ntm"),
+		1000,
+	)
 
-// // 		locatetime, err := util.ParseTextInt64(gpsTraj[0]["locatetime"])
-// // 		if err != nil {
-// // 			t.Fatalf("parse locatetime failed: %v", err)
-// // 		}
-// // 		startTime, err := hhUnixTimestampToTime(locatetime)
-// // 		if err != nil {
-// // 			t.Fatalf("convert unix time failed: %v", err)
-// // 		}
-// // 		curGpsTime := startTime
+	projectPath := func(path string) string {
+		return filepath.Join(workingDir, strings.TrimPrefix(path, "./"))
+	}
 
-// // 		prevGps := da.NewGPSPoint(0, 0, time.Now(), 0, 0)
+	shanghaiDataFilePath := projectPath(hhShanghaiDataFilePath)
+	shanghaiTestDataPath := projectPath(hhShanghaiTestDataPath)
+	shanghaiGroundTruthPath := projectPath(hhShanghaiGroundTruthPath)
+	shanghaiPolylinesPath := projectPath(hhShanghaiPolylinesPath)
 
-// // 		for i := 0; i < len(gpsTraj); i++ {
-// // 			gps := gpsTraj[i]
-// // 			lat, err := util.ParseTextFloat64(gps["lat"])
-// // 			if err != nil {
-// // 				t.Fatalf("parse lat failed: %v", err)
-// // 			}
-// // 			lon, err := util.ParseTextFloat64(gps["lon"])
-// // 			if err != nil {
-// // 				t.Fatalf("parse lon failed: %v", err)
-// // 			}
-// // 			deltaTime := 2.0
-// // 			speed := 8.333
-// // 			heading := 0.0
-// // 			if hasPrev {
-// // 				if util.Gt(deltaTime, 0) {
-// // 					dist := geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon)
-// // 					speed = util.KilometerToMeter(dist) / deltaTime
-// // 				}
-// // 				heading = geo.BearingTo(prevLat, prevLon, lat, lon)
-// // 			} else {
-// // 				hasPrev = true
-// // 				heading = 0.0
-// // 			}
-// // 			prevLat, prevLon = lat, lon
-// // 			gpsTrackPolyline = append(gpsTrackPolyline, da.NewCoordinate(lat, lon))
-// // 			now := time.Now()
-// // 			curGps := da.NewGPSPoint(lat, lon, curGpsTime, speed, deltaTime)
-// // 			curGps.SetDirectionAngle(heading)
+	if err := hhDownload(shanghaiDataFilePath, hhShanghaiDatasetDriveFile, logger, "shanghai dataset"); err != nil {
+		t.Fatalf("download dataset failed: %v", err)
+	}
+	gzFile, err := os.Open(shanghaiDataFilePath)
+	if err != nil {
+		t.Fatalf("open shanghai tar.gz failed: %v", err)
+	}
+	defer gzFile.Close()
+	if _, err := os.Stat(shanghaiTestDataPath); err != nil || func() bool { _, err := os.Stat(shanghaiGroundTruthPath); return err != nil }() {
+		if err := hhExtractTarGz(gzFile, filepath.Join(workingDir, "data/eval/mapmatching")); err != nil {
+			t.Fatalf("extract tar.gz failed: %v", err)
+		}
+	}
+	gpsTrajectories, err := hhReadAllCSVInDir(shanghaiTestDataPath)
+	if err != nil {
+		t.Fatalf("read trajectories failed: %v", err)
+	}
 
-// // 			currGeohash := geohash.EncodeIntWithPrecision(curGps.Lat(), curGps.Lon(), tiler.GeohashBits)
-// // 			if centerGeohash != currGeohash {
+	re := eng.GetRoutingEngine()
+	rn := re.GetRoadNetworkContainer()
+	met := re.GetMetrics()
+	sidx := spatialindex.NewS2RoadSegmentsIndex(graph, rn, logger)
+	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, sidx)
 
-// // 				rnCands := make([]*ma.Candidate, 0, len(candidates))
-// // 				for _, cand := range candidates {
-// // 					if cand == nil {
-// // 						continue
-// // 					}
-// // 					eId := cand.GetSegmentId()
+	trajectoryNames := make([]string, 0, len(gpsTrajectories))
+	for trajName := range gpsTrajectories {
+		trajectoryNames = append(trajectoryNames, trajName)
+	}
+	sort.Strings(trajectoryNames)
 
-// // 					rnCands = append(rnCands, ma.NewCandidate(mg.GetRoadnetworkEdgeId(eId), cand.Weight(), cand.Length()))
-// // 				}
+	matchingErrors := make([]float64, 0, len(trajectoryNames))
+	totalPoints := 0
+	totalRuntimeMicros := 0.0
+	totalRMF := 0.0
 
-// // 				tileFilepath := mapAttributesEngine.GetMapAttributes(geohash.ConvertIntToString(currGeohash, tiler.GeohashPrecision))
-// // 				err = mg.RebuildMapMatchGraph(tileFilepath)
-// // 				if err != nil {
-// // 					t.Fatal(err)
-// // 				}
+	for _, trajName := range trajectoryNames {
+		gpsTraj := gpsTrajectories[trajName]
+		gpsPoints := ohmmHanwenHuGPSTrajectory(t, gpsTraj)
 
-// // 				// Rebuild the R-tree with the new tile data
-// // 				rtree.Reset()
-// // 				rtree.BuildMapMatch(mg, logger)
+		matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(t, transitionMatrix, mapAttributesEngine, gpsPoints)
+		if len(matchedPoints) == 0 {
+			t.Fatalf("Hanwen-Hu trajectory %s produced no matched points", trajName)
+		}
 
-// // 				onlineMapMatcherEngine = online.NewOnlineMapMatchMHTClient(
-// // 					mg, rtree,
-// // 					8.33333,   // initialSpeedMean (m/s )
-// // 					8.3333,    // initialSpeedStd
-// // 					0.0001,    // posteriorThreshold
-// // 					10.0,      // gpsStd (meters)
-// // 					0.0000001, // lp
-// // 					0.04,      // lc (km ~40m search radius)
-// // 					3.0,       // accelerationStd
-// // 					N,
-// // 				)
+		trackID := hhTrackIDFromName(trajName)
+		resultPolylinePath := filepath.Join(shanghaiPolylinesPath, fmt.Sprintf("online_mht_result_polyline_%s.txt", trackID))
+		ohmmWritePolyline(t, resultPolylinePath, matchedPoints)
 
-// // 				updatedCands := make([]*ma.Candidate, 0, len(rnCands))
-// // 				for _, snapshot := range rnCands {
-// // 					newMapMatchEdgeID, ok := mg.GetMapMatchEdgeId(snapshot.GetSegmentId())
-// // 					if !ok {
-// // 						continue
-// // 					}
-// // 					updatedCands = append(updatedCands, ma.NewCandidate(newMapMatchEdgeID, snapshot.Weight(), snapshot.Length()))
-// // 				}
-// // 				candidates = updatedCands
+		groundTruth, err := hhReadCSV(filepath.Join(shanghaiGroundTruthPath, trajName))
+		if err != nil {
+			t.Fatalf("read Hanwen-Hu ground truth failed for %s: %v", trajName, err)
+		}
+		groundTruthLength := ohmmGroundTruthLength(t, groundTruth)
+		matchLength := ohmmMatchedLength(matchedPoints)
+		if util.Le(groundTruthLength, 0) {
+			t.Fatalf("Hanwen-Hu trajectory %s has zero ground truth length", trajName)
+		}
 
-// // 				centerGeohash = currGeohash
-// // 			}
+		rmf := math.Abs(matchLength-groundTruthLength) / groundTruthLength
+		matchingErrors = append(matchingErrors, rmf)
+		totalRMF += rmf
+		totalPoints += len(gpsPoints)
+		totalRuntimeMicros += avgRuntimeMicros * float64(len(gpsPoints))
 
-// // 			matchedPoint, candidates, speedMeanK, speedStdK = onlineMapMatcherEngine.OnlineMapMatch(prevGps, curGps, k, candidates, speedMeanK, speedStdK, lastBearing)
-// // 			k++
-// // 			lastBearing = matchedPoint.GetBearing()
-// // 			mapMatchPointResult = append(mapMatchPointResult, matchedPoint)
-// // 			if matchedPoint.GetEdgeId() != da.INVALID_SEGMENT_ID {
-// // 				matchResultPolyline = append(matchResultPolyline, matchedPoint.GetMatchedCoord())
-// // 			}
-// // 			avgRuntimePerGpsPoint += float64(time.Since(now).Microseconds())
-// // 			curGpsTime = curGpsTime.Add(2)
+		t.Logf("Hanwen-Hu trajectory %s: RMF=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
+			trajName, rmf, len(matchedPoints), len(gpsPoints), avgRuntimeMicros)
+	}
 
-// // 			prevGps = curGps
-// // 		}
+	sort.Float64s(matchingErrors)
+	avgRMF := totalRMF / float64(len(trajectoryNames))
+	avgRuntimePerPoint := totalRuntimeMicros / float64(totalPoints)
+	cdfAt014 := ohmmEmpiricalCDF(matchingErrors, 0.14)
+	cdfAt040 := ohmmEmpiricalCDF(matchingErrors, 0.40)
 
-// // 		trackID := hhTrackIDFromName(trajName)
-// // 		resultPolylinePath := filepath.Join(hhShanghaiPolylinesPath, fmt.Sprintf("result_polyline_%s.txt", trackID))
-// // 		if err := hhWritePolyline(resultPolylinePath, matchResultPolyline); err != nil {
-// // 			t.Fatalf("write result polyline failed for %s: %v", trajName, err)
-// // 		}
-// // 		gpsTrackPath := filepath.Join(hhShanghaiPolylinesPath, fmt.Sprintf("gps_track_%s.txt", trackID))
-// // 		if err := hhWritePolyline(gpsTrackPath, gpsTrackPolyline); err != nil {
-// // 			t.Fatalf("write gps polyline failed for %s: %v", trajName, err)
-// // 		}
+	t.Logf("Hanwen-Hu online MHT aggregate: trajectories=%d, points=%d, avg_runtime=%v microseconds/gps point, avg_RMF=%v, CDF(<=0.14)=%v, CDF(<=0.40)=%v",
+		len(trajectoryNames), totalPoints, avgRuntimePerPoint, avgRMF, cdfAt014, cdfAt040)
 
-// // 		avgRuntimePerGpsPointAll += avgRuntimePerGpsPoint / float64(len(gpsTraj))
-// // 		runtimeDataset := time.Since(nowDataset).Milliseconds()
-// // 		totalRuntime += float64(runtimeDataset)
-// // 		totalPoints += float64(len(gpsTraj))
-
-// // 		shanghaiGroundTruthPath := ohmmProjectPath(workingDir, hhShanghaiGroundTruthPath)
-// // 		groundTruth, err := hhReadCSV(filepath.Join(shanghaiGroundTruthPath, trajName))
-// // 		if err != nil {
-// // 			t.Fatalf("read ground truth failed: %v", err)
-// // 		}
-// // 		groundTruthLength := 0.0
-// // 		for j := 1; j < len(groundTruth); j++ {
-// // 			prevGt := groundTruth[j-1]
-// // 			prevLat, err := util.ParseTextFloat64(prevGt["lat"])
-// // 			if err != nil {
-// // 				t.Fatalf("parse gt prev lat failed: %v", err)
-// // 			}
-// // 			prevLon, err := util.ParseTextFloat64(prevGt["lon"])
-// // 			if err != nil {
-// // 				t.Fatalf("parse gt prev lon failed: %v", err)
-// // 			}
-// // 			gt := groundTruth[j]
-// // 			lat, err := util.ParseTextFloat64(gt["lat"])
-// // 			if err != nil {
-// // 				t.Fatalf("parse gt lat failed: %v", err)
-// // 			}
-// // 			lon, err := util.ParseTextFloat64(gt["lon"])
-// // 			if err != nil {
-// // 				t.Fatalf("parse gt lon failed: %v", err)
-// // 			}
-// // 			dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon))
-// // 			groundTruthLength += dist
-// // 		}
-
-// // 		start := 0
-// // 		prevMp := mapMatchPointResult[start]
-// // 		if prevMp.GetEdgeId() == da.INVALID_SEGMENT_ID {
-// // 			for q := start + 1; q < len(mapMatchPointResult); q++ {
-// // 				if mapMatchPointResult[q].GetEdgeId() != da.INVALID_SEGMENT_ID {
-// // 					prevMp = mapMatchPointResult[q]
-// // 					start = q
-// // 					break
-// // 				}
-// // 			}
-// // 		}
-
-// // 		matchLength := 0.0
-// // 		for j := start + 1; j < len(mapMatchPointResult); j++ {
-// // 			prevLat := prevMp.GetMatchedCoord().GetLat()
-// // 			prevLon := prevMp.GetMatchedCoord().GetLon()
-// // 			mp := mapMatchPointResult[j]
-// // 			lat := mp.GetMatchedCoord().GetLat()
-// // 			lon := mp.GetMatchedCoord().GetLon()
-// // 			if mp.GetEdgeId() != da.INVALID_SEGMENT_ID {
-// // 				dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(prevLat, prevLon, lat, lon))
-// // 				matchLength += dist
-// // 				prevMp = mp
-// // 			}
-// // 		}
-
-// // 		matchingError := math.Abs(matchLength-groundTruthLength) / groundTruthLength
-// // 		matchingErrors = append(matchingErrors, matchingError)
-// // 		t.Logf("trajectory %v completed", trajName)
-// // 	}
-
-// // 	avgRuntimePerGpsPointAll /= float64(len(gpsTrajectories))
-// // 	t.Logf("avg runtime per gpt point: %v microseconds", avgRuntimePerGpsPointAll)
-// // 	t.Logf("matching efficiency: %v points/ms", totalPoints/totalRuntime)
-
-// // 	sort.Float64s(matchingErrors)
-// // 	t.Logf("%-15s %-10s", "Error", "CDF P(X<=x)")
-// // 	t.Logf("-------------------------")
-
-// // 	for x := 0.02; util.Le(x, 0.4); x += 0.01 {
-// // 		y := stat.CDF(x, stat.Empirical, matchingErrors, nil)
-// // 		t.Logf("%-15.4f %-10.4f", x, y)
-// // 	}
-// // 	cdfAtPointFourteen := stat.CDF(0.14, stat.Empirical, matchingErrors, nil)
-// // 	if util.Lt(cdfAtPointFourteen, 0.95) {
-// // 		t.Fatalf("expected CDF P(X<=0.14) to be at least 0.95, got %v", cdfAtPointFourteen)
-// // 	}
-
-// // 	cdfAtPointFourty := stat.CDF(0.4, stat.Empirical, matchingErrors, nil)
-// // 	if util.Lt(cdfAtPointFourty, 0.995) {
-// // 		t.Fatalf("expected CDF P(X<=0.4) to be at least 0.995, got %v", cdfAtPointFourty)
-// // 	}
-// // }
+	if avgRMF > ommExpectedMaxHanwenhuRMF {
+		t.Fatalf("Hanwen-Hu online MHT avg RMF above threshold: got %v, want <= %v", avgRMF, ommExpectedMaxHanwenhuRMF)
+	}
+	if cdfAt014 < ohmmExpectedMinHHCDFAt014 {
+		t.Fatalf("Hanwen-Hu CDF(<=0.14) below threshold: got %v, want >= %v", cdfAt014, ohmmExpectedMinHHCDFAt014)
+	}
+	if cdfAt040 < ohmmExpectedMinHHCDFAt040 {
+		t.Fatalf("Hanwen-Hu CDF(<=0.40) below threshold: got %v, want >= %v", cdfAt040, ohmmExpectedMinHHCDFAt040)
+	}
+}

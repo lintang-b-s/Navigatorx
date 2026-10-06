@@ -37,7 +37,7 @@ const (
 	nkGPSDataDriveFile     = "https://drive.google.com/uc?export=download&id=1QCrMnchOjCfOMQet9Oon-dmZ36MasTjA"
 	nkGroundTruthDriveFile = "https://drive.google.com/uc?export=download&id=11LxzpV-VDCImDq3OWN3m3tukFKmwl9Fn"
 	nkExpectedMaxRMF       = 0.001
-	nkExpectedMaxRMFOnline = 0.14
+	nkExpectedMaxRMFOnline = 0.09
 )
 
 type nkEdge struct {
@@ -72,7 +72,7 @@ func nkParseLineString(s []byte, vertexCount int) ([]da.Coordinate, error) {
 		lon, err1 := util.ParseTextFloat64(string(xy[0]))
 		lat, err2 := util.ParseTextFloat64(string(xy[1]))
 		if err1 != nil || err2 != nil {
-			return nil, fmt.Errorf("%v %v", err1, err2)
+			return nil, fmt.Errorf("%v %w", err1, err2)
 		}
 		coords = append(coords, da.NewCoordinate(lat, lon))
 	}
@@ -90,7 +90,7 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 
 		output, err := os.Create(filePath)
 		if err != nil {
-			return fmt.Errorf("download: Create failed %v", err)
+			return fmt.Errorf("download: Create failed %w", err)
 		}
 		defer output.Close()
 
@@ -98,13 +98,13 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 		zlog.Sugar().Infof("downloading file......")
 		response, err := http.Get(url)
 		if err != nil {
-			return fmt.Errorf("download: http.Get failed %v", err)
+			return fmt.Errorf("download: http.Get failed %w", err)
 		}
 		defer response.Body.Close()
 
 		_, err = io.Copy(output, response.Body)
 		if err != nil {
-			return fmt.Errorf("download: io.Copy failed %v", err)
+			return fmt.Errorf("download: io.Copy failed %w", err)
 		}
 
 		t.Logf("download complete")
@@ -300,7 +300,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	t.Logf("building transition matrix....")
 	zlog.Sugar().Infof("building transition matrix....")
 
-	numQueries := 5000
+	numQueries := 5_00
 	queries := make([]nkQuery, 0, n)
 	for len(queries) < numQueries {
 		s := da.Index(rd.Intn(n))

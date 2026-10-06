@@ -18,6 +18,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -286,8 +287,15 @@ func (api *routingAPI) getMapAttributes(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 
+	query := r.URL.Query()
+	radius := query.Get("radius")
+	radiusf, err := strconv.ParseFloat(radius, 64)
+	if err != nil || util.Lt(radiusf, 0.0) {
+		api.BadRequestResponse(w, r, fmt.Errorf("radius is not valid: %s", radius))
+		return
+	}
 	ctx := r.Context()
-	buf, err := api.mapAttributesService.GetMapAttributes(ctx, s2.CellID(s2CellId)) // masih todo
+	buf, err := api.mapAttributesService.GetMapAttributes(ctx, s2.CellID(s2CellId), radiusf) // masih todo
 	if err != nil {
 		api.ServerErrorResponse(w, r, err)
 	}

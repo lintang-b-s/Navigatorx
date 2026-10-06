@@ -41,5 +41,5 @@ type MapMatcherService interface {
 
 // MapAttributesService  https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 type MapAttributesService interface {
-	GetMapAttributes(ctx context.Context, s2CellId s2.CellID) ([]byte, error)
+	GetMapAttributes(ctx context.Context, s2CellId s2.CellID, radius float64) ([]byte, error)
 }

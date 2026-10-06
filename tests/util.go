@@ -144,13 +144,13 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 		logger.Sugar().Infof("downloading evaluation %s dataset.....", name)
 
 		if err := util.EnsureDirExists(filePath); err != nil {
-			return fmt.Errorf("download: EnsureDirExists failed %v", err)
+			return fmt.Errorf("download: EnsureDirExists failed %w", err)
 		}
 
 		tmpFilePath := filePath + ".tmp"
 		output, err := os.Create(tmpFilePath)
 		if err != nil {
-			return fmt.Errorf("download: Create failed %v", err)
+			return fmt.Errorf("download: Create failed %w", err)
 		}
 
 		logger.Sugar().Infof("downloading file......")
@@ -158,7 +158,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 		if err != nil {
 			_ = output.Close()
 			_ = os.Remove(tmpFilePath)
-			return fmt.Errorf("download: http.Get failed %v", err)
+			return fmt.Errorf("download: http.Get failed %w", err)
 		}
 		defer response.Body.Close()
 
@@ -166,11 +166,11 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 		closeErr := output.Close()
 		if err != nil {
 			_ = os.Remove(tmpFilePath)
-			return fmt.Errorf("download: io.Copy failed %v", err)
+			return fmt.Errorf("download: io.Copy failed %w", err)
 		}
 		if closeErr != nil {
 			_ = os.Remove(tmpFilePath)
-			return fmt.Errorf("download: output.Close failed %v", closeErr)
+			return fmt.Errorf("download: output.Close failed %w", closeErr)
 		}
 
 		isHTML := strings.Contains(strings.ToLower(response.Header.Get("Content-Type")), "text/html")
@@ -178,7 +178,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 			isHTML, err = isHTMLDocument(tmpFilePath)
 			if err != nil {
 				_ = os.Remove(tmpFilePath)
-				return fmt.Errorf("download: detect html failed %v", err)
+				return fmt.Errorf("download: detect html failed %w", err)
 			}
 		}
 
@@ -197,7 +197,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 		} else {
 			if err := os.Rename(tmpFilePath, filePath); err != nil {
 				_ = os.Remove(tmpFilePath)
-				return fmt.Errorf("download: rename temp file failed %v", err)
+				return fmt.Errorf("download: rename temp file failed %w", err)
 			}
 		}
 
@@ -298,12 +298,12 @@ func ensureGDownInstalled() error {
 func ExtractZip(zipPath, destDir string) error {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return fmt.Errorf("extractZip: OpenReader failed %v", err)
+		return fmt.Errorf("extractZip: OpenReader failed %w", err)
 	}
 	defer reader.Close()
 
 	if err := util.EnsureDirExists(destDir); err != nil {
-		return fmt.Errorf("extractZip: MkdirAll failed %v", err)
+		return fmt.Errorf("extractZip: MkdirAll failed %w", err)
 	}
 
 	destDir = filepath.Clean(destDir)
@@ -319,31 +319,31 @@ func ExtractZip(zipPath, destDir string) error {
 
 		if file.FileInfo().IsDir() {
 			if err := util.EnsureDirExists(targetPath); err != nil {
-				return fmt.Errorf("extractZip: MkdirAll failed %v", err)
+				return fmt.Errorf("extractZip: MkdirAll failed %w", err)
 			}
 			continue
 		}
 
 		if err := util.EnsureDirExists(cleanTargetPath); err != nil {
-			return fmt.Errorf("extractZip: EnsureDirExists failed %v", err)
+			return fmt.Errorf("extractZip: EnsureDirExists failed %w", err)
 		}
 
 		src, err := file.Open()
 		if err != nil {
-			return fmt.Errorf("extractZip: File.Open failed %v", err)
+			return fmt.Errorf("extractZip: File.Open failed %w", err)
 		}
 
 		dst, err := os.OpenFile(cleanTargetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			src.Close()
-			return fmt.Errorf("extractZip: OpenFile failed %v", err)
+			return fmt.Errorf("extractZip: OpenFile failed %w", err)
 		}
 
 		_, err = io.Copy(dst, src)
 		closeErr := dst.Close()
 		srcCloseErr := src.Close()
 		if err != nil {
-			return fmt.Errorf("extractZip: io.Copy failed %v", err)
+			return fmt.Errorf("extractZip: io.Copy failed %w", err)
 		}
 		if closeErr != nil {
 			return fmt.Errorf("extractZip: dst.Close failed %v", closeErr)

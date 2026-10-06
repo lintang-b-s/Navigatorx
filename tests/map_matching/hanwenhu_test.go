@@ -3,13 +3,11 @@ package onlinemapmatching
 import (
 	"archive/tar"
 	"compress/gzip"
-	"context"
 	"encoding/csv"
 	"errors"
 	"flag"
 	"fmt"
 	"io"
-	"math/rand"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -19,12 +17,10 @@ import (
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
@@ -91,17 +87,17 @@ func hhDownload(filePath, url string, logger *zap.Logger, name string) error {
 		}
 		output, err := os.Create(filePath)
 		if err != nil {
-			return fmt.Errorf("download: Create failed %v", err)
+			return fmt.Errorf("download: Create failed %w", err)
 		}
 		defer output.Close()
 		logger.Sugar().Infof("downloading file......")
 		response, err := http.Get(url)
 		if err != nil {
-			return fmt.Errorf("download: http.Get failed %v", err)
+			return fmt.Errorf("download: http.Get failed %w", err)
 		}
 		defer response.Body.Close()
 		if _, err = io.Copy(output, response.Body); err != nil {
-			return fmt.Errorf("download: io.Copy failed %v", err)
+			return fmt.Errorf("download: io.Copy failed %w", err)
 		}
 		logger.Sugar().Infof("download complete")
 	}
@@ -156,68 +152,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	logger.Sugar().Infof("customization phase of Customizable Route Planning (CRP) done....")
 	t.Logf("customization phase of Customizable Route Planning (CRP) done....")
 
-	n := graph.NumberOfVertices()
-	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
-	logger.Sugar().Infof("building transition matrix....")
-	t.Logf("building transition matrix....")
-	numQueries := 1000
-	i := 0
-	queries := make([]hhQuery, 0, n)
-	for i < numQueries {
-		s := da.Index(rd.Intn(n))
-		tt := da.Index(rd.Intn(n))
-		if s == tt || !graph.PathExists(s, tt) {
-			continue
-		}
-		queries = append(queries, newHHQuery(s, tt))
-		i++
-	}
-
-	computeRoute := func(q hhQuery) []da.Index {
-		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
-		_, spPath, _ := crpQuery.ShortestPathSearch(q.s, q.t)
-		return spPath
-	}
-
-	workers := concurrent.NewWorkerPool[hhQuery, []da.Index](100, 25_000)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	workers.StartWithContext(ctx, computeRoute)
-
-	var N *da.SparseMatrix
-	N = da.NewSparseMatrix(graph.NumberOfEdges(), graph.NumberOfEdges(), 0, func(a, b uint32) bool { return a == b })
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		counter := 0
-		for spEdges := range workers.CollectResults() {
-			if len(spEdges) == 0 {
-				continue
-			}
-			for j := 0; j < len(spEdges)-1; j++ {
-				e := int(spEdges[j])
-				eNext := int(spEdges[j+1])
-				N.Set(N.Get(e, eNext)+1, e, eNext)
-			}
-			counter++
-			if counter%100 == 0 {
-				t.Logf("completed query: %v", counter)
-			}
-		}
-		wg.Done()
-	}()
-
-	for _, qq := range queries {
-		workers.AddJob(qq)
-	}
-	workers.Close()
-	workers.Wait()
-	cancel()
-	wg.Wait()
-	logger.Sugar().Infof(" transition matrix built....")
-	t.Logf("transition matrix built....")
-	return re, graph, logger, N
+	return re, graph, logger, nil
 }
 
 func hhReadCSV(filePath string) ([]map[string]string, error) {
@@ -280,7 +215,7 @@ func hhExtractTarGz(gzipStream io.Reader, destDir string) error {
 	}
 	uncompressedStream, err := gzip.NewReader(gzipStream)
 	if err != nil {
-		return fmt.Errorf("extractTarGz: gzip NewReader failed: %v", err)
+		return fmt.Errorf("extractTarGz: gzip NewReader failed: %w", err)
 	}
 	tarReader := tar.NewReader(uncompressedStream)
 	for {
@@ -289,25 +224,25 @@ func hhExtractTarGz(gzipStream io.Reader, destDir string) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("extractTarGz: Next() failed: %v", err)
+			return fmt.Errorf("extractTarGz: Next() failed: %w", err)
 		}
 		targetPath := filepath.Join(destDir, header.Name)
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := util.EnsureDirExists(targetPath); err != nil {
-				return fmt.Errorf("extractTarGz: mkdir failed: %v", err)
+				return fmt.Errorf("extractTarGz: mkdir failed: %w", err)
 			}
 		case tar.TypeReg:
 			if err := util.EnsureDirExists(targetPath); err != nil {
-				return fmt.Errorf("extractTarGz: mkdir for file failed: %v", err)
+				return fmt.Errorf("extractTarGz: mkdir for file failed: %w", err)
 			}
 			outFile, err := os.Create(targetPath)
 			if err != nil {
-				return fmt.Errorf("extractTarGz: Create failed: %v", err)
+				return fmt.Errorf("extractTarGz: Create failed: %w", err)
 			}
 			if _, err := io.Copy(outFile, tarReader); err != nil {
 				outFile.Close()
-				return fmt.Errorf("extractTarGz: Copy failed: %v", err)
+				return fmt.Errorf("extractTarGz: Copy failed: %w", err)
 			}
 			outFile.Close()
 		default:
@@ -325,11 +260,11 @@ func hhTrackIDFromName(trajName string) string {
 
 func hhWritePolyline(filePath string, points []da.Coordinate) error {
 	if err := util.EnsureDirExists(filePath); err != nil {
-		return fmt.Errorf("write polyline: mkdir failed: %v", err)
+		return fmt.Errorf("write polyline: mkdir failed: %w", err)
 	}
 	polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(points))
 	if err := os.WriteFile(filePath, []byte(polyline), 0600); err != nil {
-		return fmt.Errorf("write polyline: write file failed: %v", err)
+		return fmt.Errorf("write polyline: write file failed: %w", err)
 	}
 	return nil
 }

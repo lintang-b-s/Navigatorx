@@ -88,12 +88,15 @@ func (dg *DynamicGraph) GetRoadNetworkSegmentId(u Index) Index {
 
 func (dg *DynamicGraph) GetGraphSegmentId(uRnId Index) Index {
 	g := dg.g.Load()
-	n := len(g.vertices)
+	n := len(g.vertices) - 1 // exclude dummy vertex
 
 	u := sort.Search(n, func(i int) bool { // g.vertices already sorted by its rnId in ascending order (see map_attributes_engine.go GetMapAttributes)  O(log(n))
 		return g.vertices[i].rnId >= uRnId
 	})
-	return Index(u)
+	if g.vertices[u].rnId == uRnId {
+		return Index(u)
+	}
+	return INVALID_SEGMENT_ID
 }
 
 func (dg *DynamicGraph) Rebuild(buf []byte) error {
@@ -103,7 +106,7 @@ func (dg *DynamicGraph) Rebuild(buf []byte) error {
 
 	n, err := br.Length()
 	if err != nil {
-		return fmt.Errorf("DynamicGraph.Rebuild: failed to read length of segments %v", err)
+		return fmt.Errorf("DynamicGraph.Rebuild: failed to read length of segments %w", err)
 	}
 	vertices := make([]ClientVertex, n)
 	segmentGeometry := make([][]Coordinate, n)
@@ -115,23 +118,23 @@ func (dg *DynamicGraph) Rebuild(buf []byte) error {
 	for u := uint32(0); u < n; u++ {
 		rnId, err := br.Uint32()
 		if err != nil {
-			return fmt.Errorf("DynamicGraph.Rebuild: failed to read segment road network id %v", err)
+			return fmt.Errorf("DynamicGraph.Rebuild: failed to read segment road network id %w", err)
 		}
 		speed, err := br.Float64()
 		if err != nil {
-			return fmt.Errorf("DynamicGraph.Rebuild: failed to read segment speed %v", err)
+			return fmt.Errorf("DynamicGraph.Rebuild: failed to read segment speed %w", err)
 		}
 		length, err := br.Float64()
 		if err != nil {
-			return fmt.Errorf("DynamicGraph.Rebuild: failed to read segment length %v", err)
+			return fmt.Errorf("DynamicGraph.Rebuild: failed to read segment length %w", err)
 		}
 		gpoly, err := br.String()
 		if err != nil {
-			return fmt.Errorf("DynamicGraph.Rebuild: failed to read segment geometry polyline %v", err)
+			return fmt.Errorf("DynamicGraph.Rebuild: failed to read segment geometry polyline %w", err)
 		}
 		geometry, _, err := polyline.DecodeCoords([]byte(gpoly))
 		if err != nil {
-			return fmt.Errorf("DynamicGraph.Rebuild: failed to decode segment geometry polyline %v", err)
+			return fmt.Errorf("DynamicGraph.Rebuild: failed to decode segment geometry polyline %w", err)
 		}
 		geometryCoords := NewCoordinates(geometry)
 		vm[Index(rnId)] = u
@@ -144,7 +147,7 @@ func (dg *DynamicGraph) Rebuild(buf []byte) error {
 	// vertices already sorted by its rnId
 	nt, err := br.Uint32()
 	if err != nil {
-		return fmt.Errorf("DynamicGraph.Rebuild: failed to read length of turns %v", err)
+		return fmt.Errorf("DynamicGraph.Rebuild: failed to read length of turns %w", err)
 	}
 	tails := make([]Index, nt)
 	heads := make([]Index, nt)
@@ -153,15 +156,15 @@ func (dg *DynamicGraph) Rebuild(buf []byte) error {
 	for i := uint32(0); i < nt; i++ {
 		weight, err := br.Uint32()
 		if err != nil {
-			return fmt.Errorf("DynamicGraph.Rebuild: failed to read edge weight %v", err)
+			return fmt.Errorf("DynamicGraph.Rebuild: failed to read edge weight %w", err)
 		}
 		u, err := br.Uint32() // road network (or routing engine) segment id for tail u
 		if err != nil {
-			return fmt.Errorf("DynamicGraph.Rebuild: failed to read edge tail vertex %v", err)
+			return fmt.Errorf("DynamicGraph.Rebuild: failed to read edge tail vertex %w", err)
 		}
 		v, err := br.Uint32() // road network (or routing engine) segment id for head v
 		if err != nil {
-			return fmt.Errorf("DynamicGraph.Rebuild: failed to read edge head vertex %v", err)
+			return fmt.Errorf("DynamicGraph.Rebuild: failed to read edge head vertex %w", err)
 		}
 		uId, ok := (vm[Index(u)])
 		if !ok {

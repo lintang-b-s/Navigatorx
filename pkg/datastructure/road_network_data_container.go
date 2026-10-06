@@ -25,7 +25,7 @@ type RoadNetworkDataContainer struct {
 	conditionalTrafficModes     []ConditionalTrafficMode
 	conditionalTurnRestrictions []ConditionalTurnRestriction
 
-	// annotation data dari edges
+	// annotation data dari road segments
 	// diset saat osmparser
 	segmentTurnLanesData    []TurnLanesData // segmentTurnLanesData[i] is the turnLanesData for road segment/edge with id=i
 	segmentOsmWayId         *PackedSlice    // map dari segment id ke osm way id dari edge

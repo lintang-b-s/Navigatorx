@@ -68,7 +68,7 @@ func initializeRoutingEngine[W util.RoutingNumber](graphFilePath, overlayGraphFi
 		return nil, fmt.Errorf("initializeRoutingEngine: failed to read overlay graph from %s: %w", overlayGraphFilePath, err)
 	}
 
-	logger.Info("Reading stalling tables & metrics...")
+	logger.Info("Reading metrics...")
 
 	m, err := metrics.ReadFromFile[W](metricsFilePath, timeFunctionFilePath)
 	if err != nil {

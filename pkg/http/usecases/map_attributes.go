@@ -20,7 +20,7 @@ func NewMapAttributesService(log *zap.Logger, mapAttributesEngine MapAttributesE
 	}
 }
 
-func (ms *MapAttributesService) GetMapAttributes(ctx context.Context, s2CellId s2.CellID) ([]byte, error) {
-	mvt, err := ms.mapAttributesEngine.GetMapAttributes(s2CellId)
+func (ms *MapAttributesService) GetMapAttributes(ctx context.Context, s2CellId s2.CellID, radius float64) ([]byte, error) {
+	mvt, err := ms.mapAttributesEngine.GetMapAttributes(s2CellId, radius)
 	return mvt, err
 }
