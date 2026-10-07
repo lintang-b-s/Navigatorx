@@ -11,7 +11,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// todo: update kode ini
+// todo: update kode ini. DONE
 // todo2: implement eddy online map matching: https://dl.acm.org/doi/epdf/10.1145/2666310.2666383
 // di figure 7 (a) https://dl.acm.org/doi/epdf/10.1145/2666310.2666383  dengan matching latency 1s RMF di seattle dataset (sama kaya TestNewsonKrummOnlineMapMatching) cuma ~7%, sedangkan ini ~7.2% (lihat TestNewsonKrummOnlineMapMatching)
 

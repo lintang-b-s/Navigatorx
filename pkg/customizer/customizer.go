@@ -371,8 +371,8 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 
 			*/
 			for i := range entries {
-				startOverlayVertexId := c.overlayGraph.GetCellEntry(cell, i)
-				overlayVertex := c.overlayGraph.GetVertex(startOverlayVertexId)
+				sOvId := c.overlayGraph.GetCellEntry(cell, i)
+				overlayVertex := c.overlayGraph.GetVertex(sOvId)
 				start := overlayVertex.GetOrigVId()
 
 				pq := c.levelOneHeapPool.Get().(*da.QueryHeap[da.QueryKey, W])
@@ -546,12 +546,12 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 					c.upperLevelHeapPool.Put(pq)
 				}
 
-				startOverlayVertexId := c.overlayGraph.GetCellEntry(cell, i)
+				sOvId := c.overlayGraph.GetCellEntry(cell, i)
 
 				noPar := da.NewParentVertex(da.INVALID_VERTEX_ID)
 				sVertexData := da.NewVData(W(0), noPar)
 
-				pq.Insert(startOverlayVertexId, 0, sVertexData, startOverlayVertexId)
+				pq.Insert(sOvId, 0, sVertexData, sOvId)
 
 				for !pq.IsEmpty() {
 					pqNode := pq.ExtractMin()

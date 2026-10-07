@@ -114,7 +114,7 @@ func (si *S2RoadSegmentsIndex) GetCellsByRadius(p s2.Point, radius float64) []s2
 // S=2*pi*R*h. where h is the spherical cap height
 // derivation (which is just calculating surface area of spherical cap using integral): https://www.youtube.com/watch?v=-5pgU976Kyo&t=521s
 // or https://en.wikipedia.org/wiki/Spherical_cap#Deriving_the_volume_and_surface_area_using_calculus
-// / in s2 geometry the earth is modeled as unit sphere (https://s2geometry.io/about/overview, https://s2geometry.io/devguide/cpp/quickstart.html) (radius R=1)
+// in s2 geometry the earth is modeled as unit sphere (https://s2geometry.io/about/overview, https://s2geometry.io/devguide/cpp/quickstart.html) (radius R=1)
 func sphericalCapSurfaceArea(arcLength float64) float64 {
 	l := unit.Length(arcLength) * unit.Kilometer
 	r := earth.AngleFromLength(l)

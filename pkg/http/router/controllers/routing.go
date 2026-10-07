@@ -57,7 +57,7 @@ func New(routingService RoutingService, log *zap.Logger, mapAttributesService Ma
 
 func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
-	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes)
+	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes) // todo: kayake ini mending digabung sama /computeRoutes?alternative_routes=true aja
 	group.GET("/boundingBox", api.GetBoundingBox)
 
 	group.GET("/mapAttributes/:s2CellId", api.getMapAttributes)
