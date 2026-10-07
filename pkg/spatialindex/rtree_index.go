@@ -151,7 +151,7 @@ type candidate struct {
 // by lemma 3: https://dl.acm.org/doi/pdf/10.1145/170088.170403
 // expected number of nodes visited (disk accesses karena di paper r-tree nodes nya disimpan ke disk page) proporsional dengan total area dan total perimeter dari all nodes in r-tree
 // karena kita pake bulk insert, total area + total perimeter lebih kecil -> number of nodes visited lebih kecil saat rectangle/bounding box query.
-// karena query bounding box kita juga kecil (radius kecil & jauh lebih kecil dari MBR nya root node), jumlah leaf yang overlap (k) juga kecil -> avg case runtime dari rectangle/bounding box query proporsional dengan height dari r-tree: O(logM + k log k)
+// karena query bounding box kita juga kecil (radius kecil & jauh lebih kecil dari MBR nya root node), jumlah leaf yang overlap (k) juga kecil -> avg case runtime dari rectangle/bounding box query proporsional dengan height dari r-tree: O(logM)
 // ref1: https://ia600709.us.archive.org/13/items/nasa_techdoc_19970016975/19970016975.pdf
 // ref2: https://xilinx.github.io/Vitis_Libraries/data_analytics/2022.1/guide_L2/internals/geospatialJoin.html
 // ref3: https://www2.cs.sfu.ca/CourseCentral/454/jpei/slides/R-Tree.pdf

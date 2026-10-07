@@ -22,7 +22,7 @@ Prediction,” IEEE Transactions on Intelligent Transportation Systems, 20(1), p
 338–347. Available at: https://doi.org/10.1109/TITS.2018.2812147.
 
 ini buat golang mobile app library (client-side real-time map matching). terinspirasi dari: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
-lihat ./pkg/mobile/mobile.go
+lihat ./mobile/online_map_matcher.go
 
 evaluation/tests suite di: tests/mapmatching/ (cari yang ada nama Online di test funtions nya)
 

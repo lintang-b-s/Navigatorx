@@ -54,7 +54,7 @@ func (si *S2RoadSegmentsIndex) AddPolyline(id da.Index, geom []da.Coordinate, co
 }
 
 /*
-GetCellSegments find road segments inside s2 cell with id=s2CellId, inside its neighbor cells, inside all s2 level-15 cells within radius from center point of this cell (in km).
+GetCellSegments return all road segments inside s2 cell with id=s2CellId, inside its neighbor cells, inside all s2 level-15 cells within radius from center point of this cell (in km).
 */
 func (si *S2RoadSegmentsIndex) GetCellSegments(s2CellId s2.CellID, radius float64) []da.Index {
 	set := make(map[da.Index]bool, len(si.idx[s2CellId]))
@@ -111,10 +111,10 @@ func (si *S2RoadSegmentsIndex) GetCellsByRadius(p s2.Point, radius float64) []s2
 
 // calculate surface area of spherical cap S from arc length (or great circle distance in km) https://pkg.go.dev/github.com/golang/geo/s2#Cap
 // ilustration of spherical cap: https://blog.gojek.io/content/images/2021/02/image-339.png (taken from https://www.gojek.io/blog/appreciating-the-geo-s2-library)
-// S=2*pi*h. where h is the spherical cap height
+// S=2*pi*R*h. where h is the spherical cap height
 // derivation (which is just calculating surface area of spherical cap using integral): https://www.youtube.com/watch?v=-5pgU976Kyo&t=521s
 // or https://en.wikipedia.org/wiki/Spherical_cap#Deriving_the_volume_and_surface_area_using_calculus
-// / in s2 geometry the earth is modeled as unit sphere (https://s2geometry.io/about/overview) (radius=1)
+// / in s2 geometry the earth is modeled as unit sphere (https://s2geometry.io/about/overview, https://s2geometry.io/devguide/cpp/quickstart.html) (radius R=1)
 func sphericalCapSurfaceArea(arcLength float64) float64 {
 	l := unit.Length(arcLength) * unit.Kilometer
 	r := earth.AngleFromLength(l)
@@ -208,67 +208,3 @@ func ReadS2RoadSegmentsIndexFromFile() (*S2RoadSegmentsIndex, error) {
 	sidx := &S2RoadSegmentsIndex{idx: idx}
 	return sidx, nil
 }
-
-// solusi2: crazy 1.6 gb query engine memory usage
-// /*
-// S2RoadSegmentsIndex  for retrieving road segments inside a s2 cell & its cell neigbors like described in: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
-// */
-// type S2RoadSegmentsIndex struct {
-// 	idx *s2.ShapeIndex
-// }
-
-// func NewS2RoadSegmentsIndex(g *da.Graph, rn *da.RoadNetworkDataContainer, log *zap.Logger) *S2RoadSegmentsIndex {
-// 	log.Sugar().Infof("building s2 cell road segments index....")
-// 	idx := s2.NewShapeIndex()
-// 	g.ForVertices(func(_ da.Vertex, segId da.Index) {
-// 		geom := rn.GetSegmentGeometry(segId)
-// 		coords := make([]s2.LatLng, len(geom))
-// 		for i := 0; i < len(coords); i++ {
-// 			c := geom[i]
-// 			coords[i] = s2.LatLngFromDegrees(c.GetLat(), c.GetLon())
-// 		}
-// 		polyline := s2.PolylineFromLatLngs(coords)
-// 		idx.Add(polyline)
-// 	})
-// 	idx.Build()
-// 	log.Sugar().Infof("s2 cell road segments index built....")
-// 	return &S2RoadSegmentsIndex{idx: idx}
-// }
-
-// /*
-// GetCellSegments find road segments inside s2 cell with id=s2CellId and inside its neighbor cells .
-// https://s2geometry.io/devguide/s2closestedgequery
-// https://s2geometry.io/devguide/s2shapeindex
-// https://s2geometry.io/devguide/cpp/quickstart
-// https://pkg.go.dev/github.com/golang/geo/s2#example-EdgeQuery.FindEdges-FindClosestEdges
-// https://pkg.go.dev/github.com/golang/geo/earth
-// */
-// func (si *S2RoadSegmentsIndex) GetCellSegments(s2CellId s2.CellID) []da.Index {
-// 	// build query object
-// 	dist := 1 * unit.Meter
-// 	distAngle := earth.AngleFromLength(dist)
-// 	md := s1.ChordAngleFromAngle(distAngle)
-// 	opts := s2.NewClosestEdgeQueryOptions().MaxResults(math.MaxUint32).DistanceLimit(md)
-// 	q := s2.NewClosestEdgeQuery(si.idx, opts)
-// 	cell := s2.CellFromCellID(s2CellId)
-
-// 	// query
-// 	target := s2.NewMinDistanceToCellTarget(cell)
-// 	qRes := q.FindEdges(target)
-// 	// cell neighbors
-// 	nCells := cell.ID().EdgeNeighbors()
-// 	for _, c := range nCells {
-// 		cell = s2.CellFromCellID(c)
-// 		target = s2.NewMinDistanceToCellTarget(cell)
-// 		qRes = append(qRes, q.FindEdges(target)...)
-// 	}
-
-// 	// get query results
-// 	segIds := make([]da.Index, len(qRes))
-// 	for i, res := range qRes {
-// 		id := res.ShapeID()
-// 		segIds[i] = da.Index(id)
-// 	}
-
-// 	return segIds
-// }

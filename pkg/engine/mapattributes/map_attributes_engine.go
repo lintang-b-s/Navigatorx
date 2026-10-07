@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// MapAttributesEngine engine untuk get subset of RoadNetworkGraph yang berada didalam quadKey web mercator tiles. terinspirasi dari MapAttributes service: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+// MapAttributesEngine engine untuk get subset of RoadNetworkGraph yang berada didalam s2 level-15 cells. terinspirasi dari MapAttributes service: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 type MapAttributesEngine[W util.RoutingNumber] struct {
 	g      *da.Graph
 	rn     *da.RoadNetworkDataContainer

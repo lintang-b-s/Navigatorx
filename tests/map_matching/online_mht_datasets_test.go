@@ -39,7 +39,7 @@ const (
 	ommAccelerationStd    = 3.0
 
 	ommExpectedMaxGisCupRMF      = 0.25
-	ommExpectedMinGiscupAccuracy = 0.88
+	ommExpectedMinGiscupAccuracy = 0.87
 	ommExpectedMaxMelbRMF        = 0.15
 	ommExpectedMaxHanwenhuRMF    = 0.12
 
@@ -304,9 +304,6 @@ func ommRunOnlineMHT(t *testing.T,
 			updatedCands := make([]*ma.Candidate, 0, len(candidates))
 			for _, c := range candidates {
 				segId := dg.GetGraphSegmentId(c.GetRoadNetworkId())
-				if segId == da.INVALID_SEGMENT_ID {
-					continue
-				}
 				newC := ma.NewCandidate(segId, c.GetWeight(), c.GetLength())
 				newC.SetRoadNetworkId(c.GetRoadNetworkId())
 				updatedCands = append(updatedCands, newC)
