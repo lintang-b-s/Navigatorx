@@ -84,7 +84,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, false,
+		graph, logger,
 	)
 
 	mp.RunMultilevelPartitioning()

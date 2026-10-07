@@ -76,7 +76,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 		ps,
 		len(ps),
 		25,
-		graph, logger, false,
+		graph, logger,
 	)
 
 	mp.RunMultilevelPartitioning()

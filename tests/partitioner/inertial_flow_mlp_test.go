@@ -59,7 +59,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, true,
+		graph, logger,
 	)
 
 	return graph, mp

@@ -3,248 +3,127 @@ package partitioner
 import (
 	"math"
 
-	"github.com/bits-and-blooms/bitset"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type DinicMaxFlow struct {
-	graph                 *da.PartitionGraph
-	edgeFlows             []int64
-	level                 []int
-	last                  []int
-	artificialAdjList     [][]int          // edges from artificial-source to sources , edges from sinks to artificial-sink
-	artificialEdgeList    []da.MaxFlowEdge // edge lists  artificial-source to sources, edge lists from sinks to artificial-sink
-	numberOfOriginalEdges int
-	debug                 bool
-	multSourcesSinks      bool
-	sinks                 *bitset.BitSet
+type FlowNumber interface {
+	~int32 | ~int64
 }
 
-func NewDinicMaxFlow(graph *da.PartitionGraph, debug, multSourcesSinks bool) *DinicMaxFlow {
-	n := graph.NumberOfVertices()
+type flowEdge[W FlowNumber] struct {
+	v    da.Index
+	flow W
+	cap  W
+}
 
-	dc := &DinicMaxFlow{graph: graph, debug: debug, last: make([]int, n), level: make([]int, n), artificialAdjList: make([][]int, n+2),
-		multSourcesSinks: multSourcesSinks, sinks: bitset.New(uint(n)), artificialEdgeList: make([]da.MaxFlowEdge, 0, 10)}
+type DinicMaxFlow[W FlowNumber] struct {
+	edgelist []flowEdge[W]
+	adjList  [][]int
 
-	dc.edgeFlows = make([]int64, graph.GetNumberOfEdges())
-	graph.ForEdges(func(i int, e da.MaxFlowEdge) {
-		dc.edgeFlows[i] = 0
-	})
+	level []int
+	last  []int
+	n     int // number of vertices excluding artificial source and artificial sink.
+}
 
-	dc.numberOfOriginalEdges = graph.GetNumberOfEdges()
+// NewDinicMaxFlow create new DinicMaxFlow instance.
+// cg is Recursive Bisection Cell Graph.
+// adapted from dinic code implementation cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch8/maxflow.cpp
+// currently, only tested for directed network graph.
+func NewDinicMaxFlow[W FlowNumber](n int, multiSources, multiSinks bool) *DinicMaxFlow[W] {
+
+	m := n
+	if multiSources {
+		m++ // additional artificial source
+	}
+	if multiSinks {
+		m++ // additional artificial sink
+	}
+	dc := &DinicMaxFlow[W]{
+		n:       n,
+		last:    make([]int, n),
+		level:   make([]int, n),
+		adjList: make([][]int, m),
+	}
 
 	return dc
 }
 
-// AddFlow. add flow to edge of u (index idx in adjlist[u])
-// artificial = true jika edge yang dipush flow adalah artificial edge
-func (dmf *DinicMaxFlow) AddFlow(u da.Index, idx int, f int64, artificial bool) {
-	if !artificial {
-		edgeIndex := dmf.graph.GetEdgeId(u, idx)
-		dmf.edgeFlows[edgeIndex] += f
-	} else {
-		edgeIndex := dmf.artificialAdjList[u][idx]
-		edgeIndex += dmf.numberOfOriginalEdges
-		dmf.edgeFlows[edgeIndex] += f
-	}
+func (dmf *DinicMaxFlow[W]) AddFlow(u da.Index, i int, f W) {
+	id := dmf.adjList[u][i]
+	dmf.edgelist[id].flow += f
+	dmf.edgelist[id^1].flow -= f
 }
 
-// AddFlowToReversedEdge. add flow to reversed edge of u
-// artificial = true jika edge yang dipush flow adalah artificial edge
-func (dmf *DinicMaxFlow) AddFlowToReversedEdge(u da.Index, idx int, f int64, artificial bool) {
-	if !artificial {
-		edgeIndex := dmf.graph.GetReversedEdgeId(u, idx)
-		dmf.edgeFlows[edgeIndex] += f
-	} else {
-		edgeIndex := dmf.artificialAdjList[u][idx] ^ 1
-		edgeIndex += dmf.numberOfOriginalEdges
-		dmf.edgeFlows[edgeIndex] += f
-	}
-}
-
-// GetEdgeFlow. get flow value dari edge
-// artificial=true if edge dengan index id adalah artificial edge
-func (dmf *DinicMaxFlow) GetEdgeFlow(id da.Index, atificial bool) int64 {
-	if !atificial {
-		return dmf.edgeFlows[id]
-	}
-
-	id += da.Index(dmf.numberOfOriginalEdges)
-	return dmf.edgeFlows[id]
-}
-
-func (dmf *DinicMaxFlow) SetVertexLevel(u da.Index, level int) {
-	dmf.level[u] = level
-}
-func (dmf *DinicMaxFlow) GetVertexLevel(u da.Index) int {
-	return dmf.level[u]
-}
-
-func (dmf *DinicMaxFlow) GetLastEdgeIndex(u da.Index) int {
-	return dmf.last[u]
-}
-
-func (dmf *DinicMaxFlow) SetLastEdgeIndex(u da.Index, idx int) {
-	dmf.last[u] = idx
-}
-
-func (dmf *DinicMaxFlow) IncrementLastEdgeIndex(u da.Index) {
-	dmf.last[u]++
-}
-
-func (dmf *DinicMaxFlow) AddArtificialVertex(v da.PartitionVertex) {
-
-	if len(dmf.level) < int(v.GetID())+1 {
+func (dmf *DinicMaxFlow[W]) AddArtificialVertex(vId da.Index) {
+	if len(dmf.level) < int(vId)+1 {
 		dmf.level = append(dmf.level, 0)
 	}
-	if len(dmf.last) < int(v.GetID())+1 {
+	if len(dmf.last) < int(vId)+1 {
 		dmf.last = append(dmf.last, 0)
 	}
 }
 
-func (dmf *DinicMaxFlow) AddSinks(u da.Index) {
-	dmf.sinks.Set(uint(u))
-}
-
-// alasan saya gak menambahkan artificial/super source/sink (untuk handle multi-sources multi-sinks network flow) pada PartitionGraph serta flow dari setiap edge saya taruh di dmf.edgeFlows adalah
-// karena di inertial_flow.go PartitionGraph dipakai oleh beberapa goroutine, shgg perlu di lock/copy setiap partitionGraph untuk setiap goroutine agar tidak race condition
-// sebelum pakai solusi saat ini, saya pakai solusi copy setiap partitionGraph dan space/memory nya meledak ketika number of worker di worker pool nya inertial_flow.go gede
-func (dmf *DinicMaxFlow) AddArtificialEdge(u, v da.Index, w int64, directed bool) {
+func (dmf *DinicMaxFlow[W]) AddEdge(u, v da.Index, w W, directed bool) {
 	if u == v {
 		return
 	}
-
-	newEId := len(dmf.edgeFlows)
-	newEId -= dmf.numberOfOriginalEdges
-	edge := da.NewMaxFlowEdge(newEId, u, v, w)
-	dmf.artificialEdgeList = append(dmf.artificialEdgeList, edge)
-	dmf.edgeFlows = append(dmf.edgeFlows, 0)
-	dmf.artificialAdjList[u] = append(dmf.artificialAdjList[u], newEId)
-
-	newRevEId := len(dmf.edgeFlows)
-	newRevEId -= dmf.numberOfOriginalEdges
-	var reverseEdge da.MaxFlowEdge
-	if directed {
-		reverseEdge = da.NewMaxFlowEdge(newRevEId, v, u, 0)
-	} else {
-		reverseEdge = da.NewMaxFlowEdge(newRevEId, v, u, w)
+	dmf.edgelist = append(dmf.edgelist, flowEdge[W]{v: v, flow: 0, cap: w})
+	dmf.adjList[u] = append(dmf.adjList[u], len(dmf.edgelist)-1)
+	wr := W(0)
+	if !directed {
+		wr = w
 	}
-
-	dmf.artificialEdgeList = append(dmf.artificialEdgeList, reverseEdge)
-	dmf.edgeFlows = append(dmf.edgeFlows, 0)
-	dmf.artificialAdjList[v] = append(dmf.artificialAdjList[v], newRevEId)
+	dmf.edgelist = append(dmf.edgelist, flowEdge[W]{v: u, flow: 0, cap: wr})
+	dmf.adjList[v] = append(dmf.adjList[v], len(dmf.edgelist)-1)
 }
 
-func (dmf *DinicMaxFlow) ForEachEdges(u, s da.Index, handle func(e da.MaxFlowEdge, artificial bool)) {
-	if u == s && dmf.multSourcesSinks {
-		for _, edgeIdx := range dmf.artificialAdjList[u] {
-			handle(dmf.artificialEdgeList[edgeIdx], true)
-		}
-	} else if dmf.InSinks(u) && dmf.multSourcesSinks {
-		dmf.graph.ForEachVertexEdges(u, handle)
-		for _, edgeIdx := range dmf.artificialAdjList[u] {
-			handle(dmf.artificialEdgeList[edgeIdx], true)
-		}
-	} else {
-		dmf.graph.ForEachVertexEdges(u, handle)
-	}
-}
-
-func (dmf *DinicMaxFlow) GetEdgeOfArtificialVertex(u da.Index, idx int) da.MaxFlowEdge {
-	edgeIndex := dmf.artificialAdjList[u][idx]
-	return dmf.artificialEdgeList[edgeIndex]
-}
-
-func (dmf *DinicMaxFlow) InSinks(u da.Index) bool {
-	return dmf.sinks.Test(uint(u))
-}
-func (dmf *DinicMaxFlow) GetArtificialVertexEdgesSize(u da.Index) int {
-	return len(dmf.artificialAdjList[u])
-}
-
-func (dmf *DinicMaxFlow) GetEdgeOfVertex(u, s da.Index, j, superEdgesOffset int) (da.MaxFlowEdge, int, bool) {
-	artificial := false
-	var edge da.MaxFlowEdge
-	if u == s && dmf.multSourcesSinks {
-		// u sama dengan artificial source / super-source
-		edge = dmf.GetEdgeOfArtificialVertex(u, j)
-		artificial = true
-	} else if dmf.InSinks(u) && dmf.multSourcesSinks {
-		// u in sinks
-		if j >= superEdgesOffset {
-			j -= superEdgesOffset
-			edge = dmf.GetEdgeOfArtificialVertex(u, j)
-			artificial = true // edge is artifiial edge
-
-		} else {
-			edge = dmf.graph.GetEdgeOfVertex(u, j)
-		}
-	} else {
-		edge = dmf.graph.GetEdgeOfVertex(u, j)
-	}
-
-	return edge, j, artificial
-}
-
-func (dmf *DinicMaxFlow) GetNodeDegree(u, s da.Index) (int, int) {
-	numOfEdges := 0
-	superEdgesOffset := 0
-	if u == s && dmf.multSourcesSinks {
-		numOfEdges = dmf.GetArtificialVertexEdgesSize(u)
-	} else if dmf.InSinks(u) && dmf.multSourcesSinks {
-		numOfEdges = dmf.graph.GetVertexEdgesSize(u) + dmf.GetArtificialVertexEdgesSize(u)
-		superEdgesOffset = dmf.graph.GetVertexEdgesSize(u)
-	} else {
-		numOfEdges = dmf.graph.GetVertexEdgesSize(u)
-	}
-	return numOfEdges, superEdgesOffset
-}
-
-func (dmf *DinicMaxFlow) resetCurrentEdges() {
+func (dmf *DinicMaxFlow[W]) resetCurrentEdges() {
 	for i := 0; i < len(dmf.last); i++ {
-		dmf.SetLastEdgeIndex(da.Index(i), 0)
+		dmf.last[i] = 0
 	}
 }
 
-func (dmf *DinicMaxFlow) bfsLevelGraph(
+func (dmf *DinicMaxFlow[W]) bfsLevelGraph(
 	source, target da.Index) bool {
+	dmf.level[target] = INVALID_LEVEL
 
-	dmf.SetVertexLevel(target, INVALID_LEVEL)
+	m := da.Index(len(dmf.adjList))
 
-	dmf.graph.ForEachVertices(func(v da.PartitionVertex) {
-		dmf.SetVertexLevel(v.GetID(), INVALID_LEVEL)
-	})
+	for vId := da.Index(0); vId < m; vId++ {
+		dmf.level[vId] = INVALID_LEVEL
+	}
 
-	levelQueue := make([]da.Index, 0, dmf.graph.NumberOfVertices())
+	levelQueue := make([]da.Index, 0, dmf.n)
 	levelQueue = append(levelQueue, source)
-	dmf.SetVertexLevel(source, 0)
+	dmf.level[source] = 0
 
 	for len(levelQueue) > 0 {
 		u := levelQueue[0]
 		levelQueue = levelQueue[1:]
 
-		uLevel := dmf.GetVertexLevel(u)
+		uLevel := dmf.level[u]
 		level := uLevel + 1
 		if u == target {
 			break
 		}
 
-		dmf.ForEachEdges(u, source, func(edge da.MaxFlowEdge, artificial bool) {
-			v := edge.GetTo()
-
-			eid := da.Index(edge.GetID())
-			residual := edge.GetCapacity() - dmf.GetEdgeFlow(eid, artificial)
-			if residual > 0 && dmf.GetVertexLevel(v) == INVALID_LEVEL {
-				dmf.SetVertexLevel(v, level)
+		for _, eId := range dmf.adjList[u] {
+			e := dmf.edgelist[eId]
+			residual := e.cap - e.flow
+			v := e.v
+			if residual > 0 && dmf.level[v] == INVALID_LEVEL {
+				dmf.level[v] = level
 				levelQueue = append(levelQueue, v)
 			}
-		})
+		}
+
 	}
-	return dmf.GetVertexLevel(target) != INVALID_LEVEL
+	reachable := dmf.level[target] != INVALID_LEVEL
+
+	return reachable
 }
 
-func (dmf *DinicMaxFlow) dfsAugmentPath(u da.Index, s, t da.Index, f int64) int64 {
+func (dmf *DinicMaxFlow[W]) dfsAugmentPath(u da.Index, s, t da.Index, f W) W {
 	// ref1: https://cp-algorithms.com/graph/dinic.html
 	// for general capacity graph:
 	// note that this dfs only visit vertices that lie on shortest path from s to t in the level graph  (levels/spdist of each vertices in the shortest path from s to t secara berurutan +1 )
@@ -257,30 +136,23 @@ func (dmf *DinicMaxFlow) dfsAugmentPath(u da.Index, s, t da.Index, f int64) int6
 		return f
 	}
 
-	numOfEdges, superEdgesOffset := dmf.GetNodeDegree(u, s)
+	m := len(dmf.adjList[u])
 
-	for ; dmf.GetLastEdgeIndex(u) < numOfEdges; dmf.IncrementLastEdgeIndex(u) {
-		var (
-			j          int
-			edge       da.MaxFlowEdge
-			artificial bool
-		)
+	for ; dmf.last[u] < m; dmf.last[u]++ {
 
-		j = dmf.GetLastEdgeIndex(u)
-		edge, j, artificial = dmf.GetEdgeOfVertex(u, s, j, superEdgesOffset)
+		j := dmf.last[u]
+		e := dmf.edgelist[dmf.adjList[u][j]]
+		v := e.v
+		eCap := e.cap
+		eFlow := e.flow
 
-		v := edge.GetTo()
-		eId := edge.GetID()
-
-		residual := edge.GetCapacity() - dmf.GetEdgeFlow(da.Index(eId), artificial)
-		if dmf.GetVertexLevel(v) != dmf.GetVertexLevel(u)+1 {
+		residual := eCap - eFlow
+		if dmf.level[v] != dmf.level[u]+1 {
 			continue
 		}
 
-		if pushed := dmf.dfsAugmentPath(v, s, t, util.MinInt64(residual, f)); pushed > 0 {
-			dmf.AddFlow(u, j, pushed, artificial)
-			dmf.AddFlowToReversedEdge(u, j, -pushed, artificial)
-
+		if pushed := dmf.dfsAugmentPath(v, s, t, min(residual, f)); pushed > 0 {
+			dmf.AddFlow(u, j, pushed)
 			return pushed
 		}
 	}
@@ -288,8 +160,8 @@ func (dmf *DinicMaxFlow) dfsAugmentPath(u da.Index, s, t da.Index, f int64) int6
 	return 0.0
 }
 
-func (dmf *DinicMaxFlow) blockingFlow(s, t da.Index) int64 {
-	blockingFlowVal := int64(0)
+func (dmf *DinicMaxFlow[W]) blockingFlow(s, t da.Index) W {
+	blockingFlowVal := W(0)
 	for {
 		// ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 		// for general capacity graph:
@@ -301,7 +173,7 @@ func (dmf *DinicMaxFlow) blockingFlow(s, t da.Index) int64 {
 
 		// for unit capacity graph:
 		// time complexity of blocking flow unit capacity graph: O(m) (see lemma 4.2 ref1)
-		flow := dmf.dfsAugmentPath(s, s, t, math.MaxInt) // O(k+n), with k=number of pointer dmf.last advances in this dfs execution
+		flow := dmf.dfsAugmentPath(s, s, t, W(math.MaxInt32)) // O(k+n), with k=number of pointer dmf.last advances in this dfs execution
 		if flow == 0 {
 			break
 		}
@@ -323,11 +195,11 @@ see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m *
 
 inspired from dinic code implementation cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch8/maxflow.cpp
 */
-func (dmf *DinicMaxFlow) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
+func (dmf *DinicMaxFlow[W]) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
 	var (
-		minCut = NewMinCut(dmf.graph.NumberOfVertices()) // exclude artificial source and sink. kita cuma tambahin super source sinks di slice superEdgeList, superAdjList, dmf.level, dmf.last
+		minCut = NewMinCut(dmf.n) // exclude artificial source and sink. kita cuma tambahin super source sinks di slice superEdgeList, superAdjList, dmf.level, dmf.last
 	)
-	maxFlow := int64(0)
+	maxFlow := W(0)
 
 	for dmf.bfsLevelGraph(s, t) {
 		// ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
@@ -343,20 +215,15 @@ func (dmf *DinicMaxFlow) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
 		blockingFlowVal := dmf.blockingFlow(s, t) // O(nm)
 		maxFlow += blockingFlowVal
 	}
-	dmf.makeMinCutFlags(minCut, maxFlow)
+	dmf.makeMinCutFlags(minCut, int64(maxFlow))
 	return minCut //  or maxflow
 }
 
-func (dmf *DinicMaxFlow) makeMinCutFlags(minCut *MinCut, maxflow int64) {
-
+func (dmf *DinicMaxFlow[W]) makeMinCutFlags(minCut *MinCut, maxflow int64) {
 	cutEdges := 0
-
-	artificalSourceId := da.Index(len(dmf.last) - 2)
-	artificalSinkId := da.Index(len(dmf.last) - 1)
-
-	for u := da.Index(0); u < da.Index(dmf.graph.NumberOfVertices()); u++ {
-
-		if dmf.GetVertexLevel(u) != INVALID_LEVEL {
+	n := da.Index(len(dmf.adjList) - 2)
+	for u := da.Index(0); u < n; u++ {
+		if dmf.level[u] != INVALID_LEVEL {
 			// https://www.cs.princeton.edu/courses/archive/fall14/cos226/lectures/64MaxFlow.pdf
 			// partisi S = semua vertices connected to s by an undirected path with no full forward edges (full fe = its residual capacity = 0 ) or empty backward edges (empty be = its residual capacity = 0 )
 			minCut.SetFlag(u, true)
@@ -365,15 +232,12 @@ func (dmf *DinicMaxFlow) makeMinCutFlags(minCut *MinCut, maxflow int64) {
 		}
 	}
 
-	for u := da.Index(0); u < da.Index(dmf.graph.NumberOfVertices()); u++ {
-		for j := 0; j < dmf.graph.GetVertexEdgesSize(u); j++ {
-			edge := dmf.graph.GetEdgeOfVertex(u, j)
-			v := edge.GetTo()
-
-			if u == artificalSourceId || v == artificalSinkId {
+	for u := da.Index(0); u < n; u++ {
+		for _, eId := range dmf.adjList[u] {
+			v := da.Index(dmf.edgelist[eId].v)
+			if v >= n {
 				continue
 			}
-
 			if minCut.GetFlag(u) && !minCut.GetFlag(v) {
 				cutEdges++
 			}

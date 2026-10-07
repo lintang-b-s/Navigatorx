@@ -389,7 +389,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 		ps[i] = 1 << pow
 	}
 
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger, false)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger)
 	mp.RunMultilevelPartitioning()
 	if err := mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
@@ -748,7 +748,7 @@ func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *metrics.Ti
 		ps[i] = 1 << pow
 	}
 
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger, false)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger)
 	mp.RunMultilevelPartitioning()
 	if err := mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)

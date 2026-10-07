@@ -135,7 +135,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int
 			b.GetApproxObjectiveValue())
 	})
 
-	c := util.MinInt(param.maxCandidatesToUnpack, len(filteredCandidates))
+	c := min(param.maxCandidatesToUnpack, len(filteredCandidates))
 	filteredCandidates = filteredCandidates[:c]
 
 	res := make([]AlternativeRoute, 0, c)
@@ -162,7 +162,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int
 		return cmp.Compare(a.objectiveValue, b.objectiveValue)
 	})
 
-	maxAltSize := util.MinInt(k, len(res))
+	maxAltSize := min(k, len(res))
 	res = res[:maxAltSize]
 	for i := 0; i < maxAltSize; i++ {
 		finalPath, totalDistance := ars.engine.GetSegmentPath(res[i].segmentPath)

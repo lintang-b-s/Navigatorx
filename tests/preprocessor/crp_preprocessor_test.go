@@ -124,7 +124,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
 			2, 1,
-			g, logger, true,
+			g, logger,
 		)
 
 		mp.SetCellVertices(cellVertices)
@@ -516,7 +516,7 @@ func TestPreprocessorSimple(t *testing.T) {
 				// cukup cek level 1
 				vCellIdInLevelOne := og.GetCellNumberOnLevel(vCell, 1)
 				cellSize := len(tc.cellVertices[0][vCellIdInLevelOne])
-				nextV := util.MinInt(v+cellSize, n)
+				nextV := min(v+cellSize, n)
 				for i := v; i < nextV; i++ {
 					nextVertex := g.GetVertex(da.Index(i))
 					nextVertexCell := g.GetCellNumber(nextVertex.GetID())
@@ -866,7 +866,7 @@ func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.Roa
 		ps,
 		len(ps),
 		5,
-		graph, logger, false,
+		graph, logger,
 	)
 
 	mp.RunMultilevelPartitioning()

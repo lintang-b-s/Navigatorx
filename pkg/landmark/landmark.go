@@ -150,6 +150,10 @@ func (qr *queryRet[W]) getSpCosts() []W {
 	return qr.sps
 }
 
+// todo: reduce memory usage PreprocessALT()
+// currently (7 oktober 2026), pakai diy_solo_semarang.osm.pbf PreprocessALT() peak htop RES/RSS ~ 2GB, hampir 20x ukuran file osmnya
+// kayake bisa dibatesi jumlah goroutine worker nya... & coba cek pprof di PreprocessALT()
+
 /*
 [1] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 
@@ -365,7 +369,7 @@ func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 		return lowerBounds[i].lb > lowerBounds[j].lb
 	})
 
-	lbs := lowerBounds[:util.MinInt(len(lowerBounds), activeLandmarkSize)]
+	lbs := lowerBounds[:min(len(lowerBounds), activeLandmarkSize)]
 	for _, v := range lbs {
 		bestLandmarks = append(bestLandmarks, v.i)
 	}

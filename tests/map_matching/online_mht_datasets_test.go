@@ -313,7 +313,6 @@ func ommRunOnlineMHT(t *testing.T,
 		}
 
 		matchedPoint, currCandidates, nextSpeedMeanK, nextSpeedStdK := onlineMM.OnlineMapMatch(
-			prevGps,
 			gps,
 			i+1,
 			candidates,

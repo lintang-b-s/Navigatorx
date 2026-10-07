@@ -144,7 +144,7 @@ func main() {
 		ps,
 		len(ps),
 		25,
-		graph, logger, false,
+		graph, logger,
 	)
 
 	mp.RunMultilevelPartitioning()

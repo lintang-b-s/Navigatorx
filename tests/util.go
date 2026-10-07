@@ -76,7 +76,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 		ps,
 		len(ps),
 		5,
-		graph, logger, false,
+		graph, logger,
 	)
 
 	mp.RunMultilevelPartitioning()

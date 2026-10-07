@@ -17,8 +17,8 @@ type RecursiveBisection struct {
 	logger                 *zap.Logger
 	mu                     sync.Mutex
 	inertialFlowIterations int
-	directed               bool
-	progress               *util.Progress
+
+	progress *util.Progress
 }
 
 func (rb *RecursiveBisection) setProgress(progress *util.Progress) {
@@ -26,7 +26,7 @@ func (rb *RecursiveBisection) setProgress(progress *util.Progress) {
 }
 
 func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Logger,
-	inertialFlowIterations int, directed bool,
+	inertialFlowIterations int,
 ) *RecursiveBisection {
 
 	n := graph.NumberOfVertices()
@@ -42,7 +42,6 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 		partitionCount:         0,
 		logger:                 logger,
 		inertialFlowIterations: inertialFlowIterations,
-		directed:               directed,
 	}
 }
 
@@ -50,55 +49,52 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 ref1: [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
 partisi road networks graph dengan cara: (b = parameter balance)
 (1) sort vertices by linear kombinaasi latitude & longitude
-(2) compute max flow/st-mincut dari first k=n*b nodes (sources) to last k=n*b nodes(sinks) dari sortest vertices
-(3) return st-mincut sebagai edge separator (atau recurse sampai size dari resulting subgraphs < maximumCellSize U).
+(2) compute max flow/minimum st-cut dari first k=n*b nodes (sources) to last k=n*b nodes(sinks) dari sorted vertices
+(3) return minimum st-cut sebagai edge separator (atau recurse sampai size dari resulting subgraphs < maximumCellSize U).
 
 time complexity:
-let U = rb.maximumCellSize. computeInertialFlowDinic is just run dinic algorithm for multiple times.
-
-ref2: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
+ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 
 time complexity dinic algorithm on unit capacity graph::
-see lemma 4.2 ref2, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
+see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 karena di implementasi inertial flow ini kita selalu pakai unit capacity..
-in a typical road network, average degree of any vertex ~ 2. so, m = Theta(n)
+in a typical road network, average out degree of any vertex ~ 2.43 (see DIMACS USA road network graph: https://www.diag.uniroma1.it/challenge9/download.shtml). so, m = Theta(n)
 let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pada road network graph n vertices dan m edges = O(min{n * sqrt(n), n * n^(2/3)})=O(n^{3/2})
 b=SOURCE_SINK_RATE atau parameter balance b dari algoritma inertial flow ref1. 0<b<=1/2
 worst case ketika hasil st b-balanced mincut selalu |S|=b*n, |T|=(1-b)*n
 
-O(n*sqrt(n)*log_{1/(1-b)}n)
+O(n * sqrt(n) * log_{1/(1-b)} n)
 
 */ // nolint: gofmt
-func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
-
-	initialPg := rb.buildInitialPartitionGraph(initialVerticeIds) // O(n+m), n = len(initialVerticeIds), m = number of edges that its tail vertex in initialVerticeIds
+func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
+	mlpcg := rb.buildMLPCellGraph(mlpCellVIds)
 
 	tooSmall := func(partitionSize int) bool {
 		return partitionSize < rb.maximumCellSize
 	}
 
-	if tooSmall(initialPg.NumberOfVertices()) {
-		rb.assignFinalPartition(initialPg)
+	if tooSmall(mlpcg.NumberOfCellVertices()) {
+		rb.assignFinalPartition(mlpcg)
 		return
 	}
 
 	type bisectionRes struct {
-		partOne, partTwo *da.PartitionGraph
+		cellOne, cellTwo *da.CellGraph
 	}
 
-	NewBisectionRes := func(partOne, partTwo *da.PartitionGraph) bisectionRes {
-		return bisectionRes{partOne: partOne, partTwo: partTwo}
+	NewBisectionRes := func(cellOne, cellTwo *da.CellGraph) bisectionRes {
+		return bisectionRes{cellOne, cellTwo}
 	}
 
-	iflowInChan := make(chan *da.PartitionGraph, InertialFlowChanSize)
+	iflowInChan := make(chan *da.CellGraph, InertialFlowChanSize)
 	iflowOutChan := make(chan bisectionRes, InertialFlowChanSize)
 
 	computeIflow := func() {
-		for pg := range iflowInChan {
-			iflow := NewInertialFlow(pg, rb.inertialFlowIterations, rb.directed)
-			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(min{m * sqrt(m), m * n^(2/3)})) dinic on unit capacity graph, n,m = number of vertices & edges in current partition graph pg
-			partOne, partTwo := rb.applyBisection(cut, pg)          // O(n+m)
-			iflowOutChan <- NewBisectionRes(partOne, partTwo)
+		for cg := range iflowInChan {
+			iflow := NewInertialFlow(cg, rb.inertialFlowIterations)
+			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n*sqrt(n)) dinic on unit capacity graph, n = number of vertices in current recursive bisection cell cg
+			cellOne, cellTwo := rb.applyBisection(cut, cg)          // O(n)
+			iflowOutChan <- NewBisectionRes(cellOne, cellTwo)
 		}
 	}
 
@@ -106,13 +102,9 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 		go computeIflow()
 	}
 
-	queue := make([]*da.PartitionGraph, 0, 10)
+	queue := make([]*da.CellGraph, 0, 10)
 	numJobs := 0
-	if tooSmall(initialPg.NumberOfVertices()) {
-		rb.assignFinalPartition(initialPg)
-		return
-	}
-	queue = append(queue, initialPg)
+	queue = append(queue, mlpcg)
 	numJobs++
 
 	if numJobs == 0 {
@@ -123,34 +115,34 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 
 	for len(queue) > 0 || numUncompletedJob > 0 {
 		var (
-			pg     *da.PartitionGraph
-			inChan chan *da.PartitionGraph
+			cg     *da.CellGraph // recursive bisection cell graph
+			inChan chan *da.CellGraph
 		)
 		// https://go.dev/talks/2013/advconc.slide#30
 		// https://go.dev/talks/2013/advconc.slide#31
 		if len(queue) > 0 {
-			pg = queue[0]
+			cg = queue[0]
 			inChan = iflowInChan
 		}
 
 		select {
-		case inChan <- pg: // enable send only when queue is non-empty (https://go.dev/talks/2013/advconc.slide#30)
+		case inChan <- cg: // enable send only when queue is non-empty (https://go.dev/talks/2013/advconc.slide#30)
 			numUncompletedJob++
 			queue = queue[1:]
 		case res := <-iflowOutChan:
 			// only stop when wp.jobQueue closed && wp.jobQueue empty -> wp.results closed -> this loop terminate
-			partOne := res.partOne
-			partTwo := res.partTwo
+			cOne := res.cellOne
+			cTwo := res.cellTwo
 
-			if !tooSmall(partOne.NumberOfVertices()) {
-				queue = append(queue, partOne)
+			if !tooSmall(cOne.NumberOfCellVertices()) {
+				queue = append(queue, cOne)
 			} else {
-				rb.assignFinalPartition(partOne) // O(p), p = number of vertices in partition one (partOne)
+				rb.assignFinalPartition(cOne) // O(p), p = number of vertices in cell one (cOne)
 			}
-			if !tooSmall(partTwo.NumberOfVertices()) {
-				queue = append(queue, partTwo)
+			if !tooSmall(cTwo.NumberOfCellVertices()) {
+				queue = append(queue, cTwo)
 			} else {
-				rb.assignFinalPartition(partTwo) // O(q), q = number of vertices in partition two (partTwo)
+				rb.assignFinalPartition(cTwo) // O(q), q = number of vertices in cell two (cTwo)
 			}
 
 			numUncompletedJob--
@@ -159,153 +151,48 @@ func (rb *RecursiveBisection) Partition(initialVerticeIds []da.Index) {
 
 	close(iflowInChan)
 	close(iflowOutChan)
+
 }
 
-// applyBisection. bisect st-cut jadi partisi S dan T yang saling disjoint
-func (rb *RecursiveBisection) applyBisection(cut *MinCut, pg *da.PartitionGraph) (*da.PartitionGraph, *da.PartitionGraph) {
-	var (
-		partitionOne = da.NewPartitionGraph(pg.NumberOfVertices() - cut.GetNumNodesInPartitionTwo())
-		partitionTwo = da.NewPartitionGraph(cut.GetNumNodesInPartitionTwo())
-	)
-
-	// remap id untuk partisi S dan T
-	povId := da.Index(0)
-	ptvId := da.Index(0)
-
-	n := pg.NumberOfVertices()
-	partOneNewVIdMap := make([]da.Index, n)
-	partTwoNewVIdMapMap := make([]da.Index, n)
-	origVIdToPgVIdMap := make(map[da.Index]da.Index, n*2) // map from original vertex id to partition pg vertex id
-
-	pg.ForEachVertices(func(v da.PartitionVertex) { // O(n), n=number of vertices in pg
-		vId := v.GetOriginalVertexID()
-		if vId == da.Index(ARTIFICIAL_SOURCE_ID) ||
-			vId == da.Index(ARTIFICIAL_SINK_ID) {
-			// skip artificial source and sink
-			return
-		}
-		origVIdToPgVIdMap[vId] = v.GetID()
-
-		lat, lon := v.GetVertexCoordinate()
-		if cut.GetFlag(v.GetID()) {
-			// v in partisi S
-			newVertex := da.NewPartitionVertex(povId, vId,
-				lat, lon)
-			partitionOne.AddVertex(newVertex)
-			pg.InitAdjListDeg(povId, rb.g.GetOutDegree(vId))
-			partOneNewVIdMap[v.GetID()] = povId
-			povId++
-		} else {
-			// v in partisi T
-			newVertex := da.NewPartitionVertex(ptvId, vId,
-				lat, lon)
-			partitionTwo.AddVertex(newVertex)
-			pg.InitAdjListDeg(ptvId, rb.g.GetOutDegree(vId))
-			partTwoNewVIdMapMap[v.GetID()] = ptvId
-			ptvId++
-		}
+// applyBisection. bisect st-cut jadi cell S dan T yang saling disjoint
+func (rb *RecursiveBisection) applyBisection(cut *MinCut, cg *da.CellGraph) (*da.CellGraph, *da.CellGraph) {
+	one, two := cg.Partition(func(vId da.Index) bool {
+		return cut.GetFlag(vId)
 	})
-
-	for _, uVertex := range pg.GetVertices() { // O(m), m = number of edges in pgs
-		uOriVId := uVertex.GetOriginalVertexID()
-
-		rb.g.ForOutEdgesOf(uOriVId, func(eId, head, _ da.Index) {
-			v, ok := origVIdToPgVIdMap[head] // get vertex id di current partition graph pg
-			if !ok {
-				// v not in current partition Graph
-				return
-			}
-			u := uVertex.GetID()
-			eWeight := int64(1)
-
-			if cut.GetFlag(u) && cut.GetFlag(v) {
-				// v in partisi S
-				uId := partOneNewVIdMap[u]
-				vId := partOneNewVIdMap[v]
-				partitionOne.AddEdge(uId, vId, eWeight, rb.directed)
-			} else if !cut.GetFlag(u) && !cut.GetFlag(v) {
-				// v in partisi T
-				uId := partTwoNewVIdMapMap[u]
-				vId := partTwoNewVIdMapMap[v]
-				partitionTwo.AddEdge(uId, vId, eWeight, rb.directed)
-			}
-		})
-	}
-
-	return partitionOne, partitionTwo
+	return one, two
 }
 
-// assignFinalPartition. assign id partisi dari setiap vertices in partitionGraph
-func (rb *RecursiveBisection) assignFinalPartition(partitionGraph *da.PartitionGraph) {
+// assignFinalPartition. assign id cell dari setiap vertices in cellGraph
+func (rb *RecursiveBisection) assignFinalPartition(cellGraph *da.CellGraph) {
 	rb.mu.Lock()
 	defer rb.mu.Unlock()
-	if partitionGraph.NumberOfVertices() == 0 {
+	if cellGraph.NumberOfCellVertices() == 0 {
 		return
 	}
-	for i := 0; i < partitionGraph.NumberOfVertices(); i++ { // O(n), n=number of vertices in partitionGraph
-		v := partitionGraph.GetVertex(da.Index(i))
-		originalVId := v.GetOriginalVertexID()
-		rb.finalPartition[originalVId] = rb.partitionCount
+
+	cellGraph.ForEachCellVertices(func(_, gvId da.Index, _ da.Coordinate) {
+		rb.finalPartition[gvId] = rb.partitionCount
 		rb.numVerticesAssigned++
-	}
-	rb.progress.Add(partitionGraph.NumberOfVertices())
+	})
+
+	rb.progress.Add(cellGraph.NumberOfCellVertices())
 	rb.partitionCount++
 }
 
-/*
-buildInitialPartitionGraph. build partitionGraph
-
-initialVerticeIds = nodeIds dari original graph
-
-return partitionGraph
-partitionGraph punya vertices sama dengan vertices di initialVerticeIds, tapi dengan id baru
-edges dari partitionGraph cuma include edges yang tail dan head dari edge satu partisi atau in initialVerticeIds
-*/
-func (rb *RecursiveBisection) buildInitialPartitionGraph(initialVerticeIds []da.Index) *da.PartitionGraph {
-	n := len(initialVerticeIds)
-	pg := da.NewPartitionGraph(n)
-	// initialVerticeIds = stil original vertex id
-
-	initialVerticeIdSet := makeNodeSet(initialVerticeIds) // O(n), n= len(initialVerticeIds)
-
-	nvId := da.Index(0)
-	newMapVid := make(map[da.Index]da.Index, len(initialVerticeIds))
-	for _, vId := range initialVerticeIds { // O(n)
-		lat, lon := rb.g.GetVertexCoordinates(vId)
-		vertex := da.NewPartitionVertex(nvId, vId, lat, lon)
-		newMapVid[vId] = nvId
-		pg.AddVertex(vertex)
-		pg.InitAdjListDeg(nvId, rb.g.GetOutDegree(vId))
-		nvId++
+// buildMLPCellGraph. build initial MLP cell cellGraph.
+// mlpCellVIds is the MultiLevelPartition (MLP) Cell vertices ids.
+func (rb *RecursiveBisection) buildMLPCellGraph(mlpCellVIds []da.Index) *da.CellGraph {
+	m := da.Index(len(mlpCellVIds))
+	n := rb.g.NumberOfVertices()
+	gv := make([]da.Index, n)
+	for i, v := range mlpCellVIds {
+		gv[v] = da.Index(i)
 	}
 
-	for _, vId := range initialVerticeIds { // O(m), m = number of edges that its tail vertex in initialVerticeIds
-		rb.g.ForOutEdgesOf(vId, func(eId da.Index, head da.Index, _ da.Index) {
-			if _, headInSet := initialVerticeIdSet[head]; !headInSet {
-				// skip arc that its head outside current cell
-				return
-			}
-
-			eWeight := int64(1)
-
-			newV := newMapVid[vId]
-			newHead := newMapVid[head]
-			pg.AddEdge(newV, newHead, eWeight, rb.directed)
-		})
-	}
-
-	return pg
+	cg := da.NewCellGraph(rb.g, mlpCellVIds, mlpCellVIds, gv, 0, m)
+	return cg
 }
 
 func (rb *RecursiveBisection) GetFinalPartition() []int {
 	return rb.finalPartition
-}
-
-func makeNodeSet(nodeIds []da.Index) map[da.Index]struct{} {
-	set := make(map[da.Index]struct{}, len(nodeIds)*2)
-	for _, nodeId := range nodeIds {
-		set[nodeId] = struct{}{}
-	}
-
-	return set
 }

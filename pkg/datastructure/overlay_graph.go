@@ -4,8 +4,8 @@ import (
 	"sort"
 )
 
-// diadaptasi dari https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayGraph.cpp
-// dan https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayGraph.h
+// adapted from: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayGraph.cpp
+// and https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayGraph.h
 
 // OverlayVertex represents an overlay vertex information.
 // Each overlay vertex corresponds to either an entry point or an exit point of a cell in some level.
@@ -89,7 +89,7 @@ type OverlayGraph struct {
 	overlayVertices    []OverlayVertex // all overlay vertices in the overlay graph. from the highest level to the lowest level, and sorted by their cell number in each level
 	vertexCountInLevel []Index         // number of overlay vertices in each level (cumulative sum from highest level to lowest level)
 	cellMapping        []map[Pv]Cell   // cellNumber to Cell mapping for each level. index = level, cellNumber = Pv (truncanted Cell Number)
-	overlayIdMapping   []Index         // maps from key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints) to value = overlay entry/exit vertex of a cell (represented as overlay vertex id)
+	overlayIdMapping   []Index         // maps from key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints) to value = entry/exit (overlay) vertex of a cell (represented as overlay vertex id)
 	levelData          *LevelData
 	weightVectorSize   uint32 // size of one-dimensional shortcut weights array W.
 }

@@ -69,12 +69,10 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 		}
 		ff := util.Fields(line)
 		for j := 0; j < C; j++ {
-
 			numBannerMen, err := util.ParseTextInt(ff[j])
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-
 			kingdom[i][j] = numBannerMen
 		}
 	}
@@ -83,51 +81,41 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	// tinggal cari maxflow/mincut dari multisources(semua posisi lawan) ke castle out vertex(sink)
 	// vertices id:
 	// karena ini vertices with capacity kita harus splice jadi 2 vertices: (vertex-in, vertex-out)
-	// for each cell (i,j) , verticeId = (i*m+j, r*c+i*m+j)
-	// source=castle_i*m+ castle_j
+	// for each cell (i,j), verticeId = (i*c+j, r*c+i*c+j)
+	// sink=castle_i*c+ castle_j
 	// for each sources:
 	// sources atas, diatas border kingdom, ada C sources: R*C+R*C+k, for each 1<=k<=C
 	// sources kiri, dikiri border kingdom, ada R sources: R*C+R*C+C+k, for each 1<=k<=R
 	// sources kanan, dikanan border kingdom, ada R sources: R*C+R*C+C+R+k, for each 1<=k<=R
 	// sources bawah, dibawah border kingdom, ada C sources: R*C+R*C+C+R+R+k, for each 1<=k<=C
 
-	dg := da.NewPartitionGraph(R*C + R*C + C + R + R + C + 1)
-
-	for i := 0; i < R; i++ {
-		for j := 0; j < C; j++ {
-			inVId := da.Index(i*C + j)
-			outVId := da.Index(R*C + i*C + j)
-			dg.AddVertex(da.NewPartitionVertex(inVId, inVId, 0, 0))
-			dg.AddVertex(da.NewPartitionVertex(outVId, outVId, 0, 0))
-		}
-	}
-
+	dn := partitioner.NewDinicMaxFlow[int64](R*C+R*C+C+R+R+C, true, false)
 	for i := 0; i < R; i++ {
 		for j := 0; j < C; j++ {
 
 			inVId := da.Index(i*C + j)
 			outVId := da.Index(R*C + i*C + j)
 
-			dg.AddEdge(inVId, outVId, int64(kingdom[i][j]), true)
+			dn.AddEdge(inVId, outVId, int64(kingdom[i][j]), true)
 
 			if i+1 <= R-1 {
 				bawahInVid := da.Index((i+1)*C + j)
-				dg.AddEdge(outVId, bawahInVid, int64(kingdom[i+1][j]), true)
+				dn.AddEdge(outVId, bawahInVid, int64(kingdom[i+1][j]), true)
 			}
 
 			if j+1 <= C-1 {
 				kananVId := da.Index((i)*C + (j + 1))
-				dg.AddEdge(outVId, kananVId, int64(kingdom[i][(j+1)]), true)
+				dn.AddEdge(outVId, kananVId, int64(kingdom[i][(j+1)]), true)
 			}
 
 			if i-1 >= 0 {
 				atasVId := da.Index((i-1)*C + j)
-				dg.AddEdge(outVId, atasVId, int64(kingdom[i-1][j]), true)
+				dn.AddEdge(outVId, atasVId, int64(kingdom[i-1][j]), true)
 			}
 
 			if j-1 >= 0 {
 				kiriVId := da.Index(i*C + (j - 1))
-				dg.AddEdge(outVId, kiriVId, int64(kingdom[i][j-1]), true)
+				dn.AddEdge(outVId, kiriVId, int64(kingdom[i][j-1]), true)
 			}
 		}
 	}
@@ -136,72 +124,57 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	// atas
 	for k := 1; k <= C; k++ {
 		musuhVId := da.Index(R*C + R*C + k)
-		dg.AddVertex(da.NewPartitionVertex(musuhVId, musuhVId, 0, 0))
-
 		pasukanAtasInVId := da.Index(k)
-		dg.AddEdge(musuhVId, pasukanAtasInVId, INF, true)
+		dn.AddEdge(musuhVId, pasukanAtasInVId, INF, true)
 	}
 
 	// bawah
 	for k := 1; k <= C; k++ {
 		musuhVId := da.Index(R*C + R*C + C + R + R + k)
-		dg.AddVertex(da.NewPartitionVertex(musuhVId, musuhVId, 0, 0))
-
 		pasukanBawahInVId := da.Index((R-1)*C + k)
-		dg.AddEdge(musuhVId, pasukanBawahInVId, INF, true)
+		dn.AddEdge(musuhVId, pasukanBawahInVId, INF, true)
 	}
 
 	// kiri
 	for k := 1; k <= R; k++ {
 		musuhVId := da.Index(R*C + R*C + C + k)
-		dg.AddVertex(da.NewPartitionVertex(musuhVId, musuhVId, 0, 0))
-
-		pasukanKiriInVId := da.Index(k*C + 0)
-		dg.AddEdge(musuhVId, pasukanKiriInVId, INF, true)
+		pasukanKiriInVId := da.Index(k * C)
+		dn.AddEdge(musuhVId, pasukanKiriInVId, INF, true)
 	}
 
 	// kanan
 	for k := 1; k <= R; k++ {
 		musuhVId := da.Index(R*C + R*C + C + R + k)
-		dg.AddVertex(da.NewPartitionVertex(musuhVId, musuhVId, 0, 0))
-
 		pasukanKananInVId := da.Index(k*C + (C - 1))
-		dg.AddEdge(musuhVId, pasukanKananInVId, INF, true)
+		dn.AddEdge(musuhVId, pasukanKananInVId, INF, true)
 	}
-
-	dinic := partitioner.NewDinicMaxFlow(dg, false, true)
 
 	// karena multi-sources kita harus tambah artificial source, dan tambahkan edges dari supersource ke semua sources degnan INF weight
 	superSource := da.Index(R*C + R*C + C + R + R + C)
-
-	dinic.AddArtificialVertex(da.NewPartitionVertex(superSource, superSource, 0, 0))
+	dn.AddArtificialVertex(superSource)
 
 	// atas
 	for k := 1; k <= C; k++ {
 		musuhVId := da.Index(R*C + R*C + k)
-
-		dinic.AddArtificialEdge(superSource, musuhVId, INF, true)
+		dn.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	// bawah
 	for k := 1; k <= C; k++ {
 		musuhVId := da.Index(R*C + R*C + C + R + R + k)
-
-		dinic.AddArtificialEdge(superSource, musuhVId, INF, true)
+		dn.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	// kiri
 	for k := 1; k <= R; k++ {
 		musuhVId := da.Index(R*C + R*C + C + k)
-
-		dinic.AddArtificialEdge(superSource, musuhVId, INF, true)
+		dn.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	// kanan
 	for k := 1; k <= R; k++ {
 		musuhVId := da.Index(R*C + R*C + C + R + k)
-
-		dinic.AddArtificialEdge(superSource, musuhVId, INF, true)
+		dn.AddEdge(superSource, musuhVId, INF, true)
 	}
 
 	line, err = util.ReadLine(br)
@@ -220,7 +193,7 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	}
 
 	castleOutVId := da.Index(R*C + (castlei*C + castlej))
-	mf := dinic.ComputeMaxflowMinCut(superSource, castleOutVId)
+	mf := dn.ComputeMaxflowMinCut(superSource, castleOutVId)
 
 	ans := mf.GetMaxFlow()
 

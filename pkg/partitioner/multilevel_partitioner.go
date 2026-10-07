@@ -22,7 +22,15 @@ import (
 // sources dan sinks di ujung-ujung range slice of vertices di current cell, dan other vertices yang masuk cell S dan T di applyPermutation di selain range ujung itu.
 // saat ini di commit 15e4cbe6c154b41a71d8b9abff09ddfdd97c43a0 , pakai diy_solo_semarang.osm.pbf (dengan size ~105mb) partitioner makan RAM htop RES/RSS sekitar 3GB
 // setiap kali panggil selectFirstLastKthVertices() kita only cell vertices (pakai bitmask diatas)
-//  osrm-partition ./data/diy_solo_semarang.osrm --max-cell-sizes 256,2048,16384,131072,262144  -> cuma ~911mb
+// osrm-partition ./data/diy_solo_semarang.osrm --max-cell-sizes 256,2048,16384,131072,262144  -> cuma ~911mb. hampir 9x dari ukuran file osmnya..
+
+// partially done :), currently (7 oktober 2026) diy_solo_semarang.osm.pbf (105mb) peak htop RES/RSS  ~2.8gb. masih sekitar 27x dari ukuran file osmnya wkwkwkw :v, masih kalah jauh sama osrm-partition (https://github.com/Project-OSRM/osrm-backend/tree/master/src/partitioner) .
+// mungkin next time, bisa cek pprof dari call di code partitioner....
+// tapi sekarang lebih bagus runtimenya, sebelumnya sekitar 450s di versi baru partition langsung edge-based graph.. sekarang ~240s doang... :)
+// keknya bisa pakai idenya osrm-partition kalau kita cukup partition node-based graph aja, then untuk assign cellId edge-based graph nodesnya pakai heuristic.. lihat getGraphBisection() di https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
+// dan edge_based_partition_ids di https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
+// karena number of nodes dari node-based graph lebih kecil dari edge-based graph, harusnya runtime + space nya lebih kecil...
+// ok todo2: partition node-based graph, then use heuristic to assign cellId of each edge-based graph nodes
 
 type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
@@ -33,10 +41,9 @@ type MultilevelPartitioner struct {
 	graph                  *da.Graph
 	logger                 *zap.Logger
 	inertialFlowIterations int
-	directed               bool
 }
 
-func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.Graph, logger *zap.Logger, directed bool) *MultilevelPartitioner {
+func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.Graph, logger *zap.Logger) *MultilevelPartitioner {
 	if len(u) != l {
 		panic(fmt.Errorf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
@@ -48,7 +55,6 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.
 		graph:                  graph,
 		logger:                 logger,
 		inertialFlowIterations: inertialFlowIterations,
-		directed:               directed,
 	}
 }
 
@@ -68,24 +74,31 @@ pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} unt
 cells di level bawahnya didapatkan dengan menjalankan algoritma inertial flow pada individual cells of the level immediately above.
 
 time complexity:
-for each level l, time complexity recursiveBisection.Partition() in each cell is O(log_{1/(1-b)} (U_{l+1}) * U_{l+1}^{3/2}). dengan U_{L+1}=n
+for each level l, time complexity recursiveBisection.Partition() in each cell is O( U_{l+1} * sqrt(U_{l+1}) * log_{1/(1-b)} (U_{l+1}) ). dengan U_{L+1}=n
 */ // nolint: gofmt
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
-	nodeIDs := mp.graph.GetVerticeIds()
+	vIds := mp.graph.GetVerticeIds()
 	progress := util.NewProgress(mp.graph.NumberOfVertices())
 	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l, mp.u[mp.l-1])
 	fmt.Printf("Level %d progress: 0%%...", mp.l)
-	if len(nodeIDs) > mp.u[mp.l-1] {
+	n := len(vIds)
+	permutedvIds := make([]da.Index, n)
+	gv := make([]da.Index, n)
+	copy(permutedvIds, vIds)
+	copy(gv, vIds)
+	if n > mp.u[mp.l-1] {
 
 		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger,
-			mp.inertialFlowIterations, mp.directed)
+			mp.inertialFlowIterations)
 		inertialFlowPartitioner.setProgress(progress)
-		inertialFlowPartitioner.Partition(nodeIDs)
-		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
+		inertialFlowPartitioner.Partition(vIds)
+		fp := inertialFlowPartitioner.GetFinalPartition()
+		cp := mp.groupEachPartition(fp)
+		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], cp...)
 	} else {
-		mp.cellVertices[mp.l-1] = [][]da.Index{nodeIDs}
-		progress.Add(len(nodeIDs))
+		mp.cellVertices[mp.l-1] = [][]da.Index{vIds}
+		progress.Add(len(vIds))
 	}
 	progress.Finish()
 	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.cellVertices[mp.l-1]))
@@ -100,12 +113,13 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		cellOutchan := make(chan [][]da.Index, CellInOutChanSize)
 		wg := sync.WaitGroup{}
 		computeRecursiveBisection := func() {
-			for cell := range cellInChan {
+			for cellvIds := range cellInChan {
 				inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger,
-					mp.inertialFlowIterations, mp.directed)
+					mp.inertialFlowIterations)
 				inertialFlowPartitioner.setProgress(progress)
-				inertialFlowPartitioner.Partition(cell)
-				partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
+				inertialFlowPartitioner.Partition(cellvIds)
+				fp := inertialFlowPartitioner.GetFinalPartition()
+				partitions := mp.groupEachPartition(fp)
 				cellOutchan <- partitions
 			}
 		}

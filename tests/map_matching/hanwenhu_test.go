@@ -127,7 +127,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	for i := 0; i < len(ps); i++ {
 		ps[i] = 1 << hhPartitionSizes[i]
 	}
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 5, graph, logger, false)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 5, graph, logger)
 	mp.RunMultilevelPartitioning()
 	if err = mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)

@@ -278,7 +278,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
 			2, 1,
-			g, logger, false,
+			g, logger,
 		)
 		mp.SetCellVertices(cellVertices)
 
@@ -301,7 +301,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 		lm := landmark.NewLandmark[float64]()
-		err = lm.PreprocessALT(util.MinInt(16, n), mt.GetCostFunction(), g, logger)
+		err = lm.PreprocessALT(min(16, n), mt.GetCostFunction(), g, logger)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -503,7 +503,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, false,
+		graph, logger,
 	)
 
 	mp.RunMultilevelPartitioning()

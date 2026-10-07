@@ -76,7 +76,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 		mp := partitioner.NewMultilevelPartitioner(
 			ps,
 			len(ps), 1,
-			g, logger, true,
+			g, logger,
 		)
 		mp.RunMultilevelPartitioning()
 

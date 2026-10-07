@@ -8,9 +8,7 @@ import (
 
 	"math/rand/v2"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type minCutJob struct {
@@ -26,17 +24,16 @@ func (mj minCutJob) getLine() []float64 {
 }
 
 type inertialFlow struct {
-	graph      *da.PartitionGraph
+	cg         *da.CellGraph
 	iterations int
-	directed   bool
 }
 
-func NewInertialFlow(graph *da.PartitionGraph, iterations int, directed bool) *inertialFlow {
-	return &inertialFlow{graph: graph, iterations: iterations, directed: directed}
+func NewInertialFlow(cg *da.CellGraph, iterations int) *inertialFlow {
+	return &inertialFlow{cg: cg, iterations: iterations}
 }
 
-func (inf *inertialFlow) getPartitionGraph() *da.PartitionGraph {
-	return inf.graph
+func (inf *inertialFlow) getCellGraph() *da.CellGraph {
+	return inf.cg
 }
 
 /*
@@ -51,7 +48,7 @@ karena cuma call algoritma dinic unit capacity berkali kali sejumlah iterations,
 ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 
 time complexity dinic algorithm on general capacity graph:
-see lemma 4.1 ref1, O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
+see lemma 4.1 ref1, O(n^2 * m), n,m=number of vertices & edges dari da.CellGraph
 
 time complexity dinic algorithm on unit capacity graph:
 see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
@@ -65,7 +62,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 		bestNumberOfMinCutEdges = math.MaxInt
 	)
 
-	n := inf.graph.NumberOfVertices()
+	n := inf.cg.NumberOfCellVertices()
 	iterations := inf.iterations
 	if n >= LARGE_GRAPH_NUMBER_OF_VERTICES {
 		iterations = INERTIAL_FLOW_ITERATION_LARGE_GRAPH
@@ -74,8 +71,8 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	inertialFlowInChan := make(chan minCutJob, iterations+2)
 	inertialFlowOutChan := make(chan *MinCut, iterations+2)
 
-	balanceDelta := func(numPartTwoNodes int, numberOfVertices int) int {
-		diff := numberOfVertices/2 - numPartTwoNodes
+	balanceDelta := func(numPartTwoNodes int, numOfCellVertices int) int {
+		diff := numOfCellVertices/2 - numPartTwoNodes
 		if diff < 0 {
 			diff = -diff
 		}
@@ -85,13 +82,13 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	wg := sync.WaitGroup{}
 
 	go func() {
-		numberOfVertices := inf.graph.NumberOfVertices()
+		numOfCellVertices := inf.cg.NumberOfCellVertices()
 		for minCut := range inertialFlowOutChan {
 			if minCut.GetNumOfCutEdges() < bestNumberOfMinCutEdges ||
 				(bestNumberOfMinCutEdges == minCut.GetNumOfCutEdges() &&
 					balanceDelta(minCut.GetNumNodesInPartitionTwo(),
-						numberOfVertices) < balanceDelta(best.GetNumNodesInPartitionTwo(),
-						numberOfVertices)) {
+						numOfCellVertices) < balanceDelta(best.GetNumNodesInPartitionTwo(),
+						numOfCellVertices)) {
 				best = minCut
 				bestNumberOfMinCutEdges = minCut.GetNumOfCutEdges()
 			}
@@ -101,10 +98,13 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 
 	computeMinCut := func() {
 		for input := range inertialFlowInChan {
-			dn := NewDinicMaxFlow(inf.getPartitionGraph(), false, true)
-			sources, sinks := dn.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
-			s, t := dn.createArtificialSourceSink(sources, sinks, inf.directed)
-			inertialFlowOutChan <- dn.ComputeMaxflowMinCut(s, t) //  O(min{m * sqrt(m), m * n^(2/3)}), n,m=number of vertices & edges dari da.PartitionGraph
+			icg := inf.getCellGraph()
+			n := icg.NumberOfCellVertices()
+			dn := NewDinicMaxFlow[int32](n, true, true)
+			inf.initNetworkCapacity(n, dn)
+			sources, sinks := inf.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
+			s, t := dn.createArtificialSourceSink(sources, sinks)
+			inertialFlowOutChan <- dn.ComputeMaxflowMinCut(s, t) //  O(min{m * sqrt(m), m * n^(2/3)}), n,m=number of vertices & edges dari da.CellGraph
 		}
 	}
 
@@ -131,31 +131,40 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 }
 
 type vertexEmb struct {
-	idx        int
+	vId        da.Index
 	dotProduct float64
 }
 
-func newVertexEmb(idx int, dotProduct float64) vertexEmb {
-	return vertexEmb{idx, dotProduct}
+func newVertexEmb(vId da.Index, dotProduct float64) vertexEmb {
+	return vertexEmb{vId, dotProduct}
 }
 
 func (v vertexEmb) getDotProd() float64 {
 	return v.dotProduct
 }
 
+func (inf *inertialFlow) initNetworkCapacity(n int, dn *DinicMaxFlow[int32]) {
+	for u := da.Index(0); u < da.Index(n); u++ {
+		inf.cg.ForOutEdgesOf(u, func(v da.Index) {
+			dn.AddEdge(u, v, 1, true)
+		})
+	}
+}
+
 // selectFirstLastKthVertices. sort vertices by linear kombinaasi latitude & longitude
-func (dmf *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]da.Index, []da.Index) {
+func (inf *inertialFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]da.Index, []da.Index) {
 
-	vertices := dmf.graph.GetVertices()
-
-	n := len(vertices)
+	n := inf.cg.NumberOfCellVertices()
 
 	vertEmbeds := make([]vertexEmb, n)
-	for i, v := range vertices {
-		lat, lon := v.GetVertexCoordinate()
+	i := 0
+	inf.cg.ForEachCellVertices(func(vId, _ da.Index, coord da.Coordinate) {
+		lat, lon := coord.GetLat(), coord.GetLon()
 		proj := dot(lon, lat, l[0], l[1])
-		vertEmbeds[i] = newVertexEmb(i, proj)
-	}
+		vertEmbeds[i] = newVertexEmb(vId, proj)
+		i++
+	})
+
 	kth := int(float64(n) * ratio)
 
 	if kth == 0 {
@@ -169,23 +178,23 @@ func (dmf *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) 
 		// expected runtime O(n)
 
 		// inspiration: https://daniel-j-h.github.io/post/selection-algorithms-for-partitioning/
-		q := dmf.randomizedSelect(vertEmbeds, 0, n-1, kth, func(left, right int) bool {
+		q := inf.randomizedSelect(vertEmbeds, 0, n-1, kth, func(left, right int) bool {
 			return vertEmbeds[left].getDotProd() <= vertEmbeds[right].getDotProd()
 		}) // q is the index of the kth-smallest element in the vertEmbeds
 
 		for i := 0; i < kth; i++ {
-			sourceNodes = append(sourceNodes, vertices[vertEmbeds[i].idx].GetID())
+			sourceNodes = append(sourceNodes, vertEmbeds[i].vId)
 		}
 
 		// sampai sini kita mendapatkan semua elements didalam arr[q+1, n-1] lebih dari arr[q]
 		// kita bisa randomizedSelect arr[q+1, n-1] untuk mendapatkan last k sinks
-		lastKth := util.MinInt(kth, n-kth)
-		dmf.randomizedSelect(vertEmbeds, q+1, n-1, lastKth, func(left, right int) bool {
+		lastKth := min(kth, n-kth)
+		inf.randomizedSelect(vertEmbeds, q+1, n-1, lastKth, func(left, right int) bool {
 			return vertEmbeds[left].getDotProd() > vertEmbeds[right].getDotProd()
 		})
 
 		for i := q + 1; i < q+1+lastKth; i++ {
-			sinkNodes = append(sinkNodes, vertices[vertEmbeds[i].idx].GetID())
+			sinkNodes = append(sinkNodes, vertEmbeds[i].vId)
 		}
 	} else {
 		// expected runtime O(nlogn) kalau sort.Slice randomized quicksort
@@ -194,8 +203,8 @@ func (dmf *DinicMaxFlow) selectFirstLastKthVertices(l []float64, ratio float64) 
 		})
 
 		for i := 0; i < kth; i++ {
-			sourceNodes = append(sourceNodes, vertices[vertEmbeds[i].idx].GetID())
-			sinkNodes = append(sinkNodes, vertices[vertEmbeds[n-1-i].idx].GetID())
+			sourceNodes = append(sourceNodes, vertEmbeds[i].vId)
+			sinkNodes = append(sinkNodes, vertEmbeds[n-1-i].vId)
 		}
 	}
 
@@ -210,22 +219,22 @@ func dot(x1, y1, x2, y2 float64) float64 {
 // & partition the arr such that all elements (arr[p,..q]) left of i-th smallest element  are smaller (or largest depends on comp) than  the pivot element arr[q] & all elements (arr[q+1,...,r]) in the right of i-th smallest element
 // expected runtime O(n), n=len(arr). worst case O(n^2)
 // read chapter 9.2 CLRS (introduction to algorithm by Cormen, et al. 3rd edition) for the time complexity analysis
-func (dmf *DinicMaxFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func(left, right int) bool) int {
+func (inf *inertialFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp func(left, right int) bool) int {
 	if p == r {
 		return p
 	}
 
-	q := dmf.randomizedPartition(arr, p, r, comp)
+	q := inf.randomizedPartition(arr, p, r, comp)
 	k := q - p + 1 // size of arr[p,...,q] (include pivot element arr[q])
 	if i == k {
 		return q
 	} else if i < k {
-		return dmf.randomizedSelect(arr, p, q-1, i, comp)
+		return inf.randomizedSelect(arr, p, q-1, i, comp)
 	}
-	return dmf.randomizedSelect(arr, q+1, r, i-k, comp) // i-k th smallest/largest element di arr[q+1,...,r] karena di next recursion kita operate di arr[q+1,...,r]
+	return inf.randomizedSelect(arr, q+1, r, i-k, comp) // i-k th smallest/largest element di arr[q+1,...,r] karena di next recursion kita operate di arr[q+1,...,r]
 }
 
-func (dmf *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
+func (inf *inertialFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
 	i := p - 1
 
 	pivotId := p + rand.IntN(r-p+1)
@@ -242,20 +251,20 @@ func (dmf *DinicMaxFlow) randomizedPartition(arr []vertexEmb, p, r int, comp fun
 	return i + 1
 }
 
-func (dmf *DinicMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []da.Index, directed bool) (da.Index, da.Index) {
-	artificialSource := da.Index(dmf.graph.NumberOfVertices())
-	artificialSink := da.Index(dmf.graph.NumberOfVertices() + 1)
+func (dmf *DinicMaxFlow[int32]) createArtificialSourceSink(sourceNodes, sinkNodes []da.Index) (da.Index, da.Index) {
+	ars := da.Index(dmf.n)     // artificial source vertex id
+	art := da.Index(dmf.n + 1) // artificial sink vertex id
 
-	dmf.AddArtificialVertex(da.NewPartitionVertex(artificialSource, da.Index(ARTIFICIAL_SOURCE_ID), 0.0, 0.0))
-	dmf.AddArtificialVertex(da.NewPartitionVertex(artificialSink, da.Index(ARTIFICIAL_SINK_ID), 0.0, 0.0))
+	dmf.AddArtificialVertex(ars)
+	dmf.AddArtificialVertex(art)
 
+	infcap := int32(math.MaxInt32)
 	for _, s := range sourceNodes {
-		dmf.AddArtificialEdge(artificialSource, s, pkg.INF_WEIGHT_INT, directed)
+		dmf.AddEdge(ars, s, infcap, true)
 	}
 
 	for _, t := range sinkNodes {
-		dmf.AddSinks(t)
-		dmf.AddArtificialEdge(t, artificialSink, pkg.INF_WEIGHT_INT, directed)
+		dmf.AddEdge(t, art, infcap, true)
 	}
-	return artificialSource, artificialSink
+	return ars, art
 }

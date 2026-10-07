@@ -27,7 +27,7 @@ lihat ./mobile/online_map_matcher.go
 evaluation/tests suite di: tests/mapmatching/ (cari yang ada nama Online di test funtions nya)
 
 metode yang dipropose di ref[1] implement bayes filter
-dimana goal nya adalah compute posterior probability distribution (pmf or pdf) over the current state x_t
+dimana goal nya adalah compute posterior probability distribution pmf (or pdf if continous) over the current state x_t
 given the history of measurements z_{1:t}.
 di kasus ini state nya cuma road segment yang ditempati vehicle pada time step t
 given gps measurements z_{1:t}
@@ -105,7 +105,7 @@ func NewOnlineMapMatchMHTClient(graph *da.DynamicGraph, rt *spatialindex.Dynamic
 // Algorithm 1 in ref[1]
 // O( b^{d_p}), b=avg outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
 // candidates segmentId dan matchedSegment segmentId  adalah MapMatchGraph edge id
-func (om *OnlineMapMatchMHTClient) OnlineMapMatch(prevGps, gps *da.GPSPoint, k int,
+func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
 	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 
 	if k == 1 || len(candidates) == 0 {
@@ -173,7 +173,7 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(prevGps, gps *da.GPSPoint, k i
 			tau = append(tau, rkCand.GetSegmentId())
 			ptau := 1.0 // markov chain path probability that start at this road segment candidate rkCand
 			hpre := 1.0
-			newCandidates = om.recur(newCandidates, rkCand.GetWeight(), tau, ptau, speedMean, hpre, speedStd, gps.DeltaTime(), prevGps, gps, rkCand)
+			newCandidates = om.recur(newCandidates, rkCand.GetWeight(), tau, ptau, speedMean, hpre, speedStd, gps.DeltaTime(), gps, rkCand)
 		}
 		speedMeanK, speedStdK = om.kalmanFilter(speedMean, speedStd, gps.Speed(), gps.DeltaTime())
 
@@ -193,7 +193,7 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(prevGps, gps *da.GPSPoint, k i
 // Algorithm 2 in ref[1]
 // route prediction buat compute prior probability dari next road segment candidates r_{k+1}
 func (om *OnlineMapMatchMHTClient) recur(newCands []*ma.Candidate, w float64, tau []da.Index, ptau float64,
-	speedMean, hpre, speedStd, deltaTime float64, prevGps, gps *da.GPSPoint, prevCand *ma.Candidate) []*ma.Candidate {
+	speedMean, hpre, speedStd, deltaTime float64, gps *da.GPSPoint, prevCand *ma.Candidate) []*ma.Candidate {
 	hnew := om.computeHProb(tau, speedMean, speedStd, deltaTime)
 
 	if w*hnew*ptau > om.lp {
@@ -214,7 +214,7 @@ func (om *OnlineMapMatchMHTClient) recur(newCands []*ma.Candidate, w float64, ta
 			// compute new markov chain path probability that enter this next state (road segment nextSegment)
 			ptauPrime := ptau * om.computEdgeTransitionProb(lSegId, nextSegment, nj)
 			hprePrime := hnew
-			newCands = om.recur(newCands, w, tauPrime, ptauPrime, speedMean, hprePrime, speedStd, deltaTime, prevGps, gps, prevCand)
+			newCands = om.recur(newCands, w, tauPrime, ptauPrime, speedMean, hprePrime, speedStd, deltaTime, gps, prevCand)
 		}
 	}
 	// compute route prediction probability that defined in eq [1] or eq [17] in ref 1
@@ -236,6 +236,7 @@ func (om *OnlineMapMatchMHTClient) recur(newCands []*ma.Candidate, w float64, ta
 			cnew = cand
 		}
 	}
+
 	if cnew == nil {
 		lastTauSegLength := om.g.GetSegmentLength(tau[len(tau)-1])
 		newCands = append(newCands, ma.NewCandidate(tau[len(tau)-1], wprime,

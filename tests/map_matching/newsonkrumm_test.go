@@ -266,7 +266,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	for i := range ps {
 		ps[i] = 1 << us[i]
 	}
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, g, zlog, false)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, g, zlog)
 	mp.RunMultilevelPartitioning()
 	if err := mp.SaveToFile(); err != nil {
 		return nil, nil, nil, nil, nil, err

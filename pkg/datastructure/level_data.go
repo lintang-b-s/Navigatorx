@@ -1,9 +1,5 @@
 package datastructure
 
-import (
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
-)
-
 type LevelData struct {
 	offset []uint8 // offset of each level in the bitpacked cell numbers
 }
@@ -46,7 +42,7 @@ func (li *LevelData) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uin
 	l_sv := li.GetHighestDifferingLevel(sCellNumber, vCellNumber)
 	l_tv := li.GetHighestDifferingLevel(tCellNumber, vCellNumber)
 
-	return uint8(util.MinInt(int(l_sv), int(l_tv)))
+	return min(l_sv, l_tv)
 }
 
 // get cell number. level is 1-indexed
