@@ -116,10 +116,9 @@ func (dmf *DinicMaxFlow[W]) bfsLevelGraph(
 				levelQueue = append(levelQueue, v)
 			}
 		}
-
 	}
-	reachable := dmf.level[target] != INVALID_LEVEL
 
+	reachable := dmf.level[target] != INVALID_LEVEL
 	return reachable
 }
 
@@ -221,7 +220,7 @@ func (dmf *DinicMaxFlow[W]) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut
 
 func (dmf *DinicMaxFlow[W]) makeMinCutFlags(minCut *MinCut, maxflow int64) {
 	cutEdges := 0
-	n := da.Index(len(dmf.adjList) - 2)
+	n := da.Index(dmf.n)
 	for u := da.Index(0); u < n; u++ {
 		if dmf.level[u] != INVALID_LEVEL {
 			// https://www.cs.princeton.edu/courses/archive/fall14/cos226/lectures/64MaxFlow.pdf

@@ -51,7 +51,7 @@ func (c *CellGraph) GetCellVIds() []Index {
 }
 
 // ForEachCellVertices iterate all recursive bisection cell vertices. return its RB cell vertex id, road network graph vertex id, and its coordinate.
-// vId is the recursive bisection cell vertex id (or RB cell id).
+// vId is the recursive bisection cell vertex id (or RB cell vertex id).
 // gvId is the road network grpah vertex id.
 func (c *CellGraph) ForEachCellVertices(handle func(vId, gvId Index, coord Coordinate)) {
 	for i, gvId := range c.vIds[c.begin:c.end] {

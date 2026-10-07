@@ -197,6 +197,8 @@ func (og *OverlayGraph) GetCellFromTruncatedCellNumber(truncatedCellNumber Pv, l
 	return cell
 }
 
+// buildOverlayVertices implements building overlay graph described in section 5.1 Metric-Independent Preprocessing - Overlay Topology: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+// adapted from crp preprocessing implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayGraph.cpp
 func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []bool {
 	// iterate over all edges to determine overlay vertices
 	// store these overlay vertices according to the highest level in which the edge
@@ -341,6 +343,8 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 	return exitFlagsArray
 }
 
+// buildCells implements building overlay graph described in section 5.1 Metric-Independent Preprocessing - Overlay Topology: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+// adapted from crp preprocessing implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayGraph.cpp
 func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) {
 	cellMapping := make([]map[Pv]*Cell, numberOfLevels)
 	for l := 0; l < int(numberOfLevels); l++ {

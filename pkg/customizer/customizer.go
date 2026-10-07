@@ -292,7 +292,7 @@ func newCustomizerCell(cell da.Cell, cellNumber da.Pv) customizerCell {
 }
 
 /*
-Customization Phase of Customizable Route Planning (CRP) by delling et al. see section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+Customization Phase of Customizable Route Planning (CRP) by delling et al. read section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
 let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortcuts within any cell
 let c_1, c_l be the number of cells in level 1 and the number of cells in level l.
@@ -338,6 +338,8 @@ func (cc cellCustomizationRes[W]) getIndex() int {
 // and store the result in ow.weights
 // restricted to cell C: menggunakan only vertices dan edges yang terletak pada cell C.
 // this function is parallelized using goroutines worker pool
+// read section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+(acknowledgment) inspired by crp customization code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayWeights.cpp
 */
 func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 
@@ -504,6 +506,8 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 // using Dijkstra algorithm (menggunakan shortcut edges & cut edges pada subcells of the level-i cell) from each entry boundary/overlay vertices of the cell to all exit boundary/overlay vertices of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
+// read section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+// (acknowledgment) inspired by crp customization code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayWeights.cpp
 func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 
 	levelData := c.overlayGraph.GetLevelData()

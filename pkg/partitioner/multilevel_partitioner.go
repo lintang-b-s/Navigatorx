@@ -27,10 +27,10 @@ import (
 // partially done :), currently (7 oktober 2026) diy_solo_semarang.osm.pbf (105mb) peak htop RES/RSS  ~2.8gb. masih sekitar 27x dari ukuran file osmnya wkwkwkw :v, masih kalah jauh sama osrm-partition (https://github.com/Project-OSRM/osrm-backend/tree/master/src/partitioner) .
 // mungkin next time, bisa cek pprof dari call di code partitioner....
 // tapi sekarang lebih bagus runtimenya, sebelumnya sekitar 450s di versi baru partition langsung edge-based graph.. sekarang ~240s doang... :)
-// keknya bisa pakai idenya osrm-partition kalau kita cukup partition node-based graph aja, then untuk assign cellId edge-based graph nodesnya pakai heuristic.. lihat getGraphBisection() di https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
+// keknya bisa pakai idenya osrm-partition kalau kita cukup partition node-based graph aja, then untuk assign cellId edge-based graph nodes nya pakai heuristic.. lihat getGraphBisection() di https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
 // dan edge_based_partition_ids di https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
 // karena number of nodes dari node-based graph lebih kecil dari edge-based graph, harusnya runtime + space nya lebih kecil...
-// ok todo2: partition node-based graph, then use heuristic to assign cellId of each edge-based graph nodes
+// ok todo2: partition node-based graph, then use heuristic to assign cellId of each edge-based graph nodes.
 
 type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
@@ -67,7 +67,7 @@ func (mp *MultilevelPartitioner) SetCellVertices(cellVertices [][][]da.Index) {
 }
 
 /*
-RunMultilevelPartitioning. Partitioning phase of Customizable Route Planning (CRP) By Delling et al. see section 5.1 Metric Independent Preprocessing (Partitioning) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+RunMultilevelPartitioning. Partitioning phase of Customizable Route Planning (CRP) By Delling et al. read section 5.1 Metric-Independent Preprocessing (Partitioning) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
  run L-level mutltilevel partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
 pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} untuk mendapatkan cells level L.
