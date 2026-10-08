@@ -12,8 +12,8 @@ import (
 // todo: add ref, destination, destination:ref storage
 type RoadNetworkDataContainer struct {
 	// di set sebelum buildGraph()
-	osmNodePoints []Coordinate
-	osmNodeIds    []uint64
+	osmNodePoints []Coordinate // geometry of each road segments, flatenned.
+	osmNodeIds    *PackedSlice
 
 	nameTable []string // map dari integer ke string (tag name di osm way)
 	// dua ini di set sebelum buildGraph()
@@ -46,7 +46,7 @@ func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer 
 
 	return &RoadNetworkDataContainer{
 		osmNodePoints:           make([]Coordinate, 0),
-		osmNodeIds:              make([]uint64, 0),
+		osmNodeIds:              NewPackedSlice(BIT_SIZE_OSM_NODE_ID, INITIAL_APPROX_SEGMENT_SIZE),
 		segmentOsmWayId:         NewPackedSlice(osmwayBitSize, INITIAL_APPROX_SEGMENT_SIZE), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
 		osmwayBitSize:           osmwayBitSize,
 		segmentStartPointsIndex: make([]Index, 0),
@@ -72,7 +72,7 @@ func NewRoadNetworkDataContainerWithSize(numberOfEdges int, numberOfVertices int
 		osmNodePoints:           make([]Coordinate, 1),
 		segmentOsmWayId:         NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID, uint64(numberOfEdges)),
 		segmentStartPointsIndex: make([]Index, 0),
-		osmNodeIds:              make([]uint64, 0),
+		osmNodeIds:              NewPackedSlice(BIT_SIZE_OSM_NODE_ID, INITIAL_APPROX_SEGMENT_SIZE),
 		segmentEndPointsIndex:   make([]Index, 0),
 		streetName:              make([]uint32, 0),
 		osmwayBitSize:           DEFAULT_BIT_SIZE_OSM_WAY_ID,
@@ -180,9 +180,9 @@ func (rn *RoadNetworkDataContainer) GetTailHeadOsmNodeId(id Index) (uint64, uint
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
 	if sIndex < eIndex {
-		return rn.osmNodeIds[sIndex], rn.osmNodeIds[eIndex-1]
+		return rn.osmNodeIds.Get(uint64(sIndex)), rn.osmNodeIds.Get(uint64(eIndex) - 1)
 	}
-	return rn.osmNodeIds[sIndex-1], rn.osmNodeIds[eIndex]
+	return rn.osmNodeIds.Get(uint64(sIndex - 1)), rn.osmNodeIds.Get(uint64(eIndex))
 }
 
 func (rn *RoadNetworkDataContainer) GetSegmentOsmNodeIds(id Index) []uint64 {
@@ -190,12 +190,18 @@ func (rn *RoadNetworkDataContainer) GetSegmentOsmNodeIds(id Index) []uint64 {
 	eIndex := rn.segmentEndPointsIndex[id]
 
 	if sIndex < eIndex {
-		return rn.osmNodeIds[sIndex:eIndex]
+		osmnids := make([]uint64, 0, eIndex-sIndex)
+		for i := sIndex; i < eIndex; i++ {
+			v := rn.osmNodeIds.Get(uint64(i))
+			osmnids = append(osmnids, v)
+		}
+		return osmnids
 	}
 
 	nPoints := make([]uint64, 0, sIndex-eIndex)
 	for i := int(sIndex - 1); i >= int(eIndex); i-- { // harus int(), karena kalo gak, eIndex == 0, next iteration jd maxuint64
-		nPoints = append(nPoints, rn.osmNodeIds[i])
+		v := rn.osmNodeIds.Get(uint64(i))
+		nPoints = append(nPoints, v)
 	}
 	return nPoints
 }
@@ -223,7 +229,10 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometryEndpoints(id Index) (Index
 
 func (rn *RoadNetworkDataContainer) AppendOsmNodePoints(edgePoints []Coordinate, osmNodeIds []uint64) {
 	rn.osmNodePoints = append(rn.osmNodePoints, edgePoints...)
-	rn.osmNodeIds = append(rn.osmNodeIds, osmNodeIds...)
+
+	for _, v := range osmNodeIds {
+		rn.osmNodeIds.Append(v)
+	}
 }
 
 // AppendSegmentData. append road segment data

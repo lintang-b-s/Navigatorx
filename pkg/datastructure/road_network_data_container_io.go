@@ -82,7 +82,7 @@ func writeRoadNetworkDataContainer(w *util.BinaryWriter, rn *RoadNetworkDataCont
 		return err
 	}
 
-	if err := w.WriteUInt64s(rn.osmNodeIds); err != nil {
+	if err := writePackedSlice(w, rn.osmNodeIds); err != nil {
 		return err
 	}
 
@@ -242,7 +242,7 @@ func readRoadNetworkDataContainer(r *util.BinaryReader) (*RoadNetworkDataContain
 		return nil, err
 	}
 
-	osmNodeIds, err := r.ReadUint64s()
+	osmNodeIds, err := readPackedSlice(r)
 	if err != nil {
 		return nil, err
 	}

@@ -6,8 +6,8 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
-type FlowNumber interface {
-	~int32 | ~int64
+type FlowNumber interface { // for the inertial flow partitioner use int8, because we operate dinic algorithm on unit capacity graph.
+	~int8 | ~int32 | ~int64
 }
 
 type flowEdge[W FlowNumber] struct {
@@ -122,7 +122,7 @@ func (dmf *DinicMaxFlow[W]) bfsLevelGraph(
 	return reachable
 }
 
-func (dmf *DinicMaxFlow[W]) dfsAugmentPath(u da.Index, s, t da.Index, f W) W {
+func (dmf *DinicMaxFlow[W]) dfsAugmentPath(u da.Index, s, t da.Index, f int64) int64 {
 	// ref1: https://cp-algorithms.com/graph/dinic.html
 	// for general capacity graph:
 	// note that this dfs only visit vertices that lie on shortest path from s to t in the level graph  (levels/spdist of each vertices in the shortest path from s to t secara berurutan +1 )
@@ -145,13 +145,13 @@ func (dmf *DinicMaxFlow[W]) dfsAugmentPath(u da.Index, s, t da.Index, f W) W {
 		eCap := e.cap
 		eFlow := e.flow
 
-		residual := eCap - eFlow
+		residual := int64(eCap - eFlow)
 		if dmf.level[v] != dmf.level[u]+1 {
 			continue
 		}
 
 		if pushed := dmf.dfsAugmentPath(v, s, t, min(residual, f)); pushed > 0 {
-			dmf.AddFlow(u, j, pushed)
+			dmf.AddFlow(u, j, W(pushed))
 			return pushed
 		}
 	}
@@ -159,8 +159,8 @@ func (dmf *DinicMaxFlow[W]) dfsAugmentPath(u da.Index, s, t da.Index, f W) W {
 	return 0.0
 }
 
-func (dmf *DinicMaxFlow[W]) blockingFlow(s, t da.Index) W {
-	blockingFlowVal := W(0)
+func (dmf *DinicMaxFlow[W]) blockingFlow(s, t da.Index) int64 {
+	blockingFlowVal := int64(0)
 	for {
 		// ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 		// for general capacity graph:
@@ -172,7 +172,7 @@ func (dmf *DinicMaxFlow[W]) blockingFlow(s, t da.Index) W {
 
 		// for unit capacity graph:
 		// time complexity of blocking flow unit capacity graph: O(m) (see lemma 4.2 ref1)
-		flow := dmf.dfsAugmentPath(s, s, t, W(math.MaxInt32)) // O(k+n), with k=number of pointer dmf.last advances in this dfs execution
+		flow := dmf.dfsAugmentPath(s, s, t, math.MaxInt64) // O(k+n), with k=number of pointer dmf.last advances in this dfs execution
 		if flow == 0 {
 			break
 		}
@@ -198,7 +198,7 @@ func (dmf *DinicMaxFlow[W]) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut
 	var (
 		minCut = NewMinCut(dmf.n) // exclude artificial source and sink. kita cuma tambahin super source sinks di slice superEdgeList, superAdjList, dmf.level, dmf.last
 	)
-	maxFlow := W(0)
+	maxFlow := int64(0)
 
 	for dmf.bfsLevelGraph(s, t) {
 		// ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf

@@ -272,19 +272,19 @@ func ohmmReadGisCupSegmentGeometry(EdgeGeometryFilePath string) (map[uint64]ohmm
 }
 
 // https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
-func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *metrics.TimeFunction[int32], *da.RoadNetworkDataContainer, map[uint64]float64, error) {
+func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *da.Graph, [][]da.Index, *metrics.TimeFunction[int32], *da.RoadNetworkDataContainer, map[uint64]float64, error) {
 	nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, err := ohmmReadGisCupNodes(paths.nodesFilePath)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
 	}
 	segmentGeometries, err := ohmmReadGisCupSegmentGeometry(paths.EdgeGeometryFilePath)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
 	}
 
 	f, err := os.OpenFile(paths.EdgesFilePath, os.O_RDONLY, 0600)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
 	}
 	defer f.Close()
 
@@ -299,40 +299,40 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 		if err != nil && errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
 		}
 		fields := util.Fields(line)
 		if len(fields) == 0 {
 			continue
 		}
 		if len(fields) < 4 {
-			return nil, nil, nil, nil, fmt.Errorf("invalid Segment line %q", line)
+			return nil, nil, make([][]da.Index, 0), nil, nil, nil, fmt.Errorf("invalid Segment line %q", line)
 		}
 
 		SegmentID, err := util.ParseTextUInt64(fields[0])
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
 		}
 		fromNodeID, err := util.ParseTextInt64(fields[1])
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
 		}
 		toNodeID, err := util.ParseTextInt64(fields[2])
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
 		}
 		cost, err := util.ParseTextFloat64(fields[3])
 		if err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
 		}
 
 		fromIndex, ok := nodeIDToIndex[fromNodeID]
 		if !ok {
-			return nil, nil, nil, nil, fmt.Errorf("missing from node %d", fromNodeID)
+			return nil, nil, make([][]da.Index, 0), nil, nil, nil, fmt.Errorf("missing from node %d", fromNodeID)
 		}
 		toIndex, ok := nodeIDToIndex[toNodeID]
 		if !ok {
-			return nil, nil, nil, nil, fmt.Errorf("missing to node %d", toNodeID)
+			return nil, nil, make([][]da.Index, 0), nil, nil, nil, fmt.Errorf("missing to node %d", toNodeID)
 		}
 		if fromIndex == toIndex {
 			continue
@@ -360,11 +360,11 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 	op := extractor.NewExtractor[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	g, timeFunction, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphSegments, rn, uint32(len(nodeCoords)), true)
+	nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphSegments, rn, uint32(len(nodeCoords)), true)
 	rn.BuildNameTable(map[uint32]string{0: ""})
-	g, timeFunction = extractor.BuildEdgeBasedGraph(g, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
+	ebg, timeFunction, ebgMapping := extractor.BuildEdgeBasedGraph(nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
 
-	return g, timeFunction, rn, SegmentLengths, nil
+	return nbg, ebg, ebgMapping, timeFunction, rn, SegmentLengths, nil
 }
 
 // https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
@@ -378,7 +378,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 		t.Fatalf("log.New failed: %v", err)
 	}
 	paths := ohmmEnsureGisCupRoadNetwork(t, workingDir, logger)
-	graph, timeFunction, rn, SegmentLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
+	nbg, ebg, ebgMapping, timeFunction, rn, SegmentLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
 	if err != nil {
 		t.Fatalf("build GIS Cup graph failed: %v", err)
 	}
@@ -389,8 +389,9 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 		ps[i] = 1 << pow
 	}
 
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, nbg, logger)
 	mp.RunMultilevelPartitioning()
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	if err := mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
 	}
@@ -399,7 +400,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 	if err := mlp.ReadMlpFile(); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := prepo.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	if err := prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
@@ -739,7 +740,7 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[uint64]ohmmMelbourneStr
 	return streetByID, nil
 }
 
-func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *metrics.TimeFunction[int32], rn *da.RoadNetworkDataContainer, logger *zap.Logger, partitionSizes []int,
+func ohmmPrepareCRPFiles(t *testing.T, nbg, ebg *da.Graph, ebgMapping [][]da.Index, timeFunction *metrics.TimeFunction[int32], rn *da.RoadNetworkDataContainer, logger *zap.Logger, partitionSizes []int,
 ) *engine.Engine[int32] {
 	t.Helper()
 
@@ -748,8 +749,9 @@ func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *metrics.Ti
 		ps[i] = 1 << pow
 	}
 
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, graph, logger)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, nbg, logger)
 	mp.RunMultilevelPartitioning()
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	if err := mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
 	}
@@ -758,7 +760,7 @@ func ohmmPrepareCRPFiles(t *testing.T, graph *da.Graph, timeFunction *metrics.Ti
 	if err := mlp.ReadMlpFile(); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := prepo.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	if err := prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
@@ -831,11 +833,11 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	op := extractor.NewExtractor[int32]()
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	graph, wf, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphSegments, rn, uint32(len(vertices)), true)
+	nbg, oldWf, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphSegments, rn, uint32(len(vertices)), true)
 	rn.BuildNameTable(map[uint32]string{0: ""})
-	graph, wf = extractor.BuildEdgeBasedGraph(graph, wf, vertexTurnTablePtr, flattenTurnMatrices, rn)
+	ebg, wf, ebgMapping := extractor.BuildEdgeBasedGraph(nbg, oldWf, vertexTurnTablePtr, flattenTurnMatrices, rn)
 
-	eng := ohmmPrepareCRPFiles(t, graph, wf, rn, logger, []int{8, 11, 13, 14, 15})
+	eng := ohmmPrepareCRPFiles(t, nbg, ebg, ebgMapping, wf, rn, logger, []int{8, 11, 13, 14, 15})
 
 	re := eng.GetRoutingEngine()
 	g := re.GetGraph()

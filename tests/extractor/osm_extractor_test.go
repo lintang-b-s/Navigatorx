@@ -37,12 +37,12 @@ func setup(t *testing.T, osmFileTest string) (*da.Graph, *da.RoadNetworkDataCont
 
 	osmExtractor := extractor.NewExtractor[int32]()
 
-	graph, rn, _, err := osmExtractor.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
+	_, ebg, rn, _, _, err := osmExtractor.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return graph, rn, osmExtractor
+	return ebg, rn, osmExtractor
 }
 
 // go test ./tests/extractor -run .

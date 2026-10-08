@@ -100,7 +100,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 		for input := range inertialFlowInChan {
 			icg := inf.getCellGraph()
 			n := icg.NumberOfCellVertices()
-			dn := NewDinicMaxFlow[int32](n, true, true)
+			dn := NewDinicMaxFlow[int8](n, true, true)
 			inf.initNetworkCapacity(n, dn)
 			sources, sinks := inf.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
 			s, t := dn.createArtificialSourceSink(sources, sinks)
@@ -143,7 +143,7 @@ func (v vertexEmb) getDotProd() float64 {
 	return v.dotProduct
 }
 
-func (inf *inertialFlow) initNetworkCapacity(n int, dn *DinicMaxFlow[int32]) {
+func (inf *inertialFlow) initNetworkCapacity(n int, dn *DinicMaxFlow[int8]) {
 	for u := da.Index(0); u < da.Index(n); u++ {
 		inf.cg.ForOutEdgesOf(u, func(v da.Index) {
 			dn.AddEdge(u, v, 1, true)
@@ -234,6 +234,7 @@ func (inf *inertialFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp fun
 	return inf.randomizedSelect(arr, q+1, r, i-k, comp) // i-k th smallest/largest element di arr[q+1,...,r] karena di next recursion kita operate di arr[q+1,...,r]
 }
 
+// randomizedPartition random pivot & partition function of randomized quicksort
 func (inf *inertialFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
 	i := p - 1
 
@@ -251,14 +252,14 @@ func (inf *inertialFlow) randomizedPartition(arr []vertexEmb, p, r int, comp fun
 	return i + 1
 }
 
-func (dmf *DinicMaxFlow[int32]) createArtificialSourceSink(sourceNodes, sinkNodes []da.Index) (da.Index, da.Index) {
+func (dmf *DinicMaxFlow[int8]) createArtificialSourceSink(sourceNodes, sinkNodes []da.Index) (da.Index, da.Index) {
 	ars := da.Index(dmf.n)     // artificial source vertex id
 	art := da.Index(dmf.n + 1) // artificial sink vertex id
 
 	dmf.AddArtificialVertex(ars)
 	dmf.AddArtificialVertex(art)
 
-	infcap := int32(math.MaxInt32)
+	infcap := int8(math.MaxInt8)
 	for _, s := range sourceNodes {
 		dmf.AddEdge(ars, s, infcap, true)
 	}

@@ -7,6 +7,6 @@ import (
 
 var (
 	// 	https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
-	WORKERS          = util.ClampMin(pkg.NUM_CPU/3, 1)
-	landmarkChanSize = 6
+	WORKERS          = util.ClampMin(pkg.NUM_CPU/4, 1)
+	landmarkChanSize = 4
 )

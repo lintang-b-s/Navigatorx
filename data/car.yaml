@@ -29,8 +29,9 @@ highway_whitelist:
 vehicle_type: motorcar
 landmarks: 16 # number of landmarks for ALT(A* Search, Landmarks, and Triangle Inequality) Algorithm. read  https://dl.acm.org/doi/epdf/10.5555/1070432.1070455
 # or https://www.microsoft.com/en-us/research/wp-content/uploads/2004/07/tr-2004-24.pdf
-# the fewer the number landmarks, the lower the query engine memory usage.
+# the fewer the number landmarks, the lower the query engine memory usage, the faster the runtime of customization phase.
 # the greater the number of landmarks, the better the query running time for point-to-point fastest-path queries, because of better heuristic of ALT (A* Search, Landmarks, and Triangle Inequality) Algorithm.
+# also, the slower the runtime of customization phase.
 
 maxspeeds: # in km/h
   motorway: 100

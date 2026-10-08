@@ -257,17 +257,18 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	}
 	op.SetAcceptedNodeMap(acceptedNodeMap)
 	op.SetNodeToOsmId(nodeToOsmID)
-	g, timeFunction, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphEdges, rn, uint32(len(nodeIdMap)), true)
+	nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphEdges, rn, uint32(len(nodeIdMap)), true)
 	rn.BuildNameTable(map[uint32]string{0: ""})
-	g, timeFunction = extractor.BuildEdgeBasedGraph(g, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
+	ebg, timeFunction, ebgMapping := extractor.BuildEdgeBasedGraph(nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
 
 	us := []int{8, 11, 14, 16}
 	ps := make([]int, len(us))
 	for i := range ps {
 		ps[i] = 1 << us[i]
 	}
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, g, zlog)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, nbg, zlog)
 	mp.RunMultilevelPartitioning()
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	if err := mp.SaveToFile(); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -275,19 +276,19 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	if err := mlp.ReadMlpFile(); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	prep := preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, zlog)
+	prep := preprocesser.NewPreprocessor(ebg, rn, timeFunction, mlp, zlog)
 	if err := prep.PreProcessing(false); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	g = prep.GetGraph()
+	g := prep.GetGraph()
 	og := prep.GetOverlayGraph()
 	ptf := prep.GetTimeFunction()
-	cust := customizer.NewCustomizerDirect[int32](g, og, ptf, zlog)
+	cust := customizer.NewCustomizerDirect[int32](ebg, og, ptf, zlog)
 	met, err := cust.CustomizeDirect()
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
-	re, err := engine.NewEngineDirect[int32](g, rn, og, met, zlog, "")
+	re, err := engine.NewEngineDirect[int32](ebg, rn, og, met, zlog, "")
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}

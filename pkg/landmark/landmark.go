@@ -344,7 +344,7 @@ const (
 /*
 https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 
-Use only an active subset:  (page 6)
+Use only an active subset:  (page 22)
 – prefer landmarks that give the best lower bound on dist(s, t).
 */
 func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {

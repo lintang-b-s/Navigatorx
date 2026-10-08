@@ -15,7 +15,7 @@ const (
 	INERTIAL_FLOW_ITERATION_LARGE_GRAPH      = 4
 	LARGE_GRAPH_NUMBER_OF_VERTICES           = 1000000
 	USE_RANDOMIZED_SELECT               bool = true
-	InertialFlowChanSize                     = 64
+	InertialFlowChanSize                     = 16
 	CellInOutChanSize                        = 50
 )
 

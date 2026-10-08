@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
@@ -31,6 +29,8 @@ import (
 // dan edge_based_partition_ids di https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
 // karena number of nodes dari node-based graph lebih kecil dari edge-based graph, harusnya runtime + space nya lebih kecil...
 // ok todo2: partition node-based graph, then use heuristic to assign cellId of each edge-based graph nodes.
+// done :)
+// sekarang cuma peak htop RES 1.7gb, cuma 16x dari ukuran file osm.. better, runtime cuma ~110s....
 
 type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
@@ -43,7 +43,7 @@ type MultilevelPartitioner struct {
 	inertialFlowIterations int
 }
 
-func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.Graph, logger *zap.Logger) *MultilevelPartitioner {
+func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, nbg *da.Graph, logger *zap.Logger) *MultilevelPartitioner {
 	if len(u) != l {
 		panic(fmt.Errorf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
@@ -52,7 +52,7 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.
 		u:                      u,
 		l:                      l,
 		cellVertices:           make([][][]da.Index, l),
-		graph:                  graph,
+		graph:                  nbg,
 		logger:                 logger,
 		inertialFlowIterations: inertialFlowIterations,
 	}
@@ -150,67 +150,6 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	}
 }
 
-func (mp *MultilevelPartitioner) SaveToFile() error {
-	root := config.ProfilesRoot()
-	filename := fmt.Sprintf("%s/%s/inertial_flow_%s.mlp", root, pkg.ProfileName, pkg.RegionName)
-	return mp.writeMLPToFile(filename)
-}
-
-func (mp *MultilevelPartitioner) writeMLPToFile(filename string) error {
-	mlp := mp.BuildMLP()
-	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
-		numCells := mlp.GetNumCells()
-		cellNumbers := mlp.GetCellNumbers()
-		if err := w.WriteUint32s(numCells); err != nil {
-			return err
-		}
-		if err := w.Length(len(cellNumbers)); err != nil {
-			return err
-		}
-		for _, value := range cellNumbers {
-			if err := w.Uint64(uint64(value)); err != nil {
-				return err
-			}
-		}
-		return nil
-	})
-}
-
-func (mp *MultilevelPartitioner) ReadMLPFromFile(filename string) (*da.MultilevelPartition, error) {
-	file, r, err := util.OpenCompressedFile(filename)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	numCells, err := r.ReadUint32s()
-	if err != nil {
-		return nil, err
-	}
-
-	cellValues, err := r.ReadUint64s()
-	if err != nil {
-		return nil, err
-	}
-
-	cellNumbers := make([]da.Pv, len(cellValues))
-	for i, value := range cellValues {
-		cellNumbers[i] = da.Pv(value)
-	}
-
-	mlp := da.NewPlainMLP()
-	mlp.SetNumberOflevels(len(numCells))
-	for i, c := range numCells {
-		mlp.SetNumberOfCellsInLevel(i, int(c))
-	}
-	mlp.ComputeBitmap()
-	mlp.SetNumberOfVertices(len(cellNumbers))
-	for i, c := range cellNumbers {
-		mlp.SetCellNumber(i, c)
-	}
-	return mlp, nil
-}
-
 func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Index {
 	cellSet := make(map[int]struct{})
 	for _, cellId := range partition {
@@ -225,4 +164,25 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Inde
 		cells[cellId] = append(cells[cellId], da.Index(nodeId))
 	}
 	return cells // cellId -> vertices Id
+}
+
+// MapToEdgeBasedGraph use heuristic to assign cellId of each edge-based graph nodes from node-based graph partition
+// inspired by osrm partitioner https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
+func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [][]da.Index) {
+	ebgCellVertices := make([][][]da.Index, mp.l)
+
+	for l := 0; l < mp.l; l++ {
+		ebgCellVertices[l] = make([][]da.Index, len(mp.cellVertices[l]))
+		for cellId, vertexIds := range mp.cellVertices[l] {
+			cEbgVIds := make([]da.Index, 0, len(vertexIds)) // edge-based graph vertex ids that inside this cell cellId
+			for _, vertexId := range vertexIds {
+				ebgvIds := ebgMapping[vertexId] // edges that have head node-based graph vertex vertexId
+				cEbgVIds = append(cEbgVIds, ebgvIds...)
+			}
+			ebgCellVertices[l][cellId] = cEbgVIds
+		}
+	}
+
+	mp.cellVertices = ebgCellVertices // set new edge-based graph cell vertices. edge-based graph partition.
+	mp.graph = ebg
 }

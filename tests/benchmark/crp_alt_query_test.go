@@ -57,7 +57,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 	config.InitRegionName("benchmark_test", pkg.TEST)
 
 	op := extractor.NewExtractor[int32]()
-	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -76,11 +76,11 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 		ps,
 		len(ps),
 		25,
-		graph, logger,
+		nbg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		panic(err)
@@ -92,7 +92,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 		panic(err)
 	}
 
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

@@ -233,12 +233,6 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 		rn.ApplySegmentsPermutation(nPerm)
 	}
 
-	verticesOsmIdsPs := da.NewPackedSlice(da.BIT_SIZE_OSM_NODE_ID, uint64(numV)+1)
-
-	for _, osmId := range vertexOsmIds {
-		verticesOsmIdsPs.Append(osmId)
-	}
-
 	graph := da.NewGraph(vertices, heads, tails, roadNetwork, entryPoints, exitPoints)
 	rn.BuildNameTable(p.tagStringIdMap.GetIdToStr())
 

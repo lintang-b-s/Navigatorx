@@ -10,7 +10,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
-	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
@@ -37,6 +37,7 @@ func init() {
 }
 
 func main() {
+
 	logger, err := log.New()
 	if err != nil {
 		panic(err)
@@ -45,7 +46,7 @@ func main() {
 	now := time.Now()
 	op := extractor.NewExtractor[int32]()
 
-	graph, rn, wf, err := op.Extract(*osmFile, logger)
+	nbg, ebg, rn, ebgMapping, wf, err := op.Extract(*osmFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -64,14 +65,10 @@ func main() {
 		ps,
 		len(ps),
 		*inertialFlowIterations,
-		graph, logger,
+		nbg, logger,
 	)
 
-	util.FreeMemory()
 	mp.RunMultilevelPartitioning()
-	if err := mp.SaveToFile(); err != nil {
-		panic(err)
-	}
 
 	if *visualizationFile {
 		if err := mp.WriteOverlayVerticesInLevel(); err != nil {
@@ -81,11 +78,15 @@ func main() {
 			panic(err)
 		}
 	}
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
+	if err := mp.SaveToFile(); err != nil {
+		panic(err)
+	}
 
 	duration := time.Since(now)
 	logger.Sugar().Infof("done partitioning... time taken: %v s", duration.Seconds())
 
-	mlp := datastructure.NewPlainMLP()
+	mlp := da.NewPlainMLP()
 	err = mlp.ReadMlpFile()
 	if err != nil {
 		panic(err)
@@ -99,13 +100,13 @@ func main() {
 		}
 	}
 
-	prep := prepo.NewPreprocessor(graph, rn, wf, mlp, logger)
+	prep := prepo.NewPreprocessor(ebg, rn, wf, mlp, logger)
 	prep.SetWriteTiles(true)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)
 	}
-	sidx := spatialindex.NewS2RoadSegmentsIndex(graph, rn, logger)
+	sidx := spatialindex.NewS2RoadSegmentsIndex(ebg, rn, logger)
 	logger.Sugar().Infof("writing s2 cells road segment spatial index....")
 	err = sidx.WriteToFile()
 	if err != nil {

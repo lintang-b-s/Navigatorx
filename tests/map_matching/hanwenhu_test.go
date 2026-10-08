@@ -118,7 +118,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	if err != nil {
 		t.Fatalf("download osm failed: %v", err)
 	}
-	graph, rn, timeFunction, err := op.Extract(hhOsmFile, logger)
+	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(hhOsmFile, logger)
 	if err != nil {
 		t.Fatalf("osm parse failed: %v", err)
 	}
@@ -127,8 +127,9 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	for i := 0; i < len(ps); i++ {
 		ps[i] = 1 << hhPartitionSizes[i]
 	}
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 5, graph, logger)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 5, nbg, logger)
 	mp.RunMultilevelPartitioning()
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	if err = mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
 	}
@@ -136,7 +137,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	if err = mlp.ReadMlpFile(); err != nil {
 		t.Fatalf("read mlp failed: %v", err)
 	}
-	prep := prepo.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := prepo.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	if err = prep.PreProcessing(true); err != nil {
 		t.Fatalf("preprocessing failed: %v", err)
 	}
@@ -152,7 +153,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	logger.Sugar().Infof("customization phase of Customizable Route Planning (CRP) done....")
 	t.Logf("customization phase of Customizable Route Planning (CRP) done....")
 
-	return re, graph, logger, nil
+	return re, ebg, logger, nil
 }
 
 func hhReadCSV(filePath string) ([]map[string]string, error) {

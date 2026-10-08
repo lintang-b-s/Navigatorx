@@ -57,7 +57,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	}
 
 	op := extractor.NewExtractor[int32]()
-	graph, rn, timeFunction, err := op.Extract(osmfFile, logger)
+	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(osmfFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -76,11 +76,11 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 		ps,
 		len(ps),
 		5,
-		graph, logger,
+		nbg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
@@ -91,7 +91,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

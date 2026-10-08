@@ -1,26 +1,29 @@
 package partitioner
 
-import "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+import (
+	"github.com/bits-and-blooms/bitset"
+	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+)
 
 type MinCut struct {
-	flags                  []bool // true if the vertex is reachable from source in residual graph, or partition one, else partition two
-	numNodesInPartitionTwo int    // number of nodes in source partition (partition 2)
+	flags                  *bitset.BitSet // true if the vertex is reachable from source in residual graph, or partition one, else partition two
+	numNodesInPartitionTwo int            // number of nodes in source partition (partition 2)
 	maxflow                int64
 	numOfCutEdges          int
 }
 
 func NewMinCut(numberOfVertices int) *MinCut {
 	return &MinCut{
-		flags: make([]bool, numberOfVertices),
+		flags: bitset.New(uint(numberOfVertices)),
 	}
 }
 
-func (mc *MinCut) SetFlag(u datastructure.Index, flag bool) {
-	mc.flags[u] = flag
+func (mc *MinCut) SetFlag(u da.Index, flag bool) {
+	mc.flags.Set(uint(u))
 }
 
-func (mc *MinCut) GetFlag(u datastructure.Index) bool {
-	return mc.flags[u]
+func (mc *MinCut) GetFlag(u da.Index) bool {
+	return mc.flags.Test(uint(u))
 }
 
 func (mc *MinCut) GetNumNodesInPartitionTwo() int {
