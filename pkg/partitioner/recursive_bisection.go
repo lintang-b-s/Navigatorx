@@ -17,16 +17,12 @@ type RecursiveBisection struct {
 	logger                 *zap.Logger
 	mu                     sync.Mutex
 	inertialFlowIterations int
-
-	progress *util.Progress
-}
-
-func (rb *RecursiveBisection) setProgress(progress *util.Progress) {
-	rb.progress = progress
+	showProgress           bool
+	progress               *util.Progress
 }
 
 func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Logger,
-	inertialFlowIterations int,
+	inertialFlowIterations int, showProgress bool,
 ) *RecursiveBisection {
 
 	n := graph.NumberOfVertices()
@@ -42,6 +38,7 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 		partitionCount:         0,
 		logger:                 logger,
 		inertialFlowIterations: inertialFlowIterations,
+		showProgress:           showProgress,
 	}
 }
 
@@ -175,7 +172,9 @@ func (rb *RecursiveBisection) assignFinalPartition(cellGraph *da.CellGraph) {
 		rb.numVerticesAssigned++
 	})
 
-	rb.progress.Add(cellGraph.NumberOfCellVertices())
+	if rb.showProgress {
+		rb.progress.Add(cellGraph.NumberOfCellVertices())
+	}
 	rb.partitionCount++
 }
 

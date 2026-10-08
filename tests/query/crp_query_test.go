@@ -341,7 +341,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 	}
 
 	op := extractor.NewExtractor[int32]()
-	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -361,11 +361,11 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 		ps,
 		len(ps),
 		5,
-		nbg, logger,
+		ebg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
+	// mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)

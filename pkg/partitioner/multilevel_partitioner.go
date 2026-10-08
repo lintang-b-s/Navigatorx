@@ -31,6 +31,9 @@ import (
 // ok todo2: partition node-based graph, then use heuristic to assign cellId of each edge-based graph nodes.
 // done :)
 // sekarang cuma peak htop RES 1.7gb, cuma 16x dari ukuran file osm.. better, runtime cuma ~110s....
+// jumlah boundary/overlay vertices juga lebih kecil, dari ~240k jadi ~210k
+// tapi kok number of shortcut edges pas customization lebih banyak ya??
+// hasil load test juga lebih jelek
 
 type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
@@ -89,11 +92,11 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	copy(gv, vIds)
 	if n > mp.u[mp.l-1] {
 
-		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger,
-			mp.inertialFlowIterations)
-		inertialFlowPartitioner.setProgress(progress)
-		inertialFlowPartitioner.Partition(vIds)
-		fp := inertialFlowPartitioner.GetFinalPartition()
+		rb := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger,
+			mp.inertialFlowIterations, true)
+		rb.progress = progress
+		rb.Partition(vIds)
+		fp := rb.GetFinalPartition()
 		cp := mp.groupEachPartition(fp)
 		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], cp...)
 	} else {
@@ -103,7 +106,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	progress.Finish()
 	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.cellVertices[mp.l-1]))
 
-	// percent partition each cell in previous level
+	// partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
 		progress = util.NewProgress(mp.graph.NumberOfVertices())
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
@@ -114,11 +117,11 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		wg := sync.WaitGroup{}
 		computeRecursiveBisection := func() {
 			for cellvIds := range cellInChan {
-				inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger,
-					mp.inertialFlowIterations)
-				inertialFlowPartitioner.setProgress(progress)
-				inertialFlowPartitioner.Partition(cellvIds)
-				fp := inertialFlowPartitioner.GetFinalPartition()
+				rb := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger,
+					mp.inertialFlowIterations, true)
+				rb.progress = progress
+				rb.Partition(cellvIds)
+				fp := rb.GetFinalPartition()
 				partitions := mp.groupEachPartition(fp)
 				cellOutchan <- partitions
 			}
@@ -163,7 +166,7 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Inde
 		}
 		cells[cellId] = append(cells[cellId], da.Index(nodeId))
 	}
-	return cells // cellId -> vertices Id
+	return cells // cellId -> vertices Ids
 }
 
 // MapToEdgeBasedGraph use heuristic to assign cellId of each edge-based graph nodes from node-based graph partition

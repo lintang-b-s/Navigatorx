@@ -46,7 +46,7 @@ func main() {
 	now := time.Now()
 	op := extractor.NewExtractor[int32]()
 
-	nbg, ebg, rn, ebgMapping, wf, err := op.Extract(*osmFile, logger)
+	_, ebg, rn, _, wf, err := op.Extract(*osmFile, logger)
 	if err != nil {
 		panic(err)
 	}
@@ -65,7 +65,7 @@ func main() {
 		ps,
 		len(ps),
 		*inertialFlowIterations,
-		nbg, logger,
+		ebg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
@@ -78,7 +78,7 @@ func main() {
 			panic(err)
 		}
 	}
-	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
+	// mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	if err := mp.SaveToFile(); err != nil {
 		panic(err)
 	}
