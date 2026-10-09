@@ -174,7 +174,8 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Inde
 
 // MapToEdgeBasedGraph use heuristic to assign cellId of each edge-based graph nodes from node-based graph partition
 // inspired by osrm partitioner https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
-// read TheMarex comment on that issue
+// read TheMarex comment on that osrm github issue. in here, we use step 1-6 of osrm-partition, using method 1 of step 6 with little modification...
+// the reason not implement method 2 of step 6, is because its too complex, much easier to implement method 1.
 func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping []uint64) {
 	ebgCellVertices := make([][][]da.Index, mp.l)
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -182,6 +183,7 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 	n := da.Index(len(ebgMapping))
 	for l := 0; l < mp.l; l++ {
 		u := mp.u[l]
+		ebgCellMap := make(map[da.Index]int)
 		ebgCellVertices[l] = make([][]da.Index, len(mp.cellVertices[l]))
 		cellVerticesMap := make(map[da.Index]int)
 		for cellId, vertexIds := range mp.cellVertices[l] {
@@ -197,26 +199,35 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 			tail, head := da.Index(packedId&0xFFFFFFFF), da.Index(packedId>>32)
 			tc := cellVerticesMap[tail]
 			hc := cellVerticesMap[head]
-			if tc == hc {
+			if tc == hc { // tail u and head v of edge (u,v) in the same cell...
 				ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
+				ebgCellMap[ebgvId] = tc
 			} else {
+				// tail u and head v of edge (u,v) not in the same cell...
 				boundaryEbgVertices = append(boundaryEbgVertices, ebgvId)
 			}
 		}
 
 		for _, ebgvId := range boundaryEbgVertices {
+			// process cut edges of node-based graph
 			packedId := ebgMapping[ebgvId]
 			tail, head := da.Index(packedId&0xFFFFFFFF), da.Index(packedId>>32)
 			tc := cellVerticesMap[tail]
 			hc := cellVerticesMap[head]
 
 			// tail cell != head cell
-			// boundary node-based graph vertices
 
 			// try assign tail cell
 			numCutEdgesTailCell := 0
 			ebg.ForOutEdgesOf(ebgvId, func(_, v, _ da.Index) {
-				vc, ok := cellVerticesMap[v]
+				vc, ok := ebgCellMap[v]
+				if ok && vc != tc {
+					numCutEdgesTailCell++
+				}
+			})
+
+			ebg.ForInEdgesOf(ebgvId, func(_, v, _ da.Index) {
+				vc, ok := ebgCellMap[v]
 				if ok && vc != tc {
 					numCutEdgesTailCell++
 				}
@@ -225,13 +236,22 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 			// try assign head cell
 			numCutEdgesHeadCell := 0
 			ebg.ForOutEdgesOf(ebgvId, func(_, v, _ da.Index) {
-				vc, ok := cellVerticesMap[v]
+				vc, ok := ebgCellMap[v]
+				if ok && vc != hc {
+					numCutEdgesHeadCell++
+				}
+			})
+
+			ebg.ForInEdgesOf(ebgvId, func(_, v, _ da.Index) {
+				vc, ok := ebgCellMap[v]
 				if ok && vc != hc {
 					numCutEdgesHeadCell++
 				}
 			})
 
 			if numCutEdgesTailCell < numCutEdgesHeadCell {
+				// modification os method 1 in step 6 in that osrm-partition issue: The idea is to place edge-based graph node into cell in such a way that the number of cut edges is minimized.
+				// ini heuristik paling bagus... number of cut edges, boundary/overlay vertices, dan shortcut edges hampir sama kaya directly partition the edge-based graph..
 				ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
 			} else if numCutEdgesHeadCell < numCutEdgesTailCell {
 				ebgCellVertices[l][hc] = append(ebgCellVertices[l][hc], ebgvId)
