@@ -203,12 +203,13 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 				ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
 				ebgCellMap[ebgvId] = tc
 			} else {
-				// tail u and head v of edge (u,v) not in the same cell...
+				// tail u and head v of edge (u,v) not in the same cell... a.k.a cut edges of the node-based graph
 				boundaryEbgVertices = append(boundaryEbgVertices, ebgvId)
 			}
 		}
 
 		for _, ebgvId := range boundaryEbgVertices {
+			// step 6: https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
 			// process cut edges of node-based graph
 			packedId := ebgMapping[ebgvId]
 			tail, head := da.Index(packedId&0xFFFFFFFF), da.Index(packedId>>32)
@@ -250,7 +251,7 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 			})
 
 			if numCutEdgesTailCell < numCutEdgesHeadCell {
-				// modification os method 1 in step 6 in that osrm-partition issue: The idea is to place edge-based graph node into cell in such a way that the number of cut edges is minimized.
+				// modification of method 1 in step 6 in that osrm-partition issue: The idea is to place edge-based graph node into cell in such a way that the number of cut edges is minimized.
 				// ini heuristik paling bagus... number of cut edges, boundary/overlay vertices, dan shortcut edges hampir sama kaya directly partition the edge-based graph..
 				ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
 			} else if numCutEdgesHeadCell < numCutEdgesTailCell {
