@@ -37,6 +37,8 @@ import (
 // jumlah boundary/overlay vertices juga lebih kecil, dari ~240k jadi ~210k
 // tapi kok number of shortcut edges pas customization lebih banyak ya??
 // hasil load test juga lebih jelek
+// 9 oktober, pakai heuristic yang baru buat map node-based graph partition ke edge-based graph partition, lebih bagus kualitasi partisinya... tapi load test & query runtime masih kalah sama directly partition edge-based graph
+// better di preprocessor cli kasih flag/opsi buat kualitas partisi
 
 type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
@@ -186,7 +188,7 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 
 	n := da.Index(len(ebgMapping))
 	for l := 0; l < mp.l; l++ {
-		u := mp.u[l]
+		maxCellSize := mp.u[l]
 		ebgCellMap := make(map[da.Index]int, ne)
 		ebgCellVertices[l] = make([][]da.Index, len(mp.cellVertices[l]))
 		cellVerticesMap := make(map[da.Index]int, nv)
@@ -199,13 +201,13 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 		boundaryEbgVertices := make([]da.Index, 0, 100)
 		// step 4-6 in that issue comment. step 6 use method 1
 		for ebgvId := da.Index(0); ebgvId < n; ebgvId++ {
-			packedId := ebgMapping[ebgvId]
-			tail, head := da.Index(packedId&0xFFFFFFFF), da.Index(packedId>>32)
-			tc := cellVerticesMap[tail]
-			hc := cellVerticesMap[head]
-			if tc == hc { // tail u and head v of edge (u,v) in the same cell...
-				ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
-				ebgCellMap[ebgvId] = tc
+			pId := ebgMapping[ebgvId]
+			u, v := da.Index(pId&0xFFFFFFFF), da.Index(pId>>32)
+			uc := cellVerticesMap[u]
+			vc := cellVerticesMap[v]
+			if uc == vc { // tail u and head v of edge (u,v) in the same cell...
+				ebgCellVertices[l][uc] = append(ebgCellVertices[l][uc], ebgvId)
+				ebgCellMap[ebgvId] = uc
 			} else {
 				// tail u and head v of edge (u,v) not in the same cell... a.k.a cut edges of the node-based graph
 				boundaryEbgVertices = append(boundaryEbgVertices, ebgvId)
@@ -216,51 +218,49 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 			// step 6: https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
 			// process cut edges of node-based graph
 			packedId := ebgMapping[ebgvId]
-			tail, head := da.Index(packedId&0xFFFFFFFF), da.Index(packedId>>32)
-			tc := cellVerticesMap[tail]
-			hc := cellVerticesMap[head]
+			u, v := da.Index(packedId&0xFFFFFFFF), da.Index(packedId>>32)
+			uc := cellVerticesMap[u]
+			vc := cellVerticesMap[v]
 
-			// tail cell != head cell
-
-			// try assign tail cell
-			// count the number of cut-edges introduced if we assign vertex ebgvId to tail cell
-			numCutEdgesTailCell := 0
-			ebg.ForOutEdgesOf(ebgvId, func(_, v, _ da.Index) {
-				vc, ok := ebgCellMap[v]
-				if ok && vc != tc {
-					numCutEdgesTailCell++
+			// try assign to u cell
+			// count the number of cut-edges introduced if we assign vertex ebgvId to u cell
+			numCutEdgesTail := 0
+			ebg.ForOutEdgesOf(ebgvId, func(_, w, _ da.Index) {
+				wc, ok := ebgCellMap[w]
+				if ok && wc != uc {
+					numCutEdgesTail++
 				}
 			})
 
-			ebg.ForInEdgesOf(ebgvId, func(_, v, _ da.Index) {
-				vc, ok := ebgCellMap[v]
-				if ok && vc != tc {
-					numCutEdgesTailCell++
+			ebg.ForInEdgesOf(ebgvId, func(_, w, _ da.Index) {
+				wc, ok := ebgCellMap[w]
+				if ok && wc != uc {
+					numCutEdgesTail++
 				}
 			})
 
-			// try assign head cell
-			numCutEdgesHeadCell := 0
-			ebg.ForOutEdgesOf(ebgvId, func(_, v, _ da.Index) {
-				vc, ok := ebgCellMap[v]
-				if ok && vc != hc {
-					numCutEdgesHeadCell++
+			// try assign to v cell
+			numCutEdgesHead := 0
+			ebg.ForOutEdgesOf(ebgvId, func(_, w, _ da.Index) {
+				wc, ok := ebgCellMap[w]
+				if ok && wc != vc {
+					numCutEdgesHead++
 				}
 			})
 
-			ebg.ForInEdgesOf(ebgvId, func(_, v, _ da.Index) {
-				vc, ok := ebgCellMap[v]
-				if ok && vc != hc {
-					numCutEdgesHeadCell++
+			ebg.ForInEdgesOf(ebgvId, func(_, w, _ da.Index) {
+				wc, ok := ebgCellMap[w]
+				if ok && wc != vc {
+					numCutEdgesHead++
 				}
 			})
 
-			if numCutEdgesTailCell < numCutEdgesHeadCell {
+			if numCutEdgesTail < numCutEdgesHead {
 				// modification of method 1 in step 6 in that osrm-partition issue: The idea is to place edge-based graph node into cell in such a way that the number of cut edges is minimized.
 				// ini heuristik paling bagus... number of cut edges, boundary/overlay vertices, dan shortcut edges hampir sama kaya directly partition the edge-based graph..
-				ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
-			} else if numCutEdgesHeadCell < numCutEdgesTailCell {
-				ebgCellVertices[l][hc] = append(ebgCellVertices[l][hc], ebgvId)
+				ebgCellVertices[l][uc] = append(ebgCellVertices[l][uc], ebgvId)
+			} else if numCutEdgesHead < numCutEdgesTail {
+				ebgCellVertices[l][vc] = append(ebgCellVertices[l][vc], ebgvId)
 			} else {
 				// use method 1 of step 6 in that comment issue:  https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
 				// randomly pick cell
@@ -268,19 +268,19 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 				// else, pick head cell
 				// jujur masih gak paham kenapa method 2 dari step 6 in that commment issue bisa lebih minimize number of border/boundary vertices di edge-based graph....
 				r := rd.Float64()
-				tcSize := len(ebgCellVertices[l][tc])
-				hcSize := len(ebgCellVertices[l][hc])
+				ucSize := len(ebgCellVertices[l][uc])
+				vcSize := len(ebgCellVertices[l][vc])
 				if util.Lt(r, 0.5) {
-					if tcSize < u {
-						ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
+					if ucSize < maxCellSize {
+						ebgCellVertices[l][uc] = append(ebgCellVertices[l][uc], ebgvId)
 					} else {
-						ebgCellVertices[l][hc] = append(ebgCellVertices[l][hc], ebgvId)
+						ebgCellVertices[l][vc] = append(ebgCellVertices[l][vc], ebgvId)
 					}
 				} else {
-					if hcSize < u {
-						ebgCellVertices[l][hc] = append(ebgCellVertices[l][hc], ebgvId)
+					if vcSize < maxCellSize {
+						ebgCellVertices[l][vc] = append(ebgCellVertices[l][vc], ebgvId)
 					} else {
-						ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
+						ebgCellVertices[l][uc] = append(ebgCellVertices[l][uc], ebgvId)
 					}
 				}
 			}

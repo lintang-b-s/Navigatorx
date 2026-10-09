@@ -25,3 +25,10 @@ var (
 	BISECTION_WORKERS     = util.ClampMin(pkg.NUM_CPU/6, 1)
 	LEVEL_WORKERS         = util.ClampMin(pkg.NUM_CPU/6, 1)
 )
+
+type PartitionQuality string
+
+const (
+	BEST = "best"
+	FAST = "fast"
+)

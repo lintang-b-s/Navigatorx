@@ -115,8 +115,8 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 			}
 			mins = append(mins, [2]int32{minX, minY})
 			maxs = append(maxs, [2]int32{maxX, maxY})
-			packId := (bId << 32) | fId
-			leaf := newLeafData(packId, flag)
+			pId := (bId << 32) | fId
+			leaf := newLeafData(pId, flag)
 			items = append(items, leaf)
 			delete(segmentSet, segKey)
 		} else {
