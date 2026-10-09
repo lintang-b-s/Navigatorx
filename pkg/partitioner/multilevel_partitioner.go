@@ -176,16 +176,20 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Inde
 // inspired by osrm partitioner https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
 // read TheMarex comment on that osrm github issue. in here, we use step 1-6 of osrm-partition, using method 1 of step 6 with little modification...
 // the reason not implement method 2 of step 6, is because its too complex, much easier to implement method 1.
+// ebg is the edge-based graph (or edge-expanded graph whatever). read: https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
+// ebgMapping map from edge-based graph (ebg) vertex id to packed id (tail, head) vertex of that ebg vertex
 func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping []uint64) {
 	ebgCellVertices := make([][][]da.Index, mp.l)
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	nv := mp.graph.NumberOfVertices()
+	ne := ebg.NumberOfVertices()
 
 	n := da.Index(len(ebgMapping))
 	for l := 0; l < mp.l; l++ {
 		u := mp.u[l]
-		ebgCellMap := make(map[da.Index]int)
+		ebgCellMap := make(map[da.Index]int, ne)
 		ebgCellVertices[l] = make([][]da.Index, len(mp.cellVertices[l]))
-		cellVerticesMap := make(map[da.Index]int)
+		cellVerticesMap := make(map[da.Index]int, nv)
 		for cellId, vertexIds := range mp.cellVertices[l] {
 			for _, vertexId := range vertexIds {
 				cellVerticesMap[vertexId] = cellId
@@ -219,6 +223,7 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 			// tail cell != head cell
 
 			// try assign tail cell
+			// count the number of cut-edges introduced if we assign vertex ebgvId to tail cell
 			numCutEdgesTailCell := 0
 			ebg.ForOutEdgesOf(ebgvId, func(_, v, _ da.Index) {
 				vc, ok := ebgCellMap[v]
