@@ -272,19 +272,19 @@ func ohmmReadGisCupSegmentGeometry(EdgeGeometryFilePath string) (map[uint64]ohmm
 }
 
 // https://web.archive.org/web/20120528201458/http://depts.washington.edu/giscup/roadnetwork
-func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *da.Graph, [][]da.Index, *metrics.TimeFunction[int32], *da.RoadNetworkDataContainer, map[uint64]float64, error) {
+func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph, *da.Graph, []uint64, *metrics.TimeFunction[int32], *da.RoadNetworkDataContainer, map[uint64]float64, error) {
 	nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, err := ohmmReadGisCupNodes(paths.nodesFilePath)
 	if err != nil {
-		return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
+		return nil, nil, make([]uint64, 0), nil, nil, nil, err
 	}
 	segmentGeometries, err := ohmmReadGisCupSegmentGeometry(paths.EdgeGeometryFilePath)
 	if err != nil {
-		return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
+		return nil, nil, make([]uint64, 0), nil, nil, nil, err
 	}
 
 	f, err := os.OpenFile(paths.EdgesFilePath, os.O_RDONLY, 0600)
 	if err != nil {
-		return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
+		return nil, nil, make([]uint64, 0), nil, nil, nil, err
 	}
 	defer f.Close()
 
@@ -299,40 +299,40 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 		if err != nil && errors.Is(err, io.EOF) {
 			break
 		} else if err != nil {
-			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
+			return nil, nil, make([]uint64, 0), nil, nil, nil, err
 		}
 		fields := util.Fields(line)
 		if len(fields) == 0 {
 			continue
 		}
 		if len(fields) < 4 {
-			return nil, nil, make([][]da.Index, 0), nil, nil, nil, fmt.Errorf("invalid Segment line %q", line)
+			return nil, nil, make([]uint64, 0), nil, nil, nil, fmt.Errorf("invalid Segment line %q", line)
 		}
 
 		SegmentID, err := util.ParseTextUInt64(fields[0])
 		if err != nil {
-			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
+			return nil, nil, make([]uint64, 0), nil, nil, nil, err
 		}
 		fromNodeID, err := util.ParseTextInt64(fields[1])
 		if err != nil {
-			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
+			return nil, nil, make([]uint64, 0), nil, nil, nil, err
 		}
 		toNodeID, err := util.ParseTextInt64(fields[2])
 		if err != nil {
-			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
+			return nil, nil, make([]uint64, 0), nil, nil, nil, err
 		}
 		cost, err := util.ParseTextFloat64(fields[3])
 		if err != nil {
-			return nil, nil, make([][]da.Index, 0), nil, nil, nil, err
+			return nil, nil, make([]uint64, 0), nil, nil, nil, err
 		}
 
 		fromIndex, ok := nodeIDToIndex[fromNodeID]
 		if !ok {
-			return nil, nil, make([][]da.Index, 0), nil, nil, nil, fmt.Errorf("missing from node %d", fromNodeID)
+			return nil, nil, make([]uint64, 0), nil, nil, nil, fmt.Errorf("missing from node %d", fromNodeID)
 		}
 		toIndex, ok := nodeIDToIndex[toNodeID]
 		if !ok {
-			return nil, nil, make([][]da.Index, 0), nil, nil, nil, fmt.Errorf("missing to node %d", toNodeID)
+			return nil, nil, make([]uint64, 0), nil, nil, nil, fmt.Errorf("missing to node %d", toNodeID)
 		}
 		if fromIndex == toIndex {
 			continue
@@ -740,7 +740,7 @@ func ohmmParseMelbourneStreetsFile(filePath string) (map[uint64]ohmmMelbourneStr
 	return streetByID, nil
 }
 
-func ohmmPrepareCRPFiles(t *testing.T, nbg, ebg *da.Graph, ebgMapping [][]da.Index, timeFunction *metrics.TimeFunction[int32], rn *da.RoadNetworkDataContainer, logger *zap.Logger, partitionSizes []int,
+func ohmmPrepareCRPFiles(t *testing.T, nbg, ebg *da.Graph, ebgMapping []uint64, timeFunction *metrics.TimeFunction[int32], rn *da.RoadNetworkDataContainer, logger *zap.Logger, partitionSizes []int,
 ) *engine.Engine[int32] {
 	t.Helper()
 

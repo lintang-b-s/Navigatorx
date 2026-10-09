@@ -41,8 +41,9 @@ computeInertialFlowDinic.
 [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
 
 this implementation inspired by this doc: https://github.com/Telenav/open-source-spec/blob/master/routing_basic/doc/inertial_flow.md
+described in details in: https://github.com/Project-OSRM/osrm-backend/issues/3205 and https://github.com/Project-OSRM/osrm-backend/issues/3586
 
-return st-mincut dengan partisi S, T yang saling disjoint.
+return minimum st-cut dengan cell S, T yang saling disjoint.
 time complexity:
 karena cuma call algoritma dinic unit capacity berkali kali sejumlah iterations, let k = number of iterations+2
 ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf

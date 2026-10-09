@@ -24,15 +24,14 @@ weightFunction: weight (duration/travel time) of each edges of node-based graph
 only for road network OpenStreetMap input file.
 */
 func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction[W],
-	vTurnTableIds []da.Index, turnMatrix []pkg.TurnType, rn *da.RoadNetworkDataContainer) (*da.Graph, *met.TimeFunction[W], [][]da.Index) {
+	vTurnTableIds []da.Index, turnMatrix []pkg.TurnType, rn *da.RoadNetworkDataContainer) (*da.Graph, *met.TimeFunction[W], []uint64) {
 	ebgvNum := da.Index(g.NumberOfEdges())
 	ebgVertices := make([]da.Vertex, ebgvNum+1)
 	ebgAdjList := make([][]da.Index, ebgvNum)
 	ebgRevAdjList := make([][]da.Index, ebgvNum)
 	ebgEntryPoints := make([][]da.Index, ebgvNum)
 	ebgExitPoints := make([][]da.Index, ebgvNum)
-	nbgvNum := da.Index(g.NumberOfVertices())
-	ebgMapping := make([][]da.Index, nbgvNum)
+	ebgMapping := make([]uint64, ebgvNum)
 
 	speedFromWeight := func(length uint32, weight W) uint32 {
 		return uint32(math.Round(float64(length) / float64(weight)))
@@ -85,7 +84,7 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 			})
 
 			emPerm[ebgvId] = int(ueId)
-			ebgMapping[v] = append(ebgMapping[v], ebgvId)
+			ebgMapping[ebgvId] = uint64(u) | (uint64(v) << 32)
 			ebgvId++
 		})
 	})

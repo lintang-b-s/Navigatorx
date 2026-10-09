@@ -24,7 +24,7 @@ func init() {
 	config.InitRegionName("partitioner_test", pkg.TEST)
 }
 
-func setup() (*da.Graph, *partitioner.MultilevelPartitioner, [][]da.Index) {
+func setup() (*da.Graph, *partitioner.MultilevelPartitioner, []uint64) {
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)

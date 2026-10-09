@@ -3,7 +3,9 @@ package partitioner
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
+	"time"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -26,7 +28,8 @@ import (
 // mungkin next time, bisa cek pprof dari call di code partitioner....
 // tapi sekarang lebih bagus runtimenya, sebelumnya sekitar 450s di versi baru partition langsung edge-based graph.. sekarang ~240s doang... :)
 // keknya bisa pakai idenya osrm-partition kalau kita cukup partition node-based graph aja, then untuk assign cellId edge-based graph nodes nya pakai heuristic.. lihat getGraphBisection() di https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
-// dan edge_based_partition_ids di https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
+// dan edge_based_partition_ids di  https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
+// diskusi lengkap on why OSRM milih partisi ke node-based graph instead directly partisi edge-based graph ada di: https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
 // karena number of nodes dari node-based graph lebih kecil dari edge-based graph, harusnya runtime + space nya lebih kecil...
 // ok todo2: partition node-based graph, then use heuristic to assign cellId of each edge-based graph nodes.
 // done :)
@@ -170,19 +173,92 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Inde
 }
 
 // MapToEdgeBasedGraph use heuristic to assign cellId of each edge-based graph nodes from node-based graph partition
-// inspired by osrm partitioner https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
-func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [][]da.Index) {
+// inspired by osrm partitioner https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
+// read TheMarex comment on that issue
+func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping []uint64) {
 	ebgCellVertices := make([][][]da.Index, mp.l)
+	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
+	n := da.Index(len(ebgMapping))
 	for l := 0; l < mp.l; l++ {
+		u := mp.u[l]
 		ebgCellVertices[l] = make([][]da.Index, len(mp.cellVertices[l]))
+		cellVerticesMap := make(map[da.Index]int)
 		for cellId, vertexIds := range mp.cellVertices[l] {
-			cEbgVIds := make([]da.Index, 0, len(vertexIds)) // edge-based graph vertex ids that inside this cell cellId
 			for _, vertexId := range vertexIds {
-				ebgvIds := ebgMapping[vertexId] // edges that have head node-based graph vertex vertexId
-				cEbgVIds = append(cEbgVIds, ebgvIds...)
+				cellVerticesMap[vertexId] = cellId
 			}
-			ebgCellVertices[l][cellId] = cEbgVIds
+		}
+
+		boundaryEbgVertices := make([]da.Index, 0, 100)
+		// step 4-6 in that issue comment. step 6 use method 1
+		for ebgvId := da.Index(0); ebgvId < n; ebgvId++ {
+			packedId := ebgMapping[ebgvId]
+			tail, head := da.Index(packedId&0xFFFFFFFF), da.Index(packedId>>32)
+			tc := cellVerticesMap[tail]
+			hc := cellVerticesMap[head]
+			if tc == hc {
+				ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
+			} else {
+				boundaryEbgVertices = append(boundaryEbgVertices, ebgvId)
+			}
+		}
+
+		for _, ebgvId := range boundaryEbgVertices {
+			packedId := ebgMapping[ebgvId]
+			tail, head := da.Index(packedId&0xFFFFFFFF), da.Index(packedId>>32)
+			tc := cellVerticesMap[tail]
+			hc := cellVerticesMap[head]
+
+			// tail cell != head cell
+			// boundary node-based graph vertices
+
+			// try assign tail cell
+			numCutEdgesTailCell := 0
+			ebg.ForOutEdgesOf(ebgvId, func(_, v, _ da.Index) {
+				vc, ok := cellVerticesMap[v]
+				if ok && vc != tc {
+					numCutEdgesTailCell++
+				}
+			})
+
+			// try assign head cell
+			numCutEdgesHeadCell := 0
+			ebg.ForOutEdgesOf(ebgvId, func(_, v, _ da.Index) {
+				vc, ok := cellVerticesMap[v]
+				if ok && vc != hc {
+					numCutEdgesHeadCell++
+				}
+			})
+
+			if numCutEdgesTailCell < numCutEdgesHeadCell {
+				ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
+			} else if numCutEdgesHeadCell < numCutEdgesTailCell {
+				ebgCellVertices[l][hc] = append(ebgCellVertices[l][hc], ebgvId)
+			} else {
+				// use method 1 of step 6 in that comment issue:  https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
+				// randomly pick cell
+				// if r < 0.5, pick tail cell
+				// else, pick head cell
+				// jujur masih gak paham kenapa method 2 dari step 6 in that commment issue bisa lebih minimize number of border/boundary vertices di edge-based graph....
+				r := rd.Float64()
+				tcSize := len(ebgCellVertices[l][tc])
+				hcSize := len(ebgCellVertices[l][hc])
+				if util.Lt(r, 0.5) {
+					if tcSize < u {
+						ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
+					} else {
+						ebgCellVertices[l][hc] = append(ebgCellVertices[l][hc], ebgvId)
+					}
+				} else {
+					if hcSize < u {
+						ebgCellVertices[l][hc] = append(ebgCellVertices[l][hc], ebgvId)
+					} else {
+						ebgCellVertices[l][tc] = append(ebgCellVertices[l][tc], ebgvId)
+					}
+				}
+			}
+
 		}
 	}
 

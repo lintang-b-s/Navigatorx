@@ -109,12 +109,12 @@ func (p *Extractor[W]) GetTagStringIdMap() util.IDMap {
 	return p.tagStringIdMap
 }
 
-func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *da.Graph, *da.RoadNetworkDataContainer, [][]da.Index, *met.TimeFunction[W], error) {
+func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *da.Graph, *da.RoadNetworkDataContainer, []uint64, *met.TimeFunction[W], error) {
 
 	f, err := os.Open(mapFile)
 
 	if err != nil {
-		return nil, nil, nil, make([][]da.Index, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Open file: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Open file: %s: %w", mapFile, err)
 	}
 
 	defer f.Close()
@@ -281,12 +281,12 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 	err = scanner.Close()
 	if err != nil {
-		return nil, nil, nil, make([][]da.Index, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to close scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to close scanner: %s: %w", mapFile, err)
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, nil, nil, make([][]da.Index, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Seek scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Seek scanner: %s: %w", mapFile, err)
 	}
 
 	scanner = osmpbf.New(context.Background(), f, 0)
@@ -313,7 +313,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 				isBarrierAccessible, err := p.isBarrierNodeAccessible(node)
 				if err != nil {
-					return nil, nil, nil, make([][]da.Index, 0), nil, fmt.Errorf("osmExtractor.Extract: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s: %w", mapFile, err)
+					return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s: %w", mapFile, err)
 				}
 
 				if !isBarrierAccessible {
@@ -342,12 +342,12 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 	err = scanner.Close()
 	if err != nil {
-		return nil, nil, nil, make([][]da.Index, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to close scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to close scanner: %s: %w", mapFile, err)
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, nil, nil, make([][]da.Index, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Seek scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Seek scanner: %s: %w", mapFile, err)
 	}
 
 	// scan osm way and store graph edges
@@ -498,7 +498,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 	logger.Sugar().Infof("number of edges of edge-based graph: %v", ebg.NumberOfEdges())
 
 	if err = scanner.Close(); err != nil {
-		return nil, nil, nil, make([][]da.Index, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Close scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Close scanner: %s: %w", mapFile, err)
 	}
 
 	return nbg, ebg, rn, ebgMapping, weightFunction, nil

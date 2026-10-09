@@ -73,7 +73,12 @@ func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 	p.overlayGraph = da.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.ngraph")
 	for l := p.overlayGraph.GetLevelData().GetLevelCount(); l >= 1; l-- {
-		p.logger.Sugar().Infof("overlay graph level %v: number of boundary/overlay vertices %v", l, p.overlayGraph.NumberOfVerticesInLevel(l))
+		numCells, avgNumCellEntry, avgNumCellExit, avgNumCellShortcuts := p.overlayGraph.GetCellStatistics(l)
+		boundaryVerticesNum := p.overlayGraph.NumberOfVerticesInLevel(l)
+		p.logger.Sugar().Infof(`overlay graph level %v statistics:
+		#boundary/overlay vertices %v, #cells: %v, avg. number of cell entry vertices: %v, 
+		avg. number of cell exit vertices: %v, avg. number of cell shortcut edges: %v`, l,
+			boundaryVerticesNum, numCells, avgNumCellEntry, avgNumCellExit, avgNumCellShortcuts)
 	}
 
 	p.logger.Sugar().Infof("Running Kosaraju's algorithm to find strongly connected components (SCCs)...")

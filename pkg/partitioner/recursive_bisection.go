@@ -49,6 +49,9 @@ partisi road networks graph dengan cara: (b = parameter balance)
 (2) compute max flow/minimum st-cut dari first k=n*b nodes (sources) to last k=n*b nodes(sinks) dari sorted vertices
 (3) return minimum st-cut sebagai edge separator (atau recurse sampai size dari resulting subgraphs < maximumCellSize U).
 
+inspired by: https://github.com/Project-OSRM/osrm-backend/issues/3205 and https://github.com/Project-OSRM/osrm-backend/issues/3586
+
+
 time complexity:
 ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 
