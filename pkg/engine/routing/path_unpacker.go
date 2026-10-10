@@ -27,6 +27,8 @@ func newPathUnpackerALT[W util.RoutingNumber](
 	return pu
 }
 
+// adapted from: https://github.com/michaelwegner/CRP/blob/master/algorithm/PathUnpacker.cpp
+// unpackPath unpack shortcut edges in packed path returned from CRP query phase.
 func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.ParentVertex, sCellNum, tCellNum da.Pv) []da.Index {
 
 	unpackedVertexPath := make([]da.Index, 0, len(packedPath)) // unpacked vertex path

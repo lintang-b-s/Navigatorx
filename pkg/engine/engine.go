@@ -22,7 +22,7 @@ func (e *Engine[W]) GetRoutingEngine() *routing.CRPRoutingEngine[W] {
 	return e.re
 }
 
-func getEngineFilePath(fileType pkg.FILE_TYPE) (
+func getEngineFilePath() (
 	graph, overlayGraph, landmark, metrics, tf, roadNetwork string,
 ) {
 	root := config.ProfilesRoot()
@@ -37,7 +37,7 @@ func getEngineFilePath(fileType pkg.FILE_TYPE) (
 
 func NewEngine[W util.RoutingNumber](logger *zap.Logger) (*Engine[W], error) {
 	util.ActivateMode[W]()
-	gf, ogf, lmf, metf, tff, rnf := getEngineFilePath(pkg.TIPE)
+	gf, ogf, lmf, metf, tff, rnf := getEngineFilePath()
 	re, err := initializeRoutingEngine[W](gf, ogf, rnf, metf, lmf, tff,
 		logger)
 	if err != nil {

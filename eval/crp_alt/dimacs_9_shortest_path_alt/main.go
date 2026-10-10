@@ -172,7 +172,7 @@ func main() {
 		// dan untuk koordinat dari setiap node, kita pakai int32 (lat * 10^7, lon * 10^7) untuk input openstreetmap, buat save space kaya osrm.
 		// dan karena di dimacs 9th implementation challenge ini koordinat nya bisa lebih dair 10^8, kita bagi 10^8 biar gak overflow int32
 
-		nodeCoords[id] = op.NewNodeCoord(float64(x)/rounder, float64(y)/rounder)
+		nodeCoords[id] = op.NewNodeCoord(float64(y)/rounder, float64(x)/rounder)
 	}
 
 	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0600)

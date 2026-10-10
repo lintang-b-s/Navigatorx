@@ -66,6 +66,10 @@ func NewBinaryHeap[T comparable, W util.RoutingNumber]() *DAryHeap[T, W] {
 	return NewdAryHeap[T, W](2)
 }
 
+// inspired from implicit 4-ary min-heap code implementation of this paper: https://sidsen.azurewebsites.net//papers/heaps-alenex14.pdf
+// code: http://code.google.com/p/priority-queue-testing/
+//
+// NewFourAryHeap create min 4-ary heap
 func NewFourAryHeap[T comparable, W util.RoutingNumber]() *DAryHeap[T, W] {
 	return NewdAryHeap[T, W](4)
 }
@@ -161,8 +165,8 @@ func (h *DAryHeap[T, W]) GetMinrank() W {
 }
 
 // insert item baru
-func (h *DAryHeap[T, W]) Insert(key PriorityQueueNode[T, W], vertexIndex uint32, updatePos func(vertexIndex, newHeapNodeId uint32)) {
-	h.heap = append(h.heap, key)
+func (h *DAryHeap[T, W]) Insert(node PriorityQueueNode[T, W], vertexIndex uint32, updatePos func(vertexIndex, newHeapNodeId uint32)) {
+	h.heap = append(h.heap, node)
 	index := uint32(h.Size() - 1)
 	updatePos(vertexIndex, uint32(index))
 	h.heapifyUp(index, updatePos)

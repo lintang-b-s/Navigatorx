@@ -168,15 +168,17 @@ SortByCellNumber. group vertices s.t. vertices within the same cell are adjacent
 adapted from https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.cpp
 */
 func (p *Preprocessor[W]) SortByCellNumber() error {
+	n := p.graph.GetNumberOfCellsNumbers()
+
 	cellVertices := make([][]struct {
 		vertex        da.Vertex
 		originalIndex da.Index
-	}, p.graph.GetNumberOfCellsNumbers()) // slice of slice of vertices in each cell
+	}, n) // slice of slice of vertices in each cell
 
 	minLat, minLon := math.MaxFloat64, math.MaxFloat64
 	maxLat, maxLon := math.Inf(-1), math.Inf(-1)
 
-	numVerticesInCell := make([]da.Index, p.graph.GetNumberOfCellsNumbers()) // number of outEdges in each cell
+	numVerticesInCell := make([]da.Index, n) // number of outEdges in each cell
 
 	type oldEdge struct {
 		id da.Index
@@ -247,10 +249,10 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 		}
 	}
 
-	noeId := da.Index(0)                                             // new id for outEdges for each vertex for each cell
-	p.graph.MakeOutEdgeCellOffset(p.graph.GetNumberOfCellsNumbers()) // offset of first outEdge for each cell
-	nieId := da.Index(0)                                             // new id for inEdges for each vertex for each cell
-	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
+	noeId := da.Index(0)             // new id for outEdges for each vertex for each cell
+	p.graph.MakeOutEdgeCellOffset(n) // offset of first outEdge for each cell
+	nieId := da.Index(0)             // new id for inEdges for each vertex for each cell
+	p.graph.MakeInEdgeCellOffset(n)  // offset of first inEdge for each cell
 
 	vId := da.Index(0)
 
@@ -259,7 +261,7 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 	nPerm := make([]int, p.graph.NumberOfVertices()+1)
 	nPerm[len(nPerm)-1] = len(nPerm) - 1
 
-	for i := da.Index(0); i < da.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
+	for i := da.Index(0); i < da.Index(n); i++ {
 		p.graph.SetHeadCellOffset(i, noeId)
 		p.graph.SetTailCellOffset(i, nieId)
 

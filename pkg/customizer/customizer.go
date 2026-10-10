@@ -178,15 +178,15 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	lm := landmark.NewLandmark[W]()
 
-	viper.SetDefault("landmarks", 8)
+	viper.SetDefault("landmarks", 16)
 	wg := sync.WaitGroup{}
-	wg.Go(func() {
-		numberOfLandmarks := viper.GetInt("landmarks")
-		err = lm.PreprocessALT(numberOfLandmarks, wf, c.graph, c.logger)
-		if err != nil {
-			panic(err)
-		}
-	})
+	// wg.Go(func() {
+	numberOfLandmarks := viper.GetInt("landmarks")
+	err = lm.PreprocessALT(numberOfLandmarks, wf, c.graph, c.logger)
+	if err != nil {
+		panic(err)
+	}
+	// })
 
 	c.Build(wf)
 	c.logger.Sugar().Infof("Writing metrics data...")
@@ -577,11 +577,11 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 							nOvId := exOverlayVertex.GetNeighborOverlayVertex()
 							nOverlayVertex := c.overlayGraph.GetVertex(nOvId)
 							// cut edge (exOverlayVertex, nOverlayVertex)
-							cutOutEdgeId := exOverlayVertex.GetCutEdge()
+							cutEdgeId := exOverlayVertex.GetCutEdge()
 
 							nTruncatedCellNumber := levelData.TruncateToLevel(nOverlayVertex.GetCellNumber(), uint8(level))
 							if nTruncatedCellNumber == cellNumber {
-								cutEdgeWeight := wf.GetWeight(cutOutEdgeId)
+								cutEdgeWeight := wf.GetWeight(cutEdgeId)
 								nnCost := newVCost + cutEdgeWeight
 								oldNCost := pq.GetCost(nOvId)
 								nLabelled := util.Lt(oldNCost, util.Infinity[W]())

@@ -25,7 +25,7 @@ var (
 	profileFilePath                                     = flag.String("profile", "./data/car.yaml", "profile file path")
 	osmFile                                             = flag.String("osm_file", "./data/diy_solo_semarang.osm.pbf", "Openstreetmap .pbf filename")
 	regionName                                          = flag.String("region", "diy_solo_semarang", "region name")
-	partitionSizes                                      = flag.String("us", "8,11,14,16,18", "Multilevel Partition Sizes")
+	partitionSizes                                      = flag.String("us", "8,11,14,16,18", "Multilevel Partition Cells Sizes")
 	inertialFlowIterations                              = flag.Int("iflow_iterations", 10, "number of iterations of the inertial flow algorithm (schild dan sommer (2015)) (https://link.springer.com/chapter/10.1007/978-3-319-20086-6_22)")
 	visualizationFile                                   = flag.Bool("visualization", false, "write multilevel partition visualization to json file")
 	partitionQuality       partitioner.PartitionQuality = partitioner.BEST

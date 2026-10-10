@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -52,7 +53,9 @@ type cellVis struct {
 // atau figure 1 di: https://aschild.github.io/papers/roadseparator.pdf
 // buat visualizer nya ada di  eval/crp_alt/visualization/multilevel_partition_mlp_cells.html
 func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
-	filename := fmt.Sprintf("./data/inertial_flow_%s_%s.mlp", pkg.ProfileName, pkg.RegionName)
+	root := config.ProfilesRoot()
+	base := fmt.Sprintf("%s/%s/%s", root, pkg.ProfileName, pkg.RegionName)
+	filename := fmt.Sprintf("%s_%s_%s.mlp", base, pkg.ProfileName, pkg.RegionName)
 
 	mlp := mp.BuildMLP()
 	levelData := da.NewLevelData(mlp.GetPVOffsets())
@@ -139,7 +142,9 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 
 // WriteOverlayVerticesInLevel write vertices inside each cells ke file.
 func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel() error {
-	filename := fmt.Sprintf("./data/inertial_flow_%s_%s.mlp", pkg.ProfileName, pkg.RegionName)
+	root := config.ProfilesRoot()
+	base := fmt.Sprintf("%s/%s/%s", root, pkg.ProfileName, pkg.RegionName)
+	filename := fmt.Sprintf("%s_%s_%s.mlp", base, pkg.ProfileName, pkg.RegionName)
 
 	mlp := mp.BuildMLP()
 	levelData := da.NewLevelData(mlp.GetPVOffsets())

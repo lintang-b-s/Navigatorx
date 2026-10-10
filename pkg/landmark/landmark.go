@@ -67,16 +67,14 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 		// O(V)
 		dist := geo.CalculateGreatCircleDistance(v.GetLat(), v.GetLon(),
 			centerLat, centerLon)
-		validLandmark := graph.GetOutDegree(v.GetID()) != 0 && graph.GetInDegree(v.GetID()) != 0
-		if dist < minMidDist && validLandmark {
+		if dist < minMidDist {
 			minMidDist = dist
 			midLandmark = v
 		}
 	}
 
-	vs := graph.GetVertices()
 	vsCopy := make([]da.Vertex, n)
-	copy(vsCopy, vs)
+	copy(vsCopy, ivs)
 
 	// mirip algoritma graham explore buat bikin convex hull
 	// graham scan: sort Points by their polar angles around a p0 (bottomost point or rightmost & bottomost point if tie)
@@ -84,8 +82,8 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 	// karena geographic coordinate, sort by initial bearing angle (sudut clockwise antara garis yang menghubungkan titik pivot ke other point dan garis meridian)
 
 	sort.Slice(vsCopy, func(i, j int) bool { // O(V * logV)
-		return geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[j].GetLat(), vsCopy[j].GetLon()) <
-			geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[i].GetLat(), vsCopy[i].GetLon())
+		return geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[i].GetLat(), vsCopy[i].GetLon()) <
+			geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[j].GetLat(), vsCopy[j].GetLon())
 	})
 
 	pieSize := n / k
@@ -101,9 +99,8 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 		maxDist := math.Inf(-1)
 		for j, v := range pie {
 			midToVDist := geo.CalculateGreatCircleDistance(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
-			validLandmark := graph.GetOutDegree(v.GetID()) != 0 && graph.GetInDegree(v.GetID()) != 0
 
-			if midToVDist > maxDist && validLandmark {
+			if midToVDist > maxDist {
 				maxDist = midToVDist
 				terjauhId = j
 			}
@@ -173,7 +170,7 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 		return nil
 	}
 
-	logger.Info("computing landmarks....")
+	logger.Sugar().Infof("computing landmarks.... number of landmarks: %v", k)
 	lw := make([]W, da.Index(k)*n)
 	landmarks := make([]da.Index, k)
 	vlw := make([]W, n*da.Index(k))

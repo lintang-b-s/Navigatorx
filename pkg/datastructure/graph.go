@@ -23,7 +23,7 @@ type Pv uint64
 // See section 4.1 & 4.3: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 type Graph struct {
 	vertices    []Vertex // map from vertex v id to vertex v data structure
-	heads       []Index  // head v dari edge (u,v) sorted by tail u
+	heads       []Index  // head v dari edges (u,v) sorted by tail u
 	tails       []Index  // tail v reversed edges (v,u). setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v). sorted by head u.
 	entryPoints []Index  // map from outgoing edge id (u,v) to index of this edge in the list of incoming edges of v.
 	exitPoints  []Index  // map from incoming (reversed) edge id (v,u) to index of this edge in the of outgoing edges of v.
@@ -111,31 +111,27 @@ func (g *Graph) GetCellNumbers() []Pv {
 }
 
 func (g *Graph) GetHeadOfInedge(e Index) Index {
-	v := g.tails[e]
-	tail := g.vertices[v]
+	tail := g.vertices[g.tails[e]]
 	exitPoint := Index(g.exitPoints[e])
 	return g.heads[tail.firstOut+exitPoint]
 }
 
 func (g *Graph) GetTailOfOutedge(e Index) Index {
-	v := g.heads[e]
-	head := g.vertices[v]
+	head := g.vertices[g.heads[e]]
 	entryPoint := Index(g.entryPoints[e])
 	return g.tails[head.firstIn+Index(entryPoint)]
 }
 
 // get inEdgeId of outEdgeId e
 func (g *Graph) GetRevId(e Index) Index {
-	head := g.vertices[g.heads[e]]
 	entryPoint := Index(g.entryPoints[e])
-	return head.firstIn + Index(entryPoint)
+	return g.vertices[g.heads[e]].firstIn + entryPoint
 }
 
-// get outgoing edge Id of incoming edge Id e
+// get outgoing edge Id of incoming (or reversed) edge Id e
 func (g *Graph) GetOutId(e Index) Index {
-	tail := g.vertices[g.tails[e]]
 	exitPoint := Index(g.exitPoints[e])
-	return tail.firstOut + Index(exitPoint)
+	return g.vertices[g.tails[e]].firstOut + exitPoint
 }
 
 // GetExitOrder. return Index of exit point of a out edge (u,v) at vertex u.
@@ -340,8 +336,9 @@ func (g *Graph) GetVerticeIds() []Index {
 // ---- nodes & edges permutation related ----
 
 // ApplyGraphPermutation. apply vertices & edges permutation
-// perm=permutation slice that maps new vertex id to old vertex id
+// nPerm=permutation slice that maps new vertex id to old vertex id
 // ePerm=permutation slice that maps new edge id to old edge id
+// eRevPerm=permutation slice that maps new reversed edge id to old reversed edge id
 func (g *Graph) ApplyGraphPermutation(nPerm, ePerm, eRevPerm []int) {
 	g.vertices = util.ApplyPermutation(g.vertices, nPerm)
 	g.entryPoints = util.ApplyPermutation(g.entryPoints, ePerm)

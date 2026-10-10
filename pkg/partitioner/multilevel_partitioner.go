@@ -179,7 +179,7 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Inde
 // read TheMarex comment on that osrm github issue. in here, we use step 1-6 of osrm-partition, using method 1 of step 6 with little modification...
 // the reason not implement method 2 of step 6, is because its too complex, much easier to implement method 1.
 // ebg is the edge-based graph (or edge-expanded graph whatever). read: https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
-// ebgMapping map from edge-based graph (ebg) vertex id to packed id (tail, head) vertex of that ebg vertex
+// ebgMapping map from edge-based graph (ebg) vertex id to packed id of edge (u, v) of that ebg vertex
 func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping []uint64) {
 	ebgCellVertices := make([][][]da.Index, mp.l)
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -189,9 +189,15 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 	n := da.Index(len(ebgMapping))
 	for l := 0; l < mp.l; l++ {
 		maxCellSize := mp.u[l]
-		ebgCellMap := make(map[da.Index]int, ne)
+		ebgCellMap := make([]int, ne)
+		for j := 0; j < ne; j++ {
+			ebgCellMap[j] = -1
+		}
 		ebgCellVertices[l] = make([][]da.Index, len(mp.cellVertices[l]))
-		cellVerticesMap := make(map[da.Index]int, nv)
+		cellVerticesMap := make([]int, nv) //
+		for j := 0; j < nv; j++ {
+			cellVerticesMap[j] = -1
+		}
 		for cellId, vertexIds := range mp.cellVertices[l] {
 			for _, vertexId := range vertexIds {
 				cellVerticesMap[vertexId] = cellId
@@ -217,8 +223,8 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 		for _, ebgvId := range boundaryEbgVertices {
 			// step 6: https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
 			// process cut edges of node-based graph
-			packedId := ebgMapping[ebgvId]
-			u, v := da.Index(packedId&0xFFFFFFFF), da.Index(packedId>>32)
+			pId := ebgMapping[ebgvId]
+			u, v := da.Index(pId&0xFFFFFFFF), da.Index(pId>>32)
 			uc := cellVerticesMap[u]
 			vc := cellVerticesMap[v]
 
@@ -226,14 +232,16 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 			// count the number of cut-edges introduced if we assign vertex ebgvId to u cell
 			numCutEdgesTail := 0
 			ebg.ForOutEdgesOf(ebgvId, func(_, w, _ da.Index) {
-				wc, ok := ebgCellMap[w]
+				wc := ebgCellMap[w]
+				ok := wc != -1
 				if ok && wc != uc {
 					numCutEdgesTail++
 				}
 			})
 
 			ebg.ForInEdgesOf(ebgvId, func(_, w, _ da.Index) {
-				wc, ok := ebgCellMap[w]
+				wc := ebgCellMap[w]
+				ok := wc != -1
 				if ok && wc != uc {
 					numCutEdgesTail++
 				}
@@ -242,14 +250,16 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 			// try assign to v cell
 			numCutEdgesHead := 0
 			ebg.ForOutEdgesOf(ebgvId, func(_, w, _ da.Index) {
-				wc, ok := ebgCellMap[w]
+				wc := ebgCellMap[w]
+				ok := wc != -1
 				if ok && wc != vc {
 					numCutEdgesHead++
 				}
 			})
 
 			ebg.ForInEdgesOf(ebgvId, func(_, w, _ da.Index) {
-				wc, ok := ebgCellMap[w]
+				wc := ebgCellMap[w]
+				ok := wc != -1
 				if ok && wc != vc {
 					numCutEdgesHead++
 				}

@@ -236,7 +236,7 @@ func (inf *inertialFlow) randomizedSelect(arr []vertexEmb, p, r, i int, comp fun
 	return inf.randomizedSelect(arr, q+1, r, i-k, comp) // i-k th smallest/largest element di arr[q+1,...,r] karena di next recursion kita operate di arr[q+1,...,r]
 }
 
-// randomizedPartition random pivot & partition function of randomized quicksort
+// randomizedPartition random pivot selection & partition function of randomized quicksort
 func (inf *inertialFlow) randomizedPartition(arr []vertexEmb, p, r int, comp func(left, right int) bool) int {
 	i := p - 1
 
