@@ -4,12 +4,13 @@ import (
 	"time"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type DijkstraP2P[W util.RoutingNumber] struct {
-	engine *CRPRoutingEngine[W]
-
+	engine          *CRPRoutingEngine[W]
+	metrics         *met.Metric[W]
 	pq              *da.QueryHeap[da.QueryKey, W]
 	runtime         int64
 	numSettledNodes int
@@ -22,7 +23,7 @@ func NewDijkstraP2P[W util.RoutingNumber](
 		engine:          engine,
 		numSettledNodes: 0,
 	}
-
+	dj.metrics = engine.GetMetrics()
 	dj.Preallocate()
 	return dj
 }
@@ -71,7 +72,7 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 	us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
 		head := us.engine.graph.GetHead(eId)
 		vId := head
-		eWeight := us.engine.getWeight(eId, true)
+		eWeight := us.metrics.GetWeight(eId)
 		// get cost to reach v through u
 		newVCost := us.pq.GetCost(uId) + eWeight
 
@@ -101,9 +102,7 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 func (us *DijkstraP2P[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
-
-	maxVerticesInCell := us.engine.graph.GetMaxVerticesInCell()
-	us.pq = da.NewQueryHeap[da.QueryKey, W](uint32(maxSearchSize), uint32(maxVerticesInCell), da.ARRAY_STORAGE, true)
+	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
 

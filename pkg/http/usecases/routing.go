@@ -19,6 +19,7 @@ import (
 type RoutingService struct {
 	log             *zap.Logger
 	engine          cont.RoutingEngine
+	metrics         cont.Metrics
 	graph           *da.Graph
 	rn              *da.RoadNetworkDataContainer
 	spatialIndex    SpatialIndex
@@ -42,9 +43,8 @@ func NewRoutingService(log *zap.Logger, engine cont.RoutingEngine, rn *da.RoadNe
 		altRouting:      altRouting,
 		rn:              rn,
 	}
-
 	rs.turnSignCache = da.NewTurnSignCache()
-
+	rs.metrics = engine.GetMetrics()
 	return rs, nil
 }
 
@@ -95,7 +95,6 @@ func (rs *RoutingService) ShortestPath(
 		drivingDirections = directionBuilder.GetDrivingDirections(segmentPath, sp, tp, useAnnotation)
 	}
 
-	rs.engine.PutCoordsToPool(pathCoords)
 	return travelTime, dist, pathPolyline, drivingDirections, true, nil
 }
 
@@ -147,7 +146,6 @@ func (rs *RoutingService) AlternativeRouteSearch(
 		}
 
 		alternatives[i].SetDrivingDirections(drivingDirections)
-		rs.engine.PutCoordsToPool(altPathCoords)
 	}
 	return alternatives, nil
 }

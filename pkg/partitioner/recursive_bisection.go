@@ -151,7 +151,6 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 
 	close(iflowInChan)
 	close(iflowOutChan)
-
 }
 
 // applyBisection. bisect st-cut jadi cell S dan T yang saling disjoint

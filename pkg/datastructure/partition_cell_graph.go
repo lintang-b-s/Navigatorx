@@ -73,7 +73,7 @@ func (c *CellGraph) Partition(pred func(vId Index) bool) (*CellGraph, *CellGraph
 
 	for i := first; i < c.end; i++ {
 		vId := i - c.begin
-		// loop invariant: all elements before first have predicate value of true. pred(vId)=true means that that vId is inside cell one.
+		// loop invariant: all elements before first have predicate value of true. pred(vId)=true means that that vId is inside cell s.
 		if pred(vId) {
 			// swap
 			c.vIds[first], c.vIds[i] = c.vIds[i], c.vIds[first]
@@ -81,20 +81,20 @@ func (c *CellGraph) Partition(pred func(vId Index) bool) (*CellGraph, *CellGraph
 		}
 	}
 
-	ogvIds := c.vIds[c.begin:first] // road network graph vIds of cell one
-	tgvIds := c.vIds[first:c.end]   // road network graph vIds of cell two
+	sgvIds := c.vIds[c.begin:first] // road network graph vIds of cell s
+	tgvIds := c.vIds[first:c.end]   // road network graph vIds of cell t
 
-	for k, gvId := range ogvIds {
-		c.gv[gvId] = Index(k) // c.gv for cell one
+	for k, gvId := range sgvIds {
+		c.gv[gvId] = Index(k) // c.gv for cell s
 	}
 
 	for k, gvId := range tgvIds {
-		c.gv[gvId] = Index(k) // c.gv for cell two
+		c.gv[gvId] = Index(k) // c.gv for cell t
 	}
 
-	one := NewCellGraph(c.g, ogvIds, c.vIds, c.gv, c.begin, first)
-	two := NewCellGraph(c.g, tgvIds, c.vIds, c.gv, first, c.end)
-	return one, two
+	sCell := NewCellGraph(c.g, sgvIds, c.vIds, c.gv, c.begin, first)
+	tCell := NewCellGraph(c.g, tgvIds, c.vIds, c.gv, first, c.end)
+	return sCell, tCell
 }
 
 // ForOutEdgesOf iterate all outgoing edges that inside this recursive bisection cell that coming from RB cell vertex id=u (recursive bisection cell vertex id).

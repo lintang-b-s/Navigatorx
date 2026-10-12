@@ -263,13 +263,6 @@ func (g *Graph) WriteGraph(filename string) error {
 			return err
 		}
 
-		if err := writeIndices(w, g.outEdgeCellOffset); err != nil {
-			return err
-		}
-		if err := writeIndices(w, g.inEdgeCellOffset); err != nil {
-			return err
-		}
-
 		// scc related
 		if err := writeIndices(w, g.sccs); err != nil {
 			return err
@@ -390,17 +383,6 @@ func ReadGraph(filename string) (*Graph, error) {
 		return nil, err
 	}
 
-	outOffsets, err := readIndices(r)
-	if err != nil {
-		return nil, err
-	}
-	inOffsets, err := readIndices(r)
-	if err != nil {
-		return nil, err
-	}
-	if len(outOffsets) != len(cellNumbers) || len(inOffsets) != len(cellNumbers) {
-		return nil, fmt.Errorf("cell offset counts do not match cell count")
-	}
 	sccs, err := readIndices(r)
 	if err != nil {
 		return nil, err
@@ -429,11 +411,10 @@ func ReadGraph(filename string) (*Graph, error) {
 	graph.cellNumbers = cellNumbers
 	graph.overlayVertices = overlay
 	graph.maxVerticesInCell = Index(maxVerticesInCell)
-	graph.outEdgeCellOffset = outOffsets
-	graph.inEdgeCellOffset = inOffsets
 	graph.sccs = sccs
 	graph.sccCondensationAdj = sccAdj
 	graph.sccReach = sccReach
 	graph.minResolution = minResolution
+	graph.BuildVertexCellOffsets()
 	return graph, nil
 }

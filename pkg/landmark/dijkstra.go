@@ -62,7 +62,7 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
 
 	for !us.pq.IsEmpty() {
 		// search on graph level 1
-		us.graphSearchUni(s)
+		us.graphSearchUni()
 		us.numSettledNodes++
 	}
 
@@ -71,96 +71,70 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
 	return sps
 }
 
-func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
+func (us *Dijkstra[W]) graphSearchUni() {
 	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
 	uId := uItem.GetNode()
 
-	if !us.useReverseGraph {
+	out := !us.useReverseGraph
+	offset, eNum := us.graph.NumEdges(uId, out)
 
-		// traverse outEdges of u
-		us.graph.ForOutEdgesOf(uId, func(eId, head, entryPoint da.Index) {
-			vId := head
-			edgeWeight := us.cf.GetWeight(eId)
-			// get cost to reach v through u
-			newVCost := us.pq.GetCost(uId) + edgeWeight
+	for i := da.Index(0); i < eNum; i++ {
+		vId, eId := us.GetV(offset, i, out)
+		edgeWeight := us.GetWeight(eId, out)
 
-			ovCost := us.pq.GetCost(vId)
-			if util.Ge(newVCost, ovCost) {
-				// newVCost is not better, do nothing
-				return
-			}
+		// get cost to reach v through u
+		newVCost := us.pq.GetCost(uId) + edgeWeight
 
-			vLabelled := util.Lt(ovCost, util.Infinity[W]())
-			// newVCost is better, update the forwardData
-			if vLabelled {
-				newPar := da.NewParentVertex(uId)
-				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
-			} else if !vLabelled {
-				queryKey := da.NewDijkstraKey(vId)
-				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
-				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newVCost, vData, queryKey)
-			}
-		})
-	} else {
-		// use reversed edges
-		// traverse inEdges of u
-		us.graph.ForInEdgesOf(uId, func(eId, tail, exitPoint da.Index) {
-			vId := tail
-			oeId := us.graph.GetOutId(eId)
-			edgeWeight := us.cf.GetWeight(oeId)
-			newVCost := us.pq.GetCost(uId) + edgeWeight
-			ovCost := us.pq.GetCost(vId)
-			if util.Ge(newVCost, ovCost) {
-				// newVCost is not better, do nothing
-				return
-			}
+		ovCost := us.pq.GetCost(vId)
+		if util.Ge(newVCost, ovCost) {
+			// newVCost is not better, do nothing
+			continue
+		}
 
-			vLabelled := util.Lt(ovCost, util.Infinity[W]())
-			// newVCost is better, update the forwardData
-			if vLabelled {
-				newPar := da.NewParentVertex(uId)
-				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
-			} else if !vLabelled {
-				queryKey := da.NewDijkstraKey(vId)
-				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
-				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newVCost, vData, queryKey)
-			}
-		})
+		vLabelled := util.Lt(ovCost, util.Infinity[W]())
+		// newVCost is better, update the forwardData
+		if vLabelled {
+			newPar := da.NewParentVertex(uId)
+			// is key already in the priority queue, decrease its key
+			us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
+		} else {
+			queryKey := da.NewDijkstraKey(vId)
+			vData := da.NewVData(newVCost, da.NewParentVertex(uId))
+			// is key not in the priority queue, insert it
+			us.pq.Insert(vId, newVCost, vData, queryKey)
+		}
 	}
+}
+
+// GetV returns the adjacent vertex ID and edge ID for the given offset and index.
+func (us *Dijkstra[W]) GetV(offset, i da.Index, out bool) (da.Index, da.Index) {
+	eId := offset + i
+	if out {
+		return us.graph.GetHead(eId), eId
+	}
+	return us.graph.GetTail(eId), eId
+}
+
+// GetWeight returns the edge weight according to search direction.
+func (us *Dijkstra[W]) GetWeight(eId da.Index, out bool) W {
+	if out {
+		return us.cf.GetWeight(eId)
+	}
+	reId := us.graph.GetOutId(eId)
+	return us.cf.GetWeight(reId)
 }
 
 func (us *Dijkstra[W]) constructShortestPath(s da.Index) []W {
 	n := us.graph.NumberOfVertices()
 	sps := make([]W, n)
-	if !us.useReverseGraph {
+	for t := da.Index(0); t < da.Index(n); t++ {
+		sp := us.pq.GetCost(t)
 
-		for t := da.Index(0); t < da.Index(n); t++ {
-			sp := us.pq.GetCost(t)
-
-			if s == t {
-				continue // sp == 0
-			}
-
-			sps[t] = sp
-
+		if s == t {
+			continue // sp == 0
 		}
-
-	} else {
-		//  use reversed edges
-		for t := da.Index(0); t < da.Index(n); t++ {
-			sp := us.pq.GetCost(t)
-
-			if s == t {
-				continue // sp == 0
-			}
-			sps[t] = sp
-
-		}
+		sps[t] = sp
 
 	}
 	return sps

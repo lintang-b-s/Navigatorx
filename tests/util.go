@@ -447,7 +447,7 @@ func dijkstra(adjList [][]PairEdge, s da.Index) []float64 {
 		dist[v] = util.INF_WEIGHT_FLOAT
 	}
 
-	pq := da.NewQueryHeap[da.Index, float64](uint32(n), 100, da.ARRAY_STORAGE, true)
+	pq := da.NewQueryHeap[da.Index, float64](da.Index(n), da.ARRAY_STORAGE)
 	emptyVertexData := da.NewVData(float64(0), da.NewParentVertex(0))
 
 	dist[s] = 0

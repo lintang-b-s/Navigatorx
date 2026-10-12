@@ -4,11 +4,16 @@ import (
 	"time"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type CRPALTQuery[W util.RoutingNumber] struct {
-	engine       *CRPRoutingEngine[W]
+	engine  *CRPRoutingEngine[W]
+	metrics *met.Metric[W]
+	lm      *landmark.Landmark[W]
+
 	shortestCost W
 	mid          da.ParentVertex
 
@@ -16,6 +21,7 @@ type CRPALTQuery[W util.RoutingNumber] struct {
 	bpq *da.QueryHeap[da.QueryKey, W]
 
 	activeLandmarks []da.Index
+	pirt            W
 
 	sCellNumber da.Pv
 	tCellNumber da.Pv
@@ -39,22 +45,10 @@ func NewCRPALTQuery[W util.RoutingNumber](
 		runtime:                    0,
 		pathUnpackingRuntime:       0,
 	}
-
+	crpQuery.metrics = engine.GetMetrics()
+	crpQuery.lm = engine.GetLandmark()
 	crpQuery.Preallocate()
 	return crpQuery
-}
-
-// Reset clears per-query state on a pooled CRPALTQuery so it can
-// be reused.
-func (bs *CRPALTQuery[W]) Reset() {
-	bs.shortestCost = 2 * util.Infinity[W]()
-	bs.mid = da.NewParentVertex(0)
-	bs.sCellNumber = 0
-	bs.tCellNumber = 0
-	bs.numExploredVertices = 0
-	bs.numExploredOverlayVertices = 0
-	bs.runtime = 0
-	bs.pathUnpackingRuntime = 0
 }
 
 /*
@@ -74,8 +68,8 @@ https://doi.org/10.1287/trsc.2014.0579.
 
 ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1] + Bidirectional ALT (A* search, landmarks, and triangle inequality) [5]
 intinya cuma bidirectional ALT  (A* search, landmarks, and triangle inequality)  pada graf yang consisiting of overlay graph H, cell C_s, cell C_t. C_s adalah cell level 1 yang mengandung vertex s hasil multilevel partition (lihat package partitioner).
-Setiap cell C_v memiliki vertices (all inside cell C_v) dan edges (semua endpoints nya inside C_v), vertices dan edges dari cell C_v adalah subset dari vertices dan edges dari graf G.
-overlay graph H adalah graf yang mengandung all boundary/overlay vertices, all cut/boundary edges, all shortcut edges di setiap cells hasil multilevel partitioning.
+Setiap cell C_v memiliki vertices (all inside cell C_v) dan edges (semua tail dan head dari edges nya inside C_v), vertices dan edges dari cell C_v adalah subset dari vertices dan edges dari graf G.
+overlay graph H adalah graf yang mengandung all boundary/overlay vertices, all cut edges, all shortcut edges di setiap cells hasil multilevel partitioning.
 boundary vertices adalah vertices yang punya setidaknya satu edge yang kedua endpoint nya (tail dan head) di cell yang berbeda, edge yang kedua endpointnya in different cell ini disebut cut/boundary edge.
 entry boundary/overlay vertex adalah boundary/overlay vertex yang dia jadi head dari cut edge. exit boundary/overlay vertex adalah boundary/overlay vertex yang dia jadi tail dari cut edge.
 
@@ -121,7 +115,7 @@ time complexity of CRP query is: O((n_o + n_p + m_p + k * \hat{m_p}) * log (n_p+
 decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, di C_s/C_t kita masih relax all edges inside C_s/C_t yang mana at most m_p, ketika di overlay graph H, kita relax shortcut edges yang mana at most k * \hat{m_p}
 extract-min at most O(n_p+n_o) operations, yang kita insert di pq adlaah vertices inside C_s/C_t yang mana at most n_p dan overlay vertices in overlay graph H yang mana at most n_o.
 
-
+inspired by Customizable Route Planning (CRP) [1] query phase code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
 */
 
 func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
@@ -138,13 +132,21 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 
 	bs.shortestCost = 2 * util.Infinity[W]()
 	bs.activeLandmarks = bs.engine.lm.SelectBestQueryLandmarks(s, t)
+	bs.pirt = bs.lm.FindTighestLowerBound(s, t, bs.activeLandmarks) // consistent lower bound dari dist(s, t)
 
-	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
-	tVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
+	sOffset, sSize := bs.engine.graph.GetVertexCellOffset(s)
+	tOffset, tSize := bs.engine.graph.GetVertexCellOffset(t)
+	maxV := bs.engine.graph.GetMaxVerticesInCell()
+	nv := da.Index(bs.engine.graph.NumberOfVertices())
+	bs.fpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
+	bs.bpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
+
+	svd := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
+	tvd := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
 	sQueryKey := da.NewQKey(s, 0, false)
 	tQueryKey := da.NewQKey(t, 0, false)
-	bs.fpq.Insert(s, 0, sVertexData, sQueryKey)
-	bs.bpq.Insert(t, 0, tVertexData, tQueryKey)
+	bs.fpq.Insert(s, 0, svd, sQueryKey)
+	bs.bpq.Insert(t, 0, tvd, tQueryKey)
 
 	for bs.fpq.Size() > 0 && bs.bpq.Size() > 0 {
 		minForward := bs.fpq.GetMinrank()
@@ -158,10 +160,10 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 
 		if !uItem.IsOverlay() {
 			bs.fpq.Explore(uItem.GetNode())
-			bs.forwardGraphSearch(uItem, s, t)
+			bs.graphSearch(uItem, s, t, true, bs.fpq, bs.bpq)
 		} else {
 			bs.fpq.Explore(uItem.GetNode())
-			bs.forwardOverlayGraphSearch(uItem, s, t)
+			bs.overlayGraphSearch(uItem, s, t, true, bs.fpq, bs.bpq)
 			bs.numExploredOverlayVertices++
 		}
 
@@ -169,10 +171,10 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 		uItem = queryKey.GetItem()
 		if !uItem.IsOverlay() {
 			bs.bpq.Explore(uItem.GetNode())
-			bs.backwardGraphSearch(uItem, s, t)
+			bs.graphSearch(uItem, s, t, false, bs.bpq, bs.fpq)
 		} else {
 			bs.bpq.Explore(uItem.GetNode())
-			bs.backwardOverlayGraphSearch(uItem, s, t)
+			bs.overlayGraphSearch(uItem, s, t, false, bs.bpq, bs.fpq)
 			bs.numExploredOverlayVertices++
 		}
 
@@ -189,7 +191,7 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 	dur := time.Since(now).Milliseconds()
 	bs.runtime = dur
 
-	unpacker := newPathUnpackerALT(bs.engine, false)
+	unpacker := newPathUnpackerALT(bs.engine, bs.metrics, bs.lm, false)
 	vPath := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.pathUnpackingRuntime = unpacker.runtime
 
@@ -197,404 +199,231 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 }
 
 /*
-forwardGraphSearch. forward search dari bidirectional ALT di sel c1(s) atau c1(t).
+graphSearch. forward search & backward search dari bidirectional ALT in sel c1(s) atau c1(t).
 */
-func (bs *CRPALTQuery[W]) forwardGraphSearch(uItem da.QueryKey, source, target da.Index) {
+func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 
-	uId := uItem.GetNode()
-	uCost := bs.fpq.GetCost(uId)
+	u := uKey.GetNode()
+	uCost := pq.GetCost(u)
 
-	// traverse outEdges of u
-	bs.engine.graph.ForOutEdgesOf(uId, func(eId, head, entryPoint da.Index) {
-		vId := head
+	offset, eNum := bs.engine.graph.NumEdges(u, forw)
+
+	for i := da.Index(0); i < eNum; i++ {
+		v, eId := bs.engine.GetV(offset, i, forw)
 
 		// get query level of v l_st(v)
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
-			bs.engine.graph.GetCellNumber(vId))
+			bs.engine.graph.GetCellNumber(v))
 
-		eWeight := bs.engine.getWeight(eId, true)
+		eWeight := bs.GetWeight(eId, forw)
 
 		// get cost to reach v through u
 		newVCost := uCost + eWeight
-
-		pfv, _ := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
-		priority := newVCost + pfv
-
 		if vQueryLevel == 0 {
-
 			// if query level of v is 0, then v is in the same cell as s or t in the lowest level
 			// then, we just do edge relaxation as usual in dijkstra
-
 			// relax edge
-			oldVCost := bs.fpq.GetCost(vId)
+			oldVCost := pq.GetCost(v)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
+				hv := bs.engine.lm.FindTighestConsistentLowerBound(v, s, t, bs.activeLandmarks, bs.pirt, forw)
+				priority := newVCost + hv
+
 				if vLabelled {
 					// newVCost is bsCellNumberetter, update the forwardData
 					// is key already in the priority queue, decrease its key
-
-					newPar := da.NewParentVertex(uId)
-					bs.fpq.DecreaseKey(vId, priority, newVCost, newPar)
+					newPar := da.NewParentVertex(u)
+					pq.DecreaseKey(v, priority, newVCost, newPar)
 				} else if !vLabelled {
-
 					vData := da.NewVData(newVCost,
-						da.NewParentVertex(uId))
-					queryKey := da.NewQKey(vId, 0, false)
+						da.NewParentVertex(u))
+					queryKey := da.NewQKey(v, 0, false)
 					// is key not in the priority queue, insert it
-					bs.fpq.Insert(vId, priority, vData, queryKey)
+					pq.Insert(v, priority, vData, queryKey)
 				}
 			}
 
-			exploredByBackwSearch := bs.bpq.IsExplored(vId)
-			vIdForwCost := bs.fpq.GetCost(vId)
-			vIdBackwCost := bs.bpq.GetCost(vId)
-
-			newEstSPCost := vIdForwCost + vIdBackwCost
-			if exploredByBackwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-				bs.shortestCost = newEstSPCost
-				bs.mid = da.NewParentVertex(vId)
+			if rpq.IsExplored(v) {
+				newEstSPCost := newVCost + rpq.GetCost(v)
+				if util.Lt(newEstSPCost, bs.shortestCost) {
+					bs.shortestCost = newEstSPCost
+					bs.mid = da.NewParentVertex(v)
+				}
 			}
 		} else {
 			// v is in another cell on higher level
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
-			v, _ := bs.engine.graph.GetOverlayVertex(vId, entryPoint, false)
-			vOvId := bs.engine.offsetOverlay(v)
-			oldVCost := bs.fpq.GetCost(vOvId)
+			vOv := bs.engine.graph.GetOverlayVertex(v, eId, forw)
+			vOv = bs.engine.offsetOverlay(vOv)
+			oldVCost := pq.GetCost(vOv)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
-				newPar := da.NewParentVertex(uId)
-
+				hv := bs.engine.lm.FindTighestConsistentLowerBound(v, s, t, bs.activeLandmarks, bs.pirt, forw)
+				priority := newVCost + hv
+				newPar := da.NewParentVertex(u)
 				if !vLabelled {
 					vData := da.NewVData(newVCost,
 						newPar)
 
-					queryKey := da.NewQKey(vOvId, vQueryLevel, true)
-					bs.fpq.Insert(vOvId, priority, vData, queryKey)
+					queryKey := da.NewQKey(vOv, vQueryLevel, true)
+					pq.Insert(vOv, priority, vData, queryKey)
 				} else {
-					bs.fpq.DecreaseKey(vOvId, priority, newVCost, newPar)
+					pq.DecreaseKey(vOv, priority, newVCost, newPar)
 				}
 			}
 
-			exploredByBackwSearch := bs.bpq.IsExplored(vOvId)
-			// if v explored by backward search, check whether we can improve the shortestPath
-			newEstSPCost := bs.fpq.GetCost(vOvId) + bs.bpq.GetCost(vOvId)
-			if exploredByBackwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-				bs.shortestCost = newEstSPCost
-				mid := da.NewParentVertex(vOvId)
-				mid.SetIsOverlayVertex()
-				bs.mid = mid
+			if rpq.IsExplored(vOv) {
+				// if v explored by other search, check whether we can improve the shortestPath
+				newEstSPCost := newVCost + rpq.GetCost(vOv)
+				if util.Lt(newEstSPCost, bs.shortestCost) {
+					bs.shortestCost = newEstSPCost
+					mid := da.NewParentVertex(vOv)
+					mid.SetIsOverlayVertex()
+					bs.mid = mid
+				}
 			}
 		}
-	})
+	}
 }
 
 /*
-backwardGraphSearch. backward search dari bidirectional ALT di sel c1(s) atau c1(t).
+overlayGraphSearch. forward search & backward search dari bidirectional ALT in overlay graph H.
+
+reference: 1. Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
+Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
+pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+this explanation below taken from Delling et al. (2015) ref [1]:
+"Otherwise, we use the overlay graph at level lst(u), which does not have turns.
+In either case, the neighbors v of u are added to the priority queue with the appropriate distance labels.
+Note that a level transition occurs when u and v have different query levels; in particular,
+for transitions from or to level 0, we must translate between the two vertex identifiers for v"
+
+and applying optimization from Delling et al. (2015) below:
+
+this explanation below taken from Delling et al. (2015) ref [1]:
+"We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
+outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
+the arc (u, v) immediately and process v."
 */
-func (bs *CRPALTQuery[W]) backwardGraphSearch(uItem da.QueryKey, source, target da.Index) {
-	// search backward on graph level 1
-
-	uId := uItem.GetNode()
-
-	uCost := bs.bpq.GetCost(uId)
-
-	bs.engine.graph.ForInEdgesOf(uId, func(eId, tail, exitPoint da.Index) {
-		vId := tail
-
-		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
-			bs.engine.graph.GetCellNumber(vId))
-
-		eWeight := bs.engine.getWeight(eId, false)
-
-		newVCost := uCost + eWeight
-
-		// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-		_, prv := bs.engine.lm.FindTighestConsistentLowerBound(vId, source, target, bs.activeLandmarks)
-		priority := newVCost + prv
-
-		if vQueryLevel == 0 {
-
-			// relax edge
-			oldVCost := bs.bpq.GetCost(vId)
-			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
-			if util.Lt(newVCost, oldVCost) {
-				if vLabelled {
-					newPar := da.NewParentVertex(uId)
-					bs.bpq.DecreaseKey(vId, priority, newVCost, newPar)
-				} else {
-					vData := da.NewVData(newVCost,
-						da.NewParentVertex(uId))
-					queryKey := da.NewQKey(vId, 0, false)
-					bs.bpq.Insert(vId, priority, vData, queryKey)
-				}
-			}
-
-			exploredByForwSearch := bs.fpq.IsExplored(vId)
-
-			vIdBackwCost := bs.bpq.GetCost(vId)
-			vIdForwCost := bs.fpq.GetCost(vId)
-			newEstSPCost := vIdForwCost + vIdBackwCost
-			if exploredByForwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-
-				bs.shortestCost = newEstSPCost
-				bs.mid = da.NewParentVertex(vId)
-			}
-		} else {
-			// v is in another cell on higher level
-			// Note that a level transition occurs when u and v have different query levels.
-			// i.e. if v not in the same cell as s and t then v query level is different from u query level.
-			v, _ := bs.engine.graph.GetOverlayVertex(vId, exitPoint, true)
-			vOvId := bs.engine.offsetOverlay(v)
-			oldVCost := bs.bpq.GetCost(vOvId)
-			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
-			if util.Lt(newVCost, oldVCost) {
-				newPar := da.NewParentVertex(uId)
-
-				if !vLabelled {
-					vVertexData := da.NewVData(newVCost,
-						newPar)
-					queryKey := da.NewQKey(vOvId, vQueryLevel, true)
-					bs.bpq.Insert(vOvId, priority, vVertexData, queryKey)
-				} else {
-
-					bs.bpq.DecreaseKey(vOvId, priority, newVCost, newPar)
-				}
-			}
-
-			exploredByForwSearch := bs.fpq.IsExplored(vOvId)
-			newEstSPCost := bs.fpq.GetCost(vOvId) + bs.bpq.GetCost(vOvId)
-			if exploredByForwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-				bs.shortestCost = newEstSPCost
-				mid := da.NewParentVertex(vOvId)
-				mid.SetIsOverlayVertex()
-				bs.mid = mid
-			}
-		}
-	})
-}
-
-func (bs *CRPALTQuery[W]) forwardOverlayGraphSearch(uItem da.QueryKey, source, target da.Index) {
+func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 	// search on overlay graph
 
-	uOvId := uItem.GetNode() // overlay vertex id
+	uOv := uKey.GetNode() // overlay vertex id
+	uQueryLevel := int(uKey.GetQueryLevel())
+	u := bs.engine.adjustoffsetOverlay(uOv)
+	uCost := pq.GetCost(uOv)
 
-	uQueryLevel := int(uItem.GetQueryLevel())
+	ovOffset, wOffset, eNum, numExit := bs.engine.overlayGraph.NumOfShortcuts(u, uQueryLevel, forw)
 
-	uId := bs.engine.adjustoffsetOverlay(uOvId)
-
-	// outNeighbors of u = all overlay vertex v that has shortcut edge u->v in level l within the same cell as u.
-	bs.engine.overlayGraph.ForOutNeighborsOf(uId, uQueryLevel, func(v da.Index, wOffset da.Index) {
-		shortcutWeight := bs.engine.metrics.GetShortcutWeight(wOffset)
-
-		vVertex := bs.engine.overlayGraph.GetVertex(v)
-
-		newVCost := bs.fpq.GetCost(uOvId) + shortcutWeight
-
-		vOvId := bs.engine.offsetOverlay(v)
-
-		// traverse edge to next cell
-		vCutEdgeId := vVertex.GetCutEdge()
-
-		eWeight := bs.engine.getWeight(vCutEdgeId, true)
-
-		w := vVertex.GetNeighborOverlayVertex()
-		wVertex := bs.engine.overlayGraph.GetVertex(w)
-		wQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
-			wVertex.GetCellNumber())
-		wId := wVertex.GetOrigVId()
-
+	for i := da.Index(0); i < eNum; i++ {
+		v, ewOffset := bs.engine.GetOV(ovOffset, wOffset, numExit, i, forw)
+		shortcutWeight := bs.engine.metrics.GetShortcutWeight(ewOffset)
+		newVCost := uCost + shortcutWeight
+		vOv := bs.engine.offsetOverlay(v)
 		// relax edge
-		oldVCost := bs.fpq.GetCost(vOvId)
+		oldVCost := pq.GetCost(vOv)
 		if util.Lt(newVCost, oldVCost) {
-			vPar := da.NewParentVertex(uOvId)
+			vPar := da.NewParentVertex(uOv)
 			vPar.SetIsOverlayVertex()
-			bs.fpq.Set(vOvId, da.NewVData(newVCost,
-				vPar), da.NewQKey(vOvId, uint8(uQueryLevel), true))
+			pq.Set(vOv, da.NewVData(newVCost,
+				vPar), da.NewQKey(vOv, uint8(uQueryLevel), true))
+			pq.Explore(vOv)
 
-			bs.fpq.Explore(vOvId)
-
-			newVCost = bs.fpq.GetCost(vOvId) + eWeight
-
-			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-			pfw, _ := bs.engine.lm.FindTighestConsistentLowerBound(wId, source, target, bs.activeLandmarks)
-			priority := newVCost + pfw
+			// traverse cut edge (v,w), immediately process w
+			vVertex := bs.engine.overlayGraph.GetVertex(v)
+			vCutEdgeId := vVertex.GetCutEdge()
+			eWeight := bs.GetWeight(vCutEdgeId, forw)
+			wOv := vVertex.GetNeighborOverlayVertex()
+			wVertex := bs.engine.overlayGraph.GetVertex(wOv)
+			wQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
+				wVertex.GetCellNumber())
+			w := wVertex.GetOrigVId()
+			newWCost := newVCost + eWeight
 
 			if wQueryLevel == 0 {
 				// w is in the same cell as s or t
 
-				oldWIdCost := bs.fpq.GetCost(wId)
-				wLabelled := util.Lt(oldWIdCost, util.Infinity[W]())
-				if util.Lt(newVCost, oldWIdCost) {
-					newPar := da.NewParentVertex(vOvId)
+				oldWCost := pq.GetCost(w)
+				wLabelled := util.Lt(oldWCost, util.Infinity[W]())
+				if util.Lt(newWCost, oldWCost) {
+					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+					hw := bs.engine.lm.FindTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
+					priority := newWCost + hw
+
+					newPar := da.NewParentVertex(vOv)
 					newPar.SetIsOverlayVertex()
 
 					if wLabelled {
-						bs.fpq.DecreaseKey(wId, priority, newVCost, newPar)
+						pq.DecreaseKey(w, priority, newWCost, newPar)
 					} else {
-						vData := da.NewVData(newVCost, newPar)
-						queryKey := da.NewQKey(wId, 0, false)
-						bs.fpq.Insert(wId, priority, vData, queryKey)
+						vData := da.NewVData(newWCost, newPar)
+						queryKey := da.NewQKey(w, 0, false)
+						pq.Insert(w, priority, vData, queryKey)
 					}
 				}
 
-				exploredByBackwSearch := bs.bpq.IsExplored(wId)
-
-				wForwCost := bs.fpq.GetCost(wId)
-				wBackwCost := bs.bpq.GetCost(wId)
-
-				newEstSPCost := wForwCost + wBackwCost
-				if exploredByBackwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-					bs.shortestCost = newEstSPCost
-					bs.mid = da.NewParentVertex(wId)
+				if rpq.IsExplored(w) {
+					newEstSPCost := pq.GetCost(w) + rpq.GetCost(w)
+					if util.Lt(newEstSPCost, bs.shortestCost) {
+						bs.shortestCost = newEstSPCost
+						bs.mid = da.NewParentVertex(w)
+					}
 				}
 			} else {
 				// w is in another cell on higher level
 				// update new travelTime to reach overlay vertex w
 				// insert item overlay vertex w and its query level to forwardP
-				wOvId := bs.engine.offsetOverlay(w)
-				oldOverlayWIdCost := bs.fpq.GetCost(wOvId)
-				wLabelled := util.Lt(oldOverlayWIdCost, util.Infinity[W]())
-				if util.Lt(newVCost, oldOverlayWIdCost) {
-					newPar := da.NewParentVertex(vOvId)
-					newPar.SetIsOverlayVertex()
+				wOv = bs.engine.offsetOverlay(wOv)
+				oldwOvCost := pq.GetCost(wOv)
+				wLabelled := util.Lt(oldwOvCost, util.Infinity[W]())
+				if util.Lt(newWCost, oldwOvCost) {
+					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+					hw := bs.engine.lm.FindTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
+					priority := newWCost + hw
 
+					newPar := da.NewParentVertex(vOv)
+					newPar.SetIsOverlayVertex()
 					if !wLabelled {
-						vData := da.NewVData(newVCost, newPar)
-						queryKey := da.NewQKey(wOvId, wQueryLevel, true)
-						bs.fpq.Insert(wOvId, priority, vData, queryKey)
+						vData := da.NewVData(newWCost, newPar)
+						queryKey := da.NewQKey(wOv, wQueryLevel, true)
+						pq.Insert(wOv, priority, vData, queryKey)
 					} else {
-						bs.fpq.DecreaseKey(wOvId, priority, newVCost, newPar)
+						pq.DecreaseKey(wOv, priority, newWCost, newPar)
 					}
 				}
 
-				exploredByBackwSearch := bs.bpq.IsExplored(wOvId)
-				newEstSPCost := bs.fpq.GetCost(wOvId) + bs.bpq.GetCost(wOvId)
-				if exploredByBackwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-					// if overlay vertex w explored by backward search, check whether we can improve the shortestPath
-					bs.shortestCost = newEstSPCost
-					mid := da.NewParentVertex(wOvId)
-					mid.SetIsOverlayVertex()
-					bs.mid = mid
+				if rpq.IsExplored(wOv) {
+					// if overlay vertex w explored by other search, check whether we can improve the shortestPath
+					newEstSPCost := pq.GetCost(wOv) + rpq.GetCost(wOv)
+					if util.Lt(newEstSPCost, bs.shortestCost) {
+						bs.shortestCost = newEstSPCost
+						mid := da.NewParentVertex(wOv)
+						mid.SetIsOverlayVertex()
+						bs.mid = mid
+					}
 				}
 			}
 		}
 
-		exploredByBackwSearch := bs.bpq.IsExplored(vOvId)
-		newEstSPCost := bs.fpq.GetCost(vOvId) + bs.bpq.GetCost(vOvId)
-		if exploredByBackwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-			bs.shortestCost = newEstSPCost
-			mid := da.NewParentVertex(vOvId)
-			mid.SetIsOverlayVertex()
-			bs.mid = mid
+		if rpq.IsExplored(vOv) {
+			newEstSPCost := pq.GetCost(vOv) + rpq.GetCost(vOv)
+			if util.Lt(newEstSPCost, bs.shortestCost) {
+				bs.shortestCost = newEstSPCost
+				mid := da.NewParentVertex(vOv)
+				mid.SetIsOverlayVertex()
+				bs.mid = mid
+			}
 		}
-	})
+	}
 }
 
-func (bs *CRPALTQuery[W]) backwardOverlayGraphSearch(uItem da.QueryKey, source, target da.Index) {
-	// search backward on overlay graph
-
-	uOvId := uItem.GetNode()
-
-	uQueryLevel := uItem.GetQueryLevel()
-	uId := bs.engine.adjustoffsetOverlay(uOvId)
-
-	bs.engine.overlayGraph.ForInNeighborsOf(uId, int(uQueryLevel), func(v da.Index, wOffset da.Index) {
-		shortcutWeight := bs.engine.metrics.GetShortcutWeight(wOffset)
-
-		vVertex := bs.engine.overlayGraph.GetVertex(v)
-
-		newVCost := bs.bpq.GetCost(uOvId) + shortcutWeight
-
-		vOvId := bs.engine.offsetOverlay(v)
-		// traverse edge to next cell
-		vCutEdgeId := vVertex.GetCutEdge()
-
-		inEdgeWeight := bs.engine.getWeight(vCutEdgeId, false)
-
-		w := vVertex.GetNeighborOverlayVertex()
-		wVertex := bs.engine.overlayGraph.GetVertex(w)
-		wQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
-			wVertex.GetCellNumber())
-		wId := wVertex.GetOrigVId()
-
-		// relax edge
-		oldVCost := bs.bpq.GetCost(vOvId)
-		if util.Lt(newVCost, oldVCost) {
-			newPar := da.NewParentVertex(uOvId)
-			newPar.SetIsOverlayVertex()
-			bs.bpq.Set(vOvId, da.NewVData(newVCost, newPar), da.NewQKey(vOvId,
-				uint8(uQueryLevel), true))
-			bs.bpq.Explore(vOvId)
-
-			newVCost = bs.bpq.GetCost(vOvId) + inEdgeWeight
-
-			// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-			_, prw := bs.engine.lm.FindTighestConsistentLowerBound(wId, source, target, bs.activeLandmarks)
-			priority := newVCost + prw
-
-			if wQueryLevel == 0 {
-
-				// relax edge
-				oldWIdCost := bs.bpq.GetCost(wId)
-				wLabelled := util.Lt(oldWIdCost, util.Infinity[W]())
-				if util.Lt(newVCost, oldWIdCost) {
-					newPar := da.NewParentVertex(vOvId)
-					newPar.SetIsOverlayVertex()
-
-					if wLabelled {
-						bs.bpq.DecreaseKey(wId, priority, newVCost, newPar)
-					} else {
-						queryKey := da.NewQKey(wId, 0, false)
-						vData := da.NewVData(newVCost, newPar)
-						bs.bpq.Insert(wId, priority, vData, queryKey)
-					}
-				}
-
-				wBackwCost := bs.bpq.GetCost(wId)
-				exploredByForwSearch := bs.fpq.IsExplored(wId)
-				wForwCost := bs.fpq.GetCost(wId)
-
-				newEstSPCost := wForwCost + wBackwCost
-				if exploredByForwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-					bs.shortestCost = newEstSPCost
-					bs.mid = da.NewParentVertex(wId)
-				}
-			} else {
-				wOvId := bs.engine.offsetOverlay(w)
-				oldOverlayWIdCost := bs.bpq.GetCost(wOvId)
-				wLabelled := util.Lt(oldOverlayWIdCost, util.Infinity[W]())
-				if util.Lt(newVCost, oldOverlayWIdCost) {
-					newPar := da.NewParentVertex(vOvId)
-					newPar.SetIsOverlayVertex()
-					if !wLabelled {
-						queryKey := da.NewQKey(wOvId, wQueryLevel, true)
-						vData := da.NewVData(newVCost, newPar)
-						bs.bpq.Insert(wOvId, priority, vData, queryKey)
-					} else {
-						bs.bpq.DecreaseKey(wOvId, priority, newVCost, newPar)
-					}
-				}
-
-				exploredByForwSearch := bs.fpq.IsExplored(wOvId)
-				newEstSPCost := bs.fpq.GetCost(wOvId) + bs.bpq.GetCost(wOvId)
-				if exploredByForwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-					bs.shortestCost = newEstSPCost
-					mid := da.NewParentVertex(wOvId)
-					mid.SetIsOverlayVertex()
-					bs.mid = mid
-				}
-			}
-		}
-
-		exploredByForwSearch := bs.fpq.IsExplored(vOvId)
-		newEstSPCost := bs.bpq.GetCost(vOvId) + bs.fpq.GetCost(vOvId)
-		if exploredByForwSearch && util.Lt(newEstSPCost, bs.shortestCost) {
-			bs.shortestCost = newEstSPCost
-			mid := da.NewParentVertex(vOvId)
-			mid.SetIsOverlayVertex()
-			bs.mid = mid
-		}
-	})
+func (bs *CRPALTQuery[W]) GetWeight(eId da.Index, out bool) W {
+	if out {
+		return bs.metrics.GetWeight(eId)
+	}
+	reId := bs.engine.graph.GetOutId(eId)
+	return bs.metrics.GetWeight(reId)
 }
 
 func (bs *CRPALTQuery[W]) Preallocate() {

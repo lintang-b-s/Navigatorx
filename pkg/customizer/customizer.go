@@ -166,13 +166,13 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](uint32(maxVerticesIncell), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.MAP_STORAGE)
 		},
 	}
 
 	c.upperLevelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](da.Index(da.OVERLAY_VERTICES_SIZE), da.MAP_STORAGE)
 		},
 	}
 
@@ -180,13 +180,13 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	viper.SetDefault("landmarks", 16)
 	wg := sync.WaitGroup{}
-	// wg.Go(func() {
-	numberOfLandmarks := viper.GetInt("landmarks")
-	err = lm.PreprocessALT(numberOfLandmarks, wf, c.graph, c.logger)
-	if err != nil {
-		panic(err)
-	}
-	// })
+	wg.Go(func() {
+		numberOfLandmarks := viper.GetInt("landmarks")
+		err = lm.PreprocessALT(numberOfLandmarks, wf, c.graph, c.logger)
+		if err != nil {
+			panic(err)
+		}
+	})
 
 	c.Build(wf)
 	c.logger.Sugar().Infof("Writing metrics data...")
@@ -228,13 +228,13 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](uint32(maxVerticesIncell), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.MAP_STORAGE)
 		},
 	}
 
 	c.upperLevelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](uint32(da.OVERLAY_VERTICES_SIZE), uint32(maxVerticesIncell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](da.Index(da.OVERLAY_VERTICES_SIZE), da.MAP_STORAGE)
 		},
 	}
 
@@ -422,8 +422,8 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 							// save this shortcut cost
 							// v is in another cell
 							exitVertexCost := uCost
-							exitPoint := c.graph.GetExitOrder(uId, eId)
-							exOvId, _ := c.graph.GetOverlayVertex(uId, exitPoint, true) // overlay vetex id of exit vertex c_1(u).
+							reId := c.graph.GetRevId(eId)
+							exOvId := c.graph.GetOverlayVertex(uId, reId, false) // boundary/overlay vertex id of exit boundary/overlay vertex c_1(u).
 							_, ok := overlayCost[exOvId]
 							if !ok || (ok && util.Lt(exitVertexCost, overlayCost[exOvId])) {
 								overlayCost[exOvId] = exitVertexCost

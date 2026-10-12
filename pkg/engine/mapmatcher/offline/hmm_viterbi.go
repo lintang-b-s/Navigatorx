@@ -10,6 +10,7 @@ import (
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -18,6 +19,7 @@ type HMM struct {
 	graph *da.Graph
 	rn    *da.RoadNetworkDataContainer
 	re    *routing.CRPRoutingEngine[int32]
+	met   *metrics.Metric[int32]
 	rt    *spatialindex.Rtree
 }
 
@@ -40,6 +42,7 @@ func NewHiddenMarkovModelMapMatching(graph *da.Graph, re *routing.CRPRoutingEngi
 		re:    re,
 		rt:    rt,
 		rn:    re.GetRoadNetworkContainer(),
+		met:   re.GetMetrics(),
 	}
 }
 
@@ -317,7 +320,7 @@ func (h *HMM) projectAllGpsWithRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []f
 		candidates := make([]*ma.Candidate, 0, len(nearbyArcs))
 
 		for _, eId := range nearbyArcs {
-			eLength := h.re.GetSegmentLength(eId)
+			eLength := h.met.GetSegmentLength(eId)
 			cand := ma.NewCandidate(eId, 0, eLength)
 			candidates = append(candidates, cand)
 		}
@@ -531,7 +534,7 @@ func (h *HMM) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) (transit
 
 	distance = math.Abs(distance)
 
-	travelTime := h.re.GetDurationFromLength(sp.GetVId(), distance)
+	travelTime := h.met.GetDurationFromLength(sp.GetVId(), distance)
 
 	return transitionRoute{distance: distance, travelTime: travelTime}, true
 }
@@ -612,12 +615,12 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 		sameSegmentDur := pkg.INF_WEIGHT
 		sameSegmentDist := pkg.INF_WEIGHT
 
-		eLength := h.re.GetSegmentLength(sSegId)
+		eLength := h.met.GetSegmentLength(sSegId)
 
 		sameSegmentRevDist := eLength - sp.GetReverseDistance() - tp.GetReverseDistance()
 		if util.Gt(sameSegmentRevDist, 0) {
 			sameSegmentDist = sameSegmentRevDist
-			eDuration := h.re.GetDurationSeconds(sSegId)
+			eDuration := h.met.GetDurationSeconds(sSegId)
 			sameSegmentDur = eDuration - sp.GetReverseCost() - tp.GetReverseCost()
 		}
 
@@ -656,7 +659,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	if !addPath {
 		routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
 		for _, segmentId := range segmentPath {
-			routeDistance += h.re.GetSegmentLength(segmentId)
+			routeDistance += h.met.GetSegmentLength(segmentId)
 		}
 
 		return transitionRoute{distance: routeDistance, travelTime: travelTime}, true
@@ -673,8 +676,6 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	path = appendRoutePath(path, *finalPath)
 	path = appendRoutePath(path, tp.GetReverseGeometry())
 	path = appendRoutePath(path, []da.Coordinate{tp.GetSnappedCoord()})
-
-	h.re.PutCoordsToPool(finalPath)
 
 	return transitionRoute{distance: routeDistance, travelTime: travelTime, path: path}, true
 }
@@ -745,12 +746,12 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 		cand.SetDistr(minDistr)
 		cand.SetDistr(minDistr)
 
-		edgeLength := h.re.GetSegmentLength(cand.GetSegmentId())
+		edgeLength := h.met.GetSegmentLength(cand.GetSegmentId())
 		distanceFromHead := max(edgeLength-minDistr, 0)
 		cand.SetDistanceFromHead(distanceFromHead)
 
-		cand.SetCostFromTail(h.re.GetDurationFromLength(cand.GetSegmentId(), minDistr))
-		cand.SetCostFromHead(h.re.GetDurationFromLength(cand.GetSegmentId(), distanceFromHead))
+		cand.SetCostFromTail(h.met.GetDurationFromLength(cand.GetSegmentId(), minDistr))
+		cand.SetCostFromHead(h.met.GetDurationFromLength(cand.GetSegmentId(), distanceFromHead))
 
 		cand.SetSegmentBearing(candEdgeBearing)
 	}

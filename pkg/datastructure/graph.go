@@ -29,10 +29,12 @@ type Graph struct {
 	exitPoints  []Index  // map from incoming (reversed) edge id (v,u) to index of this edge in the of outgoing edges of v.
 
 	// overlay graph related https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.h
-	overlayVertices   map[SubVertex]Index // graph vertices -> overlay vertices
-	cellNumbers       []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
-	outEdgeCellOffset []Index             // offset of first outEdge for each cellNumber // todo: ganti ke vertexCellOffset
-	inEdgeCellOffset  []Index             // offset of first inEdge for each cellNumber
+	overlayVertices  map[SubVertex]Index // graph vertices -> overlay vertices
+	cellNumbers      []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
+	vertexCellOffset []Index             // offset of first vertex for each cellNumber
+	// vertices is sorted by its vertex cell id.... in such a way that all vertices within a cell have sequential IDs within the vertices slice.
+	// vertexCellOffset is a map from cellNumber to first vertex id in vertices that contained in this cell with id=cellNumber.
+	// code for sorting vertices by its vertex cell id is in SortByCellNumber() in preprocessor.go
 
 	// strongly connected components related
 	sccs               []Index // verticeId -> sccId
@@ -82,26 +84,33 @@ func (g *Graph) GetInDegree(u Index) Index {
 	return g.vertices[u+1].firstIn - g.vertices[u].firstIn
 }
 
-func (g *Graph) GetExitOffset(u Index) Index {
-	return g.vertices[u].firstOut
+// NumOutEdges returns the edge offset and number for outgoing edges of vertex u.
+//
+//go:inline
+func (g *Graph) NumOutEdges(u Index) (Index, Index) {
+	firstOut := g.vertices[u].firstOut
+	num := g.vertices[u+1].firstOut - firstOut
+	return firstOut, num
 }
 
-func (g *Graph) GetEntryOffset(u Index) Index {
-	return g.vertices[u].firstIn
+// NumInEdges returns the edge offset and number for incoming (reversed) edges of vertex v.
+//
+//go:inline
+func (g *Graph) NumEdges(v Index, out bool) (Index, Index) {
+	if out {
+		return g.NumOutEdges(v)
+	}
+	firstIn := g.vertices[v].firstIn
+	num := g.vertices[v+1].firstIn - firstIn
+	return firstIn, num
 }
 
-func (g *Graph) GetInEdgeId(u Index, enPoint Index) Index {
-	return g.vertices[u].firstIn + enPoint
-}
-
-func (g *Graph) GetOutEdgeId(u Index, exPoint Index) Index {
-	return g.vertices[u].firstOut + exPoint
-}
-
+//go:inline
 func (g *Graph) GetHead(e Index) Index {
 	return g.heads[e]
 }
 
+//go:inline
 func (g *Graph) GetTail(e Index) Index {
 	return g.tails[e]
 }
@@ -122,7 +131,7 @@ func (g *Graph) GetTailOfOutedge(e Index) Index {
 	return g.tails[head.firstIn+Index(entryPoint)]
 }
 
-// get inEdgeId of outEdgeId e
+// get incoming edgeId of outgoing edgeId e
 func (g *Graph) GetRevId(e Index) Index {
 	entryPoint := Index(g.entryPoints[e])
 	return g.vertices[g.heads[e]].firstIn + entryPoint
@@ -143,11 +152,6 @@ func (g *Graph) GetExitOrder(u, outEdgeId Index) Index {
 // GetEntryOrder. return Index of entry point of a in edge (u,v) at vertex v.
 func (g *Graph) GetEntryOrder(v, inEdgeId Index) Index {
 	return inEdgeId - g.vertices[v].firstIn
-}
-
-// GetEntryPoint. get entryPoint of outgoing edge eId
-func (g *Graph) GetEntryPoint(eId Index) Index {
-	return g.entryPoints[eId]
 }
 
 func (g *Graph) SetCellNumbers(cellNumbers []Pv) {
@@ -202,15 +206,21 @@ func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {
 	}
 }
 
-// GetOverlayVertex. return overlay vertex id
-func (g *Graph) GetOverlayVertex(u Index, exitEntryOrder Index, exit bool) (Index, bool) {
+// GetOverlayVertex. return overlay vertex id of vertex u that have cut (outgoing/incoming) edge eId.
+func (g *Graph) GetOverlayVertex(u Index, eId Index, out bool) Index {
+	exitEntryOrder := g.entryPoints[eId]
+	exit := false
+	if !out {
+		exitEntryOrder = g.exitPoints[eId]
+		exit = true
+	}
 	subV := SubVertex{
 		vId:            u,
 		exitEntryOrder: exitEntryOrder,
 		exit:           exit,
 	}
-	id, exists := g.overlayVertices[subV]
-	return id, exists
+	id := g.overlayVertices[subV]
+	return id
 }
 
 func (g *Graph) GetCellNumber(u Index) Pv {
@@ -274,29 +284,6 @@ func (g *Graph) SetMaxVerticesInCell(maxVerticesInCell Index) {
 	g.maxVerticesInCell = maxVerticesInCell
 }
 
-func (g *Graph) GetOutEdgeCellOffset(v Index) Index {
-	return g.outEdgeCellOffset[g.vertices[v].pvPtr]
-}
-
-func (g *Graph) SetHeadCellOffset(i Index, outOffset Index) {
-	g.outEdgeCellOffset[i] = outOffset
-}
-
-func (g *Graph) MakeOutEdgeCellOffset(cellNumbers int) {
-	g.outEdgeCellOffset = make([]Index, cellNumbers)
-}
-
-func (g *Graph) MakeInEdgeCellOffset(cellNumbers int) {
-	g.inEdgeCellOffset = make([]Index, cellNumbers)
-}
-
-func (g *Graph) GetInEdgeCellOffset(v Index) Index {
-	return g.inEdgeCellOffset[g.vertices[v].pvPtr]
-}
-func (g *Graph) SetTailCellOffset(i Index, inOffset Index) {
-	g.inEdgeCellOffset[i] = inOffset
-}
-
 func (g *Graph) GetVertex(u Index) Vertex {
 	return g.vertices[u]
 }
@@ -333,6 +320,49 @@ func (g *Graph) GetVerticeIds() []Index {
 	return nodeIds
 }
 
+// BuildVertexCellOffsets constructs the vertex offset for each cell number.
+func (g *Graph) BuildVertexCellOffsets() {
+	numCells := len(g.cellNumbers)
+	g.vertexCellOffset = make([]Index, numCells+1)
+
+	currentCell := g.vertices[0].pvPtr
+	g.vertexCellOffset[currentCell] = 0
+	for v := 1; v < g.NumberOfVertices(); v++ {
+		cell := g.vertices[v].pvPtr
+		if cell != currentCell {
+			for c := currentCell + 1; c <= cell; c++ {
+				// v not inside currentCell
+				// handle empty cells after currentCell
+				// because graph.vertices sorted by its cellNumber, and in this outer loop we iterate vertices by increasing vertex ids
+				// all values in vertexCellOffset is monotonically increasing..
+				g.vertexCellOffset[c] = Index(v)
+			}
+			currentCell = cell
+		}
+	}
+
+	for c := currentCell + 1; c <= Index(numCells); c++ {
+		g.vertexCellOffset[c] = Index(g.NumberOfVertices())
+	}
+	var maxCellSize Index
+	for c := 0; c < int(numCells); c++ {
+		size := g.vertexCellOffset[c+1] - g.vertexCellOffset[c]
+		if size > maxCellSize {
+			maxCellSize = size
+		}
+	}
+
+	g.maxVerticesInCell = maxCellSize
+}
+
+// GetVertexCellOffset returns the first vertex Id inside a cell that contain vertex u and cell size (number of vertices inside this cell) for the cell containing vertex u.
+func (g *Graph) GetVertexCellOffset(u Index) (offset Index, num Index) {
+	pvPtr := g.vertices[u].pvPtr
+	offset = g.vertexCellOffset[pvPtr]
+	num = g.vertexCellOffset[pvPtr+1] - offset
+	return offset, num
+}
+
 // ---- nodes & edges permutation related ----
 
 // ApplyGraphPermutation. apply vertices & edges permutation
@@ -343,4 +373,5 @@ func (g *Graph) ApplyGraphPermutation(nPerm, ePerm, eRevPerm []int) {
 	g.vertices = util.ApplyPermutation(g.vertices, nPerm)
 	g.entryPoints = util.ApplyPermutation(g.entryPoints, ePerm)
 	g.exitPoints = util.ApplyPermutation(g.exitPoints, eRevPerm)
+	g.BuildVertexCellOffsets()
 }

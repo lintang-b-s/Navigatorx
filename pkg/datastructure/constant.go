@@ -25,8 +25,7 @@ const (
 type IndexStorageType int
 
 const (
-	TWO_LEVEL_STORAGE IndexStorageType = iota
-	ARRAY_STORAGE
+	ARRAY_STORAGE IndexStorageType = iota
 	MAP_STORAGE
 )
 
