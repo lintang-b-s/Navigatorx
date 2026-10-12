@@ -38,7 +38,7 @@ type Customizer[W util.RoutingNumber] struct {
 	landmarkFile                        string
 }
 
-func getCustomizerFilePath(fileType pkg.FILE_TYPE) (
+func getCustomizerFilePath() (
 	graph, overlayGraph, landmark, metrics, tf string,
 ) {
 	root := config.ProfilesRoot()
@@ -53,7 +53,7 @@ func getCustomizerFilePath(fileType pkg.FILE_TYPE) (
 func NewCustomizer[W util.RoutingNumber](
 	logger *zap.Logger) *Customizer[W] {
 	util.ActivateMode[W]()
-	gf, ogf, lmf, metf, tff := getCustomizerFilePath(pkg.TIPE)
+	gf, ogf, lmf, metf, tff := getCustomizerFilePath()
 	cst := &Customizer[W]{
 		graphFilePath:              gf,
 		overlayGraphFilePath:       ogf,
@@ -166,7 +166,9 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.MAP_STORAGE)
+			pq := da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.ARRAY_STORAGE)
+			pq.SetLevelOneCellQuery()
+			return pq
 		},
 	}
 
@@ -340,6 +342,15 @@ func (cc cellCustomizationRes[W]) getIndex() int {
 // this function is parallelized using goroutines worker pool
 // read section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 (acknowledgment) inspired by crp customization code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayWeights.cpp
+
+reference: 1. Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
+Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
+pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+the explanation below taken from Delling et al. (2015) ref [1]:
+"Consider a cell C in H1 (the first overlay level). For each entry (overlay) vertex v in C,
+we run Dijkstra's algorithm in G (restricted to C) until the priority queue is empty.
+This computes the distances to all reachable exit vertices of C." (Delling et al. (2015))
 */
 func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 
@@ -373,7 +384,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 			for i := range entries {
 				sOvId := c.overlayGraph.GetCellEntry(cell, i)
 				overlayVertex := c.overlayGraph.GetVertex(sOvId)
-				start := overlayVertex.GetOrigVId()
+				s := overlayVertex.GetOrigVId()
 
 				pq := c.levelOneHeapPool.Get().(*da.QueryHeap[da.QueryKey, W])
 				pq.Clear()
@@ -381,12 +392,13 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 					c.levelOneHeapPool.Put(pq)
 				}
 
+				offset, _ := c.graph.GetVertexCellOffset(s)
+				pq.InitLevelOneCellQuery(offset)
+
 				overlayCost := make(map[da.Index]W, da.OVERLAY_CELL_SIZE)
-
 				noPar := da.NewParentVertex(da.INVALID_VERTEX_ID)
-
 				sVertexData := da.NewVData(W(0), noPar)
-				pq.Insert(start, 0, sVertexData, da.NewDijkstraKey(start))
+				pq.Insert(s, 0, sVertexData, da.NewDijkstraKey(s))
 
 				for !pq.IsEmpty() {
 					pqNode := pq.ExtractMin()
@@ -403,13 +415,12 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 							return
 						}
 
-						vTruncatedCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
-						if vTruncatedCellNumber == cellNumber {
+						vCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
+						if vCellNumber == cellNumber {
 
 							oldvCost := pq.GetCost(v)
 							ok := util.Lt(oldvCost, util.Infinity[W]())
 							if !ok || (ok && util.Lt(newVCost, oldvCost)) {
-
 								if ok {
 									pq.DecreaseKey(v, newVCost, newVCost, noPar)
 								} else {
@@ -421,25 +432,25 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 							// found an exit vertex of the cell
 							// save this shortcut cost
 							// v is in another cell
-							exitVertexCost := uCost
 							reId := c.graph.GetRevId(eId)
-							exOvId := c.graph.GetOverlayVertex(uId, reId, false) // boundary/overlay vertex id of exit boundary/overlay vertex c_1(u).
-							_, ok := overlayCost[exOvId]
-							if !ok || (ok && util.Lt(exitVertexCost, overlayCost[exOvId])) {
-								overlayCost[exOvId] = exitVertexCost
+							exOv := c.graph.GetOverlayVertex(uId, reId, false) // boundary/overlay vertex id of exit boundary/overlay vertex c_1(s).
+							_, ok := overlayCost[exOv]
+							if !ok || (ok && util.Lt(uCost, overlayCost[exOv])) {
+								overlayCost[exOv] = uCost
 							}
 						}
 					})
 				}
 
-				// stores all cost of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
+				// stores all cost of cell shortcut edges in this cell (shortest path from this entry boundary/overlay vertex to each exit boundary/overlay vertex of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exOvId := c.overlayGraph.GetCellExit(cell, j)
-					_, ok := overlayCost[exOvId]
+					shortcutId := int(cell.GetCellOffset() + i*cell.GetNumExitPoints() + j)
+					exOv := c.overlayGraph.GetCellExit(cell, j)
+					exOvCost, ok := overlayCost[exOv]
 					if !ok {
-						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), shortcutId)
 					} else {
-						dijkstraResChan <- NewCellCustomizationResult(overlayCost[exOvId], int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(exOvCost, shortcutId)
 					}
 				}
 
@@ -502,12 +513,23 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 
 }
 
+/*
 // buildLevel. build clique of each cell in the level (level > 1)
 // using Dijkstra algorithm (menggunakan shortcut edges & cut edges pada subcells of the level-i cell) from each entry boundary/overlay vertices of the cell to all exit boundary/overlay vertices of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
 // read section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 // (acknowledgment) inspired by crp customization code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayWeights.cpp
+
+reference: 1. Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
+Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
+pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+the explanation below taken from Delling et al. (2015) ref [1]:
+"A cell C at a higher level Hi (for i > 1) can be processed similarly, with one major difference. Instead of
+working on the original graph, we can work on the subgraph of Hi−1 (the overlay level immediately below)
+corresponding to subcells of C." (Delling et al. (2015))
+*/
 func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 
 	levelData := c.overlayGraph.GetLevelData()
@@ -546,19 +568,18 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 					c.upperLevelHeapPool.Put(pq)
 				}
 
-				sOvId := c.overlayGraph.GetCellEntry(cell, i)
-
+				sOv := c.overlayGraph.GetCellEntry(cell, i)
 				noPar := da.NewParentVertex(da.INVALID_VERTEX_ID)
 				sVertexData := da.NewVData(W(0), noPar)
 
-				pq.Insert(sOvId, 0, sVertexData, sOvId)
+				pq.Insert(sOv, 0, sVertexData, sOv)
 
 				for !pq.IsEmpty() {
 					pqNode := pq.ExtractMin()
-					uOverlayId := pqNode.GetItem()
+					uOv := pqNode.GetItem()
 					uCost := pqNode.GetRank()
 
-					c.overlayGraph.ForOutNeighborsOf(uOverlayId, level-1, func(exOvId da.Index, wOffset da.Index) {
+					c.overlayGraph.ForOutNeighborsOf(uOv, level-1, func(vOv da.Index, wOffset da.Index) {
 						// iterate all shortcuts (u, \cdot)
 						shortcutWeight := c.ow.GetWeight(wOffset)
 						newVCost := uCost + shortcutWeight
@@ -566,37 +587,36 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 							return
 						}
 
-						oldVCost := pq.GetCost(exOvId)
+						oldVCost := pq.GetCost(vOv)
 						vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 						if !vLabelled || (vLabelled && util.Lt(newVCost, oldVCost)) {
 							vvData := da.NewVData(newVCost, noPar)
-							pq.Set(exOvId, vvData, exOvId)
+							pq.Set(vOv, vvData, vOv)
 
-							// visit neighbor of exit overlay vertex exOvId
-							exOverlayVertex := c.overlayGraph.GetVertex(exOvId)
-							nOvId := exOverlayVertex.GetNeighborOverlayVertex()
-							nOverlayVertex := c.overlayGraph.GetVertex(nOvId)
-							// cut edge (exOverlayVertex, nOverlayVertex)
-							cutEdgeId := exOverlayVertex.GetCutEdge()
+							// visit neighbor of exit overlay vertex vOv
+							vVertex := c.overlayGraph.GetVertex(vOv)
+							wOv := vVertex.GetNeighborOverlayVertex()
+							wVertex := c.overlayGraph.GetVertex(wOv)
+							// cut edge (vVertex, wVertex)
+							cutEdgeId := vVertex.GetCutEdge()
 
-							nTruncatedCellNumber := levelData.TruncateToLevel(nOverlayVertex.GetCellNumber(), uint8(level))
-							if nTruncatedCellNumber == cellNumber {
+							wCellNumber := levelData.TruncateToLevel(wVertex.GetCellNumber(), uint8(level))
+							if wCellNumber == cellNumber {
 								cutEdgeWeight := wf.GetWeight(cutEdgeId)
-								nnCost := newVCost + cutEdgeWeight
-								oldNCost := pq.GetCost(nOvId)
-								nLabelled := util.Lt(oldNCost, util.Infinity[W]())
-								if util.Ge(nnCost, util.Infinity[W]()) {
+								newWCost := newVCost + cutEdgeWeight
+								if util.Ge(newWCost, util.Infinity[W]()) {
 									return
 								}
 
-								if !nLabelled || (nLabelled && util.Lt(nnCost, oldNCost)) {
-
-									if !nLabelled {
-										nvData := da.NewVData(nnCost, noPar)
-										pq.Insert(nOvId, nnCost, nvData, nOvId)
+								oldWCost := pq.GetCost(wOv)
+								wLabelled := util.Lt(oldWCost, util.Infinity[W]())
+								if !wLabelled || (wLabelled && util.Lt(newWCost, oldWCost)) {
+									if !wLabelled {
+										nvData := da.NewVData(newWCost, noPar)
+										pq.Insert(wOv, newWCost, nvData, wOv)
 									} else {
-										pq.DecreaseKey(nOvId, nnCost,
-											nnCost, noPar)
+										pq.DecreaseKey(wOv, newWCost,
+											newWCost, noPar)
 									}
 								}
 							}
@@ -606,14 +626,14 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 
 				// stores all cost of cell shortcut edges (shortest path from this entry point to each exit point of the cell)
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
-					exOvId := c.overlayGraph.GetCellExit(cell, j)
-
-					oldExitVertexCost := pq.GetCost(exOvId)
-					ok := util.Lt(oldExitVertexCost, util.Infinity[W]())
+					exOv := c.overlayGraph.GetCellExit(cell, j)
+					shortcutId := int(cell.GetCellOffset() + i*cell.GetNumExitPoints() + j)
+					exOvCost := pq.GetCost(exOv)
+					ok := util.Lt(exOvCost, util.Infinity[W]())
 					if !ok {
-						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), shortcutId)
 					} else {
-						dijkstraResChan <- NewCellCustomizationResult(oldExitVertexCost, int(cell.GetCellOffset()+i*cell.GetNumExitPoints()+j))
+						dijkstraResChan <- NewCellCustomizationResult(exOvCost, shortcutId)
 					}
 				}
 

@@ -98,7 +98,7 @@ type OverlayGraph struct {
 	cellMapping        []map[Pv]Cell   // cellNumber to Cell mapping for each level. index = level, cellNumber = Pv (truncanted Cell Number)
 	overlayIdMapping   []Index         // maps from key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints) to value = entry/exit (overlay) vertex of a cell (represented as overlay vertex id)
 	levelData          *LevelData
-	stats              []*CellStatistics
+	stats              []CellStatistics
 	weightVectorSize   uint32 // size of one-dimensional shortcut weights array W.
 }
 
@@ -208,8 +208,11 @@ func (og *OverlayGraph) GetCellFromTruncatedCellNumber(truncatedCellNumber Pv, l
 	return cell
 }
 
-// buildOverlayVertices implements building overlay graph described in section 5.1 Metric-Independent Preprocessing - Overlay Topology: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+/*
+	buildOverlayVertices implements building overlay graph described in section 5.1 Metric-Independent Preprocessing - Overlay Topology: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
 // adapted from crp preprocessing implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayGraph.cpp
+*/
 func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []bool {
 	// iterate over all edges to determine overlay vertices
 	// store these overlay vertices according to the highest level in which the edge
@@ -361,7 +364,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 	for l := 0; l < int(numberOfLevels); l++ {
 		cellMapping[l] = make(map[Pv]*Cell)
 	}
-	og.stats = make([]*CellStatistics, numberOfLevels)
+	og.stats = make([]CellStatistics, numberOfLevels)
 
 	shorcutsWeightSize := uint32(0)
 	overlayIdOffset := uint32(0) // offset of first entry/exit point (overlay vertex) in og.overlayIdMapping for the each cell for each level
@@ -412,7 +415,7 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 		avgNumCellEntry := 0.0
 		avgNumCellExit := 0.0
 		avgNumCellShortcuts := 0.0
-		numCells := float64(len(cellMapping[l]))
+		numCells := max(float64(len(cellMapping[l])), 1)
 		// update cell info
 		for key := range cellMapping[l] {
 			cellMapping[l][key].overlayIdOffset = Index(overlayIdOffset)
@@ -430,7 +433,8 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 		avgNumCellEntry /= numCells
 		avgNumCellExit /= numCells
 		avgNumCellShortcuts /= numCells
-		og.stats[l] = &CellStatistics{numCells: int(numCells), avgNumCellEntry: avgNumCellEntry, avgNumCellExit: avgNumCellExit, avgNumCellShortcuts: avgNumCellShortcuts}
+
+		og.stats[l] = CellStatistics{numCells: int(numCells), avgNumCellEntry: avgNumCellEntry, avgNumCellExit: avgNumCellExit, avgNumCellShortcuts: avgNumCellShortcuts}
 	}
 
 	// og.overlayIdMapping maps overlayIdOffset + offset of entry/exit point +  of cell to overlay vertex id

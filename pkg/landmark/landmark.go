@@ -289,8 +289,8 @@ https://doi.org/10.1007/978-3-319-49487-6_2.
 
 implementation of computing tighest lower bound of A*, landmarks, and triangle inequality, section 6 Computing Lower Bounds in [1] or section 2.2 ALT in [2]
 misal L adalah set of landmarks, dist(v,w) adalah shortest path cost dari vertex v ke vertex w
-ComputeTighestLowerBound compute h(v)=max_{l in L}{dist(l,t)-dist(l,v), dist(v,l)-dist(t,l)}
-fungsi potential/heuristik  h(v) meiliki sifat konsisten/feasible [3]
+ComputeTighestLowerBound compute h(u)=max_{l in L}{dist(l,t)-dist(l,u), dist(u,l)-dist(t,l)}
+fungsi potential/heuristik  h(u) meiliki sifat konsisten/feasible [3]
 
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
@@ -308,6 +308,9 @@ func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks [
 	return tighestLowerBound
 }
 
+// ComputeLowerBound compute max(dist(l,t)-dist(l,u), dist(u,l)-dist(t,l))
+//
+//go:inline
 func (lm *Landmark[W]) ComputeLowerBound(lid, u, t da.Index) W {
 	uToLandmark := lm.vlw[u*lm.k+lid]
 	tToLandmark := lm.vlw[t*lm.k+lid]
@@ -378,9 +381,6 @@ h_r(u) adalah consistent lower bound dari sp cost dari s ke u
 func (lm *Landmark[W]) ComputeTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index, pirt W, forw bool) W {
 	pifu := lm.ComputeTighestLowerBound(u, t, activeLandmarks) // consistent lower bound dari dist(u,t)
 	piru := lm.ComputeTighestLowerBound(s, u, activeLandmarks) // consistent lower bound dari dist(s,u)
-	if util.Eq(pirt, util.Infinity[W]()) {
-		pirt = lm.ComputeTighestLowerBound(s, t, activeLandmarks) // consistent lower bound dari dist(s, t)
-	}
 
 	beta := pirt // h_f(s)
 	pfu := max(pifu, pirt-piru+beta)

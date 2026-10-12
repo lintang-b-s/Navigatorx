@@ -70,7 +70,7 @@ pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content
 misalkan l(P) adalah sum of the lengths dari edge penyusun path P
 ref[1] setiap st-path P dikatakan admissible jika memenuhi kondisi:
 1. sharing amount (edge weights) dari alternative route P dan optimal/shortest route Opt <= \gamma * l(Opt)
-2. P is T-Localy Optimall (T-LO): every subpath P' of P with l(P') <= T adalah shortest path
+2. P is T-Localy Optimal (T-LO): every subpath P' of P with l(P') <= T adalah shortest path
 3. every subpath P' dari P dengan endpoints s', t', kita memiliki l(P') <= (1+eps)l(Opt(s,t)) (path P' dari s' ke t' tidak lebih panjang 1+eps relative to shortest path dari s' ke t')
 
 inti dari FindAlternativeRoutes:
@@ -80,7 +80,7 @@ inti dari FindAlternativeRoutes:
 
 
 todo: baca dan implement https://www.openstreetmap.org/user/daniel-j-h/diary/44020
-todo2: baca dan implement https://dl.acm.org/doi/abs/10.1145/2674395   (related to article diatas)
+todo2: baca dan implement https://dl.acm.org/doi/abs/10.1145/2674395   (related to article diatas).
 todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices agak detour... debug dan cari tahu kenapa & fix it...
 */
 

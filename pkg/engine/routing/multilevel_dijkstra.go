@@ -280,7 +280,7 @@ reference: 1. Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015)
 Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
 pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
-this explanation below taken from Delling et al. (2015) ref [1]:
+the explanation below taken from Delling et al. (2015) ref [1]:
 "Otherwise, we use the overlay graph at level lst(u), which does not have turns.
 In either case, the neighbors v of u are added to the priority queue with the appropriate distance labels.
 Note that a level transition occurs when u and v have different query levels; in particular,
@@ -288,7 +288,7 @@ for transitions from or to level 0, we must translate between the two vertex ide
 
 and applying optimization from Delling et al. (2015) below:
 
-this explanation below taken from Delling et al. (2015) ref [1]:
+the explanation below taken from Delling et al. (2015) ref [1]:
 "We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
 outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
 the arc (u, v) immediately and process v."

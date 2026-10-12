@@ -11,9 +11,9 @@ import (
 
 type QueryHeap[T comparable, W util.RoutingNumber] struct {
 	heap         []PriorityQueueNode[T, W] // implicit 4-ary min-heap
-	verticesData []VertexData[W]           // berisi cost, parent, heapNodeId (vertexIndex dari heapNode di 4-ary minheap array)
+	verticesData []VertexData[W]           // contains cost, parent, heapNodeId (index dari heapNode di 4-ary minheap array) for all vertices inserted into the min-heap.
 
-	verticesIndex     IndexStorage // map dari nodeId/overlayVertexId dari graph & overlay graph ke vertexIndex dari verticesData
+	verticesIndex     IndexStorage // map from nodeId/overlayVertexId to index in verticesData
 	verticesIndexType IndexStorageType
 	explored          *ExploredBitsetStorage
 	d                 Index // d-ary heap
@@ -107,14 +107,14 @@ func (qh *QueryHeap[T, W]) heapifyUp(index Index) {
 //go:inline
 func (qh *QueryHeap[T, W]) Insert(id Index, priority W, vData VertexData[W], queryKey T) {
 	mid := qh.mapId(id)
-	newVertexIndex := Index(len(qh.verticesData))
+	newVIndex := Index(len(qh.verticesData))
 	heapNodeId := Index(qh.Size())
 	vData.heapNodeId = heapNodeId
 	qh.verticesData = append(qh.verticesData, vData)
-	qh.verticesIndex.Set(mid, newVertexIndex)
-	node := NewPriorityQueueNode[T, W](priority,
-		queryKey, newVertexIndex)
+	qh.verticesIndex.Set(mid, newVIndex)
 
+	node := NewPriorityQueueNode[T, W](priority,
+		queryKey, newVIndex)
 	qh.heap = append(qh.heap, node)
 	qh.heapifyUp(heapNodeId)
 }
@@ -166,8 +166,7 @@ func (qh *QueryHeap[T, W]) ExtractMin() PriorityQueueNode[T, W] {
 	lastId := qh.Size() - 1
 
 	if lastId > 0 {
-		qh.heap[0] = qh.heap[lastId]
-		qh.verticesData[qh.heap[0].vertexIndex].heapNodeId = 0
+		qh.swap(0, lastId)
 		qh.heap = qh.heap[:lastId]
 		qh.heapifyDown(0)
 	} else {
@@ -200,11 +199,11 @@ func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newPriority, vCost W, newPar Pa
 //go:inline
 func (qh *QueryHeap[T, W]) GetCost(id Index) W {
 	mid := qh.mapId(id)
-	vertexIndex := qh.verticesIndex.Get(mid)
-	if vertexIndex == math.MaxUint32 {
+	vIndex := qh.verticesIndex.Get(mid)
+	if vIndex == math.MaxUint32 {
 		return util.Infinity[W]()
 	}
-	return qh.verticesData[vertexIndex].cost
+	return qh.verticesData[vIndex].cost
 }
 
 // Clear. ya clear
@@ -219,14 +218,14 @@ func (qh *QueryHeap[T, W]) Clear() {
 	qh.explored.Clear()
 }
 
-// Get. get vertexIndex dari node
+// Get. get VertexData dari node
 // node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 //
 //go:inline
 func (qh *QueryHeap[T, W]) Get(id Index) VertexData[W] {
 	mid := qh.mapId(id)
-	vertexIndex := qh.verticesIndex.Get(mid)
-	return qh.verticesData[vertexIndex]
+	vIndex := qh.verticesIndex.Get(mid)
+	return qh.verticesData[vIndex]
 }
 
 func (qh *QueryHeap[T, W]) PreallocateHeap(maxSearchSize int) {
@@ -256,23 +255,23 @@ func (qh *QueryHeap[T, W]) GetMinrank() W {
 //go:inline
 func (qh *QueryHeap[T, W]) Explore(id Index) {
 	mid := qh.mapId(id)
-	vertexIndex := qh.verticesIndex.Get(mid)
-	qh.explored.Set(vertexIndex)
+	vIndex := qh.verticesIndex.Get(mid)
+	qh.explored.Set(vIndex)
 }
 
 //go:inline
 func (qh *QueryHeap[T, W]) Set(id Index, vData VertexData[W], queryKey T) {
 	mid := qh.mapId(id)
-	vertexIndex := qh.verticesIndex.Get(mid)
-	if vertexIndex == math.MaxUint32 {
-		newVertexIndex := Index(len(qh.verticesData))
+	vIndex := qh.verticesIndex.Get(mid)
+	if vIndex == math.MaxUint32 {
+		newVIndex := Index(len(qh.verticesData))
 		qh.verticesData = append(qh.verticesData, vData)
-		qh.verticesIndex.Set(mid, newVertexIndex)
+		qh.verticesIndex.Set(mid, newVIndex)
 		return
 	}
 
-	qh.verticesData[vertexIndex].parent = vData.parent
-	qh.verticesData[vertexIndex].cost = vData.cost
+	qh.verticesData[vIndex].parent = vData.parent
+	qh.verticesData[vIndex].cost = vData.cost
 }
 
 func (qh *QueryHeap[T, W]) IsEmpty() bool {
@@ -288,18 +287,18 @@ func (qh *QueryHeap[T, W]) SetQueryLevel(id Index, qLevel uint8) {
 //go:inline
 func (qh *QueryHeap[T, W]) IsExplored(id Index) bool {
 	mid := qh.mapId(id)
-	vertexIndex := qh.verticesIndex.Get(mid)
-	if vertexIndex == math.MaxUint32 { // belum ke label & ke explored
+	vIndex := qh.verticesIndex.Get(mid)
+	if vIndex == math.MaxUint32 { // belum ke label & ke explored
 		return false
 	}
-	return qh.explored.Test(vertexIndex)
+	return qh.explored.Test(vIndex)
 }
 
 //go:inline
 func (qh *QueryHeap[T, W]) IsLabelled(id Index) bool {
 	mid := qh.mapId(id)
-	vertexIndex := qh.verticesIndex.Get(mid)
-	if vertexIndex == math.MaxUint32 { // belum ke label & ke explored
+	vIndex := qh.verticesIndex.Get(mid)
+	if vIndex == math.MaxUint32 { // belum ke label & ke explored
 		return false
 	}
 	return true

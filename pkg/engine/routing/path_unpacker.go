@@ -99,6 +99,13 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOvId da.Index,
 	}
 
 	if overlayPath, ok := pu.eng.puCache.GetIfPresent(da.NewPUCacheKey(sOvId, tOv, level)); ok {
+		/*
+			"we maintain a cache of frequently-used shortcuts. Each entry in
+			the cache represents a level-i shortcut together with the corresponding sequence of level-(i − 1) shortcuts.
+			Note that we have one cache with all shortcuts instead of having one cache for each level. As the experiments
+			will show, with a standard least-recently used (LRU) update policy, even a small cache can accelerate path
+			unpacking significantly"  (Delling et al. (2015))
+		*/
 		for i := 0; i < len(overlayPath); i += 2 {
 			verticesPath = pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, verticesPath)
 		}
@@ -228,6 +235,13 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 
 	if edgeIds, ok := pu.eng.puCache.GetIfPresent(da.NewPUCacheKey(sOvId, tOvId, 1)); ok {
 		// fetch from cache
+		/*
+			"we maintain a cache of frequently-used shortcuts. Each entry in
+			the cache represents a level-i shortcut together with the corresponding sequence of level-(i − 1) shortcuts.
+			Note that we have one cache with all shortcuts instead of having one cache for each level. As the experiments
+			will show, with a standard least-recently used (LRU) update policy, even a small cache can accelerate path
+			unpacking significantly"  (Delling et al. (2015))
+		*/
 		return append(verticesPath, edgeIds...)
 	}
 

@@ -53,7 +53,7 @@ func NewCRPALTQuery[W util.RoutingNumber](
 
 /*
 implementasi dari:
-1. query phase (without turn costs): Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
+1. query phase : Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
 2. Sungwon Jung and S. Pramanik, "An efficient path computation model for hierarchically structured topographical road maps," in IEEE Transactions on Knowledge and Data Engineering, vol. 14, no. 5, pp. 1029-1046, Sept.-Oct. 2002, doi: 10.1109/TKDE.2002.1033772.
 keywords: {Computational modeling;Roads;Navigation;Computational efficiency;Performance analysis;Shortest path problem;Concurrent computing;Cost function;Automobiles;Space exploration},
 3. Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
@@ -65,8 +65,10 @@ https://doi.org/10.1287/trsc.2014.0579.
 7. bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
 8. Cormen, T.H. et al. (2009) Introduction to Algorithms. 3th ed. Cambridge, MA, USA: MIT Press
 9. Towers, M. (2020). Bidirectional Dijkstra. https://www.homepages.ucl.ac.uk/~ucahmto/math/2020/05/30/bidirectional-dijkstra.html. Diakses tanggal: 5 Agustus 2026.
+10. Efentakis, A., Pfoser, D. dan Vassiliou, Y. (2015). SALT. A Unified Framework for All Shortest-Path Query Variants on Road Networks. In Proceedings of the 14th International Symposium on Experimental Algorithms, Volume 9125, pages 298–311, Paris.
 
-ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1] + Bidirectional ALT (A* search, landmarks, and triangle inequality) [5]
+
+ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1] + Bidirectional ALT (A* search, landmarks, and triangle inequality) [5], similar to the one in [10]
 intinya cuma bidirectional ALT  (A* search, landmarks, and triangle inequality)  pada graf yang consisiting of overlay graph H, cell C_s, cell C_t. C_s adalah cell level 1 yang mengandung vertex s hasil multilevel partition (lihat package partitioner).
 Setiap cell C_v memiliki vertices (all inside cell C_v) dan edges (semua tail dan head dari edges nya inside C_v), vertices dan edges dari cell C_v adalah subset dari vertices dan edges dari graf G.
 overlay graph H adalah graf yang mengandung all boundary/overlay vertices, all cut edges, all shortcut edges di setiap cells hasil multilevel partitioning.
@@ -199,7 +201,7 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 }
 
 /*
-graphSearch. forward search & backward search dari bidirectional ALT in sel c1(s) atau c1(t).
+graphSearch. forward search & backward search dari bidirectional ALT (A* Search, landmarks, and triangle inequality)  in sel c1(s) atau c1(t).
 */
 func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 
@@ -286,13 +288,13 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 }
 
 /*
-overlayGraphSearch. forward search & backward search dari bidirectional ALT in overlay graph H.
+overlayGraphSearch. forward search & backward search dari bidirectional ALT (A* Search, Landmarks, and Triangle Inequality)  in overlay graph H.
 
 reference: 1. Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
 Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
 pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
-this explanation below taken from Delling et al. (2015) ref [1]:
+the explanation below taken from Delling et al. (2015) ref [1]:
 "Otherwise, we use the overlay graph at level lst(u), which does not have turns.
 In either case, the neighbors v of u are added to the priority queue with the appropriate distance labels.
 Note that a level transition occurs when u and v have different query levels; in particular,
@@ -300,7 +302,7 @@ for transitions from or to level 0, we must translate between the two vertex ide
 
 and applying optimization from Delling et al. (2015) below:
 
-this explanation below taken from Delling et al. (2015) ref [1]:
+the explanation below taken from Delling et al. (2015) ref [1]:
 "We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
 outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
 the arc (u, v) immediately and process v."
@@ -346,7 +348,7 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 				oldWCost := pq.GetCost(w)
 				wLabelled := util.Lt(oldWCost, util.Infinity[W]())
 				if util.Lt(newWCost, oldWCost) {
-					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+					// ALT (A* Search, landmarks, and triangle inequality) lowerbound/heuristic function
 					hw := bs.engine.lm.ComputeTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
 					priority := newWCost + hw
 
@@ -377,7 +379,7 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 				oldwOvCost := pq.GetCost(wOv)
 				wLabelled := util.Lt(oldwOvCost, util.Infinity[W]())
 				if util.Lt(newWCost, oldwOvCost) {
-					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
+					// ALT (A* Search, landmarks, and triangle inequality) lowerbound/heuristic function
 					hw := bs.engine.lm.ComputeTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
 					priority := newWCost + hw
 
