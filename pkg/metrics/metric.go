@@ -78,8 +78,8 @@ func (met *Metric[W]) GetSegmentSpeed(segId da.Index) float64 {
 }
 
 func (met *Metric[W]) GetShortcutWeight(offset da.Index) W {
-	sw := met.shortcutWeights
-	return sw.GetWeight(offset)
+
+	return met.shortcutWeights.GetWeight(offset)
 }
 
 func (met *Metric[W]) GetFilePath() string {

@@ -44,6 +44,7 @@ var (
 // mungkin Eastern USA bisa lebih cepet dari 1.69 ms/op , implementasi CRP query di multilevel_dijkstra.go dan multilevel_astar_landmarks.go bisa dioptimize lagi...
 // atau mungkin karena mereka implement di C++ dan PC untuk eksperimen nya lebih bagus?
 // NEW RESULT setelah update SelectBestQueryLandmarks() di landmark.go: 1.0568 ms/op
+// DONE :)
 const (
 	progress = 100
 )

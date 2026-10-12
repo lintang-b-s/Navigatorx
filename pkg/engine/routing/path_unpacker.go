@@ -36,7 +36,21 @@ func newPathUnpackerALT[W util.RoutingNumber](
 }
 
 // adapted from: https://github.com/michaelwegner/CRP/blob/master/algorithm/PathUnpacker.cpp
-// unpackPath unpack shortcut edges in packed path returned from CRP query phase.
+
+/*
+unpackPath unpack shortcut edges in packed path returned from CRP query phase.
+
+ref1:  Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
+Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
+pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+the explanation below taken from ref1:
+"To obtain the complete path description as a sequence of arcs (or vertices) in the original graph, each shortcut in
+the result must be translated (unpacked ) into the corresponding subpath." (Delling et al. (2015))
+
+"we recursively unpack a level-i shortcut (v, w) by running bidirectional Dijkstra between v and w on level i − 1, restricted
+to subcells of the level-i cell containing the shortcut."  (Delling et al. (2015))
+*/
 func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.ParentVertex, sCellNum, tCellNum da.Pv) []da.Index {
 
 	unpackedVertexPath := make([]da.Index, 0, len(packedPath)) // unpacked vertex path
