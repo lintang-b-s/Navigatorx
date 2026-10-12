@@ -131,7 +131,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOvId da.Index,
 				// relax shortcut edge
 				v := vVertex.GetOrigVId()
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-				hv := pu.lm.FindTighestLowerBound(v, t, activeLandmarks)
+				hv := pu.lm.ComputeTighestLowerBound(v, t, activeLandmarks)
 				priority := newVCost + hv
 				vNewPar := da.NewParentVertex(uOv)
 				if vOv == tOv {
@@ -169,7 +169,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOvId da.Index,
 				if util.Lt(newVCost, pq.GetCost(wOv)) {
 					wOriginalId := wVertex.GetOrigVId()
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-					hw := pu.lm.FindTighestLowerBound(wOriginalId, t, activeLandmarks)
+					hw := pu.lm.ComputeTighestLowerBound(wOriginalId, t, activeLandmarks)
 					priority = newVCost + hw
 
 					if !wLabelled {
@@ -263,7 +263,7 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-				pfv := pu.lm.FindTighestLowerBound(v, t, activeLandmarks)
+				pfv := pu.lm.ComputeTighestLowerBound(v, t, activeLandmarks)
 				priority := newVCost + pfv
 
 				if !vLabelled {

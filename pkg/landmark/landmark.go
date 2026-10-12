@@ -264,14 +264,6 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 	return nil
 }
 
-// func (lm *Landmark[W]) lwAt(l, v da.Index) W {
-// 	return lm.lw[l*lm.n+v]
-// }
-
-// func (lm *Landmark[W]) vlwAt(v, l da.Index) W {
-// 	return lm.vlw[v*lm.k+l]
-// }
-
 func (lm *Landmark[W]) matrix(r, c da.Index, lw bool) [][]W {
 	w := make([][]W, r)
 	for i := da.Index(0); i < r; i++ {
@@ -297,28 +289,35 @@ https://doi.org/10.1007/978-3-319-49487-6_2.
 
 implementation of computing tighest lower bound of A*, landmarks, and triangle inequality, section 6 Computing Lower Bounds in [1] or section 2.2 ALT in [2]
 misal L adalah set of landmarks, dist(v,w) adalah shortest path cost dari vertex v ke vertex w
-FindTighestLowerBound compute h(v)=max_{l in L}{dist(l,t)-dist(l,v), dist(v,l)-dist(t,l)}
+ComputeTighestLowerBound compute h(v)=max_{l in L}{dist(l,t)-dist(l,v), dist(v,l)-dist(t,l)}
 fungsi potential/heuristik  h(v) meiliki sifat konsisten/feasible [3]
 
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
 //go:inline
-func (lm *Landmark[W]) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) W {
+func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) W {
 	// O(k), k = number of landmarks
 	tighestLowerBound := -util.Infinity[W]()
 
 	for i := 0; i < len(activeLandmarks); i++ {
 		lid := activeLandmarks[i]
-		uToLandmark := lm.vlw[u*lm.k+lid]
-		tToLandmark := lm.vlw[t*lm.k+lid]
-		tighestLowerBound = max(tighestLowerBound, uToLandmark-tToLandmark)
-
-		landmarkToT := lm.lw[lid*lm.n+t]
-		landmarkToU := lm.lw[lid*lm.n+u]
-		tighestLowerBound = max(tighestLowerBound, landmarkToT-landmarkToU)
+		lb := lm.ComputeLowerBound(lid, u, t)
+		tighestLowerBound = max(tighestLowerBound, lb)
 	}
 
 	return tighestLowerBound
+}
+
+func (lm *Landmark[W]) ComputeLowerBound(lid, u, t da.Index) W {
+	uToLandmark := lm.vlw[u*lm.k+lid]
+	tToLandmark := lm.vlw[t*lm.k+lid]
+
+	landmarkToT := lm.lw[lid*lm.n+t]
+	landmarkToU := lm.lw[lid*lm.n+u]
+
+	lbOne := uToLandmark - tToLandmark
+	lbTwo := landmarkToT - landmarkToU
+	return max(lbOne, lbTwo)
 }
 
 type activeLandmark[W util.RoutingNumber] struct {
@@ -344,15 +343,9 @@ func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 
 	bestLandmarks := make([]da.Index, 0, activeLandmarkSize)
 
-	oriLandmarks := make([]da.Index, len(lm.landmarks))
-	for i := 0; i < len(lm.landmarks); i++ {
-		oriLandmarks[i] = da.Index(i)
-	}
-
 	lowerBounds := make([]activeLandmark[W], len(lm.landmarks))
 	for i := 0; i < len(lm.landmarks); i++ {
-		lid := lm.landmarks[i]
-		lb := lm.FindTighestConsistentLowerBound(lid, s, t, oriLandmarks, util.Infinity[W](), true)
+		lb := lm.ComputeLowerBound(da.Index(i), s, t)
 		lowerBounds[i] = newActiveLandmark(da.Index(i), lb)
 	}
 
@@ -382,11 +375,11 @@ h_f(u) adalah consistent lower bound dari sp cost dari u ke t
 h_r(u) adalah consistent lower bound dari sp cost dari s ke u
 */
 //go:inline
-func (lm *Landmark[W]) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index, pirt W, forw bool) W {
-	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks) // consistent lower bound dari dist(u,t)
-	piru := lm.FindTighestLowerBound(s, u, activeLandmarks) // consistent lower bound dari dist(s,u)
+func (lm *Landmark[W]) ComputeTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index, pirt W, forw bool) W {
+	pifu := lm.ComputeTighestLowerBound(u, t, activeLandmarks) // consistent lower bound dari dist(u,t)
+	piru := lm.ComputeTighestLowerBound(s, u, activeLandmarks) // consistent lower bound dari dist(s,u)
 	if util.Eq(pirt, util.Infinity[W]()) {
-		pirt = lm.FindTighestLowerBound(s, t, activeLandmarks) // consistent lower bound dari dist(s, t)
+		pirt = lm.ComputeTighestLowerBound(s, t, activeLandmarks) // consistent lower bound dari dist(s, t)
 	}
 
 	beta := pirt // h_f(s)
@@ -423,6 +416,8 @@ func (lm *Landmark[W]) UpdateLandmarks(landmarkFilePath string) error {
 	lm.landmarks = lmLm
 	lm.lw = lmLw
 	lm.vlw = lmVlw
+	lm.n = newLandmark.n
+	lm.k = newLandmark.k
 
 	return nil
 }

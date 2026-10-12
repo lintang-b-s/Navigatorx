@@ -218,8 +218,9 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, p
 			oldVCost := pq.GetCost(v)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
+				// newVCost is better, update the vertex v cost in priority queue
+
 				if vLabelled {
-					// newVCost is better, update the forwardData
 					// is key already in the priority queue, decrease its key
 					newPar := da.NewParentVertex(u)
 					pq.DecreaseKey(v, newVCost, newVCost, newPar)

@@ -124,7 +124,7 @@ func (qh *QueryHeap[T, W]) isEmpty() bool {
 	return len(qh.heap) == 0
 }
 
-// heapifyDown mempertahankan min-heap property. check apakah nilai salah satu children dari index lebih kecil kalau iya swap, then recursive ke children yang kecil tadi.  O(logN) complete 2/4-ary tree height.
+// heapifyDown mempertahankan min-heap property. check apakah nilai salah satu children dari node index lebih kecil kalau iya swap, then recursive ke children yang kecil tadi.  O(logN) complete 2/4-ary tree height.
 //
 //go:inline
 func (qh *QueryHeap[T, W]) heapifyDown(index Index) {
@@ -137,9 +137,8 @@ func (qh *QueryHeap[T, W]) heapifyDown(index Index) {
 			break
 		}
 		sentinel := leftMostChild + qh.d
-		if sentinel > n {
-			sentinel = n
-		}
+		sentinel = min(sentinel, n)
+
 		smallest := leftMostChild
 		for i := leftMostChild + 1; i < sentinel; i++ {
 			if util.Lt(qh.heap[i].rank, qh.heap[smallest].rank) {
@@ -311,6 +310,7 @@ func (qh *QueryHeap[T, W]) IsLabelled(id Index) bool {
 ref1:  Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
 Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
 pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
 this explanation taken from ref1 :
 A second optimization uses the fact that the maximum heap size can be computed in
 advance. Any search will scan at most all overlay vertices and the vertices in the cells of s and t on the lowest

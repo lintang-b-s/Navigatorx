@@ -1,5 +1,7 @@
 package datastructure
 
+// adapted from: https://github.com/michaelwegner/CRP/blob/master/datastructures/LevelInfo.h
+
 type LevelData struct {
 	offset []uint8 // offset of each level in the bitpacked cell numbers
 }

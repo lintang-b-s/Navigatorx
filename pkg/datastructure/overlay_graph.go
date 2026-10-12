@@ -43,7 +43,7 @@ func (ov *OverlayVertex) GetNeighborOverlayVertex() Index {
 	return ov.neighborOverlayVertex
 }
 
-// Cell represents cell/partition information.
+// Cell represents cell information.
 /*
 for each cell C, we have:
 qC = number of exit points (vertex that have at least one out edge that point to vertex in other cell)
