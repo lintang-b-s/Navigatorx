@@ -2,11 +2,13 @@ package routing
 
 import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type Dijkstra[W util.RoutingNumber] struct {
-	engine *CRPRoutingEngine[W]
+	engine  *CRPRoutingEngine[W]
+	metrics *met.Metric[W]
 
 	pq *da.QueryHeap[da.QueryKey, W]
 
@@ -23,7 +25,7 @@ func NewDijkstra[W util.RoutingNumber](
 		numSettledNodes:  0,
 		useReversedEdges: useReversedEdges,
 	}
-
+	dj.metrics = engine.GetMetrics()
 	dj.Preallocate()
 	return dj
 }
@@ -65,7 +67,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 		us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
 			head := us.engine.graph.GetHead(eId)
 			vId := head
-			edgeWeight := us.engine.getWeight(eId, true)
+			edgeWeight := us.metrics.GetWeight(eId)
 			// get cost to reach v through u
 			newVCost := us.pq.GetCost(uId) + edgeWeight
 
@@ -96,7 +98,8 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 			vId := tail
 
-			edgeWeight := us.engine.getWeight(eId, false)
+			reId := us.engine.graph.GetOutId(eId)
+			edgeWeight := us.metrics.GetWeight(reId)
 
 			newVCost := us.pq.GetCost(uId) + edgeWeight
 
@@ -126,9 +129,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 func (us *Dijkstra[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
-
-	maxVerticesInCell := us.engine.graph.GetMaxVerticesInCell()
-	us.pq = da.NewQueryHeap[da.QueryKey, W](uint32(maxSearchSize), uint32(maxVerticesInCell), da.ARRAY_STORAGE, true)
+	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
 

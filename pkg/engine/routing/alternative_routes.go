@@ -10,6 +10,8 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 )
@@ -31,7 +33,9 @@ func NewAlternativeRouteParameters(gamma, alpha, epsilon, upperBound float64,
 }
 
 type AlternativeRouteSearch[W util.RoutingNumber] struct {
-	engine *CRPRoutingEngine[W]
+	re      *CRPRoutingEngine[W]
+	metrics *met.Metric[W]
+	lm      *landmark.Landmark[W]
 
 	// parameter yang di init pakai read yml config
 	maxCandidatesToUnpackMap       map[float64]int
@@ -43,23 +47,25 @@ type AlternativeRouteSearch[W util.RoutingNumber] struct {
 }
 
 func NewAlternativeRouteSearch[W util.RoutingNumber](
-	engine *CRPRoutingEngine[W],
+	re *CRPRoutingEngine[W],
 ) *AlternativeRouteSearch[W] {
 	alt := &AlternativeRouteSearch[W]{
-		engine: engine,
+		re: re,
 	}
+	alt.metrics = re.GetMetrics()
+	alt.lm = re.GetLandmark()
 	alt.initParameter()
 	return alt
 }
 
 /*
 implementation of:
-1. Abraham, I. et al. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
+1. Abraham, I., Delling, D., Goldberg, A. V., Werneck, R. F. (2010) “Alternative Routes in Road Networks,” in P. Festa (ed.)
 Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 23–34. Available at:
 https://doi.org/10.1007/978-3-642-13193-6_3.
-2. page 15: Delling, D. et al. (2015) “Customizable Route Planning in Road
-Networks,” Transportation Science [Preprint]. Available at:
-https://doi.org/10.1287/trsc.2014.0579.
+2. page 15:  Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
+Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
+pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
 misalkan l(P) adalah sum of the lengths dari edge penyusun path P
 ref[1] setiap st-path P dikatakan admissible jika memenuhi kondisi:
@@ -72,6 +78,10 @@ inti dari FindAlternativeRoutes:
 2. susun kandidat alternative route s-v-t  untuk setiap via vertices v.
 3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
 
+
+todo: baca dan implement https://www.openstreetmap.org/user/daniel-j-h/diary/44020
+todo2: baca dan implement https://dl.acm.org/doi/abs/10.1145/2674395   (related to article diatas)
+todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices agak detour... debug dan cari tahu kenapa & fix it...
 */
 
 func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index) ([]AlternativeRoute, float64, int64) {
@@ -87,7 +97,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int
 
 	param := ars.parameterByRequest(s, t)
 
-	crpQuery := NewCRPQuery(ars.engine)
+	crpQuery := NewCRPQuery(ars.re)
 	crpQuery.forAlternatives = true
 	if reroute {
 		crpQuery.reroute = true
@@ -116,7 +126,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int
 	optPathSet, motorwaySet := ars.buildPathMotorwaySet(optPath)
 
 	scSet := crpQuery.scpSet
-	unpacker := newPathUnpackerALT(ars.engine, false)
+	unpacker := newPathUnpackerALT(ars.re, ars.metrics, ars.lm, false)
 	arf := NewAlternativeRouteFilter(ars, fpq, bpq,
 		sCellNumber, tCellNumber, s, t, optPathSet, motorwaySet, scSet, param, optCost, unpacker)
 
@@ -165,7 +175,7 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int
 	maxAltSize := min(k, len(res))
 	res = res[:maxAltSize]
 	for i := 0; i < maxAltSize; i++ {
-		finalPath, totalDistance := ars.engine.GetSegmentPath(res[i].segmentPath)
+		finalPath, totalDistance := ars.re.GetSegmentPath(res[i].segmentPath)
 		res[i].path = finalPath
 		res[i].dist = totalDistance
 	}
@@ -285,21 +295,21 @@ func (arf *AlternativeRouteFilter[W]) filterCandidate(v ViaVertex) ViaVertex {
 	vp := da.NewParentVertex(v.GetVId())
 	if !v.IsOverlay() {
 		// forward
-		svPackedPath = arf.ars.engine.RetrieveForwardPackedPath(vp,
+		svPackedPath = arf.ars.re.RetrieveForwardPackedPath(vp,
 			arf.fpq, arf.sCellNumber, arf.s)
 
 		// backward
-		vtPackedPath = arf.ars.engine.RetrieveBackwardPackedPath(vp,
+		vtPackedPath = arf.ars.re.RetrieveBackwardPackedPath(vp,
 			arf.bpq, arf.sCellNumber, arf.t)
 
 	} else {
 		vp.SetIsOverlayVertex()
 		// forward
-		svPackedPath = arf.ars.engine.RetrieveForwardPackedPath(vp,
+		svPackedPath = arf.ars.re.RetrieveForwardPackedPath(vp,
 			arf.fpq, arf.sCellNumber, arf.s)
 
 		// backward
-		vtPackedPath = arf.ars.engine.RetrieveBackwardPackedPath(vp,
+		vtPackedPath = arf.ars.re.RetrieveBackwardPackedPath(vp,
 			arf.bpq, arf.sCellNumber, arf.t)
 	}
 	svPackedPath, vtPackedPath = arf.ars.makePackedViaPathOverlayEven(svPackedPath, vtPackedPath)
@@ -327,21 +337,21 @@ func (arf *AlternativeRouteFilter[W]) unpackViaPath(v ViaVertex) ([]da.Index, []
 	vp := da.NewParentVertex(v.GetVId())
 	if !v.IsOverlay() {
 		// forward
-		svPackedPath = arf.ars.engine.RetrieveForwardPackedPath(vp,
+		svPackedPath = arf.ars.re.RetrieveForwardPackedPath(vp,
 			arf.fpq, arf.sCellNumber, arf.s)
 
 		// backward
-		vtPackedPath = arf.ars.engine.RetrieveBackwardPackedPath(vp,
+		vtPackedPath = arf.ars.re.RetrieveBackwardPackedPath(vp,
 			arf.bpq, arf.sCellNumber, arf.t)
 
 	} else {
 		vp.SetIsOverlayVertex()
 		// forward
-		svPackedPath = arf.ars.engine.RetrieveForwardPackedPath(vp,
+		svPackedPath = arf.ars.re.RetrieveForwardPackedPath(vp,
 			arf.fpq, arf.sCellNumber, arf.s)
 
 		// backward
-		vtPackedPath = arf.ars.engine.RetrieveBackwardPackedPath(vp,
+		vtPackedPath = arf.ars.re.RetrieveBackwardPackedPath(vp,
 			arf.bpq, arf.sCellNumber, arf.t)
 	}
 
@@ -416,14 +426,14 @@ func (ars *AlternativeRouteSearch[W]) calculateDistanceShare(svPath, vtPath []da
 	for _, v := range svPath {
 		if _, ok := optPathSet[v]; ok {
 			// kualitas rute alternatif lebih bagus kalau length functionnya travel time
-			distanceShare += ars.engine.GetDurationSeconds(v) // todo: kayake ini salah return function nya
+			distanceShare += ars.metrics.GetDurationSeconds(v)
 		}
 	}
 
 	for _, v := range vtPath {
 		if _, ok := optPathSet[v]; ok {
 			// kualitas rute alternatif lebih bagus kalau length functionnya travel time
-			distanceShare += ars.engine.GetDurationSeconds(v) // todo: kayake ini salah return function nya
+			distanceShare += ars.metrics.GetDurationSeconds(v)
 		}
 	}
 
@@ -451,7 +461,7 @@ func (ars *AlternativeRouteSearch[W]) buildPathMotorwaySet(optPath []da.Index) (
 	motorwaySet := make(map[da.Index]struct{}, 25)
 
 	for _, v := range optPath {
-		eRoadClass := ars.engine.rn.GetRoadClass(v)
+		eRoadClass := ars.re.rn.GetRoadClass(v)
 		if eRoadClass == pkg.MOTORWAY {
 			motorwaySet[v] = struct{}{}
 		}
@@ -475,8 +485,8 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(svPackedPath,
 			v := packedPath[i+1].GetVertex()
 			uOvId := offBit(u, UNPACK_OVERLAY_OFFSET)
 			vOvId := offBit(v, UNPACK_OVERLAY_OFFSET)
-			uVertex := ars.engine.overlayGraph.GetVertex(uOvId)
-			vVertex := ars.engine.overlayGraph.GetVertex(vOvId)
+			uVertex := ars.re.overlayGraph.GetVertex(uOvId)
+			vVertex := ars.re.overlayGraph.GetVertex(vOvId)
 
 			uId := uVertex.GetOrigVId()
 			vId := vVertex.GetOrigVId()
@@ -484,10 +494,10 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(svPackedPath,
 			_, ok2 := optPathSet[vId]
 
 			uCellNum := uVertex.GetCellNumber()
-			ql := ars.engine.overlayGraph.GetQueryLevel(sCellNumber, tCellNumber, uCellNum)
+			ql := ars.re.overlayGraph.GetQueryLevel(sCellNumber, tCellNumber, uCellNum)
 
-			scWeightOffset := ars.engine.overlayGraph.GetShortcutWeightId(uOvId, vOvId, int(ql))
-			scWeight := ars.engine.metrics.GetShortcutWeight(scWeightOffset)
+			scWeightOffset := ars.re.overlayGraph.GetShortcutWeightId(uOvId, vOvId, int(ql))
+			scWeight := ars.re.metrics.GetShortcutWeight(scWeightOffset)
 			bp := util.Bitpack(uint32(uId), uint32(vId))
 			shortcutInOpt := ok1 && ok2 && scSet[bp] == uint8(ql)
 
@@ -504,7 +514,7 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(svPackedPath,
 			return true
 		} else {
 			// road segment
-			eWeight := ars.engine.GetDurationSeconds(u) // todo: kayake ini salah return function nya
+			eWeight := ars.metrics.GetDurationSeconds(u)
 			if _, ok := optPathSet[u]; ok {
 				// kualitas rute alternatif lebih bagus kalau length functionnya travel time
 				distShare += eWeight
@@ -629,8 +639,8 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, s, t da.Index,
 
 func (ars *AlternativeRouteSearch[W]) parameterByRequest(s, t da.Index) AlternativeRouteParameters {
 
-	sVertex := ars.engine.graph.GetVertex(s)
-	tVertex := ars.engine.graph.GetVertex(t)
+	sVertex := ars.re.graph.GetVertex(s)
+	tVertex := ars.re.graph.GetVertex(t)
 	sCoord := sVertex.GetCoordinate()
 	tCoord := tVertex.GetCoordinate()
 	gcDist := geo.CalculateGreatCircleDistance(sCoord.GetLat(), sCoord.GetLon(),
@@ -700,8 +710,6 @@ func (ars *AlternativeRouteSearch[W]) makePackedViaPathOverlayEven(svPackedPath,
 			lSV = i + 1
 		}
 	}
-
-	// todo: kok ada svPath yang semua nya overlay/boundary vertices ya pas didebug di latest changes??
 
 	if (nSV-lSV)%2 != 0 && isBitOn(svPackedPath[nSV-1].GetVertex(), UNPACK_OVERLAY_OFFSET) {
 		svPackedPath = append(svPackedPath, vtPackedPath[0])

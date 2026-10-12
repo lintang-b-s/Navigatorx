@@ -12,7 +12,7 @@ const (
 )
 
 func (kv KeyVal) write(w *util.BinaryWriter) error {
-	if err := w.WriteUInt64s(kv.keys); err != nil {
+	if err := w.WriteUint64s(kv.keys); err != nil {
 		return err
 	}
 	return w.Uint32(uint32(kv.val))

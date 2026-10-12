@@ -249,10 +249,8 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 		}
 	}
 
-	noeId := da.Index(0)             // new id for outEdges for each vertex for each cell
-	p.graph.MakeOutEdgeCellOffset(n) // offset of first outEdge for each cell
-	nieId := da.Index(0)             // new id for inEdges for each vertex for each cell
-	p.graph.MakeInEdgeCellOffset(n)  // offset of first inEdge for each cell
+	noeId := da.Index(0) // new id for outEdges for each vertex for each cell
+	nieId := da.Index(0) // new id for inEdges for each vertex for each cell
 
 	vId := da.Index(0)
 
@@ -262,8 +260,6 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 	nPerm[len(nPerm)-1] = len(nPerm) - 1
 
 	for i := da.Index(0); i < da.Index(n); i++ {
-		p.graph.SetHeadCellOffset(i, noeId)
-		p.graph.SetTailCellOffset(i, nieId)
 
 		for v := da.Index(0); v < da.Index(len(cellVertices[i])); v++ {
 			// update vertex to use new vId

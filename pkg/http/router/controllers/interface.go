@@ -23,15 +23,17 @@ type RoutingService interface {
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
-	GetDurationSeconds(segId da.Index) float64
-	GetDurationFromLength(segId da.Index, eLength float64) float64
-	GetSegmentLength(segId da.Index) float64
-	GetSegmentSpeed(segId da.Index) float64
 	GetMetrics() *met.Metric[int32]
 	InitBackgroundWorker(ctx context.Context)
 	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
 	Close()
-	PutCoordsToPool(coords *da.Coordinates)
+}
+
+type Metrics interface {
+	GetDurationSeconds(segId da.Index) float64
+	GetSegmentSpeed(segId da.Index) float64
+	GetSegmentLength(segId da.Index) float64
+	GetDurationFromLength(segId da.Index, length float64) float64
 }
 
 type MapMatcherService interface {

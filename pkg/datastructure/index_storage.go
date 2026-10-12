@@ -1,151 +1,94 @@
+// Package datastructure provides core graph and query data structures.
+//
+// Inspired by OSRM QueryHeap: https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/query_heap.hpp
+//
+// Reference:
+// 1. Delling, D., Goldberg, A. V., Pajor, T., and Werneck, R. F. (2015). Customizable
+// Route Planning in Road Networks. Transportation Science, 51(2), 566-591.
+// https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 package datastructure
 
 import (
-	"maps"
 	"math"
 
 	"github.com/bits-and-blooms/bitset"
-	"github.com/bytedance/gopkg/collection/hashset"
 )
 
-// inspired by OSRM QueryHeap https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/query_heap.hpp
-
-type TwoLevelStorage struct {
-	overlay     []uint32
-	base        map[Index]uint32
-	numVertices uint32
-}
-
-func NewTwoLevelStorage(numOverlayVertices, numVertices uint32) *TwoLevelStorage {
-	overlay := make([]uint32, numOverlayVertices)
-	for i := uint32(0); i < numOverlayVertices; i++ {
-		overlay[i] = math.MaxUint32
-	}
-
-	return &TwoLevelStorage{
-		overlay:     overlay,
-		base:        make(map[Index]uint32, BASE_VERTICES_SIZE),
-		numVertices: numVertices,
-	}
-}
-
-func isOverlay(u Index, numVertices uint32) bool {
-	return u >= Index(numVertices)
-}
-
-func (s *TwoLevelStorage) Get(id Index) uint32 {
-	if isOverlay(id, s.numVertices) {
-		// https://go.dev/blog/swisstable
-		// go1.24 use swiss table for its hash table (open addressing)
-		// a=load factor=n/m, n=number of items to be mapped, m=size of hash table
-		// open addressing avg case: unsuccessful search & insert in O(1/(1-a)) or O(1), assuming uniform hashing.
-		id -= Index(s.numVertices)
-		val := s.overlay[id]
-		return val
-	}
-
-	val, ok := s.base[id]
-	if !ok {
-		return math.MaxUint32
-	}
-	return val
-}
-
-func (s *TwoLevelStorage) Set(id Index, vertexIndex uint32) {
-	if isOverlay(id, s.numVertices) {
-		id -= Index(s.numVertices)
-		s.overlay[id] = vertexIndex
-		return
-	}
-	s.base[id] = vertexIndex
-}
-
-func (s *TwoLevelStorage) Clear() {
-	for i := 0; i < len(s.overlay); i++ {
-		s.overlay[i] = math.MaxUint32
-	}
-
-	// https://go101.org/optimizations/6-map.html
-	for key := range s.base {
-		delete(s.base, key)
-	}
-}
-
-func (s *TwoLevelStorage) Clone() IndexStorage {
-	base := make(map[Index]uint32, len(s.overlay))
-	maps.Copy(base, s.base)
-	overlay := make([]uint32, len(s.overlay))
-	copy(overlay, s.overlay)
-
-	return &TwoLevelStorage{base: base,
-		overlay: overlay, numVertices: s.numVertices}
-}
-
-func (s *TwoLevelStorage) ForAllItems(handle func(offsetedVId Index, vertexIndex uint32)) {
-	for ovId, vertexIndex := range s.overlay {
-		handle(Index(ovId), vertexIndex)
-	}
-
-	for vId, vertexIndex := range s.base {
-		handle(vId, vertexIndex)
-	}
-}
-
+// ArrayStorage stores heap indices for vertices using a array and dirty tracking.
+// Unset positions are marked with [math.MaxUint32]. Touched indices are recorded in a dirty list,
+// enabling fast O(|dirty|) resets between queries instead of O(|V|).
+//
+// From Delling et al. (2015) ref [1]:
+//
+//	"Finally, we keep track of all vertices touched by one quick, allowing for a quick initialization of the next one."
+//
+// remark: i think the word "quick" in this paper sentence is typo, the correct one is "query".
 type ArrayStorage struct {
-	base []uint32
+	base  []Index
+	dirty []Index
 }
 
-func NewArrayStorage(size uint32) *ArrayStorage {
-	base := make([]uint32, size)
-	for i := uint32(0); i < size; i++ {
+// NewArrayStorage creates and initializes an [ArrayStorage] with the given size.
+// All entries are initialized to [math.MaxUint32] to indicate an unset state.
+func NewArrayStorage(size Index) *ArrayStorage {
+	base := make([]Index, size)
+	for i := Index(0); i < size; i++ {
 		base[i] = math.MaxUint32
 	}
 	return &ArrayStorage{
-		base: base,
+		base:  base,
+		dirty: make([]Index, 0, 1024),
 	}
 }
 
-func (s *ArrayStorage) Get(id Index) uint32 {
+// Get returns the heap index associated with the given vertex id.
+// If the vertex is not in the heap, it returns [math.MaxUint32].
+//
+//go:inline
+func (s *ArrayStorage) Get(id Index) Index {
 	return s.base[id]
 }
 
-func (s *ArrayStorage) Set(id Index, info uint32) {
+// Set assigns the heap index info to the given vertex id.
+// If the vertex was previously unset, its id is appended to the dirty list.
+//
+//go:inline
+func (s *ArrayStorage) Set(id Index, info Index) {
+	if s.base[id] == math.MaxUint32 {
+		s.dirty = append(s.dirty, id)
+	}
 	s.base[id] = info
 }
 
+// Clear resets all modified entries back to [math.MaxUint32] and empties the dirty list.
+//
+//go:inline
 func (s *ArrayStorage) Clear() {
-	for i := 0; i < len(s.base); i++ {
-		s.base[i] = math.MaxUint32
+	for _, id := range s.dirty {
+		s.base[id] = math.MaxUint32
 	}
+	s.dirty = s.dirty[:0]
 }
 
-func (s *ArrayStorage) Clone() IndexStorage {
-	base := make([]uint32, len(s.base))
-	copy(base, s.base)
-
-	return &ArrayStorage{
-		base: base}
-}
-
-func (s *ArrayStorage) ForAllItems(handle func(offsetedVId Index, vertexIndex uint32)) {
-	for offsetedEdgeId, vertexIndex := range s.base {
-		handle(Index(offsetedEdgeId), vertexIndex)
-	}
-
-}
-
+// MapStorage stores heap indices for overlay/boundary vertices using a hash map.
+// It is intended for sparse vertex sets such as overlay vertices where allocating
+// a full flat array is unnecessary.
 type MapStorage struct {
-	overlay map[Index]uint32
+	overlay map[Index]Index
 }
 
-func NewMapStorage(baseSize uint32) *MapStorage {
-
+// NewMapStorage creates a new [MapStorage] preallocated with OVERLAY_VERTICES_SIZE capacity.
+func NewMapStorage(baseSize Index) *MapStorage {
 	return &MapStorage{
-		overlay: make(map[Index]uint32, OVERLAY_VERTICES_SIZE),
+		overlay: make(map[Index]Index, OVERLAY_VERTICES_SIZE),
 	}
 }
 
-func (s *MapStorage) Get(id Index) uint32 {
+// Get returns the heap index associated with the given vertex id.
+// If the vertex does not exist in the map, it returns [math.MaxUint32].
+//
+//go:inline
+func (s *MapStorage) Get(id Index) Index {
 	// https://go.dev/blog/swisstable
 	// go1.24 use swiss table for its hash table (open addressing)
 	// a=load factor=n/m, n=number of items to be mapped, m=size of hash table
@@ -157,10 +100,16 @@ func (s *MapStorage) Get(id Index) uint32 {
 	return val
 }
 
-func (s *MapStorage) Set(id Index, vertexIndex uint32) {
+// Set maps the given vertex id to its heap index vertexIndex.
+//
+//go:inline
+func (s *MapStorage) Set(id Index, vertexIndex Index) {
 	s.overlay[id] = vertexIndex
 }
 
+// Clear removes all entries from the map.
+//
+//go:inline
 func (s *MapStorage) Clear() {
 	// https://go101.org/optimizations/6-map.html
 	for key := range s.overlay {
@@ -168,59 +117,30 @@ func (s *MapStorage) Clear() {
 	}
 }
 
-func (s *MapStorage) Clone() IndexStorage {
-	overlayClone := make(map[Index]uint32, len(s.overlay))
-	maps.Copy(overlayClone, s.overlay)
-
-	return &MapStorage{overlay: overlayClone}
-}
-
-func (s *MapStorage) ForAllItems(handle func(offsetedVId Index, vertexIndex uint32)) {
-
-	for overlayVId, vertexIndex := range s.overlay {
-		handle(overlayVId, vertexIndex)
-	}
-}
-
+// ExploredBitsetStorage tracks explored (exracted from priority queue) vertices during search using a bitset.
+//
+// Reference:
+// https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 type ExploredBitsetStorage struct {
-	explored *bitset.BitSet // https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
+	explored *bitset.BitSet
 }
 
-func NewExploredBitsetStorage(approxMaxSearchSize uint32) *ExploredBitsetStorage {
+// NewExploredBitsetStorage creates an [ExploredBitsetStorage] with the given capacity.
+func NewExploredBitsetStorage(approxMaxSearchSize Index) *ExploredBitsetStorage {
 	return &ExploredBitsetStorage{bitset.New(uint(approxMaxSearchSize))}
 }
 
-func (sc *ExploredBitsetStorage) Test(vertexIndex uint32) bool {
+// Test reports whether the vertex at vertexIndex has been marked as explored.
+func (sc *ExploredBitsetStorage) Test(vertexIndex Index) bool {
 	return sc.explored.Test(uint(vertexIndex))
 }
 
-func (sc *ExploredBitsetStorage) Set(vertexIndex uint32) {
+// Set marks the vertex at vertexIndex as explored.
+func (sc *ExploredBitsetStorage) Set(vertexIndex Index) {
 	sc.explored.Set(uint(vertexIndex))
 }
 
-func (sc *ExploredBitsetStorage) Clear(numberOfOverlayVertices uint32) {
+// Clear unsets all bits in the bitset, resetting the explored state.
+func (sc *ExploredBitsetStorage) Clear() {
 	sc.explored.ClearAll()
-}
-
-type ExploredSettorage struct {
-	explored hashset.Uint32Set
-}
-
-func NewExploredSettorage(approxMaxSearchSize uint32) *ExploredSettorage {
-	return &ExploredSettorage{hashset.NewUint32WithSize(int(approxMaxSearchSize))}
-}
-
-func (sc *ExploredSettorage) Test(vertexIndex uint32) bool {
-	return sc.explored.Contains(vertexIndex)
-}
-
-func (sc *ExploredSettorage) Set(vertexIndex uint32) {
-	sc.explored.Add(vertexIndex)
-}
-
-func (sc *ExploredSettorage) Clear(numberOfOverlayVertices uint32) {
-	sc.explored.Range(func(value uint32) bool {
-		sc.explored.Remove(value)
-		return true
-	})
 }

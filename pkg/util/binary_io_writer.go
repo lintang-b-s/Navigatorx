@@ -22,8 +22,9 @@ const (
 var magicNumber = [4]byte{'n', 'a', 'v', 'x'} // https://gist.github.com/leommoore/f9e57ba2aa4bf197ebc5
 
 type BinaryWriter struct {
-	w   io.Writer
-	buf [8]byte // reusable buffer
+	w       io.Writer
+	buf     [8]byte // reusable buffer
+	bulkBuf []byte
 }
 
 func NewBinaryWriter(w io.Writer) *BinaryWriter {
@@ -87,81 +88,105 @@ func (w *BinaryWriter) WriteFloat64s(values []float64) error {
 	if err := w.Length(len(values)); err != nil {
 		return err
 	}
-	for _, value := range values {
-		if err := w.Float64(value); err != nil {
-			return err
+	const itemSize = 8
+	return w.writeBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			binary.LittleEndian.PutUint64(chunk[i:i+itemSize], math.Float64bits(values[offset+i/itemSize]))
 		}
-	}
-	return nil
+	})
 }
 
 func (w *BinaryWriter) WriteInt32s(values []int32) error {
 	if err := w.Length(len(values)); err != nil {
 		return err
 	}
-	for _, value := range values {
-		if err := w.Int32(value); err != nil {
-			return err
+	const itemSize = 4
+	return w.writeBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			binary.LittleEndian.PutUint32(chunk[i:i+itemSize], uint32(values[offset+i/itemSize]))
 		}
-	}
-	return nil
+	})
 }
 
 func (w *BinaryWriter) WriteUint32s(values []uint32) error {
 	if err := w.Length(len(values)); err != nil {
 		return err
 	}
-	for _, value := range values {
-		if err := w.Uint32(value); err != nil {
-			return err
+	const itemSize = 4
+	return w.writeBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			binary.LittleEndian.PutUint32(chunk[i:i+itemSize], values[offset+i/itemSize])
 		}
-	}
-	return nil
+	})
 }
 
-func (w *BinaryWriter) WriteUInt64s(values []uint64) error {
+func (w *BinaryWriter) WriteUint64s(values []uint64) error {
 	if err := w.Length(len(values)); err != nil {
 		return err
 	}
-	for _, value := range values {
-		if err := w.Uint64(value); err != nil {
-			return err
+	const itemSize = 8
+	return w.writeBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			binary.LittleEndian.PutUint64(chunk[i:i+itemSize], values[offset+i/itemSize])
 		}
-	}
-	return nil
+	})
+}
+
+func (w *BinaryWriter) WriteUInt64s(values []uint64) error {
+	return w.WriteUint64s(values)
 }
 
 func (w *BinaryWriter) WriteInt64s(values []int64) error {
 	if err := w.Length(len(values)); err != nil {
 		return err
 	}
-	for _, value := range values {
-		if err := w.Int64(value); err != nil {
-			return err
+	const itemSize = 8
+	return w.writeBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			binary.LittleEndian.PutUint64(chunk[i:i+itemSize], uint64(values[offset+i/itemSize]))
 		}
-	}
-	return nil
+	})
 }
 
 func (w *BinaryWriter) WriteUint16s(values []uint16) error {
 	if err := w.Length(len(values)); err != nil {
 		return err
 	}
-	for _, value := range values {
-		if err := w.Uint16(value); err != nil {
-			return err
+	const itemSize = 2
+	return w.writeBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			binary.LittleEndian.PutUint16(chunk[i:i+itemSize], values[offset+i/itemSize])
 		}
-	}
-	return nil
+	})
 }
+
 func (w *BinaryWriter) WriteInts(values []int) error {
 	if err := w.Length(len(values)); err != nil {
 		return err
 	}
-	for _, value := range values {
-		if err := w.Int64(int64(value)); err != nil {
+	const itemSize = 8
+	return w.writeBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			binary.LittleEndian.PutUint64(chunk[i:i+itemSize], uint64(values[offset+i/itemSize]))
+		}
+	})
+}
+
+// writeBulk writes slice of data with chunking strategy
+// similiar to writeUint64Array() in https://github.com/bits-and-blooms/bitset/blob/master/bitset.go
+func (w *BinaryWriter) writeBulk(count, itemSize int, encode func([]byte, int)) error {
+	numItemsPerChunk := CHUNK_SIZE / itemSize
+	if capacity := numItemsPerChunk * itemSize; cap(w.bulkBuf) < capacity {
+		w.bulkBuf = make([]byte, capacity)
+	}
+	for offset := 0; offset < count; {
+		n := min(numItemsPerChunk, count-offset)
+		chunk := w.bulkBuf[:n*itemSize]
+		encode(chunk, offset)
+		if _, err := w.w.Write(chunk); err != nil {
 			return err
 		}
+		offset += n
 	}
 	return nil
 }

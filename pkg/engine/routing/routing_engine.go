@@ -23,12 +23,12 @@ type CRPRoutingEngine[W util.RoutingNumber] struct {
 	logger       *zap.Logger
 	puCache      *otter.Cache[da.PUCacheKey, []da.Index]
 
-	coordsPool sync.Pool
 	fHeapPool  sync.Pool
 	bHeapPool  sync.Pool
 	puHeapPool sync.Pool
 
 	puovHeapPool sync.Pool
+	mu           *sync.RWMutex
 
 	landmarkFile string
 
@@ -60,6 +60,7 @@ func NewCRPRoutingEngine[W util.RoutingNumber](graph *da.Graph,
 		lm:           lm,
 		rn:           rn,
 		landmarkFile: landmarkFile,
+		mu:           &sync.RWMutex{},
 	}
 	crp.BuildQueryHeapPool()
 	crp.initParameter()
@@ -75,21 +76,24 @@ func (crp *CRPRoutingEngine[W]) GetOverlayGraph() *da.OverlayGraph {
 }
 
 func (crp *CRPRoutingEngine[W]) GetMetrics() *met.Metric[W] {
+	crp.mu.RLock()
+	defer crp.mu.RUnlock()
 	return crp.metrics
+}
+
+func (crp *CRPRoutingEngine[W]) GetLandmark() *landmark.Landmark[W] {
+	crp.mu.RLock()
+	defer crp.mu.RUnlock()
+	return crp.lm
 }
 
 func (crp *CRPRoutingEngine[W]) GetRoadNetworkContainer() *da.RoadNetworkDataContainer {
 	return crp.rn
 }
 
-func (crp *CRPRoutingEngine[W]) GetCostFunction() *met.TimeFunction[W] {
-	return crp.metrics.GetCostFunction()
-}
-
 func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	maxVerticesInCell := crp.graph.GetMaxVerticesInCell()
 	numOverlayVertices := crp.overlayGraph.NumberOfOverlayVertices()
-	nv := crp.graph.NumberOfVertices()
 
 	// todo: ini kayake bisa dioptimize dengan gak reinitialize slice dari overlay vertices index di TwoLevelStorage?
 	// kaya di implementasi crp by wagner ini: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
@@ -101,39 +105,42 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	// atau https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/query_heap.hpp
 	// di jateng_jabar osm file, number of overlay/boundary vertices sekitar 790k. maybe this initialize ~800k elements dari slice bisa makan 1-2ms?
 	// harus cari cara yang bikin code querynya nya masih enak dilihat
+	// DONE :)
 
 	// crp query heap pool
+
+	crpMaxSearchSize := da.Index(2*maxVerticesInCell + da.Index(numOverlayVertices))
 	crp.fHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](uint32(numOverlayVertices), uint32(nv), da.TWO_LEVEL_STORAGE, true)
+			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, da.ARRAY_STORAGE)
+			qh.SetIsCRPQuery()
+			return qh
 		},
 	}
 
 	crp.bHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](uint32(numOverlayVertices), uint32(nv), da.TWO_LEVEL_STORAGE, true)
+			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, da.ARRAY_STORAGE)
+			qh.SetIsCRPQuery()
+			return qh
 		},
 	}
 
 	// path unpacking heap pool
 	crp.puovHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](da.OVERLAY_CELL_SIZE, uint32(maxVerticesInCell), da.MAP_STORAGE, true)
+			return da.NewQueryHeap[da.Index, W](da.Index(numOverlayVertices), da.ARRAY_STORAGE)
 		},
 	}
 
 	crp.puHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](uint32(maxVerticesInCell)*2, uint32(maxVerticesInCell), da.MAP_STORAGE, true)
+			pq := da.NewQueryHeap[da.Index, W](da.Index(maxVerticesInCell), da.ARRAY_STORAGE)
+			pq.SetLevelOneCellQuery()
+			return pq
 		},
 	}
 
-	crp.coordsPool = sync.Pool{
-		New: func() any {
-			cs := da.NewCoordinatesWithCap(0)
-			return cs
-		},
-	}
 }
 
 func (crp *CRPRoutingEngine[W]) initParameter() {
@@ -146,48 +153,6 @@ func (crp *CRPRoutingEngine[W]) initParameter() {
 func (crp *CRPRoutingEngine[W]) Close() {
 	crp.puCache.InvalidateAll()
 	crp.puCache.StopAllGoroutines()
-}
-
-// GetWeight. get weight of outgoing edge
-func (crp *CRPRoutingEngine[W]) getWeight(eId da.Index, out bool) W {
-	if !out {
-		oeId := crp.graph.GetOutId(eId)
-		return crp.metrics.GetWeight(oeId)
-	}
-	return crp.metrics.GetWeight(eId)
-}
-
-func (crp *CRPRoutingEngine[W]) GetDurationSeconds(segId da.Index) float64 {
-	w := crp.metrics.GetDurationSeconds(segId)
-	return w
-}
-
-// GetLength. get weight (traveltime /duration) of a road segment given road segment length
-func (crp *CRPRoutingEngine[W]) GetDurationFromLength(segId da.Index, eLength float64) float64 {
-	length := util.DistanceFromMeters(eLength)
-	ww := crp.metrics.GetDurationFromLength(segId, length)
-	return util.WeightToSeconds(ww)
-}
-
-func (crp *CRPRoutingEngine[W]) GetSegmentSpeed(segId da.Index) float64 {
-	return crp.metrics.GetSegmentSpeed(segId)
-}
-
-// GetSegmentLength. get road segment (edge) length in meters
-func (crp *CRPRoutingEngine[W]) GetSegmentLength(segId da.Index) float64 {
-	l := crp.metrics.GetSegmentLength(segId)
-	return l
-}
-
-func (crp *CRPRoutingEngine[W]) PutCoordsToPool(coords *da.Coordinates) {
-	coords.Reset()
-	crp.coordsPool.Put(coords)
-}
-
-func (crp *CRPRoutingEngine[W]) GetCoordsFromPool() *da.Coordinates {
-	c := crp.coordsPool.Get().(*da.Coordinates)
-	c.Reset()
-	return c
 }
 
 func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool) {
@@ -209,13 +174,31 @@ func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index) (*da.Co
 
 	totalDistance := 0.0
 
-	path := crp.GetCoordsFromPool()
+	path := &da.Coordinates{}
 
+	met := crp.GetMetrics()
 	for i := 1; i < len(segmentIdPath)-1; i++ { // skip road segments s & t. (kita append path nya di AppendPhantomNode)
 		segId := segmentIdPath[i]
 		path.Append(crp.rn.GetSegmentGeometry(segId))
-		totalDistance += crp.GetSegmentLength(segId)
+		totalDistance += met.GetSegmentLength(segId)
 	}
 
 	return path, totalDistance
+}
+
+func (crp *CRPRoutingEngine[W]) GetV(offset, i da.Index, out bool) (da.Index, da.Index) {
+	eId := offset + i
+	if out {
+		return crp.graph.GetHead(eId), eId
+	}
+	return crp.graph.GetTail(eId), eId
+}
+
+func (crp *CRPRoutingEngine[W]) GetOV(ovOffset, wOffset, numExit, i da.Index, out bool) (da.Index, da.Index) {
+	if out {
+		v := crp.overlayGraph.GetCellExitVertex(ovOffset + i)
+		return v, wOffset + i
+	}
+	v := crp.overlayGraph.GetCellEntryVertex(ovOffset + i)
+	return v, wOffset + i*numExit
 }

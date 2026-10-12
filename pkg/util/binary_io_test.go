@@ -38,20 +38,243 @@ func TestCompressedFileRoundTrip(t *testing.T) {
 }
 
 func TestBinaryWriterWriteFloat64s(t *testing.T) {
-	values := []float64{1.5, math.Copysign(0, -1), math.Inf(1)}
-	var output bytes.Buffer
-	if err := NewBinaryWriter(&output).WriteFloat64s(values); err != nil {
-		t.Fatal(err)
+	tests := [][]float64{
+		{},
+		{1.5, math.Copysign(0, -1), math.Inf(1), math.Inf(-1), -123.456},
+		make([]float64, (CHUNK_SIZE/8)+25),
+	}
+	for i := range tests[2] {
+		tests[2][i] = float64(i) * 1.5
 	}
 
-	reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
-	got, err := reader.ReadFloat64s()
-	if err != nil {
-		t.Fatal(err)
+	for _, values := range tests {
+		var output bytes.Buffer
+		if err := NewBinaryWriter(&output).WriteFloat64s(values); err != nil {
+			t.Fatal(err)
+		}
+
+		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
+		got, err := reader.ReadFloat64s()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(values) {
+			t.Fatalf("got len %d, want %d", len(got), len(values))
+		}
+		for i := range values {
+			if math.Float64bits(got[i]) != math.Float64bits(values[i]) {
+				t.Fatalf("value[%d] bits = %#x, want %#x", i, math.Float64bits(got[i]), math.Float64bits(values[i]))
+			}
+		}
 	}
-	for i := range values {
-		if math.Float64bits(got[i]) != math.Float64bits(values[i]) {
-			t.Fatalf("value[%d] bits = %#x, want %#x", i, math.Float64bits(got[i]), math.Float64bits(values[i]))
+}
+
+func TestBinaryWriterWriteInt32s(t *testing.T) {
+	tests := [][]int32{
+		{},
+		{0, -1, 1, math.MinInt32, math.MaxInt32},
+		make([]int32, (CHUNK_SIZE/4)+25),
+	}
+	for i := range tests[2] {
+		tests[2][i] = int32(i*3 - 100)
+	}
+
+	for _, values := range tests {
+		var output bytes.Buffer
+		if err := NewBinaryWriter(&output).WriteInt32s(values); err != nil {
+			t.Fatal(err)
+		}
+
+		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
+		got, err := reader.ReadInt32s()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(values) {
+			t.Fatalf("got len %d, want %d", len(got), len(values))
+		}
+		for i := range values {
+			if got[i] != values[i] {
+				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
+			}
+		}
+	}
+}
+
+func TestBinaryWriterWriteUint32s(t *testing.T) {
+	tests := [][]uint32{
+		{},
+		{0, 1, 42, math.MaxUint32},
+		make([]uint32, (CHUNK_SIZE/4)+25),
+	}
+	for i := range tests[2] {
+		tests[2][i] = uint32(i * 7)
+	}
+
+	for _, values := range tests {
+		var output bytes.Buffer
+		if err := NewBinaryWriter(&output).WriteUint32s(values); err != nil {
+			t.Fatal(err)
+		}
+
+		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
+		got, err := reader.ReadUint32s()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(values) {
+			t.Fatalf("got len %d, want %d", len(got), len(values))
+		}
+		for i := range values {
+			if got[i] != values[i] {
+				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
+			}
+		}
+	}
+}
+
+func TestBinaryWriterWriteUint64s(t *testing.T) {
+	tests := [][]uint64{
+		{},
+		{0, 1, math.MaxUint64},
+		make([]uint64, (CHUNK_SIZE/8)+25),
+	}
+	for i := range tests[2] {
+		tests[2][i] = uint64(i * 13)
+	}
+
+	for _, values := range tests {
+		var output bytes.Buffer
+		if err := NewBinaryWriter(&output).WriteUint64s(values); err != nil {
+			t.Fatal(err)
+		}
+
+		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
+		got, err := reader.ReadUint64s()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(values) {
+			t.Fatalf("got len %d, want %d", len(got), len(values))
+		}
+		for i := range values {
+			if got[i] != values[i] {
+				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
+			}
+		}
+
+		var output2 bytes.Buffer
+		if err := NewBinaryWriter(&output2).WriteUInt64s(values); err != nil {
+			t.Fatal(err)
+		}
+		reader2 := NewBinaryReader(bytes.NewReader(output2.Bytes()))
+		got2, err := reader2.ReadUInt64s()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got2) != len(values) {
+			t.Fatalf("got2 len %d, want %d", len(got2), len(values))
+		}
+		for i := range values {
+			if got2[i] != values[i] {
+				t.Fatalf("value2[%d] = %d, want %d", i, got2[i], values[i])
+			}
+		}
+	}
+}
+
+func TestBinaryWriterWriteInt64s(t *testing.T) {
+	tests := [][]int64{
+		{},
+		{0, -1, 1, math.MinInt64, math.MaxInt64},
+		make([]int64, (CHUNK_SIZE/8)+25),
+	}
+	for i := range tests[2] {
+		tests[2][i] = int64(i*17 - 500)
+	}
+
+	for _, values := range tests {
+		var output bytes.Buffer
+		if err := NewBinaryWriter(&output).WriteInt64s(values); err != nil {
+			t.Fatal(err)
+		}
+
+		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
+		got, err := reader.ReadInt64s()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(values) {
+			t.Fatalf("got len %d, want %d", len(got), len(values))
+		}
+		for i := range values {
+			if got[i] != values[i] {
+				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
+			}
+		}
+	}
+}
+
+func TestBinaryWriterWriteUint16s(t *testing.T) {
+	tests := [][]uint16{
+		{},
+		{0, 1, 42, math.MaxUint16},
+		make([]uint16, (CHUNK_SIZE/2)+25),
+	}
+	for i := range tests[2] {
+		tests[2][i] = uint16(i * 3)
+	}
+
+	for _, values := range tests {
+		var output bytes.Buffer
+		if err := NewBinaryWriter(&output).WriteUint16s(values); err != nil {
+			t.Fatal(err)
+		}
+
+		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
+		got, err := reader.ReadUint16s()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(values) {
+			t.Fatalf("got len %d, want %d", len(got), len(values))
+		}
+		for i := range values {
+			if got[i] != values[i] {
+				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
+			}
+		}
+	}
+}
+
+func TestBinaryWriterWriteInts(t *testing.T) {
+	tests := [][]int{
+		{},
+		{0, -1, 1, -123456789, 123456789},
+		make([]int, (CHUNK_SIZE/8)+25),
+	}
+	for i := range tests[2] {
+		tests[2][i] = i*19 - 1000
+	}
+
+	for _, values := range tests {
+		var output bytes.Buffer
+		if err := NewBinaryWriter(&output).WriteInts(values); err != nil {
+			t.Fatal(err)
+		}
+
+		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
+		got, err := reader.ReadInts()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(values) {
+			t.Fatalf("got len %d, want %d", len(got), len(values))
+		}
+		for i := range values {
+			if got[i] != values[i] {
+				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
+			}
 		}
 	}
 }
