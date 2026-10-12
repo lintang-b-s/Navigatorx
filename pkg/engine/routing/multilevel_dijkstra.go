@@ -52,8 +52,8 @@ func NewCRPQuery[W util.RoutingNumber](
 }
 
 /*
-implementasi dari:
-1. query phase (without turn costs): Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
+references:
+1. query phase: Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
 2. Sungwon Jung and S. Pramanik, "An efficient path computation model for hierarchically structured topographical road maps," in IEEE Transactions on Knowledge and Data Engineering, vol. 14, no. 5, pp. 1029-1046, Sept.-Oct. 2002, doi: 10.1109/TKDE.2002.1033772.
 keywords: {Computational modeling;Roads;Navigation;Computational efficiency;Performance analysis;Shortest path problem;Concurrent computing;Cost function;Automobiles;Space exploration},
 3. Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
@@ -63,8 +63,8 @@ https://doi.org/10.1287/trsc.2014.0579.
 5. Towers, M. (2020). Bidirectional Dijkstra. https://www.homepages.ucl.ac.uk/~ucahmto/math/2020/05/30/bidirectional-dijkstra.html. Diakses tanggal: 5 Agustus 2026.
 6. Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable Route Planning in Road Networks. Transportation Science, No. 2, Volume 51, pages 566-591.
 
-ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1, 6] / multilevel-dijkstra. read section 5.3 Query: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-dan read section 3 - Basic Algorithm in ref[1].
+ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1, 6] (or sometimes called as multilevel-dijkstra like in https://github.com/Project-OSRM/osrm-backend).
+read section 5.3 Query: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf dan read section 3 - Basic Algorithm in ref[1].
 intinya cuma bidirectional dijkstra pada graf yang consisiting of overlay graph H, cell C_s, cell C_t. C_s adalah cell level 1 yang mengandung vertex s hasil multilevel partition (lihat package partitioner).
 Setiap cell C_v memiliki vertices (all inside cell C_v) dan edges (semua endpoints nya inside C_v), vertices dan edges dari cell C_v adalah subset dari vertices dan edges dari graf G.
 overlay graph H adalah graf yang mengandung all boundary/overlay vertices, all cut/boundary edges, all shortcut edges di setiap cells hasil multilevel partitioning.

@@ -52,14 +52,12 @@ func NewCRPALTQuery[W util.RoutingNumber](
 }
 
 /*
-implementasi dari:
-1. query phase : Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
+references:
+1. query phase: Delling, D. et al. (2011) “Customizable Route Planning,” in P.M. Pardalos and S. Rebennack (eds.) Experimental Algorithms. Berlin, Heidelberg: Springer, pp. 376–387. Available at: https://doi.org/10.1007/978-3-642-20662-7_32.
 2. Sungwon Jung and S. Pramanik, "An efficient path computation model for hierarchically structured topographical road maps," in IEEE Transactions on Knowledge and Data Engineering, vol. 14, no. 5, pp. 1029-1046, Sept.-Oct. 2002, doi: 10.1109/TKDE.2002.1033772.
 keywords: {Computational modeling;Roads;Navigation;Computational efficiency;Performance analysis;Shortest path problem;Concurrent computing;Cost function;Automobiles;Space exploration},
 3. Haeupler, B. et al. (2025) “Bidirectional Dijkstra's Algorithm is Instance-Optimal,” in 2025 Symposium on Simplicity in Algorithms (SOSA). Society for Industrial and Applied Mathematics (Proceedings), pp. 202–215. Available at: https://doi.org/10.1137/1.9781611978315.16.
-4. query phase:  Delling, D. et al. (2015) “Customizable Route Planning in Road
-Networks,” Transportation Science [Preprint]. Available at:
-https://doi.org/10.1287/trsc.2014.0579.
+4. query phase: Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable Route Planning in Road Networks. Transportation Science, No. 2, Volume 51, pages 566-591.
 5. ALT query phase: Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 6. https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 7. bidirectional A*: Ikeda, T. et al. (1994) ‘A fast algorithm for finding better routes by AI search techniques’, in Proceedings of VNIS’94 - 1994 Vehicle Navigation and Information Systems Conference, pp. 291–296. Available at: https://doi.org/10.1109/VNIS.1994.396824.
@@ -68,7 +66,7 @@ https://doi.org/10.1287/trsc.2014.0579.
 10. Efentakis, A., Pfoser, D. dan Vassiliou, Y. (2015). SALT. A Unified Framework for All Shortest-Path Query Variants on Road Networks. In Proceedings of the 14th International Symposium on Experimental Algorithms, Volume 9125, pages 298–311, Paris.
 
 
-ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1] + Bidirectional ALT (A* search, landmarks, and triangle inequality) [5], similar to the one in [10]
+ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1,4] + Bidirectional ALT (A* search, landmarks, and triangle inequality) [5], similar to the one in [10]
 intinya cuma bidirectional ALT  (A* search, landmarks, and triangle inequality)  pada graf yang consisiting of overlay graph H, cell C_s, cell C_t. C_s adalah cell level 1 yang mengandung vertex s hasil multilevel partition (lihat package partitioner).
 Setiap cell C_v memiliki vertices (all inside cell C_v) dan edges (semua tail dan head dari edges nya inside C_v), vertices dan edges dari cell C_v adalah subset dari vertices dan edges dari graf G.
 overlay graph H adalah graf yang mengandung all boundary/overlay vertices, all cut edges, all shortcut edges di setiap cells hasil multilevel partitioning.
