@@ -1,6 +1,6 @@
 # Navigatorx
 
-Routing Engine For Openstreetmap data. Supports fast traffic updates and most types of turn restrictions (via-node, via-way, multiple via-way) from OpenStreetMap.
+Routing Engine For Openstreetmap data. Supports fast point-to-point fastest path queries, fast traffic updates, and most types of turn restrictions (via-node, via-way, multiple via-way) from OpenStreetMap.
 
 [![test](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml)
 [![lint](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml)

@@ -11,7 +11,7 @@ func TestQueryHeap(t *testing.T) {
 	t.Run("random array query heap test ARRAY_STORAGE", func(t *testing.T) {
 		rd := rand.New(rand.NewSource((time.Now().UnixNano())))
 
-		numInputs := int(1e4)
+		numInputs := int(1e5)
 		pq := NewQueryHeap[int, float64](Index(numInputs), ARRAY_STORAGE)
 
 		sortedArr := make([]int, numInputs)
