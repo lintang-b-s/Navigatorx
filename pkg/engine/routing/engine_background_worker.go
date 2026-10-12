@@ -86,11 +86,14 @@ func (crp *CRPRoutingEngine[W]) checkCustomizerUpdate(metricsFilePath string, ct
 }
 
 func (crp *CRPRoutingEngine[W]) updateMetrics() (err error) {
+	crp.mu.Lock()
+	defer crp.mu.Unlock()
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic recovered: %v", r)
 		}
 	}()
+
 	err = crp.metrics.UpdateMetrics()
 	if err != nil {
 		crp.logger.Sugar().Errorf("engine.checkCustomizerUpdate: failed to update metrics data: %v\n", err)

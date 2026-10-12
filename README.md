@@ -125,7 +125,7 @@ online routing engine demo: [demo](https://navigatorx-crp-fe.vercel.app/)
 
 ### Acknowledgments
 
-i would like to express my deepest gratitude to the contributors to the open source projects below. The code in the Navigatorx project is heavily adapted and inspired by the following open source projects:
+i would like to express my deepest gratitude to the contributors to the open source projects below. The code in the Navigatorx project is heavily adapted and inspired by the following great open source projects:
 
 1. [CRP](https://github.com/michaelwegner/CRP)
 2. [OSRM Backend](https://github.com/Project-OSRM/osrm-backend)

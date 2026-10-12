@@ -2,7 +2,6 @@ package metrics
 
 import (
 	"fmt"
-	"sync"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -51,7 +50,6 @@ func ReadFromFile[W util.RoutingNumber](
 	metric := &Metric[W]{
 		metricFilepath:        filename,
 		timeFunctionFilePath:  timeFunctionFilePath,
-		mu:                    sync.Mutex{},
 		shortcutWeights:       overlayWeights,
 		costFunction:          timeFunction,
 		lastSegmentSpeedFiles: make([]string, 0),

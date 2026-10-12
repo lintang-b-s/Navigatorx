@@ -3,7 +3,6 @@ package metrics
 
 import (
 	"fmt"
-	"sync"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -14,7 +13,6 @@ type Metric[W util.RoutingNumber] struct {
 	costFunction                                *TimeFunction[W]
 	lastSegmentSpeedFiles, lastTurnPenaltyFiles []string
 	metricFilepath, timeFunctionFilePath        string
-	mu                                          sync.Mutex
 }
 
 func NewMetric[W util.RoutingNumber](
@@ -27,7 +25,6 @@ func NewMetric[W util.RoutingNumber](
 		shortcutWeights:       overlayWeights,
 		metricFilepath:        metricFilepath,
 		timeFunctionFilePath:  timeFunctionFilePath,
-		mu:                    sync.Mutex{},
 		lastSegmentSpeedFiles: make([]string, 0),
 		lastTurnPenaltyFiles:  make([]string, 0),
 	}
@@ -112,8 +109,6 @@ func (met *Metric[W]) UpdateMetrics() error {
 		return fmt.Errorf("UpdateMetrics: failed to read new metrics, filepath: %s: %w", met.metricFilepath, err)
 	}
 
-	met.mu.Lock()
-	defer met.mu.Unlock()
 	nmw := newMet.shortcutWeights
 	nmcf := newMet.costFunction
 	met.shortcutWeights = nmw
