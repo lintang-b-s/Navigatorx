@@ -94,9 +94,9 @@ gdown https://drive.google.com/uc?id=1pRmqUFgNc_p0lEKmfzLcn3IRhUW4Cm4c  --output
 sh ./scripts/run_test.sh
 ```
 
-## Load Test
+## Load Tests and Other Correctness Tests
 
-load tests result: https://github.com/lintang-b-s/skripsi_code
+load tests and other correctness tests result: https://github.com/lintang-b-s/skripsi_code
 
 ## API Documentation
 
@@ -136,5 +136,3 @@ i would like to express my deepest gratitude to the contributors to the open sou
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-
