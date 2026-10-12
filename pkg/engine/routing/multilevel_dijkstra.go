@@ -63,7 +63,7 @@ https://doi.org/10.1287/trsc.2014.0579.
 5. Towers, M. (2020). Bidirectional Dijkstra. https://www.homepages.ucl.ac.uk/~ucahmto/math/2020/05/30/bidirectional-dijkstra.html. Diakses tanggal: 5 Agustus 2026.
 6. Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable Route Planning in Road Networks. Transportation Science, No. 2, Volume 51, pages 566-591.
 
-ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1, 6] (or sometimes called as multilevel-dijkstra like in https://github.com/Project-OSRM/osrm-backend).
+ini adalah implementasi dari fase query dari Customizable Route Planning (CRP) [1, 6] (or sometimes called as Multi-Level Dijkstra like in https://github.com/Project-OSRM/osrm-backend).
 read section 5.3 Query: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf dan read section 3 - Basic Algorithm in ref[1].
 intinya cuma bidirectional dijkstra pada graf yang consisiting of overlay graph H, cell C_s, cell C_t. C_s adalah cell level 1 yang mengandung vertex s hasil multilevel partition (lihat package partitioner).
 Setiap cell C_v memiliki vertices (all inside cell C_v) dan edges (semua endpoints nya inside C_v), vertices dan edges dari cell C_v adalah subset dari vertices dan edges dari graf G.
