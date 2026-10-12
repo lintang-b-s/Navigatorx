@@ -83,7 +83,7 @@ func (us *ALTP2P[W]) graphSearchUni(source, target da.Index) bool {
 		}
 
 		vLabelled := util.Lt(ovCost, util.Infinity[W]())
-		hv := us.lm.FindTighestLowerBound(vId, target, us.activeLandmarks)
+		hv := us.lm.ComputeTighestLowerBound(vId, target, us.activeLandmarks)
 		priority := newVCost + hv
 
 		// newVCost is better, update the labelled vertex data

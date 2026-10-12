@@ -35,8 +35,7 @@ var (
 // NEW RESULT: 1.6952 ms/op
 // todo: optimize sampai ~1ms/op
 //
-//	di table 10: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-//
+// di table 10: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 // DIMACS TIGER US (dengan jumlah vertices ~7x lebih banyak dari DIMACS Eastern USA) cuma 1.6 ms/op
 // di table 4: http://dagstuhl.sunsite.rwth-aachen.de/volltexte/2020/13145/pdf/OASIcs-ATMOS-2020-9.pdf
 // CRP with edge-based graph (sama kaya project ini) cuma 0.31 ms/op  pake istan Eropa (jumlah vertices 5x lebih banyak dari DIMACS Estern USA)..
@@ -44,6 +43,7 @@ var (
 // cuma 0.9 ms/op di DIMACS USA..
 // mungkin Eastern USA bisa lebih cepet dari 1.69 ms/op , implementasi CRP query di multilevel_dijkstra.go dan multilevel_astar_landmarks.go bisa dioptimize lagi...
 // atau mungkin karena mereka implement di C++ dan PC untuk eksperimen nya lebih bagus?
+// NEW RESULT setelah update SelectBestQueryLandmarks() di landmark.go: 1.0568 ms/op
 const (
 	progress = 100
 )

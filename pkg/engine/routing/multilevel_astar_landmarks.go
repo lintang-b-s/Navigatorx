@@ -132,7 +132,7 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 
 	bs.shortestCost = 2 * util.Infinity[W]()
 	bs.activeLandmarks = bs.engine.lm.SelectBestQueryLandmarks(s, t)
-	bs.pirt = bs.lm.FindTighestLowerBound(s, t, bs.activeLandmarks) // consistent lower bound dari dist(s, t)
+	bs.pirt = bs.lm.ComputeTighestLowerBound(s, t, bs.activeLandmarks) // consistent lower bound dari dist(s, t)
 
 	sOffset, sSize := bs.engine.graph.GetVertexCellOffset(s)
 	tOffset, tSize := bs.engine.graph.GetVertexCellOffset(t)
@@ -214,7 +214,6 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 		// get query level of v l_st(v)
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(v))
-
 		eWeight := bs.GetWeight(eId, forw)
 
 		// get cost to reach v through u
@@ -226,11 +225,11 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 			oldVCost := pq.GetCost(v)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
-				hv := bs.engine.lm.FindTighestConsistentLowerBound(v, s, t, bs.activeLandmarks, bs.pirt, forw)
+				hv := bs.engine.lm.ComputeTighestConsistentLowerBound(v, s, t, bs.activeLandmarks, bs.pirt, forw)
 				priority := newVCost + hv
+				// newVCost is better, update the vertex v cost in priority queue
 
 				if vLabelled {
-					// newVCost is bsCellNumberetter, update the forwardData
 					// is key already in the priority queue, decrease its key
 					newPar := da.NewParentVertex(u)
 					pq.DecreaseKey(v, priority, newVCost, newPar)
@@ -258,7 +257,7 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 			oldVCost := pq.GetCost(vOv)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
-				hv := bs.engine.lm.FindTighestConsistentLowerBound(v, s, t, bs.activeLandmarks, bs.pirt, forw)
+				hv := bs.engine.lm.ComputeTighestConsistentLowerBound(v, s, t, bs.activeLandmarks, bs.pirt, forw)
 				priority := newVCost + hv
 				newPar := da.NewParentVertex(u)
 				if !vLabelled {
@@ -348,7 +347,7 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 				wLabelled := util.Lt(oldWCost, util.Infinity[W]())
 				if util.Lt(newWCost, oldWCost) {
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-					hw := bs.engine.lm.FindTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
+					hw := bs.engine.lm.ComputeTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
 					priority := newWCost + hw
 
 					newPar := da.NewParentVertex(vOv)
@@ -379,7 +378,7 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 				wLabelled := util.Lt(oldwOvCost, util.Infinity[W]())
 				if util.Lt(newWCost, oldwOvCost) {
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
-					hw := bs.engine.lm.FindTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
+					hw := bs.engine.lm.ComputeTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
 					priority := newWCost + hw
 
 					newPar := da.NewParentVertex(vOv)
