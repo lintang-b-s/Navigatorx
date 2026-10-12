@@ -14,7 +14,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-// ArrayStorage stores heap indices for vertices using a flat array and dirty tracking.
+// ArrayStorage stores heap indices for vertices using a array and dirty tracking.
 // Unset positions are marked with [math.MaxUint32]. Touched indices are recorded in a dirty list,
 // enabling fast O(|dirty|) resets between queries instead of O(|V|).
 //
@@ -117,7 +117,7 @@ func (s *MapStorage) Clear() {
 	}
 }
 
-// ExploredBitsetStorage tracks explored/visited vertices during search using a bitset.
+// ExploredBitsetStorage tracks explored (exracted from priority queue) vertices during search using a bitset.
 //
 // Reference:
 // https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets

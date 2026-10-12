@@ -410,7 +410,7 @@ func (bs *CRPQuery[W]) Preallocate() {
 }
 
 func (bs *CRPQuery[W]) Done() {
-	if !bs.forAlternatives {
+	if bs.forAlternatives {
 		return
 	}
 	bs.fpq.Clear()
