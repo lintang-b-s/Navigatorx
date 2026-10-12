@@ -3,7 +3,6 @@ package metrics
 import (
 	"fmt"
 	"sync"
-	"sync/atomic"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -48,8 +47,7 @@ func ReadFromFile[W util.RoutingNumber](
 
 	overlayWeights := da.NewOverlayWeights[W](uint32(len(weights)))
 	overlayWeights.SetWeights(weights)
-	cl := &atomic.Bool{}
-	cl.Store(false)
+
 	metric := &Metric[W]{
 		metricFilepath:        filename,
 		timeFunctionFilePath:  timeFunctionFilePath,
