@@ -23,8 +23,8 @@ type Pv uint64
 // See section 4.1 & 4.3: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 type Graph struct {
 	vertices    []Vertex // map from vertex v id to vertex v data structure
-	heads       []Index  // head v dari edges (u,v) sorted by tail u
-	tails       []Index  // tail v reversed edges (v,u). setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v). sorted by head u.
+	heads       []Index  // map from tail u to head v dari edges (u,v) sorted by tail u
+	tails       []Index  // map from head u to tail v reversed edges (v,u). setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v). sorted by head u.
 	entryPoints []Index  // map from outgoing edge id (u,v) to index of this edge in the list of incoming edges of v.
 	exitPoints  []Index  // map from incoming (reversed) edge id (v,u) to index of this edge in the of outgoing edges of v.
 
@@ -171,8 +171,8 @@ func (g *Graph) ForOutEdgesOf(u Index, handle func(eId, head Index, entryPoint I
 }
 
 // ForOutEdgesOf. iterates all incoming (reversed) edges of vertex u.
-func (g *Graph) ForInEdgesOf(v Index, handle func(eId, tail Index, exitPoint Index)) {
-	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
+func (g *Graph) ForInEdgesOf(u Index, handle func(eId, tail Index, exitPoint Index)) {
+	for e := g.vertices[u].firstIn; e < g.vertices[u+1].firstIn; e++ {
 		exitPoint := g.exitPoints[e]
 		handle(e, g.tails[e], exitPoint)
 	}

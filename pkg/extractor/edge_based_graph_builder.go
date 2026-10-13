@@ -48,6 +48,7 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 
 	turnTable := makeTurnTable(turnMatrix, wf, g, rn, eSpeedLimit, vTurnTableIds)
 	ebgWeights := make([]W, 0, ebgvNum)
+	turnCosts := make([]uint16, 0, ebgvNum)
 	ebgvId := da.Index(0)
 	ebgeId := da.Index(0)
 	emPerm := make([]int, g.NumberOfEdges())
@@ -79,6 +80,7 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 				ebgEntryPoints[ueId] = append(ebgEntryPoints[ueId], uvEntryPoint)
 				ebgExitPoints[veId] = append(ebgExitPoints[veId], uvExitPoint)
 				ebgWeights = append(ebgWeights, eWeight)
+				turnCosts = append(turnCosts, tc)
 
 				ebgeId++
 			})
@@ -115,6 +117,7 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 	segDur := wf.GetSegmentDurations()
 	segDur = append(segDur, 0)
 	ebgWf := met.NewTimeCostFunction(true, ebgWeights, sl, segDur)
+	ebgWf.SetTurnCosts(turnCosts)
 
 	rn.ApplySegmentsPermutation(emPerm)
 
@@ -220,7 +223,7 @@ func makeTurnTable[W util.RoutingNumber](
 
 	turnTable := make([]uint16, n)
 	for i, seconds := range turnTableSeconds {
-		turnTable[i] = util.QuantizeTurnCost(seconds, math.IsInf(seconds, 1))
+		turnTable[i] = util.TurnCostCentiSeconds(seconds, math.IsInf(seconds, 1))
 	}
 	return turnTable
 }

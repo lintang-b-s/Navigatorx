@@ -148,20 +148,22 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	upTurnIds := make([]da.Index, 0)
 	upTurnPenalties := make([]float64, 0)
+	upTurnSegmentIds := make([]da.Index, 0)
 	lastTurnPenaltiesFiles := make([]string, 0)
 	if len(c.turnPenFilePath) != 0 {
 		for _, turnPenFilePath := range c.turnPenFilePath {
-			currturnTableIds, currTurnPenalties, err := c.readTurnPenaltiesFromFile(turnPenFilePath)
+			currturnTableIds, currTurnSegmentIds, currTurnPenalties, err := c.readTurnPenaltiesFromFile(turnPenFilePath)
 			if err != nil {
 				return nil, fmt.Errorf("Customize: failed to read turn penalties from %s: %w", turnPenFilePath, err)
 			}
 			upTurnIds = append(upTurnIds, currturnTableIds...)
 			upTurnPenalties = append(upTurnPenalties, currTurnPenalties...)
+			upTurnSegmentIds = append(upTurnSegmentIds, currTurnSegmentIds...)
 			lastTurnPenaltiesFiles = append(lastTurnPenaltiesFiles, turnPenFilePath)
 		}
 	}
 
-	wf := c.update(upSegmentIds, upSegmentSpeedLimits, upTurnIds, upTurnPenalties)
+	wf := c.update(upSegmentIds, upSegmentSpeedLimits, upTurnIds, upTurnSegmentIds, upTurnPenalties)
 	maxVerticesIncell := c.graph.GetMaxVerticesInCell()
 
 	c.levelOneHeapPool = sync.Pool{
@@ -230,7 +232,9 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.MAP_STORAGE)
+			pq := da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.ARRAY_STORAGE)
+			pq.SetLevelOneCellQuery()
+			return pq
 		},
 	}
 
@@ -251,9 +255,10 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 // update.
 func (c *Customizer[W]) update(
-	upVIds []da.Index,
+	upSegmentIds []da.Index,
 	upSegmentSpeedLimits []float64,
 	upTurnEdgeIds []da.Index,
+	upTurnSegmentIds []da.Index,
 	upTurnPenalties []float64,
 ) *met.TimeFunction[W] {
 
@@ -261,9 +266,9 @@ func (c *Customizer[W]) update(
 
 	upEbgEdgeIds := make([]da.Index, 0, len(upSegmentSpeedLimits))
 	upSpLimits := make([]uint32, 0, len(upSegmentSpeedLimits))
-	for i := 0; i < len(upVIds); i++ {
+	for i := 0; i < len(upSegmentIds); i++ {
 		speed := util.SpeedFromKilometerPerHour(upSegmentSpeedLimits[i])
-		u := upVIds[i]
+		u := upSegmentIds[i]
 
 		c.graph.ForOutEdgeIdsOf(u, func(eId da.Index) {
 			// update list of updated weight of edge ids
@@ -271,16 +276,16 @@ func (c *Customizer[W]) update(
 			upSpLimits = append(upSpLimits, speed)
 			upEbgNodeIds = append(upEbgNodeIds, u)
 		})
-
 	}
 
 	upTurnCosts := make([]uint16, len(upTurnEdgeIds))
 	for i := 0; i < len(upTurnEdgeIds); i++ {
-		tc := util.QuantizeTurnCost(upTurnPenalties[i], math.IsInf(upTurnPenalties[i], 1))
+		tcf := upTurnPenalties[i]
+		tc := util.TurnCostCentiSeconds(tcf, math.IsInf(tcf, 1))
 		upTurnCosts[i] = tc
 	}
 
-	wf := c.prepWeightFunction.Update(upEbgNodeIds, upEbgEdgeIds, upSpLimits, upTurnEdgeIds, upTurnCosts)
+	wf := c.prepWeightFunction.Update(upEbgNodeIds, upEbgEdgeIds, upSpLimits, upTurnEdgeIds, upTurnSegmentIds, upTurnCosts)
 	return wf
 }
 

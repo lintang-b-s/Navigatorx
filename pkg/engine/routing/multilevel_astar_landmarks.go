@@ -207,7 +207,6 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 	uCost := pq.GetCost(u)
 
 	offset, eNum := bs.engine.graph.NumEdges(u, forw)
-
 	for i := da.Index(0); i < eNum; i++ {
 		v, eId := bs.engine.GetV(offset, i, forw)
 

@@ -40,6 +40,10 @@ import (
 // 9 oktober, pakai heuristic yang baru buat map node-based graph partition ke edge-based graph partition, lebih bagus kualitasi partisinya... tapi load test & query runtime masih kalah sama directly partition edge-based graph
 // better di preprocessor cli kasih flag/opsi buat kualitas partisi
 
+// todo3: reduce peak htop RES lagi dari partitioner..
+// dennis luxen inertial flow implementation only peak memory 11.02 GB pakai instan DIMACS USA: https://github.com/DennisOSRM/toolbox-rs/pull/542 dan https://dennisosrm.github.io/toolbox-rs/
+//
+
 type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
 	// best parameter for customizable route planning by delling et al:

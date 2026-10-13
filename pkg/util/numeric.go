@@ -68,7 +68,7 @@ func MetersPerSecondFromCentimeters(value int32) float64 {
 	return float64(value) / CentiScale
 }
 
-func QuantizeTurnCost(seconds float64, forbidden bool) uint16 {
+func TurnCostCentiSeconds(seconds float64, forbidden bool) uint16 {
 	if forbidden {
 		return TurnCostForbidden
 	}

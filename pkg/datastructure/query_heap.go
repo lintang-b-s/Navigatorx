@@ -184,10 +184,10 @@ func (qh *QueryHeap[T, W]) ExtractMin() PriorityQueueNode[T, W] {
 //go:inline
 func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newPriority, vCost W, newPar ParentVertex) {
 	mid := qh.mapId(id)
-	vertexIndex := qh.verticesIndex.Get(mid)
-	heapNodeId := qh.verticesData[vertexIndex].heapNodeId
-	qh.verticesData[vertexIndex].parent = newPar
-	qh.verticesData[vertexIndex].cost = vCost
+	vIndex := qh.verticesIndex.Get(mid)
+	heapNodeId := qh.verticesData[vIndex].heapNodeId
+	qh.verticesData[vIndex].parent = newPar
+	qh.verticesData[vIndex].cost = vCost
 	qh.heap[heapNodeId].rank = newPriority
 
 	qh.heapifyUp(heapNodeId)
@@ -280,8 +280,8 @@ func (qh *QueryHeap[T, W]) IsEmpty() bool {
 
 func (qh *QueryHeap[T, W]) SetQueryLevel(id Index, qLevel uint8) {
 	mid := qh.mapId(id)
-	vertexIndex := qh.verticesIndex.Get(mid)
-	qh.verticesData[vertexIndex].parent.queryLevel = qLevel
+	vIndex := qh.verticesIndex.Get(mid)
+	qh.verticesData[vIndex].parent.queryLevel = qLevel
 }
 
 //go:inline
@@ -311,14 +311,16 @@ Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
 pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
 this explanation taken from ref1 :
-A second optimization uses the fact that the maximum heap size can be computed in
+"A second optimization uses the fact that the maximum heap size can be computed in
 advance. Any search will scan at most all overlay vertices and the vertices in the cells of s and t on the lowest
 level. This allows us to preallocate all necessary data structures. To index the heap, we use local identifiers
-(for vertices in the source and target cells, with different offsets), and overlay identifiers otherwise. (Delling et al. (2015))
+(for vertices in the source and target cells, with different offsets), and overlay identifiers otherwise." (Delling et al. (2015))
 
 
 another CRP implementation that implement this optimization: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
 search: "vId -= forwardSOffset;".
+
+this can be done because of graph.vertices is sorted by its vertex cellNumber
 */
 
 // mapId maps an input vertex Id into the contiguous offseted index range [0, 2*maxV + numOverlayVertices).
@@ -420,6 +422,6 @@ func (p *PriorityQueueNode[T, W]) SetRank(rank W) {
 	p.rank = rank
 }
 
-func NewPriorityQueueNode[T comparable, W util.RoutingNumber](rank W, item T, vertexIndex Index) PriorityQueueNode[T, W] {
-	return PriorityQueueNode[T, W]{rank: rank, item: item, vertexIndex: vertexIndex}
+func NewPriorityQueueNode[T comparable, W util.RoutingNumber](rank W, item T, vIndex Index) PriorityQueueNode[T, W] {
+	return PriorityQueueNode[T, W]{rank: rank, item: item, vertexIndex: vIndex}
 }
