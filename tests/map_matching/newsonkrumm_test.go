@@ -249,10 +249,10 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 
 	op := extractor.NewExtractor[int32]()
 	n := len(nodeIdMap)
-	acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
+	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmID := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
-		acceptedNodeMap[int64(i)] = extractor.NewNodeCoord(nodeCoords[i].GetLat(), nodeCoords[i].GetLon())
+		acceptedNodeMap[int64(i)] = da.NewCoordinate(nodeCoords[i].GetLat(), nodeCoords[i].GetLon())
 		nodeToOsmID[da.Index(i)] = int64(i)
 	}
 	op.SetAcceptedNodeMap(acceptedNodeMap)

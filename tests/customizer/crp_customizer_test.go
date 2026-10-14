@@ -225,10 +225,10 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 
-		var nodeCoords []extractor.NodeCoord
+		var nodeCoords []da.Coordinate
 
 		for i := 0; i < n; i++ {
-			nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
+			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
 		}
 
 		adjList := make([][]tests.PairEdge, n)
@@ -255,7 +255,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		es := tests.FlattenEdges(adjList)
 
 		op := extractor.NewExtractor[float64]()
-		acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
+		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
 			acceptedNodeMap[int64(i)] = nodeCoords[i]

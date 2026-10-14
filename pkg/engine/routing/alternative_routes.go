@@ -394,6 +394,31 @@ func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) Alternativ
 	if util.Ge(sigmav, arf.param.gamma*arf.optCost) {
 		return NewAEmptyAlternativeroute()
 	}
+
+	/*
+		todo: tambahin metrik evaluasi UBS [%], loc Opt  [%], sharing  [%] kaya di table 1: https://dl.acm.org/doi/epdf/10.1145/2444016.2444019
+			lv := v.lv
+
+				if util.Ge(lv-sigmav, (1+arf.param.epsilon)*(arf.optCost-sigmav)) {
+					// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak
+					return NewAEmptyAlternativeroute()
+				}
+
+				plv := arf.ars.calculatePlateau(v.GetVId(), arf.s, arf.t,
+					arf.fpq, arf.bpq, arf.sCellNumber, lv)
+
+				T := arf.optCost * (1 - sigmav)
+
+				if util.Le(plv, T) {
+					// T-test dengan T=\alpha*l(Opt) , v-w path adalah plateau dari P_v
+					// plateau must > arf.ars.alpha * arf.optCost
+					// plateau = subpath dari Pv yang optimal (shortest path) dari first vertex ke last vertex dari subpath
+					// atau every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
+					// didnt pass t-test
+					return NewAEmptyAlternativeroute()
+				}
+	*/
+
 	lv := v.GetCost()
 	fv := 2*lv + sigmav - v.GetPlateau()
 

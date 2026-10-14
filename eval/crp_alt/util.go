@@ -20,7 +20,7 @@ import (
 )
 
 // ini buat dimacs 9th implmenetation challenge correctness test
-func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
+func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
@@ -48,7 +48,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 	es := flattenEdges(adjList)
 
 	op := extractor.NewExtractor[int64]()
-	acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
+	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
 		acceptedNodeMap[int64(i)] = nodeCoords[i]

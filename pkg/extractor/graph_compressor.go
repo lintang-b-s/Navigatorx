@@ -1,8 +1,6 @@
 package extractor
 
 import (
-	"maps"
-
 	"github.com/bits-and-blooms/bitset"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -300,9 +298,10 @@ func (p *Extractor[W]) compressionProtectedVertices(
 		// protect vertices that along a turn restrictions (fromWay, viaNode, toWay) or (fromWay, viaWays, toWay)
 		protectWayGraphNodes(protected, p.ways[fromWay])
 		for _, restriction := range restrictions {
+			viaNode := p.nodeIDMap[restriction.via]
 			protectWayGraphNodes(protected, p.ways[restriction.to])
 			if !restriction.isWay {
-				protected[restriction.via] = true
+				protected[viaNode] = true
 				continue
 			}
 			for _, viaWay := range restriction.viaWays {
@@ -420,15 +419,4 @@ func (p *Extractor[W]) applyOsmWayGraphNodesPermutation(oldToNew []da.Index) {
 		newWayMap[wayID] = way
 	}
 	p.ways = newWayMap
-
-	newRestricions := make(map[int64][]restriction, len(p.restrictions))
-	maps.Copy(newRestricions, p.restrictions)
-	for fromWay, restrictions := range p.restrictions {
-		for i := range restrictions {
-			if !restrictions[i].isWay { // via-node turn restrictions
-				newRestricions[fromWay][i].via = oldToNew[restrictions[i].via]
-			}
-		}
-	}
-	p.restrictions = newRestricions
 }

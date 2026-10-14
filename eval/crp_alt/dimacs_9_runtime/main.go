@@ -18,7 +18,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	op "github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -152,7 +151,7 @@ func main() {
 
 	const rounder = 1e8
 
-	nodeCoords := make([]op.NodeCoord, n)
+	nodeCoords := make([]da.Coordinate, n)
 	for v := 0; v < n; v++ { // vertex id 0 dummy vertex.. id vertex dari file dimacs mulai dari 1
 		line, err = util.ReadLine(br)
 		if err != nil {
@@ -175,7 +174,7 @@ func main() {
 		// dan untuk koordinat dari setiap node, kita pakai int32 (lat * 10^7, lon * 10^7) untuk input openstreetmap, buat save space kaya osrm.
 		// dan karena di dimacs 9th implementation challenge ini koordinat nya bisa lebih dair 10^8, kita bagi 10^8 biar gak overflow int32
 
-		nodeCoords[id-1] = op.NewNodeCoord(float64(y)/rounder, float64(x)/rounder)
+		nodeCoords[id-1] = da.NewCoordinate(float64(y)/rounder, float64(x)/rounder)
 	}
 
 	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0600)

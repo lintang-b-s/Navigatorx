@@ -198,9 +198,8 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, p
 	uCost := pq.GetCost(u)
 
 	offset, eNum := bs.engine.graph.NumEdges(u, forw)
-
-	for i := da.Index(0); i < eNum; i++ {
-		v, eId := bs.engine.GetV(offset, i, forw)
+	for eId := offset; eId < offset+eNum; eId++ {
+		v := bs.engine.GetV(eId, forw)
 
 		// get query level of v l_st(v)
 		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,

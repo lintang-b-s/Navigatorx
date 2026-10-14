@@ -838,7 +838,8 @@ func (p *Extractor[W]) acceptOsmWay(way *osm.Way) bool {
 		if _, ok := p.highwayWhitelist[highway]; ok {
 			return true
 		}
-	} else if junction != "" {
+	} else if junction == "roundabout" || junction == "circular" || junction == "jughandle" {
+		// https://wiki.openstreetmap.org/wiki/Key:junction?uselang=id
 		return true
 	}
 

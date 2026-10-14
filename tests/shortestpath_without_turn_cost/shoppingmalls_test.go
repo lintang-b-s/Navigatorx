@@ -10,7 +10,6 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -144,10 +143,10 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		adjList[b] = append(adjList[b], tests.NewPairEdge(a, pd.baDist))
 	}
 
-	nodeCoords := make([]extractor.NodeCoord, 0)
+	nodeCoords := make([]da.Coordinate, 0)
 	for i := 0; i < N; i++ {
 		placei := places[i]
-		nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(placei.x), float64(placei.y*placei.floor)))
+		nodeCoords = append(nodeCoords, da.NewCoordinate(float64(placei.x), float64(placei.y*placei.floor)))
 	}
 
 	re, _, oldToNewVIdMap, newToOldVidMap, _ := buildCRP(t, "shoppingmalls", nodeCoords, adjList, N, []int{6, 7}, true)

@@ -28,7 +28,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func buildCRP(t *testing.T, problemName string, nodeCoords []extractor.NodeCoord, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine[float64], *da.Graph,
+func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine[float64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[float64]) {
 
 	config.InitRegionName(problemName, pkg.TEST)
@@ -41,7 +41,7 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []extractor.NodeCoord
 	es := tests.FlattenEdges(adjList)
 
 	op := extractor.NewExtractor[float64]()
-	acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
+	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
 		acceptedNodeMap[int64(i)] = nodeCoords[i]

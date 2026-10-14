@@ -55,7 +55,7 @@ maxspeeds: # in km/h
 
 turncosts: # (read section 4.1 and 7: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf)
   # in seconds
-  u_turn: 300 # ini adalah cost dari u-turn di two-way road (two-way road example: https://www.openstreetmap.org/way/1360292077)
+  u_turn: 600 # ini adalah cost dari u-turn di two-way road (two-way road example: https://www.openstreetmap.org/way/1360292077)
   left_turn: 0
   right_turn: 0
   traffic_light: 0 # turn cost/penalty in seconds kalau di fromSegment->toSegment contains traffic light

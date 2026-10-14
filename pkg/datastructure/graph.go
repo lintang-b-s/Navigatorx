@@ -195,9 +195,11 @@ func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 	}
 }
 
-// GetOutEdgeBounds exposes the contiguous outgoing edge range for allocation-free iteration.
-func (g *Graph) GetOutEdgeBounds(u Index) (Index, Index) {
-	return g.vertices[u].firstOut, g.vertices[u+1].firstOut
+func (g *Graph) GetEdgesOf(u Index, out bool) []Index {
+	if out {
+		return g.heads[g.vertices[u].firstOut:g.vertices[u+1].firstOut]
+	}
+	return g.tails[g.vertices[u].firstIn:g.vertices[u+1].firstIn]
 }
 
 func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {

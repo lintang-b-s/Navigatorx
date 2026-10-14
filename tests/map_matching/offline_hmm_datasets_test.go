@@ -161,7 +161,7 @@ func ohmmEnsureGisCupRoadNetwork(t *testing.T, workingDir string, logger *zap.Lo
 }
 
 // https://web.archive.org/web/20130127211936/http://depts.washington.edu/giscup/home
-func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint32, map[int64]extractor.NodeCoord, map[da.Index]int64, error) {
+func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint32, map[int64]da.Coordinate, map[da.Index]int64, error) {
 	f, err := os.OpenFile(nodesFilePath, os.O_RDONLY, 0600)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -170,7 +170,7 @@ func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint3
 
 	nodeCoords := make([]da.Coordinate, 0)
 	nodeIDToIndex := make(map[int64]uint32)
-	acceptedNodeMap := make(map[int64]extractor.NodeCoord)
+	acceptedNodeMap := make(map[int64]da.Coordinate)
 	nodeToOsmID := make(map[da.Index]int64)
 
 	br := bufio.NewReader(f)
@@ -205,7 +205,7 @@ func ohmmReadGisCupNodes(nodesFilePath string) ([]da.Coordinate, map[int64]uint3
 		internalIndex := uint32(len(nodeCoords))
 		nodeCoords = append(nodeCoords, da.NewCoordinate(lat, lon))
 		nodeIDToIndex[nodeID] = internalIndex
-		acceptedNodeMap[nodeID] = extractor.NewNodeCoord(lat, lon)
+		acceptedNodeMap[nodeID] = da.NewCoordinate(lat, lon)
 		nodeToOsmID[da.Index(internalIndex)] = nodeID
 	}
 	return nodeCoords, nodeIDToIndex, acceptedNodeMap, nodeToOsmID, nil
@@ -823,10 +823,10 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		graphSegments = append(graphSegments, graphSegment)
 	}
 
-	acceptedNodeMap := make(map[int64]extractor.NodeCoord, len(vertices))
+	acceptedNodeMap := make(map[int64]da.Coordinate, len(vertices))
 	nodeToOsmID := make(map[da.Index]int64, len(vertices))
 	for _, v := range vertices {
-		acceptedNodeMap[v.osmID] = extractor.NewNodeCoord(v.lat, v.lon)
+		acceptedNodeMap[v.osmID] = da.NewCoordinate(v.lat, v.lon)
 		nodeToOsmID[da.Index(v.id)] = v.osmID
 	}
 
