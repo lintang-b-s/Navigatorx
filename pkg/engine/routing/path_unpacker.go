@@ -275,8 +275,7 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 
 		// relax all out edges of u
 		firstOut, eNum := pu.eng.graph.NumOutEdges(u)
-		for i := da.Index(0); i < eNum; i++ {
-			eId := firstOut + i
+		for eId := firstOut; eId < firstOut+eNum; eId++ {
 			v := pu.eng.graph.GetHead(eId)
 			edgeWeight := pu.metrics.GetWeight(eId)
 

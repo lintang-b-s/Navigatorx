@@ -395,10 +395,16 @@ func addViaNodeTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int6
 	}
 }
 
+type parallelViaKey struct {
+	fromWay int64
+	viaWay  int64
+}
+
 // addParallelViaEdges. add parallel via-edges for each via-ways
 func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way osmWay, newDataId int, outEdges [][]da.Index, inEdges [][]da.Index,
 	entryPointsAdjList, exitPointsAdjList [][]da.Index, rn *da.RoadNetworkDataContainer,
 	segmentDataIds [][]da.Index, outWeights [][]W, outLengths, inLengths [][]uint32, outDegree, inDegree []int, isParallelOutEdge, isParallelInEdge [][]bool,
+	parallelViaEdges map[parallelViaKey]da.Index,
 ) int {
 	fromRestrictions := p.restrictions[wayId]
 	for _, restriction := range fromRestrictions {
@@ -478,6 +484,11 @@ func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way
 			fromNodes := way.graphNodes
 			viaWays := restriction.viaWays // bisa aja via-way turn restriction, via-way nya ada lebih dari 1: https://www.openstreetmap.org/relation/17842412
 			for q, via := range viaWays {
+				key := parallelViaKey{fromWay: wayId, viaWay: via}
+				if _, ok := parallelViaEdges[key]; ok {
+					continue
+				}
+
 				var toNodes []da.Index
 
 				if q > 0 {
@@ -523,29 +534,12 @@ func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way
 				viaExitPoint := 0 // index of outgoing via-edge in outgoing edges of tail
 				viaDataId := da.Index(da.INVALID_SEGMENT_ID)
 
-				alreadyExists := false
-				for tailExitPoint, eHead := range outEdges[tail] {
-					cViaDataId := segmentDataIds[tail][tailExitPoint]
-					eHead := eHead
-					if rn.GetOsmWayId(cViaDataId) == uint64(via) && eHead == head &&
-						isParallelOutEdge[tail][tailExitPoint] {
-						alreadyExists = true
-					}
-				}
-
-				if alreadyExists {
-					// biar this semua turn restrictions yang lewat this via-edge (atau via-way) ini, bisa diarahin ke 1 parallel via-edge aja yang udah incorporate semua via-way turn restrictions nya...
-					continue
-				}
-
 				for tailExitPoint, eHead := range outEdges[tail] {
 					cViaDataId := segmentDataIds[tail][tailExitPoint]
 					eHead := eHead
 					if rn.GetOsmWayId(cViaDataId) == uint64(via) && eHead == head &&
 						!isParallelOutEdge[tail][tailExitPoint] {
 						// harus bukan parallel via-edge juga di via-edge ini
-						// karena kalau misal ada banyak via-way turn restrictions yang lewat this via-edge (atau via-way), di akhir cuma ada 1 parallel via-edge dari via-edge ini
-						// biar this semua turn restrictions yang lewat this via-edge (atau via-way) ini, bisa diarahin ke 1 parallel via-edge aja yang udah incorporate semua via-way turn restrictions nya...
 
 						viaDataId = cViaDataId
 						viaExitPoint = tailExitPoint
@@ -562,6 +556,8 @@ func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way
 				tailExitPoint := da.Index(len(outEdges[tail]))
 				entryPointsAdjList[tail] = append(entryPointsAdjList[tail], headEntryPoint)
 				exitPointsAdjList[head] = append(exitPointsAdjList[head], tailExitPoint)
+				pid := tailExitPoint | (headEntryPoint << 16)
+				parallelViaEdges[key] = pid
 
 				// add via parallel outgoing edge
 				outEdges[tail] = append(outEdges[tail], head)
@@ -605,7 +601,8 @@ func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way
 // addViaWayTurnRestriction.  handler via-way turn restriction (dan multiple via-ways turn restriction)
 // restriction is one via-way (or via-ways) turn restriction from wayId
 func addViaWayTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int64, way osmWay, fromNodes []da.Index, restriction restriction, fromResId int, outEdges [][]da.Index,
-	inEdges [][]da.Index, rn *da.RoadNetworkDataContainer, segmentDataIds [][]da.Index, turnMatrices [][]pkg.TurnType, outDegree, inDegree []int, isParallelOutEdge, isParallelInEdge [][]bool) {
+	inEdges [][]da.Index, rn *da.RoadNetworkDataContainer, segmentDataIds [][]da.Index, turnMatrices [][]pkg.TurnType, outDegree, inDegree []int, isParallelOutEdge, isParallelInEdge [][]bool,
+	parallelViaEdges map[parallelViaKey]da.Index) {
 	if !IsNotAllowedToTurnType(restriction.turnRestriction) || restriction.conditional {
 		// currently only support via-way turn restriction yang no_* (no_left_turn, no_u_turn, etc.)
 		// currently gak support conditional via-way turn restriction  (30 april 2026).
@@ -750,32 +747,24 @@ func addViaWayTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int64
 			continue
 		}
 
-		viaParallelTailExitPoint := da.Index(da.INVALID_EXIT_POINT) // exit point dari this current via parallel edge. exit point = indeks dari via parallel edge di list of outgoing edges dari tail dari via parallel edge.
+		viaEdgeExists := false
 		for i := 0; i < len(outEdges[tail]); i++ {
 			eDataId := segmentDataIds[tail][i]
 			eHead := outEdges[tail][i]
 
-			if rn.GetOsmWayId(eDataId) == uint64(via) && eHead == head && isParallelOutEdge[tail][i] {
-				viaParallelTailExitPoint = da.Index(i)
+			if rn.GetOsmWayId(eDataId) == uint64(via) && eHead == head {
+				viaEdgeExists = true
+				break
 			}
 		}
-
-		if viaParallelTailExitPoint == da.INVALID_EXIT_POINT {
+		if !viaEdgeExists {
 			continue
 		}
 
-		viaParallelHeadEntryPoint := da.Index(math.MaxUint32) // entry point dari this current via parallel edge. entry point = indeks dari via parallel edge di list of incoming edges dari head dari via parallel edge.
-		for i := 0; i < len(inEdges[head]); i++ {
-			eTail := inEdges[head][i]
-
-			if eTail == tail && isParallelInEdge[head][i] {
-				viaParallelHeadEntryPoint = da.Index(i)
-			}
-		}
-
-		if viaParallelHeadEntryPoint == math.MaxUint32 {
-			continue
-		}
+		key := parallelViaKey{fromWay: wayId, viaWay: via}
+		pid := parallelViaEdges[key]
+		viaParallelTailExitPoint := da.Index(pid & 0xFFFF)
+		viaParallelHeadEntryPoint := da.Index(pid >> 16)
 
 		for i := 0; i < len(fromNodes); i++ {
 
@@ -822,17 +811,26 @@ func addViaWayTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int64
 					// only store via-way (or via-ways) turn restrictions if successor node of head of this current via-edge exists
 					tailEntryPoint := da.Index(math.MaxUint32) // entry point dari incoming from-edge (predecessor, tail)
 
-					for k := da.Index(0); k < da.Index(len(inEdges[tail])); k++ {
-						inEdgeTail := inEdges[tail][k]
-						parallel := isParallelInEdge[tail][k]
-						validInEdge := ((prevEdgeParallel && parallel) ||
-							(!prevEdgeParallel && !parallel))
+					if !prevEdgeParallel {
+						for k := da.Index(0); k < da.Index(len(inEdges[tail])); k++ {
+							inEdgeTail := inEdges[tail][k]
+							parallel := isParallelInEdge[tail][k]
+							validInEdge := !parallel
 
-						if inEdgeTail == predecessor && validInEdge {
-							tailEntryPoint = k
-						} else {
-							// kasih turn cost INF buat transisi dari  all other inEdges dari tail (selain from-edge) -> tail -> via-edge 2
-							turnMatrices[tail][k*da.Index(outDegree[tail])+viaParallelTailExitPoint] = pkg.NO_ENTRY
+							if inEdgeTail == predecessor && validInEdge {
+								tailEntryPoint = k
+							} else {
+								// kasih turn cost INF buat transisi dari  all other inEdges dari tail (selain from-edge) -> tail -> via-edge 2
+								turnMatrices[tail][k*da.Index(outDegree[tail])+viaParallelTailExitPoint] = pkg.NO_ENTRY
+							}
+						}
+					} else {
+						prevKey := parallelViaKey{fromWay: wayId, viaWay: viaWays[q-1]}
+						tailEntryPoint = parallelViaEdges[prevKey] >> 16
+						for k := da.Index(0); k < da.Index(len(inEdges[tail])); k++ {
+							if k != tailEntryPoint {
+								turnMatrices[tail][k*da.Index(outDegree[tail])+viaParallelTailExitPoint] = pkg.NO_ENTRY
+							}
 						}
 					}
 
@@ -840,22 +838,23 @@ func addViaWayTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int64
 						continue
 					}
 
+					rowOffset := tailEntryPoint * da.Index(outDegree[tail]) // rowOffset di flatenned 1-d matrix from incoming from-edge
+
 					viaEdgeTailExitPoint := da.Index(math.MaxUint32) // exit point dari outgoing via-edge (tail, head) that not the parallel via-edge
-					for k := 0; k < len(outEdges[tail]); k++ {
+					for k := da.Index(0); k < da.Index(len(outEdges[tail])); k++ {
 						outEdgeHead := outEdges[tail][k]
 						validOutEdge := !isParallelOutEdge[tail][k]
 						if outEdgeHead == head && validOutEdge {
-
-							viaEdgeTailExitPoint = da.Index(k)
-							break
+							viaEdgeTailExitPoint = k
+						} else if outEdgeHead == head && !validOutEdge && k != viaParallelTailExitPoint {
+							// kasih turn cost INF buat transisi dari from-edge -> tail -> parallel via-edge (tail, head) lain
+							turnMatrices[tail][rowOffset+k] = pkg.NO_ENTRY
 						}
 					}
 
 					if viaEdgeTailExitPoint == da.Index(math.MaxUint32) {
 						continue
 					}
-
-					rowOffset := tailEntryPoint * da.Index(outDegree[tail]) // rowOffset di flatenned 1-d matrix from incoming from-edge
 
 					// kasih turn cost 0 buat transisi dari from-edge -> tail -> parallel via-edge 2
 					turnMatrices[tail][rowOffset+viaParallelTailExitPoint] = pkg.NONE
@@ -867,46 +866,21 @@ func addViaWayTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int64
 
 					if lastViaway {
 						// add turn cost to to-edge of this via-way (or via-ways) turn restrictions
-
-						// dari parallel via-edge 2 ke to-edge assign turn cost INF (karena OSM u-turn restriction diatas).. such that route from from-edge -> parallel via-edge 2 -> to-edge forbidden...
-						// dari via-edge 1 ke to-edge assign turn cost 0... such that route from all other edge (except from-edge) -> via-edge 1 -> to-edge can pass through ...
-						headExitPoint := da.Index(math.MaxUint32) // exit point dari outgoing to-edge (h, successor)
+						rowOffset = viaParallelHeadEntryPoint * da.Index(outDegree[head]) // rowOffset of 1-d flattened 2-d matrix.
 						for k := 0; k < len(outEdges[head]); k++ {
 							outEdgeHead := outEdges[head][k]
-							if outEdgeHead == successor && !isParallelOutEdge[head][k] {
-								// cek parallel edge
-								headExitPoint = da.Index(k)
-
-								break
+							eDataId := segmentDataIds[head][k]
+							if outEdgeHead == successor && int64(rn.GetOsmWayId(eDataId)) == restriction.to {
+								switch restriction.turnRestriction {
+								case NO_LEFT_TURN, NO_RIGHT_TURN, NO_STRAIGHT_ON, NO_U_TURN, NO_ENTRY:
+									// dari parallel via-edge 2 ke to-edge assign turn cost INF (karena OSM u-turn restriction diatas).. such that route from from-edge -> parallel via-edge 2 -> to-edge forbidden...
+									// give forbidden turn from parallel via-edge 2 -> to-edge
+									turnMatrices[head][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+								default:
+									// dari via-edge 1 ke to-edge assign turn cost 0... such that route from all other edge (except from-edge) -> via-edge 1 -> to-edge can pass through ...
+									turnMatrices[head][rowOffset+da.Index(k)] = pkg.NONE
+								}
 							}
-						}
-
-						if headExitPoint == da.Index(math.MaxUint32) {
-							continue
-						}
-
-						rowOffset = viaParallelHeadEntryPoint * da.Index(outDegree[head]) // rowOffset of 1-d flattened 2-d matrix.
-
-						// give forbidden turn from parallel via-edge 2 -> to-edge
-						switch restriction.turnRestriction {
-						case NO_LEFT_TURN:
-							turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-						case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
-							turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-						case NO_STRAIGHT_ON:
-							turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-						case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
-							turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-						case NO_ENTRY:
-							turnMatrices[head][rowOffset+headExitPoint] = pkg.NO_ENTRY
-
-						default:
-							turnMatrices[head][rowOffset+headExitPoint] = pkg.NONE
-
 						}
 					}
 
