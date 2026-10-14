@@ -83,10 +83,11 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	newEDataId := len(edges)
 
 	// tambahin parallel edges dulu buat via-way turn restrictions
+	parallelViaEdges := make(map[parallelViaKey]da.Index, 100)
 	if roadNetwork {
 		for wayId, way := range p.ways {
 			newEDataId = addParallelViaEdges(p, wayId, way, newEDataId, outEdges, inEdges, entryPointsAdjList, exitPointsAdjList, rn, segmentDataIds, outWeights, outLengths,
-				inLengths, outDegree, inDegree, isParallelOutEdge, isParallelInEdge)
+				inLengths, outDegree, inDegree, isParallelOutEdge, isParallelInEdge, parallelViaEdges)
 		}
 	}
 
@@ -174,7 +175,7 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 						outDegree, vertices, turnMatrices, &conditionalTurnRestrictions, isParallelOutEdge, isParallelInEdge)
 				} else if restriction.isWay {
 					addViaWayTurnRestriction(p, wayId, way, fromNodes, restriction, fromResId, outEdges, inEdges,
-						rn, segmentDataIds, turnMatrices, outDegree, inDegree, isParallelOutEdge, isParallelInEdge)
+						rn, segmentDataIds, turnMatrices, outDegree, inDegree, isParallelOutEdge, isParallelInEdge, parallelViaEdges)
 				}
 			}
 		}
