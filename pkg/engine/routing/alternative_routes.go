@@ -79,9 +79,13 @@ inti dari FindAlternativeRoutes:
 3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
 
 
-todo: baca dan implement https://www.openstreetmap.org/user/daniel-j-h/diary/44020
-todo2: baca dan implement https://dl.acm.org/doi/abs/10.1145/2674395   (related to article diatas).
-todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices agak detour... debug dan cari tahu kenapa & fix it...
+todo: baca dan implement https://www.openstreetmap.org/user/daniel-j-h/diary/44020 . DONE mostly cuma jelasin ref[1].. implementasi saat ini udah bagus sih rute alternative nya wkkwk
+maybe bisa pakai strategi alternative routes mld nya osrm yg filterPackedPathsByCellSharing() tapi bisa aja yang cell nya sama/sharing kriteria admissible alternative routes nya masih PASS,, jadi gak usah diimplement wkwk
+buat bedain dari alternative routes 1 dengan lainnya juga udah pakai jaccardDistance() disini dan udah beda banget alternative routes 1 dengan lainnya....
+todo2: baca dan implement https://dl.acm.org/doi/abs/10.1145/2674395   (related to article diatas). DONE, runtime di table VII bisa sampe 1 jam lebih.. gak usah diimplement..
+todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices agak detour... debug dan cari tahu kenapa & fix it... partially DONE
+todo3 ternyata kemarin ada cycle & detour karena turn costs by angle (di CalcTurningCost() pkg/constant.go) nya bisa negative wkwkwk
+
 */
 
 func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index) ([]AlternativeRoute, float64, int64) {
