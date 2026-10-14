@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/golang/geo/s2"
 	"github.com/spf13/viper"
 
 	"github.com/go-playground/locales/en"
@@ -17,6 +18,7 @@ import (
 	"github.com/julienschmidt/httprouter"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
 
@@ -55,10 +57,10 @@ func New(routingService RoutingService, log *zap.Logger, mapAttributesService Ma
 
 func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
-	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes)
+	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes) // todo: kayake ini mending digabung sama /computeRoutes?alternative_routes=true aja
 	group.GET("/boundingBox", api.GetBoundingBox)
 
-	group.GET("/mapAttributes/:h3Cellid", api.getMapAttributes)
+	group.GET("/mapAttributes/:s2CellId", api.getMapAttributes)
 	group.GET("/init-transition-matrix", api.initTransitionMatrix)
 	group.POST("/mapmatching", api.offlineMapMatching) // offline map-matching
 }
@@ -273,14 +275,27 @@ func (api *routingAPI) GetBoundingBox(w http.ResponseWriter, r *http.Request, p 
 }
 
 func (api *routingAPI) getMapAttributes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	h3CellidStr := p.ByName("h3Cellid")
-	if h3CellidStr == "" {
-		api.BadRequestResponse(w, r, errors.New("h3Cellid is required"))
+	s2CellIdStr := p.ByName("s2CellId")
+	if s2CellIdStr == "" {
+		api.BadRequestResponse(w, r, errors.New("s2CellId is required"))
 		return
 	}
 
+	s2CellId, err := strconv.Atoi(s2CellIdStr)
+	if err != nil || s2CellId < 0 || uint64(s2CellId) >= uint64(s2.SentinelCellID) {
+		api.BadRequestResponse(w, r, errors.New("s2CellId is must be a valid s2 cell id"))
+		return
+	}
+
+	query := r.URL.Query()
+	radius := query.Get("radius")
+	radiusf, err := strconv.ParseFloat(radius, 64)
+	if err != nil || util.Lt(radiusf, 0.0) {
+		api.BadRequestResponse(w, r, fmt.Errorf("radius is not valid: %s", radius))
+		return
+	}
 	ctx := r.Context()
-	buf, err := api.mapAttributesService.GetMapAttributes(ctx, h3CellidStr) // masih todo
+	buf, err := api.mapAttributesService.GetMapAttributes(ctx, s2.CellID(s2CellId), radiusf) // masih todo
 	if err != nil {
 		api.ServerErrorResponse(w, r, err)
 	}

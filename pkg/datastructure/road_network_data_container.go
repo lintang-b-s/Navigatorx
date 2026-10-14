@@ -1,21 +1,19 @@
 package datastructure
 
 import (
-	"math"
 	"sort"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/uber/h3-go/v4"
 )
 
 // RoadNetworkDataContainer stores annotation and supplementary information for the osm road network  data.
 // todo: add ref, destination, destination:ref storage
 type RoadNetworkDataContainer struct {
 	// di set sebelum buildGraph()
-	osmNodePoints []Coordinate
-	osmNodeIds    []uint64
+	osmNodePoints []Coordinate // geometry of each road segments, flatenned.
+	osmNodeIds    *PackedSlice
 
 	nameTable []string // map dari integer ke string (tag name di osm way)
 	// dua ini di set sebelum buildGraph()
@@ -27,13 +25,12 @@ type RoadNetworkDataContainer struct {
 	conditionalTrafficModes     []ConditionalTrafficMode
 	conditionalTurnRestrictions []ConditionalTurnRestriction
 
-	// annotation data dari edges
+	// annotation data dari road segments
 	// diset saat osmparser
 	segmentTurnLanesData    []TurnLanesData // segmentTurnLanesData[i] is the turnLanesData for road segment/edge with id=i
-	segmentOsmWayId         *PackedSlice    // map dari outEdgid ke osm way id dari edge
+	segmentOsmWayId         *PackedSlice    // map dari segment id ke osm way id dari edge
 	segmentStartPointsIndex []Index
 	segmentEndPointsIndex   []Index
-	segmentH3CellId         map[string][]Index
 	streetName              []uint32
 	roadClass               []pkg.OsmHighwayType
 	roadClassLink           []pkg.OsmHighwayType
@@ -49,7 +46,7 @@ func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer 
 
 	return &RoadNetworkDataContainer{
 		osmNodePoints:           make([]Coordinate, 0),
-		osmNodeIds:              make([]uint64, 0),
+		osmNodeIds:              NewPackedSlice(BIT_SIZE_OSM_NODE_ID, INITIAL_APPROX_SEGMENT_SIZE),
 		segmentOsmWayId:         NewPackedSlice(osmwayBitSize, INITIAL_APPROX_SEGMENT_SIZE), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
 		osmwayBitSize:           osmwayBitSize,
 		segmentStartPointsIndex: make([]Index, 0),
@@ -59,7 +56,6 @@ func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer 
 		roadClassLink:           make([]pkg.OsmHighwayType, 0),
 		lanes:                   make([]uint8, 0),
 		segmentFlags:            make([]SegmentFlagType, 0),
-		segmentH3CellId:         make(map[string][]Index, 0),
 	}
 }
 
@@ -76,14 +72,13 @@ func NewRoadNetworkDataContainerWithSize(numberOfEdges int, numberOfVertices int
 		osmNodePoints:           make([]Coordinate, 1),
 		segmentOsmWayId:         NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID, uint64(numberOfEdges)),
 		segmentStartPointsIndex: make([]Index, 0),
-		osmNodeIds:              make([]uint64, 0),
+		osmNodeIds:              NewPackedSlice(BIT_SIZE_OSM_NODE_ID, INITIAL_APPROX_SEGMENT_SIZE),
 		segmentEndPointsIndex:   make([]Index, 0),
 		streetName:              make([]uint32, 0),
 		osmwayBitSize:           DEFAULT_BIT_SIZE_OSM_WAY_ID,
 		roadClass:               make([]pkg.OsmHighwayType, 0),
 		roadClassLink:           make([]pkg.OsmHighwayType, 0),
 		lanes:                   make([]uint8, 0),
-		segmentH3CellId:         make(map[string][]Index, 0),
 	}
 }
 
@@ -185,9 +180,9 @@ func (rn *RoadNetworkDataContainer) GetTailHeadOsmNodeId(id Index) (uint64, uint
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
 	if sIndex < eIndex {
-		return rn.osmNodeIds[sIndex], rn.osmNodeIds[eIndex-1]
+		return rn.osmNodeIds.Get(uint64(sIndex)), rn.osmNodeIds.Get(uint64(eIndex) - 1)
 	}
-	return rn.osmNodeIds[sIndex-1], rn.osmNodeIds[eIndex]
+	return rn.osmNodeIds.Get(uint64(sIndex - 1)), rn.osmNodeIds.Get(uint64(eIndex))
 }
 
 func (rn *RoadNetworkDataContainer) GetSegmentOsmNodeIds(id Index) []uint64 {
@@ -195,12 +190,18 @@ func (rn *RoadNetworkDataContainer) GetSegmentOsmNodeIds(id Index) []uint64 {
 	eIndex := rn.segmentEndPointsIndex[id]
 
 	if sIndex < eIndex {
-		return rn.osmNodeIds[sIndex:eIndex]
+		osmnids := make([]uint64, 0, eIndex-sIndex)
+		for i := sIndex; i < eIndex; i++ {
+			v := rn.osmNodeIds.Get(uint64(i))
+			osmnids = append(osmnids, v)
+		}
+		return osmnids
 	}
 
 	nPoints := make([]uint64, 0, sIndex-eIndex)
 	for i := int(sIndex - 1); i >= int(eIndex); i-- { // harus int(), karena kalo gak, eIndex == 0, next iteration jd maxuint64
-		nPoints = append(nPoints, rn.osmNodeIds[i])
+		v := rn.osmNodeIds.Get(uint64(i))
+		nPoints = append(nPoints, v)
 	}
 	return nPoints
 }
@@ -228,7 +229,10 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometryEndpoints(id Index) (Index
 
 func (rn *RoadNetworkDataContainer) AppendOsmNodePoints(edgePoints []Coordinate, osmNodeIds []uint64) {
 	rn.osmNodePoints = append(rn.osmNodePoints, edgePoints...)
-	rn.osmNodeIds = append(rn.osmNodeIds, osmNodeIds...)
+
+	for _, v := range osmNodeIds {
+		rn.osmNodeIds.Append(v)
+	}
 }
 
 // AppendSegmentData. append road segment data
@@ -332,36 +336,7 @@ func (rn *RoadNetworkDataContainer) ApplySegmentsPermutation(nPerm []int) {
 	}
 	rn.segmentFlags = util.ApplyPermutation(rn.segmentFlags, nPerm)
 	rn.segmentOsmWayId = newOsmWayIds
-	// precompute h3CellId of each road segments
-	rn.segmentH3CellId = make(map[string][]Index)
-	for segId := Index(0); segId < m; segId++ {
-		geom := rn.GetSegmentGeometry(segId)
-		var (
-			minLat, minLon int64 = math.MaxInt64, math.MaxInt64 // biar penjumlahan di cLat/cLon dibawah gak overflow
-			maxLat, maxLon int64 = -math.MaxInt64, -math.MaxInt64
-			cLat, cLon     float64
-		)
-		for i := 0; i < len(geom); i++ {
-			p := geom[i]
-			minLat = min(minLat, int64(p.lat))
-			minLon = min(minLon, int64(p.lon))
-			maxLat = max(maxLat, int64(p.lat))
-			maxLon = max(maxLon, int64(p.lon))
-		}
-		cLat = float64((minLat + maxLat) / 2)
-		cLon = float64((minLon + maxLon) / 2)
-		cLatf, cLonf := cLat/CoordinatePrecision, cLon/CoordinatePrecision
-		cell, err := h3.NewLatLng(cLatf, cLonf).Cell(8)
-		if err != nil {
-			panic(err)
-		}
-		cellId := cell.String()
-		rn.segmentH3CellId[cellId] = append(rn.segmentH3CellId[cellId], segId)
-	}
-}
 
-func (rn *RoadNetworkDataContainer) GetH3CellSegments(cellId string) []Index {
-	return rn.segmentH3CellId[cellId]
 }
 
 // is parallel via-way

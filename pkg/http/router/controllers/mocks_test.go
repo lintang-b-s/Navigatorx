@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/golang/geo/s2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -49,15 +50,15 @@ func (m *MockRoutingService) GetBoundingBox(ctx context.Context) da.BoundingBox 
 	return args.Get(0).(da.BoundingBox)
 }
 
-func (m *MockRoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate, error) {
+func (m *MockRoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate, error) {
 	args := m.Called(ctx, gpsTraj, gpsRadiusesM)
 	var r0 []*da.MatchedGPSPoint
 	if args.Get(0) != nil {
 		r0 = args.Get(0).([]*da.MatchedGPSPoint)
 	}
-	var r1 []da.Coordinate
+	var r1 []da.FloatCoordinate
 	if args.Get(1) != nil {
-		r1 = args.Get(1).([]da.Coordinate)
+		r1 = args.Get(1).([]da.FloatCoordinate)
 	}
 	return r0, r1, args.Error(2)
 }
@@ -159,7 +160,7 @@ func (m *MockMapAttributesService) GetNumberOfVertices(ctx context.Context) int 
 	return args.Int(0)
 }
 
-func (m *MockMapAttributesService) GetMapAttributes(ctx context.Context, h3CellId string) ([]byte, error) {
-	args := m.Called(ctx, h3CellId)
+func (m *MockMapAttributesService) GetMapAttributes(ctx context.Context, s2CellId s2.CellID, radius float64) ([]byte, error) {
+	args := m.Called(ctx, s2CellId, radius)
 	return []byte(args.String(0)), args.Error(1)
 }

@@ -200,20 +200,20 @@ func (mr *mapMatchRequest) GetBearing() float64 {
 }
 
 type MatchedGPSPoint struct {
-	GpsPoint       *gps          `json:"gps_point"`
-	SegmentId      da.Index      `json:"segment_id"`
-	MatchedCoord   da.Coordinate `json:"matched_coord"`
-	PredictedCoord da.Coordinate `json:"predicted_gps_coord"`
-	Bearing        float64       `json:"edge_initial_bearing"`
+	GpsPoint       *gps               `json:"gps_point"`
+	SegmentId      da.Index           `json:"segment_id"`
+	MatchedCoord   da.FloatCoordinate `json:"matched_coord"`
+	PredictedCoord da.FloatCoordinate `json:"predicted_gps_coord"`
+	Bearing        float64            `json:"edge_initial_bearing"`
 }
 
 func NewMatchedGPSPoint(gpsPoint *gps, segmentId da.Index, matchedCoord, predictedCoord da.Coordinate, initialBearing float64) *MatchedGPSPoint {
 	return &MatchedGPSPoint{
 		GpsPoint:       gpsPoint,
 		SegmentId:      segmentId,
-		MatchedCoord:   matchedCoord,
+		MatchedCoord:   matchedCoord.ToFloatCoordinate(),
 		Bearing:        initialBearing,
-		PredictedCoord: predictedCoord,
+		PredictedCoord: predictedCoord.ToFloatCoordinate(),
 	}
 }
 
@@ -231,7 +231,7 @@ func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.C
 		mgps.DeltaTime()), matchedPoint.GetSegmentId(), matchedPoint.GetMatchedCoord(), matchedPoint.GetPredictedGpsCoord(), matchedPoint.GetBearing())
 	cands := make([]Candidate, len(candidates))
 	for i, cand := range candidates {
-		cands[i] = NewCandidate(cand.GetSegmentId(), cand.Weight(), cand.Length())
+		cands[i] = NewCandidate(cand.GetSegmentId(), cand.GetWeight(), cand.GetLength())
 	}
 	return &mapmatchingResponse{
 		MatchedGpsPoint: matchedGpsPoint,
@@ -269,11 +269,11 @@ type offlineMapMatchingEnvelope struct {
 }
 
 type offlineMapMatchingResponse struct {
-	MatchedPoints []*MatchedGPSPoint `json:"matched_points"`
-	RoutePath     []da.Coordinate    `json:"route_path"`
+	MatchedPoints []*MatchedGPSPoint   `json:"matched_points"`
+	RoutePath     []da.FloatCoordinate `json:"route_path"`
 }
 
-func NewOfflineMapMatchingResponse(matchedPoints []*da.MatchedGPSPoint, routePath []da.Coordinate) *offlineMapMatchingResponse {
+func NewOfflineMapMatchingResponse(matchedPoints []*da.MatchedGPSPoint, routePath []da.FloatCoordinate) *offlineMapMatchingResponse {
 	points := make([]*MatchedGPSPoint, len(matchedPoints))
 	for i, mp := range matchedPoints {
 		mgps := mp.GetGpsPoint()

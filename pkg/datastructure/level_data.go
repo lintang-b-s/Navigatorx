@@ -1,8 +1,6 @@
 package datastructure
 
-import (
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
-)
+// adapted from: https://github.com/michaelwegner/CRP/blob/master/datastructures/LevelInfo.h
 
 type LevelData struct {
 	offset []uint8 // offset of each level in the bitpacked cell numbers
@@ -41,12 +39,24 @@ func (li *LevelData) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 
 /*
 highest level s.t. vertex v is not at the same cell as s or t.
+
+reference: 1. Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
+Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
+pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+the explanation below taken from Delling et al. (2015) ref [1]:
+
+"Given any vertex v, define its query level lst(v) as the highest level such that v is not
+at the same cell as s or t. Equivalently, lst(v) is the maximum i such that ci(v) ∩ {s, t} = ∅." (Delling et al. (2015) )
+
+"To compute lst(v), we first determine the most significant differing bit of pv(s) and pv(v). (Recall that pv(v) encodes the cell number of v on each level.) This bit indicates the topmost level ls(v) in which they
+differ. We do the same for pv(t) and pv(v) to determine lt(v). The minimum of ls(v) and lt(v) is lst(v)." (Delling et al. (2015) )
 */
 func (li *LevelData) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
 	l_sv := li.GetHighestDifferingLevel(sCellNumber, vCellNumber)
 	l_tv := li.GetHighestDifferingLevel(tCellNumber, vCellNumber)
 
-	return uint8(util.MinInt(int(l_sv), int(l_tv)))
+	return min(l_sv, l_tv)
 }
 
 // get cell number. level is 1-indexed

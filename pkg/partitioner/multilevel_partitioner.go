@@ -3,14 +3,46 @@ package partitioner
 
 import (
 	"fmt"
+	"math/rand"
 	"sync"
+	"time"
 
-	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
 )
+
+// todo: kode di package ini bisa dioptimze secara space (memory usage) ketika partitioning
+// dengan cara not creating PartitionGraph edges, vertices, etc..
+// kita bisa tinggal pake pointer Graph (di graph.go) di PartitionGraph
+// terus tandain pakai bitmask vertices mana aja yang masuk ke current cell yang sedang dipartisi
+// mungkin cuma bikin sice of vertices bitmask dan slice of vertices data??
+// tambahin wrapper ForOutEdgesOf(u, handle func(...)) dengan only iterate outgoing edges (u,v) yang v in this current cell..
+// setiap kali inertial flow selesai, kita applyPermutation vertices yang masuk di current cell aja.
+// sources dan sinks di ujung-ujung range slice of vertices di current cell, dan other vertices yang masuk cell S dan T di applyPermutation di selain range ujung itu.
+// saat ini di commit 15e4cbe6c154b41a71d8b9abff09ddfdd97c43a0 , pakai diy_solo_semarang.osm.pbf (dengan size ~105mb) partitioner makan RAM htop RES/RSS sekitar 3GB
+// setiap kali panggil selectFirstLastKthVertices() kita only cell vertices (pakai bitmask diatas)
+// osrm-partition ./data/diy_solo_semarang.osrm --max-cell-sizes 256,2048,16384,131072,262144  -> cuma ~911mb. hampir 9x dari ukuran file osmnya..
+
+// partially done :), currently (7 oktober 2026) diy_solo_semarang.osm.pbf (105mb) peak htop RES/RSS  ~2.8gb. masih sekitar 27x dari ukuran file osmnya wkwkwkw :v, masih kalah jauh sama osrm-partition (https://github.com/Project-OSRM/osrm-backend/tree/master/src/partitioner) .
+// mungkin next time, bisa cek pprof dari call di code partitioner....
+// tapi sekarang lebih bagus runtimenya, sebelumnya sekitar 450s di versi baru partition langsung edge-based graph.. sekarang ~240s doang... :)
+// keknya bisa pakai idenya osrm-partition kalau kita cukup partition node-based graph aja, then untuk assign cellId edge-based graph nodes nya pakai heuristic.. lihat getGraphBisection() di https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
+// dan edge_based_partition_ids di  https://github.com/Project-OSRM/osrm-backend/blob/master/src/partitioner/partitioner.cpp
+// diskusi lengkap on why OSRM milih partisi ke node-based graph instead directly partisi edge-based graph ada di: https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
+// karena number of nodes dari node-based graph lebih kecil dari edge-based graph, harusnya runtime + space nya lebih kecil...
+// ok todo2: partition node-based graph, then use heuristic to assign cellId of each edge-based graph nodes.
+// done :)
+// sekarang cuma peak htop RES 1.7gb, cuma 16x dari ukuran file osm.. better, runtime cuma ~110s....
+// jumlah boundary/overlay vertices juga lebih kecil, dari ~240k jadi ~210k
+// tapi kok number of shortcut edges pas customization lebih banyak ya??
+// hasil load test juga lebih jelek
+// 9 oktober, pakai heuristic yang baru buat map node-based graph partition ke edge-based graph partition, lebih bagus kualitasi partisinya... tapi load test & query runtime masih kalah sama directly partition edge-based graph
+// better di preprocessor cli kasih flag/opsi buat kualitas partisi
+
+// todo3: reduce peak htop RES lagi dari partitioner..
+// dennis luxen inertial flow implementation only peak memory 11.02 GB pakai instan DIMACS USA: https://github.com/DennisOSRM/toolbox-rs/pull/542 dan https://dennisosrm.github.io/toolbox-rs/
+//
 
 type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
@@ -20,12 +52,10 @@ type MultilevelPartitioner struct {
 	cellVertices           [][][]da.Index // nodes in each cells in each level
 	graph                  *da.Graph
 	logger                 *zap.Logger
-	prePartitionWithSCC    bool
 	inertialFlowIterations int
-	directed               bool
 }
 
-func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.Graph, logger *zap.Logger, prePartitionWithSCC, directed bool) *MultilevelPartitioner {
+func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, nbg *da.Graph, logger *zap.Logger) *MultilevelPartitioner {
 	if len(u) != l {
 		panic(fmt.Errorf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
@@ -34,11 +64,9 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, graph *da.
 		u:                      u,
 		l:                      l,
 		cellVertices:           make([][][]da.Index, l),
-		graph:                  graph,
+		graph:                  nbg,
 		logger:                 logger,
-		prePartitionWithSCC:    prePartitionWithSCC,
 		inertialFlowIterations: inertialFlowIterations,
-		directed:               directed,
 	}
 }
 
@@ -51,38 +79,45 @@ func (mp *MultilevelPartitioner) SetCellVertices(cellVertices [][][]da.Index) {
 }
 
 /*
-RunMultilevelPartitioning. Partitioning phase of Customizable Route Planning (CRP) By Delling et al. see section 5.1 Metric Independent Preprocessing (Partitioning) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+RunMultilevelPartitioning. Partitioning phase of Customizable Route Planning (CRP) By Delling et al. read section 5.1 Metric-Independent Preprocessing (Partitioning) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
  run L-level mutltilevel partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
 pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} untuk mendapatkan cells level L.
 cells di level bawahnya didapatkan dengan menjalankan algoritma inertial flow pada individual cells of the level immediately above.
 
 time complexity:
-for each level l, time complexity recursiveBisection.Partition() in each cell is O(log_{1/(1-b)} (U_{l+1}) * U_{l+1}^{3/2}). dengan U_{L+1}=n
+for each level l, time complexity recursiveBisection.Partition() in each cell is O( U_{l+1} * sqrt(U_{l+1}) * log_{1/(1-b)} (U_{l+1}) ). dengan U_{L+1}=n
 */ // nolint: gofmt
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
-	nodeIDs := mp.graph.GetVerticeIds()
-	progress := newPartitionProgress(mp.graph.NumberOfVertices())
+	vIds := mp.graph.GetVerticeIds()
+	progress := util.NewProgress(mp.graph.NumberOfVertices())
 	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l, mp.u[mp.l-1])
 	fmt.Printf("Level %d progress: 0%%...", mp.l)
-	if len(nodeIDs) > mp.u[mp.l-1] {
+	n := len(vIds)
+	permutedvIds := make([]da.Index, n)
+	gv := make([]da.Index, n)
+	copy(permutedvIds, vIds)
+	copy(gv, vIds)
+	if n > mp.u[mp.l-1] {
 
-		inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger,
-			mp.prePartitionWithSCC, mp.inertialFlowIterations, mp.directed)
-		inertialFlowPartitioner.setProgress(progress)
-		inertialFlowPartitioner.Partition(nodeIDs)
-		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())...)
+		rb := NewRecursiveBisection(mp.graph, mp.u[mp.l-1], mp.logger,
+			mp.inertialFlowIterations, true)
+		rb.progress = progress
+		rb.Partition(vIds)
+		fp := rb.GetFinalPartition()
+		cp := mp.groupEachPartition(fp)
+		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], cp...)
 	} else {
-		mp.cellVertices[mp.l-1] = [][]da.Index{nodeIDs}
-		progress.add(len(nodeIDs))
+		mp.cellVertices[mp.l-1] = [][]da.Index{vIds}
+		progress.Add(len(vIds))
 	}
-	progress.finish()
+	progress.Finish()
 	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.cellVertices[mp.l-1]))
 
-	// percent partition each cell in previous level
+	// partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
-		progress = newPartitionProgress(mp.graph.NumberOfVertices())
+		progress = util.NewProgress(mp.graph.NumberOfVertices())
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
 		fmt.Printf("Level %d progress: 0%%...", level+1)
 
@@ -90,12 +125,13 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		cellOutchan := make(chan [][]da.Index, CellInOutChanSize)
 		wg := sync.WaitGroup{}
 		computeRecursiveBisection := func() {
-			for cell := range cellInChan {
-				inertialFlowPartitioner := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger, mp.prePartitionWithSCC,
-					mp.inertialFlowIterations, mp.directed)
-				inertialFlowPartitioner.setProgress(progress)
-				inertialFlowPartitioner.Partition(cell)
-				partitions := mp.groupEachPartition(inertialFlowPartitioner.GetFinalPartition())
+			for cellvIds := range cellInChan {
+				rb := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger,
+					mp.inertialFlowIterations, true)
+				rb.progress = progress
+				rb.Partition(cellvIds)
+				fp := rb.GetFinalPartition()
+				partitions := mp.groupEachPartition(fp)
 				cellOutchan <- partitions
 			}
 		}
@@ -121,45 +157,9 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		wg.Wait()
 		close(cellOutchan)
 
-		progress.finish()
+		progress.Finish()
 		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.cellVertices[level]))
 	}
-}
-
-type partitionProgress struct {
-	mu        sync.Mutex
-	total     int
-	completed int
-	percent   int
-}
-
-func newPartitionProgress(total int) *partitionProgress {
-	return &partitionProgress{total: total, percent: 2}
-}
-
-func (p *partitionProgress) add(vertices int) {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-
-	p.completed += vertices
-	for p.percent <= 100 && p.total > 0 && p.completed*100 >= p.percent*p.total {
-		// while completed/total >= percent/100
-		fmt.Printf("%d%%...", p.percent)
-		p.percent += 2
-	}
-}
-
-func (p *partitionProgress) finish() {
-	fmt.Println()
-}
-
-func (mp *MultilevelPartitioner) SaveToFile() error {
-	root := config.ProfilesRoot()
-	filename := fmt.Sprintf("%s/%s/inertial_flow_%s.mlp", root, pkg.ProfileName, pkg.RegionName)
-	if err := util.IsPathExists(filename); err != nil {
-		return err
-	}
-	return mp.writeMLPToMLPFile(filename)
 }
 
 func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Index {
@@ -175,5 +175,133 @@ func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Inde
 		}
 		cells[cellId] = append(cells[cellId], da.Index(nodeId))
 	}
-	return cells // cellId -> vertices Id
+	return cells // cellId -> vertices Ids
+}
+
+// MapToEdgeBasedGraph use heuristic to assign cellId of each edge-based graph nodes from node-based graph partition
+// inspired by osrm partitioner https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
+// read TheMarex comment on that osrm github issue. in here, we use step 1-6 of osrm-partition, using method 1 of step 6 with little modification...
+// the reason not implement method 2 of step 6, is because its too complex, much easier to implement method 1.
+// ebg is the edge-based graph (or edge-expanded graph whatever). read: https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
+// ebgMapping map from edge-based graph (ebg) vertex id to packed id of edge (u, v) of that ebg vertex
+func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping []uint64) {
+	ebgCellVertices := make([][][]da.Index, mp.l)
+	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
+	nv := mp.graph.NumberOfVertices()
+	ne := ebg.NumberOfVertices()
+
+	n := da.Index(len(ebgMapping))
+	for l := 0; l < mp.l; l++ {
+		maxCellSize := mp.u[l]
+		ebgCellMap := make([]int, ne)
+		for j := 0; j < ne; j++ {
+			ebgCellMap[j] = -1
+		}
+		ebgCellVertices[l] = make([][]da.Index, len(mp.cellVertices[l]))
+		cellVerticesMap := make([]int, nv) //
+		for j := 0; j < nv; j++ {
+			cellVerticesMap[j] = -1
+		}
+		for cellId, vertexIds := range mp.cellVertices[l] {
+			for _, vertexId := range vertexIds {
+				cellVerticesMap[vertexId] = cellId
+			}
+		}
+
+		boundaryEbgVertices := make([]da.Index, 0, 100)
+		// step 4-6 in that issue comment. step 6 use method 1
+		for ebgvId := da.Index(0); ebgvId < n; ebgvId++ {
+			pId := ebgMapping[ebgvId]
+			u, v := da.Index(pId&0xFFFFFFFF), da.Index(pId>>32)
+			uc := cellVerticesMap[u]
+			vc := cellVerticesMap[v]
+			if uc == vc { // tail u and head v of edge (u,v) in the same cell...
+				ebgCellVertices[l][uc] = append(ebgCellVertices[l][uc], ebgvId)
+				ebgCellMap[ebgvId] = uc
+			} else {
+				// tail u and head v of edge (u,v) not in the same cell... a.k.a cut edges of the node-based graph
+				boundaryEbgVertices = append(boundaryEbgVertices, ebgvId)
+			}
+		}
+
+		for _, ebgvId := range boundaryEbgVertices {
+			// step 6: https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
+			// process cut edges of node-based graph
+			pId := ebgMapping[ebgvId]
+			u, v := da.Index(pId&0xFFFFFFFF), da.Index(pId>>32)
+			uc := cellVerticesMap[u]
+			vc := cellVerticesMap[v]
+
+			// try assign to u cell
+			// count the number of cut-edges introduced if we assign vertex ebgvId to u cell
+			numCutEdgesTail := 0
+			ebg.ForOutEdgesOf(ebgvId, func(_, w, _ da.Index) {
+				wc := ebgCellMap[w]
+				ok := wc != -1
+				if ok && wc != uc {
+					numCutEdgesTail++
+				}
+			})
+
+			ebg.ForInEdgesOf(ebgvId, func(_, w, _ da.Index) {
+				wc := ebgCellMap[w]
+				ok := wc != -1
+				if ok && wc != uc {
+					numCutEdgesTail++
+				}
+			})
+
+			// try assign to v cell
+			numCutEdgesHead := 0
+			ebg.ForOutEdgesOf(ebgvId, func(_, w, _ da.Index) {
+				wc := ebgCellMap[w]
+				ok := wc != -1
+				if ok && wc != vc {
+					numCutEdgesHead++
+				}
+			})
+
+			ebg.ForInEdgesOf(ebgvId, func(_, w, _ da.Index) {
+				wc := ebgCellMap[w]
+				ok := wc != -1
+				if ok && wc != vc {
+					numCutEdgesHead++
+				}
+			})
+
+			if numCutEdgesTail < numCutEdgesHead {
+				// modification of method 1 in step 6 in that osrm-partition issue: The idea is to place edge-based graph node into cell in such a way that the number of cut edges is minimized.
+				// ini heuristik paling bagus... number of cut edges, boundary/overlay vertices, dan shortcut edges hampir sama kaya directly partition the edge-based graph..
+				ebgCellVertices[l][uc] = append(ebgCellVertices[l][uc], ebgvId)
+			} else if numCutEdgesHead < numCutEdgesTail {
+				ebgCellVertices[l][vc] = append(ebgCellVertices[l][vc], ebgvId)
+			} else {
+				// use method 1 of step 6 in that comment issue:  https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
+				// randomly pick cell
+				// if r < 0.5, pick tail cell
+				// else, pick head cell
+				// jujur masih gak paham kenapa method 2 dari step 6 in that commment issue bisa lebih minimize number of border/boundary vertices di edge-based graph....
+				r := rd.Float64()
+				ucSize := len(ebgCellVertices[l][uc])
+				vcSize := len(ebgCellVertices[l][vc])
+				if util.Lt(r, 0.5) {
+					if ucSize < maxCellSize {
+						ebgCellVertices[l][uc] = append(ebgCellVertices[l][uc], ebgvId)
+					} else {
+						ebgCellVertices[l][vc] = append(ebgCellVertices[l][vc], ebgvId)
+					}
+				} else {
+					if vcSize < maxCellSize {
+						ebgCellVertices[l][vc] = append(ebgCellVertices[l][vc], ebgvId)
+					} else {
+						ebgCellVertices[l][uc] = append(ebgCellVertices[l][uc], ebgvId)
+					}
+				}
+			}
+
+		}
+	}
+
+	mp.cellVertices = ebgCellVertices // set new edge-based graph cell vertices. edge-based graph partition.
+	mp.graph = ebg
 }

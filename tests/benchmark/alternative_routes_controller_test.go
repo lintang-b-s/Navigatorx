@@ -47,7 +47,8 @@ func BenchmarkAlternativeRoutesController(b *testing.B) {
 	}
 
 	met := re.GetMetrics()
-	mapAttributesEngine := mapattributes.NewMapAttributesEngine(g, rn, logger, met, rtree)
+	s2Index := spatialindex.NewS2RoadSegmentsIndex(g, rn, logger)
+	mapAttributesEngine := mapattributes.NewMapAttributesEngine(g, rn, logger, met, s2Index)
 	mapAttributesService := usecases.NewMapAttributesService(logger, mapAttributesEngine)
 
 	api := controllers.New(rs, logger, mapAttributesService)

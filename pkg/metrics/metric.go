@@ -1,24 +1,18 @@
-// Package metrics provides utilities for managing and calculating graph metrics (edge & turn costs) and stalling tables.
+// Package metrics provides utilities for managing and calculating graph metrics (edge & turn costs).
 package metrics
 
 import (
 	"fmt"
-	"sync"
-	"sync/atomic"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 type Metric[W util.RoutingNumber] struct {
-	// https://go101.org/article/concurrent-atomic-operation.html   https://pkg.go.dev/sync/atomic#Pointer.Load   https://go.dev/ref/mem#atomic
-	// https://goperf.dev/01-common-patterns/atomic-ops/
-	// https://github.com/cockroachdb/cockroach/blob/d30c905fff79ef825adc96bcc647f1872a90f2ff/pkg/util/syncutil/map.go#L59
-	shortcutWeights                             atomic.Pointer[da.OverlayWeights[W]]
-	costFunction                                atomic.Pointer[TimeFunction[W]]
-	lastSegmentSpeedFiles, lastTurnPenaltyFiles atomic.Pointer[[]string]
+	shortcutWeights                             *da.OverlayWeights[W]
+	costFunction                                *TimeFunction[W]
+	lastSegmentSpeedFiles, lastTurnPenaltyFiles []string
 	metricFilepath, timeFunctionFilePath        string
-	mu                                          sync.Mutex
 }
 
 func NewMetric[W util.RoutingNumber](
@@ -28,56 +22,55 @@ func NewMetric[W util.RoutingNumber](
 	metricFilepath string,
 ) *Metric[W] {
 	m := &Metric[W]{
-		metricFilepath:       metricFilepath,
-		timeFunctionFilePath: timeFunctionFilePath,
-		mu:                   sync.Mutex{},
+		shortcutWeights:       overlayWeights,
+		metricFilepath:        metricFilepath,
+		timeFunctionFilePath:  timeFunctionFilePath,
+		lastSegmentSpeedFiles: make([]string, 0),
+		lastTurnPenaltyFiles:  make([]string, 0),
 	}
-	m.shortcutWeights.Store(overlayWeights)
-	m.lastSegmentSpeedFiles.Store(&[]string{})
-	m.lastTurnPenaltyFiles.Store(&[]string{})
 
 	return m
 }
 
 func (met *Metric[W]) GetShortcutWeights() *da.OverlayWeights[W] {
-	return met.shortcutWeights.Load()
+	return met.shortcutWeights
 }
 
 func (met *Metric[W]) SetTimeFunction(tf *TimeFunction[W]) {
-	met.costFunction.Store(tf)
+	met.costFunction = tf
 }
 
 func (met *Metric[W]) GetCostFunction() *TimeFunction[W] {
-	return met.costFunction.Load()
+	return met.costFunction
 }
 
 // GetWeight. get weight dari outEdge dengan id eId
 // eId adalah id/index dari outEdge yang ingin didapat weightnya
 func (met *Metric[W]) GetWeight(eId da.Index) W {
-	cf := met.costFunction.Load()
+	cf := met.costFunction
 	return cf.GetWeight(eId)
 }
 
-func (met *Metric[W]) GetDurationFromLength(segId da.Index, length uint32) W {
-	cf := met.costFunction.Load()
+func (met *Metric[W]) GetDurationFromLength(segId da.Index, length float64) float64 {
+	cf := met.costFunction
 	r := float64(length) / float64(cf.segmentLengths[segId])
-	return W(float64(cf.segmentDurations[segId]) * r)
+	return float64(cf.segmentDurations[segId]) * r
 }
 
 func (met *Metric[W]) GetDurationSeconds(segId da.Index) float64 {
-	cf := met.costFunction.Load()
+	cf := met.costFunction
 	dur := W(cf.segmentDurations[segId])
 	return util.WeightToSeconds(dur)
 }
 
 func (met *Metric[W]) GetSegmentLength(segId da.Index) float64 {
-	cf := met.costFunction.Load()
+	cf := met.costFunction
 	l := cf.GetSegmentLength(segId)
 	return util.DistanceToMeters(l)
 }
 
 func (met *Metric[W]) GetSegmentSpeed(segId da.Index) float64 {
-	cf := met.costFunction.Load()
+	cf := met.costFunction
 	if util.Ge(int32(cf.segmentDurations[segId]), util.INF_WEIGHT_FIXED) {
 		return 0
 	}
@@ -85,8 +78,8 @@ func (met *Metric[W]) GetSegmentSpeed(segId da.Index) float64 {
 }
 
 func (met *Metric[W]) GetShortcutWeight(offset da.Index) W {
-	sw := met.shortcutWeights.Load()
-	return sw.GetWeight(offset)
+
+	return met.shortcutWeights.GetWeight(offset)
 }
 
 func (met *Metric[W]) GetFilePath() string {
@@ -95,19 +88,19 @@ func (met *Metric[W]) GetFilePath() string {
 
 func (met *Metric[W]) SetLastSegmentSpeedFiles(filepaths []string) {
 
-	met.lastSegmentSpeedFiles.Store(&filepaths)
+	met.lastSegmentSpeedFiles = filepaths
 }
 
 func (met *Metric[W]) SetLastTurnPenaltyFiles(filepaths []string) {
-	met.lastTurnPenaltyFiles.Store(&filepaths)
+	met.lastTurnPenaltyFiles = filepaths
 }
 
 func (met *Metric[W]) GetLastSegmentSpeedFiles() []string {
-	return *met.lastSegmentSpeedFiles.Load()
+	return met.lastSegmentSpeedFiles
 }
 
 func (met *Metric[W]) GetLastTurnPenaltyFiles() []string {
-	return *met.lastTurnPenaltyFiles.Load()
+	return met.lastTurnPenaltyFiles
 }
 
 func (met *Metric[W]) UpdateMetrics() error {
@@ -116,11 +109,9 @@ func (met *Metric[W]) UpdateMetrics() error {
 		return fmt.Errorf("UpdateMetrics: failed to read new metrics, filepath: %s: %w", met.metricFilepath, err)
 	}
 
-	met.mu.Lock()
-	defer met.mu.Unlock()
-	nmw := newMet.shortcutWeights.Load()
-	nmcf := newMet.costFunction.Load()
-	met.shortcutWeights.Store(nmw)
-	met.costFunction.Store(nmcf)
+	nmw := newMet.shortcutWeights
+	nmcf := newMet.costFunction
+	met.shortcutWeights = nmw
+	met.costFunction = nmcf
 	return nil
 }

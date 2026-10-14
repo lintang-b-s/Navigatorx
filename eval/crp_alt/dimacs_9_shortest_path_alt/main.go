@@ -17,7 +17,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	op "github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -86,7 +85,12 @@ func main() {
 		f, fOut *os.File
 	)
 
-	if err := os.MkdirAll("./data", 0755); err != nil {
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
 		panic(err)
 	}
 	logger, err := log.New()
@@ -96,10 +100,6 @@ func main() {
 
 	flag.Parse()
 
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
@@ -111,7 +111,7 @@ func main() {
 	inputQueriesPath := resolveProjectPath(workingDir, *inputSSQueriesFilePath)
 	outputPath := resolveProjectPath(workingDir, *outputFileName)
 
-	f, err = os.OpenFile(inputCoordPath, os.O_RDONLY, 0644)
+	f, err = os.OpenFile(inputCoordPath, os.O_RDONLY, 0600)
 	if err != nil {
 		panic(fmt.Errorf("could not open test file: %v", inputCoordPath))
 	}
@@ -148,7 +148,7 @@ func main() {
 
 	const rounder = 1e8
 
-	nodeCoords := make([]op.NodeCoord, n+1)
+	nodeCoords := make([]da.Coordinate, n+1)
 	for v := 0; v < n; v++ { // vertex id 0 dummy vertex.. id vertex dari file dimacs mulai dari 1
 		line, err = util.ReadLine(br)
 		if err != nil {
@@ -171,10 +171,10 @@ func main() {
 		// dan untuk koordinat dari setiap node, kita pakai int32 (lat * 10^7, lon * 10^7) untuk input openstreetmap, buat save space kaya osrm.
 		// dan karena di dimacs 9th implementation challenge ini koordinat nya bisa lebih dair 10^8, kita bagi 10^8 biar gak overflow int32
 
-		nodeCoords[id] = op.NewNodeCoord(float64(x)/rounder, float64(y)/rounder)
+		nodeCoords[id] = da.NewCoordinate(float64(y)/rounder, float64(x)/rounder)
 	}
 
-	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0644)
+	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0600)
 	if err != nil {
 		panic(fmt.Errorf("could not open test file: %v", inputEdgesPath))
 	}
@@ -241,7 +241,7 @@ func main() {
 	}
 
 	// read sssp queries
-	fInputQueries, err := os.OpenFile(inputQueriesPath, os.O_RDONLY, 0644)
+	fInputQueries, err := os.OpenFile(inputQueriesPath, os.O_RDONLY, 0600)
 	if err != nil {
 		panic(fmt.Errorf("could not open test file: %v", inputQueriesPath))
 	}
@@ -349,7 +349,10 @@ func main() {
 		logger.Sugar().Infof("done source %d/%d: %d", i+1, len(sources), s)
 	}
 
-	// write to ss correctness output file. see: https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk
+	//	// write to ss correctness output file. see: https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk
+	if err := util.EnsureDirExists(outputPath); err != nil {
+		panic(fmt.Errorf("err: %w", err))
+	}
 	fOut, err = os.Create(outputPath)
 	if err != nil {
 		panic(fmt.Errorf("err: %w", err))

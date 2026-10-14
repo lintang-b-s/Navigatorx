@@ -12,7 +12,6 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -181,7 +180,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -321,13 +320,13 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	P--
 	Q--
 
-	nodeCoords := make([]extractor.NodeCoord, 0)
+	nodeCoords := make([]da.Coordinate, 0)
 	for i := 0; i < N; i++ {
-		nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
+		nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
 	}
 
 	for i := N; i < 2*N; i++ {
-		nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i*3), float64(i*3)))
+		nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i*3), float64(i*3)))
 	}
 
 	u1, u2, u3, u4 := 7, 11, 14, 16
@@ -359,7 +358,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 	// assert expected output dari test cases soal
 
-	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0644)
+	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}

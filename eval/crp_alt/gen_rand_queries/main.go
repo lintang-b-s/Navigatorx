@@ -16,6 +16,7 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var (
@@ -46,7 +47,11 @@ func main() {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
-	fout, err := os.Create("./data/random_queries_1mil_sp_crp_alt.txt")
+	outPath := "./data/random_queries_1mil_sp_crp_alt.txt"
+	if err := util.EnsureDirExists(outPath); err != nil {
+		panic(err)
+	}
+	fout, err := os.Create(outPath)
 	if err != nil {
 		panic(err)
 	}

@@ -3,7 +3,6 @@ package benchmark
 import (
 	"flag"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -38,17 +37,19 @@ type query struct {
 }
 
 func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
 		panic(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		panic(err)
 	}
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
+
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
@@ -56,7 +57,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 	config.InitRegionName("benchmark_test", pkg.TEST)
 
 	op := extractor.NewExtractor[int32]()
-	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -75,11 +76,11 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 		ps,
 		len(ps),
 		25,
-		graph, logger, false, false,
+		ebg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-
+	// mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		panic(err)
@@ -91,7 +92,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 		panic(err)
 	}
 
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

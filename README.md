@@ -1,6 +1,6 @@
 # Navigatorx
 
-Routing Engine For Openstreetmap data. Supports fast traffic updates and most types of turn restrictions (via-node, via-way, multiple via-way) from OpenStreetMap.
+Routing Engine For Openstreetmap data. Supports fast point-to-point fastest path queries, fast traffic updates, and most types of turn restrictions (via-node, via-way, multiple via-way) from OpenStreetMap.
 
 [![test](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/test.yml)
 [![lint](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/lintang-b-s/Navigatorx/actions/workflows/lint.yml)
@@ -94,9 +94,9 @@ gdown https://drive.google.com/uc?id=1pRmqUFgNc_p0lEKmfzLcn3IRhUW4Cm4c  --output
 sh ./scripts/run_test.sh
 ```
 
-## Load Test
+## Load Tests and Other Correctness Tests
 
-load tests result: https://github.com/lintang-b-s/skripsi_code
+load tests and other correctness tests result: https://github.com/lintang-b-s/skripsi_code
 
 ## API Documentation
 
@@ -125,7 +125,7 @@ online routing engine demo: [demo](https://navigatorx-crp-fe.vercel.app/)
 
 ### Acknowledgments
 
-i would like to express my deepest gratitude to the contributors to the open source projects below. The code in the Navigatorx project is heavily adapted and inspired by the following open source projects:
+i would like to express my deepest gratitude to the contributors to the open source projects below. The code in the Navigatorx project is heavily adapted and inspired by the following great open source projects:
 
 1. [CRP](https://github.com/michaelwegner/CRP)
 2. [OSRM Backend](https://github.com/Project-OSRM/osrm-backend)
@@ -136,5 +136,3 @@ i would like to express my deepest gratitude to the contributors to the open sou
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-

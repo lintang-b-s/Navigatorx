@@ -10,6 +10,7 @@ import (
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -18,6 +19,7 @@ type HMM struct {
 	graph *da.Graph
 	rn    *da.RoadNetworkDataContainer
 	re    *routing.CRPRoutingEngine[int32]
+	met   *metrics.Metric[int32]
 	rt    *spatialindex.Rtree
 }
 
@@ -40,6 +42,7 @@ func NewHiddenMarkovModelMapMatching(graph *da.Graph, re *routing.CRPRoutingEngi
 		re:    re,
 		rt:    rt,
 		rn:    re.GetRoadNetworkContainer(),
+		met:   re.GetMetrics(),
 	}
 }
 
@@ -61,18 +64,18 @@ on Advances in Geographic Information Systems (GIS ‘09), pp.336–343.
 
 evaluation/tests suite di: tests/mapmatching/ (cari yang ada nama Offline di test funtions nya)
 */
-func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate) {
+func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate) {
 
 	if len(gpsTraj) == 0 {
-		return []*da.MatchedGPSPoint{}, []da.Coordinate{}
+		return []*da.MatchedGPSPoint{}, []da.FloatCoordinate{}
 	}
 	if len(gpsRadiusesM) != len(gpsTraj) {
-		return []*da.MatchedGPSPoint{}, []da.Coordinate{}
+		return []*da.MatchedGPSPoint{}, []da.FloatCoordinate{}
 	}
 
 	candidates, numberOfStates := h.projectAllGpsWithRadiuses(gpsTraj, gpsRadiusesM)
 	if numberOfStates == 0 {
-		return []*da.MatchedGPSPoint{}, []da.Coordinate{}
+		return []*da.MatchedGPSPoint{}, []da.FloatCoordinate{}
 	}
 
 	allowUTurns := h.buildAllowUturnSlice(gpsTraj)
@@ -232,7 +235,7 @@ func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 	var (
 		prevMatchedCand  *ma.Candidate
 		prevGps          *da.GPSPoint
-		matchedRoutePath []da.Coordinate
+		matchedRoutePath da.Coordinates
 	)
 
 	for i, p := range path {
@@ -243,8 +246,7 @@ func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 		tail := h.rn.GetSegmentTailCoord(sSegId)
 		head := h.rn.GetSegmentHeadCoord(sSegId)
 		eInitialBearing := geo.BearingTo(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
-		matchedSegment := da.NewMatchedGPSPoint(gps, sSegId, s.GetProjectedCoord(), eInitialBearing,
-			uint32(p.GetObservationId()))
+		matchedSegment := da.NewMatchedGPSPoint(gps, sSegId, s.GetProjectedCoord(), eInitialBearing)
 		mapMatchingResult = append(mapMatchingResult, matchedSegment)
 
 		if i == 0 {
@@ -266,13 +268,15 @@ func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 				route, _ = h.shortestPathDistance(sp, tp, deltaTime, true)
 			}
 
-			matchedRoutePath = appendRoutePath(matchedRoutePath, route.path)
+			path := route.path
+			matchedRoutePath = appendRoutePath(matchedRoutePath, path)
 			prevMatchedCand = s
 			prevGps = gps
 		}
 	}
 
-	return mapMatchingResult, matchedRoutePath
+	fp := matchedRoutePath.ToFloatCoordinates()
+	return mapMatchingResult, fp
 }
 
 // buildAllowUturnSlice. allowUTurns slice. allowUTurns[i] true jika gpsTraj[i] kemungkinan jadi titik u-turn
@@ -316,7 +320,7 @@ func (h *HMM) projectAllGpsWithRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []f
 		candidates := make([]*ma.Candidate, 0, len(nearbyArcs))
 
 		for _, eId := range nearbyArcs {
-			eLength := h.re.GetSegmentLength(eId)
+			eLength := h.met.GetSegmentLength(eId)
 			cand := ma.NewCandidate(eId, 0, eLength)
 			candidates = append(candidates, cand)
 		}
@@ -465,7 +469,7 @@ func (h *HMM) newPhantomNodeFromCandidate(cand *ma.Candidate) da.PhantomNode {
 	segmentId := cand.GetSegmentId()
 
 	forwardDistance := cand.GetDistanceFromHead()
-	reverseDistance := cand.GetDistanceFromTail()
+	reverseDistance := cand.GetDistr()
 
 	forwardCost := cand.GetCostFromHead()
 	reverseCost := cand.GetCostFromTail()
@@ -530,7 +534,7 @@ func (h *HMM) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) (transit
 
 	distance = math.Abs(distance)
 
-	travelTime := h.re.GetDurationFromLength(sp.GetVId(), distance)
+	travelTime := h.met.GetDurationFromLength(sp.GetVId(), distance)
 
 	return transitionRoute{distance: distance, travelTime: travelTime}, true
 }
@@ -611,12 +615,12 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 		sameSegmentDur := pkg.INF_WEIGHT
 		sameSegmentDist := pkg.INF_WEIGHT
 
-		eLength := h.re.GetSegmentLength(sSegId)
+		eLength := h.met.GetSegmentLength(sSegId)
 
 		sameSegmentRevDist := eLength - sp.GetReverseDistance() - tp.GetReverseDistance()
 		if util.Gt(sameSegmentRevDist, 0) {
 			sameSegmentDist = sameSegmentRevDist
-			eDuration := h.re.GetDurationSeconds(sSegId)
+			eDuration := h.met.GetDurationSeconds(sSegId)
 			sameSegmentDur = eDuration - sp.GetReverseCost() - tp.GetReverseCost()
 		}
 
@@ -632,9 +636,6 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 }
 
 func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float64, addPath bool) (transitionRoute, bool) {
-	if h.re == nil {
-		return transitionRoute{}, false
-	}
 
 	longerDist := MaxSpeedMS * deltaTimeSeconds
 	spCoord := sp.GetSnappedCoord()
@@ -649,7 +650,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	crpQuery := routing.NewCRPQuery(h.re)
 	defer crpQuery.Done()
 	crpQuery.SetMaxSearchRadiusSecs(longerDur)
-	weight, edgePath, found := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
+	weight, segmentPath, found := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
 	if !found {
 		return transitionRoute{}, false
 	}
@@ -657,8 +658,8 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 
 	if !addPath {
 		routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
-		for _, segmentId := range edgePath {
-			routeDistance += h.re.GetSegmentLength(segmentId)
+		for _, segmentId := range segmentPath {
+			routeDistance += h.met.GetSegmentLength(segmentId)
 		}
 
 		return transitionRoute{distance: routeDistance, travelTime: travelTime}, true
@@ -666,7 +667,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 
 	routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
 
-	finalPath, totalDistance := h.re.GetEdgePath(edgePath)
+	finalPath, totalDistance := h.re.GetSegmentPath(segmentPath)
 	routeDistance += totalDistance
 
 	path := make([]da.Coordinate, 0, len(sp.GetForwardGeometry())+len(*finalPath)+len(tp.GetReverseGeometry())+2)
@@ -676,12 +677,10 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	path = appendRoutePath(path, tp.GetReverseGeometry())
 	path = appendRoutePath(path, []da.Coordinate{tp.GetSnappedCoord()})
 
-	h.re.PutCoordsToPool(finalPath)
-
 	return transitionRoute{distance: routeDistance, travelTime: travelTime, path: path}, true
 }
 
-func appendRoutePath(path []da.Coordinate, segment []da.Coordinate) []da.Coordinate {
+func appendRoutePath(path da.Coordinates, segment da.Coordinates) da.Coordinates {
 	for _, coord := range segment {
 		if len(path) == 0 || !da.IsSameCoordinate(path[len(path)-1], coord) {
 			path = append(path, coord)
@@ -745,15 +744,15 @@ func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate)
 		cand.SetProjectedCoord(bestProjectedPoint.GetLat(), bestProjectedPoint.GetLon())
 		cand.SetDist(minDist)
 		cand.SetDistr(minDistr)
-		cand.SetDistanceFromTail(minDistr)
+		cand.SetDistr(minDistr)
 
-		edgeLength := h.re.GetSegmentLength(cand.GetSegmentId())
+		edgeLength := h.met.GetSegmentLength(cand.GetSegmentId())
 		distanceFromHead := max(edgeLength-minDistr, 0)
 		cand.SetDistanceFromHead(distanceFromHead)
 
-		cand.SetCostFromTail(h.re.GetDurationFromLength(cand.GetSegmentId(), minDistr))
-		cand.SetCostFromHead(h.re.GetDurationFromLength(cand.GetSegmentId(), distanceFromHead))
+		cand.SetCostFromTail(h.met.GetDurationFromLength(cand.GetSegmentId(), minDistr))
+		cand.SetCostFromHead(h.met.GetDurationFromLength(cand.GetSegmentId(), distanceFromHead))
 
-		cand.SetEdgeBearing(candEdgeBearing)
+		cand.SetSegmentBearing(candEdgeBearing)
 	}
 }

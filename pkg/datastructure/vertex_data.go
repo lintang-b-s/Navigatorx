@@ -38,7 +38,7 @@ func NewParentVertex(vertex Index) ParentVertex {
 type VertexData[W util.RoutingNumber] struct {
 	parent     ParentVertex // 13 byte
 	cost       W
-	heapNodeId uint32 // 4 byte
+	heapNodeId Index // 4 byte
 }
 
 func NewVData[W util.RoutingNumber](cost W, parent ParentVertex) VertexData[W] {

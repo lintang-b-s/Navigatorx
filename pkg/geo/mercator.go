@@ -5,13 +5,13 @@ import (
 )
 
 /*
-mercator
+spherical mercator
 project  wgs84 ellipsoidal datum  (lon, lat) coord to (x,y) cartesian coord
-conformal
+conformal: shape of every small feature of the map is shown correctly
 
 ref:
 [1] https://www.hydrometronics.com/downloads/Web%20Mercator%20-%20Non-Conformal,%20Non-Mercator%20%28notes%29.pdf
-[2] https://en.wikipedia.org/wiki/Mercator_projection#Properties
+[2] https://en.wikipedia.org/wiki/Mercator_projection#Web_Mercator
 [3] https://proj.org/en/stable/operations/projections/webmerc.html
 [4] https://wiki.openstreetmap.org/wiki/Mercator
 
@@ -29,7 +29,7 @@ const (
 	R         = 6378.0
 )
 
-// https://en.wikipedia.org/wiki/Mercator_projection#Properties
+// https://en.wikipedia.org/wiki/Mercator_projection#Web_Mercator
 func clampLat(lat float64) float64 {
 	return max(min(maxLatDeg, lat), minLatDeg)
 }
@@ -42,7 +42,7 @@ func Degrees(rad float64) float64 {
 	return rad * 180 / math.Pi
 }
 
-// https://wiki.openstreetmap.org/wiki/Mercator
+// taken from https://wiki.openstreetmap.org/wiki/Mercator
 func CalcYToLat(y float64) float64 {
 	return Degrees(2*math.Atan(math.Exp(y/R)) - math.Pi/2)
 }

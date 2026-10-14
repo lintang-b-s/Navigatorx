@@ -1,5 +1,7 @@
 package http
 
+// unit tests written in this http package dan packages didalamnya mostly written by codex (AI SLOP) & belum semuanya ku cek juga wkkwk
+
 import (
 	"context"
 	"os"

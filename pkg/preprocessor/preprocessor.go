@@ -73,7 +73,12 @@ func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 	p.overlayGraph = da.NewOverlayGraph(p.graph, p.mlp)
 	p.logger.Sugar().Infof("Overlay graph built and written to ./data/overlay_graph.ngraph")
 	for l := p.overlayGraph.GetLevelData().GetLevelCount(); l >= 1; l-- {
-		p.logger.Sugar().Infof("overlay graph level %v: number of overlay vertices %v", l, p.overlayGraph.NumberOfVerticesInLevel(l))
+		numCells, avgNumCellEntry, avgNumCellExit, avgNumCellShortcuts := p.overlayGraph.GetCellStatistics(l)
+		boundaryVerticesNum := p.overlayGraph.NumberOfVerticesInLevel(l)
+		p.logger.Sugar().Infof(`overlay graph level %v statistics:
+		#boundary/overlay vertices %v, #cells: %v, avg. number of cell entry vertices: %v, 
+		avg. number of cell exit vertices: %v, avg. number of cell shortcut edges: %v`, l,
+			boundaryVerticesNum, numCells, avgNumCellEntry, avgNumCellExit, avgNumCellShortcuts)
 	}
 
 	p.logger.Sugar().Infof("Running Kosaraju's algorithm to find strongly connected components (SCCs)...")
@@ -163,15 +168,17 @@ SortByCellNumber. group vertices s.t. vertices within the same cell are adjacent
 adapted from https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.cpp
 */
 func (p *Preprocessor[W]) SortByCellNumber() error {
+	n := p.graph.GetNumberOfCellsNumbers()
+
 	cellVertices := make([][]struct {
 		vertex        da.Vertex
 		originalIndex da.Index
-	}, p.graph.GetNumberOfCellsNumbers()) // slice of slice of vertices in each cell
+	}, n) // slice of slice of vertices in each cell
 
 	minLat, minLon := math.MaxFloat64, math.MaxFloat64
 	maxLat, maxLon := math.Inf(-1), math.Inf(-1)
 
-	numVerticesInCell := make([]da.Index, p.graph.GetNumberOfCellsNumbers()) // number of outEdges in each cell
+	numVerticesInCell := make([]da.Index, n) // number of outEdges in each cell
 
 	type oldEdge struct {
 		id da.Index
@@ -242,10 +249,8 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 		}
 	}
 
-	noeId := da.Index(0)                                             // new id for outEdges for each vertex for each cell
-	p.graph.MakeOutEdgeCellOffset(p.graph.GetNumberOfCellsNumbers()) // offset of first outEdge for each cell
-	nieId := da.Index(0)                                             // new id for inEdges for each vertex for each cell
-	p.graph.MakeInEdgeCellOffset(p.graph.GetNumberOfCellsNumbers())  // offset of first inEdge for each cell
+	noeId := da.Index(0) // new id for outEdges for each vertex for each cell
+	nieId := da.Index(0) // new id for inEdges for each vertex for each cell
 
 	vId := da.Index(0)
 
@@ -254,9 +259,7 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 	nPerm := make([]int, p.graph.NumberOfVertices()+1)
 	nPerm[len(nPerm)-1] = len(nPerm) - 1
 
-	for i := da.Index(0); i < da.Index(p.graph.GetNumberOfCellsNumbers()); i++ {
-		p.graph.SetHeadCellOffset(i, noeId)
-		p.graph.SetTailCellOffset(i, nieId)
+	for i := da.Index(0); i < da.Index(n); i++ {
 
 		for v := da.Index(0); v < da.Index(len(cellVertices[i])); v++ {
 			// update vertex to use new vId

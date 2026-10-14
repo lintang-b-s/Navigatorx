@@ -37,10 +37,16 @@ func init() {
 }
 
 func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *customizer.Customizer[int32]) {
-	osmfFile := fmt.Sprintf("./data/%s.osm.pbf", fileName)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
 
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	osmfFile := fmt.Sprintf("%s/%s.osm.pbf", outputDir, fileName)
+
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		panic(err)
 	}
 
 	config.InitRegionName(fileName, pkg.TEST)
@@ -51,12 +57,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	}
 
 	op := extractor.NewExtractor[int32]()
-
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatal(err)
-	}
-	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmfFile), logger)
+	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(osmfFile, logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -75,11 +76,11 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, true,
+		nbg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
@@ -90,7 +91,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -142,15 +143,14 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		logger.Sugar().Infof("downloading evaluation %s dataset.....", name)
 
-		dir := filepath.Dir(filePath)
-		if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-			return fmt.Errorf("download: MkdirAll failed %v", err)
+		if err := util.EnsureDirExists(filePath); err != nil {
+			return fmt.Errorf("download: EnsureDirExists failed %w", err)
 		}
 
 		tmpFilePath := filePath + ".tmp"
 		output, err := os.Create(tmpFilePath)
 		if err != nil {
-			return fmt.Errorf("download: Create failed %v", err)
+			return fmt.Errorf("download: Create failed %w", err)
 		}
 
 		logger.Sugar().Infof("downloading file......")
@@ -158,7 +158,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 		if err != nil {
 			_ = output.Close()
 			_ = os.Remove(tmpFilePath)
-			return fmt.Errorf("download: http.Get failed %v", err)
+			return fmt.Errorf("download: http.Get failed %w", err)
 		}
 		defer response.Body.Close()
 
@@ -166,11 +166,11 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 		closeErr := output.Close()
 		if err != nil {
 			_ = os.Remove(tmpFilePath)
-			return fmt.Errorf("download: io.Copy failed %v", err)
+			return fmt.Errorf("download: io.Copy failed %w", err)
 		}
 		if closeErr != nil {
 			_ = os.Remove(tmpFilePath)
-			return fmt.Errorf("download: output.Close failed %v", closeErr)
+			return fmt.Errorf("download: output.Close failed %w", closeErr)
 		}
 
 		isHTML := strings.Contains(strings.ToLower(response.Header.Get("Content-Type")), "text/html")
@@ -178,7 +178,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 			isHTML, err = isHTMLDocument(tmpFilePath)
 			if err != nil {
 				_ = os.Remove(tmpFilePath)
-				return fmt.Errorf("download: detect html failed %v", err)
+				return fmt.Errorf("download: detect html failed %w", err)
 			}
 		}
 
@@ -197,7 +197,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 		} else {
 			if err := os.Rename(tmpFilePath, filePath); err != nil {
 				_ = os.Remove(tmpFilePath)
-				return fmt.Errorf("download: rename temp file failed %v", err)
+				return fmt.Errorf("download: rename temp file failed %w", err)
 			}
 		}
 
@@ -208,7 +208,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 }
 
 func isHTMLDocument(path string) (bool, error) {
-	f, err := os.OpenFile(path, os.O_RDONLY, 0644)
+	f, err := os.OpenFile(path, os.O_RDONLY, 0600)
 	if err != nil {
 		return false, err
 	}
@@ -298,12 +298,12 @@ func ensureGDownInstalled() error {
 func ExtractZip(zipPath, destDir string) error {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
-		return fmt.Errorf("extractZip: OpenReader failed %v", err)
+		return fmt.Errorf("extractZip: OpenReader failed %w", err)
 	}
 	defer reader.Close()
 
-	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
-		return fmt.Errorf("extractZip: MkdirAll failed %v", err)
+	if err := util.EnsureDirExists(destDir); err != nil {
+		return fmt.Errorf("extractZip: MkdirAll failed %w", err)
 	}
 
 	destDir = filepath.Clean(destDir)
@@ -318,33 +318,32 @@ func ExtractZip(zipPath, destDir string) error {
 		}
 
 		if file.FileInfo().IsDir() {
-			if err := os.MkdirAll(cleanTargetPath, file.Mode()); err != nil {
-				return fmt.Errorf("extractZip: MkdirAll failed %v", err)
+			if err := util.EnsureDirExists(targetPath); err != nil {
+				return fmt.Errorf("extractZip: MkdirAll failed %w", err)
 			}
 			continue
 		}
 
-		parentDir := filepath.Dir(cleanTargetPath)
-		if err := os.MkdirAll(parentDir, os.ModePerm); err != nil {
-			return fmt.Errorf("extractZip: MkdirAll parent failed %v", err)
+		if err := util.EnsureDirExists(cleanTargetPath); err != nil {
+			return fmt.Errorf("extractZip: EnsureDirExists failed %w", err)
 		}
 
 		src, err := file.Open()
 		if err != nil {
-			return fmt.Errorf("extractZip: File.Open failed %v", err)
+			return fmt.Errorf("extractZip: File.Open failed %w", err)
 		}
 
-		dst, err := os.OpenFile(cleanTargetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, file.Mode())
+		dst, err := os.OpenFile(cleanTargetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			src.Close()
-			return fmt.Errorf("extractZip: OpenFile failed %v", err)
+			return fmt.Errorf("extractZip: OpenFile failed %w", err)
 		}
 
 		_, err = io.Copy(dst, src)
 		closeErr := dst.Close()
 		srcCloseErr := src.Close()
 		if err != nil {
-			return fmt.Errorf("extractZip: io.Copy failed %v", err)
+			return fmt.Errorf("extractZip: io.Copy failed %w", err)
 		}
 		if closeErr != nil {
 			return fmt.Errorf("extractZip: dst.Close failed %v", closeErr)
@@ -372,9 +371,9 @@ func Density(n, m int, directed bool) float64 {
 	return mf / (nf * (nf - 1))
 }
 
-func AssignNodeCoordinates(adjList [][]PairEdge) []extractor.NodeCoord {
+func AssignNodeCoordinates(adjList [][]PairEdge) []da.Coordinate {
 	n := len(adjList)
-	nodeCoords := make([]extractor.NodeCoord, n)
+	nodeCoords := make([]da.Coordinate, n)
 	lmOne := da.Index(0)
 
 	distLmOne := dijkstra(adjList, lmOne)
@@ -405,14 +404,14 @@ func AssignNodeCoordinates(adjList [][]PairEdge) []extractor.NodeCoord {
 	distLmTwoThree := float64(distLmTwo[lmThree])
 	distLmOneThree := float64(distLmOne[lmThree])
 
-	nodeCoords[lmOne] = extractor.NewNodeCoord(0, 0)
-	nodeCoords[lmTwo] = extractor.NewNodeCoord(distLmOneTwo, 0)
+	nodeCoords[lmOne] = da.NewCoordinate(0, 0)
+	nodeCoords[lmTwo] = da.NewCoordinate(distLmOneTwo, 0)
 
 	nume := distLmOneThree*distLmOneThree - distLmTwoThree*distLmTwoThree + distLmOneTwo*distLmOneTwo
 	denom := 2 * distLmOneTwo
 	x3 := nume / denom
 	y3 := math.Sqrt(distLmOneThree*distLmOneThree - x3*x3)
-	nodeCoords[lmThree] = extractor.NewNodeCoord(x3, y3)
+	nodeCoords[lmThree] = da.NewCoordinate(x3, y3)
 
 	distLmThree := dijkstra(adjList, lmThree)
 
@@ -434,7 +433,7 @@ func AssignNodeCoordinates(adjList [][]PairEdge) []extractor.NodeCoord {
 		}
 		y := nume / denom
 
-		nodeCoords[v] = extractor.NewNodeCoord(y, x)
+		nodeCoords[v] = da.NewCoordinate(y, x)
 	}
 
 	return nodeCoords
@@ -448,7 +447,7 @@ func dijkstra(adjList [][]PairEdge, s da.Index) []float64 {
 		dist[v] = util.INF_WEIGHT_FLOAT
 	}
 
-	pq := da.NewQueryHeap[da.Index, float64](uint32(n), 100, da.ARRAY_STORAGE, true)
+	pq := da.NewQueryHeap[da.Index, float64](da.Index(n), da.ARRAY_STORAGE)
 	emptyVertexData := da.NewVData(float64(0), da.NewParentVertex(0))
 
 	dist[s] = 0

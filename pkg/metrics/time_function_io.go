@@ -84,6 +84,9 @@ func (tf *TimeFunction[W]) WriteToFile(filename string) error {
 		if err := w.WriteUint32s(tf.segmentDurations); err != nil {
 			return err
 		}
+		if err := w.WriteUint16s(tf.turnCosts); err != nil {
+			return err
+		}
 		return nil
 	})
 }
@@ -124,7 +127,13 @@ func ReadCostFunctionFromFile[W util.RoutingNumber](
 	if err != nil {
 		return nil, err
 	}
-	return NewTimeCostFunction(
+	turnCosts, err := r.ReadUint16s()
+	if err != nil {
+		return nil, err
+	}
+	tf := NewTimeCostFunction(
 		roadNetwork, weights, segmentLengths, segmentDurations,
-	), nil
+	)
+	tf.SetTurnCosts(turnCosts)
+	return tf, nil
 }

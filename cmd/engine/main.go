@@ -83,7 +83,12 @@ func main() {
 
 	met := re.GetMetrics()
 	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
-	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, rtree)
+	s2Index, err := spatialindex.ReadS2RoadSegmentsIndexFromFile()
+	if err != nil {
+		panic(err)
+	}
+
+	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, s2Index)
 	mapAttributesService := usecases.NewMapAttributesService(logger, mapAttributesEngine)
 	util.FreeMemory()
 	serverErr := api.Use(

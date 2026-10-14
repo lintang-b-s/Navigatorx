@@ -48,7 +48,7 @@ func TestPreprocessorSimple(t *testing.T) {
 			f    *os.File
 		)
 
-		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 		if err != nil {
 			t.Fatalf("could not open test file: %v", err)
 		}
@@ -71,10 +71,10 @@ func TestPreprocessorSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 
-		var nodeCoords []extractor.NodeCoord
+		var nodeCoords []da.Coordinate
 
 		for i := 0; i < n; i++ {
-			nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
+			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
 		}
 
 		adjList := make([][]tests.PairEdge, n)
@@ -101,7 +101,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		es := tests.FlattenEdges(adjList)
 
 		op := extractor.NewExtractor[float64]()
-		acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
+		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
 			acceptedNodeMap[int64(i)] = nodeCoords[i]
@@ -112,7 +112,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
-		g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
+		g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -124,7 +124,7 @@ func TestPreprocessorSimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
 			2, 1,
-			g, logger, true, true,
+			g, logger,
 		)
 
 		mp.SetCellVertices(cellVertices)
@@ -516,7 +516,7 @@ func TestPreprocessorSimple(t *testing.T) {
 				// cukup cek level 1
 				vCellIdInLevelOne := og.GetCellNumberOnLevel(vCell, 1)
 				cellSize := len(tc.cellVertices[0][vCellIdInLevelOne])
-				nextV := util.MinInt(v+cellSize, n)
+				nextV := min(v+cellSize, n)
 				for i := v; i < nextV; i++ {
 					nextVertex := g.GetVertex(da.Index(i))
 					nextVertexCell := g.GetCellNumber(nextVertex.GetID())
@@ -832,8 +832,13 @@ func init() {
 }
 
 func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.RoadNetworkDataContainer) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		panic(err)
 	}
 	logger, err := custlog.New()
 	if err != nil {
@@ -842,7 +847,7 @@ func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.Roa
 
 	op := extractor.NewExtractor[int32]()
 
-	graph, rn, timeFunction, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
+	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -861,11 +866,11 @@ func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.Roa
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, false,
+		nbg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
@@ -876,7 +881,7 @@ func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.Roa
 	if err != nil {
 		panic(err)
 	}
-	prepr := prep.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prepr := prep.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prepr.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

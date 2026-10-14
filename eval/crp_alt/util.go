@@ -9,6 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -19,7 +20,7 @@ import (
 )
 
 // ini buat dimacs 9th implmenetation challenge correctness test
-func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
+func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
@@ -35,7 +36,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 		prep        *preprocesser.Preprocessor[int64]
 	)
 
-	if err := os.MkdirAll(outputDir, 0755); err != nil {
+	if err := util.EnsureDirExists(outputDir); err != nil {
 		panic(err)
 	}
 
@@ -47,7 +48,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 	es := flattenEdges(adjList)
 
 	op := extractor.NewExtractor[int64]()
-	acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
+	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
 		acceptedNodeMap[int64(i)] = nodeCoords[i]
@@ -57,7 +58,7 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 	op.SetNodeToOsmId(nodeToOsmId)
 
 	rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
-	g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
+	g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 	logger, err := logger.New()
 	if err != nil {
@@ -74,8 +75,8 @@ func BuildCRP(nodeCoords []extractor.NodeCoord, adjList [][]PairEdge, n int, Us 
 
 		mp := partitioner.NewMultilevelPartitioner(
 			ps,
-			len(ps), 1,
-			g, logger, true, true,
+			len(ps), 15,
+			g, logger,
 		)
 		mp.RunMultilevelPartitioning()
 

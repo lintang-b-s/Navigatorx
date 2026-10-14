@@ -31,7 +31,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -99,7 +99,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 		for v := 1; v <= n; v++ {
 			djdist[v] = math.MaxInt64
 		}
-		pq := da.NewQueryHeap[da.Index, float64](uint32(n+1), uint32(n+1), da.ARRAY_STORAGE, true)
+		pq := da.NewQueryHeap[da.Index, float64](da.Index(n+1), da.ARRAY_STORAGE)
 
 		djdist[s] = 0
 		noPar := da.NewParentVertex(da.INVALID_VERTEX_ID)
@@ -185,24 +185,17 @@ func SolveRideHailing(t *testing.T, filepath string) {
 	source := da.Index(0)
 	sink := da.Index(1)
 
-	dg := da.NewPartitionGraph(k*2 + 2)
-	dg.AddVertex(da.NewPartitionVertex(source, source, 0, 0))
-	dg.AddVertex(da.NewPartitionVertex(sink, sink, 0, 0))
+	dn := partitioner.NewDinicMaxFlow[int64](k*2+2, false, false)
 
-	for i := da.Index(1); i <= da.Index(len(tripRequest)); i++ {
-		dg.AddVertex(da.NewPartitionVertex(i+1, i+1, 0, 0))
-		dg.AddVertex(da.NewPartitionVertex(i+da.Index(k)+1, i+da.Index(k)+1, 0, 0))
-	}
-
-	for i := da.Index(1); i <= da.Index(len(tripRequest)); i++ {
+	for i := da.Index(1); i <= da.Index(k); i++ {
 		tt := tripRequest[i-1]
 		u := tt.u
 		v := tt.v
 		ut := int64(tt.t)
 
-		dg.AddEdge(source, i+1, 1, true)
-		dg.AddEdge(i+da.Index(k)+1, sink, 1, true)
-		for j := da.Index(1); j <= da.Index(len(tripRequest)); j++ {
+		dn.AddEdge(source, i+1, 1, true)
+		dn.AddEdge(i+da.Index(k)+1, sink, 1, true)
+		for j := da.Index(1); j <= da.Index(k); j++ {
 			ttj := tripRequest[j-1]
 			q := ttj.u
 			qt := int64(ttj.t)
@@ -211,17 +204,17 @@ func SolveRideHailing(t *testing.T, filepath string) {
 			}
 
 			if ut+dist[bitpack(u, v)]+dist[bitpack(v, q)] <= qt {
-				dg.AddEdge(i+1, j+da.Index(k)+1, 1, true)
+				dn.AddEdge(i+1, j+da.Index(k)+1, 1, true)
 			}
 		}
 	}
 
 	t.Logf("calculating maxflow....")
-	dinic := partitioner.NewDinicMaxFlow(dg, false, false)
-	mf := dinic.ComputeMaxflowMinCut(source, sink)
+
+	mf := dn.ComputeMaxflowMinCut(source, sink)
 	ans := k - mf.GetMaxFlow()
 
-	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}

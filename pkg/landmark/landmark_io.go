@@ -2,7 +2,6 @@ package landmark
 
 import (
 	"fmt"
-	"sync/atomic"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -12,9 +11,9 @@ import (
 func (lm *Landmark[W]) WriteLandmark(filename string, n int) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 
-		landmarks := *lm.landmarks.Load()
-		lw := lm.lw.Load()
-		vlw := lm.vlw.Load()
+		landmarks := lm.landmarks
+		lw := lm.lw
+		vlw := lm.vlw
 
 		if err := w.Uint8(met.NumericMarker[W]()); err != nil {
 			return err
@@ -30,10 +29,10 @@ func (lm *Landmark[W]) WriteLandmark(filename string, n int) error {
 				return err
 			}
 		}
-		if err := met.WriteRoutingNumbers(w, *lw); err != nil {
+		if err := met.WriteRoutingNumbers(w, lw); err != nil {
 			return err
 		}
-		return met.WriteRoutingNumbers(w, *vlw)
+		return met.WriteRoutingNumbers(w, vlw)
 	})
 }
 
@@ -78,12 +77,9 @@ func ReadLandmark[W util.RoutingNumber](
 		return nil, err
 	}
 	lm := NewLandmark[W]()
-	cl := &atomic.Bool{}
-	cl.Store(false)
-	lm.cl = cl
-	lm.landmarks.Store(&landmarks)
-	lm.lw.Store(&lw)
-	lm.vlw.Store(&vlw)
+	lm.landmarks = landmarks
+	lm.lw = lw
+	lm.vlw = vlw
 	lm.n = da.Index(n)
 	lm.k = da.Index(k)
 	return lm, nil

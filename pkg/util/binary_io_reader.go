@@ -105,19 +105,6 @@ func (r *BinaryReader) ReadBitset() (*bitset.BitSet, error) {
 	return bb, err
 }
 
-func (r *BinaryReader) ReadInt32Pairs(count int, set func(index int, first, second int32)) error {
-	const itemSize = 8
-	return r.readBulk(count, itemSize, func(chunk []byte, offset int) {
-		for i := 0; i < len(chunk); i += itemSize {
-			set(
-				offset+i/itemSize,
-				int32(binary.LittleEndian.Uint32(chunk[i:i+4])),
-				int32(binary.LittleEndian.Uint32(chunk[i+4:i+itemSize])),
-			)
-		}
-	})
-}
-
 func (r *BinaryReader) ReadInt32s() ([]int32, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -143,10 +130,10 @@ func (r *BinaryReader) ReadUint16s() ([]uint16, error) {
 		return make([]uint16, 0), err
 	}
 	values := make([]uint16, length)
-	const itemSize = 4
+	const itemSize = 2
 	err = r.readBulk(len(values), itemSize, func(chunk []byte, offset int) {
 		for i := 0; i < len(chunk); i += itemSize {
-			values[offset+i/itemSize] = uint16(binary.LittleEndian.Uint16(chunk[i : i+itemSize]))
+			values[offset+i/itemSize] = binary.LittleEndian.Uint16(chunk[i : i+itemSize])
 		}
 	})
 
@@ -192,6 +179,10 @@ func (r *BinaryReader) ReadUint64s() ([]uint64, error) {
 	return values, nil
 }
 
+func (r *BinaryReader) ReadUInt64s() ([]uint64, error) {
+	return r.ReadUint64s()
+}
+
 func (r *BinaryReader) ReadInt64s() ([]int64, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -206,6 +197,24 @@ func (r *BinaryReader) ReadInt64s() ([]int64, error) {
 	})
 	if err != nil {
 		return make([]int64, 0), err
+	}
+	return values, nil
+}
+
+func (r *BinaryReader) ReadInts() ([]int, error) {
+	length, err := r.Length()
+	if err != nil {
+		return make([]int, 0), err
+	}
+	values := make([]int, length)
+	const itemSize = 8
+	err = r.readBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			values[offset+i/itemSize] = int(binary.LittleEndian.Uint64(chunk[i : i+itemSize]))
+		}
+	})
+	if err != nil {
+		return make([]int, 0), err
 	}
 	return values, nil
 }
@@ -228,8 +237,23 @@ func (r *BinaryReader) ReadFloat64s() ([]float64, error) {
 	return values, nil
 }
 
+func (r *BinaryReader) ReadInt32Pairs(count int, set func(index int, first, second int32)) error {
+	const itemSize = 8
+	return r.readBulk(count, itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			set(
+				offset+i/itemSize,
+				int32(binary.LittleEndian.Uint32(chunk[i:i+4])),
+				int32(binary.LittleEndian.Uint32(chunk[i+4:i+itemSize])),
+			)
+		}
+	})
+}
+
+// readBulk read slice of data with chunking strategy
+// similiar to readUint64Array() in https://github.com/bits-and-blooms/bitset/blob/master/bitset.go
 func (r *BinaryReader) readBulk(count, itemSize int, decode func([]byte, int)) error {
-	numItemsPerChunk := targetChunkSize / itemSize
+	numItemsPerChunk := CHUNK_SIZE / itemSize
 	if capacity := numItemsPerChunk * itemSize; cap(r.bulkBuf) < capacity {
 		r.bulkBuf = make([]byte, capacity)
 	}

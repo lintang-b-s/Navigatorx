@@ -4,13 +4,16 @@ import (
 	"time"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
+	"github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 // ALTP2P .
 type ALTP2P[W util.RoutingNumber] struct {
-	engine *CRPRoutingEngine[W]
-
+	engine          *CRPRoutingEngine[W]
+	metrics         *metrics.Metric[W]
+	lm              *landmark.Landmark[W]
 	pq              *da.QueryHeap[da.QueryKey, W]
 	activeLandmarks []da.Index
 	runtime         int64
@@ -24,14 +27,15 @@ func NewALTP2P[W util.RoutingNumber](
 		engine:          engine,
 		numSettledNodes: 0,
 	}
-
+	dj.metrics = engine.GetMetrics()
+	dj.lm = engine.GetLandmark()
 	dj.Preallocate()
 	return dj
 }
 
 func (us *ALTP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 
-	us.activeLandmarks = us.engine.lm.SelectBestQueryLandmarks(s, t)
+	us.activeLandmarks = us.lm.SelectBestQueryLandmarks(s, t)
 	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
 
 	now := time.Now()
@@ -68,7 +72,7 @@ func (us *ALTP2P[W]) graphSearchUni(source, target da.Index) bool {
 	us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
 		head := us.engine.graph.GetHead(eId)
 		vId := head
-		eWeight := us.engine.getWeight(eId, true)
+		eWeight := us.metrics.GetWeight(eId)
 		// get cost to reach v through u
 		newVCost := us.pq.GetCost(uId) + eWeight
 
@@ -79,8 +83,8 @@ func (us *ALTP2P[W]) graphSearchUni(source, target da.Index) bool {
 		}
 
 		vLabelled := util.Lt(ovCost, util.Infinity[W]())
-		pfv := us.engine.lm.FindTighestLowerBound(vId, target, us.activeLandmarks)
-		priority := newVCost + pfv
+		hv := us.lm.ComputeTighestLowerBound(vId, target, us.activeLandmarks)
+		priority := newVCost + hv
 
 		// newVCost is better, update the labelled vertex data
 		if vLabelled {
@@ -102,8 +106,7 @@ func (us *ALTP2P[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
 
-	maxVerticesInCell := us.engine.graph.GetMaxVerticesInCell()
-	us.pq = da.NewQueryHeap[da.QueryKey, W](uint32(maxSearchSize), uint32(maxVerticesInCell), da.ARRAY_STORAGE, true)
+	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
 

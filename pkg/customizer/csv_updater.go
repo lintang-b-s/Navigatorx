@@ -5,7 +5,6 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -108,10 +107,10 @@ func (c *Customizer[W]) readSegmentSpeedsFromFile(filepath string) ([]da.Index, 
 	return upSegmentIds, upSegmentSpeeds, nil
 }
 
-func (c *Customizer[W]) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []float64, error) {
+func (c *Customizer[W]) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []da.Index, []float64, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
-		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to open file %v: %w", filepath, err)
+		return make([]da.Index, 0), make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to open file %v: %w", filepath, err)
 	}
 
 	defer f.Close()
@@ -119,10 +118,11 @@ func (c *Customizer[W]) readTurnPenaltiesFromFile(filepath string) ([]da.Index, 
 	csvReader := csv.NewReader(f)
 	data, err := csvReader.ReadAll()
 	if err != nil {
-		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to readAll csv data: %w", err)
+		return make([]da.Index, 0), make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to readAll csv data: %w", err)
 	}
 
 	n := len(data)
+	upTurnSegmentIds := make([]da.Index, 0, n)
 	upTurnIds := make([]da.Index, 0, n)
 	upTurnPenalties := make([]float64, 0, n)
 	for rowId := 0; rowId < n; rowId++ {
@@ -130,18 +130,18 @@ func (c *Customizer[W]) readTurnPenaltiesFromFile(filepath string) ([]da.Index, 
 		uStr := strings.TrimSpace(row[0])
 		u, err := util.ParseTextUInt64(uStr)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse uint64 u: %s: %w", uStr, err)
+			return make([]da.Index, 0), make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse uint64 u: %s: %w", uStr, err)
 		}
 		vStr := strings.TrimSpace(row[1])
 		v, err := util.ParseTextUInt64(vStr)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse uint64 v: %s: %w", vStr, err)
+			return make([]da.Index, 0), make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse uint64 v: %s: %w", vStr, err)
 		}
 
 		wStr := strings.TrimSpace(row[2])
 		w, err := util.ParseTextUInt64(wStr)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse uint64 w: %s: %w", wStr, err)
+			return make([]da.Index, 0), make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse uint64 w: %s: %w", wStr, err)
 		}
 
 		ebgeId := c.turnLookupTable.Get(da.NewTurnKV(u, v, w, 0))
@@ -153,42 +153,19 @@ func (c *Customizer[W]) readTurnPenaltiesFromFile(filepath string) ([]da.Index, 
 		turnPenaltyString := strings.TrimSpace(row[3])
 		turnPenalty, err := util.ParseTextFloat64(turnPenaltyString)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse turn penalty: %s: %w", turnPenaltyString, err)
+			return make([]da.Index, 0), make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to parse turn penalty: %s: %w", turnPenaltyString, err)
 		}
 
+		ebgnId := c.segmentLookupTable.Get(da.NewSegmentKV(u, v, 0))
+		if ebgnId == da.INVALID_LK_TABLE_ID {
+			c.logger.Sugar().Warnf("no edge found from %v to %v", u, v)
+			continue
+		}
+
+		upTurnSegmentIds = append(upTurnSegmentIds, ebgnId)
 		upTurnIds = append(upTurnIds, ebgeId)
 		upTurnPenalties = append(upTurnPenalties, turnPenalty)
 	}
 
-	return upTurnIds, upTurnPenalties, nil
-}
-
-// UpdatedSegment is one row in a segment-speed CSV file; speed is kilometers per hour.
-type UpdatedSegment struct {
-	fromOsmId int64
-	toOsmId   int64
-	speed     float64 // in km/h
-}
-
-func NewUpdatedSegment(fromOsmId, toOsmId int64, speed float64) UpdatedSegment {
-	return UpdatedSegment{fromOsmId: fromOsmId, toOsmId: toOsmId, speed: speed}
-}
-
-// WriteUpdatedSegmentsToCSV. write segment csv file
-func WriteUpdatedSegmentsToCSV(filepath string, segments []UpdatedSegment) error {
-	f, err := os.Create(filepath)
-	if err != nil {
-		return fmt.Errorf("WriteUpdatedSegmentsToCSV: failed to create file %v: %w", filepath, err)
-	}
-	defer f.Close()
-
-	for _, seg := range segments {
-		speedStr := strconv.FormatFloat(seg.speed, 'f', -1, 64)
-		_, err := fmt.Fprintf(f, "%d, %d, %s\n", seg.fromOsmId, seg.toOsmId, speedStr)
-		if err != nil {
-			return fmt.Errorf("WriteUpdatedSegmentsToCSV: failed to write row for segment (%d,%d): %w", seg.fromOsmId, seg.toOsmId, err)
-		}
-	}
-
-	return nil
+	return upTurnIds, upTurnSegmentIds, upTurnPenalties, nil
 }

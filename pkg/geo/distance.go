@@ -26,8 +26,10 @@ func CalculateGreatCircleDistance(latOne, longOne, latTwo, longTwo float64) floa
 	return earthRadiusKM * c
 }
 
-// CalculateEuclideanDistMercatorProj. calculate euclidean distance (in meter) using mercator projected coordinates.
+// CalculateEuclideanDistMercatorProj. calculate euclidean distance (in meter) using mercator projected coordinates. faster than haversine/great circle distance.
 // https://gis.stackexchange.com/questions/14528/better-distance-measurements-in-web-mercator-projection
+// https://pro.arcgis.com/en/pro-app/3.4/tool-reference/spatial-analyst/geodesic-versus-planar-distance.htm
+// "If you are working in a small geography, such as a city or county, the difference between planar and geodesic is proportionally smaller than if you are working at the scale of a country."
 func CalculateEuclideanDistMercatorProj(latOne, longOne, latTwo, longTwo float64) float64 {
 	xOne := CalcLonToX(longOne)
 	yOne := CalcLatToY(latOne)

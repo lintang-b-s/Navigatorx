@@ -19,6 +19,7 @@ import (
 type RoutingService struct {
 	log             *zap.Logger
 	engine          cont.RoutingEngine
+	metrics         cont.Metrics
 	graph           *da.Graph
 	rn              *da.RoadNetworkDataContainer
 	spatialIndex    SpatialIndex
@@ -42,9 +43,8 @@ func NewRoutingService(log *zap.Logger, engine cont.RoutingEngine, rn *da.RoadNe
 		altRouting:      altRouting,
 		rn:              rn,
 	}
-
 	rs.turnSignCache = da.NewTurnSignCache()
-
+	rs.metrics = engine.GetMetrics()
 	return rs, nil
 }
 
@@ -95,7 +95,6 @@ func (rs *RoutingService) ShortestPath(
 		drivingDirections = directionBuilder.GetDrivingDirections(segmentPath, sp, tp, useAnnotation)
 	}
 
-	rs.engine.PutCoordsToPool(pathCoords)
 	return travelTime, dist, pathPolyline, drivingDirections, true, nil
 }
 
@@ -147,7 +146,6 @@ func (rs *RoutingService) AlternativeRouteSearch(
 		}
 
 		alternatives[i].SetDrivingDirections(drivingDirections)
-		rs.engine.PutCoordsToPool(altPathCoords)
 	}
 	return alternatives, nil
 }
@@ -166,7 +164,7 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 		path.Prepend([]da.Coordinate{sp.GetSnappedCoord()})
 	}
 	travelTime -= sp.GetForwardCost() // by default pakai edge-based graph, hasil router added duration/travelTime dari road segment s
-	dist += sp.GetForwardDistance()   // kita gak tambahin distance dari projected s ke head dari road segment s di GetEdgePath()
+	dist += sp.GetForwardDistance()   // kita gak tambahin distance dari projected s ke head dari road segment s di GetSegmentPath()
 
 	if !rs.isSameSourceDestinationSegment(sp, tp) {
 		path.Append(tp.GetReverseGeometry())
@@ -176,7 +174,7 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 	}
 
 	travelTime += tp.GetReverseCost() // by default pakai edge-based graph, hasil router gak add duration/travelTime dari road segment t
-	dist += tp.GetReverseDistance()   // kita gak tambahin distance dari projected t ke head dari road segment t di GetEdgePath()
+	dist += tp.GetReverseDistance()   // kita gak tambahin distance dari projected t ke head dari road segment t di GetSegmentPath()
 
 	return travelTime, dist
 }
@@ -201,7 +199,7 @@ func (rs *RoutingService) InitBackgroundWorker(ctx context.Context) {
 	rs.engine.InitBackgroundWorker(ctx)
 }
 
-func (rs *RoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate, error) {
+func (rs *RoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate, error) {
 	if util.IsTimeout(ctx) {
 		return nil, nil, ctx.Err()
 	}
@@ -218,7 +216,7 @@ func (rs *RoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPS
 
 	hmm := offline.NewHiddenMarkovModelMapMatching(rs.graph, re, rt)
 	var matchedPoints []*da.MatchedGPSPoint
-	var routePath []da.Coordinate
+	var routePath []da.FloatCoordinate
 
 	matchedPoints, routePath = hmm.MapMatchWithGPSRadiuses(gpsTraj, gpsRadiusesM)
 

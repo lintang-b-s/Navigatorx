@@ -8,6 +8,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -71,23 +72,29 @@ todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , va
 ....
 */
 func main() {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		panic(err)
-	}
-	logger, err := log.New()
-	if err != nil {
-		panic(err)
-	}
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
 		panic(err)
 	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		panic(err)
+	}
+
+	logger, err := log.New()
+	if err != nil {
+		panic(err)
+	}
+
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}
 
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
+		if err := util.EnsureDirExists(osmfFile); err != nil {
+			panic(err)
+		}
 		output, err := os.Create(osmfFile)
 		if err != nil {
 			panic(err)
@@ -117,7 +124,7 @@ func main() {
 
 	op := extractor.NewExtractor[int32]()
 
-	graph, rn, timeFunction, err := op.Extract(osmfFile, logger)
+	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(osmfFile, logger)
 
 	if err != nil {
 		panic(err)
@@ -137,11 +144,11 @@ func main() {
 		ps,
 		len(ps),
 		25,
-		graph, logger, false, false,
+		nbg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		panic(err)
@@ -152,8 +159,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// rn := re.
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+
+	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		panic(err)

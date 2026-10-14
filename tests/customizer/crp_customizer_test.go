@@ -202,7 +202,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			f    *os.File
 		)
 
-		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 		if err != nil {
 			t.Fatalf("could not open test file: %v", err)
 		}
@@ -225,10 +225,10 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 
-		var nodeCoords []extractor.NodeCoord
+		var nodeCoords []da.Coordinate
 
 		for i := 0; i < n; i++ {
-			nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
+			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
 		}
 
 		adjList := make([][]tests.PairEdge, n)
@@ -255,7 +255,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		es := tests.FlattenEdges(adjList)
 
 		op := extractor.NewExtractor[float64]()
-		acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
+		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
 			acceptedNodeMap[int64(i)] = nodeCoords[i]
@@ -266,7 +266,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
-		g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
+		g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -278,7 +278,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
 			2, 1,
-			g, logger, false, false,
+			g, logger,
 		)
 		mp.SetCellVertices(cellVertices)
 
@@ -301,7 +301,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 		lm := landmark.NewLandmark[float64]()
-		err = lm.PreprocessALT(util.MinInt(16, n), mt.GetCostFunction(), g, logger)
+		err = lm.PreprocessALT(min(16, n), mt.GetCostFunction(), g, logger)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -403,7 +403,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			vlw := lm.GetVerticesLandmarkWeights()
 			n := g.NumberOfVertices()
 
-			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0644)
+			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0600)
 			if err != nil {
 				t.Fatalf("could not open test file: %v", err)
 			}
@@ -463,17 +463,19 @@ func TestCRPCustomizerSimple(t *testing.T) {
 }
 
 func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		panic(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		t.Fatal(err)
@@ -482,7 +484,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 
 	op := extractor.NewExtractor[int32]()
 
-	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -501,11 +503,11 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, false,
+		nbg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
@@ -516,7 +518,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

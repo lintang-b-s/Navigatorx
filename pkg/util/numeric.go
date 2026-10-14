@@ -22,7 +22,7 @@ const (
 )
 
 var (
-	USE_INT32 = false // biar gak interface boxing wkwkwk. biar tetep cepet routing nya, meski tipe weight nya generic.
+	USE_INT32 = false // biar gak interface boxing wkwkwk. biar tetep cepet routing (int32) nya, meski tipe weight nya generic.
 	USE_INT64 = false
 )
 
@@ -68,7 +68,7 @@ func MetersPerSecondFromCentimeters(value int32) float64 {
 	return float64(value) / CentiScale
 }
 
-func QuantizeTurnCost(seconds float64, forbidden bool) uint16 {
+func TurnCostCentiSeconds(seconds float64, forbidden bool) uint16 {
 	if forbidden {
 		return TurnCostForbidden
 	}

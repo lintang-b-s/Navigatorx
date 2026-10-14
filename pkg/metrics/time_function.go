@@ -16,9 +16,10 @@ func PrepTimeFunctionPath() string {
 }
 
 type TimeFunction[W util.RoutingNumber] struct {
-	weights          []W      // centisecond (if the input is openstreetmap file). weight of each graph edge.
+	weights          []W      // centisecond (if the input is openstreetmap file). weight of each graph edge indexed by its edge id.
 	segmentLengths   []uint32 // centimeter. length of each road segment.
 	segmentDurations []uint32 // centisecond. duration of each road segments.
+	turnCosts        []uint16 // centisecond. duration of turn cost of each edge-based graph edge indexed by its edge id.
 	isRoadNetwork    bool
 }
 
@@ -33,11 +34,16 @@ func NewTimeCostFunction[W util.RoutingNumber](
 		segmentLengths:   segmentLengths,
 		isRoadNetwork:    roadNetwork,
 		segmentDurations: segmentDurations,
+		turnCosts:        make([]uint16, 0),
 	}
 }
 
 func NewTimeCostFunctionEmpty[W util.RoutingNumber]() *TimeFunction[W] {
 	return &TimeFunction[W]{}
+}
+
+func (tf *TimeFunction[W]) SetTurnCosts(turnCosts []uint16) {
+	tf.turnCosts = turnCosts
 }
 
 func (tf *TimeFunction[W]) ForWeights(handle func(eId da.Index, weight W, length uint32)) {
@@ -51,18 +57,24 @@ func (tf *TimeFunction[W]) GetWeight(eId da.Index) W {
 }
 
 func (tf *TimeFunction[W]) Update(
-	upEbgNodeIds, upEbgEdgeIds []da.Index, upSpLimits []uint32, upTurnEdgeIds []da.Index, upTurnPenalties []uint16,
+	upEbgNodeIds, upEbgEdgeIds []da.Index, upSpLimits []uint32, upTurnEdgeIds []da.Index, upTurnSegmentIds []da.Index, upTurnPenalties []uint16,
 ) *TimeFunction[W] {
 
+	// update segments duration
 	for i, eId := range upEbgEdgeIds {
 		segmentId := upEbgNodeIds[i]
 		dur := tf.weightFromSpeed(upSpLimits[i], tf.segmentLengths[segmentId])
-		tf.weights[eId] = dur
+		tc := tf.turnCosts[eId]
+		tf.weights[eId] = dur + W(tc)
 		tf.segmentDurations[segmentId] = uint32(dur)
 	}
 
+	// update turn costs
 	for i, eId := range upTurnEdgeIds {
-		tf.weights[eId] += W(upTurnPenalties[i])
+		segId := upTurnSegmentIds[i]
+		dur := tf.segmentDurations[segId]
+		tf.weights[eId] = W(dur) + W(upTurnPenalties[i])
+		tf.turnCosts[eId] = upTurnPenalties[i]
 	}
 
 	return NewTimeCostFunction(

@@ -1,7 +1,6 @@
 package extractor
 
 import (
-	"os"
 	"path/filepath"
 	"testing"
 
@@ -10,6 +9,7 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 const (
@@ -22,8 +22,13 @@ func init() {
 }
 
 func setup(t *testing.T, osmFileTest string) (*da.Graph, *da.RoadNetworkDataContainer, *extractor.Extractor[int32]) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		panic(err)
 	}
 	logger, err := log.New()
 	if err != nil {
@@ -32,12 +37,12 @@ func setup(t *testing.T, osmFileTest string) (*da.Graph, *da.RoadNetworkDataCont
 
 	osmExtractor := extractor.NewExtractor[int32]()
 
-	graph, rn, _, err := osmExtractor.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
+	_, ebg, rn, _, _, err := osmExtractor.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	return graph, rn, osmExtractor
+	return ebg, rn, osmExtractor
 }
 
 // go test ./tests/extractor -run .

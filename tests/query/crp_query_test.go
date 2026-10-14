@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"math/rand"
 	"os"
@@ -33,7 +34,8 @@ import (
 )
 
 const (
-	osmFile = "./data/yogyakarta.osm.pbf"
+	osmFileJogja = "./data/yogyakarta.osm.pbf"
+	osmFileSolo  = "./data/solo.osm.pbf"
 )
 
 var (
@@ -135,7 +137,7 @@ func TestCRPQuerySimple(t *testing.T) {
 			f    *os.File
 		)
 
-		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 		if err != nil {
 			t.Fatalf("could not open test file: %v", err)
 		}
@@ -158,10 +160,10 @@ func TestCRPQuerySimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 
-		var nodeCoords []extractor.NodeCoord
+		var nodeCoords []da.Coordinate
 
 		for i := 0; i < n; i++ {
-			nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(i)))
+			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
 		}
 
 		adjList := make([][]tests.PairEdge, n)
@@ -188,7 +190,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		es := tests.FlattenEdges(adjList)
 
 		op := extractor.NewExtractor[float64]()
-		acceptedNodeMap := make(map[int64]extractor.NodeCoord, n)
+		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
 			acceptedNodeMap[int64(i)] = nodeCoords[i]
@@ -199,7 +201,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		op.SetNodeToOsmId(nodeToOsmId)
 
 		rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
-		g, timeFunction, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
+		g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
@@ -211,7 +213,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
 			2, 1,
-			g, logger, true, true,
+			g, logger,
 		)
 
 		mp.RunMultilevelPartitioning()
@@ -235,7 +237,7 @@ func TestCRPQuerySimple(t *testing.T) {
 			t.Fatalf("err: %v", err)
 		}
 		lm := landmark.NewLandmark[float64]()
-		err = lm.PreprocessALT(util.MinInt(16, n), mt.GetCostFunction(), g, logger)
+		err = lm.PreprocessALT(min(16, n), mt.GetCostFunction(), g, logger)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -262,7 +264,7 @@ func TestCRPQuerySimple(t *testing.T) {
 			graph := re.GetGraph()
 			n := graph.NumberOfVertices()
 
-			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0644)
+			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0600)
 			if err != nil {
 				t.Fatalf("could not open test file: %v", err)
 			}
@@ -321,26 +323,32 @@ func init() {
 	config.InitRegionName("query_test", pkg.TEST)
 }
 
-func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+func setup(t *testing.T, osmFileInput string) (*engine.Engine[int32], *extractor.Extractor[int32], *zap.Logger) {
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
 	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		panic(err)
+	}
+
+	mapName := strings.Split(osmFileInput, "/")[2]
+	mapName = strings.Split(mapName, ".")[0]
+	config.InitRegionName(fmt.Sprintf("query_test_%s", mapName), pkg.TEST)
+
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatal(err)
-	}
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		panic(err)
 	}
 
 	op := extractor.NewExtractor[int32]()
-	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFileInput), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -360,11 +368,11 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, false,
+		nbg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
@@ -376,7 +384,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 		panic(err)
 	}
 
-	prep := preprocesser.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := preprocesser.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)
@@ -384,6 +392,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 
 	t.Logf("Preprocessing completed successfully.")
 
+	time.Sleep(1 * time.Second)
 	custom := customizer.NewCustomizer[int32](logger)
 
 	_, err = custom.Customize()
@@ -396,7 +405,7 @@ func setup(t *testing.T, turnCost bool) (*engine.Engine[int32], *zap.Logger) {
 		t.Fatal(err)
 	}
 
-	return re, logger
+	return re, op, logger
 }
 
 /*
@@ -406,7 +415,7 @@ karena bakal time out kalau pakai vscode
 */
 
 func TestCRPQueryStressTest(t *testing.T) {
-	eng, _ := setup(t, true)
+	eng, _, _ := setup(t, osmFileJogja)
 	re := eng.GetRoutingEngine()
 	g := re.GetGraph()
 
@@ -454,7 +463,7 @@ func TestCRPQueryStressTest(t *testing.T) {
 
 		expectedSpPaths[s] = make([]string, numberOfVertices)
 		for target := 0; target < numberOfVertices; target++ {
-			expectedpathCoords, _ := re.GetEdgePath(spPath[target])
+			expectedpathCoords, _ := re.GetSegmentPath(spPath[target])
 			expectedPolyline := da.GooglePoylineFromCoords(*expectedpathCoords)
 			expectedSpPaths[s][target] = expectedPolyline
 		}
@@ -592,65 +601,17 @@ please run the test using command: "go test ./tests/query  -run TestCRPQueryTurn
 karena bakal time out kalau pakai vscode
 */
 func TestCRPQueryTurnRestriction(t *testing.T) {
-	eng, logger := setup(t, true)
-	re := eng.GetRoutingEngine()
-	altSearch := routing.NewAlternativeRouteSearch(re)
 
 	type turnResType struct {
 		restriction string
-		from, to    uint64
-		viaWays     []uint64
-		viaNode     uint64
+		from, to    int64
+		viaWays     []int64
+		viaNode     int64
 		isViaWay    bool
+		id          int64
 	}
-	testCases := []struct {
-		name                          string
-		turnRestriction               turnResType
-		queryOrigin, queryDestination da.Coordinate
-	}{
-		{
-			name:             "Simpang Pingit U-turn Restriction https://www.openstreetmap.org/relation/17842412 ,  example correct route:  https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.782881%2C110.361282%3B-7.782681%2C110.361341#map=19/-7.781811/110.361046",
-			queryOrigin:      da.NewCoordinate(-7.782881, 110.361282),
-			queryDestination: da.NewCoordinate(-7.782681, 110.361341),
-			turnRestriction:  turnResType{restriction: "no_u_turn", from: 263612372, isViaWay: true, viaWays: []uint64{590074069, 1490467372}, to: 898190693},
-		},
-		{
-			name:             "Simpang Pingit U-turn Restriction 2 https://www.openstreetmap.org/relation/4763182 ,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.781084%2C110.361035%3B-7.781015%2C110.360724#map=17/-7.784382/110.360112",
-			queryOrigin:      da.NewCoordinate(-7.781084, 110.361035),
-			queryDestination: da.NewCoordinate(-7.781015, 110.360724),
-			turnRestriction:  turnResType{restriction: "no_u_turn", from: 898190692, isViaWay: true, viaWays: []uint64{1459769996, 263612372}, to: 590074069},
-		},
 
-		{
-			name:             "Cik di Tiro u-turn restriction https://www.openstreetmap.org/relation/13427535,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.782253%2C110.374966%3B-7.782219%2C110.375243#map=17/-7.779046/110.375637",
-			queryOrigin:      da.NewCoordinate(-7.782253, 110.374966),
-			queryDestination: da.NewCoordinate(-7.782219, 110.375243),
-			turnRestriction:  turnResType{restriction: "no_u_turn", from: 153821715, isViaWay: true, viaWays: []uint64{1001303583}, to: 1001303581},
-		},
-		{
-			name:             "Simpang tugu jogja u-turn restriction https://www.openstreetmap.org/relation/17670402,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.783003%2C110.369079%3B-7.782729%2C110.367582#map=18/-7.782897/110.367665",
-			queryOrigin:      da.NewCoordinate(-7.783003, 110.369079),
-			queryDestination: da.NewCoordinate(-7.782729, 110.367582),
-			turnRestriction:  turnResType{restriction: "no_u_turn", from: 357658481, isViaWay: true, viaWays: []uint64{1110178248}, to: 1108475786},
-		},
-
-		{
-			name:             "Simpang Gramedia no_right_turn restriction https://www.openstreetmap.org/relation/5710502,  example correct route: https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.783686%2C110.374746%3B-7.78296%2C110.377024#map=16/-7.78528/110.37525",
-			queryOrigin:      da.NewCoordinate(-7.783686, 110.374746),
-			queryDestination: da.NewCoordinate(-7.782960, 110.377024),
-			turnRestriction:  turnResType{restriction: "no_right_turn", from: 1347054637, isViaWay: false, viaNode: 271845942, to: 179907371},
-		},
-
-		{
-			name:             "Jalan Seturan Raya no_right_turn restriction https://www.openstreetmap.org/relation/18854138,  example correct route: openstreetmap.org/directions?engine=fossgis_osrm_car&route=-7.764298%2C110.41148%3B-7.761288%2C110.422211#map=19/-7.763936/110.411675",
-			queryOrigin:      da.NewCoordinate(-7.764298, 110.411480),
-			queryDestination: da.NewCoordinate(-7.761288, 110.422211),
-			turnRestriction:  turnResType{restriction: "no_right_turn", from: 1124615933, isViaWay: false, viaNode: 1390908542, to: 586534196},
-		},
-	}
-	rn := re.GetRoadNetworkContainer()
-
-	isSame := func(a []uint64, b []uint64) bool {
+	isSame := func(a []int64, b []int64) bool {
 		if len(a) != len(b) {
 			return false
 		}
@@ -665,7 +626,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 
 	// path= list of edgeIds
 	// cek palo path contain turn restriction (from-way,via-node/via-ways,to-way)
-	isCorrect := func(path []da.Index, tr turnResType) ([]uint64, bool) {
+	isCorrect := func(path []da.Index, tr turnResType, rn *da.RoadNetworkDataContainer) ([]int64, bool) {
 		restrictedPathLength := 0
 		if tr.isViaWay {
 			restrictedPathLength = len(tr.viaWays) + 2 // len(via-ways) + from + to. example: https://www.openstreetmap.org/relation/17842412
@@ -673,7 +634,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 			restrictedPathLength = 2 // from + to . (via Node ada di head nya from edge)
 		}
 
-		restrictedPath := make([]uint64, restrictedPathLength)
+		restrictedPath := make([]int64, restrictedPathLength)
 		restrictedPath[0] = tr.from
 		restrictedPath[restrictedPathLength-1] = tr.to
 		if tr.isViaWay {
@@ -685,26 +646,25 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 		}
 
 		for i := 0; i < len(path)-(restrictedPathLength-1); i++ {
-			subPath := make([]uint64, 0, restrictedPathLength)
+			subPath := make([]int64, 0, restrictedPathLength)
 
 			if tr.isViaWay {
 				cur := path[i]
-				currOsmWayId := rn.GetOsmWayId(cur)
+				currOsmWayId := int64(rn.GetOsmWayId(cur))
 				subPath = append(subPath, currOsmWayId)
 				for j := 1; j <= restrictedPathLength-1; j++ {
 					next := path[i+j]
-					nextOsmWayId := rn.GetOsmWayId(next)
+					nextOsmWayId := int64(rn.GetOsmWayId(next))
 					subPath = append(subPath, nextOsmWayId)
 				}
 			} else {
 				from := path[i]
 				viaOsmId, _ := rn.GetTailHeadOsmNodeId(from)
 				to := path[i+1]
-
-				fromWayId := rn.GetOsmWayId(from)
-				toWayId := rn.GetOsmWayId(to)
+				fromWayId := int64(rn.GetOsmWayId(from))
+				toWayId := int64(rn.GetOsmWayId(to))
 				subPath = append(subPath, fromWayId)
-				subPath = append(subPath, viaOsmId)
+				subPath = append(subPath, int64(viaOsmId))
 				subPath = append(subPath, toWayId)
 			}
 			if isSame(subPath, restrictedPath) {
@@ -712,39 +672,115 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 			}
 		}
 
-		return []uint64{0}, true
+		return []int64{0}, true
 	}
 
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
+	// tests all turn restrictions in this two jogja & solo osm.pbf file
+	mapTestCases := []string{osmFileJogja, osmFileSolo}
+	for _, mtc := range mapTestCases {
 
-			rtree := spatialindex.NewRtree()
+		eng, op, logger := setup(t, mtc)
+		re := eng.GetRoutingEngine()
+		altSearch := routing.NewAlternativeRouteSearch(re)
+		rn := re.GetRoadNetworkContainer()
+		rtree := spatialindex.NewRtree()
+		rtree.Build(re.GetGraph(), rn, logger)
+		routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
+		if err != nil {
+			panic(err)
+		}
 
-			rtree.Build(re.GetGraph(), rn, logger)
+		fromTurnRestrictions := op.GetTurnRestrictions()
+		ways := op.GetWays()
+		wayNodeMap := op.GetWayNodeMap()
 
-			routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
-			if err != nil {
-				panic(err)
-			}
+		testCases := make([]struct {
+			name             string
+			turnRestriction  turnResType
+			queryOrigin      da.Coordinate
+			queryDestination da.Coordinate
+		}, 0)
 
-			qOrigin := tc.queryOrigin
-			qDestination := tc.queryDestination
-			sp, tp := routingService.Snap(context.Background(), qOrigin.GetLat(), qOrigin.GetLon(), qDestination.GetLat(), qDestination.GetLon())
-			crpQuery := routing.NewCRPALTQuery(re)
+		valhallaVisualizerPolylineUrl := func(polyline string) string {
+			return fmt.Sprintf("https://valhalla.github.io/demos/polyline/?unescape=true&polyline6=false#%s", polyline)
+		}
 
-			_, path, _ := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
-			if subPath, correct := isCorrect(path, tc.turnRestriction); !correct {
-				t.Errorf("%s: expected not contain path %v, got contain the path", tc.name, subPath)
-			}
-
-			alts, _, _ := altSearch.FindAlternativeRoutes(sp.GetVId(), tp.GetVId(), 3, false, 0)
-
-			for i := 0; i < len(alts); i++ {
-				altPath := alts[i].GetSegmentPath()
-				if subPath, correct := isCorrect(altPath, tc.turnRestriction); !correct {
-					t.Errorf("%s: expected not contain path %v, got contain the path, restriction: %v", tc.name, subPath, tc.turnRestriction.restriction)
+		for from, turnRestrictions := range fromTurnRestrictions {
+			for _, tr := range turnRestrictions {
+				fnodes := ways[from].GetOsmNodes()
+				tnodes := ways[tr.GetTo()].GetOsmNodes()
+				if len(fnodes) == 0 || len(tnodes) == 0 {
+					continue
 				}
+
+				fc := wayNodeMap[fnodes[0]].GetCoord()
+				tn := tnodes[len(tnodes)-1]
+
+				if tr.IsWay() {
+					viaways := tr.GetViaWays()
+					vnodes := ways[viaways[len(viaways)-1]].GetOsmNodes()
+					for _, vn := range vnodes {
+						if vn == tn {
+							tn = tnodes[0]
+							break
+						}
+					}
+				}
+
+				tc := wayNodeMap[tn].GetCoord()
+				trs := tr.GetTurnRestriction().String()
+				testCases = append(testCases, struct {
+					name             string
+					turnRestriction  turnResType
+					queryOrigin      da.Coordinate
+					queryDestination da.Coordinate
+				}{
+					name: fmt.Sprintf(`%s Restriction https://www.openstreetmap.org/relation/%v ,  example correct route:  https://www.openstreetmap.org/directions?engine=fossgis_osrm_car&route=%v%%2C%v%%3B%v%%2C%v`,
+						trs, tr.GetId(), fc.GetLat(), fc.GetLon(), tc.GetLat(), tc.GetLon(),
+					),
+					turnRestriction: turnResType{
+						restriction: trs,
+						from:        from,
+						to:          tr.GetTo(),
+						viaWays:     tr.GetViaWays(),
+						viaNode:     tr.GetVia(),
+						isViaWay:    tr.GetIsWay(),
+						id:          tr.GetId(),
+					},
+					queryOrigin:      fc,
+					queryDestination: tc,
+				})
 			}
-		})
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+
+				qOrigin := tc.queryOrigin
+				qDestination := tc.queryDestination
+				sp, tp := routingService.Snap(context.Background(), qOrigin.GetLat(), qOrigin.GetLon(), qDestination.GetLat(), qDestination.GetLon())
+				crpQuery := routing.NewCRPALTQuery(re)
+
+				_, path, _ := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
+				segmentPathCoords, _ := re.GetSegmentPath(path)
+				spPolyline := da.GooglePoylineFromCoords(*segmentPathCoords)
+				t.Logf("fastest route polyline for osm turn restriction https://www.openstreetmap.org/relation/%v: %s", tc.turnRestriction.id, valhallaVisualizerPolylineUrl(spPolyline))
+
+				if subPath, correct := isCorrect(path, tc.turnRestriction, rn); !correct {
+					isCorrect(path, tc.turnRestriction, rn) // buat debug
+					t.Fatalf("%s: expected not contain path %v, got contain the path", tc.name, subPath)
+				}
+
+				alts, _, _ := altSearch.FindAlternativeRoutes(sp.GetVId(), tp.GetVId(), 3, false, 0)
+
+				for i := 0; i < len(alts); i++ {
+					altPath := alts[i].GetSegmentPath()
+					if subPath, correct := isCorrect(altPath, tc.turnRestriction, rn); !correct {
+						t.Errorf("%s: expected not contain path %v, got contain the path, restriction: %v", tc.name, subPath, tc.turnRestriction.restriction)
+					}
+				}
+			})
+		}
 	}
+
 }

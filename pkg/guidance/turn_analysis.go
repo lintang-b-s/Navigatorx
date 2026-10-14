@@ -28,9 +28,7 @@ ada 4 belokan yang bisa dilakukan dari tail.
 func (db *DirectionBuilder) GetAlternativeTurns(prevSegmentId, segmentId da.Index) (int, []da.Index) {
 	db.alternativeTurns = db.alternativeTurns[:0]
 
-	db.graph.ForOutEdgeIdsOf(prevSegmentId, func(eId da.Index) {
-
-		nSegmentId := db.graph.GetHead(eId)
+	db.graph.ForOutEdgesOf(prevSegmentId, func(_ da.Index, nSegmentId da.Index, _ da.Index) {
 
 		if db.rn.IsParallelVia(nSegmentId) {
 			return
@@ -113,6 +111,12 @@ func (db *DirectionBuilder) isStreetMergedSkip(prevSegment, segmentId da.Index, 
 		tail.GetLon())
 
 	db.graph.ForOutEdgesOf(prevSegment, func(_, oSegmentId, _ da.Index) {
+		// todo: ini pas udah ganti ke edge-based graph ada masalah di sini https://www.openstreetmap.org/relation/19206133
+		// harus e di intersection simpang empat purwosari, isStreetMergedSkip=true kalau segmentId di jalan Brigadir jenderal slamet riyadi
+		// tapi karena edge-based graph skip via-node u-turn restriction di relation diatas, kita gak bisa detect otherSegment
+		// yang ngarah ke flyover purwosari.... udah ku debug ini persimpangan ini salah detect merged skip nya..
+		// kayake ini emang getTurnSign() harus precompute di fase preprocessing, sebelum build edge-based graph??...
+		// kaya osrm ProcessGuidanceTurns di: https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/extractor.cpp ??
 		if oSegmentId == segmentId || oSegmentId == prevSegment {
 			return
 		}

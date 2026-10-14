@@ -10,6 +10,8 @@ require (
 	github.com/go-playground/locales v0.14.2
 	github.com/go-playground/universal-translator v0.18.2
 	github.com/go-playground/validator/v10 v10.30.5
+	github.com/golang/geo v0.0.0-20260928092222-7d12f68cfadb
+	github.com/google/go-units v0.0.0-20260810185604-a8468a8bd708
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
 	github.com/klauspost/compress v1.20.1
@@ -22,9 +24,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/twpayne/go-polyline v1.1.1
-	github.com/uber/h3-go/v4 v4.5.0
 	go.uber.org/zap v1.28.0
-	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba
 	golang.org/x/mobile v0.0.0-20260908204917-8b95e45f8d3e
 	golang.org/x/mod v0.41.0
 	golang.org/x/sync v0.23.0
@@ -249,11 +249,12 @@ require (
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
 	golang.org/x/arch v0.31.0 // indirect
 	golang.org/x/crypto v0.57.0 // indirect
+	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
 	golang.org/x/net v0.59.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
-	golang.org/x/tools v0.50.0 // indirect
+	golang.org/x/tools v0.51.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

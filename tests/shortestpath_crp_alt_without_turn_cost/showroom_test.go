@@ -14,7 +14,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/concurrent"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -38,7 +37,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -165,10 +164,10 @@ func SolveShowroom(t *testing.T, filepath string) {
 	tx--
 	ty--
 
-	nodeCoords := make([]extractor.NodeCoord, 0)
+	nodeCoords := make([]da.Coordinate, 0)
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
-			nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(j)))
+			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(j)))
 		}
 	}
 
@@ -213,7 +212,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	cancel()
 
 	ans := minDist
-	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}

@@ -11,7 +11,6 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -120,7 +119,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	)
 
 	// filepath = "../shortestpath/data/tests/shortestpath/icpc_nwerc2023_galaxyquest/secret/41-random"
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -218,10 +217,10 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		adjList[v] = append(adjList[v], tests.NewPairEdge(u, dist))
 	}
 
-	nodeCoords := make([]extractor.NodeCoord, 0)
+	nodeCoords := make([]da.Coordinate, 0)
 	for i := 0; i < n; i++ {
 		planet := galaxy[i]
-		nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(planet.x+planet.z), float64(planet.y+planet.z)))
+		nodeCoords = append(nodeCoords, da.NewCoordinate(float64(planet.x+planet.z), float64(planet.y+planet.z)))
 	}
 
 	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "galaxyquest2", nodeCoords, adjList, n, []int{4, 5, 6}, true)
@@ -251,7 +250,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		dist[target] = sp
 	}
 
-	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}

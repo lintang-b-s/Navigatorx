@@ -70,29 +70,12 @@ func NewEdge[W util.RoutingNumber](
 
 type node struct {
 	id    int64
-	coord NodeCoord
-}
-
-type NodeCoord struct {
-	lat float64
-	lon float64
-}
-
-func NewNodeCoord(lat, lon float64) NodeCoord {
-	return NodeCoord{lat, lon}
-}
-
-func (n *NodeCoord) GetX() float64 {
-	return n.lon
-}
-
-func (n *NodeCoord) GetY() float64 {
-	return n.lat
+	coord da.Coordinate
 }
 
 type restriction struct {
 	id              int64           // id dari relation turn restriction
-	via             da.Index        // via-node graph node id
+	via             int64           // via-node graph node id
 	viaWays         []int64         // via-ways osm id
 	to              int64           // to-way osm id
 	turnRestriction TurnRestriction // tipe turn restriction
@@ -101,13 +84,62 @@ type restriction struct {
 	conditional     bool
 }
 
+func (r restriction) GetId() int64 {
+	return r.id
+}
+
+func (r restriction) GetVia() int64 {
+	return r.via
+}
+
+func (r restriction) GetViaWays() []int64 {
+	return r.viaWays
+}
+
+func (r restriction) GetTo() int64 {
+	return r.to
+}
+
+func (r restriction) GetTurnRestriction() TurnRestriction {
+	return r.turnRestriction
+}
+
+func (r restriction) GetTimeRangeVal() string {
+	return r.timeRangeVal
+}
+
+func (r restriction) GetIsWay() bool {
+	return r.isWay
+}
+
+func (r restriction) IsWay() bool {
+	return r.isWay
+}
+
+func (r restriction) GetConditional() bool {
+	return r.conditional
+}
+
+func (r restriction) IsConditional() bool {
+	return r.conditional
+}
+
 type osmWay struct {
 	nodes      []int64    // osm  nodes dari osm way ini
 	graphNodes []da.Index // osm nodes yang jadi graph node dari osm way ini
 	oneWay     bool
 	hwTag      string
 }
+
+func (o osmWay) GetOsmNodes() []int64 {
+	return o.nodes
+}
+
 type nodeWithCoord struct {
 	tipe  NodeType
-	coord NodeCoord
+	coord da.Coordinate
+}
+
+func (n nodeWithCoord) GetCoord() da.Coordinate {
+	return n.coord
 }

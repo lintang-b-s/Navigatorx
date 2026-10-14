@@ -7,7 +7,6 @@ import (
 	"math"
 	"sort"
 	"sync"
-	"sync/atomic"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -17,25 +16,19 @@ import (
 )
 
 type Landmark[W util.RoutingNumber] struct {
-	lw        atomic.Pointer[[]W]
-	vlw       atomic.Pointer[[]W]
-	landmarks atomic.Pointer[[]da.Index]
+	lw        []W
+	vlw       []W
+	landmarks []da.Index
 	n         da.Index
 	k         da.Index
-	cl        *atomic.Bool
 }
 
 func NewLandmark[W util.RoutingNumber]() *Landmark[W] {
-	cl := &atomic.Bool{}
-	cl.Store(false)
-
-	lm := &Landmark[W]{
-		cl: cl,
-	}
-	lm.lw.Store(&[]W{})
-	lm.vlw.Store(&[]W{})
+	lm := &Landmark[W]{}
+	lm.lw = []W{}
+	lm.vlw = []W{}
 	landmarks := make([]da.Index, 0)
-	lm.landmarks.Store(&landmarks)
+	lm.landmarks = landmarks
 
 	return lm
 }
@@ -73,16 +66,14 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 		// O(V)
 		dist := geo.CalculateGreatCircleDistance(v.GetLat(), v.GetLon(),
 			centerLat, centerLon)
-		validLandmark := graph.GetOutDegree(v.GetID()) != 0 && graph.GetInDegree(v.GetID()) != 0
-		if dist < minMidDist && validLandmark {
+		if dist < minMidDist {
 			minMidDist = dist
 			midLandmark = v
 		}
 	}
 
-	vs := graph.GetVertices()
 	vsCopy := make([]da.Vertex, n)
-	copy(vsCopy, vs)
+	copy(vsCopy, ivs)
 
 	// mirip algoritma graham explore buat bikin convex hull
 	// graham scan: sort Points by their polar angles around a p0 (bottomost point or rightmost & bottomost point if tie)
@@ -90,8 +81,8 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 	// karena geographic coordinate, sort by initial bearing angle (sudut clockwise antara garis yang menghubungkan titik pivot ke other point dan garis meridian)
 
 	sort.Slice(vsCopy, func(i, j int) bool { // O(V * logV)
-		return geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[j].GetLat(), vsCopy[j].GetLon()) <
-			geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[i].GetLat(), vsCopy[i].GetLon())
+		return geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[i].GetLat(), vsCopy[i].GetLon()) <
+			geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[j].GetLat(), vsCopy[j].GetLon())
 	})
 
 	pieSize := n / k
@@ -107,9 +98,8 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 		maxDist := math.Inf(-1)
 		for j, v := range pie {
 			midToVDist := geo.CalculateGreatCircleDistance(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
-			validLandmark := graph.GetOutDegree(v.GetID()) != 0 && graph.GetInDegree(v.GetID()) != 0
 
-			if midToVDist > maxDist && validLandmark {
+			if midToVDist > maxDist {
 				maxDist = midToVDist
 				terjauhId = j
 			}
@@ -156,6 +146,10 @@ func (qr *queryRet[W]) getSpCosts() []W {
 	return qr.sps
 }
 
+// todo: reduce memory usage PreprocessALT()
+// currently (7 oktober 2026), pakai diy_solo_semarang.osm.pbf PreprocessALT() peak htop RES/RSS ~ 2GB, hampir 20x ukuran file osmnya
+// kayake bisa dibatesi jumlah goroutine worker nya... & coba cek pprof di PreprocessALT()
+
 /*
 [1] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 
@@ -175,7 +169,7 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 		return nil
 	}
 
-	logger.Info("computing landmarks....")
+	logger.Sugar().Infof("computing landmarks.... number of landmarks: %v", k)
 	lw := make([]W, da.Index(k)*n)
 	landmarks := make([]da.Index, k)
 	vlw := make([]W, n*da.Index(k))
@@ -184,11 +178,10 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 	lm.n = n
 
 	maxSearchSize := graph.NumberOfVertices()
-	maxVerticesInCell := graph.GetMaxVerticesInCell()
 
 	heapPool := sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](uint32(maxSearchSize), uint32(maxVerticesInCell), da.ARRAY_STORAGE, true)
+			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
 		},
 	}
 
@@ -263,22 +256,12 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 	close(dijkstraOutChan)
 	close(dijkstraRevOutChan)
 
-	lm.landmarks.Store(&landmarks)
-	lm.lw.Store(&lw)
-	lm.vlw.Store(&vlw)
+	lm.landmarks = landmarks
+	lm.lw = lw
+	lm.vlw = vlw
 
 	logger.Info("done computing landmarks....")
 	return nil
-}
-
-func (lm *Landmark[W]) lwAt(l, v da.Index) W {
-	lw := *(lm.lw.Load())
-	return lw[l*lm.n+v]
-}
-
-func (lm *Landmark[W]) vlwAt(v, l da.Index) W {
-	vlw := *(lm.vlw.Load())
-	return vlw[v*lm.k+l]
 }
 
 func (lm *Landmark[W]) matrix(r, c da.Index, lw bool) [][]W {
@@ -287,9 +270,9 @@ func (lm *Landmark[W]) matrix(r, c da.Index, lw bool) [][]W {
 		w[i] = make([]W, c)
 		for j := da.Index(0); j < c; j++ {
 			if lw {
-				w[i][j] = lm.lwAt(i, j)
+				w[i][j] = lm.lw[i*lm.n+j]
 			} else {
-				w[i][j] = lm.vlwAt(i, j)
+				w[i][j] = lm.vlw[i*lm.k+j]
 			}
 		}
 	}
@@ -304,30 +287,40 @@ Surveys. Cham: Springer International Publishing, pp. 19–80. Available at:
 https://doi.org/10.1007/978-3-319-49487-6_2.
 [3] Goldberg, A. and Harrelson, C. (2004) “Computing the Shortest Path: A* Search Meets Graph Theory.” Available at: https://www.microsoft.com/en-us/research/publication/computing-the-shortest-path-a-search-meets-graph-theory/ (Accessed: February 9, 2026).
 
-implementation of computing tighest lower bound of A*, landmarks, and triangle inequality, 6 Computing Lower Bounds in [1] or section 2.2 ALT in [2]
+implementation of computing tighest lower bound of A*, landmarks, and triangle inequality, section 6 Computing Lower Bounds in [1] or section 2.2 ALT in [2]
 misal L adalah set of landmarks, dist(v,w) adalah shortest path cost dari vertex v ke vertex w
-FindTighestLowerBound compute h(v)=max_{l in L}{dist(l,t)-dist(l,v), dist(v,l)-dist(t,l)}
-fungsi potential/heuristik  h(v) meiliki sifat konsisten/feasible [3]
+ComputeTighestLowerBound compute h(u)=max_{l in L}{dist(l,t)-dist(l,u), dist(u,l)-dist(t,l)}
+fungsi potential/heuristik  h(u) meiliki sifat konsisten/feasible [3]
 
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
-func (lm *Landmark[W]) FindTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) W {
+//go:inline
+func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) W {
 	// O(k), k = number of landmarks
 	tighestLowerBound := -util.Infinity[W]()
 
 	for i := 0; i < len(activeLandmarks); i++ {
-		landmarkId := activeLandmarks[i]
-
-		uToLandmark := lm.vlwAt(u, landmarkId)
-		tToLandmark := lm.vlwAt(t, landmarkId)
-		tighestLowerBound = max(tighestLowerBound, uToLandmark-tToLandmark)
-
-		landmarkToT := lm.lwAt(landmarkId, t)
-		landmarkToU := lm.lwAt(landmarkId, u)
-		tighestLowerBound = max(tighestLowerBound, landmarkToT-landmarkToU)
+		lid := activeLandmarks[i]
+		lb := lm.ComputeLowerBound(lid, u, t)
+		tighestLowerBound = max(tighestLowerBound, lb)
 	}
 
 	return tighestLowerBound
+}
+
+// ComputeLowerBound compute max(dist(l,t)-dist(l,u), dist(u,l)-dist(t,l))
+//
+//go:inline
+func (lm *Landmark[W]) ComputeLowerBound(lid, u, t da.Index) W {
+	uToLandmark := lm.vlw[u*lm.k+lid]
+	tToLandmark := lm.vlw[t*lm.k+lid]
+
+	landmarkToT := lm.lw[lid*lm.n+t]
+	landmarkToU := lm.lw[lid*lm.n+u]
+
+	lbOne := uToLandmark - tToLandmark
+	lbTwo := landmarkToT - landmarkToU
+	return max(lbOne, lbTwo)
 }
 
 type activeLandmark[W util.RoutingNumber] struct {
@@ -346,23 +339,16 @@ const (
 /*
 https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 
-Use only an active subset:  (page 6)
+Use only an active subset:  (page 22)
 – prefer landmarks that give the best lower bound on dist(s, t).
 */
 func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
-	landmarks := *lm.landmarks.Load()
 
 	bestLandmarks := make([]da.Index, 0, activeLandmarkSize)
 
-	oriLandmarks := make([]da.Index, len(landmarks))
-	for i := 0; i < len(landmarks); i++ {
-		oriLandmarks[i] = da.Index(i)
-	}
-
-	lowerBounds := make([]activeLandmark[W], len(landmarks))
-	for i := 0; i < len(landmarks); i++ {
-		lid := landmarks[i]
-		lb, _ := lm.FindTighestConsistentLowerBound(lid, s, t, oriLandmarks)
+	lowerBounds := make([]activeLandmark[W], len(lm.landmarks))
+	for i := 0; i < len(lm.landmarks); i++ {
+		lb := lm.ComputeLowerBound(da.Index(i), s, t)
 		lowerBounds[i] = newActiveLandmark(da.Index(i), lb)
 	}
 
@@ -371,7 +357,7 @@ func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 		return lowerBounds[i].lb > lowerBounds[j].lb
 	})
 
-	lbs := lowerBounds[:util.MinInt(len(lowerBounds), activeLandmarkSize)]
+	lbs := lowerBounds[:min(len(lowerBounds), activeLandmarkSize)]
 	for _, v := range lbs {
 		bestLandmarks = append(bestLandmarks, v.i)
 	}
@@ -391,20 +377,23 @@ kita disini pakai beta=h_f(s)
 h_f(u) adalah consistent lower bound dari sp cost dari u ke t
 h_r(u) adalah consistent lower bound dari sp cost dari s ke u
 */
-func (lm *Landmark[W]) FindTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index) (W, W) {
-	pifu := lm.FindTighestLowerBound(u, t, activeLandmarks) // consistent lower bound dari dist(u,t)
-	piru := lm.FindTighestLowerBound(s, u, activeLandmarks) // consistent lower bound dari dist(s,u)
-	pirt := lm.FindTighestLowerBound(s, t, activeLandmarks) // consistent lower bound dari dist(s, t)
+//go:inline
+func (lm *Landmark[W]) ComputeTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index, pirt W, forw bool) W {
+	pifu := lm.ComputeTighestLowerBound(u, t, activeLandmarks) // consistent lower bound dari dist(u,t)
+	piru := lm.ComputeTighestLowerBound(s, u, activeLandmarks) // consistent lower bound dari dist(s,u)
 
 	beta := pirt // h_f(s)
 	pfu := max(pifu, pirt-piru+beta)
 	pru := -pfu
 
-	return pfu, pru
+	if forw {
+		return pfu
+	}
+	return pru
 }
 
 func (lm *Landmark[W]) GetLandmarkVIds() []da.Index {
-	return *lm.landmarks.Load()
+	return lm.landmarks
 }
 
 func (lm *Landmark[W]) GetLandmarkVWeights() [][]W {
@@ -421,12 +410,14 @@ func (lm *Landmark[W]) UpdateLandmarks(landmarkFilePath string) error {
 		return fmt.Errorf("UpdateLandmarks: failed to read new precalculated landmark distances: %v: %w", err, err)
 	}
 
-	lmLm := newLandmark.landmarks.Load()
-	lmLw := newLandmark.lw.Load()
-	lmVlw := newLandmark.vlw.Load()
-	lm.landmarks.Store(lmLm)
-	lm.lw.Store(lmLw)
-	lm.vlw.Store(lmVlw)
+	lmLm := newLandmark.landmarks
+	lmLw := newLandmark.lw
+	lmVlw := newLandmark.vlw
+	lm.landmarks = lmLm
+	lm.lw = lmLw
+	lm.vlw = lmVlw
+	lm.n = newLandmark.n
+	lm.k = newLandmark.k
 
 	return nil
 }

@@ -11,7 +11,6 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -42,7 +41,7 @@ func solve(t *testing.T, filepath string) {
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0644)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -223,17 +222,17 @@ func solve(t *testing.T, filepath string) {
 
 	n := h*w*4 + 2
 
-	nodeCoords := make([]extractor.NodeCoord, 0)
+	nodeCoords := make([]da.Coordinate, 0)
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
 			for k := 0; k < 4; k++ {
-				nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(i), float64(j)))
+				nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(j)))
 			}
 		}
 	}
 
-	nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(0), float64(0)))
-	nodeCoords = append(nodeCoords, extractor.NewNodeCoord(float64(h-1), float64(w-1)))
+	nodeCoords = append(nodeCoords, da.NewCoordinate(float64(0), float64(0)))
+	nodeCoords = append(nodeCoords, da.NewCoordinate(float64(h-1), float64(w-1)))
 
 	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "delftdistance", nodeCoords, adjList, n, []int{7, 11, 14}, true)
 
@@ -248,7 +247,7 @@ func solve(t *testing.T, filepath string) {
 
 	// assert expected output dari test cases soal
 
-	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0644)
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}

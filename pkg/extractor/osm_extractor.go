@@ -34,9 +34,9 @@ type Extractor[W util.RoutingNumber] struct {
 	tagStringIdMap    util.IDMap
 	nodeIDMap         map[int64]da.Index // osm node Id -> graph nodeId
 	nodeToOsmId       map[da.Index]int64 // graph nodeId -> osm node Id
+	restrictions      map[int64][]restriction
 	maxNodeID         int64
-	restrictions      map[int64][]restriction // wayId -> list of restrictions
-	ways              map[int64]osmWay        // wayId -> osm way
+	ways              map[int64]osmWay // wayId -> osm way
 
 	osmWayDefaultSpeed           map[int64]float64 // wayId -> default max speed
 	bb                           *da.BoundingBox
@@ -60,12 +60,12 @@ func NewExtractor[W util.RoutingNumber]() *Extractor[W] {
 		nodeIDMap:         make(map[int64]da.Index),
 		nodeToOsmId:       make(map[da.Index]int64),
 
-		osmWayDefaultSpeed:           make(map[int64]float64),
-		bb:                           da.NewBoundingBoxEmpty(),
-		currentTime:                  time.Now(),
-		highwayWhitelist:             initializeHighwayWhitelist(), // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
-		ways:                         make(map[int64]osmWay),
-		restrictions:                 make(map[int64][]restriction),
+		osmWayDefaultSpeed: make(map[int64]float64),
+		bb:                 da.NewBoundingBoxEmpty(),
+		currentTime:        time.Now(),
+		highwayWhitelist:   initializeHighwayWhitelist(), // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
+		ways:               make(map[int64]osmWay),
+
 		reversibleOsmWay:             make(map[int64]struct{}),
 		conditionalBarrierNodes:      make([]da.ConditionalBarrierNode, 0),
 		conditionalReversibleWayVals: make(map[int64]string),
@@ -93,7 +93,7 @@ func (p *Extractor[W]) initializeMaxSpeed() {
 	p.maxspeeds = maxspeeds
 }
 
-func (p *Extractor[W]) SetAcceptedNodeMap(acceptedNodeMap map[int64]NodeCoord) {
+func (p *Extractor[W]) SetAcceptedNodeMap(acceptedNodeMap map[int64]da.Coordinate) {
 	wayNodeMap := make(map[int64]nodeWithCoord)
 	for id, val := range acceptedNodeMap {
 		wayNodeMap[id] = nodeWithCoord{JUNCTION_NODE, val}
@@ -109,12 +109,12 @@ func (p *Extractor[W]) GetTagStringIdMap() util.IDMap {
 	return p.tagStringIdMap
 }
 
-func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *da.RoadNetworkDataContainer, *met.TimeFunction[W], error) {
+func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *da.Graph, *da.RoadNetworkDataContainer, []uint64, *met.TimeFunction[W], error) {
 
 	f, err := os.Open(mapFile)
 
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("osmExtractor.Extract: failed to Open file: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Open file: %s: %w", mapFile, err)
 	}
 
 	defer f.Close()
@@ -126,16 +126,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 	totBytes := stat.Size()
 
-	restrictions := make(map[int64][]struct {
-		id              int64
-		via             int64
-		viaWays         []int64
-		turnRestriction TurnRestriction
-		timeRangeVal    string
-		to              int64
-		isWay           bool
-		conditional     bool
-	})
+	p.restrictions = make(map[int64][]restriction)
 	scanner := osmpbf.New(context.Background(), f, 0)
 	scannedWays := 0
 	// scan osm ways and relations
@@ -172,15 +163,15 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 					if _, ok := p.wayNodeMap[int64(node.ID)]; !ok {
 						if i == 0 || i == len(way.Nodes)-1 {
 
-							p.wayNodeMap[int64(node.ID)] = nodeWithCoord{END_NODE, NewNodeCoord(node.Lat, node.Lon)}
+							p.wayNodeMap[int64(node.ID)] = nodeWithCoord{END_NODE, da.NewCoordinate(node.Lat, node.Lon)}
 						} else {
-							p.wayNodeMap[int64(node.ID)] = nodeWithCoord{BETWEEN_NODE, NewNodeCoord(node.Lat, node.Lon)}
+							p.wayNodeMap[int64(node.ID)] = nodeWithCoord{BETWEEN_NODE, da.NewCoordinate(node.Lat, node.Lon)}
 						}
 					} else {
 						// ini junction node dari osm way
 						// jadi ada setidaknya 2 osm way yang punya node yang sama
 						// nah node yang sama ini ditandain JUNCTION_NODE
-						p.wayNodeMap[int64(node.ID)] = nodeWithCoord{JUNCTION_NODE, NewNodeCoord(node.Lat, node.Lon)}
+						p.wayNodeMap[int64(node.ID)] = nodeWithCoord{JUNCTION_NODE, da.NewCoordinate(node.Lat, node.Lon)}
 					}
 				}
 			}
@@ -253,16 +244,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 						timeRangeVal = GetTimeRangeValConditionalRestriction(oldTagVal)
 					}
 
-					rest := struct {
-						id              int64
-						via             int64
-						viaWays         []int64
-						turnRestriction TurnRestriction
-						timeRangeVal    string
-						to              int64
-						isWay           bool
-						conditional     bool
-					}{
+					rest := restriction{
 						id:              int64(relation.ID),
 						via:             via,
 						to:              to,
@@ -272,7 +254,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 						viaWays:         viaways,
 						conditional:     conditionalTurnRestriction,
 					}
-					restrictions[from] = append(restrictions[from], rest)
+					p.restrictions[from] = append(p.restrictions[from], rest)
 				}
 			}
 		}
@@ -281,12 +263,12 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 	err = scanner.Close()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("osmExtractor.Extract: failed to close scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to close scanner: %s: %w", mapFile, err)
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("osmExtractor.Extract: failed to Seek scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Seek scanner: %s: %w", mapFile, err)
 	}
 
 	scanner = osmpbf.New(context.Background(), f, 0)
@@ -309,11 +291,11 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 					continue
 				}
 				oldNode := p.wayNodeMap[int64(node.ID)]
-				p.wayNodeMap[int64(node.ID)] = nodeWithCoord{tipe: oldNode.tipe, coord: NewNodeCoord(node.Lat, node.Lon)}
+				p.wayNodeMap[int64(node.ID)] = nodeWithCoord{tipe: oldNode.tipe, coord: da.NewCoordinate(node.Lat, node.Lon)}
 
 				isBarrierAccessible, err := p.isBarrierNodeAccessible(node)
 				if err != nil {
-					return nil, nil, nil, fmt.Errorf("osmExtractor.Extract: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s: %w", mapFile, err)
+					return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s: %w", mapFile, err)
 				}
 
 				if !isBarrierAccessible {
@@ -342,12 +324,12 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 	err = scanner.Close()
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("osmExtractor.Extract: failed to close scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to close scanner: %s: %w", mapFile, err)
 	}
 
 	_, err = f.Seek(0, io.SeekStart)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("osmExtractor.Extract: failed to Seek scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Seek scanner: %s: %w", mapFile, err)
 	}
 
 	// scan osm way and store graph edges
@@ -416,38 +398,6 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 		}
 	}
 
-	p.restrictions = make(map[int64][]restriction, len(restrictions))
-	for from, val := range restrictions {
-		savedRest := make([]restriction, len(val))
-		for i := range val {
-
-			if !val[i].isWay {
-				savedRest[i] = restriction{
-					id:              val[i].id,
-					via:             p.nodeIDMap[val[i].via],
-					to:              val[i].to,
-					turnRestriction: val[i].turnRestriction,
-					isWay:           val[i].isWay,
-					conditional:     val[i].conditional,
-					timeRangeVal:    val[i].timeRangeVal,
-				}
-			} else {
-				savedRest[i] = restriction{
-					id:              val[i].id,
-					viaWays:         val[i].viaWays,
-					to:              val[i].to,
-					turnRestriction: val[i].turnRestriction,
-					isWay:           val[i].isWay,
-					conditional:     val[i].conditional,
-					timeRangeVal:    val[i].timeRangeVal,
-				}
-			}
-
-		}
-
-		p.restrictions[from] = savedRest
-	}
-
 	logger.Sugar().Infof("building road network graph.... ")
 
 	for wayId, way := range p.ways {
@@ -470,39 +420,38 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 	)
 
 	// node-based graph
-	graph, weightFunction, segmentDataIds, vertexTurnTablePtr, turnMatrix := p.BuildGraph(
+	nbg, weightFunction, vertexTurnTablePtr, turnMatrix := p.BuildGraph(
 		edges, rn, numVertices, true,
 	)
 
 	rn.SetBoundingBox(p.bb)
-	graph.ForOutEdges(func(exitPoint, head, tail, entryPoint da.Index, percentage float64, eId da.Index) {
-		oemId := segmentDataIds[tail][exitPoint]
+	nbg.ForOutEdges(func(exitPoint, head, tail, entryPoint da.Index, percentage float64, eId da.Index) {
 
-		eOsmWayId := rn.GetOsmWayId(oemId)
+		eOsmWayId := rn.GetOsmWayId(eId)
 		direction := streetDirection[int64(eOsmWayId)]
 		if direction[0] {
-			rn.SetSegmentBit(oemId, da.FlagIsForward, true) // harus set pakai oemId dulu...
+			rn.SetSegmentBit(eId, da.FlagIsForward, true)
 		}
 
 		if direction[1] {
-			rn.SetSegmentBit(oemId, da.FlagIsBackward, true)
+			rn.SetSegmentBit(eId, da.FlagIsBackward, true)
 		}
 	})
 
-	logger.Sugar().Infof("number of vertices of node-based graph: %v", graph.NumberOfVertices())
-	logger.Sugar().Infof("number of edges of node-based graph: %v", graph.NumberOfEdges())
+	logger.Sugar().Infof("number of vertices of node-based graph: %v", nbg.NumberOfVertices())
+	logger.Sugar().Infof("number of edges of node-based graph: %v", nbg.NumberOfEdges())
 
 	logger.Sugar().Infof("converting node-based graph to edge-based graph...")
 	// edge-based graph
-	graph, weightFunction = BuildEdgeBasedGraph(graph, weightFunction, segmentDataIds, vertexTurnTablePtr, turnMatrix, rn)
-	logger.Sugar().Infof("number of vertices of edge-based graph: %v", graph.NumberOfVertices())
-	logger.Sugar().Infof("number of edges of edge-based graph: %v", graph.NumberOfEdges())
+	ebg, weightFunction, ebgMapping := BuildEdgeBasedGraph(nbg, weightFunction, vertexTurnTablePtr, turnMatrix, rn)
+	logger.Sugar().Infof("number of vertices of edge-based graph: %v", ebg.NumberOfVertices())
+	logger.Sugar().Infof("number of edges of edge-based graph: %v", ebg.NumberOfEdges())
 
 	if err = scanner.Close(); err != nil {
-		return nil, nil, nil, fmt.Errorf("osmExtractor.Extract: failed to Close scanner: %s: %w", mapFile, err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Close scanner: %s: %w", mapFile, err)
 	}
 
-	return graph, rn, weightFunction, nil
+	return nbg, ebg, rn, ebgMapping, weightFunction, nil
 }
 
 type wayExtraInfo struct {
@@ -713,17 +662,17 @@ func (p *Extractor[W]) copyNode(nodeData node) node {
 	// use the same coordinate but different id & and the newID is not used
 	newMaxID := p.maxNodeID + 1
 	p.wayNodeMap[newMaxID] = nodeWithCoord{
-		tipe: JUNCTION_NODE, coord: NodeCoord{lat: nodeData.coord.lat,
-			lon: nodeData.coord.lon},
+		tipe: JUNCTION_NODE, coord: da.NewCoordinate(nodeData.coord.GetLat(),
+			nodeData.coord.GetLon()),
 	}
 
 	p.maxNodeID++
 	return node{
 		id: newMaxID,
-		coord: NodeCoord{
-			lat: nodeData.coord.lat,
-			lon: nodeData.coord.lon,
-		},
+		coord: da.NewCoordinate(
+			nodeData.coord.GetLat(),
+			nodeData.coord.GetLon(),
+		),
 	}
 }
 
@@ -741,11 +690,11 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 		return
 	}
 
-	maxLonft := max(from.coord.lon, to.coord.lon)
-	maxLatft := max(from.coord.lat, to.coord.lat)
+	maxLonft := max(from.coord.GetLon(), to.coord.GetLon())
+	maxLatft := max(from.coord.GetLat(), to.coord.GetLat())
 
-	minLonft := min(from.coord.lon, to.coord.lon)
-	minLatft := min(from.coord.lat, to.coord.lat)
+	minLonft := min(from.coord.GetLon(), to.coord.GetLon())
+	minLatft := min(from.coord.GetLat(), to.coord.GetLat())
 
 	p.bb.SetMaxLat(max(p.bb.GetMaxLat(), maxLatft))
 	p.bb.SetMaxLon(max(p.bb.GetMaxLon(), maxLonft))
@@ -771,12 +720,12 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 			flag |= uint8(da.FlagContainsTrafficLight)
 		}
 		segmentPoints = append(segmentPoints, da.NewCoordinate(
-			segment[i].coord.lat,
-			segment[i].coord.lon,
+			segment[i].coord.GetLat(),
+			segment[i].coord.GetLon(),
 		))
 		segmentOsmNodeIds = append(segmentOsmNodeIds, uint64(segment[i].id))
 		if i > 0 {
-			distance += geo.CalculateGreatCircleDistance(segment[i-1].coord.lat, segment[i-1].coord.lon, segment[i].coord.lat, segment[i].coord.lon)
+			distance += geo.CalculateGreatCircleDistance(segment[i-1].coord.GetLat(), segment[i-1].coord.GetLon(), segment[i].coord.GetLat(), segment[i].coord.GetLon())
 		}
 	}
 
@@ -978,4 +927,15 @@ func (p *Extractor[W]) isJunctionNode(nodeID int64) bool {
 
 func (p *Extractor[W]) GetNodeIdMap() map[int64]da.Index {
 	return p.nodeIDMap
+}
+
+func (p *Extractor[W]) GetTurnRestrictions() map[int64][]restriction {
+	return p.restrictions
+}
+func (p *Extractor[W]) GetWays() map[int64]osmWay {
+	return p.ways
+}
+
+func (p *Extractor[W]) GetWayNodeMap() map[int64]nodeWithCoord {
+	return p.wayNodeMap
 }

@@ -3,7 +3,6 @@ package snap
 import (
 	"flag"
 	"math/rand"
-	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -46,17 +45,19 @@ var (
 )
 
 func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
-	if err := os.MkdirAll("./data", 0755); err != nil {
-		t.Fatal(err)
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		panic(err)
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		panic(err)
 	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		t.Fatal(err)
-	}
+
 	err = config.ReadConfig(workingDir)
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +65,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 	config.InitRegionName("snap_test", pkg.TEST)
 
 	op := extractor.NewExtractor[int32]()
-	graph, rn, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,11 +84,11 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 		ps,
 		len(ps),
 		5,
-		graph, logger, false, false,
+		nbg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-
+	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)
@@ -98,7 +99,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 	if err != nil {
 		panic(err)
 	}
-	prep := preprocessor.NewPreprocessor(graph, rn, timeFunction, mlp, logger)
+	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		t.Fatal(err)

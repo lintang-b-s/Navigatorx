@@ -141,7 +141,7 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 			odSnapDist := origSnaps[i].dist + dstSnaps[j].dist
 
-			oSegLength := rs.engine.GetSegmentLength(o)
+			oSegLength := rs.metrics.GetSegmentLength(o)
 			odEndDist := (oSegLength - origSnaps[i].tailDist) + dstSnaps[j].tailDist
 
 			if util.Lt(odSnapDist, minDist) {
@@ -168,12 +168,12 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
 	}
 
-	sfCost := rs.engine.GetDurationFromLength(bestPair.s, oLength)
+	sfCost := rs.metrics.GetDurationFromLength(bestPair.s, oLength)
 
 	sp := da.NewPhantomNode(bestPair.s, bestPair.spCoord, sfCost, 0, oLength, 0, oCoords,
 		make([]da.Coordinate, 0))
 
-	trCost := rs.engine.GetDurationFromLength(bestPair.t, dLength)
+	trCost := rs.metrics.GetDurationFromLength(bestPair.t, dLength)
 
 	tp := da.NewPhantomNode(bestPair.t, bestPair.dpCoord, 0.0, trCost, 0, dLength, make([]da.Coordinate, 0),
 		dRevCoords)
@@ -244,7 +244,7 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 		newSPLength += geo.CalculateGreatCircleDistance(lastCoord.GetLat(), lastCoord.GetLon(),
 			tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
 
-		newSPCost := rs.engine.GetDurationFromLength(sp.GetVId(), newSPLength)
+		newSPCost := rs.metrics.GetDurationFromLength(sp.GetVId(), newSPLength)
 		newSP := da.NewPhantomNode(sp.GetVId(), sp.GetSnappedCoord(), newSPCost, 0,
 			newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
 
@@ -254,7 +254,7 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 	// case 1 tinggal return empty newSourceForwardGeom, geometry dist & traveltime (sCoord, tCoord) dihandle di sini
 	newSPLength += geo.CalculateGreatCircleDistance(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(),
 		tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
-	newSPCost := rs.engine.GetDurationFromLength(sp.GetVId(), newSPLength)
+	newSPCost := rs.metrics.GetDurationFromLength(sp.GetVId(), newSPLength)
 	newSP := da.NewPhantomNode(sp.GetVId(), sp.GetSnappedCoord(), newSPCost, 0,
 		newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
 

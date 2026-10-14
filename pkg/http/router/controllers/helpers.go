@@ -122,7 +122,7 @@ func (api *routingAPI) getStatusCode(w http.ResponseWriter, r *http.Request, err
 }
 
 func parseGPSRadiuses(query url.Values, pointsCount int) ([]float64, error) {
-	const defaultGPSRadiusM = 40.0
+	const defaultGPSRadiusM = 5.0
 
 	rawValue := query.Get("gps_radiuses")
 	ok := rawValue != ""

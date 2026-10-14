@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 
+	"github.com/golang/geo/s2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -16,21 +17,23 @@ type RoutingService interface {
 	Close()
 	InitBackgroundWorker(ctx context.Context)
 	GetBoundingBox(ctx context.Context) da.BoundingBox
-	OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.Coordinate, error)
+	OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate, error)
 }
 
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
-	GetDurationSeconds(segId da.Index) float64
-	GetDurationFromLength(segId da.Index, eLength float64) float64
-	GetSegmentLength(segId da.Index) float64
-	GetSegmentSpeed(segId da.Index) float64
 	GetMetrics() *met.Metric[int32]
 	InitBackgroundWorker(ctx context.Context)
 	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
 	Close()
-	PutCoordsToPool(coords *da.Coordinates)
+}
+
+type Metrics interface {
+	GetDurationSeconds(segId da.Index) float64
+	GetSegmentSpeed(segId da.Index) float64
+	GetSegmentLength(segId da.Index) float64
+	GetDurationFromLength(segId da.Index, length float64) float64
 }
 
 type MapMatcherService interface {
@@ -40,5 +43,5 @@ type MapMatcherService interface {
 
 // MapAttributesService  https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
 type MapAttributesService interface {
-	GetMapAttributes(ctx context.Context, h3CellId string) ([]byte, error)
+	GetMapAttributes(ctx context.Context, s2CellId s2.CellID, radius float64) ([]byte, error)
 }

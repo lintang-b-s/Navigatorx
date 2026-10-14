@@ -133,27 +133,6 @@ func AssertPanic(cond bool, msg string) {
 	}
 }
 
-func MinInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func MinInt64(a, b int64) int64 {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func MaxInt(a, b int64) int64 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func ToFloat64Map(input interface{}) (map[float64]float64, float64) {
 	result := make(map[float64]float64)
 	defaultVal := 0.0
