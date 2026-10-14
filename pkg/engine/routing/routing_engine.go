@@ -163,8 +163,8 @@ func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, rerout
 	s := sp.GetVId()
 	t := tp.GetVId()
 	weight, segmentPath, found := crpQuery.ShortestPathSearch(s, t)
-	segmentIdPath, dist := crp.GetSegmentPath(segmentPath)
-	return util.WeightToSeconds(weight), dist, segmentIdPath, segmentPath, found
+	segmentPathCoords, dist := crp.GetSegmentPath(segmentPath)
+	return util.WeightToSeconds(weight), dist, segmentPathCoords, segmentPath, found
 }
 
 var EmptyCoords = da.NewCoordinatesWithCap(0)
@@ -186,12 +186,11 @@ func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index) (*da.Co
 	return path, totalDistance
 }
 
-func (crp *CRPRoutingEngine[W]) GetV(offset, i da.Index, out bool) (da.Index, da.Index) {
-	eId := offset + i
+func (crp *CRPRoutingEngine[W]) GetV(eId da.Index, out bool) da.Index {
 	if out {
-		return crp.graph.GetHead(eId), eId
+		return crp.graph.GetHead(eId)
 	}
-	return crp.graph.GetTail(eId), eId
+	return crp.graph.GetTail(eId)
 }
 
 func (crp *CRPRoutingEngine[W]) GetOV(ovOffset, wOffset, numExit, i da.Index, out bool) (da.Index, da.Index) {

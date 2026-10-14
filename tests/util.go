@@ -371,9 +371,9 @@ func Density(n, m int, directed bool) float64 {
 	return mf / (nf * (nf - 1))
 }
 
-func AssignNodeCoordinates(adjList [][]PairEdge) []extractor.NodeCoord {
+func AssignNodeCoordinates(adjList [][]PairEdge) []da.Coordinate {
 	n := len(adjList)
-	nodeCoords := make([]extractor.NodeCoord, n)
+	nodeCoords := make([]da.Coordinate, n)
 	lmOne := da.Index(0)
 
 	distLmOne := dijkstra(adjList, lmOne)
@@ -404,14 +404,14 @@ func AssignNodeCoordinates(adjList [][]PairEdge) []extractor.NodeCoord {
 	distLmTwoThree := float64(distLmTwo[lmThree])
 	distLmOneThree := float64(distLmOne[lmThree])
 
-	nodeCoords[lmOne] = extractor.NewNodeCoord(0, 0)
-	nodeCoords[lmTwo] = extractor.NewNodeCoord(distLmOneTwo, 0)
+	nodeCoords[lmOne] = da.NewCoordinate(0, 0)
+	nodeCoords[lmTwo] = da.NewCoordinate(distLmOneTwo, 0)
 
 	nume := distLmOneThree*distLmOneThree - distLmTwoThree*distLmTwoThree + distLmOneTwo*distLmOneTwo
 	denom := 2 * distLmOneTwo
 	x3 := nume / denom
 	y3 := math.Sqrt(distLmOneThree*distLmOneThree - x3*x3)
-	nodeCoords[lmThree] = extractor.NewNodeCoord(x3, y3)
+	nodeCoords[lmThree] = da.NewCoordinate(x3, y3)
 
 	distLmThree := dijkstra(adjList, lmThree)
 
@@ -433,7 +433,7 @@ func AssignNodeCoordinates(adjList [][]PairEdge) []extractor.NodeCoord {
 		}
 		y := nume / denom
 
-		nodeCoords[v] = extractor.NewNodeCoord(y, x)
+		nodeCoords[v] = da.NewCoordinate(y, x)
 	}
 
 	return nodeCoords

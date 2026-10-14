@@ -78,39 +78,38 @@ func (us *Dijkstra[W]) graphSearchUni() {
 
 	out := !us.useReverseGraph
 	offset, eNum := us.graph.NumEdges(uId, out)
-
-	for i := da.Index(0); i < eNum; i++ {
-		vId, eId := us.GetV(offset, i, out)
+	for eId := offset; eId < offset+eNum; eId++ {
+		v := us.GetV(eId, out)
 		eWeight := us.GetWeight(eId, out)
 
 		// get cost to reach v through u
 		newVCost := us.pq.GetCost(uId) + eWeight
 
-		ovCost := us.pq.GetCost(vId)
+		ovCost := us.pq.GetCost(v)
 		vLabelled := util.Lt(ovCost, util.Infinity[W]())
 		if util.Lt(newVCost, ovCost) {
 			// newVCost is better, update the vertex v cost in pq
 			if vLabelled {
 				newPar := da.NewParentVertex(uId)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
+				us.pq.DecreaseKey(v, newVCost, newVCost, newPar)
 			} else {
-				queryKey := da.NewDijkstraKey(vId)
+				queryKey := da.NewDijkstraKey(v)
 				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newVCost, vData, queryKey)
+				us.pq.Insert(v, newVCost, vData, queryKey)
 			}
 		}
 	}
 }
 
 // GetV returns the adjacent vertex ID and edge ID for the given offset and index.
-func (us *Dijkstra[W]) GetV(offset, i da.Index, out bool) (da.Index, da.Index) {
-	eId := offset + i
+func (us *Dijkstra[W]) GetV(eId da.Index, out bool) da.Index {
+
 	if out {
-		return us.graph.GetHead(eId), eId
+		return us.graph.GetHead(eId)
 	}
-	return us.graph.GetTail(eId), eId
+	return us.graph.GetTail(eId)
 }
 
 // GetWeight returns the edge weight according to search direction.

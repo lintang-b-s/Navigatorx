@@ -48,6 +48,33 @@ const (
 	NONE
 )
 
+func (tt TurnRestriction) String() string {
+	switch tt {
+	case NO_LEFT_TURN:
+		return "no_left_turn"
+	case NO_RIGHT_TURN:
+		return "no_right_turn"
+	case NO_STRAIGHT_ON:
+		return "no_straight_on"
+	case NO_U_TURN:
+		return "no_u_turn"
+	case ONLY_LEFT_TURN:
+		return "only_left_turn"
+	case ONLY_RIGHT_TURN:
+		return "only_right_turn"
+	case ONLY_STRAIGHT_ON:
+		return "only_straight_on"
+	case NO_ENTRY:
+		return "no_entry"
+	case NO_EXIT:
+		return "no_exit"
+	case INVALID:
+		return "invalid"
+	default:
+		return "none"
+	}
+}
+
 func IsNotAllowedToTurnType(tt TurnRestriction) bool {
 	switch tt {
 	case NO_LEFT_TURN, NO_RIGHT_TURN, NO_STRAIGHT_ON, NO_U_TURN, NO_ENTRY:

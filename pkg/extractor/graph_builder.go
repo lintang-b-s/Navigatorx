@@ -57,8 +57,8 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 
 		uData := p.wayNodeMap[p.nodeToOsmId[u]].coord
 		vData := p.wayNodeMap[p.nodeToOsmId[v]].coord
-		vertices[u] = da.NewVertex(uData.lat, uData.lon, u)
-		vertices[v] = da.NewVertex(vData.lat, vData.lon, v)
+		vertices[u] = da.NewVertex(uData.GetLat(), uData.GetLon(), u)
+		vertices[v] = da.NewVertex(vData.GetLat(), vData.GetLon(), v)
 		vertexOsmIds[u] = e.GetFromOsmId()
 		vertexOsmIds[v] = e.GetToOsmId()
 		segmentDataIds[u] = append(segmentDataIds[u], da.Index(eID))
