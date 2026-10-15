@@ -181,16 +181,6 @@ func makeTurnTable[W util.RoutingNumber](
 			if containsTrafficLight {
 				turnTableSeconds[turnTableId] += trafficLightPenalty
 			}
-
-			fSegmentName := rn.GetStreetName(eIdFrom)
-			tSegmentName := rn.GetStreetName(eIdTo)
-
-			if isSameName(fSegmentName, tSegmentName) {
-				// soale kalau di jalan tol (example: https://www.openstreetmap.org/way/1301675709#map=15/-7.63705/110.66151)
-				// sering dipisah jadi beberaapa osm ways -> yang mana jadi beberapa graph edges. padahal masih bisa ngebut dan gak perlu turn costs di jalan tol??...
-				return
-			}
-
 			vLimitTo := float64(eSpeedLimit[eIdTo])
 			currentTurnCost := turnTableSeconds[turnTableId]
 
@@ -208,12 +198,14 @@ func makeTurnTable[W util.RoutingNumber](
 			lPrime := util.DistanceToMeters(wf.GetSegmentLength(eIdTo))
 			turningSpeed := pkg.CalcTurningSpeed(l, lPrime, minResolution, turnAngleDeg)
 
-			if turnType == pkg.NO_ENTRY || math.IsInf(currentTurnCost, 1) {
+			turnSign := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon(), prevInitialBearing)
+
+			if turnType == pkg.NO_ENTRY || math.IsInf(currentTurnCost, 1) || (turnSign == da.CONTINUE_ON_STREET && !containsTrafficLight) {
 				// gak ada turn penalty (pkg.NewTurnRest())
 				return
 			}
-			// kalau u-turn jangan diskip, karena turning speed ~0 -> turn cost nya tinggi
 
+			// kalau u-turn jangan diskip, karena turning speed ~0 -> turn cost nya tinggi
 			tcByAngle := pkg.CalcTurningCost(turningSpeed, vLimitFrom, vLimitTo)
 			tcByAngle = min(tcByAngle, turnCostByAngleThreshold)
 			turnTableSeconds[turnTableId] += tcByAngle
@@ -288,14 +280,4 @@ func getTurnTableId(turnTypeStr string) pkg.TurnType {
 		panic("unsupported turn type")
 	}
 	return turnType
-}
-
-func isSameName(name1, name2 string) bool {
-	if name1 == "" || name2 == "" {
-		// seringkali di osm, nama street kosong "" (terutama di residential/living street/tertiary osm ways), better dianggap false
-		// biar kalo belok masih ada turn instructionnya
-		// contoh tertiary osm way yang gak ada namanya:  https://www.openstreetmap.org/way/332233207#map=17/-7.555473/110.769728
-		return false
-	}
-	return name1 == name2
 }
