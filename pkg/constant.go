@@ -60,7 +60,7 @@ func CalcTurningCost(turningSpeed, vlimitFrom, vlimitTo float64) float64 {
 	decCost := timeWhileDecel - timeFullSpeedFrom
 	accCost := timeWhileAccel - timeFullSpeedTo
 	// turning cost (travel time while accelerating & decelerating with turn cost - travel time cost at full speed)?
-	tc := min(0, decCost+accCost) // turn costs must be non negative. ini kemarin turn costs negative ternyata yang bikin rute nya kadang ada cycle
+	tc := max(0, decCost+accCost) // turn costs must be non negative. ini kemarin turn costs negative ternyata yang bikin rute nya kadang ada cycle
 	return tc
 }
 

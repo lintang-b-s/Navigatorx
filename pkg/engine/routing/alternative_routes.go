@@ -85,7 +85,8 @@ buat bedain dari alternative routes 1 dengan lainnya juga udah pakai jaccardDist
 todo2: baca dan implement https://dl.acm.org/doi/abs/10.1145/2674395   (related to article diatas). DONE, runtime di table VII bisa sampe 1 jam lebih.. gak usah diimplement..
 todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices agak detour... debug dan cari tahu kenapa & fix it... partially DONE
 todo3 ternyata kemarin ada cycle & detour karena turn costs by angle (di CalcTurningCost() pkg/constant.go) nya bisa negative wkwkwk
-
+masih ada cycle di rute alternative di sekitar Jalan Penggung-Jatinom: https://navigatorx-crp-fe.vercel.app/?source=-7.571379974595928%2C+110.82773784403025+&destination=-7.778774854321185%2C+110.41389941753334+
+kayake bisa tinggal ilangin cycle di sekitar via-vertices
 */
 
 func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index) ([]AlternativeRoute, float64, int64) {
@@ -399,6 +400,26 @@ func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) Alternativ
 		return NewAEmptyAlternativeroute()
 	}
 
+	lv := v.GetCost()
+
+	if util.Ge(lv-sigmav, (1+arf.param.epsilon)*(arf.optCost-sigmav)) {
+		// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak
+		return NewAEmptyAlternativeroute()
+	}
+
+	plv := v.plv
+
+	T := arf.optCost * (1 - sigmav)
+
+	if util.Le(plv, T) {
+		// T-test dengan T=\alpha*l(Opt) , v-w path adalah plateau dari P_v
+		// plateau must > arf.ars.alpha * arf.optCost
+		// plateau = subpath dari Pv yang optimal (shortest path) dari first vertex ke last vertex dari subpath
+		// atau every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
+		// didnt pass t-test
+		return NewAEmptyAlternativeroute()
+	}
+
 	/*
 		todo: tambahin metrik evaluasi UBS [%], loc Opt  [%], sharing  [%] kaya di table 1: https://dl.acm.org/doi/epdf/10.1145/2444016.2444019
 			lv := v.lv
@@ -423,7 +444,6 @@ func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) Alternativ
 				}
 	*/
 
-	lv := v.GetCost()
 	fv := 2*lv + sigmav - v.GetPlateau()
 
 	altEdgeIdPath := removeConsecutiveDuplicates(append(svPath, vtPath...))
