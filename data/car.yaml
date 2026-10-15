@@ -59,7 +59,7 @@ turncosts: # (read section 4.1 and 7: https://www.microsoft.com/en-us/research/w
   left_turn: 0
   right_turn: 0
   traffic_light: 0 # turn cost/penalty in seconds kalau di fromSegment->toSegment contains traffic light
-  max_turn_cost_based_on_angle_between_edges: 25 # seconds
+  max_turn_cost_based_on_angle_between_edges: 120 # seconds
 
 alternatives:
   alpha: # every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path

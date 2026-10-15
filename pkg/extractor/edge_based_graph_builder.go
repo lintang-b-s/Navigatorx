@@ -185,8 +185,7 @@ func makeTurnTable[W util.RoutingNumber](
 			fSegmentName := rn.GetStreetName(eIdFrom)
 			tSegmentName := rn.GetStreetName(eIdTo)
 
-			if !isTurnCostByAngleBetweenEdgesAllowed(turnType) || isSameName(fSegmentName, tSegmentName) {
-				// skip kalau turnType bukan LEFT_TURN dan bukan RIGHT_TURN. skip juga kalau gak pindah jalan.
+			if isSameName(fSegmentName, tSegmentName) {
 				// soale kalau di jalan tol (example: https://www.openstreetmap.org/way/1301675709#map=15/-7.63705/110.66151)
 				// sering dipisah jadi beberaapa osm ways -> yang mana jadi beberapa graph edges. padahal masih bisa ngebut dan gak perlu turn costs di jalan tol??...
 				return
@@ -195,10 +194,9 @@ func makeTurnTable[W util.RoutingNumber](
 			vLimitTo := float64(eSpeedLimit[eIdTo])
 			currentTurnCost := turnTableSeconds[turnTableId]
 
-			prev := g.GetVertex(u)
 			tail := g.GetVertex(v)
-			head := g.GetVertex(w)
-
+			prev := GetPrevPoint(eIdFrom, tail.GetCoordinate(), 15, rn)
+			head := GetHeadPoint(eIdTo, tail.GetCoordinate(), 15, rn)
 			prevInitialBearing := geo.ComputeInitialBearing(prev.GetLat(), prev.GetLon(), tail.GetLat(),
 				tail.GetLon())
 			relBearing := geo.ComputeRelativeBearing(tail.GetLat(), tail.GetLon(), head.GetLat(),
@@ -210,10 +208,11 @@ func makeTurnTable[W util.RoutingNumber](
 			lPrime := util.DistanceToMeters(wf.GetSegmentLength(eIdTo))
 			turningSpeed := pkg.CalcTurningSpeed(l, lPrime, minResolution, turnAngleDeg)
 
-			if util.Eq(turningSpeed, 0) || turnType == pkg.NO_ENTRY || math.IsInf(currentTurnCost, 1) {
+			if turnType == pkg.NO_ENTRY || math.IsInf(currentTurnCost, 1) {
 				// gak ada turn penalty (pkg.NewTurnRest())
 				return
 			}
+			// kalau u-turn jangan diskip, karena turning speed ~0 -> turn cost nya tinggi
 
 			tcByAngle := pkg.CalcTurningCost(turningSpeed, vLimitFrom, vLimitTo)
 			tcByAngle = min(tcByAngle, turnCostByAngleThreshold)
@@ -226,6 +225,48 @@ func makeTurnTable[W util.RoutingNumber](
 		turnTable[i] = util.TurnCostCentiSeconds(seconds, math.IsInf(seconds, 1))
 	}
 	return turnTable
+}
+
+func GetPrevPoint(segmentId da.Index, tailCoord da.Coordinate, atLeastDist float64, rn *da.RoadNetworkDataContainer) da.Coordinate {
+
+	curved := rn.IsCurved(segmentId)
+	n := rn.GetSegmentGeometryLength(segmentId)
+	if !curved || n == 2 {
+		return rn.GetSegmentGeometryPoint(segmentId, 0)
+	}
+
+	v := rn.GetSegmentGeometryPoint(segmentId, int(n-2))
+	for i := int(n - 2); int(i) >= 0; i-- {
+		p := rn.GetSegmentGeometryPoint(segmentId, int(i))
+		dist := geo.CalculateEuclideanDistMercatorProj(tailCoord.GetLat(), tailCoord.GetLon(), p.GetLat(), p.GetLon())
+		if util.Ge(dist, atLeastDist) {
+			v = p
+			break
+		}
+	}
+
+	return v
+}
+
+func GetHeadPoint(eId da.Index, tailCoord da.Coordinate, atLeastDist float64, rn *da.RoadNetworkDataContainer) da.Coordinate {
+
+	curved := rn.IsCurved(eId)
+	n := rn.GetSegmentGeometryLength(eId)
+	if !curved || n == 2 {
+		return rn.GetSegmentGeometryPoint(eId, 1)
+	}
+
+	v := rn.GetSegmentGeometryPoint(eId, 1)
+	for i := 1; i < int(n); i++ {
+		p := rn.GetSegmentGeometryPoint(eId, i)
+		dist := geo.CalculateEuclideanDistMercatorProj(tailCoord.GetLat(), tailCoord.GetLon(), p.GetLat(), p.GetLon())
+		if util.Ge(dist, atLeastDist) {
+			v = p
+			break
+		}
+	}
+
+	return v
 }
 
 func getTurnTableId(turnTypeStr string) pkg.TurnType {
@@ -247,10 +288,6 @@ func getTurnTableId(turnTypeStr string) pkg.TurnType {
 		panic("unsupported turn type")
 	}
 	return turnType
-}
-
-func isTurnCostByAngleBetweenEdgesAllowed(turnType pkg.TurnType) bool {
-	return turnType == pkg.LEFT_TURN || turnType == pkg.RIGHT_TURN
 }
 
 func isSameName(name1, name2 string) bool {
