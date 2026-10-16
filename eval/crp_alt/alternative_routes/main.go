@@ -175,12 +175,13 @@ func main() {
 		panic(err)
 	}
 
-	re, err := engine.NewEngine[int32](logger)
+	eng, err := engine.NewEngine[int32](logger)
 	if err != nil {
 		panic(err)
 	}
+	re := eng.GetRoutingEngine()
 
-	g := re.GetRoutingEngine().GetGraph()
+	g := re.GetGraph()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
@@ -230,14 +231,24 @@ func main() {
 	runtime := 0.0
 
 	foundAltCount := 0
-	altSearch := routing.NewAlternativeRouteSearch(re.GetRoutingEngine())
 
 	for i := 0; i < len(queries); i++ {
 		s := queries[i].s
 		t := queries[i].t
 
-		alts, optCost, dur := altSearch.FindAlternativeRoutes(s, t, 4, false, 0)
-
+		crpQuery := routing.NewCRPQuery(re) // better via-vertices
+		ars := routing.NewAlternativeRouteSearch(re)
+		param := ars.ParameterByRequest(s, t)
+		crpQuery.SetUpperBound(1.25)
+		crpQuery.ForAlternatives(true)
+		cost, optPath, found := crpQuery.ShortestPathSearch(s, t)
+		if !found {
+			continue
+		}
+		optCost := util.WeightToSeconds(cost)
+		alts, dur := ars.ComputeAlternativeRoutes(s, t, 4, false, 0, optCost, optPath, crpQuery, param)
+		crpQuery.ForAlternatives(false)
+		crpQuery.Done()
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)
 		}
@@ -247,8 +258,8 @@ func main() {
 			continue
 		}
 
-		stretch += altSearch.GetStretch(alts, optCost)
-		diversity += altSearch.GetDiversity(alts)
+		stretch += ars.GetStretch(alts, optCost)
+		diversity += ars.GetDiversity(alts)
 
 		successRate += 1.0
 		foundAltCount++

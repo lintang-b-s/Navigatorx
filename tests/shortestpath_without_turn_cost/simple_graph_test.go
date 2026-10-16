@@ -50,7 +50,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 	var nodeCoords []da.Coordinate
 
 	for i := 0; i < n; i++ {
-		nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
+		nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(i), float64(i)))
 	}
 
 	adjList := make([][]tests.PairEdge, n)

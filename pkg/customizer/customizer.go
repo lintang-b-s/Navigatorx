@@ -411,7 +411,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 					uId := uKey.GetNode()
 					uCost := pqNode.GetRank()
 
-					c.graph.ForOutEdgesOf(uId, func(eId, head, entryPoint da.Index) {
+					c.graph.ForOutEdgesOf(uId, func(eId, head da.Index, entryPoint uint8) {
 						// traverse all out edges
 						v := head
 						eCost := wf.GetWeight(eId)

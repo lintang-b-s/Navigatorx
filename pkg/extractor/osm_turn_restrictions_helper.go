@@ -402,7 +402,7 @@ type parallelViaKey struct {
 
 // addParallelViaEdges. add parallel via-edges for each via-ways
 func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way osmWay, newDataId int, outEdges [][]da.Index, inEdges [][]da.Index,
-	entryPointsAdjList, exitPointsAdjList [][]da.Index, rn *da.RoadNetworkDataContainer,
+	entryPointsAdjList, exitPointsAdjList [][]uint8, rn *da.RoadNetworkDataContainer,
 	segmentDataIds [][]da.Index, outWeights [][]W, outLengths, inLengths [][]uint32, outDegree, inDegree []int, isParallelOutEdge, isParallelInEdge [][]bool,
 	parallelViaEdges map[parallelViaKey]da.Index,
 ) int {
@@ -552,11 +552,11 @@ func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way
 				}
 
 				// add via parallel edge
-				headEntryPoint := da.Index(len(inEdges[head]))
-				tailExitPoint := da.Index(len(outEdges[tail]))
+				headEntryPoint := uint8(len(inEdges[head]))
+				tailExitPoint := uint8(len(outEdges[tail]))
 				entryPointsAdjList[tail] = append(entryPointsAdjList[tail], headEntryPoint)
 				exitPointsAdjList[head] = append(exitPointsAdjList[head], tailExitPoint)
-				pid := tailExitPoint | (headEntryPoint << 16)
+				pid := da.Index(tailExitPoint) | (da.Index(headEntryPoint) << 16)
 				parallelViaEdges[key] = pid
 
 				// add via parallel outgoing edge
@@ -900,7 +900,7 @@ func setConditionalRestrictions[W util.RoutingNumber](p *Extractor[W], roadNetwo
 	conditionalSpeedLimits := make([]da.ConditionalSpeedLimit, 0)
 	conditionalTrafficModesVal := make([]da.ConditionalTrafficMode, 0)
 	if roadNetwork {
-		graph.ForOutEdges(func(exitPoint, head, tail, entryPoint da.Index, percentage float64, eId da.Index) {
+		graph.ForOutEdges(func(exitPoint uint8, head, tail da.Index, entryPoint uint8, percentage float64, eId da.Index) {
 
 			eWayId := rn.GetOsmWayId(eId)
 			reversibleVal := p.conditionalReversibleWayVals[int64(eWayId)]

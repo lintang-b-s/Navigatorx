@@ -87,7 +87,7 @@ func (ar *AlternativeRoute) SetDist(dist float64) {
 type ViaVertex struct {
 	v                         da.Index
 	overlay                   bool
-	plv, lv, approxSharedDist float64
+	plv, lv, approxSharedDist float64 // lv  is cost in seconds. pleatau is the plateau cost in seconds. approxSharedDist is approximate cost sharing with the optimal path in seconds.
 }
 
 func NewViaVertex(v da.Index, overlay bool) ViaVertex {

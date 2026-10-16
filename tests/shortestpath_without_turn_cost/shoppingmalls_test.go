@@ -146,7 +146,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 	nodeCoords := make([]da.Coordinate, 0)
 	for i := 0; i < N; i++ {
 		placei := places[i]
-		nodeCoords = append(nodeCoords, da.NewCoordinate(float64(placei.x), float64(placei.y*placei.floor)))
+		nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(placei.x), float64(placei.y*placei.floor)))
 	}
 
 	re, _, oldToNewVIdMap, newToOldVidMap, _ := buildCRP(t, "shoppingmalls", nodeCoords, adjList, N, []int{6, 7}, true)

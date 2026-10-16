@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -13,7 +14,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/mapattributes"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http"
 	http_router "github.com/lintang-b-s/Navigatorx/pkg/http/router"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
@@ -73,10 +73,8 @@ func main() {
 
 	api := http.NewServer(logger)
 
-	altSearch := routing.NewAlternativeRouteSearch(re)
-
 	leftHandTraffic := viper.GetBool("guidance.left_hand")
-	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, *spIndexRadius, leftHandTraffic)
+	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, *spIndexRadius, leftHandTraffic)
 	if err != nil {
 		panic(err)
 	}

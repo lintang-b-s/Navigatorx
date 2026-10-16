@@ -8,7 +8,7 @@ import (
 // SubVertex   map dari (vId, entryExitPoint, exitFlag) to overlay vertex.
 type SubVertex struct {
 	vId            Index // original vertex id
-	exitEntryOrder Index // entry/exit point order (from 0 to outDegree-1/inDegree-1)
+	exitEntryOrder uint8 // entry/exit point order (from 0 to outDegree-1/inDegree-1)
 	exit           bool  // is exit point
 }
 
@@ -25,8 +25,8 @@ type Graph struct {
 	vertices    []Vertex // map from vertex v id to vertex v data structure
 	heads       []Index  // map from tail u to head v dari edges (u,v) sorted by tail u
 	tails       []Index  // map from head u to tail v reversed edges (v,u). setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v). sorted by head u.
-	entryPoints []Index  // map from outgoing edge id (u,v) to index of this edge in the list of incoming edges of v.
-	exitPoints  []Index  // map from incoming (reversed) edge id (v,u) to index of this edge in the of outgoing edges of v.
+	entryPoints []uint8  // map from outgoing edge id (u,v) to index of this edge in the list of incoming edges of v.
+	exitPoints  []uint8  // map from incoming (reversed) edge id (v,u) to index of this edge in the of outgoing edges of v.
 
 	// overlay graph related. adapted from https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.h
 	overlayVertices  map[SubVertex]Index // graph vertices -> overlay vertices
@@ -47,7 +47,7 @@ type Graph struct {
 	roadNetwork       bool
 }
 
-func NewGraph(vertices []Vertex, heads []Index, tails []Index, roadNetwork bool, entryPoints []Index, exitPoints []Index) *Graph {
+func NewGraph(vertices []Vertex, heads []Index, tails []Index, roadNetwork bool, entryPoints []uint8, exitPoints []uint8) *Graph {
 	return &Graph{vertices: vertices, heads: heads, tails: tails, maxVerticesInCell: 0, roadNetwork: roadNetwork,
 		entryPoints: entryPoints, exitPoints: exitPoints}
 }
@@ -144,14 +144,14 @@ func (g *Graph) GetOutId(e Index) Index {
 }
 
 // GetExitOrder. return Index of exit point of a out edge (u,v) at vertex u.
-func (g *Graph) GetExitOrder(u, outEdgeId Index) Index {
+func (g *Graph) GetExitOrder(u, outEdgeId Index) uint8 {
 	exitPoint := outEdgeId - g.vertices[u].firstOut
-	return exitPoint
+	return uint8(exitPoint)
 }
 
 // GetEntryOrder. return Index of entry point of a in edge (u,v) at vertex v.
-func (g *Graph) GetEntryOrder(v, inEdgeId Index) Index {
-	return inEdgeId - g.vertices[v].firstIn
+func (g *Graph) GetEntryOrder(v, inEdgeId Index) uint8 {
+	return uint8(inEdgeId - g.vertices[v].firstIn)
 }
 
 func (g *Graph) SetCellNumbers(cellNumbers []Pv) {
@@ -163,7 +163,7 @@ func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 }
 
 // ForOutEdgesOf. iterates all outgoing edges of vertex u.
-func (g *Graph) ForOutEdgesOf(u Index, handle func(eId, head Index, entryPoint Index)) {
+func (g *Graph) ForOutEdgesOf(u Index, handle func(eId, head Index, entryPoint uint8)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 		entryPoint := g.entryPoints[e]
 		handle(e, g.heads[e], entryPoint)
@@ -171,7 +171,7 @@ func (g *Graph) ForOutEdgesOf(u Index, handle func(eId, head Index, entryPoint I
 }
 
 // ForOutEdgesOf. iterates all incoming (reversed) edges of vertex u.
-func (g *Graph) ForInEdgesOf(u Index, handle func(eId, tail Index, exitPoint Index)) {
+func (g *Graph) ForInEdgesOf(u Index, handle func(eId, tail Index, exitPoint uint8)) {
 	for e := g.vertices[u].firstIn; e < g.vertices[u+1].firstIn; e++ {
 		exitPoint := g.exitPoints[e]
 		handle(e, g.tails[e], exitPoint)
@@ -179,7 +179,7 @@ func (g *Graph) ForInEdgesOf(u Index, handle func(eId, tail Index, exitPoint Ind
 }
 
 // ForOutEdgesOfWithTurn. iterate outgoing edges of vertex u from i-th incoming edge of u. return turn table id & turn type of its turn, highway type, head vertex, edge id, etc.
-func (g *Graph) ForOutEdgesOfWithTurn(u Index, i Index, handle func(eId, head, exitPoint, entryPoint Index)) {
+func (g *Graph) ForOutEdgesOfWithTurn(u Index, i uint8, handle func(eId, head Index, exitPoint, entryPoint uint8)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 		handle(e, g.heads[e], g.GetExitOrder(u, e), g.entryPoints[e])
 	}
@@ -233,13 +233,13 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 	return len(g.cellNumbers)
 }
 
-func (g *Graph) ForOutEdges(handle func(exitPoint, head, tail, entryPoint Index, percentage float64, eId Index)) {
+func (g *Graph) ForOutEdges(handle func(exitPoint uint8, head, tail Index, entryPoint uint8, percentage float64, eId Index)) {
 	for eId, v := range g.heads {
 
 		tail := g.GetTailOfOutedge(Index(eId))
 
 		percentage := float64(eId) / float64(len(g.heads)) * 100
-		handle(g.GetExitOrder(tail, Index(eId)), v, tail, Index(g.entryPoints[eId]), percentage, Index(eId))
+		handle(g.GetExitOrder(tail, Index(eId)), v, tail, g.entryPoints[eId], percentage, Index(eId))
 	}
 }
 
@@ -271,11 +271,6 @@ func (g *Graph) GetVertices() []Vertex {
 
 func (g *Graph) GetNumberOfOverlayVertexMapping() int {
 	return len(g.overlayVertices)
-}
-
-func (g *Graph) GetVertexCoordinates(u Index) (float64, float64) {
-	v := g.vertices[u]
-	return v.GetLat(), v.GetLon()
 }
 
 func (g *Graph) GetMaxVerticesInCell() Index {

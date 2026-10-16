@@ -175,10 +175,10 @@ func (g *Graph) WriteGraph(filename string) error {
 					return err
 				}
 			}
-			if err := w.Int32(v.lat); err != nil {
+			if err := w.Int32(v.coord.lat); err != nil {
 				return err
 			}
-			if err := w.Int32(v.lon); err != nil {
+			if err := w.Int32(v.coord.lon); err != nil {
 				return err
 			}
 		}
@@ -206,7 +206,7 @@ func (g *Graph) WriteGraph(filename string) error {
 			return err
 		}
 		for _, e := range g.entryPoints {
-			if err := w.Uint32(uint32(e)); err != nil {
+			if err := w.Uint8(e); err != nil {
 				return err
 			}
 		}
@@ -214,7 +214,7 @@ func (g *Graph) WriteGraph(filename string) error {
 			return err
 		}
 		for _, e := range g.exitPoints {
-			if err := w.Uint32(uint32(e)); err != nil {
+			if err := w.Uint8(e); err != nil {
 				return err
 			}
 		}
@@ -249,7 +249,7 @@ func (g *Graph) WriteGraph(filename string) error {
 			if err := w.Uint32(uint32(key.vId)); err != nil {
 				return err
 			}
-			if err := w.Uint32(uint32(key.exitEntryOrder)); err != nil {
+			if err := w.Uint8(key.exitEntryOrder); err != nil {
 				return err
 			}
 			if err := w.Bool(key.exit); err != nil {
@@ -316,11 +316,11 @@ func ReadGraph(filename string) (*Graph, error) {
 			}
 			*field = Index(value)
 		}
-		vertices[i].lat, err = r.Int32()
+		vertices[i].coord.lat, err = r.Int32()
 		if err != nil {
 			return nil, err
 		}
-		vertices[i].lon, err = r.Int32()
+		vertices[i].coord.lon, err = r.Int32()
 		if err != nil {
 			return nil, err
 		}
@@ -333,11 +333,11 @@ func ReadGraph(filename string) (*Graph, error) {
 	if err != nil {
 		return nil, err
 	}
-	entryPoints, err := readIndices(r)
+	entryPoints, err := r.ReadUint8s()
 	if err != nil {
 		return nil, err
 	}
-	exitPoints, err := readIndices(r)
+	exitPoints, err := r.ReadUint8s()
 	if err != nil {
 		return nil, err
 	}
@@ -364,7 +364,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, err
 		}
-		order, err := r.Uint32()
+		order, err := r.Uint8()
 		if err != nil {
 			return nil, err
 		}
@@ -376,7 +376,7 @@ func ReadGraph(filename string) (*Graph, error) {
 		if err != nil {
 			return nil, err
 		}
-		overlay[SubVertex{vId: Index(original), exitEntryOrder: Index(order), exit: exit}] = Index(id)
+		overlay[SubVertex{vId: Index(original), exitEntryOrder: order, exit: exit}] = Index(id)
 	}
 	maxVerticesInCell, err := r.Uint32()
 	if err != nil {

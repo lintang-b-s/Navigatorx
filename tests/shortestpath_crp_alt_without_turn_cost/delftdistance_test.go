@@ -226,13 +226,13 @@ func solve(t *testing.T, filepath string) {
 	for i := 0; i < h; i++ {
 		for j := 0; j < w; j++ {
 			for k := 0; k < 4; k++ {
-				nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(j)))
+				nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(i), float64(j)))
 			}
 		}
 	}
 
-	nodeCoords = append(nodeCoords, da.NewCoordinate(float64(0), float64(0)))
-	nodeCoords = append(nodeCoords, da.NewCoordinate(float64(h-1), float64(w-1)))
+	nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(0), float64(0)))
+	nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(h-1), float64(w-1)))
 
 	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "delftdistance", nodeCoords, adjList, n, []int{7, 11, 14}, true)
 

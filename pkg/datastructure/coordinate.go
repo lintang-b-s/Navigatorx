@@ -10,8 +10,6 @@ import (
 
 var CoordinatePrecision = 1e7
 
-const invalidFixedCoordinate = math.MinInt32
-
 type FloatCoordinate struct {
 	Lat float64 `json:"lat"`
 	Lon float64 `json:"lon"`
@@ -59,6 +57,12 @@ func NewCoordinate(lat, lon float64) Coordinate {
 	if err != nil {
 		panic(err)
 	}
+	return NewFixedCoordinate(fixedLat, fixedLon)
+}
+
+func NewCoordinateWithoutScaling(lat, lon float64) Coordinate {
+	fixedLat := int32(math.Round(lat))
+	fixedLon := int32(math.Round(lon))
 	return NewFixedCoordinate(fixedLat, fixedLon)
 }
 

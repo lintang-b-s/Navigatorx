@@ -6,13 +6,12 @@ import (
 	"github.com/golang/geo/s2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 )
 
 type RoutingService interface {
 	ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) (float64, float64, string, []da.DrivingDirection, bool, error)
-	AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) ([]routing.AlternativeRoute, error)
+	AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startSegId da.Index, useAnnotation bool, useSteps bool) ([]float64, []float64, []string, [][]da.DrivingDirection, error)
 	GetRoutingEngine() RoutingEngine
 	Close()
 	InitBackgroundWorker(ctx context.Context)
@@ -26,6 +25,7 @@ type RoutingEngine interface {
 	GetMetrics() *met.Metric[int32]
 	InitBackgroundWorker(ctx context.Context)
 	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
+	ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, startSegId da.Index) ([]float64, []float64, []*da.Coordinates, [][]da.Index, bool)
 	Close()
 }
 

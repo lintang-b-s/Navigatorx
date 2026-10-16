@@ -1,12 +1,17 @@
 package datastructure
 
-import "github.com/maypok86/otter/v2"
+import (
+	"github.com/maypok86/otter/v2"
+	"github.com/spf13/viper"
+)
 
 const (
-	pathUnpackCacheMaxBytes uint64 = 1 << 28
-	pathUnpackEntryOverhead        = 24 + 9 + 4*4
-	pathUnpackerMaxSize            = int(pathUnpackCacheMaxBytes / pathUnpackEntryOverhead)
-	initialPuCacheCapacity         = 400_000
+	pathUnpackEntrySize    = 24 + 9 + 4*4
+	initialPuCacheCapacity = 400_000
+)
+
+const (
+	defaultPathUnpackCacheMaxBytes = 1 << 28 // 256 MB default
 )
 
 type PUCacheKey struct {
@@ -19,10 +24,18 @@ func NewPUCacheKey(source, target Index, level uint8) PUCacheKey {
 }
 
 func NewPuCache() *otter.Cache[PUCacheKey, []Index] {
+	maxBytes := defaultPathUnpackCacheMaxBytes
+	if viper.IsSet("cache.path_unpacking_size") {
+		sizeMB := viper.GetInt("cache.path_unpacking_size")
+		maxBytes = sizeMB * 1024 * 1024
+	}
+	maxSize := maxBytes / pathUnpackEntrySize
+	initialCap := initialPuCacheCapacity
+
 	// customizable route planning in road networks section 7.2 (path retrieval)
 	puCache := otter.Must(&otter.Options[PUCacheKey, []Index]{
-		MaximumSize:     pathUnpackerMaxSize,
-		InitialCapacity: initialPuCacheCapacity,
+		MaximumSize:     maxSize,
+		InitialCapacity: initialCap,
 	})
 	return puCache
 }

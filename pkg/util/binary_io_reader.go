@@ -124,6 +124,25 @@ func (r *BinaryReader) ReadInt32s() ([]int32, error) {
 	return values, nil
 }
 
+func (r *BinaryReader) ReadUint8s() ([]uint8, error) {
+	length, err := r.Length()
+	if err != nil {
+		return make([]uint8, 0), err
+	}
+	values := make([]uint8, length)
+	const itemSize = 1
+	err = r.readBulk(len(values), itemSize, func(chunk []byte, offset int) {
+		for i := 0; i < len(chunk); i += itemSize {
+			values[offset+i/itemSize] = uint8(chunk[i])
+		}
+	})
+
+	if err != nil {
+		return make([]uint8, 0), err
+	}
+	return values, nil
+}
+
 func (r *BinaryReader) ReadUint16s() ([]uint16, error) {
 	length, err := r.Length()
 	if err != nil {

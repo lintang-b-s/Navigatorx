@@ -100,7 +100,7 @@ func (c *CellGraph) Partition(pred func(vId Index) bool) (*CellGraph, *CellGraph
 // ForOutEdgesOf iterate all outgoing edges that inside this recursive bisection cell that coming from RB cell vertex id=u (recursive bisection cell vertex id).
 func (c *CellGraph) ForOutEdgesOf(u Index, handle func(v Index)) {
 	uu := c.vIds[c.begin+u]
-	c.g.ForOutEdgesOf(uu, func(_, vv, _ Index) { // iterate all road network graph outgoing edges (uu,vv)
+	c.g.ForOutEdgesOf(uu, func(_, vv Index, _ uint8) { // iterate all road network graph outgoing edges (uu,vv)
 		if c.vCellMasks.Test(uint(vv)) {
 			v := c.gv[vv] // map back from road network graph vertex id=vv to recursive bisection cell vertex id=v.
 			handle(v)

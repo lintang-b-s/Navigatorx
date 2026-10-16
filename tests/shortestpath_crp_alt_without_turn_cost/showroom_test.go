@@ -167,7 +167,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 	nodeCoords := make([]da.Coordinate, 0)
 	for i := 0; i < r; i++ {
 		for j := 0; j < c; j++ {
-			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(j)))
+			nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(i), float64(j)))
 		}
 	}
 

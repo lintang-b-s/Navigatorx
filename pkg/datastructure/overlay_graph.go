@@ -324,7 +324,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			exitFlagsArray[i+int(vertexOffset)] = isExitPoint // index exitflagsArray dari 0 itu overlay vertex di level teringgi sampai di index terakhir  itu last overlay vertex di level terendah.
 
 			// order = offset/index of cut outEdge/inEdge in outEdges/inEdges slice
-			var order Index
+			var order uint8
 			if isExitPoint {
 				order = g.GetExitOrder(vertex.vId, vertex.cutEdge)
 			} else {

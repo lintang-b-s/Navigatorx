@@ -160,7 +160,6 @@ func ToFloat64IntMap(input interface{}) (map[float64]int, int) {
 	for k, v := range input.(map[string]interface{}) {
 		if k == "default" {
 			defaultVal = v.(int)
-
 			continue
 		}
 

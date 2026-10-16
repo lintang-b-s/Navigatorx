@@ -93,14 +93,14 @@ func TestOSMParser(t *testing.T) {
 			}
 
 			// cek firstOut && firstIn
-			graph.ForOutEdgesOf(vId, func(eId, head, entryPoint da.Index) {
+			graph.ForOutEdgesOf(vId, func(eId, head da.Index, entryPoint uint8) {
 				tail := graph.GetTailOfOutedge(eId)
 				if tail != vId {
 					t.Errorf("expected tail of outedge (%v, %v): %v, got: %v", vId, head, vId, tail)
 				}
 			})
 
-			graph.ForInEdgesOf(vId, func(eId, tail da.Index, exitPoint da.Index) {
+			graph.ForInEdgesOf(vId, func(eId, tail da.Index, exitPoint uint8) {
 				head := graph.GetHeadOfInedge(eId)
 				if head != vId {
 					t.Errorf("expected head of inedge (%v, %v): %v, got: %v", tail, vId, vId, head)

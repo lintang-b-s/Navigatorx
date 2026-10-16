@@ -17,20 +17,20 @@ import (
 )
 
 type RoutingService struct {
-	log             *zap.Logger
-	engine          cont.RoutingEngine
-	metrics         cont.Metrics
-	graph           *da.Graph
-	rn              *da.RoadNetworkDataContainer
-	spatialIndex    SpatialIndex
-	altRouting      AlternativeRouteAlgorithm
+	log          *zap.Logger
+	engine       cont.RoutingEngine
+	metrics      cont.Metrics
+	graph        *da.Graph
+	rn           *da.RoadNetworkDataContainer
+	spatialIndex SpatialIndex
+
 	searchRadius    float64
 	lefthandDriving bool
 
 	turnSignCache *otter.Cache[uint64, uint64]
 }
 
-func NewRoutingService(log *zap.Logger, engine cont.RoutingEngine, rn *da.RoadNetworkDataContainer, spatialIndex SpatialIndex, altRouting AlternativeRouteAlgorithm,
+func NewRoutingService(log *zap.Logger, engine cont.RoutingEngine, rn *da.RoadNetworkDataContainer, spatialIndex SpatialIndex,
 	searchRadius float64, lefthandDriving bool,
 ) (*RoutingService, error) {
 	rs := &RoutingService{
@@ -40,7 +40,6 @@ func NewRoutingService(log *zap.Logger, engine cont.RoutingEngine, rn *da.RoadNe
 		searchRadius:    searchRadius,
 		lefthandDriving: lefthandDriving,
 		graph:           engine.GetGraph(),
-		altRouting:      altRouting,
 		rn:              rn,
 	}
 	rs.turnSignCache = da.NewTurnSignCache()
@@ -106,34 +105,36 @@ func (rs *RoutingService) AlternativeRouteSearch(
 	startSegId da.Index,
 	useAnnotation bool,
 	useSteps bool,
-) ([]routing.AlternativeRoute, error) {
+) ([]float64, []float64, []string, [][]da.DrivingDirection, error) {
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startSegId)
 
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
-		return make([]routing.AlternativeRoute, 0), util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
+		return routing.EmptyCost, routing.EmptyCost, routing.EmptyPolylines, routing.EmptyDrivingDirections, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
 			"no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 
-	if rs.isSameSourceDestinationSegment(sp, tp) {
-		return make([]routing.AlternativeRoute, 0), nil
+	routeCosts, routeDists, routeSegmentPathCoords, routePaths, found := rs.engine.ShortestPathWithAlternativesSearch(sp, tp, k, reroute, startSegId)
+	if !found {
+		return routing.EmptyCost, routing.EmptyCost, routing.EmptyPolylines, routing.EmptyDrivingDirections, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
+			"no route found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
-
-	alternatives, _, _ := rs.altRouting.FindAlternativeRoutes(sp.GetVId(), tp.GetVId(), k, reroute, startSegId)
-	if len(alternatives) == 0 {
-		return make([]routing.AlternativeRoute, 0), nil
-	}
-
-	for i, alt := range alternatives {
+	n := len(routeCosts)
+	routePolylines := make([]string, n)
+	routeDrivingDirections := make([][]da.DrivingDirection, n)
+	for i := 0; i < n; i++ {
 		var drivingDirections []da.DrivingDirection
 
-		altPathCoords := alt.GetCoords()
-		newCost, dist := rs.AppendPhantomNodesToPath(altPathCoords, sp, tp, alt.GetTravelTime(), alt.GetDist())
-		alternatives[i].SetTravelTime(newCost) // in seconds
-		alternatives[i].SetDist(dist)
+		rPathCoords := routeSegmentPathCoords[i]
+		rCost := routeCosts[i]
+		rDist := routeDists[i]
+		rPath := routePaths[i]
+		newCost, dist := rs.AppendPhantomNodesToPath(rPathCoords, sp, tp, rCost, rDist)
+		routeCosts[i] = newCost // in seconds
+		routeDists[i] = dist
 
-		pathPolyline := da.GooglePoylineFromCoords(*altPathCoords)
-		alternatives[i].SetPolylinePath(pathPolyline)
+		pathPolyline := da.GooglePoylineFromCoords(*rPathCoords)
+		routePolylines[i] = pathPolyline
 		if useSteps {
 			directionBuilder := guidance.NewDirectionBuilder(
 				rs.engine.GetGraph(), rs.rn, rs.engine.GetMetrics(), rs.lefthandDriving,
@@ -142,12 +143,12 @@ func (rs *RoutingService) AlternativeRouteSearch(
 			if reroute {
 				directionBuilder.SetReroute(startSegId)
 			}
-			drivingDirections = directionBuilder.GetDrivingDirections(alt.GetSegmentPath(), sp, tp, useAnnotation)
+			drivingDirections = directionBuilder.GetDrivingDirections(rPath, sp, tp, useAnnotation)
 		}
 
-		alternatives[i].SetDrivingDirections(drivingDirections)
+		routeDrivingDirections[i] = drivingDirections
 	}
-	return alternatives, nil
+	return routeCosts, routeDists, routePolylines, routeDrivingDirections, nil
 }
 
 func (rs *RoutingService) Close() {

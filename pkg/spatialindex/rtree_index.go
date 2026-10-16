@@ -13,12 +13,13 @@ import (
 )
 
 type leafData struct {
-	id   uint64 // (backward direction road segment id << 32) | forward direction road segment id
+	fid  da.Index
+	bid  da.Index
 	flag uint8
 }
 
-func newLeafData(id uint64, flag uint8) leafData {
-	return leafData{id: id, flag: flag}
+func newLeafData(fid, bid da.Index, flag uint8) leafData {
+	return leafData{fid: fid, bid: bid, flag: flag}
 }
 
 type Rtree struct {
@@ -105,18 +106,18 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 
 		if odSeg, ok := segmentSet[segKey]; ok {
 
-			fId := uint64(segId)
-			bId := uint64(odSeg.id)
+			fId := segId
+			bId := odSeg.id
 			flag := rt.getFlag(rn, segId, f, true)
 			flag |= odSeg.flag
 			if b {
-				fId = uint64(odSeg.id)
-				bId = uint64(segId)
+				fId = odSeg.id
+				bId = segId
 			}
 			mins = append(mins, [2]int32{minX, minY})
 			maxs = append(maxs, [2]int32{maxX, maxY})
-			pId := (bId << 32) | fId
-			leaf := newLeafData(pId, flag)
+
+			leaf := newLeafData(fId, bId, flag)
 			items = append(items, leaf)
 			delete(segmentSet, segKey)
 		} else {
@@ -129,7 +130,7 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 		// sisa road segments yang oneway=true
 		mins = append(mins, [2]int32{seg.minX, seg.minY})
 		maxs = append(maxs, [2]int32{seg.maxX, seg.maxY})
-		items = append(items, newLeafData(uint64(seg.id), seg.flag))
+		items = append(items, newLeafData(seg.id, 0, seg.flag))
 	}
 
 	rt.tr.Bulk(mins, maxs, items)
@@ -271,26 +272,26 @@ func (rt *Rtree) getId(data leafData, mode uint8) (da.Index, da.Index) {
 	case 0:
 
 		if isForwardJunctionHead(data.flag) {
-			fId = da.Index(data.id & 0xFFFFFFFF)
+			fId = data.fid
 		}
 		if isBidirectional(data.flag) && isBackwardJunctionHead(data.flag) {
-			bId = da.Index(data.id >> 32)
+			bId = data.bid
 		}
 
 		return fId, bId
 	case 1:
 		if isForwardJunctionTail(data.flag) {
-			fId = da.Index(data.id & 0xFFFFFFFF)
+			fId = data.fid
 		}
 		if isBidirectional(data.flag) && isBackwardJunctionTail(data.flag) {
-			bId = da.Index(data.id >> 32)
+			bId = data.bid
 		}
 
 		return fId, bId
 	default:
-		fId = da.Index(data.id & 0xFFFFFFFF)
+		fId = data.fid
 		if isBidirectional(data.flag) {
-			bId = da.Index(data.id >> 32)
+			bId = data.bid
 		}
 		return fId, bId
 	}

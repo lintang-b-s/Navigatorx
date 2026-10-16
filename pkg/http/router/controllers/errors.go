@@ -32,7 +32,6 @@ func (api *routingAPI) errorResponse(w http.ResponseWriter, r *http.Request, sta
 
 	err := api.writeJSON(w, status, env)
 	if err != nil {
-
 		api.logError(r, err)
 		w.WriteHeader(500)
 	}

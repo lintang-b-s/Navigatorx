@@ -9,8 +9,8 @@ type Graph interface {
 	GetVertex(u da.Index) da.Vertex
 	GetVertexCoordinate(u da.Index) da.Coordinate
 	ForOutEdgeIdsOf(u da.Index, handle func(eId da.Index))
-	ForOutEdgesOf(u da.Index, handle func(eId, head da.Index, entryPoint da.Index))
-	ForInEdgesOf(v da.Index, handle func(eId, tail da.Index, exitPoint da.Index))
+	ForOutEdgesOf(u da.Index, handle func(eId, head da.Index, entryPoint uint8))
+	ForInEdgesOf(v da.Index, handle func(eId, tail da.Index, exitPoint uint8))
 	GetHead(e da.Index) da.Index
 	GetTail(e da.Index) da.Index
 	GetOutId(e da.Index) da.Index

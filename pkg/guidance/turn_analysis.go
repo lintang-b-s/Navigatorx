@@ -28,7 +28,7 @@ ada 4 belokan yang bisa dilakukan dari tail.
 func (db *DirectionBuilder) GetAlternativeTurns(prevSegmentId, segmentId da.Index) (int, []da.Index) {
 	db.alternativeTurns = db.alternativeTurns[:0]
 
-	db.graph.ForOutEdgesOf(prevSegmentId, func(_ da.Index, nSegmentId da.Index, _ da.Index) {
+	db.graph.ForOutEdgesOf(prevSegmentId, func(_ da.Index, nSegmentId da.Index, _ uint8) {
 
 		if db.rn.IsParallelVia(nSegmentId) {
 			return
@@ -110,7 +110,7 @@ func (db *DirectionBuilder) isStreetMergedSkip(prevSegment, segmentId da.Index, 
 	prevInitBearing := geo.ComputeInitialBearing(prevTail.GetLat(), prevTail.GetLon(), tail.GetLat(),
 		tail.GetLon())
 
-	db.graph.ForOutEdgesOf(prevSegment, func(_, oSegmentId, _ da.Index) {
+	db.graph.ForOutEdgesOf(prevSegment, func(_, oSegmentId da.Index, _ uint8) {
 		// todo: ini pas udah ganti ke edge-based graph ada masalah di sini https://www.openstreetmap.org/relation/19206133
 		// harus e di intersection simpang empat purwosari, isStreetMergedSkip=true kalau segmentId di jalan Brigadir jenderal slamet riyadi
 		// tapi karena edge-based graph skip via-node u-turn restriction di relation diatas, kita gak bisa detect otherSegment
@@ -177,7 +177,7 @@ func (db *DirectionBuilder) isStreetSplitSkip(prevSegment, segmentId da.Index, c
 
 	otherSegment := da.INVALID_SEGMENT_ID // inEdge dari tail selain PrevEdge yang mengarah ke tail
 
-	db.graph.ForInEdgesOf(segmentId, func(_, oSegmentId, _ da.Index) {
+	db.graph.ForInEdgesOf(segmentId, func(_, oSegmentId da.Index, _ uint8) {
 		if oSegmentId == prevSegment {
 			return
 		}
@@ -243,7 +243,7 @@ func (db *DirectionBuilder) isStreetMerged(prevSegment, segmentId da.Index, curr
 	prevInitBearing := geo.ComputeInitialBearing(prevTail.GetLat(), prevTail.GetLon(), tail.GetLat(),
 		tail.GetLon())
 
-	db.graph.ForInEdgesOf(segmentId, func(_, oSegmentId, _ da.Index) {
+	db.graph.ForInEdgesOf(segmentId, func(_, oSegmentId da.Index, _ uint8) {
 		if oSegmentId == prevSegment {
 			return
 		}

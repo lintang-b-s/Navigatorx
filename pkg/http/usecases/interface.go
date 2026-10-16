@@ -6,10 +6,12 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type AlternativeRouteAlgorithm interface {
-	FindAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index) ([]routing.AlternativeRoute, float64, int64)
+type AlternativeRouteAlgorithm[W util.RoutingNumber] interface {
+	ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index, optCost float64, optPath []da.Index,
+		crpQuery *routing.CRPQuery[W], param routing.AlternativeRouteParameters) ([]routing.AlternativeRoute, float64, int64)
 }
 
 type SpatialIndex interface {

@@ -87,7 +87,7 @@ func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId s2geo.CellID, radius
 
 		outDeg := da.Index(0)
 		u := segId
-		me.g.ForOutEdgesOf(u, func(eId, v, _ da.Index) {
+		me.g.ForOutEdgesOf(u, func(eId, v da.Index, _ uint8) {
 			_, ok := segSet[v]
 			if ok {
 				outDeg++
@@ -107,7 +107,7 @@ func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId s2geo.CellID, radius
 			continue
 		}
 		var err error
-		me.g.ForOutEdgesOf(u, func(eId, v, _ da.Index) {
+		me.g.ForOutEdgesOf(u, func(eId, v da.Index, _ uint8) {
 			_, ok := segSet[v]
 			if !ok {
 				return

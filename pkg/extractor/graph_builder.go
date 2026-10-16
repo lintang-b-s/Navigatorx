@@ -30,8 +30,8 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 		outDegree      = make([]int, numV)
 		vertices       = make([]da.Vertex, numV+1)
 
-		entryPointsAdjList = make([][]da.Index, numV) // entryPointsAdjList[u][i]: indeks i dari incoming edge (u,v) di inEdges[v]
-		exitPointsAdjList  = make([][]da.Index, numV) // exitPointsAdjList[v][i]: indeks i dari outgoing edge (u,v) di outEdges[u]
+		entryPointsAdjList = make([][]uint8, numV) // entryPointsAdjList[u][i]: indeks i dari incoming edge (u,v) di inEdges[v]
+		exitPointsAdjList  = make([][]uint8, numV) // exitPointsAdjList[v][i]: indeks i dari outgoing edge (u,v) di outEdges[u]
 
 		isParallelOutEdge = make([][]bool, numV+1)
 		isParallelInEdge  = make([][]bool, numV+1)
@@ -43,8 +43,8 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 		u := da.Index(e.from)
 		v := da.Index(e.to)
 
-		entryPoint := da.Index(len(inEdges[v]))
-		exitPoint := da.Index(len(outEdges[u]))
+		entryPoint := uint8(len(inEdges[v]))
+		exitPoint := uint8(len(outEdges[u]))
 		entryPointsAdjList[u] = append(entryPointsAdjList[u], entryPoint)
 		exitPointsAdjList[v] = append(exitPointsAdjList[v], exitPoint)
 

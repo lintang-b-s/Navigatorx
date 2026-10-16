@@ -119,7 +119,7 @@ func (p *Preprocessor[W]) buildLookupTable() error {
 
 	p.graph.ForVertices(func(_ da.Vertex, u da.Index) {
 		uOsmId, vOsmId := p.rn.GetTailHeadOsmNodeId(u)
-		p.graph.ForOutEdgesOf(u, func(eId, v, entryPoint da.Index) {
+		p.graph.ForOutEdgesOf(u, func(eId, v da.Index, entryPoint uint8) {
 			_, wOsmId := p.rn.GetTailHeadOsmNodeId(v)
 			segmentTurnKVs = append(segmentTurnKVs, da.NewTurnKV(uint64(uOsmId), uint64(vOsmId), uint64(wOsmId), eId))
 		})

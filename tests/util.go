@@ -404,14 +404,14 @@ func AssignNodeCoordinates(adjList [][]PairEdge) []da.Coordinate {
 	distLmTwoThree := float64(distLmTwo[lmThree])
 	distLmOneThree := float64(distLmOne[lmThree])
 
-	nodeCoords[lmOne] = da.NewCoordinate(0, 0)
-	nodeCoords[lmTwo] = da.NewCoordinate(distLmOneTwo, 0)
+	nodeCoords[lmOne] = da.NewCoordinateWithoutScaling(0, 0)
+	nodeCoords[lmTwo] = da.NewCoordinateWithoutScaling(distLmOneTwo, 0)
 
 	nume := distLmOneThree*distLmOneThree - distLmTwoThree*distLmTwoThree + distLmOneTwo*distLmOneTwo
 	denom := 2 * distLmOneTwo
 	x3 := nume / denom
 	y3 := math.Sqrt(distLmOneThree*distLmOneThree - x3*x3)
-	nodeCoords[lmThree] = da.NewCoordinate(x3, y3)
+	nodeCoords[lmThree] = da.NewCoordinateWithoutScaling(x3, y3)
 
 	distLmThree := dijkstra(adjList, lmThree)
 
@@ -433,7 +433,7 @@ func AssignNodeCoordinates(adjList [][]PairEdge) []da.Coordinate {
 		}
 		y := nume / denom
 
-		nodeCoords[v] = da.NewCoordinate(y, x)
+		nodeCoords[v] = da.NewCoordinateWithoutScaling(y, x)
 	}
 
 	return nodeCoords

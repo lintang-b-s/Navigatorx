@@ -681,11 +681,10 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 
 		eng, op, logger := setup(t, mtc)
 		re := eng.GetRoutingEngine()
-		altSearch := routing.NewAlternativeRouteSearch(re)
 		rn := re.GetRoadNetworkContainer()
 		rtree := spatialindex.NewRtree()
 		rtree.Build(re.GetGraph(), rn, logger)
-		routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
+		routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.05, true)
 		if err != nil {
 			panic(err)
 		}
@@ -771,7 +770,20 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 					t.Fatalf("%s: expected not contain path %v, got contain the path", tc.name, subPath)
 				}
 
-				alts, _, _ := altSearch.FindAlternativeRoutes(sp.GetVId(), tp.GetVId(), 3, false, 0)
+				source, target := sp.GetVId(), tp.GetVId()
+				crpQuery2 := routing.NewCRPQuery(re) // better via-vertices
+				ars := routing.NewAlternativeRouteSearch(re)
+				param := ars.ParameterByRequest(source, target)
+				crpQuery2.SetUpperBound(1.25)
+				crpQuery2.ForAlternatives(true)
+				cost, optPath, found := crpQuery2.ShortestPathSearch(source, target)
+				if !found {
+					return
+				}
+				optCost := util.WeightToSeconds(cost)
+				alts, _ := ars.ComputeAlternativeRoutes(source, target, 4, false, 0, optCost, optPath, crpQuery2, param)
+				crpQuery2.ForAlternatives(false)
+				crpQuery2.Done()
 
 				for i := 0; i < len(alts); i++ {
 					altPath := alts[i].GetSegmentPath()

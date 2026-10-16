@@ -36,8 +36,8 @@ type RoadNetworkDataContainer struct {
 	roadClassLink           []pkg.OsmHighwayType
 	lanes                   []uint8
 	osmwayBitSize           uint8
-	segmentHighwayType      []pkg.OsmHighwayType
-	segmentFlags            []SegmentFlagType
+
+	segmentFlags []SegmentFlagType
 
 	boundingBox *BoundingBox
 }

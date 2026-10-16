@@ -29,8 +29,8 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 	ebgVertices := make([]da.Vertex, ebgvNum+1)
 	ebgAdjList := make([][]da.Index, ebgvNum)
 	ebgRevAdjList := make([][]da.Index, ebgvNum)
-	ebgEntryPoints := make([][]da.Index, ebgvNum)
-	ebgExitPoints := make([][]da.Index, ebgvNum)
+	ebgEntryPoints := make([][]uint8, ebgvNum)
+	ebgExitPoints := make([][]uint8, ebgvNum)
 	ebgMapping := make([]uint64, ebgvNum)
 
 	speedFromWeight := func(length uint32, weight W) uint32 {
@@ -54,7 +54,7 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 	emPerm := make([]int, g.NumberOfEdges())
 	// T(n) = \sum_{u in V} \sum_{v in edges(u,v)} outDeg(u)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
 	g.ForVertices(func(_ da.Vertex, u da.Index) {
-		g.ForOutEdgesOf(u, func(ueId, v, i da.Index) {
+		g.ForOutEdgesOf(u, func(ueId, v da.Index, i uint8) {
 
 			uc := rn.GetSegmentTailCoord(ueId)
 			vc := rn.GetSegmentHeadCoord(ueId)
@@ -62,7 +62,7 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 			mpLon := (uc.GetLon() + vc.GetLon()) / 2
 			ebgVertices[ebgvId] = da.NewVertex(mpLat, mpLon, ueId)
 
-			g.ForOutEdgesOfWithTurn(v, i, func(veId, w, j, _ da.Index) {
+			g.ForOutEdgesOfWithTurn(v, i, func(veId, w da.Index, j, _ uint8) {
 				turnTableId := vTurnTableIds[v] + da.Index(i)*g.GetOutDegree(v) + da.Index(j)
 				tc := turnTable[turnTableId] // turn costs
 				eWeight := wf.GetWeight(ueId) + W(tc)
@@ -71,8 +71,8 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 					return
 				}
 
-				uvEntryPoint := da.Index(len(ebgRevAdjList[veId]))
-				uvExitPoint := da.Index(len(ebgAdjList[ueId]))
+				uvEntryPoint := uint8(len(ebgRevAdjList[veId]))
+				uvExitPoint := uint8(len(ebgAdjList[ueId]))
 
 				ebgAdjList[ueId] = append(ebgAdjList[ueId], veId)
 				ebgRevAdjList[veId] = append(ebgRevAdjList[veId], ueId)
@@ -168,10 +168,10 @@ func makeTurnTable[W util.RoutingNumber](
 	minResolution := g.GetMinResolution()
 
 	// T(n) = \sum_{u in V} \sum_{v in edges(u,v)} outDeg(u)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
-	g.ForOutEdges(func(_, v, u, i da.Index, percentage float64, eIdFrom da.Index) {
+	g.ForOutEdges(func(_ uint8, v, u da.Index, i uint8, percentage float64, eIdFrom da.Index) {
 
 		vLimitFrom := float64(eSpeedLimit[eIdFrom])
-		g.ForOutEdgesOfWithTurn(v, i, func(eIdTo, w da.Index, j, _ da.Index) {
+		g.ForOutEdgesOfWithTurn(v, i, func(eIdTo, w da.Index, j, _ uint8) {
 			turnTableId := vTurnTableIds[v] + da.Index(i)*g.GetOutDegree(v) + da.Index(j)
 			turnType := turnMatrix[turnTableId]
 			ftl := rn.IsSegmentFlagBitOn(eIdFrom, da.FlagContainsTrafficLight)

@@ -57,7 +57,7 @@ func New(routingService RoutingService, log *zap.Logger, mapAttributesService Ma
 
 func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
-	group.GET("/computeAlternativeRoutes", api.AlternativeRoutes) // todo: kayake ini mending digabung sama /computeRoutes?alternative_routes=true aja
+
 	group.GET("/boundingBox", api.GetBoundingBox)
 
 	group.GET("/mapAttributes/:s2CellId", api.getMapAttributes)
@@ -123,6 +123,23 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		return
 	}
 
+	withAlternatives := false
+	k := da.Index(0)
+	if v := query.Get("alternatives"); v != "" {
+		b, err := strconv.ParseBool(v)
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("alternatives must be boolean"))
+			return
+		}
+		withAlternatives = b
+
+		k, err = da.ParseIndex(query.Get("k"))
+		if err != nil {
+			api.BadRequestResponse(w, r, errors.New("k must be unsigned integer 32 bit"))
+			return
+		}
+	}
+
 	startEdgeId := da.INVALID_SEGMENT_ID
 	rerouteStr := query.Get("reroute")
 	reroute := false
@@ -142,123 +159,43 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 
 	newCtx := r.Context()
 
-	travelTime, dist, pathPolyline, drivingDirections, ok, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
-		request.DestinationLat, request.DestinationLon, reroute, startEdgeId, useAnnotation, useSteps)
-	if err != nil {
-		api.getStatusCode(w, r, err)
-		return
-	}
+	if !withAlternatives {
+		travelTime, dist, pathPolyline, drivingDirections, ok, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
+			request.DestinationLat, request.DestinationLon, reroute, startEdgeId, useAnnotation, useSteps)
 
-	if !ok {
-		api.NotFoundResponse(w, r)
-		return
-	}
-
-	response := shortestPathEnvelope{Data: NewShortestPathResponse(
-		travelTime,
-		dist,
-		pathPolyline,
-		NewDrivingDirections(drivingDirections, useAnnotation),
-	)}
-	if err := api.writeJSON(w, http.StatusOK, response); err != nil {
-		api.ServerErrorResponse(w, r, err)
-		return
-	}
-}
-
-func (api *routingAPI) AlternativeRoutes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-	var (
-		request alternativeRoutesRequest
-		err     error
-	)
-
-	query := r.URL.Query()
-	useAnnotation := false
-	useAnnotationStr := query.Get("useAnnotation")
-	if useAnnotationStr != "" {
-		useAnnotation, err = strconv.ParseBool(useAnnotationStr)
 		if err != nil {
-			api.BadRequestResponse(w, r, errors.New("useAnnotation must be boolean"))
+			api.getStatusCode(w, r, err)
 			return
 		}
-	}
-
-	useSteps := true
-	useStepsStr := query.Get("useSteps")
-	if useStepsStr != "" {
-		useSteps, err = strconv.ParseBool(useStepsStr)
-		if err != nil {
-			api.BadRequestResponse(w, r, errors.New("useSteps must be boolean"))
-			return
-		}
-	}
-
-	request.OriginLat, err = strconv.ParseFloat(query.Get("origin_lat"), 64)
-	if err != nil {
-		api.BadRequestResponse(w, r, errors.New("origin_lat is required and must be a valid float"))
-		return
-	}
-	request.OriginLon, err = strconv.ParseFloat(query.Get("origin_lon"), 64)
-	if err != nil {
-		api.BadRequestResponse(w, r, errors.New("origin_lon is required and must be a valid float"))
-		return
-	}
-	request.DestinationLat, err = strconv.ParseFloat(query.Get("destination_lat"), 64)
-	if err != nil {
-		api.BadRequestResponse(w, r, errors.New("destination_lat is required and must be a valid float"))
-		return
-	}
-	request.DestinationLon, err = strconv.ParseFloat(query.Get("destination_lon"), 64)
-	if err != nil {
-		api.BadRequestResponse(w, r, errors.New("destination_lon is required and must be a valid float"))
-		return
-	}
-	request.K, err = strconv.ParseInt(query.Get("k"), 10, 64)
-	if err != nil {
-		api.BadRequestResponse(w, r, errors.New("number of alternatives k is required and must be a valid int"))
-		return
-	}
-	if err := api.validate.Struct(request); err != nil {
-
-		vv := translateError(err, api.trans)
-		vvString := []string{}
-		for _, v := range vv {
-			vvString = append(vvString, v.Error())
-		}
-		api.BadRequestResponse(w, r, fmt.Errorf("validation error: %v", vvString))
-		return
-	}
-
-	newCtx := r.Context()
-
-	startEdgeId := da.INVALID_SEGMENT_ID
-	rerouteStr := query.Get("reroute")
-	reroute := false
-	if rerouteStr != "" {
-		reroute, err = strconv.ParseBool(rerouteStr)
-		if err != nil {
-			api.BadRequestResponse(w, r, errors.New("reroute must be boolean"))
+		if !ok {
+			api.NotFoundResponse(w, r)
 			return
 		}
 
-		startEdgeId, err = da.ParseIndex(query.Get("start_edge_id"))
-		if err != nil {
-			api.BadRequestResponse(w, r, errors.New("edgeId must be unsigned integer 32 bit"))
+		response := shortestPathEnvelope{Data: NewShortestPathResponse(
+			travelTime,
+			dist,
+			pathPolyline,
+			NewDrivingDirections(drivingDirections, useAnnotation),
+		)}
+		if err := api.writeJSON(w, http.StatusOK, response); err != nil {
+			api.ServerErrorResponse(w, r, err)
 			return
 		}
-	}
 
-	alternatives, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
-		request.DestinationLat, request.DestinationLon, int(request.K), reroute, startEdgeId, useAnnotation, useSteps)
-	if err != nil {
-		api.getStatusCode(w, r, err)
-		return
-	}
+	} else {
+		routeCosts, routeDists, routePolylines, routeDrivingDirections, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
+			request.DestinationLat, request.DestinationLon, int(k), reroute, startEdgeId, useAnnotation, useSteps)
+		if err != nil {
+			api.getStatusCode(w, r, err)
+			return
+		}
 
-	response := alternativeRoutesEnvelope{Data: NewAlternativeRoutesResponse(alternatives, useAnnotation)}
-	if err := api.writeJSON(w, http.StatusOK, response); err != nil {
-		api.ServerErrorResponse(w, r, err)
-		return
+		response := alternativeRoutesEnvelope{Data: NewAlternativeRoutesResponse(routeCosts, routeDists, routePolylines, routeDrivingDirections, useAnnotation)}
+		if err := api.writeJSON(w, http.StatusOK, response); err != nil {
+			api.ServerErrorResponse(w, r, err)
+			return
+		}
 	}
 }
 

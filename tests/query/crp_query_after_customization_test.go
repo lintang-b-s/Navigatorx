@@ -11,7 +11,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
@@ -32,13 +31,12 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 	config.InitRegionName(filename, pkg.TEST)
 
 	rtree := spatialindex.NewRtree()
-	altSearch := routing.NewAlternativeRouteSearch(re)
 
 	g := re.GetGraph()
 	rn := re.GetRoadNetworkContainer()
 	rtree.Build(g, rn, logger)
 
-	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
+	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.05, true)
 	ctx, cleanup := router.NewContext(re, routingService)
 	defer cleanup()
 	routingService.InitBackgroundWorker(ctx)

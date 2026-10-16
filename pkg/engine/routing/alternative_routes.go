@@ -13,7 +13,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/spf13/viper"
 )
 
 type AlternativeRouteParameters struct {
@@ -36,14 +35,6 @@ type AlternativeRouteSearch[W util.RoutingNumber] struct {
 	re      *CRPRoutingEngine[W]
 	metrics *met.Metric[W]
 	lm      *landmark.Landmark[W]
-
-	// parameter yang di init pakai read yml config
-	maxCandidatesToUnpackMap       map[float64]int
-	gammaMap, alphaMap, epsilonMap map[float64]float64
-	upperBoundMap                  map[float64]float64
-
-	defaultGamma, defaultAlpha, defaultEpsilon, defaultUpperbound float64
-	defaultMaxCandidatesToUnpack                                  int
 }
 
 func NewAlternativeRouteSearch[W util.RoutingNumber](
@@ -54,7 +45,6 @@ func NewAlternativeRouteSearch[W util.RoutingNumber](
 	}
 	alt.metrics = re.GetMetrics()
 	alt.lm = re.GetLandmark()
-	alt.initParameter()
 	return alt
 }
 
@@ -73,7 +63,7 @@ ref[1] setiap st-path P dikatakan admissible jika memenuhi kondisi:
 2. P is T-Localy Optimal (T-LO): every subpath P' of P with l(P') <= T adalah shortest path
 3. every subpath P' dari P dengan endpoints s', t', kita memiliki l(P') <= (1+eps)l(Opt(s,t)) (path P' dari s' ke t' tidak lebih panjang 1+eps relative to shortest path dari s' ke t')
 
-inti dari FindAlternativeRoutes:
+inti dari ComputeAlternativeRoutes:
 1. retrieve semua via vertices yang sudah diexplore (vertex v diexplore atau overlay vertex v sudah discan) oleh forward search dan backward search dari CRP query
 2. susun kandidat alternative route s-v-t  untuk setiap via vertices v.
 3. return semua kandidat alternative routes yang memenuhi 3 kriteria admissible diatas
@@ -89,7 +79,8 @@ masih ada cycle di rute alternative di sekitar Jalan Penggung-Jatinom: https://n
 kayake bisa tinggal ilangin cycle di sekitar via-vertices
 */
 
-func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index) ([]AlternativeRoute, float64, int64) {
+func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index, optCost float64, optPath []da.Index,
+	crpQuery *CRPQuery[W], param AlternativeRouteParameters) ([]AlternativeRoute, int64) {
 
 	/*
 		let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any cell
@@ -100,37 +91,15 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int
 	*/
 	now := time.Now()
 
-	param := ars.parameterByRequest(s, t)
-
-	crpQuery := NewCRPQuery(ars.re)
-	crpQuery.forAlternatives = true
-	if reroute {
-		crpQuery.reroute = true
-	}
-
-	defer func() {
-		crpQuery.forAlternatives = false
-		crpQuery.Done()
-	}()
-	crpQuery.SetUpperBound(param.upperBound)
-
-	optWeight, optPath, found := crpQuery.ShortestPathSearch(s, t)
-	if !found {
-		return []AlternativeRoute{}, pkg.INF_WEIGHT, 0
-	}
-	optCost := util.WeightToSeconds(optWeight)
-
 	fpq := crpQuery.GetForwardPQ()
 	bpq := crpQuery.GetBackwardPQ()
 	sCellNumber := crpQuery.GetSCellNumber()
 	tCellNumber := crpQuery.GetTCellNumber()
-
 	viaVertices := crpQuery.viaVertices
-	viaVertices = ars.filterByUniqueId(viaVertices)
-
-	optPathSet, motorwaySet := ars.buildPathMotorwaySet(optPath)
-
 	scSet := crpQuery.scpSet
+
+	viaVertices = ars.filterByUniqueId(viaVertices)
+	optPathSet, motorwaySet := ars.buildPathMotorwaySet(optPath)
 	unpacker := newPathUnpackerALT(ars.re, ars.metrics, ars.lm, false)
 	arf := NewAlternativeRouteFilter(ars, fpq, bpq,
 		sCellNumber, tCellNumber, s, t, optPathSet, motorwaySet, scSet, param, optCost, unpacker)
@@ -185,11 +154,11 @@ func (ars *AlternativeRouteSearch[W]) FindAlternativeRoutes(s, t da.Index, k int
 		res[i].dist = totalDistance
 	}
 
-	// worst case of FindAlternativeRoutes: worst case crp query + worst case computeAlternative for all via vertices
+	// worst case of ComputeAlternativeRoutes: worst case crp query + worst case computeAlternative for all via vertices
 	// O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o) + c * ( p + q * (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))
 	runtime := time.Since(now).Milliseconds()
 
-	return res, optCost, runtime
+	return res, runtime
 }
 
 func intersection(otherAltSet map[da.Index]struct{}, alt []da.Index) int {
@@ -394,19 +363,17 @@ func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) Alternativ
 
 	svPath, vtPath := arf.unpackViaPath(v)
 
-	sigmav := arf.ars.calculateDistanceShare(svPath, vtPath, arf.optPathSet)
+	sigmav := arf.ars.calculateDistanceShare(svPath, vtPath, arf.optPathSet, arf.motorwaySet)
 	// cek limited sharing
 	if util.Ge(sigmav, arf.param.gamma*arf.optCost) {
 		return NewAEmptyAlternativeroute()
 	}
 
 	lv := v.GetCost()
-
 	fv := 2*lv + sigmav - v.GetPlateau()
-
 	altEdgeIdPath := removeConsecutiveDuplicates(append(svPath, vtPath...))
-
-	return NewAlternativeRoute(fv, 0, lv, sigmav, v.GetVId(), EmptyCoords,
+	distSharing := sigmav / arf.optCost
+	return NewAlternativeRoute(fv, 0, lv, distSharing, v.GetVId(), EmptyCoords,
 		altEdgeIdPath, v)
 }
 
@@ -426,21 +393,30 @@ func (ars *AlternativeRouteSearch[W]) filterByUniqueId(vias []ViaVertex) []ViaVe
 }
 
 // calculateDistanceShare. calculate sharing amount (edge weights) dari unpacked path dari alternative route P_v dan optimal/shortest route Opt
-func (ars *AlternativeRouteSearch[W]) calculateDistanceShare(svPath, vtPath []da.Index, optPathSet map[da.Index]struct{}) float64 {
+func (ars *AlternativeRouteSearch[W]) calculateDistanceShare(svPath, vtPath []da.Index, optPathSet map[da.Index]struct{}, motorwaySet map[da.Index]struct{}) float64 {
 	// O(M),  M=len(pvPath)
 	distanceShare := 0.0
 
 	for _, v := range svPath {
+		weight := ars.metrics.GetDurationSeconds(v)
 		if _, ok := optPathSet[v]; ok {
 			// kualitas rute alternatif lebih bagus kalau length functionnya travel time
-			distanceShare += ars.metrics.GetDurationSeconds(v)
+			distanceShare += weight
+		}
+
+		if _, ok := motorwaySet[v]; ok {
+			distanceShare += weight * ars.re.motorwayPenalty
 		}
 	}
 
 	for _, v := range vtPath {
+		weight := ars.metrics.GetDurationSeconds(v)
 		if _, ok := optPathSet[v]; ok {
 			// kualitas rute alternatif lebih bagus kalau length functionnya travel time
-			distanceShare += ars.metrics.GetDurationSeconds(v)
+			distanceShare += weight
+		}
+		if _, ok := motorwaySet[v]; ok {
+			distanceShare += weight * ars.re.motorwayPenalty
 		}
 	}
 
@@ -516,7 +492,7 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(svPackedPath,
 
 			shortcutInMotorway := okMtr1 && okMtr2 && scSet[bp] == uint8(ql)
 			if shortcutInMotorway {
-				distShare += util.WeightToSeconds(scWeight) * MOTORWAY_PENALTY
+				distShare += util.WeightToSeconds(scWeight) * ars.re.motorwayPenalty
 			}
 			return true
 		} else {
@@ -527,7 +503,7 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(svPackedPath,
 				distShare += eWeight
 			}
 			if _, ok := motorwaySet[u]; ok {
-				distShare += eWeight * MOTORWAY_PENALTY
+				distShare += eWeight * ars.re.motorwayPenalty
 			}
 			return false
 		}
@@ -644,7 +620,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, s, t da.Index,
 	return plateau
 }
 
-func (ars *AlternativeRouteSearch[W]) parameterByRequest(s, t da.Index) AlternativeRouteParameters {
+func (ars *AlternativeRouteSearch[W]) ParameterByRequest(s, t da.Index) AlternativeRouteParameters {
 
 	sVertex := ars.re.graph.GetVertex(s)
 	tVertex := ars.re.graph.GetVertex(t)
@@ -653,17 +629,17 @@ func (ars *AlternativeRouteSearch[W]) parameterByRequest(s, t da.Index) Alternat
 	gcDist := geo.CalculateGreatCircleDistance(sCoord.GetLat(), sCoord.GetLon(),
 		tCoord.GetLat(), tCoord.GetLon()) // in km
 
-	param := NewAlternativeRouteParameters(ars.defaultGamma, ars.defaultAlpha,
-		ars.defaultEpsilon, ars.defaultUpperbound, ars.defaultMaxCandidatesToUnpack)
+	param := NewAlternativeRouteParameters(ars.re.defaultGamma, ars.re.defaultAlpha,
+		ars.re.defaultEpsilon, ars.re.defaultUpperbound, ars.re.defaultMaxCandidatesToUnpack)
 
-	param.gamma = pickParam(ars.gammaMap, gcDist, ars.defaultGamma)
+	param.gamma = pickParam(ars.re.gammaMap, gcDist, ars.re.defaultGamma)
 
-	param.alpha = pickParam(ars.alphaMap, gcDist, ars.defaultAlpha)
+	param.alpha = pickParam(ars.re.alphaMap, gcDist, ars.re.defaultAlpha)
 
-	param.epsilon = pickParam(ars.epsilonMap, gcDist, ars.defaultEpsilon)
-	param.upperBound = pickParam(ars.upperBoundMap, gcDist, ars.defaultUpperbound)
+	param.epsilon = pickParam(ars.re.epsilonMap, gcDist, ars.re.defaultEpsilon)
+	param.upperBound = pickParam(ars.re.upperBoundMap, gcDist, ars.re.defaultUpperbound)
 
-	param.maxCandidatesToUnpack = pickParam(ars.maxCandidatesToUnpackMap, gcDist, ars.defaultMaxCandidatesToUnpack)
+	param.maxCandidatesToUnpack = pickParam(ars.re.maxCandidatesToUnpackMap, gcDist, ars.re.defaultMaxCandidatesToUnpack)
 
 	return param
 }
@@ -681,27 +657,6 @@ func pickParam[T comparable](paramMap map[float64]T, dist float64, defaultVal T)
 		}
 	}
 	return defaultVal
-}
-
-func (ars *AlternativeRouteSearch[W]) initParameter() {
-	altConfig := viper.GetStringMap("alternatives")
-	ars.gammaMap, ars.defaultGamma = util.ToFloat64Map(altConfig["gamma"])
-	ars.alphaMap, ars.defaultAlpha = util.ToFloat64Map(altConfig["alpha"])
-	ars.epsilonMap, ars.defaultEpsilon = util.ToFloat64Map(altConfig["epsilon"])
-	ars.upperBoundMap, ars.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
-	validateUpperbound(ars.upperBoundMap, ars.defaultUpperbound)
-	ars.maxCandidatesToUnpackMap, ars.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
-}
-
-func validateUpperbound(upperBoundMap map[float64]float64, defaultUpperbound float64) {
-	if defaultUpperbound > 1.75 {
-		panic("bidirectional search upperbound must less than or equal 1.75")
-	}
-	for _, val := range upperBoundMap {
-		if val > 1.75 {
-			panic("bidirectional search upperbound must less than or equal 1.75")
-		}
-	}
 }
 
 func (ars *AlternativeRouteSearch[W]) makePackedViaPathOverlayEven(svPackedPath, vtPackedPath []da.ParentVertex) ([]da.ParentVertex, []da.ParentVertex) {
@@ -737,7 +692,7 @@ func (ars *AlternativeRouteSearch[W]) GetStretch(candidates []AlternativeRoute, 
 	stretch := 0.0
 
 	for i := 0; i < len(candidates); i++ {
-		stretch += candidates[i].travelTime / optimalCost
+		stretch += ((candidates[i].travelTime / optimalCost) - 1.0) * 100
 	}
 	stretch /= float64(len(candidates))
 
@@ -803,4 +758,38 @@ func (ars *AlternativeRouteSearch[W]) GetDiversity(candidates []AlternativeRoute
 	diversity /= float64(len(alts) - 1)
 
 	return diversity
+}
+
+// GetLocalOptimality compute local optimality in percentage. read table I in https://dl.acm.org/doi/epdf/10.1145/2444016.2444019
+func (ars *AlternativeRouteSearch[W]) GetLocalOptimality(candidates []AlternativeRoute, optimalCost float64) float64 {
+
+	if len(candidates) == 0 {
+		return -1 // gak ke count karena gak ada alternative routes
+	}
+
+	locOpt := 0.0
+
+	for i := 0; i < len(candidates); i++ {
+		locOpt += (candidates[i].viaVertex.GetPlateau() / optimalCost) * 100
+	}
+	locOpt /= float64(len(candidates))
+
+	return locOpt
+}
+
+// GetDistanceSharing compute distance sharing in percentage. read table I in https://dl.acm.org/doi/epdf/10.1145/2444016.2444019
+func (ars *AlternativeRouteSearch[W]) GetDistanceSharing(candidates []AlternativeRoute) float64 {
+
+	if len(candidates) == 0 {
+		return -1 // gak ke count karena gak ada alternative routes
+	}
+
+	distSharing := 0.0
+
+	for i := 0; i < len(candidates); i++ {
+		distSharing += candidates[i].distSharing * 100
+	}
+
+	distSharing /= float64(len(candidates))
+	return distSharing
 }
