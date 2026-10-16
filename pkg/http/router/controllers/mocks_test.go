@@ -6,7 +6,7 @@ import (
 	"github.com/golang/geo/s2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/stretchr/testify/mock"
 )
 
@@ -23,13 +23,25 @@ func (m *MockRoutingService) ShortestPath(ctx context.Context, origLat, origLon,
 	return args.Get(0).(float64), args.Get(1).(float64), args.String(2), r3, args.Bool(4), args.Error(5)
 }
 
-func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) ([]routing.AlternativeRoute, error) {
+func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) ([]float64, []float64, []string, [][]da.DrivingDirection, error) {
 	args := m.Called(ctx, origLat, origLon, dstLat, dstLon, k, reroute, startEdgeId, useAnnotation, useSteps)
-	var r0 []routing.AlternativeRoute
+	var r0 []float64
 	if args.Get(0) != nil {
-		r0 = args.Get(0).([]routing.AlternativeRoute)
+		r0 = args.Get(0).([]float64)
 	}
-	return r0, args.Error(1)
+	var r1 []float64
+	if args.Get(1) != nil {
+		r1 = args.Get(1).([]float64)
+	}
+	var r2 []string
+	if args.Get(2) != nil {
+		r2 = args.Get(2).([]string)
+	}
+	var r3 [][]da.DrivingDirection
+	if args.Get(3) != nil {
+		r3 = args.Get(3).([][]da.DrivingDirection)
+	}
+	return r0, r1, r2, r3, args.Error(4)
 }
 
 func (m *MockRoutingService) GetRoutingEngine() RoutingEngine {
@@ -140,6 +152,35 @@ func (m *MockRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bo
 		r3 = args.Get(3).([]da.Index)
 	}
 	return args.Get(0).(float64), args.Get(1).(float64), r2, r3, args.Bool(4)
+}
+
+func (m *MockRoutingEngine) ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, startSegId da.Index) ([]float64, []float64, []*da.Coordinates, [][]da.Index, bool) {
+	args := m.Called(sp, tp, k, reroute, startSegId)
+	var r0 []float64
+	if args.Get(0) != nil {
+		r0 = args.Get(0).([]float64)
+	}
+	var r1 []float64
+	if args.Get(1) != nil {
+		r1 = args.Get(1).([]float64)
+	}
+	var r2 []*da.Coordinates
+	if args.Get(2) != nil {
+		r2 = args.Get(2).([]*da.Coordinates)
+	}
+	var r3 [][]da.Index
+	if args.Get(3) != nil {
+		r3 = args.Get(3).([][]da.Index)
+	}
+	return r0, r1, r2, r3, args.Bool(4)
+}
+
+func (m *MockRoutingEngine) GetMetrics() *met.Metric[int32] {
+	args := m.Called()
+	if args.Get(0) == nil {
+		return nil
+	}
+	return args.Get(0).(*met.Metric[int32])
 }
 
 func (m *MockRoutingEngine) PutPathToPool([]da.Index) {}

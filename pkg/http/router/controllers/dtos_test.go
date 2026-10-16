@@ -6,7 +6,6 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,17 +25,18 @@ func TestDTOS(t *testing.T) {
 	})
 
 	t.Run("NewAlternativeRoutesResponse", func(t *testing.T) {
-		alt := routing.AlternativeRoute{}
-		alt.SetTravelTime(120.0)
-		alt.SetDist(2000.0)
-		alt.SetPolylinePath("polyline")
 		ins := da.Instruction{}
 		ann := da.NewAnnotation([]float64{}, []float64{}, da.Coordinates{}, []da.Index{})
-		alt.SetDrivingDirections([]da.DrivingDirection{
-			da.NewDrivingDirection(ins, "continue", 30.0, 50.0, []da.Index{1}, 0.0, ann),
-		})
+		routeCosts := []float64{120.0}
+		routeDists := []float64{2000.0}
+		routePolylines := []string{"polyline"}
+		routeDrivingDirections := [][]da.DrivingDirection{
+			{
+				da.NewDrivingDirection(ins, "continue", 30.0, 50.0, []da.Index{1}, 0.0, ann),
+			},
+		}
 
-		res := NewAlternativeRoutesResponse([]routing.AlternativeRoute{alt}, true)
+		res := NewAlternativeRoutesResponse(routeCosts, routeDists, routePolylines, routeDrivingDirections, true)
 		assert.Len(t, res.Routes, 1)
 		assert.Equal(t, 2.0, res.Routes[0].Cost) // 120s / 60
 		assert.Equal(t, 2000.0, res.Routes[0].Dist)

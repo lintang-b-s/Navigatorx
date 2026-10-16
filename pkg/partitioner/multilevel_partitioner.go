@@ -235,7 +235,7 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 			// try assign to u cell
 			// count the number of cut-edges introduced if we assign vertex ebgvId to u cell
 			numCutEdgesTail := 0
-			ebg.ForOutEdgesOf(ebgvId, func(_, w, _ da.Index) {
+			ebg.ForOutEdgesOf(ebgvId, func(_, w da.Index, _ uint8) {
 				wc := ebgCellMap[w]
 				ok := wc != -1
 				if ok && wc != uc {
@@ -243,7 +243,7 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 				}
 			})
 
-			ebg.ForInEdgesOf(ebgvId, func(_, w, _ da.Index) {
+			ebg.ForInEdgesOf(ebgvId, func(_, w da.Index, _ uint8) {
 				wc := ebgCellMap[w]
 				ok := wc != -1
 				if ok && wc != uc {
@@ -253,7 +253,7 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 
 			// try assign to v cell
 			numCutEdgesHead := 0
-			ebg.ForOutEdgesOf(ebgvId, func(_, w, _ da.Index) {
+			ebg.ForOutEdgesOf(ebgvId, func(_, w da.Index, _ uint8) {
 				wc := ebgCellMap[w]
 				ok := wc != -1
 				if ok && wc != vc {
@@ -261,7 +261,7 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 				}
 			})
 
-			ebg.ForInEdgesOf(ebgvId, func(_, w, _ da.Index) {
+			ebg.ForInEdgesOf(ebgvId, func(_, w da.Index, _ uint8) {
 				wc := ebgCellMap[w]
 				ok := wc != -1
 				if ok && wc != vc {

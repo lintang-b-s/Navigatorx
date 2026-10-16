@@ -6,7 +6,6 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	ma "github.com/lintang-b-s/Navigatorx/pkg/engine/mapmatcher"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -15,14 +14,6 @@ type shortestPathRequest struct {
 	OriginLon      float64 `json:"origin_lon" validate:"required,min=-180,max=180"`
 	DestinationLat float64 `json:"destination_lat" validate:"required,min=-90,max=90"`
 	DestinationLon float64 `json:"destination_lon" validate:"required,min=-180,max=180"`
-}
-
-type alternativeRoutesRequest struct {
-	OriginLat      float64 `json:"origin_lat" validate:"required,min=-90,max=90"`
-	OriginLon      float64 `json:"origin_lon" validate:"required,min=-180,max=180"`
-	DestinationLat float64 `json:"destination_lat" validate:"required,min=-90,max=90"`
-	DestinationLon float64 `json:"destination_lon" validate:"required,min=-180,max=180"`
-	K              int64   `json:"k" validate:"required,min=1"`
 }
 
 type shortestPathResponse struct {
@@ -37,7 +28,7 @@ type shortestPathEnvelope struct {
 }
 
 type alternativeRoutesResponse struct {
-	Routes []shortestPathResponse `json:"alternative_routes"`
+	Routes []shortestPathResponse `json:"routes"`
 }
 
 type alternativeRoutesEnvelope struct {
@@ -60,7 +51,7 @@ type annotation struct {
 	Distance       []float64  `json:"distance"`
 	Geometry       string     `json:"geometry"`
 	SegmentIds     []da.Index `json:"segment_ids"`
-	EdgeGeomOffset []da.Index `json:"edge_geometry_offset"`
+	EdgeGeomOffset []da.Index `json:"segment_geometry_offset"`
 }
 
 func NewAnnotation(duration, distance []float64, geometry string, edgeGeomOffset, segmentIds []da.Index) annotation {
@@ -134,12 +125,12 @@ func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirec
 	}
 }
 
-func NewAlternativeRoutesResponse(alts []routing.AlternativeRoute, useAnnotation bool) alternativeRoutesResponse {
-	altRes := alternativeRoutesResponse{Routes: make([]shortestPathResponse, len(alts))}
-	for i, alt := range alts {
+func NewAlternativeRoutesResponse(routeCosts []float64, routeDists []float64, routePolylines []string, routeDrivingDirections [][]da.DrivingDirection, useAnnotation bool) alternativeRoutesResponse {
+	altRes := alternativeRoutesResponse{Routes: make([]shortestPathResponse, len(routeCosts))}
+	for i := range routeCosts {
 		altRes.Routes[i] = NewShortestPathResponse(
-			alt.GetTravelTime(),
-			alt.GetDist(), alt.GetPolylinePath(), NewDrivingDirections(alt.GetDrivingDirections(), useAnnotation),
+			routeCosts[i],
+			routeDists[i], routePolylines[i], NewDrivingDirections(routeDrivingDirections[i], useAnnotation),
 		)
 	}
 	return altRes
@@ -204,7 +195,7 @@ type MatchedGPSPoint struct {
 	SegmentId      da.Index           `json:"segment_id"`
 	MatchedCoord   da.FloatCoordinate `json:"matched_coord"`
 	PredictedCoord da.FloatCoordinate `json:"predicted_gps_coord"`
-	Bearing        float64            `json:"edge_initial_bearing"`
+	Bearing        float64            `json:"segment_initial_bearing"`
 }
 
 func NewMatchedGPSPoint(gpsPoint *gps, segmentId da.Index, matchedCoord, predictedCoord da.Coordinate, initialBearing float64) *MatchedGPSPoint {

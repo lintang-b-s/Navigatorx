@@ -11,6 +11,7 @@ import (
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/maypok86/otter/v2"
+	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -29,6 +30,15 @@ type CRPRoutingEngine[W util.RoutingNumber] struct {
 
 	puovHeapPool sync.Pool
 	mu           *sync.RWMutex
+
+	// parameter yang di init pakai read yml config
+	maxCandidatesToUnpackMap       map[float64]int
+	gammaMap, alphaMap, epsilonMap map[float64]float64
+	upperBoundMap                  map[float64]float64
+	motorwayPenalty                float64
+
+	defaultGamma, defaultAlpha, defaultEpsilon, defaultUpperbound float64
+	defaultMaxCandidatesToUnpack                                  int
 
 	landmarkFile string
 
@@ -148,6 +158,30 @@ func (crp *CRPRoutingEngine[W]) initParameter() {
 	numCPU := runtime.NumCPU()
 	crp.unpackerWorkers = numCPU / 6
 	crp.unpackerForAlternativeRoutesWorkers = numCPU / 6
+	altConfig := viper.GetStringMap("alternatives")
+	crp.gammaMap, crp.defaultGamma = util.ToFloat64Map(altConfig["gamma"])
+	crp.alphaMap, crp.defaultAlpha = util.ToFloat64Map(altConfig["alpha"])
+	crp.epsilonMap, crp.defaultEpsilon = util.ToFloat64Map(altConfig["epsilon"])
+	crp.upperBoundMap, crp.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
+	validateUpperbound(crp.upperBoundMap, crp.defaultUpperbound)
+	crp.maxCandidatesToUnpackMap, crp.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
+	mp := altConfig["motorway_penalty"]
+	if val, ok := mp.(float64); ok {
+		crp.motorwayPenalty = val
+	} else {
+		panic("motorway_penalty must be float64")
+	}
+}
+
+func validateUpperbound(upperBoundMap map[float64]float64, defaultUpperbound float64) {
+	if defaultUpperbound > 1.75 {
+		panic("bidirectional search upperbound must less than or equal 1.75")
+	}
+	for _, val := range upperBoundMap {
+		if val > 1.75 {
+			panic("bidirectional search upperbound must less than or equal 1.75")
+		}
+	}
 }
 
 func (crp *CRPRoutingEngine[W]) Close() {
@@ -162,13 +196,55 @@ func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, rerout
 	}
 	s := sp.GetVId()
 	t := tp.GetVId()
-	weight, segmentPath, found := crpQuery.ShortestPathSearch(s, t)
+	cost, segmentPath, found := crpQuery.ShortestPathSearch(s, t)
 	segmentPathCoords, dist := crp.GetSegmentPath(segmentPath)
-	return util.WeightToSeconds(weight), dist, segmentPathCoords, segmentPath, found
+	return util.WeightToSeconds(cost), dist, segmentPathCoords, segmentPath, found
 }
 
-var EmptyCoords = da.NewCoordinatesWithCap(0)
-var EmptyIndexSet = []da.Index{}
+func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, startSegId da.Index) ([]float64, []float64, []*da.Coordinates, [][]da.Index, bool) {
+	crpQuery := NewCRPQuery(crp) // better via-vertices
+	s := sp.GetVId()
+	t := tp.GetVId()
+	ars := NewAlternativeRouteSearch(crp)
+	param := ars.ParameterByRequest(s, t)
+	crpQuery.SetUpperBound(param.upperBound)
+
+	crpQuery.forAlternatives = true
+	if reroute {
+		crpQuery.reroute = true
+	}
+
+	cost, optPath, found := crpQuery.ShortestPathSearch(s, t)
+	if !found {
+		return EmptyCost, EmptyCost, EmptyCoordsRoutes, EmptyIndexSetRoutes, false
+	}
+	optSegmentPathCoords, optDist := crp.GetSegmentPath(optPath)
+
+	optCost := util.WeightToSeconds(cost)
+	alts, _ := ars.ComputeAlternativeRoutes(s, t, k, reroute, startSegId, optCost, optPath, crpQuery, param)
+	crpQuery.forAlternatives = false
+	crpQuery.Done()
+	n := len(alts) + 1
+	var (
+		routeCosts             = make([]float64, n)
+		routeDists             = make([]float64, n)
+		routeSegmentPathCoords = make([]*da.Coordinates, n)
+		routePaths             = make([][]da.Index, n)
+	)
+	routeCosts[0] = optCost
+	routeDists[0] = optDist
+	routeSegmentPathCoords[0] = optSegmentPathCoords
+	routePaths[0] = optPath
+
+	for i, alt := range alts {
+		j := i + 1
+		routeCosts[j] = alt.GetTravelTime()
+		routeDists[j] = alt.GetDist()
+		routeSegmentPathCoords[j] = alt.GetCoords()
+		routePaths[j] = alt.GetSegmentPath()
+	}
+	return routeCosts, routeDists, routeSegmentPathCoords, routePaths, true
+}
 
 func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index) (*da.Coordinates, float64) {
 

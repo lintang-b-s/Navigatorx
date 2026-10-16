@@ -114,14 +114,6 @@ func writeRoadNetworkDataContainer(w *util.BinaryWriter, rn *RoadNetworkDataCont
 			return err
 		}
 	}
-	if err := w.Length(len(rn.segmentHighwayType)); err != nil {
-		return err
-	}
-	for _, value := range rn.segmentHighwayType {
-		if err := w.Uint8(uint8(value)); err != nil {
-			return err
-		}
-	}
 
 	if err := w.Length(len(rn.segmentFlags)); err != nil {
 		return err
@@ -291,18 +283,6 @@ func readRoadNetworkDataContainer(r *util.BinaryReader) (*RoadNetworkDataContain
 		if err != nil {
 			return nil, err
 		}
-	}
-	highwayCount, err := r.Length()
-	if err != nil {
-		return nil, err
-	}
-	rn.segmentHighwayType = make([]pkg.OsmHighwayType, highwayCount)
-	for i := range rn.segmentHighwayType {
-		value, err := r.Uint8()
-		if err != nil {
-			return nil, err
-		}
-		rn.segmentHighwayType[i] = pkg.OsmHighwayType(value)
 	}
 
 	segmentFlagCount, err := r.Length()

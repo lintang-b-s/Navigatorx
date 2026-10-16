@@ -1,8 +1,9 @@
 package datastructure
 
+import "math"
+
 type Vertex struct {
-	lat   int32
-	lon   int32
+	coord Coordinate
 	pvPtr Index // pointer index to cellNumbers slice
 
 	firstOut Index // index of the first outEdge of this vertex in the flattened graph.heads array (see CSR Graph nya C++ Boost Library: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/compressed_sparse_row.html)
@@ -13,17 +14,16 @@ type Vertex struct {
 func NewVertex(lat, lon float64, id Index) Vertex {
 	coordinate := NewCoordinate(lat, lon)
 	return Vertex{
-		lat: coordinate.GetFixedLat(),
-		lon: coordinate.GetFixedLon(),
-		id:  id,
+		coord: coordinate,
+		id:    id,
 	}
 }
 
 func NewEmptyVertex() Vertex {
+	invCoord := float64(math.MaxInt32-1) / CoordinatePrecision
 	return Vertex{
-		lat: invalidFixedCoordinate,
-		lon: invalidFixedCoordinate,
-		id:  INVALID_VERTEX_ID,
+		coord: NewCoordinate(invCoord, invCoord),
+		id:    INVALID_VERTEX_ID,
 	}
 }
 
@@ -40,13 +40,13 @@ func (v *Vertex) GetID() Index {
 }
 
 func (v *Vertex) GetLat() float64 {
-	return float64(v.lat) / CoordinatePrecision
+	return float64(v.coord.lat) / CoordinatePrecision
 }
 
 func (v *Vertex) GetLon() float64 {
-	return float64(v.lon) / CoordinatePrecision
+	return float64(v.coord.lon) / CoordinatePrecision
 }
 
 func (v *Vertex) GetCoordinate() Coordinate {
-	return NewFixedCoordinate(v.lat, v.lon)
+	return NewFixedCoordinate(v.coord.lat, v.coord.lon)
 }

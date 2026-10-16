@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 )
@@ -35,9 +34,7 @@ func BenchmarkAlternativeRoutesService(b *testing.B) {
 	rn := re.GetRoadNetworkContainer()
 	rtree := spatialindex.NewRtree()
 	rtree.Build(re.GetGraph(), rn, logger)
-	altSearch := routing.NewAlternativeRouteSearch(re)
-
-	rs, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
+	rs, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.05, true)
 	if err != nil {
 		b.Fatal(err)
 	}
@@ -54,7 +51,7 @@ func BenchmarkAlternativeRoutesService(b *testing.B) {
 		sCoord := g.GetVertexCoordinate(s)
 		tCoord := g.GetVertexCoordinate(t)
 
-		_, _ = rs.AlternativeRouteSearch(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(),
+		_, _, _, _, _ = rs.AlternativeRouteSearch(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(),
 			3, false, 0, false, true)
 	}
 

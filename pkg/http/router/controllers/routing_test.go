@@ -14,7 +14,6 @@ import (
 	"github.com/julienschmidt/httprouter"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -178,124 +177,134 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 	api := New(mockRS, log, mockTS)
 
 	t.Run("Success", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&alternatives=true&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_SEGMENT_ID, false, true).
-			Return([]routing.AlternativeRoute{{}}, nil)
+			Return([]float64{100.0}, []float64{1000.0}, []string{"polyline"}, [][]da.DrivingDirection{{}}, nil)
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		mockRS.AssertExpectations(t)
 	})
 
 	t.Run("Full Success with reroute", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3&reroute=true&start_edge_id=1", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&alternatives=true&k=3&reroute=true&start_edge_id=1", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, true, da.Index(1), false, true).
-			Return([]routing.AlternativeRoute{{}}, nil)
+			Return([]float64{100.0}, []float64{1000.0}, []string{"polyline"}, [][]da.DrivingDirection{{}}, nil)
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 		mockRS.AssertExpectations(t)
 	})
 
-	t.Run("Missing K", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
+	t.Run("Missing or Invalid K", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&alternatives=true", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
-		assert.Contains(t, rr.Body.String(), "number of alternatives k is required")
+		assert.Contains(t, rr.Body.String(), "k must be unsigned integer 32 bit")
+	})
+
+	t.Run("Invalid Alternatives Bool", func(t *testing.T) {
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&alternatives=maybe&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
+		rr := httptest.NewRecorder()
+
+		api.shortestPath(rr, req, nil)
+
+		assert.Equal(t, http.StatusBadRequest, rr.Code)
+		assert.Contains(t, rr.Body.String(), "alternatives must be boolean")
 	})
 
 	t.Run("Invalid Origin Lon Param", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=abc&destination_lat=%f&destination_lon=%f&k=3", yogyakartaOriginLat, yogyakartaDestLat, yogyakartaDestLon), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=abc&destination_lat=%f&destination_lon=%f&alternatives=true&k=3", yogyakartaOriginLat, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 		assert.Contains(t, rr.Body.String(), "origin_lon is required and must be a valid float")
 	})
 
 	t.Run("Invalid Destination Lat Param", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=abc&destination_lon=%f&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLon), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=abc&destination_lon=%f&alternatives=true&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 		assert.Contains(t, rr.Body.String(), "destination_lat is required and must be a valid float")
 	})
 
 	t.Run("Invalid Destination Lon Param", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=abc&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=abc&alternatives=true&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat), nil)
 		rr := httptest.NewRecorder()
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 		assert.Contains(t, rr.Body.String(), "destination_lon is required and must be a valid float")
 	})
 
 	t.Run("Validation Error", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=100&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3", yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=100&origin_lon=%f&destination_lat=%f&destination_lon=%f&alternatives=true&k=3", yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 		assert.Contains(t, rr.Body.String(), "validation error")
 	})
 
 	t.Run("Invalid Reroute Bool", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3&reroute=maybe&start_edge_id=1", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&alternatives=true&k=3&reroute=maybe&start_edge_id=1", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 		assert.Contains(t, rr.Body.String(), "reroute must be boolean")
 	})
 
 	t.Run("Invalid Start Edge ID", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3&reroute=true&start_edge_id=bad", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&alternatives=true&k=3&reroute=true&start_edge_id=bad", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusBadRequest, rr.Code)
 		assert.Contains(t, rr.Body.String(), "edgeId must be unsigned integer 32 bit")
 	})
 
 	t.Run("Service Error", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&alternatives=true&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_SEGMENT_ID, false, true).
-			Return([]routing.AlternativeRoute{}, errors.New("internal error"))
+			Return([]float64{}, []float64{}, []string{}, [][]da.DrivingDirection{}, errors.New("internal error"))
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	})
 
 	t.Run("Not Found", func(t *testing.T) {
-		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeAlternativeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
+		req, _ := http.NewRequest("GET", fmt.Sprintf("/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f&alternatives=true&k=3", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 		rr := httptest.NewRecorder()
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_SEGMENT_ID, false, true).
-			Return([]routing.AlternativeRoute{}, nil)
+			Return([]float64{}, []float64{}, []string{}, [][]da.DrivingDirection{}, nil)
 
-		api.AlternativeRoutes(rr, req, nil)
+		api.shortestPath(rr, req, nil)
 
 		assert.Equal(t, http.StatusOK, rr.Code)
 	})

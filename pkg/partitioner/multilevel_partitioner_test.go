@@ -21,7 +21,7 @@ func TestMultilevelPartitionerSerialization(t *testing.T) {
 	}
 	heads := []da.Index{1, 2, 3, 0}
 	tails := []da.Index{0, 1, 2, 3}
-	graph := da.NewGraph(vertices, heads, tails, true, []da.Index{0, 0, 0, 0}, []da.Index{0, 0, 0, 0})
+	graph := da.NewGraph(vertices, heads, tails, true, []uint8{0, 0, 0, 0}, []uint8{0, 0, 0, 0})
 
 	logger := zap.NewNop()
 	mp := NewMultilevelPartitioner([]int{4, 2}, 2, 1, graph, logger)

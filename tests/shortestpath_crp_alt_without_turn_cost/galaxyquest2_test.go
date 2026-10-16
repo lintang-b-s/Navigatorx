@@ -220,7 +220,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	nodeCoords := make([]da.Coordinate, 0)
 	for i := 0; i < n; i++ {
 		planet := galaxy[i]
-		nodeCoords = append(nodeCoords, da.NewCoordinate(float64(planet.x+planet.z), float64(planet.y+planet.z)))
+		nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(planet.x+planet.z), float64(planet.y+planet.z)))
 	}
 
 	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "galaxyquest2", nodeCoords, adjList, n, []int{4, 5, 6}, true)

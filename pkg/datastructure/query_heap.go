@@ -320,7 +320,7 @@ level. This allows us to preallocate all necessary data structures. To index the
 another CRP implementation that implement this optimization: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
 search: "vId -= forwardSOffset;".
 
-this can be done because of graph.vertices is sorted by its vertex cellNumber
+this can be done because of graph.vertices is sorted by its vertex level-1 cellNumber
 */
 
 // mapId maps an input vertex Id into the contiguous offseted index range [0, 2*maxV + numOverlayVertices).

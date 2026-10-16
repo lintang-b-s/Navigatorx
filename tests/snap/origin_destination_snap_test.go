@@ -11,7 +11,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
-	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
@@ -130,10 +129,7 @@ func TestOriginDestinationSnap(t *testing.T) {
 
 	rtree := spatialindex.NewRtree()
 	rtree.Build(re.GetGraph(), rn, logger)
-
-	altSearch := routing.NewAlternativeRouteSearch(re)
-
-	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.04, true)
+	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.04, true)
 	if err != nil {
 		panic(err)
 	}

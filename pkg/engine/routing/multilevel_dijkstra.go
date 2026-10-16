@@ -435,3 +435,7 @@ func (bs *CRPQuery[W]) SetMaxSearchRadiusSecs(maxSearchRadiusSecs float64) {
 func (bs *CRPQuery[W]) SetUpperBound(ub float64) {
 	bs.ub = ub
 }
+
+func (bs *CRPQuery[W]) ForAlternatives(val bool) {
+	bs.forAlternatives = val
+}

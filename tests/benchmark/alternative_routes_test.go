@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 /*
@@ -43,8 +44,19 @@ func BenchmarkAlternativeRoutes(b *testing.B) {
 		s := q.s
 		t := q.t
 
-		crpQuery := routing.NewAlternativeRouteSearch(re)
-		crpQuery.FindAlternativeRoutes(s, t, 3, false, 0)
+		crpQuery := routing.NewCRPQuery(re) // better via-vertices
+		ars := routing.NewAlternativeRouteSearch(re)
+		param := ars.ParameterByRequest(s, t)
+		crpQuery.SetUpperBound(1.25)
+		crpQuery.ForAlternatives(true)
+		cost, optPath, found := crpQuery.ShortestPathSearch(s, t)
+		if !found {
+			continue
+		}
+		optCost := util.WeightToSeconds(cost)
+		ars.ComputeAlternativeRoutes(s, t, 4, false, 0, optCost, optPath, crpQuery, param)
+		crpQuery.ForAlternatives(false)
+		crpQuery.Done()
 	}
 
 	now := time.Since(start)

@@ -65,7 +65,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 	}
 	for u := da.Index(0); u < da.Index(mp.graph.NumberOfVertices()); u++ {
 		uVertex := mp.graph.GetVertex(u)
-		mp.graph.ForOutEdgesOf(u, func(eId da.Index, head da.Index, _ da.Index) {
+		mp.graph.ForOutEdgesOf(u, func(eId da.Index, head da.Index, _ uint8) {
 			v := head
 			vVertex := mp.graph.GetVertex(v)
 

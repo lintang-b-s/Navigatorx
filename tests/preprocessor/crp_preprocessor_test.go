@@ -970,7 +970,7 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 				t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, roadLane, gotRoadLanes)
 			}
 
-			graph.ForOutEdgesOf(v, func(eId, head, entryPoint da.Index) {
+			graph.ForOutEdgesOf(v, func(eId, head da.Index, entryPoint uint8) {
 				tail := graph.GetTailOfOutedge(eId)
 				if tail != v {
 					t.Errorf("expected tail of outedge (%v, %v): %v, got: %v", v, head, v, tail)
@@ -1237,7 +1237,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 				uoId := rn.GetOsmWayId(u)
 				_, via := rn.GetTailHeadOsmNodeId(u)
 				if uoId == uint64(rest.fromWay) && via == uint64(rest.via) {
-					graph.ForOutEdgesOf(u, func(eId, v, _ da.Index) {
+					graph.ForOutEdgesOf(u, func(eId, v da.Index, _ uint8) {
 
 						voId := rn.GetOsmWayId(v)
 						if voId == uint64(rest.toWay) {

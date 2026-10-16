@@ -57,7 +57,7 @@ func NewTurnLanesData(turnLaneTypes [][]pkg.TurnLaneType) TurnLanesData {
 	n := len(turnLaneTypes)
 	tipeMask := make([]*bitset.BitSet, n)
 	for i := 0; i < n; i++ {
-		tipeMask[i] = bitset.New(25)
+		tipeMask[i] = bitset.New(1)
 	}
 
 	for i := 0; i < n; i++ {

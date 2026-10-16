@@ -549,7 +549,7 @@ func (h *HMM) isReversedEdge(e1, e2 da.Index) bool {
 
 func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode, allowUTurn bool) (transitionRoute, bool) {
 	next := false
-	h.graph.ForOutEdgesOf(sp.GetVId(), func(_ da.Index, head da.Index, _ da.Index) {
+	h.graph.ForOutEdgesOf(sp.GetVId(), func(_ da.Index, head da.Index, _ uint8) {
 		if head == tp.GetVId() {
 			next = true
 		}

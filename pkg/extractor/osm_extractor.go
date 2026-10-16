@@ -425,7 +425,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 	)
 
 	rn.SetBoundingBox(p.bb)
-	nbg.ForOutEdges(func(exitPoint, head, tail, entryPoint da.Index, percentage float64, eId da.Index) {
+	nbg.ForOutEdges(func(exitPoint uint8, head, tail da.Index, entryPoint uint8, percentage float64, eId da.Index) {
 
 		eOsmWayId := rn.GetOsmWayId(eId)
 		direction := streetDirection[int64(eOsmWayId)]
