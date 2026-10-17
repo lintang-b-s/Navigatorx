@@ -79,7 +79,7 @@ masih ada cycle di rute alternative di sekitar Jalan Penggung-Jatinom: https://n
 kayake bisa tinggal ilangin cycle di sekitar via-vertices
 DONE :) (removeViaVertexCycle()), detour rute alternative yang aneh juga bisa diilangin degan filter all rute alternative candidates P_v dengan  l(Pv \ Opt) >= (1 + epsilon)*l(Opt \ Pv ) (read section 6.1 ref1)
 
-todo4: optimize runtime & space allocation dari ComputeAlternativeRoutes()
+todo4: optimize runtime & space allocation dari ComputeAlternativeRoutes() (mungkin bisa kurangin pneggunaan hashmap berlebihan wkwkwk, allocation ComputeAlternativeRoutes() nya gede banget, see tests/benchmark/alternative_routes_test.go)
 todo5: improve success rate dari ComputeAlternativeRoutes sampai ~90% lagi
 kalo kita ilangin loc buat cek UBS:
 "if util.Ge((lv - sigmav), (1+arf.param.epsilon)*(arf.optCost-sigmav)) {
@@ -92,10 +92,11 @@ success rate ~90% (naik 10% dari success rate cara heuristik saat ini).
 tapi returned rute alternatives nya detournya parah...
 mungkin kita bisa cek kalau len(res)==0 setelah loop computeAlternative()
 kita bisa iterate filteredCandidates lagi dan only filter alternative route candidates by relaxed UBS criteria???
+DONE :), sekarang sucess ratenya >= 88% untuk solo.osm.pbf dan yogyakarta.osm.pbf
 
 */
 
-func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index, optCost float64, optPath []da.Index,
+func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, startSegmentId da.Index, optCost float64, optPath []da.Index,
 	crpQuery *CRPQuery[W], param AlternativeRouteParameters) ([]AlternativeRoute, int64) {
 
 	now := time.Now()
@@ -123,7 +124,7 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 		filteredCandidates = append(filteredCandidates, filteredCand)
 	}
 
-	slices.SortFunc(filteredCandidates, func(a, b ViaVertex) int {
+	slices.SortFunc(filteredCandidates, func(a, b *ViaVertex) int {
 		return cmp.Compare(a.GetApproxObjectiveValue(),
 			b.GetApproxObjectiveValue())
 	})
@@ -146,6 +147,40 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 
 		res = append(res, alternativeRoute)
 		resSet = append(resSet, ars.buildSegmentsPathSet(alternativeRoute.segmentPath))
+	}
+
+	reps := RELAXED_UBS_EPSILON_START
+	for len(res) == 0 && util.Le(reps, RELAXED_UBS_EPSILON_MAX) {
+		// biar success rate alternative routes nya masih >= 88 % wkwkwkw.
+		for _, v := range filteredCandidates {
+			lv := v.lv
+			sigmav := v.sigmav
+
+			if !v.passLimitedSharing && !v.passTTest {
+				continue
+			}
+
+			if util.Ge((lv - sigmav), (1+arf.param.epsilon*reps)*(arf.optCost-sigmav)) {
+				// section 6.1 X-BDV:  https://dl.acm.org/doi/epdf/10.1145/2444016.2444019
+				// l(Pv \ Opt) < (1 + epsilon) * l(Opt \ Pv) (relaxed constraint... (1+epsilon*reps)*l(Opt \ Pv) )
+				// (the detour is not much longer than the optimal subpath it skips)
+				continue
+			}
+
+			plv := v.plv
+			distSharing := sigmav / arf.optCost
+			fv := 2*lv + sigmav - plv
+
+			alternativeRoute := NewAlternativeRoute(fv, 0, lv, distSharing, v.GetVId(), EmptyCoords,
+				v.path, v)
+			if len(res) > 0 && !ars.differToOtherAlternatives(resSet, alternativeRoute.segmentPath) {
+				continue
+			}
+
+			res = append(res, alternativeRoute)
+			resSet = append(resSet, ars.buildSegmentsPathSet(alternativeRoute.segmentPath))
+		}
+		reps += 0.05
 	}
 
 	clear(arf.optPathSet)
@@ -243,7 +278,7 @@ func NewAlternativeRouteFilter[W util.RoutingNumber](ars *AlternativeRouteSearch
 	}
 }
 
-func (arf *AlternativeRouteFilter[W]) filterCandidate(v ViaVertex) ViaVertex {
+func (arf *AlternativeRouteFilter[W]) filterCandidate(v *ViaVertex) *ViaVertex {
 	var (
 		svCost, vtCost float64
 
@@ -311,7 +346,7 @@ func (arf *AlternativeRouteFilter[W]) filterCandidate(v ViaVertex) ViaVertex {
 	return v
 }
 
-func (arf *AlternativeRouteFilter[W]) unpackViaPath(v ViaVertex) ([]da.Index, []da.Index) {
+func (arf *AlternativeRouteFilter[W]) unpackViaPath(v *ViaVertex) ([]da.Index, []da.Index) {
 	var (
 		svPackedPath, vtPackedPath []da.ParentVertex
 	)
@@ -356,7 +391,7 @@ func (arf *AlternativeRouteFilter[W]) unpackViaPath(v ViaVertex) ([]da.Index, []
 	return svPath, vtPath
 }
 
-func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) AlternativeRoute {
+func (arf *AlternativeRouteFilter[W]) computeAlternative(v *ViaVertex) AlternativeRoute {
 
 	/*
 		let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcut edges (and cut edges) within any cell
@@ -375,9 +410,10 @@ func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) Alternativ
 	if util.Ge(sigmav, arf.param.gamma*arf.optCost) {
 		return NewAEmptyAlternativeroute()
 	}
+	v.sigmav = sigmav
+	v.path = append(svPath, vtPath...)
 
 	lv := v.GetCost()
-
 	// cek T-test
 	T := arf.param.alpha * (lv - sigmav)
 	plv := v.plv
@@ -390,6 +426,8 @@ func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) Alternativ
 		// didnt pass t-test
 		return NewAEmptyAlternativeroute()
 	}
+	v.passLimitedSharing = true
+	v.passTTest = true
 
 	if util.Ge((lv - sigmav), (1+arf.param.epsilon)*(arf.optCost-sigmav)) {
 		// section 6.1 X-BDV:  https://dl.acm.org/doi/epdf/10.1145/2444016.2444019
@@ -399,14 +437,14 @@ func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) Alternativ
 	}
 
 	fv := 2*lv + sigmav - plv
-	altEdgeIdPath := append(svPath, vtPath...)
+	altSegmentPath := v.path
 	distSharing := sigmav / arf.optCost
 	return NewAlternativeRoute(fv, 0, lv, distSharing, v.GetVId(), EmptyCoords,
-		altEdgeIdPath, v)
+		altSegmentPath, v)
 }
 
 // filterByUniqueId removes duplicate via vertices by their VId in-place.
-func (ars *AlternativeRouteSearch[W]) filterByUniqueId(vias []ViaVertex) []ViaVertex {
+func (ars *AlternativeRouteSearch[W]) filterByUniqueId(vias []*ViaVertex) []*ViaVertex {
 	uniqueViaSet := make(map[da.Index]struct{}, 25)
 	j := 0
 	for i := 0; i < len(vias); i++ {
@@ -737,7 +775,7 @@ int this example v3 is the index of rs.
 4. remove all vertices in index [rs+1, re). in this example vertices to be removed is (v5,v6,v7,v8,v2,v3) of the cycle.
 worst case is O(n) where n=len(segmentPath).
 */ // nolint: gofmt
-func (ars *AlternativeRouteSearch[W]) removeViaVertexCycle(segmentPath []da.Index, via ViaVertex) []da.Index {
+func (ars *AlternativeRouteSearch[W]) removeViaVertexCycle(segmentPath []da.Index, via *ViaVertex) []da.Index {
 	n := len(segmentPath)
 
 	viaV := via.v

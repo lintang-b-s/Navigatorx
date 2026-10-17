@@ -19,7 +19,7 @@ type CRPQuery[W util.RoutingNumber] struct {
 	bpq                  *da.QueryHeap[da.QueryKey, W]
 	sCellNumber          da.Pv
 	tCellNumber          da.Pv
-	viaVertices          []ViaVertex
+	viaVertices          []*ViaVertex
 	numExploredVertices  int
 	runtime              int64
 	pathUnpackingRuntime int64
@@ -38,7 +38,7 @@ func NewCRPQuery[W util.RoutingNumber](
 	crpQuery := &CRPQuery[W]{
 		engine:               engine,
 		mid:                  da.NewParentVertex(0),
-		viaVertices:          make([]ViaVertex, 0),
+		viaVertices:          make([]*ViaVertex, 0),
 		numExploredVertices:  0,
 		runtime:              0,
 		pathUnpackingRuntime: 0,

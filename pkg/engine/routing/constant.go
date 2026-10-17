@@ -20,6 +20,8 @@ const (
 	CONDITIONAL_RESTRICTION_TIMER_SECONDS = 180 * time.Second
 	MAX_RETRY                             = 5
 	TRAVERSE_FROM_VIA_VERTEX_COUNT        = 200
+	RELAXED_UBS_EPSILON_START             = 1.05
+	RELAXED_UBS_EPSILON_MAX               = 2.0
 )
 
 var (

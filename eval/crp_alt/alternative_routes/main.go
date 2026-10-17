@@ -275,7 +275,7 @@ func main() {
 	diversity /= float64(foundAltCount)
 	runtime /= float64(len(queries))
 
-	fmt.Printf("success rate: %f\n", successRate)
+	fmt.Printf("success rate: %f %%\n", successRate*100)
 	fmt.Printf("stretch: %f %% \n", stretch)
 	fmt.Printf("diversity: %f\n", diversity)
 	fmt.Printf("local optimality: %f %% \n", locOpt)

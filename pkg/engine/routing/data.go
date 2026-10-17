@@ -13,12 +13,12 @@ type AlternativeRoute struct {
 	dist        float64
 	distSharing float64
 	viaNode     da.Index
-	viaVertex   ViaVertex
+	viaVertex   *ViaVertex
 }
 
 func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
 	viaNode da.Index, path *da.Coordinates, segmentPath []da.Index,
-	viaVertex ViaVertex) AlternativeRoute {
+	viaVertex *ViaVertex) AlternativeRoute {
 	return AlternativeRoute{
 		objectiveValue: objectiveValue,
 		viaNode:        viaNode,
@@ -64,20 +64,22 @@ func (ar *AlternativeRoute) GetSegmentPath() []da.Index {
 }
 
 type ViaVertex struct {
-	v                         da.Index
-	overlay                   bool
-	plv, lv, approxSharedDist float64 // lv  is cost in seconds. pleatau is the plateau cost in seconds. approxSharedDist is approximate cost sharing with the optimal path in seconds.
+	v                                 da.Index
+	overlay                           bool
+	plv, lv, approxSharedDist, sigmav float64 // lv  is cost in seconds. pleatau is the plateau cost in seconds. approxSharedDist is approximate cost sharing with the optimal path in seconds.
+	passLimitedSharing, passTTest     bool
+	path                              []da.Index
 }
 
-func NewViaVertex(v da.Index, overlay bool) ViaVertex {
-	return ViaVertex{v: v, overlay: overlay}
+func NewViaVertex(v da.Index, overlay bool) *ViaVertex {
+	return &ViaVertex{v: v, overlay: overlay}
 }
 
-func NewEmptyViaVertex() ViaVertex {
-	return ViaVertex{v: da.INVALID_VERTEX_ID}
+func NewEmptyViaVertex() *ViaVertex {
+	return &ViaVertex{v: da.INVALID_VERTEX_ID}
 }
 
-func isEmptyViaVertex(v ViaVertex) bool {
+func isEmptyViaVertex(v *ViaVertex) bool {
 	return v.v == da.INVALID_VERTEX_ID
 }
 
