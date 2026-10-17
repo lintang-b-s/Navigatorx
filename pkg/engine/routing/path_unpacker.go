@@ -50,6 +50,12 @@ the result must be translated (unpacked ) into the corresponding subpath." (Dell
 
 "we recursively unpack a level-i shortcut (v, w) by running bidirectional Dijkstra between v and w on level i − 1, restricted
 to subcells of the level-i cell containing the shortcut."  (Delling et al. (2015))
+
+let n_p,m_p denote the maximum number of nodes, edges in any level-1 cell.
+let n_op,and \hat{m_p} denote the maximum number of boundary/overlay vertices (include overlay vertices in its all direct subcells in level-l), and shortcut edges (and cut edges) within any level-l (l>1) cell
+let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
+lowest level cell path unpacking: O((n_p + m_p)*log(n_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most n_p, decrease-key and insert at most O(m_p) operations, extract-min at-most O(n_p) operations
+cell level > 1 path unpacking: O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations.
 */
 func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.ParentVertex, sCellNum, tCellNum da.Pv) []da.Index {
 

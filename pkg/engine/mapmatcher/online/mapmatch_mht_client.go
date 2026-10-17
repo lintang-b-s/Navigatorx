@@ -398,9 +398,6 @@ func (om *OnlineMapMatchMHTClient) computeHProb(tau []da.Index, speedMean, speed
 		tauLength += eLength
 	}
 	fsLength := om.g.GetSegmentLength(tau[0])
-	if fsLength <= 0 {
-		return 0
-	}
 
 	s := (math.Sqrt(3) * speedStd * deltaTime) / math.Pi
 	out := (1.0 / fsLength)

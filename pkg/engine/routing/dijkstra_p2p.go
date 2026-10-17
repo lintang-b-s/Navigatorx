@@ -77,22 +77,19 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 		newVCost := us.pq.GetCost(uId) + eWeight
 
 		ovCost := us.pq.GetCost(vId)
-		if util.Ge(newVCost, ovCost) {
-			// newVCost is not better, do nothing
-			return
-		}
-
-		vLabelled := util.Lt(ovCost, util.Infinity[W]())
-		// newVCost is better, update the forwardData
-		if vLabelled {
-			newPar := da.NewParentVertex(uId)
-			// is key already in the priority queue, decrease its key
-			us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
-		} else if !vLabelled {
-			queryKey := da.NewDijkstraKey(vId)
-			vData := da.NewVData(newVCost, da.NewParentVertex(uId))
-			// is key not in the priority queue, insert it
-			us.pq.Insert(vId, newVCost, vData, queryKey)
+		if util.Lt(newVCost, ovCost) {
+			vLabelled := util.Lt(ovCost, util.Infinity[W]())
+			// newVCost is better, update the forwardData
+			if vLabelled {
+				newPar := da.NewParentVertex(uId)
+				// is key already in the priority queue, decrease its key
+				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
+			} else if !vLabelled {
+				queryKey := da.NewDijkstraKey(vId)
+				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
+				// is key not in the priority queue, insert it
+				us.pq.Insert(vId, newVCost, vData, queryKey)
+			}
 		}
 	})
 

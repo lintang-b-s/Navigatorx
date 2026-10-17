@@ -227,6 +227,8 @@ func main() {
 
 	successRate := 0.0
 	stretch := 0.0
+	locOpt := 0.0
+	distSharing := 0.0
 	diversity := 0.0
 	runtime := 0.0
 
@@ -260,19 +262,25 @@ func main() {
 
 		stretch += ars.GetStretch(alts, optCost)
 		diversity += ars.GetDiversity(alts)
-
+		locOpt += ars.GetLocalOptimality(alts, optCost)
+		distSharing += ars.GetDistanceSharing(alts)
 		successRate += 1.0
 		foundAltCount++
 	}
 
 	successRate /= float64(len(queries))
 	stretch /= float64(foundAltCount)
+	distSharing /= float64(foundAltCount)
+	locOpt /= float64(foundAltCount)
 	diversity /= float64(foundAltCount)
 	runtime /= float64(len(queries))
 
 	fmt.Printf("success rate: %f\n", successRate)
-	fmt.Printf("stretch: %f\n", stretch)
+	fmt.Printf("stretch: %f %% \n", stretch)
 	fmt.Printf("diversity: %f\n", diversity)
-	fmt.Printf("runtime: %f ms\n", runtime)
+	fmt.Printf("local optimality: %f %% \n", locOpt)
+	fmt.Printf("distance sharing: %f %% \n", distSharing)
+
+	fmt.Printf("avg runtime: %f ms\n", runtime)
 
 }

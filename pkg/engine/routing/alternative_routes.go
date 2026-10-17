@@ -61,7 +61,7 @@ misalkan l(P) adalah sum of the lengths dari edge penyusun path P
 ref[1] setiap st-path P dikatakan admissible jika memenuhi kondisi:
 1. sharing amount (edge weights) dari alternative route P dan optimal/shortest route Opt <= \gamma * l(Opt)
 2. P is T-Localy Optimal (T-LO): every subpath P' of P with l(P') <= T adalah shortest path
-3. every subpath P' dari P dengan endpoints s', t', kita memiliki l(P') <= (1+eps)l(Opt(s,t)) (path P' dari s' ke t' tidak lebih panjang 1+eps relative to shortest path dari s' ke t')
+3. P is (1 + eps)-UBS (uniformly bounded stretch). every subpath P' dari P dengan endpoints s', t', kita memiliki l(P') <= (1+eps)l(Opt(s,t)) (path P' dari s' ke t' tidak lebih panjang 1+eps relative to shortest path dari s' ke t')
 
 inti dari ComputeAlternativeRoutes:
 1. retrieve semua via vertices yang sudah diexplore (vertex v diexplore atau overlay vertex v sudah discan) oleh forward search dan backward search dari CRP query
@@ -77,22 +77,27 @@ todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices 
 todo3 ternyata kemarin ada cycle & detour karena turn costs by angle (di CalcTurningCost() pkg/constant.go) nya bisa negative wkwkwk
 masih ada cycle di rute alternative di sekitar Jalan Penggung-Jatinom: https://navigatorx-crp-fe.vercel.app/?source=-7.571379974595928%2C+110.82773784403025+&destination=-7.778774854321185%2C+110.41389941753334+
 kayake bisa tinggal ilangin cycle di sekitar via-vertices
-DONE :) (removeViaVertexCycle())
+DONE :) (removeViaVertexCycle()), detour rute alternative yang aneh juga bisa diilangin degan filter all rute alternative candidates P_v dengan  l(Pv \ Opt) >= (1 + epsilon)*l(Opt \ Pv ) (read section 6.1 ref1)
 
-todo4: optimize time & space dari ComputeAlternativeRoutes()
+todo4: optimize runtime & space allocation dari ComputeAlternativeRoutes()
+todo5: improve success rate dari ComputeAlternativeRoutes sampai ~90% lagi
+kalo kita ilangin loc buat cek UBS:
+"if util.Ge((lv - sigmav), (1+arf.param.epsilon)*(arf.optCost-sigmav)) {
+		// section 6.1 X-BDV:  https://dl.acm.org/doi/epdf/10.1145/2444016.2444019
+		// l(Pv \ Opt) < (1 + epsilon) * l(Opt \ Pv)
+		// (the detour is not much longer than the optimal subpath it skips)
+		return NewAEmptyAlternativeroute()
+	}"
+success rate ~90% (naik 10% dari success rate cara heuristik saat ini).
+tapi returned rute alternatives nya detournya parah...
+mungkin kita bisa cek kalau len(res)==0 setelah loop computeAlternative()
+kita bisa iterate filteredCandidates lagi dan only filter alternative route candidates by relaxed UBS criteria???
 
 */
 
 func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index, optCost float64, optPath []da.Index,
 	crpQuery *CRPQuery[W], param AlternativeRouteParameters) ([]AlternativeRoute, int64) {
 
-	/*
-		let n_p,m_p,and \hat{m_p} denote the maximum number of nodes, edges, and shortcuts within any cell
-		let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
-		time complexity of CRP query is: O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o)), in this implementation, priority queue (4-ary heap) contains at most all edges in lowest level cell that containing s or t and all overlay vertices in all cell other than cell that containing s or t
-		decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, for each shortcut (u,v) we immediately explore v and add neighbor of v (vertex w) to priority queue
-		extract-min at most O(m_p+n_o) operations
-	*/
 	now := time.Now()
 
 	fpq := crpQuery.GetForwardPQ()
@@ -166,7 +171,10 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 	}
 
 	// worst case of ComputeAlternativeRoutes: worst case crp query + worst case computeAlternative for all via vertices
-	// O((n_o + m_p + k * \hat{m_p}) * log (m_p+n_o) + c * ( p + q * (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p)))
+	// c = max number of alternative routes candidates to unpackPath()
+	// let pu=time complexity of path unpacking (path_unpacker.go)
+	// let p=number of road segments in (s,via,t) alternative route candidate path
+	// O(c*(p+pu))
 	runtime := time.Since(now).Milliseconds()
 
 	return res, runtime
@@ -259,21 +267,7 @@ func (arf *AlternativeRouteFilter[W]) filterCandidate(v ViaVertex) ViaVertex {
 	lv := svCost + vtCost
 
 	if util.Ge(lv, (1+arf.param.epsilon)*arf.optCost) {
-		// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak
-		return NewEmptyViaVertex()
-	}
-
-	plv := arf.ars.calculatePlateau(v.GetVId(), arf.s, arf.t,
-		arf.fpq, arf.bpq, arf.sCellNumber, lv)
-
-	T := arf.param.alpha * arf.optCost
-
-	if util.Le(plv, T) {
-		// T-test dengan T=\alpha*l(Opt) , v-w path adalah plateau dari P_v
-		// plateau must > arf.ars.alpha * arf.optCost
-		// plateau = subpath dari Pv yang optimal (shortest path) dari first vertex ke last vertex dari subpath
-		// atau every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
-		// didnt pass t-test
+		// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak, untuk cek P_v PASS UBS criteria
 		return NewEmptyViaVertex()
 	}
 
@@ -300,16 +294,19 @@ func (arf *AlternativeRouteFilter[W]) filterCandidate(v ViaVertex) ViaVertex {
 	svPackedPath, vtPackedPath = arf.ars.makePackedViaPathOverlayEven(svPackedPath, vtPackedPath)
 
 	approxDistanceShare := arf.ars.calculateApproxDistanceShare(svPackedPath, vtPackedPath, arf.optPathSet, arf.scSet,
-		arf.sCellNumber, arf.tCellNumber, arf.motorwaySet)
+		arf.sCellNumber, arf.tCellNumber, arf.motorwaySet) // O(p)
 
 	// cek approximate limited sharing
 	if util.Ge(approxDistanceShare, arf.param.gamma*arf.optCost) {
 		return NewEmptyViaVertex()
 	}
 
-	v.SetCost(lv)
-	v.SetPlateau(plv)
-	v.SetApproxSharedDist(approxDistanceShare)
+	plv := arf.ars.calculatePlateau(v.GetVId(), arf.s, arf.t,
+		arf.fpq, arf.bpq, arf.sCellNumber, lv) // O(p)
+	v.plv = plv // harus dicalculate disini karena setelah ini kita sort alternative route candidates by GetApproxObjectiveValue()
+
+	v.lv = lv
+	v.approxSharedDist = approxDistanceShare
 
 	return v
 }
@@ -362,26 +359,46 @@ func (arf *AlternativeRouteFilter[W]) unpackViaPath(v ViaVertex) ([]da.Index, []
 func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) AlternativeRoute {
 
 	/*
-		let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcuts within any cell
+		let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcut edges (and cut edges) within any cell
 		let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
-		lowest level cell: O(m_p*log(m_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most m_p (compact graph CRP graph), decrease-key and insert at most O(m_p) operations, extract-min at-most O(m_p) operations
-		cell level > 1 : O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
-		let q = number of shorcut edges in packedPath
-		worst case  of unpackPath: O(q * (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
-
-		worst case of computeAlternative: O( p + q * (n_op + \hat{m_p})*log (n_op) + m_p*log(m_p))
+		lowest level cell path unpacking: O((n_p + m_p)*log(n_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most n_p, decrease-key and insert at most O(m_p) operations, extract-min at-most O(n_p) operations
+		cell level > 1 path unpacking: O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
+		let pu=time complexity of path unpacking (path_unpacker.go)
+		let p = number of road segments in (s,via,t) alternative route candidate path
+		worst case of computeAlternative: O(p+pu)
 	*/
 
 	svPath, vtPath := arf.unpackViaPath(v)
 
-	sigmav := arf.ars.calculateDistanceShare(svPath, vtPath, arf.optPathSet, arf.motorwaySet)
+	sigmav := arf.ars.calculateDistanceShare(svPath, vtPath, arf.optPathSet, arf.motorwaySet) // O(p)
 	// cek limited sharing
 	if util.Ge(sigmav, arf.param.gamma*arf.optCost) {
 		return NewAEmptyAlternativeroute()
 	}
 
 	lv := v.GetCost()
-	fv := 2*lv + sigmav - v.GetPlateau()
+
+	// cek T-test
+	T := arf.param.alpha * (lv - sigmav)
+	plv := v.plv
+	if util.Le(plv, T) {
+		// section 6.1 X-BDV:  https://dl.acm.org/doi/epdf/10.1145/2444016.2444019
+		// T-test dengan T=\alpha*l(P_v \ Opt) , if alternative route candidate P_v have s-u-w-t, and all vertices between u-w have appears on shortest path trees of forward search and backward search, path u-w adalah plateau dari P_v
+		// length of the plateau must > arf.param.alpha * l(P_v \ Opt)
+		// plateau = subpath dari Pv yang optimal (shortest path) dari first vertex ke last vertex dari subpath
+		// atau every subpath P' of alternative route with l(P') <= T = \alpha* l(P_v \ Opt) is optimal (shortest path). l(P_v \ Opt) is the cost/travel time of the alternative route candidate excluding its subpath that also contained in the optimal fastest path.
+		// didnt pass t-test
+		return NewAEmptyAlternativeroute()
+	}
+
+	if util.Ge((lv - sigmav), (1+arf.param.epsilon)*(arf.optCost-sigmav)) {
+		// section 6.1 X-BDV:  https://dl.acm.org/doi/epdf/10.1145/2444016.2444019
+		// l(Pv \ Opt) < (1 + epsilon) * l(Opt \ Pv)
+		// (the detour is not much longer than the optimal subpath it skips)
+		return NewAEmptyAlternativeroute()
+	}
+
+	fv := 2*lv + sigmav - plv
 	altEdgeIdPath := append(svPath, vtPath...)
 	distSharing := sigmav / arf.optCost
 	return NewAlternativeRoute(fv, 0, lv, distSharing, v.GetVId(), EmptyCoords,
@@ -405,7 +422,7 @@ func (ars *AlternativeRouteSearch[W]) filterByUniqueId(vias []ViaVertex) []ViaVe
 
 // calculateDistanceShare. calculate sharing amount (edge weights) dari unpacked path dari alternative route P_v dan optimal/shortest route Opt
 func (ars *AlternativeRouteSearch[W]) calculateDistanceShare(svPath, vtPath []da.Index, optPathSet map[da.Index]struct{}, motorwaySet map[da.Index]struct{}) float64 {
-	// O(M),  M=len(pvPath)
+	// O(p),  p=len(pvPath)
 	distanceShare := 0.0
 
 	for _, v := range svPath {
@@ -796,6 +813,7 @@ func (ars *AlternativeRouteSearch[W]) GetStretch(candidates []AlternativeRoute, 
 
 // GetDiversity compute diversity metrics yang dijelasin di section 5.4 paper: https://dl.acm.org/doi/epdf/10.1145/3567421
 // mengukur diversity dari rute alternative kedua,ketiga,.... dari rute alternatives sebelumnya
+// cuma di call di evaluation code
 func (ars *AlternativeRouteSearch[W]) GetDiversity(candidates []AlternativeRoute) float64 {
 
 	if len(candidates) == 0 {

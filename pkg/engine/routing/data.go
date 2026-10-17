@@ -47,25 +47,12 @@ func (ar *AlternativeRoute) GetPolylinePath() string {
 	return ar.polylinePath
 }
 
-func (ar *AlternativeRoute) SetPolylinePath(pp string) {
-	ar.polylinePath = pp
-}
-
 func (ar *AlternativeRoute) GetDrivingDirections() []da.DrivingDirection {
 	return ar.drivingDirections
-}
-func (ar *AlternativeRoute) SetDrivingDirections(dds []da.DrivingDirection) {
-	ddsCopy := make([]da.DrivingDirection, len(dds))
-	copy(ddsCopy, dds)
-	ar.drivingDirections = ddsCopy
 }
 
 func (ar *AlternativeRoute) GetTravelTime() float64 {
 	return ar.travelTime
-}
-
-func (ar *AlternativeRoute) SetTravelTime(travelTime float64) {
-	ar.travelTime = travelTime
 }
 
 func (ar *AlternativeRoute) GetDist() float64 {
@@ -74,14 +61,6 @@ func (ar *AlternativeRoute) GetDist() float64 {
 
 func (ar *AlternativeRoute) GetSegmentPath() []da.Index {
 	return ar.segmentPath
-}
-
-func (ar *AlternativeRoute) SetSegmentPath(segmentPath []da.Index) {
-	ar.segmentPath = segmentPath
-}
-
-func (ar *AlternativeRoute) SetDist(dist float64) {
-	ar.dist = dist
 }
 
 type ViaVertex struct {
@@ -108,18 +87,6 @@ func (v *ViaVertex) GetVId() da.Index {
 
 func (v *ViaVertex) IsOverlay() bool {
 	return v.overlay
-}
-
-func (v *ViaVertex) SetPlateau(plv float64) {
-	v.plv = plv
-}
-
-func (v *ViaVertex) SetCost(lv float64) {
-	v.lv = lv
-}
-
-func (v *ViaVertex) SetApproxSharedDist(approxSigma float64) {
-	v.approxSharedDist = approxSigma
 }
 
 func (v *ViaVertex) GetPlateau() float64 {
