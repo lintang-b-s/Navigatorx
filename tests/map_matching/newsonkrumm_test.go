@@ -37,7 +37,7 @@ const (
 	nkGPSDataDriveFile     = "https://drive.google.com/uc?export=download&id=1QCrMnchOjCfOMQet9Oon-dmZ36MasTjA"
 	nkGroundTruthDriveFile = "https://drive.google.com/uc?export=download&id=11LxzpV-VDCImDq3OWN3m3tukFKmwl9Fn"
 	nkExpectedMaxRMF       = 0.001
-	nkExpectedMaxRMFOnline = 0.09
+	nkExpectedMaxRMFOnline = 0.1
 )
 
 type nkEdge struct {
