@@ -73,10 +73,14 @@ todo: baca dan implement https://www.openstreetmap.org/user/daniel-j-h/diary/440
 maybe bisa pakai strategi alternative routes mld nya osrm yg filterPackedPathsByCellSharing() tapi bisa aja yang cell nya sama/sharing kriteria admissible alternative routes nya masih PASS,, jadi gak usah diimplement wkwk
 buat bedain dari alternative routes 1 dengan lainnya juga udah pakai jaccardDistance() disini dan udah beda banget alternative routes 1 dengan lainnya....
 todo2: baca dan implement https://dl.acm.org/doi/abs/10.1145/2674395   (related to article diatas). DONE, runtime di table VII bisa sampe 1 jam lebih.. gak usah diimplement..
-todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices agak detour... debug dan cari tahu kenapa & fix it... partially DONE
+todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices agak detour... debug dan cari tahu kenapa & fix it... DONE
 todo3 ternyata kemarin ada cycle & detour karena turn costs by angle (di CalcTurningCost() pkg/constant.go) nya bisa negative wkwkwk
 masih ada cycle di rute alternative di sekitar Jalan Penggung-Jatinom: https://navigatorx-crp-fe.vercel.app/?source=-7.571379974595928%2C+110.82773784403025+&destination=-7.778774854321185%2C+110.41389941753334+
 kayake bisa tinggal ilangin cycle di sekitar via-vertices
+DONE :) (removeViaVertexCycle())
+
+todo4: optimize time & space dari ComputeAlternativeRoutes()
+
 */
 
 func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index, optCost float64, optPath []da.Index,
@@ -136,11 +140,16 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 		}
 
 		res = append(res, alternativeRoute)
-		resSet = append(resSet, ars.buildEdgesPathSet(alternativeRoute.segmentPath))
+		resSet = append(resSet, ars.buildSegmentsPathSet(alternativeRoute.segmentPath))
 	}
 
 	clear(arf.optPathSet)
 	clear(arf.motorwaySet)
+
+	perm := make([]int, len(res))
+	for i := 0; i < len(res); i++ {
+		perm[i] = i
+	}
 
 	slices.SortFunc(res, func(a, b AlternativeRoute) int {
 		return cmp.Compare(a.objectiveValue, b.objectiveValue)
@@ -149,8 +158,10 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 	maxAltSize := min(k, len(res))
 	res = res[:maxAltSize]
 	for i := 0; i < maxAltSize; i++ {
-		finalPath, totalDistance := ars.re.GetSegmentPath(res[i].segmentPath)
+		segmentPath := ars.removeViaVertexCycle(res[i].segmentPath, res[i].viaVertex)
+		finalPath, totalDistance := ars.re.GetSegmentPath(segmentPath)
 		res[i].path = finalPath
+		res[i].segmentPath = segmentPath
 		res[i].dist = totalDistance
 	}
 
@@ -371,7 +382,7 @@ func (arf *AlternativeRouteFilter[W]) computeAlternative(v ViaVertex) Alternativ
 
 	lv := v.GetCost()
 	fv := 2*lv + sigmav - v.GetPlateau()
-	altEdgeIdPath := removeConsecutiveDuplicates(append(svPath, vtPath...))
+	altEdgeIdPath := append(svPath, vtPath...)
 	distSharing := sigmav / arf.optCost
 	return NewAlternativeRoute(fv, 0, lv, distSharing, v.GetVId(), EmptyCoords,
 		altEdgeIdPath, v)
@@ -423,16 +434,16 @@ func (ars *AlternativeRouteSearch[W]) calculateDistanceShare(svPath, vtPath []da
 	return distanceShare
 }
 
-func (ars *AlternativeRouteSearch[W]) buildEdgesPathSet(edgesPath []da.Index) map[da.Index]struct{} {
-	edgesPathSet := make(map[da.Index]struct{}, 25)
-	for _, v := range edgesPath {
-		edgesPathSet[v] = struct{}{}
+func (ars *AlternativeRouteSearch[W]) buildSegmentsPathSet(segmentPath []da.Index) map[da.Index]struct{} {
+	segmentPathSet := make(map[da.Index]struct{}, len(segmentPath))
+	for _, v := range segmentPath {
+		segmentPathSet[v] = struct{}{}
 	}
-	return edgesPathSet
+	return segmentPathSet
 }
 
 func (ars *AlternativeRouteSearch[W]) buildPathSet(optPath []da.Index) map[da.Index]struct{} {
-	optPathSet := make(map[da.Index]struct{}, 25)
+	optPathSet := make(map[da.Index]struct{}, len(optPath))
 	for _, v := range optPath {
 		optPathSet[v] = struct{}{}
 	}
@@ -679,6 +690,90 @@ func (ars *AlternativeRouteSearch[W]) makePackedViaPathOverlayEven(svPackedPath,
 	}
 
 	return svPackedPath, vtPackedPath
+}
+
+/*
+removeViaVertexCycle removing cycles around via-vertices from an alternative route
+
+example: 1     1
+		v7<--v6<--
+        |	     /\
+        |        |
+		\/       |
+	1  v8	    v5  1
+		|	    /\
+		|	    |
+		\/	    |
+v1 --> v2 ----> v3 --> v4 ->
+1 	    2       2      1
+			    rs     re
+
+via-vertex=v7
+input path with cycle: (v1,v2,v3,v5,v6,v7,v8,v2,v3,v4)
+the expected path without cycle: (v1,v2,v3,v4,...)
+O(n) algorithm to remove all vertices cycle path (v5,v6,v7,v8,v2,v3):
+1. iterate all vertices backward from via-vertex v7 (or until a threshold number of traversed vertices=200), count the encounter of every vertex it traversed. example path: (v7,v6,v5,v3,v2,v1)
+2. iterate all vertices forward from via-vertex v7 (or until a threshold number of traversed vertices=200), count the encounter of every vertex it traversed. if we found a edge (u,v) with count(v)==1 && count(u)==2, set index re=index of v in the alternative route path.
+in this example v4 is the index of re.
+3. iterate all vertices backward from via-vertex v7 (or until a threshold number of traversed vertices=200), if we found a first vertex v with count(v)==2 stop and set index rs= index of v in the alternative route path.
+int this example v3 is the index of rs.
+4. remove all vertices in index [rs+1, re). in this example vertices to be removed is (v5,v6,v7,v8,v2,v3) of the cycle.
+worst case is O(n) where n=len(segmentPath).
+*/ // nolint: gofmt
+func (ars *AlternativeRouteSearch[W]) removeViaVertexCycle(segmentPath []da.Index, via ViaVertex) []da.Index {
+	n := len(segmentPath)
+
+	viaV := via.v
+	if via.IsOverlay() {
+		viaV = ars.re.adjustoffsetOverlay(viaV)
+		viaOvVertex := ars.re.overlayGraph.GetVertex(viaV)
+		viaV = viaOvVertex.GetOrigVId()
+	}
+
+	mid := 0
+	for i := 0; i < n; i++ {
+		if segmentPath[i] == viaV {
+			mid = i
+			break
+		}
+	}
+
+	segmentCount := make(map[da.Index]uint8, TRAVERSE_FROM_VIA_VERTEX_COUNT)
+	s := max(mid-TRAVERSE_FROM_VIA_VERTEX_COUNT+1, 0)
+	for i := mid; i >= s; i-- {
+		v := segmentPath[i]
+		segmentCount[v]++
+	}
+
+	enterCycle := false
+	re := da.Index(math.MaxUint32)
+	e := min(mid+TRAVERSE_FROM_VIA_VERTEX_COUNT, n)
+	for i := mid + 1; i < e; i++ {
+		v := segmentPath[i]
+		segmentCount[v]++
+		if segmentCount[v] == 2 {
+			enterCycle = true
+		}
+		if enterCycle && segmentCount[v] == 1 {
+			re = da.Index(i)
+			break
+		}
+	}
+
+	rs := da.Index(math.MaxUint32)
+	for i := mid; i >= s; i-- {
+		v := segmentPath[i]
+		if segmentCount[v] == 2 {
+			rs = da.Index(i)
+			break
+		}
+	}
+
+	if rs != math.MaxUint32 && re != math.MaxUint32 {
+		segmentPath = append(segmentPath[:rs+1], segmentPath[re:]...)
+	}
+
+	return segmentPath
 }
 
 // GetStretch compute stretch metrics yang dijelasin di section 5.4 paper: https://dl.acm.org/doi/epdf/10.1145/3567421
