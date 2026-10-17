@@ -73,10 +73,14 @@ todo: baca dan implement https://www.openstreetmap.org/user/daniel-j-h/diary/440
 maybe bisa pakai strategi alternative routes mld nya osrm yg filterPackedPathsByCellSharing() tapi bisa aja yang cell nya sama/sharing kriteria admissible alternative routes nya masih PASS,, jadi gak usah diimplement wkwk
 buat bedain dari alternative routes 1 dengan lainnya juga udah pakai jaccardDistance() disini dan udah beda banget alternative routes 1 dengan lainnya....
 todo2: baca dan implement https://dl.acm.org/doi/abs/10.1145/2674395   (related to article diatas). DONE, runtime di table VII bisa sampe 1 jam lebih.. gak usah diimplement..
-todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices agak detour... debug dan cari tahu kenapa & fix it... partially DONE
+todo3: kadang di rute alternative (implementasi saat ini) di dekat via-vertices agak detour... debug dan cari tahu kenapa & fix it... DONE
 todo3 ternyata kemarin ada cycle & detour karena turn costs by angle (di CalcTurningCost() pkg/constant.go) nya bisa negative wkwkwk
 masih ada cycle di rute alternative di sekitar Jalan Penggung-Jatinom: https://navigatorx-crp-fe.vercel.app/?source=-7.571379974595928%2C+110.82773784403025+&destination=-7.778774854321185%2C+110.41389941753334+
 kayake bisa tinggal ilangin cycle di sekitar via-vertices
+DONE :) (removeViaVertexCycle())
+
+todo4: optimize time & space dari ComputeAlternativeRoutes()
+
 */
 
 func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index, optCost float64, optPath []da.Index,
