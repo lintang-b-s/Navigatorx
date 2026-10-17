@@ -1,22 +1,12 @@
 package routing
 
 import (
-	"slices"
-
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 // PathExists. cek apakah ada path (tanpa costs) dari u ke v.
 func (crp *CRPRoutingEngine[W]) PathExists(u, v da.Index) bool {
 	return crp.graph.PathExists(u, v)
-}
-
-// removeConsecutiveDuplicates removes consecutive duplicate edge IDs from arr in-place.
-func removeConsecutiveDuplicates(arr []da.Index) []da.Index {
-	if len(arr) < 2 {
-		return arr
-	}
-	return slices.Compact(arr)
 }
 
 func (bs *CRPQuery[W]) GetForwardPQ() *da.QueryHeap[da.QueryKey, W] {

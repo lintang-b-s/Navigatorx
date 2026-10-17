@@ -19,6 +19,7 @@ const (
 	CUSTOMIZER_UPDATER_TIMER_SECONDS      = 1 * time.Second
 	CONDITIONAL_RESTRICTION_TIMER_SECONDS = 180 * time.Second
 	MAX_RETRY                             = 5
+	TRAVERSE_FROM_VIA_VERTEX_COUNT        = 200
 )
 
 var (

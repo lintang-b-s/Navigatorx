@@ -202,6 +202,9 @@ func makeTurnTable[W util.RoutingNumber](
 
 			if turnType == pkg.NO_ENTRY || math.IsInf(currentTurnCost, 1) || (turnSign == da.CONTINUE_ON_STREET && !containsTrafficLight) {
 				// gak ada turn penalty (pkg.NewTurnRest())
+				// in this section 3.2 Turning Speed: https://ae.iti.kit.edu/download/turn_ch.pdf model
+				// we assume deceleration a_{dec} from v down to max_v at the latest point possible and while traversing edge e′ we assume immediate start of acceleration a_{acc} from max_v to v′.
+				// if the turnSign is CONTINUE, the possible scenario we decelerate from v down to max_v (turning speed) at the latest point possible in the intersection is when this intersection has a traffic light.
 				return
 			}
 

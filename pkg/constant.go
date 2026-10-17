@@ -23,7 +23,7 @@ func CalcResolution(l, lPrime, minResolution float64) float64 {
 // CalcTurningSpeed computes max turning speed in m/s.
 // l, lPrime: edge lengths in meters.
 // turnAngleDeg: the turn angle in DEGREES (converted internally).
-// https://ae.iti.kit.edu/download/turn_ch.pdf
+// limit on the turning speed section 3.2 Turning Speed: https://ae.iti.kit.edu/download/turn_ch.pdf
 func CalcTurningSpeed(l, lPrime, minResolution, turnAngleDeg float64) float64 {
 	angleBetweenEdgesDeg := 180 - turnAngleDeg
 	turnAngleRad := util.DegreeToRadians(angleBetweenEdgesDeg)
@@ -44,7 +44,7 @@ vlimitFrom
 // 			 |
 // 			 |
 // 			\/
-// https://ae.iti.kit.edu/download/turn_ch.pdf
+// Modification of Turn costs section 3.2 Turning Speed: https://ae.iti.kit.edu/download/turn_ch.pdf
 */ // nolint: gofmt
 func CalcTurningCost(turningSpeed, vlimitFrom, vlimitTo float64) float64 {
 
