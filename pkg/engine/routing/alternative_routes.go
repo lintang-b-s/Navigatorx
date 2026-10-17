@@ -697,15 +697,16 @@ removeViaVertexCycle removing cycles around via-vertices from an alternative rou
 
 example: 1     1
 		v7<--v6<--
-        /\	  /\
-        |     |
-	1  v8	  v5  1
-		|	 /\
-		|	  |
-		\/	  |
-v1 --> v2 --> v3 --> v4 ->
-1 	    2     2      1
-			  rs     re
+        |	     /\
+        |        |
+		\/       |
+	1  v8	    v5  1
+		|	    /\
+		|	    |
+		\/	    |
+v1 --> v2 ----> v3 --> v4 ->
+1 	    2       2      1
+			    rs     re
 
 via-vertex=v7
 input path with cycle: (v1,v2,v3,v5,v6,v7,v8,v2,v3,v4)
