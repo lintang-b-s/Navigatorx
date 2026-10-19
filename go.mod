@@ -23,7 +23,6 @@ require (
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/http-swagger v1.3.4
-	github.com/tidwall/geoindex v1.7.0
 	github.com/twpayne/go-polyline v1.1.1
 	go.uber.org/zap v1.28.0
 	golang.org/x/mobile v0.0.0-20260908204917-8b95e45f8d3e
@@ -225,6 +224,7 @@ require (
 	github.com/swaggo/files v1.0.1 // indirect
 	github.com/swaggo/swag v1.16.6 // indirect
 	github.com/tetafro/godot v1.5.6 // indirect
+	github.com/tidwall/geoindex v1.7.0 // indirect
 	github.com/timakin/bodyclose v0.0.0-20260723120731-857993a2939c // indirect
 	github.com/timonwong/loggercheck v0.12.0 // indirect
 	github.com/tomarrell/wrapcheck/v2 v2.12.0 // indirect
