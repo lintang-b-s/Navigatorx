@@ -121,58 +121,63 @@ func main() {
 
 		logger.Sugar().Infof("download complete")
 	}
+	metricsFile := fmt.Sprintf("%s/%s/%s_metrics.nmt", config.ProfilesRoot(), pkg.ProfileName, pkg.RegionName)
 
-	op := extractor.NewExtractor[int32]()
-
-	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(osmfFile, logger)
-
-	if err != nil {
-		panic(err)
+	doPreprocessCustomize := false
+	if _, err := os.Stat(metricsFile); os.IsNotExist(err) {
+		doPreprocessCustomize = true
 	}
 
-	pss := strings.Split(*partitionSizes, ",")
-	ps := make([]int, len(pss))
-	for i := 0; i < len(ps); i++ {
-		pow, err := util.ParseTextInt(pss[i])
+	if doPreprocessCustomize {
+		op := extractor.NewExtractor[int32]()
+		_, ebg, rn, _, timeFunction, err := op.Extract(osmfFile, logger)
 		if err != nil {
 			panic(err)
 		}
-		ps[i] = 1 << pow // 2^pow
-	}
 
-	mp := partitioner.NewMultilevelPartitioner(
-		ps,
-		len(ps),
-		25,
-		nbg, logger,
-	)
+		pss := strings.Split(*partitionSizes, ",")
+		ps := make([]int, len(pss))
+		for i := 0; i < len(ps); i++ {
+			pow, err := util.ParseTextInt(pss[i])
+			if err != nil {
+				panic(err)
+			}
+			ps[i] = 1 << pow // 2^pow
+		}
 
-	mp.RunMultilevelPartitioning()
-	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
-	err = mp.SaveToFile()
-	if err != nil {
-		panic(err)
-	}
+		mp := partitioner.NewMultilevelPartitioner(
+			ps,
+			len(ps),
+			25,
+			ebg, logger,
+		)
 
-	mlp := da.NewPlainMLP()
-	err = mlp.ReadMlpFile()
-	if err != nil {
-		panic(err)
-	}
+		mp.RunMultilevelPartitioning()
+		err = mp.SaveToFile()
+		if err != nil {
+			panic(err)
+		}
 
-	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
-	err = prep.PreProcessing(true)
-	if err != nil {
-		panic(err)
-	}
+		mlp := da.NewPlainMLP()
+		err = mlp.ReadMlpFile()
+		if err != nil {
+			panic(err)
+		}
 
-	logger.Sugar().Infof("Preprocessing completed successfully.")
+		prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
+		err = prep.PreProcessing(true)
+		if err != nil {
+			panic(err)
+		}
 
-	custom := customizer.NewCustomizer[int32](logger)
+		logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	_, err = custom.Customize()
-	if err != nil {
-		panic(err)
+		custom := customizer.NewCustomizer[int32](logger)
+
+		_, err = custom.Customize()
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	eng, err := engine.NewEngine[int32](logger)
@@ -180,9 +185,7 @@ func main() {
 		panic(err)
 	}
 	re := eng.GetRoutingEngine()
-
 	g := re.GetGraph()
-
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()
 
@@ -282,5 +285,4 @@ func main() {
 	fmt.Printf("distance sharing: %f %% \n", distSharing)
 
 	fmt.Printf("avg runtime: %f ms\n", runtime)
-
 }

@@ -32,10 +32,13 @@ type CRPRoutingEngine[W util.RoutingNumber] struct {
 	mu           *sync.RWMutex
 
 	// parameter yang di init pakai read yml config
-	maxCandidatesToUnpackMap       map[float64]int
-	gammaMap, alphaMap, epsilonMap map[float64]float64
-	upperBoundMap                  map[float64]float64
-	motorwayPenalty                float64
+	gammaLookup         ParamLookup[float64]
+	alphaLookup         ParamLookup[float64]
+	epsilonLookup       ParamLookup[float64]
+	upperBoundLookup    ParamLookup[float64]
+	maxCandidatesLookup ParamLookup[int]
+
+	motorwayPenalty float64
 
 	defaultGamma, defaultAlpha, defaultEpsilon, defaultUpperbound float64
 	defaultMaxCandidatesToUnpack                                  int
@@ -159,18 +162,29 @@ func (crp *CRPRoutingEngine[W]) initParameter() {
 	crp.unpackerWorkers = numCPU / 6
 	crp.unpackerForAlternativeRoutesWorkers = numCPU / 6
 	altConfig := viper.GetStringMap("alternatives")
-	crp.gammaMap, crp.defaultGamma = util.ToFloat64Map(altConfig["gamma"])
-	crp.alphaMap, crp.defaultAlpha = util.ToFloat64Map(altConfig["alpha"])
-	crp.epsilonMap, crp.defaultEpsilon = util.ToFloat64Map(altConfig["epsilon"])
-	crp.upperBoundMap, crp.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
-	validateUpperbound(crp.upperBoundMap, crp.defaultUpperbound)
-	crp.maxCandidatesToUnpackMap, crp.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
+	var (
+		gammaMap, alphaMap, epsilonMap, upperBoundMap map[float64]float64
+		maxCandidatesToUnpackMap                      map[float64]int
+	)
+	gammaMap, crp.defaultGamma = util.ToFloat64Map(altConfig["gamma"])
+	alphaMap, crp.defaultAlpha = util.ToFloat64Map(altConfig["alpha"])
+	epsilonMap, crp.defaultEpsilon = util.ToFloat64Map(altConfig["epsilon"])
+	upperBoundMap, crp.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
+	validateUpperbound(upperBoundMap, crp.defaultUpperbound)
+	maxCandidatesToUnpackMap, crp.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
 	mp := altConfig["motorway_penalty"]
 	if val, ok := mp.(float64); ok {
 		crp.motorwayPenalty = val
 	} else {
 		panic("motorway_penalty must be float64")
 	}
+
+	crp.gammaLookup = newParamLookup(gammaMap, crp.defaultGamma)
+	crp.alphaLookup = newParamLookup(alphaMap, crp.defaultAlpha)
+	crp.epsilonLookup = newParamLookup(epsilonMap, crp.defaultEpsilon)
+	crp.upperBoundLookup = newParamLookup(upperBoundMap, crp.defaultUpperbound)
+	crp.maxCandidatesLookup = newParamLookup(maxCandidatesToUnpackMap, crp.defaultMaxCandidatesToUnpack)
+
 }
 
 func validateUpperbound(upperBoundMap map[float64]float64, defaultUpperbound float64) {
@@ -250,12 +264,18 @@ func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index) (*da.Co
 
 	totalDistance := 0.0
 
-	path := &da.Coordinates{}
+	n := len(segmentIdPath)
+	size := da.Index(0)
+	for i := 1; i < n-1; i++ { // skip road segments s & t. (kita append path nya di AppendPhantomNode)
+		segId := segmentIdPath[i]
+		size += crp.rn.GetSegmentGeometryLength(segId)
+	}
+	path := da.NewCoordinatesWithCap(int(size))
 
 	met := crp.GetMetrics()
-	for i := 1; i < len(segmentIdPath)-1; i++ { // skip road segments s & t. (kita append path nya di AppendPhantomNode)
+	for i := 1; i < n-1; i++ { // skip road segments s & t. (kita append path nya di AppendPhantomNode)
 		segId := segmentIdPath[i]
-		path.Append(crp.rn.GetSegmentGeometry(segId))
+		crp.rn.AppendSegmentGeometry(segId, path)
 		totalDistance += met.GetSegmentLength(segId)
 	}
 

@@ -259,16 +259,16 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	op.SetNodeToOsmId(nodeToOsmID)
 	nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphEdges, rn, uint32(len(nodeIdMap)), true)
 	rn.BuildNameTable(map[uint32]string{0: ""})
-	ebg, timeFunction, ebgMapping := extractor.BuildEdgeBasedGraph(nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
+	ebg, timeFunction, _ := extractor.BuildEdgeBasedGraph(nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
 
 	us := []int{8, 11, 14, 16}
 	ps := make([]int, len(us))
 	for i := range ps {
 		ps[i] = 1 << us[i]
 	}
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, nbg, zlog)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, ebg, zlog)
 	mp.RunMultilevelPartitioning()
-	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
+
 	if err := mp.SaveToFile(); err != nil {
 		return nil, nil, nil, nil, nil, err
 	}

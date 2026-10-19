@@ -65,21 +65,22 @@ alternatives:
   alpha: # every subpath P' of alternative route with l(P') <= T = \alpha* l(Opt) is optimal (shortest path). l(Opt) is the cost/travel time of the shortest path
     default: 0.25
   gamma:
-    15: 0.75
-    20: 0.75 # alternative routes with great circle distance between source and destination <= 20km  at least 25% different than the shortest path
-    50: 0.75 # alternative routes with great circle distance between source and destination <= 50km  at least 25% different than the shortest path
-    default: 0.75 # alternative routes with great circle distance between source and destination > 50km  at least 25% different than the shortest path
+    150: 0.8 # alternative routes with great circle distance between source and destination <= 150km  at least 20% different than the shortest path
+    default: 0.85 # alternative routes with great circle distance between source and destination > 80km  at least 15% different than the shortest path
   epsilon:
-    default: 0.25 #  alternative routes at most 25% longer than the shortest path
+    15: 0.25
+    150: 0.25 # alternative routes with great circle distance between source and destination <= 150km  at most 25% longer than the shortest path
+    default: 0.35 #  alternative routes with great circle distance between source and destination > 50km  at most 35% longer than the shortest path
   upper_bound: # max upperbound 1.75
     50: 1.25 # stop search when sum dari priority kedua node (dengan priority minimum) dari priority queue forward and backward search of multilevel-dijkstra (MLD) > \mu * upperBound
     default: 1.25 # untuk > 50 km
   max_candidates_to_unpack:
     10: 10 # great circle distance between source and destination <= 10km -> 10 via candidates to unpack
     50: 5
-    100: 2
-    default: 2
-  motorway_penalty: 2.5
+    150: 2
+    default: 4
+  motorway_penalty: 1.4 # if an alternative route candidate uses the same motorway road as the fastest route, apply a penalty equal to 1.4 times the weight of that motorway road to the alternative route.
+
 
 server:
   api_timeout: 5s

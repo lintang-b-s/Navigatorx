@@ -176,6 +176,20 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometry(id Index) []Coordinate {
 	return edgePoints
 }
 
+func (rn *RoadNetworkDataContainer) AppendSegmentGeometry(id Index, coords *Coordinates) {
+	sIndex := rn.segmentStartPointsIndex[id]
+	eIndex := rn.segmentEndPointsIndex[id]
+
+	if sIndex < eIndex {
+		coords.Append(rn.osmNodePoints[sIndex:eIndex])
+		return
+	}
+
+	for i := int(sIndex - 1); i >= int(eIndex); i-- {
+		coords.AppendCoordinate(rn.osmNodePoints[i])
+	}
+}
+
 func (rn *RoadNetworkDataContainer) GetTailHeadOsmNodeId(id Index) (uint64, uint64) {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]

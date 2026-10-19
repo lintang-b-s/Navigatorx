@@ -6,14 +6,25 @@ import (
 )
 
 func (crp *CRPRoutingEngine[W]) RetrievePackedPath(mid da.ParentVertex, fpq *da.QueryHeap[da.QueryKey, W],
-	bpq *da.QueryHeap[da.QueryKey, W], sCellNum da.Pv, s, t da.Index) []da.ParentVertex {
+	bpq *da.QueryHeap[da.QueryKey, W], sCellNum da.Pv, s, t da.Index) []da.Index {
 
-	forwardPackedPath := crp.RetrieveForwardPackedPath(mid, fpq, sCellNum, s)
-	backwardPackedPath := crp.RetrieveBackwardPackedPath(mid, bpq, sCellNum, t)
+	midv := mid.GetVertex()
+	midvv := midv
+	if mid.IsOverlayVertex() {
+		mid.SetIsOverlayVertex()
+		amvId := crp.adjustoffsetOverlay(midv)
+		omvId := onBit(amvId, UNPACK_OVERLAY_OFFSET)
+		midvv = omvId
+	}
 
-	result := append(forwardPackedPath, backwardPackedPath...)
+	c := crp.precomputeSize(midv, fpq, bpq) + 1
+	packedPath := make([]da.Index, 0, c) // list of vertices/overlay vertices di s-mid-t packed path
 
-	return result
+	crp.RetrieveForwardPackedPath(midv, fpq, sCellNum, s, &packedPath)
+	util.ReverseG(packedPath)
+	packedPath = append(packedPath, midvv)
+	crp.RetrieveBackwardPackedPath(midv, bpq, sCellNum, t, &packedPath)
+	return packedPath
 }
 
 // RetrieveForwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari s ke mid.
@@ -25,73 +36,63 @@ func (crp *CRPRoutingEngine[W]) RetrievePackedPath(mid da.ParentVertex, fpq *da.
 // shortcut edge (u,v) disusun oleh base edges yang menyusun shortest path dari overlay vertex u ke overlay vertex v
 // kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya
 // sehingga untuk unpacking shortcut edges ada tahapan di CRP bernama Path Unpacking (path_unpacker_alt.go)
-func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(mid da.ParentVertex, fpq *da.QueryHeap[da.QueryKey, W],
-	sCellNum da.Pv, s da.Index) []da.ParentVertex {
-	svPackedPath := make([]da.ParentVertex, 0, 32) // list of vertices/overlay vertices di s-v packed path
+func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(midv da.Index, fpq *da.QueryHeap[da.QueryKey, W],
+	sCellNum da.Pv, s da.Index, packedPath *[]da.Index) {
 
-	midvId := mid.GetVertex()
-	if mid.IsOverlayVertex() {
-		amvId := crp.adjustoffsetOverlay(midvId)
-		omvId := onBit(amvId, UNPACK_OVERLAY_OFFSET)
-		mid.SetVertex(omvId)
-	}
-	svPackedPath = append(svPackedPath, mid)
-	var vData da.VertexData[W]
-	if mid.IsOverlayVertex() {
-		vData = fpq.Get(midvId)
-	} else {
-		vData = fpq.Get(midvId)
-	}
-
-	vPar := vData.GetParent()
+	mvData := fpq.Get(midv)
+	vPar := mvData.GetParent()
 	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
-		parvId := vPar.GetVertex()
+		parv := vPar.GetVertex()
+		pv := parv
 		if vPar.IsOverlayVertex() {
-			aparvId := crp.adjustoffsetOverlay(parvId)
-			offpvId := onBit(aparvId, UNPACK_OVERLAY_OFFSET)
-			vPar.SetVertex(offpvId)
-			vData = fpq.Get(parvId)
-		} else {
-			vData = fpq.Get(parvId)
+			aparv := crp.adjustoffsetOverlay(parv)
+			offpv := onBit(aparv, UNPACK_OVERLAY_OFFSET)
+			pv = offpv
 		}
-
-		svPackedPath = append(svPackedPath, vPar)
+		*packedPath = append(*packedPath, pv)
+		vData := fpq.Get(parv)
 		vPar = vData.GetParent()
 	}
-
-	util.ReverseG(svPackedPath)
-
-	return svPackedPath
 }
 
 // RetrieveBackwardPackedPath. untuk retrieve (packed) shortest path hasil CRP query dari mid ke t.
-func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(mid da.ParentVertex, bpq *da.QueryHeap[da.QueryKey, W],
-	sCellNum da.Pv, t da.Index) []da.ParentVertex {
-	vtPackedPath := make([]da.ParentVertex, 0, 32)
+func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(midv da.Index, bpq *da.QueryHeap[da.QueryKey, W],
+	sCellNum da.Pv, t da.Index, packedPath *[]da.Index) {
 
-	midvId := mid.GetVertex()
-	var vData da.VertexData[W]
-	if mid.IsOverlayVertex() {
-		vData = bpq.Get(midvId)
-	} else {
-		vData = bpq.Get(midvId)
-	}
-
-	vPar := vData.GetParent()
+	mvData := bpq.Get(midv)
+	vPar := mvData.GetParent()
 	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
-		parvId := vPar.GetVertex()
+		parv := vPar.GetVertex()
+		pv := parv
 		if vPar.IsOverlayVertex() {
-			aparvId := crp.adjustoffsetOverlay(parvId)
-			offpvId := onBit(aparvId, UNPACK_OVERLAY_OFFSET)
-			vPar.SetVertex(offpvId)
-			vData = bpq.Get(parvId)
-		} else {
-			vData = bpq.Get(parvId)
+			aparv := crp.adjustoffsetOverlay(parv)
+			offpv := onBit(aparv, UNPACK_OVERLAY_OFFSET)
+			pv = offpv
 		}
-
-		vtPackedPath = append(vtPackedPath, vPar)
+		*packedPath = append(*packedPath, pv)
+		vData := bpq.Get(parv)
 		vPar = vData.GetParent()
 	}
+}
 
-	return vtPackedPath
+func (crp *CRPRoutingEngine[W]) precomputeSize(midv da.Index, fpq, bpq *da.QueryHeap[da.QueryKey, W]) int {
+	c := 0
+	mvData := fpq.Get(midv)
+	vPar := mvData.GetParent()
+	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
+		parv := vPar.GetVertex()
+		vData := fpq.Get(parv)
+		vPar = vData.GetParent()
+		c++
+	}
+
+	mvData = bpq.Get(midv)
+	vPar = mvData.GetParent()
+	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
+		parv := vPar.GetVertex()
+		vData := bpq.Get(parv)
+		c++
+		vPar = vData.GetParent()
+	}
+	return c
 }

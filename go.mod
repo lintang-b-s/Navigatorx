@@ -15,7 +15,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
 	github.com/klauspost/compress v1.20.1
-	github.com/lintang-b-s/rtree v0.0.0-20260614132954-7a07821a437a
+	github.com/lintang-b-s/rtree v0.0.0-20261019135549-6cb260d84849
 	github.com/maypok86/otter/v2 v2.3.0
 	github.com/paulmach/osm v0.9.0
 	github.com/rs/cors v1.11.1
