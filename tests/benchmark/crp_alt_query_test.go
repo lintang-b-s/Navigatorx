@@ -80,7 +80,6 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 	)
 
 	mp.RunMultilevelPartitioning()
-	// mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		panic(err)

@@ -2,8 +2,9 @@
 package spatialindex
 
 import (
+	"cmp"
 	"math"
-	"sort"
+	"slices"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
@@ -194,7 +195,10 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 			return true
 		})
 
-	sort.Slice(cands, func(i, j int) bool { return cands[i].dist < cands[j].dist })
+	slices.SortFunc(cands, func(a, b candidate) int {
+		return cmp.Compare(a.dist, b.dist)
+	})
+
 	if len(cands) > MAX_CANDIDATES {
 		cands = cands[:MAX_CANDIDATES]
 	}

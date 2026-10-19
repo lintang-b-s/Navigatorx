@@ -8,9 +8,8 @@ const (
 )
 
 type ParentVertex struct {
-	vertex     Index // 4 byte
-	queryLevel uint8 // 1 byte
-	flag       uint8
+	vertex Index // 4 byte
+	flag   uint8
 }
 
 func (ve ParentVertex) GetVertex() Index {
@@ -21,12 +20,8 @@ func (ve *ParentVertex) SetIsOverlayVertex() {
 	ve.flag |= overlayFlag
 }
 
-func (ve *ParentVertex) IsOverlayVertex() bool {
+func (ve ParentVertex) IsOverlayVertex() bool {
 	return ve.flag&overlayFlag != 0
-}
-
-func (ve *ParentVertex) SetVertex(vertex Index) {
-	ve.vertex = vertex
 }
 
 func NewParentVertex(vertex Index) ParentVertex {
@@ -36,7 +31,7 @@ func NewParentVertex(vertex Index) ParentVertex {
 }
 
 type VertexData[W util.RoutingNumber] struct {
-	parent     ParentVertex // 13 byte
+	parent     ParentVertex
 	cost       W
 	heapNodeId Index // 4 byte
 }

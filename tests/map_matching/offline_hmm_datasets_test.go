@@ -378,7 +378,7 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 		t.Fatalf("log.New failed: %v", err)
 	}
 	paths := ohmmEnsureGisCupRoadNetwork(t, workingDir, logger)
-	nbg, ebg, ebgMapping, timeFunction, rn, SegmentLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
+	_, ebg, _, timeFunction, rn, SegmentLengths, err := ohmmBuildGraphFromGisCupFiles(paths)
 	if err != nil {
 		t.Fatalf("build GIS Cup graph failed: %v", err)
 	}
@@ -389,9 +389,8 @@ func ohmmBuildGisCupCRPGraph(t *testing.T, workingDir string) (*engine.Engine[in
 		ps[i] = 1 << pow
 	}
 
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, nbg, logger)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, ebg, logger)
 	mp.RunMultilevelPartitioning()
-	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	if err := mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
 	}
@@ -749,9 +748,8 @@ func ohmmPrepareCRPFiles(t *testing.T, nbg, ebg *da.Graph, ebgMapping []uint64, 
 		ps[i] = 1 << pow
 	}
 
-	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, nbg, logger)
+	mp := partitioner.NewMultilevelPartitioner(ps, len(ps), 1, ebg, logger)
 	mp.RunMultilevelPartitioning()
-	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	if err := mp.SaveToFile(); err != nil {
 		t.Fatalf("save mlp failed: %v", err)
 	}

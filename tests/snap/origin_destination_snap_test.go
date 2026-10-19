@@ -64,7 +64,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 	config.InitRegionName("snap_test", pkg.TEST)
 
 	op := extractor.NewExtractor[int32]()
-	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,11 +83,10 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 		ps,
 		len(ps),
 		5,
-		nbg, logger,
+		ebg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)

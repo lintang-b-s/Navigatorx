@@ -847,7 +847,7 @@ func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.Roa
 
 	op := extractor.NewExtractor[int32]()
 
-	nbg, ebg, rn, ebgMapping, timeFunction, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -866,11 +866,10 @@ func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.Roa
 		ps,
 		len(ps),
 		5,
-		nbg, logger,
+		ebg, logger,
 	)
 
 	mp.RunMultilevelPartitioning()
-	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	err = mp.SaveToFile()
 	if err != nil {
 		t.Fatal(err)

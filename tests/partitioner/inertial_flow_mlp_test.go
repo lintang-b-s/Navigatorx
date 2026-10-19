@@ -40,7 +40,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner, []uint64) {
 
 	op := extractor.NewExtractor[int32]()
 
-	nbg, ebg, _, ebgMapping, _, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFile), logger)
+	_, ebg, _, ebgMapping, _, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFile), logger)
 	if err != nil {
 		panic(err)
 	}
@@ -59,7 +59,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner, []uint64) {
 		ps,
 		len(ps),
 		5,
-		nbg, logger,
+		ebg, logger,
 	)
 
 	return ebg, mp, ebgMapping
@@ -76,9 +76,8 @@ const (
 // karena bakal timeout kalau pakai run test vscode
 // this graph partitioning with minimized cut edges is np-hard, so we only check if each vertex lies inside one cell & union all cell vertices are the graph vertices .
 func TestInertialFlowMLP(t *testing.T) {
-	ebg, mp, ebgMapping := setup()
+	ebg, mp, _ := setup()
 	mp.RunMultilevelPartitioning()
-	mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 
 	n := ebg.NumberOfVertices()
 	validateMLP := func(cellVertices [][][]da.Index) (bool, int) {

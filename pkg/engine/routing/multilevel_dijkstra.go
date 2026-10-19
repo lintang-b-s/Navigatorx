@@ -123,19 +123,6 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 	bs.fpq.Insert(s, 0, svd, sQueryKey)
 	bs.bpq.Insert(t, 0, tvd, tQueryKey)
 
-	addViaVertex := func(uqk da.QueryKey, forward bool, overlay bool) {
-		u := uqk.GetNode()
-		if forward {
-			if bs.bpq.IsExplored(u) {
-				bs.viaVertices = append(bs.viaVertices, NewViaVertex(u, overlay))
-			}
-		} else {
-			if bs.fpq.IsExplored(u) {
-				bs.viaVertices = append(bs.viaVertices, NewViaVertex(u, overlay))
-			}
-		}
-	}
-
 	for bs.fpq.Size() > 0 && bs.bpq.Size() > 0 {
 		minForward := bs.fpq.GetMinrank()
 		minBackward := bs.bpq.GetMinrank()
@@ -150,11 +137,11 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 		if !uItem.IsOverlay() {
 			bs.fpq.Explore(uItem.GetNode())
 			bs.graphSearch(uItem, s, t, true, bs.fpq, bs.bpq)
-			addViaVertex(uItem, true, false)
+			bs.addViaVertex(uItem, true, false)
 		} else {
 			bs.fpq.Explore(uItem.GetNode())
 			bs.overlayGraphSearch(uItem, s, t, true, bs.fpq, bs.bpq)
-			addViaVertex(uItem, true, true)
+			bs.addViaVertex(uItem, true, true)
 		}
 
 		queryKey = bs.bpq.ExtractMin()
@@ -162,11 +149,11 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 		if !uItem.IsOverlay() {
 			bs.bpq.Explore(uItem.GetNode())
 			bs.graphSearch(uItem, s, t, false, bs.bpq, bs.fpq)
-			addViaVertex(uItem, false, false)
+			bs.addViaVertex(uItem, false, false)
 		} else {
 			bs.bpq.Explore(uItem.GetNode())
 			bs.overlayGraphSearch(uItem, s, t, false, bs.bpq, bs.fpq)
-			addViaVertex(uItem, false, true)
+			bs.addViaVertex(uItem, false, true)
 		}
 
 		bs.numExploredVertices += 2
@@ -426,6 +413,19 @@ func (bs *CRPQuery[W]) GetStats(n int) (float64, int, int64, int64) {
 
 	efficiency := float64(n) / float64(bs.numExploredVertices)
 	return efficiency, bs.numExploredVertices, bs.runtime, bs.pathUnpackingRuntime
+}
+
+func (bs *CRPQuery[W]) addViaVertex(uqk da.QueryKey, forward bool, overlay bool) {
+	u := uqk.GetNode()
+	if forward {
+		if bs.bpq.IsExplored(u) {
+			bs.viaVertices = append(bs.viaVertices, NewViaVertex(u, overlay))
+		}
+	} else {
+		if bs.fpq.IsExplored(u) {
+			bs.viaVertices = append(bs.viaVertices, NewViaVertex(u, overlay))
+		}
+	}
 }
 
 func (bs *CRPQuery[W]) SetMaxSearchRadiusSecs(maxSearchRadiusSecs float64) {

@@ -2,10 +2,11 @@
 package landmark
 
 import (
+	"cmp"
 	"errors"
 	"fmt"
 	"math"
-	"sort"
+	"slices"
 	"sync"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -80,9 +81,10 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 	// ini: sort Points by their initial bearing angles around a p0 (center point/coordinate)
 	// karena geographic coordinate, sort by initial bearing angle (sudut clockwise antara garis yang menghubungkan titik pivot ke other point dan garis meridian)
 
-	sort.Slice(vsCopy, func(i, j int) bool { // O(V * logV)
-		return geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[i].GetLat(), vsCopy[i].GetLon()) <
-			geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), vsCopy[j].GetLat(), vsCopy[j].GetLon())
+	slices.SortFunc(vsCopy, func(a, b da.Vertex) int {
+		ab := geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), a.GetLat(), a.GetLon())
+		bb := geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), b.GetLat(), b.GetLon())
+		return cmp.Compare(ab, bb)
 	})
 
 	pieSize := n / k
@@ -353,8 +355,8 @@ func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 	}
 
 	// O(k* logk), k = number of landmarks
-	sort.Slice(lowerBounds, func(i, j int) bool {
-		return lowerBounds[i].lb > lowerBounds[j].lb
+	slices.SortFunc(lowerBounds, func(a activeLandmark[W], b activeLandmark[W]) int {
+		return cmp.Compare(b.lb, a.lb)
 	})
 
 	lbs := lowerBounds[:min(len(lowerBounds), activeLandmarkSize)]

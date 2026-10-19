@@ -278,12 +278,6 @@ func (qh *QueryHeap[T, W]) IsEmpty() bool {
 	return len(qh.heap) == 0
 }
 
-func (qh *QueryHeap[T, W]) SetQueryLevel(id Index, qLevel uint8) {
-	mid := qh.mapId(id)
-	vIndex := qh.verticesIndex.Get(mid)
-	qh.verticesData[vIndex].parent.queryLevel = qLevel
-}
-
 //go:inline
 func (qh *QueryHeap[T, W]) IsExplored(id Index) bool {
 	mid := qh.mapId(id)
