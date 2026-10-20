@@ -5,7 +5,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type Edge[W util.RoutingNumber] struct {
+type Edge[W util.Numeric] struct {
 	weight    W
 	distance  uint32
 	fromOsmId uint64
@@ -55,7 +55,7 @@ func (e *Edge[W]) GetOsmWayId() int64 {
 	return e.osmwayId
 }
 
-func NewEdge[W util.RoutingNumber](
+func NewEdge[W util.Numeric](
 	from, to uint32,
 	weight W,
 	distance uint32,

@@ -6,7 +6,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type Dijkstra[W util.RoutingNumber] struct {
+type Dijkstra[W util.Numeric] struct {
 	engine  *CRPRoutingEngine[W]
 	metrics *met.Metric[W]
 
@@ -16,7 +16,7 @@ type Dijkstra[W util.RoutingNumber] struct {
 	useReversedEdges bool
 }
 
-func NewDijkstra[W util.RoutingNumber](
+func NewDijkstra[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 	useReversedEdges bool,
 ) Dijkstra[W] {

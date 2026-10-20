@@ -8,7 +8,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type DijkstraP2P[W util.RoutingNumber] struct {
+type DijkstraP2P[W util.Numeric] struct {
 	engine          *CRPRoutingEngine[W]
 	metrics         *met.Metric[W]
 	pq              *da.QueryHeap[da.QueryKey, W]
@@ -16,7 +16,7 @@ type DijkstraP2P[W util.RoutingNumber] struct {
 	numSettledNodes int
 }
 
-func NewDijkstraP2P[W util.RoutingNumber](
+func NewDijkstraP2P[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 ) DijkstraP2P[W] {
 	dj := DijkstraP2P[W]{

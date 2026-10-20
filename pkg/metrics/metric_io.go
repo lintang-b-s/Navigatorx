@@ -13,11 +13,11 @@ func (met *Metric[W]) WriteToFile(filename string) error {
 			return err
 		}
 		weights := met.shortcutWeights
-		return WriteRoutingNumbers(w, weights.GetWeights())
+		return WriteNumerics(w, weights.GetWeights())
 	})
 }
 
-func ReadFromFile[W util.RoutingNumber](
+func ReadFromFile[W util.Numeric](
 	filename, timeFunctionFilePath string,
 ) (*Metric[W], error) {
 	file, r, err := util.OpenCompressedFile(filename)
@@ -33,7 +33,7 @@ func ReadFromFile[W util.RoutingNumber](
 	if marker != expectedMarker {
 		return nil, fmt.Errorf("metric numeric representation %d does not match expected %d", marker, expectedMarker)
 	}
-	weights, err := ReadRoutingNumbers[W](r)
+	weights, err := ReadNumerics[W](r)
 	if err != nil {
 		return nil, fmt.Errorf("read metric weights: %w", err)
 	}

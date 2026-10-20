@@ -8,14 +8,14 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type Metric[W util.RoutingNumber] struct {
+type Metric[W util.Numeric] struct {
 	shortcutWeights                             *da.OverlayWeights[W]
 	costFunction                                *TimeFunction[W]
 	lastSegmentSpeedFiles, lastTurnPenaltyFiles []string
 	metricFilepath, timeFunctionFilePath        string
 }
 
-func NewMetric[W util.RoutingNumber](
+func NewMetric[W util.Numeric](
 	numOfVertices int,
 	timeFunctionFilePath string,
 	overlayWeights *da.OverlayWeights[W],

@@ -9,7 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type AlternativeRouteAlgorithm[W util.RoutingNumber] interface {
+type AlternativeRouteAlgorithm[W util.Numeric] interface {
 	ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, startEdgeId da.Index, optCost float64, optPath []da.Index,
 		crpQuery *routing.CRPQuery[W], param routing.AlternativeRouteParameters) ([]routing.AlternativeRoute, float64, int64)
 }

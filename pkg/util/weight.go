@@ -10,11 +10,11 @@ func SpeedFromKilometerPerHour(value float64) uint32 {
 	return uint32(speed)
 }
 
-func WeightToSeconds[W RoutingNumber](value W) float64 {
+func WeightToSeconds[W Numeric](value W) float64 {
 	return float64(value) / CentiScale
 }
 
-func WeightFromSeconds[W RoutingNumber](value float64) W {
+func WeightFromSeconds[W Numeric](value float64) W {
 	return W(RoundCentiseconds(value))
 }
 

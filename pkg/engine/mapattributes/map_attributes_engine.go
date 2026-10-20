@@ -17,7 +17,7 @@ import (
 )
 
 // MapAttributesEngine engine untuk get subset of RoadNetworkGraph yang berada didalam s2 level-15 cells. terinspirasi dari MapAttributes service: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
-type MapAttributesEngine[W util.RoutingNumber] struct {
+type MapAttributesEngine[W util.Numeric] struct {
 	g      *da.Graph
 	rn     *da.RoadNetworkDataContainer
 	met    *met.Metric[W]
@@ -25,7 +25,7 @@ type MapAttributesEngine[W util.RoutingNumber] struct {
 	logger *zap.Logger
 }
 
-func NewMapAttributesEngine[W util.RoutingNumber](graph *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger, met *met.Metric[W], idx *spatialindex.S2RoadSegmentsIndex) *MapAttributesEngine[W] {
+func NewMapAttributesEngine[W util.Numeric](graph *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger, met *met.Metric[W], idx *spatialindex.S2RoadSegmentsIndex) *MapAttributesEngine[W] {
 
 	engine := &MapAttributesEngine[W]{
 		g:      graph,

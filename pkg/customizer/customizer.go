@@ -17,7 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Customizer[W util.RoutingNumber] struct {
+type Customizer[W util.Numeric] struct {
 	ow           *da.OverlayWeights[W]
 	graph        *da.Graph
 	overlayGraph *da.OverlayGraph
@@ -50,7 +50,7 @@ func getCustomizerFilePath() (
 		base + ".ntf"
 }
 
-func NewCustomizer[W util.RoutingNumber](
+func NewCustomizer[W util.Numeric](
 	logger *zap.Logger) *Customizer[W] {
 	util.ActivateMode[W]()
 	gf, ogf, lmf, metf, tff := getCustomizerFilePath()
@@ -75,7 +75,7 @@ func (c *Customizer[W]) SetTurnPenaltiesFilePath(filePath []string) {
 	c.turnPenFilePath = filePath
 }
 
-func NewCustomizerDirect[W util.RoutingNumber](
+func NewCustomizerDirect[W util.Numeric](
 	graph *da.Graph,
 	overlayGraph *da.OverlayGraph,
 	prepWeightFunction *met.TimeFunction[W],
@@ -320,12 +320,12 @@ func (c *Customizer[W]) Build(wf *met.TimeFunction[W]) {
 	}
 }
 
-type cellCustomizationRes[W util.RoutingNumber] struct {
+type cellCustomizationRes[W util.Numeric] struct {
 	cost  W
 	index int
 }
 
-func NewCellCustomizationResult[W util.RoutingNumber](cost W, index int) cellCustomizationRes[W] {
+func NewCellCustomizationResult[W util.Numeric](cost W, index int) cellCustomizationRes[W] {
 	return cellCustomizationRes[W]{cost, index}
 }
 
@@ -424,9 +424,9 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 						if vCellNumber == cellNumber {
 
 							oldvCost := pq.GetCost(v)
-							ok := util.Lt(oldvCost, util.Infinity[W]())
-							if !ok || (ok && util.Lt(newVCost, oldvCost)) {
-								if ok {
+							vLabelled := util.Lt(oldvCost, util.Infinity[W]())
+							if !vLabelled || (vLabelled && util.Lt(newVCost, oldvCost)) {
+								if vLabelled {
 									pq.DecreaseKey(v, newVCost, newVCost, noPar)
 								} else {
 									vVertexData := da.NewVData(newVCost, noPar)

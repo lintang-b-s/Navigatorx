@@ -15,7 +15,7 @@ const (
 )
 
 // NumericMarker identifies the concrete generic number stored in an artifact.
-func NumericMarker[W util.RoutingNumber]() uint8 {
+func NumericMarker[W util.Numeric]() uint8 {
 	var zero W
 	switch any(zero).(type) {
 	case int32:
@@ -29,8 +29,8 @@ func NumericMarker[W util.RoutingNumber]() uint8 {
 	}
 }
 
-// WriteRoutingNumbers writes a typed numeric slice without per-element boxing.
-func WriteRoutingNumbers[W util.RoutingNumber](w *util.BinaryWriter, values []W) error {
+// WriteNumerics writes a typed numeric slice without per-element boxing.
+func WriteNumerics[W util.Numeric](w *util.BinaryWriter, values []W) error {
 	switch typed := any(values).(type) {
 	case []int32:
 		return w.WriteInt32s(typed)
@@ -43,8 +43,8 @@ func WriteRoutingNumbers[W util.RoutingNumber](w *util.BinaryWriter, values []W)
 	}
 }
 
-// ReadRoutingNumbers reads a typed numeric slice without per-element boxing.
-func ReadRoutingNumbers[W util.RoutingNumber](r *util.BinaryReader) ([]W, error) {
+// ReadNumerics reads a typed numeric slice without per-element boxing.
+func ReadNumerics[W util.Numeric](r *util.BinaryReader) ([]W, error) {
 	var zero W
 
 	var vals any
@@ -75,7 +75,7 @@ func (tf *TimeFunction[W]) WriteToFile(filename string) error {
 		if err := w.Bool(tf.isRoadNetwork); err != nil {
 			return err
 		}
-		if err := WriteRoutingNumbers[W](w, tf.weights); err != nil {
+		if err := WriteNumerics[W](w, tf.weights); err != nil {
 			return err
 		}
 		if err := w.WriteUint32s(tf.segmentLengths); err != nil {
@@ -91,7 +91,7 @@ func (tf *TimeFunction[W]) WriteToFile(filename string) error {
 	})
 }
 
-func ReadCostFunctionFromFile[W util.RoutingNumber](
+func ReadCostFunctionFromFile[W util.Numeric](
 	filename string,
 ) (*TimeFunction[W], error) {
 	file, r, err := util.OpenCompressedFile(filename)
@@ -115,7 +115,7 @@ func ReadCostFunctionFromFile[W util.RoutingNumber](
 	if err != nil {
 		return nil, fmt.Errorf("read time-function road-network flag: %w", err)
 	}
-	weights, err := ReadRoutingNumbers[W](r)
+	weights, err := ReadNumerics[W](r)
 	if err != nil {
 		return nil, fmt.Errorf("read time-function default weights: %w", err)
 	}

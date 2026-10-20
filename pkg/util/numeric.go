@@ -8,7 +8,7 @@ import (
 	"github.com/bytedance/gopkg/util/gopool"
 )
 
-type RoutingNumber interface {
+type Numeric interface {
 	cmp.Ordered
 	~int32 | ~float64 | ~int64
 }
@@ -26,7 +26,7 @@ var (
 	USE_INT64 = false
 )
 
-func Infinity[T RoutingNumber]() T {
+func Infinity[T Numeric]() T {
 	switch USE_INT32 {
 	case true:
 		return T(INF_WEIGHT_FIXED)
@@ -80,7 +80,7 @@ const (
 )
 
 // equal operator
-func Eq[T RoutingNumber](a, b T) bool {
+func Eq[T Numeric](a, b T) bool {
 	if USE_INT32 || USE_INT64 {
 		return a == b
 	}
@@ -88,7 +88,7 @@ func Eq[T RoutingNumber](a, b T) bool {
 }
 
 // equal operator
-func EqEps[T RoutingNumber](a, b, eps T) bool {
+func EqEps[T Numeric](a, b, eps T) bool {
 	if USE_INT32 || USE_INT64 {
 		return a == b
 	}
@@ -96,7 +96,7 @@ func EqEps[T RoutingNumber](a, b, eps T) bool {
 }
 
 // less than operator. a<b
-func Lt[T RoutingNumber](a, b T) bool {
+func Lt[T Numeric](a, b T) bool {
 	if USE_INT32 || USE_INT64 {
 		return a < b
 	}
@@ -104,30 +104,23 @@ func Lt[T RoutingNumber](a, b T) bool {
 }
 
 // greater than or equal to operator
-func Ge[T RoutingNumber](a, b T) bool {
+func Ge[T Numeric](a, b T) bool {
 	return Le(b, a)
 }
 
-func Gt[T RoutingNumber](a, b T) bool {
+func Gt[T Numeric](a, b T) bool {
 	return Lt(b, a)
 }
 
 // less than or equal operator
-func Le[T RoutingNumber](a, b T) bool {
+func Le[T Numeric](a, b T) bool {
 	if USE_INT32 || USE_INT64 {
 		return a <= b
 	}
 	return float64(a) <= float64(b)+EPS
 }
 
-func ClampMin(a, b int) int {
-	if a < b {
-		return b
-	}
-	return a
-}
-
-func ActivateMode[W RoutingNumber]() {
+func ActivateMode[W Numeric]() {
 	gopool.SetCap(int32(runtime.NumCPU()))
 
 	var zero W

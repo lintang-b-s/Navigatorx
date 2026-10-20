@@ -12,7 +12,7 @@ import (
 // kumpulan helper functions untuk process via-node turn restrictions & (multi)-via-way turn-restrictions dari OpenStreetMap
 // addTwoWayTurnCost. add turn cost untuk u-turn di two-way osm way (road segment).
 // didaptasi dari https://github.com/michaelwegner/CRP/blob/master/io/OSMParser.cpp
-func addTwoWayTurnCost[W util.RoutingNumber](p *Extractor[W], wayId int64, way osmWay, outEdges [][]da.Index,
+func addTwoWayTurnCost[W util.Numeric](p *Extractor[W], wayId int64, way osmWay, outEdges [][]da.Index,
 	inEdges [][]da.Index, turnMatrices [][]pkg.TurnType, outDegree []int) {
 	/*
 		misal osm way (twoway):
@@ -166,7 +166,7 @@ func addTwoWayTurnCost[W util.RoutingNumber](p *Extractor[W], wayId int64, way o
 
 // handler via-node turn restriction
 // didaptasi dari https://github.com/michaelwegner/CRP/blob/master/io/OSMParser.cpp
-func addViaNodeTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int64, way osmWay, fromNodes []da.Index, restriction restriction, fromResId int, outEdges [][]da.Index,
+func addViaNodeTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way osmWay, fromNodes []da.Index, restriction restriction, fromResId int, outEdges [][]da.Index,
 	inEdges [][]da.Index, outDegree []int, vertices []da.Vertex, turnMatrices [][]pkg.TurnType, conditionalTurnRestrictions *[]da.ConditionalTurnRestriction,
 	isParallelOutEdge, isParallelInEdge [][]bool) {
 	/*
@@ -401,7 +401,7 @@ type parallelViaKey struct {
 }
 
 // addParallelViaEdges. add parallel via-edges for each via-ways
-func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way osmWay, newDataId int, outEdges [][]da.Index, inEdges [][]da.Index,
+func addParallelViaEdges[W util.Numeric](p *Extractor[W], wayId int64, way osmWay, newDataId int, outEdges [][]da.Index, inEdges [][]da.Index,
 	entryPointsAdjList, exitPointsAdjList [][]uint8, rn *da.RoadNetworkDataContainer,
 	segmentDataIds [][]da.Index, outWeights [][]W, outLengths, inLengths [][]uint32, outDegree, inDegree []int, isParallelOutEdge, isParallelInEdge [][]bool,
 	parallelViaEdges map[parallelViaKey]da.Index,
@@ -600,7 +600,7 @@ func addParallelViaEdges[W util.RoutingNumber](p *Extractor[W], wayId int64, way
 
 // addViaWayTurnRestriction.  handler via-way turn restriction (dan multiple via-ways turn restriction)
 // restriction is one via-way (or via-ways) turn restriction from wayId
-func addViaWayTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int64, way osmWay, fromNodes []da.Index, restriction restriction, fromResId int, outEdges [][]da.Index,
+func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way osmWay, fromNodes []da.Index, restriction restriction, fromResId int, outEdges [][]da.Index,
 	inEdges [][]da.Index, rn *da.RoadNetworkDataContainer, segmentDataIds [][]da.Index, turnMatrices [][]pkg.TurnType, outDegree, inDegree []int, isParallelOutEdge, isParallelInEdge [][]bool,
 	parallelViaEdges map[parallelViaKey]da.Index) {
 	if !IsNotAllowedToTurnType(restriction.turnRestriction) || restriction.conditional {
@@ -893,7 +893,7 @@ func addViaWayTurnRestriction[W util.RoutingNumber](p *Extractor[W], wayId int64
 	}
 }
 
-func setConditionalRestrictions[W util.RoutingNumber](p *Extractor[W], roadNetwork bool, graph *da.Graph, rn *da.RoadNetworkDataContainer,
+func setConditionalRestrictions[W util.Numeric](p *Extractor[W], roadNetwork bool, graph *da.Graph, rn *da.RoadNetworkDataContainer,
 	conditionalTurnRestrictions []da.ConditionalTurnRestriction,
 ) {
 	conditionalReversibleEdges := make([]da.ConditionalReversibleEdge, 0)

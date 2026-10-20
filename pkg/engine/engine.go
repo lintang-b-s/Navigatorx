@@ -14,7 +14,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Engine[W util.RoutingNumber] struct {
+type Engine[W util.Numeric] struct {
 	re *routing.CRPRoutingEngine[W]
 }
 
@@ -35,7 +35,7 @@ func getEngineFilePath() (
 		base + "_road_network.ndata"
 }
 
-func NewEngine[W util.RoutingNumber](logger *zap.Logger) (*Engine[W], error) {
+func NewEngine[W util.Numeric](logger *zap.Logger) (*Engine[W], error) {
 	util.ActivateMode[W]()
 	gf, ogf, lmf, metf, tff, rnf := getEngineFilePath()
 	re, err := initializeRoutingEngine[W](gf, ogf, rnf, metf, lmf, tff,
@@ -50,7 +50,7 @@ func NewEngine[W util.RoutingNumber](logger *zap.Logger) (*Engine[W], error) {
 
 // NewEngineDirect yang ini gak perlu read dari file, karena pakai CustomizeDirect
 
-func initializeRoutingEngine[W util.RoutingNumber](graphFilePath, overlayGraphFilePath, rndContainerFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath string, logger *zap.Logger,
+func initializeRoutingEngine[W util.Numeric](graphFilePath, overlayGraphFilePath, rndContainerFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath string, logger *zap.Logger,
 ) (*routing.CRPRoutingEngine[W],
 	error) {
 
@@ -94,7 +94,7 @@ func (e *Engine[W]) InitBackgroundWorker(ctx context.Context) {
 	e.re.InitBackgroundWorker(ctx)
 }
 
-func NewEngineDirect[W util.RoutingNumber](
+func NewEngineDirect[W util.Numeric](
 	graph *da.Graph,
 	rn *da.RoadNetworkDataContainer,
 	overlayGraph *da.OverlayGraph,

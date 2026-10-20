@@ -41,8 +41,11 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(midv da.Index, fpq *da
 
 	mvData := fpq.Get(midv)
 	vPar := mvData.GetParent()
-	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
+	for {
 		parv := vPar.GetVertex()
+		if parv == da.INVALID_VERTEX_ID {
+			break
+		}
 		pv := parv
 		if vPar.IsOverlayVertex() {
 			aparv := crp.adjustoffsetOverlay(parv)
@@ -61,8 +64,11 @@ func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(midv da.Index, bpq *d
 
 	mvData := bpq.Get(midv)
 	vPar := mvData.GetParent()
-	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
+	for {
 		parv := vPar.GetVertex()
+		if parv == da.INVALID_VERTEX_ID {
+			break
+		}
 		pv := parv
 		if vPar.IsOverlayVertex() {
 			aparv := crp.adjustoffsetOverlay(parv)
@@ -79,8 +85,11 @@ func (crp *CRPRoutingEngine[W]) precomputeSize(midv da.Index, fpq, bpq *da.Query
 	c := 0
 	mvData := fpq.Get(midv)
 	vPar := mvData.GetParent()
-	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
+	for {
 		parv := vPar.GetVertex()
+		if parv == da.INVALID_VERTEX_ID {
+			break
+		}
 		vData := fpq.Get(parv)
 		vPar = vData.GetParent()
 		c++
@@ -88,8 +97,11 @@ func (crp *CRPRoutingEngine[W]) precomputeSize(midv da.Index, fpq, bpq *da.Query
 
 	mvData = bpq.Get(midv)
 	vPar = mvData.GetParent()
-	for vPar.GetVertex() != da.INVALID_VERTEX_ID {
+	for {
 		parv := vPar.GetVertex()
+		if parv == da.INVALID_VERTEX_ID {
+			break
+		}
 		vData := bpq.Get(parv)
 		c++
 		vPar = vData.GetParent()

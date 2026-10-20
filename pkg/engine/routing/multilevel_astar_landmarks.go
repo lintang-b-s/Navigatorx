@@ -9,7 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type CRPALTQuery[W util.RoutingNumber] struct {
+type CRPALTQuery[W util.Numeric] struct {
 	engine  *CRPRoutingEngine[W]
 	metrics *met.Metric[W]
 	lm      *landmark.Landmark[W]
@@ -34,7 +34,7 @@ type CRPALTQuery[W util.RoutingNumber] struct {
 	pathUnpackingRuntime       int64
 }
 
-func NewCRPALTQuery[W util.RoutingNumber](
+func NewCRPALTQuery[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 ) *CRPALTQuery[W] {
 	crpQuery := &CRPALTQuery[W]{

@@ -16,7 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Landmark[W util.RoutingNumber] struct {
+type Landmark[W util.Numeric] struct {
 	lw        []W
 	vlw       []W
 	landmarks []da.Index
@@ -24,7 +24,7 @@ type Landmark[W util.RoutingNumber] struct {
 	k         da.Index
 }
 
-func NewLandmark[W util.RoutingNumber]() *Landmark[W] {
+func NewLandmark[W util.Numeric]() *Landmark[W] {
 	lm := &Landmark[W]{}
 	lm.lw = []W{}
 	lm.vlw = []W{}
@@ -131,12 +131,12 @@ func (qp *queryParam) getSid() da.Index {
 	return qp.sid
 }
 
-type queryRet[W util.RoutingNumber] struct {
+type queryRet[W util.Numeric] struct {
 	il  int
 	sps []W
 }
 
-func newQueryRet[W util.RoutingNumber](il int, sps []W) queryRet[W] {
+func newQueryRet[W util.Numeric](il int, sps []W) queryRet[W] {
 	return queryRet[W]{il, sps}
 }
 
@@ -298,7 +298,7 @@ activeLandmarks berisi list index dari active query landmark (list index dari lm
 */
 //go:inline
 func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) W {
-	// O(k), k = number of landmarks
+	// O(k), k = number of active landmarks
 	tighestLowerBound := -util.Infinity[W]()
 
 	for i := 0; i < len(activeLandmarks); i++ {
@@ -325,12 +325,12 @@ func (lm *Landmark[W]) ComputeLowerBound(lid, u, t da.Index) W {
 	return max(lbOne, lbTwo)
 }
 
-type activeLandmark[W util.RoutingNumber] struct {
+type activeLandmark[W util.Numeric] struct {
 	i  da.Index
 	lb W
 }
 
-func newActiveLandmark[W util.RoutingNumber](i da.Index, lb W) activeLandmark[W] {
+func newActiveLandmark[W util.Numeric](i da.Index, lb W) activeLandmark[W] {
 	return activeLandmark[W]{i, lb}
 }
 

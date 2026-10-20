@@ -2,7 +2,6 @@ package partitioner
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 const (
@@ -21,9 +20,9 @@ const (
 
 var (
 	// 	https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
-	INERTIAL_FLOW_WORKERS = util.ClampMin(pkg.NUM_CPU/4, 1)
-	BISECTION_WORKERS     = util.ClampMin(pkg.NUM_CPU/6, 1)
-	LEVEL_WORKERS         = util.ClampMin(pkg.NUM_CPU/6, 1)
+	INERTIAL_FLOW_WORKERS = max(pkg.NUM_CPU/4, 1)
+	BISECTION_WORKERS     = max(pkg.NUM_CPU/6, 1)
+	LEVEL_WORKERS         = max(pkg.NUM_CPU/6, 1)
 )
 
 type PartitionQuality string

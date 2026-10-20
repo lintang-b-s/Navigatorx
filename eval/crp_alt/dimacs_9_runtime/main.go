@@ -170,7 +170,7 @@ func main() {
 		if err != nil {
 			panic(fmt.Errorf("err: %w", err))
 		}
-		// di navigatorx versi v0.1.2, weight dari setiap edges pakai tipe generic util.RoutingNumber
+		// di navigatorx versi v0.1.2, weight dari setiap edges pakai tipe generic util.Numeric
 		// dan untuk koordinat dari setiap node, kita pakai int32 (lat * 10^7, lon * 10^7) untuk input openstreetmap, buat save space kaya osrm.
 		// dan karena di dimacs 9th implementation challenge ini koordinat nya bisa lebih dair 10^8, kita bagi 10^8 biar gak overflow int32
 

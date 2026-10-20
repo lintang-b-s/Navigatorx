@@ -10,7 +10,7 @@ import (
 )
 
 // ALTP2P .
-type ALTP2P[W util.RoutingNumber] struct {
+type ALTP2P[W util.Numeric] struct {
 	engine          *CRPRoutingEngine[W]
 	metrics         *metrics.Metric[W]
 	lm              *landmark.Landmark[W]
@@ -20,7 +20,7 @@ type ALTP2P[W util.RoutingNumber] struct {
 	numSettledNodes int
 }
 
-func NewALTP2P[W util.RoutingNumber](
+func NewALTP2P[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 ) ALTP2P[W] {
 	dj := ALTP2P[W]{

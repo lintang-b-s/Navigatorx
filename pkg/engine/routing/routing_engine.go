@@ -15,7 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type CRPRoutingEngine[W util.RoutingNumber] struct {
+type CRPRoutingEngine[W util.Numeric] struct {
 	graph        *da.Graph
 	overlayGraph *da.OverlayGraph
 	rn           *da.RoadNetworkDataContainer
@@ -49,7 +49,7 @@ type CRPRoutingEngine[W util.RoutingNumber] struct {
 	unpackerForAlternativeRoutesWorkers int
 }
 
-func NewCRPRoutingEngine[W util.RoutingNumber](graph *da.Graph,
+func NewCRPRoutingEngine[W util.Numeric](graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric[W],
 	logger *zap.Logger, puCache *otter.Cache[da.PUCacheKey, []da.Index],
 	landmarkFile string, rn *da.RoadNetworkDataContainer,
@@ -263,7 +263,6 @@ func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.Pha
 func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index) (*da.Coordinates, float64) {
 
 	totalDistance := 0.0
-
 	n := len(segmentIdPath)
 	size := da.Index(0)
 	for i := 1; i < n-1; i++ { // skip road segments s & t. (kita append path nya di AppendPhantomNode)

@@ -13,7 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
-type Preprocessor[W util.RoutingNumber] struct {
+type Preprocessor[W util.Numeric] struct {
 	graph                                                                              *da.Graph
 	rn                                                                                 *da.RoadNetworkDataContainer
 	mlp                                                                                *da.MultilevelPartition
@@ -34,7 +34,7 @@ func getPrepFilePath(fileType pkg.FILE_TYPE) (graph, overlayGraph, roadNetwork s
 		base + "_road_network.ndata"
 }
 
-func NewPreprocessor[W util.RoutingNumber](graph *da.Graph, rn *da.RoadNetworkDataContainer, timeFunction *met.TimeFunction[W], mlp *da.MultilevelPartition,
+func NewPreprocessor[W util.Numeric](graph *da.Graph, rn *da.RoadNetworkDataContainer, timeFunction *met.TimeFunction[W], mlp *da.MultilevelPartition,
 	logger *zap.Logger,
 ) *Preprocessor[W] {
 	gf, ogf, rnf := getPrepFilePath(pkg.TIPE)

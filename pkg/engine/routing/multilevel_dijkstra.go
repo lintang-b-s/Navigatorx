@@ -9,7 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type CRPQuery[W util.RoutingNumber] struct {
+type CRPQuery[W util.Numeric] struct {
 	engine               *CRPRoutingEngine[W]
 	metrics              *met.Metric[W]
 	lm                   *landmark.Landmark[W]
@@ -32,7 +32,7 @@ type CRPQuery[W util.RoutingNumber] struct {
 	reroute         bool
 }
 
-func NewCRPQuery[W util.RoutingNumber](
+func NewCRPQuery[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 ) *CRPQuery[W] {
 	crpQuery := &CRPQuery[W]{
@@ -170,11 +170,11 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 	bs.runtime = dur
 
 	unpacker := newPathUnpackerALT(bs.engine, bs.metrics, bs.lm, true)
-	edgeIdPath := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
+	vPath := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.scpSet = unpacker.scSet
 	bs.pathUnpackingRuntime = unpacker.runtime
 
-	return bs.shortestCost, edgeIdPath, true
+	return bs.shortestCost, vPath, true
 }
 
 /*

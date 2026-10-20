@@ -15,7 +15,7 @@ func PrepTimeFunctionPath() string {
 	return fpath
 }
 
-type TimeFunction[W util.RoutingNumber] struct {
+type TimeFunction[W util.Numeric] struct {
 	weights          []W      // centisecond (if the input is openstreetmap file). weight of each graph edge indexed by its edge id.
 	segmentLengths   []uint32 // centimeter. length of each road segment.
 	segmentDurations []uint32 // centisecond. duration of each road segments.
@@ -23,7 +23,7 @@ type TimeFunction[W util.RoutingNumber] struct {
 	isRoadNetwork    bool
 }
 
-func NewTimeCostFunction[W util.RoutingNumber](
+func NewTimeCostFunction[W util.Numeric](
 	roadNetwork bool,
 	weights []W,
 	segmentLengths []uint32,
@@ -38,7 +38,7 @@ func NewTimeCostFunction[W util.RoutingNumber](
 	}
 }
 
-func NewTimeCostFunctionEmpty[W util.RoutingNumber]() *TimeFunction[W] {
+func NewTimeCostFunctionEmpty[W util.Numeric]() *TimeFunction[W] {
 	return &TimeFunction[W]{}
 }
 

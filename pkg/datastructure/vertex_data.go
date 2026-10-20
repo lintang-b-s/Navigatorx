@@ -30,13 +30,13 @@ func NewParentVertex(vertex Index) ParentVertex {
 	}
 }
 
-type VertexData[W util.RoutingNumber] struct {
+type VertexData[W util.Numeric] struct {
 	parent     ParentVertex
 	cost       W
 	heapNodeId Index // 4 byte
 }
 
-func NewVData[W util.RoutingNumber](cost W, parent ParentVertex) VertexData[W] {
+func NewVData[W util.Numeric](cost W, parent ParentVertex) VertexData[W] {
 	return VertexData[W]{
 		cost:       cost,
 		parent:     parent,

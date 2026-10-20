@@ -2,11 +2,10 @@ package landmark
 
 import (
 	"github.com/lintang-b-s/Navigatorx/pkg"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 var (
 	// 	https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
-	WORKERS          = util.ClampMin(pkg.NUM_CPU/4, 1)
+	WORKERS          = max(pkg.NUM_CPU/4, 1)
 	landmarkChanSize = 4
 )

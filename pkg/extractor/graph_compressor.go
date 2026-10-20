@@ -230,7 +230,7 @@ func (p *Extractor[W]) merge(inEdges, outEdges [][]int, compEdgesSet *bitset.Bit
 }
 
 // mergeOsmSegments combines  edges into a single edge.
-func mergeOsmSegments[W util.RoutingNumber](
+func mergeOsmSegments[W util.Numeric](
 	edges []Edge[W],
 	rn *da.RoadNetworkDataContainer,
 	edgeIds []int,
@@ -342,7 +342,7 @@ const (
 // OSM way IDs intentionally do not need to match. Adjacent ways may be merged
 // when their road metadata, direction, speed, and geometry describe the same
 // continuous road.
-func canCompress[W util.RoutingNumber](
+func canCompress[W util.Numeric](
 	inEdge, outEdge *Edge[W],
 	rn *da.RoadNetworkDataContainer,
 	inID, outID da.Index,
@@ -374,7 +374,7 @@ func canCompress[W util.RoutingNumber](
 	return isSameSpeed(inEdge, outEdge, waySpeeds)
 }
 
-func isSameSpeed[W util.RoutingNumber](inEdge *Edge[W], outEdge *Edge[W], waySpeeds map[int64]float64) bool {
+func isSameSpeed[W util.Numeric](inEdge *Edge[W], outEdge *Edge[W], waySpeeds map[int64]float64) bool {
 	inSpeed, hasInSpeed := waySpeeds[inEdge.osmwayId]
 	outSpeed, hasOutSpeed := waySpeeds[outEdge.osmwayId]
 
@@ -384,7 +384,7 @@ func isSameSpeed[W util.RoutingNumber](inEdge *Edge[W], outEdge *Edge[W], waySpe
 
 // cycleCheck. find cycle of contractible vertices using dfs.
 // inspired from cycle detection code cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch4/traversal/cyclecheck.cpp
-func cycleCheck[W util.RoutingNumber](u uint32, dfsState []int, outEdges [][]int, edges []Edge[W], contractible []bool) (bool, uint32) {
+func cycleCheck[W util.Numeric](u uint32, dfsState []int, outEdges [][]int, edges []Edge[W], contractible []bool) (bool, uint32) {
 	dfsState[u] = explored
 	for _, eId := range outEdges[u] {
 		v := edges[eId].to

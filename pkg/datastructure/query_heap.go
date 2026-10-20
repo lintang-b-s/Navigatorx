@@ -9,7 +9,7 @@ import (
 // inspired by OSRM QueryHeap https://github.com/Project-OSRM/osrm-backend/blob/master/include/util/query_heap.hpp
 // and from implicit 4-ary min-heap code implementation of this paper: https://sidsen.azurewebsites.net//papers/heaps-alenex14.pdf (code: http://code.google.com/p/priority-queue-testing/)
 
-type QueryHeap[T comparable, W util.RoutingNumber] struct {
+type QueryHeap[T comparable, W util.Numeric] struct {
 	heap         []PriorityQueueNode[T, W] // implicit 4-ary min-heap
 	verticesData []VertexData[W]           // contains cost, parent, heapNodeId (index dari heapNode di 4-ary minheap array) for all vertices inserted into the min-heap.
 
@@ -30,7 +30,7 @@ type QueryHeap[T comparable, W util.RoutingNumber] struct {
 	numVertices         Index // graph.NumberOfVertices()
 }
 
-func NewQueryHeap[T comparable, W util.RoutingNumber](baseSize Index, tipe IndexStorageType) *QueryHeap[T, W] {
+func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorageType) *QueryHeap[T, W] {
 
 	approxMaxSearchSize := Index(BASE_VERTICES_SIZE)
 	minHeap := make([]PriorityQueueNode[T, W], 0, approxMaxSearchSize)
@@ -398,7 +398,7 @@ func NewQKey(node Index, queryLevel uint8, overlay bool) QueryKey {
 	return QueryKey{node: node, queryLevel: queryLevel, overlay: overlay}
 }
 
-type PriorityQueueNode[T comparable, W util.RoutingNumber] struct {
+type PriorityQueueNode[T comparable, W util.Numeric] struct {
 	item        T
 	rank        W
 	vertexIndex Index
@@ -416,6 +416,6 @@ func (p *PriorityQueueNode[T, W]) SetRank(rank W) {
 	p.rank = rank
 }
 
-func NewPriorityQueueNode[T comparable, W util.RoutingNumber](rank W, item T, vIndex Index) PriorityQueueNode[T, W] {
+func NewPriorityQueueNode[T comparable, W util.Numeric](rank W, item T, vIndex Index) PriorityQueueNode[T, W] {
 	return PriorityQueueNode[T, W]{rank: rank, item: item, vertexIndex: vIndex}
 }

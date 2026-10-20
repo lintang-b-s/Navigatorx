@@ -12,7 +12,7 @@ pC = number of entry points (vertex that have at least one incoming edge that po
 fC = poisition in OverlayWeights.weights where the first entry of cell C is represented
 shortcut between i-th entry point and the j-th exit point of cell C will be stored in W [fC + iqC + j].
 */
-type OverlayWeights[W util.RoutingNumber] struct {
+type OverlayWeights[W util.Numeric] struct {
 	weights []W
 }
 
@@ -37,7 +37,7 @@ func (ow *OverlayWeights[W]) SetWeight(index int, weight W) {
 	ow.weights[index] = weight
 }
 
-func NewOverlayWeights[W util.RoutingNumber](weightVectorSize uint32) *OverlayWeights[W] {
+func NewOverlayWeights[W util.Numeric](weightVectorSize uint32) *OverlayWeights[W] {
 	weights := make([]W, weightVectorSize)
 	for i := range weights {
 		weights[i] = util.Infinity[W]()

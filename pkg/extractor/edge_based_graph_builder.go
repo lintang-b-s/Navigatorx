@@ -23,7 +23,7 @@ weightFunction: weight (duration/travel time) of each edges of node-based graph
 
 only for road network OpenStreetMap input file.
 */
-func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction[W],
+func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	vTurnTableIds []da.Index, turnMatrix []pkg.TurnType, rn *da.RoadNetworkDataContainer) (*da.Graph, *met.TimeFunction[W], []uint64) {
 	ebgvNum := da.Index(g.NumberOfEdges())
 	ebgVertices := make([]da.Vertex, ebgvNum+1)
@@ -130,7 +130,7 @@ func BuildEdgeBasedGraph[W util.RoutingNumber](g *da.Graph, wf *met.TimeFunction
 
 // makeTurnTable builds turn costs using edge speeds converted to meters per second.
 // only for road network OpenStreetMap input file.
-func makeTurnTable[W util.RoutingNumber](
+func makeTurnTable[W util.Numeric](
 	turnMatrix []pkg.TurnType, wf *met.TimeFunction[W],
 	g *da.Graph, rn *da.RoadNetworkDataContainer, eSpeedLimit []uint32,
 	vTurnTableIds []da.Index,

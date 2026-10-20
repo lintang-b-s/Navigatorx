@@ -8,7 +8,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-type Dijkstra[W util.RoutingNumber] struct {
+type Dijkstra[W util.Numeric] struct {
 	graph *da.Graph
 	cf    *met.TimeFunction[W]
 
@@ -19,7 +19,7 @@ type Dijkstra[W util.RoutingNumber] struct {
 	numSettledNodes int
 }
 
-func NewDijkstra[W util.RoutingNumber](graph *da.Graph, cf *met.TimeFunction[W], useReverseGraph bool) *Dijkstra[W] {
+func NewDijkstra[W util.Numeric](graph *da.Graph, cf *met.TimeFunction[W], useReverseGraph bool) *Dijkstra[W] {
 	dj := &Dijkstra[W]{
 		graph:           graph,
 		useReverseGraph: useReverseGraph,

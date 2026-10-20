@@ -26,7 +26,7 @@ import (
 // lihat head dari parallel edge: https://www.openstreetmap.org/node/8445759311#map=19/-7.568314/110.815814
 
 // Extractor OpenStreetMap road network data parser & build node-based graph, then converting the node-based graph to edge-based graph.
-type Extractor[W util.RoutingNumber] struct {
+type Extractor[W util.Numeric] struct {
 	wayNodeMap        map[int64]nodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
 	relationMemberMap map[int64]struct{}
 	barrierNodes      map[int64]bool // osm node Id -> barrier node flag
@@ -50,7 +50,7 @@ type Extractor[W util.RoutingNumber] struct {
 	conditionalTrafficModesVal   map[int64]string
 }
 
-func NewExtractor[W util.RoutingNumber]() *Extractor[W] {
+func NewExtractor[W util.Numeric]() *Extractor[W] {
 	p := &Extractor[W]{
 		wayNodeMap:        make(map[int64]nodeWithCoord),
 		relationMemberMap: make(map[int64]struct{}),

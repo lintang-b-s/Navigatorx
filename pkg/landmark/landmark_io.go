@@ -29,14 +29,14 @@ func (lm *Landmark[W]) WriteLandmark(filename string, n int) error {
 				return err
 			}
 		}
-		if err := met.WriteRoutingNumbers(w, lw); err != nil {
+		if err := met.WriteNumerics(w, lw); err != nil {
 			return err
 		}
-		return met.WriteRoutingNumbers(w, vlw)
+		return met.WriteNumerics(w, vlw)
 	})
 }
 
-func ReadLandmark[W util.RoutingNumber](
+func ReadLandmark[W util.Numeric](
 	filename string,
 ) (*Landmark[W], error) {
 	file, r, err := util.OpenCompressedFile(filename)
@@ -68,11 +68,11 @@ func ReadLandmark[W util.RoutingNumber](
 		}
 		landmarks[i] = da.Index(value)
 	}
-	lw, err := met.ReadRoutingNumbers[W](r)
+	lw, err := met.ReadNumerics[W](r)
 	if err != nil {
 		return nil, err
 	}
-	vlw, err := met.ReadRoutingNumbers[W](r)
+	vlw, err := met.ReadNumerics[W](r)
 	if err != nil {
 		return nil, err
 	}

@@ -30,13 +30,13 @@ func NewAlternativeRouteParameters(gamma, alpha, epsilon, upperBound float64,
 	}
 }
 
-type AlternativeRouteSearch[W util.RoutingNumber] struct {
+type AlternativeRouteSearch[W util.Numeric] struct {
 	re      *CRPRoutingEngine[W]
 	metrics *met.Metric[W]
 	lm      *landmark.Landmark[W]
 }
 
-func NewAlternativeRouteSearch[W util.RoutingNumber](
+func NewAlternativeRouteSearch[W util.Numeric](
 	re *CRPRoutingEngine[W],
 ) *AlternativeRouteSearch[W] {
 	alt := &AlternativeRouteSearch[W]{
@@ -255,7 +255,7 @@ func (ars *AlternativeRouteSearch[W]) differToOtherAlternatives(oAlts [][]da.Ind
 	return minDist >= minAltsDiversity
 }
 
-type AlternativeRouteFilter[W util.RoutingNumber] struct {
+type AlternativeRouteFilter[W util.Numeric] struct {
 	ars                      *AlternativeRouteSearch[W]
 	fpq, bpq                 *da.QueryHeap[da.QueryKey, W]
 	sCellNumber, tCellNumber da.Pv
@@ -267,7 +267,7 @@ type AlternativeRouteFilter[W util.RoutingNumber] struct {
 	unpacker                 *PathUnpackerALT[W]
 }
 
-func NewAlternativeRouteFilter[W util.RoutingNumber](ars *AlternativeRouteSearch[W],
+func NewAlternativeRouteFilter[W util.Numeric](ars *AlternativeRouteSearch[W],
 	fpq, bpq *da.QueryHeap[da.QueryKey, W],
 	sCellNumber, tCellNumber da.Pv,
 	s, t da.Index,
