@@ -99,7 +99,6 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	t.Logf("Preprocessing completed successfully.")
 
 	custom := customizer.NewCustomizer[int32](logger)
-
 	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)

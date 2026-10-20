@@ -30,6 +30,10 @@ func NewBinaryReaderSize(r io.Reader, size int) *BinaryReader {
 	return &BinaryReader{r: bufio.NewReaderSize(r, size)}
 }
 
+func (r *BinaryReader) GetReader() *bufio.Reader {
+	return r.r
+}
+
 func (r *BinaryReader) read(size int) ([]byte, error) {
 	_, err := io.ReadFull(r.r, r.buf[:size])
 	return r.buf[:size], err

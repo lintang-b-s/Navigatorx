@@ -65,11 +65,13 @@ func main() {
 		panic(err)
 	}
 	re := eng.GetRoutingEngine()
-	rtree := spatialindex.NewRtree()
-	graph := re.GetGraph()
-	rn := re.GetRoadNetworkContainer()
 
-	rtree.Build(re.GetGraph(), rn, logger)
+	rn := re.GetRoadNetworkContainer()
+	graph := re.GetGraph()
+	rtree, err := spatialindex.ReadRtreeFromFile(logger)
+	if err != nil {
+		panic(err)
+	}
 
 	api := http.NewServer(logger)
 

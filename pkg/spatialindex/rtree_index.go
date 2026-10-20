@@ -3,13 +3,19 @@ package spatialindex
 
 import (
 	"cmp"
+	"encoding/binary"
+	"fmt"
+	"io"
 	"math"
 	"slices"
 
+	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-
+	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/rtree"
+
 	"go.uber.org/zap"
 )
 
@@ -63,7 +69,7 @@ func newSegmentKey(osmId uint64, tail, head da.Coordinate) segmentKey {
 }
 
 // Build. build r-tree
-func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger) {
+func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger) error {
 	logger.Info("Building R-tree spatial index...")
 	n := g.NumberOfVertices()
 	mins := make([][2]int32, 0, n)
@@ -135,7 +141,66 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 	}
 
 	rt.tr.Bulk(mins, maxs, items)
+
+	root := config.ProfilesRoot()
+	filename := fmt.Sprintf("%s/%s/%s.nrt", root, pkg.ProfileName, pkg.RegionName)
+
+	err := util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
+		writeItems := func(w io.Writer, items []leafData) error {
+			var buf [maxEntries * leafBytesSizes]byte
+			for i, it := range items {
+				off := i * leafBytesSizes
+				binary.LittleEndian.PutUint32(buf[off:off+4], uint32(it.fid))
+				binary.LittleEndian.PutUint32(buf[off+4:off+8], uint32(it.bid))
+				buf[off+8] = it.flag
+			}
+			if _, err := w.Write(buf[:]); err != nil {
+				return err
+			}
+			return nil
+		}
+		return rt.tr.WriteTo(w.GetWriter(), writeItems)
+	})
+	if err != nil {
+		return fmt.Errorf("rtree.Build() rt.tr.WriteTo failed: %w", err)
+	}
 	logger.Info("R-tree spatial index built.")
+	return nil
+}
+
+func ReadRtreeFromFile(logger *zap.Logger) (*Rtree, error) {
+	logger.Info("building R-tree spatial index from file...")
+
+	root := config.ProfilesRoot()
+	filename := fmt.Sprintf("%s/%s/%s.nrt", root, pkg.ProfileName, pkg.RegionName)
+	file, r, err := util.OpenCompressedFile(filename)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var tr rtree.RTreeGN[int32, leafData]
+	readItems := func(r io.Reader, items []leafData) error {
+		var buf [maxEntries * leafBytesSizes]byte
+		if _, err := io.ReadFull(r, buf[:]); err != nil {
+			return err
+		}
+		for i := range items {
+			off := i * leafBytesSizes
+			items[i].fid = da.Index(binary.LittleEndian.Uint32(buf[off : off+4]))
+			items[i].bid = da.Index(binary.LittleEndian.Uint32(buf[off+4 : off+8]))
+			items[i].flag = buf[off+8]
+		}
+		return nil
+	}
+	if err := tr.ReadFrom(r.GetReader(), readItems); err != nil {
+		return nil, fmt.Errorf("ReadRtreeFromFile: rtree.ReadFrom failed: %w", err)
+	}
+
+	logger.Info("R-tree spatial index built.")
+	return &Rtree{
+		tr: &tr,
+	}, nil
 }
 
 type candidate struct {

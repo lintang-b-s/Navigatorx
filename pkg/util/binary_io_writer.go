@@ -31,6 +31,10 @@ func NewBinaryWriter(w io.Writer) *BinaryWriter {
 	return &BinaryWriter{w: w}
 }
 
+func (w *BinaryWriter) GetWriter() io.Writer {
+	return w.w
+}
+
 func (w *BinaryWriter) Bytes(value []byte) error {
 	_, err := w.w.Write(value)
 	return err

@@ -131,7 +131,6 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) []W {
 			continue // sp == 0
 		}
 		sps[t] = sp
-
 	}
 	return sps
 }

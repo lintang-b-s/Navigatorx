@@ -147,7 +147,6 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 
 		// traverse all out neighbor of u in level l-1 in the same cell as u
 		ovOffset, wOffset, eNum, numExit := pu.eng.overlayGraph.NumOfShortcuts(uOv, int(level-1), true)
-
 		for i := da.Index(0); i < eNum; i++ {
 			vOv, ewOffset := pu.eng.GetOV(ovOffset, wOffset, numExit, i, true)
 			shortcutWeight := pu.eng.metrics.GetShortcutWeight(ewOffset)
@@ -173,7 +172,6 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 
 						pq.DecreaseKey(vOv, priority, newVCost, vNewPar)
 					}
-
 				} else {
 					pq.Set(vOv, da.NewVData(newVCost, vNewPar), vOv)
 				}
@@ -213,7 +211,6 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 
 	overlayPath := make([]da.Index, 0, 64)
 	overlayPath = append(overlayPath, tOv)
-
 	cOv := tOv
 	for {
 		cOv = pq.Get(cOv).GetParent().GetVertex()
@@ -233,7 +230,6 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 	for i := 0; i < len(overlayPath); i += 2 {
 		curV := overlayPath[i]
 		nextV := overlayPath[i+1]
-
 		verticesPath = pu.unpackInLevelCell(curV, nextV, level-1, verticesPath)
 	}
 
@@ -314,7 +310,6 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 	}
 
 	startLen := len(verticesPath)
-
 	u := t
 	verticesPath = append(verticesPath, t)
 	for {

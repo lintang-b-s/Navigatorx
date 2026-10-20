@@ -1158,8 +1158,12 @@ func TestGisCupOfflineHMMMapMatching(t *testing.T) {
 
 	re := eng.GetRoutingEngine()
 	rn := re.GetRoadNetworkContainer()
-	rtree := spatialindex.NewRtree()
-	rtree.Build(graph, rn, logger)
+	rtreeb := spatialindex.NewRtree()
+	rtreeb.Build(graph, rn, logger)
+	rtree, err := spatialindex.ReadRtreeFromFile(logger)
+	if err != nil {
+		t.Fatal(err)
+	}
 	hmm := offline.NewHiddenMarkovModelMapMatching(graph, re, rtree)
 
 	totalRMF := 0.0
@@ -1217,8 +1221,12 @@ func TestHengfengLiOfflineHMMMapMatching(t *testing.T) {
 	re := eng.GetRoutingEngine()
 	rn := re.GetRoadNetworkContainer()
 
-	rtree := spatialindex.NewRtree()
-	rtree.Build(graph, rn, logger)
+	rtreeb := spatialindex.NewRtree()
+	rtreeb.Build(graph, rn, logger)
+	rtree, err := spatialindex.ReadRtreeFromFile(logger)
+	if err != nil {
+		t.Fatal(err)
+	}
 	hmm := offline.NewHiddenMarkovModelMapMatching(graph, re, rtree)
 	gpsTraj := ohmmMelbourneGPSTrajectory(points)
 
@@ -1277,10 +1285,14 @@ func TestHanwenHuOfflineHMMMapMatching(t *testing.T) {
 		t.Fatalf("read Hanwen-Hu trajectories failed: %v", err)
 	}
 
-	rtree := spatialindex.NewRtree()
 	re := eng.GetRoutingEngine()
 	rn := re.GetRoadNetworkContainer()
-	rtree.Build(graph, rn, logger)
+	rtreeb := spatialindex.NewRtree()
+	rtreeb.Build(graph, rn, logger)
+	rtree, err := spatialindex.ReadRtreeFromFile(logger)
+	if err != nil {
+		t.Fatal(err)
+	}
 	hmm := offline.NewHiddenMarkovModelMapMatching(graph, re, rtree)
 
 	trajectoryNames := make([]string, 0, len(gpsTrajectories))
@@ -1370,9 +1382,12 @@ func TestNewsonKrummOfflineHMMMapMatching(t *testing.T) {
 
 	re := eng.GetRoutingEngine()
 	rn := re.GetRoadNetworkContainer()
-	rtree := spatialindex.NewRtree()
-	rtree.Build(g, rn, zlog)
-
+	rtreeb := spatialindex.NewRtree()
+	rtreeb.Build(g, rn, zlog)
+	rtree, err := spatialindex.ReadRtreeFromFile(zlog)
+	if err != nil {
+		t.Fatal(err)
+	}
 	gpsTraj := nkReadGPSTrajectory(t, gpsDataFilepath)
 	if len(gpsTraj) == 0 {
 		t.Fatalf("empty GPS trajectory")
