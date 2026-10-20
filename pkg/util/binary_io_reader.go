@@ -351,5 +351,7 @@ func OpenCompressedFile(filename string) (*os.File, *BinaryReader, error) {
 			SoftwareVersionPatch,
 		)
 	}
-	return file, NewBinaryReader(s2.NewReader(file)), nil
+	compressed := s2.NewReader(file)
+	buffered := bufio.NewReaderSize(compressed, BUFIO_SIZE)
+	return file, NewBinaryReader(buffered), nil
 }
