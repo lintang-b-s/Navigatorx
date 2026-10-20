@@ -34,8 +34,12 @@ func BenchmarkShortestPathService(b *testing.B) {
 	start := time.Now()
 	re := eng.GetRoutingEngine()
 	rn := re.GetRoadNetworkContainer()
-	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), rn, logger)
+	rtreeb := spatialindex.NewRtree()
+	rtreeb.Build(re.GetGraph(), rn, logger)
+	rtree, err := spatialindex.ReadRtreeFromFile(logger)
+	if err != nil {
+		b.Fatal(err)
+	}
 
 	rs, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.05, true)
 	if err != nil {

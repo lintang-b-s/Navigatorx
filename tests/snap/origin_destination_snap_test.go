@@ -126,12 +126,17 @@ func TestOriginDestinationSnap(t *testing.T) {
 	re := eng.GetRoutingEngine()
 	rn := re.GetRoadNetworkContainer()
 
-	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), rn, logger)
+	rtreeb := spatialindex.NewRtree()
+	rtreeb.Build(re.GetGraph(), rn, logger)
+	rtree, err := spatialindex.ReadRtreeFromFile(logger)
+	if err != nil {
+		panic(err)
+	}
 	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.04, true)
 	if err != nil {
 		panic(err)
 	}
+
 	g := re.GetGraph()
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	V := g.NumberOfVertices()

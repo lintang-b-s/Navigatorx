@@ -26,6 +26,7 @@ type CRPQuery[W util.Numeric] struct {
 	ub                   float64
 
 	maxSearchRad W
+	mapmatching  bool
 
 	scpSet          map[uint64]uint8
 	forAlternatives bool
@@ -127,7 +128,7 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 		minForward := bs.fpq.GetMinrank()
 		minBackward := bs.bpq.GetMinrank()
 
-		if util.Ge(minForward+minBackward, W(float64(bs.shortestCost)*(bs.ub))) || util.Ge(minForward+minBackward, W(bs.maxSearchRad)) {
+		if util.Ge(minForward+minBackward, W(float64(bs.shortestCost)*(bs.ub))) || (bs.mapmatching && util.Ge(minForward+minBackward, W(bs.maxSearchRad))) {
 			break
 		}
 
@@ -431,6 +432,7 @@ func (bs *CRPQuery[W]) addViaVertex(uqk da.QueryKey, forward bool, overlay bool)
 func (bs *CRPQuery[W]) SetMaxSearchRadiusSecs(maxSearchRadiusSecs float64) {
 	weight := util.WeightFromSeconds[W](maxSearchRadiusSecs)
 	bs.maxSearchRad = weight
+	bs.mapmatching = true
 }
 
 func (bs *CRPQuery[W]) SetUpperBound(ub float64) {

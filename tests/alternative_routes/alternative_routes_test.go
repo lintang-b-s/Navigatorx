@@ -7,7 +7,6 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
-	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/lintang-b-s/Navigatorx/tests"
 )
@@ -51,13 +50,10 @@ func TestAlternativeRoutes(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 
-			eng, logger, _ := tests.Setup(t, tc.mapFileName)
+			eng, _, _ := tests.Setup(t, tc.mapFileName)
 			re := eng.GetRoutingEngine()
-			rtree := spatialindex.NewRtree()
 
 			g := re.GetGraph()
-			rn := re.GetRoadNetworkContainer()
-			rtree.Build(re.GetGraph(), rn, logger)
 
 			n := 5000
 			qset := make(map[uint64]struct{})

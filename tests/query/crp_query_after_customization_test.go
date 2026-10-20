@@ -29,13 +29,14 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 	re := eng.GetRoutingEngine()
 
 	config.InitRegionName(filename, pkg.TEST)
-
-	rtree := spatialindex.NewRtree()
-
 	g := re.GetGraph()
 	rn := re.GetRoadNetworkContainer()
-	rtree.Build(g, rn, logger)
-
+	rtreeb := spatialindex.NewRtree()
+	rtreeb.Build(g, rn, logger)
+	rtree, err := spatialindex.ReadRtreeFromFile(logger)
+	if err != nil {
+		t.Fatal(err)
+	}
 	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.05, true)
 	ctx, cleanup := router.NewContext(re, routingService)
 	defer cleanup()

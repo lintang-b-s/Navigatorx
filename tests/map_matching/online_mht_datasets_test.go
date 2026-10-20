@@ -505,8 +505,7 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 
 	re := eng.GetRoutingEngine()
 	rn := re.GetRoadNetworkContainer()
-	rtree := spatialindex.NewRtree()
-	rtree.Build(graph, rn, logger)
+
 	gpsTraj := ohmmMelbourneGPSTrajectory(points)
 	met := re.GetMetrics()
 	sidx := spatialindex.NewS2RoadSegmentsIndex(graph, rn, logger)

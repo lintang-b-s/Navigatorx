@@ -137,4 +137,10 @@ func main() {
 		panic(err)
 	}
 	logger.Sugar().Infof("s2 cells road segment spatial index written....")
+
+	rtree := spatialindex.NewRtree()
+	err = rtree.Build(ebg, rn, logger)
+	if err != nil {
+		panic(err)
+	}
 }
