@@ -27,15 +27,15 @@ type Customizer[W util.Numeric] struct {
 	segmentLookupTable *da.LookupTable[*da.SegmentKV]
 	turnLookupTable    *da.LookupTable[*da.TurnKV]
 
-	logger                              *zap.Logger
-	edgeSpeedsFilePath, turnPenFilePath []string
-	graphFilePath                       string
-	overlayGraphFilePath                string
-	metricOutputFilePath                string
-	timefunctionFilePath                string
-	prepWeightFunctionFilePath          string
-	prepWeightFunction                  *met.TimeFunction[W]
-	landmarkFile                        string
+	logger                                 *zap.Logger
+	segmentSpeedsFilePath, turnPenFilePath []string
+	graphFilePath                          string
+	overlayGraphFilePath                   string
+	metricOutputFilePath                   string
+	timefunctionFilePath                   string
+	prepWeightFunctionFilePath             string
+	prepWeightFunction                     *met.TimeFunction[W]
+	landmarkFile                           string
 }
 
 func getCustomizerFilePath() (
@@ -67,8 +67,8 @@ func NewCustomizer[W util.Numeric](
 	return cst
 }
 
-func (c *Customizer[W]) SetEdgeSpeedsFilePath(filePath []string) {
-	c.edgeSpeedsFilePath = filePath
+func (c *Customizer[W]) SetSegmentSpeedsFilePath(filePath []string) {
+	c.segmentSpeedsFilePath = filePath
 }
 
 func (c *Customizer[W]) SetTurnPenaltiesFilePath(filePath []string) {
@@ -134,8 +134,8 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 	upSegmentSpeedLimits := make([]float64, 0)
 
 	lastSegmentSpeedFiles := make([]string, 0)
-	if len(c.edgeSpeedsFilePath) != 0 {
-		for _, currSpeedFilePath := range c.edgeSpeedsFilePath {
+	if len(c.segmentSpeedsFilePath) != 0 {
+		for _, currSpeedFilePath := range c.segmentSpeedsFilePath {
 			currSegmentIds, currSegmentSpeedLimits, err := c.readSegmentSpeedsFromFile(currSpeedFilePath)
 			if err != nil {
 				return nil, fmt.Errorf("Customize: failed to read edge speeds from %s: %w", currSpeedFilePath, err)

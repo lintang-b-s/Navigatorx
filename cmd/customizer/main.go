@@ -36,7 +36,7 @@ func main() {
 	}
 
 	custom := customizer.NewCustomizer[int32](logger)
-	custom.SetEdgeSpeedsFilePath(*edgeSpeedsFile)
+	custom.SetSegmentSpeedsFilePath(*edgeSpeedsFile)
 	custom.SetTurnPenaltiesFilePath(*turnPenaltiesFile)
 
 	_, err = custom.Customize()

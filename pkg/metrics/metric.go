@@ -46,6 +46,8 @@ func (met *Metric[W]) GetCostFunction() *TimeFunction[W] {
 
 // GetWeight. get weight dari outEdge dengan id eId
 // eId adalah id/index dari outEdge yang ingin didapat weightnya
+//
+//go:inline
 func (met *Metric[W]) GetWeight(eId da.Index) W {
 	cf := met.costFunction
 	return cf.GetWeight(eId)

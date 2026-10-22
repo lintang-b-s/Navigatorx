@@ -37,9 +37,9 @@ kita bikin VerticesLookupTable: mapping dari vertex id ke osm id (cuma slice tap
 2. buat find segment (from_forward_osm_id, to_forward_osm_id) kita tinggal binary search di sorted lookuptable nya
 get index/vertex id dari from_forward_osm_id terus coba cek satu persatu outEdge nya kalau osmwayId dari head nya sama dengan to_forward_osm_id return edge nya (atau length nya doang?)
 buat backward edge tinggal dari to_backward_osm_id terus cek satu persatu outEdge nya (forward dan backward edge dari two-way osm way ada dua outEdge, note that inEdge hanyalah outEdge tapi arah traverse nya dari head ke tail).
-3. kita harus bikin edgeSpeeds: map dari outEdgeId/exitId ke maxSpeed dari edgenya
-karena kita udah dapet data edge yang mau diupdate kita tinggal update corresponding speed nya di edgeSpeeds slice..
-tapi pas update pastikan pakai write lock. dan read ke edgeSpeeds pakai read lock..
+3. kita harus bikin segmentSpeeds: map dari outEdgeId/exitId ke maxSpeed dari edgenya
+karena kita udah dapet data edge yang mau diupdate kita tinggal update corresponding speed nya di segmentSpeeds slice..
+tapi pas update pastikan pakai write lock. dan read ke segmentSpeeds pakai read lock..
 
 setelah itu kita tinggal jalanin customizer.Build()
 
@@ -56,7 +56,7 @@ contoh conditional barrier restriction: https://www.openstreetmap.org/node/10303
 func (c *Customizer[W]) readSegmentSpeedsFromFile(filepath string) ([]da.Index, []float64, error) {
 	f, err := os.Open(filepath)
 	if err != nil {
-		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to open file %v: %w", filepath, err)
+		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readSegmentSpeedsFile: failed to open file %v: %w", filepath, err)
 	}
 
 	defer f.Close()
@@ -64,7 +64,7 @@ func (c *Customizer[W]) readSegmentSpeedsFromFile(filepath string) ([]da.Index, 
 	csvReader := csv.NewReader(f)
 	data, err := csvReader.ReadAll()
 	if err != nil {
-		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to readAll csv data: %w", err)
+		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readSegmentSpeedsFile: failed to readAll csv data: %w", err)
 	}
 
 	n := len(data)
@@ -75,12 +75,12 @@ func (c *Customizer[W]) readSegmentSpeedsFromFile(filepath string) ([]da.Index, 
 		uStr := strings.TrimSpace(row[0])
 		u, err := util.ParseTextUInt64(uStr)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to parse uint64 fromOsmId: %v: %w", u, err)
+			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readSegmentSpeedsFile: failed to parse uint64 fromOsmId: %v: %w", u, err)
 		}
 		vStr := strings.TrimSpace(row[1])
 		v, err := util.ParseTextUInt64(vStr)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to parse uint64 toOsmId: %v: %w", v, err)
+			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readSegmentSpeedsFile: failed to parse uint64 toOsmId: %v: %w", v, err)
 		}
 
 		ebgnId := c.segmentLookupTable.Get(da.NewSegmentKV(u, v, 0))
@@ -90,18 +90,18 @@ func (c *Customizer[W]) readSegmentSpeedsFromFile(filepath string) ([]da.Index, 
 		}
 
 		upSegmentSpeedStr := strings.TrimSpace(row[2])
-		upEdgeSpeed, err := util.ParseTextFloat64(upSegmentSpeedStr)
+		upSegmentSpeed, err := util.ParseTextFloat64(upSegmentSpeedStr)
 		if err != nil {
-			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readEdgeSpeedsFile: failed to parse segent speed: %v: %w", upEdgeSpeed, err)
+			return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readSegmentSpeedsFile: failed to parse segent speed: %v: %w", upSegmentSpeed, err)
 		}
 
-		if upEdgeSpeed < 0 {
+		if upSegmentSpeed < 0 {
 			return make([]da.Index, 0), make([]float64, 0),
-				fmt.Errorf("customizer.readEdgeSpeedsFile: segment speed must be non-negative: %v", upEdgeSpeed)
+				fmt.Errorf("customizer.readSegmentSpeedsFile: segment speed must be non-negative: %v", upSegmentSpeed)
 		}
 
 		upSegmentIds = append(upSegmentIds, ebgnId)
-		upSegmentSpeeds = append(upSegmentSpeeds, upEdgeSpeed)
+		upSegmentSpeeds = append(upSegmentSpeeds, upSegmentSpeed)
 	}
 
 	return upSegmentIds, upSegmentSpeeds, nil

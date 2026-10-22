@@ -28,7 +28,6 @@ type CRPQuery[W util.Numeric] struct {
 	maxSearchRad W
 	mapmatching  bool
 
-	scpSet          map[uint64]uint8
 	forAlternatives bool
 	reroute         bool
 }
@@ -39,7 +38,7 @@ func NewCRPQuery[W util.Numeric](
 	crpQuery := &CRPQuery[W]{
 		engine:               engine,
 		mid:                  da.NewParentVertex(0),
-		viaVertices:          make([]*ViaVertex, 0),
+		viaVertices:          make([]*ViaVertex, 0, 5),
 		numExploredVertices:  0,
 		runtime:              0,
 		pathUnpackingRuntime: 0,
@@ -113,7 +112,7 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 	sOffset, sSize := bs.engine.graph.GetVertexCellOffset(s)
 	tOffset, tSize := bs.engine.graph.GetVertexCellOffset(t)
 	maxV := bs.engine.graph.GetMaxVerticesInCell()
-	nv := da.Index(bs.engine.graph.NumberOfVertices())
+	nv := da.Index(bs.engine.numberOfVertices)
 	bs.fpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
 	bs.bpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
 
@@ -170,9 +169,8 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 	dur := time.Since(now).Milliseconds()
 	bs.runtime = dur
 
-	unpacker := newPathUnpackerALT(bs.engine, bs.metrics, bs.lm, true)
+	unpacker := newPathUnpackerALT(bs.engine, bs.metrics, bs.lm)
 	vPath := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
-	bs.scpSet = unpacker.scSet
 	bs.pathUnpackingRuntime = unpacker.runtime
 
 	return bs.shortestCost, vPath, true
@@ -222,7 +220,7 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, p
 			}
 
 			if rpq.IsExplored(v) {
-				newEstSPCost := newVCost + rpq.GetCost(v)
+				newEstSPCost := pq.GetCost(v) + rpq.GetCost(v)
 				if util.Lt(newEstSPCost, bs.shortestCost) {
 					bs.shortestCost = newEstSPCost
 					bs.mid = da.NewParentVertex(v)
@@ -249,7 +247,7 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, p
 
 			if rpq.IsExplored(vOv) {
 				// if v explored by other search, check whether we can improve the shortestPath
-				newEstSPCost := newVCost + rpq.GetCost(vOv)
+				newEstSPCost := pq.GetCost(vOv) + rpq.GetCost(vOv)
 				if util.Lt(newEstSPCost, bs.shortestCost) {
 					bs.shortestCost = newEstSPCost
 					mid := da.NewParentVertex(vOv)

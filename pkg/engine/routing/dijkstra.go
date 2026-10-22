@@ -59,70 +59,30 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 
 	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
-	uId := uItem.GetNode()
+	u := uItem.GetNode()
+	out := !us.useReversedEdges
+	offset, eNum := us.engine.graph.NumEdges(u, out)
+	for eId := offset; eId < offset+eNum; eId++ {
+		v := us.engine.GetV(eId, out)
+		edgeWeight := us.GetWeight(eId, out)
+		// get cost to reach v through u
+		newVCost := us.pq.GetCost(u) + edgeWeight
 
-	if !us.useReversedEdges {
-
-		// traverse outEdges of u
-		us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
-			head := us.engine.graph.GetHead(eId)
-			vId := head
-			edgeWeight := us.metrics.GetWeight(eId)
-			// get cost to reach v through u
-			newVCost := us.pq.GetCost(uId) + edgeWeight
-
-			vLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
-			if util.Ge(newVCost, us.pq.GetCost(vId)) {
-				// newVCost is not better, do nothing
-				return
-			}
-
-			// newVCost is better, update the forwardData
+		oldCost := us.pq.GetCost(v)
+		vLabelled := util.Lt(oldCost, util.Infinity[W]())
+		if util.Lt(newVCost, oldCost) {
+			// newVCost is better, update the v cost
 			if vLabelled {
-				newPar := da.NewParentVertex(uId)
+				newPar := da.NewParentVertex(u)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
+				us.pq.DecreaseKey(v, newVCost, newVCost, newPar)
 			} else if !vLabelled {
-				queryKey := da.NewDijkstraKey(vId)
-				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
+				queryKey := da.NewDijkstraKey(v)
+				vData := da.NewVData(newVCost, da.NewParentVertex(u))
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newVCost, vData, queryKey)
+				us.pq.Insert(v, newVCost, vData, queryKey)
 			}
-		})
-	} else {
-		// use reversed edges
-
-		// traverse inEdges of u
-		us.engine.graph.ForInEdgeIdsOf(uId, func(eId da.Index) {
-			tail := us.engine.graph.GetTail(eId)
-
-			vId := tail
-
-			reId := us.engine.graph.GetOutId(eId)
-			edgeWeight := us.metrics.GetWeight(reId)
-
-			newVCost := us.pq.GetCost(uId) + edgeWeight
-
-			vLabelled := util.Lt(us.pq.GetCost(vId), util.Infinity[W]())
-			if util.Ge(newVCost, us.pq.GetCost(vId)) {
-				// newVCost is not better, do nothing
-				return
-			}
-
-			// newVCost is better, update the forwardData
-			if vLabelled {
-				newPar := da.NewParentVertex(uId)
-				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
-
-			} else if !vLabelled {
-				queryKey := da.NewDijkstraKey(vId)
-				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
-
-				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newVCost, vData, queryKey)
-			}
-		})
+		}
 	}
 }
 
@@ -131,6 +91,14 @@ func (us *Dijkstra[W]) Preallocate() {
 	maxSearchSize := numberOfVerties
 	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
 	us.pq.PreallocateHeap(maxSearchSize)
+}
+
+func (us *Dijkstra[W]) GetWeight(eId da.Index, out bool) W {
+	if out {
+		return us.metrics.GetWeight(eId)
+	}
+	reId := us.engine.graph.GetOutId(eId)
+	return us.metrics.GetWeight(reId)
 }
 
 func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {

@@ -10,7 +10,7 @@ import (
 )
 
 /*
-cd tests/benchmark && go test -bench BenchmarkAlternativeRoutes -benchmem -cpuprofile prof_alt.cpu -memprofile prof_alt.mem -benchtime=15s
+cd tests/benchmark && go test -bench="^BenchmarkAlternativeRoutes$" -benchmem -cpuprofile prof_alt.cpu -memprofile prof_alt.mem -benchtime=15s -o=alt.test
 
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 
@@ -65,5 +65,4 @@ func BenchmarkAlternativeRoutes(b *testing.B) {
 
 	b.ReportMetric(msPerOp, "ms/op")
 	b.ReportMetric(throughput, "ops/sec")
-
 }

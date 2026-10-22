@@ -19,27 +19,27 @@ type OverlayVertex struct {
 }
 
 // level is 1-based indexing
-func (ov *OverlayVertex) GetEntryExitPoint(level int) Index {
+func (ov OverlayVertex) GetEntryExitPoint(level int) Index {
 	return ov.entryExitPoint[level-1]
 }
 
-func (ov *OverlayVertex) GetEntryPointSize() uint8 {
+func (ov OverlayVertex) GetEntryPointSize() uint8 {
 	return uint8(len(ov.entryExitPoint))
 }
 
-func (ov *OverlayVertex) GetCellNumber() Pv {
+func (ov OverlayVertex) GetCellNumber() Pv {
 	return ov.cellNumber
 }
 
-func (ov *OverlayVertex) GetOrigVId() Index {
+func (ov OverlayVertex) GetOrigVId() Index {
 	return ov.vId
 }
 
-func (ov *OverlayVertex) GetCutEdge() Index {
+func (ov OverlayVertex) GetCutEdge() Index {
 	return ov.cutEdge
 }
 
-func (ov *OverlayVertex) GetNeighborOverlayVertex() Index {
+func (ov OverlayVertex) GetNeighborOverlayVertex() Index {
 	return ov.neighborOverlayVertex
 }
 
@@ -58,23 +58,23 @@ type Cell struct {
 	numOfOverlayVertices uint32 // number of overlay vertices in this cell + number of overlayVertices in all direct subcells (subcells in level-1) of this cell
 }
 
-func (c *Cell) GetNumEntryPoints() Index {
+func (c Cell) GetNumEntryPoints() Index {
 	return c.numEntryPoints
 }
 
-func (c *Cell) GetNumExitPoints() Index {
+func (c Cell) GetNumExitPoints() Index {
 	return c.numExitPoints
 }
 
-func (c *Cell) GetCellOffset() Index {
+func (c Cell) GetCellOffset() Index {
 	return c.cellOffset
 }
 
-func (c *Cell) GetOverlayIdOffset() Index {
+func (c Cell) GetOverlayIdOffset() Index {
 	return c.overlayIdOffset
 }
 
-func (c *Cell) GetShortcutWeightId(i, j Index) int {
+func (c Cell) GetShortcutWeightId(i, j Index) int {
 	return int(c.GetCellOffset() + i*c.GetNumExitPoints() + j)
 }
 
@@ -185,8 +185,8 @@ func (og *OverlayGraph) GetOverlayIdMapping() []Index {
 	return og.overlayIdMapping
 }
 
-func (og *OverlayGraph) GetVertex(u Index) *OverlayVertex {
-	return &og.overlayVertices[u]
+func (og *OverlayGraph) GetVertex(u Index) OverlayVertex {
+	return og.overlayVertices[u]
 }
 
 func (og *OverlayGraph) GetCellEntry(cell Cell, entryPointIndex Index) Index {

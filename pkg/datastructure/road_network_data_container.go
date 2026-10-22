@@ -3,7 +3,6 @@ package datastructure
 import (
 	"sort"
 
-	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -56,14 +55,6 @@ func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer 
 		roadClassLink:           make([]pkg.OsmHighwayType, 0),
 		lanes:                   make([]uint8, 0),
 		segmentFlags:            make([]SegmentFlagType, 0),
-	}
-}
-
-func BuildRoadNetworkDataContainer(osmNodePoints []Coordinate, nodeTrafficLight *bitset.BitSet,
-	streetDirectionForward, streetDirectionBackward *bitset.BitSet) *RoadNetworkDataContainer {
-	return &RoadNetworkDataContainer{osmNodePoints: osmNodePoints,
-
-		osmwayBitSize: DEFAULT_BIT_SIZE_OSM_WAY_ID,
 	}
 }
 

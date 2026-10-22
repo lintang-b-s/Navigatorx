@@ -79,7 +79,7 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 		ovCost := us.pq.GetCost(vId)
 		if util.Lt(newVCost, ovCost) {
 			vLabelled := util.Lt(ovCost, util.Infinity[W]())
-			// newVCost is better, update the forwardData
+			// newVCost is better, update the v cost
 			if vLabelled {
 				newPar := da.NewParentVertex(uId)
 				// is key already in the priority queue, decrease its key
