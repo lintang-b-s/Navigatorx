@@ -43,7 +43,8 @@ type CRPRoutingEngine[W util.Numeric] struct {
 	defaultGamma, defaultAlpha, defaultEpsilon, defaultUpperbound float64
 	defaultMaxCandidatesToUnpack                                  int
 
-	landmarkFile string
+	landmarkFile     string
+	numberOfVertices int
 
 	unpackerWorkers                     int
 	unpackerForAlternativeRoutesWorkers int
@@ -65,15 +66,16 @@ func NewCRPRoutingEngine[W util.Numeric](graph *da.Graph,
 	}
 
 	crp := &CRPRoutingEngine[W]{
-		graph:        graph,
-		metrics:      metrics,
-		overlayGraph: overlayGraph,
-		logger:       logger,
-		puCache:      puCache,
-		lm:           lm,
-		rn:           rn,
-		landmarkFile: landmarkFile,
-		mu:           &sync.RWMutex{},
+		graph:            graph,
+		metrics:          metrics,
+		overlayGraph:     overlayGraph,
+		logger:           logger,
+		puCache:          puCache,
+		lm:               lm,
+		rn:               rn,
+		landmarkFile:     landmarkFile,
+		mu:               &sync.RWMutex{},
+		numberOfVertices: graph.NumberOfVertices(),
 	}
 	crp.BuildQueryHeapPool()
 	crp.initParameter()
@@ -236,8 +238,7 @@ func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.Pha
 
 	optCost := util.WeightToSeconds(cost)
 	alts, _ := ars.ComputeAlternativeRoutes(s, t, k, reroute, startSegId, optCost, optPath, crpQuery, param)
-	crpQuery.forAlternatives = false
-	crpQuery.Done()
+
 	n := len(alts) + 1
 	var (
 		routeCosts             = make([]float64, n)

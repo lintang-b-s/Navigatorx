@@ -138,6 +138,8 @@ func (g *Graph) GetRevId(e Index) Index {
 }
 
 // get outgoing edge Id of incoming (or reversed) edge Id e
+//
+//go:inline
 func (g *Graph) GetOutId(e Index) Index {
 	exitPoint := Index(g.exitPoints[e])
 	return g.vertices[g.tails[e]].firstOut + exitPoint

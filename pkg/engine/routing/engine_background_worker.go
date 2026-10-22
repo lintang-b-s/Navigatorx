@@ -166,13 +166,13 @@ func isFileUpdated(path string) (int64, error) {
 // 	}
 // }
 
-// type edgeSpeedLimit struct {
+// type segmentSpeedLimit struct {
 // 	eId   da.Index
 // 	speed float64
 // }
 
-// func newEdgeSpeedLimit(eId da.Index, speed float64) edgeSpeedLimit {
-// 	return edgeSpeedLimit{eId: eId, speed: speed}
+// func newSegmentSpeedLimit(eId da.Index, speed float64) segmentSpeedLimit {
+// 	return segmentSpeedLimit{eId: eId, speed: speed}
 // }
 
 // func (crp *CRPRoutingEngine) activateConditionalRestrictions(now time.Time) error {
@@ -203,7 +203,7 @@ func isFileUpdated(path string) (int64, error) {
 // 		}
 // 	})
 
-// 	activatedSpeedLimits := make([]edgeSpeedLimit, 0)
+// 	activatedSpeedLimits := make([]segmentSpeedLimit, 0)
 // 	crp.graph.ForEachConditionalSpeedLimit(func(id da.Index, res da.ConditionalSpeedLimit) {
 // 		eId := res.GetEdgeId()
 // 		speedStr := op.GetAccessValConditionalRestriction(res.GetTimeRangeSpeedVal())
@@ -218,7 +218,7 @@ func isFileUpdated(path string) (int64, error) {
 // 		}
 // 		activated := !prohibited
 // 		if activated {
-// 			activatedSpeedLimits = append(activatedSpeedLimits, newEdgeSpeedLimit(eId, speed))
+// 			activatedSpeedLimits = append(activatedSpeedLimits, newSegmentSpeedLimit(eId, speed))
 // 		}
 // 	})
 

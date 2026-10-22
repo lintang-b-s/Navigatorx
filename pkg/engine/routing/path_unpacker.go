@@ -10,28 +10,20 @@ import (
 )
 
 type PathUnpackerALT[W util.Numeric] struct {
-	eng        *CRPRoutingEngine[W]
-	metrics    *met.Metric[W]
-	lm         *landmark.Landmark[W]
-	scSet      map[uint64]uint8
-	buildSCSet bool
-	runtime    int64
+	eng     *CRPRoutingEngine[W]
+	metrics *met.Metric[W]
+	lm      *landmark.Landmark[W]
+
+	runtime int64
 }
 
 func newPathUnpackerALT[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 	metrics *met.Metric[W],
 	lm *landmark.Landmark[W],
-	buildSCSet bool,
 ) *PathUnpackerALT[W] {
 	pu := &PathUnpackerALT[W]{eng: engine, metrics: metrics, lm: lm}
-
 	pu.runtime = 0
-	if buildSCSet {
-		pu.scSet = make(map[uint64]uint8, 10)
-		pu.buildSCSet = true
-	}
-
 	return pu
 }
 
@@ -78,12 +70,6 @@ func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.Index, sCellNum, tCellN
 			queryLevel := pu.eng.overlayGraph.GetQueryLevel(sCellNum, tCellNum, enCellNum)
 			v := packedPath[i+1]
 			exOv := offBit(v, UNPACK_OVERLAY_OFFSET)
-			if pu.buildSCSet {
-				exitVertex := pu.eng.overlayGraph.GetVertex(exOv)
-				envId := uint32(enVertex.GetOrigVId())
-				exvId := uint32(exitVertex.GetOrigVId())
-				pu.scSet[util.Bitpack(uint32(envId), uint32(exvId))] = queryLevel
-			}
 			unpackedVertexPath = pu.unpackInLevelCell(enOv, exOv, queryLevel, unpackedVertexPath)
 			i += 2
 		}

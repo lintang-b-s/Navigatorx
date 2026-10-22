@@ -138,7 +138,7 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 	sOffset, sSize := bs.engine.graph.GetVertexCellOffset(s)
 	tOffset, tSize := bs.engine.graph.GetVertexCellOffset(t)
 	maxV := bs.engine.graph.GetMaxVerticesInCell()
-	nv := da.Index(bs.engine.graph.NumberOfVertices())
+	nv := da.Index(bs.engine.numberOfVertices)
 	bs.fpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
 	bs.bpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
 
@@ -192,7 +192,7 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 	dur := time.Since(now).Milliseconds()
 	bs.runtime = dur
 
-	unpacker := newPathUnpackerALT(bs.engine, bs.metrics, bs.lm, false)
+	unpacker := newPathUnpackerALT(bs.engine, bs.metrics, bs.lm)
 	vPath := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.pathUnpackingRuntime = unpacker.runtime
 
@@ -203,10 +203,8 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 graphSearch. forward search & backward search dari bidirectional ALT (A* Search, landmarks, and triangle inequality)  in sel c1(s) atau c1(t).
 */
 func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
-
 	u := uKey.GetNode()
 	uCost := pq.GetCost(u)
-
 	offset, eNum := bs.engine.graph.NumEdges(u, forw)
 	for eId := offset; eId < offset+eNum; eId++ {
 		v := bs.engine.GetV(eId, forw)
@@ -243,7 +241,8 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 			}
 
 			if rpq.IsExplored(v) {
-				newEstSPCost := newVCost + rpq.GetCost(v)
+				// if v explored by other search, check whether we can improve the shortestPath
+				newEstSPCost := pq.GetCost(v) + rpq.GetCost(v)
 				if util.Lt(newEstSPCost, bs.shortestCost) {
 					bs.shortestCost = newEstSPCost
 					bs.mid = da.NewParentVertex(v)
@@ -273,7 +272,7 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 
 			if rpq.IsExplored(vOv) {
 				// if v explored by other search, check whether we can improve the shortestPath
-				newEstSPCost := newVCost + rpq.GetCost(vOv)
+				newEstSPCost := pq.GetCost(vOv) + rpq.GetCost(vOv)
 				if util.Lt(newEstSPCost, bs.shortestCost) {
 					bs.shortestCost = newEstSPCost
 					mid := da.NewParentVertex(vOv)
@@ -363,6 +362,7 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 				}
 
 				if rpq.IsExplored(w) {
+					// if w explored by other search, check whether we can improve the shortestPath
 					newEstSPCost := pq.GetCost(w) + rpq.GetCost(w)
 					if util.Lt(newEstSPCost, bs.shortestCost) {
 						bs.shortestCost = newEstSPCost

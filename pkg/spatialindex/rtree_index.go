@@ -112,7 +112,6 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 		f, b := dir[0], dir[1]
 
 		if odSeg, ok := segmentSet[segKey]; ok {
-
 			fId := segId
 			bId := odSeg.id
 			flag := rt.getFlag(rn, segId, f, true)
@@ -123,7 +122,6 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 			}
 			mins = append(mins, [2]int32{minX, minY})
 			maxs = append(maxs, [2]int32{maxX, maxY})
-
 			leaf := newLeafData(fId, bId, flag)
 			items = append(items, leaf)
 			delete(segmentSet, segKey)

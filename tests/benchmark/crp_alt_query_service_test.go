@@ -11,7 +11,7 @@ import (
 )
 
 /*
-cd tests/benchmark && go test -bench BenchmarkShortestPathService -benchmem -cpuprofile prof_sp_service.cpu -memprofile prof_sp_service.mem -benchtime=15s
+cd tests/benchmark && go test -bench BenchmarkShortestPathService -benchmem -cpuprofile prof_sp_service.cpu -memprofile prof_sp_service.mem -benchtime=15s -o sp_service.test
 
 pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics

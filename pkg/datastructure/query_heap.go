@@ -14,8 +14,8 @@ type QueryHeap[T comparable, W util.Numeric] struct {
 	verticesData []VertexData[W]           // contains cost, parent, heapNodeId (index dari heapNode di 4-ary minheap array) for all vertices inserted into the min-heap.
 
 	verticesIndex     IndexStorage // map from nodeId/overlayVertexId to index in verticesData
-	verticesIndexType IndexStorageType
 	explored          *ExploredBitsetStorage
+	verticesIndexType IndexStorageType
 	d                 Index // d-ary heap
 
 	// CRP Query Offsetting Context
@@ -34,14 +34,14 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorag
 
 	approxMaxSearchSize := Index(BASE_VERTICES_SIZE)
 	minHeap := make([]PriorityQueueNode[T, W], 0, approxMaxSearchSize)
-
+	verticesData := make([]VertexData[W], 0, approxMaxSearchSize)
 	switch tipe {
 	case ARRAY_STORAGE:
 		explored := NewExploredBitsetStorage(approxMaxSearchSize)
 
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
-			verticesData:      make([]VertexData[W], 0, approxMaxSearchSize),
+			verticesData:      verticesData,
 			verticesIndex:     NewArrayStorage(baseSize),
 			verticesIndexType: tipe,
 			explored:          explored,
@@ -52,8 +52,8 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorag
 
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
-			verticesData:      make([]VertexData[W], 0, approxMaxSearchSize),
-			verticesIndex:     NewMapStorage(baseSize),
+			verticesData:      verticesData,
+			verticesIndex:     NewMapStorage(approxMaxSearchSize),
 			verticesIndexType: tipe,
 			explored:          explored,
 			d:                 4,
@@ -63,8 +63,8 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorag
 
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
-			verticesData:      make([]VertexData[W], 0, approxMaxSearchSize),
-			verticesIndex:     NewMapStorage(baseSize),
+			verticesData:      verticesData,
+			verticesIndex:     NewArrayStorage(approxMaxSearchSize),
 			verticesIndexType: tipe,
 			explored:          explored,
 			d:                 4,
@@ -80,6 +80,7 @@ func (qh *QueryHeap[T, W]) parent(index Index) Index {
 	return (index - 1) >> shift
 }
 
+//go:inline
 func (qh *QueryHeap[T, W]) swap(i, j Index) {
 	qh.heap[i], qh.heap[j] = qh.heap[j], qh.heap[i]
 	qh.verticesData[qh.heap[i].vertexIndex].heapNodeId = i
