@@ -306,16 +306,15 @@ Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
 pages 566-591. Available at: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
 this explanation taken from ref1 :
-"A second optimization uses the fact that the maximum heap size can be computed in
-advance. Any search will scan at most all overlay vertices and the vertices in the cells of s and t on the lowest
-level. This allows us to preallocate all necessary data structures. To index the heap, we use local identifiers
-(for vertices in the source and target cells, with different offsets), and overlay identifiers otherwise." (Delling et al. (2015))
+"A second optimization uses the fact that the maximum heap size can be computed in advance.
+Any search will scan at most all overlay vertices and the vertices in the cells of s and t on the lowest level. This allows us to preallocate all necessary data structures.
+To index the heap, we use local identifiers (for vertices in the source and target cells, with different offsets), and overlay identifiers otherwise." (Delling et al. (2015))
 
 
 another CRP implementation that implement this optimization: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
 search: "vId -= forwardSOffset;".
 
-this can be done because of graph.vertices is sorted by its vertex level-1 cellNumber
+this can be done because of graph.vertices is sorted by its vertex level-1 cellNumber, in such a way that vertices located within the same level-1 cell have consecutive IDs.
 */
 
 // mapId maps an input vertex Id into the contiguous offseted index range [0, 2*maxV + numOverlayVertices).
