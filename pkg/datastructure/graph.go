@@ -16,15 +16,15 @@ type SubVertex struct {
 type Pv uint64
 
 // Graph represents the main Customizable Route Planning (CRP) compact graph.
-// uses adjacency arrays / Compressed Sparse Row (CSR).
+// uses adjacency arrays / Compressed Sparse Row (CSR). https://ocw.mit.edu/courses/6-172-performance-engineering-of-software-systems-fall-2018/f58df934e205b870e473c2af3fe5e6f7_MIT6_172F18_lec22.pdf
 // CSR graph nya C++ Boost library: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/compressed_sparse_row.html
 // kode ini terinspirasi dari implementasi CRP yang dibuat oleh Michael Wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.h
 // untuk adjacency array  juga terinspirasi dari: https://github.com/RoutingKit/RoutingKit/blob/54d49bb0cdea56dde182357522e4e86a03c57852/include/routingkit/osm_graph_builder.h
 // See section 4.1 & 4.3: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 type Graph struct {
 	vertices    []Vertex // map from vertex v id to vertex v data structure
-	heads       []Index  // map from tail u to head v dari edges (u,v) sorted by tail u
-	tails       []Index  // map from head u to tail v reversed edges (v,u). setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v). sorted by head u.
+	heads       []Index  // map from outgoing edge id to head v dari edges (u,v) sorted by tail u
+	tails       []Index  // map from incoming (reversed) edge id to tail v reversed edges (v,u). setiap in edge (v,u) punya bobot yang sama dengan out edge (u,v). sorted by head u.
 	entryPoints []uint8  // map from outgoing edge id (u,v) to index of this edge in the list of incoming edges of v.
 	exitPoints  []uint8  // map from incoming (reversed) edge id (v,u) to index of this edge in the of outgoing edges of v.
 
