@@ -53,24 +53,26 @@ func NewSparseMatrix(m, n int, zero uint32, eq func(a, b uint32) bool) *SparseMa
 func (sm *SparseMatrix) Set(val uint32, row, col int) {
 	row += 1 // 1-based
 	col += 1
+	uCol := uint32(col)
 
 	pos := sm.rows[row-1] - 1
 	currCol := uint32(0)
 
 	for ; pos < sm.rows[row]-1; pos++ {
 		currCol = sm.cols[pos]
-		if currCol >= uint32(col) {
+		if currCol >= uCol {
 			break
 		}
 	}
 
-	if currCol != uint32(col) {
+	switch {
+	case currCol != uCol:
 		if !sm.eq(val, sm.zero) {
 			sm.insert(int(pos), row, col, val)
 		}
-	} else if sm.eq(val, sm.zero) {
+	case sm.eq(val, sm.zero):
 		sm.remove(int(pos), row)
-	} else {
+	default:
 		sm.vals[pos] = val
 	}
 }
@@ -78,14 +80,15 @@ func (sm *SparseMatrix) Set(val uint32, row, col int) {
 func (sm *SparseMatrix) Get(row, col int) uint32 {
 	row += 1 // 1-based
 	col += 1
+	uCol := uint32(col)
 
 	var currCol uint32
 
 	for pos := sm.rows[row-1] - 1; pos < sm.rows[row]-1; pos++ {
 		currCol = sm.cols[pos]
-		if currCol == uint32(col) {
+		if currCol == uCol {
 			return sm.vals[pos]
-		} else if currCol > uint32(col) {
+		} else if currCol > uCol {
 			break
 		}
 	}
@@ -94,14 +97,16 @@ func (sm *SparseMatrix) Get(row, col int) uint32 {
 }
 
 func (sm *SparseMatrix) insert(index, row, col int, val uint32) {
+
+	colU32 := uint32(col)
 	if sm.vals == nil {
 		sm.vals = make([]uint32, 1)
 		sm.vals[0] = val
 		sm.cols = make([]uint32, 1)
-		sm.cols[0] = uint32(col)
+		sm.cols[0] = colU32
 	} else {
 		sm.vals = append(sm.vals[:index], append([]uint32{val}, sm.vals[index:]...)...)
-		sm.cols = append(sm.cols[:index], append([]uint32{uint32(col)}, sm.cols[index:]...)...)
+		sm.cols = append(sm.cols[:index], append([]uint32{colU32}, sm.cols[index:]...)...)
 	}
 
 	for i := row; i <= sm.m; i++ {

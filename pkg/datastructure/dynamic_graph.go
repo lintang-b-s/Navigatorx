@@ -63,6 +63,7 @@ func (dg *DynamicGraph) Reset() {
 
 func (dg *DynamicGraph) NumVertices() Index {
 	g := dg.g.Load()
+
 	return Index(len(g.vertices))
 }
 
@@ -94,6 +95,7 @@ func (dg *DynamicGraph) GetGraphSegmentId(uRnId Index) Index {
 		return g.vertices[i].rnId >= uRnId
 	})
 	if g.vertices[u].rnId == uRnId {
+
 		return Index(u)
 	}
 	return INVALID_SEGMENT_ID

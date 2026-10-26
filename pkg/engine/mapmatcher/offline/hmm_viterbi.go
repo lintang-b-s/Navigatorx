@@ -160,32 +160,31 @@ func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 			initialized = true
 			pushAcceptedObsToTrip(t, gps, gpsCands)
 			continue
-
-		} else {
-			measurementDist := util.KilometerToMeter(
-				geo.CalculateGreatCircleDistance(prevObs.Lat(), prevObs.Lon(), gps.Lat(), gps.Lon()),
-			)
-
-			deltaTime := gps.Time().Sub(prevObs.Time()).Seconds()
-
-			// Compute transition probabilities
-			for j := 0; j < len(prevCands); j++ {
-				for k := 0; k < len(gpsCands); k++ {
-
-					prevState := prevCands[j]
-					currState := gpsCands[k]
-
-					param := newCalcTransitionProbParam(measurementDist, deltaTime, prevState, currState, allowUTurn)
-					transition := h.calcTransitionProb(param)
-					if util.Eq(transition.getTransitionProb(), ma.InvalidLogProb) {
-						continue
-					}
-					transitionProbMatrix[transition.getTransition()] = transition.getTransitionProb()
-				}
-			}
-
-			viterbiDecoder.ForwardStep(t, states, emissionProbMatrix, transitionProbMatrix)
 		}
+
+		measurementDist := util.KilometerToMeter(
+			geo.CalculateGreatCircleDistance(prevObs.Lat(), prevObs.Lon(), gps.Lat(), gps.Lon()),
+		)
+
+		deltaTime := gps.Time().Sub(prevObs.Time()).Seconds()
+
+		// Compute transition probabilities
+		for j := 0; j < len(prevCands); j++ {
+			for k := 0; k < len(gpsCands); k++ {
+
+				prevState := prevCands[j]
+				currState := gpsCands[k]
+
+				param := newCalcTransitionProbParam(measurementDist, deltaTime, prevState, currState, allowUTurn)
+				transition := h.calcTransitionProb(param)
+				if util.Eq(transition.getTransitionProb(), ma.InvalidLogProb) {
+					continue
+				}
+				transitionProbMatrix[transition.getTransition()] = transition.getTransitionProb()
+			}
+		}
+
+		viterbiDecoder.ForwardStep(t, states, emissionProbMatrix, transitionProbMatrix)
 
 		if viterbiDecoder.IsHMMBroken() {
 			// https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf

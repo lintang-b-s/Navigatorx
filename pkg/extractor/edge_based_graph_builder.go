@@ -25,12 +25,10 @@ only for road network OpenStreetMap input file.
 */
 func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	vTurnTableIds []da.Index, turnMatrix []pkg.TurnType, rn *da.RoadNetworkDataContainer) (*da.Graph, *met.TimeFunction[W], []uint64) {
+
 	ebgvNum := da.Index(g.NumberOfEdges())
 	ebgVertices := make([]da.Vertex, ebgvNum+1)
-	ebgAdjList := make([][]da.Index, ebgvNum)
-	ebgRevAdjList := make([][]da.Index, ebgvNum)
-	ebgEntryPoints := make([][]uint8, ebgvNum)
-	ebgExitPoints := make([][]uint8, ebgvNum)
+	ebgEdgeList := make([]ebgEdge, 0, ebgvNum)
 	ebgMapping := make([]uint64, ebgvNum)
 
 	speedFromWeight := func(length uint32, weight W) uint32 {
@@ -49,7 +47,6 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	turnTable := makeTurnTable(turnMatrix, wf, g, rn, eSpeedLimit, vTurnTableIds)
 	ebgWeights := make([]W, 0, ebgvNum)
 	turnCosts := make([]uint16, 0, ebgvNum)
-	ebgvId := da.Index(0)
 	ebgeId := da.Index(0)
 	emPerm := make([]int, g.NumberOfEdges())
 	// T(n) = \sum_{u in V} \sum_{v in edges(u,v)} outDeg(u)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
@@ -60,7 +57,7 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 			vc := rn.GetSegmentHeadCoord(ueId)
 			mpLat := (uc.GetLat() + vc.GetLat()) / 2
 			mpLon := (uc.GetLon() + vc.GetLon()) / 2
-			ebgVertices[ebgvId] = da.NewVertex(mpLat, mpLon, ueId)
+			ebgVertices[ueId] = da.NewVertex(mpLat, mpLon, ueId)
 
 			g.ForOutEdgesOfWithTurn(v, i, func(veId, w da.Index, j, _ uint8) {
 				turnTableId := vTurnTableIds[v] + da.Index(i)*g.GetOutDegree(v) + da.Index(j)
@@ -71,53 +68,98 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 					return
 				}
 
-				uvEntryPoint := uint8(len(ebgRevAdjList[veId]))
-				uvExitPoint := uint8(len(ebgAdjList[ueId]))
-
-				ebgAdjList[ueId] = append(ebgAdjList[ueId], veId)
-				ebgRevAdjList[veId] = append(ebgRevAdjList[veId], ueId)
-
-				ebgEntryPoints[ueId] = append(ebgEntryPoints[ueId], uvEntryPoint)
-				ebgExitPoints[veId] = append(ebgExitPoints[veId], uvExitPoint)
+				ebgEdgeList = append(ebgEdgeList, ebgEdge{ueId, veId})
 				ebgWeights = append(ebgWeights, eWeight)
 				turnCosts = append(turnCosts, tc)
 
 				ebgeId++
 			})
 
-			emPerm[ebgvId] = int(ueId)
-			ebgMapping[ebgvId] = uint64(u) | (uint64(v) << 32)
-			ebgvId++
+			emPerm[ueId] = int(ueId)
+			ebgMapping[ueId] = uint64(u) | (uint64(v) << 32)
 		})
 	})
 
-	oEdgeOffset := da.Index(0)
-	iEdgeOffset := da.Index(0)
-	for u := 0; u < int(ebgvNum); u++ {
-		ebgVertices[u].SetFirstOut(oEdgeOffset) // index of the first outEdge of vertex i in the flattened outEdges array
-		ebgVertices[u].SetFirstIn(iEdgeOffset)
-		oEdgeOffset += da.Index(len(ebgAdjList[u]))
-		iEdgeOffset += da.Index(len(ebgRevAdjList[u]))
+	// build the ebgVertices[w].firstOut, ebgVertices[w].firstIn, ebgHeads, ebgTails like in counting sort
+	// we need to store the edges (u,v) in ebgHeads sorted by tail vertex u. and store the reversed edges (v,u) in ebgTails sorted by head vertex v.
+	// we can do this by counting sort, sort by tail vertex u for ebgHeads and ebgVertices[w].firstOut.
+	// sort by head vertex v for ebgTails and ebgVertices[w].firstIn.
+	// count the frequency of each tail vertex u & count frequency of head vertex v.
+	// for example:
+	// edges (u,v):  [(1,2), (3,8), (2,4), (1,3), (2,5), (1,4)]
+	// build the frequency/occurence table of  each tail vertex u: [(1: 3), (2: 2), (3: 1)]
+	// build the prefix-sum: [(1: 3), (2: 5), (3: 6)]
+	// place the edges sorted by u from right to left of edges array:
+	// place the edge (1, 4) to index 3-1=2, decrement (1: 3) -> (1: 2)
+	// place the edge (2, 5) to index 5-1=4, decrement (2: 5) -> (2: 4)
+	// place the edge (1, 3) to index 2-1=1, decrement (1: 2) -> (1: 1)
+	// etc...
+	// final edges array (u,v) sorted by its tail vertex u: [(1, 2), (1, 3), (1, 4), (2, 4), (2, 5), (3, 8)]
+	for _, e := range ebgEdgeList {
+		ebgVertices[e.u].IncrementFirstOut()
+		ebgVertices[e.v].IncrementFirstIn()
+	}
+
+	m := da.Index(len(ebgEdgeList))
+
+	// prefix-sum the vertices[v].firstOut and vertices[v].firstIn offset
+	for v := da.Index(1); v < ebgvNum; v++ {
+		ebgVertices[v].AddFirstOut(ebgVertices[v-1].GetFirstOut())
+		ebgVertices[v].AddFirstIn(ebgVertices[v-1].GetFirstIn())
 	}
 
 	// dummy last edge-based graph ebg vertex
 	ebgVertices[ebgvNum] = da.NewVertex(0, 0, ebgvNum)
-	ebgVertices[ebgvNum].SetFirstOut(oEdgeOffset)
-	ebgVertices[ebgvNum].SetFirstIn(iEdgeOffset)
+	ebgVertices[ebgvNum].SetFirstOut(m)
+	ebgVertices[ebgvNum].SetFirstIn(m)
 
-	ebgHeads := util.Flatten(ebgAdjList)
-	ebgTails := util.Flatten(ebgRevAdjList)
-	ebgEntryPointsFlat := util.Flatten(ebgEntryPoints)
-	ebgExitPointsFlat := util.Flatten(ebgExitPoints)
+	ebgHeads := make([]da.Index, m)
+	ebgTails := make([]da.Index, m)
+	ebgEntryPoints := make([]uint8, m)
+	ebgExitPoints := make([]uint8, m)
 
-	ebg := da.NewGraph(ebgVertices, ebgHeads, ebgTails, true, ebgEntryPointsFlat, ebgExitPointsFlat)
+	eids := make([]da.Index, m)
+	reids := make([]da.Index, m)
+
+	sortedWeights := make([]W, m)
+	sortedTurnCosts := make([]uint16, m)
+
+	// place the edges (u,v) from right to left by its prefix-sum result sorted by tail vertex u.
+	// place the reversed edges (v,u) from right to left by its prefix-sum result sorted by head vertex v.
+	for i := int(m) - 1; i >= 0; i-- {
+		e := ebgEdgeList[i]
+		ebgVertices[e.u].DecrementFirstOut()
+		ebgVertices[e.v].DecrementFirstIn()
+		outEdgeID := ebgVertices[e.u].GetFirstOut()
+		inEdgeID := ebgVertices[e.v].GetFirstIn()
+		ebgHeads[outEdgeID] = e.v
+		ebgTails[inEdgeID] = e.u
+		eids[i] = outEdgeID
+		reids[i] = inEdgeID
+		sortedWeights[outEdgeID] = ebgWeights[i]
+		sortedTurnCosts[outEdgeID] = turnCosts[i]
+	}
+
+	for i := 0; i < int(m); i++ {
+		e := ebgEdgeList[i]
+		off := eids[i]
+		revOff := reids[i]
+
+		exitPoint := uint8(off - ebgVertices[e.u].GetFirstOut())
+		entryPoint := uint8(revOff - ebgVertices[e.v].GetFirstIn())
+
+		ebgEntryPoints[off] = entryPoint
+		ebgExitPoints[revOff] = exitPoint
+	}
+
+	ebg := da.NewGraph(ebgVertices, ebgHeads, ebgTails, true, ebgEntryPoints, ebgExitPoints)
 
 	sl := wf.GetSegmentLengths()
 	sl = append(sl, 0) // dummy last ebg vertex segment length
 	segDur := wf.GetSegmentDurations()
 	segDur = append(segDur, 0)
-	ebgWf := met.NewTimeCostFunction(true, ebgWeights, sl, segDur)
-	ebgWf.SetTurnCosts(turnCosts)
+	ebgWf := met.NewTimeCostFunction(true, sortedWeights, sl, segDur)
+	ebgWf.SetTurnCosts(sortedTurnCosts)
 
 	rn.ApplySegmentsPermutation(emPerm)
 
@@ -275,12 +317,16 @@ func getTurnTableId(turnTypeStr string) pkg.TurnType {
 		turnType = pkg.STRAIGHT_ON
 	case "u_turn":
 		turnType = pkg.U_TURN
-	case "no_entry":
+	case strNoEntry:
 		turnType = pkg.NO_ENTRY
-	case "none":
+	case strNone:
 		turnType = pkg.NONE
 	default:
 		panic("unsupported turn type")
 	}
 	return turnType
+}
+
+type ebgEdge struct {
+	u, v da.Index
 }

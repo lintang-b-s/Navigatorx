@@ -89,6 +89,7 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 func (us *Dijkstra[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
+
 	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
@@ -134,6 +135,7 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 
 	} else {
 		//  use reversed edges
+
 		for t := da.Index(0); t < da.Index(n); t++ {
 			sp := us.pq.GetCost(t)
 

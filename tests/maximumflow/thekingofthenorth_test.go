@@ -151,7 +151,6 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 
 	// karena multi-sources kita harus tambah artificial source, dan tambahkan edges dari supersource ke semua sources degnan INF weight
 	superSource := da.Index(R*C + R*C + C + R + R + C)
-	dn.AddArtificialVertex(superSource)
 
 	// atas
 	for k := 1; k <= C; k++ {

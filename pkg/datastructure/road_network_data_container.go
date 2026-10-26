@@ -152,9 +152,6 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometry(id Index) []Coordinate {
 		return rn.osmNodePoints[sIndex:eIndex]
 	}
 
-	if sIndex == 0 {
-		return make([]Coordinate, 0)
-	}
 	// reversed road segment
 	// di road network osm ada beberapa osm way yang two way
 	// nah ini edge geometry yang reversed direction
@@ -234,7 +231,6 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometryEndpoints(id Index) (Index
 
 func (rn *RoadNetworkDataContainer) AppendOsmNodePoints(edgePoints []Coordinate, osmNodeIds []uint64) {
 	rn.osmNodePoints = append(rn.osmNodePoints, edgePoints...)
-
 	for _, v := range osmNodeIds {
 		rn.osmNodeIds.Append(v)
 	}
@@ -326,6 +322,7 @@ func (rn *RoadNetworkDataContainer) GetTurnLaneData(id Index) TurnLanesData {
 // perm=permutation that maps from new edge annotation id to old edge id
 // nPerm=permutation that maps from new vertex id to old vertex id
 func (rn *RoadNetworkDataContainer) ApplySegmentsPermutation(nPerm []int) {
+
 	m := Index(len(nPerm))
 	// apply permutation edge annotation data
 	rn.lanes = util.ApplyPermutation(rn.lanes, nPerm)
@@ -336,6 +333,7 @@ func (rn *RoadNetworkDataContainer) ApplySegmentsPermutation(nPerm []int) {
 	rn.segmentEndPointsIndex = util.ApplyPermutation(rn.segmentEndPointsIndex, nPerm)
 	newOsmWayIds := NewPackedSlice(rn.osmwayBitSize, uint64(m))
 	for e := Index(0); e < m; e++ {
+
 		oldE := Index(nPerm[e])
 		newOsmWayIds.Append(rn.GetOsmWayId(oldE))
 	}

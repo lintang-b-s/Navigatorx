@@ -40,6 +40,7 @@ func (mp *MultilevelPartition) SetNumberOfVertices(numVertices int) {
 }
 
 func (mp *MultilevelPartition) SetNumberOfCellsInLevel(level int, numCells int) {
+
 	mp.numCells[level] = uint32(numCells)
 }
 

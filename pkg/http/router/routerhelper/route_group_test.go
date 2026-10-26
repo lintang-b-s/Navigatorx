@@ -41,7 +41,7 @@ func TestRouteGroup_Methods(t *testing.T) {
 	r := httprouter.New()
 	group := NewRouteGroup(r, "/api")
 
-	handle := func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	handle := func(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 		w.WriteHeader(http.StatusOK)
 	}
 	group.GET("/test_get", handle)
@@ -51,7 +51,7 @@ func TestRouteGroup_Methods(t *testing.T) {
 	group.PATCH("/test_patch", handle)
 	group.HEAD("/test_head", handle)
 	group.OPTIONS("/test_options", handle)
-	group.HandlerFunc("GET", "/test_handlerfunc", func(w http.ResponseWriter, r *http.Request) {
+	group.HandlerFunc("GET", "/test_handlerfunc", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -73,7 +73,7 @@ func TestRouteGroup_Handler(t *testing.T) {
 	r := httprouter.New()
 	group := NewRouteGroup(r, "/api")
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusCreated)
 	})
 	group.Handler("GET", "/handler", handler)

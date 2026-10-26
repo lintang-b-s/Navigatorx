@@ -3,11 +3,11 @@ package datastructure
 import "math"
 
 const (
-	INVALID_VERTEX_ID        Index = 10e8
-	INVALID_SEGMENT_ID       Index = 10e8 + 1
-	INVALID_PARALLEL_EDGE_ID Index = 10e8 + 3
-	INVALID_ENTRY_POINT      Index = 10e8 + 4
-	INVALID_EXIT_POINT       Index = 10e8 + 5
+	INVALID_VERTEX_ID        Index = 2e9
+	INVALID_SEGMENT_ID       Index = 2e9 + 1
+	INVALID_PARALLEL_EDGE_ID Index = 2e9 + 3
+	INVALID_ENTRY_POINT      Index = 2e9 + 4
+	INVALID_EXIT_POINT       Index = 2e9 + 5
 
 	BASE_VERTICES_SIZE                      = 2000
 	OVERLAY_VERTICES_SIZE                   = 32 // 2 ini kecil aja, biar gak consume memory banyak pas load test

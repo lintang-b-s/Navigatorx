@@ -1,9 +1,13 @@
 package util
 
+const (
+	permErrorMsg = "length of permutation slice & slice not same"
+)
+
 // ApplyPermutation. apply permutation perm to slice
 // perm maps new element id to old element id
 func ApplyPermutation[T any](slice []T, perm []int) []T {
-	AssertPanic(len(slice) == len(perm), "length of permutation slice & slice not same")
+	AssertPanic(len(slice) == len(perm), permErrorMsg)
 	n := len(slice)
 	applied := make([]T, n)
 	// O(n)
@@ -13,8 +17,10 @@ func ApplyPermutation[T any](slice []T, perm []int) []T {
 	return applied
 }
 
+// ApplyInversePermutation
+// perm maps old element id to new element id
 func ApplyInversePermutation[T any](slice []T, perm []int) []T {
-	AssertPanic(len(slice) == len(perm), "length of permutation slice & slice not same")
+	AssertPanic(len(slice) == len(perm), permErrorMsg)
 
 	n := len(slice)
 	applied := make([]T, n)

@@ -99,6 +99,7 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 func (us *DijkstraP2P[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
+
 	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
 	us.pq.PreallocateHeap(maxSearchSize)
 }

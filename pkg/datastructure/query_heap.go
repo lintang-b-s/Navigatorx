@@ -108,6 +108,7 @@ func (qh *QueryHeap[T, W]) heapifyUp(index Index) {
 //go:inline
 func (qh *QueryHeap[T, W]) Insert(id Index, priority W, vData VertexData[W], queryKey T) {
 	mid := qh.mapId(id)
+
 	newVIndex := Index(len(qh.verticesData))
 	heapNodeId := Index(qh.Size())
 	vData.heapNodeId = heapNodeId
@@ -237,6 +238,7 @@ func (qh *QueryHeap[T, W]) PreallocateHeap(maxSearchSize int) {
 
 // Size. return heap size
 func (qh *QueryHeap[T, W]) Size() Index {
+
 	return Index(len(qh.heap))
 }
 
@@ -265,6 +267,7 @@ func (qh *QueryHeap[T, W]) Set(id Index, vData VertexData[W], queryKey T) {
 	mid := qh.mapId(id)
 	vIndex := qh.verticesIndex.Get(mid)
 	if vIndex == math.MaxUint32 {
+
 		newVIndex := Index(len(qh.verticesData))
 		qh.verticesData = append(qh.verticesData, vData)
 		qh.verticesIndex.Set(mid, newVIndex)

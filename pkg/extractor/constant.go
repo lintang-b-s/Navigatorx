@@ -30,6 +30,12 @@ const (
 	LANES           = "LANES"
 	DRIVING_LANE    = "DRIVING_LANE"
 	TRAFFIC_LIGHT   = "TRAFFIC_LIGHT"
+
+	strNoEntry    = "no_entry"
+	strNone       = "none"
+	strRoundabout = "roundabout"
+	strYes        = "yes"
+	strGate       = "gate"
 )
 
 type TurnRestriction uint8
@@ -65,13 +71,13 @@ func (tt TurnRestriction) String() string {
 	case ONLY_STRAIGHT_ON:
 		return "only_straight_on"
 	case NO_ENTRY:
-		return "no_entry"
+		return strNoEntry
 	case NO_EXIT:
 		return "no_exit"
 	case INVALID:
 		return "invalid"
 	default:
-		return "none"
+		return strNone
 	}
 }
 
@@ -100,7 +106,7 @@ func parseTurnRestriction(s string) TurnRestriction {
 		return ONLY_RIGHT_TURN
 	case "only_straight_on":
 		return ONLY_STRAIGHT_ON
-	case "no_entry":
+	case strNoEntry:
 		return NO_ENTRY
 	case "no_exit":
 		return NO_EXIT
@@ -138,7 +144,7 @@ func getBarrierType(barrierStr string) BarrierTypeT {
 		return LIFT_GATE
 	case "block":
 		return BLOCK
-	case "gate":
+	case strGate:
 		return GATE
 	case "removable":
 		return REMOVABLE
@@ -159,7 +165,7 @@ func initializeHighwayWhitelist() map[string]struct{} {
 }
 
 var (
-	roundaboutSubName []string = []string{"roundabout", "bundaran"}
+	roundaboutSubName = []string{strRoundabout, "bundaran"}
 )
 
 const (

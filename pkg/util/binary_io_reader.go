@@ -7,6 +7,7 @@ import (
 	"io"
 	"math"
 	"os"
+	"path/filepath"
 
 	"github.com/bits-and-blooms/bitset"
 	"github.com/klauspost/compress/s2"
@@ -319,7 +320,7 @@ func (r *BinaryReader) String() (string, error) {
 }
 
 func OpenCompressedFile(filename string) (*os.File, *BinaryReader, error) {
-	file, err := os.Open(filename)
+	file, err := os.Open(filepath.Clean(filename))
 	if err != nil {
 		return nil, nil, err
 	}

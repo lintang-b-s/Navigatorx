@@ -69,6 +69,35 @@ func TestBinaryWriterWriteFloat64s(t *testing.T) {
 	}
 }
 
+func testRoundTripSlice[T comparable](
+	t *testing.T,
+	writeFn func(*BinaryWriter, []T) error,
+	readFn func(*BinaryReader) ([]T, error),
+	tests [][]T,
+) {
+	t.Helper()
+	for _, values := range tests {
+		var output bytes.Buffer
+		if err := writeFn(NewBinaryWriter(&output), values); err != nil {
+			t.Fatal(err)
+		}
+
+		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
+		got, err := readFn(reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(got) != len(values) {
+			t.Fatalf("got len %d, want %d", len(got), len(values))
+		}
+		for i := range values {
+			if got[i] != values[i] {
+				t.Fatalf("value[%d] = %v, want %v", i, got[i], values[i])
+			}
+		}
+	}
+}
+
 func TestBinaryWriterWriteInt32s(t *testing.T) {
 	tests := [][]int32{
 		{},
@@ -79,26 +108,7 @@ func TestBinaryWriterWriteInt32s(t *testing.T) {
 		tests[2][i] = int32(i*3 - 100)
 	}
 
-	for _, values := range tests {
-		var output bytes.Buffer
-		if err := NewBinaryWriter(&output).WriteInt32s(values); err != nil {
-			t.Fatal(err)
-		}
-
-		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
-		got, err := reader.ReadInt32s()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(got) != len(values) {
-			t.Fatalf("got len %d, want %d", len(got), len(values))
-		}
-		for i := range values {
-			if got[i] != values[i] {
-				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
-			}
-		}
-	}
+	testRoundTripSlice(t, (*BinaryWriter).WriteInt32s, (*BinaryReader).ReadInt32s, tests)
 }
 
 func TestBinaryWriterWriteUint32s(t *testing.T) {
@@ -111,26 +121,7 @@ func TestBinaryWriterWriteUint32s(t *testing.T) {
 		tests[2][i] = uint32(i * 7)
 	}
 
-	for _, values := range tests {
-		var output bytes.Buffer
-		if err := NewBinaryWriter(&output).WriteUint32s(values); err != nil {
-			t.Fatal(err)
-		}
-
-		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
-		got, err := reader.ReadUint32s()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(got) != len(values) {
-			t.Fatalf("got len %d, want %d", len(got), len(values))
-		}
-		for i := range values {
-			if got[i] != values[i] {
-				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
-			}
-		}
-	}
+	testRoundTripSlice(t, (*BinaryWriter).WriteUint32s, (*BinaryReader).ReadUint32s, tests)
 }
 
 func TestBinaryWriterWriteUint64s(t *testing.T) {
@@ -143,44 +134,8 @@ func TestBinaryWriterWriteUint64s(t *testing.T) {
 		tests[2][i] = uint64(i * 13)
 	}
 
-	for _, values := range tests {
-		var output bytes.Buffer
-		if err := NewBinaryWriter(&output).WriteUint64s(values); err != nil {
-			t.Fatal(err)
-		}
-
-		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
-		got, err := reader.ReadUint64s()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(got) != len(values) {
-			t.Fatalf("got len %d, want %d", len(got), len(values))
-		}
-		for i := range values {
-			if got[i] != values[i] {
-				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
-			}
-		}
-
-		var output2 bytes.Buffer
-		if err := NewBinaryWriter(&output2).WriteUInt64s(values); err != nil {
-			t.Fatal(err)
-		}
-		reader2 := NewBinaryReader(bytes.NewReader(output2.Bytes()))
-		got2, err := reader2.ReadUInt64s()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(got2) != len(values) {
-			t.Fatalf("got2 len %d, want %d", len(got2), len(values))
-		}
-		for i := range values {
-			if got2[i] != values[i] {
-				t.Fatalf("value2[%d] = %d, want %d", i, got2[i], values[i])
-			}
-		}
-	}
+	testRoundTripSlice(t, (*BinaryWriter).WriteUint64s, (*BinaryReader).ReadUint64s, tests)
+	testRoundTripSlice(t, (*BinaryWriter).WriteUInt64s, (*BinaryReader).ReadUInt64s, tests)
 }
 
 func TestBinaryWriterWriteInt64s(t *testing.T) {
@@ -193,26 +148,7 @@ func TestBinaryWriterWriteInt64s(t *testing.T) {
 		tests[2][i] = int64(i*17 - 500)
 	}
 
-	for _, values := range tests {
-		var output bytes.Buffer
-		if err := NewBinaryWriter(&output).WriteInt64s(values); err != nil {
-			t.Fatal(err)
-		}
-
-		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
-		got, err := reader.ReadInt64s()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(got) != len(values) {
-			t.Fatalf("got len %d, want %d", len(got), len(values))
-		}
-		for i := range values {
-			if got[i] != values[i] {
-				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
-			}
-		}
-	}
+	testRoundTripSlice(t, (*BinaryWriter).WriteInt64s, (*BinaryReader).ReadInt64s, tests)
 }
 
 func TestBinaryWriterWriteUint16s(t *testing.T) {
@@ -225,26 +161,7 @@ func TestBinaryWriterWriteUint16s(t *testing.T) {
 		tests[2][i] = uint16(i * 3)
 	}
 
-	for _, values := range tests {
-		var output bytes.Buffer
-		if err := NewBinaryWriter(&output).WriteUint16s(values); err != nil {
-			t.Fatal(err)
-		}
-
-		reader := NewBinaryReader(bytes.NewReader(output.Bytes()))
-		got, err := reader.ReadUint16s()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if len(got) != len(values) {
-			t.Fatalf("got len %d, want %d", len(got), len(values))
-		}
-		for i := range values {
-			if got[i] != values[i] {
-				t.Fatalf("value[%d] = %d, want %d", i, got[i], values[i])
-			}
-		}
-	}
+	testRoundTripSlice(t, (*BinaryWriter).WriteUint16s, (*BinaryReader).ReadUint16s, tests)
 }
 
 func TestBinaryWriterWriteInts(t *testing.T) {
@@ -284,7 +201,7 @@ func TestCompressedFileHeader(t *testing.T) {
 	if err := WriteCompressedFile(path, func(*BinaryWriter) error { return nil }); err != nil {
 		t.Fatal(err)
 	}
-	file, err := os.Open(path)
+	file, err := os.Open(filepath.Clean(path))
 	if err != nil {
 		t.Fatal(err)
 	}

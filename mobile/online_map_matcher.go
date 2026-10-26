@@ -2,8 +2,8 @@
 package mobile
 
 import (
-	_ "golang.org/x/mobile/bind"
-	_ "golang.org/x/mod/modfile"
+	_ "golang.org/x/mobile/bind" // required for gomobile bind
+	_ "golang.org/x/mod/modfile" // required for gomobile modfile
 )
 
 /*

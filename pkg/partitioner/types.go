@@ -1,29 +1,29 @@
 package partitioner
 
 import (
-	"github.com/bits-and-blooms/bitset"
+	"github.com/RoaringBitmap/roaring/v2"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 type MinCut struct {
-	flags                  *bitset.BitSet // true if the vertex is reachable from source in residual graph, or partition one, else partition two
-	numNodesInPartitionTwo int            // number of nodes in source partition (partition 2)
+	flags                  *roaring.Bitmap // true if the vertex is reachable from source in residual graph, or cell one, else cell two
+	numNodesInPartitionTwo int             // number of nodes in target cell (cell 2)
 	maxflow                int64
-	numOfCutEdges          int
+	cutEdgesCount          int
 }
 
-func NewMinCut(numberOfVertices int) *MinCut {
+func NewMinCut() *MinCut {
 	return &MinCut{
-		flags: bitset.New(uint(numberOfVertices)),
+		flags: roaring.New(),
 	}
 }
 
 func (mc *MinCut) SetFlag(u da.Index, flag bool) {
-	mc.flags.Set(uint(u))
+	mc.flags.Add(uint32(u))
 }
 
 func (mc *MinCut) GetFlag(u da.Index) bool {
-	return mc.flags.Test(uint(u))
+	return mc.flags.Contains(uint32(u))
 }
 
 func (mc *MinCut) GetNumNodesInPartitionTwo() int {
@@ -42,10 +42,14 @@ func (mc *MinCut) setMaxFlow(maxflow int64) {
 	mc.maxflow = maxflow
 }
 
-func (mc *MinCut) GetNumOfCutEdges() int {
-	return mc.numOfCutEdges
+func (mc *MinCut) CutEdgesCount() int {
+	return mc.cutEdgesCount
 }
 
-func (mc *MinCut) setNumOfCutEdges(numOfCut int) {
-	mc.numOfCutEdges = numOfCut
+func (mc *MinCut) GetcutEdgesCount() int {
+	return mc.CutEdgesCount()
+}
+
+func (mc *MinCut) setcutEdgesCount(numOfCut int) {
+	mc.cutEdgesCount = numOfCut
 }

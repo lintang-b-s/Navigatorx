@@ -9,6 +9,7 @@ import (
 // inspired from kosaraju code implementation cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch4/traversal/UVa11838.cpp
 func (g *Graph) RunKosaraju() {
 	// O(V+E)
+
 	n := Index(g.NumberOfVertices())
 	components := make([][]Index, 0, 10)
 
@@ -43,6 +44,7 @@ func (g *Graph) RunKosaraju() {
 
 	for i, component := range components {
 		for _, v := range component {
+
 			sccs[v] = Index(i)
 		}
 	}
@@ -115,6 +117,7 @@ func (g *Graph) topoSort(sccCondAdjList [][]Index) []Index {
 
 	for u := 0; u < n; u++ {
 		if inDegree[u] == 0 {
+
 			queue = append(queue, Index(u))
 		}
 	}

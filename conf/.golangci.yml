@@ -2,6 +2,9 @@ version: "2"
 
 run:
   timeout: 5m
+  # Use more CPU cores
+  concurrency: 4
+
 linters:
   exclusions:
     paths:
@@ -37,14 +40,25 @@ linters:
         - "all"
         - "-ST1003"
         - "-ST1020"
-    # gocritic:
-    #   enabled-tags:
-    #     - performance
-    #   disabled-tags:
-    #     - diagnostic
-    #     - style
-    #     - experimental
-    #     - opinionated
+    revive:
+      rules:
+        - name: blank-imports
+        - name: context-as-argument
+        - name: indent-error-flow
+        - name: superfluous-else
+        - name: redefines-builtin-id
+        - name: unreachable-code
+        - name: time-naming
+        - name: var-declaration
+        - name: waitgroup-by-value
+        - name: receiver-naming
+        - name: bool-literal-in-expr
+        - name: constant-logical-expr
+        - name: empty-block
+    gosec:
+      excludes:
+        - G115
+        - G404
 
   enable:
     - errcheck
@@ -52,7 +66,11 @@ linters:
     - govet
     - bodyclose
     - unused
-    # - gocritic
+    - gocritic
+    - revive
+    - gosec
+    - dupl
+    - goconst
 
   disable:
     - ineffassign

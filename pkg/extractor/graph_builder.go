@@ -208,11 +208,14 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	for u := 0; u < len(vertices)-1; u++ {
 		vertices[u].SetFirstOut(outEdgeOffset) // index of the first outEdge of vertex i in the flattened outEdges array
 		vertices[u].SetFirstIn(inEdgeOffset)
+
 		outEdgeOffset += da.Index(len(outEdges[u]))
+
 		inEdgeOffset += da.Index(len(inEdges[u]))
 	}
 
 	// dummy vertex
+
 	vertices[len(vertices)-1] = da.NewVertex(0, 0, da.Index(len(vertices)-1))
 	vertices[len(vertices)-1].SetFirstOut(outEdgeOffset)
 	vertices[len(vertices)-1].SetFirstIn(inEdgeOffset)

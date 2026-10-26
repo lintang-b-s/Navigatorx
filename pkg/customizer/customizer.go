@@ -420,7 +420,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 							return
 						}
 
-						vCellNumber := c.overlayGraph.TruncateToLevel(c.graph.GetCellNumber(v), 1)
+						vCellNumber := c.overlayGraph.GetCellNumberOnLevel(c.graph.GetCellNumber(v), 1)
 						if vCellNumber == cellNumber {
 
 							oldvCost := pq.GetCost(v)
@@ -506,7 +506,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 	for cellNumber, cell := range cellMapInLevelOne {
 		wg.Add(1)
 		numberOfShortcuts += cell.GetNumEntryPoints() * cell.GetNumExitPoints()
-		gopool.CtxGo(context.Background(), func() { buildCellClique(newCustomizerCell(cell, cellNumber)) })
+		gopool.CtxGo(context.Background(), func() { buildCellClique(newCustomizerCell(cell, da.Pv(cellNumber))) })
 	}
 
 	// let c_1 be the number of cells in level 1
@@ -605,7 +605,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 							// cut edge (vVertex, wVertex)
 							cutEdgeId := vVertex.GetCutEdge()
 
-							wCellNumber := levelData.TruncateToLevel(wVertex.GetCellNumber(), uint8(level))
+							wCellNumber := levelData.GetCellNumberOnLevel(wVertex.GetCellNumber(), uint8(level))
 							if wCellNumber == cellNumber {
 								cutEdgeWeight := wf.GetWeight(cutEdgeId)
 								newWCost := newVCost + cutEdgeWeight
@@ -690,7 +690,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 		wg.Add(1)
 		numberOfShortcuts += cell.GetNumEntryPoints() * cell.GetNumExitPoints()
 		gopool.CtxGo(context.Background(), func() {
-			buildCellClique(newCustomizerCell(cell, pv))
+			buildCellClique(newCustomizerCell(cell, da.Pv(pv)))
 		})
 	}
 

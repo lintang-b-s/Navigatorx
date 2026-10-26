@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const testPolyline = "polyline"
+
 func TestDTOS(t *testing.T) {
 	t.Run("NewDrivingDirection", func(t *testing.T) {
 		ins := da.Instruction{}
@@ -29,7 +31,7 @@ func TestDTOS(t *testing.T) {
 		ann := da.NewAnnotation([]float64{}, []float64{}, da.Coordinates{}, []da.Index{})
 		routeCosts := []float64{120.0}
 		routeDists := []float64{2000.0}
-		routePolylines := []string{"polyline"}
+		routePolylines := []string{testPolyline}
 		routeDrivingDirections := [][]da.DrivingDirection{
 			{
 				da.NewDrivingDirection(ins, "continue", 30.0, 50.0, []da.Index{1}, 0.0, ann),

@@ -5,7 +5,6 @@ import (
 	"compress/gzip"
 	"encoding/csv"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -26,7 +25,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	prepo "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
 
@@ -48,35 +46,6 @@ var (
 
 type hhQuery struct {
 	s, t da.Index
-}
-
-func newHHQuery(s, t da.Index) hhQuery {
-	return hhQuery{s: s, t: t}
-}
-
-func ensureHHConfig(t *testing.T) {
-	t.Helper()
-	hhInitOnce.Do(func() {
-		flag.Parse()
-		workingDir, err := config.FindProjectWorkingDir()
-		if err != nil {
-			hhInitErr = err
-			return
-		}
-		err = config.ReadConfig(workingDir)
-		if err != nil {
-			hhInitErr = err
-			return
-		}
-		vehicleType := viper.GetString("vehicle_type")
-		pkg.VehicleType = pkg.GetVehicleType(vehicleType)
-		pkg.DoubleTrackedVehicleEnabled = pkg.GetIsDoubleTrackedVehicle()
-		pkg.IsVehicleEnabled = pkg.GetIsVehicle()
-		pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
-	})
-	if hhInitErr != nil {
-		t.Fatalf("failed init config: %v", hhInitErr)
-	}
 }
 
 func hhDownload(filePath, url string, logger *zap.Logger, name string) error {
@@ -257,17 +226,6 @@ func hhTrackIDFromName(trajName string) string {
 	base := filepath.Base(trajName)
 	ext := filepath.Ext(base)
 	return strings.TrimSuffix(base, ext)
-}
-
-func hhWritePolyline(filePath string, points []da.Coordinate) error {
-	if err := util.EnsureDirExists(filePath); err != nil {
-		return fmt.Errorf("write polyline: mkdir failed: %w", err)
-	}
-	polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(points))
-	if err := os.WriteFile(filePath, []byte(polyline), 0600); err != nil {
-		return fmt.Errorf("write polyline: write file failed: %w", err)
-	}
-	return nil
 }
 
 // todo: update kode ini

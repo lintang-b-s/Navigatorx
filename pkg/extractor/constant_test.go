@@ -41,7 +41,7 @@ func TestGetBarrierType(t *testing.T) {
 		{"jersey_barrier", JERSEY_BARRIER},
 		{"lift_gate", LIFT_GATE},
 		{"block", BLOCK},
-		{"gate", GATE},
+		{strGate, GATE},
 		{"removable", REMOVABLE},
 		{"", NO_BARRIER},
 		{"unknown", INVALID_BARRIER},

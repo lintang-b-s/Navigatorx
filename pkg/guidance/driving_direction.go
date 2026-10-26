@@ -169,16 +169,17 @@ func (db *DirectionBuilder) buildInstruction(segmentId da.Index, sp da.PhantomNo
 	}
 
 	streetName := db.rn.GetStreetName(segmentId)
-	if db.prevInstruction == -1 && !isRoundabout {
+	switch {
+	case db.prevInstruction == -1 && !isRoundabout:
 		db.initialInstruction(segmentId, sp, streetName)
-	} else if isRoundabout {
+	case isRoundabout:
 		// current edge bundaran
 		db.handleRoundabout(prevPoint, tail, head, streetName, segmentId)
-	} else if db.prevInRoundabout {
+	case db.prevInRoundabout:
 		db.instructions[db.prevInstruction].SetStreetName(streetName)
 		db.instructions[db.prevInstruction].SetExited()
 		db.doublePrevStreetName = db.rn.GetStreetName(db.prevSegmentId)
-	} else {
+	default:
 		turnSign := db.getTurnSign(segmentId, streetName)
 		if turnSign != da.IGNORE {
 			db.updateTurnInstruction(turnSign, streetName, segmentId, prevPoint, tail)

@@ -193,23 +193,24 @@ func (ins *Instruction) GetAnnotation() Annotation {
 }
 
 func bearingToCompass(bearing float64) string {
-	if bearing < 22.5 {
+	switch {
+	case bearing < 22.5:
 		return "North"
-	} else if bearing < 67.5 {
+	case bearing < 67.5:
 		return "North East"
-	} else if bearing < 112.5 {
+	case bearing < 112.5:
 		return "East"
-	} else if bearing < 157.5 {
+	case bearing < 157.5:
 		return "South East"
-	} else if bearing < 202.5 {
+	case bearing < 202.5:
 		return "South"
-	} else if bearing < 247.5 {
+	case bearing < 247.5:
 		return "South West"
-	} else if bearing < 292.5 {
+	case bearing < 292.5:
 		return "West"
-	} else if bearing < 337.5 {
+	case bearing < 337.5:
 		return "North West"
-	} else {
+	default:
 		return "North"
 	}
 }
@@ -239,9 +240,8 @@ func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 			compassDir := bearingToCompass(headingAngle)
 			if streetName != "" {
 				return "Head " + compassDir + " toward " + streetName
-			} else {
-				return "Head " + compassDir
 			}
+			return "Head " + compassDir
 		}
 		return "Head toward " + streetName
 	case FINISH:

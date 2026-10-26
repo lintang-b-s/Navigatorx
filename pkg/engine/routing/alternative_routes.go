@@ -222,13 +222,14 @@ func intersection(oAlt, alt []da.Index) int {
 	i, j := 0, 0
 	na, no := len(alt), len(oAlt)
 	for i < na && j < no {
-		if alt[i] == oAlt[j] {
+		switch {
+		case alt[i] == oAlt[j]:
 			n++
 			i++
 			j++
-		} else if alt[i] < oAlt[j] {
+		case alt[i] < oAlt[j]:
 			i++
-		} else {
+		default:
 			j++
 		}
 	}
@@ -691,6 +692,7 @@ func (ars *AlternativeRouteSearch[W]) removeViaVertexCycle(segmentPath []da.Inde
 	for i := mid; i >= s; i-- {
 		v := segmentPath[i]
 		if segmentCount[v] == 2 {
+
 			rs = da.Index(i)
 			break
 		}

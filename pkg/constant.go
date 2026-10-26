@@ -87,7 +87,7 @@ var (
 	TIPE        = ROUTER
 
 	// supported: bicycle, foot, motorcycle, bus, hgv, goods, taxi, minibus, motorcar
-	VehicleType VehicleTypeT = MOTORCAR
+	VehicleType = MOTORCAR
 
 	// lebih dari roda dua   // see land-based transportation https://wiki.openstreetmap.org/wiki/Key:access
 	DoubleTrackedVehicleEnabled = true
@@ -96,7 +96,7 @@ var (
 	// vehicle or pedestrians. for oneway interperation for routing: https://wiki.openstreetmap.org/wiki/Key:oneway
 	// see Land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
 	// vehicle is all type of vehicle (bicycle, motorcar, bus, motorcycle, hgv, goods,taxi, minibus)
-	IsVehicleEnabled bool = true
+	IsVehicleEnabled = true
 
 	VehicleTypeTag = map[VehicleTypeT]string{
 		BICYCLE:    "bicycle",

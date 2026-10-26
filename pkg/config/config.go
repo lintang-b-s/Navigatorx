@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 
@@ -58,11 +59,11 @@ func ReadProfileConfig(workingDir string, profile string) error {
 func InitConfig() {
 	workingDir, err := FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	err = ReadConfig(workingDir)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	vehicleType := viper.GetString("vehicle_type")
 	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
@@ -74,11 +75,11 @@ func InitConfig() {
 func InitProfileConfig(profileName string, regionName string, fileType pkg.FILE_TYPE) {
 	workingDir, err := FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	err = ReadProfileConfig(workingDir, profileName)
 	if err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 	pkg.ProfileName = profileName
 	vehicleType := viper.GetString("vehicle_type")

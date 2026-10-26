@@ -31,7 +31,7 @@ sh scripts/build_pgo.sh
 
 ### Pre-processing
 
-run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) algorithm is available. The CRP pre-processing phase creates multilevel partitions using Inertial Flow Algorithm ([[4]](#ref4)) and overlay graph data structures.
+run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) algorithm is available. The CRP pre-processing phase creates multilevel partitions using Inertial Flow Algorithm ([[4]](#ref4)) and overlay graph data structures. The preprocessing phase may require an amount of RAM up to 10-15 times the size of the .osm.pbf file.
 
 ```
 go build -o ./bin/preprocessor ./cmd/preprocessor
@@ -49,7 +49,7 @@ go build -o ./bin/customizer ./cmd/customizer
 
 ### Query Engine
 
-The point-to-point fastest path query, similar to the one in ref ([[5]](#ref5)), running Bidirectional ALT (A\* Search, Landmarks, and Triangle Inequality) ([[3]](#ref3)) on the graph consisting of the union of overlay Graph, _C_s_ , and _C_t_ . (Here _C_v_ denotes the subgraph of G induced by the vertices in the cell containing v.), resulting from the preprocessing and customization phases of the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) technique.
+The point-to-point fastest path query, similiar to the one in ref ([[5]](#ref5)), running Bidirectional ALT (A\* Search, Landmarks, and Triangle Inequality) ([[3]](#ref3)) on the graph consisting of the union of overlay Graph, _C_s_ , and _C_t_ . (Here _C_v_ denotes the subgraph of G induced by the vertices in the cell containing v.), resulting from the preprocessing and customization phases of the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) technique.
 
 ```
 go build -o ./bin/engine -pgo=./bin/default.pgo  ./cmd/engine
@@ -71,7 +71,7 @@ For changes in the duration (weight) of road segments, the csv file follows the 
 from_osm_id, to_osm_id, road_segment_speed_in_km_h
 ```
 
-from/to OSM node IDs are [OpenStreetMap Node](https://wiki.openstreetmap.org/wiki/Node) Id.from/to OSM node IDs must be connected. Note that for some OSM nodes that only have indegree and outdegree equal to 1, the node may be compressed/contracted so that only the two adjacent nodes to the contracted node remain in the compressed graph. <br>
+from/to OSM node IDs are [OpenStreetMap Node](https://wiki.openstreetmap.org/wiki/Node) Id.from/to OSM node IDs must be connected.<br>
 
 After you run the command above, the query engine will provide the following log: <br>
 

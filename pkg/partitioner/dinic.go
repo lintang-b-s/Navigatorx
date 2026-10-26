@@ -10,19 +10,17 @@ type FlowNumber interface { // for the inertial flow partitioner use int8, becau
 	~int8 | ~int32 | ~int64
 }
 
-type flowEdge[W FlowNumber] struct {
-	v    da.Index
-	flow W
-	cap  W
-}
-
 type DinicMaxFlow[W FlowNumber] struct {
-	edgelist []flowEdge[W]
-	adjList  [][]int
+	heads   []da.Index
+	flows   []W
+	caps    []W
+	adjList [][]da.Index
 
-	level []int
-	last  []int
-	n     int // number of vertices excluding artificial source and artificial sink.
+	level      []da.Index
+	levelQueue []da.Index
+	last       []da.Index
+	n          da.Index // number of vertices excluding artificial source and artificial sink.
+	t          da.Index
 }
 
 // NewDinicMaxFlow create new DinicMaxFlow instance.
@@ -39,42 +37,38 @@ func NewDinicMaxFlow[W FlowNumber](n int, multiSources, multiSinks bool) *DinicM
 		m++ // additional artificial sink
 	}
 	dc := &DinicMaxFlow[W]{
-		n:       n,
-		last:    make([]int, n),
-		level:   make([]int, n),
-		adjList: make([][]int, m),
+		n:          da.Index(n),
+		last:       make([]da.Index, m),
+		level:      make([]da.Index, m),
+		adjList:    make([][]da.Index, m),
+		levelQueue: make([]da.Index, 0, m),
 	}
 
 	return dc
 }
 
-func (dmf *DinicMaxFlow[W]) AddFlow(u da.Index, i int, f W) {
+func (dmf *DinicMaxFlow[W]) AddFlow(u da.Index, i da.Index, f W) {
 	id := dmf.adjList[u][i]
-	dmf.edgelist[id].flow += f
-	dmf.edgelist[id^1].flow -= f
-}
-
-func (dmf *DinicMaxFlow[W]) AddArtificialVertex(vId da.Index) {
-	if len(dmf.level) < int(vId)+1 {
-		dmf.level = append(dmf.level, 0)
-	}
-	if len(dmf.last) < int(vId)+1 {
-		dmf.last = append(dmf.last, 0)
-	}
+	dmf.flows[id] += f
+	dmf.flows[id^1] -= f
 }
 
 func (dmf *DinicMaxFlow[W]) AddEdge(u, v da.Index, w W, directed bool) {
 	if u == v {
 		return
 	}
-	dmf.edgelist = append(dmf.edgelist, flowEdge[W]{v: v, flow: 0, cap: w})
-	dmf.adjList[u] = append(dmf.adjList[u], len(dmf.edgelist)-1)
+	dmf.heads = append(dmf.heads, v)
+	dmf.flows = append(dmf.flows, 0)
+	dmf.caps = append(dmf.caps, w)
+	dmf.adjList[u] = append(dmf.adjList[u], da.Index(len(dmf.flows)-1))
 	wr := W(0)
 	if !directed {
 		wr = w
 	}
-	dmf.edgelist = append(dmf.edgelist, flowEdge[W]{v: u, flow: 0, cap: wr})
-	dmf.adjList[v] = append(dmf.adjList[v], len(dmf.edgelist)-1)
+	dmf.heads = append(dmf.heads, u)
+	dmf.flows = append(dmf.flows, 0)
+	dmf.caps = append(dmf.caps, wr)
+	dmf.adjList[v] = append(dmf.adjList[v], da.Index(len(dmf.flows)-1))
 }
 
 func (dmf *DinicMaxFlow[W]) resetCurrentEdges() {
@@ -93,7 +87,7 @@ func (dmf *DinicMaxFlow[W]) bfsLevelGraph(
 		dmf.level[vId] = INVALID_LEVEL
 	}
 
-	levelQueue := make([]da.Index, 0, dmf.n)
+	levelQueue := dmf.levelQueue[:0]
 	levelQueue = append(levelQueue, source)
 	dmf.level[source] = 0
 
@@ -108,9 +102,8 @@ func (dmf *DinicMaxFlow[W]) bfsLevelGraph(
 		}
 
 		for _, eId := range dmf.adjList[u] {
-			e := dmf.edgelist[eId]
-			residual := e.cap - e.flow
-			v := e.v
+			residual := dmf.caps[eId] - dmf.flows[eId]
+			v := dmf.heads[eId]
 			if residual > 0 && dmf.level[v] == INVALID_LEVEL {
 				dmf.level[v] = level
 				levelQueue = append(levelQueue, v)
@@ -135,15 +128,15 @@ func (dmf *DinicMaxFlow[W]) dfsAugmentPath(u da.Index, s, t da.Index, f int64) i
 		return f
 	}
 
-	m := len(dmf.adjList[u])
+	m := da.Index(len(dmf.adjList[u]))
 
 	for ; dmf.last[u] < m; dmf.last[u]++ {
 
 		j := dmf.last[u]
-		e := dmf.edgelist[dmf.adjList[u][j]]
-		v := e.v
-		eCap := e.cap
-		eFlow := e.flow
+		e := dmf.adjList[u][j]
+		v := dmf.heads[e]
+		eCap := dmf.caps[e]
+		eFlow := dmf.flows[e]
 
 		residual := int64(eCap - eFlow)
 		if dmf.level[v] != dmf.level[u]+1 {
@@ -161,6 +154,7 @@ func (dmf *DinicMaxFlow[W]) dfsAugmentPath(u da.Index, s, t da.Index, f int64) i
 
 func (dmf *DinicMaxFlow[W]) blockingFlow(s, t da.Index) int64 {
 	blockingFlowVal := int64(0)
+	dmf.t = t
 	for {
 		// ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 		// for general capacity graph:
@@ -196,7 +190,7 @@ inspired from dinic code implementation cp4 by steven halim: https://github.com/
 */
 func (dmf *DinicMaxFlow[W]) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
 	var (
-		minCut = NewMinCut(dmf.n) // exclude artificial source and sink. kita cuma tambahin super source sinks di slice superEdgeList, superAdjList, dmf.level, dmf.last
+		minCut = NewMinCut() // exclude artificial source and sink. kita cuma tambahin super source sinks di slice superEdgeList, superAdjList, dmf.level, dmf.last
 	)
 	maxFlow := int64(0)
 
@@ -207,7 +201,7 @@ func (dmf *DinicMaxFlow[W]) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut
 		// shortest path ditance from s to any vertices using unit distance (bfs) is at most n-1.
 		// thus, num of iterations of  this loop is O(n)
 		// time complexity of dinic algorithm: O(n^2*m)
-
+		// dmf.checkInvariant()
 		// for unit capacity graph:
 		// see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 		dmf.resetCurrentEdges()
@@ -233,7 +227,7 @@ func (dmf *DinicMaxFlow[W]) makeMinCutFlags(minCut *MinCut, maxflow int64) {
 
 	for u := da.Index(0); u < n; u++ {
 		for _, eId := range dmf.adjList[u] {
-			v := da.Index(dmf.edgelist[eId].v)
+			v := da.Index(dmf.heads[eId])
 			if v >= n {
 				continue
 			}
@@ -244,5 +238,5 @@ func (dmf *DinicMaxFlow[W]) makeMinCutFlags(minCut *MinCut, maxflow int64) {
 	}
 
 	minCut.setMaxFlow(maxflow)
-	minCut.setNumOfCutEdges(cutEdges)
+	minCut.setcutEdgesCount(cutEdges)
 }

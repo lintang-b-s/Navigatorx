@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -16,6 +17,7 @@ import (
 func (mp *MultilevelPartitioner) BuildMLP() *da.MultilevelPartition {
 	numCells := make([]uint32, mp.l)
 	for i := 0; i < mp.l; i++ {
+
 		numCells[i] = uint32(len(mp.cellVertices[i]))
 	}
 
@@ -63,6 +65,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 	for i := 0; i < mp.l; i++ {
 		overlayVerticesByLevel[i] = make(map[da.Pv][]da.Vertex)
 	}
+
 	for u := da.Index(0); u < da.Index(mp.graph.NumberOfVertices()); u++ {
 		uVertex := mp.graph.GetVertex(u)
 		mp.graph.ForOutEdgesOf(u, func(eId da.Index, head da.Index, _ uint8) {
@@ -121,19 +124,23 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 		if err := util.EnsureDirExists(levelFile); err != nil {
 			return err
 		}
+		levelFile = filepath.Clean(levelFile)
 		f, err := os.OpenFile(levelFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
 			return err
 		}
 		data, err := json.Marshal(cells)
 		if err != nil {
-			f.Close()
+			_ = f.Close()
 			return err
 		}
 		_, err = f.Write(data)
-		f.Close()
+		closeErr := f.Close()
 		if err != nil {
 			return err
+		}
+		if closeErr != nil {
+			return closeErr
 		}
 	}
 
@@ -152,12 +159,13 @@ func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel() error {
 	for i := 0; i < mp.l; i++ {
 		overlayVerticesByLevel[i] = make(map[da.Pv][]da.Vertex)
 	}
+
 	for u := da.Index(0); u < da.Index(mp.graph.NumberOfVertices()); u++ {
 		uVertex := mp.graph.GetVertex(u)
 
 		for l := 0; l < mp.l; l++ {
 			uPv := mlp.GetCellNumber(u)
-			uPvl := levelData.GetCellNumberOnLevel(uint8(l+1), uPv)
+			uPvl := levelData.GetCellNumberOnLevel(uPv, uint8(l+1))
 			overlayVerticesByLevel[l][uPvl] = append(overlayVerticesByLevel[l][uPvl], uVertex)
 		}
 

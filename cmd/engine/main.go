@@ -19,7 +19,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/http/usecases"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 )
@@ -90,7 +89,6 @@ func main() {
 
 	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, s2Index)
 	mapAttributesService := usecases.NewMapAttributesService(logger, mapAttributesEngine)
-	util.FreeMemory()
 	serverErr := api.Use(
 		logger, *useRateLimiter, routingService, mapAttributesService, shutdownPeriod*time.Second)
 

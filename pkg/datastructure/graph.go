@@ -5,7 +5,8 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// SubVertex   map dari (vId, entryExitPoint, exitFlag) to overlay vertex.
+// SubVertex maps from (vId, entryExitPoint, exitFlag) to overlay vertex.
+// todo: ini bisa dihapus, langsung simpan entry/exit boundary/overlay vertices di Cell struct{}
 type SubVertex struct {
 	vId            Index // original vertex id
 	exitEntryOrder uint8 // entry/exit point order (from 0 to outDegree-1/inDegree-1)
@@ -237,9 +238,7 @@ func (g *Graph) GetNumberOfCellsNumbers() int {
 
 func (g *Graph) ForOutEdges(handle func(exitPoint uint8, head, tail Index, entryPoint uint8, percentage float64, eId Index)) {
 	for eId, v := range g.heads {
-
 		tail := g.GetTailOfOutedge(Index(eId))
-
 		percentage := float64(eId) / float64(len(g.heads)) * 100
 		handle(g.GetExitOrder(tail, Index(eId)), v, tail, g.entryPoints[eId], percentage, Index(eId))
 	}
@@ -341,6 +340,7 @@ func (g *Graph) BuildVertexCellOffsets() {
 	}
 
 	for c := currentCell + 1; c <= Index(numCells); c++ {
+
 		g.vertexCellOffset[c] = Index(g.NumberOfVertices())
 	}
 	var maxCellSize Index

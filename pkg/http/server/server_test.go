@@ -17,7 +17,7 @@ func TestNew(t *testing.T) {
 	})
 
 	ctx := context.Background()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {})
+	handler := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {})
 	config := Config{
 		Port:    8080,
 		Timeout: 5 * time.Second,

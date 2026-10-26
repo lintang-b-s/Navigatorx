@@ -59,6 +59,7 @@ func readTurnKVFromFile(r *util.BinaryReader) (*TurnKV, error) {
 
 func (lt *LookupTable[T]) WriteToFile(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
+
 		if err := w.Uint32(uint32(len(lt.data))); err != nil {
 			return err
 		}

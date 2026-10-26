@@ -78,7 +78,7 @@ const (
 func TestInertialFlowMLP(t *testing.T) {
 	ebg, mp, _ := setup()
 	mp.RunMultilevelPartitioning()
-
+	us := mp.MLPSizes()
 	n := ebg.NumberOfVertices()
 	validateMLP := func(cellVertices [][][]da.Index) (bool, int) {
 		// v cellVertices: nodes in each cells in each level
@@ -86,7 +86,7 @@ func TestInertialFlowMLP(t *testing.T) {
 		for l := 0; l < len(cellVertices); l++ {
 			numVerticesInPartitionLevell := 0
 			cellsInLevel := cellVertices[l]
-
+			maxCellSize := us[l]
 			verticeCells := make([]int, n)
 			for i := 0; i < n; i++ {
 				verticeCells[i] = invalidCellId
@@ -100,6 +100,9 @@ func TestInertialFlowMLP(t *testing.T) {
 						return false, l + 1
 					}
 					verticeCells[v] = cellId
+				}
+				if len(cell) > maxCellSize {
+					return false, l + 1
 				}
 			}
 

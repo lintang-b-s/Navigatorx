@@ -17,12 +17,11 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/rs/cors"
 	"github.com/spf13/viper"
-	_ "github.com/swaggo/http-swagger"
 	httpSwagger "github.com/swaggo/http-swagger"
 	"go.uber.org/zap"
 
 	"net/http"
-	_ "net/http/pprof"
+	"net/http/pprof"
 )
 
 type API struct {
@@ -94,7 +93,16 @@ func (api *API) Run(
 
 	if viper.GetBool("enable_pprof") {
 		log.Warn("pprof endpoint enabled at /debug/pprof/*item")
-		router.Handler(http.MethodGet, "/debug/pprof/*item", http.DefaultServeMux)
+
+		mux := http.NewServeMux()
+		mux.HandleFunc("/debug/pprof/", pprof.Index)
+		mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+		mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+		mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+		mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+
+		router.Handler(http.MethodGet, "/debug/pprof/*item", mux)
+		router.Handler(http.MethodPost, "/debug/pprof/*item", mux) // Required by `go tool pprof` for symbol lookups
 	}
 
 	group := router_helper.NewRouteGroup(router, "/api")
