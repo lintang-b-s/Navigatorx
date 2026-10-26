@@ -2,7 +2,7 @@ package datastructure
 
 import (
 	"math"
-	"unsafe"
+	"strings"
 )
 
 // Convert the decimal value to binary. Note that a negative value must be calculated using its two's complement
@@ -107,5 +107,7 @@ func GooglePoylineFromCoords(path Coordinates) string {
 
 // https://go.dev/src/strings/builder.go#L45
 func bytesToString(b []byte) string {
-	return unsafe.String(unsafe.SliceData(b), len(b))
+	builder := &strings.Builder{}
+	builder.Write(b)
+	return builder.String()
 }

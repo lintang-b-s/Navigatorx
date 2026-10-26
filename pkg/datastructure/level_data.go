@@ -3,24 +3,25 @@ package datastructure
 // adapted from: https://github.com/michaelwegner/CRP/blob/master/datastructures/LevelInfo.h
 
 type LevelData struct {
-	offset []uint8 // offset of each level in the bitpacked cell numbers
+	offset []uint8 // offset of each level in the bitpacked cell numbers (see buildMLP() in partitioner_io.go)
 }
 
 func NewLevelData(offset []uint8) *LevelData {
 	return &LevelData{offset: offset}
 }
 
-// off bits above the given level
+// off bits above the given level-l (1-indexed)
 func (li *LevelData) OffUpperBit(l uint8, cellNumber Pv) Pv {
 	return (cellNumber & ^(^Pv(0) << Pv(li.offset[l])))
 }
 
-func (li *LevelData) GetCellNumberOnLevel(l uint8, cellNumber Pv) Pv {
+// GetCellNumberOnLevel get cell number on level-l (1-indexed)
+func (li *LevelData) GetCellNumberOnLevel(cellNumber Pv, l uint8) Pv {
 	withoutUpperBit := li.OffUpperBit(l, cellNumber)
-	return withoutUpperBit >> li.offset[l-1]
+	return li.TruncateToLevel(withoutUpperBit, l)
 }
 
-// GetHighestDifferingLevel. get the highest level(1-indexed) where two cell numbers differ
+// GetHighestDifferingLevel. get the highest level (1-indexed) where two cell numbers differ
 func (li *LevelData) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 	diff := c1 ^ c2
 	if diff == 0 {
@@ -52,10 +53,10 @@ at the same cell as s or t. Equivalently, lst(v) is the maximum i such that ci(v
 differ. We do the same for pv(t) and pv(v) to determine lt(v). The minimum of ls(v) and lt(v) is lst(v)." (Delling et al. (2015) )
 */
 func (li *LevelData) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
-	l_sv := li.GetHighestDifferingLevel(sCellNumber, vCellNumber)
-	l_tv := li.GetHighestDifferingLevel(tCellNumber, vCellNumber)
+	lsv := li.GetHighestDifferingLevel(sCellNumber, vCellNumber)
+	ltv := li.GetHighestDifferingLevel(tCellNumber, vCellNumber)
 
-	return min(l_sv, l_tv)
+	return min(lsv, ltv)
 }
 
 // get cell number. level is 1-indexed

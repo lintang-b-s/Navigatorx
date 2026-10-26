@@ -5,6 +5,7 @@ import (
 	"encoding/csv"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -53,10 +54,10 @@ todo: add background worker buat update conditional turn restriction & condition
 contoh conditional barrier restriction: https://www.openstreetmap.org/node/10303116750
 */
 
-func (c *Customizer[W]) readSegmentSpeedsFromFile(filepath string) ([]da.Index, []float64, error) {
-	f, err := os.Open(filepath)
+func (c *Customizer[W]) readSegmentSpeedsFromFile(filePath string) ([]da.Index, []float64, error) {
+	f, err := os.Open(filepath.Clean(filePath))
 	if err != nil {
-		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readSegmentSpeedsFile: failed to open file %v: %w", filepath, err)
+		return make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readSegmentSpeedsFile: failed to open file %v: %w", filePath, err)
 	}
 
 	defer f.Close()
@@ -107,10 +108,10 @@ func (c *Customizer[W]) readSegmentSpeedsFromFile(filepath string) ([]da.Index, 
 	return upSegmentIds, upSegmentSpeeds, nil
 }
 
-func (c *Customizer[W]) readTurnPenaltiesFromFile(filepath string) ([]da.Index, []da.Index, []float64, error) {
-	f, err := os.Open(filepath)
+func (c *Customizer[W]) readTurnPenaltiesFromFile(filePath string) ([]da.Index, []da.Index, []float64, error) {
+	f, err := os.Open(filepath.Clean(filePath))
 	if err != nil {
-		return make([]da.Index, 0), make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to open file %v: %w", filepath, err)
+		return make([]da.Index, 0), make([]da.Index, 0), make([]float64, 0), fmt.Errorf("customizer.readTurnPenaltiesFromFile: failed to open file %v: %w", filePath, err)
 	}
 
 	defer f.Close()

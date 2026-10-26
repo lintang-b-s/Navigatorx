@@ -103,7 +103,7 @@ func NewLookupTable[T LookupKV[T]](data []T) *LookupTable[T] {
 	return &LookupTable[T]{data: data}
 }
 
-// Get. get edge-based graph (ebg) node id or ebg edge id
+// Get. get edge-based graph (ebg) node id (if we use SegmentKV) or ebg edge id (if we use TurnKV)
 // O(logn) binary search
 func (lt *LookupTable[T]) Get(key T) Index {
 	n := len(lt.data)
@@ -113,11 +113,12 @@ func (lt *LookupTable[T]) Get(key T) Index {
 
 	for l <= r {
 		mid := l + (r-l)/2
-		if lt.data[mid].Eq(key) {
+		switch {
+		case lt.data[mid].Eq(key):
 			return lt.data[mid].Val()
-		} else if lt.data[mid].Compare(key) {
+		case lt.data[mid].Compare(key):
 			l = mid + 1
-		} else {
+		default:
 			r = mid - 1
 		}
 	}

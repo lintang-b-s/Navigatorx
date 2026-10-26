@@ -31,6 +31,38 @@ func (v *Vertex) SetFirstOut(firstOut Index) {
 	v.firstOut = firstOut
 }
 
+func (v *Vertex) IncrementFirstOut() {
+	v.firstOut++
+}
+
+func (v *Vertex) AddFirstOut(add Index) {
+	v.firstOut += add
+}
+
+func (v *Vertex) GetFirstOut() Index {
+	return v.firstOut
+}
+
+func (v *Vertex) GetFirstIn() Index {
+	return v.firstIn
+}
+
+func (v *Vertex) AddFirstIn(add Index) {
+	v.firstIn += add
+}
+
+func (v *Vertex) DecrementFirstOut() {
+	v.firstOut--
+}
+
+func (v *Vertex) IncrementFirstIn() {
+	v.firstIn++
+}
+
+func (v *Vertex) DecrementFirstIn() {
+	v.firstIn--
+}
+
 func (v *Vertex) SetFirstIn(firstIn Index) {
 	v.firstIn = firstIn
 }

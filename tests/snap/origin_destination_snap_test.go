@@ -30,17 +30,7 @@ var (
 )
 
 const (
-	mlpFile                 = "./data/stress_test_yogyakarta.mlp"
-	osmFile                 = "./data/yogyakarta.osm.pbf"
-	graphFile        string = "./data/original_query_test.ngraph"
-	overlayGraphFile string = "./data/overlay_graph_query_test.ngraph"
-	metricsFile      string = "./data/metrics_query_test.nmt"
-	timeFunctionFile string = "./data/timefunction_od_test.ntf"
-	rnFile           string = "./data/od_rn_test.ndata"
-)
-
-var (
-	landmarkFile string = config.ProfilesRoot() + "/landmark_query_test.nlm"
+	osmFile = "./data/yogyakarta.osm.pbf"
 )
 
 func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {

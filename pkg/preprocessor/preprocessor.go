@@ -153,7 +153,7 @@ func (p *Preprocessor[W]) BuildCellNumber() {
 			cellNumbers = append(cellNumbers, cellNumber)
 			cellPvPtr := len(cellNumbers) - 1
 			pvMap[cellNumber] = da.Index(cellPvPtr)
-			p.graph.SetVertexPvPtr(id, da.Index(cellPvPtr)) // set pointer to the index in cellNumbers slice
+			p.graph.SetVertexPvPtr(id, da.Index(cellPvPtr))
 		} else {
 			p.graph.SetVertexPvPtr(id, pvMap[cellNumber])
 		}
@@ -259,9 +259,8 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 	nPerm := make([]int, p.graph.NumberOfVertices()+1)
 	nPerm[len(nPerm)-1] = len(nPerm) - 1
 
-	for i := da.Index(0); i < da.Index(n); i++ {
-
-		for v := da.Index(0); v < da.Index(len(cellVertices[i])); v++ {
+	for i := 0; i < n; i++ {
+		for v := 0; v < len(cellVertices[i]); v++ {
 			// update vertex to use new vId
 			// in the end of the outer loop, graph vertices are sorted by cell number
 
@@ -273,9 +272,7 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 			p.graph.SetVId(vOldId, vId)
 
 			// update outedges & inedges
-			for k := da.Index(0); k < da.Index(len(oEdges[vOldId])); k++ {
-
-				oe := oEdges[vOldId][k]
+			for _, oe := range oEdges[vOldId] {
 				nHead := p.oToNewVId[oe.v]
 				p.graph.SetHead(noeId, nHead)
 				ePerm[noeId] = int(oe.id)
@@ -283,8 +280,7 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 				noeId++
 			}
 
-			for k := da.Index(0); k < da.Index(len(iEdges[vOldId])); k++ {
-				oie := iEdges[vOldId][k]
+			for _, oie := range iEdges[vOldId] {
 				nTail := p.oToNewVId[oie.v]
 				p.graph.SetTail(nieId, nTail)
 				eRevPerm[nieId] = int(oie.id)

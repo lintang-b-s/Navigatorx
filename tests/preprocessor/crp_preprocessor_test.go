@@ -592,7 +592,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 				expectedNumberOfCellsInLevelL := len(tc.cellVertices[l-1])
 				for cellId, cell := range cellMapInLevelL {
-					cellIdInLevelL := og.OffUpperBit(cellId, uint8(l))
+					cellIdInLevelL := og.OffUpperBit(da.Pv(cellId), uint8(l))
 					if int(cellIdInLevelL) >= expectedNumberOfCellsInLevelL {
 						t.Errorf("expected num cells in level %d less than %v, got: %v", l, expectedNumberOfCellsInLevelL, cellIdInLevelL)
 					}
@@ -654,7 +654,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 				// expectedNumberOfCellsInLevelL := len(tc.cellVertices[l-1])
 				for cellId, cell := range cellMapInLevelL {
-					cellIdInLevelL := og.OffUpperBit(cellId, uint8(l))
+					cellIdInLevelL := og.OffUpperBit(da.Pv(cellId), uint8(l))
 
 					expectedEntries := tc.entryVertices[l-1][cellIdInLevelL]
 					for i := da.Index(0); i < da.Index(cell.GetNumEntryPoints()); i++ {

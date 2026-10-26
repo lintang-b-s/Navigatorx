@@ -43,7 +43,8 @@ func addTwoWayTurnCost[W util.Numeric](p *Extractor[W], wayId int64, way osmWay,
 				continue
 			}
 
-			if i == 0 {
+			switch {
+			case i == 0:
 				// store u_turn restrictions
 				// dont allow u_turn at (to, via)->(via, to)
 				to := way.graphNodes[1]
@@ -74,7 +75,7 @@ func addTwoWayTurnCost[W util.Numeric](p *Extractor[W], wayId int64, way osmWay,
 				}
 
 				turnMatrices[via][entryPoint*int(outDegree[via])+exitPoint] = uturnType
-			} else if i < len(way.graphNodes)-1 {
+			case i < len(way.graphNodes)-1:
 
 				// backward
 				to := way.graphNodes[i-1]
@@ -128,7 +129,7 @@ func addTwoWayTurnCost[W util.Numeric](p *Extractor[W], wayId int64, way osmWay,
 					}
 				}
 
-			} else {
+			default:
 				// last node in way.graphNodes
 				to := way.graphNodes[i-1]
 
@@ -207,7 +208,7 @@ func addViaNodeTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way
 	if len(fromNodes) < 2 {
 		return
 	}
-	viaNode := p.nodeIDMap[restriction.via]
+	viaNode := p.nodeIdMap[restriction.via]
 	for i := 0; i < len(fromNodes); i++ {
 		if fromNodes[i] == viaNode {
 			if i == 0 && way.oneWay {
@@ -352,7 +353,7 @@ func addViaNodeTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way
 					continue
 				}
 
-				turnType := pkg.NONE
+				var turnType pkg.TurnType
 				switch restriction.turnRestriction {
 				case NO_LEFT_TURN:
 					turnType = pkg.NO_ENTRY
@@ -565,6 +566,7 @@ func addParallelViaEdges[W util.Numeric](p *Extractor[W], wayId int64, way osmWa
 				outDegree[tail]++
 				outWeights[tail] = append(outWeights[tail], outWeights[tail][viaExitPoint])
 				outLengths[tail] = append(outLengths[tail], outLengths[tail][viaExitPoint])
+
 				segmentDataIds[tail] = append(segmentDataIds[tail], da.Index(newDataId))
 
 				// add via parallel incoming edge
@@ -576,6 +578,7 @@ func addParallelViaEdges[W util.Numeric](p *Extractor[W], wayId int64, way osmWa
 				// add via parallel edge annotation data
 				isRoundabout := rn.IsRoundabout(viaDataId)
 				if isRoundabout {
+
 					rn.SetSegmentBit(da.Index(newDataId), da.FlagIsRoundabout, true)
 				}
 				sPoint, ePoint := rn.GetSegmentGeometryEndpoints(viaDataId)
@@ -588,6 +591,7 @@ func addParallelViaEdges[W util.Numeric](p *Extractor[W], wayId int64, way osmWa
 					rn.GetRoadLanes(viaDataId),
 					rn.GetTurnLaneData(viaDataId),
 				)
+
 				rn.SetSegmentBit(da.Index(newDataId), da.FlagParallel, true)
 
 				// add via-node turn restriction dari this via-edge to this new parallel via edge
@@ -774,7 +778,7 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 					continue
 				}
 
-				var predecessor = da.Index(math.MaxUint32) // predecessor dari tail dari via-edge nya turn restriction
+				var predecessor da.Index // predecessor dari tail dari via-edge nya turn restriction
 				if i == 0 {
 					// note that di osm_parser.go , way bisa two-way (dua arah) yang mana setiap pasang junction/end node dari osm way kita pecah jadi dua edges (kalau two-way)...
 					// kalau via node dari turn restriction di first node dari from-way..
@@ -812,6 +816,7 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 					tailEntryPoint := da.Index(math.MaxUint32) // entry point dari incoming from-edge (predecessor, tail)
 
 					if !prevEdgeParallel {
+
 						for k := da.Index(0); k < da.Index(len(inEdges[tail])); k++ {
 							inEdgeTail := inEdges[tail][k]
 							parallel := isParallelInEdge[tail][k]
@@ -821,14 +826,17 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 								tailEntryPoint = k
 							} else {
 								// kasih turn cost INF buat transisi dari  all other inEdges dari tail (selain from-edge) -> tail -> via-edge 2
+
 								turnMatrices[tail][k*da.Index(outDegree[tail])+viaParallelTailExitPoint] = pkg.NO_ENTRY
 							}
 						}
 					} else {
 						prevKey := parallelViaKey{fromWay: wayId, viaWay: viaWays[q-1]}
 						tailEntryPoint = parallelViaEdges[prevKey] >> 16
+
 						for k := da.Index(0); k < da.Index(len(inEdges[tail])); k++ {
 							if k != tailEntryPoint {
+
 								turnMatrices[tail][k*da.Index(outDegree[tail])+viaParallelTailExitPoint] = pkg.NO_ENTRY
 							}
 						}
@@ -841,6 +849,7 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 					rowOffset := tailEntryPoint * da.Index(outDegree[tail]) // rowOffset di flatenned 1-d matrix from incoming from-edge
 
 					viaEdgeTailExitPoint := da.Index(math.MaxUint32) // exit point dari outgoing via-edge (tail, head) that not the parallel via-edge
+
 					for k := da.Index(0); k < da.Index(len(outEdges[tail])); k++ {
 						outEdgeHead := outEdges[tail][k]
 						validOutEdge := !isParallelOutEdge[tail][k]
@@ -866,6 +875,7 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 
 					if lastViaway {
 						// add turn cost to to-edge of this via-way (or via-ways) turn restrictions
+
 						rowOffset = viaParallelHeadEntryPoint * da.Index(outDegree[head]) // rowOffset of 1-d flattened 2-d matrix.
 						for k := 0; k < len(outEdges[head]); k++ {
 							outEdgeHead := outEdges[head][k]

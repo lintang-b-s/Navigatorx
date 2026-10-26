@@ -101,9 +101,9 @@ func (si *S2RoadSegmentsIndex) GetCellSegments(s2CellId s2.CellID, radius float6
 func (si *S2RoadSegmentsIndex) GetCellsByRadius(p s2.Point, radius float64) []s2.CellID {
 	surfaceArea := sphericalCapSurfaceArea(radius)
 	// https://pkg.go.dev/github.com/golang/geo/s2#RegionCoverer
-	cap := s2.CapFromCenterArea(p, surfaceArea)
+	s2Cap := s2.CapFromCenterArea(p, surfaceArea)
 	rc := &s2.RegionCoverer{MinLevel: 15, MaxLevel: 15, MaxCells: 1 << 16}
-	cids := rc.Covering(cap) // dont do any normalize in here
+	cids := rc.Covering(s2Cap) // dont do any normalize in here
 	// https://s2geometry.io/devguide/s2cell_hierarchy.html
 	// “normalized”, meaning that groups of 4 child cells have been replaced by their parent cell whenever possible
 	return cids

@@ -11,9 +11,10 @@ import (
 type RecursiveBisection struct {
 	g                      *da.Graph
 	maximumCellSize        int
-	finalPartition         []int // map from vertex id to partition id
-	partitionCount         int
+	partition              []int // map from vertex id to cell id
+	cellCount              int
 	numVerticesAssigned    int
+	cutEdgesCount          int
 	logger                 *zap.Logger
 	mu                     sync.Mutex
 	inertialFlowIterations int
@@ -26,16 +27,16 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 ) *RecursiveBisection {
 
 	n := graph.NumberOfVertices()
-	finalPartitions := make([]int, n)
-	for i := range finalPartitions {
-		finalPartitions[i] = INVALID_PARTITION_ID
+	partition := make([]int, n)
+	for i := range partition {
+		partition[i] = INVALID_CELL_ID
 	}
 
 	return &RecursiveBisection{
 		g:                      graph,
 		maximumCellSize:        maximumCellSize,
-		finalPartition:         finalPartitions,
-		partitionCount:         0,
+		partition:              partition,
+		cellCount:              0,
 		logger:                 logger,
 		inertialFlowIterations: inertialFlowIterations,
 		showProgress:           showProgress,
@@ -74,35 +75,36 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 	}
 
 	if tooSmall(mlpcg.NumberOfCellVertices()) {
-		rb.assignFinalPartition(mlpcg)
+		rb.assignPartition(mlpcg)
 		return
 	}
 
 	type bisectionRes struct {
 		cellOne, cellTwo *da.CellGraph
+		cutEdgesCount    int
 	}
 
-	NewBisectionRes := func(cellOne, cellTwo *da.CellGraph) bisectionRes {
-		return bisectionRes{cellOne, cellTwo}
+	NewBisectionRes := func(cellOne, cellTwo *da.CellGraph, cutEdgesCount int) bisectionRes {
+		return bisectionRes{cellOne, cellTwo, cutEdgesCount}
 	}
 
 	iflowInChan := make(chan *da.CellGraph, InertialFlowChanSize)
 	iflowOutChan := make(chan bisectionRes, InertialFlowChanSize)
 
-	computeIflow := func() {
+	computeIflow := func(iflowInChan chan *da.CellGraph) {
 		for cg := range iflowInChan {
 			iflow := NewInertialFlow(cg, rb.inertialFlowIterations)
 			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n*sqrt(n)) dinic on unit capacity graph, n = number of vertices in current recursive bisection cell cg
 			cellOne, cellTwo := rb.applyBisection(cut, cg)          // O(n)
-			iflowOutChan <- NewBisectionRes(cellOne, cellTwo)
+			iflowOutChan <- NewBisectionRes(cellOne, cellTwo, cut.cutEdgesCount)
 		}
 	}
 
 	for i := 0; i < BISECTION_WORKERS; i++ {
-		go computeIflow()
+		go computeIflow(iflowInChan)
 	}
 
-	queue := make([]*da.CellGraph, 0, 10)
+	queue := make([]*da.CellGraph, 0, 4)
 	numJobs := 0
 	queue = append(queue, mlpcg)
 	numJobs++
@@ -133,16 +135,17 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 			// only stop when wp.jobQueue closed && wp.jobQueue empty -> wp.results closed -> this loop terminate
 			cOne := res.cellOne
 			cTwo := res.cellTwo
+			rb.cutEdgesCount += res.cutEdgesCount
 
 			if !tooSmall(cOne.NumberOfCellVertices()) {
 				queue = append(queue, cOne)
 			} else {
-				rb.assignFinalPartition(cOne) // O(p), p = number of vertices in cell one (cOne)
+				rb.assignPartition(cOne) // O(p), p = number of vertices in cell one (cOne)
 			}
 			if !tooSmall(cTwo.NumberOfCellVertices()) {
 				queue = append(queue, cTwo)
 			} else {
-				rb.assignFinalPartition(cTwo) // O(q), q = number of vertices in cell two (cTwo)
+				rb.assignPartition(cTwo) // O(q), q = number of vertices in cell two (cTwo)
 			}
 
 			numUncompletedJob--
@@ -161,28 +164,30 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, cg *da.CellGraph) (*da
 	return one, two
 }
 
-// assignFinalPartition. assign id cell dari setiap vertices in cellGraph
-func (rb *RecursiveBisection) assignFinalPartition(cellGraph *da.CellGraph) {
+// assignPartition. assign id cell dari setiap vertices in cellGraph
+func (rb *RecursiveBisection) assignPartition(cellGraph *da.CellGraph) {
 	rb.mu.Lock()
 	defer rb.mu.Unlock()
-	if cellGraph.NumberOfCellVertices() == 0 {
+	cnv := cellGraph.NumberOfCellVertices()
+	if cnv == 0 {
 		return
 	}
 
 	cellGraph.ForEachCellVertices(func(_, gvId da.Index, _ da.Coordinate) {
-		rb.finalPartition[gvId] = rb.partitionCount
+		rb.partition[gvId] = rb.cellCount
 		rb.numVerticesAssigned++
 	})
 
 	if rb.showProgress {
-		rb.progress.Add(cellGraph.NumberOfCellVertices())
+		rb.progress.Add(cnv)
 	}
-	rb.partitionCount++
+	rb.cellCount++
 }
 
 // buildMLPCellGraph. build initial MLP cell cellGraph.
 // mlpCellVIds is the MultiLevelPartition (MLP) Cell vertices ids.
 func (rb *RecursiveBisection) buildMLPCellGraph(mlpCellVIds []da.Index) *da.CellGraph {
+
 	m := da.Index(len(mlpCellVIds))
 	n := rb.g.NumberOfVertices()
 	gv := make([]da.Index, n)
@@ -195,5 +200,5 @@ func (rb *RecursiveBisection) buildMLPCellGraph(mlpCellVIds []da.Index) *da.Cell
 }
 
 func (rb *RecursiveBisection) GetFinalPartition() []int {
-	return rb.finalPartition
+	return rb.partition
 }

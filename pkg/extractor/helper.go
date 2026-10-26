@@ -81,7 +81,7 @@ func getName(way *osm.Way, tempMap map[string]string) {
 	// todo: add ref di driving direction
 }
 
-//7. https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right#Identifying_the_direction_of_a_way
+// 7. https://wiki.openstreetmap.org/wiki/Forward_%26_backward,_left_%26_right#Identifying_the_direction_of_a_way
 
 func isDirectionProhibited(value string) bool {
 	return value == "no"
@@ -227,13 +227,14 @@ func parseOsmTime(timeStr string) (int, error) {
 
 	// Handle HH:MM, HH.MM, HH,MM
 	var parts []string
-	if strings.Contains(timeStr, ":") {
+	switch {
+	case strings.Contains(timeStr, ":"):
 		parts = strings.Split(timeStr, ":")
-	} else if strings.Contains(timeStr, ".") {
+	case strings.Contains(timeStr, "."):
 		parts = strings.Split(timeStr, ".")
-	} else if strings.Contains(timeStr, ",") {
+	case strings.Contains(timeStr, ","):
 		parts = strings.Split(timeStr, ",")
-	} else {
+	default:
 		// Just a number?
 		val, err := util.ParseTextInt(timeStr)
 		if err != nil {
@@ -448,12 +449,15 @@ func GetReversibleOneWay(val string, currentTime time.Time) (direction uint8, er
 	// isSplit=true iff ';' di luar kurung buka kurung tutup
 	isInParentheses := false
 	for _, ch := range val {
-		if ch == '(' {
+		switch {
+		case ch == '(':
 			isInParentheses = true
-		} else if ch == ')' {
+		case ch == ')':
 			isInParentheses = false
-		} else if ch == ';' && !isInParentheses {
+		case ch == ';' && !isInParentheses:
 			isSplit = true
+		}
+		if isSplit {
 			break
 		}
 	}
@@ -477,7 +481,7 @@ func GetReversibleOneWay(val string, currentTime time.Time) (direction uint8, er
 		direction := strings.TrimSpace(parts[0])
 		var forwardDir bool
 		switch direction {
-		case "yes":
+		case strYes:
 			forwardDir = true
 		case "-1":
 			forwardDir = false
@@ -496,14 +500,11 @@ func GetReversibleOneWay(val string, currentTime time.Time) (direction uint8, er
 
 		if !isInTimeRange {
 			continue
-		} else {
-			switch forwardDir {
-			case true:
-				return DIRECTION_FORWARD_REVERSIBLE, nil
-			case false:
-				return DIRECTION_BACKWARD_REVERSIBLE, nil
-			}
 		}
+		if forwardDir {
+			return DIRECTION_FORWARD_REVERSIBLE, nil
+		}
+		return DIRECTION_BACKWARD_REVERSIBLE, nil
 	}
 
 	return NO_ROUTE_REVERSIBLE, nil
@@ -529,12 +530,15 @@ func IsConditionalRestrictionCurrentlyProhibited(currentTime time.Time, accessCo
 	// isSplit=true iff ';' di luar kurung buka kurung tutup
 	isInParentheses := false
 	for _, ch := range accessCondType {
-		if ch == '(' {
+		switch {
+		case ch == '(':
 			isInParentheses = true
-		} else if ch == ')' {
+		case ch == ')':
 			isInParentheses = false
-		} else if ch == ';' && !isInParentheses {
+		case ch == ';' && !isInParentheses:
 			isSplit = true
+		}
+		if isSplit {
 			break
 		}
 	}
@@ -573,16 +577,15 @@ func IsConditionalRestrictionCurrentlyProhibited(currentTime time.Time, accessCo
 
 		if !isInTimeRange {
 			continue
-		} else {
-			// isInTimeRange=true
-			// see: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla, OSM tags for routing (nodes):
-			// kita cuma prohibite node for routing, ketika access val = no ,discouraged, agricultural, dan forestry
-			if no {
-				return true, nil
-			}
-
-			return false, nil
 		}
+		// isInTimeRange=true
+		// see: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla, OSM tags for routing (nodes):
+		// kita cuma prohibite node for routing, ketika access val = no ,discouraged, agricultural, dan forestry
+		if no {
+			return true, nil
+		}
+
+		return false, nil
 	}
 
 	return false, nil
@@ -838,7 +841,7 @@ func (p *Extractor[W]) acceptOsmWay(way *osm.Way) bool {
 		if _, ok := p.highwayWhitelist[highway]; ok {
 			return true
 		}
-	} else if junction == "roundabout" || junction == "circular" || junction == "jughandle" {
+	} else if junction == strRoundabout || junction == "circular" || junction == "jughandle" {
 		// https://wiki.openstreetmap.org/wiki/Key:junction?uselang=id
 		return true
 	}
@@ -856,25 +859,26 @@ func (p *Extractor[W]) isRoundaboutByName(name string) bool {
 
 func parseOsmWayMaxSpeedVal(maxSpeedVal string) (float64, error) {
 	var maxSpeed float64
-	if strings.Contains(maxSpeedVal, "mph") {
+	switch {
+	case strings.Contains(maxSpeedVal, "mph"):
 		currSpeed, err := util.ParseTextFloat64(strings.ReplaceAll(maxSpeedVal, " mph", ""))
 		if err != nil {
 			return 0, err
 		}
 		maxSpeed = currSpeed * 1.60934
-	} else if strings.Contains(maxSpeedVal, "km/h") {
+	case strings.Contains(maxSpeedVal, "km/h"):
 		currSpeed, err := util.ParseTextFloat64(strings.ReplaceAll(maxSpeedVal, " km/h", ""))
 		if err != nil {
 			return 0, err
 		}
 		maxSpeed = currSpeed
-	} else if strings.Contains(maxSpeedVal, "knots") {
+	case strings.Contains(maxSpeedVal, "knots"):
 		currSpeed, err := util.ParseTextFloat64(strings.ReplaceAll(maxSpeedVal, " knots", ""))
 		if err != nil {
 			return 0, err
 		}
 		maxSpeed = currSpeed * 1.852
-	} else {
+	default:
 		// without unit, anggap km/h
 		// taken from: https://wiki.openstreetmap.org/wiki/Key:maxspeed
 		// The maximum fixed numeric speed limit,
@@ -1002,8 +1006,13 @@ func (p *Extractor[W]) applyAccessTokensToLanes(way *osm.Way) ([]string, []strin
 	bicycleLanesForw, bicycleLanesBackw := findLaneTagByVhc("bicycle")
 	cyclewayLanesForw, cyclewayLanesBackw := findLaneTagByVhc("cycleway")
 	if pkg.VehicleType == pkg.BICYCLE && (len(bicycleLanesForw) > 0 || len(cyclewayLanesForw) > 0 || len(bicycleLanesBackw) > 0 || len(cyclewayLanesBackw) > 0) {
-		bycForw := append(bicycleLanesForw, cyclewayLanesForw...)
-		bycBackw := append(bicycleLanesBackw, cyclewayLanesBackw...)
+		bycForw := make([]string, 0, len(bicycleLanesForw)+len(cyclewayLanesForw))
+		bycForw = append(bycForw, bicycleLanesForw...)
+		bycForw = append(bycForw, cyclewayLanesForw...)
+
+		bycBackw := make([]string, 0, len(bicycleLanesBackw)+len(cyclewayLanesBackw))
+		bycBackw = append(bycBackw, bicycleLanesBackw...)
+		bycBackw = append(bycBackw, cyclewayLanesBackw...)
 		return buildNewTurnLanesResult(bycForw, bycBackw)
 	}
 
@@ -1025,7 +1034,7 @@ func buildTurnLanesData(turnLanesForw, turnLanesBackw []string) (da.TurnLanesDat
 			// https://wiki.openstreetmap.org/wiki/Key:turn#Turn_combinations
 			for _, turnVal := range strings.Split(turnLanesForw[i], ";") {
 				switch turnVal {
-				case "none", "":
+				case strNone, "":
 					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_NONE)
 				case "through", "straight":
 					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_STRAIGHT)

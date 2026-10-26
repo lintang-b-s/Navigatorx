@@ -2,7 +2,7 @@
 package routing
 
 import (
-	"fmt"
+	"log"
 	"runtime"
 	"sync"
 
@@ -61,7 +61,7 @@ func NewCRPRoutingEngine[W util.Numeric](graph *da.Graph,
 	if landmarkFile != "" {
 		lm, err = landmark.ReadLandmark[W](landmarkFile)
 		if err != nil {
-			panic(fmt.Errorf("NewCRPRoutingEngine: failed to read precomputed landmark distances: %v", err))
+			log.Fatalf("NewCRPRoutingEngine: failed to read precomputed landmark distances: %v", err)
 		}
 	}
 
@@ -144,12 +144,14 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	// path unpacking heap pool
 	crp.puovHeapPool = sync.Pool{
 		New: func() any {
+
 			return da.NewQueryHeap[da.Index, W](da.Index(numOverlayVertices), da.ARRAY_STORAGE)
 		},
 	}
 
 	crp.puHeapPool = sync.Pool{
 		New: func() any {
+
 			pq := da.NewQueryHeap[da.Index, W](da.Index(maxVerticesInCell), da.ARRAY_STORAGE)
 			pq.SetLevelOneCellQuery()
 			return pq

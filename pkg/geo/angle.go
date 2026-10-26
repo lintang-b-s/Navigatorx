@@ -157,29 +157,24 @@ func GetTurnDirection(prevLat, prevLon, lat, long, prevInitialBearing float64) d
 	delta := ComputeRelativeBearing(prevLat, prevLon, lat, long, prevInitialBearing)
 	absDelta := math.Abs(delta)
 	deltaDegree := util.RadiansToDegree(absDelta)
-	if deltaDegree < 12 {
+	switch {
+	case deltaDegree < 12:
 		// 12°
 		return da.CONTINUE_ON_STREET
-	} else if deltaDegree < 40 {
-
+	case deltaDegree < 40:
 		if delta < 0 {
-			return (da.TURN_SLIGHT_LEFT)
-		} else {
-			return (da.TURN_SLIGHT_RIGHT)
+			return da.TURN_SLIGHT_LEFT
 		}
-	} else if deltaDegree < 105 {
-
+		return da.TURN_SLIGHT_RIGHT
+	case deltaDegree < 105:
 		if delta < 0 {
-			return (da.TURN_LEFT)
-		} else {
-			return (da.TURN_RIGHT)
+			return da.TURN_LEFT
 		}
-
-	} else if delta < 0 {
-		return (da.TURN_SHARP_LEFT)
-
-	} else {
-		return (da.TURN_SHARP_RIGHT)
+		return da.TURN_RIGHT
+	case delta < 0:
+		return da.TURN_SHARP_LEFT
+	default:
+		return da.TURN_SHARP_RIGHT
 	}
 }
 

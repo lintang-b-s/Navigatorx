@@ -24,10 +24,10 @@ func Sleep(ctx context.Context, duration time.Duration) error {
 func GetCurrentSeconds() float64 {
 	now := time.Now()
 	hour := now.Hour()
-	min := now.Minute()
+	minute := now.Minute()
 	seconds := now.Second()
 
-	totalDaySeconds := float64(hour*3600 + min*60 + seconds)
+	totalDaySeconds := float64(hour*3600 + minute*60 + seconds)
 	return totalDaySeconds
 }
 
@@ -69,7 +69,7 @@ var (
 	ErrBadParamInput       = errors.New("given Param is not valid")
 )
 
-var MessageInternalServerError string = "internal server error"
+var MessageInternalServerError = "internal server error"
 
 func KMHToMSeconds(speedKmh float64) float64 {
 	return speedKmh * 1000 / (60 * 60)

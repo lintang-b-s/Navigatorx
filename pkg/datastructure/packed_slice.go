@@ -50,13 +50,11 @@ type PackedSlice struct {
 	data         []uint64
 	numberOfBits uint8 // number of bits untuk max value dari values yang disimpan di packed slice.
 	// Untuk osm node: https://wiki.openstreetmap.org/wiki/Stats 2025 ada sekitar 10 billion osm nodeids, jadi 34 bit dengan max value unsigned integer 34bit: 2^34-1 =  17179869183 biar aman untuk beberapa tahun kedepan
-	lowerOffset    []uint8 // map dari index dari value -> offset dari bit pertama value di lower 64bit
-	upperNumOfBits []uint8 // map dari index dari value -> jumlah bit di upper 64bit
-	numOfItems     uint64
+	numOfItems uint64
 }
 
 func NewPackedSlice(numberOfBits uint8, numberOfItems uint64) *PackedSlice {
-	ps := &PackedSlice{data: make([]uint64, 1), numberOfBits: numberOfBits, lowerOffset: make([]uint8, 0), upperNumOfBits: make([]uint8, 0), numOfItems: 0}
+	ps := &PackedSlice{data: make([]uint64, 1), numberOfBits: numberOfBits, numOfItems: 0}
 	capacity := ps.getLowerIndex(numberOfItems) + 1
 	ps.data = make([]uint64, 1, capacity)
 	return ps
@@ -184,101 +182,68 @@ func (ps *PackedSlice) getLowerIndex(index uint64) uint64 {
 	return (index * uint64(ps.numberOfBits)) / 64
 }
 
+func (ps *PackedSlice) getLowerOffset(index uint64) uint8 {
+	return uint8(index*uint64(ps.numberOfBits)) % 64
+}
+
 // getUpperIndex. get dataIndex of upper 64bit for index
 func (ps *PackedSlice) getUpperIndex(index uint64) uint64 {
-	if ps.lowerOffset[index]+ps.numberOfBits > 64 {
+	lowerOffset := ps.getLowerOffset(index)
+	if lowerOffset+ps.numberOfBits > 64 {
 		return ps.getLowerIndex(index) + 1
 	}
 	return ps.getLowerIndex(index)
 }
 
-// Append. append value ke PackedSlice“
+// Append appends value to PackedSlice.
 func (ps *PackedSlice) Append(val uint64) {
-	var prevIndex uint64
-
-	if ps.numOfItems == 0 {
-		prevIndex = 0
-	} else {
-		prevIndex = ps.numOfItems - 1
-	}
-
 	index := ps.numOfItems
-	if uint64(len(ps.lowerOffset)) <= index {
-		ps.lowerOffset = append(ps.lowerOffset, 0)
-		ps.upperNumOfBits = append(ps.upperNumOfBits, 0)
-	}
+	lowerIndex := ps.getLowerIndex(index)
+	lowerOffset := ps.getLowerOffset(index)
 
-	lastIndex := ps.getLowerIndex(index)
-
-	var lastOffset uint8
-	if ps.getLowerIndex(prevIndex) == ps.getUpperIndex(prevIndex) &&
-		ps.getLowerIndex(index) == ps.getUpperIndex(prevIndex) {
-		// misal second 64bit: 2 bit 2th val + 33 bit 3th val + 29 bit dari 4th val
-		// 1110111100110011101110001001100111001110100001100000100001101100
-		// untuk dapetin lowerOfset dari 4th val: 2 + 33 = 35
-
-		lastOffset = (ps.upperNumOfBits[prevIndex] + ps.lowerOffset[prevIndex])
-	} else if ps.getLowerIndex(index) != ps.getUpperIndex(prevIndex) {
-		lastOffset = 0
-	} else {
-		lastOffset = ps.upperNumOfBits[prevIndex]
-	}
-
-	// range lastOffset [0,63]
-	bitsLeft := 63 - lastOffset + 1
-
-	// 64 bit uint64
-	// kita pengen dapetin lowerBitMask dari val, misal bitsLeft=31:
-	// 111.....111111 (64 bit)
-	// ilangin lower 33 bit dari uint64 diatas
-	// 111.....111111 >> 33
-	lowerBitMask := (^uint64(0)) >> (64 - bitsLeft)
-	lowerBitsVal := val & lowerBitMask
-
-	ps.lowerOffset[index] = lastOffset
-
-	// isi lower bit value dari val dulu di lower 64 bit:
-
-	// kasus pertama: 0000000000000000000000000000000001011111001101010011010010100100
-	// 001011111001101010011010010100100 diisi oleh 1st value
-	// ada 31 left
-	if uint64(len(ps.data)) <= lastIndex {
+	if uint64(len(ps.data)) <= lowerIndex {
 		ps.data = append(ps.data, 0)
 	}
 
-	ps.data[lastIndex] |= (lowerBitsVal << ps.lowerOffset[index])
-
-	if ps.getLowerIndex(index) != ps.getUpperIndex(index) {
-		// kalau upper 64bit dan lower 64bit dari val beda:
-		ps.upperNumOfBits[index] = ps.numberOfBits - bitsLeft
-
-		upperBitsVal := val >> bitsLeft
-		ps.data = append(ps.data, upperBitsVal)
+	if ps.getUpperIndex(index) == lowerIndex {
+		// kalau upper 64bit dan lower 64bit dari val sama
+		ps.data[lowerIndex] |= (val << lowerOffset)
 	} else {
-		ps.upperNumOfBits[index] = ps.numberOfBits
+		bitsInLower := 64 - lowerOffset
+		lowerBitMask := (uint64(1) << bitsInLower) - 1
+		lowerBitsVal := val & lowerBitMask
+		ps.data[lowerIndex] |= (lowerBitsVal << lowerOffset)
+
+		upperBitsVal := val >> bitsInLower
+		if uint64(len(ps.data)) <= lowerIndex+1 {
+			ps.data = append(ps.data, upperBitsVal)
+		} else {
+			ps.data[lowerIndex+1] |= upperBitsVal
+		}
 	}
 
 	ps.numOfItems++
 }
 
-// Get. get value dari index
-// contoh: index bisa berupa graphNodeId, value dari index adlh its corresponding osmNodeId
+// Get gets the value at index from PackedSlice.
 func (ps *PackedSlice) Get(index uint64) uint64 {
-	if ps.getLowerIndex(index) == ps.getUpperIndex(index) {
+	lowerIndex := ps.getLowerIndex(index)
+	lowerOffset := ps.getLowerOffset(index)
+
+	if ps.getUpperIndex(index) == lowerIndex {
 		// upper 64bit dan lower 64bit dari index adalah sama
-		dataIndex := ps.getLowerIndex(index)
-		bitMask := ((^uint64(0)) << ps.lowerOffset[index]) & ^((^uint64(0)) << (ps.lowerOffset[index] + ps.upperNumOfBits[index]))
-		return (ps.data[dataIndex] & bitMask) >> uint64(ps.lowerOffset[index])
+		valMask := (uint64(1) << ps.numberOfBits) - 1
+		return (ps.data[lowerIndex] >> lowerOffset) & valMask
 	}
 
 	// upper 64bit dan lower 64bit dari index adalah beda
+	bitsInLower := 64 - lowerOffset
+	lowerBitMask := (^uint64(0)) << uint64(lowerOffset)
+	lower := (ps.data[lowerIndex] & lowerBitMask) >> lowerOffset
 
-	lowerBitMask := (^uint64(0)) << ps.lowerOffset[index]
-
-	lower := (ps.data[ps.getLowerIndex(index)] & lowerBitMask) >> ps.lowerOffset[index]
-
-	upperMask := (uint64(1) << ps.upperNumOfBits[index]) - 1
-	upper := (ps.data[ps.getUpperIndex(index)] & upperMask) << (ps.numberOfBits - ps.upperNumOfBits[index])
+	upperNumOfBits := ps.numberOfBits - bitsInLower
+	upperMask := (uint64(1) << upperNumOfBits) - 1
+	upper := (ps.data[lowerIndex+1] & upperMask) << bitsInLower
 
 	return upper | lower
 }

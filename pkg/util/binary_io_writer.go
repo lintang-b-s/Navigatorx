@@ -196,7 +196,7 @@ func (w *BinaryWriter) writeBulk(count, itemSize int, encode func([]byte, int)) 
 }
 
 func (w *BinaryWriter) Length(length int) error {
-	if uint64(length) > math.MaxUint32 {
+	if length < 0 || uint64(length) > math.MaxUint32 {
 		return fmt.Errorf("length %d exceeds uint32", length)
 	}
 	return w.Uint32(uint32(length))
@@ -225,7 +225,7 @@ func WriteCompressedFile(filename string, writePayload func(*BinaryWriter) error
 	if err != nil {
 		return err
 	}
-	file, err := os.OpenFile(filename, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
+	file, err := os.OpenFile(filepath.Clean(filename), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
 		return err
 	}

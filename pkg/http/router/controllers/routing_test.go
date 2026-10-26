@@ -181,7 +181,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.INVALID_SEGMENT_ID, false, true).
-			Return([]float64{100.0}, []float64{1000.0}, []string{"polyline"}, [][]da.DrivingDirection{{}}, nil)
+			Return([]float64{100.0}, []float64{1000.0}, []string{testPolyline}, [][]da.DrivingDirection{{}}, nil)
 
 		api.shortestPath(rr, req, nil)
 
@@ -396,8 +396,8 @@ func TestRoutingAPI_TransitionMatrixIgnoresConditionalCacheHeaders(t *testing.T)
 	})
 
 	matrixPath := "data/profiles/car/test_transition_matrix.ntm"
-	assert.NoError(t, os.MkdirAll("data/profiles/car", 0o755))
-	assert.NoError(t, os.WriteFile(matrixPath, []byte("matrix"), 0o644))
+	assert.NoError(t, os.MkdirAll("data/profiles/car", 0o750))
+	assert.NoError(t, os.WriteFile(matrixPath, []byte("matrix"), 0o600))
 	assert.NoError(t, os.Chtimes(matrixPath, time.Now().Add(-time.Hour), time.Now().Add(-time.Hour)))
 
 	api := New(new(MockRoutingService), zap.NewNop(), new(MockMapAttributesService))

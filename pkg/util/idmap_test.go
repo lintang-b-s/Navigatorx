@@ -6,6 +6,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+const (
+	testFoo = "foo"
+	testBar = "bar"
+)
+
 func TestNewIdMap(t *testing.T) {
 	idMap := NewIdMap()
 	assert.NotNil(t, idMap.strToId)
@@ -22,10 +27,10 @@ func TestIDMap_GetID(t *testing.T) {
 		input    string
 		expected uint32
 	}{
-		{"new string 1", "foo", 0},
-		{"new string 2", "bar", 1},
-		{"existing string 1", "foo", 0},
-		{"existing string 2", "bar", 1},
+		{"new string 1", testFoo, 0},
+		{"new string 2", testBar, 1},
+		{"existing string 1", testFoo, 0},
+		{"existing string 2", testBar, 1},
 		{"new string 3", "baz", 2},
 	}
 
@@ -47,16 +52,16 @@ func TestIDMap_SetID(t *testing.T) {
 
 func TestIDMap_GetStr(t *testing.T) {
 	idMap := NewIdMap()
-	idMap.GetID("foo") // ID 0
-	idMap.GetID("bar") // ID 1
+	idMap.GetID(testFoo) // ID 0
+	idMap.GetID(testBar) // ID 1
 
 	tests := []struct {
 		name     string
 		input    uint32
 		expected string
 	}{
-		{"existing ID 0", 0, "foo"},
-		{"existing ID 1", 1, "bar"},
+		{"existing ID 0", 0, testFoo},
+		{"existing ID 1", 1, testBar},
 		{"non-existent ID", 99, ""},
 	}
 
@@ -70,11 +75,11 @@ func TestIDMap_GetStr(t *testing.T) {
 
 func TestIDMap_GetIdToStr(t *testing.T) {
 	idMap := NewIdMap()
-	idMap.GetID("foo")
-	idMap.GetID("bar")
+	idMap.GetID(testFoo)
+	idMap.GetID(testBar)
 
 	mapping := idMap.GetIdToStr()
 	assert.Len(t, mapping, 2)
-	assert.Equal(t, "foo", mapping[0])
-	assert.Equal(t, "bar", mapping[1])
+	assert.Equal(t, testFoo, mapping[0])
+	assert.Equal(t, testBar, mapping[1])
 }

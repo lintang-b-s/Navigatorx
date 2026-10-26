@@ -78,12 +78,27 @@ func (mp *MultilevelPartitioner) SetCellVertices(cellVertices [][][]da.Index) {
 	mp.cellVertices = cellVertices
 }
 
+func (mp *MultilevelPartitioner) MLPSizes() []int {
+	return mp.u
+}
+
 /*
 RunMultilevelPartitioning. Partitioning phase of Customizable Route Planning (CRP) By Delling et al. read section 5.1 Metric-Independent Preprocessing (Partitioning) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
- run L-level mutltilevel partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
+run L-level mutltilevel partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
 pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} untuk mendapatkan cells level L.
 cells di level bawahnya didapatkan dengan menjalankan algoritma inertial flow pada individual cells of the level immediately above.
+
+ref:
+1. Delling, D., Goldberg, A. V., Pajor, T., and Werneck, R. F. (2015). Customizable
+Route Planning in Road Networks. Transportation Science, 51(2), 566-591.
+https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+
+this explanation taken from ref [1]:
+"We run PUNCH on the input graph with the following arc costs. Road segments open in both directions
+(most roads) have cost 2, while one-way road segments (such as freeways) get cost 1. We then use PUNCH
+to generate an L-level partition (with maximum cell sizes U1, . . . , UL) in top-down fashion. We first run
+PUNCH with parameter UL to obtain the top-level cells. Cells in lower levels are then obtained by running PUNCH on individual cells of the level immediately above." (Delling et al. (2015))
 
 time complexity:
 for each level l, time complexity recursiveBisection.Partition() in each cell is O( U_{l+1} * sqrt(U_{l+1}) * log_{1/(1-b)} (U_{l+1}) ). dengan U_{L+1}=n
@@ -97,6 +112,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	n := len(vIds)
 	permutedvIds := make([]da.Index, n)
 	gv := make([]da.Index, n)
+	cutEdgesCount := 0
 	copy(permutedvIds, vIds)
 	copy(gv, vIds)
 	if n > mp.u[mp.l-1] {
@@ -105,6 +121,8 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 			mp.inertialFlowIterations, true)
 		rb.progress = progress
 		rb.Partition(vIds)
+		cutEdgesCount = rb.cutEdgesCount
+
 		fp := rb.GetFinalPartition()
 		cp := mp.groupEachPartition(fp)
 		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], cp...)
@@ -113,18 +131,19 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		progress.Add(len(vIds))
 	}
 	progress.Finish()
-	mp.logger.Sugar().Infof("level %d done, total cells: %d", mp.l, len(mp.cellVertices[mp.l-1]))
+	mp.logger.Sugar().Infof("level %d done, total cells: %d, #cut edges: %d", mp.l, len(mp.cellVertices[mp.l-1]), cutEdgesCount)
 
+	lock := &sync.Mutex{}
 	// partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
 		progress = util.NewProgress(mp.graph.NumberOfVertices())
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
 		fmt.Printf("Level %d progress: 0%%...", level+1)
-
+		cutEdgesCount = 0
 		cellInChan := make(chan []da.Index, CellInOutChanSize)
 		cellOutchan := make(chan [][]da.Index, CellInOutChanSize)
 		wg := sync.WaitGroup{}
-		computeRecursiveBisection := func() {
+		computeRecursiveBisection := func(cellInChan chan []da.Index, cutEdgesCount *int, lock *sync.Mutex) {
 			for cellvIds := range cellInChan {
 				rb := NewRecursiveBisection(mp.graph, mp.u[level], mp.logger,
 					mp.inertialFlowIterations, true)
@@ -132,19 +151,22 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 				rb.Partition(cellvIds)
 				fp := rb.GetFinalPartition()
 				partitions := mp.groupEachPartition(fp)
+				lock.Lock()
+				*cutEdgesCount += rb.cutEdgesCount
+				lock.Unlock()
 				cellOutchan <- partitions
 			}
 		}
 
-		go func() {
+		go func(cellOutchan chan [][]da.Index) {
 			for partitions := range cellOutchan {
 				mp.cellVertices[level] = append(mp.cellVertices[level], partitions...)
 				wg.Done()
 			}
-		}()
+		}(cellOutchan)
 
 		for q := 0; q < LEVEL_WORKERS; q++ {
-			go computeRecursiveBisection()
+			go computeRecursiveBisection(cellInChan, &cutEdgesCount, lock)
 		}
 
 		for _, cell := range mp.cellVertices[level+1] {
@@ -158,7 +180,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		close(cellOutchan)
 
 		progress.Finish()
-		mp.logger.Sugar().Infof("level %d total cells: %d", level+1, len(mp.cellVertices[level]))
+		mp.logger.Sugar().Infof("level %d total cells: %d, #cut edges: %d", level+1, len(mp.cellVertices[level]), cutEdgesCount)
 	}
 }
 
@@ -269,13 +291,14 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 				}
 			})
 
-			if numCutEdgesTail < numCutEdgesHead {
+			switch {
+			case numCutEdgesTail < numCutEdgesHead:
 				// modification of method 1 in step 6 in that osrm-partition issue: The idea is to place edge-based graph node into cell in such a way that the number of cut edges is minimized.
 				// ini heuristik paling bagus... number of cut edges, boundary/overlay vertices, dan shortcut edges hampir sama kaya directly partition the edge-based graph..
 				ebgCellVertices[l][uc] = append(ebgCellVertices[l][uc], ebgvId)
-			} else if numCutEdgesHead < numCutEdgesTail {
+			case numCutEdgesHead < numCutEdgesTail:
 				ebgCellVertices[l][vc] = append(ebgCellVertices[l][vc], ebgvId)
-			} else {
+			default:
 				// use method 1 of step 6 in that comment issue:  https://github.com/Project-OSRM/osrm-backend/issues/3205#issuecomment-275169844
 				// randomly pick cell
 				// if r < 0.5, pick tail cell

@@ -10,12 +10,23 @@ import (
 	"github.com/paulmach/osm"
 )
 
+const (
+	tagPrimary        = "primary"
+	tagHighway        = "highway"
+	tagAccess         = "access"
+	tagMotorcar       = "motorcar"
+	tagBarrier        = "barrier"
+	tagVehicle        = "vehicle"
+	tagMotorVehicle   = "motor_vehicle"
+	tagConditionalYes = "yes @ (09:00-17:00)"
+)
+
 func TestAcceptOsmWay(t *testing.T) {
 	p := NewExtractor[int32]()
 	p.highwayWhitelist = map[string]struct{}{
 		"motorway":     {},
 		"trunk":        {},
-		"primary":      {},
+		tagPrimary:     {},
 		"secondary":    {},
 		"tertiary":     {},
 		"residential":  {},
@@ -29,29 +40,29 @@ func TestAcceptOsmWay(t *testing.T) {
 	}{
 		{
 			name: "Accepted highway",
-			tags: osm.Tags{{Key: "highway", Value: "primary"}},
+			tags: osm.Tags{{Key: tagHighway, Value: tagPrimary}},
 			want: true,
 		},
 		{
 			name: "Unaccepted highway",
-			tags: osm.Tags{{Key: "highway", Value: "footway"}},
+			tags: osm.Tags{{Key: tagHighway, Value: "footway"}},
 			want: false,
 		},
 		{
 			name: "Access no",
-			tags: osm.Tags{{Key: "highway", Value: "primary"}, {Key: "access", Value: "no"}, {Key: "vehicle", Value: "no"}, {Key: "motor_vehicle", Value: "no"},
-				{Key: "motorcar", Value: "no"}},
+			tags: osm.Tags{{Key: tagHighway, Value: tagPrimary}, {Key: tagAccess, Value: "no"}, {Key: tagVehicle, Value: "no"}, {Key: tagMotorVehicle, Value: "no"},
+				{Key: tagMotorcar, Value: "no"}},
 			want: false,
 		},
 		{
 			name: "Access agricultural",
-			tags: osm.Tags{{Key: "highway", Value: "primary"}, {Key: "access", Value: "agricultural"}, {Key: "vehicle", Value: "no"}, {Key: "motor_vehicle", Value: "no"},
-				{Key: "motorcar", Value: "no"}},
+			tags: osm.Tags{{Key: tagHighway, Value: tagPrimary}, {Key: tagAccess, Value: "agricultural"}, {Key: tagVehicle, Value: "no"}, {Key: tagMotorVehicle, Value: "no"},
+				{Key: tagMotorcar, Value: "no"}},
 			want: false,
 		},
 		{
 			name: "Junction roundabout",
-			tags: osm.Tags{{Key: "junction", Value: "roundabout"}},
+			tags: osm.Tags{{Key: "junction", Value: strRoundabout}},
 			want: true,
 		},
 	}
@@ -89,25 +100,25 @@ func TestIsBarrierNodeAccessible(t *testing.T) {
 		},
 		{
 			name: "Bollard for motorcar",
-			tags: osm.Tags{{Key: "barrier", Value: "bollard"}},
+			tags: osm.Tags{{Key: tagBarrier, Value: "bollard"}},
 			want: false,
 		},
 		{
 			name: "Gate access yes",
-			tags: osm.Tags{{Key: "barrier", Value: "gate"}, {Key: "access", Value: "yes"}},
+			tags: osm.Tags{{Key: tagBarrier, Value: strGate}, {Key: tagAccess, Value: strYes}},
 			want: true,
 		},
 		{
 			name: "Gate access no",
-			tags: osm.Tags{{Key: "barrier", Value: "gate"}, {Key: "access", Value: "no"}, {Key: "vehicle", Value: "no"}, {Key: "motor_vehicle", Value: "no"},
-				{Key: "motorcar", Value: "no"}},
+			tags: osm.Tags{{Key: tagBarrier, Value: strGate}, {Key: tagAccess, Value: "no"}, {Key: tagVehicle, Value: "no"}, {Key: tagMotorVehicle, Value: "no"},
+				{Key: tagMotorcar, Value: "no"}},
 			want: false,
 		},
 		{
 			name: "Conditional access yes",
 			tags: osm.Tags{
-				{Key: "barrier", Value: "gate"},
-				{Key: "access:conditional", Value: "yes @ (09:00-17:00)"},
+				{Key: tagBarrier, Value: strGate},
+				{Key: "access:conditional", Value: tagConditionalYes},
 			},
 			want: true,
 		},
@@ -116,7 +127,7 @@ func TestIsBarrierNodeAccessible(t *testing.T) {
 			// access:conditional is stored for runtime evaluation, not evaluated at parse time.
 			// Without an explicit access=no tag, the node is accessible during parsing.
 			tags: osm.Tags{
-				{Key: "barrier", Value: "gate"},
+				{Key: tagBarrier, Value: strGate},
 				{Key: "access:conditional", Value: "no @ (09:00-17:00)"},
 			},
 			want: true,

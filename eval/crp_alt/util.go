@@ -10,6 +10,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"go.uber.org/zap"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
@@ -22,9 +23,13 @@ import (
 // ini buat dimacs 9th implmenetation challenge correctness test
 func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
+	logger, err := logger.New()
+	if err != nil {
+		logger.Fatal("error: %v", zap.Error(err))
+	}
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		logger.Fatal("error: %v", zap.Error(err))
 	}
 
 	config.InitRegionName(name, pkg.EVAL)
@@ -37,7 +42,7 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int,
 	)
 
 	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
+		logger.Fatal("error: %v", zap.Error(err))
 	}
 
 	doPreprocessCustomize := false
@@ -60,10 +65,6 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int,
 	rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
 	g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
-	logger, err := logger.New()
-	if err != nil {
-		panic(err)
-	}
 	if doPreprocessCustomize {
 
 		ps := make([]int, len(Us))
@@ -82,33 +83,33 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int,
 
 		err = mp.SaveToFile()
 		if err != nil {
-			panic(err)
+			logger.Fatal("error: %v", zap.Error(err))
 		}
 
 		mlp := da.NewPlainMLP()
 		err = mlp.ReadMlpFile()
 		if err != nil {
-			panic(err)
+			logger.Fatal("error: %v", zap.Error(err))
 		}
 
 		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger)
 		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(true)
 		if err != nil {
-			panic(err)
+			logger.Fatal("error: %v", zap.Error(err))
 		}
 
 	} else {
 		mlp := da.NewPlainMLP()
 		err = mlp.ReadMlpFile()
 		if err != nil {
-			panic(err)
+			logger.Fatal("error: %v", zap.Error(err))
 		}
 		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger)
 		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(false)
 		if err != nil {
-			panic(err)
+			logger.Fatal("error: %v", zap.Error(err))
 		}
 	}
 
@@ -116,12 +117,12 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int,
 
 	_, err = cust.Customize()
 	if err != nil {
-		panic(err)
+		logger.Fatal("error: %v", zap.Error(err))
 	}
 
 	re, err := engine.NewEngine[int64](logger)
 	if err != nil {
-		panic(err)
+		logger.Fatal("error: %v", zap.Error(err))
 	}
 
 	oldToNewVIdMap := prep.GetOldToNewVId()

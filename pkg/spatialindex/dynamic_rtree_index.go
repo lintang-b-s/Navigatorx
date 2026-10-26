@@ -79,10 +79,10 @@ func (dr *DynamicRtree) SearchWithinRadius(qLat, qLon, radius float64) []da.Inde
 
 	rt := dr.tr.Load()
 	rt.Search([2]int32{lowerX, lowerY}, [2]int32{upperX, upperY},
-		func(min, max [2]int32, data uint64) bool {
+		func(minPt, maxPt [2]int32, data uint64) bool {
 			segId := dr.GetSegmentId(data)
-			midx := (max[0] + min[0]) / 2
-			midy := (max[1] + min[1]) / 2
+			midx := (maxPt[0] + minPt[0]) / 2
+			midy := (maxPt[1] + minPt[1]) / 2
 			dx, dy := int64(qxR-midx), int64(qyR-midy)
 			dist := dx*dx + dy*dy
 			cands = append(cands, candidate{id: segId, dist: dist})

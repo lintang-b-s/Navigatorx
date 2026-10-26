@@ -318,9 +318,6 @@ func (rs *RoutingService) projectCoordinateToSegment(lat, lon float64, id da.Ind
 func (rs *RoutingService) project(lat, lon float64, id da.Index, origin bool) (da.Index, []da.Coordinate, da.Coordinate, float64, float64) {
 
 	segGeometry := rs.rn.GetSegmentGeometry(id)
-	minDist := pkg.INF_WEIGHT
-	var pPoint da.Coordinate //  best projected point
-
 	lastIndex, pPoint, minDist, stailDist := geo.ProjectPointOnSegmentGeometry(segGeometry, lat, lon)
 	return lastIndex, segGeometry, pPoint, minDist, stailDist
 }

@@ -29,10 +29,7 @@ func writePackedSlice(w *util.BinaryWriter, values *PackedSlice) error {
 			return err
 		}
 	}
-	if err := w.Blob(values.lowerOffset); err != nil {
-		return err
-	}
-	return w.Blob(values.upperNumOfBits)
+	return nil
 }
 
 func readPackedSlice(r *util.BinaryReader) (*PackedSlice, error) {
@@ -63,17 +60,7 @@ func readPackedSlice(r *util.BinaryReader) (*PackedSlice, error) {
 			return nil, err
 		}
 	}
-	lower, err := r.Blob()
-	if err != nil {
-		return nil, err
-	}
-	upper, err := r.Blob()
-	if err != nil {
-		return nil, err
-	}
-	if uint64(len(lower)) != items || uint64(len(upper)) != items {
-		return nil, fmt.Errorf("packed slice metadata count does not match item count %d", items)
-	}
+
 	requiredWords := uint64(1)
 	if items > 0 {
 		requiredWords = (items*uint64(bits) + 63) / 64
@@ -82,11 +69,10 @@ func readPackedSlice(r *util.BinaryReader) (*PackedSlice, error) {
 		return nil, fmt.Errorf("packed slice has %d data words, expected %d", len(data), requiredWords)
 	}
 	return &PackedSlice{
-		data:           data,
-		numberOfBits:   bits,
-		lowerOffset:    lower,
-		upperNumOfBits: upper,
-		numOfItems:     items,
+		data:         data,
+		numberOfBits: bits,
+
+		numOfItems: items,
 	}, nil
 }
 

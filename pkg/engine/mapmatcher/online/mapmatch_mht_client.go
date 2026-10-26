@@ -85,7 +85,7 @@ type OnlineMapMatchMHTClient struct {
 
 func NewOnlineMapMatchMHTClient(graph *da.DynamicGraph, rt *spatialindex.DynamicRtree, initialSpeedMean, initialSpeedStd float64,
 	posteriorThresold, gpsStd, lp, lc, accelerationStd float64,
-	N *da.SparseMatrix) *OnlineMapMatchMHTClient {
+	n *da.SparseMatrix) *OnlineMapMatchMHTClient {
 	return &OnlineMapMatchMHTClient{
 		g:                 graph,
 		rt:                rt,
@@ -96,7 +96,7 @@ func NewOnlineMapMatchMHTClient(graph *da.DynamicGraph, rt *spatialindex.Dynamic
 		lp:                lp,
 		accelerationStd:   accelerationStd,
 		lc:                lc,
-		N:                 N,
+		N:                 n,
 	}
 }
 
@@ -151,42 +151,42 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
 
 		matchedPoint, newcandidates, _ := om.filterLog(gps, candidates)
 		return matchedPoint, newcandidates, om.initialSpeedMean, om.initialSpeedStd
-	} else {
-		var (
-			speedMean, speedStd float64
-		)
-		if k == 2 {
-			speedMean = om.initialSpeedMean
-			speedStd = om.initialSpeedStd
-		} else {
-			speedMean = speedMeanK
-			speedStd = speedStdK
-		}
-
-		newCandidates := make([]*ma.Candidate, 0, len(candidates)) // newCandidates is next road segment candidates r_{k+1} di current time step
-
-		for _, rkCand := range candidates {
-			if rkCand == nil || rkCand.GetSegmentId() == da.INVALID_SEGMENT_ID {
-				continue
-			}
-			tau := make([]da.Index, 0, 5)
-			tau = append(tau, rkCand.GetSegmentId())
-			ptau := 1.0 // markov chain path probability that start at this road segment candidate rkCand
-			hpre := 1.0
-			newCandidates = om.recur(newCandidates, rkCand.GetWeight(), tau, ptau, speedMean, hpre, speedStd, gps.DeltaTime(), gps, rkCand)
-		}
-		speedMeanK, speedStdK = om.kalmanFilter(speedMean, speedStd, gps.Speed(), gps.DeltaTime())
-
-		om.projectAllCandidates(gps, newCandidates)
-
-		matchedPoint, newCandidatesFiltered, reset := om.filterLog(gps, newCandidates)
-
-		if reset {
-			return matchedPoint, make([]*ma.Candidate, 0), om.initialSpeedMean, om.initialSpeedStd
-		}
-
-		return matchedPoint, newCandidatesFiltered, speedMeanK, speedStdK
 	}
+
+	var (
+		speedMean, speedStd float64
+	)
+	if k == 2 {
+		speedMean = om.initialSpeedMean
+		speedStd = om.initialSpeedStd
+	} else {
+		speedMean = speedMeanK
+		speedStd = speedStdK
+	}
+
+	newCandidates := make([]*ma.Candidate, 0, len(candidates)) // newCandidates is next road segment candidates r_{k+1} di current time step
+
+	for _, rkCand := range candidates {
+		if rkCand == nil || rkCand.GetSegmentId() == da.INVALID_SEGMENT_ID {
+			continue
+		}
+		tau := make([]da.Index, 0, 5)
+		tau = append(tau, rkCand.GetSegmentId())
+		ptau := 1.0 // markov chain path probability that start at this road segment candidate rkCand
+		hpre := 1.0
+		newCandidates = om.recur(newCandidates, rkCand.GetWeight(), tau, ptau, speedMean, hpre, speedStd, gps.DeltaTime(), gps, rkCand)
+	}
+	speedMeanK, speedStdK = om.kalmanFilter(speedMean, speedStd, gps.Speed(), gps.DeltaTime())
+
+	om.projectAllCandidates(gps, newCandidates)
+
+	matchedPoint, newCandidatesFiltered, reset := om.filterLog(gps, newCandidates)
+
+	if reset {
+		return matchedPoint, make([]*ma.Candidate, 0), om.initialSpeedMean, om.initialSpeedStd
+	}
+
+	return matchedPoint, newCandidatesFiltered, speedMeanK, speedStdK
 }
 
 // recur. prediction step of multiple hypothesis technique (compute prior)

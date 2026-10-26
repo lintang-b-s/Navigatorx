@@ -335,7 +335,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			gotNumOfShortcuts := 0
 
 			for cellId, cell := range cellMapInLevelOne {
-				cellIdInLevel := og.OffUpperBit(cellId, 1)
+				cellIdInLevel := og.OffUpperBit(da.Pv(cellId), 1)
 				for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
 					startOverlayVertexId := og.GetCellEntry(cell, i)
 					enOverlayVertex := og.GetVertex(startOverlayVertexId)
@@ -366,7 +366,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				cellMapInLevel := og.GetAllCellsInLevel(level)
 
 				for cellId, cell := range cellMapInLevel {
-					cellIdInLevel := og.OffUpperBit(cellId, uint8(level))
+					cellIdInLevel := og.OffUpperBit(da.Pv(cellId), uint8(level))
 
 					for i := da.Index(0); i < cell.GetNumEntryPoints(); i++ {
 						startOverlayVertexId := og.GetCellEntry(cell, i)

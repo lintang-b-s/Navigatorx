@@ -339,12 +339,11 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 					db.turnSignCache.Set(key, makeCacheVal(da.KEEP_RIGHT, db.nextStreetName))
 				}
 				return da.KEEP_RIGHT
-			} else {
-				if !db.useLookForward {
-					db.turnSignCache.Set(key, makeCacheVal(da.KEEP_LEFT, db.nextStreetName))
-				}
-				return da.KEEP_LEFT
 			}
+			if !db.useLookForward {
+				db.turnSignCache.Set(key, makeCacheVal(da.KEEP_LEFT, db.nextStreetName))
+			}
+			return da.KEEP_LEFT
 		}
 	}
 

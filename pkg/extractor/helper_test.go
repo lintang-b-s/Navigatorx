@@ -5,6 +5,12 @@ import (
 	"time"
 )
 
+const (
+	condTimeNightly = "Mo-Fr,Su 22:00-06:00"
+	condTimeSplit   = "Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00"
+	condYesTime     = "yes @ (09:00-17:00)"
+)
+
 func TestIsConditionalAccessInTimerange(t *testing.T) {
 	testCases := []struct {
 		name        string
@@ -59,28 +65,28 @@ func TestIsConditionalAccessInTimerange(t *testing.T) {
 
 		{
 			name:        "TestIsConditionalAccessInTimerange: time range input Mo-Fr,Su 22:00-06:00 dan currentTime not inTimeRange",
-			condTime:    "Mo-Fr,Su 22:00-06:00",
+			condTime:    condTimeNightly,
 			currentTime: time.Date(2026, 4, 12, 7, 2, 0, 0, time.Local),
 			want:        false,
 			wantErr:     false,
 		},
 		{
 			name:        "TestIsConditionalAccessInTimerange: time range input Mo-Fr,Su 22:00-06:00 dan currentTime inTimeRange",
-			condTime:    "Mo-Fr,Su 22:00-06:00",
+			condTime:    condTimeNightly,
 			currentTime: time.Date(2026, 4, 12, 5, 2, 0, 0, time.Local),
 			want:        true,
 			wantErr:     false,
 		},
 		{
 			name:        "TestIsConditionalAccessInTimerange: time range input Mo-Fr,Su 22:00-06:00 dan currentTime inTimeRange",
-			condTime:    "Mo-Fr,Su 22:00-06:00",
+			condTime:    condTimeNightly,
 			currentTime: time.Date(2026, 4, 8, 5, 2, 0, 0, time.Local),
 			want:        true,
 			wantErr:     false,
 		},
 		{
 			name:        "TestIsConditionalAccessInTimerange: time range input Mo-Fr,Su 22:00-06:00 dan currentTime not inTimeRange",
-			condTime:    "Mo-Fr,Su 22:00-06:00",
+			condTime:    condTimeNightly,
 			currentTime: time.Date(2026, 4, 8, 6, 2, 0, 0, time.Local),
 			want:        false,
 			wantErr:     false,
@@ -88,28 +94,28 @@ func TestIsConditionalAccessInTimerange(t *testing.T) {
 
 		{
 			name:        "TestIsConditionalAccessInTimerange: time range input Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00 dan currentTime inTimeRange",
-			condTime:    "Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00",
+			condTime:    condTimeSplit,
 			currentTime: time.Date(2026, 4, 8, 15, 2, 0, 0, time.Local),
 			want:        true,
 			wantErr:     false,
 		},
 		{
 			name:        "TestIsConditionalAccessInTimerange: time range input Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00 dan currentTime inTimeRange",
-			condTime:    "Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00",
+			condTime:    condTimeSplit,
 			currentTime: time.Date(2026, 4, 12, 8, 2, 0, 0, time.Local),
 			want:        true,
 			wantErr:     false,
 		},
 		{
 			name:        "TestIsConditionalAccessInTimerange: time range input Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00 dan currentTime not inTimeRange",
-			condTime:    "Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00",
+			condTime:    condTimeSplit,
 			currentTime: time.Date(2026, 4, 12, 11, 2, 0, 0, time.Local),
 			want:        false,
 			wantErr:     false,
 		},
 		{
 			name:        "TestIsConditionalAccessInTimerange: time range input Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00 dan currentTime not inTimeRange",
-			condTime:    "Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00",
+			condTime:    condTimeSplit,
 			currentTime: time.Date(2026, 4, 8, 22, 2, 0, 0, time.Local),
 			want:        false,
 			wantErr:     false,
@@ -215,7 +221,7 @@ func TestGetReversibleOneWay(t *testing.T) {
 	}{
 		{
 			name:        "Forward reversible in time",
-			input:       "yes @ (09:00-17:00)",
+			input:       condYesTime,
 			currentTime: time.Date(2026, 4, 8, 10, 0, 0, 0, time.Local),
 			want:        DIRECTION_FORWARD_REVERSIBLE,
 		},
@@ -227,7 +233,7 @@ func TestGetReversibleOneWay(t *testing.T) {
 		},
 		{
 			name:        "Reversible not in time",
-			input:       "yes @ (09:00-17:00)",
+			input:       condYesTime,
 			currentTime: time.Date(2026, 4, 8, 18, 0, 0, 0, time.Local),
 			want:        NO_ROUTE_REVERSIBLE,
 		},

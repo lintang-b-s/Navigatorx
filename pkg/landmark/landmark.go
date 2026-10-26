@@ -183,6 +183,7 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 
 	heapPool := sync.Pool{
 		New: func() any {
+
 			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
 		},
 	}

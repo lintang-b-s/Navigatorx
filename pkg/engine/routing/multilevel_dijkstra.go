@@ -112,6 +112,7 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 	sOffset, sSize := bs.engine.graph.GetVertexCellOffset(s)
 	tOffset, tSize := bs.engine.graph.GetVertexCellOffset(t)
 	maxV := bs.engine.graph.GetMaxVerticesInCell()
+
 	nv := da.Index(bs.engine.numberOfVertices)
 	bs.fpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
 	bs.bpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
@@ -219,13 +220,7 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, p
 				}
 			}
 
-			if rpq.IsExplored(v) {
-				newEstSPCost := pq.GetCost(v) + rpq.GetCost(v)
-				if util.Lt(newEstSPCost, bs.shortestCost) {
-					bs.shortestCost = newEstSPCost
-					bs.mid = da.NewParentVertex(v)
-				}
-			}
+			bs.meet(v, pq, rpq, false)
 		} else {
 			// v is in another cell on higher level
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
@@ -245,16 +240,7 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, p
 				}
 			}
 
-			if rpq.IsExplored(vOv) {
-				// if v explored by other search, check whether we can improve the shortestPath
-				newEstSPCost := pq.GetCost(vOv) + rpq.GetCost(vOv)
-				if util.Lt(newEstSPCost, bs.shortestCost) {
-					bs.shortestCost = newEstSPCost
-					mid := da.NewParentVertex(vOv)
-					mid.SetIsOverlayVertex()
-					bs.mid = mid
-				}
-			}
+			bs.meet(vOv, pq, rpq, true)
 		}
 	}
 }
@@ -331,14 +317,7 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, forw 
 						pq.Insert(w, newWCost, vData, queryKey)
 					}
 				}
-
-				if rpq.IsExplored(w) {
-					newEstSPCost := pq.GetCost(w) + rpq.GetCost(w)
-					if util.Lt(newEstSPCost, bs.shortestCost) {
-						bs.shortestCost = newEstSPCost
-						bs.mid = da.NewParentVertex(w)
-					}
-				}
+				bs.meet(w, pq, rpq, false)
 			} else {
 				// w is in another cell on higher level
 				// update new travelTime to reach overlay vertex w
@@ -357,28 +336,24 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, forw 
 						pq.DecreaseKey(wOv, newWCost, newWCost, newPar)
 					}
 				}
-
-				if rpq.IsExplored(wOv) {
-					// if overlay vertex w explored by other search, check whether we can improve the shortestPath
-					newEstSPCost := pq.GetCost(wOv) + rpq.GetCost(wOv)
-					if util.Lt(newEstSPCost, bs.shortestCost) {
-						bs.shortestCost = newEstSPCost
-						mid := da.NewParentVertex(wOv)
-						mid.SetIsOverlayVertex()
-						bs.mid = mid
-					}
-				}
+				bs.meet(wOv, pq, rpq, true)
 			}
 		}
+		bs.meet(vOv, pq, rpq, true)
+	}
+}
 
-		if rpq.IsExplored(vOv) {
-			newEstSPCost := pq.GetCost(vOv) + rpq.GetCost(vOv)
-			if util.Lt(newEstSPCost, bs.shortestCost) {
-				bs.shortestCost = newEstSPCost
-				mid := da.NewParentVertex(vOv)
+func (bs *CRPQuery[W]) meet(v da.Index, pq, rpq *da.QueryHeap[da.QueryKey, W], overlay bool) {
+	if rpq.IsExplored(v) {
+		// if vertex v explored by other search, check whether we can improve the shortestCost estimate
+		newEstSPCost := pq.GetCost(v) + rpq.GetCost(v)
+		if util.Lt(newEstSPCost, bs.shortestCost) {
+			bs.shortestCost = newEstSPCost
+			mid := da.NewParentVertex(v)
+			if overlay {
 				mid.SetIsOverlayVertex()
-				bs.mid = mid
 			}
+			bs.mid = mid
 		}
 	}
 }

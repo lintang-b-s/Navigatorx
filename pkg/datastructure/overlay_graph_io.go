@@ -42,9 +42,9 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 			return err
 		}
 		for _, cells := range og.cellMapping {
-			keys := make([]Pv, 0, len(cells))
+			keys := make([]uint32, 0, len(cells))
 			for key := range cells {
-				keys = append(keys, key)
+				keys = append(keys, uint32(key))
 			}
 			sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
 			if err := w.Length(len(keys)); err != nil {
@@ -52,7 +52,7 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 			}
 			for _, key := range keys {
 				cell := cells[key]
-				if err := w.Uint64(uint64(key)); err != nil {
+				if err := w.Uint32(key); err != nil {
 					return err
 				}
 				for _, value := range []uint32{
@@ -135,15 +135,15 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	if int(levelCount) != len(vertexCountInLevel) {
 		return nil, fmt.Errorf("overlay cell-map levels do not match level count")
 	}
-	cellMapping := make([]map[Pv]Cell, levelCount)
+	cellMapping := make([][]Cell, levelCount)
 	for level := range cellMapping {
 		cellCount, err := r.Length()
 		if err != nil {
 			return nil, err
 		}
-		cellMapping[level] = make(map[Pv]Cell, cellCount)
+		cellMapping[level] = make([]Cell, cellCount)
 		for range cellCount {
-			cellNumber, err := r.Uint64()
+			cellNumber, err := r.Uint32()
 			if err != nil {
 				return nil, err
 			}
@@ -154,7 +154,7 @@ func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 					return nil, err
 				}
 			}
-			cellMapping[level][Pv(cellNumber)] = Cell{
+			cellMapping[level][cellNumber] = Cell{
 				numEntryPoints:       Index(fields[0]),
 				numExitPoints:        Index(fields[1]),
 				cellOffset:           Index(fields[2]),

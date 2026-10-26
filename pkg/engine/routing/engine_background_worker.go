@@ -6,16 +6,14 @@ import (
 	"log"
 	"os"
 	"time"
-
-	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
 func (crp *CRPRoutingEngine[W]) InitBackgroundWorker(ctx context.Context) {
-	go crp.checkCustomizerUpdate(crp.metrics.GetFilePath(), ctx)
+	go crp.checkCustomizerUpdate(ctx, crp.metrics.GetFilePath())
 	// go crp.checkActivatedConditionalRestrictions(ctx) // belum jadi
 }
 
-func (crp *CRPRoutingEngine[W]) checkCustomizerUpdate(metricsFilePath string, ctx context.Context) {
+func (crp *CRPRoutingEngine[W]) checkCustomizerUpdate(ctx context.Context, metricsFilePath string) {
 	lastModifiedTime, err := isFileUpdated(metricsFilePath)
 	if err != nil {
 		crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time : %v\n", err)
@@ -106,7 +104,6 @@ func (crp *CRPRoutingEngine[W]) updateMetrics() (err error) {
 	}
 	crp.puCache.InvalidateAll()
 	crp.logger.Sugar().Infof("engine.checkCustomizerUpdate: the metrics was successfully updated.")
-	util.FreeMemory()
 	return nil
 }
 
