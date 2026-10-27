@@ -18,7 +18,7 @@ type CellGraph struct {
 	vIds       []Index // road network Graph (graph.go) vertices ids that inside current MultiLevelPartition (MLP) cell. permuted such that vIds[begin:end] contains all vertices in this recursive bisection cell. [begin, end) (begin inclusive, end exclusive).
 	begin, end Index   // begin and end index in vIds that contains vertices in this recursive bisection cell, such that vIds[begin:end] contains all vertices in this recursive bisection cell.
 	gv         []Index // map from road network Graph (in graph.go) vertex id to recursive bisection cell vertex id. such that vIds[gv[i]+begin] = i, for all i.
-	// Compressed Sparse Row Graph https://ocw.mit.edu/courses/6-172-performance-engineering-of-software-systems-fall-2018/f58df934e205b870e473c2af3fe5e6f7_MIT6_172F18_lec22.pdf
+	// Compressed Sparse Row Graph related https://ocw.mit.edu/courses/6-172-performance-engineering-of-software-systems-fall-2018/f58df934e205b870e473c2af3fe5e6f7_MIT6_172F18_lec22.pdf
 	heads    []Index // map from outgoing edge (u,v) id to head vertex v sorted by tail u.
 	tails    []Index // map from reversed edge (v,u) id to tail vertex u sorted by head v.
 	firstOut []Index // first offset of outgoing edge (u,v) of vertex u.

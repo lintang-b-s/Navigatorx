@@ -14,9 +14,9 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-// ArrayStorage stores heap indices for vertices using a array and dirty tracking.
-// Unset positions are marked with [math.MaxUint32]. Touched indices are recorded in a dirty list,
-// enabling fast O(|dirty|) resets between queries instead of O(|V|).
+// ArrayStorage stores heap indices for vertices using a array and touched tracking.
+// Unset positions are marked with [math.MaxUint32]. Touched indices are recorded in a touched list,
+// enabling fast O(|touched|) resets between queries instead of O(|V|).
 //
 // From Delling et al. (2015) ref [1]:
 //
@@ -24,8 +24,8 @@ import (
 //
 // remark: i think the word "quick" in this paper sentence is typo, the correct one is "query".
 type ArrayStorage struct {
-	base  []Index
-	dirty []Index
+	base    []Index
+	touched []Index
 }
 
 // NewArrayStorage creates and initializes an [ArrayStorage] with the given size.
@@ -36,8 +36,8 @@ func NewArrayStorage(size Index) *ArrayStorage {
 		base[i] = math.MaxUint32
 	}
 	return &ArrayStorage{
-		base:  base,
-		dirty: make([]Index, 0, 1024),
+		base:    base,
+		touched: make([]Index, 0, TOUCHED_VERTICES_SIZE),
 	}
 }
 
@@ -50,24 +50,24 @@ func (s *ArrayStorage) Get(id Index) Index {
 }
 
 // Set assigns the heap index info to the given vertex id.
-// If the vertex was previously unset, its id is appended to the dirty list.
+// If the vertex was previously unset, its id is appended to the touched list.
 //
 //go:inline
 func (s *ArrayStorage) Set(id Index, info Index) {
 	if s.base[id] == math.MaxUint32 {
-		s.dirty = append(s.dirty, id)
+		s.touched = append(s.touched, id)
 	}
 	s.base[id] = info
 }
 
-// Clear resets all modified entries back to [math.MaxUint32] and empties the dirty list.
+// Clear resets all modified entries back to [math.MaxUint32] and empties the touched list.
 //
 //go:inline
 func (s *ArrayStorage) Clear() {
-	for _, id := range s.dirty {
+	for _, id := range s.touched {
 		s.base[id] = math.MaxUint32
 	}
-	s.dirty = s.dirty[:0]
+	s.touched = s.touched[:0]
 }
 
 // MapStorage stores heap indices for overlay/boundary vertices using a hash map.

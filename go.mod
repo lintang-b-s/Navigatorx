@@ -4,7 +4,6 @@ go 1.27.1
 
 require (
 	github.com/NYTimes/gziphandler v1.1.1
-	github.com/RoaringBitmap/roaring/v2 v2.30.0
 	github.com/bits-and-blooms/bitset v1.25.0
 	github.com/bytedance/gopkg v0.1.4
 	github.com/bytedance/sonic v1.15.4
@@ -182,7 +181,6 @@ require (
 	github.com/mgechev/revive v1.17.0 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
 	github.com/moricho/tparallel v0.3.2 // indirect
-	github.com/mschoch/smat v0.2.0 // indirect
 	github.com/muesli/cancelreader v0.2.2 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect
 	github.com/nishanths/exhaustive v0.13.0 // indirect

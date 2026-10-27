@@ -1,29 +1,29 @@
 package partitioner
 
 import (
-	"github.com/RoaringBitmap/roaring/v2"
+	"github.com/bits-and-blooms/bitset"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
 type MinCut struct {
-	flags             *roaring.Bitmap // true if the vertex is reachable from source in residual graph, or cell one, else cell two
-	nodesCountInCellT int             // number of nodes in cell T
+	flags             *bitset.BitSet // true if the vertex is reachable from source in residual graph, or cell S, else cell T
+	nodesCountInCellT int            // number of nodes in cell T
 	maxflow           int64
 	cutEdgesCount     int
 }
 
-func NewMinCut() *MinCut {
+func NewMinCut(n int) *MinCut {
 	return &MinCut{
-		flags: roaring.New(),
+		flags: bitset.New(uint(n)),
 	}
 }
 
 func (mc *MinCut) SetFlag(u da.Index, flag bool) {
-	mc.flags.Add(uint32(u))
+	mc.flags.Set(uint(u))
 }
 
 func (mc *MinCut) GetFlag(u da.Index) bool {
-	return mc.flags.Contains(uint32(u))
+	return mc.flags.Test(uint(u))
 }
 
 func (mc *MinCut) GetNumNodesInCellT() int {

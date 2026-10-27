@@ -11,6 +11,7 @@ const (
 
 	BASE_VERTICES_SIZE                      = 2000
 	OVERLAY_VERTICES_SIZE                   = 32 // 2 ini kecil aja, biar gak consume memory banyak pas load test
+	TOUCHED_VERTICES_SIZE                   = 1024
 	OVERLAY_CELL_SIZE                       = 16
 	INVALID_OSM_WAY_ID               int64  = 1<<34 - 1
 	INITIAL_BIT_VECTOR_SIZE                 = 1000

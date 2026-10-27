@@ -189,8 +189,9 @@ see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m *
 inspired from dinic code implementation cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch8/maxflow.cpp
 */
 func (dmf *DinicMaxFlow[W]) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut {
+
 	var (
-		minCut = NewMinCut() // exclude artificial source and sink. kita cuma tambahin super source sinks di slice superEdgeList, superAdjList, dmf.level, dmf.last
+		minCut = NewMinCut(1000) // exclude artificial source and sink. kita cuma tambahin super source sinks di slice superEdgeList, superAdjList, dmf.level, dmf.last
 	)
 	maxFlow := int64(0)
 

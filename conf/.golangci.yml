@@ -40,7 +40,7 @@ linters:
         - "all"
         - "-ST1003"
         - "-ST1020"
-    revive:
+    revive: # todo: suruh ai agent buat benerin revive linter issues (hilangin settings revive: ini)
       rules:
         - name: blank-imports
         - name: context-as-argument

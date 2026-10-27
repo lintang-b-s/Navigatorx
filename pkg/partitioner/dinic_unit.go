@@ -144,8 +144,9 @@ for unit capacity graph:
 see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 */
 func (dmf *DinicUnitMaxFlow) ComputeMaxflowMinCut() *MinCut {
+	n := da.Index(dmf.g.NumberOfCellVertices())
 	var (
-		minCut = NewMinCut() // exclude artificial source and sink. kita cuma tambahin super source sinks di slice superEdgeList, superAdjList, dmf.level, dmf.last
+		minCut = NewMinCut(int(n)) // exclude artificial source and sink.
 	)
 	maxFlow := int32(0)
 
@@ -180,7 +181,7 @@ func (dmf *DinicUnitMaxFlow) residual(e, eRev da.Index, rev bool) bool {
 func (dmf *DinicUnitMaxFlow) addFlow(e, eRev da.Index, rev bool) {
 
 	// todo: instead of using hash table buat unit-capacity 1 flows, kita bisa langsung store edges beserta unit-flow dan reversed edge unit flow nya dalam struct kaya  https://dennisosrm.github.io/toolbox-rs/
-	// DONE :)
+	// DONE :), bagusan ini malah pakai bit vector :)
 	if !rev {
 		// add 1-unit flow to edge (u,v) if this edge (u, v) is not reversed edge in the residual graph.
 		dmf.flows.Set(uint(e))
