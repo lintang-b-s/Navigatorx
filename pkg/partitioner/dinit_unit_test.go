@@ -188,8 +188,12 @@ func TestDinicUnitMaxFlow(t *testing.T) {
 				if !minCut.GetFlag(u) {
 					continue
 				}
+
 				cg.ForEdgesOf(u, func(v da.Index, out bool) {
-					if !minCut.GetFlag(v) {
+					uInS, uInT := minCut.GetFlag(u), !minCut.GetFlag(u)
+					vInS, vInT := minCut.GetFlag(v), !minCut.GetFlag(v)
+
+					if (uInS && vInT) || (uInT && vInS) {
 						gotCutEdges[[2]da.Index{u, v}] = true
 					}
 				})

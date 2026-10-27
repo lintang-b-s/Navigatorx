@@ -33,19 +33,22 @@ type CellGraph struct {
 // vCellMasks . bitset that bitset[i]=true iff road network graph vertex id=i contained in this cell. Used to iterate over the outgoing edges that inside this recursive bisection cell from any vertex of this recursive bisection cell.
 // begin and end index in vIds that contains vertices in this recursive bisection cell, such that vIds[begin:end] contains all vertices in this recursive bisection cell.
 func NewCellGraph(g *Graph, cellvIds []Index, vIds []Index, gv []Index, begin, end Index) *CellGraph {
-	for k, gvId := range cellvIds {
-		gv[gvId] = Index(k)
+	for v, gvId := range cellvIds {
+		gv[gvId] = Index(v)
 	}
 	cg := &CellGraph{vIds: vIds, g: g, begin: begin, end: end, gv: gv}
-	cg.heads, cg.firstOut = cg.uniqueHeads(cellvIds)
-	cg.tails, cg.firstIn = cg.uniqueTails(cellvIds)
-
+	cg.buildFlowGraph(cellvIds)
 	return cg
 }
 
 // NumberOfCellVertices. get number of vetices that inside this cell.
 func (c *CellGraph) NumberOfCellVertices() int {
 	return int(c.end - c.begin)
+}
+
+// NumberOfCellVertices. get number of network flow vetices that inside this cell.
+func (c *CellGraph) NumberOfNetworkFlowVertices() int {
+	return len(c.firstOut) - 1
 }
 
 // GetCellVIds get road network graph vertices ids that inside this recursive bisection cell.
@@ -127,50 +130,142 @@ func (c *CellGraph) headsOf(u Index) []Index {
 	return heads
 }
 
-func (c *CellGraph) tailsOf(u Index) []Index {
-	tails := c.g.tails[c.g.vertices[u].firstIn:c.g.vertices[u+1].firstIn]
-	return tails
-}
-
+// insideCell return true if graph vertex vv inside current recursive bisection cell
 func (c *CellGraph) insideCell(v, vv, cellLen Index) bool {
 	return v < cellLen && c.vIds[c.begin+v] == vv
 }
 
-func (c *CellGraph) uniqueNeighbors(us []Index, out bool) ([]Index, []Index) {
-	n := len(us)
-	neighbors := make([]Index, 0, n)
-	offset := make([]Index, n+1)
-	cellLen := c.end - c.begin
-	// O(m), m=total number of edges of vertices us
-	for k, uu := range us {
-		offset[k] = Index(len(neighbors))
-		var uNeighbors []Index
-		if out {
-			uNeighbors = c.headsOf(uu)
-		} else {
-			uNeighbors = c.tailsOf(uu)
+// is exists reversed edge (v, u)
+func revEdgeExists(u, v Index, adjList [][]Index) bool {
+	for _, w := range adjList[v] {
+		if w == u {
+			return true
 		}
+	}
+	return false
+}
+
+type antiParallelEdge struct {
+	u Index
+	v Index
+	// auxilarry vertex v' that will be inserted to anti-parallel edge (u,v)
+	// such that in the new graph will have edges (u, v') and (v', v)
+	vPrime Index
+}
+
+const (
+	invalidVPrime Index = 2e9
+)
+
+// buildFlowGraph build directed network flow graph (with its reversed edges for the residual graph) from road network graph
+// handle anti-parallel edge (u,v) (with u < v and there exists to edge (v, u)) of road network graph by adding new vertex v'
+// , and replace edge (u,v) by pair of edges (u, v') and (v', v)..
+// read CLRS 3rd ed. section 26.1 figure 26.2
+func (c *CellGraph) buildFlowGraph(us []Index) {
+
+	n := Index(len(us))
+	m := Index(0)
+	cellLen := c.end - c.begin
+	adjList := make([][]Index, n)
+	// O(m), m=number of edges of vertices us
+	for k, uu := range us {
+		u := Index(k)
+		uNeighbors := c.headsOf(uu)
 		set := make(map[Index]struct{}, 3)
 		for _, vv := range uNeighbors {
 			v := c.gv[vv]
 			insideCell := c.insideCell(v, vv, cellLen)
-			if _, exists := set[v]; !exists && insideCell {
-				neighbors = append(neighbors, v)
-				set[v] = struct{}{}
+			if !insideCell {
+				continue
 			}
+
+			// Remove parallel edges
+			if _, exists := set[v]; exists {
+				continue
+			}
+
+			adjList[u] = append(adjList[u], v)
+			m++
+			set[v] = struct{}{}
 		}
 	}
 
-	offset[n] = Index(len(neighbors))
-	return neighbors, offset
-}
+	vPrimeOffset := Index(n)
+	apes := make([]antiParallelEdge, 0, m/2)
 
-// uniqueHeads return outgoing edges (only head vertices of edges) of each vertex u in us (removed parallel edges).
-func (c *CellGraph) uniqueHeads(us []Index) ([]Index, []Index) {
-	return c.uniqueNeighbors(us, true)
-}
+	vPrimes := make([]Index, m)
+	eId := 0
 
-// uniqueTails return incoming (reversed) edges (only tail vertices of reversed edges) of each vertex u in us (removed parallel edges).
-func (c *CellGraph) uniqueTails(us []Index) ([]Index, []Index) {
-	return c.uniqueNeighbors(us, false)
+	for u := Index(0); u < n; u++ {
+		for _, v := range adjList[u] {
+			if exists := revEdgeExists(u, v, adjList); exists && u < v {
+				// has anti-parallel edge (v, u)
+				vPrime := vPrimeOffset
+				apes = append(apes, antiParallelEdge{u, v, vPrime})
+				vPrimes[eId] = vPrime
+				vPrimeOffset++
+			} else {
+				vPrimes[eId] = invalidVPrime
+			}
+			eId++
+		}
+	}
+
+	// build the offset array (or compressed sparse row (CSR) https://ocw.mit.edu/courses/6-172-performance-engineering-of-software-systems-fall-2018/f58df934e205b870e473c2af3fe5e6f7_MIT6_172F18_lec22.pdf)
+	nPrime := Index(len(apes))
+	c.firstOut = make([]Index, n+nPrime+1)
+	for u := Index(0); u < n; u++ {
+		c.firstOut[u+1] = c.firstOut[u] + Index(len(adjList[u]))
+	}
+
+	// build the offset array for all auxilary vertices v' (for the anti-parallel edges)
+	for vPrime := n; vPrime < n+nPrime; vPrime++ {
+		c.firstOut[vPrime+1] = c.firstOut[vPrime] + 1
+	}
+
+	m = c.firstOut[n+nPrime]
+	c.heads = make([]Index, m)
+	eId = 0
+	for u := Index(0); u < n; u++ {
+		off := c.firstOut[u]
+		for j, v := range adjList[u] {
+			vPrime := vPrimes[eId]
+			split := vPrime != invalidVPrime
+			if u < v && split {
+				// add edge (u, v') for handling the anti-parallel edge
+				c.heads[off+Index(j)] = vPrime
+			} else {
+				// edge (u, v) doesnt have anti-paralel edge (v,u)
+				c.heads[off+Index(j)] = v
+			}
+			eId++
+		}
+	}
+
+	for _, p := range apes {
+		// add edge (v', v)
+		c.heads[c.firstOut[p.vPrime]] = p.v
+	}
+
+	// counting sort for the reversed edges (v,u) compressed sparse row (CSR)
+	// sort reversed edges by head vertex v.
+	// count frequency of head vertex v
+	c.firstIn = make([]Index, n+nPrime+1)
+	for _, v := range c.heads {
+		c.firstIn[v]++
+	}
+	// prefix sum the frequency
+	for i := Index(0); i < n+nPrime; i++ {
+		c.firstIn[i+1] += c.firstIn[i]
+	}
+
+	c.tails = make([]Index, m)
+	// place the reversed edges using the prefix sum result
+	for u := Index(0); u < n+nPrime; u++ {
+		for j := c.firstOut[u]; j < c.firstOut[u+1]; j++ {
+			v := c.heads[j]
+			c.firstIn[v]--
+			c.tails[c.firstIn[v]] = u
+		}
+	}
 }

@@ -102,7 +102,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 	computeMinCut := func(inertialFlowInChan chan minCutJob) {
 		for input := range inertialFlowInChan {
 			icg := inf.getCellGraph()
-			n := icg.NumberOfCellVertices()
+			n := icg.NumberOfNetworkFlowVertices()
 			dn := NewDinicUnitMaxFlow(n, icg)
 			sources, sinks := inf.selectFirstLastKthVertices(input.getLine(), sourceSinkRate)
 			dn.createArtificialSourceSink(sources, sinks)

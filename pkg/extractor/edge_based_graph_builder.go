@@ -80,6 +80,7 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 		})
 	})
 
+	// build the edge-based graph (ebg) compressed sparse row (csr) representation https://ocw.mit.edu/courses/6-172-performance-engineering-of-software-systems-fall-2018/f58df934e205b870e473c2af3fe5e6f7_MIT6_172F18_lec22.pdf
 	// build the ebgVertices[w].firstOut, ebgVertices[w].firstIn, ebgHeads, ebgTails like in counting sort
 	// we need to store the edges (u,v) in ebgHeads sorted by tail vertex u. and store the reversed edges (v,u) in ebgTails sorted by head vertex v.
 	// we can do this by counting sort, sort by tail vertex u for ebgHeads and ebgVertices[w].firstOut.
@@ -118,8 +119,8 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	ebgEntryPoints := make([]uint8, m)
 	ebgExitPoints := make([]uint8, m)
 
-	eids := make([]da.Index, m)
-	reids := make([]da.Index, m)
+	eIds := make([]da.Index, m)
+	reIds := make([]da.Index, m)
 
 	sortedWeights := make([]W, m)
 	sortedTurnCosts := make([]uint16, m)
@@ -134,20 +135,18 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 		inEdgeID := ebgVertices[e.v].GetFirstIn()
 		ebgHeads[outEdgeID] = e.v
 		ebgTails[inEdgeID] = e.u
-		eids[i] = outEdgeID
-		reids[i] = inEdgeID
+		eIds[i] = outEdgeID
+		reIds[i] = inEdgeID
 		sortedWeights[outEdgeID] = ebgWeights[i]
 		sortedTurnCosts[outEdgeID] = turnCosts[i]
 	}
 
 	for i := 0; i < int(m); i++ {
 		e := ebgEdgeList[i]
-		off := eids[i]
-		revOff := reids[i]
-
+		off := eIds[i]
+		revOff := reIds[i]
 		exitPoint := uint8(off - ebgVertices[e.u].GetFirstOut())
 		entryPoint := uint8(revOff - ebgVertices[e.v].GetFirstIn())
-
 		ebgEntryPoints[off] = entryPoint
 		ebgExitPoints[revOff] = exitPoint
 	}

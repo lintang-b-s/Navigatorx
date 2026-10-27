@@ -38,18 +38,10 @@ func (mc *MinCut) GetMaxFlow() int {
 	return int(mc.maxflow)
 }
 
-func (mc *MinCut) setMaxFlow(maxflow int64) {
-	mc.maxflow = maxflow
-}
-
 func (mc *MinCut) CutEdgesCount() int {
 	return mc.cutEdgesCount
 }
 
 func (mc *MinCut) GetcutEdgesCount() int {
 	return mc.CutEdgesCount()
-}
-
-func (mc *MinCut) setcutEdgesCount(numOfCut int) {
-	mc.cutEdgesCount = numOfCut
 }
