@@ -161,8 +161,8 @@ func (dmf *DinicUnitMaxFlow) ComputeMaxflowMinCut() *MinCut {
 	return minCut //  or maxflow
 }
 
-// residual compute residual 1 unit-capacity of edge e
-// rev iff the
+// residual compute residual 1 unit-capacity of edge (or reversed edge) e=(u,v)
+// if e is reversed edge, eRev is the edge (v,u) id..
 func (dmf *DinicUnitMaxFlow) residual(e, eRev da.Index, rev bool) bool {
 	if !rev {
 		// edge (u,v) has 1-unit residual capacity if its doesnt have 1-unit flow
@@ -175,6 +175,8 @@ func (dmf *DinicUnitMaxFlow) residual(e, eRev da.Index, rev bool) bool {
 	return revHasFlow
 }
 
+// addFlow add/augment  1 unit-flow to edge (or reversed edge) e=(u,v)
+// if e is reversed edge, eRev is the edge (v,u) id..
 func (dmf *DinicUnitMaxFlow) addFlow(e, eRev da.Index, rev bool) {
 
 	// todo: instead of using hash table buat unit-capacity 1 flows, kita bisa langsung store edges beserta unit-flow dan reversed edge unit flow nya dalam struct kaya  https://dennisosrm.github.io/toolbox-rs/
