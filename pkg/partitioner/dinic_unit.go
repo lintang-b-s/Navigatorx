@@ -6,7 +6,7 @@ import (
 )
 
 // DinicUnitMaxFlow is dinic algorithm for directed unit capacity graph, from multi-sources to multi-sinks. (more optimized than general capacity dinic.go).
-// this unit-capacity directed graph doesnt have parallel edges (removed in partition_cell_graph.go).
+// this directed unit capacity graph has neither parallel edges nor anti-parallel edges. (removed in partition_cell_graph.go).
 type DinicUnitMaxFlow struct {
 	g     *da.CellGraph
 	flows []map[da.Index]struct{}
@@ -56,6 +56,7 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 	queue := dmf.levelQueue[:0]
 	for _, ss := range dmf.sources {
 		if dmf.level[ss] == INVALID_LEVEL {
+			// directly bfs from multi-sources instead of super-source
 			dmf.level[ss] = 0
 			queue = append(queue, ss)
 		}
@@ -66,6 +67,10 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 	for head := 0; head < len(queue); head++ {
 		u := queue[head]
 		if dmf.isSink.Test(uint(u)) {
+			// reached sink u
+			// we dont need to traverse artificial edge (u,t), where t is the super-sink
+			// because artificial edge (u,t) have INF capacity,
+			// if we reach one of the sink nodes, then the super-sink is reachable bcs of that INF capacity...
 			reachedSink = true
 			continue
 		}
@@ -88,6 +93,12 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 func (dmf *DinicUnitMaxFlow) dfsAugmentPath(u da.Index) bool {
 
 	if dmf.isSink.Test(uint(u)) { // termination
+		// reached sink u
+		// we dont need to traverse artificial edge (u,t), where t is the super-sink
+		// because artificial edge (u,t) have INF capacity,
+		// if we reach one of the sink nodes, then the super-sink is reachable bcs of that INF capacity...
+		// also in this DinicUnitMaxFlow, we operate on unit capacity directed graph..
+		// so the residual capacity of every augmenting path s-t is 1.
 		return true
 	}
 
@@ -180,32 +191,20 @@ func (dmf *DinicUnitMaxFlow) addFlow(u, v da.Index) {
 }
 
 func (dmf *DinicUnitMaxFlow) makeMinCutFlags(minCut *MinCut, maxflow int32) {
-	cutEdges := 0
-	n := da.Index(dmf.n)
+
+	n := da.Index(dmf.g.NumberOfCellVertices())
 	for u := da.Index(0); u < n; u++ {
 		if dmf.level[u] != INVALID_LEVEL {
 			// https://www.cs.princeton.edu/courses/archive/fall14/cos226/lectures/64MaxFlow.pdf
 			// partisi S = semua vertices connected to s by an undirected path with no full forward edges (full fe = its residual capacity = 0 ) or empty backward edges (empty be = its residual capacity = 0 )
 			minCut.SetFlag(u, true)
 		} else {
-			minCut.incrementNumNodesInPartitionTwo()
+			minCut.numNodesInPartitionTwo++
 		}
 	}
 
-	for u := da.Index(0); u < n; u++ {
-		if !minCut.GetFlag(u) {
-			continue
-		}
-
-		dmf.g.ForEdgesOf(u, func(v da.Index, out bool) {
-			if !minCut.GetFlag(v) {
-				cutEdges++
-			}
-		})
-	}
-
-	minCut.setMaxFlow(int64(maxflow))
-	minCut.setcutEdgesCount(cutEdges)
+	minCut.maxflow = int64(maxflow)
+	minCut.cutEdgesCount = int(maxflow) // max-flow min-cut theorem
 }
 
 func (dmf *DinicUnitMaxFlow) degree(u da.Index) da.Index {

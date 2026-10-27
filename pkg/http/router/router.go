@@ -45,8 +45,8 @@ func NewAPI(log *zap.Logger) *API {
 //	@contact.url	_
 //	@contact.email	lintangbirdasaputra23@gmail.com
 
-//	@license.name	BSD License
-//	@license.url	https://opensource.org/license/bsd-2-clause
+//	@license.name	MIT License
+//	@license.url	https://opensource.org/license/mit
 
 // @host		localhost
 // @BasePath	/api

@@ -50,13 +50,12 @@ func TestAPI_Run(t *testing.T) {
 	})
 
 	t.Run("ListenAndServe Error", func(t *testing.T) {
-		ln, err := net.Listen("tcp", "127.0.0.1:0")
+		ln, err := net.Listen("tcp", ":0") // #nosec
 
 		if err != nil {
 			t.Fatal(err)
 		}
 		defer ln.Close()
-
 		_, portStr, _ := net.SplitHostPort(ln.Addr().String())
 		var port int
 		_, _ = fmt.Sscanf(portStr, "%d", &port)
