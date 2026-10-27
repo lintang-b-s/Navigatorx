@@ -220,7 +220,7 @@ func (dmf *DinicMaxFlow[W]) makeMinCutFlags(minCut *MinCut, maxflow int64) {
 			// cell S = semua vertices connected to s by an undirected path with no full forward edges (full fe = its residual capacity = 0 ) or empty backward edges (empty be = its residual capacity = 0 )
 			minCut.SetFlag(u, true)
 		} else {
-			minCut.incrementNumNodesInPartitionTwo()
+			minCut.nodesCountInCellT++
 		}
 	}
 

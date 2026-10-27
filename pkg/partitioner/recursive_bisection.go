@@ -59,7 +59,7 @@ ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.p
 time complexity dinic algorithm on unit capacity graph::
 see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 karena di implementasi inertial flow ini kita selalu pakai unit capacity..
-in a typical road network, average out degree of any vertex ~ 2.43 (see DIMACS USA road network graph: https://www.diag.uniroma1.it/challenge9/download.shtml). so, m = Theta(n)
+in a typical road network, average out degree of any vertex ~ 2.43 (see DIMACS USA road network graph: https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml). so, m = Theta(n)
 let T_d(n)=worst case time complexity dinic algorithm on unit capacity graph pada road network graph n vertices dan m edges = O(min{n * sqrt(n), n * n^(2/3)})=O(n^{3/2})
 b=SOURCE_SINK_RATE atau parameter balance b dari algoritma inertial flow ref1. 0<b<=1/2
 worst case ketika hasil st b-balanced mincut selalu |S|=b*n, |T|=(1-b)*n
@@ -80,12 +80,12 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 	}
 
 	type bisectionRes struct {
-		cellOne, cellTwo *da.CellGraph
-		cutEdgesCount    int
+		cellS, cellT  *da.CellGraph
+		cutEdgesCount int
 	}
 
-	NewBisectionRes := func(cellOne, cellTwo *da.CellGraph, cutEdgesCount int) bisectionRes {
-		return bisectionRes{cellOne, cellTwo, cutEdgesCount}
+	NewBisectionRes := func(cellS, cellT *da.CellGraph, cutEdgesCount int) bisectionRes {
+		return bisectionRes{cellS, cellT, cutEdgesCount}
 	}
 
 	iflowInChan := make(chan *da.CellGraph, InertialFlowChanSize)
@@ -95,8 +95,8 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 		for cg := range iflowInChan {
 			iflow := NewInertialFlow(cg, rb.inertialFlowIterations)
 			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n*sqrt(n)) dinic on unit capacity graph, n = number of vertices in current recursive bisection cell cg
-			cellOne, cellTwo := rb.applyBisection(cut, cg)          // O(n)
-			iflowOutChan <- NewBisectionRes(cellOne, cellTwo, cut.cutEdgesCount)
+			cs, ct := rb.applyBisection(cut, cg)                    // O(n)
+			iflowOutChan <- NewBisectionRes(cs, ct, cut.cutEdgesCount)
 		}
 	}
 
@@ -133,19 +133,19 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 			queue = queue[1:]
 		case res := <-iflowOutChan:
 			// only stop when wp.jobQueue closed && wp.jobQueue empty -> wp.results closed -> this loop terminate
-			cOne := res.cellOne
-			cTwo := res.cellTwo
+			cs := res.cellS
+			ct := res.cellT
 			rb.cutEdgesCount += res.cutEdgesCount
 
-			if !tooSmall(cOne.NumberOfCellVertices()) {
-				queue = append(queue, cOne)
+			if !tooSmall(cs.NumberOfCellVertices()) {
+				queue = append(queue, cs)
 			} else {
-				rb.assignCell(cOne) // O(p), p = number of vertices in cell one (cOne)
+				rb.assignCell(cs) // O(p), p = number of vertices in cell S (cs)
 			}
-			if !tooSmall(cTwo.NumberOfCellVertices()) {
-				queue = append(queue, cTwo)
+			if !tooSmall(ct.NumberOfCellVertices()) {
+				queue = append(queue, ct)
 			} else {
-				rb.assignCell(cTwo) // O(q), q = number of vertices in cell two (cTwo)
+				rb.assignCell(ct) // O(q), q = number of vertices in cell T (ct)
 			}
 
 			numUncompletedJob--
@@ -158,10 +158,10 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 
 // applyBisection. bisect st-cut jadi cell S dan T yang saling disjoint
 func (rb *RecursiveBisection) applyBisection(cut *MinCut, cg *da.CellGraph) (*da.CellGraph, *da.CellGraph) {
-	one, two := cg.Partition(func(vId da.Index) bool {
+	cs, ct := cg.Partition(func(vId da.Index) bool {
 		return cut.GetFlag(vId)
 	})
-	return one, two
+	return cs, ct
 }
 
 // assignCell. assign id cell dari setiap vertices in cellGraph

@@ -146,21 +146,11 @@ func (c *CellGraph) insideCell(v, vv, cellLen Index) bool {
 }
 
 // antiParallelExists is exists anti-parallel edge (v, u).
-func antiParallelExists(u, v Index, adjList [][]Index) bool {
-	return slices.Contains(adjList[v], u)
+func antiParallelExists(u Index, vHeads []Index) bool {
+	// this buildFlowGraph() function only called on input road network graph, which has avg degree~2.5 (see USA DIMACS https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml)
+	// so this slices.Contains() is O(1)
+	return slices.Contains(vHeads, u)
 }
-
-type antiParallelEdge struct {
-	u Index
-	v Index
-	// auxilarry vertex v' that will be inserted to anti-parallel edge (u,v)
-	// such that in the new graph will have edges (u, v') and (v', v)
-	vPrime Index
-}
-
-const (
-	invalidVPrime Index = 2e9
-)
 
 // buildFlowGraph build directed network flow graph (with its reversed edges for the residual graph) from the road network graph that contained in this recursive bisection cell.
 // handle anti-parallel edge (u,v) (with u < v and there exists to edge (v, u)) of road network graph by adding new vertex v'
@@ -171,103 +161,81 @@ func (c *CellGraph) buildFlowGraph(us []Index) {
 	n := Index(len(us))
 	m := Index(0)
 	cellLen := c.end - c.begin
-	adjList := make([][]Index, n)
+	c.firstOut = make([]Index, n+1)
+	c.heads = make([]Index, 0, n/2) // best preallocated capacity size is n/2 by benchmark (lower peak memory)
+
 	// O(m), m=number of edges of vertices us
 	for k, uu := range us {
 		u := Index(k)
 		uHeads := c.headsOf(uu)
-		set := make(map[Index]struct{}, 3)
+		off := Index(len(c.heads))
+		nOff := off
 		for _, vv := range uHeads {
 			v := c.gv[vv]
+
+			// ensure the edge (u,v) inside current recursive bisection cell
 			insideCell := c.insideCell(v, vv, cellLen)
 			if !insideCell {
 				continue
 			}
 
-			// Remove parallel edges
-			if _, exists := set[v]; exists {
-				continue
+			// remove parallel edges (u,v)
+			if nOff > off {
+				exists := slices.Contains(c.heads[off:nOff], v)
+				if exists {
+					// this buildFlowGraph() function only called on input road network graph, which has avg degree~2.5 (see USA DIMACS https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml)
+					// so this slices.Contains() is O(1)
+					continue
+				}
 			}
 
-			adjList[u] = append(adjList[u], v)
+			c.heads = append(c.heads, v)
+			nOff++
 			m++
-			set[v] = struct{}{}
 		}
+		c.firstOut[u+1] = nOff
 	}
 
-	vPrimeOffset := Index(n)
-	apes := make([]antiParallelEdge, 0, m/2)
-
-	vPrimes := make([]Index, m)
-	eId := 0
-
+	nPrime := Index(n)
 	for u := Index(0); u < n; u++ {
-		for _, v := range adjList[u] {
-			if exists := antiParallelExists(u, v, adjList); exists && u < v {
+		for e := c.firstOut[u]; e < c.firstOut[u+1]; e++ {
+			v := c.heads[e]
+			vBeg, vEnd := c.firstOut[v], c.firstOut[v+1]
+			if exists := antiParallelExists(u, c.heads[vBeg:vEnd]); exists && u < v {
 				// has anti-parallel edge (v, u)
-				vPrime := vPrimeOffset
-				apes = append(apes, antiParallelEdge{u, v, vPrime})
-				vPrimes[eId] = vPrime
-				vPrimeOffset++
-			} else {
-				vPrimes[eId] = invalidVPrime
+				vPrime := nPrime
+				c.heads[e] = vPrime // add edge (u, v')
+				nPrime++
+				c.heads = append(c.heads, v) // add edge (v', v)
+				m++
 			}
-			eId++
 		}
 	}
 
-	// build the offset array (or compressed sparse row (CSR) https://ocw.mit.edu/courses/6-172-performance-engineering-of-software-systems-fall-2018/f58df934e205b870e473c2af3fe5e6f7_MIT6_172F18_lec22.pdf)
-	nPrime := Index(len(apes))
-	c.firstOut = make([]Index, n+nPrime+1)
-	for u := Index(0); u < n; u++ {
-		c.firstOut[u+1] = c.firstOut[u] + Index(len(adjList[u]))
-	}
-
+	apCount := nPrime - n         // anti-parallel edges count or auxilary vertices count for handling anti-parallel edges
+	pad := make([]Index, apCount) // deg has size n+1 , we want to extend it to size nPrime+1
+	c.firstOut = append(c.firstOut, pad...)
 	// build the offset array for all auxilary vertices v' (for the anti-parallel edges)
 	// each auxiliary vertex v' only has one edge (v', v)
-	for vPrime := n; vPrime < n+nPrime; vPrime++ {
+	for vPrime := n; vPrime < nPrime; vPrime++ {
 		c.firstOut[vPrime+1] = c.firstOut[vPrime] + 1
-	}
-
-	m = c.firstOut[n+nPrime]
-	c.heads = make([]Index, m)
-	eId = 0
-	for u := Index(0); u < n; u++ {
-		off := c.firstOut[u]
-		for j, v := range adjList[u] {
-			vPrime := vPrimes[eId]
-			split := vPrime != invalidVPrime
-			if u < v && split {
-				// add edge (u, v') for handling the anti-parallel edge
-				c.heads[off+Index(j)] = vPrime
-			} else {
-				// edge (u, v) doesnt have anti-paralel edge (v,u)
-				c.heads[off+Index(j)] = v
-			}
-			eId++
-		}
-	}
-
-	for _, p := range apes {
-		// add edge (v', v)
-		c.heads[c.firstOut[p.vPrime]] = p.v
 	}
 
 	// counting sort for the reversed edges (v,u) compressed sparse row (CSR)
 	// sort reversed edges by head vertex v.
 	// count frequency of head vertex v
-	c.firstIn = make([]Index, n+nPrime+1)
+	c.firstIn = make([]Index, nPrime+1)
 	for _, v := range c.heads {
 		c.firstIn[v]++
 	}
 	// prefix sum the frequency
-	for i := Index(0); i < n+nPrime; i++ {
+	for i := Index(0); i < nPrime; i++ {
 		c.firstIn[i+1] += c.firstIn[i]
 	}
 
 	c.tails = make([]Index, m)
 	// place the reversed edges using the prefix sum result
-	for u := Index(0); u < n+nPrime; u++ {
+	for u := Index(0); u < nPrime; u++ {
 		for j := c.firstOut[u]; j < c.firstOut[u+1]; j++ {
 			v := c.heads[j]
 			c.firstIn[v]--

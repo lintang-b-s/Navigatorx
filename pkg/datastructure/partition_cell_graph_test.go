@@ -212,6 +212,7 @@ func TestPartitionCellGraph_Partition(t *testing.T) {
 					}
 				})
 			})
+
 			gotTCG.ForEachCellVertices(func(vId, gvId da.Index, coord da.Coordinate) {
 				gotT = append(gotT, gvId)
 				gotTCG.ForEdgesOf(vId, func(v da.Index, rev bool) {

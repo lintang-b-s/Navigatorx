@@ -132,14 +132,14 @@ func TestDinicUnitMaxFlow(t *testing.T) {
 			assert.Equal(t, tc.wantMaxFlow, minCut.GetMaxFlow())
 			assert.Equal(t, tc.wantCutEdgesCount, minCut.CutEdgesCount())
 
-			assert.Equal(t, tc.wantNumNodesInPartTwo, minCut.GetNumNodesInPartitionTwo())
+			assert.Equal(t, tc.wantNumNodesInPartTwo, minCut.GetNumNodesInCellT())
 
 			for _, s := range tc.wantPartitionOne {
-				assert.True(t, minCut.GetFlag(s), "node %d should be in partition one", s)
+				assert.True(t, minCut.GetFlag(s), "node %d should be in cell one", s)
 			}
 
 			for _, sk := range tc.wantPartitionTwo {
-				assert.False(t, minCut.GetFlag(sk), "node %d should be in partition two", sk)
+				assert.False(t, minCut.GetFlag(sk), "node %d should be in cell two", sk)
 			}
 
 			gotCutEdges := make(map[[2]da.Index]bool)

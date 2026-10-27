@@ -22,7 +22,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// https://www.diag.uniroma1.it/challenge9/download.shtml
+// https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml
 var (
 	partitionSizes     = flag.String("us", "8,12,14,18,20", "Multilevel Partition Cells Sizes")
 	inputCoordFilePath = flag.String("input_nodes", "./data/USA-road-d.E.co", "path ke file .co dimacs 9th shortest path challenge")
@@ -30,7 +30,7 @@ var (
 	problemName        = flag.String("problem_name", "DIMACS_9_P2P_E", "problem name")
 )
 
-// DIMACS Eastern USA  https://www.diag.uniroma1.it/challenge9/download.shtml:  3.1713 ms/op
+// DIMACS Eastern USA  https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml:  3.1713 ms/op
 // NEW RESULT: 1.6952 ms/op
 // todo: optimize sampai ~1ms/op
 //
@@ -76,7 +76,7 @@ func parsePartitionSizes(raw string) ([]int, error) {
 }
 
 /*
-https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk
+https://web.archive.org/web/20260516142336/http://www.diag.uniroma1.it/challenge9/format.shtml#ss.chk
 */
 
 func main() {

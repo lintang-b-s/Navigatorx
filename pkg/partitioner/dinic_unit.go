@@ -102,7 +102,6 @@ func (dmf *DinicUnitMaxFlow) dfsAugmentPath(u da.Index) bool {
 	}
 
 	deg := dmf.degree(u)
-
 	for ; dmf.last[u] < deg; dmf.last[u]++ {
 		j := dmf.last[u]
 		v, rev := dmf.edge(u, j)
@@ -115,7 +114,7 @@ func (dmf *DinicUnitMaxFlow) dfsAugmentPath(u da.Index) bool {
 		}
 
 		if pushed := dmf.dfsAugmentPath(v); pushed {
-			dmf.addFlow(u, v)
+			dmf.addFlow(u, v, rev)
 			dmf.last[u]++
 			return true
 		}
@@ -176,15 +175,14 @@ func (dmf *DinicUnitMaxFlow) residual(u, v da.Index, rev bool) bool {
 	return revHasFlow
 }
 
-func (dmf *DinicUnitMaxFlow) addFlow(u, v da.Index) {
+func (dmf *DinicUnitMaxFlow) addFlow(u, v da.Index, rev bool) {
 
 	// todo: instead of using hash table buat unit-capacity 1 flows, kita bisa langsung store edges beserta unit-flow dan reversed edge unit flow nya dalam struct kaya  https://dennisosrm.github.io/toolbox-rs/
-	_, revFlowExists := dmf.flows[v][u]
-	if !revFlowExists {
-		// add 1-unit flow to edge (u,v) iff there is no 1-unit flow in reversed edge (v,u)
+	if !rev {
+		// add 1-unit flow to edge (u,v) if this edge (u, v) is not reversed edge in the residual graph.
 		dmf.flows[u][v] = struct{}{}
 	} else {
-		// cancel the reverse edge (v,u) 1-unit flow iff there is 1-unit flow in reversed edge (v,u)
+		// cancel (or undo) the edge (v, u) 1-unit flow iff the edge (u, v) is a reversed edge in the residual graph.
 		delete(dmf.flows[v], u)
 	}
 }
@@ -198,7 +196,7 @@ func (dmf *DinicUnitMaxFlow) makeMinCutFlags(minCut *MinCut, maxflow int32) {
 			// cell S = semua vertices connected to s by an undirected path with no full forward edges (full fe = its residual capacity = 0 ) or empty backward edges (empty be = its residual capacity = 0 )
 			minCut.SetFlag(u, true)
 		} else {
-			minCut.numNodesInPartitionTwo++
+			minCut.nodesCountInCellT++
 		}
 	}
 

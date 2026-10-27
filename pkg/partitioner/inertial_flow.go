@@ -57,7 +57,7 @@ time complexity dinic algorithm on unit capacity graph:
 see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})
 
 karena di implementasi inertial flow ini kita selalu pakai unit capacity..
-O(k*min{m * sqrt(m), m * n^(2/3)}).
+O(min{m * sqrt(m), m * n^(2/3)}).
 */
 func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCut {
 	var (
@@ -89,8 +89,8 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 		for minCut := range inertialFlowOutChan {
 			if minCut.CutEdgesCount() < bestNumberOfMinCutEdges ||
 				(bestNumberOfMinCutEdges == minCut.CutEdgesCount() &&
-					balanceDelta(minCut.GetNumNodesInPartitionTwo(),
-						numOfCellVertices) < balanceDelta(best.GetNumNodesInPartitionTwo(),
+					balanceDelta(minCut.GetNumNodesInCellT(),
+						numOfCellVertices) < balanceDelta(best.GetNumNodesInCellT(),
 						numOfCellVertices)) {
 				best = minCut
 				bestNumberOfMinCutEdges = minCut.CutEdgesCount()

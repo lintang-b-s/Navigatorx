@@ -6,10 +6,10 @@ import (
 )
 
 type MinCut struct {
-	flags                  *roaring.Bitmap // true if the vertex is reachable from source in residual graph, or cell one, else cell two
-	numNodesInPartitionTwo int             // number of nodes in target cell (cell 2)
-	maxflow                int64
-	cutEdgesCount          int
+	flags             *roaring.Bitmap // true if the vertex is reachable from source in residual graph, or cell one, else cell two
+	nodesCountInCellT int             // number of nodes in cell T
+	maxflow           int64
+	cutEdgesCount     int
 }
 
 func NewMinCut() *MinCut {
@@ -26,12 +26,8 @@ func (mc *MinCut) GetFlag(u da.Index) bool {
 	return mc.flags.Contains(uint32(u))
 }
 
-func (mc *MinCut) GetNumNodesInPartitionTwo() int {
-	return mc.numNodesInPartitionTwo
-}
-
-func (mc *MinCut) incrementNumNodesInPartitionTwo() {
-	mc.numNodesInPartitionTwo++
+func (mc *MinCut) GetNumNodesInCellT() int {
+	return mc.nodesCountInCellT
 }
 
 func (mc *MinCut) GetMaxFlow() int {

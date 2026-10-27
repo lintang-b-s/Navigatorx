@@ -22,7 +22,7 @@ import (
 )
 
 // todo: setelah selesai run ini, coba cek corrrectness pakai script mbpC.exe di: https://github.com/lintang-b-s/skripsi_code/tree/main/ch9-1.1/solvers/mlb-dimacs
-// todo2: add script download file road network dimacs 9th (https://www.diag.uniroma1.it/~challenge9/download.shtml) + buat jalanin ini + mbpC.exe untuk file query input yang dimasukin di cmd flag oleh user
+// todo2: add script download file road network dimacs 9th (https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml) + buat jalanin ini + mbpC.exe untuk file query input yang dimasukin di cmd flag oleh user
 // todo3: add fitur customizer pakai csv file. baca referensi:  https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/osrm_customization.md
 // todo4: setelah todo3 selesai, add driving direction motorway (jalan toll) handler.
 // todo5: setelah todo4 selesai, tambahin destination di driving direction (https://wiki.openstreetmap.org/wiki/Key:destination) dan pake tag osm way ini: https://wiki.openstreetmap.org/wiki/Key:turn , https://wiki.openstreetmap.org/wiki/Key:turn:lanes
@@ -36,7 +36,7 @@ var (
 	inputCoordFilePath     = flag.String("input_nodes", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-d.CAL.co", "path ke file .co dimacs 9th shortest path challnge")
 	inputEdgesFilePath     = flag.String("input_edges", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-t.CAL.gr", "path ke file .gr dimacs 9th shortest path challnge")
 	inputSSQueriesFilePath = flag.String("input_queries", "./eval/crp_alt/dimacs_9_shortest_path_alt/USA-road-t.CAL.ss", "path ke file .ss dimacs 9th shortest path challnge")
-	outputFileName         = flag.String("output_name", "DIMACS_9_USA_CAL.ss.chk", "sssp correctness output filename. see: https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk")
+	outputFileName         = flag.String("output_name", "DIMACS_9_USA_CAL.ss.chk", "sssp correctness output filename. see: https://web.archive.org/web/20260516142336/http://www.diag.uniroma1.it/challenge9/format.shtml#ss.chk")
 	problemName            = flag.String("problem_name", "DIMACS_9_P2P_CAL", "problem name")
 )
 
@@ -75,7 +75,7 @@ func parsePartitionSizes(raw string) ([]int, error) {
 }
 
 /*
-https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk
+https://web.archive.org/web/20260516142336/http://www.diag.uniroma1.it/challenge9/format.shtml#ss.chk
 */
 
 func main() {
@@ -349,7 +349,7 @@ func main() {
 		logger.Sugar().Infof("done source %d/%d: %d", i+1, len(sources), s)
 	}
 
-	//	// write to ss correctness output file. see: https://www.diag.uniroma1.it/~challenge9/format.shtml#ss.chk
+	//	// write to ss correctness output file. see: https://web.archive.org/web/20260516142336/http://www.diag.uniroma1.it/challenge9/format.shtml#ss.chk
 	if err := util.EnsureDirExists(outputPath); err != nil {
 		panic(fmt.Errorf("err: %w", err))
 	}

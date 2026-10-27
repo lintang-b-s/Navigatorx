@@ -238,7 +238,6 @@ func (qh *QueryHeap[T, W]) PreallocateHeap(maxSearchSize int) {
 
 // Size. return heap size
 func (qh *QueryHeap[T, W]) Size() Index {
-
 	return Index(len(qh.heap))
 }
 
