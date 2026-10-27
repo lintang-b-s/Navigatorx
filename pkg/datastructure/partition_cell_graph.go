@@ -1,5 +1,7 @@
 package datastructure
 
+import "slices"
+
 // CellGraph is a cell containing all vertices and edges within this recursive bisection cell, resulting from the inertial flow graph partitioning algorithm performed in `pkg/partitioner`.
 // there are two types of cell:
 // 1. recursive bisection (RB) cell is the S or T cell resulting from minimum st-cut algorithm in recursive_bisection.go and inertial_flow.go.
@@ -66,15 +68,23 @@ func (c *CellGraph) ForEachCellVertices(handle func(vId, gvId Index, coord Coord
 }
 
 // ForOutEdgesOf iterate all edges (and reversed edges) that inside this recursive bisection cell that coming from RB cell vertex id=u (recursive bisection cell vertex id).
-func (c *CellGraph) ForEdgesOf(u Index, handle func(v Index, out bool)) {
+func (c *CellGraph) ForEdgesOf(u Index, handle func(v Index, rev bool)) {
 	for o := c.firstOut[u]; o < c.firstOut[u+1]; o++ {
 		v := c.heads[o]
-		handle(v, true)
+		handle(v, false)
 	}
 	for o := c.firstIn[u]; o < c.firstIn[u+1]; o++ {
 		v := c.tails[o]
-		handle(v, false)
+		handle(v, true)
 	}
+}
+
+func (c *CellGraph) GetGraphVertexId(v Index) Index {
+	if int(v) >= c.NumberOfCellVertices() {
+		// v is an auxiliary vertex (for handling anti-parallel edges), not a road network vertex
+		return INVALID_SEGMENT_ID
+	}
+	return c.vIds[c.begin+v]
 }
 
 func (c *CellGraph) OutEdge(u, i Index) Index {
@@ -137,12 +147,7 @@ func (c *CellGraph) insideCell(v, vv, cellLen Index) bool {
 
 // antiParallelExists is exists anti-parallel edge (v, u).
 func antiParallelExists(u, v Index, adjList [][]Index) bool {
-	for _, w := range adjList[v] {
-		if w == u {
-			return true
-		}
-	}
-	return false
+	return slices.Contains(adjList[v], u)
 }
 
 type antiParallelEdge struct {
@@ -170,9 +175,9 @@ func (c *CellGraph) buildFlowGraph(us []Index) {
 	// O(m), m=number of edges of vertices us
 	for k, uu := range us {
 		u := Index(k)
-		uNeighbors := c.headsOf(uu)
+		uHeads := c.headsOf(uu)
 		set := make(map[Index]struct{}, 3)
-		for _, vv := range uNeighbors {
+		for _, vv := range uHeads {
 			v := c.gv[vv]
 			insideCell := c.insideCell(v, vv, cellLen)
 			if !insideCell {

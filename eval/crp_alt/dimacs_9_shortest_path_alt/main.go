@@ -209,7 +209,7 @@ func main() {
 		}
 	}
 
-	adjList := make([][]crpalt.PairEdge, n+1)
+	adjList := make([][]da.PairEdge, n+1)
 	minWeight := math.MaxInt64
 	maxWeight := math.MinInt64
 	for i := 0; i < m; i++ {
@@ -237,7 +237,7 @@ func main() {
 			maxWeight = weight
 		}
 
-		adjList[u] = append(adjList[u], crpalt.NewPairEdge(v, float64(weight)))
+		adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(weight)))
 	}
 
 	// read sssp queries

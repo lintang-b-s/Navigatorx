@@ -333,7 +333,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 	// scan osm way and store graph edges
 	scanner = osmpbf.New(context.Background(), f, 0)
-	edges := make([]Edge[W], 0)
+	edges := make([]da.Edge[W], 0)
 	p.ways = make(map[int64]osmWay, scannedWays)
 	streetDirection := make(map[int64][2]bool)
 	countWays := 0
@@ -453,7 +453,7 @@ type wayExtraInfo struct {
 
 func (p *Extractor[W]) processWay(way *osm.Way, rn *da.RoadNetworkDataContainer,
 	streetDirection map[int64][2]bool,
-	edges *[]Edge[W], tempMap map[string]string) (string, error) {
+	edges *[]da.Edge[W], tempMap map[string]string) (string, error) {
 	var err error
 
 	getName(way, tempMap)
@@ -607,7 +607,7 @@ func (p *Extractor[W]) processWay(way *osm.Way, rn *da.RoadNetworkDataContainer,
 }
 
 func (p *Extractor[W]) processSegment(segment []node, tempMap map[string]string, speed float64, rn *da.RoadNetworkDataContainer,
-	wayExtraData wayExtraInfo, edges *[]Edge[W], id int64, tldForw, tldBackw da.TurnLanesData) {
+	wayExtraData wayExtraInfo, edges *[]da.Edge[W], id int64, tldForw, tldBackw da.TurnLanesData) {
 
 	switch {
 	case len(segment) == 2 && segment[0].id == segment[1].id:
@@ -623,7 +623,7 @@ func (p *Extractor[W]) processSegment(segment []node, tempMap map[string]string,
 }
 
 func (p *Extractor[W]) processSegmentBarrier(segment []node, tempMap map[string]string, speed float64, rn *da.RoadNetworkDataContainer,
-	wayExtraData wayExtraInfo, edges *[]Edge[W], id int64, tldForw, tldBackw da.TurnLanesData,
+	wayExtraData wayExtraInfo, edges *[]da.Edge[W], id int64, tldForw, tldBackw da.TurnLanesData,
 ) {
 	waySegment := []node{}
 	for i := 0; i < len(segment); i++ {
@@ -670,7 +670,7 @@ func (p *Extractor[W]) copyNode(nodeData node) node {
 }
 
 func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed float64, rn *da.RoadNetworkDataContainer,
-	wayExtraData wayExtraInfo, edges *[]Edge[W], id int64, tldForw, tldBackw da.TurnLanesData) {
+	wayExtraData wayExtraInfo, edges *[]da.Edge[W], id int64, tldForw, tldBackw da.TurnLanesData) {
 	var (
 		lanes int
 	)
@@ -776,7 +776,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 			eId := da.Index(len(*edges))
 			p.setSegmentAnnotationFlag(rn, eId, isRoundabout, isCurved, true, from.id, to.id)
 
-			e := NewEdge(
+			e := da.NewEdge(
 				uint32(fromNId),
 				uint32(toNId),
 				fixedWeight,
@@ -811,7 +811,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 			eId := da.Index(len(*edges))
 			p.setSegmentAnnotationFlag(rn, eId, isRoundabout, isCurved, false, from.id, to.id)
 
-			e := NewEdge[W](
+			e := da.NewEdge[W](
 				uint32(toNId),
 				uint32(fromNId),
 				fixedWeight,
@@ -833,7 +833,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 
 		eId := da.Index(len(*edges))
 		p.setSegmentAnnotationFlag(rn, eId, isRoundabout, isCurved, true, from.id, to.id)
-		e := NewEdge(
+		e := da.NewEdge(
 			uint32(fromNId),
 			uint32(toNId),
 			fixedWeight,
@@ -858,7 +858,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 
 		eId = da.Index(len(*edges))
 		p.setSegmentAnnotationFlag(rn, eId, isRoundabout, isCurved, false, from.id, to.id)
-		e = NewEdge(
+		e = da.NewEdge(
 			uint32(toNId),
 			uint32(fromNId),
 			fixedWeight,

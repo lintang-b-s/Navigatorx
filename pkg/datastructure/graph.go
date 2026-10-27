@@ -29,7 +29,7 @@ type Graph struct {
 	exitPoints  []uint8  // map from incoming (reversed) edge id (v,u) to index of this edge in the of outgoing edges of v.
 
 	// overlay graph related. adapted from https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.h
-	overlayVertices  map[SubVertex]Index // graph vertices -> overlay vertices
+	overlayVertices  map[SubVertex]Index // graph vertices -> overlay vertices  // todo: ini kayake bisa dioptimize dengan gak pakai hashmap, tinggal simpan entry (& exit) cell vertices di Cell struct, dan kasih offset buat setiap graph vertex??
 	cellNumbers      []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
 	vertexCellOffset []Index             // offset of first vertex for each cellNumber
 	// vertices is sorted by its vertex cell id.... in such a way that all vertices within a cell have sequential IDs within the vertices slice.

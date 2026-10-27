@@ -34,6 +34,8 @@ func NewLandmark[W util.Numeric]() *Landmark[W] {
 	return lm
 }
 
+// todo: pas run ./bin/customizer --region=jateng_jabar peak memory ~7.4GB, coba cek pprof heap && optimize...
+
 /*
 [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 

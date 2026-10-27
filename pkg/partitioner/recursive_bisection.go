@@ -75,7 +75,7 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 	}
 
 	if tooSmall(mlpcg.NumberOfCellVertices()) {
-		rb.assignPartition(mlpcg)
+		rb.assignCell(mlpcg)
 		return
 	}
 
@@ -140,12 +140,12 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 			if !tooSmall(cOne.NumberOfCellVertices()) {
 				queue = append(queue, cOne)
 			} else {
-				rb.assignPartition(cOne) // O(p), p = number of vertices in cell one (cOne)
+				rb.assignCell(cOne) // O(p), p = number of vertices in cell one (cOne)
 			}
 			if !tooSmall(cTwo.NumberOfCellVertices()) {
 				queue = append(queue, cTwo)
 			} else {
-				rb.assignPartition(cTwo) // O(q), q = number of vertices in cell two (cTwo)
+				rb.assignCell(cTwo) // O(q), q = number of vertices in cell two (cTwo)
 			}
 
 			numUncompletedJob--
@@ -164,8 +164,8 @@ func (rb *RecursiveBisection) applyBisection(cut *MinCut, cg *da.CellGraph) (*da
 	return one, two
 }
 
-// assignPartition. assign id cell dari setiap vertices in cellGraph
-func (rb *RecursiveBisection) assignPartition(cellGraph *da.CellGraph) {
+// assignCell. assign id cell dari setiap vertices in cellGraph
+func (rb *RecursiveBisection) assignCell(cellGraph *da.CellGraph) {
 	rb.mu.Lock()
 	defer rb.mu.Unlock()
 	cnv := cellGraph.NumberOfCellVertices()

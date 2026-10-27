@@ -12,7 +12,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -80,7 +79,7 @@ func solve(t *testing.T, filepath string) {
 		}
 	}
 
-	adjList := make([][]tests.PairEdge, h*w*4+2)
+	adjList := make([][]da.PairEdge, h*w*4+2)
 
 	cellToNId := func(i, j, nid int) int {
 		return i*w + j + 3*(w*i+j) + nid
@@ -99,15 +98,15 @@ func solve(t *testing.T, filepath string) {
 
 				// cur tower = tower kotak
 				// buat edge ke 4 node dari x, atas kanan kiri bawah persegi
-				adjList[i0] = append(adjList[i0], tests.NewPairEdge(i1, 10))
-				adjList[i1] = append(adjList[i1], tests.NewPairEdge(i2, 10))
-				adjList[i2] = append(adjList[i2], tests.NewPairEdge(i3, 10))
-				adjList[i3] = append(adjList[i3], tests.NewPairEdge(i0, 10))
+				adjList[i0] = append(adjList[i0], da.NewPairEdge(i1, 10))
+				adjList[i1] = append(adjList[i1], da.NewPairEdge(i2, 10))
+				adjList[i2] = append(adjList[i2], da.NewPairEdge(i3, 10))
+				adjList[i3] = append(adjList[i3], da.NewPairEdge(i0, 10))
 
-				adjList[i1] = append(adjList[i1], tests.NewPairEdge(i0, 10))
-				adjList[i2] = append(adjList[i2], tests.NewPairEdge(i1, 10))
-				adjList[i3] = append(adjList[i3], tests.NewPairEdge(i2, 10))
-				adjList[i0] = append(adjList[i0], tests.NewPairEdge(i3, 10))
+				adjList[i1] = append(adjList[i1], da.NewPairEdge(i0, 10))
+				adjList[i2] = append(adjList[i2], da.NewPairEdge(i1, 10))
+				adjList[i3] = append(adjList[i3], da.NewPairEdge(i2, 10))
+				adjList[i0] = append(adjList[i0], da.NewPairEdge(i3, 10))
 
 				if j+1 < w {
 
@@ -118,13 +117,13 @@ func solve(t *testing.T, filepath string) {
 					// buat edge ke tower kanan
 					kanan := peta[i][j+1]
 					if kanan == "O" {
-						adjList[i0] = append(adjList[i0], tests.NewPairEdge(j10, 10))
-						adjList[i1] = append(adjList[i1], tests.NewPairEdge(j13, 0))
-						adjList[i2] = append(adjList[i2], tests.NewPairEdge(j12, 10))
+						adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
+						adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
+						adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
 					} else {
-						adjList[i0] = append(adjList[i0], tests.NewPairEdge(j10, 10))
-						adjList[i1] = append(adjList[i1], tests.NewPairEdge(j13, 0))
-						adjList[i2] = append(adjList[i2], tests.NewPairEdge(j12, 10))
+						adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
+						adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
+						adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
 					}
 				}
 
@@ -136,13 +135,13 @@ func solve(t *testing.T, filepath string) {
 					// buat edge ke tower bawah
 					bawah := peta[i+1][j]
 					if bawah == "O" {
-						adjList[i2] = append(adjList[i2], tests.NewPairEdge(i10, 0))
-						adjList[i3] = append(adjList[i3], tests.NewPairEdge(i13, 10))
-						adjList[i1] = append(adjList[i1], tests.NewPairEdge(i11, 10))
+						adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
+						adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
+						adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
 					} else {
-						adjList[i2] = append(adjList[i2], tests.NewPairEdge(i10, 0))
-						adjList[i3] = append(adjList[i3], tests.NewPairEdge(i13, 10))
-						adjList[i1] = append(adjList[i1], tests.NewPairEdge(i11, 10))
+						adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
+						adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
+						adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
 					}
 				}
 			} else {
@@ -154,15 +153,15 @@ func solve(t *testing.T, filepath string) {
 				i2 := cellToNId(i, j, 2)
 				i3 := cellToNId(i, j, 3)
 
-				adjList[i0] = append(adjList[i0], tests.NewPairEdge(i1, seperempatDiam))
-				adjList[i1] = append(adjList[i1], tests.NewPairEdge(i2, seperempatDiam))
-				adjList[i2] = append(adjList[i2], tests.NewPairEdge(i3, seperempatDiam))
-				adjList[i3] = append(adjList[i3], tests.NewPairEdge(i0, seperempatDiam))
+				adjList[i0] = append(adjList[i0], da.NewPairEdge(i1, seperempatDiam))
+				adjList[i1] = append(adjList[i1], da.NewPairEdge(i2, seperempatDiam))
+				adjList[i2] = append(adjList[i2], da.NewPairEdge(i3, seperempatDiam))
+				adjList[i3] = append(adjList[i3], da.NewPairEdge(i0, seperempatDiam))
 
-				adjList[i1] = append(adjList[i1], tests.NewPairEdge(i0, seperempatDiam))
-				adjList[i2] = append(adjList[i2], tests.NewPairEdge(i1, seperempatDiam))
-				adjList[i3] = append(adjList[i3], tests.NewPairEdge(i2, seperempatDiam))
-				adjList[i0] = append(adjList[i0], tests.NewPairEdge(i3, seperempatDiam))
+				adjList[i1] = append(adjList[i1], da.NewPairEdge(i0, seperempatDiam))
+				adjList[i2] = append(adjList[i2], da.NewPairEdge(i1, seperempatDiam))
+				adjList[i3] = append(adjList[i3], da.NewPairEdge(i2, seperempatDiam))
+				adjList[i0] = append(adjList[i0], da.NewPairEdge(i3, seperempatDiam))
 
 				if j+1 < w {
 					j10 := cellToNId(i, j+1, 0)
@@ -172,15 +171,15 @@ func solve(t *testing.T, filepath string) {
 					// buat edge ke tower kanan
 					kanan := peta[i][j+1]
 					if kanan == "O" {
-						adjList[i0] = append(adjList[i0], tests.NewPairEdge(j10, 10))
+						adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
 
-						adjList[i1] = append(adjList[i1], tests.NewPairEdge(j13, 0))
+						adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
 
-						adjList[i2] = append(adjList[i2], tests.NewPairEdge(j12, 10))
+						adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
 					} else {
-						adjList[i0] = append(adjList[i0], tests.NewPairEdge(j10, 10))
-						adjList[i1] = append(adjList[i1], tests.NewPairEdge(j13, 0))
-						adjList[i2] = append(adjList[i2], tests.NewPairEdge(j12, 10))
+						adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
+						adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
+						adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
 					}
 				}
 
@@ -191,15 +190,15 @@ func solve(t *testing.T, filepath string) {
 					// buat edge ke tower bawah
 					bawah := peta[i+1][j]
 					if bawah == "O" {
-						adjList[i2] = append(adjList[i2], tests.NewPairEdge(i10, 0))
+						adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
 
-						adjList[i3] = append(adjList[i3], tests.NewPairEdge(i13, 10))
+						adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
 
-						adjList[i1] = append(adjList[i1], tests.NewPairEdge(i11, 10))
+						adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
 					} else {
-						adjList[i2] = append(adjList[i2], tests.NewPairEdge(i10, 0))
-						adjList[i3] = append(adjList[i3], tests.NewPairEdge(i13, 10))
-						adjList[i1] = append(adjList[i1], tests.NewPairEdge(i11, 10))
+						adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
+						adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
+						adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
 					}
 				}
 			}
@@ -209,16 +208,16 @@ func solve(t *testing.T, filepath string) {
 	source := h * w * 4
 	target := h*w*4 + 1
 
-	adjList[source] = append(adjList[source], tests.NewPairEdge(cellToNId(0, 0, 0), 5.0))
+	adjList[source] = append(adjList[source], da.NewPairEdge(cellToNId(0, 0, 0), 5.0))
 
-	adjList[source] = append(adjList[source], tests.NewPairEdge(cellToNId(0, 0, 3), 5.0))
+	adjList[source] = append(adjList[source], da.NewPairEdge(cellToNId(0, 0, 3), 5.0))
 
 	last1 := cellToNId(h-1, w-1, 1)
 	last2 := cellToNId(h-1, w-1, 2)
 
-	adjList[last1] = append(adjList[last1], tests.NewPairEdge(target, 5.0))
+	adjList[last1] = append(adjList[last1], da.NewPairEdge(target, 5.0))
 
-	adjList[last2] = append(adjList[last2], tests.NewPairEdge(target, 5.0))
+	adjList[last2] = append(adjList[last2], da.NewPairEdge(target, 5.0))
 
 	n := h*w*4 + 2
 
@@ -234,7 +233,7 @@ func solve(t *testing.T, filepath string) {
 	nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(0), float64(0)))
 	nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(h-1), float64(w-1)))
 
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "delftdistance", nodeCoords, adjList, n, []int{7, 11, 14}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "delftdistance", nodeCoords, adjList, n, []int{7, 11}, true)
 
 	crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 

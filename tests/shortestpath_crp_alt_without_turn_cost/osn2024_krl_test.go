@@ -13,7 +13,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -258,7 +257,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		rutes[i] = newRute(int(a), int(b), c, d)
 	}
 
-	adjList := make([][]tests.PairEdge, 2*N)
+	adjList := make([][]da.PairEdge, 2*N)
 
 	stA := make([]int64, N)
 	st := NewSegmentTree(stA, true)
@@ -283,16 +282,16 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		b := rt.b - 1 + N
 
 		// edges sistem ekspress
-		adjList[a] = append(adjList[a], tests.NewPairEdge(b, float64(rt.d)))
-		adjList[b] = append(adjList[b], tests.NewPairEdge(a, float64(rt.d)))
+		adjList[a] = append(adjList[a], da.NewPairEdge(b, float64(rt.d)))
+		adjList[b] = append(adjList[b], da.NewPairEdge(a, float64(rt.d)))
 		e += 2
 	}
 
 	for v := 0; v < N; v++ {
 		// edge non-transit vertex ke transit vertex
-		adjList[v] = append(adjList[v], tests.NewPairEdge(v+N, float64(T)))
+		adjList[v] = append(adjList[v], da.NewPairEdge(v+N, float64(T)))
 		// edge vertex ke non-transit vertex
-		adjList[v+N] = append(adjList[v+N], tests.NewPairEdge(v, 0))
+		adjList[v+N] = append(adjList[v+N], da.NewPairEdge(v, 0))
 		e += 2
 	}
 
@@ -300,8 +299,8 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		// O(N * log N)
 		// angkot
 		// stasiun non-transit ke next stasiun non-transit
-		adjList[v] = append(adjList[v], tests.NewPairEdge(v+1, float64(K)))
-		adjList[v+1] = append(adjList[v+1], tests.NewPairEdge(v, float64(K)))
+		adjList[v] = append(adjList[v], da.NewPairEdge(v+1, float64(K)))
+		adjList[v+1] = append(adjList[v+1], da.NewPairEdge(v, float64(K)))
 
 		e += 2
 
@@ -311,8 +310,8 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		}
 
 		// commuter edges
-		adjList[v+N] = append(adjList[v+N], tests.NewPairEdge(v+1+N, float64(rmqv)))
-		adjList[v+1+N] = append(adjList[v+1+N], tests.NewPairEdge(v+N, float64(rmqv)))
+		adjList[v+N] = append(adjList[v+N], da.NewPairEdge(v+1+N, float64(rmqv)))
+		adjList[v+1+N] = append(adjList[v+1+N], da.NewPairEdge(v+N, float64(rmqv)))
 
 		e += 2
 	}

@@ -20,7 +20,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 func TestMain(m *testing.M) {
@@ -28,7 +27,7 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]tests.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine[float64], *da.Graph,
+func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine[float64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[float64]) {
 
 	config.InitRegionName(problemName, pkg.TEST)
@@ -38,7 +37,7 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 		da.CoordinatePrecision = 1e3
 	}
 
-	es := tests.FlattenEdges(adjList)
+	es := da.FlattenEdges(adjList)
 
 	op := extractor.NewExtractor[float64]()
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)

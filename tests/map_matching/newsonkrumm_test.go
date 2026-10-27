@@ -207,7 +207,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	}
 
 	rn := da.NewRoadNetworkDataContainer(54)
-	graphEdges := make([]extractor.Edge[int32], 0, len(edges))
+	graphEdges := make([]da.Edge[int32], 0, len(edges))
 	edgeLength := make(map[uint64]float64)
 
 	for _, e := range edges {
@@ -231,13 +231,13 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		eId := len(graphEdges)
 		rn.SetSegmentFlag(da.Index(eId), 0)
 
-		graphEdge := extractor.NewEdge[int32](
+		graphEdge := da.NewEdge[int32](
 			e.fromId, e.toId, int32(util.RoundCentiseconds(travelTimeWeight)), util.RoundCentimeters(distanceInMeter),
 		)
 		graphEdges = append(graphEdges, graphEdge)
 		if e.twoWay {
 			rn.AppendSegmentData(int64(e.eId)*2, da.Index(endPointsIndex), da.Index(startPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
-			reverseEdge := extractor.NewEdge[int32](
+			reverseEdge := da.NewEdge[int32](
 				e.toId, e.fromId, int32(util.RoundCentiseconds(travelTimeWeight)), util.RoundCentimeters(distanceInMeter),
 			)
 			eId := len(graphEdges)

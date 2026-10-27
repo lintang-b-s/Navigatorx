@@ -131,7 +131,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		progress.Add(len(vIds))
 	}
 	progress.Finish()
-	mp.logger.Sugar().Infof("level %d done, total cells: %d, #cut edges: %d", mp.l, len(mp.cellVertices[mp.l-1]), cutEdgesCount)
+	mp.logger.Sugar().Infof("level %d done, #cells: %d, #cut edges: %d", mp.l, len(mp.cellVertices[mp.l-1]), cutEdgesCount)
 
 	lock := &sync.Mutex{}
 	// partition each cell in previous level
@@ -180,7 +180,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		close(cellOutchan)
 
 		progress.Finish()
-		mp.logger.Sugar().Infof("level %d total cells: %d, #cut edges: %d", level+1, len(mp.cellVertices[level]), cutEdgesCount)
+		mp.logger.Sugar().Infof("level %d #cells: %d, #cut edges: %d", level+1, len(mp.cellVertices[level]), cutEdgesCount)
 	}
 }
 

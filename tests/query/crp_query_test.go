@@ -29,7 +29,6 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 	"go.uber.org/zap"
 )
 
@@ -166,7 +165,7 @@ func TestCRPQuerySimple(t *testing.T) {
 			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
 		}
 
-		adjList := make([][]tests.PairEdge, n)
+		adjList := make([][]da.PairEdge, n)
 		for i := 0; i < m; i++ {
 			line, err = util.ReadLine(br)
 			if err != nil {
@@ -185,9 +184,9 @@ func TestCRPQuerySimple(t *testing.T) {
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			adjList[u] = append(adjList[u], tests.NewPairEdge(v, float64(w)))
+			adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
 		}
-		es := tests.FlattenEdges(adjList)
+		es := da.FlattenEdges(adjList)
 
 		op := extractor.NewExtractor[float64]()
 		acceptedNodeMap := make(map[int64]da.Coordinate, n)

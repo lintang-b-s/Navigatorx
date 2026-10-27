@@ -1,42 +1,17 @@
 package extractor
 
 import (
-	"math"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type pairEdge struct {
-	to     int
-	weight float64
-}
-
-func newPairEdge(to int, weight float64) pairEdge {
-	return pairEdge{to: to, weight: weight}
-}
-
-func flattenEdges(es [][]pairEdge) []Edge[float64] {
-	totalEdges := 0
-	for _, edges := range es {
-		totalEdges += len(edges)
-	}
-	flatten := make([]Edge[float64], 0, totalEdges)
-	for from, edges := range es {
-		for _, e := range edges {
-			length := uint32(math.Round(e.weight * 100))
-			flatten = append(flatten, NewEdge(uint32(from), uint32(e.to), e.weight, length))
-		}
-	}
-	return flatten
-}
-
-func buildGraphHelper(t *testing.T, n int, adjList [][]pairEdge) (*da.Graph, *met.TimeFunction[float64], *da.RoadNetworkDataContainer) {
+func buildGraphHelper(t *testing.T, n int, adjList [][]da.PairEdge) (*da.Graph, *met.TimeFunction[float64], *da.RoadNetworkDataContainer) {
 	t.Helper()
 
 	nodeCoords := make([]da.Coordinate, n)
@@ -44,7 +19,7 @@ func buildGraphHelper(t *testing.T, n int, adjList [][]pairEdge) (*da.Graph, *me
 		nodeCoords[i] = da.NewCoordinate(float64(i), float64(i))
 	}
 
-	es := flattenEdges(adjList)
+	es := da.FlattenEdges(adjList)
 
 	op := NewExtractor[float64]()
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
@@ -61,8 +36,8 @@ func buildGraphHelper(t *testing.T, n int, adjList [][]pairEdge) (*da.Graph, *me
 	for i, e := range es {
 		startPointsIndex := rn.GetOsmNodePointsCount()
 		rn.AppendOsmNodePoints([]da.Coordinate{
-			nodeCoords[e.from],
-			nodeCoords[e.to],
+			nodeCoords[e.GetFrom()],
+			nodeCoords[e.GetTo()],
 		}, make([]uint64, 2))
 		endPointsIndex := rn.GetOsmNodePointsCount()
 		rn.AppendSegmentData(int64(i), da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
@@ -162,22 +137,22 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 		v5 = 5
 	)
 
-	fig31AdjList := [][]pairEdge{
+	fig31AdjList := [][]da.PairEdge{
 		v1: {
-			newPairEdge(v2, 1.0),
-			newPairEdge(v3, 1.0),
-			newPairEdge(v4, 1.0),
-			newPairEdge(v5, 1.0),
+			da.NewPairEdge(v2, 1.0),
+			da.NewPairEdge(v3, 1.0),
+			da.NewPairEdge(v4, 1.0),
+			da.NewPairEdge(v5, 1.0),
 		},
 		v2: {
-			newPairEdge(v1, 1.0),
+			da.NewPairEdge(v1, 1.0),
 		},
 	}
 
 	tests := []struct {
 		name              string
 		numNodes          int
-		adjList           [][]pairEdge
+		adjList           [][]da.PairEdge
 		restrictions      []turnRestriction
 		forbidAllTurns    bool
 		wantNumVertices   int        // edge-based graph vertices
@@ -320,85 +295,61 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 			}
 
 			ebg, ebgWf, ebgMapping := BuildEdgeBasedGraph(g, wf, vTurnTableIDs, turnMatrix, rn)
-			if ebg == nil {
-				t.Fatal("BuildEdgeBasedGraph() returned nil ebg")
-			}
-			if ebgWf == nil {
-				t.Fatal("BuildEdgeBasedGraph() returned nil ebgWf")
-			}
-			if ebgMapping == nil {
-				t.Fatal("BuildEdgeBasedGraph() returned nil ebgMapping")
-			}
+			require.NotNil(t, ebg)
+			require.NotNil(t, ebgWf)
+			require.NotNil(t, ebgMapping)
 
-			if got, want := ebg.NumberOfVertices(), tc.wantNumVertices; got != want {
-				t.Fatalf("ebg.NumberOfVertices() = %d, want %d", got, want)
-			}
-			if got, want := ebg.NumberOfEdges(), tc.wantNumEdges; got != want {
-				t.Fatalf("ebg.NumberOfEdges() = %d, want %d", got, want)
-			}
+			require.Equal(t, tc.wantNumVertices, ebg.NumberOfVertices())
+			require.Equal(t, tc.wantNumEdges, ebg.NumberOfEdges())
 
-			if got, want := ebg.IsRoadNetworkGraph(), true; got != want {
-				t.Errorf("ebg.IsRoadNetworkGraph() = %v, want %v", got, want)
-			}
+			assert.True(t, ebg.IsRoadNetworkGraph())
 
 			for i := 0; i < tc.wantNumVertices; i++ {
 				v := da.Index(i)
-				if got, want := ebg.GetInDegree(v), tc.wantInDegrees[i]; got != want {
-					t.Errorf("ebg.GetInDegree(%d) = %d, want %d", i, got, want)
-				}
-
-				if got, want := ebg.GetOutDegree(v), tc.wantOutDegrees[i]; got != want {
-					t.Errorf("ebg.GetOutDegree(%d) = %d, want %d", i, got, want)
-				}
-
+				assert.Equal(t, tc.wantInDegrees[i], ebg.GetInDegree(v), "vertex %d in-degree", v)
+				assert.Equal(t, tc.wantOutDegrees[i], ebg.GetOutDegree(v), "vertex %d out-degree", v)
 			}
 
-			if diff := cmp.Diff(tc.wantMapping, ebgMapping); diff != "" {
-				t.Errorf("BuildEdgeBasedGraph() mapping mismatch (-want +got):\n%s", diff)
-			}
+			assert.Equal(t, tc.wantMapping, ebgMapping)
 			for i, mVal := range ebgMapping {
 				tail := da.Index(mVal & 0xFFFFFFFF)
 				head := da.Index(mVal >> 32)
 				expectedTail := da.Index(tc.wantMapping[i] & 0xFFFFFFFF)
 				expectedHead := da.Index(tc.wantMapping[i] >> 32)
-				if tail != expectedTail || head != expectedHead {
-					t.Errorf("ebgMapping[%d] decoded = (%d, %d), want (%d, %d)",
-						i, tail, head, expectedTail, expectedHead)
-				}
+				assert.Equal(t, expectedTail, tail, "ebgMapping[%d] tail", i)
+				assert.Equal(t, expectedHead, head, "ebgMapping[%d] head", i)
 			}
 
 			for i := 0; i < tc.wantNumVertices; i++ {
 				vertex := ebg.GetVertex(da.Index(i))
 				c := vertex.GetCoordinate()
-				if !util.Eq(c.GetLat(), tc.wantCoords[i].lat) || !util.Eq(c.GetLon(), tc.wantCoords[i].lon) {
-					t.Errorf("ebg.GetVertex(%d).GetCoordinate() = (%v, %v), want (%v, %v)",
-						i, c.GetLat(), c.GetLon(), tc.wantCoords[i].lat, tc.wantCoords[i].lon)
-				}
+				assert.InDelta(t, tc.wantCoords[i].lat, c.GetLat(), util.EPS, "vertex %d lat", i)
+				assert.InDelta(t, tc.wantCoords[i].lon, c.GetLon(), util.EPS, "vertex %d lon", i)
 			}
 
-			gotHeads := make([]da.Index, 0, ebg.NumberOfEdges())
-			gotTails := make([]da.Index, 0, ebg.NumberOfEdges())
+			var gotHeads []da.Index
+			var gotTails []da.Index
 			for eID := 0; eID < ebg.NumberOfEdges(); eID++ {
 				gotHeads = append(gotHeads, ebg.GetHead(da.Index(eID)))
 				gotTails = append(gotTails, ebg.GetTail(da.Index(eID)))
 			}
-			if diff := cmp.Diff(tc.wantHeads, gotHeads, cmpopts.EquateEmpty()); diff != "" {
-				t.Errorf("ebg heads mismatch (-want +got):\n%s", diff)
+			if len(tc.wantHeads) == 0 {
+				assert.Empty(t, gotHeads)
+			} else {
+				assert.Equal(t, tc.wantHeads, gotHeads)
 			}
-			if diff := cmp.Diff(tc.wantTails, gotTails, cmpopts.EquateEmpty()); diff != "" {
-				t.Errorf("ebg tails mismatch (-want +got):\n%s", diff)
+			if len(tc.wantTails) == 0 {
+				assert.Empty(t, gotTails)
+			} else {
+				assert.Equal(t, tc.wantTails, gotTails)
 			}
 
 			for eID := 0; eID < ebg.NumberOfEdges(); eID++ {
-				if got, want := ebg.GetTailOfOutedge(da.Index(eID)), tc.wantOutTails[eID]; got != want {
-					t.Errorf("ebg.GetTailOfOutedge(%d) = %d, want %d", eID, got, want)
-				}
+				assert.Equal(t, tc.wantOutTails[eID], ebg.GetTailOfOutedge(da.Index(eID)), "edge %d outTail", eID)
 			}
 
 			for reID := 0; reID < ebg.NumberOfEdges(); reID++ {
-				if got, want := ebg.GetHeadOfInedge(da.Index(reID)), tc.wantInHeads[reID]; got != want {
-					t.Errorf("ebg.GetHeadOfInedge(%d) = %d, want %d", reID, got, want)
-				}
+				assert.Equal(t, tc.wantInHeads[reID], ebg.GetHeadOfInedge(da.Index(reID)), "inedge %d inHead", reID)
 			}
 
 			for u, wantOut := range tc.wantOutEdges {
@@ -406,8 +357,10 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 				ebg.ForOutEdgesOf(u, func(eID, head da.Index, entryPoint uint8) {
 					gotOut = append(gotOut, head)
 				})
-				if diff := cmp.Diff(wantOut, gotOut, cmpopts.EquateEmpty()); diff != "" {
-					t.Errorf("ebg.ForOutEdgesOf(%d) heads mismatch (-want +got):\n%s", u, diff)
+				if len(wantOut) == 0 {
+					assert.Empty(t, gotOut)
+				} else {
+					assert.Equal(t, wantOut, gotOut, "ebg.ForOutEdgesOf(%d)", u)
 				}
 			}
 
@@ -417,56 +370,35 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 					gotOut = append(gotOut, head)
 				})
 				for _, fHead := range forbidden {
-					for _, head := range gotOut {
-						if head == fHead {
-							t.Errorf("ebg.ForOutEdgesOf(%d) contains forbidden edge to %d, want omitted", u, fHead)
-						}
-					}
+					assert.NotContains(t, gotOut, fHead, "ebg.ForOutEdgesOf(%d) forbidden edge to %d", u, fHead)
 				}
 			}
 
 			for eID := 0; eID < ebg.NumberOfEdges(); eID++ {
 				revID := ebg.GetRevId(da.Index(eID))
-				if got, want := ebg.GetOutId(revID), da.Index(eID); got != want {
-					t.Errorf("ebg.GetOutId(ebg.GetRevId(%d)) = %d, want %d", eID, got, want)
-				}
-
-				if got, want := ebg.GetHead(da.Index(eID)), ebg.GetHeadOfInedge(revID); got != want {
-					t.Errorf("ebg.GetHeadOfInedge(ebg.GetRevId(%d)) = %d, want %d (ebg.GetHead(%d))", eID, got, want, eID)
-				}
-				if got, want := ebg.GetTailOfOutedge(da.Index(eID)), ebg.GetTail(revID); got != want {
-					t.Errorf("ebg.GetTail(ebg.GetRevId(%d)) = %d, want %d (ebg.GetTailOfOutedge(%d))", eID, got, want, eID)
-				}
+				assert.Equal(t, da.Index(eID), ebg.GetOutId(revID), "edge %d rev outId", eID)
+				assert.Equal(t, ebg.GetHead(da.Index(eID)), ebg.GetHeadOfInedge(revID), "edge %d head matching rev inedge head", eID)
+				assert.Equal(t, ebg.GetTailOfOutedge(da.Index(eID)), ebg.GetTail(revID), "edge %d outTail matching rev tail", eID)
 			}
 
 			for i := 0; i <= tc.wantNumVertices; i++ {
 				idx := da.Index(i)
-				if got, want := ebg.GetVertexFirstOut(idx), tc.wantFirstOut[i]; got != want {
-					t.Errorf("ebg.GetVertexFirstOut(%d) = %d, want %d", i, got, want)
-				}
-			}
-
-			for i := 0; i <= tc.wantNumVertices; i++ {
-				idx := da.Index(i)
-				if got, want := ebg.GetVertexFirstIn(idx), tc.wantFirstIn[i]; got != want {
-					t.Errorf("ebg.GetVertexFirstIn(%d) = %d, want %d", i, got, want)
-				}
+				assert.Equal(t, tc.wantFirstOut[i], ebg.GetVertexFirstOut(idx), "vertex %d firstOut", i)
+				assert.Equal(t, tc.wantFirstIn[i], ebg.GetVertexFirstIn(idx), "vertex %d firstIn", i)
 			}
 
 			dummyVertex := ebg.GetVertex(da.Index(tc.wantNumVertices))
 			dummyCoord := dummyVertex.GetCoordinate()
-			if !util.Eq(dummyCoord.GetLat(), 0.0) || !util.Eq(dummyCoord.GetLon(), 0.0) {
-				t.Errorf("ebg.GetVertex(%d).GetCoordinate() = (%v, %v), want (0, 0) [sentinel dummy]",
-					tc.wantNumVertices, dummyCoord.GetLat(), dummyCoord.GetLon())
-			}
+			assert.InDelta(t, 0.0, dummyCoord.GetLat(), util.EPS)
+			assert.InDelta(t, 0.0, dummyCoord.GetLon(), util.EPS)
 
-			if diff := cmp.Diff(tc.wantWeights, ebgWf.Getweights(), cmpopts.EquateEmpty(), cmp.Comparer(util.Eq[float64])); diff != "" {
-				t.Errorf("ebgWf.Getweights() mismatch (-want +got):\n%s", diff)
+			if len(tc.wantWeights) == 0 {
+				assert.Empty(t, ebgWf.Getweights())
+			} else {
+				assert.InDeltaSlice(t, tc.wantWeights, ebgWf.Getweights(), util.EPS)
 			}
 			for eID := 0; eID < ebg.NumberOfEdges(); eID++ {
-				if got, want := ebgWf.GetWeight(da.Index(eID)), tc.wantWeights[eID]; !util.Eq(got, want) {
-					t.Errorf("ebgWf.GetWeight(%d) = %v, want %v", eID, got, want)
-				}
+				assert.InDelta(t, tc.wantWeights[eID], ebgWf.GetWeight(da.Index(eID)), util.EPS, "edge %d weight", eID)
 			}
 
 		})

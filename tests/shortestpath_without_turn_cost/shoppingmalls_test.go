@@ -11,7 +11,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -90,7 +89,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		places[i] = place{fl * 5, x, y}
 	}
 
-	adjList := make([][]tests.PairEdge, N)
+	adjList := make([][]da.PairEdge, N)
 
 	type pairDist struct {
 		abDist, baDist float64
@@ -139,8 +138,8 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		placeB := places[b]
 
 		pd := getDist(placeA, placeB, tipe)
-		adjList[a] = append(adjList[a], tests.NewPairEdge(b, pd.abDist))
-		adjList[b] = append(adjList[b], tests.NewPairEdge(a, pd.baDist))
+		adjList[a] = append(adjList[a], da.NewPairEdge(b, pd.abDist))
+		adjList[b] = append(adjList[b], da.NewPairEdge(a, pd.baDist))
 	}
 
 	nodeCoords := make([]da.Coordinate, 0)

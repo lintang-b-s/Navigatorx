@@ -15,7 +15,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -77,7 +76,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		}
 	}
 
-	adjList := make([][]tests.PairEdge, r*c)
+	adjList := make([][]da.PairEdge, r*c)
 
 	cellToNId := func(i, j int) int {
 		return i*c + j
@@ -105,28 +104,28 @@ func SolveShowroom(t *testing.T, filepath string) {
 				weight := getWeight(i, j+1)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					tests.NewPairEdge(cellToNId(i, j+1), float64(weight)))
+					da.NewPairEdge(cellToNId(i, j+1), float64(weight)))
 			}
 
 			if i+1 < r {
 				weight := getWeight(i+1, j)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					tests.NewPairEdge(cellToNId(i+1, j), float64(weight)))
+					da.NewPairEdge(cellToNId(i+1, j), float64(weight)))
 			}
 
 			if j-1 >= 0 {
 				weight := getWeight(i, j-1)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					tests.NewPairEdge(cellToNId(i, j-1), float64(weight)))
+					da.NewPairEdge(cellToNId(i, j-1), float64(weight)))
 			}
 
 			if i-1 >= 0 {
 				weight := getWeight(i-1, j)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					tests.NewPairEdge(cellToNId(i-1, j), float64(weight)))
+					da.NewPairEdge(cellToNId(i-1, j), float64(weight)))
 			}
 
 			if j == c-1 && grid[i][j] == "D" {

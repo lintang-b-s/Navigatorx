@@ -13,7 +13,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 func solveSimpleGraph(t *testing.T, filepath string) {
@@ -53,7 +52,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(i), float64(i)))
 	}
 
-	adjList := make([][]tests.PairEdge, n)
+	adjList := make([][]da.PairEdge, n)
 	for i := 0; i < m; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
@@ -72,7 +71,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		adjList[u] = append(adjList[u], tests.NewPairEdge(v, float64(w)))
+		adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
 	}
 
 	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "simple_graph", nodeCoords, adjList, n, []int{1, 2}, true)

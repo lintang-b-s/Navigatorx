@@ -11,7 +11,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 func init() {
@@ -91,8 +90,8 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	n := len(starwars)
 	var (
-		adjList  = make([][]tests.PairEdge, n)
-		adjListT = make([][]tests.PairEdge, n)
+		adjList  = make([][]datastructure.PairEdge, n)
+		adjListT = make([][]datastructure.PairEdge, n)
 	)
 
 	bitpack := func(i, j int) int {
@@ -114,24 +113,24 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 			}
 
 			if swi.bahasak.bahasaSpeak == swj.bahasak.bahasaSpeak {
-				adjList[i] = append(adjList[i], tests.NewPairEdge(j, 1))
-				adjList[j] = append(adjList[j], tests.NewPairEdge(i, 1))
+				adjList[i] = append(adjList[i], datastructure.NewPairEdge(j, 1))
+				adjList[j] = append(adjList[j], datastructure.NewPairEdge(i, 1))
 
 				edgesSet[bitpack(i, j)] = struct{}{}
 				edgesSet[bitpack(j, i)] = struct{}{}
 
-				adjListT[j] = append(adjListT[j], tests.NewPairEdge(i, 1))
-				adjListT[i] = append(adjListT[i], tests.NewPairEdge(j, 1))
+				adjListT[j] = append(adjListT[j], datastructure.NewPairEdge(i, 1))
+				adjListT[i] = append(adjListT[i], datastructure.NewPairEdge(j, 1))
 			} else if _, ok := swj.bahasak.bahasaUnderstand[swi.bahasak.bahasaSpeak]; ok {
 				edgesSet[bitpack(i, j)] = struct{}{}
 
-				adjList[i] = append(adjList[i], tests.NewPairEdge(j, 1))
-				adjListT[j] = append(adjListT[j], tests.NewPairEdge(i, 1))
+				adjList[i] = append(adjList[i], datastructure.NewPairEdge(j, 1))
+				adjListT[j] = append(adjListT[j], datastructure.NewPairEdge(i, 1))
 			}
 		}
 	}
 
-	es := tests.FlattenEdges(adjList)
+	es := datastructure.FlattenEdges(adjList)
 
 	op := extractor.NewExtractor[float64]()
 	gs := datastructure.NewRoadNetworkDataContainerWithSize(len(es), n)

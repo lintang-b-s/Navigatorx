@@ -1,40 +1,15 @@
 package partitioner
 
 import (
-	"math"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-type pairEdge struct {
-	to     int
-	weight float64
-}
-
-func newPairEdge(to int, weight float64) pairEdge {
-	return pairEdge{to: to, weight: weight}
-}
-
-func flattenEdges(es [][]pairEdge) []extractor.Edge[float64] {
-	totalEdges := 0
-	for _, edges := range es {
-		totalEdges += len(edges)
-	}
-	flatten := make([]extractor.Edge[float64], 0, totalEdges)
-	for from, edges := range es {
-		for _, e := range edges {
-			length := uint32(math.Round(e.weight * 100))
-			flatten = append(flatten, extractor.NewEdge(uint32(from), uint32(e.to), e.weight, length))
-		}
-	}
-	return flatten
-}
-
-func buildCellGraph(t *testing.T, n int, adjList [][]pairEdge) (*da.Graph, *da.CellGraph) {
+func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge) (*da.Graph, *da.CellGraph) {
 	t.Helper()
 
 	nodeCoords := make([]da.Coordinate, n)
@@ -42,7 +17,7 @@ func buildCellGraph(t *testing.T, n int, adjList [][]pairEdge) (*da.Graph, *da.C
 		nodeCoords[i] = da.NewCoordinateWithoutScaling(float64(i), float64(i))
 	}
 
-	es := flattenEdges(adjList)
+	es := da.FlattenEdges(adjList)
 
 	op := extractor.NewExtractor[float64]()
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
@@ -98,7 +73,7 @@ func TestDinicUnitMaxFlow(t *testing.T) {
 		name                  string
 		numVertices           int
 		wantNumEdges          int
-		adjList               [][]pairEdge
+		adjList               [][]da.PairEdge
 		sources               []da.Index
 		sinks                 []da.Index
 		wantMaxFlow           int
@@ -112,16 +87,16 @@ func TestDinicUnitMaxFlow(t *testing.T) {
 			name:         "Figure26_3_CLRS_3ed", //  https://www.cl.cam.ac.uk/teaching/1415/Algorithms/flowcut.pdf or CLRS 3ed (all non-artificial edge capacities are set to unit capacity 1)
 			numVertices:  nFigure26_3,
 			wantNumEdges: 14,
-			adjList: [][]pairEdge{
-				s1: {newPairEdge(int(v1), 1.0)},
-				s2: {newPairEdge(int(v1), 1.0), newPairEdge(int(v2), 1.0)},
-				s3: {newPairEdge(int(v2), 1.0), newPairEdge(int(v3), 1.0)},
-				s4: {newPairEdge(int(v3), 1.0), newPairEdge(int(v4), 1.0)},
-				s5: {newPairEdge(int(v4), 1.0)},
-				v1: {newPairEdge(int(t1), 1.0)},
-				v2: {newPairEdge(int(t1), 1.0), newPairEdge(int(t2), 1.0)},
-				v3: {newPairEdge(int(t2), 1.0), newPairEdge(int(t3), 1.0)},
-				v4: {newPairEdge(int(t3), 1.0)},
+			adjList: [][]da.PairEdge{
+				s1: {da.NewPairEdge(int(v1), 1.0)},
+				s2: {da.NewPairEdge(int(v1), 1.0), da.NewPairEdge(int(v2), 1.0)},
+				s3: {da.NewPairEdge(int(v2), 1.0), da.NewPairEdge(int(v3), 1.0)},
+				s4: {da.NewPairEdge(int(v3), 1.0), da.NewPairEdge(int(v4), 1.0)},
+				s5: {da.NewPairEdge(int(v4), 1.0)},
+				v1: {da.NewPairEdge(int(t1), 1.0)},
+				v2: {da.NewPairEdge(int(t1), 1.0), da.NewPairEdge(int(t2), 1.0)},
+				v3: {da.NewPairEdge(int(t2), 1.0), da.NewPairEdge(int(t3), 1.0)},
+				v4: {da.NewPairEdge(int(t3), 1.0)},
 			},
 			sources:               []da.Index{s1, s2, s3, s4, s5},
 			sinks:                 []da.Index{t1, t2, t3},
@@ -145,58 +120,44 @@ func TestDinicUnitMaxFlow(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			g, cg := buildCellGraph(t, tc.numVertices, tc.adjList)
 
-			if got, want := g.NumberOfVertices(), tc.numVertices; got != want {
-				t.Fatalf("g.NumberOfVertices() = %d, want %d", got, want)
-			}
-			if got, want := g.NumberOfEdges(), tc.wantNumEdges; got != want {
-				t.Fatalf("g.NumberOfEdges() = %d, want %d", got, want)
-			}
-			if got, want := cg.NumberOfCellVertices(), tc.numVertices; got != want {
-				t.Fatalf("cg.NumberOfCellVertices() = %d, want %d", got, want)
-			}
+			require.Equal(t, tc.numVertices, g.NumberOfVertices())
+			require.Equal(t, tc.wantNumEdges, g.NumberOfEdges())
+			require.Equal(t, tc.numVertices, cg.NumberOfCellVertices())
 
 			dn := NewDinicUnitMaxFlow(tc.numVertices, cg)
 			dn.createArtificialSourceSink(tc.sources, tc.sinks)
 
 			minCut := dn.ComputeMaxflowMinCut()
 
-			if got, want := minCut.GetMaxFlow(), tc.wantMaxFlow; got != want {
-				t.Errorf("minCut.GetMaxFlow() = %d, want %d", got, want)
-			}
-			if got, want := minCut.CutEdgesCount(), tc.wantCutEdgesCount; got != want {
-				t.Errorf("minCut.CutEdgesCount() = %d, want %d", got, want)
-			}
+			assert.Equal(t, tc.wantMaxFlow, minCut.GetMaxFlow())
+			assert.Equal(t, tc.wantCutEdgesCount, minCut.CutEdgesCount())
 
-			if got, want := minCut.GetNumNodesInPartitionTwo(), tc.wantNumNodesInPartTwo; got != want {
-				t.Errorf("minCut.GetNumNodesInPartitionTwo() = %d, want %d", got, want)
-			}
+			assert.Equal(t, tc.wantNumNodesInPartTwo, minCut.GetNumNodesInPartitionTwo())
 
 			for _, s := range tc.wantPartitionOne {
-				if got, want := minCut.GetFlag(s), true; got != want {
-					t.Errorf("minCut.GetFlag(%d) = %t, want %t", s, got, want)
-				}
+				assert.True(t, minCut.GetFlag(s), "node %d should be in partition one", s)
 			}
 
 			for _, sk := range tc.wantPartitionTwo {
-				if got, want := minCut.GetFlag(sk), false; got != want {
-					t.Errorf("minCut.GetFlag(%d) = %t, want %t", sk, got, want)
-				}
+				assert.False(t, minCut.GetFlag(sk), "node %d should be in partition two", sk)
 			}
 
 			gotCutEdges := make(map[[2]da.Index]bool)
 			for u := da.Index(0); u < da.Index(tc.numVertices); u++ {
 
-				cg.ForEdgesOf(u, func(v da.Index, out bool) {
+				cg.ForEdgesOf(u, func(v da.Index, rev bool) {
 					uInS := minCut.GetFlag(u)
 					vInT := !minCut.GetFlag(v)
 
-					if out && (uInS && vInT) {
+					if !rev && (uInS && vInT) {
 						gotCutEdges[[2]da.Index{u, v}] = true
 					}
 				})
 			}
-			if diff := cmp.Diff(tc.wantCutEdges, gotCutEdges, cmpopts.EquateEmpty()); diff != "" {
-				t.Errorf("cut edges mismatch (-want +got):\n%s", diff)
+			if len(tc.wantCutEdges) == 0 {
+				assert.Empty(t, gotCutEdges)
+			} else {
+				assert.Equal(t, tc.wantCutEdges, gotCutEdges)
 			}
 
 		})

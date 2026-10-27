@@ -11,7 +11,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -59,7 +58,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	adjList := make([][]tests.PairEdge, n+1)
+	adjList := make([][]da.PairEdge, n+1)
 
 	for i := 0; i < m; i++ {
 		var (
@@ -87,7 +86,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 
-		adjList[u] = append(adjList[u], tests.NewPairEdge(v, float64(w)))
+		adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
 	}
 
 	bitpack := func(u, v int) int {

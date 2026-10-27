@@ -4,7 +4,7 @@ import (
 	"slices"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestLookupTable_SegmentKV(t *testing.T) {
@@ -78,9 +78,7 @@ func TestLookupTable_SegmentKV(t *testing.T) {
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 				lt := NewLookupTable(slices.Clone(tc.data))
-				if diff := cmp.Diff(tc.want, lt.data, cmp.AllowUnexported(SegmentKV{}, KeyVal{})); diff != "" {
-					t.Errorf("NewLookupTable(%+v) returned diff (-want +got):\n%s", tc.data, diff)
-				}
+				assert.Equal(t, tc.want, lt.data)
 			})
 		}
 	})
@@ -174,9 +172,7 @@ func TestLookupTable_SegmentKV(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				lt := NewLookupTable(slices.Clone(tc.data))
 				got := lt.Get(tc.query)
-				if got != tc.want {
-					t.Errorf("lt.Get(%+v) = %v, want %v (table data: %+v)", tc.query, got, tc.want, tc.data)
-				}
+				assert.Equal(t, tc.want, got)
 			})
 		}
 	})
@@ -253,9 +249,7 @@ func TestLookupTable_TurnKV(t *testing.T) {
 		for _, tc := range tests {
 			t.Run(tc.name, func(t *testing.T) {
 				lt := NewLookupTable(slices.Clone(tc.data))
-				if diff := cmp.Diff(tc.want, lt.data, cmp.AllowUnexported(TurnKV{}, KeyVal{})); diff != "" {
-					t.Errorf("NewLookupTable(%+v) returned diff (-want +got):\n%s", tc.data, diff)
-				}
+				assert.Equal(t, tc.want, lt.data)
 			})
 		}
 	})
@@ -367,9 +361,7 @@ func TestLookupTable_TurnKV(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				lt := NewLookupTable(slices.Clone(tc.data))
 				got := lt.Get(tc.query)
-				if got != tc.want {
-					t.Errorf("lt.Get(%+v) = %v, want %v (table data: %+v)", tc.query, got, tc.want, tc.data)
-				}
+				assert.Equal(t, tc.want, got)
 			})
 		}
 	})

@@ -63,7 +63,6 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 	}
 
 	reachedSink := false
-
 	for head := 0; head < len(queue); head++ {
 		u := queue[head]
 		if dmf.isSink.Test(uint(u)) {
@@ -77,8 +76,8 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 
 		deg := dmf.degree(u)
 		for j := da.Index(0); j < deg; j++ {
-			v, out := dmf.edge(u, j)
-			if dmf.level[v] == INVALID_LEVEL && dmf.residual(u, v, out) {
+			v, rev := dmf.edge(u, j)
+			if dmf.level[v] == INVALID_LEVEL && dmf.residual(u, v, rev) {
 				nextLevel := dmf.level[u] + 1
 				dmf.level[v] = nextLevel
 				queue = append(queue, v)
@@ -106,11 +105,11 @@ func (dmf *DinicUnitMaxFlow) dfsAugmentPath(u da.Index) bool {
 
 	for ; dmf.last[u] < deg; dmf.last[u]++ {
 		j := dmf.last[u]
-		v, out := dmf.edge(u, j)
+		v, rev := dmf.edge(u, j)
 		if dmf.level[v] != dmf.level[u]+1 {
 			continue
 		}
-		residualExists := dmf.residual(u, v, out)
+		residualExists := dmf.residual(u, v, rev)
 		if !residualExists {
 			continue
 		}
@@ -165,8 +164,8 @@ func (dmf *DinicUnitMaxFlow) ComputeMaxflowMinCut() *MinCut {
 	return minCut //  or maxflow
 }
 
-func (dmf *DinicUnitMaxFlow) residual(u, v da.Index, out bool) bool {
-	if out {
+func (dmf *DinicUnitMaxFlow) residual(u, v da.Index, rev bool) bool {
+	if !rev {
 		// edge (u,v) has 1-unit residual capacity if its doesnt have 1-unit flow
 		_, hasFlow := dmf.flows[u][v]
 		return !hasFlow
@@ -211,10 +210,11 @@ func (dmf *DinicUnitMaxFlow) degree(u da.Index) da.Index {
 	return dmf.g.OutDegree(u) + dmf.g.InDegree(u)
 }
 
+// return i-th edge (or reversed edge) of u and reversed or not.
 func (dmf *DinicUnitMaxFlow) edge(u, i da.Index) (da.Index, bool) {
 	oDeg := dmf.g.OutDegree(u)
 	if i < oDeg {
-		return dmf.g.OutEdge(u, i), true
+		return dmf.g.OutEdge(u, i), false
 	}
-	return dmf.g.InEdge(u, i-oDeg), false
+	return dmf.g.InEdge(u, i-oDeg), true
 }

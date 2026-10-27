@@ -165,30 +165,32 @@ func (crp *CRPRoutingEngine[W]) initParameter() {
 	numCPU := runtime.NumCPU()
 	crp.unpackerWorkers = numCPU / 6
 	crp.unpackerForAlternativeRoutesWorkers = numCPU / 6
-	altConfig := viper.GetStringMap("alternatives")
-	var (
-		gammaMap, alphaMap, epsilonMap, upperBoundMap map[float64]float64
-		maxCandidatesToUnpackMap                      map[float64]int
-	)
-	gammaMap, crp.defaultGamma = util.ToFloat64Map(altConfig["gamma"])
-	alphaMap, crp.defaultAlpha = util.ToFloat64Map(altConfig["alpha"])
-	epsilonMap, crp.defaultEpsilon = util.ToFloat64Map(altConfig["epsilon"])
-	upperBoundMap, crp.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
-	validateUpperbound(upperBoundMap, crp.defaultUpperbound)
-	maxCandidatesToUnpackMap, crp.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
-	mp := altConfig["motorway_penalty"]
-	if val, ok := mp.(float64); ok {
-		crp.motorwayPenalty = val
-	} else {
-		panic("motorway_penalty must be float64")
+	roadnetwork := crp.graph.IsRoadNetworkGraph()
+	if roadnetwork {
+		altConfig := viper.GetStringMap("alternatives")
+		var (
+			gammaMap, alphaMap, epsilonMap, upperBoundMap map[float64]float64
+			maxCandidatesToUnpackMap                      map[float64]int
+		)
+		gammaMap, crp.defaultGamma = util.ToFloat64Map(altConfig["gamma"])
+		alphaMap, crp.defaultAlpha = util.ToFloat64Map(altConfig["alpha"])
+		epsilonMap, crp.defaultEpsilon = util.ToFloat64Map(altConfig["epsilon"])
+		upperBoundMap, crp.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
+		validateUpperbound(upperBoundMap, crp.defaultUpperbound)
+		maxCandidatesToUnpackMap, crp.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
+		mp := altConfig["motorway_penalty"]
+		if val, ok := mp.(float64); ok {
+			crp.motorwayPenalty = val
+		} else {
+			panic("motorway_penalty must be float64")
+		}
+
+		crp.gammaLookup = newParamLookup(gammaMap, crp.defaultGamma)
+		crp.alphaLookup = newParamLookup(alphaMap, crp.defaultAlpha)
+		crp.epsilonLookup = newParamLookup(epsilonMap, crp.defaultEpsilon)
+		crp.upperBoundLookup = newParamLookup(upperBoundMap, crp.defaultUpperbound)
+		crp.maxCandidatesLookup = newParamLookup(maxCandidatesToUnpackMap, crp.defaultMaxCandidatesToUnpack)
 	}
-
-	crp.gammaLookup = newParamLookup(gammaMap, crp.defaultGamma)
-	crp.alphaLookup = newParamLookup(alphaMap, crp.defaultAlpha)
-	crp.epsilonLookup = newParamLookup(epsilonMap, crp.defaultEpsilon)
-	crp.upperBoundLookup = newParamLookup(upperBoundMap, crp.defaultUpperbound)
-	crp.maxCandidatesLookup = newParamLookup(maxCandidatesToUnpackMap, crp.defaultMaxCandidatesToUnpack)
-
 }
 
 func validateUpperbound(upperBoundMap map[float64]float64, defaultUpperbound float64) {

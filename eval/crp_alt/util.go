@@ -21,7 +21,7 @@ import (
 )
 
 // ini buat dimacs 9th implmenetation challenge correctness test
-func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
+func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	logger, err := logger.New()
 	if err != nil {
@@ -50,7 +50,7 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int,
 		doPreprocessCustomize = true
 	}
 
-	es := flattenEdges(adjList)
+	es := da.FlattenEdgesG[int64](adjList)
 
 	op := extractor.NewExtractor[int64]()
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
@@ -129,30 +129,6 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]PairEdge, n int, Us []int,
 	newToOldVidMap := prep.GetNewToOldVId()
 
 	return re, g, oldToNewVIdMap, newToOldVidMap
-}
-
-type PairEdge struct {
-	to     int
-	weight float64
-}
-
-func NewPairEdge(to int, weight float64) PairEdge {
-	return PairEdge{to, weight}
-}
-
-func flattenEdges(es [][]PairEdge) []extractor.Edge[int64] {
-	flatten := make([]extractor.Edge[int64], 0, len(es))
-
-	eid := 0
-
-	for from, edges := range es {
-		for _, e := range edges {
-			flatten = append(flatten, extractor.NewEdge[int64](uint32(from), uint32(e.to), int64(e.weight), uint32(e.weight)))
-			eid++
-		}
-	}
-
-	return flatten
 }
 
 type QueryParam struct {

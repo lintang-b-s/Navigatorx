@@ -12,7 +12,6 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-	"github.com/lintang-b-s/Navigatorx/tests"
 )
 
 /*
@@ -175,7 +174,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		galaxy = append(galaxy, planet{x, y, z})
 	}
 
-	adjList := make([][]tests.PairEdge, n)
+	adjList := make([][]da.PairEdge, n)
 
 	eucDist := func(a, b planet) float64 {
 		xx := float64(a.x - b.x)
@@ -212,8 +211,8 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		planetV := galaxy[v]
 
 		dist := math.Sqrt(eucDist(planetU, planetV))
-		adjList[u] = append(adjList[u], tests.NewPairEdge(v, dist))
-		adjList[v] = append(adjList[v], tests.NewPairEdge(u, dist))
+		adjList[u] = append(adjList[u], da.NewPairEdge(v, dist))
+		adjList[v] = append(adjList[v], da.NewPairEdge(u, dist))
 	}
 
 	nodeCoords := make([]da.Coordinate, 0)

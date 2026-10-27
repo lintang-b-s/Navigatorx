@@ -24,19 +24,26 @@ func TestRandomizedSelect(t *testing.T) {
 			rank:  5,
 			want:  81,
 		},
+
+		{
+			name:  "[99, 101, 234, -1220, -200, -67, 67, 81, 98]. rank=5, expected=81",
+			input: []int{99, 101, 234, -1220, -200, -67, 67, 81, 98},
+			rank:  8,
+			want:  101,
+		},
 	}
 
 	for _, tc := range testCases {
 		n := len(tc.input)
-		vertices := make([]int, n)
+		nums := make([]int, n)
 		for i := 0; i < n; i++ {
 			v := tc.input[i]
-			vertices[i] = v
+			nums[i] = v
 		}
-		q := randomizedSelect(vertices, 0, n-1, tc.rank, func(left, right int) bool {
-			return vertices[left] < vertices[right]
+		q := randomizedSelect(nums, 0, n-1, tc.rank, func(left, right int) bool {
+			return nums[left] < nums[right]
 		})
-		got := vertices[q]
+		got := nums[q]
 		assert.Equal(t, tc.want, got)
 	}
 }

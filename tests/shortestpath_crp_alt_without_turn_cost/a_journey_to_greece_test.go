@@ -181,7 +181,7 @@ func solveGreece(t *testing.T, filepath string) {
 		placeStay[i] = place{v, stayTime}
 	}
 
-	adjList := make([][]tests.PairEdge, n)
+	adjList := make([][]da.PairEdge, n)
 
 	for i := 0; i < m; i++ {
 		var (
@@ -206,8 +206,8 @@ func solveGreece(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 
-		adjList[u] = append(adjList[u], tests.NewPairEdge(v, float64(w)))
-		adjList[v] = append(adjList[v], tests.NewPairEdge(u, float64(w)))
+		adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
+		adjList[v] = append(adjList[v], da.NewPairEdge(u, float64(w)))
 	}
 
 	nodeCoords := tests.AssignNodeCoordinates(adjList)

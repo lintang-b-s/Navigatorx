@@ -289,7 +289,7 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 	defer f.Close()
 
 	rn := da.NewRoadNetworkDataContainer(54)
-	graphSegments := make([]extractor.Edge[int32], 0)
+	graphSegments := make([]da.Edge[int32], 0)
 	SegmentLengths := make(map[uint64]float64)
 
 	br := bufio.NewReader(f)
@@ -346,7 +346,7 @@ func ohmmBuildGraphFromGisCupFiles(paths ohmmGisCupRoadNetworkPaths) (*da.Graph,
 		rn.AppendSegmentData(int64(SegmentID), da.Index(startPointsIndex), da.Index(endPointsIndex), 0, geometry.roadType, 0, 1, da.NewEmptyTurnLanesData())
 		rn.SetSegmentFlag(da.Index(segId), 0)
 
-		graphSegment := extractor.NewEdge[int32](
+		graphSegment := da.NewEdge[int32](
 			fromIndex, toIndex, int32(cost), util.RoundCentimeters(geometry.length),
 		)
 
@@ -803,7 +803,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	}
 
 	rn := da.NewRoadNetworkDataContainer(54)
-	graphSegments := make([]extractor.Edge[int32], 0, len(edges))
+	graphSegments := make([]da.Edge[int32], 0, len(edges))
 	for i, e := range edges {
 		st := streetByID[uint64(e.id)]
 		startPointsIndex := rn.GetOsmNodePointsCount()
@@ -813,7 +813,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		}, make([]uint64, 2))
 		endPointsIndex := rn.GetOsmNodePointsCount()
 		rn.AppendSegmentData(e.id, da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
-		graphSegment := extractor.NewEdge[int32](
+		graphSegment := da.NewEdge[int32](
 			uint32(e.startID), uint32(e.endID),
 			int32(e.distance), util.RoundCentimeters(e.distance))
 		rn.SetSegmentFlag(da.Index(i), 0)

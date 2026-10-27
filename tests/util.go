@@ -112,31 +112,6 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	return re, logger, custom
 }
 
-type PairEdge struct {
-	To     int
-	Weight float64
-}
-
-func NewPairEdge(to int, weight float64) PairEdge {
-	return PairEdge{To: to, Weight: weight}
-}
-
-func FlattenEdges(es [][]PairEdge) []extractor.Edge[float64] {
-	flatten := make([]extractor.Edge[float64], 0, len(es))
-
-	eid := 0
-
-	for from, edges := range es {
-		for _, e := range edges {
-			length := uint32(math.Round(e.Weight * 100))
-			flatten = append(flatten, extractor.NewEdge(uint32(from), uint32(e.To), e.Weight, length))
-			eid++
-		}
-	}
-
-	return flatten
-}
-
 func Download(filePath, url string, logger *zap.Logger, name string) error {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		logger.Sugar().Infof("downloading evaluation %s dataset.....", name)
@@ -369,7 +344,7 @@ func Density(n, m int, directed bool) float64 {
 	return mf / (nf * (nf - 1))
 }
 
-func AssignNodeCoordinates(adjList [][]PairEdge) []da.Coordinate {
+func AssignNodeCoordinates(adjList [][]da.PairEdge) []da.Coordinate {
 	n := len(adjList)
 	nodeCoords := make([]da.Coordinate, n)
 	lmOne := da.Index(0)
@@ -437,7 +412,7 @@ func AssignNodeCoordinates(adjList [][]PairEdge) []da.Coordinate {
 	return nodeCoords
 }
 
-func dijkstra(adjList [][]PairEdge, s da.Index) []float64 {
+func dijkstra(adjList [][]da.PairEdge, s da.Index) []float64 {
 	n := len(adjList)
 
 	dist := make([]float64, n)

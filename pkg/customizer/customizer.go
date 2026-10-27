@@ -514,7 +514,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 
 	wg.Wait()
 	close(cellCliqueOutChan)
-	c.logger.Sugar().Infof("number of shortcuts overlay graph level %v: %v ", 1, numberOfShortcuts)
+	c.logger.Sugar().Infof("number of shortcut edges overlay graph level %v: %v ", 1, numberOfShortcuts)
 
 }
 
@@ -585,7 +585,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 					uCost := pqNode.GetRank()
 
 					c.overlayGraph.ForOutNeighborsOf(uOv, level-1, func(vOv da.Index, wOffset da.Index) {
-						// iterate all shortcuts (u, \cdot)
+						// iterate all shortcut edges (u, \cdot)
 						shortcutWeight := c.ow.GetWeight(wOffset)
 						newVCost := uCost + shortcutWeight
 						if util.Ge(newVCost, util.Infinity[W]()) {
@@ -699,7 +699,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 
 	wg.Wait()
 	close(cellCliqueOutChan)
-	c.logger.Sugar().Infof("number of shortcuts overlay graph level %v: %v ", level, numberOfShortcuts)
+	c.logger.Sugar().Infof("number of shortcut edges overlay graph level %v: %v ", level, numberOfShortcuts)
 }
 
 func (c *Customizer[W]) SetGraph(graph *da.Graph) {

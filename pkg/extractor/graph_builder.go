@@ -15,7 +15,7 @@ import (
 // test shortestpath ada beberapa yang gak pakai road network graph, diambil dari test cases soal-soal kontes pemrograman.
 // untuk roadNetwork=true, inputnya file OpenStreetMap pbf, kita support hampir semua tipe osm turn restrictions.
 // terinspirasi dari https://github.com/michaelwegner/CRP/blob/master/io/OSMParser.cpp
-func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContainer, numV uint32, roadNetwork bool) (*da.Graph,
+func (p *Extractor[W]) BuildGraph(edges []da.Edge[W], rn *da.RoadNetworkDataContainer, numV uint32, roadNetwork bool) (*da.Graph,
 	*met.TimeFunction[W], []da.Index, []pkg.TurnType) {
 	util.ActivateMode[W]()
 
@@ -40,8 +40,8 @@ func (p *Extractor[W]) BuildGraph(edges []Edge[W], rn *da.RoadNetworkDataContain
 	fmt.Printf("0%%...")
 	vertexOsmIds := make([]uint64, numV)
 	for eID, e := range edges {
-		u := da.Index(e.from)
-		v := da.Index(e.to)
+		u := da.Index(e.GetFrom())
+		v := da.Index(e.GetTo())
 
 		entryPoint := uint8(len(inEdges[v]))
 		exitPoint := uint8(len(outEdges[u]))

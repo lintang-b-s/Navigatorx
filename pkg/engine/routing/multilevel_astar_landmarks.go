@@ -117,6 +117,8 @@ decrease-key and insert at most O(k * \hat{m_p} + m_p) operations, di C_s/C_t ki
 extract-min at most O(n_p+n_o) operations, yang kita insert di pq adlaah vertices inside C_s/C_t yang mana at most n_p dan overlay vertices in overlay graph H yang mana at most n_o.
 
 inspired by Customizable Route Planning (CRP) [1] query phase code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
+todo: di table 2 https://link.springer.com/chapter/10.1007/978-3-319-20086-6_23 atau https://arxiv.org/pdf/1411.0257 , avg runtime CRP+ALT (A* search, landmarks, and triangle inequality) atau uniSALT-p2p di tabelnya (bukan yg versi bidirectional ALT)
+punya runtime 0.5ms/op jauh lebih cepet dibandingin bidirectional ALT atau biSALT-p2p di tabelnya yang cuma 0.9ms/op.. coba implement CRP+ALT (unidirectional ALT) dan coba benchmark...
 */
 
 func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
