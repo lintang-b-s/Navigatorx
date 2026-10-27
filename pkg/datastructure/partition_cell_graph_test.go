@@ -110,7 +110,7 @@ func TestPartitionCellGraph_No_AntiParallel_Edge(t *testing.T) {
 			for u := da.Index(0); u < da.Index(cg.NumberOfNetworkFlowVertices()); u++ {
 				uDeg := cg.OutDegree(da.Index(u))
 				for j := da.Index(0); j < uDeg; j++ {
-					v := cg.OutEdge(u, j)
+					v, _, _ := cg.OutEdge(u, j)
 					for _, e := range tc.wantAntiParallelEdgesRemoved {
 						if e.u == u && e.v == v {
 							gotAntiParallelEdges = append(gotAntiParallelEdges, e)

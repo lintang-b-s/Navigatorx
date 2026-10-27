@@ -9,7 +9,7 @@ import (
 // this directed unit capacity graph has neither parallel edges nor anti-parallel edges. (removed in partition_cell_graph.go).
 type DinicUnitMaxFlow struct {
 	g     *da.CellGraph
-	flows []map[da.Index]struct{}
+	flows *bitset.BitSet // 1-unit flows for each edges indexed by edge id. https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 
 	level      []da.Index
 	levelQueue []da.Index
@@ -23,10 +23,8 @@ type DinicUnitMaxFlow struct {
 // cg is Recursive Bisection Cell Graph.
 func NewDinicUnitMaxFlow(n int, g *da.CellGraph) *DinicUnitMaxFlow {
 
-	flows := make([]map[da.Index]struct{}, n)
-	for i := 0; i < n; i++ {
-		flows[i] = make(map[da.Index]struct{}, 2)
-	}
+	m := g.EdgesCount()
+	flows := bitset.New(uint(m))
 
 	dc := &DinicUnitMaxFlow{
 		n:          da.Index(n),
@@ -76,8 +74,8 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 
 		deg := dmf.degree(u)
 		for j := da.Index(0); j < deg; j++ {
-			v, rev := dmf.edge(u, j)
-			if dmf.level[v] == INVALID_LEVEL && dmf.residual(u, v, rev) {
+			v, e, eRev, rev := dmf.edge(u, j)
+			if dmf.level[v] == INVALID_LEVEL && dmf.residual(e, eRev, rev) {
 				nextLevel := dmf.level[u] + 1
 				dmf.level[v] = nextLevel
 				queue = append(queue, v)
@@ -104,17 +102,17 @@ func (dmf *DinicUnitMaxFlow) dfsAugmentPath(u da.Index) bool {
 	deg := dmf.degree(u)
 	for ; dmf.last[u] < deg; dmf.last[u]++ {
 		j := dmf.last[u]
-		v, rev := dmf.edge(u, j)
+		v, e, eRev, rev := dmf.edge(u, j)
 		if dmf.level[v] != dmf.level[u]+1 {
 			continue
 		}
-		residualExists := dmf.residual(u, v, rev)
+		residualExists := dmf.residual(e, eRev, rev)
 		if !residualExists {
 			continue
 		}
 
 		if pushed := dmf.dfsAugmentPath(v); pushed {
-			dmf.addFlow(u, v, rev)
+			dmf.addFlow(e, eRev, rev)
 			dmf.last[u]++
 			return true
 		}
@@ -163,27 +161,30 @@ func (dmf *DinicUnitMaxFlow) ComputeMaxflowMinCut() *MinCut {
 	return minCut //  or maxflow
 }
 
-func (dmf *DinicUnitMaxFlow) residual(u, v da.Index, rev bool) bool {
+// residual compute residual 1 unit-capacity of edge e
+// rev iff the
+func (dmf *DinicUnitMaxFlow) residual(e, eRev da.Index, rev bool) bool {
 	if !rev {
 		// edge (u,v) has 1-unit residual capacity if its doesnt have 1-unit flow
-		_, hasFlow := dmf.flows[u][v]
+		hasFlow := dmf.flows.Test(uint(e))
 		return !hasFlow
 	}
 
 	// reversed edge (u,v) has 1-unit residual capacity iff edge (v,u) has 1-unit flow
-	_, revHasFlow := dmf.flows[v][u]
+	revHasFlow := dmf.flows.Test(uint(eRev))
 	return revHasFlow
 }
 
-func (dmf *DinicUnitMaxFlow) addFlow(u, v da.Index, rev bool) {
+func (dmf *DinicUnitMaxFlow) addFlow(e, eRev da.Index, rev bool) {
 
 	// todo: instead of using hash table buat unit-capacity 1 flows, kita bisa langsung store edges beserta unit-flow dan reversed edge unit flow nya dalam struct kaya  https://dennisosrm.github.io/toolbox-rs/
+	// DONE :)
 	if !rev {
 		// add 1-unit flow to edge (u,v) if this edge (u, v) is not reversed edge in the residual graph.
-		dmf.flows[u][v] = struct{}{}
+		dmf.flows.Set(uint(e))
 	} else {
 		// cancel (or undo) the edge (v, u) 1-unit flow iff the edge (u, v) is a reversed edge in the residual graph.
-		delete(dmf.flows[v], u)
+		dmf.flows.Clear(uint(eRev))
 	}
 }
 
@@ -208,11 +209,18 @@ func (dmf *DinicUnitMaxFlow) degree(u da.Index) da.Index {
 	return dmf.g.OutDegree(u) + dmf.g.InDegree(u)
 }
 
-// return i-th edge (or reversed edge) of u and reversed or not.
-func (dmf *DinicUnitMaxFlow) edge(u, i da.Index) (da.Index, bool) {
+// return i-th edge (u, v) (or reversed edge) of u and reversed or not.
+func (dmf *DinicUnitMaxFlow) edge(u, i da.Index) (da.Index, da.Index, da.Index, bool) {
 	oDeg := dmf.g.OutDegree(u)
 	if i < oDeg {
-		return dmf.g.OutEdge(u, i), false
+		// edge (u,v)
+		// return v and its edge id
+		v, e, eRev := dmf.g.OutEdge(u, i)
+		return v, e, eRev, false
 	}
-	return dmf.g.InEdge(u, i-oDeg), true
+
+	// reversed edge (u, v)
+	// return v and its edge (v, u) id
+	v, e, eRev := dmf.g.InEdge(u, i-oDeg)
+	return v, e, eRev, true
 }

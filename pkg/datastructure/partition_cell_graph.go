@@ -19,10 +19,11 @@ type CellGraph struct {
 	begin, end Index   // begin and end index in vIds that contains vertices in this recursive bisection cell, such that vIds[begin:end] contains all vertices in this recursive bisection cell.
 	gv         []Index // map from road network Graph (in graph.go) vertex id to recursive bisection cell vertex id. such that vIds[gv[i]+begin] = i, for all i.
 	// Compressed Sparse Row Graph https://ocw.mit.edu/courses/6-172-performance-engineering-of-software-systems-fall-2018/f58df934e205b870e473c2af3fe5e6f7_MIT6_172F18_lec22.pdf
-	heads    []Index // maps from outgoing edge (u,v) id to head vertex v sorted by tail u.
-	tails    []Index // maps from reversed edge (v,u) id to tail vertex u sorted by head v.
+	heads    []Index // map from outgoing edge (u,v) id to head vertex v sorted by tail u.
+	tails    []Index // map from reversed edge (v,u) id to tail vertex u sorted by head v.
 	firstOut []Index // first offset of outgoing edge (u,v) of vertex u.
-	firstIn  []Index //  first offset of reversed edge (v,u) of vertex v.
+	firstIn  []Index // first offset of reversed edge (v,u) of vertex v.
+	eRevs    []Index // map from reversed edge (v,u) id to outgoing edge (u,v) id. this is used for residual graph in network flow dinic_unit.go
 
 	// edge (u,v) is inside recursive bisection cell iff tail vertex u and head vertex v inside this recursive bisection cell.
 	g *Graph // road network Graph (in graph.go).
@@ -87,14 +88,20 @@ func (c *CellGraph) GetGraphVertexId(v Index) Index {
 	return c.vIds[c.begin+v]
 }
 
-func (c *CellGraph) OutEdge(u, i Index) Index {
+// OutEdge i-th edge (u,v) of vertex u. return v, its edge (u, v) id, and just dummy value.
+func (c *CellGraph) OutEdge(u, i Index) (Index, Index, Index) {
 	e := c.firstOut[u] + i
-	return c.heads[e]
+	return c.heads[e], e, 0
 }
 
-func (c *CellGraph) InEdge(u, i Index) Index {
+// OutEdge i-th reversed edge (u,v) of vertex u. return v, its reversed edge (u, v) id, and edge (v, u) id
+func (c *CellGraph) InEdge(u, i Index) (Index, Index, Index) {
 	e := c.firstIn[u] + i
-	return c.tails[e]
+	return c.tails[e], e, c.eRevs[e]
+}
+
+func (c *CellGraph) EdgesCount() Index {
+	return Index(len(c.heads))
 }
 
 func (c *CellGraph) OutDegree(u Index) Index {
@@ -234,12 +241,15 @@ func (c *CellGraph) buildFlowGraph(us []Index) {
 	}
 
 	c.tails = make([]Index, m)
+	c.eRevs = make([]Index, m)
 	// place the reversed edges using the prefix sum result
 	for u := Index(0); u < nPrime; u++ {
 		for j := c.firstOut[u]; j < c.firstOut[u+1]; j++ {
 			v := c.heads[j]
 			c.firstIn[v]--
-			c.tails[c.firstIn[v]] = u
+			eRev := c.firstIn[v]
+			c.tails[eRev] = u
+			c.eRevs[eRev] = j
 		}
 	}
 }
