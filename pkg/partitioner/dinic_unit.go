@@ -156,7 +156,7 @@ func (dmf *DinicUnitMaxFlow) ComputeMaxflowMinCut() *MinCut {
 	for dmf.bfsLevelGraph() {
 		// ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 		// for unit capacity graph (see Theorem 3.3 ref1):
-		// dinic algorithm terminates in O(min{sqrt(m), n^(2/3)})
+		// dinic algorithm terminates in O(min{sqrt(m), n^(2/3)}) iterations
 		dmf.resetCurrentEdges()
 		blockingFlowVal := dmf.blockingFlow() // O(m) Lemma 4.2 ref1
 		maxFlow += blockingFlowVal
@@ -196,7 +196,7 @@ func (dmf *DinicUnitMaxFlow) makeMinCutFlags(minCut *MinCut, maxflow int32) {
 	for u := da.Index(0); u < n; u++ {
 		if dmf.level[u] != INVALID_LEVEL {
 			// https://www.cs.princeton.edu/courses/archive/fall14/cos226/lectures/64MaxFlow.pdf
-			// partisi S = semua vertices connected to s by an undirected path with no full forward edges (full fe = its residual capacity = 0 ) or empty backward edges (empty be = its residual capacity = 0 )
+			// cell S = semua vertices connected to s by an undirected path with no full forward edges (full fe = its residual capacity = 0 ) or empty backward edges (empty be = its residual capacity = 0 )
 			minCut.SetFlag(u, true)
 		} else {
 			minCut.numNodesInPartitionTwo++

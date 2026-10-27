@@ -135,8 +135,8 @@ func (c *CellGraph) insideCell(v, vv, cellLen Index) bool {
 	return v < cellLen && c.vIds[c.begin+v] == vv
 }
 
-// is exists reversed edge (v, u)
-func revEdgeExists(u, v Index, adjList [][]Index) bool {
+// antiParallelExists is exists anti-parallel edge (v, u).
+func antiParallelExists(u, v Index, adjList [][]Index) bool {
 	for _, w := range adjList[v] {
 		if w == u {
 			return true
@@ -157,7 +157,7 @@ const (
 	invalidVPrime Index = 2e9
 )
 
-// buildFlowGraph build directed network flow graph (with its reversed edges for the residual graph) from road network graph
+// buildFlowGraph build directed network flow graph (with its reversed edges for the residual graph) from the road network graph that contained in this recursive bisection cell.
 // handle anti-parallel edge (u,v) (with u < v and there exists to edge (v, u)) of road network graph by adding new vertex v'
 // , and replace edge (u,v) by pair of edges (u, v') and (v', v)..
 // read CLRS 3rd ed. section 26.1 figure 26.2
@@ -198,7 +198,7 @@ func (c *CellGraph) buildFlowGraph(us []Index) {
 
 	for u := Index(0); u < n; u++ {
 		for _, v := range adjList[u] {
-			if exists := revEdgeExists(u, v, adjList); exists && u < v {
+			if exists := antiParallelExists(u, v, adjList); exists && u < v {
 				// has anti-parallel edge (v, u)
 				vPrime := vPrimeOffset
 				apes = append(apes, antiParallelEdge{u, v, vPrime})
@@ -219,6 +219,7 @@ func (c *CellGraph) buildFlowGraph(us []Index) {
 	}
 
 	// build the offset array for all auxilary vertices v' (for the anti-parallel edges)
+	// each auxiliary vertex v' only has one edge (v', v)
 	for vPrime := n; vPrime < n+nPrime; vPrime++ {
 		c.firstOut[vPrime+1] = c.firstOut[vPrime] + 1
 	}

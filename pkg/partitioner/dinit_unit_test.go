@@ -71,7 +71,7 @@ func buildCellGraph(t *testing.T, n int, adjList [][]pairEdge) (*da.Graph, *da.C
 
 // TestDinicUnitMaxFlow tests DinicUnitMaxFlow using table-driven tests.
 func TestDinicUnitMaxFlow(t *testing.T) {
-	// Node indices for Figure 26.3 test case:  https://www.cl.cam.ac.uk/teaching/1415/Algorithms/flowcut.pdf
+	// Node indices for Figure 26.3 test case:  https://www.cl.cam.ac.uk/teaching/1415/Algorithms/flowcut.pdf (all non-artificial edge capacities are set to unit capacity 1)
 	// Sources: s1=0, s2=1, s3=2, s4=3, s5=4
 	// Intermediate vertices: v1=5, v2=6, v3=7, v4=8
 	// Sinks: t1=9, t2=10, t3=11
@@ -109,7 +109,7 @@ func TestDinicUnitMaxFlow(t *testing.T) {
 		wantCutEdges          map[[2]da.Index]bool
 	}{
 		{
-			name:         "Figure26_3_CLRS_3ed", //  https://www.cl.cam.ac.uk/teaching/1415/Algorithms/flowcut.pdf or CLRS 3ed
+			name:         "Figure26_3_CLRS_3ed", //  https://www.cl.cam.ac.uk/teaching/1415/Algorithms/flowcut.pdf or CLRS 3ed (all non-artificial edge capacities are set to unit capacity 1)
 			numVertices:  nFigure26_3,
 			wantNumEdges: 14,
 			adjList: [][]pairEdge{
@@ -185,15 +185,12 @@ func TestDinicUnitMaxFlow(t *testing.T) {
 
 			gotCutEdges := make(map[[2]da.Index]bool)
 			for u := da.Index(0); u < da.Index(tc.numVertices); u++ {
-				if !minCut.GetFlag(u) {
-					continue
-				}
 
 				cg.ForEdgesOf(u, func(v da.Index, out bool) {
-					uInS, uInT := minCut.GetFlag(u), !minCut.GetFlag(u)
-					vInS, vInT := minCut.GetFlag(v), !minCut.GetFlag(v)
+					uInS := minCut.GetFlag(u)
+					vInT := !minCut.GetFlag(v)
 
-					if (uInS && vInT) || (uInT && vInS) {
+					if out && (uInS && vInT) {
 						gotCutEdges[[2]da.Index{u, v}] = true
 					}
 				})
