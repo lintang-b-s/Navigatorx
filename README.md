@@ -31,7 +31,7 @@ sh scripts/build_pgo.sh
 
 ### Pre-processing
 
-run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) algorithm is available. The CRP pre-processing phase creates multilevel partitions using Inertial Flow Algorithm ([[4]](#ref4)) and overlay graph data structures. The preprocessing phase may require an amount of RAM up to 10-15 times the size of the .osm.pbf file.
+run a preprocessing phase to speed up point-to-point fastest path queries. In the current implementation, only the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) algorithm is available. The CRP pre-processing phase creates multilevel partitions using Inertial Flow Algorithm ([[4]](#ref4)) and overlay graph data structures. The preprocessing phase may require an amount of RAM up to 10-14 times the size of the .osm.pbf file.
 
 ```
 go build -o ./bin/preprocessor ./cmd/preprocessor

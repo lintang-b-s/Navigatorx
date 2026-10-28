@@ -12,7 +12,7 @@ type DinicUnitMaxFlow struct {
 	flows *bitset.BitSet // 1-unit flows for each edges indexed by edge id. https://abseil.io/fast/hints.html#bit-vectors-instead-of-sets
 
 	level      []da.Index
-	levelQueue []da.Index
+	levelQueue *da.Queue[da.Index]
 	last       []da.Index
 	sources    []da.Index
 	isSink     *bitset.BitSet
@@ -30,7 +30,7 @@ func NewDinicUnitMaxFlow(n int, g *da.CellGraph) *DinicUnitMaxFlow {
 		n:          da.Index(n),
 		last:       make([]da.Index, n),
 		level:      make([]da.Index, n),
-		levelQueue: make([]da.Index, 0, n),
+		levelQueue: da.NewQueue[da.Index](n),
 		flows:      flows,
 		sources:    make([]da.Index, 0),
 		isSink:     bitset.New(uint(n)),
@@ -51,18 +51,20 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 		dmf.level[i] = InvalidLevel
 	}
 
-	queue := dmf.levelQueue[:0]
+	queue := dmf.levelQueue
+	queue.Reset() // reset circular queue first
 	for _, ss := range dmf.sources {
 		if dmf.level[ss] == InvalidLevel {
 			// directly bfs from multi-sources instead of super-source
 			dmf.level[ss] = 0
-			queue = append(queue, ss)
+			// queue = append(queue, ss)
+			queue.Push(ss)
 		}
 	}
 
 	reachedSink := false
-	for head := 0; head < len(queue); head++ {
-		u := queue[head]
+	for !queue.IsEmpty() {
+		u, _ := queue.Pop()
 		if dmf.isSink.Test(uint(u)) {
 			// reached sink u
 			// we dont need to traverse artificial edge (u,t), where t is the super-sink
@@ -78,7 +80,7 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 			if dmf.level[v] == InvalidLevel && dmf.residual(e, eRev, rev) {
 				nextLevel := dmf.level[u] + 1
 				dmf.level[v] = nextLevel
-				queue = append(queue, v)
+				queue.Push(v)
 			}
 		}
 	}
