@@ -48,7 +48,7 @@ func TestPreprocessorSimple(t *testing.T) {
 			f    *os.File
 		)
 
-		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600) //nolint:gosec // test input file
 		if err != nil {
 			t.Fatalf("could not open test file: %v", err)
 		}
@@ -539,7 +539,7 @@ func TestPreprocessorSimple(t *testing.T) {
 			// cek 4. build overlay graph
 
 			// cek overlay vertices
-			og.ForVertices(func(id da.Index, v da.OverlayVertex) {
+			og.ForVertices(func(_ da.Index, v da.OverlayVertex) {
 				// cek apakah v.neighborOverlayVertex beda cell
 				vCell := v.GetCellNumber()
 
@@ -966,7 +966,7 @@ func TestPreprocessUsingOSMFile(t *testing.T) {
 				t.Errorf("expected edge with osm way id %v road lanes: %v, got: %v", eOsmwayId, roadLane, gotRoadLanes)
 			}
 
-			graph.ForOutEdgesOf(v, func(eId, head da.Index, entryPoint uint8) {
+			graph.ForOutEdgesOf(v, func(eId, head da.Index, _ uint8) {
 				tail := graph.GetTailOfOutedge(eId)
 				if tail != v {
 					t.Errorf("expected tail of outedge (%v, %v): %v, got: %v", v, head, v, tail)
@@ -999,6 +999,11 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 	prep, rn := setup(t, osmFile)
 	graph := prep.GetGraph()
 
+	const (
+		onlyStraightOn = "only_straight_on"
+		noUTurn        = "no_u_turn"
+	)
+
 	type turnRes struct {
 		resType  string
 		fromWay  int64
@@ -1021,7 +1026,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 	}{
 		{
 			name:                 "only_straight_on Jl. Cik di tiro -> Jl. Suroto https://www.openstreetmap.org/relation/19474168",
-			turnRestriction:      turnRes{resType: "only_straight_on", fromWay: 1001303581, via: 1664585451, toWay: 1001305074},
+			turnRestriction:      turnRes{resType: onlyStraightOn, fromWay: 1001303581, via: 1664585451, toWay: 1001305074},
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     false,
@@ -1076,7 +1081,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/13427535",
-			turnRestriction:      newResTurn("no_u_turn", 153821715, 1001303583, 1001303581, true), // ini via nya osm way
+			turnRestriction:      newResTurn(noUTurn, 153821715, 1001303583, 1001303581, true), // ini via nya osm way
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1085,7 +1090,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/16312684",
-			turnRestriction:      newResTurn("no_u_turn", 385235940, 3885907857, 179907370, false), // ini via nya osm node
+			turnRestriction:      newResTurn(noUTurn, 385235940, 3885907857, 179907370, false), // ini via nya osm node
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1094,7 +1099,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/13632293",
-			turnRestriction:      newResTurn("no_u_turn", 1464214756, 385235941, 1018193254, true),
+			turnRestriction:      newResTurn(noUTurn, 1464214756, 385235941, 1018193254, true),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1103,7 +1108,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "no_u_turn https://www.openstreetmap.org/relation/4763181",
-			turnRestriction:      newResTurn("no_u_turn", 561138356, 323932428, 323932427, true),
+			turnRestriction:      newResTurn(noUTurn, 561138356, 323932428, 323932427, true),
 			wantAllowedLeftTurn:  true,
 			wantAllowedRightTurn: true,
 			wantAllowedUTurn:     false,
@@ -1148,7 +1153,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 		{
 
 			name:                 "only_straight_on https://www.openstreetmap.org/relation/19516443",
-			turnRestriction:      newResTurn("only_straight_on", 814045726, 5625991672, 729792830, false),
+			turnRestriction:      newResTurn(onlyStraightOn, 814045726, 5625991672, 729792830, false),
 			wantAllowedLeftTurn:  false,
 			wantAllowedRightTurn: false,
 			wantAllowedUTurn:     false,
@@ -1177,7 +1182,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 	isCorrect := func(turnSign da.TurnType, wantAllowedLeftTurn, wantAllowedRightTurn, wantAllowedUTurn, wantAllowedContinue bool, restrictionType string) (string, bool) {
 		switch turnSign {
 		case da.TURN_RIGHT, da.TURN_SHARP_RIGHT, da.TURN_SLIGHT_RIGHT:
-			if restrictionType == "only_straight_on" && turnSign == da.TURN_SLIGHT_RIGHT {
+			if restrictionType == onlyStraightOn && turnSign == da.TURN_SLIGHT_RIGHT {
 				return "", true
 			}
 			if !wantAllowedRightTurn {
@@ -1185,10 +1190,10 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 			}
 		case da.TURN_LEFT, da.TURN_SHARP_LEFT, da.TURN_SLIGHT_LEFT:
 
-			if restrictionType == "only_straight_on" && turnSign == da.TURN_SLIGHT_LEFT {
+			if restrictionType == onlyStraightOn && turnSign == da.TURN_SLIGHT_LEFT {
 				return "", true
-			} else if restrictionType == "no_u_turn" && turnSign == da.TURN_SHARP_RIGHT && !wantAllowedUTurn {
-				return "no_u_turn", false
+			} else if restrictionType == noUTurn && turnSign == da.TURN_SHARP_RIGHT && !wantAllowedUTurn {
+				return noUTurn, false
 			}
 
 			if !wantAllowedLeftTurn {
@@ -1200,7 +1205,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 			}
 		case da.U_TURN_RIGHT:
 			if !wantAllowedUTurn {
-				return "no_u_turn", false
+				return noUTurn, false
 			}
 
 		// skip u_turn dulu karena via nya way (belum support)
@@ -1233,7 +1238,7 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 				uoId := rn.GetOsmWayId(u)
 				_, via := rn.GetTailHeadOsmNodeId(u)
 				if uoId == uint64(rest.fromWay) && via == uint64(rest.via) {
-					graph.ForOutEdgesOf(u, func(eId, v da.Index, _ uint8) {
+					graph.ForOutEdgesOf(u, func(_, v da.Index, _ uint8) {
 
 						voId := rn.GetOsmWayId(v)
 						if voId == uint64(rest.toWay) {

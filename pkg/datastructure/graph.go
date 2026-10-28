@@ -32,7 +32,7 @@ type Graph struct {
 	overlayVertices  map[SubVertex]Index // graph vertices -> overlay vertices  // todo: ini kayake bisa dioptimize dengan gak pakai hashmap, tinggal simpan entry (& exit) cell vertices di Cell struct, dan kasih offset buat setiap graph vertex??
 	cellNumbers      []Pv                // cellNumbers contains all unique bitpacked cell numbers from level 0->L for each vertex.
 	vertexCellOffset []Index             // offset of first vertex for each cellNumber
-	// vertices is sorted by its vertex cell id.... in such a way that all vertices within a cell have sequential IDs within the vertices slice.
+	// vertices is sorted by its vertex cell id.... in such a way that all vertices within a cell have sequential Ids within the vertices slice.
 	// vertexCellOffset is a map from cellNumber to first vertex id in vertices that contained in this cell with id=cellNumber.
 	// code for sorting vertices by its vertex cell id is in SortByCellNumber() in preprocessor.go
 

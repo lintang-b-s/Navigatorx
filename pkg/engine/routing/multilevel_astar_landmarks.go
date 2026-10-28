@@ -299,10 +299,10 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 	u := bs.engine.adjustoffsetOverlay(uOv)
 	uCost := pq.GetCost(uOv)
 
-	ovOffset, wOffset, eNum, numExit := bs.engine.overlayGraph.NumOfShortcuts(u, uQueryLevel, forw)
+	ovOffset, wOffset, eNum, exitNum := bs.engine.overlayGraph.NumOfShortcuts(u, uQueryLevel, forw)
 
 	for i := da.Index(0); i < eNum; i++ {
-		v, ewOffset := bs.engine.GetOV(ovOffset, wOffset, numExit, i, forw)
+		v, ewOffset := bs.engine.GetOV(ovOffset, wOffset, exitNum, i, forw)
 		shortcutWeight := bs.engine.metrics.GetShortcutWeight(ewOffset)
 		newVCost := uCost + shortcutWeight
 		vOv := bs.engine.offsetOverlay(v)

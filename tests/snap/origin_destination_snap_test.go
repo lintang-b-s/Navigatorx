@@ -117,7 +117,9 @@ func TestOriginDestinationSnap(t *testing.T) {
 	rn := re.GetRoadNetworkContainer()
 
 	rtreeb := spatialindex.NewRtree()
-	rtreeb.Build(re.GetGraph(), rn, logger)
+	if err := rtreeb.Build(re.GetGraph(), rn, logger); err != nil {
+		t.Fatal(err)
+	}
 	rtree, err := spatialindex.ReadRtreeFromFile(logger)
 	if err != nil {
 		logger.Fatal(err.Error())
@@ -179,6 +181,7 @@ func TestOriginDestinationSnap(t *testing.T) {
 		i++
 	}
 
+	const jalanPandegaMarta = "Jalan Pandega Marta"
 	testCases := []struct {
 		name                  string
 		queryOriginCoord      da.Coordinate
@@ -190,14 +193,14 @@ func TestOriginDestinationSnap(t *testing.T) {
 			name:                  "Kebab Morgan Jl. Pandega Marta https://www.openstreetmap.org/way/132780420  -> Jalan Malioboro (openstreetmap.org/way/357658484)",
 			queryOriginCoord:      da.NewCoordinate(-7.755813, 110.376565),
 			queryDestinationCoord: da.NewCoordinate(-7.795240, 110.365404),
-			wantOrigin:            "Jalan Pandega Marta",
+			wantOrigin:            jalanPandegaMarta,
 			wantDestination:       "Jalan Malioboro",
 		},
 		{
 			name:                  "Kebab Morgan Jl. Pandega Marta https://www.openstreetmap.org/way/132780420  -> jalan Sains FMIPA UGM https://www.openstreetmap.org/way/194146659",
 			queryOriginCoord:      da.NewCoordinate(-7.755813, 110.376565),
 			queryDestinationCoord: da.NewCoordinate(-7.767855, 110.376506),
-			wantOrigin:            "Jalan Pandega Marta",
+			wantOrigin:            jalanPandegaMarta,
 			wantDestination:       "Jalan Sains",
 		},
 
@@ -205,7 +208,7 @@ func TestOriginDestinationSnap(t *testing.T) {
 			name:                  "Kebab Morgan Jl. Pandega Marta https://www.openstreetmap.org/way/132780420  -> jalan Lempuyangan https://www.openstreetmap.org/way/301793294",
 			queryOriginCoord:      da.NewCoordinate(-7.755813, 110.376565),
 			queryDestinationCoord: da.NewCoordinate(-7.790425, 110.375894),
-			wantOrigin:            "Jalan Pandega Marta",
+			wantOrigin:            jalanPandegaMarta,
 			wantDestination:       "Jalan Lempuyangan",
 		},
 

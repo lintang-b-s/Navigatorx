@@ -58,68 +58,67 @@ func (st *SegmentTree) conquer(a, b int64) int64 {
 			return a
 		}
 		return b
-	} else {
-		if a > b {
-			return a
-		}
-		return b
 	}
+	if a > b {
+		return a
+	}
+	return b
 }
 
-func (st *SegmentTree) build(parent, L, R int) {
-	if L == R {
-		st.st[parent] = st.A[L]
+func (st *SegmentTree) build(parent, l, r int) {
+	if l == r {
+		st.st[parent] = st.A[l]
 	} else {
-		mid := (L + R) / 2
-		st.build(st.leftChild(parent), L, mid)
-		st.build(st.rightChild(parent), mid+1, R)
+		mid := (l + r) / 2
+		st.build(st.leftChild(parent), l, mid)
+		st.build(st.rightChild(parent), mid+1, r)
 		st.st[parent] = st.conquer(st.st[st.leftChild(parent)], st.st[st.rightChild(parent)])
 	}
 }
 
-func (st *SegmentTree) propagate(parent, L, R int) {
+func (st *SegmentTree) propagate(parent, l, r int) {
 	if st.lazy[parent] != -1 {
 		// parent has a lazy flag
 		st.st[parent] = st.lazy[parent]
 
-		if L != R {
+		if l != r {
 			st.lazy[st.rightChild(parent)] = st.lazy[parent]
 			st.lazy[st.leftChild(parent)] = st.lazy[parent]
 		} else {
-			st.A[L] = st.lazy[parent]
+			st.A[l] = st.lazy[parent]
 		}
 
 		st.lazy[parent] = -1.0
 	}
 }
 
-func (st *SegmentTree) rmq(parent, L, R, i, j int) int64 {
+func (st *SegmentTree) rmq(parent, l, r, i, j int) int64 {
 	// O(log n)
-	st.propagate(parent, L, R)
+	st.propagate(parent, l, r)
 	if i > j {
 		return -1.0
 	}
-	if (i <= L) && (j >= R) {
+	if (i <= l) && (j >= r) {
 		return st.st[parent]
 	}
-	mid := (L + R) / 2
-	return st.conquer(st.rmq(st.leftChild(parent), L, mid, i, min(j, mid)),
-		st.rmq(st.rightChild(parent), mid+1, R, max(i, mid+1), j))
+	mid := (l + r) / 2
+	return st.conquer(st.rmq(st.leftChild(parent), l, mid, i, min(j, mid)),
+		st.rmq(st.rightChild(parent), mid+1, r, max(i, mid+1), j))
 }
 
-func (st *SegmentTree) updateRange(parent, L, R, i, j int, val int64) {
+func (st *SegmentTree) updateRange(parent, l, r, i, j int, val int64) {
 	// O(log n)
-	st.propagate(parent, L, R)
+	st.propagate(parent, l, r)
 	if i > j {
 		return
 	}
-	if (i <= L) && (j >= R) {
+	if (i <= l) && (j >= r) {
 		st.lazy[parent] = val
-		st.propagate(parent, L, R)
+		st.propagate(parent, l, r)
 	} else {
-		mid := (L + R) / 2
-		st.updateRange(st.leftChild(parent), L, mid, i, min(mid, j), val)
-		st.updateRange(st.rightChild(parent), mid+1, R, max(i, mid+1), j, val)
+		mid := (l + r) / 2
+		st.updateRange(st.leftChild(parent), l, mid, i, min(mid, j), val)
+		st.updateRange(st.rightChild(parent), mid+1, r, max(i, mid+1), j, val)
 
 		var left, right int64
 		if st.lazy[st.leftChild(parent)] != -1 {
@@ -137,19 +136,19 @@ func (st *SegmentTree) updateRange(parent, L, R, i, j int, val int64) {
 	}
 }
 
-func NewSegmentTree(A []int64, minimum bool) *SegmentTree {
-	lazy := make([]int64, 4*len(A))
+func NewSegmentTree(a []int64, minimum bool) *SegmentTree {
+	lazy := make([]int64, 4*len(a))
 	for i := range lazy {
 		lazy[i] = -1.0
 	}
 	st := &SegmentTree{
-		n:       len(A),
-		A:       A,
-		st:      make([]int64, 4*len(A)),
+		n:       len(a),
+		A:       a,
+		st:      make([]int64, 4*len(a)),
 		lazy:    lazy,
 		minimum: minimum,
 	}
-	st.build(1, 0, len(A)-1) // O(n)
+	st.build(1, 0, len(a)-1) // O(n)
 	return st
 }
 
@@ -179,7 +178,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -357,7 +356,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 	// assert expected output dari test cases soal
 
-	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0600)
+	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -370,7 +369,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	var expectedSPLength float64 = 0
+	var expectedSPLength float64
 	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
 	if err != nil {
 		t.Fatalf("err: %v", err)

@@ -41,7 +41,7 @@ func TestBinaryWriterWriteFloat64s(t *testing.T) {
 	tests := [][]float64{
 		{},
 		{1.5, math.Copysign(0, -1), math.Inf(1), math.Inf(-1), -123.456},
-		make([]float64, (CHUNK_SIZE/8)+25),
+		make([]float64, (ChunkSize/8)+25),
 	}
 	for i := range tests[2] {
 		tests[2][i] = float64(i) * 1.5
@@ -102,7 +102,7 @@ func TestBinaryWriterWriteInt32s(t *testing.T) {
 	tests := [][]int32{
 		{},
 		{0, -1, 1, math.MinInt32, math.MaxInt32},
-		make([]int32, (CHUNK_SIZE/4)+25),
+		make([]int32, (ChunkSize/4)+25),
 	}
 	for i := range tests[2] {
 		tests[2][i] = int32(i*3 - 100)
@@ -115,7 +115,7 @@ func TestBinaryWriterWriteUint32s(t *testing.T) {
 	tests := [][]uint32{
 		{},
 		{0, 1, 42, math.MaxUint32},
-		make([]uint32, (CHUNK_SIZE/4)+25),
+		make([]uint32, (ChunkSize/4)+25),
 	}
 	for i := range tests[2] {
 		tests[2][i] = uint32(i * 7)
@@ -128,7 +128,7 @@ func TestBinaryWriterWriteUint64s(t *testing.T) {
 	tests := [][]uint64{
 		{},
 		{0, 1, math.MaxUint64},
-		make([]uint64, (CHUNK_SIZE/8)+25),
+		make([]uint64, (ChunkSize/8)+25),
 	}
 	for i := range tests[2] {
 		tests[2][i] = uint64(i * 13)
@@ -142,7 +142,7 @@ func TestBinaryWriterWriteInt64s(t *testing.T) {
 	tests := [][]int64{
 		{},
 		{0, -1, 1, math.MinInt64, math.MaxInt64},
-		make([]int64, (CHUNK_SIZE/8)+25),
+		make([]int64, (ChunkSize/8)+25),
 	}
 	for i := range tests[2] {
 		tests[2][i] = int64(i*17 - 500)
@@ -155,7 +155,7 @@ func TestBinaryWriterWriteUint16s(t *testing.T) {
 	tests := [][]uint16{
 		{},
 		{0, 1, 42, math.MaxUint16},
-		make([]uint16, (CHUNK_SIZE/2)+25),
+		make([]uint16, (ChunkSize/2)+25),
 	}
 	for i := range tests[2] {
 		tests[2][i] = uint16(i * 3)
@@ -168,7 +168,7 @@ func TestBinaryWriterWriteInts(t *testing.T) {
 	tests := [][]int{
 		{},
 		{0, -1, 1, -123456789, 123456789},
-		make([]int, (CHUNK_SIZE/8)+25),
+		make([]int, (ChunkSize/8)+25),
 	}
 	for i := range tests[2] {
 		tests[2][i] = i*19 - 1000

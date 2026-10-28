@@ -33,7 +33,10 @@ func BenchmarkAlternativeRoutesService(b *testing.B) {
 	re := eng.GetRoutingEngine()
 	rn := re.GetRoadNetworkContainer()
 	rtree := spatialindex.NewRtree()
-	rtree.Build(re.GetGraph(), rn, logger)
+	err := rtree.Build(re.GetGraph(), rn, logger)
+	if err != nil {
+		b.Fatal(err)
+	}
 	rs, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.05, true)
 	if err != nil {
 		b.Fatal(err)

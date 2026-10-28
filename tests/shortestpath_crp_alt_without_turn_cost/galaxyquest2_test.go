@@ -118,7 +118,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 	)
 
 	// filepath = "../shortestpath/data/tests/shortestpath/icpc_nwerc2023_galaxyquest/secret/41-random"
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -297,7 +297,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 				t.Fatalf("err: %v", err)
 			}
 
-			var expectedAns float64 = 0
+			var expectedAns float64
 			if _, err = fmt.Sscanf(line, "%f", &expectedAns); err != nil {
 				t.Fatalf("err parsing expected answer: %v", err)
 			}
@@ -315,7 +315,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 func TestCRPQueryGalaxyQuestMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/icpc_nwerc2023_galaxyquest/"
-	testDirs := []string{"sample", "secret"}
+	testDirs := []string{dirSample, dirSecret}
 
 	for _, dir := range testDirs {
 		fullDir := filepath.Join(dirPath, dir)

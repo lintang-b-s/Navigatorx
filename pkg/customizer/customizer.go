@@ -195,7 +195,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	c.Build(wf)
 	c.logger.Sugar().Infof("Writing metrics data...")
-	m = met.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, c.metricOutputFilePath)
+	m = met.NewMetric(c.timefunctionFilePath, c.ow, c.metricOutputFilePath)
 
 	wg.Wait()
 	err = lm.WriteLandmark(c.landmarkFile, c.graph.NumberOfVertices())
@@ -247,7 +247,7 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	wf := c.prepWeightFunction
 	c.Build(wf)
-	m = met.NewMetric(c.graph.NumberOfVertices(), c.timefunctionFilePath, c.ow, "")
+	m = met.NewMetric(c.timefunctionFilePath, c.ow, "")
 	m.SetTimeFunction(wf)
 	c.logger.Sugar().Infof("Customization step completed successfully.")
 

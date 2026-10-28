@@ -3,14 +3,15 @@ package concurrent
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"sync"
 	"time"
 )
 
 var (
-	// ErrScheduleTimeout is returned when scheduling a task exceeds the specified timeout.
-	ErrScheduleTimeout = fmt.Errorf("schedule timed out")
+	// ErrScheduleTimeout is returned when scheduling a task exceeds
+	// the specified timeout.
+	ErrScheduleTimeout = errors.New("schedule timed out")
 )
 
 // JobFunc represents a function that processes a job of type T and returns a result of type G.

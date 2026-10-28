@@ -2,7 +2,6 @@ package offline
 
 const (
 	MaxSpeedMS                      = 50 // m/s
-	defaultSamplingRate             = 1
 	multiplyDistWith                = 2.0
 	sigmaZ                          = 5.0
 	defaultGPSAccuracyRadiusM       = 7.0

@@ -27,14 +27,14 @@ const (
 	INF = 1e12
 )
 
-func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
+func SolveTheKingOfTheNorth(t *testing.T, fname string) {
 	var (
 		err     error
 		line    string
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath.Clean(fname)+".in", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -196,7 +196,7 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 
 	ans := mf.GetMaxFlow()
 
-	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0600)
+	fOut, err = os.OpenFile(filepath.Clean(fname)+".out", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -215,7 +215,7 @@ func SolveTheKingOfTheNorth(t *testing.T, filepath string) {
 	if ans != expectedAns {
 		t.Fatalf("FAIL: Expected smallest possible army: %v, got: %v", expectedAns, ans)
 	}
-	t.Logf("solved test case: %v", filepath)
+	t.Logf("solved test case: %v", fname)
 }
 
 func TestTheKingOfTheNorth(t *testing.T) {

@@ -205,6 +205,7 @@ func (vi *Viterbi) hmmBreak(forwardProb map[int]float64) bool {
 	return true
 }
 
+// RetrieveMostLikelyStateSequence retrieve most likely state sequence
 func (vi *Viterbi) RetrieveMostLikelyStateSequence() []*State {
 	if len(vi.forwardProb) == 0 || len(vi.lastState) == 0 {
 		return []*State{}

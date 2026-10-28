@@ -23,7 +23,7 @@ type BinaryReader struct {
 
 // NewBinaryReader creates a new BinaryReader with default buffer size.
 func NewBinaryReader(r io.Reader) *BinaryReader {
-	return NewBinaryReaderSize(r, BUFIO_SIZE)
+	return NewBinaryReaderSize(r, BufioSize)
 }
 
 // NewBinaryReaderSize creates a new BinaryReader with a custom buffer size.
@@ -300,7 +300,7 @@ func (r *BinaryReader) ReadInt32Pairs(count int, set func(index int, first, seco
 // readBulk read slice of data with chunking strategy
 // similiar to readUint64Array() in https://github.com/bits-and-blooms/bitset/blob/master/bitset.go
 func (r *BinaryReader) readBulk(count, itemSize int, decode func([]byte, int)) error {
-	numItemsPerChunk := CHUNK_SIZE / itemSize
+	numItemsPerChunk := ChunkSize / itemSize
 	if capacity := numItemsPerChunk * itemSize; cap(r.bulkBuf) < capacity {
 		r.bulkBuf = make([]byte, capacity)
 	}
@@ -380,6 +380,6 @@ func OpenCompressedFile(filename string) (*os.File, *BinaryReader, error) {
 		)
 	}
 	compressed := s2.NewReader(file)
-	buffered := bufio.NewReaderSize(compressed, BUFIO_SIZE)
+	buffered := bufio.NewReaderSize(compressed, BufioSize)
 	return file, NewBinaryReader(buffered), nil
 }

@@ -5,6 +5,7 @@ import (
 	"sync"
 )
 
+// Progress tracks and prints percentage-based completion progress.
 type Progress struct {
 	mu        sync.Mutex
 	total     int
@@ -12,10 +13,12 @@ type Progress struct {
 	percent   int
 }
 
+// NewProgress creates a new Progress tracker with the given total count.
 func NewProgress(total int) *Progress {
 	return &Progress{total: total, percent: 4}
 }
 
+// Add records completed work items and prints progress milestones.
 func (p *Progress) Add(vertices int) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
@@ -28,6 +31,7 @@ func (p *Progress) Add(vertices int) {
 	}
 }
 
+// Finish completes the progress output by printing a trailing newline.
 func (p *Progress) Finish() {
 	fmt.Println()
 }

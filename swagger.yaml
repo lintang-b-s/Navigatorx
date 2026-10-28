@@ -555,7 +555,7 @@ components:
           description: Encoded polyline geometry for the annotated route.
         edge_ids:
           type: array
-          description: Road-segment IDs for each edge in the annotation.
+          description: Road-segment Ids for each edge in the annotation.
           items:
             type: integer
             format: int32

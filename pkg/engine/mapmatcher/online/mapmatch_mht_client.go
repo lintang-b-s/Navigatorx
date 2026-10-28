@@ -70,6 +70,9 @@ value L_u after filtering.
 
 */
 
+// OnlineMapMatchMHTClient performs online map matching using the Multiple Hypothesis Technique.
+//
+//nolint:revive // stutters with package name online
 type OnlineMapMatchMHTClient struct {
 	g                 *da.DynamicGraph
 	rt                *spatialindex.DynamicRtree
@@ -83,6 +86,7 @@ type OnlineMapMatchMHTClient struct {
 	N                 *da.SparseMatrix
 }
 
+// NewOnlineMapMatchMHTClient creates a new OnlineMapMatchMHTClient instance.
 func NewOnlineMapMatchMHTClient(graph *da.DynamicGraph, rt *spatialindex.DynamicRtree, initialSpeedMean, initialSpeedStd float64,
 	posteriorThresold, gpsStd, lp, lc, accelerationStd float64,
 	n *da.SparseMatrix) *OnlineMapMatchMHTClient {
@@ -100,13 +104,13 @@ func NewOnlineMapMatchMHTClient(graph *da.DynamicGraph, rt *spatialindex.Dynamic
 	}
 }
 
-// OnlineMapMatch. perform online map matching using Multiple Hypothesis Technique
+// OnlineMapMatch performs online map matching using Multiple Hypothesis Technique.
 // speed in meter/s, arc length in meter, k is current time step (1-based)
 // Algorithm 1 in ref[1]
 // O( b^{d_p}), b=avg outDegree of any vertex in the graph, d_p=maxVelocity*sampling interval/avgSegmentLength [1]
 // candidates segmentId dan matchedSegment segmentId  adalah MapMatchGraph edge id
 func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
-	candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
+	candidates []*ma.Candidate, speedMeanK, speedStdK, _ float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64) {
 
 	if k == 1 || len(candidates) == 0 {
 		haveCands := len(candidates) > 0 && k == 1
@@ -114,13 +118,13 @@ func (om *OnlineMapMatchMHTClient) OnlineMapMatch(gps *da.GPSPoint, k int,
 		var nearbyArcs []da.Index
 		/// SearchWithinRadius(gpsCoord, 3) return nearby road segments (dalam bentuk MapMatchGraph SegmentIds)
 		searchRad := om.lc
-		for (haveCands && util.Le(searchRad, MAX_SEARCH_RADIUS_INITIAL)) ||
-			(!haveCands && util.Le(searchRad, MAX_SEARCH_RADIUS)) {
+		for (haveCands && util.Le(searchRad, maxSearchRadiusInitial)) ||
+			(!haveCands && util.Le(searchRad, maxSearchRadius)) {
 			nearbyArcs = om.rt.SearchWithinRadius(gps.Lat(), gps.Lon(), searchRad) // O(M)
 			if len(nearbyArcs) > 0 {
 				break
 			}
-			searchRad *= SEARCH_RADIUS_MULTIPLIER
+			searchRad *= searchRadiusMultiplier
 		}
 
 		sumLength := 0.0
@@ -302,7 +306,7 @@ func (om *OnlineMapMatchMHTClient) filterLog(gps *da.GPSPoint, candidates []*ma.
 
 	if matchedSegment == nil {
 		gpsPoint := da.NewGPSPoint(gps.Lat(), gps.Lon(), gps.Time(), gps.Speed(), gps.DeltaTime())
-		invalidMatchedCoord := da.NewCoordinate(INVALID_LAT, INVALID_LON)
+		invalidMatchedCoord := da.NewCoordinate(invalidLat, invalidLon)
 		matchedSegment = da.NewMatchedGPSPoint(gpsPoint, da.INVALID_SEGMENT_ID, invalidMatchedCoord, 0.0)
 	}
 
@@ -316,7 +320,7 @@ func (om *OnlineMapMatchMHTClient) needToReset(gps *da.GPSPoint, matchedSegment 
 		gpsLat, gpsLon,
 		matchCoord.GetLat(), matchCoord.GetLon(),
 	))
-	return util.Gt(dist, DISTANCE_RESET_THRESHOLD)
+	return util.Gt(dist, distanceResetThreshold)
 }
 
 // computeEmissionLogProb. logarithm of equation [1]  in https://www.microsoft.com/en-us/research/wp-content/uploads/2016/12/map-matching-ACM-GIS-camera-ready.pdf

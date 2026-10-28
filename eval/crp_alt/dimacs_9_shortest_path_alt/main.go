@@ -112,7 +112,7 @@ func main() {
 	inputQueriesPath := resolveProjectPath(workingDir, *inputSSQueriesFilePath)
 	outputPath := resolveProjectPath(workingDir, *outputFileName)
 
-	f, err = os.OpenFile(inputCoordPath, os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath.Clean(inputCoordPath), os.O_RDONLY, 0600)
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("could not open test file: %v", inputCoordPath))
 	}
@@ -124,26 +124,26 @@ func main() {
 	for i := 0; i < 4; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
 	line, err = util.ReadLine(br)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	ff := util.Fields(line)
 	n, err := util.ParseTextInt(ff[4]) // number of vertices
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
@@ -153,20 +153,20 @@ func main() {
 	for v := 0; v < n; v++ { // vertex id 0 dummy vertex.. id vertex dari file dimacs mulai dari 1
 		line, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		ff := util.Fields(line)
 		id, err := util.ParseTextInt(ff[1])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		x, err := util.ParseTextInt(ff[2])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		y, err := util.ParseTextInt(ff[3])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		// di navigatorx versi v0.1.2, weight dari setiap edges pakai tipe generic util.Numeric
 		// dan untuk koordinat dari setiap node, kita pakai int32 (lat * 10^7, lon * 10^7) untuk input openstreetmap, buat save space kaya osrm.
@@ -187,26 +187,26 @@ func main() {
 	for i := 0; i < 4; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
 	line, err = util.ReadLine(br)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	ff = util.Fields(line)
 	m, err := util.ParseTextInt(ff[3]) // number of edges
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
@@ -216,20 +216,20 @@ func main() {
 	for i := 0; i < m; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		ff := util.Fields(line)
 		u, err := util.ParseTextInt(ff[1])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		v, err := util.ParseTextInt(ff[2])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		weight, err := util.ParseTextInt(ff[3])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		if weight < minWeight {
 			minWeight = weight
@@ -254,26 +254,26 @@ func main() {
 	for i := 0; i < 5; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
 	line, err = util.ReadLine(br)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	ff = util.Fields(line)
 	q, err := util.ParseTextInt(ff[4]) // number of edges
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
@@ -281,12 +281,12 @@ func main() {
 	for i := 0; i < q; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		ff := util.Fields(line)
 		s, err := util.ParseTextInt(ff[1])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		sources = append(sources, da.Index(s))
 	}
@@ -352,11 +352,11 @@ func main() {
 
 	//	// write to ss correctness output file. see: https://web.archive.org/web/20260516142336/http://www.diag.uniroma1.it/challenge9/format.shtml#ss.chk
 	if err := util.EnsureDirExists(outputPath); err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 	fOut, err = os.Create(outputPath)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 	defer fOut.Close()
 
@@ -387,7 +387,7 @@ func main() {
 	}
 
 	if err = w.Flush(); err != nil {
-		logger.Fatal(fmt.Sprintf("dimacs 9th shortestpath multilevel-alt correctness test: failed to flush bufio writer: %v", err))
+		logger.Fatal(err.Error())
 	}
 
 	logger.Sugar().Infof("done")

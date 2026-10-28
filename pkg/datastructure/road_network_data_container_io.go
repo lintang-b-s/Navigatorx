@@ -229,7 +229,7 @@ func readRoadNetworkDataContainer(r *util.BinaryReader) (*RoadNetworkDataContain
 	if err != nil {
 		return nil, err
 	}
-	osmWayIDs, err := readPackedSlice(r)
+	osmWayIds, err := readPackedSlice(r)
 	if err != nil {
 		return nil, err
 	}
@@ -246,7 +246,7 @@ func readRoadNetworkDataContainer(r *util.BinaryReader) (*RoadNetworkDataContain
 	rn := &RoadNetworkDataContainer{
 		osmNodePoints:           points,
 		osmNodeIds:              osmNodeIds,
-		segmentOsmWayId:         osmWayIDs,
+		segmentOsmWayId:         osmWayIds,
 		osmwayBitSize:           bitSize,
 		segmentStartPointsIndex: make([]Index, metadataCount),
 		segmentEndPointsIndex:   make([]Index, metadataCount),

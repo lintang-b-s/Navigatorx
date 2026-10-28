@@ -20,8 +20,8 @@ import (
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 )
 
-// ini buat dimacs 9th implmenetation challenge correctness test
-func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, Us []int, name string) (*engine.Engine[int64], *da.Graph,
+// BuildCRP builds a CRP engine for DIMACS 9th implementation challenge correctness test.
+func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, us []int, name string) (*engine.Engine[int64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	logger, err := logger.New()
 	if err != nil {
@@ -67,10 +67,10 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, Us []i
 
 	if doPreprocessCustomize {
 
-		ps := make([]int, len(Us))
+		ps := make([]int, len(us))
 
 		for i := 0; i < len(ps); i++ {
-			pow := Us[i]
+			pow := us[i]
 			ps[i] = 1 << pow // 2^pow
 		}
 
@@ -131,22 +131,27 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, Us []i
 	return re, g, oldToNewVIdMap, newToOldVidMap
 }
 
+// QueryParam encapsulates query parameters for evaluation queries.
 type QueryParam struct {
 	i, s, t da.Index
 }
 
+// GetId returns the query parameter index.
 func (q *QueryParam) GetId() da.Index {
 	return q.i
 }
 
+// GetSource returns the source vertex index.
 func (q *QueryParam) GetSource() da.Index {
 	return q.s
 }
 
+// GetTarget returns the target vertex index.
 func (q *QueryParam) GetTarget() da.Index {
 	return q.t
 }
 
+// NewQueryParam creates a new QueryParam with id, source, and target.
 func NewQueryParam(i, s, t da.Index) QueryParam {
 	return QueryParam{i, s, t}
 }

@@ -3,7 +3,6 @@ package query
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"strconv"
 	"testing"
@@ -33,19 +32,20 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 	g := re.GetGraph()
 	rn := re.GetRoadNetworkContainer()
 	rtreeb := spatialindex.NewRtree()
-	rtreeb.Build(g, rn, logger)
+	if err := rtreeb.Build(g, rn, logger); err != nil {
+		t.Fatal(err)
+	}
 	rtree, err := spatialindex.ReadRtreeFromFile(logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.05, true)
+	if err != nil {
+		t.Fatal(err)
+	}
 	ctx, cleanup := router.NewContext(re, routingService)
 	defer cleanup()
 	routingService.InitBackgroundWorker(ctx)
-
-	if err != nil {
-		log.Fatal(err.Error())
-	}
 	type segmentSpeedData struct {
 		fromOsmId int64
 		toOsmId   int64
@@ -274,7 +274,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 		}
 		time.Sleep(3 * time.Second)
 	}
-	valhallaVisualizerPolylineUrl := func(polyline string) string {
+	valhallaVisualizerPolylineURL := func(polyline string) string {
 		return fmt.Sprintf("https://valhalla.github.io/demos/polyline/?unescape=true&polyline6=false#%s", polyline)
 	}
 
@@ -305,9 +305,9 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 					gotPassThrough = true
 				}
 				t.Errorf("expected pass through the updated road segments: %t, got: %t.\n updated road segments: %v .\n reason: %v", beforeCustomizationWantPassThroughTheUpdatedRoadSegments, gotPassThrough,
-					tc.updatedSegmentSpeeds, valhallaVisualizerPolylineUrl(spPolyline))
+					tc.updatedSegmentSpeeds, valhallaVisualizerPolylineURL(spPolyline))
 			} else {
-				t.Logf("before customization/traffic-update route polyline: %s", valhallaVisualizerPolylineUrl(spPolyline))
+				t.Logf("before customization/traffic-update route polyline: %s", valhallaVisualizerPolylineURL(spPolyline))
 			}
 
 			// kustomisasi  kustomisasi pakai segment speeds csv file...
@@ -341,7 +341,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 				spPathAfter = append(spPathAfter, stepSegmentIds...)
 			}
 
-			t.Logf("after customization/traffic-update route polyline: %s", valhallaVisualizerPolylineUrl(spPolyline))
+			t.Logf("after customization/traffic-update route polyline: %s", valhallaVisualizerPolylineURL(spPolyline))
 
 			if reason, correct := isCorrect(spPathAfter, tc.updatedSegmentSpeeds, tc.wantToPassThroughTheUpdatedRoadSegments); !correct {
 				gotPassThrough := false
@@ -349,7 +349,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 					gotPassThrough = true
 				}
 				t.Errorf("expected pass through the updated road segments: %t, got: %t.\n updated road segments: %v .\n reason: %v. polyline: %s", tc.wantToPassThroughTheUpdatedRoadSegments, gotPassThrough,
-					tc.updatedSegmentSpeeds, reason, valhallaVisualizerPolylineUrl(spPolyline))
+					tc.updatedSegmentSpeeds, reason, valhallaVisualizerPolylineURL(spPolyline))
 			}
 		})
 	}
@@ -371,7 +371,7 @@ func WriteUpdatedSegmentsToCSV(filepath string, segments []UpdatedSegment) error
 	if err := util.EnsureDirExists(filepath); err != nil {
 		return fmt.Errorf("WriteUpdatedSegmentsToCSV: %w", err)
 	}
-	f, err := os.Create(filepath)
+	f, err := os.Create(filepath) //nolint:gosec // test helper writing temporary CSV
 	if err != nil {
 		return fmt.Errorf("WriteUpdatedSegmentsToCSV: failed to create file %v: %w", filepath, err)
 	}

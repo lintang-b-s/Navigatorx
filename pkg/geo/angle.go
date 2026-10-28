@@ -103,6 +103,7 @@ func AngleDifference(a, b float64) float64 {
 }
 
 /*
+GetTurnDirection  get turn type of (prev, point, head) turn
 contoh1:
 
 		initial bearing 90°

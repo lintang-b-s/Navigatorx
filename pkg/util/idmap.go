@@ -1,6 +1,6 @@
 package util
 
-// IDMap provides bidirectional mapping between strings and uint32 IDs.
+// IDMap provides bidirectional mapping between strings and uint32 Ids.
 type IDMap struct {
 	strToId map[string]uint32
 	idToStr map[uint32]string
@@ -39,7 +39,7 @@ func (idMap *IDMap) GetStr(id uint32) string {
 	return ""
 }
 
-// GetIdToStr returns the map of IDs to strings.
+// GetIdToStr returns the map of Ids to strings.
 func (idMap *IDMap) GetIdToStr() map[uint32]string {
 	return idMap.idToStr
 }

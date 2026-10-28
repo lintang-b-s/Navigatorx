@@ -33,10 +33,12 @@ func readKeyVal(r *util.BinaryReader, wantKeys int) (KeyVal, error) {
 	return KeyVal{keys: keys, val: Index(v)}, nil
 }
 
+// WriteToFile serializes SegmentKV to the given binary writer.
 func (s *SegmentKV) WriteToFile(w *util.BinaryWriter) error {
 	return s.kv.write(w)
 }
 
+// WriteToFile serializes TurnKV to the given binary writer.
 func (t *TurnKV) WriteToFile(w *util.BinaryWriter) error {
 	return t.kv.write(w)
 }
@@ -57,6 +59,7 @@ func readTurnKVFromFile(r *util.BinaryReader) (*TurnKV, error) {
 	return &TurnKV{kv: kv}, nil
 }
 
+// WriteToFile serializes the LookupTable to a compressed file.
 func (lt *LookupTable[T]) WriteToFile(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 
@@ -99,10 +102,12 @@ func readLookupTableFromFile[T LookupKV[T]](
 	return &LookupTable[T]{data: data}, nil
 }
 
+// ReadSegmentTable reads a SegmentKV LookupTable from file.
 func ReadSegmentTable(filename string) (*LookupTable[*SegmentKV], error) {
 	return readLookupTableFromFile(filename, readSegmentKVFromFile)
 }
 
+// ReadTurnTable reads a TurnKV LookupTable from file.
 func ReadTurnTable(filename string) (*LookupTable[*TurnKV], error) {
 	return readLookupTableFromFile(filename, readTurnKVFromFile)
 }

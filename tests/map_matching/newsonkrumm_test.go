@@ -88,7 +88,7 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 			return fmt.Errorf("download: %w", err)
 		}
 
-		output, err := os.Create(filePath)
+		output, err := os.Create(filePath) //nolint:gosec // test fixture
 		if err != nil {
 			return fmt.Errorf("download: Create failed %w", err)
 		}
@@ -96,7 +96,7 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 
 		t.Logf("downloading file......")
 		zlog.Sugar().Infof("downloading file......")
-		response, err := http.Get(url)
+		response, err := http.Get(url) //nolint:gosec // test fixture
 		if err != nil {
 			return fmt.Errorf("download: http.Get failed %w", err)
 		}
@@ -130,7 +130,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	t.Logf("building road network graph & running preprocessing, customization phase of Customizable Route Planning CRP....")
 	zlog.Sugar().Infof("building road network graph & running preprocessing, customization phase of Customizable Route Planning CRP....")
 
-	f, err := os.OpenFile(roadnetworkFilepath, os.O_RDONLY, 0600)
+	f, err := os.OpenFile(roadnetworkFilepath, os.O_RDONLY, 0600) //nolint:gosec // test fixture
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -367,7 +367,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 func nkReadGPSTrajectory(t *testing.T, gpsDataFilepath string) []*da.GPSPoint {
 	t.Helper()
 
-	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0600)
+	f, err := os.OpenFile(gpsDataFilepath, os.O_RDONLY, 0600) //nolint:gosec // test fixture
 	if err != nil {
 		t.Fatalf("OpenFile(gps) failed: %v", err)
 	}
@@ -422,11 +422,11 @@ func nkReadGPSTrajectory(t *testing.T, gpsDataFilepath string) []*da.GPSPoint {
 	return gpsTraj
 }
 
-func nkEvaluateMatchedRoute(t *testing.T, g *da.Graph, rn *da.RoadNetworkDataContainer, groundTruthDataFilepath string, edgeLength map[uint64]float64,
+func nkEvaluateMatchedRoute(t *testing.T, _ *da.Graph, rn *da.RoadNetworkDataContainer, groundTruthDataFilepath string, edgeLength map[uint64]float64,
 	mapMatchPointResult []*da.MatchedGPSPoint) float64 {
 	t.Helper()
 
-	groundTruthFile, err := os.Open(groundTruthDataFilepath)
+	groundTruthFile, err := os.Open(groundTruthDataFilepath) //nolint:gosec // test fixture
 	if err != nil {
 		t.Fatalf("open ground truth failed: %v", err)
 	}

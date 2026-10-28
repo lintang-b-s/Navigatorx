@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/viper"
 )
 
+// FindProjectWorkingDir finds the root directory of the project containing go.mod.
 func FindProjectWorkingDir() (string, error) {
 	dir, err := os.Getwd()
 	if err != nil {
@@ -30,6 +31,7 @@ func FindProjectWorkingDir() (string, error) {
 	return "", fmt.Errorf("working directory not found")
 }
 
+// ReadConfig reads the default configuration from the working directory.
 func ReadConfig(workingDir string) error {
 	viper.SetConfigName("default")
 	viper.AddConfigPath(workingDir + "/data/")
@@ -43,6 +45,7 @@ func ReadConfig(workingDir string) error {
 	return nil
 }
 
+// ReadProfileConfig reads configuration for a specific profile from the working directory.
 func ReadProfileConfig(workingDir string, profile string) error {
 	viper.SetConfigName(profile)
 	viper.AddConfigPath(workingDir + "/data/")
@@ -56,6 +59,7 @@ func ReadProfileConfig(workingDir string, profile string) error {
 	return nil
 }
 
+// InitConfig initializes the default configuration settings.
 func InitConfig() {
 	workingDir, err := FindProjectWorkingDir()
 	if err != nil {
@@ -72,6 +76,7 @@ func InitConfig() {
 	pkg.MotorizedVehicleEnabled = pkg.GetIsMotorizedVehicle()
 }
 
+// InitProfileConfig initializes configuration settings for a given profile, region, and file type.
 func InitProfileConfig(profileName string, regionName string, fileType pkg.FILE_TYPE) {
 	workingDir, err := FindProjectWorkingDir()
 	if err != nil {
@@ -91,12 +96,14 @@ func InitProfileConfig(profileName string, regionName string, fileType pkg.FILE_
 	pkg.TIPE = fileType
 }
 
+// InitRegionName initializes region settings with the default car profile.
 func InitRegionName(regionName string, fileType pkg.FILE_TYPE) {
 	pkg.ProfileName = "car"
 	pkg.RegionName = regionName
 	pkg.TIPE = fileType
 }
 
+// ProfilesRoot returns the profiles directory path based on the current execution mode.
 func ProfilesRoot() string {
 	var root string
 	switch pkg.TIPE {

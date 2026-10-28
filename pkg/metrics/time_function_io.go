@@ -66,6 +66,7 @@ func ReadNumerics[W util.Numeric](r *util.BinaryReader) ([]W, error) {
 	return vals.([]W), nil
 }
 
+// WriteToFile writes the TimeFunction to a compressed file.
 func (tf *TimeFunction[W]) WriteToFile(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 
@@ -95,6 +96,7 @@ func (tf *TimeFunction[W]) WriteToFile(filename string) error {
 	})
 }
 
+// ReadCostFunctionFromFile reads a TimeFunction from a compressed file.
 func ReadCostFunctionFromFile[W util.Numeric](
 	filename string,
 ) (*TimeFunction[W], error) {

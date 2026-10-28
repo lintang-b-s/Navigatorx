@@ -323,7 +323,7 @@ To index the heap, we use local identifiers (for vertices in the source and targ
 another CRP implementation that implement this optimization: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
 search: "vId -= forwardSOffset;".
 
-this can be done because of graph.vertices is sorted by its vertex level-1 cellNumber, in such a way that vertices located within the same level-1 cell have consecutive IDs.
+this can be done because of graph.vertices is sorted by its vertex level-1 cellNumber, in such a way that vertices located within the same level-1 cell have consecutive Ids.
 */
 
 // mapId maps an input vertex Id into the contiguous offseted index range [0, 2*maxV + numOverlayVertices).

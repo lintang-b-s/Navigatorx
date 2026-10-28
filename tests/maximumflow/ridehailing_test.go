@@ -23,14 +23,14 @@ my c++ solution (got AC on kattis: https://open.kattis.com/problems/ridehailing?
 https://drive.google.com/file/d/11PXNeUQA_0q5rB1sW9xFhfNJn4yj6N56/view?usp=sharing
 // */
 
-func SolveRideHailing(t *testing.T, filepath string) {
+func SolveRideHailing(t *testing.T, fname string) {
 	var (
 		err     error
 		line    string
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath.Clean(fname)+".in", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -213,7 +213,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 	mf := dn.ComputeMaxflowMinCut(source, sink)
 	ans := k - mf.GetMaxFlow()
 
-	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
+	fOut, err = os.OpenFile(filepath.Clean(fname)+".ans", os.O_RDONLY, 0600)
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -232,7 +232,7 @@ func SolveRideHailing(t *testing.T, filepath string) {
 	if ans != expectedAns {
 		t.Fatalf("FAIL: Expected minimum number of drivers: %v, got: %v", expectedAns, ans)
 	}
-	t.Logf("solved test case: %v", filepath)
+	t.Logf("solved test case: %v", fname)
 }
 
 func TestRideHailing(t *testing.T) {

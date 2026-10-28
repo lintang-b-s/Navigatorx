@@ -85,18 +85,22 @@ func NewViaVertex(v da.Index, overlay bool) *ViaVertex {
 	return &ViaVertex{v: v, overlay: overlay}
 }
 
+// GetVId get vertex id
 func (v *ViaVertex) GetVId() da.Index {
 	return v.v
 }
 
+// IsOverlay is boundary/overlay vertex
 func (v *ViaVertex) IsOverlay() bool {
 	return v.overlay
 }
 
+// GetPlateau get plateau value
 func (v *ViaVertex) GetPlateau() float64 {
 	return v.plv
 }
 
+// GetCost get cost of this alternative route s-via-t
 func (v *ViaVertex) GetCost() float64 {
 	return v.lv
 }

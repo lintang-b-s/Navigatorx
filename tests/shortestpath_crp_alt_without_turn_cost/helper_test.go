@@ -21,12 +21,17 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+const (
+	dirSample = "sample"
+	dirSecret = "secret"
+)
+
 func TestMain(m *testing.M) {
 	gopool.SetCap(int32(runtime.NumCPU()))
 	os.Exit(m.Run())
 }
 
-func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine[float64], *da.Graph,
+func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, us []int, _ bool) (*engine.Engine[float64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[float64]) {
 	config.InitRegionName(problemName, pkg.TEST)
 	da.CoordinatePrecision = 1e3
@@ -53,10 +58,10 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
 
-	ps := make([]int, len(Us))
+	ps := make([]int, len(us))
 
 	for i := 0; i < len(ps); i++ {
-		pow := Us[i]
+		pow := us[i]
 		ps[i] = 1 << pow // 2^pow
 	}
 

@@ -39,13 +39,13 @@ func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge) *da.CellGraph 
 	rn := da.NewRoadNetworkDataContainerWithSize(len(es), n)
 	g, _, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
-	cellVIDs := make([]da.Index, n)
+	cellVIds := make([]da.Index, n)
 	gv := make([]da.Index, n)
 	for i := 0; i < n; i++ {
-		cellVIDs[i] = da.Index(i)
+		cellVIds[i] = da.Index(i)
 		gv[i] = da.Index(i)
 	}
-	cg := da.NewCellGraph(g, cellVIDs, cellVIDs, gv, 0, da.Index(n))
+	cg := da.NewCellGraph(g, cellVIds, cellVIds, gv, 0, da.Index(n))
 
 	return cg
 }

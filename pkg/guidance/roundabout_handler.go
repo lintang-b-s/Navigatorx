@@ -26,7 +26,7 @@ func (db *DirectionBuilder) handleRoundabout(prevPoint, tail, head da.Coordinate
 		db.instructions = append(db.instructions, prevIns)
 		db.prevInstruction = len(db.instructions) - 1
 
-		// reset edgeIDs and points
+		// reset edgeIds and points
 		db.reset()
 	}
 

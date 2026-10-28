@@ -1,3 +1,4 @@
+// Package main evaluates OSRM alternative routes.
 package main
 
 import (
@@ -68,7 +69,7 @@ func newQueryParam(srcLat, srcLon, destLat, destLon float64) queryParam {
 }
 
 func loadQueries(path string) ([]queryParam, error) {
-	file, err := os.Open(path)
+	file, err := os.Open(path) //nolint:gosec // evaluation tool reading query file
 	if err != nil {
 		return nil, err
 	}
@@ -147,11 +148,14 @@ func main() {
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-		defer resp.Body.Close()
 
 		var osrmResp OSRMResponse
 
 		err = json.NewDecoder(resp.Body).Decode(&osrmResp)
+		if err != nil {
+			log.Fatal(err.Error())
+		}
+		err = resp.Body.Close()
 		if err != nil {
 			log.Fatal(err.Error())
 		}

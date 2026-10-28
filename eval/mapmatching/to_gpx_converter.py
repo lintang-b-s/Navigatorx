@@ -11,7 +11,7 @@ Automatically detects and converts multiple benchmark map matching trajectory fo
      - Comma-separated: elapsed_time_seconds, latitude, longitude.
   3. Melbourne GPS Track & Ground Truth (data/eval/mapmatching/melbourne/gps_track.txt, groundtruth.txt)
      - gps_track.txt: count header, space-separated timestamp, lat, lon.
-     - groundtruth.txt: count header, road segment IDs resolved using complete-osm-map/streets.txt.
+     - groundtruth.txt: count header, road segment Ids resolved using complete-osm-map/streets.txt.
   4. Hanwen Hu / Shanghai dataset (data/eval/mapmatching/Shanghai/track/*.csv)
      - CSV with locatetime (epoch ms), lat, lon, speed, direction.
   5. Generic CSV/TSV with lat/lon coordinate columns.
@@ -34,7 +34,7 @@ class DatasetType:
     NEWSON_KRUMM = "Newson-Krumm Dataset (Date/Time tab-separated)"
     GISCUP = "GISCup Contest Dataset (Comma-separated time_sec, lat, lon)"
     MELBOURNE_GPS = "Melbourne GPS Track (Count header with timestamp lat lon)"
-    MELBOURNE_GROUNDTRUTH = "Melbourne Ground Truth (Count header with segment IDs)"
+    MELBOURNE_GROUNDTRUTH = "Melbourne Ground Truth (Count header with segment Ids)"
     HANWENHU_SHANGHAI = "Hanwen Hu / Shanghai Track (CSV with locatetime ms, lat, lon)"
     GENERIC_CSV = "Generic CSV/TSV Coordinate Table"
     UNKNOWN = "Unknown Format"
@@ -206,7 +206,7 @@ def parse_melbourne_gps(file_path: str) -> list[TrackPoint]:
 
 
 def parse_melbourne_groundtruth(file_path: str) -> list[TrackPoint]:
-    """Parses Melbourne Ground Truth segment IDs using complete-osm-map/streets.txt."""
+    """Parses Melbourne Ground Truth segment Ids using complete-osm-map/streets.txt."""
     dir_path = os.path.dirname(file_path)
     search_paths = [
         os.path.join(dir_path, "complete-osm-map", "streets.txt"),
@@ -227,7 +227,7 @@ def parse_melbourne_groundtruth(file_path: str) -> list[TrackPoint]:
             print(f"  [NOTICE] streets.txt not found. Using adjacent {fallback_gps} for GPS coordinates.")
             return parse_melbourne_gps(fallback_gps)
         raise FileNotFoundError(
-            f"Could not locate Melbourne complete-osm-map/streets.txt to resolve segment IDs from {file_path}."
+            f"Could not locate Melbourne complete-osm-map/streets.txt to resolve segment Ids from {file_path}."
         )
 
     print(f"  [INFO] Resolving road segment geometries via {streets_file}")

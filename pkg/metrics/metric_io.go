@@ -7,6 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// WriteToFile writes the metric shortcut weights to a compressed binary file.
 func (met *Metric[W]) WriteToFile(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 		nm, err := NumericMarker[W]()
@@ -21,6 +22,7 @@ func (met *Metric[W]) WriteToFile(filename string) error {
 	})
 }
 
+// ReadFromFile reads a Metric instance from a compressed binary file.
 func ReadFromFile[W util.Numeric](
 	filename, timeFunctionFilePath string,
 ) (*Metric[W], error) {

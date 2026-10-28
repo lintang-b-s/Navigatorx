@@ -23,7 +23,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -87,7 +87,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 
 	// assert expected output dari test cases soal
 
-	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -100,7 +100,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	var expectedSPLength float64 = 0
+	var expectedSPLength float64
 	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
 	if err != nil {
 		t.Fatalf("err: %v", err)

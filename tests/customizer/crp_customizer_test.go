@@ -201,7 +201,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			f    *os.File
 		)
 
-		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600) //nolint:gosec
 		if err != nil {
 			t.Fatalf("could not open test file: %v", err)
 		}
@@ -400,10 +400,11 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			vlw := lm.GetVerticesLandmarkWeights()
 			n := g.NumberOfVertices()
 
-			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0600)
+			fOut, err := os.OpenFile(tc.filepath+".out", os.O_RDONLY, 0600) //nolint:gosec
 			if err != nil {
 				t.Fatalf("could not open test file: %v", err)
 			}
+			defer fOut.Close()
 
 			brOut := bufio.NewReader(fOut)
 
@@ -453,8 +454,6 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 				}
 			}
-
-			fOut.Close()
 		})
 	}
 }

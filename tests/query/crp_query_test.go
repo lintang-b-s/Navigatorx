@@ -137,7 +137,7 @@ func TestCRPQuerySimple(t *testing.T) {
 			f    *os.File
 		)
 
-		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+		f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 		if err != nil {
 			t.Fatalf("could not open test file: %v", err)
 		}
@@ -292,7 +292,10 @@ func TestCRPQuerySimple(t *testing.T) {
 
 				apsp[bitpack(da.Index(source), da.Index(target))] = stcost
 			}
-			fOut.Close()
+			err = fOut.Close()
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			for source := da.Index(0); source < da.Index(n); source++ {
 				for target := da.Index(0); target < da.Index(n); target++ {
@@ -679,7 +682,9 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 		re := eng.GetRoutingEngine()
 		rn := re.GetRoadNetworkContainer()
 		rtreeb := spatialindex.NewRtree()
-		rtreeb.Build(re.GetGraph(), rn, logger)
+		if err := rtreeb.Build(re.GetGraph(), rn, logger); err != nil {
+			t.Fatal(err)
+		}
 		rtree, err := spatialindex.ReadRtreeFromFile(logger)
 		if err != nil {
 			logger.Fatal(err.Error())
@@ -700,7 +705,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 			queryDestination da.Coordinate
 		}, 0)
 
-		valhallaVisualizerPolylineUrl := func(polyline string) string {
+		valhallaVisualizerPolylineURL := func(polyline string) string {
 			return fmt.Sprintf("https://valhalla.github.io/demos/polyline/?unescape=true&polyline6=false#%s", polyline)
 		}
 
@@ -760,7 +765,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 				_, path, _ := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
 				segmentPathCoords, _ := re.GetSegmentPath(path)
 				spPolyline := da.GooglePoylineFromCoords(*segmentPathCoords)
-				t.Logf("fastest route polyline for osm turn restriction https://www.openstreetmap.org/relation/%v: %s", tc.turnRestriction.id, valhallaVisualizerPolylineUrl(spPolyline))
+				t.Logf("fastest route polyline for osm turn restriction https://www.openstreetmap.org/relation/%v: %s", tc.turnRestriction.id, valhallaVisualizerPolylineURL(spPolyline))
 
 				if subPath, correct := isCorrect(path, tc.turnRestriction, rn); !correct {
 					isCorrect(path, tc.turnRestriction, rn) // buat debug

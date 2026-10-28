@@ -201,7 +201,7 @@ func (w *BinaryWriter) WriteInts(values []int) error {
 // writeBulk writes slice of data with chunking strategy
 // similiar to writeUint64Array() in https://github.com/bits-and-blooms/bitset/blob/master/bitset.go
 func (w *BinaryWriter) writeBulk(count, itemSize int, encode func([]byte, int)) error {
-	numItemsPerChunk := CHUNK_SIZE / itemSize
+	numItemsPerChunk := ChunkSize / itemSize
 	if capacity := numItemsPerChunk * itemSize; cap(w.bulkBuf) < capacity {
 		w.bulkBuf = make([]byte, capacity)
 	}
@@ -277,7 +277,7 @@ func WriteCompressedFile(filename string, writePayload func(*BinaryWriter) error
 	}
 
 	compressed := s2.NewWriter(file)
-	buffered := bufio.NewWriterSize(compressed, BUFIO_SIZE)
+	buffered := bufio.NewWriterSize(compressed, BufioSize)
 	if err := writePayload(NewBinaryWriter(buffered)); err != nil {
 		_ = compressed.Close()
 		return err

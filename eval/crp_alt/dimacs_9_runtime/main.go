@@ -1,3 +1,4 @@
+// Package main benchmarks DIMACS-9 runtime.
 package main
 
 import (
@@ -8,7 +9,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
-	_ "net/http/pprof"
+	_ "net/http/pprof" //nolint:gosec // profiling endpoint intended for benchmark binary
 	"os"
 	"path/filepath"
 	"strings"
@@ -88,7 +89,7 @@ func main() {
 	)
 
 	go func() {
-		http.ListenAndServe("localhost:6060", nil)
+		_ = http.ListenAndServe("localhost:6060", nil) //nolint:gosec // profiling server
 	}()
 	logger, err := log.New()
 	if err != nil {
@@ -115,7 +116,7 @@ func main() {
 	inputCoordPath := resolveProjectPath(workingDir, *inputCoordFilePath)
 	inputEdgesPath := resolveProjectPath(workingDir, *inputEdgesFilePath)
 
-	f, err = os.OpenFile(inputCoordPath, os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath.Clean(inputCoordPath), os.O_RDONLY, 0600) //nolint:gosec // benchmark input file
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("could not open test file: %v", inputCoordPath))
 	}
@@ -127,26 +128,26 @@ func main() {
 	for i := 0; i < 4; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
 	line, err = util.ReadLine(br)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	ff := util.Fields(line)
 	n, err := util.ParseTextInt(ff[4]) // number of vertices
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
@@ -156,20 +157,20 @@ func main() {
 	for v := 0; v < n; v++ { // vertex id 0 dummy vertex.. id vertex dari file dimacs mulai dari 1
 		line, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		ff := util.Fields(line)
 		id, err := util.ParseTextInt(ff[1])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		x, err := util.ParseTextInt(ff[2])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		y, err := util.ParseTextInt(ff[3])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		// di navigatorx versi v0.1.2, weight dari setiap edges pakai tipe generic util.Numeric
 		// dan untuk koordinat dari setiap node, kita pakai int32 (lat * 10^7, lon * 10^7) untuk input openstreetmap, buat save space kaya osrm.
@@ -178,7 +179,7 @@ func main() {
 		nodeCoords[id-1] = da.NewCoordinate(float64(y)/rounder, float64(x)/rounder)
 	}
 
-	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0600)
+	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0600) //nolint:gosec // benchmark input file
 	if err != nil {
 		logger.Fatal(fmt.Sprintf("could not open test file: %v", inputEdgesPath))
 	}
@@ -190,26 +191,26 @@ func main() {
 	for i := 0; i < 4; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
 	line, err = util.ReadLine(br)
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	ff = util.Fields(line)
 	m, err := util.ParseTextInt(ff[3]) // number of edges
 	if err != nil {
-		logger.Fatal(fmt.Sprintf("err: %w", err))
+		logger.Fatal(err.Error())
 	}
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 	}
 
@@ -219,22 +220,22 @@ func main() {
 	for i := 0; i < m; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		ff := util.Fields(line)
 		u, err := util.ParseTextInt(ff[1])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		v, err := util.ParseTextInt(ff[2])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		u--
 		v--
 		weight, err := util.ParseTextInt(ff[3])
 		if err != nil {
-			logger.Fatal(fmt.Sprintf("err: %w", err))
+			logger.Fatal(err.Error())
 		}
 		if weight < minWeight {
 			minWeight = weight

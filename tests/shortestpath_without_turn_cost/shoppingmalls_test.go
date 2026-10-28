@@ -36,7 +36,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		N, M    int
 		f, fOut *os.File
 	)
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -159,7 +159,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0600)
+	fOut, err = os.OpenFile(filepath+".out", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -233,7 +233,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 func TestCRPQueryShoppingMallsMLD(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/icpc_swerc2013_shoppingmalls/"
-	testDirs := []string{"secret"}
+	testDirs := []string{dirSecret}
 
 	for _, dir := range testDirs {
 		fullDir := filepath.Join(dirPath, dir)

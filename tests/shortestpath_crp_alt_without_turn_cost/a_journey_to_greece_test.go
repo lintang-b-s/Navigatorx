@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	MAX_N                    = 16
+	maxN                     = 16
 	INF               int64  = 1 << 60
-	greeceTestDataUrl string = "https://drive.google.com/uc?export=download&id=1m60bikUTTMVTm3ATja8AwETi3W0GfJqu"
+	greeceTestDataURL string = "https://drive.google.com/uc?export=download&id=1m60bikUTTMVTm3ATja8AwETi3W0GfJqu"
 	greeceZipFilePath        = "../shortestpath/data/tests/shortestpath/gcpc2015_a_journey_to_greece/greece.zip"
 	greeceZipDirPath         = "../shortestpath/data/tests/shortestpath/gcpc2015_a_journey_to_greece"
 )
@@ -55,7 +55,7 @@ time: O(2^{n-1}*n^2), number of subsets 2^{n-1} * number of possible value of j 
 
 this dp tsp code inspired from dp tsp code cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch3/dp/beepers_UVa10496.cpp
 */
-func dpTSP(u, mask int, dp *[MAX_N][1 << (MAX_N - 1)]int64, dist [MAX_N][MAX_N]int64) int64 {
+func dpTSP(u, mask int, dp *[maxN][1 << (maxN - 1)]int64, dist [maxN][maxN]int64) int64 {
 	if mask == 0 {
 		return dist[u][0]
 	}
@@ -77,7 +77,7 @@ func dpTSP(u, mask int, dp *[MAX_N][1 << (MAX_N - 1)]int64, dist [MAX_N][MAX_N]i
 	return dp[u][mask]
 }
 
-func dpTSPWithTaxi(u, mask int, dp *[MAX_N][1 << (MAX_N - 1)][2]int64, dist [MAX_N][MAX_N]int64, usedTaxi uint8, taxiTime int64) int64 {
+func dpTSPWithTaxi(u, mask int, dp *[maxN][1 << (maxN - 1)][2]int64, dist [maxN][maxN]int64, usedTaxi uint8, taxiTime int64) int64 {
 	if mask == 0 {
 
 		ans := dist[u][0]
@@ -116,7 +116,7 @@ func solveGreece(t *testing.T, filepath string) {
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600) //nolint:gosec
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -228,7 +228,7 @@ func solveGreece(t *testing.T, filepath string) {
 
 	sid := oldToNewVIdMap[da.Index(source)]
 
-	var dist [MAX_N][MAX_N]int64
+	var dist [maxN][maxN]int64
 	totalStayTime := int64(0)
 	for i := 0; i < p; i++ {
 		place := placeStay[i]
@@ -244,28 +244,30 @@ func solveGreece(t *testing.T, filepath string) {
 			wid := oldToNewVIdMap[da.Index(wplace.v)]
 			spLength, _, _ = crpQuery.ShortestPathSearch(vid, wid)
 
+			//nolint:gosec // G602: bounds bounded by p <= maxN - 1
 			dist[i+1][j+1] = int64(spLength)
 		}
 
 		crpQuery = routing.NewCRPALTQuery(re.GetRoutingEngine())
 		spLength, _, _ = crpQuery.ShortestPathSearch(vid, sid)
+		//nolint:gosec // G602: bounds bounded by p <= maxN - 1
 		dist[i+1][0] = int64(spLength)
 
 		totalStayTime += int64(place.stayTime)
 	}
 
-	var dp [MAX_N][1 << (MAX_N - 1)]int64
-	for i := 0; i < MAX_N; i++ {
-		for j := 0; j < 1<<(MAX_N-1); j++ {
+	var dp [maxN][1 << (maxN - 1)]int64
+	for i := 0; i < maxN; i++ {
+		for j := 0; j < 1<<(maxN-1); j++ {
 			dp[i][j] = -1
 		}
 	}
 
 	withoutTaxi := dpTSP(0, (1<<p)-1, &dp, dist) + totalStayTime
 
-	var dpWithTaxi [MAX_N][1 << (MAX_N - 1)][2]int64
-	for i := 0; i < MAX_N; i++ {
-		for j := 0; j < 1<<(MAX_N-1); j++ {
+	var dpWithTaxi [maxN][1 << (maxN - 1)][2]int64
+	for i := 0; i < maxN; i++ {
+		for j := 0; j < 1<<(maxN-1); j++ {
 			for k := 0; k < 2; k++ {
 				dpWithTaxi[i][j][k] = -1
 			}
@@ -275,16 +277,17 @@ func solveGreece(t *testing.T, filepath string) {
 	withTaxi := dpTSPWithTaxi(0, (1<<p)-1, &dpWithTaxi, dist, 0, int64(taxiTime)) + totalStayTime
 
 	ans := ""
-	if withoutTaxi <= int64(g) {
+	switch {
+	case withoutTaxi <= int64(g):
 		ans = "possible without taxi"
-	} else if withTaxi <= int64(g) {
+	case withTaxi <= int64(g):
 		ans = "possible with taxi"
-	} else {
+	default:
 		ans = "impossible"
 	}
 
 	// assert expected output dari test cases soal
-	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600) //nolint:gosec
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -315,7 +318,7 @@ func TestCRPQueryAJourneyToGreeceMALT(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	err = tests.Download(greeceZipFilePath, greeceTestDataUrl, logger, "greece")
+	err = tests.Download(greeceZipFilePath, greeceTestDataURL, logger, "greece")
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -324,7 +327,7 @@ func TestCRPQueryAJourneyToGreeceMALT(t *testing.T) {
 		t.Fatalf("err: %v", err)
 	}
 
-	testDirs := []string{"sample", "secret"}
+	testDirs := []string{dirSample, dirSecret}
 
 	for _, dir := range testDirs {
 		fullDir := filepath.Join(greeceZipDirPath, dir)

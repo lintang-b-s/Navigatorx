@@ -40,7 +40,7 @@ func solve(t *testing.T, filepath string) {
 		f, fOut *os.File
 	)
 
-	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600)
+	f, err = os.OpenFile(filepath+".in", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -115,16 +115,9 @@ func solve(t *testing.T, filepath string) {
 					j13 := cellToNId(i, j+1, 3)
 
 					// buat edge ke tower kanan
-					kanan := peta[i][j+1]
-					if kanan == "O" {
-						adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
-						adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
-						adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
-					} else {
-						adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
-						adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
-						adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
-					}
+					adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
+					adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
+					adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
 				}
 
 				if i+1 < h {
@@ -133,16 +126,9 @@ func solve(t *testing.T, filepath string) {
 					i13 := cellToNId(i+1, j, 3)
 
 					// buat edge ke tower bawah
-					bawah := peta[i+1][j]
-					if bawah == "O" {
-						adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
-						adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
-						adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
-					} else {
-						adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
-						adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
-						adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
-					}
+					adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
+					adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
+					adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
 				}
 			} else {
 
@@ -169,18 +155,9 @@ func solve(t *testing.T, filepath string) {
 					j13 := cellToNId(i, j+1, 3)
 
 					// buat edge ke tower kanan
-					kanan := peta[i][j+1]
-					if kanan == "O" {
-						adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
-
-						adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
-
-						adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
-					} else {
-						adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
-						adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
-						adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
-					}
+					adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
+					adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
+					adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
 				}
 
 				if i+1 < h {
@@ -188,18 +165,9 @@ func solve(t *testing.T, filepath string) {
 					i11 := cellToNId(i+1, j, 1)
 					i13 := cellToNId(i+1, j, 3)
 					// buat edge ke tower bawah
-					bawah := peta[i+1][j]
-					if bawah == "O" {
-						adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
-
-						adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
-
-						adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
-					} else {
-						adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
-						adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
-						adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
-					}
+					adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
+					adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
+					adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
 				}
 			}
 		}
@@ -246,7 +214,7 @@ func solve(t *testing.T, filepath string) {
 
 	// assert expected output dari test cases soal
 
-	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
+	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
 	}
@@ -259,7 +227,7 @@ func solve(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	var expectedSPLength float64 = 0
+	var expectedSPLength float64
 	if _, err = fmt.Sscanf(line, "%f", &expectedSPLength); err != nil {
 		t.Fatalf("err parsing expected length: %v", err)
 	}
@@ -277,7 +245,7 @@ func solve(t *testing.T, filepath string) {
 func TestCRPQueryDelftDistanceMLD(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/icpc_nwerc2022_delftdistance/"
-	testDirs := []string{"sample", "secret"}
+	testDirs := []string{dirSample, dirSecret}
 
 	for _, dir := range testDirs {
 		fullDir := filepath.Join(dirPath, dir)

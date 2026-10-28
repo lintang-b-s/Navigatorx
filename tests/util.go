@@ -36,6 +36,7 @@ func init() {
 	config.InitProfileConfig("car", "test_region", pkg.TEST)
 }
 
+// Setup initializes the test engine, logger, and customizer.
 func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *customizer.Customizer[int32]) {
 	logger, err := log.New()
 	if err != nil {
@@ -112,6 +113,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	return re, logger, custom
 }
 
+// Download downloads a remote dataset if it does not already exist.
 func Download(filePath, url string, logger *zap.Logger, name string) error {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
 		logger.Sugar().Infof("downloading evaluation %s dataset.....", name)
@@ -121,13 +123,13 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 		}
 
 		tmpFilePath := filePath + ".tmp"
-		output, err := os.Create(tmpFilePath)
+		output, err := os.Create(tmpFilePath) //nolint:gosec // temporary file creation for tests
 		if err != nil {
 			return fmt.Errorf("download: Create failed %w", err)
 		}
 
 		logger.Sugar().Infof("downloading file......")
-		response, err := http.Get(url)
+		response, err := http.Get(url) //nolint:gosec // test helper downloading test fixtures
 		if err != nil {
 			_ = output.Close()
 			_ = os.Remove(tmpFilePath)
@@ -181,7 +183,7 @@ func Download(filePath, url string, logger *zap.Logger, name string) error {
 }
 
 func isHTMLDocument(path string) (bool, error) {
-	f, err := os.OpenFile(path, os.O_RDONLY, 0600)
+	f, err := os.OpenFile(path, os.O_RDONLY, 0600) //nolint:gosec // inspecting downloaded test file
 	if err != nil {
 		return false, err
 	}
@@ -224,7 +226,7 @@ func downloadWithGDown(filePath, fileID string) error {
 
 	tmpFilePath := filePath + ".gdown.tmp"
 	gdownURL := fmt.Sprintf("https://drive.google.com/uc?id=%s", fileID)
-	cmd := exec.Command("gdown", gdownURL, "-O", tmpFilePath)
+	cmd := exec.Command("gdown", gdownURL, "-O", tmpFilePath) //nolint:gosec // test helper invokes gdown
 
 	var stderr bytes.Buffer
 	cmd.Stdout = os.Stdout
@@ -268,12 +270,15 @@ func ensureGDownInstalled() error {
 	return nil
 }
 
+// ExtractZip extracts a zip archive to destDir.
 func ExtractZip(zipPath, destDir string) error {
 	reader, err := zip.OpenReader(zipPath)
 	if err != nil {
 		return fmt.Errorf("extractZip: OpenReader failed %w", err)
 	}
-	defer reader.Close()
+	defer func() {
+		_ = reader.Close()
+	}()
 
 	if err := util.EnsureDirExists(destDir); err != nil {
 		return fmt.Errorf("extractZip: MkdirAll failed %w", err)
@@ -283,7 +288,7 @@ func ExtractZip(zipPath, destDir string) error {
 	prefix := destDir + string(os.PathSeparator)
 
 	for _, file := range reader.File {
-		targetPath := filepath.Join(destDir, file.Name)
+		targetPath := filepath.Join(destDir, file.Name) //nolint:gosec // target path validated below
 		cleanTargetPath := filepath.Clean(targetPath)
 
 		if cleanTargetPath != destDir && !strings.HasPrefix(cleanTargetPath, prefix) {
@@ -308,11 +313,14 @@ func ExtractZip(zipPath, destDir string) error {
 
 		dst, err := os.OpenFile(cleanTargetPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0600)
 		if err != nil {
-			src.Close()
+			err = src.Close()
+			if err != nil {
+				return err
+			}
 			return fmt.Errorf("extractZip: OpenFile failed %w", err)
 		}
 
-		_, err = io.Copy(dst, src)
+		_, err = io.Copy(dst, src) //nolint:gosec // decompression in test archive
 		closeErr := dst.Close()
 		srcCloseErr := src.Close()
 		if err != nil {
@@ -329,11 +337,12 @@ func ExtractZip(zipPath, destDir string) error {
 	return nil
 }
 
-// least significant bit
-func LSOne(S int) int {
-	return S & -S
+// LSOne least significant bit
+func LSOne(s int) int {
+	return s & -s
 }
 
+// Density calculates graph density.
 func Density(n, m int, directed bool) float64 {
 	nf := float64(n)
 	mf := float64(m)
@@ -344,6 +353,7 @@ func Density(n, m int, directed bool) float64 {
 	return mf / (nf * (nf - 1))
 }
 
+// AssignNodeCoordinates assigns coordinates to graph vertices based on landmark distances.
 func AssignNodeCoordinates(adjList [][]da.PairEdge) []da.Coordinate {
 	n := len(adjList)
 	nodeCoords := make([]da.Coordinate, n)
@@ -417,7 +427,7 @@ func dijkstra(adjList [][]da.PairEdge, s da.Index) []float64 {
 
 	dist := make([]float64, n)
 	for v := 0; v < n; v++ {
-		dist[v] = util.INF_WEIGHT_FLOAT
+		dist[v] = util.InfWeightFloat
 	}
 
 	pq := da.NewQueryHeap[da.Index, float64](da.Index(n), da.ARRAY_STORAGE)
@@ -433,7 +443,7 @@ func dijkstra(adjList [][]da.PairEdge, s da.Index) []float64 {
 		for _, e := range adjList[u] {
 			v := da.Index(e.To)
 			newVCost := uNode.GetRank() + e.Weight
-			vLabelled := util.Lt(dist[v], util.INF_WEIGHT_FLOAT)
+			vLabelled := util.Lt(dist[v], util.InfWeightFloat)
 			if newVCost <= dist[v] {
 				dist[v] = uNode.GetRank() + e.Weight
 				if !vLabelled {

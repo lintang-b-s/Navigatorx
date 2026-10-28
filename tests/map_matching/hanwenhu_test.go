@@ -47,13 +47,13 @@ func hhDownload(filePath, url string, logger *zap.Logger, name string) error {
 		if err := util.EnsureDirExists(filePath); err != nil {
 			return fmt.Errorf("download: %w", err)
 		}
-		output, err := os.Create(filePath)
+		output, err := os.Create(filePath) //nolint:gosec // test fixture creation
 		if err != nil {
 			return fmt.Errorf("download: Create failed %w", err)
 		}
 		defer output.Close()
 		logger.Sugar().Infof("downloading file......")
-		response, err := http.Get(url)
+		response, err := http.Get(url) //nolint:gosec // test fixture download
 		if err != nil {
 			return fmt.Errorf("download: http.Get failed %w", err)
 		}
@@ -119,7 +119,7 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 }
 
 func hhReadCSV(filePath string) ([]map[string]string, error) {
-	file, err := os.Open(filePath)
+	file, err := os.Open(filePath) //nolint:gosec // test fixture file read
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file: %w", err)
 	}
@@ -189,7 +189,7 @@ func hhExtractTarGz(gzipStream io.Reader, destDir string) error {
 		if err != nil {
 			return fmt.Errorf("extractTarGz: Next() failed: %w", err)
 		}
-		targetPath := filepath.Join(destDir, header.Name)
+		targetPath := filepath.Join(destDir, header.Name) //nolint:gosec // test fixture archive extract
 		switch header.Typeflag {
 		case tar.TypeDir:
 			if err := util.EnsureDirExists(targetPath); err != nil {
@@ -199,15 +199,15 @@ func hhExtractTarGz(gzipStream io.Reader, destDir string) error {
 			if err := util.EnsureDirExists(targetPath); err != nil {
 				return fmt.Errorf("extractTarGz: mkdir for file failed: %w", err)
 			}
-			outFile, err := os.Create(targetPath)
+			outFile, err := os.Create(targetPath) //nolint:gosec // test fixture file creation
 			if err != nil {
 				return fmt.Errorf("extractTarGz: Create failed: %w", err)
 			}
-			if _, err := io.Copy(outFile, tarReader); err != nil {
-				outFile.Close()
+			if _, err := io.Copy(outFile, tarReader); err != nil { //nolint:gosec // test fixture decompression
+				_ = outFile.Close()
 				return fmt.Errorf("extractTarGz: Copy failed: %w", err)
 			}
-			outFile.Close()
+			_ = outFile.Close()
 		default:
 			return fmt.Errorf("extractTarGz: unknown type: %v in %s", header.Typeflag, header.Name)
 		}

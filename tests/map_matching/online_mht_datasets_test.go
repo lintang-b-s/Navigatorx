@@ -337,11 +337,11 @@ func ommRunOnlineMHT(t *testing.T,
 	return matchedPoints, totalRuntimeMicros / float64(len(gpsTraj))
 }
 
-func ommComputeGisCupOnlineMetrics(graph *da.Graph, rn *da.RoadNetworkDataContainer, groundTruthEdgeIDs []uint64, matchedPoints []*da.MatchedGPSPoint,
+func ommComputeGisCupOnlineMetrics(_ *da.Graph, rn *da.RoadNetworkDataContainer, groundTruthEdgeIds []uint64, matchedPoints []*da.MatchedGPSPoint,
 	edgeLengths map[uint64]float64) (float64, float64) {
 	groundTruthSet := make(map[uint64]bool)
 	lengthOfCorrectRoute := 0.0
-	for _, segmentId := range groundTruthEdgeIDs {
+	for _, segmentId := range groundTruthEdgeIds {
 		if groundTruthSet[segmentId] {
 			continue
 		}
@@ -358,7 +358,7 @@ func ommComputeGisCupOnlineMetrics(graph *da.Graph, rn *da.RoadNetworkDataContai
 			continue
 		}
 		matchedEdgeSet[dataEdgeID] = length
-		if groundTruthEdgeIDs[i] == dataEdgeID {
+		if groundTruthEdgeIds[i] == dataEdgeID {
 			correct++
 		}
 	}
@@ -381,7 +381,7 @@ func ommComputeGisCupOnlineMetrics(graph *da.Graph, rn *da.RoadNetworkDataContai
 	// or Route Mismatch Fraction (RMF):  https://dl.acm.org/doi/epdf/10.1145/2666310.2666383
 	// section 6.1 accuracy: https://dl.acm.org/doi/epdf/10.1145/3725346
 	rmf := (lengthOfErrAdded + lengthOfErrSubtracted) / lengthOfCorrectRoute
-	n := float64(len(groundTruthEdgeIDs))
+	n := float64(len(groundTruthEdgeIds))
 	m := float64(len(matchedPoints))
 	if n != m {
 		return -1, rmf
@@ -422,7 +422,7 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 		if err != nil {
 			t.Fatalf("read GIS Cup track %s failed: %v", tc.id, err)
 		}
-		groundTruthEdgeIDs, err := ohmmReadGisCupGroundTruth(tc.outputFilePath)
+		groundTruthEdgeIds, err := ohmmReadGisCupGroundTruth(tc.outputFilePath)
 		if err != nil {
 			t.Fatalf("read GIS Cup ground truth %s failed: %v", tc.id, err)
 		}
@@ -433,7 +433,7 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 			t.Fatalf("GIS Cup case %s produced no matched points", tc.id)
 		}
 
-		acc, rmf := ommComputeGisCupOnlineMetrics(graph, rn, groundTruthEdgeIDs, matchedPoints, edgeLengths)
+		acc, rmf := ommComputeGisCupOnlineMetrics(graph, rn, groundTruthEdgeIds, matchedPoints, edgeLengths)
 		t.Logf("GIS Cup online MHT case %s: Accuracy=%v RMF=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
 			tc.id, acc, rmf, len(matchedPoints), len(gpsTraj), avgRuntimeMicros)
 
@@ -499,7 +499,7 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read Melbourne GPS track failed: %v", err)
 	}
-	groundTruthEdgeIDs, err := ohmmReadMelbourneGroundTruthSegments(groundTruthPath)
+	groundTruthEdgeIds, err := ohmmReadMelbourneGroundTruthSegments(groundTruthPath)
 	if err != nil {
 		t.Fatalf("read Melbourne ground truth failed: %v", err)
 	}
@@ -517,7 +517,7 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 		t.Fatalf("Hengfeng Li online MHT produced no matched points")
 	}
 
-	rmf := ohmmComputeMelbourneMetrics(matchedPoints, groundTruthEdgeIDs, graphEdgeIDToMelbourneEdgeID, edgeLengthByID)
+	rmf := ohmmComputeMelbourneMetrics(matchedPoints, groundTruthEdgeIds, graphEdgeIDToMelbourneEdgeID, edgeLengthByID)
 
 	t.Logf("Hengfeng Li online MHT: RMF=%v matched=%d/%d avg_runtime=%v microseconds/gps point",
 		rmf, len(matchedPoints), len(gpsTraj), avgRuntimeMicros)

@@ -58,7 +58,7 @@ func createTurnTables(t *testing.T, g *da.Graph) ([]da.Index, []pkg.TurnType) {
 	t.Helper()
 
 	numV := g.NumberOfVertices()
-	vTurnTableIDs := make([]da.Index, numV)
+	vTurnTableIds := make([]da.Index, numV)
 	totalMatrixSize := 0
 	for u := 0; u < numV; u++ {
 		totalMatrixSize += int(g.GetInDegree(da.Index(u))) * int(g.GetOutDegree(da.Index(u)))
@@ -69,14 +69,14 @@ func createTurnTables(t *testing.T, g *da.Graph) ([]da.Index, []pkg.TurnType) {
 	for u := 0; u < numV; u++ {
 		inDeg := int(g.GetInDegree(da.Index(u)))
 		outDeg := int(g.GetOutDegree(da.Index(u)))
-		vTurnTableIDs[u] = da.Index(matrixOffset)
+		vTurnTableIds[u] = da.Index(matrixOffset)
 		matrixOffset += inDeg * outDeg
 	}
 
-	return vTurnTableIDs, turnMatrix
+	return vTurnTableIds, turnMatrix
 }
 
-func addTurnRestriction(t *testing.T, g *da.Graph, vTurnTableIDs []da.Index, turnMatrix []pkg.TurnType, from, via, to da.Index, turnType pkg.TurnType) {
+func addTurnRestriction(t *testing.T, g *da.Graph, vTurnTableIds []da.Index, turnMatrix []pkg.TurnType, from, via, to da.Index, turnType pkg.TurnType) {
 	t.Helper()
 
 	var entryPoint uint8
@@ -103,7 +103,7 @@ func addTurnRestriction(t *testing.T, g *da.Graph, vTurnTableIDs []da.Index, tur
 		t.Fatalf("outgoing edge from %d to %d not found", via, to)
 	}
 
-	turnTableID := vTurnTableIDs[via] + da.Index(entryPoint)*g.GetOutDegree(via) + da.Index(exitPoint)
+	turnTableID := vTurnTableIds[via] + da.Index(entryPoint)*g.GetOutDegree(via) + da.Index(exitPoint)
 	turnMatrix[turnTableID] = turnType
 }
 
@@ -286,7 +286,7 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			g, wf, rn := buildGraphHelper(t, tc.numNodes, tc.adjList)
-			vTurnTableIDs, turnMatrix := createTurnTables(t, g)
+			vTurnTableIds, turnMatrix := createTurnTables(t, g)
 
 			if tc.forbidAllTurns {
 				for i := range turnMatrix {
@@ -294,11 +294,11 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 				}
 			} else {
 				for _, r := range tc.restrictions {
-					addTurnRestriction(t, g, vTurnTableIDs, turnMatrix, r.from, r.via, r.to, r.turnType)
+					addTurnRestriction(t, g, vTurnTableIds, turnMatrix, r.from, r.via, r.to, r.turnType)
 				}
 			}
 
-			ebg, ebgWf, ebgMapping, err := BuildEdgeBasedGraph(g, wf, vTurnTableIDs, turnMatrix, rn)
+			ebg, ebgWf, ebgMapping, err := BuildEdgeBasedGraph(g, wf, vTurnTableIds, turnMatrix, rn)
 			if err != nil {
 				t.Fatal(err)
 			}

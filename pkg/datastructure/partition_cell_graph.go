@@ -44,12 +44,12 @@ func NewCellGraph(g *Graph, cellvIds []Index, vIds []Index, gv []Index, begin, e
 	return cg
 }
 
-// NumberOfCellVertices. get number of vetices that inside this cell.
+// NumberOfCellVertices get number of vetices that inside this cell.
 func (c *CellGraph) NumberOfCellVertices() int {
 	return int(c.end - c.begin)
 }
 
-// NumberOfCellVertices. get number of network flow vetices that inside this cell.
+// NumberOfCellVertices get number of network flow vetices that inside this cell.
 func (c *CellGraph) NumberOfNetworkFlowVertices() int {
 	return len(c.firstOut) - 1
 }

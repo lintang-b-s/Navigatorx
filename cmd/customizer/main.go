@@ -36,7 +36,6 @@ func main() {
 	if err != nil {
 		stdLog.Fatal(err.Error())
 	}
-
 	custom := customizer.NewCustomizer[int32](logger)
 	custom.SetSegmentSpeedsFilePath(*edgeSpeedsFile)
 	custom.SetTurnPenaltiesFilePath(*turnPenaltiesFile)
