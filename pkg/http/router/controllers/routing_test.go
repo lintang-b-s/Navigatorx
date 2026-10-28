@@ -347,7 +347,8 @@ func TestRoutingAPI_Routes(t *testing.T) {
 	api := New(mockRS, log, mockTS)
 
 	router := httprouter.New()
-	group := helper.NewRouteGroup(router, "/api")
+	group, err := helper.NewRouteGroup(router, "/api")
+	assert.NoError(t, err)
 	api.Routes(group)
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", fmt.Sprintf("/api/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
@@ -366,7 +367,8 @@ func TestRoutingAPI_TransitionMatrixTrailingSlashDoesNotRedirect(t *testing.T) {
 	api := New(mockRS, log, mockTS)
 
 	router := httprouter.New()
-	group := helper.NewRouteGroup(router, "/api")
+	group, err := helper.NewRouteGroup(router, "/api")
+	assert.NoError(t, err)
 	api.Routes(group)
 
 	w := httptest.NewRecorder()

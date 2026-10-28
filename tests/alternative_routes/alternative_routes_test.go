@@ -121,7 +121,7 @@ func TestAlternativeRoutes(t *testing.T) {
 					continue
 				}
 				optCost := util.WeightToSeconds(cost)
-				alts, dur := ars.ComputeAlternativeRoutes(source, target, 4, false, 0, optCost, optPath, crpQuery, param)
+				alts, dur := ars.ComputeAlternativeRoutes(source, target, 4, false, optCost, optPath, crpQuery, param)
 				crpQuery.ForAlternatives(false)
 				crpQuery.Done()
 				if (i+1)%100 == 0 {

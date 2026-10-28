@@ -5,7 +5,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	stdLog "log"
 	"math"
 	"strconv"
 
@@ -147,10 +146,10 @@ func ReverseG[T any](arr []T) {
 	}
 }
 
-// AssertFatal logs a fatal error and terminates execution if cond is false.
-func AssertFatal(cond bool, msg string) {
+// AssertPanic panic and terminates execution if cond is false.
+func AssertPanic(cond bool, msg string) {
 	if !cond {
-		stdLog.Fatal(msg)
+		panic(msg)
 	}
 }
 

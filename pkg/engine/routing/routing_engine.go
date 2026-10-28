@@ -241,7 +241,7 @@ func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.Pha
 	optSegmentPathCoords, optDist := crp.GetSegmentPath(optPath)
 
 	optCost := util.WeightToSeconds(cost)
-	alts, _ := ars.ComputeAlternativeRoutes(s, t, k, reroute, startSegId, optCost, optPath, crpQuery, param)
+	alts, _ := ars.ComputeAlternativeRoutes(s, t, k, reroute, optCost, optPath, crpQuery, param)
 
 	n := len(alts) + 1
 	var (

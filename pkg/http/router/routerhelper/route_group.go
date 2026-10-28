@@ -16,19 +16,16 @@ type RouteGroup struct {
 }
 
 // NewRouteGroup creates a new RouteGroup with the specified base path prefix.
-func NewRouteGroup(r *httprouter.Router, path string) *RouteGroup {
+func NewRouteGroup(r *httprouter.Router, path string) (*RouteGroup, error) {
 
-	util.AssertFatal(path[0] == '/', fmt.Sprintf(`path must begin with '/' in path '"%s"'`, path))
+	if path[0] != '/' {
+		return nil, fmt.Errorf(`path must begin with '/' in path '"%s"'`, path)
+	}
 
 	if path[len(path)-1] == '/' {
 		path = path[:len(path)-1]
 	}
-	return &RouteGroup{r: r, p: path}
-}
-
-// NewGroup creates a new sub-RouteGroup nested under the current prefix.
-func (r *RouteGroup) NewGroup(path string) *RouteGroup {
-	return NewRouteGroup(r.r, r.subPath(path))
+	return &RouteGroup{r: r, p: path}, nil
 }
 
 // Handle registers a new request handle with the given method and path.
@@ -87,6 +84,6 @@ const (
 
 func (r *RouteGroup) subPath(path string) string {
 
-	util.AssertFatal(path[0] == '/', subPathErrMsg)
+	util.AssertPanic(path[0] == '/', subPathErrMsg)
 	return r.p + path
 }

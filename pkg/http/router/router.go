@@ -105,8 +105,10 @@ func (api *API) Run(
 		router.Handler(http.MethodPost, "/debug/pprof/*item", mux) // Required by `go tool pprof` for symbol lookups
 	}
 
-	group := router_helper.NewRouteGroup(router, "/api")
-
+	group, err := router_helper.NewRouteGroup(router, "/api")
+	if err != nil {
+		return fmt.Errorf("api.Run: failed to NewRouteGroup: %w", err)
+	}
 	navigatorRoutes := controllers.New(routingService, log, mapAttributesService)
 
 	navigatorRoutes.Routes(group)

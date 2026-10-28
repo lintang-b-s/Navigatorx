@@ -267,9 +267,7 @@ func TestShowroomMALT(t *testing.T) {
 			t.Logf("solving test case: %v", baseName)
 			t.Run("Multilevel-ALT without turn cost/"+dir+"/"+baseName, func(t *testing.T) {
 				SolveShowroom(t, testPath)
-
 			})
-
 		}
 	}
 }

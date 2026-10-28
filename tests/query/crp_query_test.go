@@ -783,7 +783,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 					return
 				}
 				optCost := util.WeightToSeconds(cost)
-				alts, _ := ars.ComputeAlternativeRoutes(source, target, 4, false, 0, optCost, optPath, crpQuery2, param)
+				alts, _ := ars.ComputeAlternativeRoutes(source, target, 4, false, optCost, optPath, crpQuery2, param)
 				crpQuery2.ForAlternatives(false)
 				crpQuery2.Done()
 

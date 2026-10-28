@@ -61,7 +61,7 @@ func BenchmarkAlternativeRoutes(b *testing.B) {
 			continue
 		}
 		optCost := util.WeightToSeconds(cost)
-		ars.ComputeAlternativeRoutes(s, t, 4, false, 0, optCost, optPath, crpQuery, param)
+		ars.ComputeAlternativeRoutes(s, t, 4, false, optCost, optPath, crpQuery, param)
 		crpQuery.ForAlternatives(false)
 		crpQuery.Done()
 	}

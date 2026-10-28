@@ -96,7 +96,7 @@ DONE :), sekarang sucess ratenya >= 88% untuk solo.osm.pbf dan yogyakarta.osm.pb
 
 */
 
-func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, startSegmentId da.Index, optCost float64, optPath []da.Index,
+func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, optCost float64, optPath []da.Index,
 	crpQuery *CRPQuery[W], param AlternativeRouteParameters) ([]AlternativeRoute, int64) {
 
 	now := time.Now()

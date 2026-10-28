@@ -6,7 +6,7 @@ const (
 
 // ApplyPermutation applies the permutation perm to slice, mapping new element ID to old element ID.
 func ApplyPermutation[T any](slice []T, perm []int) []T {
-	AssertFatal(len(slice) == len(perm), permErrorMsg)
+	AssertPanic(len(slice) == len(perm), permErrorMsg)
 	n := len(slice)
 	applied := make([]T, n)
 	// O(n)
@@ -18,7 +18,7 @@ func ApplyPermutation[T any](slice []T, perm []int) []T {
 
 // ApplyInversePermutation applies the inverse permutation perm to slice, mapping old element ID to new element ID.
 func ApplyInversePermutation[T any](slice []T, perm []int) []T {
-	AssertFatal(len(slice) == len(perm), permErrorMsg)
+	AssertPanic(len(slice) == len(perm), permErrorMsg)
 
 	n := len(slice)
 	applied := make([]T, n)
