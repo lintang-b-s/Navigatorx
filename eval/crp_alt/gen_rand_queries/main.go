@@ -1,3 +1,4 @@
+// Package main provides random queries endpoints (s,t) generator
 package main
 
 import (

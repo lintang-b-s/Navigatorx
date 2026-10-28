@@ -48,12 +48,12 @@ func (dmf *DinicUnitMaxFlow) resetCurrentEdges() {
 
 func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 	for i := range dmf.level {
-		dmf.level[i] = INVALID_LEVEL
+		dmf.level[i] = InvalidLevel
 	}
 
 	queue := dmf.levelQueue[:0]
 	for _, ss := range dmf.sources {
-		if dmf.level[ss] == INVALID_LEVEL {
+		if dmf.level[ss] == InvalidLevel {
 			// directly bfs from multi-sources instead of super-source
 			dmf.level[ss] = 0
 			queue = append(queue, ss)
@@ -75,7 +75,7 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 		deg := dmf.degree(u)
 		for j := da.Index(0); j < deg; j++ {
 			v, e, eRev, rev := dmf.edge(u, j)
-			if dmf.level[v] == INVALID_LEVEL && dmf.residual(e, eRev, rev) {
+			if dmf.level[v] == InvalidLevel && dmf.residual(e, eRev, rev) {
 				nextLevel := dmf.level[u] + 1
 				dmf.level[v] = nextLevel
 				queue = append(queue, v)
@@ -136,7 +136,7 @@ func (dmf *DinicUnitMaxFlow) blockingFlow() int32 {
 }
 
 /*
-ComputeMaxflowMinCut. compute max flow/min st-cut for unit-capacity graph.
+ComputeMaxflowMinCut compute max flow/minimum st-cut for unit-capacity directed graph.
 ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 
 time complexity:
@@ -195,10 +195,10 @@ func (dmf *DinicUnitMaxFlow) makeMinCutFlags(minCut *MinCut, maxflow int32) {
 
 	n := da.Index(dmf.g.NumberOfCellVertices())
 	for u := da.Index(0); u < n; u++ {
-		if dmf.level[u] != INVALID_LEVEL {
+		if dmf.level[u] != InvalidLevel {
 			// https://www.cs.princeton.edu/courses/archive/fall14/cos226/lectures/64MaxFlow.pdf
 			// cell S = semua vertices connected to s by an undirected path with no full forward edges (full fe = its residual capacity = 0 ) or empty backward edges (empty be = its residual capacity = 0 )
-			minCut.SetFlag(u, true)
+			minCut.SetFlag(u)
 		} else {
 			minCut.nodesCountInCellT++
 		}

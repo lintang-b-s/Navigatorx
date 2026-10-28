@@ -38,11 +38,6 @@ var (
 	landmarkFile string = config.ProfilesRoot() + "/landmark_customizer_test.nlm"
 )
 
-const (
-	CUST_WORKERS = 10
-	CELL_WORKERS = 5
-)
-
 // cd tests/customizer &&  go test -v  . --cover -coverpkg=../../pkg/... -coverprofile=cust_coverage.out
 // go tool cover -func=cust_coverage.out
 // go tool cover -html=cust_coverage.out
@@ -428,7 +423,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				if stcost >= pkg.INF_WEIGHT {
+				if stcost >= pkg.InfWeight {
 					stcost = util.Infinity[float64]()
 				}
 

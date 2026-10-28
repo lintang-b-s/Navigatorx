@@ -104,7 +104,7 @@ func TestLookupTable_SegmentKV(t *testing.T) {
 				name:  "empty_table",
 				data:  nil,
 				query: NewSegmentKV(10, 2, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "single_element_hit",
@@ -116,13 +116,13 @@ func TestLookupTable_SegmentKV(t *testing.T) {
 				name:  "single_element_miss_smaller",
 				data:  singleData,
 				query: NewSegmentKV(5, 2, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "single_element_miss_larger",
 				data:  singleData,
 				query: NewSegmentKV(15, 2, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "multi_first_element",
@@ -152,19 +152,19 @@ func TestLookupTable_SegmentKV(t *testing.T) {
 				name:  "multi_miss_smaller_than_min",
 				data:  multiData,
 				query: NewSegmentKV(5, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "multi_miss_larger_than_max",
 				data:  multiData,
 				query: NewSegmentKV(40, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "multi_miss_between_keys",
 				data:  multiData,
 				query: NewSegmentKV(15, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 		}
 
@@ -275,7 +275,7 @@ func TestLookupTable_TurnKV(t *testing.T) {
 				name:  "empty_table",
 				data:  nil,
 				query: NewTurnKV(1, 2, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "single_element_hit",
@@ -287,13 +287,13 @@ func TestLookupTable_TurnKV(t *testing.T) {
 				name:  "single_element_miss_smaller",
 				data:  singleData,
 				query: NewTurnKV(0, 2, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "single_element_miss_larger",
 				data:  singleData,
 				query: NewTurnKV(2, 2, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "multi_first_element",
@@ -323,37 +323,37 @@ func TestLookupTable_TurnKV(t *testing.T) {
 				name:  "multi_miss_u_smaller_than_min",
 				data:  multiData,
 				query: NewTurnKV(0, 2, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "multi_miss_u_larger_than_max",
 				data:  multiData,
 				query: NewTurnKV(3, 1, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "multi_miss_matching_u_smaller_v",
 				data:  multiData,
 				query: NewTurnKV(1, 1, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "multi_miss_matching_u_larger_v",
 				data:  multiData,
 				query: NewTurnKV(1, 4, 1, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "multi_miss_matching_uv_smaller_w",
 				data:  multiData,
 				query: NewTurnKV(1, 2, 0, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 			{
 				name:  "multi_miss_matching_uv_larger_w",
 				data:  multiData,
 				query: NewTurnKV(1, 2, 3, 0),
-				want:  INVALID_LK_TABLE_ID,
+				want:  InvalidLkTableId,
 			},
 		}
 

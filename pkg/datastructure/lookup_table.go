@@ -6,8 +6,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// inspired by https://github.com/Project-OSRM/osrm-backend/blob/master/include/updater/source.hpp
-
 // KeyVal represents a key-value pair where keys is a slice of uint64 and val is an Index.
 type KeyVal struct {
 	keys []uint64
@@ -40,12 +38,12 @@ func (kv KeyVal) eq(kvb KeyVal) bool {
 	return true
 }
 
-// SegmentKV maps an OSM node ID pair (u, v) to an edge-based graph node ID.
+// SegmentKV maps an OSM node Id pair (u, v) to an edge-based graph node ID.
 type SegmentKV struct {
 	kv KeyVal // map from osm node id pair (u,v) to edge-based graph node id
 }
 
-// NewSegmentKV creates a new SegmentKV for node pair (u, v) and edge-based graph node ID ebgnId.
+// NewSegmentKV creates a new SegmentKV for node pair (u, v) and edge-based graph node Id ebgnId.
 func NewSegmentKV(u, v uint64, ebgnId Index) *SegmentKV {
 	keys := []uint64{u, v}
 	kv := NewKeyVal(keys, ebgnId)
@@ -67,12 +65,12 @@ func (s *SegmentKV) Val() Index {
 	return s.kv.val
 }
 
-// TurnKV maps an OSM node ID triple (u, v, w) to an edge-based graph edge ID.
+// TurnKV maps an OSM node Id triple (u, v, w) to an edge-based graph edge ID.
 type TurnKV struct {
 	kv KeyVal // map from osm node id triple (u,v,w) to edge-based graph edge id
 }
 
-// NewTurnKV creates a new TurnKV for node triple (u, v, w) and edge-based graph edge ID ebgeId.
+// NewTurnKV creates a new TurnKV for node triple (u, v, w) and edge-based graph edge Id ebgeId.
 func NewTurnKV(u, v, w uint64, ebgeId Index) *TurnKV {
 	keys := []uint64{u, v, w}
 	kv := NewKeyVal(keys, ebgeId)
@@ -137,5 +135,5 @@ func (lt *LookupTable[T]) Get(key T) Index {
 		}
 	}
 
-	return INVALID_LK_TABLE_ID
+	return InvalidLkTableId
 }

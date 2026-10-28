@@ -5,31 +5,49 @@ import (
 	"github.com/spf13/viper"
 )
 
+// NodeType represents node type.
 type NodeType uint8
 
 const (
-	// ini node yang merupakan endpoint dari osm way dan bukan JUNCTION_NODE
-	END_NODE NodeType = iota
-	// ini node yang berada di antaara endpoint dari osm way
+	// EndNode ini node yang merupakan endpoint dari osm way dan bukan JUNCTION_NODE
+	EndNode NodeType = iota
+	// BetweenNode ini node yang berada di antaara endpoint dari osm way
 	// dan bukan merupakan JUNCTION_NODE
-	BETWEEN_NODE
-	// ini junction node dari osm way
+	BetweenNode
+	// JunctionNode ini junction node dari osm way
 	// jadi ada setidaknya 2 way yang punya node yang sama
 	// nah node yang sama ini ditandain JUNCTION_NODE
-	JUNCTION_NODE
+	JunctionNode
 )
 
 const (
-	STREET_NAME     = "STREET_NAME"
-	STREET_REF      = "STREET_REF" // https://wiki.openstreetmap.org/wiki/Exit_Info
-	DESTINATION     = "DESTINATION"
-	DESTINATION_REF = "DESTINATION_REF"
-	JUNCTION        = "JUNCTION"
-	ROAD_CLASS      = "ROAD_CLASS"
-	ROAD_CLASS_LINK = "ROAD_CLASS_LINK"
-	LANES           = "LANES"
-	DRIVING_LANE    = "DRIVING_LANE"
-	TRAFFIC_LIGHT   = "TRAFFIC_LIGHT"
+	// StreetName is the street name value.
+	StreetName = "STREET_NAME"
+	// StreetRef is the street ref value.
+	StreetRef = "STREET_REF" // https://wiki.openstreetmap.org/wiki/Exit_Info
+	// DESTINATION is the destination value.
+	DESTINATION = "DESTINATION"
+
+	// DestinationRef is the destination ref value.
+	DestinationRef = "DESTINATION_REF"
+
+	// JUNCTION is the junction value.
+	JUNCTION = "JUNCTION"
+
+	// RoadClass is the road class value.
+	RoadClass = "ROAD_CLASS"
+
+	// RoadClassLink is the road class link value.
+	RoadClassLink = "ROAD_CLASS_LINK"
+
+	// LANES is the lanes value.
+	LANES = "LANES"
+
+	// DrivingLane is the driving lane value.
+	DrivingLane = "DRIVING_LANE"
+
+	// TrafficLight is the traffic light value.
+	TrafficLight = "TRAFFIC_LIGHT"
 
 	strNoEntry    = "no_entry"
 	strNone       = "none"
@@ -38,41 +56,63 @@ const (
 	strGate       = "gate"
 )
 
+// TurnRestriction represents turn restriction.
 type TurnRestriction uint8
 
 const (
-	NO_LEFT_TURN TurnRestriction = iota
-	NO_RIGHT_TURN
-	NO_STRAIGHT_ON
-	NO_U_TURN
-	ONLY_LEFT_TURN
-	ONLY_RIGHT_TURN
-	ONLY_STRAIGHT_ON
-	NO_ENTRY
-	NO_EXIT
+	// NoLeftTurn is the no left turn value.
+	// NoRightTurn is the no right turn value.
+	NoLeftTurn TurnRestriction = iota
+	// NoRightTurn is the no right turn value.
+	NoRightTurn
+
+	// NoStraightOn is the no straight on value.
+	NoStraightOn
+
+	// NoUTurn is the no uturn value.
+	NoUTurn
+
+	// OnlyLeftTurn is the only left turn value.
+	OnlyLeftTurn
+
+	// OnlyRightTurn is the only right turn value.
+	OnlyRightTurn
+
+	// OnlyStraightOn is the only straight on value.
+	OnlyStraightOn
+
+	// NoEntry is the no entry value.
+	NoEntry
+
+	// NoExit is the no exit value.
+	NoExit
+
+	// INVALID is the invalid value.
 	INVALID
+
+	// NONE is the none value.
 	NONE
 )
 
 func (tt TurnRestriction) String() string {
 	switch tt {
-	case NO_LEFT_TURN:
+	case NoLeftTurn:
 		return "no_left_turn"
-	case NO_RIGHT_TURN:
+	case NoRightTurn:
 		return "no_right_turn"
-	case NO_STRAIGHT_ON:
+	case NoStraightOn:
 		return "no_straight_on"
-	case NO_U_TURN:
+	case NoUTurn:
 		return "no_u_turn"
-	case ONLY_LEFT_TURN:
+	case OnlyLeftTurn:
 		return "only_left_turn"
-	case ONLY_RIGHT_TURN:
+	case OnlyRightTurn:
 		return "only_right_turn"
-	case ONLY_STRAIGHT_ON:
+	case OnlyStraightOn:
 		return "only_straight_on"
-	case NO_ENTRY:
+	case NoEntry:
 		return strNoEntry
-	case NO_EXIT:
+	case NoExit:
 		return "no_exit"
 	case INVALID:
 		return "invalid"
@@ -81,9 +121,10 @@ func (tt TurnRestriction) String() string {
 	}
 }
 
+// IsNotAllowedToTurnType reports whether not allowed to turn type.
 func IsNotAllowedToTurnType(tt TurnRestriction) bool {
 	switch tt {
-	case NO_LEFT_TURN, NO_RIGHT_TURN, NO_STRAIGHT_ON, NO_U_TURN, NO_ENTRY:
+	case NoLeftTurn, NoRightTurn, NoStraightOn, NoUTurn, NoEntry:
 		return true
 	default:
 		return false
@@ -93,23 +134,23 @@ func IsNotAllowedToTurnType(tt TurnRestriction) bool {
 func parseTurnRestriction(s string) TurnRestriction {
 	switch s {
 	case "no_left_turn":
-		return NO_LEFT_TURN
+		return NoLeftTurn
 	case "no_right_turn":
-		return NO_RIGHT_TURN
+		return NoRightTurn
 	case "no_straight_on":
-		return NO_STRAIGHT_ON
+		return NoStraightOn
 	case "no_u_turn":
-		return NO_U_TURN
+		return NoUTurn
 	case "only_left_turn":
-		return ONLY_LEFT_TURN
+		return OnlyLeftTurn
 	case "only_right_turn":
-		return ONLY_RIGHT_TURN
+		return OnlyRightTurn
 	case "only_straight_on":
-		return ONLY_STRAIGHT_ON
+		return OnlyStraightOn
 	case strNoEntry:
-		return NO_ENTRY
+		return NoEntry
 	case "no_exit":
-		return NO_EXIT
+		return NoExit
 	case "invalid":
 		return INVALID
 	default:
@@ -118,18 +159,36 @@ func parseTurnRestriction(s string) TurnRestriction {
 	}
 }
 
+// BarrierTypeT represents barrier type t.
 type BarrierTypeT uint8
 
 const (
+
+	// BOLLARD is the bollard value.
 	BOLLARD BarrierTypeT = iota
-	SWING_GATE
-	JERSEY_BARRIER
-	LIFT_GATE
+	// SwingGate is the swing gate value.
+	SwingGate
+
+	// JerseyBarrier is the jersey barrier value.
+	JerseyBarrier
+
+	// LiftGate is the lift gate value.
+	LiftGate
+
+	// BLOCK is the block value.
 	BLOCK
+
+	// GATE is the gate value.
 	GATE
+
+	// REMOVABLE is the removable value.
 	REMOVABLE
-	NO_BARRIER
-	INVALID_BARRIER
+
+	// NoBarrier is the no barrier value.
+	NoBarrier
+
+	// InvalidBarrier is the invalid barrier value.
+	InvalidBarrier
 )
 
 func getBarrierType(barrierStr string) BarrierTypeT {
@@ -137,11 +196,11 @@ func getBarrierType(barrierStr string) BarrierTypeT {
 	case "bollard":
 		return BOLLARD
 	case "swing_gate":
-		return SWING_GATE
+		return SwingGate
 	case "jersey_barrier":
-		return JERSEY_BARRIER
+		return JerseyBarrier
 	case "lift_gate":
-		return LIFT_GATE
+		return LiftGate
 	case "block":
 		return BLOCK
 	case strGate:
@@ -149,9 +208,9 @@ func getBarrierType(barrierStr string) BarrierTypeT {
 	case "removable":
 		return REMOVABLE
 	case "":
-		return NO_BARRIER
+		return NoBarrier
 	default:
-		return INVALID_BARRIER
+		return InvalidBarrier
 	}
 }
 

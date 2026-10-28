@@ -26,7 +26,8 @@ const (
 	minLatDeg = -85.05112
 	maxLatDeg = 85.05112
 	maxError  = 0.04
-	R         = 6378.0
+	// R is the earth equatorial radius value.
+	R = 6378.0
 )
 
 // https://en.wikipedia.org/wiki/Mercator_projection#Web_Mercator
@@ -34,28 +35,34 @@ func clampLat(lat float64) float64 {
 	return max(min(maxLatDeg, lat), minLatDeg)
 }
 
+// Radians handles coversion degree to radians.
 func Radians(deg float64) float64 {
 	return deg * math.Pi / 180
 }
 
+// Degrees handles conversion from radians to degrees.
 func Degrees(rad float64) float64 {
 	return rad * 180 / math.Pi
 }
 
+// CalcYToLat convert mercator cordinate y to latitude.
 // taken from https://wiki.openstreetmap.org/wiki/Mercator
 func CalcYToLat(y float64) float64 {
 	return Degrees(2*math.Atan(math.Exp(y/R)) - math.Pi/2)
 }
 
+// CalcLatToY convert latitude to mercator coordinate y.
 func CalcLatToY(lat float64) float64 {
 	lat = clampLat(lat)
 	return R * math.Log(math.Tan(math.Pi/4+Radians(lat)/2))
 }
 
+// CalcXToLon convert mercator coordinate x to longitude.
 func CalcXToLon(x float64) float64 {
 	return Degrees(x / R)
 }
 
+// CalcLonToX convert longitude to mercator coordinate x.
 func CalcLonToX(lon float64) float64 {
 	return R * Radians(lon)
 }

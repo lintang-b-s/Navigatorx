@@ -24,6 +24,7 @@ import (
 	"net/http/pprof"
 )
 
+// API represents http api.
 type API struct {
 	log *zap.Logger
 }
@@ -33,6 +34,7 @@ var (
 	shutdownHTTP       = func(s *http.Server, ctx context.Context) error { return s.Shutdown(ctx) }
 )
 
+// NewAPI creates and returns http api.
 func NewAPI(log *zap.Logger) *API {
 	return &API{log: log}
 }
@@ -48,6 +50,7 @@ func NewAPI(log *zap.Logger) *API {
 //	@license.name	MIT License
 //	@license.url	https://opensource.org/license/mit
 
+// Run runs .
 // @host		localhost
 // @BasePath	/api
 func (api *API) Run(
@@ -187,10 +190,11 @@ func (api *API) Run(
 	}
 }
 
-func swaggerHandler(res http.ResponseWriter, req *http.Request, p httprouter.Params) {
+func swaggerHandler(res http.ResponseWriter, req *http.Request, _ httprouter.Params) {
 	httpSwagger.WrapHandler(res, req)
 }
 
+// NewContext creates and returns context.
 func NewContext(re controllers.RoutingEngine, rs controllers.RoutingService) (context.Context, func()) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cb := func() {

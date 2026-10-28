@@ -93,7 +93,6 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, us []i
 		}
 
 		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger)
-		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(true)
 		if err != nil {
 			logger.Fatal("error: %v", zap.Error(err))
@@ -106,7 +105,6 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, us []i
 			logger.Fatal("error: %v", zap.Error(err))
 		}
 		prep = preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger)
-		prep.SetWriteTiles(false)
 		err = prep.PreProcessing(false)
 		if err != nil {
 			logger.Fatal("error: %v", zap.Error(err))

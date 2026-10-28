@@ -1,3 +1,4 @@
+// Package main provides random queries origin and destination coordinates generator
 package main
 
 import (

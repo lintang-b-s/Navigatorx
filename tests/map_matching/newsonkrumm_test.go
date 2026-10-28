@@ -466,7 +466,7 @@ func nkEvaluateMatchedRoute(t *testing.T, _ *da.Graph, rn *da.RoadNetworkDataCon
 
 	for _, point := range mapMatchPointResult {
 		curMatchedEID := point.GetSegmentId()
-		if curMatchedEID == da.INVALID_SEGMENT_ID {
+		if curMatchedEID == da.InvalidSegmentId {
 			continue
 		}
 		matchedDataEID := rn.GetOsmWayId(curMatchedEID)

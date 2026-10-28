@@ -16,14 +16,14 @@ type errorBody struct {
 	Message string `json:"message"`
 }
 
-func (api *routingAPI) logError(r *http.Request, err error) {
+func (api *RoutingAPI) logError(r *http.Request, err error) {
 
 	api.log.Error("internal server error", zap.Error(err), zap.String("request_method", r.Method),
 		zap.String("request_uri", r.URL.String()))
 }
 
 // errorResponse method for sending JSON-formatted error messages to the client with a given status code.
-func (api *routingAPI) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any,
+func (api *RoutingAPI) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any,
 ) {
 	env := errorEnvelope{Error: errorBody{
 		Code:    http.StatusText(status),
@@ -37,7 +37,8 @@ func (api *routingAPI) errorResponse(w http.ResponseWriter, r *http.Request, sta
 	}
 }
 
-func (api *routingAPI) ServerErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
+// ServerErrorResponse writes a server error response and logs the underlying error.
+func (api *RoutingAPI) ServerErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 
 	api.logError(r, err)
 
@@ -45,31 +46,37 @@ func (api *routingAPI) ServerErrorResponse(w http.ResponseWriter, r *http.Reques
 	api.errorResponse(w, r, 500, message)
 }
 
-func (api *routingAPI) NotFoundResponse(w http.ResponseWriter, r *http.Request) {
+// NotFoundResponse writes a not-found response.
+func (api *RoutingAPI) NotFoundResponse(w http.ResponseWriter, r *http.Request) {
 	message := "the requested resource could not be found"
 	api.errorResponse(w, r, http.StatusNotFound, message)
 }
 
-func (api *routingAPI) MethodNotAllowedResponse(w http.ResponseWriter, r *http.Request) {
+// MethodNotAllowedResponse writes a response for an unsupported HTTP method.
+func (api *RoutingAPI) MethodNotAllowedResponse(w http.ResponseWriter, r *http.Request) {
 	message := fmt.Sprintf("the %s method is not supported this resource", r.Method)
 	api.errorResponse(w, r, http.StatusMethodNotAllowed, message)
 }
 
-func (api *routingAPI) BadRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
+// BadRequestResponse writes a bad-request response with the supplied message.
+func (api *RoutingAPI) BadRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
 	api.errorResponse(w, r, http.StatusBadRequest, err.Error())
 }
 
-func (api *routingAPI) EditConflictResponse(w http.ResponseWriter, r *http.Request) {
+// EditConflictResponse writes a conflict response.
+func (api *RoutingAPI) EditConflictResponse(w http.ResponseWriter, r *http.Request) {
 	message := "unable to update the record due to an edit conflict, please try again"
 	api.errorResponse(w, r, http.StatusConflict, message)
 }
 
-func (api *routingAPI) InvalidCredentialsResponse(w http.ResponseWriter, r *http.Request) {
+// InvalidCredentialsResponse writes an unauthorized response for invalid credentials.
+func (api *RoutingAPI) InvalidCredentialsResponse(w http.ResponseWriter, r *http.Request) {
 	message := "invalid authentication credentials"
 	api.errorResponse(w, r, http.StatusUnauthorized, message)
 }
 
-func (api *routingAPI) InvalidAuthenticationTokenResponse(w http.ResponseWriter, r *http.Request) {
+// InvalidAuthenticationTokenResponse writes an unauthorized response for an invalid token.
+func (api *RoutingAPI) InvalidAuthenticationTokenResponse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("WWWW-Authenticate", "Bearer")
 
 	message := "invalid or missing authentication token"

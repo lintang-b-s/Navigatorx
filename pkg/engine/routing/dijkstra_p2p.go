@@ -8,6 +8,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// DijkstraP2P represents dijkstra point-to-point shortest path algorithm.
 type DijkstraP2P[W util.Numeric] struct {
 	engine          *CRPRoutingEngine[W]
 	metrics         *met.Metric[W]
@@ -16,6 +17,7 @@ type DijkstraP2P[W util.Numeric] struct {
 	numSettledNodes int
 }
 
+// NewDijkstraP2P creates and returns dijkstrap2p.
 func NewDijkstraP2P[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 ) DijkstraP2P[W] {
@@ -28,14 +30,11 @@ func NewDijkstraP2P[W util.Numeric](
 	return dj
 }
 
-/*
-point-to-point shortest path.
-with no turn costs.
-ini implementasi dijkstra point-to-point shortest path (p2psp)
-*/
+// ShortestPath compute point-to-point fastest path
+// ini implementasi dijkstra point-to-point shortest path (p2psp)
 func (us *DijkstraP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 
-	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
+	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
 
 	now := time.Now()
 
@@ -44,7 +43,7 @@ func (us *DijkstraP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 
 	for !us.pq.IsEmpty() {
 
-		finish := us.graphSearchUni(s, t)
+		finish := us.graphSearchUni(t)
 		us.numSettledNodes++
 		if finish {
 			break
@@ -59,7 +58,7 @@ func (us *DijkstraP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 	return sp, spPath
 }
 
-func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
+func (us *DijkstraP2P[W]) graphSearchUni(target da.Index) bool {
 
 	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
@@ -74,9 +73,9 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 		vId := head
 		eWeight := us.metrics.GetWeight(eId)
 		// get cost to reach v through u
-		newVCost := us.pq.GetCost(uId) + eWeight
+		newVCost := us.pq.Cost(uId) + eWeight
 
-		ovCost := us.pq.GetCost(vId)
+		ovCost := us.pq.Cost(vId)
 		if util.Lt(newVCost, ovCost) {
 			vLabelled := util.Lt(ovCost, util.Infinity[W]())
 			// newVCost is better, update the v cost
@@ -97,18 +96,19 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 	return false
 }
 
+// Preallocate handles preallocate priority queue.
 func (us *DijkstraP2P[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
 
-	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
+	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ArrayStorageMode)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
 
 func (us *DijkstraP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 	spPath := make([]da.Index, 0)
 
-	sp := us.pq.GetCost(t)
+	sp := us.pq.Cost(t)
 
 	if s == t || sp == util.Infinity[W]() {
 		return sp, spPath
@@ -130,6 +130,7 @@ func (us *DijkstraP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 	return sp, spPath
 }
 
+// GetStats returns stats.
 func (us *DijkstraP2P[W]) GetStats(n int) (float64, int, int64) {
 	// efficiency:
 	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf

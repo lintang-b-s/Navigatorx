@@ -8,6 +8,7 @@ import (
 	"time"
 )
 
+// InitBackgroundWorker initializes engine background worker.
 func (crp *CRPRoutingEngine[W]) InitBackgroundWorker(ctx context.Context) {
 	go crp.checkCustomizerUpdate(ctx, crp.metrics.GetFilePath())
 	// go crp.checkActivatedConditionalRestrictions(ctx) // belum jadi
@@ -19,7 +20,7 @@ func (crp *CRPRoutingEngine[W]) checkCustomizerUpdate(ctx context.Context, metri
 		crp.logger.Sugar().Warnf("engine.checkCustomizerUpdate: failed to read file modification time : %v\n", err)
 	}
 
-	metricsReaderTimer := time.NewTicker(CUSTOMIZER_UPDATER_TIMER_SECONDS)
+	metricsReaderTimer := time.NewTicker(CustomizerUpdaterTimer)
 	defer metricsReaderTimer.Stop()
 
 	for {
@@ -44,7 +45,7 @@ func (crp *CRPRoutingEngine[W]) checkCustomizerUpdate(ctx context.Context, metri
 				err := crp.updateMetrics()
 				if err != nil {
 					success := false
-					for attempts := 0; attempts < MAX_RETRY; attempts++ {
+					for attempts := 0; attempts < MaxRetry; attempts++ {
 						// exponential backoff: 1s, 2s, 4s, 8s, ...
 						delay := time.Duration(1<<attempts) * time.Second
 

@@ -1,3 +1,4 @@
+// Package main provides runtime benchmark and other evaluation metrics for alternative routes algorithm.
 package main
 
 import (

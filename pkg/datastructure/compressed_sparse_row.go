@@ -22,6 +22,7 @@ by convention, we define row_ptr(n+1)=nnz+1, where nnz is the number of nonzeros
 Instead of storing O(n^2) elements, we need only O(2nnz+n+1) space
 */
 
+// SparseMatrix represents sparse matrix.
 type SparseMatrix struct {
 	m, n int
 	vals []uint32
@@ -31,6 +32,7 @@ type SparseMatrix struct {
 	eq   func(a, b uint32) bool
 }
 
+// NewSparseMatrix creates and returns sparse matrix.
 func NewSparseMatrix(m, n int, zero uint32, eq func(a, b uint32) bool) *SparseMatrix {
 	rows := make([]uint32, m+1)
 	for i := range rows {
@@ -50,6 +52,7 @@ func NewSparseMatrix(m, n int, zero uint32, eq func(a, b uint32) bool) *SparseMa
 	}
 }
 
+// Set sets set.
 func (sm *SparseMatrix) Set(val uint32, row, col int) {
 	row++ // 1-based
 	col++
@@ -77,6 +80,7 @@ func (sm *SparseMatrix) Set(val uint32, row, col int) {
 	}
 }
 
+// Get returns get.
 func (sm *SparseMatrix) Get(row, col int) uint32 {
 	row++ // 1-based
 	col++
@@ -123,6 +127,7 @@ func (sm *SparseMatrix) remove(index, row int) {
 	}
 }
 
+// WriteToFile writes to file.
 func (sm *SparseMatrix) WriteToFile(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 		if err := w.Length(sm.m); err != nil {
@@ -141,6 +146,7 @@ func (sm *SparseMatrix) WriteToFile(filename string) error {
 	})
 }
 
+// ReadSparseMatrixFromFile reads sparse matrix from file.
 func ReadSparseMatrixFromFile(filename string, zero uint32, eq func(a, b uint32) bool) (*SparseMatrix, error) {
 	file, r, err := util.OpenCompressedFile(filename)
 	if err != nil {

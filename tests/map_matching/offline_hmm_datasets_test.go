@@ -1111,7 +1111,7 @@ func ohmmGroundTruthLength(t *testing.T, groundTruth []map[string]string) float6
 
 func ohmmMatchedLength(matchedPoints []*da.MatchedGPSPoint) float64 {
 	start := 0
-	for start < len(matchedPoints) && matchedPoints[start].GetSegmentId() == da.INVALID_SEGMENT_ID {
+	for start < len(matchedPoints) && matchedPoints[start].GetSegmentId() == da.InvalidSegmentId {
 		start++
 	}
 	if start >= len(matchedPoints) {
@@ -1122,7 +1122,7 @@ func ohmmMatchedLength(matchedPoints []*da.MatchedGPSPoint) float64 {
 	length := 0.0
 	for j := start + 1; j < len(matchedPoints); j++ {
 		mp := matchedPoints[j]
-		if mp.GetSegmentId() == da.INVALID_SEGMENT_ID {
+		if mp.GetSegmentId() == da.InvalidSegmentId {
 			continue
 		}
 		length += util.KilometerToMeter(geo.CalculateGreatCircleDistance(
@@ -1411,7 +1411,7 @@ func TestNewsonKrummOfflineHMMMapMatching(t *testing.T) {
 
 	matchedCoords := make([]da.Coordinate, 0, len(mapMatchPointResult))
 	for _, point := range mapMatchPointResult {
-		if point.GetSegmentId() == da.INVALID_SEGMENT_ID {
+		if point.GetSegmentId() == da.InvalidSegmentId {
 			continue
 		}
 		matchedCoords = append(matchedCoords, point.GetMatchedCoord())

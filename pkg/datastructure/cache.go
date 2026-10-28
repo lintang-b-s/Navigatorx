@@ -14,15 +14,18 @@ const (
 	defaultPathUnpackCacheMaxBytes = 1 << 28 // 256 MB default
 )
 
+// PUCacheKey represents pucache key.
 type PUCacheKey struct {
 	source, target Index
 	level          uint8
 }
 
+// NewPUCacheKey creates and returns pucache key.
 func NewPUCacheKey(source, target Index, level uint8) PUCacheKey {
 	return PUCacheKey{source: source, target: target, level: level}
 }
 
+// NewPuCache creates and returns pu cache.
 func NewPuCache() *otter.Cache[PUCacheKey, []Index] {
 	maxBytes := defaultPathUnpackCacheMaxBytes
 	if viper.IsSet("cache.path_unpacking_size") {
@@ -47,6 +50,7 @@ const (
 	initialTurnSignCacheCapacity        = 10_000
 )
 
+// NewTurnSignCache creates and returns turn sign cache.
 func NewTurnSignCache() *otter.Cache[uint64, uint64] {
 	c := otter.Must(&otter.Options[uint64, uint64]{
 		MaximumSize:     turnSigncacheMaximumSize,

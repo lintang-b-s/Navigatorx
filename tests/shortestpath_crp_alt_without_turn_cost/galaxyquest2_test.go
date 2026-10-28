@@ -319,28 +319,21 @@ func TestCRPQueryGalaxyQuestMALT(t *testing.T) {
 
 	for _, dir := range testDirs {
 		fullDir := filepath.Join(dirPath, dir)
-
 		files, err := os.ReadDir(fullDir)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
 
 		for _, entry := range files {
-
 			name := entry.Name()
-
 			if !strings.HasSuffix(name, ".in") {
 				continue
 			}
-
 			baseName := strings.TrimSuffix(name, ".in")
-
 			testPath := filepath.Join(fullDir, baseName)
-
 			t.Logf("solving test case: %v", baseName)
 			t.Run("Multilevel-ALT without turn cost/"+dir+"/"+baseName, func(t *testing.T) {
 				solveGalaxyQuest(t, testPath)
-
 			})
 		}
 	}

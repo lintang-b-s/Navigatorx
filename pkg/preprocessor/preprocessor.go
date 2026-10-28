@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Preprocessor represents Customizable Route Planning (CRP) preprocessor.
 type Preprocessor[W util.Numeric] struct {
 	graph                                                                              *da.Graph
 	rn                                                                                 *da.RoadNetworkDataContainer
@@ -23,10 +24,9 @@ type Preprocessor[W util.Numeric] struct {
 	nToOldVId                                                                          map[da.Index]da.Index
 	timeFunction                                                                       *met.TimeFunction[W]
 	graphFilename, overlayGraphFilename, prepCostFunctionFilename, rnContainerFilename string
-	writeTiles                                                                         bool
 }
 
-func getPrepFilePath(fileType pkg.FILE_TYPE) (graph, overlayGraph, roadNetwork string) {
+func getPrepFilePath(_ pkg.FileType) (graph, overlayGraph, roadNetwork string) {
 	root := config.ProfilesRoot()
 	base := fmt.Sprintf("%s/%s/%s", root, pkg.ProfileName, pkg.RegionName)
 	return base + ".ngraph",
@@ -34,6 +34,7 @@ func getPrepFilePath(fileType pkg.FILE_TYPE) (graph, overlayGraph, roadNetwork s
 		base + "_road_network.ndata"
 }
 
+// NewPreprocessor creates and returns preprocessor.
 func NewPreprocessor[W util.Numeric](graph *da.Graph, rn *da.RoadNetworkDataContainer, timeFunction *met.TimeFunction[W], mlp *da.MultilevelPartition,
 	logger *zap.Logger,
 ) *Preprocessor[W] {
@@ -50,15 +51,10 @@ func NewPreprocessor[W util.Numeric](graph *da.Graph, rn *da.RoadNetworkDataCont
 		prepCostFunctionFilename: met.PrepTimeFunctionPath(),
 		timeFunction:             timeFunction,
 		rnContainerFilename:      rnf,
-		writeTiles:               true,
 	}
 }
 
-func (p *Preprocessor[W]) SetWriteTiles(writeTiles bool) {
-	p.writeTiles = writeTiles
-}
-
-// Preprocesssing. Preprocessing (building Overlay Graph) phase. see section 5.1 Metric Independent Preprocessing (Overlay Topology) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+// PreProcessing runs CRP Preprocessing phase .(building Overlay Graph) phase. see section 5.1 Metric Independent Preprocessing (Overlay Topology) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 func (p *Preprocessor[W]) PreProcessing(writefile bool) error {
 	p.logger.Sugar().Infof("Starting building overlay graph preprocessing step of Customizable Route Planning...")
 
@@ -143,6 +139,7 @@ func (p *Preprocessor[W]) buildLookupTable() error {
 	return nil
 }
 
+// BuildCellNumber builds cell number.
 func (p *Preprocessor[W]) BuildCellNumber() {
 	cellNumbers := make([]da.Pv, 0, p.mlp.GetNumberOfCellsInLevel(0))
 	pvMap := make(map[da.Pv]da.Index, p.mlp.GetNumberOfCellsInLevel(0))
@@ -164,7 +161,7 @@ func (p *Preprocessor[W]) BuildCellNumber() {
 }
 
 /*
-SortByCellNumber. group vertices s.t. vertices within the same cell are adjacent to each other
+SortByCellNumber group vertices s.t. vertices within the same cell are adjacent to each other
 adapted from https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.cpp
 */
 func (p *Preprocessor[W]) SortByCellNumber() error {
@@ -303,22 +300,27 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 	return nil
 }
 
+// GetOldToNewVId returns old to new vid.
 func (p *Preprocessor[W]) GetOldToNewVId() []da.Index {
 	return p.oToNewVId
 }
 
+// GetNewToOldVId returns new to old vid.
 func (p *Preprocessor[W]) GetNewToOldVId() map[da.Index]da.Index {
 	return p.nToOldVId
 }
 
+// GetOverlayGraph returns overlay graph.
 func (p *Preprocessor[W]) GetOverlayGraph() *da.OverlayGraph {
 	return p.overlayGraph
 }
 
+// GetGraph returns graph.
 func (p *Preprocessor[W]) GetGraph() *da.Graph {
 	return p.graph
 }
 
+// GetTimeFunction returns time function.
 func (p *Preprocessor[W]) GetTimeFunction() *met.TimeFunction[W] {
 	return p.timeFunction
 }

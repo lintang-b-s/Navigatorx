@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// RecursiveBisection represents recursive bisection inertial flow algorithm.
 type RecursiveBisection struct {
 	g                      *da.Graph
 	maximumCellSize        int
@@ -22,6 +23,7 @@ type RecursiveBisection struct {
 	progress               *util.Progress
 }
 
+// NewRecursiveBisection creates and returns recursive bisection inertial flow instance.
 func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Logger,
 	inertialFlowIterations int, showProgress bool,
 ) *RecursiveBisection {
@@ -29,7 +31,7 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 	n := graph.NumberOfVertices()
 	partition := make([]int, n)
 	for i := range partition {
-		partition[i] = INVALID_CELL_ID
+		partition[i] = InvalidCellId
 	}
 
 	return &RecursiveBisection{
@@ -44,6 +46,7 @@ func NewRecursiveBisection(graph *da.Graph, maximumCellSize int, logger *zap.Log
 }
 
 /*
+Partition run inertial flow + recursive bisection algorithm.
 ref1: [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
 partisi road networks graph dengan cara: (b = parameter balance)
 (1) sort vertices by linear kombinaasi latitude & longitude
@@ -94,13 +97,13 @@ func (rb *RecursiveBisection) Partition(mlpCellVIds []da.Index) {
 	computeIflow := func(iflowInChan chan *da.CellGraph) {
 		for cg := range iflowInChan {
 			iflow := NewInertialFlow(cg, rb.inertialFlowIterations)
-			cut := iflow.computeInertialFlowDinic(SOURCE_SINK_RATE) // O(n*sqrt(n)) dinic on unit capacity graph, n = number of vertices in current recursive bisection cell cg
-			cs, ct := rb.applyBisection(cut, cg)                    // O(n)
+			cut := iflow.computeInertialFlowDinic(SourceSinkRate) // O(n*sqrt(n)) dinic on unit capacity graph, n = number of vertices in current recursive bisection cell cg
+			cs, ct := rb.applyBisection(cut, cg)                  // O(n)
 			iflowOutChan <- NewBisectionRes(cs, ct, cut.cutEdgesCount)
 		}
 	}
 
-	for i := 0; i < BISECTION_WORKERS; i++ {
+	for i := 0; i < BisectionWorkers; i++ {
 		go computeIflow(iflowInChan)
 	}
 
@@ -199,6 +202,7 @@ func (rb *RecursiveBisection) buildMLPCellGraph(mlpCellVIds []da.Index) *da.Cell
 	return cg
 }
 
+// GetFinalPartition returns final partition.
 func (rb *RecursiveBisection) GetFinalPartition() []int {
 	return rb.partition
 }

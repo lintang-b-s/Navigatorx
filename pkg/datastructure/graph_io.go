@@ -142,6 +142,7 @@ func readIndices(r *util.BinaryReader) ([]Index, error) {
 	return values, nil
 }
 
+// WriteGraph writes graph.
 func (g *Graph) WriteGraph(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 
@@ -272,6 +273,7 @@ func (g *Graph) WriteGraph(filename string) error {
 	})
 }
 
+// ReadGraph reads graph.
 func ReadGraph(filename string) (*Graph, error) {
 	file, r, err := util.OpenCompressedFile(filename)
 	if err != nil {

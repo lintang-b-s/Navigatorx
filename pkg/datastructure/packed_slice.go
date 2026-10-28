@@ -46,6 +46,7 @@ lowerOffset[1]=33 (index dari first bit 1432114613 di 10101010101110001010101101
 
 */
 
+// PackedSlice represents packed slice.
 type PackedSlice struct {
 	data         []uint64
 	numberOfBits uint8 // number of bits untuk max value dari values yang disimpan di packed slice.
@@ -53,6 +54,7 @@ type PackedSlice struct {
 	numOfItems uint64
 }
 
+// NewPackedSlice creates and returns packed slice.
 func NewPackedSlice(numberOfBits uint8, numberOfItems uint64) *PackedSlice {
 	ps := &PackedSlice{data: make([]uint64, 1), numberOfBits: numberOfBits, numOfItems: 0}
 	capacity := ps.getLowerIndex(numberOfItems) + 1

@@ -8,6 +8,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// WriteLandmark writes landmark.
 func (lm *Landmark[W]) WriteLandmark(filename string, n int) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 
@@ -40,6 +41,7 @@ func (lm *Landmark[W]) WriteLandmark(filename string, n int) error {
 	})
 }
 
+// ReadLandmark reads landmark.
 func ReadLandmark[W util.Numeric](
 	filename string,
 ) (*Landmark[W], error) {

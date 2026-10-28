@@ -8,6 +8,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// Dijkstra represents dijkstra algorithm.
 type Dijkstra[W util.Numeric] struct {
 	graph *da.Graph
 	cf    *met.TimeFunction[W]
@@ -19,6 +20,7 @@ type Dijkstra[W util.Numeric] struct {
 	numSettledNodes int
 }
 
+// NewDijkstra creates and returns dijkstra.
 func NewDijkstra[W util.Numeric](graph *da.Graph, cf *met.TimeFunction[W], useReverseGraph bool) *Dijkstra[W] {
 	dj := &Dijkstra[W]{
 		graph:           graph,
@@ -32,8 +34,7 @@ func NewDijkstra[W util.Numeric](graph *da.Graph, cf *met.TimeFunction[W], useRe
 }
 
 /*
-dijkstra sssp.
-
+ShortestPath run dijkstara single source shortest path algorithm.
 useReversedGraph = true -> buat cari sssp dari every vertices in graph to s
 
 Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA:
@@ -46,6 +47,13 @@ buat precalculated landmark sp distances (untuk potential/heuristic ALT (A*, lan
 kita gak perlu pakai turn costs karena kalau misal pake turn costs di fase query Customizable Route Planning (CRP), potential/heuristic nya masih underestimate true sp dist dan masih memenuhi sifat konsisten/feasible...
 */
 func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
+	sps := make([]W, us.graph.NumberOfVertices())
+	us.ShortestPathInto(s, heapPool, sps, 1)
+	return sps
+}
+
+// ShortestPathInto writes shortest path costs into dst with the given stride.
+func (us *Dijkstra[W]) ShortestPathInto(s da.Index, heapPool *sync.Pool, dst []W, stride int) {
 	us.pq = heapPool.Get().(*da.QueryHeap[da.QueryKey, W])
 	us.pq.Clear()
 
@@ -54,7 +62,7 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
 	}
 	defer done()
 
-	noPar := da.NewParentVertex(da.INVALID_VERTEX_ID, false)
+	noPar := da.NewParentVertex(da.InvalidVertexId, false)
 
 	djKey := da.NewDijkstraKey(s)
 	us.pq.Insert(s, 0, da.NewVData(W(0),
@@ -66,9 +74,7 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
 		us.numSettledNodes++
 	}
 
-	sps := us.constructShortestPath(s)
-
-	return sps
+	us.constructShortestPath(s, dst, stride)
 }
 
 func (us *Dijkstra[W]) graphSearchUni() {
@@ -83,9 +89,9 @@ func (us *Dijkstra[W]) graphSearchUni() {
 		eWeight := us.GetWeight(eId, out)
 
 		// get cost to reach v through u
-		newVCost := us.pq.GetCost(uId) + eWeight
+		newVCost := us.pq.Cost(uId) + eWeight
 
-		ovCost := us.pq.GetCost(v)
+		ovCost := us.pq.Cost(v)
 		vLabelled := util.Lt(ovCost, util.Infinity[W]())
 		if util.Lt(newVCost, ovCost) {
 			// newVCost is better, update the vertex v cost in pq
@@ -104,7 +110,7 @@ func (us *Dijkstra[W]) graphSearchUni() {
 	}
 }
 
-// GetV returns the adjacent vertex ID and edge ID for the given offset and index.
+// GetV returns the adjacent vertex Id and edge Id for the given offset and index.
 func (us *Dijkstra[W]) GetV(eId da.Index, out bool) da.Index {
 
 	if out {
@@ -122,16 +128,15 @@ func (us *Dijkstra[W]) GetWeight(eId da.Index, out bool) W {
 	return us.cf.GetWeight(reId)
 }
 
-func (us *Dijkstra[W]) constructShortestPath(s da.Index) []W {
+func (us *Dijkstra[W]) constructShortestPath(s da.Index, sps []W, stride int) {
 	n := us.graph.NumberOfVertices()
-	sps := make([]W, n)
 	for t := da.Index(0); t < da.Index(n); t++ {
-		sp := us.pq.GetCost(t)
+		sp := us.pq.Cost(t)
 
 		if s == t {
-			continue // sp == 0
+			sps[int(t)*stride] = 0
+			continue
 		}
-		sps[t] = sp
+		sps[int(t)*stride] = sp
 	}
-	return sps
 }

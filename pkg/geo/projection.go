@@ -7,6 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// PointLinePerpendicularDistance handles point line perpendicular distance.
 // return in meter
 func PointLinePerpendicularDistance(pointA da.Coordinate, pointB da.Coordinate,
 	snap da.Coordinate) float64 {
@@ -16,6 +17,7 @@ func PointLinePerpendicularDistance(pointA da.Coordinate, pointB da.Coordinate,
 	return dist
 }
 
+// ProjectPointOnSegment handles project point on segment.
 func ProjectPointOnSegment(pointA da.Coordinate, pointB da.Coordinate,
 	qCoord da.Coordinate) da.Coordinate {
 
@@ -45,12 +47,13 @@ func ProjectPointOnSegment(pointA da.Coordinate, pointB da.Coordinate,
 	return da.NewCoordinate(projLat, projLon)
 }
 
+// ProjectPointOnSegmentGeometry handles project point on segment geometry.
 func ProjectPointOnSegmentGeometry(segGeometry []da.Coordinate, lat, lon float64) (da.Index, da.Coordinate, float64, float64) {
-	minDist := pkg.INF_WEIGHT
+	minDist := pkg.InfWeight
 	var pPoint da.Coordinate //  best projected point
 	n := len(segGeometry)
 
-	stailDist := pkg.INF_WEIGHT //  dist dari tail  vertex dari this road segment id ke titik proyeksi (lat,lon) to this road segment
+	stailDist := pkg.InfWeight //  dist dari tail  vertex dari this road segment id ke titik proyeksi (lat,lon) to this road segment
 	cumDist := 0.0
 
 	lastIndex := 0

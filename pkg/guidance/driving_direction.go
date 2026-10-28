@@ -12,6 +12,7 @@ import (
 // https://wiki.openstreetmap.org/wiki/Key:destination
 // https://wiki.openstreetmap.org/wiki/Highway_link
 
+// DirectionBuilder represents direction builder.
 type DirectionBuilder struct {
 	turnSignCache *otter.Cache[uint64, uint64] // cache untuk turn sign dari (prevEdgeId, currEdgeId) untuk di jalan Nasional, Jalan provinsi, dan Jalan kabupaten. Uses uint64 value to avoid the per-call byte-slice allocation of the previous []byte encoding
 
@@ -54,6 +55,7 @@ type DirectionBuilder struct {
 	useAnnotation bool
 }
 
+// NewDirectionBuilder creates and returns direction builder.
 func NewDirectionBuilder(graph Graph, rn RoadNetworkDataContainer, metrics Metrics, lefthand bool,
 	turnSignCache *otter.Cache[uint64, uint64]) *DirectionBuilder {
 
@@ -63,9 +65,9 @@ func NewDirectionBuilder(graph Graph, rn RoadNetworkDataContainer, metrics Metri
 		metrics:             metrics,
 		graph:               graph,
 		rn:                  rn,
-		prevSegmentId:       da.INVALID_SEGMENT_ID,
-		nextStreetName:      da.INVALID_STREET_NAME_ID,
-		doublePrevSegmentId: da.INVALID_SEGMENT_ID,
+		prevSegmentId:       da.InvalidSegmentId,
+		nextStreetName:      da.InvalidStreetNameId,
+		doublePrevSegmentId: da.InvalidSegmentId,
 
 		prevInRoundabout:         false,
 		doublePrevInitialBearing: 0,
@@ -92,12 +94,13 @@ func (db *DirectionBuilder) reset() {
 	db.geometry = db.geometry[:0]
 }
 
+// SetReroute sets reroute to true.
 func (db *DirectionBuilder) SetReroute(startSegId da.Index) {
 	db.reroute = true
 	db.startSegId = startSegId
 }
 
-// GetDrivingDirections. generate driving directions dari path (list of segmentIds)
+// GetDrivingDirections generate driving directions from path (list of segmentIds)
 // worst case: O(n*q + n*l), n = number of segmentIds in path arr, q=max outDegree of any vertex in the graph, l=maximum length of any edge geometry
 func (db *DirectionBuilder) GetDrivingDirections(
 	segments []da.Index,
@@ -164,7 +167,7 @@ func (db *DirectionBuilder) buildInstruction(segmentId da.Index, sp da.PhantomNo
 	isRoundabout := db.rn.IsRoundabout(segmentId)
 
 	var prevPoint da.Coordinate
-	if db.prevSegmentId != da.INVALID_SEGMENT_ID {
+	if db.prevSegmentId != da.InvalidSegmentId {
 		prevPoint = db.rn.GetSegmentTailCoord(db.prevSegmentId)
 	}
 

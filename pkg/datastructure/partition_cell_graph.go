@@ -49,7 +49,7 @@ func (c *CellGraph) NumberOfCellVertices() int {
 	return int(c.end - c.begin)
 }
 
-// NumberOfCellVertices get number of network flow vetices that inside this cell.
+// NumberOfNetworkFlowVertices returns number of network flow vetices that inside this cell.
 func (c *CellGraph) NumberOfNetworkFlowVertices() int {
 	return len(c.firstOut) - 1
 }
@@ -68,6 +68,7 @@ func (c *CellGraph) ForEachCellVertices(handle func(vId, gvId Index, coord Coord
 	}
 }
 
+// ForEdgesOf iterates over edges of.
 // ForOutEdgesOf iterate all edges (and reversed edges) that inside this recursive bisection cell that coming from RB cell vertex id=u (recursive bisection cell vertex id).
 func (c *CellGraph) ForEdgesOf(u Index, handle func(v Index, rev bool)) {
 	for o := c.firstOut[u]; o < c.firstOut[u+1]; o++ {
@@ -80,10 +81,11 @@ func (c *CellGraph) ForEdgesOf(u Index, handle func(v Index, rev bool)) {
 	}
 }
 
+// GetGraphVertexId returns road network graph vertex id.
 func (c *CellGraph) GetGraphVertexId(v Index) Index {
 	if int(v) >= c.NumberOfCellVertices() {
 		// v is an auxiliary vertex (for handling anti-parallel edges), not a road network vertex
-		return INVALID_SEGMENT_ID
+		return InvalidSegmentId
 	}
 	return c.vIds[c.begin+v]
 }
@@ -94,20 +96,23 @@ func (c *CellGraph) OutEdge(u, i Index) (Index, Index, Index) {
 	return c.heads[e], e, 0
 }
 
-// OutEdge i-th reversed edge (u,v) of vertex u. return v, its reversed edge (u, v) id, and edge (v, u) id
+// InEdge i-th reversed edge (u,v) of vertex u. return v, its reversed edge (u, v) id, and edge (v, u) id
 func (c *CellGraph) InEdge(u, i Index) (Index, Index, Index) {
 	e := c.firstIn[u] + i
 	return c.tails[e], e, c.eRevs[e]
 }
 
+// EdgesCount handles edges count.
 func (c *CellGraph) EdgesCount() Index {
 	return Index(len(c.heads))
 }
 
+// OutDegree handles out degree.
 func (c *CellGraph) OutDegree(u Index) Index {
 	return c.firstOut[u+1] - c.firstOut[u]
 }
 
+// InDegree handles in degree.
 func (c *CellGraph) InDegree(u Index) Index {
 	return c.firstIn[u+1] - c.firstIn[u]
 }

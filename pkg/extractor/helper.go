@@ -43,7 +43,7 @@ func getName(way *osm.Way, tempMap map[string]string) {
 		"old_name",
 	)
 
-	tempMap[STREET_NAME] = name
+	tempMap[StreetName] = name
 
 	// taken from: https://wiki.openstreetmap.org/wiki/Key:ref
 	// When a road has no number, leave this key unused; this makes sure that routing programs do not try to describe the road by a number.
@@ -64,14 +64,14 @@ func getName(way *osm.Way, tempMap map[string]string) {
 		"old_ref",
 	)
 
-	tempMap[STREET_REF] = refName
+	tempMap[StreetRef] = refName
 
 	destinationRefName := findKeyNotEmpty(way,
 		"destination:ref",
 		"destination:ref:to",
 	)
 
-	tempMap[DESTINATION_REF] = destinationRefName
+	tempMap[DestinationRef] = destinationRefName
 
 	destination := findKeyNotEmpty(way,
 		"destination",
@@ -172,16 +172,25 @@ func getReversedOneWay(way *osm.Way) (bool, bool) {
 }
 
 const (
-	DIRECTION_FORWARD_REVERSIBLE uint8 = iota
-	DIRECTION_BACKWARD_REVERSIBLE
-	NO_ROUTE_REVERSIBLE
+	// DirectionForwardReversible is the direction forward reversible value.
+	DirectionForwardReversible uint8 = iota
+	// DirectionBackwardReversible is the direction backward reversible value.
+	DirectionBackwardReversible
+	// NoRouteReversible is the no route reversible value.
+	NoRouteReversible
 )
 
 const (
-	SUNRISE_DEFAULT = 6 * 60
-	SUNSET_DEFAULT  = 18 * 60
-	DAWN_DEFAULT    = 5*60 + 30
-	DUSK_DEFAULT    = 18*60 + 30
+	// SunriseDefault is the sunrise default value.
+	SunriseDefault = 6 * 60
+	// SunsetDefault is the sunset default value.
+	SunsetDefault = 18 * 60
+
+	// DawnDefault is the dawn default value.
+	DawnDefault = 5*60 + 30
+
+	// DuskDefault is the dusk default value.
+	DuskDefault = 18*60 + 30
 )
 
 var dayMap = map[string]time.Weekday{
@@ -269,13 +278,13 @@ func parseSolarEvent(s string) (int, error) {
 	s = strings.ToLower(strings.TrimSpace(s))
 	switch s {
 	case "sunrise":
-		return SUNRISE_DEFAULT, nil
+		return SunriseDefault, nil
 	case "sunset":
-		return SUNSET_DEFAULT, nil
+		return SunsetDefault, nil
 	case "dawn":
-		return DAWN_DEFAULT, nil
+		return DawnDefault, nil
 	case "dusk":
-		return DUSK_DEFAULT, nil
+		return DuskDefault, nil
 	}
 	return 0, fmt.Errorf("not a solar event: %s", s)
 }
@@ -436,6 +445,7 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 	return
 }
 
+// GetReversibleOneWay returns reversible one way.
 // https://wiki.openstreetmap.org/wiki/Tag:oneway%3Dreversible
 func GetReversibleOneWay(val string, currentTime time.Time) (direction uint8, err error) {
 
@@ -489,7 +499,7 @@ func GetReversibleOneWay(val string, currentTime time.Time) (direction uint8, er
 
 			isInTimeRange, err = isConditionalAccessInTimerange(condTime, currentTime)
 			if err != nil {
-				return NO_ROUTE_REVERSIBLE, fmt.Errorf("getReversibleOneWay: %w", err)
+				return NoRouteReversible, fmt.Errorf("getReversibleOneWay: %w", err)
 			}
 		}
 
@@ -497,12 +507,12 @@ func GetReversibleOneWay(val string, currentTime time.Time) (direction uint8, er
 			continue
 		}
 		if forwardDir {
-			return DIRECTION_FORWARD_REVERSIBLE, nil
+			return DirectionForwardReversible, nil
 		}
-		return DIRECTION_BACKWARD_REVERSIBLE, nil
+		return DirectionBackwardReversible, nil
 	}
 
-	return NO_ROUTE_REVERSIBLE, nil
+	return NoRouteReversible, nil
 }
 
 func isInTimeRange(currentMins, fromMins, toMins int) bool {
@@ -515,6 +525,7 @@ func isInTimeRange(currentMins, fromMins, toMins int) bool {
 	return currentMins >= fromMins || currentMins < toMins
 }
 
+// IsConditionalRestrictionCurrentlyProhibited reports whether conditional restriction currently prohibited.
 func IsConditionalRestrictionCurrentlyProhibited(currentTime time.Time, accessCondType string) (bool, error) {
 	// https://www.openstreetmap.org/node/10303116750#map=19/-7.756394/110.381924&layers=N
 	// contoh accessCondType: "no @ (Mo-Fr,Su 22:00-06:00; Sa 22:30-06:00)"
@@ -724,16 +735,19 @@ func isAccessByVehicleModeAllowed(findTag func(key string) string) bool {
 	return allowed
 }
 
+// GetAccessValConditionalRestriction returns access val conditional restriction.
 func GetAccessValConditionalRestriction(val string) string {
 	ss := strings.Split(val, "@")
 	return strings.TrimSpace(ss[0])
 }
 
+// GetTimeRangeValConditionalRestriction returns time range val conditional restriction.
 func GetTimeRangeValConditionalRestriction(val string) string {
 	ss := strings.Split(val, "@") // (....)
 	return strings.TrimSpace(ss[1])
 }
 
+// IsAccessByVehicleModeConditionallyAllowed reports whether access by vehicle mode conditionally allowed.
 func IsAccessByVehicleModeConditionallyAllowed(findTag func(key string) string) bool {
 	// see: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla , access tags (ways)
 
@@ -1030,29 +1044,29 @@ func buildTurnLanesData(turnLanesForw, turnLanesBackw []string) (da.TurnLanesDat
 			for turnVal := range strings.SplitSeq(turnLanesForw[i], ";") {
 				switch turnVal {
 				case strNone, "":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_NONE)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneNone)
 				case "through", "straight":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_STRAIGHT)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneStraight)
 				case "sharp_left":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_SHARP_LEFT)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneSharpLeft)
 				case "left":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_LEFT)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneLeft)
 				case "slight_left":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_SLIGHT_LEFT)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneSlightLeft)
 				case "slight_right":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_SLIGHT_RIGHT)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneSlightRight)
 				case "right":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_RIGHT)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneRight)
 				case "sharp_right":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_SHARP_RIGHT)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneSharpRight)
 				case "reverse", "uturn":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_UTURN)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneUturn)
 				case "merge_to_left":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_MERGE_TO_LEFT)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneMergeToLeft)
 				case "merge_to_right":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_MERGE_TO_RIGHT)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneMergeToRight)
 				case "no":
-					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_NO_ENTRY)
+					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LaneNoEntry)
 				}
 			}
 		}

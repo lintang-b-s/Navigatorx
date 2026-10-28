@@ -26,9 +26,8 @@ func (db *DirectionBuilder) lookForward(prevName string, maxStep int) ([]da.Inde
 	return make([]da.Index, 0), false, 0
 }
 
-//
 /*
-GetPrevPoint. ini buat get prevPoint, point sebelum tail vertex/intersection vertex.
+GetPrevPoint ini buat get prevPoint, point sebelum tail vertex/intersection vertex.
 
 ingat bentuk turn adalah seperti ini:
 
@@ -79,7 +78,7 @@ func (db *DirectionBuilder) GetPrevPoint(segmentId da.Index, tailCoord da.Coordi
 	return v
 }
 
-// GetHeadPoint. ini buat get headPoint, point setelah tail vertex/intersection vertex.
+// GetHeadPoint ini buat get headPoint, point setelah tail vertex/intersection vertex.
 // mirip kaya GetPrevPoint, tapi pakai geometry dari currentEdge.
 func (db *DirectionBuilder) GetHeadPoint(eId da.Index, tailCoord da.Coordinate, atLeastDist float64) da.Coordinate {
 
@@ -121,7 +120,7 @@ func (db *DirectionBuilder) lookForwardSameOsmWay(segId da.Index, headOsmId uint
 	return false
 }
 
-// IsSuggestAlternatives. cek apakah tipe highway dari segmentId in "primary", "secondary", "trunk"
+// IsSuggestAlternatives cek apakah tipe highway dari segmentId in "primary", "secondary", "trunk"
 // biasanya kalau kita pakai google map, ketika kita di dekat persimpangan jalan besar, gmaps ngasih rute alternatives
 // nah ini tujuannya buat nandain routeStep (kumpulan segmen jalan sebelum titik belok) bisa disuggest alternative routes
 // ingat kita menambahkan turnSign && routeStep ketika turnSign dari segmentId yang diproses buildInstruction(segmentId) bukan IGNORE
@@ -139,7 +138,7 @@ func (db *DirectionBuilder) IsSuggestAlternatives(segmentId da.Index) bool {
 		return true
 	default:
 		switch edgeRoadClassLink {
-		case pkg.PRIMARY_LINK, pkg.SECONDARY_LINK, pkg.TRUNK_LINK:
+		case pkg.PrimaryLink, pkg.SecondaryLink, pkg.TrunkLink:
 			return true
 		}
 	}

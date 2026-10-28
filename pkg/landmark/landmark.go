@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Landmark represents ALT landmark precomputed distances.
 type Landmark[W util.Numeric] struct {
 	lw        []W
 	vlw       []W
@@ -24,6 +25,7 @@ type Landmark[W util.Numeric] struct {
 	k         da.Index
 }
 
+// NewLandmark creates and returns ALT landmark precomputed distances.
 func NewLandmark[W util.Numeric]() *Landmark[W] {
 	lm := &Landmark[W]{}
 	lm.lw = []W{}
@@ -36,13 +38,10 @@ func NewLandmark[W util.Numeric]() *Landmark[W] {
 
 // todo: pas run ./bin/customizer --region=jateng_jabar peak memory ~7.4GB, coba cek pprof heap && optimize...
 
-/*
-[1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
-
-this is an implementation of planar landmark selection described in section 7 paper [1] versi 2
-
-O(V*logV)
-*/
+// SelectLandmarksTwo selects landmark vertices for the ALT (A*, Landmarks, and Triangle Inequality) Algorithm.
+// [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+// this is an implementation of planar landmark selection described in section 7 paper [1] versi 2
+// O(V*logV)
 func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 
 	landmarks := make([]da.Vertex, 0, k)
@@ -133,36 +132,11 @@ func (qp *queryParam) getSid() da.Index {
 	return qp.sid
 }
 
-type queryRet[W util.Numeric] struct {
-	il  int
-	sps []W
-}
-
-func newQueryRet[W util.Numeric](il int, sps []W) queryRet[W] {
-	return queryRet[W]{il, sps}
-}
-
-func (qr *queryRet[W]) getIndex() int {
-	return qr.il
-}
-
-func (qr *queryRet[W]) getSpCosts() []W {
-	return qr.sps
-}
-
-// todo: reduce memory usage PreprocessALT()
-// currently (7 oktober 2026), pakai diy_solo_semarang.osm.pbf PreprocessALT() peak htop RES/RSS ~ 2GB, hampir 20x ukuran file osmnya
-// kayake bisa dibatesi jumlah goroutine worker nya... & coba cek pprof di PreprocessALT()
-
-/*
-[1] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
-
-preprocessing phase of A*, landmark, and triangle inequality (ALT) described in [1]
-
-time complexity of ALT preprocessing:
-
-O((n+m)logn * k), m=number of edges,k=number of landmarks
-*/
+// PreprocessALT computes ALT (A*, Landmarks, and Triangle Inequality ) Preprocessing Algorithm
+// [1] Goldberg, A.V. and Harrelson,  (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
+// preprocessing phase of A*, landmark, and triangle inequality (ALT) described in [1]
+// time complexity of ALT preprocessing:
+// O((n+m)logn * k), m=number of edges,k=number of landmarks
 func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.Graph, logger *zap.Logger) error {
 	if k > 64 {
 		return errors.New("too much landmarks!, the maximum number of landmarks is 64. ")
@@ -186,15 +160,15 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 	heapPool := sync.Pool{
 		New: func() any {
 
-			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
+			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ArrayStorageMode)
 		},
 	}
 
 	dijkstraInChan := make(chan queryParam, landmarkChanSize)
 	dijkstraRevInChan := make(chan queryParam, landmarkChanSize)
 
-	dijkstraOutChan := make(chan queryRet[W], landmarkChanSize)
-	dijkstraRevOutChan := make(chan queryRet[W], landmarkChanSize)
+	dijkstraOutChan := make(chan struct{}, landmarkChanSize)
+	dijkstraRevOutChan := make(chan struct{}, landmarkChanSize)
 
 	wg := sync.WaitGroup{}
 
@@ -204,8 +178,9 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 			il := qp.getIndex()
 
 			crpQuery := NewDijkstra(graph, cf, false) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
-			sps := crpQuery.ShortestPath(sid, &heapPool)
-			dijkstraOutChan <- newQueryRet(il, sps)
+			sps := lw[il*int(n) : (il+1)*int(n)]
+			crpQuery.ShortestPathInto(sid, &heapPool, sps, 1)
+			dijkstraOutChan <- struct{}{}
 		}
 	}
 
@@ -214,28 +189,20 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 			sid := qp.getSid()
 			il := qp.getIndex()
 			crpQuery := NewDijkstra(graph, cf, true) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
-
-			sps := crpQuery.ShortestPath(sid, &heapPool)
-			dijkstraRevOutChan <- newQueryRet(il, sps)
+			sps := vlw[il:]
+			crpQuery.ShortestPathInto(sid, &heapPool, sps, int(k))
+			dijkstraRevOutChan <- struct{}{}
 		}
 	}
 
 	go func() {
-		for res := range dijkstraRevOutChan {
-			il := res.getIndex()
-			sps := res.getSpCosts()
-			for v := 0; v < int(n); v++ {
-				vlw[v*k+il] = sps[v]
-			}
+		for range dijkstraRevOutChan {
 			wg.Done()
 		}
 	}()
 
 	go func() {
-		for res := range dijkstraOutChan {
-			il := res.getIndex()
-			sps := res.getSpCosts()
-			copy(lw[il*int(n):(il+1)*int(n)], sps)
+		for range dijkstraOutChan {
 			wg.Done()
 		}
 	}()
@@ -247,7 +214,7 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 
 	for i := 0; i < k; i++ {
 		landmark := landmarksVertices[i]
-		sid := landmark.GetID()
+		sid := landmark.GetId()
 		landmarks[i] = sid
 		wg.Add(2)
 		dijkstraInChan <- newQueryparam(i, sid)
@@ -285,6 +252,8 @@ func (lm *Landmark[W]) matrix(r, c da.Index, lw bool) [][]W {
 }
 
 /*
+
+ComputeTighestLowerBound computes ALT heuristic h(u) or compute tighest lower bound of shortest path distance d(u,t).
 [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [2] Bast, H. et al. (2016) “Route Planning in Transportation Networks,” in L.
 Kliemann and P. Sanders (eds.) Algorithm Engineering: Selected Results and
@@ -295,7 +264,7 @@ https://doi.org/10.1007/978-3-319-49487-6_2.
 implementation of computing tighest lower bound of A*, landmarks, and triangle inequality, section 6 Computing Lower Bounds in [1] or section 2.2 ALT in [2]
 misal L adalah set of landmarks, dist(v,w) adalah shortest path cost dari vertex v ke vertex w
 ComputeTighestLowerBound compute h(u)=max_{l in L}{dist(l,t)-dist(l,u), dist(u,l)-dist(t,l)}
-fungsi potential/heuristik  h(u) meiliki sifat konsisten/feasible [3]
+fungsi potential/heuristik  h(u) meiliki sifat konsisten/feasible [3], dan admissible.
 
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
@@ -342,6 +311,8 @@ const (
 )
 
 /*
+SelectBestQueryLandmarks selects best query landmarks.
+
 https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
 
 Use only an active subset:  (page 22)
@@ -370,6 +341,7 @@ func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 	return bestLandmarks
 }
 
+// ComputeTighestConsistentLowerBound computes tighest consistent lower bound.
 /*
 [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [2] https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf
@@ -397,18 +369,22 @@ func (lm *Landmark[W]) ComputeTighestConsistentLowerBound(u, s, t da.Index, acti
 	return pru
 }
 
+// GetLandmarkVIds returns landmark vertex ids.
 func (lm *Landmark[W]) GetLandmarkVIds() []da.Index {
 	return lm.landmarks
 }
 
+// GetLandmarkVWeights returns precomputed landmarks to vertices weights.
 func (lm *Landmark[W]) GetLandmarkVWeights() [][]W {
 	return lm.matrix(lm.k, lm.n, true)
 }
 
+// GetVerticesLandmarkWeights returns vertices to landmarks weights.
 func (lm *Landmark[W]) GetVerticesLandmarkWeights() [][]W {
 	return lm.matrix(lm.n, lm.k, false)
 }
 
+// UpdateLandmarks updates landmarks.
 func (lm *Landmark[W]) UpdateLandmarks(landmarkFilePath string) error {
 	newLandmark, err := ReadLandmark[W](landmarkFilePath)
 	if err != nil {

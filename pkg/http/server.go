@@ -14,14 +14,17 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Server represents server.
 type Server struct {
 	Log *zap.Logger
 }
 
+// NewServer creates and returns server.
 func NewServer(log *zap.Logger) *Server {
 	return &Server{Log: log}
 }
 
+// Use handles setup http server.
 func (s *Server) Use(
 	log *zap.Logger,
 

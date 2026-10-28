@@ -4,7 +4,7 @@ const (
 	permErrorMsg = "length of permutation slice & slice not same"
 )
 
-// ApplyPermutation applies the permutation perm to slice, mapping new element ID to old element ID.
+// ApplyPermutation applies the permutation perm to slice, mapping new element Id to old element ID.
 func ApplyPermutation[T any](slice []T, perm []int) []T {
 	AssertPanic(len(slice) == len(perm), permErrorMsg)
 	n := len(slice)
@@ -16,7 +16,7 @@ func ApplyPermutation[T any](slice []T, perm []int) []T {
 	return applied
 }
 
-// ApplyInversePermutation applies the inverse permutation perm to slice, mapping old element ID to new element ID.
+// ApplyInversePermutation applies the inverse permutation perm to slice, mapping old element Id to new element ID.
 func ApplyInversePermutation[T any](slice []T, perm []int) []T {
 	AssertPanic(len(slice) == len(perm), permErrorMsg)
 

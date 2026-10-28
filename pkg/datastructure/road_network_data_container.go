@@ -41,12 +41,13 @@ type RoadNetworkDataContainer struct {
 	boundingBox *BoundingBox
 }
 
+// NewRoadNetworkDataContainer creates and returns road network data container.
 func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer {
 
 	return &RoadNetworkDataContainer{
 		osmNodePoints:           make([]Coordinate, 0),
-		osmNodeIds:              NewPackedSlice(BIT_SIZE_OSM_NODE_ID, INITIAL_APPROX_SEGMENT_SIZE),
-		segmentOsmWayId:         NewPackedSlice(osmwayBitSize, INITIAL_APPROX_SEGMENT_SIZE), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
+		osmNodeIds:              NewPackedSlice(BitSizeOSMNodeId, InitialApproxSegmentSize),
+		segmentOsmWayId:         NewPackedSlice(osmwayBitSize, InitialApproxSegmentSize), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
 		osmwayBitSize:           osmwayBitSize,
 		segmentStartPointsIndex: make([]Index, 0),
 		segmentEndPointsIndex:   make([]Index, 0),
@@ -58,37 +59,43 @@ func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer 
 	}
 }
 
-func NewRoadNetworkDataContainerWithSize(numberOfEdges int, numberOfVertices int) *RoadNetworkDataContainer {
+// NewRoadNetworkDataContainerWithSize creates and returns road network data container with size.
+func NewRoadNetworkDataContainerWithSize(numberOfEdges int, _ int) *RoadNetworkDataContainer {
 	return &RoadNetworkDataContainer{
 		osmNodePoints:           make([]Coordinate, 1),
-		segmentOsmWayId:         NewPackedSlice(DEFAULT_BIT_SIZE_OSM_WAY_ID, uint64(numberOfEdges)),
+		segmentOsmWayId:         NewPackedSlice(DefaultBitSizeOSMWayId, uint64(numberOfEdges)),
 		segmentStartPointsIndex: make([]Index, 0),
-		osmNodeIds:              NewPackedSlice(BIT_SIZE_OSM_NODE_ID, INITIAL_APPROX_SEGMENT_SIZE),
+		osmNodeIds:              NewPackedSlice(BitSizeOSMNodeId, InitialApproxSegmentSize),
 		segmentEndPointsIndex:   make([]Index, 0),
 		streetName:              make([]uint32, 0),
-		osmwayBitSize:           DEFAULT_BIT_SIZE_OSM_WAY_ID,
+		osmwayBitSize:           DefaultBitSizeOSMWayId,
 		roadClass:               make([]pkg.OsmHighwayType, 0),
 		roadClassLink:           make([]pkg.OsmHighwayType, 0),
 		lanes:                   make([]uint8, 0),
 	}
 }
 
+// IsSegmentFlagBitOn reports whether segment flag bit on.
 func (rn *RoadNetworkDataContainer) IsSegmentFlagBitOn(id Index, mask SegmentFlagType) bool {
 	return rn.segmentFlags[id]&mask != 0
 }
 
+// IsRoundabout reports whether road segment id is a roundabout.
 func (rn *RoadNetworkDataContainer) IsRoundabout(id Index) bool {
 	return rn.IsSegmentFlagBitOn(id, FlagIsRoundabout)
 }
 
+// IsCurved reports whether road segment id is curved.
 func (rn *RoadNetworkDataContainer) IsCurved(id Index) bool {
 	return rn.IsSegmentFlagBitOn(id, FlagIsCurved)
 }
 
+// GetOsmwayBitSize returns osmway bit size.
 func (rn *RoadNetworkDataContainer) GetOsmwayBitSize() uint8 {
 	return rn.osmwayBitSize
 }
 
+// SetSegmentBit sets road segment bit.
 func (rn *RoadNetworkDataContainer) SetSegmentBit(id Index, mask SegmentFlagType, on bool) {
 	rn.padSegmentflags(id)
 	if on {
@@ -98,6 +105,7 @@ func (rn *RoadNetworkDataContainer) SetSegmentBit(id Index, mask SegmentFlagType
 	rn.segmentFlags[id] &= ^mask
 }
 
+// SetSegmentFlag sets road segment flag.
 func (rn *RoadNetworkDataContainer) SetSegmentFlag(id Index, mask SegmentFlagType) {
 	rn.padSegmentflags(id)
 	rn.segmentFlags[id] = mask
@@ -111,12 +119,13 @@ func (rn *RoadNetworkDataContainer) padSegmentflags(id Index) {
 	}
 }
 
+// GetSegmentFlag returns road segment flag.
 func (rn *RoadNetworkDataContainer) GetSegmentFlag(id Index) SegmentFlagType {
 	return rn.segmentFlags[id]
 }
 
-// GetStreetDirection. get drection dari osm way nya id
-func (rn *RoadNetworkDataContainer) GetStreetDirection(id Index) [2]bool {
+// StreetDirection returns drection dari osm way nya id
+func (rn *RoadNetworkDataContainer) StreetDirection(id Index) [2]bool {
 	var direction [2]bool
 	forward := rn.IsSegmentFlagBitOn(id, FlagIsForward)
 	direction[0] = forward
@@ -135,6 +144,7 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometryPoint(id Index, i int) Coo
 	return rn.osmNodePoints[int(sIndex)-1-i]
 }
 
+// GetSegmentGeometryLength returns segment geometry length.
 func (rn *RoadNetworkDataContainer) GetSegmentGeometryLength(id Index) Index {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
@@ -144,6 +154,7 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometryLength(id Index) Index {
 	return sIndex - eIndex
 }
 
+// GetSegmentGeometry returns segment geometry.
 func (rn *RoadNetworkDataContainer) GetSegmentGeometry(id Index) []Coordinate {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
@@ -164,6 +175,7 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometry(id Index) []Coordinate {
 	return edgePoints
 }
 
+// AppendSegmentGeometry appends segment geometry.
 func (rn *RoadNetworkDataContainer) AppendSegmentGeometry(id Index, coords *Coordinates) {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
@@ -178,6 +190,7 @@ func (rn *RoadNetworkDataContainer) AppendSegmentGeometry(id Index, coords *Coor
 	}
 }
 
+// GetTailHeadOsmNodeId returns tail head osm node id.
 func (rn *RoadNetworkDataContainer) GetTailHeadOsmNodeId(id Index) (uint64, uint64) {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
@@ -187,6 +200,7 @@ func (rn *RoadNetworkDataContainer) GetTailHeadOsmNodeId(id Index) (uint64, uint
 	return rn.osmNodeIds.Get(uint64(sIndex - 1)), rn.osmNodeIds.Get(uint64(eIndex))
 }
 
+// GetSegmentOsmNodeIds returns segment osm node ids.
 func (rn *RoadNetworkDataContainer) GetSegmentOsmNodeIds(id Index) []uint64 {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
@@ -208,27 +222,30 @@ func (rn *RoadNetworkDataContainer) GetSegmentOsmNodeIds(id Index) []uint64 {
 	return nPoints
 }
 
+// GetStrFromId returns str from id.
 func (rn *RoadNetworkDataContainer) GetStrFromId(id uint32) string {
 	return rn.nameTable[id]
 }
 
-// GetSegmentTailCoord. get coordinate of tail node u of road segment/edge (u,v)
+// GetSegmentTailCoord returns coordinate of tail node u of road segment/edge (u,v)
 func (rn *RoadNetworkDataContainer) GetSegmentTailCoord(id Index) Coordinate {
 	return rn.GetSegmentGeometryPoint(id, 0)
 }
 
-// GetSegmentHeadCoord. get coordinate of head node v of road segment/edge (u,v)
+// GetSegmentHeadCoord returns coordinate of head node v of road segment/edge (u,v)
 func (rn *RoadNetworkDataContainer) GetSegmentHeadCoord(id Index) Coordinate {
 	l := int(rn.GetSegmentGeometryLength(id))
 	return rn.GetSegmentGeometryPoint(id, l-1)
 }
 
+// GetSegmentGeometryEndpoints returns segment geometry endpoints.
 func (rn *RoadNetworkDataContainer) GetSegmentGeometryEndpoints(id Index) (Index, Index) {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
 	return sIndex, eIndex
 }
 
+// AppendOsmNodePoints appends osm node points.
 func (rn *RoadNetworkDataContainer) AppendOsmNodePoints(edgePoints []Coordinate, osmNodeIds []uint64) {
 	rn.osmNodePoints = append(rn.osmNodePoints, edgePoints...)
 	for _, v := range osmNodeIds {
@@ -236,7 +253,7 @@ func (rn *RoadNetworkDataContainer) AppendOsmNodePoints(edgePoints []Coordinate,
 	}
 }
 
-// AppendSegmentData. append road segment data
+// AppendSegmentData append road segment data
 func (rn *RoadNetworkDataContainer) AppendSegmentData(osmWayId int64,
 	startPointsIndex, // edge geometry start index di rn.osmNodePoints
 	endPointsIndex Index,
@@ -253,10 +270,12 @@ func (rn *RoadNetworkDataContainer) AppendSegmentData(osmWayId int64,
 	rn.segmentTurnLanesData = append(rn.segmentTurnLanesData, tld)
 }
 
+// GetOsmNodePointsCount returns osm node points count.
 func (rn *RoadNetworkDataContainer) GetOsmNodePointsCount() int {
 	return len(rn.osmNodePoints)
 }
 
+// BuildNameTable builds name table.
 func (rn *RoadNetworkDataContainer) BuildNameTable(idToStr map[uint32]string) {
 	keys := make([]uint32, 0, len(idToStr))
 	for key := range idToStr {
@@ -274,51 +293,60 @@ func (rn *RoadNetworkDataContainer) BuildNameTable(idToStr map[uint32]string) {
 	}
 }
 
+// GetStr returns str of name.
 func (rn *RoadNetworkDataContainer) GetStr(id uint32) string {
 	return rn.nameTable[id]
 }
 
+// GetOsmWayId returns osm way id.
 func (rn *RoadNetworkDataContainer) GetOsmWayId(id Index) uint64 {
 	return rn.segmentOsmWayId.Get(uint64(id))
 }
 
+// GetStreetName returns street name.
 func (rn *RoadNetworkDataContainer) GetStreetName(id Index) string {
 	return rn.nameTable[rn.streetName[id]]
 }
+
+// GetStreetNameId returns street name id.
 func (rn *RoadNetworkDataContainer) GetStreetNameId(id Index) uint32 {
 	return rn.streetName[id]
 }
 
+// GetRoadClass returns road class.
 func (rn *RoadNetworkDataContainer) GetRoadClass(id Index) pkg.OsmHighwayType {
 	roadClassId := rn.roadClass[id]
 	return roadClassId
 }
 
+// IsStreetBidirectional reports whether street bidirectional.
 func (rn *RoadNetworkDataContainer) IsStreetBidirectional(segmentId Index) bool {
-	dir := rn.GetStreetDirection(segmentId)
+	dir := rn.StreetDirection(segmentId)
 	return dir[0] && dir[1]
 }
 
+// GetRoadClassLink returns road class link.
 func (rn *RoadNetworkDataContainer) GetRoadClassLink(id Index) pkg.OsmHighwayType {
 	roadClassLinkId := rn.roadClassLink[id]
 	return roadClassLinkId
 }
 
+// GetRoadLanes returns road lanes.
 func (rn *RoadNetworkDataContainer) GetRoadLanes(id Index) uint8 {
 	return rn.lanes[id]
 }
 
-// ValidTurnLane. return true if i-th lane of edge id allowed to turn type turnt
+// ValidTurnLane returns true if i-th lane of edge id allowed to turn type turnt.
 func (rn *RoadNetworkDataContainer) ValidTurnLane(id Index, i int, turnt pkg.TurnLaneType) bool {
 	return rn.segmentTurnLanesData[id].Valid(i, turnt)
 }
 
-// ValidTurnLane. get turnLaneData of road segment id
+// GetTurnLaneData returns turn lane data of road segment id.
 func (rn *RoadNetworkDataContainer) GetTurnLaneData(id Index) TurnLanesData {
 	return rn.segmentTurnLanesData[id]
 }
 
-// ApplySegmentsPermutation. apply permutation to edges annotation
+// ApplySegmentsPermutation apply permutation to road segments annotation
 // perm=permutation that maps from new edge annotation id to old edge id
 // nPerm=permutation that maps from new vertex id to old vertex id
 func (rn *RoadNetworkDataContainer) ApplySegmentsPermutation(nPerm []int) {
@@ -342,57 +370,69 @@ func (rn *RoadNetworkDataContainer) ApplySegmentsPermutation(nPerm []int) {
 
 }
 
-// is parallel via-way
+// IsParallelVia reports whether parallel via.
 func (rn *RoadNetworkDataContainer) IsParallelVia(id Index) bool {
 	return rn.segmentFlags[id]&FlagParallel != 0
 }
 
+// SetBoundingBox sets bounding box.
 func (rn *RoadNetworkDataContainer) SetBoundingBox(bb *BoundingBox) {
 	rn.boundingBox = bb
 }
 
+// GetBoundingBox returns bounding box.
 func (rn *RoadNetworkDataContainer) GetBoundingBox() *BoundingBox {
 	return rn.boundingBox
 }
 
 // ----  conditonal restrictions related ----
 
+// SetConditionalBarrierNodes sets conditional barrier nodes.
 func (rn *RoadNetworkDataContainer) SetConditionalBarrierNodes(nodes []ConditionalBarrierNode) {
 	rn.conditionalBarrierNodes = nodes
 }
 
+// SetConditionalReversibleEdges sets conditional reversible edges.
 func (rn *RoadNetworkDataContainer) SetConditionalReversibleEdges(ways []ConditionalReversibleEdge) {
 	rn.conditionalReversibleEdges = ways
 }
 
+// SetConditionalSpeedLimits sets conditional speed limits.
 func (rn *RoadNetworkDataContainer) SetConditionalSpeedLimits(limits []ConditionalSpeedLimit) {
 	rn.conditionalSpeedLimits = limits
 }
 
+// SetConditionalTrafficModes sets conditional traffic modes.
 func (rn *RoadNetworkDataContainer) SetConditionalTrafficModes(modes []ConditionalTrafficMode) {
 	rn.conditionalTrafficModes = modes
 }
 
+// SetConditionalTurnRestrictions sets conditional turn restrictions.
 func (rn *RoadNetworkDataContainer) SetConditionalTurnRestrictions(restrictions []ConditionalTurnRestriction) {
 	rn.conditionalTurnRestrictions = restrictions
 }
 
+// GetConditionalBarrierNodes returns conditional barrier nodes.
 func (rn *RoadNetworkDataContainer) GetConditionalBarrierNodes() []ConditionalBarrierNode {
 	return rn.conditionalBarrierNodes
 }
 
+// GetConditionalReversibleEdges returns conditional reversible edges.
 func (rn *RoadNetworkDataContainer) GetConditionalReversibleEdges() []ConditionalReversibleEdge {
 	return rn.conditionalReversibleEdges
 }
 
+// GetConditionalSpeedLimits returns conditional speed limits.
 func (rn *RoadNetworkDataContainer) GetConditionalSpeedLimits() []ConditionalSpeedLimit {
 	return rn.conditionalSpeedLimits
 }
 
+// GetConditionalTrafficModes returns conditional traffic modes.
 func (rn *RoadNetworkDataContainer) GetConditionalTrafficModes() []ConditionalTrafficMode {
 	return rn.conditionalTrafficModes
 }
 
+// GetConditionalTurnRestrictions returns conditional turn restrictions.
 func (rn *RoadNetworkDataContainer) GetConditionalTurnRestrictions() []ConditionalTurnRestriction {
 	return rn.conditionalTurnRestrictions
 }

@@ -46,6 +46,7 @@ var trueClientIP = http.CanonicalHeaderKey("True-Client-IP")
 var xForwardedFor = http.CanonicalHeaderKey("X-Forwarded-For")
 var xRealIP = http.CanonicalHeaderKey("X-Real-IP")
 
+// RealIP handles real ip.
 func RealIP(h http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		if rip := realIP(r); rip != "" {
@@ -77,6 +78,7 @@ func realIP(r *http.Request) string {
 	return ip
 }
 
+// Heartbeat handles heartbeat.
 // heartbeat /healthz endpoint
 func (api *API) Heartbeat(endpoint string) func(http.Handler) http.Handler {
 	f := func(h http.Handler) http.Handler {
@@ -156,6 +158,7 @@ type httprouterLogger struct {
 	log *zap.Logger
 }
 
+// Logger handles logger.
 func Logger(log *zap.Logger) func(next http.Handler) http.Handler {
 	return httprouterLogger{log: log}.middleware
 }
@@ -211,6 +214,7 @@ var (
 	burst = 10
 )
 
+// SetRateLimit sets rate limit.
 func SetRateLimit(q, b int) {
 	qps = q
 	burst = b
@@ -255,6 +259,7 @@ func cleanupVisitors() {
 	}
 }
 
+// Limit handles limit.
 func (api *API) Limit(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Extract client IP: prefer X-Real-IP (set by Caddy/nginx), fallback to RemoteAddr

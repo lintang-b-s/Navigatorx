@@ -12,10 +12,12 @@ import (
 
 // // todo: update kode ini
 
+// DynamicRtree represents dynamic rtree.
 type DynamicRtree struct {
 	tr atomic.Pointer[rtree.RTreeGN[int32, uint64]]
 }
 
+// NewDynamicRtree creates and returns dynamic rtree.
 func NewDynamicRtree() *DynamicRtree {
 	var tr rtree.RTreeGN[int32, uint64]
 	dr := &DynamicRtree{}
@@ -23,11 +25,13 @@ func NewDynamicRtree() *DynamicRtree {
 	return dr
 }
 
+// Reset resets reset.
 func (dr *DynamicRtree) Reset() {
 	var tr rtree.RTreeGN[int32, uint64]
 	dr.tr.Store(&tr)
 }
 
+// Rebuild rebuilds rebuild.
 func (dr *DynamicRtree) Rebuild(g *da.DynamicGraph) {
 	m := g.NumVertices()
 
@@ -66,6 +70,7 @@ func (dr *DynamicRtree) Rebuild(g *da.DynamicGraph) {
 	dr.tr.Store(tr)
 }
 
+// SearchWithinRadius searches within radius.
 func (dr *DynamicRtree) SearchWithinRadius(qLat, qLon, radius float64) []da.Index {
 
 	qy, qx := geo.CalcLatToY(qLat), geo.CalcLonToX(qLon)
@@ -90,8 +95,8 @@ func (dr *DynamicRtree) SearchWithinRadius(qLat, qLon, radius float64) []da.Inde
 		})
 
 	sort.Slice(cands, func(i, j int) bool { return cands[i].dist < cands[j].dist })
-	if len(cands) > MAX_CANDIDATES_MAP_MATCHING {
-		cands = cands[:MAX_CANDIDATES_MAP_MATCHING]
+	if len(cands) > MaxCandidatesMapMatching {
+		cands = cands[:MaxCandidatesMapMatching]
 	}
 	res := make([]da.Index, len(cands))
 	for i, c := range cands {
@@ -100,16 +105,19 @@ func (dr *DynamicRtree) SearchWithinRadius(qLat, qLon, radius float64) []da.Inde
 	return res
 }
 
+// Bitpack handles bitpack.
 func (dr *DynamicRtree) Bitpack(segId da.Index, rnId da.Index) uint64 {
 	id := uint64(0)
 	id = uint64(segId) | (uint64(rnId) << 32)
 	return id
 }
 
+// GetSegmentId returns segment id.
 func (dr *DynamicRtree) GetSegmentId(id uint64) da.Index {
 	return da.Index(id & 0xFFFFFFFF)
 }
 
+// GetRoadNetworkSegmentId returns road network segment id.
 func (dr *DynamicRtree) GetRoadNetworkSegmentId(id uint64) da.Index {
 	return da.Index(id >> 32)
 }

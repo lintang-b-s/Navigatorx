@@ -21,7 +21,7 @@ func NewMinCut(n int) *MinCut {
 }
 
 // SetFlag set flag of vertex u
-func (mc *MinCut) SetFlag(u da.Index, flag bool) {
+func (mc *MinCut) SetFlag(u da.Index) {
 	mc.flags.Set(uint(u))
 }
 

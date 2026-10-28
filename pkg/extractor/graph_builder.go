@@ -97,7 +97,7 @@ func (p *Extractor[W]) BuildGraph(edges []da.Edge[W], rn *da.RoadNetworkDataCont
 	// buat via yang tipe nya osm node: https://wiki.openstreetmap.org/wiki/Relation:restriction .
 	turnMatrices := make([][]pkg.TurnType, len(vertices)-1)
 
-	minResolution := pkg.INF_WEIGHT
+	minResolution := pkg.InfWeight
 
 	// init turn matrices. (only for road network OpenStreetMap input file)
 	// T(n) = \sum_{v in V} outDeg(v)*inDeg(v) <= \sum_{v in V} c^2 =O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
@@ -130,15 +130,15 @@ func (p *Extractor[W]) BuildGraph(edges []da.Edge[W], rn *da.RoadNetworkDataCont
 					lPrime := util.MetersFromCentimeters(outLengths[v][exitPoint])
 
 					if !util.Eq(l, 0) && !util.Eq(lPrime, 0) {
-						delta := pkg.CalcResolution(l, lPrime, pkg.INF_WEIGHT)
+						delta := pkg.CalcResolution(l, lPrime, pkg.InfWeight)
 						minResolution = min(minResolution, delta)
 					}
 
 					switch turn {
-					case da.TURN_SLIGHT_LEFT, da.TURN_LEFT, da.TURN_SHARP_LEFT:
-						turnMatrices[v][rowOffset+exitPoint] = pkg.LEFT_TURN
-					case da.TURN_SLIGHT_RIGHT, da.TURN_RIGHT, da.TURN_SHARP_RIGHT:
-						turnMatrices[v][rowOffset+exitPoint] = pkg.RIGHT_TURN
+					case da.TurnSlightLeft, da.TurnLeft, da.TurnSharpLeft:
+						turnMatrices[v][rowOffset+exitPoint] = pkg.LeftTurn
+					case da.TurnSlightRight, da.TurnRight, da.TurnSharpRight:
+						turnMatrices[v][rowOffset+exitPoint] = pkg.RightTurn
 					}
 				}
 			}

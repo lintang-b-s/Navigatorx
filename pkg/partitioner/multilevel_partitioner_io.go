@@ -9,6 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// SaveToFile saves to file.
 func (mp *MultilevelPartitioner) SaveToFile() error {
 	root := config.ProfilesRoot()
 	filename := fmt.Sprintf("%s/%s/inertial_flow_%s.mlp", root, pkg.ProfileName, pkg.RegionName)
@@ -35,6 +36,7 @@ func (mp *MultilevelPartitioner) writeMLPToFile(filename string) error {
 	})
 }
 
+// ReadMLPFromFile reads mlpfrom file.
 func (mp *MultilevelPartitioner) ReadMLPFromFile(filename string) (*da.MultilevelPartition, error) {
 	file, r, err := util.OpenCompressedFile(filename)
 	if err != nil {

@@ -24,21 +24,23 @@ func (mj minCutJob) getLine() []float64 {
 	return mj.line
 }
 
-type inertialFlow struct {
+// InertialFlow represents inertial flow algorithm.
+type InertialFlow struct {
 	cg         *da.CellGraph
 	iterations int
 }
 
-func NewInertialFlow(cg *da.CellGraph, iterations int) *inertialFlow {
-	return &inertialFlow{cg: cg, iterations: iterations}
+// NewInertialFlow creates and returns inertial flow algorithm.
+func NewInertialFlow(cg *da.CellGraph, iterations int) *InertialFlow {
+	return &InertialFlow{cg: cg, iterations: iterations}
 }
 
-func (inf *inertialFlow) getCellGraph() *da.CellGraph {
+func (inf *InertialFlow) getCellGraph() *da.CellGraph {
 	return inf.cg
 }
 
 /*
-computeInertialFlowDinic.
+computeInertialFlowDinic run inertial flow algorithm.
 [On Balanced Separators in Road Networks, Schild, et al.] https://aschild.github.io/papers/roadseparator.pdf
 
 this implementation inspired by this doc: https://github.com/Telenav/open-source-spec/blob/master/routing_basic/doc/inertial_flow.md
@@ -59,7 +61,7 @@ see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m *
 karena di implementasi inertial flow ini kita selalu pakai unit capacity..
 O(min{m * sqrt(m), m * n^(2/3)}).
 */
-func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCut {
+func (inf *InertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCut {
 	var (
 		best                    = &MinCut{}
 		bestNumberOfMinCutEdges = math.MaxInt
@@ -67,8 +69,8 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 
 	n := inf.cg.NumberOfCellVertices()
 	iterations := inf.iterations
-	if n >= LARGE_GRAPH_NUMBER_OF_VERTICES {
-		iterations = INERTIAL_FLOW_ITERATION_LARGE_GRAPH
+	if n >= LargeGraphNumberOfVertices {
+		iterations = InertialFlowIterationLargeGraph
 	}
 
 	inertialFlowInChan := make(chan minCutJob, iterations+2)
@@ -110,7 +112,7 @@ func (inf *inertialFlow) computeInertialFlowDinic(sourceSinkRate float64) *MinCu
 		}
 	}
 
-	for i := 0; i < INERTIAL_FLOW_WORKERS; i++ {
+	for i := 0; i < InertialFlowWorkers; i++ {
 		go computeMinCut(inertialFlowInChan)
 	}
 
@@ -142,7 +144,7 @@ func newVertexEmb(v da.Index, val float64) vertexEmb {
 }
 
 // selectFirstLastKthVertices. sort vertices by linear kombinaasi latitude & longitude
-func (inf *inertialFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]da.Index, []da.Index) {
+func (inf *InertialFlow) selectFirstLastKthVertices(l []float64, ratio float64) ([]da.Index, []da.Index) {
 
 	n := inf.cg.NumberOfCellVertices()
 
@@ -160,7 +162,7 @@ func (inf *inertialFlow) selectFirstLastKthVertices(l []float64, ratio float64) 
 	sourceNodes := make([]da.Index, 0, kth)
 	sinkNodes := make([]da.Index, 0, kth)
 
-	if USE_RANDOMIZED_SELECT {
+	if UseRandomizedSelect {
 		// expected runtime O(n)
 
 		// inspiration: https://daniel-j-h.github.io/post/selection-algorithms-for-partitioning/

@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Customizer represents customizer.
 type Customizer[W util.Numeric] struct {
 	ow           *da.OverlayWeights[W]
 	graph        *da.Graph
@@ -51,6 +52,7 @@ func getCustomizerFilePath() (
 		base + ".ntf"
 }
 
+// NewCustomizer creates and returns customizer.
 func NewCustomizer[W util.Numeric](
 	logger *zap.Logger) *Customizer[W] {
 	util.ActivateMode[W]()
@@ -68,14 +70,17 @@ func NewCustomizer[W util.Numeric](
 	return cst
 }
 
+// SetSegmentSpeedsFilePath sets segment speeds file path.
 func (c *Customizer[W]) SetSegmentSpeedsFilePath(filePath []string) {
 	c.segmentSpeedsFilePath = filePath
 }
 
+// SetTurnPenaltiesFilePath sets turn penalties file path.
 func (c *Customizer[W]) SetTurnPenaltiesFilePath(filePath []string) {
 	c.turnPenFilePath = filePath
 }
 
+// NewCustomizerDirect creates and returns customizer direct.
 func NewCustomizerDirect[W util.Numeric](
 	graph *da.Graph,
 	overlayGraph *da.OverlayGraph,
@@ -91,6 +96,7 @@ func NewCustomizerDirect[W util.Numeric](
 	}
 }
 
+// Customize compute Customizable Route Planning (CRP) Customization.
 func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	var err error
@@ -127,7 +133,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 	}
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
-	c.ow = da.NewOverlayWeights[W](c.overlayGraph.GetWeightVectorSize())
+	c.ow = da.NewOverlayWeights[W](c.overlayGraph.ShortcutWeightsSize())
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 	var m *met.Metric[W]
 
@@ -169,7 +175,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			pq := da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.ARRAY_STORAGE)
+			pq := da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},
@@ -177,7 +183,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	c.upperLevelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](da.Index(da.OVERLAY_VERTICES_SIZE), da.MAP_STORAGE)
+			return da.NewQueryHeap[da.Index, W](da.Index(da.OverlayVerticesSize), da.MapStorageMode)
 		},
 	}
 
@@ -220,11 +226,12 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 	return m, nil
 }
 
+// CustomizeDirect compute direct CRP Customization without writing the metrics to files .
 // just for shortest path test
 func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
-	c.ow = da.NewOverlayWeights[W](c.overlayGraph.GetWeightVectorSize())
+	c.ow = da.NewOverlayWeights[W](c.overlayGraph.ShortcutWeightsSize())
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 
 	var m *met.Metric[W]
@@ -233,7 +240,7 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			pq := da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.ARRAY_STORAGE)
+			pq := da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},
@@ -241,7 +248,7 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	c.upperLevelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](da.Index(da.OVERLAY_VERTICES_SIZE), da.MAP_STORAGE)
+			return da.NewQueryHeap[da.Index, W](da.Index(da.OverlayVerticesSize), da.MapStorageMode)
 		},
 	}
 
@@ -254,7 +261,7 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 	return m, nil
 }
 
-// update.
+// update update the weight function using the updated segment speeds and updated turn penalties.
 func (c *Customizer[W]) update(
 	upSegmentIds []da.Index,
 	upSegmentSpeedLimits []float64,
@@ -299,17 +306,12 @@ func newCustomizerCell(cell da.Cell, cellNumber da.Pv) customizerCell {
 	return customizerCell{cell: cell, cellNumber: cellNumber}
 }
 
-/*
-Customization Phase of Customizable Route Planning (CRP) by delling et al. read section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-
-let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortcuts within any cell
-let c_1, c_l be the number of cells in level 1 and the number of cells in level l.
-
-worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
-worst case buildLevel in level l:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
-
-worst case crp customization: O(  c_1 * n_op * (m_p* log(m_p)) + c_l * n_op * (n_op + \hat{m_p}) * log(n_op)  )
-*/
+// Build Customization Phase of Customizable Route Planning (CRP) by delling et al. read section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+// let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortcuts within any cell
+// let c_1, c_l be the number of cells in level 1 and the number of cells in level l.
+// worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
+// worst case buildLevel in level l:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
+// worst case crp customization: O(  c_1 * n_op * (m_p* log(m_p)) + c_l * n_op * (n_op + \hat{m_p}) * log(n_op)  )
 func (c *Customizer[W]) Build(wf *met.TimeFunction[W]) {
 	c.buildLowestLevel(wf)
 
@@ -326,16 +328,9 @@ type cellCustomizationRes[W util.Numeric] struct {
 	index int
 }
 
-func NewCellCustomizationResult[W util.Numeric](cost W, index int) cellCustomizationRes[W] {
+// newCellCustomizationResult creates and returns cell customization result.
+func newCellCustomizationResult[W util.Numeric](cost W, index int) cellCustomizationRes[W] {
 	return cellCustomizationRes[W]{cost, index}
-}
-
-func (cc cellCustomizationRes[W]) getCost() W {
-	return cc.cost
-}
-
-func (cc cellCustomizationRes[W]) getIndex() int {
-	return cc.index
 }
 
 // (acknowledgment) inspired by crp customization code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayWeights.cpp
@@ -401,8 +396,8 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 				offset, _ := c.graph.GetVertexCellOffset(s)
 				pq.InitLevelOneCellQuery(offset)
 
-				overlayCost := make(map[da.Index]W, da.OVERLAY_CELL_SIZE)
-				noPar := da.NewParentVertex(da.INVALID_VERTEX_ID, false)
+				overlayCost := make(map[da.Index]W, da.OverlayCellSize)
+				noPar := da.NewParentVertex(da.InvalidVertexId, false)
 				sVertexData := da.NewVData(W(0), noPar)
 				pq.Insert(s, 0, sVertexData, da.NewDijkstraKey(s))
 
@@ -412,7 +407,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 					uId := uKey.GetNode()
 					uCost := pqNode.GetRank()
 
-					c.graph.ForOutEdgesOf(uId, func(eId, head da.Index, entryPoint uint8) {
+					c.graph.ForOutEdgesOf(uId, func(eId, head da.Index, _ uint8) {
 						// traverse all out edges
 						v := head
 						eCost := wf.GetWeight(eId)
@@ -424,7 +419,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 						vCellNumber := c.overlayGraph.GetCellNumberOnLevel(c.graph.GetCellNumber(v), 1)
 						if vCellNumber == cellNumber {
 
-							oldvCost := pq.GetCost(v)
+							oldvCost := pq.Cost(v)
 							vLabelled := util.Lt(oldvCost, util.Infinity[W]())
 							if !vLabelled || (vLabelled && util.Lt(newVCost, oldvCost)) {
 								if vLabelled {
@@ -454,9 +449,9 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 					exOv := c.overlayGraph.GetCellExit(cell, j)
 					exOvCost, ok := overlayCost[exOv]
 					if !ok {
-						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), shortcutId)
+						dijkstraResChan <- newCellCustomizationResult(util.Infinity[W](), shortcutId)
 					} else {
-						dijkstraResChan <- NewCellCustomizationResult(exOvCost, shortcutId)
+						dijkstraResChan <- newCellCustomizationResult(exOvCost, shortcutId)
 					}
 				}
 
@@ -464,8 +459,8 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 			}
 		}
 
-		entries := make(chan da.Index, CELL_ENTRIES_CHAN_SIZE)
-		for worker := 1; worker <= CELL_WORKER; worker++ {
+		entries := make(chan da.Index, CellEntriesChanSize)
+		for worker := 1; worker <= CellWorker; worker++ {
 			go dijkstra(entries)
 		}
 
@@ -497,7 +492,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 	go func() {
 		for cellWeights := range cellCliqueOutChan {
 			for _, w := range cellWeights {
-				c.ow.SetWeight(w.getIndex(), w.getCost())
+				c.ow.SetWeight(w.index, w.cost)
 			}
 			wg.Done()
 		}
@@ -575,7 +570,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 				}
 
 				sOv := c.overlayGraph.GetCellEntry(cell, i)
-				noPar := da.NewParentVertex(da.INVALID_VERTEX_ID, false)
+				noPar := da.NewParentVertex(da.InvalidVertexId, false)
 				sVertexData := da.NewVData(W(0), noPar)
 
 				pq.Insert(sOv, 0, sVertexData, sOv)
@@ -593,7 +588,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 							return
 						}
 
-						oldVCost := pq.GetCost(vOv)
+						oldVCost := pq.Cost(vOv)
 						vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 						if !vLabelled || (vLabelled && util.Lt(newVCost, oldVCost)) {
 							vvData := da.NewVData(newVCost, noPar)
@@ -614,7 +609,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 									return
 								}
 
-								oldWCost := pq.GetCost(wOv)
+								oldWCost := pq.Cost(wOv)
 								wLabelled := util.Lt(oldWCost, util.Infinity[W]())
 								if !wLabelled || (wLabelled && util.Lt(newWCost, oldWCost)) {
 									if !wLabelled {
@@ -634,12 +629,12 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 				for j := da.Index(0); j < cell.GetNumExitPoints(); j++ {
 					exOv := c.overlayGraph.GetCellExit(cell, j)
 					shortcutId := int(cell.GetCellOffset() + i*cell.GetNumExitPoints() + j)
-					exOvCost := pq.GetCost(exOv)
+					exOvCost := pq.Cost(exOv)
 					ok := util.Lt(exOvCost, util.Infinity[W]())
 					if !ok {
-						dijkstraResChan <- NewCellCustomizationResult(util.Infinity[W](), shortcutId)
+						dijkstraResChan <- newCellCustomizationResult(util.Infinity[W](), shortcutId)
 					} else {
-						dijkstraResChan <- NewCellCustomizationResult(exOvCost, shortcutId)
+						dijkstraResChan <- newCellCustomizationResult(exOvCost, shortcutId)
 					}
 				}
 
@@ -647,8 +642,8 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 			}
 		}
 
-		entries := make(chan da.Index, CELL_ENTRIES_CHAN_SIZE)
-		for worker := 1; worker <= CELL_WORKER; worker++ {
+		entries := make(chan da.Index, CellEntriesChanSize)
+		for worker := 1; worker <= CellWorker; worker++ {
 			go dijkstra(entries)
 		}
 
@@ -680,7 +675,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 	go func() {
 		for cellWeights := range cellCliqueOutChan {
 			for _, w := range cellWeights {
-				c.ow.SetWeight(w.getIndex(), w.getCost())
+				c.ow.SetWeight(w.index, w.cost)
 			}
 			wg.Done()
 		}
@@ -703,22 +698,27 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 	c.logger.Sugar().Infof("number of shortcut edges overlay graph level %v: %v ", level, numberOfShortcuts)
 }
 
+// SetGraph sets graph.
 func (c *Customizer[W]) SetGraph(graph *da.Graph) {
 	c.graph = graph
 }
 
+// SetOverlayGraph sets overlay graph.
 func (c *Customizer[W]) SetOverlayGraph(overlayGraph *da.OverlayGraph) {
 	c.overlayGraph = overlayGraph
 }
 
+// SetOverlayWeight sets overlay weight.
 func (c *Customizer[W]) SetOverlayWeight(ow *da.OverlayWeights[W]) {
 	c.ow = ow
 }
 
+// GetGraph returns graph.
 func (c *Customizer[W]) GetGraph() *da.Graph {
 	return c.graph
 }
 
+// GetOverlayGraph returns overlay graph.
 func (c *Customizer[W]) GetOverlayGraph() *da.OverlayGraph {
 	return c.overlayGraph
 }

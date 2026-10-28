@@ -219,13 +219,13 @@ func extractGoogleDriveFileID(rawURL string) (string, error) {
 	return "", errors.New("google drive id not found")
 }
 
-func downloadWithGDown(filePath, fileID string) error {
+func downloadWithGDown(filePath, fileId string) error {
 	if err := ensureGDownInstalled(); err != nil {
 		return err
 	}
 
 	tmpFilePath := filePath + ".gdown.tmp"
-	gdownURL := fmt.Sprintf("https://drive.google.com/uc?id=%s", fileID)
+	gdownURL := fmt.Sprintf("https://drive.google.com/uc?id=%s", fileId)
 	cmd := exec.Command("gdown", gdownURL, "-O", tmpFilePath) //nolint:gosec // test helper invokes gdown
 
 	var stderr bytes.Buffer
@@ -430,7 +430,7 @@ func dijkstra(adjList [][]da.PairEdge, s da.Index) []float64 {
 		dist[v] = util.InfWeightFloat
 	}
 
-	pq := da.NewQueryHeap[da.Index, float64](da.Index(n), da.ARRAY_STORAGE)
+	pq := da.NewQueryHeap[da.Index, float64](da.Index(n), da.ArrayStorageMode)
 	emptyVertexData := da.NewVData(float64(0), da.NewParentVertex(0, false))
 
 	dist[s] = 0

@@ -10,14 +10,17 @@ import (
 
 // inspired by BMW Car IT implementation of viterbi algorithm: https://github.com/bmwcarit/hmm-lib/blob/master/src/main/java/com/bmw/hmm/ViterbiAlgorithm.java
 
+// Transition represents transition.
 type Transition struct {
 	from, to int
 }
 
+// NewTransition creates and returns transition.
 func NewTransition(from, to int) Transition {
 	return Transition{from, to}
 }
 
+// State represents state.
 type State struct {
 	stateId       int
 	backPointer   *State
@@ -28,14 +31,17 @@ func newState(stateId int, backPointer *State, observationId int) *State {
 	return &State{stateId: stateId, backPointer: backPointer, observationId: observationId}
 }
 
+// GetStateId returns state id.
 func (st *State) GetStateId() int {
 	return st.stateId
 }
 
+// GetObservationId returns observation id.
 func (st *State) GetObservationId() int {
 	return st.observationId
 }
 
+// Viterbi represents viterbi.
 type Viterbi struct {
 	lastState      map[int]*State
 	prevCandidates []int
@@ -47,6 +53,7 @@ type Viterbi struct {
 	forwardProbHistory []map[int]float64
 }
 
+// NewViterbi creates and returns viterbi.
 func NewViterbi(numberOfObservations int) *Viterbi {
 	lastStateHistory := make([]map[int]*State, numberOfObservations)
 	forwardProbHistory := make([]map[int]float64, numberOfObservations)
@@ -61,14 +68,17 @@ func NewViterbi(numberOfObservations int) *Viterbi {
 	}
 }
 
+// IsHMMBroken reports whether hmmbroken.
 func (vi *Viterbi) IsHMMBroken() bool {
 	return vi.isBroken
 }
 
+// GetForwardProb returns forward prob.
 func (vi *Viterbi) GetForwardProb() map[int]float64 {
 	return vi.forwardProb
 }
 
+// InitForwardProb initializes forward prob.
 func (vi *Viterbi) InitForwardProb(observationId int,
 	candidates []int,
 	initialLogProbabilities map[int]float64) {
@@ -115,6 +125,7 @@ func (vi *Viterbi) transitionLogProbability(
 	return logProb
 }
 
+// ForwardStep ForwardStep.
 func (vi *Viterbi) ForwardStep(observationId int,
 	candidates []int,
 	emissionLogProbabilities map[int]float64,
@@ -184,6 +195,7 @@ func (vi *Viterbi) saveHistory(
 	maps.Copy(vi.forwardProbHistory[observationId], forwardProb)
 }
 
+// StepBack handles step back.
 func (vi *Viterbi) StepBack(observationId int) {
 
 	vi.forwardProb = make(map[int]float64)

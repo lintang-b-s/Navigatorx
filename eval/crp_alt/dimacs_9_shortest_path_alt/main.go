@@ -1,3 +1,4 @@
+// Package main provides point-to-point shortest path correctness test using DIMACS 9th implementation challenge data.
 package main
 
 import (

@@ -6,10 +6,12 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
+// FlowNumber represents flow number.
 type FlowNumber interface { // for the inertial flow partitioner use int8, because we operate dinic algorithm on unit capacity graph.
 	~int8 | ~int32 | ~int64
 }
 
+// DinicMaxFlow represents dinic max flow algorithm.
 type DinicMaxFlow[W FlowNumber] struct {
 	heads   []da.Index
 	flows   []W
@@ -47,12 +49,14 @@ func NewDinicMaxFlow[W FlowNumber](n int, multiSources, multiSinks bool) *DinicM
 	return dc
 }
 
+// AddFlow adds flow.
 func (dmf *DinicMaxFlow[W]) AddFlow(u da.Index, i da.Index, f W) {
 	id := dmf.adjList[u][i]
 	dmf.flows[id] += f
 	dmf.flows[id^1] -= f
 }
 
+// AddEdge adds edge.
 func (dmf *DinicMaxFlow[W]) AddEdge(u, v da.Index, w W, directed bool) {
 	if u == v {
 		return
@@ -79,12 +83,12 @@ func (dmf *DinicMaxFlow[W]) resetCurrentEdges() {
 
 func (dmf *DinicMaxFlow[W]) bfsLevelGraph(
 	source, target da.Index) bool {
-	dmf.level[target] = INVALID_LEVEL
+	dmf.level[target] = InvalidLevel
 
 	m := da.Index(len(dmf.adjList))
 
 	for vId := da.Index(0); vId < m; vId++ {
-		dmf.level[vId] = INVALID_LEVEL
+		dmf.level[vId] = InvalidLevel
 	}
 
 	levelQueue := dmf.levelQueue[:0]
@@ -104,14 +108,14 @@ func (dmf *DinicMaxFlow[W]) bfsLevelGraph(
 		for _, eId := range dmf.adjList[u] {
 			residual := dmf.caps[eId] - dmf.flows[eId]
 			v := dmf.heads[eId]
-			if residual > 0 && dmf.level[v] == INVALID_LEVEL {
+			if residual > 0 && dmf.level[v] == InvalidLevel {
 				dmf.level[v] = level
 				levelQueue = append(levelQueue, v)
 			}
 		}
 	}
 
-	reachable := dmf.level[target] != INVALID_LEVEL
+	reachable := dmf.level[target] != InvalidLevel
 	return reachable
 }
 
@@ -176,7 +180,7 @@ func (dmf *DinicMaxFlow[W]) blockingFlow(s, t da.Index) int64 {
 }
 
 /*
-ComputeMaxflowMinCut. compute max flow/min st-cut
+ComputeMaxflowMinCut computes max flow/min st-cut
 ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 
 time complexity:
@@ -216,10 +220,10 @@ func (dmf *DinicMaxFlow[W]) ComputeMaxflowMinCut(s da.Index, t da.Index) *MinCut
 func (dmf *DinicMaxFlow[W]) makeMinCutFlags(minCut *MinCut, maxflow int64) {
 	n := da.Index(dmf.n)
 	for u := da.Index(0); u < n; u++ {
-		if dmf.level[u] != INVALID_LEVEL {
+		if dmf.level[u] != InvalidLevel {
 			// https://www.cs.princeton.edu/courses/archive/fall14/cos226/lectures/64MaxFlow.pdf
 			// cell S = semua vertices connected to s by an undirected path with no full forward edges (full fe = its residual capacity = 0 ) or empty backward edges (empty be = its residual capacity = 0 )
-			minCut.SetFlag(u, true)
+			minCut.SetFlag(u)
 		} else {
 			minCut.nodesCountInCellT++
 		}

@@ -9,6 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// CRPQuery represents query phase of Customizable Route Planning.
 type CRPQuery[W util.Numeric] struct {
 	engine               *CRPRoutingEngine[W]
 	metrics              *met.Metric[W]
@@ -32,6 +33,7 @@ type CRPQuery[W util.Numeric] struct {
 	reroute         bool
 }
 
+// NewCRPQuery creates and returns crpquery.
 func NewCRPQuery[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 ) *CRPQuery[W] {
@@ -95,6 +97,7 @@ extract-min at most O(n_p+n_o) operations, yang kita insert di pq adlaah vertice
 inspired by Customizable Route Planning (CRP) [1] query phase code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
 */
 
+// ShortestPathSearch compute point-to-point fastest path.
 func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 
 	defer bs.Done()
@@ -117,16 +120,16 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 	bs.fpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
 	bs.bpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
 
-	svd := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
-	tvd := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
+	svd := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
+	tvd := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
 	sQueryKey := da.NewQKey(s, 0, false)
 	tQueryKey := da.NewQKey(t, 0, false)
 	bs.fpq.Insert(s, 0, svd, sQueryKey)
 	bs.bpq.Insert(t, 0, tvd, tQueryKey)
 
 	for bs.fpq.Size() > 0 && bs.bpq.Size() > 0 {
-		minForward := bs.fpq.GetMinrank()
-		minBackward := bs.bpq.GetMinrank()
+		minForward := bs.fpq.MinRank()
+		minBackward := bs.bpq.MinRank()
 
 		if util.Ge(minForward+minBackward, W(float64(bs.shortestCost)*(bs.ub))) || (bs.mapmatching && util.Ge(minForward+minBackward, W(bs.maxSearchRad))) {
 			break
@@ -137,11 +140,11 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 
 		if !uItem.IsOverlay() {
 			bs.fpq.Explore(uItem.GetNode())
-			bs.graphSearch(uItem, s, t, true, bs.fpq, bs.bpq)
+			bs.graphSearch(uItem, true, bs.fpq, bs.bpq)
 			bs.addViaVertex(uItem, true, false)
 		} else {
 			bs.fpq.Explore(uItem.GetNode())
-			bs.overlayGraphSearch(uItem, s, t, true, bs.fpq, bs.bpq)
+			bs.overlayGraphSearch(uItem, true, bs.fpq, bs.bpq)
 			bs.addViaVertex(uItem, true, true)
 		}
 
@@ -149,11 +152,11 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 		uItem = queryKey.GetItem()
 		if !uItem.IsOverlay() {
 			bs.bpq.Explore(uItem.GetNode())
-			bs.graphSearch(uItem, s, t, false, bs.bpq, bs.fpq)
+			bs.graphSearch(uItem, false, bs.bpq, bs.fpq)
 			bs.addViaVertex(uItem, false, false)
 		} else {
 			bs.bpq.Explore(uItem.GetNode())
-			bs.overlayGraphSearch(uItem, s, t, false, bs.bpq, bs.fpq)
+			bs.overlayGraphSearch(uItem, false, bs.bpq, bs.fpq)
 			bs.addViaVertex(uItem, false, true)
 		}
 
@@ -180,17 +183,17 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 /*
 graphSearch. forward search & backward search dari bidirectional Dijkstra in sel c1(s) atau c1(t).
 */
-func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
+func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 
 	u := uKey.GetNode()
-	uCost := pq.GetCost(u)
+	uCost := pq.Cost(u)
 
 	offset, eNum := bs.engine.graph.NumEdges(u, forw)
 	for eId := offset; eId < offset+eNum; eId++ {
 		v := bs.engine.GetV(eId, forw)
 
 		// get query level of v l_st(v)
-		vQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
+		vQueryLevel := bs.engine.overlayGraph.QueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(v))
 
 		eWeight := bs.GetWeight(eId, forw)
@@ -202,7 +205,7 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, p
 			// if query level of v is 0, then v is in the same cell as s or t in the lowest level
 			// then, we just do edge relaxation as usual in dijkstra
 			// relax edge
-			oldVCost := pq.GetCost(v)
+			oldVCost := pq.Cost(v)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
 				// newVCost is better, update the vertex v cost in priority queue
@@ -226,7 +229,7 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool, p
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
 			vOv := bs.engine.graph.GetOverlayVertex(v, eId, forw)
 			vOv = bs.engine.offsetOverlay(vOv)
-			oldVCost := pq.GetCost(vOv)
+			oldVCost := pq.Cost(vOv)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
 				vOvPar := da.NewParentVertex(u, false)
@@ -265,13 +268,13 @@ the explanation below taken from Delling et al. (2015) ref [1]:
 outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
 the arc (u, v) immediately and process v."
 */
-func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
+func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 	// search on overlay graph
 
 	uOv := uKey.GetNode() // overlay vertex id
-	uQueryLevel := int(uKey.GetQueryLevel())
+	uQueryLevel := int(uKey.QueryLevel())
 	u := bs.engine.adjustoffsetOverlay(uOv)
-	uCost := pq.GetCost(uOv)
+	uCost := pq.Cost(uOv)
 
 	ovOffset, wOffset, eNum, numExit := bs.engine.overlayGraph.NumOfShortcuts(u, uQueryLevel, forw)
 
@@ -281,7 +284,7 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, forw 
 		newVCost := uCost + shortcutWeight
 		vOv := bs.engine.offsetOverlay(v)
 		// relax edge
-		oldVCost := pq.GetCost(vOv)
+		oldVCost := pq.Cost(vOv)
 		if util.Lt(newVCost, oldVCost) {
 			vPar := da.NewParentVertex(uOv, true)
 			pq.Set(vOv, da.NewVData(newVCost,
@@ -294,7 +297,7 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, forw 
 			eWeight := bs.GetWeight(vCutEdgeId, forw)
 			wOv := vVertex.GetNeighborOverlayVertex()
 			wVertex := bs.engine.overlayGraph.GetVertex(wOv)
-			wQueryLevel := bs.engine.overlayGraph.GetQueryLevel(bs.sCellNumber, bs.tCellNumber,
+			wQueryLevel := bs.engine.overlayGraph.QueryLevel(bs.sCellNumber, bs.tCellNumber,
 				wVertex.GetCellNumber())
 			w := wVertex.GetOrigVId()
 			newWCost := newVCost + eWeight
@@ -302,7 +305,7 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, forw 
 			if wQueryLevel == 0 {
 				// w is in the same cell as s or t
 
-				oldWCost := pq.GetCost(w)
+				oldWCost := pq.Cost(w)
 				wLabelled := util.Lt(oldWCost, util.Infinity[W]())
 				if util.Lt(newWCost, oldWCost) {
 					wPar := da.NewParentVertex(vOv, true)
@@ -321,7 +324,7 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, forw 
 				// update new travelTime to reach overlay vertex w
 				// insert item overlay vertex w and its query level to forwardP
 				wOv = bs.engine.offsetOverlay(wOv)
-				oldwOvCost := pq.GetCost(wOv)
+				oldwOvCost := pq.Cost(wOv)
 				wLabelled := util.Lt(oldwOvCost, util.Infinity[W]())
 				if util.Lt(newWCost, oldwOvCost) {
 					wOvPar := da.NewParentVertex(vOv, true)
@@ -344,7 +347,7 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, forw 
 func (bs *CRPQuery[W]) meet(v da.Index, pq, rpq *da.QueryHeap[da.QueryKey, W], overlay bool) {
 	if rpq.IsExplored(v) {
 		// if vertex v explored by other search, check whether we can improve the shortestCost estimate
-		newEstSPCost := pq.GetCost(v) + rpq.GetCost(v)
+		newEstSPCost := pq.Cost(v) + rpq.Cost(v)
 		if util.Lt(newEstSPCost, bs.shortestCost) {
 			bs.shortestCost = newEstSPCost
 			var mid da.ParentVertex
@@ -358,6 +361,7 @@ func (bs *CRPQuery[W]) meet(v da.Index, pq, rpq *da.QueryHeap[da.QueryKey, W], o
 	}
 }
 
+// GetWeight returns weight of edge (or reversed edge).
 func (bs *CRPQuery[W]) GetWeight(eId da.Index, out bool) W {
 	if out {
 		return bs.metrics.GetWeight(eId)
@@ -366,11 +370,13 @@ func (bs *CRPQuery[W]) GetWeight(eId da.Index, out bool) W {
 	return bs.metrics.GetWeight(reId)
 }
 
+// Preallocate handles preallocate priority queues.
 func (bs *CRPQuery[W]) Preallocate() {
 	bs.fpq = bs.engine.fHeapPool.Get().(*da.QueryHeap[da.QueryKey, W])
 	bs.bpq = bs.engine.bHeapPool.Get().(*da.QueryHeap[da.QueryKey, W])
 }
 
+// Done handles put back priority queue to sync.Pool.
 func (bs *CRPQuery[W]) Done() {
 	if bs.forAlternatives {
 		return
@@ -381,6 +387,7 @@ func (bs *CRPQuery[W]) Done() {
 	bs.engine.bHeapPool.Put(bs.bpq)
 }
 
+// GetStats returns stats of the query.
 func (bs *CRPQuery[W]) GetStats(n int) (float64, int, int64, int64) {
 	// efficiency:
 	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf
@@ -402,16 +409,19 @@ func (bs *CRPQuery[W]) addViaVertex(uqk da.QueryKey, forward bool, overlay bool)
 	}
 }
 
+// SetMaxSearchRadiusSecs sets max search radius secs.
 func (bs *CRPQuery[W]) SetMaxSearchRadiusSecs(maxSearchRadiusSecs float64) {
 	weight := util.WeightFromSeconds[W](maxSearchRadiusSecs)
 	bs.maxSearchRad = weight
 	bs.mapmatching = true
 }
 
+// SetUpperBound sets upper bound search radius.
 func (bs *CRPQuery[W]) SetUpperBound(ub float64) {
 	bs.ub = ub
 }
 
+// ForAlternatives iterates over alternatives.
 func (bs *CRPQuery[W]) ForAlternatives(val bool) {
 	bs.forAlternatives = val
 }

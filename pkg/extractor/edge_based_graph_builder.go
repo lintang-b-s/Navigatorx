@@ -12,17 +12,14 @@ import (
 	"github.com/spf13/viper"
 )
 
-/*
-buildEdgeBasedGraph. build edge-based (or expanded) graph following:  https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
-https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/edge_based_graph_factory.cpp
-another reference:  https://drops.dagstuhl.de/storage/01oasics/oasics-vol085-atmos2020/OASIcs.ATMOS.2020.9/OASIcs.ATMOS.2020.9.pdf
-https://i11www.iti.kit.edu/_media/teaching/theses/ba-zuendorf-19.pdf
-parameter:
-graph: node-based graph datastructure
-weightFunction: weight (duration/travel time) of each edges of node-based graph
-
-only for road network OpenStreetMap input file.
-*/
+// BuildEdgeBasedGraph build edge-based (or expanded) graph following:  https://github.com/Project-OSRM/osrm-backend/wiki/Graph-representation
+// https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/edge_based_graph_factory.cpp
+// another reference:  https://drops.dagstuhl.de/storage/01oasics/oasics-vol085-atmos2020/OASIcs.ATMOS.2020.9/OASIcs.ATMOS.2020.9.pdf
+// https://i11www.iti.kit.edu/_media/teaching/theses/ba-zuendorf-19.pdf
+// parameter:
+// graph: node-based graph datastructure
+// weightFunction: weight (duration/travel time) of each edges of node-based graph
+// only for road network OpenStreetMap input file.
 func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	vTurnTableIds []da.Index, turnMatrix []pkg.TurnType, rn *da.RoadNetworkDataContainer) (*da.Graph, *met.TimeFunction[W], []uint64, error) {
 
@@ -36,7 +33,7 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	}
 
 	eSpeedLimit := make([]uint32, ebgvNum)
-	wf.ForWeights(func(eId da.Index, weight W, length uint32) {
+	wf.ForWeights(func(eId da.Index, weight W, _ uint32) {
 		if weight == 0 {
 			return
 		}
@@ -62,7 +59,7 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 			mpLon := (uc.GetLon() + vc.GetLon()) / 2
 			ebgVertices[ueId] = da.NewVertex(mpLat, mpLon, ueId)
 
-			g.ForOutEdgesOfWithTurn(v, i, func(veId, w da.Index, j, _ uint8) {
+			g.ForOutEdgesOfWithTurn(v, i, func(veId, _ da.Index, j, _ uint8) {
 				turnTableId := vTurnTableIds[v] + da.Index(i)*g.GetOutDegree(v) + da.Index(j)
 				tc := turnTable[turnTableId] // turn costs
 				eWeight := wf.GetWeight(ueId) + W(tc)
@@ -134,14 +131,14 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 		e := ebgEdgeList[i]
 		ebgVertices[e.u].DecrementFirstOut()
 		ebgVertices[e.v].DecrementFirstIn()
-		outEdgeID := ebgVertices[e.u].GetFirstOut()
-		inEdgeID := ebgVertices[e.v].GetFirstIn()
-		ebgHeads[outEdgeID] = e.v
-		ebgTails[inEdgeID] = e.u
-		eIds[i] = outEdgeID
-		reIds[i] = inEdgeID
-		sortedWeights[outEdgeID] = ebgWeights[i]
-		sortedTurnCosts[outEdgeID] = turnCosts[i]
+		outEdgeId := ebgVertices[e.u].GetFirstOut()
+		inEdgeId := ebgVertices[e.v].GetFirstIn()
+		ebgHeads[outEdgeId] = e.v
+		ebgTails[inEdgeId] = e.u
+		eIds[i] = outEdgeId
+		reIds[i] = inEdgeId
+		sortedWeights[outEdgeId] = ebgWeights[i]
+		sortedTurnCosts[outEdgeId] = turnCosts[i]
 	}
 
 	for i := 0; i < int(m); i++ {
@@ -166,7 +163,7 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	rn.ApplySegmentsPermutation(emPerm)
 
 	// dummy last ebg vertex annotation
-	rn.AppendSegmentData(-1, 1, 1, 0, pkg.INVALID_HIGHWAY, pkg.INVALID_HIGHWAY, 0, da.NewEmptyTurnLanesData())
+	rn.AppendSegmentData(-1, 1, 1, 0, pkg.InvalidHighway, pkg.InvalidHighway, 0, da.NewEmptyTurnLanesData())
 	rn.SetSegmentBit(ebgvNum, 0, false)
 
 	return ebg, ebgWf, ebgMapping, nil
@@ -203,7 +200,7 @@ func makeTurnTable[W util.Numeric](
 	turnCostByAngleThreshold := viper.GetFloat64("turncosts.max_turn_cost_based_on_angle_between_edges")
 
 	turnTypesCost[pkg.NONE] = 0
-	turnTypesCost[pkg.NO_ENTRY] = math.Inf(1)
+	turnTypesCost[pkg.NoEntry] = math.Inf(1)
 
 	n := len(turnMatrix)
 	turnTableSeconds := make([]float64, n)
@@ -215,10 +212,10 @@ func makeTurnTable[W util.Numeric](
 	minResolution := g.GetMinResolution()
 
 	// T(n) = \sum_{u in V} \sum_{v in edges(u,v)} outDeg(u)*outDeg(v) = O(n). if we let inDeg(v)=outDeg(v)=O(1) (for any vertex v) like in road networks.
-	g.ForOutEdges(func(_ uint8, v, u da.Index, i uint8, percentage float64, eIdFrom da.Index) {
+	g.ForOutEdges(func(_ uint8, v, _ da.Index, i uint8, _ float64, eIdFrom da.Index) {
 
 		vLimitFrom := float64(eSpeedLimit[eIdFrom])
-		g.ForOutEdgesOfWithTurn(v, i, func(eIdTo, w da.Index, j, _ uint8) {
+		g.ForOutEdgesOfWithTurn(v, i, func(eIdTo, _ da.Index, j, _ uint8) {
 			turnTableId := vTurnTableIds[v] + da.Index(i)*g.GetOutDegree(v) + da.Index(j)
 			turnType := turnMatrix[turnTableId]
 			ftl := rn.IsSegmentFlagBitOn(eIdFrom, da.FlagContainsTrafficLight)
@@ -247,7 +244,7 @@ func makeTurnTable[W util.Numeric](
 
 			turnSign := geo.GetTurnDirection(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon(), prevInitialBearing)
 
-			if turnType == pkg.NO_ENTRY || math.IsInf(currentTurnCost, 1) || (turnSign == da.CONTINUE_ON_STREET && !containsTrafficLight) {
+			if turnType == pkg.NoEntry || math.IsInf(currentTurnCost, 1) || (turnSign == da.ContinueOnStreet && !containsTrafficLight) {
 				// gak ada turn penalty (pkg.NewTurnRest())
 				// in this section 3.2 Turning Speed: https://ae.iti.kit.edu/download/turn_ch.pdf model
 				// we assume deceleration a_{dec} from v down to max_v at the latest point possible and while traversing edge e′ we assume immediate start of acceleration a_{acc} from max_v to v′.
@@ -269,6 +266,7 @@ func makeTurnTable[W util.Numeric](
 	return turnTable, nil
 }
 
+// GetPrevPoint returns prev point.
 func GetPrevPoint(segmentId da.Index, tailCoord da.Coordinate, atLeastDist float64, rn *da.RoadNetworkDataContainer) da.Coordinate {
 
 	curved := rn.IsCurved(segmentId)
@@ -290,6 +288,7 @@ func GetPrevPoint(segmentId da.Index, tailCoord da.Coordinate, atLeastDist float
 	return v
 }
 
+// GetHeadPoint returns head point.
 func GetHeadPoint(eId da.Index, tailCoord da.Coordinate, atLeastDist float64, rn *da.RoadNetworkDataContainer) da.Coordinate {
 
 	curved := rn.IsCurved(eId)
@@ -315,15 +314,15 @@ func getTurnTableId(turnTypeStr string) (pkg.TurnType, error) {
 	var turnType pkg.TurnType
 	switch turnTypeStr {
 	case "left_turn":
-		turnType = pkg.LEFT_TURN
+		turnType = pkg.LeftTurn
 	case "right_turn":
-		turnType = pkg.RIGHT_TURN
+		turnType = pkg.RightTurn
 	case "straight_on":
-		turnType = pkg.STRAIGHT_ON
+		turnType = pkg.StraightOn
 	case "u_turn":
-		turnType = pkg.U_TURN
+		turnType = pkg.UTurn
 	case strNoEntry:
-		turnType = pkg.NO_ENTRY
+		turnType = pkg.NoEntry
 	case strNone:
 		turnType = pkg.NONE
 	default:

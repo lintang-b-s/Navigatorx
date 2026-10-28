@@ -8,40 +8,79 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// TurnType represents turn type.
 type TurnType uint8
 
 const (
+	// UNKNOWN is the unknown value.
 	UNKNOWN TurnType = iota
-	U_TURN_UNKNOWN
-	U_TURN_LEFT
-	KEEP_LEFT
-	LEAVE_ROUNDABOUT
-	TURN_SHARP_LEFT
-	TURN_LEFT
-	TURN_SLIGHT_LEFT
-	CONTINUE_ON_STREET
-	MERGE_ONTO
-	TURN_SLIGHT_RIGHT
-	TURN_RIGHT
-	TURN_SHARP_RIGHT
+	// UTurnUnknown is the uturn unknown value.
+	UTurnUnknown
+	// UTurnLeft is the uturn left value.
+	UTurnLeft
+
+	// KeepLeft is the keep left value.
+	KeepLeft
+
+	// LeaveRoundabout is the leave roundabout value.
+	LeaveRoundabout
+
+	// TurnSharpLeft is the turn sharp left value.
+	TurnSharpLeft
+
+	// TurnLeft is the turn left value.
+	TurnLeft
+
+	// TurnSlightLeft is the turn slight left value.
+	TurnSlightLeft
+
+	// ContinueOnStreet is the continue on street value.
+	ContinueOnStreet
+
+	// MergeOnto is the merge onto value.
+	MergeOnto
+
+	// TurnSlightRight is the turn slight right value.
+	TurnSlightRight
+
+	// TurnRight is the turn right value.
+	TurnRight
+
+	// TurnSharpRight is the turn sharp right value.
+	TurnSharpRight
+
+	// FINISH is the finish value.
 	FINISH
-	USE_ROUNDABOUT
+
+	// UseRoundabout is the use roundabout value.
+	UseRoundabout
+
+	// IGNORE is the ignore value.
 	IGNORE
-	KEEP_RIGHT
-	U_TURN_RIGHT
+
+	// KeepRight is the keep right value.
+	KeepRight
+
+	// UTurnRight is the uturn right value.
+	UTurnRight
+
+	// START is the start value.
 	START
 )
 
+// IsContinue reports whether continue.
 // IsContinue. return true if tt is CONTINUE_ON_STREET
 func IsContinue(tt TurnType) bool {
-	return tt == CONTINUE_ON_STREET
+	return tt == ContinueOnStreet
 }
 
+// IsTurnSlight reports whether turn slight.
 // IsTurnSlight. return true if tt is TURN_SLIGHT_* or CONTINUE_ON_STREET
 func IsTurnSlight(tt TurnType) bool {
-	return tt == TURN_SLIGHT_LEFT || tt == TURN_SLIGHT_RIGHT || tt == CONTINUE_ON_STREET
+	return tt == TurnSlightLeft || tt == TurnSlightRight || tt == ContinueOnStreet
 }
 
+// Annotation represents annotation.
 type Annotation struct {
 	duration       []float64
 	distance       []float64
@@ -49,6 +88,7 @@ type Annotation struct {
 	edgeGeomOffset []Index
 }
 
+// NewAnnotation creates and returns annotation.
 func NewAnnotation(duration, distance []float64, geometry Coordinates, edgeGeomOffset []Index) Annotation {
 	durationCopy := make([]float64, len(duration))
 	copy(durationCopy, duration)
@@ -70,22 +110,27 @@ func NewAnnotation(duration, distance []float64, geometry Coordinates, edgeGeomO
 	}
 }
 
+// GetDuration returns duration.
 func (ann *Annotation) GetDuration() []float64 {
 	return ann.duration
 }
 
+// GetDistance returns distance.
 func (ann *Annotation) GetDistance() []float64 {
 	return ann.distance
 }
 
+// GetGeometry returns geometry.
 func (ann *Annotation) GetGeometry() Coordinates {
 	return ann.geometry
 }
 
+// GetEdgeGeomOffset returns edge geom offset.
 func (ann *Annotation) GetEdgeGeomOffset() []Index {
 	return ann.edgeGeomOffset
 }
 
+// Instruction represents instruction.
 type Instruction struct {
 	annotation Annotation
 	segmentIds []Index
@@ -104,6 +149,7 @@ type Instruction struct {
 	suggestAlternatives bool
 }
 
+// NewInstruction creates and returns instruction.
 func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool, segmentIds []Index,
 	cumulativeDist, cumulativeCost float64, turnBearing float64, ann Annotation,
 	clockwise bool) Instruction {
@@ -124,6 +170,7 @@ func NewInstruction(sign TurnType, name string, p Coordinate, isRoundAbout bool,
 	return ins
 }
 
+// NewInstructionWithRoundabout creates and returns instruction with roundabout.
 func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRoundAbout bool, roundabout RoundaboutInstruction,
 	cumulativeDistance, cumulativeCost float64, segmentIds []Index, ann Annotation, turnBearing float64) Instruction {
 
@@ -143,51 +190,63 @@ func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRo
 	return ins
 }
 
+// GetStreetName returns street name.
 func (ins *Instruction) GetStreetName() string {
 	return ins.streetname
 }
 
+// SetSuggestAlternatives sets suggest alternatives.
 func (ins *Instruction) SetSuggestAlternatives(suggestAlternatives bool) {
 	ins.suggestAlternatives = suggestAlternatives
 }
 
+// GetSuggestAlternatives returns suggest alternatives.
 func (ins *Instruction) GetSuggestAlternatives() bool {
 	return ins.suggestAlternatives
 }
 
+// SetHeading sets heading.
 func (ins *Instruction) SetHeading(heading float64) {
 	ins.heading = heading
 	ins.hasHeading = true
 }
 
+// SetSign sets sign.
 func (ins *Instruction) SetSign(sign TurnType) {
 	ins.turnSign = sign
 }
 
+// SetStreetName sets street name.
 func (ins *Instruction) SetStreetName(streetName string) {
 	ins.streetname = streetName
 }
 
+// GetTurnSign returns turn sign.
 func (ins *Instruction) GetTurnSign() TurnType {
 	return ins.turnSign
 }
 
+// GetSegmentIds returns segment ids.
 func (ins *Instruction) GetSegmentIds() []Index {
 	return ins.segmentIds
 }
 
+// GetPoint returns point.
 func (ins *Instruction) GetPoint() Coordinate {
 	return ins.point
 }
 
+// GetCumulativeDistance returns cumulative distance.
 func (ins *Instruction) GetCumulativeDistance() float64 {
 	return ins.cumulativeDistance
 }
 
+// GetCumulativeCost returns cumulative cost.
 func (ins *Instruction) GetCumulativeCost() float64 {
 	return ins.cumulativeCost
 }
 
+// GetAnnotation returns annotation.
 func (ins *Instruction) GetAnnotation() Annotation {
 	return ins.annotation
 }
@@ -214,9 +273,13 @@ func bearingToCompass(bearing float64) string {
 		return "North"
 	}
 }
+
+// GetTurnBearing returns turn bearing.
 func (ins *Instruction) GetTurnBearing() float64 {
 	return ins.turnBearing
 }
+
+// GetTurnDescription returns turn description.
 func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 
 	streetName := ins.GetStreetName()
@@ -225,7 +288,7 @@ func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 	sign := ins.GetTurnSign()
 
 	switch sign {
-	case CONTINUE_ON_STREET:
+	case ContinueOnStreet:
 		if isEmpty(streetName) {
 			return "Continue"
 		}
@@ -270,33 +333,33 @@ func isEmpty(str string) bool {
 
 func getDirectionDescription(sign TurnType, roundaboutExited bool, roundaboutExitNum int, clockwise bool) (string, string) {
 	switch sign {
-	case U_TURN_UNKNOWN:
+	case UTurnUnknown:
 		return "Make U-turn", "U_TURN_RIGHT"
-	case U_TURN_RIGHT:
+	case UTurnRight:
 		return "Make U-turn right", "U_TURN_RIGHT"
-	case U_TURN_LEFT:
+	case UTurnLeft:
 		return "Make U-turn left", "U_TURN_LEFT"
-	case KEEP_LEFT:
+	case KeepLeft:
 		return "Keep left", "KEEP_LEFT"
-	case TURN_SHARP_LEFT:
+	case TurnSharpLeft:
 		return "Turn sharp left", "TURN_SHARP_LEFT"
-	case TURN_LEFT:
+	case TurnLeft:
 		return "Turn left", "TURN_LEFT"
-	case TURN_SLIGHT_LEFT:
+	case TurnSlightLeft:
 		return "Turn slight left", "TURN_SLIGHT_LEFT"
-	case TURN_SLIGHT_RIGHT:
+	case TurnSlightRight:
 		return "Turn slight right", "TURN_SLIGHT_RIGHT"
-	case TURN_RIGHT:
+	case TurnRight:
 		return "Turn right", "TURN_RIGHT"
-	case TURN_SHARP_RIGHT:
+	case TurnSharpRight:
 		return "Turn sharp right", "TURN_SHARP_RIGHT"
-	case KEEP_RIGHT:
+	case KeepRight:
 		return "Keep right", "KEEP_RIGHT"
-	case MERGE_ONTO:
+	case MergeOnto:
 		return "Merge onto", "MERGE_ONTO"
-	case CONTINUE_ON_STREET:
+	case ContinueOnStreet:
 		return "Continue onto", "CONTINUE_ONTO"
-	case USE_ROUNDABOUT:
+	case UseRoundabout:
 		if !roundaboutExited {
 			return "Enter the roundabout", "USE_ROUNDABOUT"
 		}
@@ -312,23 +375,28 @@ func getDirectionDescription(sign TurnType, roundaboutExited bool, roundaboutExi
 	}
 }
 
+// RoundaboutInstruction represents roundabout instruction.
 type RoundaboutInstruction struct {
 	exitNumber int
 	exited     bool
 }
 
+// NewRoundaboutInstruction creates and returns roundabout instruction.
 func NewRoundaboutInstruction() RoundaboutInstruction {
 	return RoundaboutInstruction{}
 }
 
+// IncrementExitNumber handles increment exit number.
 func (ins *Instruction) IncrementExitNumber() {
 	ins.roundabout.exitNumber++
 }
 
+// SetExited sets exited.
 func (ins *Instruction) SetExited() {
 	ins.roundabout.exited = true
 }
 
+// DrivingDirection represents driving direction.
 type DrivingDirection struct {
 	instruction         string
 	segmentIds          []Index
@@ -342,6 +410,7 @@ type DrivingDirection struct {
 	suggestAlternatives bool
 }
 
+// NewDrivingDirection creates and returns driving direction.
 func NewDrivingDirection(ins Instruction, description string, prevCost, prevDist float64,
 	segmentIds []Index, turnBearing float64, ann Annotation) DrivingDirection {
 	return DrivingDirection{
@@ -358,43 +427,53 @@ func NewDrivingDirection(ins Instruction, description string, prevCost, prevDist
 	}
 }
 
+// GetInstruction returns instruction.
 func (d *DrivingDirection) GetInstruction() string {
 
 	return d.instruction
 }
 
+// GetPoint returns point.
 func (d *DrivingDirection) GetPoint() Coordinate {
 	return d.point
 }
 
+// GetStreetName returns street name.
 func (d *DrivingDirection) GetStreetName() string {
 	return d.streetName
 }
 
+// GetCost returns cost.
 func (d *DrivingDirection) GetCost() float64 {
 	return d.travelTime
 }
 
+// GetDistance returns distance.
 func (d *DrivingDirection) GetDistance() float64 {
 	return d.distance
 }
 
+// GetSegmentsIds returns segments ids.
 func (d *DrivingDirection) GetSegmentsIds() []Index {
 	return d.segmentIds
 }
 
+// GetTurnBearing returns turn bearing.
 func (d *DrivingDirection) GetTurnBearing() float64 {
 	return d.turnBearing
 }
 
+// GetTurnTableId returns turn table id.
 func (d *DrivingDirection) GetTurnTableId() string {
 	return d.turnType
 }
 
+// GetSuggestAlternatives returns suggest alternatives.
 func (d *DrivingDirection) GetSuggestAlternatives() bool {
 	return d.suggestAlternatives
 }
 
+// GetAnnotation returns annotation.
 func (d *DrivingDirection) GetAnnotation() Annotation {
 	return d.annotation
 }

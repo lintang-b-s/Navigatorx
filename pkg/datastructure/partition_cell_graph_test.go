@@ -200,11 +200,11 @@ func TestPartitionCellGraph_Partition(t *testing.T) {
 			gotS := make([]da.Index, 0)
 			gotT := make([]da.Index, 0)
 			gotCutEdgesExists := false
-			gotSCG.ForEachCellVertices(func(vId, gvId da.Index, coord da.Coordinate) {
+			gotSCG.ForEachCellVertices(func(vId, gvId da.Index, _ da.Coordinate) {
 				gotS = append(gotS, gvId)
-				gotSCG.ForEdgesOf(vId, func(v da.Index, rev bool) {
+				gotSCG.ForEdgesOf(vId, func(v da.Index, _ bool) {
 					vv := gotSCG.GetGraphVertexId(v)
-					if vv == da.INVALID_SEGMENT_ID {
+					if vv == da.InvalidSegmentId {
 						// vv is an auxiliary vertex (for handling anti-parallel edges), not a road network vertex
 						return
 					}
@@ -214,11 +214,11 @@ func TestPartitionCellGraph_Partition(t *testing.T) {
 				})
 			})
 
-			gotTCG.ForEachCellVertices(func(vId, gvId da.Index, coord da.Coordinate) {
+			gotTCG.ForEachCellVertices(func(vId, gvId da.Index, _ da.Coordinate) {
 				gotT = append(gotT, gvId)
-				gotTCG.ForEdgesOf(vId, func(v da.Index, rev bool) {
+				gotTCG.ForEdgesOf(vId, func(v da.Index, _ bool) {
 					vv := gotTCG.GetGraphVertexId(v)
-					if vv == da.INVALID_SEGMENT_ID {
+					if vv == da.InvalidSegmentId {
 						// vv is an auxiliary vertex (for handling anti-parallel edges), not a road network vertex
 						return
 					}

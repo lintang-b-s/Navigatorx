@@ -1,3 +1,4 @@
+// Package main provides runtime (and other evaluation metrics) benchmarks of several point-to-point shortest path algorithms.
 package main
 
 import (
@@ -21,8 +22,8 @@ import (
 )
 
 const (
-	NUM_QUERIES             = 10000
-	CENTISECONDS_TO_MINUTES = 1.0 / 6000
+	numQueries            = 10000
+	centisecondsToMinutes = 1.0 / 6000
 )
 
 func init() {
@@ -167,14 +168,14 @@ func main() {
 	}
 
 	fmt.Printf("Algoritma kueri kombinasi CRP dan ALT (with turn costs) : \n")
-	fmt.Printf("avg query times: %f ms\n", durations/NUM_QUERIES)
-	fmt.Printf("avg efficiency: %f %%\n", (efficiency/NUM_QUERIES)*100)
-	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
-	fmt.Printf("avg query runtime: %f ms\n", qRuntime/NUM_QUERIES)
-	fmt.Printf("avg path unpacking runtime: %f ms\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f minutes\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f minutes\n", minCost*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f minutes\n", maxCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg query times: %f ms\n", durations/numQueries)
+	fmt.Printf("avg efficiency: %f %%\n", (efficiency/numQueries)*100)
+	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/numQueries)
+	fmt.Printf("avg query runtime: %f ms\n", qRuntime/numQueries)
+	fmt.Printf("avg path unpacking runtime: %f ms\n", puRuntime/numQueries)
+	fmt.Printf("avg travel time: %f minutes\n", (avgCost/numQueries)*centisecondsToMinutes)
+	fmt.Printf("min travel time: %f minutes\n", minCost*centisecondsToMinutes)
+	fmt.Printf("max travel time: %f minutes\n", maxCost*centisecondsToMinutes)
 
 	durations = 0.0
 	efficiency = 0.0
@@ -201,14 +202,14 @@ func main() {
 	}
 
 	fmt.Printf("Algoritma kueri CRP (with turn costs): \n")
-	fmt.Printf("avg query times: %f ms\n", durations/NUM_QUERIES)
-	fmt.Printf("avg efficiency: %f %%\n", (efficiency/NUM_QUERIES)*100)
-	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
-	fmt.Printf("avg query runtime: %f ms\n", qRuntime/NUM_QUERIES)
-	fmt.Printf("avg path unpacking runtime: %f ms\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f minutes\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f minutes\n", minCost*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f minutes\n", maxCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg query times: %f ms\n", durations/numQueries)
+	fmt.Printf("avg efficiency: %f %%\n", (efficiency/numQueries)*100)
+	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/numQueries)
+	fmt.Printf("avg query runtime: %f ms\n", qRuntime/numQueries)
+	fmt.Printf("avg path unpacking runtime: %f ms\n", puRuntime/numQueries)
+	fmt.Printf("avg travel time: %f minutes\n", (avgCost/numQueries)*centisecondsToMinutes)
+	fmt.Printf("min travel time: %f minutes\n", minCost*centisecondsToMinutes)
+	fmt.Printf("max travel time: %f minutes\n", maxCost*centisecondsToMinutes)
 
 	// // gak support turn restrictions & turn costs
 	// calcsSPWithoutTurnCosts := func(i int, p spParam, alt bool) any {
@@ -278,14 +279,14 @@ func main() {
 	// }
 
 	// fmt.Printf("Algoritma kueri kombinasi CRP dan ALT (without turn costs): \n")
-	// fmt.Printf("avg query times: %f\n", durations/NUM_QUERIES)
-	// fmt.Printf("avg efficiency: %f\n", efficiency/NUM_QUERIES)
-	// fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
-	// fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
-	// fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
-	// fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	// fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
-	// fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
+	// fmt.Printf("avg query times: %f\n", durations/numQueries)
+	// fmt.Printf("avg efficiency: %f\n", efficiency/numQueries)
+	// fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/numQueries)
+	// fmt.Printf("avg query runtime: %f\n", qRuntime/numQueries)
+	// fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/numQueries)
+	// fmt.Printf("avg travel time: %f\n", (avgCost/numQueries)*centisecondsToMinutes)
+	// fmt.Printf("min travel time: %f\n", minCost*centisecondsToMinutes)
+	// fmt.Printf("max travel time: %f\n", maxCost*centisecondsToMinutes)
 
 	// durations = 0.0
 	// efficiency = 0.0
@@ -314,14 +315,14 @@ func main() {
 	// }
 
 	// fmt.Printf("Algoritma kueri CRP (without turn costs): \n")
-	// fmt.Printf("avg query times: %f\n", durations/NUM_QUERIES)
-	// fmt.Printf("avg efficiency: %f\n", efficiency/NUM_QUERIES)
-	// fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
-	// fmt.Printf("avg query runtime: %f\n", qRuntime/NUM_QUERIES)
-	// fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/NUM_QUERIES)
-	// fmt.Printf("avg travel time: %f\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	// fmt.Printf("min travel time: %f\n", minCost*CENTISECONDS_TO_MINUTES)
-	// fmt.Printf("max travel time: %f\n", maxCost*CENTISECONDS_TO_MINUTES)
+	// fmt.Printf("avg query times: %f\n", durations/numQueries)
+	// fmt.Printf("avg efficiency: %f\n", efficiency/numQueries)
+	// fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/numQueries)
+	// fmt.Printf("avg query runtime: %f\n", qRuntime/numQueries)
+	// fmt.Printf("avg path unpacking runtime: %f\n", puRuntime/numQueries)
+	// fmt.Printf("avg travel time: %f\n", (avgCost/numQueries)*centisecondsToMinutes)
+	// fmt.Printf("min travel time: %f\n", minCost*centisecondsToMinutes)
+	// fmt.Printf("max travel time: %f\n", maxCost*centisecondsToMinutes)
 
 	durations = 0.0
 	efficiency = 0.0
@@ -373,14 +374,14 @@ func main() {
 	}
 
 	fmt.Printf("Algoritma kueri ALT untuk P2PSP (without turn costs): \n")
-	fmt.Printf("avg query times: %f ms\n", durations/NUM_QUERIES)
-	fmt.Printf("avg efficiency: %f %%\n", (efficiency/NUM_QUERIES)*100)
-	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
-	fmt.Printf("avg query runtime: %f ms\n", qRuntime/NUM_QUERIES)
-	fmt.Printf("avg path unpacking runtime: %f ms\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f minutes\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f minutes\n", minCost*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f minutes\n", maxCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg query times: %f ms\n", durations/numQueries)
+	fmt.Printf("avg efficiency: %f %%\n", (efficiency/numQueries)*100)
+	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/numQueries)
+	fmt.Printf("avg query runtime: %f ms\n", qRuntime/numQueries)
+	fmt.Printf("avg path unpacking runtime: %f ms\n", puRuntime/numQueries)
+	fmt.Printf("avg travel time: %f minutes\n", (avgCost/numQueries)*centisecondsToMinutes)
+	fmt.Printf("min travel time: %f minutes\n", minCost*centisecondsToMinutes)
+	fmt.Printf("max travel time: %f minutes\n", maxCost*centisecondsToMinutes)
 
 	durations = 0.0
 	efficiency = 0.0
@@ -433,12 +434,12 @@ func main() {
 	}
 
 	fmt.Printf("Algoritma kueri Dijkstra untuk P2PSP (without turn costs): \n")
-	fmt.Printf("avg query times: %f ms\n", durations/NUM_QUERIES)
-	fmt.Printf("avg efficiency: %f %%\n", (efficiency/NUM_QUERIES)*100)
-	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/NUM_QUERIES)
-	fmt.Printf("avg query runtime: %f ms\n", qRuntime/NUM_QUERIES)
-	fmt.Printf("avg path unpacking runtime: %f ms\n", puRuntime/NUM_QUERIES)
-	fmt.Printf("avg travel time: %f minutes\n", (avgCost/NUM_QUERIES)*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("min travel time: %f minutes\n", minCost*CENTISECONDS_TO_MINUTES)
-	fmt.Printf("max travel time: %f minutes\n", maxCost*CENTISECONDS_TO_MINUTES)
+	fmt.Printf("avg query times: %f ms\n", durations/numQueries)
+	fmt.Printf("avg efficiency: %f %%\n", (efficiency/numQueries)*100)
+	fmt.Printf("avg number of vertices explored: %d\n", totExploredVertices/numQueries)
+	fmt.Printf("avg query runtime: %f ms\n", qRuntime/numQueries)
+	fmt.Printf("avg path unpacking runtime: %f ms\n", puRuntime/numQueries)
+	fmt.Printf("avg travel time: %f minutes\n", (avgCost/numQueries)*centisecondsToMinutes)
+	fmt.Printf("min travel time: %f minutes\n", minCost*centisecondsToMinutes)
+	fmt.Printf("max travel time: %f minutes\n", maxCost*centisecondsToMinutes)
 }

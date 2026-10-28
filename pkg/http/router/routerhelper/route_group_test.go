@@ -57,6 +57,6 @@ func TestRouteGroup_SubPathError(t *testing.T) {
 	g, err := NewRouteGroup(r, "/api")
 	assert.NoError(t, err)
 	assert.Panics(t, func() {
-		g.GET("si", func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {})
+		g.GET("si", func(_ http.ResponseWriter, _ *http.Request, _ httprouter.Params) {})
 	})
 }

@@ -24,24 +24,20 @@ const (
 )
 
 // Global flags indicating the active weight numeric representation.
-//
-//revive:disable:var-naming
 var (
 	// USE_INT32 indicates whether 32-bit integer weights are active.
-	USE_INT32 = false // biar gak interface boxing wkwkwk. biar tetep cepet routing (int32) nya, meski tipe weight nya generic.
+	UseInt32 = false // biar gak interface boxing wkwkwk. biar tetep cepet routing (int32) nya, meski tipe weight nya generic.
 	// USE_INT64 indicates whether 64-bit integer weights are active.
-	USE_INT64 = false
+	UseInt64 = false
 )
-
-//revive:enable:var-naming
 
 // Infinity returns the representation of infinity for numeric type T.
 func Infinity[T Numeric]() T {
-	switch USE_INT32 {
+	switch UseInt32 {
 	case true:
 		return T(InfWeightFixed)
 	case false:
-		if USE_INT64 {
+		if UseInt64 {
 			return any(InfWeightInt64).(T)
 		}
 		return any(InfWeightFloat).(T)
@@ -99,7 +95,7 @@ const (
 
 // Eq reports whether a is equal to b.
 func Eq[T Numeric](a, b T) bool {
-	if USE_INT32 || USE_INT64 {
+	if UseInt32 || UseInt64 {
 		return a == b
 	}
 	return math.Abs(float64(a-b)) <= EPS
@@ -107,7 +103,7 @@ func Eq[T Numeric](a, b T) bool {
 
 // EqEps reports whether a is equal to b within tolerance eps.
 func EqEps[T Numeric](a, b, eps T) bool {
-	if USE_INT32 || USE_INT64 {
+	if UseInt32 || UseInt64 {
 		return a == b
 	}
 	return math.Abs(float64(a-b)) <= float64(eps)
@@ -115,7 +111,7 @@ func EqEps[T Numeric](a, b, eps T) bool {
 
 // Lt reports whether a is strictly less than b.
 func Lt[T Numeric](a, b T) bool {
-	if USE_INT32 || USE_INT64 {
+	if UseInt32 || UseInt64 {
 		return a < b
 	}
 	return float64(a)+EPS < float64(b)
@@ -133,7 +129,7 @@ func Gt[T Numeric](a, b T) bool {
 
 // Le reports whether a is less than or equal to b.
 func Le[T Numeric](a, b T) bool {
-	if USE_INT32 || USE_INT64 {
+	if UseInt32 || UseInt64 {
 		return a <= b
 	}
 	return float64(a) <= float64(b)+EPS
@@ -146,14 +142,14 @@ func ActivateMode[W Numeric]() {
 	var zero W
 	switch any(zero).(type) {
 	case float64:
-		USE_INT32 = false
-		USE_INT64 = false
+		UseInt32 = false
+		UseInt64 = false
 	case int32:
-		USE_INT32 = true
+		UseInt32 = true
 	case int64:
-		USE_INT32 = false
-		USE_INT64 = true
+		UseInt32 = false
+		UseInt64 = true
 	default:
-		USE_INT32 = true
+		UseInt32 = true
 	}
 }

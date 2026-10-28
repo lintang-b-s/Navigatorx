@@ -49,6 +49,7 @@ func (api *API) errorResponse(w http.ResponseWriter, r *http.Request, status int
 	}
 }
 
+// ServerErrorResponse handles server error response.
 func (api *API) ServerErrorResponse(w http.ResponseWriter, r *http.Request, err error) {
 
 	api.logError(r, err)
@@ -57,30 +58,36 @@ func (api *API) ServerErrorResponse(w http.ResponseWriter, r *http.Request, err 
 	api.errorResponse(w, r, 500, message)
 }
 
+// NotFoundResponse handles not found response.
 func (api *API) NotFoundResponse(w http.ResponseWriter, r *http.Request) {
 	message := "the requested resource could not be found"
 	api.errorResponse(w, r, http.StatusNotFound, message)
 }
 
+// MethodNotAllowedResponse handles method not allowed response.
 func (api *API) MethodNotAllowedResponse(w http.ResponseWriter, r *http.Request) {
 	message := fmt.Sprintf("the %s method is not supported this resource", r.Method)
 	api.errorResponse(w, r, http.StatusMethodNotAllowed, message)
 }
 
+// BadRequestResponse handles bad request response.
 func (api *API) BadRequestResponse(w http.ResponseWriter, r *http.Request, err error) {
 	api.errorResponse(w, r, http.StatusBadRequest, err.Error())
 }
 
+// EditConflictResponse handles edit conflict response.
 func (api *API) EditConflictResponse(w http.ResponseWriter, r *http.Request) {
 	message := "unable to update the record due to an edit conflict, please try again"
 	api.errorResponse(w, r, http.StatusConflict, message)
 }
 
+// InvalidCredentialsResponse handles invalid credentials response.
 func (api *API) InvalidCredentialsResponse(w http.ResponseWriter, r *http.Request) {
 	message := "invalid authentication credentials"
 	api.errorResponse(w, r, http.StatusUnauthorized, message)
 }
 
+// InvalidAuthenticationTokenResponse handles invalid authentication token response.
 func (api *API) InvalidAuthenticationTokenResponse(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("WWWW-Authenticate", "Bearer")
 

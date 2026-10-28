@@ -7,9 +7,13 @@ run:
 
 linters:
   exclusions:
-    paths:
-      - eval
-      - tests
+    rules:
+      - path: (^|/)tests/
+        linters: [gosec]
+        text: "G304"
+      - path: (^|/)eval/
+        linters: [gosec]
+        text: "G304"
   settings:
     errcheck:
       exclude-functions:
@@ -59,7 +63,7 @@ linters:
     - bodyclose
     - unused
     - gocritic
-    # - revive
+    - revive
     - gosec
     - dupl
     - goconst

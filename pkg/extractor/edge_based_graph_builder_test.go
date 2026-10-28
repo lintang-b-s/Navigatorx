@@ -81,7 +81,7 @@ func addTurnRestriction(t *testing.T, g *da.Graph, vTurnTableIds []da.Index, tur
 
 	var entryPoint uint8
 	var foundIn bool
-	g.ForInEdgesOf(via, func(eID, tail da.Index, exitPoint uint8) {
+	g.ForInEdgesOf(via, func(eID, tail da.Index, _ uint8) {
 		if tail == from {
 			entryPoint = g.GetEntryOrder(via, eID)
 			foundIn = true
@@ -180,7 +180,7 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 			numNodes: 6,
 			adjList:  fig31AdjList,
 			restrictions: []turnRestriction{
-				{from: v2, via: v1, to: v5, turnType: pkg.NO_ENTRY},
+				{from: v2, via: v1, to: v5, turnType: pkg.NoEntry},
 			},
 			forbidAllTurns:  false,
 			wantNumVertices: 5,                         // edge-based graph vertices: (1,2), (1,3), (1,4), (1,5), (2,1).
@@ -290,7 +290,7 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 
 			if tc.forbidAllTurns {
 				for i := range turnMatrix {
-					turnMatrix[i] = pkg.NO_ENTRY
+					turnMatrix[i] = pkg.NoEntry
 				}
 			} else {
 				for _, r := range tc.restrictions {
@@ -361,7 +361,7 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 
 			for u, wantOut := range tc.wantOutEdges {
 				var gotOut []da.Index
-				ebg.ForOutEdgesOf(u, func(eID, head da.Index, entryPoint uint8) {
+				ebg.ForOutEdgesOf(u, func(_, head da.Index, _ uint8) {
 					gotOut = append(gotOut, head)
 				})
 				if len(wantOut) == 0 {
@@ -373,7 +373,7 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 
 			for u, forbidden := range tc.forbiddenOutEdges {
 				var gotOut []da.Index
-				ebg.ForOutEdgesOf(u, func(eID, head da.Index, entryPoint uint8) {
+				ebg.ForOutEdgesOf(u, func(_, head da.Index, _ uint8) {
 					gotOut = append(gotOut, head)
 				})
 				for _, fHead := range forbidden {

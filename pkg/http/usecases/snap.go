@@ -16,7 +16,7 @@ type candidateSnap struct {
 }
 
 /*
-SnapOrigDestToNearbyRoadSegments. snap origin dan destination query ke road segment terdekatnya.
+SnapOrigDestQueryToNearbyRoadSegments handles snap orig and destination query coordinates to nearby road segments.
 serta terdapat path dari head dari road segment origin ke tail dari road segment destination hasil snap.
 
 see: https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
@@ -49,7 +49,7 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 		tp = da.NewInvalidPhantomNode()
 	)
 	removedPrevPairSet := hashset.NewUint64WithSize(candidatePairCapacity)
-	for util.Le(searchRad, MAX_SEARCH_RADIUS) {
+	for util.Le(searchRad, MaxSearchRadius) {
 		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 
 		sp, tp = rs.snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet, reroute, startSegmentId)
@@ -57,7 +57,7 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 			// break loop early if found connected origin and destination
 			break
 		}
-		searchRad *= SEARCH_RADIUS_MULTIPLIER
+		searchRad *= SearchRadiusMultiplier
 	}
 
 	return sp, tp
@@ -115,10 +115,10 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 
 	// let c=max number of road segments/edges returned by rtree spatial index
 
-	minDist := pkg.INF_WEIGHT
-	minEndpointDist := pkg.INF_WEIGHT
-	bestPair := newOriginDestination(da.INVALID_SEGMENT_ID, da.INVALID_SEGMENT_ID,
-		da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON), da.NewCoordinate(pkg.INVALID_LAT, pkg.INVALID_LON))
+	minDist := pkg.InfWeight
+	minEndpointDist := pkg.InfWeight
+	bestPair := newOriginDestination(da.InvalidSegmentId, da.InvalidSegmentId,
+		da.NewCoordinate(pkg.InvalidLat, pkg.InvalidLon), da.NewCoordinate(pkg.InvalidLat, pkg.InvalidLon))
 	var oCoords []da.Coordinate
 	var dRevCoords []da.Coordinate
 	var oLength, dLength float64
@@ -164,7 +164,7 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 		}
 	}
 
-	if bestPair.s == da.INVALID_SEGMENT_ID && bestPair.t == da.INVALID_SEGMENT_ID {
+	if bestPair.s == da.InvalidSegmentId && bestPair.t == da.InvalidSegmentId {
 		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
 	}
 
@@ -315,7 +315,7 @@ func (rs *RoutingService) projectCoordinateToSegment(lat, lon float64, id da.Ind
 	return pPoint.GetLat(), pPoint.GetLon(), minDist, tailDist, nextSegGeometry
 }
 
-func (rs *RoutingService) project(lat, lon float64, id da.Index, origin bool) (da.Index, []da.Coordinate, da.Coordinate, float64, float64) {
+func (rs *RoutingService) project(lat, lon float64, id da.Index, _ bool) (da.Index, []da.Coordinate, da.Coordinate, float64, float64) {
 
 	segGeometry := rs.rn.GetSegmentGeometry(id)
 	lastIndex, pPoint, minDist, stailDist := geo.ProjectPointOnSegmentGeometry(segGeometry, lat, lon)

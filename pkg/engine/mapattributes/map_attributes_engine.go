@@ -16,8 +16,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// MapAttributesEngine engine untuk get subset of RoadNetworkGraph yang berada didalam s2 level-15 cells. terinspirasi dari MapAttributes service: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
-type MapAttributesEngine[W util.Numeric] struct {
+// Engine represents map attributes engine.
+// Engine engine untuk get subset of RoadNetworkGraph yang berada didalam s2 level-15 cells. terinspirasi dari MapAttributes service: https://eng.lyft.com/using-client-side-map-data-to-improve-real-time-positioning-a382585ac6e
+type Engine[W util.Numeric] struct {
 	g      *da.Graph
 	rn     *da.RoadNetworkDataContainer
 	met    *met.Metric[W]
@@ -25,9 +26,10 @@ type MapAttributesEngine[W util.Numeric] struct {
 	logger *zap.Logger
 }
 
-func NewMapAttributesEngine[W util.Numeric](graph *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger, met *met.Metric[W], idx *spatialindex.S2RoadSegmentsIndex) *MapAttributesEngine[W] {
+// NewEngine creates and returns map attributes engine.
+func NewEngine[W util.Numeric](graph *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger, met *met.Metric[W], idx *spatialindex.S2RoadSegmentsIndex) *Engine[W] {
 
-	engine := &MapAttributesEngine[W]{
+	engine := &Engine[W]{
 		g:      graph,
 		rn:     rn,
 		logger: logger,
@@ -39,7 +41,7 @@ func NewMapAttributesEngine[W util.Numeric](graph *da.Graph, rn *da.RoadNetworkD
 }
 
 // GetMapAttributes get MapAttributes by s2 CellId and radius.
-func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId s2geo.CellID, radius float64) ([]byte, error) {
+func (me *Engine[W]) GetMapAttributes(s2CellId s2geo.CellID, radius float64) ([]byte, error) {
 	// query road segments from s2 index
 	segmentIds := me.idx.GetCellSegments(s2CellId, radius)
 
@@ -68,24 +70,24 @@ func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId s2geo.CellID, radius
 		polyline := da.GooglePoylineFromCoords(geom)
 		err = bw.Uint32(uint32(segId))
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write uint32: %w", err)
+			return make([]byte, 0), fmt.Errorf("Engine.GetMapAttributes: failed to write uint32: %w", err)
 		}
 		err = bw.Float64(speed)
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write float64: %w", err)
+			return make([]byte, 0), fmt.Errorf("Engine.GetMapAttributes: failed to write float64: %w", err)
 		}
 		err = bw.Float64(length)
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write float64: %w", err)
+			return make([]byte, 0), fmt.Errorf("Engine.GetMapAttributes: failed to write float64: %w", err)
 		}
 		err = bw.String(polyline)
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write string: %w", err)
+			return make([]byte, 0), fmt.Errorf("Engine.GetMapAttributes: failed to write string: %w", err)
 		}
 
 		outDeg := da.Index(0)
 		u := segId
-		me.g.ForOutEdgesOf(u, func(eId, v da.Index, _ uint8) {
+		me.g.ForOutEdgesOf(u, func(_, v da.Index, _ uint8) {
 			_, ok := segSet[v]
 			if ok {
 				outDeg++
@@ -98,7 +100,7 @@ func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId s2geo.CellID, radius
 
 	err = bw.Uint32(uint32(nt))
 	if err != nil {
-		return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write uint32: %w", err)
+		return make([]byte, 0), fmt.Errorf("Engine.GetMapAttributes: failed to write uint32: %w", err)
 	}
 	for i, u := range segmentIds {
 		if outDegs[i] == 0 {
@@ -123,13 +125,13 @@ func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId s2geo.CellID, radius
 			err = bw.Uint32(uint32(v))
 		})
 		if err != nil {
-			return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to write uint32: %w", err)
+			return make([]byte, 0), fmt.Errorf("Engine.GetMapAttributes: failed to write uint32: %w", err)
 		}
 	}
 
 	err = sn.Close()
 	if err != nil {
-		return make([]byte, 0), fmt.Errorf("MapAttributesEngine.GetMapAttributes: failed to close snappy: %w", err)
+		return make([]byte, 0), fmt.Errorf("Engine.GetMapAttributes: failed to close snappy: %w", err)
 	}
 
 	return buf.Bytes(), nil

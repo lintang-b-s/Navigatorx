@@ -37,7 +37,7 @@ func NewArrayStorage(size Index) *ArrayStorage {
 	}
 	return &ArrayStorage{
 		base:    base,
-		touched: make([]Index, 0, TOUCHED_VERTICES_SIZE),
+		touched: make([]Index, 0, TouchedVerticesSize),
 	}
 }
 
@@ -78,9 +78,9 @@ type MapStorage struct {
 }
 
 // NewMapStorage creates a new [MapStorage] preallocated with OVERLAY_VERTICES_SIZE capacity.
-func NewMapStorage(baseSize Index) *MapStorage {
+func NewMapStorage() *MapStorage {
 	return &MapStorage{
-		overlay: make(map[Index]Index, OVERLAY_VERTICES_SIZE),
+		overlay: make(map[Index]Index, OverlayVerticesSize),
 	}
 }
 

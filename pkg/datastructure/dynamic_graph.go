@@ -18,10 +18,11 @@ type ClientVertex struct {
 
 }
 
+// NewClientVertex creates and returns client vertex.
 func NewClientVertex(rnId Index) ClientVertex {
 	return ClientVertex{
 		rnId:     rnId,
-		firstOut: INVALID_SEGMENT_ID,
+		firstOut: InvalidSegmentId,
 	}
 }
 
@@ -30,6 +31,7 @@ type DynamicGraph struct {
 	g atomic.Pointer[AdjacencyArray]
 }
 
+// NewDynamicGraph creates and returns dynamic graph.
 func NewDynamicGraph() *DynamicGraph {
 	dg := &DynamicGraph{}
 	dg.g.Store(&AdjacencyArray{})
@@ -50,6 +52,7 @@ type AdjacencyArray struct {
 	segmentGeometry [][]Coordinate // geometry of road segments
 }
 
+// ForOutEdgesOf iterates over out edges of.
 func (dg *DynamicGraph) ForOutEdgesOf(u Index, handle func(eId, v Index, weight uint32)) {
 	g := dg.g.Load()
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
@@ -57,36 +60,43 @@ func (dg *DynamicGraph) ForOutEdgesOf(u Index, handle func(eId, v Index, weight 
 	}
 }
 
+// Reset resets reset.
 func (dg *DynamicGraph) Reset() {
 	dg.g.Store(&AdjacencyArray{})
 }
 
+// NumVertices handles num vertices.
 func (dg *DynamicGraph) NumVertices() Index {
 	g := dg.g.Load()
 
 	return Index(len(g.vertices))
 }
 
+// GetSegmentLength returns segment length.
 func (dg *DynamicGraph) GetSegmentLength(u Index) float64 {
 	g := dg.g.Load()
 	return g.lengths[u]
 }
 
+// GetSegmentSpeed returns segment speed.
 func (dg *DynamicGraph) GetSegmentSpeed(u Index) float64 {
 	g := dg.g.Load()
 	return g.speeds[u]
 }
 
+// GetSegmentGeometry returns segment geometry.
 func (dg *DynamicGraph) GetSegmentGeometry(u Index) []Coordinate {
 	g := dg.g.Load()
 	return g.segmentGeometry[u]
 }
 
+// GetRoadNetworkSegmentId returns road network segment id.
 func (dg *DynamicGraph) GetRoadNetworkSegmentId(u Index) Index {
 	g := dg.g.Load()
 	return g.vertices[u].rnId
 }
 
+// GetGraphSegmentId returns graph segment id.
 func (dg *DynamicGraph) GetGraphSegmentId(uRnId Index) Index {
 	g := dg.g.Load()
 	n := len(g.vertices) - 1 // exclude dummy vertex
@@ -98,9 +108,10 @@ func (dg *DynamicGraph) GetGraphSegmentId(uRnId Index) Index {
 
 		return Index(u)
 	}
-	return INVALID_SEGMENT_ID
+	return InvalidSegmentId
 }
 
+// Rebuild rebuilds rebuild.
 func (dg *DynamicGraph) Rebuild(buf []byte) error {
 	r := bytes.NewBuffer(buf)
 	sr := s2.NewReader(r)
@@ -189,7 +200,7 @@ func (dg *DynamicGraph) Rebuild(buf []byte) error {
 		eo += outDegs[u]
 	}
 
-	dummy := NewClientVertex(INVALID_SEGMENT_ID)
+	dummy := NewClientVertex(InvalidSegmentId)
 	dummy.firstOut = Index(nt)
 	segmentGeometry = append(segmentGeometry, make([]Coordinate, 0))
 	segmentLengths = append(segmentLengths, 0)

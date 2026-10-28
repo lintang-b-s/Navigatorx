@@ -86,7 +86,7 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	util.USE_INT32 = false
+	util.UseInt32 = false
 
 	og := prep.GetOverlayGraph()
 	cust := customizer.NewCustomizerDirect(

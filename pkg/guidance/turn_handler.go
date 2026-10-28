@@ -24,7 +24,6 @@ todo4: add test expected outputnya pake driving direction google map (dengan rut
 // misal jumlah intersections 5juta, ada 31.25 juta pair (e1, e2) di every intersections, cuma simpan additional ~281.5mb di memory, not bad. tapi bisa speedup GetDrivingDirections().
 // kaya osrm ProcessGuidanceTurns di: https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/extractor.cpp ??
 // lihat komen di dalam isStreetMergedSkip() karena ada masalah kalau turn sign di setiap intersection gak diprecompute...
-
 func (db *DirectionBuilder) getTurnSign(segmentId da.Index, name string) da.TurnType {
 
 	key := util.Bitpack(uint32(db.prevSegmentId), uint32(segmentId))
@@ -40,15 +39,15 @@ func (db *DirectionBuilder) getTurnSign(segmentId da.Index, name string) da.Turn
 	edgeRoadClassLink := db.rn.GetRoadClassLink(segmentId)
 
 	switch edgeRoadClass {
-	case pkg.TERTIARY, pkg.RESIDENTIAL, pkg.LIVING_STREET, pkg.SERVICE, pkg.PRIVATE, pkg.ROAD, pkg.TRACK:
+	case pkg.TERTIARY, pkg.RESIDENTIAL, pkg.LivingStreet, pkg.SERVICE, pkg.PRIVATE, pkg.ROAD, pkg.TRACK:
 		return db.handleResidentialRoadTurn(db.prevSegmentId, segmentId, name)
 	case pkg.PRIMARY, pkg.SECONDARY, pkg.TRUNK:
 		return db.handlePrimaryRoadTurn(db.prevSegmentId, segmentId, name)
 	default:
 		switch edgeRoadClassLink {
-		case pkg.TERTIARY_LINK, pkg.RESIDENTIAL_LINK:
+		case pkg.TertiaryLink, pkg.ResidentialLink:
 			return db.handleResidentialRoadTurn(db.prevSegmentId, segmentId, name)
-		case pkg.PRIMARY_LINK, pkg.SECONDARY_LINK, pkg.TRUNK_LINK:
+		case pkg.PrimaryLink, pkg.SecondaryLink, pkg.TrunkLink:
 			return db.handlePrimaryRoadTurn(db.prevSegmentId, segmentId, name)
 		}
 		if edgeRoadClass == pkg.UNKNOWN || edgeRoadClass == pkg.UNCLASSIFIED {
@@ -100,7 +99,7 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(prevSegmentId, segmentId d
 	prevStreetName := db.rn.GetStreetName(prevSegmentId)
 	prevRoadClass := db.rn.GetRoadClass(prevSegmentId)
 
-	isTertiary := (currRoadClass == pkg.TERTIARY || currRoadClassLink == pkg.TERTIARY_LINK)
+	isTertiary := (currRoadClass == pkg.TERTIARY || currRoadClassLink == pkg.TertiaryLink)
 
 	streetSplitSkip := db.isStreetSplitSkip(prevSegmentId, segmentId, currStreetName, prevStreetName, prevRoadClass, currRoadClass,
 		isSameName, head) && isTertiary
@@ -126,7 +125,7 @@ func (db *DirectionBuilder) handleResidentialRoadTurn(prevSegmentId, segmentId d
 	// disini sign = TURN_SLIGHT_*/CONTINUE dan name == ""
 	// kita hanya output TURN_SLIGHT_* jika ada other edge dari tail yang signnya CONTINUE/TURN_SLIGHT_*
 	ocSegment, _ := db.getOtherEdgeContinueDirection(tail, db.prevInitialBearing, alternativeTurns)
-	if ocSegment != da.INVALID_SEGMENT_ID && leavingPrevStreet {
+	if ocSegment != da.InvalidSegmentId && leavingPrevStreet {
 		return sign
 	}
 
@@ -195,7 +194,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 
 	if !da.IsTurnSlight(sign) {
 		if !leavingPrevStreet || streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && curved) {
-			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
+			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
 			return da.IGNORE
 		}
 
@@ -240,7 +239,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 		// sign is not CONTINUE/TURN_SLIGHT_* & street name berubah dari prev edge ke curr edge & not split/merged street -> output sign
 		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 		return sign
-	} else if leavingPrevStreet && (sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_SLIGHT_RIGHT) && !streetMergedSkip && !streetSplitSkip {
+	} else if leavingPrevStreet && (sign == da.TurnSlightLeft || sign == da.TurnSlightRight) && !streetMergedSkip && !streetSplitSkip {
 		//  sign TURN_SLIGHT_*  & leavingPrevStreet &  not split/merged street -> output sign
 		// dan ada nama street dari prevEdge dan currentEdge
 		// contoh:
@@ -248,14 +247,14 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 		// di titik -7.572258961155632, 110.82862613980265 , turn instructionnya Slight right to stay on Jl. Slamet Riyadi
 
 		if db.isStreetMerged(prevSegmentId, segmentId, currStreetName, prevStreetName, isSameName) {
-			sign = da.MERGE_ONTO
+			sign = da.MergeOnto
 			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
 		}
 
 		if alternativeTurnsCount >= 1 {
 			if streetMergedSkip {
-				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
+				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
 				return da.IGNORE
 			}
 			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
@@ -263,9 +262,9 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 		}
 	}
 
-	if (sign == da.TURN_SLIGHT_LEFT || sign == da.TURN_SLIGHT_RIGHT) && (streetMergedSkip || streetSplitSkip) {
+	if (sign == da.TurnSlightLeft || sign == da.TurnSlightRight) && (streetMergedSkip || streetSplitSkip) {
 
-		db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
+		db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
 		return da.IGNORE
 	}
 
@@ -278,7 +277,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 	// karena ada alternative turn yang sama sama TURN_SLIGHT_LEFT sign nya (yang ke arah MT Haryono)
 
 	ocSegment, oHead := db.getOtherEdgeContinueDirection(tail, db.prevInitialBearing, alternativeTurns)
-	if ocSegment != da.INVALID_SEGMENT_ID {
+	if ocSegment != da.InvalidSegmentId {
 
 		relBearing := geo.ComputeRelativeBearing(tail.GetLat(), tail.GetLon(), headLat, headLon, db.prevInitialBearing)
 		altTurnRelBearing := geo.ComputeRelativeBearing(tail.GetLat(), tail.GetLon(), oHead.GetLat(), oHead.GetLon(), db.prevInitialBearing) // bearing difference antara prev->tail->ocSegment.GetHead()
@@ -286,18 +285,18 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 		altTurnRelBearingDeg := util.RadiansToDegree(math.Abs(altTurnRelBearing))
 		relBearingDeg := util.RadiansToDegree(math.Abs(relBearing))
 
-		if util.Lt(relBearingDeg, CONTINUE_ALT_CURRENT_RELATIVE_BEARING) && util.Gt(altTurnRelBearingDeg, CONTINUE_ALT_TURN_RELATIVE_BEARING) {
+		if util.Lt(relBearingDeg, ContinueALTCurrentRelativeBearing) && util.Gt(altTurnRelBearingDeg, ContinueALTTurnRelativeBearing) {
 			// bearing difference antara prevEdge dan currentEdge < 7° (CONTINUE Direction), Edge ocSegment > 8.6 (TURN SLIGHT or more direction).
-			if db.nextStreetName == da.INVALID_STREET_NAME_ID || !leavingPrevStreet {
-				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
+			if db.nextStreetName == da.InvalidStreetNameId || !leavingPrevStreet {
+				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
 				return da.IGNORE
 			}
 
-			db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, db.nextStreetName))
-			return da.CONTINUE_ON_STREET
+			db.turnSignCache.Set(key, makeCacheVal(da.ContinueOnStreet, db.nextStreetName))
+			return da.ContinueOnStreet
 		}
 
-		if util.Lt(altTurnRelBearingDeg, KEEP_LEFT_RIGHT_ALT_TURN_RELATIVE_BEARING) {
+		if util.Lt(altTurnRelBearingDeg, KeepLeftRightALTTurnRelativeBearing) {
 			_, foundNextTurn, step := db.lookForward(currStreetName, 2)
 
 			if foundNextTurn {
@@ -319,7 +318,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 				// contoh dari tail: https://www.openstreetmap.org/node/11294649720
 				// dari tail osm node diatas ada 2 edge ke head: https://www.openstreetmap.org/node/11294649718
 				// dan edge satunya ke head: https://www.openstreetmap.org/node/11294649719  (dari jalan curved/uturn ke kanan)
-				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
+				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
 				return da.IGNORE
 			}
 
@@ -336,14 +335,14 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 			if relBearing > altTurnRelBearing {
 
 				if !db.useLookForward { // only set cache kalo gak pake lookForward, ribet buat correctness nya wkwk
-					db.turnSignCache.Set(key, makeCacheVal(da.KEEP_RIGHT, db.nextStreetName))
+					db.turnSignCache.Set(key, makeCacheVal(da.KeepRight, db.nextStreetName))
 				}
-				return da.KEEP_RIGHT
+				return da.KeepRight
 			}
 			if !db.useLookForward {
-				db.turnSignCache.Set(key, makeCacheVal(da.KEEP_LEFT, db.nextStreetName))
+				db.turnSignCache.Set(key, makeCacheVal(da.KeepLeft, db.nextStreetName))
 			}
-			return da.KEEP_LEFT
+			return da.KeepLeft
 		}
 	}
 
@@ -356,16 +355,16 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 	// kita cuma output CONTINUE_ON_STREET jika current edge street name beda dari street name prev edge
 	if leavingPrevStreet && currStreetName != "" && prevStreetName != "" {
 		if db.isStreetMerged(prevSegmentId, segmentId, currStreetName, prevStreetName, isSameName) {
-			sign = da.MERGE_ONTO
+			sign = da.MergeOnto
 			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
 		}
 
-		db.turnSignCache.Set(key, makeCacheVal(da.CONTINUE_ON_STREET, currStreetNameId))
-		return da.CONTINUE_ON_STREET
+		db.turnSignCache.Set(key, makeCacheVal(da.ContinueOnStreet, currStreetNameId))
+		return da.ContinueOnStreet
 	}
 
-	db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.INVALID_STREET_NAME_ID))
+	db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
 	return da.IGNORE
 }
 
@@ -385,7 +384,7 @@ setelah evaluate turn dari currentEdge:
 kita update prev, doublePrevPoint, prevSegment, etc..
 */ // nolint: gofmt
 func (db *DirectionBuilder) updateState(segmentId da.Index, isInRoundabout bool) {
-	if db.prevSegmentId != da.INVALID_SEGMENT_ID {
+	if db.prevSegmentId != da.InvalidSegmentId {
 		db.doublePrevInitialBearing = db.prevInitialBearing
 		db.doublePrevStreetName = db.rn.GetStreetName(db.prevSegmentId)
 	}

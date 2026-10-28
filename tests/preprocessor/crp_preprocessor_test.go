@@ -481,9 +481,9 @@ func TestPreprocessorSimple(t *testing.T) {
 			}
 
 			g.ForVertices(func(v da.Vertex, _ da.Index) {
-				vCell := g.GetCellNumber(v.GetID())
+				vCell := g.GetCellNumber(v.GetId())
 				vCellIdInLevelOne := og.GetCellNumberOnLevel(vCell, 1)
-				oldVId := newToOldVidMap[v.GetID()]
+				oldVId := newToOldVidMap[v.GetId()]
 				expectedCellIdInLevelOne := vertexCells[0][oldVId]
 				if vCellIdInLevelOne != expectedCellIdInLevelOne {
 					t.Errorf("expected vertex cellId in level 1: %v, got: %v", expectedCellIdInLevelOne, vCellIdInLevelOne)
@@ -511,14 +511,14 @@ func TestPreprocessorSimple(t *testing.T) {
 
 			for v := 0; v < n; {
 				vertex := g.GetVertex(da.Index(v))
-				vCell := g.GetCellNumber(vertex.GetID())
+				vCell := g.GetCellNumber(vertex.GetId())
 				// cukup cek level 1
 				vCellIdInLevelOne := og.GetCellNumberOnLevel(vCell, 1)
 				cellSize := len(tc.cellVertices[0][vCellIdInLevelOne])
 				nextV := min(v+cellSize, n)
 				for i := v; i < nextV; i++ {
 					nextVertex := g.GetVertex(da.Index(i))
-					nextVertexCell := g.GetCellNumber(nextVertex.GetID())
+					nextVertexCell := g.GetCellNumber(nextVertex.GetId())
 					nextVertexCell = og.GetCellNumberOnLevel(nextVertexCell, 1)
 					if nextVertexCell != vCellIdInLevelOne {
 						t.Errorf("expected vertex cellId in level 1: %v, got: %v", vCellIdInLevelOne, nextVertexCell)
@@ -694,7 +694,7 @@ func TestPreprocessorSimple(t *testing.T) {
 
 			}
 
-			gotShortcutWeightSize := og.GetWeightVectorSize()
+			gotShortcutWeightSize := og.ShortcutWeightsSize()
 			if gotShortcutWeightSize < uint32(tc.minNumShortcuts) {
 				t.Errorf("expected shorcut size greater than or equal to: %v, got: %v", uint32(tc.minNumShortcuts), gotShortcutWeightSize)
 			}
@@ -1181,29 +1181,29 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 
 	isCorrect := func(turnSign da.TurnType, wantAllowedLeftTurn, wantAllowedRightTurn, wantAllowedUTurn, wantAllowedContinue bool, restrictionType string) (string, bool) {
 		switch turnSign {
-		case da.TURN_RIGHT, da.TURN_SHARP_RIGHT, da.TURN_SLIGHT_RIGHT:
-			if restrictionType == onlyStraightOn && turnSign == da.TURN_SLIGHT_RIGHT {
+		case da.TurnRight, da.TurnSharpRight, da.TurnSlightRight:
+			if restrictionType == onlyStraightOn && turnSign == da.TurnSlightRight {
 				return "", true
 			}
 			if !wantAllowedRightTurn {
 				return "no_right_turn", false
 			}
-		case da.TURN_LEFT, da.TURN_SHARP_LEFT, da.TURN_SLIGHT_LEFT:
+		case da.TurnLeft, da.TurnSharpLeft, da.TurnSlightLeft:
 
-			if restrictionType == onlyStraightOn && turnSign == da.TURN_SLIGHT_LEFT {
+			if restrictionType == onlyStraightOn && turnSign == da.TurnSlightLeft {
 				return "", true
-			} else if restrictionType == noUTurn && turnSign == da.TURN_SHARP_RIGHT && !wantAllowedUTurn {
+			} else if restrictionType == noUTurn && turnSign == da.TurnSharpRight && !wantAllowedUTurn {
 				return noUTurn, false
 			}
 
 			if !wantAllowedLeftTurn {
 				return "no_left_turn", false
 			}
-		case da.CONTINUE_ON_STREET:
+		case da.ContinueOnStreet:
 			if !wantAllowedContinue {
 				return "no_straight_on", false
 			}
-		case da.U_TURN_RIGHT:
+		case da.UTurnRight:
 			if !wantAllowedUTurn {
 				return noUTurn, false
 			}
@@ -1217,14 +1217,14 @@ func TestPreprocessTurnRestrictionsUsingOSMFile(t *testing.T) {
 
 	turnSignToDesc := func(turnSign da.TurnType) string {
 		switch turnSign {
-		case da.TURN_RIGHT, da.TURN_SHARP_RIGHT, da.TURN_SLIGHT_RIGHT:
+		case da.TurnRight, da.TurnSharpRight, da.TurnSlightRight:
 			return "right"
-		case da.TURN_LEFT, da.TURN_SHARP_LEFT, da.TURN_SLIGHT_LEFT:
+		case da.TurnLeft, da.TurnSharpLeft, da.TurnSlightLeft:
 			return "left"
 
-		case da.CONTINUE_ON_STREET:
+		case da.ContinueOnStreet:
 			return "continue"
-		case da.U_TURN_RIGHT:
+		case da.UTurnRight:
 			return "u_turn_right"
 		}
 		return ""

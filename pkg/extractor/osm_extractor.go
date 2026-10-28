@@ -28,16 +28,16 @@ import (
 
 // Extractor OpenStreetMap road network data parser & build node-based graph, then converting the node-based graph to edge-based graph.
 type Extractor[W util.Numeric] struct {
-	wayNodeMap                   map[int64]nodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
+	wayNodeMap                   map[int64]NodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
 	relationMemberMap            map[int64]struct{}
 	barrierNodes                 map[int64]bool // osm node Id -> barrier node flag
 	nodeTag                      map[int64]map[uint32]uint32
 	tagStringIdMap               util.IDMap
 	nodeIdMap                    map[int64]da.Index // osm node Id -> graph nodeId
 	nodeToOsmId                  map[da.Index]int64 // graph nodeId -> osm node Id
-	restrictions                 map[int64][]restriction
+	restrictions                 map[int64][]Restriction
 	maxNodeId                    int64
-	ways                         map[int64]osmWay // wayId -> osm way
+	ways                         map[int64]OsmWay // wayId -> osm way
 	logger                       *zap.Logger
 	osmWayDefaultSpeed           map[int64]float64 // wayId -> default max speed
 	bb                           *da.BoundingBox
@@ -51,9 +51,10 @@ type Extractor[W util.Numeric] struct {
 	conditionalTrafficModesVal   map[int64]string
 }
 
+// NewExtractor creates and returns extractor.
 func NewExtractor[W util.Numeric](logger *zap.Logger) *Extractor[W] {
 	p := &Extractor[W]{
-		wayNodeMap:        make(map[int64]nodeWithCoord),
+		wayNodeMap:        make(map[int64]NodeWithCoord),
 		relationMemberMap: make(map[int64]struct{}),
 		barrierNodes:      make(map[int64]bool),
 		nodeTag:           make(map[int64]map[uint32]uint32),
@@ -65,7 +66,7 @@ func NewExtractor[W util.Numeric](logger *zap.Logger) *Extractor[W] {
 		bb:                           da.NewBoundingBoxEmpty(),
 		currentTime:                  time.Now(),
 		highwayWhitelist:             initializeHighwayWhitelist(), // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
-		ways:                         make(map[int64]osmWay),
+		ways:                         make(map[int64]OsmWay),
 		logger:                       logger,
 		reversibleOsmWay:             make(map[int64]struct{}),
 		conditionalBarrierNodes:      make([]da.ConditionalBarrierNode, 0),
@@ -94,27 +95,31 @@ func (p *Extractor[W]) initializeMaxSpeed() {
 	p.maxspeeds = maxspeeds
 }
 
+// SetAcceptedNodeMap sets accepted node map.
 func (p *Extractor[W]) SetAcceptedNodeMap(acceptedNodeMap map[int64]da.Coordinate) {
-	wayNodeMap := make(map[int64]nodeWithCoord)
+	wayNodeMap := make(map[int64]NodeWithCoord)
 	for id, val := range acceptedNodeMap {
-		wayNodeMap[id] = nodeWithCoord{JUNCTION_NODE, val}
+		wayNodeMap[id] = NodeWithCoord{JunctionNode, val}
 	}
 	p.wayNodeMap = wayNodeMap
 }
 
+// SetNodeToOsmId sets node to osm id.
 func (p *Extractor[W]) SetNodeToOsmId(nodeToOsmId map[da.Index]int64) {
 	p.nodeToOsmId = nodeToOsmId
 }
 
-// SetNodeToOsmID sets the mapping from graph vertex ID to OSM node ID.
-func (p *Extractor[W]) SetNodeToOsmID(nodeToOsmID map[da.Index]int64) {
-	p.nodeToOsmId = nodeToOsmID
+// SetNodeToOsmID sets the mapping from graph vertex Id to OSM node ID.
+func (p *Extractor[W]) SetNodeToOsmID(nodeToOsmId map[da.Index]int64) {
+	p.nodeToOsmId = nodeToOsmId
 }
 
+// GetTagStringIdMap returns tag string id map.
 func (p *Extractor[W]) GetTagStringIdMap() util.IDMap {
 	return p.tagStringIdMap
 }
 
+// Extract extracts extract.
 func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNetworkDataContainer, []uint64, *met.TimeFunction[W], error) {
 
 	f, err := os.Open(filepath.Clean(mapFile))
@@ -134,7 +139,7 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 
 	totBytes := stat.Size()
 
-	p.restrictions = make(map[int64][]restriction)
+	p.restrictions = make(map[int64][]Restriction)
 	scanner := osmpbf.New(context.Background(), f, 0)
 	scannedWays := 0
 	// scan osm ways and relations
@@ -171,15 +176,15 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 					if _, ok := p.wayNodeMap[int64(node.ID)]; !ok {
 						if i == 0 || i == len(way.Nodes)-1 {
 
-							p.wayNodeMap[int64(node.ID)] = nodeWithCoord{END_NODE, da.NewCoordinate(node.Lat, node.Lon)}
+							p.wayNodeMap[int64(node.ID)] = NodeWithCoord{EndNode, da.NewCoordinate(node.Lat, node.Lon)}
 						} else {
-							p.wayNodeMap[int64(node.ID)] = nodeWithCoord{BETWEEN_NODE, da.NewCoordinate(node.Lat, node.Lon)}
+							p.wayNodeMap[int64(node.ID)] = NodeWithCoord{BetweenNode, da.NewCoordinate(node.Lat, node.Lon)}
 						}
 					} else {
 						// ini junction node dari osm way
 						// jadi ada setidaknya 2 osm way yang punya node yang sama
 						// nah node yang sama ini ditandain JUNCTION_NODE
-						p.wayNodeMap[int64(node.ID)] = nodeWithCoord{JUNCTION_NODE, da.NewCoordinate(node.Lat, node.Lon)}
+						p.wayNodeMap[int64(node.ID)] = NodeWithCoord{JunctionNode, da.NewCoordinate(node.Lat, node.Lon)}
 					}
 				}
 			}
@@ -251,7 +256,7 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 						timeRangeVal = GetTimeRangeValConditionalRestriction(oldTagVal)
 					}
 
-					rest := restriction{
+					rest := Restriction{
 						id:              int64(relation.ID),
 						via:             via,
 						to:              to,
@@ -297,7 +302,7 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 			continue
 		}
 		oldNode := p.wayNodeMap[int64(node.ID)]
-		p.wayNodeMap[int64(node.ID)] = nodeWithCoord{tipe: oldNode.tipe, coord: da.NewCoordinate(node.Lat, node.Lon)}
+		p.wayNodeMap[int64(node.ID)] = NodeWithCoord{tipe: oldNode.tipe, coord: da.NewCoordinate(node.Lat, node.Lon)}
 
 		isBarrierAccessible, err := p.isBarrierNodeAccessible(node)
 		if err != nil {
@@ -316,7 +321,7 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 			}
 			p.nodeTag[int64(node.ID)][tagId] = p.tagStringIdMap.GetID(tag.Value)
 			if strings.Contains(tag.Value, "traffic_signals") {
-				p.nodeTag[int64(node.ID)][p.tagStringIdMap.GetID(TRAFFIC_LIGHT)] = 1
+				p.nodeTag[int64(node.ID)][p.tagStringIdMap.GetID(TrafficLight)] = 1
 			}
 		}
 	}
@@ -334,12 +339,12 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 	// scan osm way and store graph edges
 	scanner = osmpbf.New(context.Background(), f, 0)
 	edges := make([]da.Edge[W], 0)
-	p.ways = make(map[int64]osmWay, scannedWays)
+	p.ways = make(map[int64]OsmWay, scannedWays)
 	streetDirection := make(map[int64][2]bool)
 	countWays := 0
 	p.logger.Sugar().Infof("processing openstreetmap .pbf file....")
 	pg = make([]bool, 101)
-	rn := da.NewRoadNetworkDataContainer(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
+	rn := da.NewRoadNetworkDataContainer(da.DefaultBitSizeOSMWayId)
 
 	for scanner.Scan() {
 		o := scanner.Object()
@@ -385,7 +390,7 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 
 				wNodes = append(wNodes, int64(node.ID))
 			}
-			p.ways[int64(way.ID)] = osmWay{
+			p.ways[int64(way.ID)] = OsmWay{
 				nodes:  wNodes,
 				oneWay: oneWay,
 				hwTag:  hwTag,
@@ -417,7 +422,7 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 	)
 
 	rn.SetBoundingBox(p.bb)
-	nbg.ForOutEdges(func(exitPoint uint8, head, tail da.Index, entryPoint uint8, percentage float64, eId da.Index) {
+	nbg.ForOutEdges(func(_ uint8, _, _ da.Index, _ uint8, _ float64, eId da.Index) {
 
 		eOsmWayId := rn.GetOsmWayId(eId)
 		direction := streetDirection[int64(eOsmWayId)]
@@ -477,11 +482,11 @@ func (p *Extractor[W]) processWay(way *osm.Way, rn *da.RoadNetworkDataContainer,
 				highwayTypeSpeed = p.roadTypeSpeed(tag.Value)
 
 				if strings.Contains(tag.Value, "link") {
-					tempMap[ROAD_CLASS_LINK] = tag.Value
+					tempMap[RoadClassLink] = tag.Value
 				} else {
-					tempMap[ROAD_CLASS] = tag.Value
+					tempMap[RoadClass] = tag.Value
 				}
-				p.tagStringIdMap.GetID(tempMap[ROAD_CLASS])
+				p.tagStringIdMap.GetID(tempMap[RoadClass])
 
 			}
 		case "lanes":
@@ -533,9 +538,9 @@ func (p *Extractor[W]) processWay(way *osm.Way, rn *da.RoadNetworkDataContainer,
 	vehicleTypeOneway := way.Tags.Find(fmt.Sprintf("oneway:%s", vehicleType))
 	val := way.Tags.Find("oneway")
 	if val == strYes || val == "-1" || restrictedForward || restrictedBackward || (pkg.IsVehicleEnabled &&
-		(tempMap[ROAD_CLASS] == "unclassified" || tempMap[ROAD_CLASS] == "residential") && (val == strYes || val == "-1")) ||
-		(!pkg.IsVehicleEnabled && (tempMap[ROAD_CLASS] == "via_ferrata" || tempMap[ROAD_CLASS] == "steps") && (val == strYes || val == "-1")) ||
-		tempMap[JUNCTION] == strRoundabout || (tempMap[ROAD_CLASS] == "motorway" && val != "no" && val != "") || (ok && (vehicleTypeOneway == strYes || vehicleTypeOneway == "-1")) {
+		(tempMap[RoadClass] == "unclassified" || tempMap[RoadClass] == "residential") && (val == strYes || val == "-1")) ||
+		(!pkg.IsVehicleEnabled && (tempMap[RoadClass] == "via_ferrata" || tempMap[RoadClass] == "steps") && (val == strYes || val == "-1")) ||
+		tempMap[JUNCTION] == strRoundabout || (tempMap[RoadClass] == "motorway" && val != "no" && val != "") || (ok && (vehicleTypeOneway == strYes || vehicleTypeOneway == "-1")) {
 		wayExtraData.oneWay = true
 
 		if way.Tags.Find("oneway") == "-1" || restrictedForward {
@@ -602,7 +607,7 @@ func (p *Extractor[W]) processWay(way *osm.Way, rn *da.RoadNetworkDataContainer,
 			int64(way.ID), tldForw, tldBackw)
 	}
 
-	hwTag := tempMap[ROAD_CLASS]
+	hwTag := tempMap[RoadClass]
 
 	// parse turn lanes data
 
@@ -657,8 +662,8 @@ func (p *Extractor[W]) processSegmentBarrier(segment []node, tempMap map[string]
 func (p *Extractor[W]) copyNode(nodeData node) node {
 	// use the same coordinate but different id & and the newId is not used
 	newMaxId := p.maxNodeId + 1
-	p.wayNodeMap[newMaxId] = nodeWithCoord{
-		tipe: JUNCTION_NODE, coord: da.NewCoordinate(nodeData.coord.GetLat(),
+	p.wayNodeMap[newMaxId] = NodeWithCoord{
+		tipe: JunctionNode, coord: da.NewCoordinate(nodeData.coord.GetLat(),
 			nodeData.coord.GetLon()),
 	}
 
@@ -714,7 +719,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 	segmentOsmNodeIds := make([]uint64, 0)
 	distance := 0.0
 	for i := 0; i < len(segment); i++ {
-		if p.nodeTag[int64(segment[i].id)][p.tagStringIdMap.GetID(TRAFFIC_LIGHT)] == 1 {
+		if p.nodeTag[int64(segment[i].id)][p.tagStringIdMap.GetID(TrafficLight)] == 1 {
 			flag |= uint8(da.FlagContainsTrafficLight)
 		}
 		segmentPoints = append(segmentPoints, da.NewCoordinate(
@@ -728,7 +733,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 	}
 
 	isRoundabout := false
-	streetName := tempMap[STREET_NAME]
+	streetName := tempMap[StreetName]
 	if val, ok := tempMap[JUNCTION]; ok {
 		if val == "roundabout" || val == "circular" {
 			isRoundabout = true
@@ -769,9 +774,9 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 			rn.AppendSegmentData(
 				id,
 				da.Index(startPointsIndex), da.Index(endPointsIndex),
-				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-				pkg.GetHighwayType(tempMap[ROAD_CLASS]),
-				pkg.GetHighwayType(tempMap[ROAD_CLASS_LINK]),
+				p.tagStringIdMap.GetID(tempMap[StreetName]),
+				pkg.GetHighwayType(tempMap[RoadClass]),
+				pkg.GetHighwayType(tempMap[RoadClassLink]),
 				uint8(lanes),
 				tldForw,
 			)
@@ -804,9 +809,9 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 			rn.AppendSegmentData(
 				id,
 				da.Index(startPointsIndex), da.Index(endPointsIndex),
-				p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-				pkg.GetHighwayType(tempMap[ROAD_CLASS]),
-				pkg.GetHighwayType(tempMap[ROAD_CLASS_LINK]),
+				p.tagStringIdMap.GetID(tempMap[StreetName]),
+				pkg.GetHighwayType(tempMap[RoadClass]),
+				pkg.GetHighwayType(tempMap[RoadClassLink]),
 				uint8(lanes),
 				tldBackw,
 			)
@@ -848,9 +853,9 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 		rn.AppendSegmentData(
 			id,
 			da.Index(startPointsIndex), da.Index(endPointsIndex),
-			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-			pkg.GetHighwayType(tempMap[ROAD_CLASS]),
-			pkg.GetHighwayType(tempMap[ROAD_CLASS_LINK]),
+			p.tagStringIdMap.GetID(tempMap[StreetName]),
+			pkg.GetHighwayType(tempMap[RoadClass]),
+			pkg.GetHighwayType(tempMap[RoadClassLink]),
 			uint8(lanes),
 			tldForw,
 		)
@@ -873,9 +878,9 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 		rn.AppendSegmentData(
 			id,
 			da.Index(endPointsIndex), da.Index(startPointsIndex),
-			p.tagStringIdMap.GetID(tempMap[STREET_NAME]),
-			pkg.GetHighwayType(tempMap[ROAD_CLASS]),
-			pkg.GetHighwayType(tempMap[ROAD_CLASS_LINK]),
+			p.tagStringIdMap.GetID(tempMap[StreetName]),
+			pkg.GetHighwayType(tempMap[RoadClass]),
+			pkg.GetHighwayType(tempMap[RoadClassLink]),
 			uint8(lanes),
 			tldBackw,
 		)
@@ -921,20 +926,25 @@ func (p *Extractor[W]) setSegmentAnnotationFlag(rn *da.RoadNetworkDataContainer,
 }
 
 func (p *Extractor[W]) isJunctionNode(nodeId int64) bool {
-	return p.wayNodeMap[int64(nodeId)].tipe == JUNCTION_NODE
+	return p.wayNodeMap[int64(nodeId)].tipe == JunctionNode
 }
 
+// GetNodeIdMap returns node id map.
 func (p *Extractor[W]) GetNodeIdMap() map[int64]da.Index {
 	return p.nodeIdMap
 }
 
-func (p *Extractor[W]) GetTurnRestrictions() map[int64][]restriction {
+// GetTurnRestrictions returns turn restrictions.
+func (p *Extractor[W]) GetTurnRestrictions() map[int64][]Restriction {
 	return p.restrictions
 }
-func (p *Extractor[W]) GetWays() map[int64]osmWay {
+
+// GetWays returns ways.
+func (p *Extractor[W]) GetWays() map[int64]OsmWay {
 	return p.ways
 }
 
-func (p *Extractor[W]) GetWayNodeMap() map[int64]nodeWithCoord {
+// GetWayNodeMap returns way node map.
+func (p *Extractor[W]) GetWayNodeMap() map[int64]NodeWithCoord {
 	return p.wayNodeMap
 }

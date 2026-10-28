@@ -202,7 +202,7 @@ func TestIsConditionalAccessInTimerange(t *testing.T) {
 	}
 }
 
-func TestGetReversedOneWay(t *testing.T) {
+func TestGetReversedOneWay(_ *testing.T) {
 	// mock pkg.IsVehicleEnabled
 	// NOTE: pkg.IsVehicleEnabled is a global variable, so this might affect other tests if run in parallel
 	// But for unit tests, we can manage it.
@@ -223,25 +223,25 @@ func TestGetReversibleOneWay(t *testing.T) {
 			name:        "Forward reversible in time",
 			input:       condYesTime,
 			currentTime: time.Date(2026, 4, 8, 10, 0, 0, 0, time.Local),
-			want:        DIRECTION_FORWARD_REVERSIBLE,
+			want:        DirectionForwardReversible,
 		},
 		{
 			name:        "Backward reversible in time",
 			input:       "-1 @ (17:01-08:59)",
 			currentTime: time.Date(2026, 4, 8, 20, 0, 0, 0, time.Local),
-			want:        DIRECTION_BACKWARD_REVERSIBLE,
+			want:        DirectionBackwardReversible,
 		},
 		{
 			name:        "Reversible not in time",
 			input:       condYesTime,
 			currentTime: time.Date(2026, 4, 8, 18, 0, 0, 0, time.Local),
-			want:        NO_ROUTE_REVERSIBLE,
+			want:        NoRouteReversible,
 		},
 		{
 			name:        "Multiple ranges",
 			input:       "yes @ (09:00-12:00); -1 @ (13:00-17:00)",
 			currentTime: time.Date(2026, 4, 8, 14, 0, 0, 0, time.Local),
-			want:        DIRECTION_BACKWARD_REVERSIBLE,
+			want:        DirectionBackwardReversible,
 		},
 	}
 

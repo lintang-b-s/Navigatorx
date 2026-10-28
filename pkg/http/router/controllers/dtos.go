@@ -20,19 +20,20 @@ type shortestPathResponse struct {
 	Cost              float64            `json:"travel_time"`
 	Path              string             `json:"path"`
 	Dist              float64            `json:"distance"`
-	DrivingDirections []drivingDirection `json:"driving_directions"`
+	DrivingDirections []DrivingDirection `json:"driving_directions"`
 }
 
 type shortestPathEnvelope struct {
 	Data shortestPathResponse `json:"data"`
 }
 
-type alternativeRoutesResponse struct {
+// AlternativeRoutesResponse contains alternative route results for an API response.
+type AlternativeRoutesResponse struct {
 	Routes []shortestPathResponse `json:"routes"`
 }
 
 type alternativeRoutesEnvelope struct {
-	Data alternativeRoutesResponse `json:"data"`
+	Data AlternativeRoutesResponse `json:"data"`
 }
 
 type boundingBoxEnvelope struct {
@@ -54,11 +55,13 @@ type annotation struct {
 	EdgeGeomOffset []da.Index `json:"segment_geometry_offset"`
 }
 
-func NewAnnotation(duration, distance []float64, geometry string, edgeGeomOffset, segmentIds []da.Index) annotation {
+// newAnnotation creates and returns annotation.
+func newAnnotation(duration, distance []float64, geometry string, edgeGeomOffset, segmentIds []da.Index) annotation {
 	return annotation{Duration: duration, Distance: distance, Geometry: geometry, EdgeGeomOffset: edgeGeomOffset, SegmentIds: segmentIds}
 }
 
-type drivingDirection struct {
+// DrivingDirection describes one instruction along a route.
+type DrivingDirection struct {
 	Instruction         string             `json:"instruction"`
 	Annotation          annotation         `json:"annotation,omitzero"`
 	Point               da.FloatCoordinate `json:"turn_point"`
@@ -70,8 +73,9 @@ type drivingDirection struct {
 	SuggestAlternatives bool               `json:"suggest_alternatives"`
 }
 
-func NewAnnotationDTO(ann da.Annotation, segmentIds []da.Index) annotation {
-	return NewAnnotation(
+// newAnnotationDTO creates and returns annotation dto.
+func newAnnotationDTO(ann da.Annotation, segmentIds []da.Index) annotation {
+	return newAnnotation(
 		ann.GetDuration(),
 		ann.GetDistance(),
 		da.GooglePoylineFromCoords(ann.GetGeometry()),
@@ -80,13 +84,14 @@ func NewAnnotationDTO(ann da.Annotation, segmentIds []da.Index) annotation {
 	)
 }
 
-func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirection {
+// NewDrivingDirection creates and returns driving direction.
+func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) DrivingDirection {
 
 	ann := annotation{}
 	if useAnnotation {
-		ann = NewAnnotationDTO(d.GetAnnotation(), d.GetSegmentsIds())
+		ann = newAnnotationDTO(d.GetAnnotation(), d.GetSegmentsIds())
 	}
-	return drivingDirection{
+	return DrivingDirection{
 		Instruction:         d.GetInstruction(),
 		Point:               d.GetPoint().ToFloatCoordinate(),
 		StreetName:          d.GetStreetName(),
@@ -100,8 +105,8 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) drivingDirec
 }
 
 // NewDrivingDirections converts driving directions to the response DTO.
-func NewDrivingDirections(d []da.DrivingDirection, useAnnotation bool) []drivingDirection {
-	drivingDirections := make([]drivingDirection, len(d))
+func NewDrivingDirections(d []da.DrivingDirection, useAnnotation bool) []DrivingDirection {
+	drivingDirections := make([]DrivingDirection, len(d))
 	if useAnnotation {
 		for i, dir := range d {
 			drivingDirections[i] = NewDrivingDirection(dir, true)
@@ -114,9 +119,9 @@ func NewDrivingDirections(d []da.DrivingDirection, useAnnotation bool) []driving
 	return drivingDirections
 }
 
-// NewShortestPathResponse. create new sp response
+// newShortestPathResponse creates and returns shortest path response.
 // travelTime in seconds we need to convert it in minutes
-func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirections []drivingDirection) shortestPathResponse {
+func newShortestPathResponse(travelTime, dist float64, path string, drivingDirections []DrivingDirection) shortestPathResponse {
 	return shortestPathResponse{
 		Cost:              util.SecondsToMinutes(travelTime), // in
 		Path:              path,
@@ -125,10 +130,11 @@ func NewShortestPathResponse(travelTime, dist float64, path string, drivingDirec
 	}
 }
 
-func NewAlternativeRoutesResponse(routeCosts []float64, routeDists []float64, routePolylines []string, routeDrivingDirections [][]da.DrivingDirection, useAnnotation bool) alternativeRoutesResponse {
-	altRes := alternativeRoutesResponse{Routes: make([]shortestPathResponse, len(routeCosts))}
+// NewAlternativeRoutesResponse creates and returns alternative routes response.
+func NewAlternativeRoutesResponse(routeCosts []float64, routeDists []float64, routePolylines []string, routeDrivingDirections [][]da.DrivingDirection, useAnnotation bool) AlternativeRoutesResponse {
+	altRes := AlternativeRoutesResponse{Routes: make([]shortestPathResponse, len(routeCosts))}
 	for i := range routeCosts {
-		altRes.Routes[i] = NewShortestPathResponse(
+		altRes.Routes[i] = newShortestPathResponse(
 			routeCosts[i],
 			routeDists[i], routePolylines[i], NewDrivingDirections(routeDrivingDirections[i], useAnnotation),
 		)
@@ -136,7 +142,8 @@ func NewAlternativeRoutesResponse(routeCosts []float64, routeDists []float64, ro
 	return altRes
 }
 
-func NewBoundingBox(bb da.BoundingBox) boundingBoxResponse {
+// newBoundingBox creates and returns bounding box.
+func newBoundingBox(bb da.BoundingBox) boundingBoxResponse {
 	return boundingBoxResponse{MinLat: bb.GetMinLat(), MinLon: bb.GetMinLon(), MaxLat: bb.GetMaxLat(), MaxLon: bb.GetMaxLon()}
 }
 
@@ -158,16 +165,19 @@ func (g *gps) ToDataGPS() *da.GPSPoint {
 		g.DeltaTime)
 }
 
+// Candidate represents road segment candidate.
 type Candidate struct {
 	SegmentId da.Index `json:"segment_id" validate:"min=0"`
 	Weight    float64  `json:"weight" validate:"min=0"`
 	Length    float64  `json:"length" validate:"min=0"`
 }
 
+// NewCandidate creates and returns road segment candidate.
 func NewCandidate(eId da.Index, weight float64, length float64) Candidate {
 	return Candidate{SegmentId: eId, Weight: weight, Length: length}
 }
 
+// ToOnlineCandidates handles to online road segment candidates.
 func ToOnlineCandidates(cands []*Candidate) []*ma.Candidate {
 	oCands := make([]*ma.Candidate, len(cands))
 	for i, cand := range cands {
@@ -190,6 +200,7 @@ func (mr *mapMatchRequest) GetBearing() float64 {
 	return mr.LastBearing
 }
 
+// MatchedGPSPoint represents matched gps point.
 type MatchedGPSPoint struct {
 	GpsPoint       *gps               `json:"gps_point"`
 	SegmentId      da.Index           `json:"segment_id"`
@@ -198,6 +209,7 @@ type MatchedGPSPoint struct {
 	Bearing        float64            `json:"segment_initial_bearing"`
 }
 
+// NewMatchedGPSPoint creates and returns matched gps point.
 func NewMatchedGPSPoint(gpsPoint *gps, segmentId da.Index, matchedCoord, predictedCoord da.Coordinate, initialBearing float64) *MatchedGPSPoint {
 	return &MatchedGPSPoint{
 		GpsPoint:       gpsPoint,
@@ -208,7 +220,8 @@ func NewMatchedGPSPoint(gpsPoint *gps, segmentId da.Index, matchedCoord, predict
 	}
 }
 
-type mapmatchingResponse struct {
+// MapmatchingResponse contains the result of an online map-matching request.
+type MapmatchingResponse struct {
 	MatchedGpsPoint *MatchedGPSPoint `json:"matched_gps_point"`
 	Candidates      []Candidate      `json:"candidates"`
 	SpeedMeanK      float64          `json:"speed_mean_k"`
@@ -216,7 +229,8 @@ type mapmatchingResponse struct {
 	Bearing         float64          `json:"edge_initial_bearing"`
 }
 
-func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.Candidate, speedMeanK float64, speedStdK, bearing float64) *mapmatchingResponse {
+// NewMapmatchingResponse creates and returns mapmatching response.
+func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.Candidate, speedMeanK float64, speedStdK, bearing float64) *MapmatchingResponse {
 	mgps := matchedPoint.GetGpsPoint()
 	matchedGpsPoint := NewMatchedGPSPoint(newGPS(mgps.Lat(), mgps.Lon(), mgps.Time(), mgps.Speed(),
 		mgps.DeltaTime()), matchedPoint.GetSegmentId(), matchedPoint.GetMatchedCoord(), matchedPoint.GetPredictedGpsCoord(), matchedPoint.GetBearing())
@@ -224,7 +238,7 @@ func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.C
 	for i, cand := range candidates {
 		cands[i] = NewCandidate(cand.GetSegmentId(), cand.GetWeight(), cand.GetLength())
 	}
-	return &mapmatchingResponse{
+	return &MapmatchingResponse{
 		MatchedGpsPoint: matchedGpsPoint,
 		Candidates:      cands,
 		SpeedMeanK:      speedMeanK,
@@ -233,21 +247,25 @@ func NewMapmatchingResponse(matchedPoint *da.MatchedGPSPoint, candidates []*ma.C
 	}
 }
 
+// GPX represents gpx.
 type GPX struct {
 	XMLName xml.Name `xml:"gpx"`
 	Trk     Trk      `xml:"trk"`
 }
 
+// Trk represents trk.
 type Trk struct {
 	XMLName xml.Name `xml:"trk"`
 	TrkSeg  TrkSeg   `xml:"trkseg"`
 }
 
+// TrkSeg represents trk seg.
 type TrkSeg struct {
 	XMLName xml.Name `xml:"trkseg"`
 	TrkPts  []TrkPt  `xml:"trkpt"`
 }
 
+// TrkPt represents trk pt.
 type TrkPt struct {
 	XMLName xml.Name `xml:"trkpt"`
 	Lat     float64  `xml:"lat,attr"`
@@ -256,15 +274,17 @@ type TrkPt struct {
 }
 
 type offlineMapMatchingEnvelope struct {
-	Data offlineMapMatchingResponse `json:"data"`
+	Data OfflineMapMatchingResponse `json:"data"`
 }
 
-type offlineMapMatchingResponse struct {
+// OfflineMapMatchingResponse contains matched points and the route path.
+type OfflineMapMatchingResponse struct {
 	MatchedPoints []*MatchedGPSPoint   `json:"matched_points"`
 	RoutePath     []da.FloatCoordinate `json:"route_path"`
 }
 
-func NewOfflineMapMatchingResponse(matchedPoints []*da.MatchedGPSPoint, routePath []da.FloatCoordinate) *offlineMapMatchingResponse {
+// NewOfflineMapMatchingResponse creates and returns offline map matching response.
+func NewOfflineMapMatchingResponse(matchedPoints []*da.MatchedGPSPoint, routePath []da.FloatCoordinate) *OfflineMapMatchingResponse {
 	points := make([]*MatchedGPSPoint, len(matchedPoints))
 	for i, mp := range matchedPoints {
 		mgps := mp.GetGpsPoint()
@@ -280,7 +300,7 @@ func NewOfflineMapMatchingResponse(matchedPoints []*da.MatchedGPSPoint, routePat
 			mp.GetBearing(),
 		)
 	}
-	return &offlineMapMatchingResponse{
+	return &OfflineMapMatchingResponse{
 		MatchedPoints: points,
 		RoutePath:     routePath,
 	}

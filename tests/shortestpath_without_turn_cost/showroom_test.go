@@ -90,7 +90,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 			return 0
 		}
 
-		return int(pkg.INF_WEIGHT_INT)
+		return int(pkg.InfWeightInt)
 	}
 
 	type pair struct {
@@ -177,7 +177,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 	t.Log("calculating shortest paths...\n")
 
-	minDist := pkg.INF_WEIGHT
+	minDist := pkg.InfWeight
 
 	lock := sync.Mutex{}
 	calcSp := func(p pair) any {

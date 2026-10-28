@@ -26,6 +26,7 @@ type S2RoadSegmentsIndex struct {
 	idx map[s2.CellID][]da.Index
 }
 
+// NewS2RoadSegmentsIndex creates and returns s2 road segments index.
 func NewS2RoadSegmentsIndex(g *da.Graph, rn *da.RoadNetworkDataContainer, log *zap.Logger) *S2RoadSegmentsIndex {
 
 	coverer := NewFlatCoverer(15)
@@ -40,6 +41,7 @@ func NewS2RoadSegmentsIndex(g *da.Graph, rn *da.RoadNetworkDataContainer, log *z
 	return sidx
 }
 
+// AddPolyline adds polyline.
 func (si *S2RoadSegmentsIndex) AddPolyline(id da.Index, geom []da.Coordinate, coverer *FlatCoverer) {
 	coords := make([]s2.LatLng, len(geom))
 	for i := 0; i < len(coords); i++ {
@@ -130,6 +132,7 @@ type FlatCoverer struct {
 	rc *s2.RegionCoverer
 }
 
+// NewFlatCoverer creates and returns s2 flat coverer.
 func NewFlatCoverer(level int) *FlatCoverer {
 	return &FlatCoverer{rc: &s2.RegionCoverer{
 		MinLevel: level,
@@ -139,6 +142,7 @@ func NewFlatCoverer(level int) *FlatCoverer {
 	}}
 }
 
+// Covering returns s2 covering.
 func (c *FlatCoverer) Covering(r s2.Region) s2.CellUnion {
 	cids := c.rc.Covering(r) // dont do any normalize in here
 	// https://s2geometry.io/devguide/s2cell_hierarchy.html
@@ -146,6 +150,7 @@ func (c *FlatCoverer) Covering(r s2.Region) s2.CellUnion {
 	return cids
 }
 
+// WriteToFile writes s2 road segment index to file.
 func (si *S2RoadSegmentsIndex) WriteToFile() error {
 	root := config.ProfilesRoot()
 	base := fmt.Sprintf("%s/%s/%s", root, pkg.ProfileName, pkg.RegionName)
@@ -174,6 +179,7 @@ func (si *S2RoadSegmentsIndex) WriteToFile() error {
 	})
 }
 
+// ReadS2RoadSegmentsIndexFromFile reads s2 road segments index from file.
 func ReadS2RoadSegmentsIndexFromFile() (*S2RoadSegmentsIndex, error) {
 	root := config.ProfilesRoot()
 	base := fmt.Sprintf("%s/%s/%s", root, pkg.ProfileName, pkg.RegionName)

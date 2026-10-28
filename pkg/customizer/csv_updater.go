@@ -85,7 +85,7 @@ func (c *Customizer[W]) readSegmentSpeedsFromFile(filePath string) ([]da.Index, 
 		}
 
 		ebgnId := c.segmentLookupTable.Get(da.NewSegmentKV(u, v, 0))
-		if ebgnId == da.INVALID_LK_TABLE_ID {
+		if ebgnId == da.InvalidLkTableId {
 			c.logger.Sugar().Warnf("no edge found from %v to %v", u, v)
 			continue
 		}
@@ -146,7 +146,7 @@ func (c *Customizer[W]) readTurnPenaltiesFromFile(filePath string) ([]da.Index, 
 		}
 
 		ebgeId := c.turnLookupTable.Get(da.NewTurnKV(u, v, w, 0))
-		if ebgeId == da.INVALID_LK_TABLE_ID {
+		if ebgeId == da.InvalidLkTableId {
 			c.logger.Sugar().Warnf("no vertex %v found", u)
 			continue
 		}
@@ -158,7 +158,7 @@ func (c *Customizer[W]) readTurnPenaltiesFromFile(filePath string) ([]da.Index, 
 		}
 
 		ebgnId := c.segmentLookupTable.Get(da.NewSegmentKV(u, v, 0))
-		if ebgnId == da.INVALID_LK_TABLE_ID {
+		if ebgnId == da.InvalidLkTableId {
 			c.logger.Sugar().Warnf("no edge found from %v to %v", u, v)
 			continue
 		}

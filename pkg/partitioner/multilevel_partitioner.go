@@ -44,6 +44,7 @@ import (
 // dennis luxen inertial flow implementation only peak memory 11.02 GB pakai instan DIMACS USA: https://github.com/DennisOSRM/toolbox-rs/pull/542 dan https://dennisosrm.github.io/toolbox-rs/
 //
 
+// MultilevelPartitioner represents multilevel partitioner.
 type MultilevelPartitioner struct {
 	u []int //  cell size for  each cell levels. from biggest to smallest.
 	// best parameter for customizable route planning by delling et al:
@@ -55,6 +56,7 @@ type MultilevelPartitioner struct {
 	inertialFlowIterations int
 }
 
+// NewMultilevelPartitioner creates and returns multilevel partitioner.
 func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, nbg *da.Graph, logger *zap.Logger) *MultilevelPartitioner {
 	if len(u) != l {
 		logger.Fatal(fmt.Sprintf("cell levels %d and cell array size %d must be the same", l, len(u)))
@@ -70,20 +72,23 @@ func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, nbg *da.Gr
 	}
 }
 
+// GetCellVertices returns cell vertices.
 func (mp *MultilevelPartitioner) GetCellVertices() [][][]da.Index {
 	return mp.cellVertices
 }
 
+// SetCellVertices sets cell vertices.
 func (mp *MultilevelPartitioner) SetCellVertices(cellVertices [][][]da.Index) {
 	mp.cellVertices = cellVertices
 }
 
+// MLPSizes returns sizes.
 func (mp *MultilevelPartitioner) MLPSizes() []int {
 	return mp.u
 }
 
 /*
-RunMultilevelPartitioning. Partitioning phase of Customizable Route Planning (CRP) By Delling et al. read section 5.1 Metric-Independent Preprocessing (Partitioning) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
+RunMultilevelPartitioning Partitioning phase of Customizable Route Planning (CRP) By Delling et al. read section 5.1 Metric-Independent Preprocessing (Partitioning) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
 run L-level mutltilevel partitioning using inertial flow algorithm with U1 , . . . , UL maximum cell sizes.
 pertama jalankan algoritma intertial flow pada graf G dengan parameter U_{L} untuk mendapatkan cells level L.
@@ -165,7 +170,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 			}
 		}(cellOutchan)
 
-		for q := 0; q < LEVEL_WORKERS; q++ {
+		for q := 0; q < LevelWorkers; q++ {
 			go computeRecursiveBisection(cellInChan, &cutEdgesCount, lock)
 		}
 

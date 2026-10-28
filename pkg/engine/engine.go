@@ -14,10 +14,12 @@ import (
 	"go.uber.org/zap"
 )
 
+// Engine represents engine.
 type Engine[W util.Numeric] struct {
 	re *routing.CRPRoutingEngine[W]
 }
 
+// GetRoutingEngine returns routing engine.
 func (e *Engine[W]) GetRoutingEngine() *routing.CRPRoutingEngine[W] {
 	return e.re
 }
@@ -35,6 +37,7 @@ func getEngineFilePath() (
 		base + "_road_network.ndata"
 }
 
+// NewEngine creates and returns engine.
 func NewEngine[W util.Numeric](logger *zap.Logger) (*Engine[W], error) {
 	util.ActivateMode[W]()
 	gf, ogf, lmf, metf, tff, rnf := getEngineFilePath()
@@ -47,8 +50,6 @@ func NewEngine[W util.Numeric](logger *zap.Logger) (*Engine[W], error) {
 		re: re,
 	}, nil
 }
-
-// NewEngineDirect yang ini gak perlu read dari file, karena pakai CustomizeDirect
 
 func initializeRoutingEngine[W util.Numeric](graphFilePath, overlayGraphFilePath, rndContainerFilePath, metricsFilePath, landmarkFile, timeFunctionFilePath string, logger *zap.Logger,
 ) (*routing.CRPRoutingEngine[W],
@@ -90,10 +91,12 @@ func initializeRoutingEngine[W util.Numeric](graphFilePath, overlayGraphFilePath
 	return re, nil
 }
 
+// InitBackgroundWorker initializes background worker.
 func (e *Engine[W]) InitBackgroundWorker(ctx context.Context) {
 	e.re.InitBackgroundWorker(ctx)
 }
 
+// NewEngineDirect creates and returns engine direct.
 func NewEngineDirect[W util.Numeric](
 	graph *da.Graph,
 	rn *da.RoadNetworkDataContainer,

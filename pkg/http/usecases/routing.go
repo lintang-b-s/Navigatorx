@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// RoutingService represents routing service.
 type RoutingService struct {
 	log          *zap.Logger
 	engine       cont.RoutingEngine
@@ -30,6 +31,7 @@ type RoutingService struct {
 	turnSignCache *otter.Cache[uint64, uint64]
 }
 
+// NewRoutingService creates and returns routing service.
 func NewRoutingService(log *zap.Logger, engine cont.RoutingEngine, rn *da.RoadNetworkDataContainer, spatialIndex SpatialIndex,
 	searchRadius float64, lefthandDriving bool,
 ) (*RoutingService, error) {
@@ -47,8 +49,9 @@ func NewRoutingService(log *zap.Logger, engine cont.RoutingEngine, rn *da.RoadNe
 	return rs, nil
 }
 
+// ShortestPath computes fastest path.
 func (rs *RoutingService) ShortestPath(
-	ctx context.Context,
+	_ context.Context,
 	qOrigLat, qOrigLon, qDstLat, qDstLon float64,
 	reroute bool,
 	startSegId da.Index,
@@ -97,8 +100,9 @@ func (rs *RoutingService) ShortestPath(
 	return travelTime, dist, pathPolyline, drivingDirections, true, nil
 }
 
+// AlternativeRouteSearch handles alternative route search.
 func (rs *RoutingService) AlternativeRouteSearch(
-	ctx context.Context,
+	_ context.Context,
 	qOrigLat, qOrigLon, qDstLat, qDstLon float64,
 	k int,
 	reroute bool,
@@ -151,11 +155,13 @@ func (rs *RoutingService) AlternativeRouteSearch(
 	return routeCosts, routeDists, routePolylines, routeDrivingDirections, nil
 }
 
+// Close handles close caches.
 func (rs *RoutingService) Close() {
 	rs.turnSignCache.InvalidateAll()
 	rs.turnSignCache.StopAllGoroutines()
 }
 
+// AppendPhantomNodesToPath appends phantom nodes to path.
 func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64, dist float64) (float64, float64) {
 
 	if !rs.isSameSourceDestinationSegment(sp, tp) {
@@ -180,26 +186,31 @@ func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp 
 	return travelTime, dist
 }
 
+// GetRoutingEngine returns routing engine.
 func (rs *RoutingService) GetRoutingEngine() cont.RoutingEngine {
 	return rs.engine
 }
 
+// Snap handles snap query coordinate to road segments.
 func (rs *RoutingService) Snap(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64) (da.PhantomNode, da.PhantomNode) {
 	if util.IsTimeout(ctx) {
 		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
 	}
 
-	return rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, false, da.INVALID_SEGMENT_ID)
+	return rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, false, da.InvalidSegmentId)
 }
 
-func (rs *RoutingService) GetBoundingBox(ctx context.Context) da.BoundingBox {
+// GetBoundingBox returns bounding box.
+func (rs *RoutingService) GetBoundingBox(_ context.Context) da.BoundingBox {
 	return *rs.rn.GetBoundingBox()
 }
 
+// InitBackgroundWorker initializes background worker.
 func (rs *RoutingService) InitBackgroundWorker(ctx context.Context) {
 	rs.engine.InitBackgroundWorker(ctx)
 }
 
+// OfflineMapMatch handles offline map matching.
 func (rs *RoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate, error) {
 	if util.IsTimeout(ctx) {
 		return nil, nil, ctx.Err()

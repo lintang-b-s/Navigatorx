@@ -9,6 +9,7 @@ import (
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 )
 
+// RoutingService represents routing service.
 type RoutingService interface {
 	ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) (float64, float64, string, []da.DrivingDirection, bool, error)
 	AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startSegId da.Index, useAnnotation bool, useSteps bool) ([]float64, []float64, []string, [][]da.DrivingDirection, error)
@@ -19,6 +20,7 @@ type RoutingService interface {
 	OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate, error)
 }
 
+// RoutingEngine represents routing engine.
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
@@ -29,6 +31,7 @@ type RoutingEngine interface {
 	Close()
 }
 
+// Metrics represents metrics.
 type Metrics interface {
 	GetDurationSeconds(segId da.Index) float64
 	GetSegmentSpeed(segId da.Index) float64
@@ -36,6 +39,7 @@ type Metrics interface {
 	GetDurationFromLength(segId da.Index, length float64) float64
 }
 
+// MapMatcherService represents map matcher service.
 type MapMatcherService interface {
 	OnlineMapMatch(ctx context.Context, gps *da.GPSPoint, k int,
 		candidates []*ma.Candidate, speedMeanK, speedStdK, lastBearing float64) (*da.MatchedGPSPoint, []*ma.Candidate, float64, float64, error)

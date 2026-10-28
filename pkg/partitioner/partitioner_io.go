@@ -15,6 +15,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// BuildMLP builds mlp.
 func (mp *MultilevelPartitioner) BuildMLP() *da.MultilevelPartition {
 	numCells := make([]uint32, mp.l)
 	for i := 0; i < mp.l; i++ {
@@ -69,7 +70,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 
 	for u := da.Index(0); u < da.Index(mp.graph.NumberOfVertices()); u++ {
 		uVertex := mp.graph.GetVertex(u)
-		mp.graph.ForOutEdgesOf(u, func(eId da.Index, head da.Index, _ uint8) {
+		mp.graph.ForOutEdgesOf(u, func(_ da.Index, head da.Index, _ uint8) {
 			v := head
 			vVertex := mp.graph.GetVertex(v)
 
@@ -110,7 +111,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 			for j := 0; j < len(verts); j++ {
 				v := cellVertices[cellId][j]
 				coords[j] = ovCoord{
-					ID:  v.GetID(),
+					ID:  v.GetId(),
 					Lat: v.GetLat(),
 					Lon: v.GetLon(),
 				}
@@ -146,7 +147,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 	return nil
 }
 
-// WriteOverlayVerticesInLevel write vertices inside each cells ke file.
+// WriteMLPVisualizationInLevel writes vertices inside each cells ke file.
 func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel() error {
 	root := config.ProfilesRoot()
 	base := fmt.Sprintf("%s/%s/%s", root, pkg.ProfileName, pkg.RegionName)
@@ -180,7 +181,7 @@ func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel() error {
 
 			for i, v := range verts {
 				coords[i] = ovCoord{
-					ID:  v.GetID(),
+					ID:  v.GetId(),
 					Lat: v.GetLat(),
 					Lon: v.GetLon(),
 				}

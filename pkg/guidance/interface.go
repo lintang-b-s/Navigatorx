@@ -5,6 +5,7 @@ import (
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
 
+// Graph represents graph.
 type Graph interface {
 	GetVertex(u da.Index) da.Vertex
 	GetVertexCoordinate(u da.Index) da.Coordinate
@@ -16,13 +17,14 @@ type Graph interface {
 	GetOutId(e da.Index) da.Index
 }
 
+// RoadNetworkDataContainer represents road network data container.
 type RoadNetworkDataContainer interface {
 	IsRoundabout(segmentId da.Index) bool
 	GetStreetName(segmentId da.Index) string
-	GetSegmentGeometry(edgeID da.Index) []da.Coordinate
+	GetSegmentGeometry(edgeId da.Index) []da.Coordinate
 	GetRoadClass(segmentId da.Index) pkg.OsmHighwayType
 	GetRoadClassLink(segmentId da.Index) pkg.OsmHighwayType
-	GetStreetDirection(segmentId da.Index) [2]bool
+	StreetDirection(segmentId da.Index) [2]bool
 	GetStreetNameId(id da.Index) uint32
 	GetOsmWayId(segmentId da.Index) uint64
 	GetStrFromId(stNameId uint32) string
@@ -37,11 +39,13 @@ type RoadNetworkDataContainer interface {
 	IsParallelVia(id da.Index) bool
 }
 
+// RoutingEngine represents routing engine.
 type RoutingEngine interface {
 	GetGraph() *da.Graph
 	PathExists(u, v da.Index) bool
 }
 
+// Metrics represents metrics.
 type Metrics interface {
 	GetDurationSeconds(segId da.Index) float64
 	GetSegmentSpeed(segId da.Index) float64

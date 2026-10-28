@@ -1,5 +1,6 @@
 package mapattributes
 
 const (
-	SEGMENTS_SIZE = 10000
+	// SegmentsSize is the segments size value.
+	SegmentsSize = 10000
 )

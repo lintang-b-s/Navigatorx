@@ -26,7 +26,7 @@ func NewEmptyVertex() Vertex {
 	invCoord := float64(math.MaxInt32-1) / CoordinatePrecision
 	return Vertex{
 		coord: NewCoordinate(invCoord, invCoord),
-		id:    INVALID_VERTEX_ID,
+		id:    InvalidVertexId,
 	}
 }
 
@@ -80,8 +80,8 @@ func (v *Vertex) SetFirstIn(firstIn Index) {
 	v.firstIn = firstIn
 }
 
-// GetID returns the identifier of the vertex.
-func (v *Vertex) GetID() Index {
+// GetId returns the identifier of the vertex.
+func (v *Vertex) GetId() Index {
 	return v.id
 }
 

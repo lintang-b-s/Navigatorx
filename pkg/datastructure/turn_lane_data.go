@@ -50,6 +50,7 @@ type TurnLanesData struct {
 	tipeMask []*bitset.BitSet
 }
 
+// NewTurnLanesData creates and returns turn lanes data.
 // NewTurnLanesData. create new turn lanes data from turnLaneTypes.
 // turnLaneTypes[i] berisi allowed turns di lane-i
 // harus bikin bitset nya
@@ -69,16 +70,17 @@ func NewTurnLanesData(turnLaneTypes [][]pkg.TurnLaneType) TurnLanesData {
 	return TurnLanesData{tipeMask: tipeMask}
 }
 
-// Valid. return valid if i-th lane has allowed turn type turnt
+// Valid return valid if i-th lane has allowed turn type turnt
 // can return false if the routing engine profile vehicle not allowed to go to this i-th lane.
 func (tld TurnLanesData) Valid(i int, turnt pkg.TurnLaneType) bool {
-	if tld.tipeMask[i].Test(uint(pkg.LANE_NO_ENTRY)) {
+	if tld.tipeMask[i].Test(uint(pkg.LaneNoEntry)) {
 		// ini kalo vehicle dari router gak boleh pakai i-th lane.
 		return false
 	}
 	return tld.tipeMask[i].Test(uint(turnt))
 }
 
+// NewEmptyTurnLanesData creates and returns empty turn lanes data.
 func NewEmptyTurnLanesData() TurnLanesData {
 	tipeMask := make([]*bitset.BitSet, 0)
 

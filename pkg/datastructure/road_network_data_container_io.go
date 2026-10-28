@@ -8,12 +8,14 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// WriteToFile writes to file.
 func (rn *RoadNetworkDataContainer) WriteToFile(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 		return writeRoadNetworkDataContainer(w, rn)
 	})
 }
 
+// ReadRoadNetworkDataContainer reads road network data container.
 func ReadRoadNetworkDataContainer(filename string) (*RoadNetworkDataContainer, error) {
 	file, r, err := util.OpenCompressedFile(filename)
 	if err != nil {

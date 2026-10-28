@@ -47,6 +47,7 @@ type Graph struct {
 	roadNetwork       bool
 }
 
+// NewGraph creates and returns graph.
 func NewGraph(vertices []Vertex, heads []Index, tails []Index, roadNetwork bool, entryPoints []uint8, exitPoints []uint8) *Graph {
 	return &Graph{vertices: vertices, heads: heads, tails: tails, maxVerticesInCell: 0, roadNetwork: roadNetwork,
 		entryPoints: entryPoints, exitPoints: exitPoints}
@@ -59,27 +60,33 @@ func (g *Graph) NumberOfVertices() int {
 	return len(g.vertices) - 1
 }
 
+// NumberOfEdges returns number of edges.
 func (g *Graph) NumberOfEdges() int {
 	return len(g.heads)
 }
 
+// IsRoadNetworkGraph reports whether road network graph.
 func (g *Graph) IsRoadNetworkGraph() bool {
 	return g.roadNetwork
 }
 
+// SetMinResolution sets min resolution.
 func (g *Graph) SetMinResolution(minResolution float64) {
 	g.minResolution = minResolution
 }
 
+// GetMinResolution returns min resolution.
 func (g *Graph) GetMinResolution() float64 {
 	return g.minResolution
 }
 
+// GetOutDegree returns out degree.
 func (g *Graph) GetOutDegree(u Index) Index {
 	// must return index for uint32 (lot usage of outDegree used as big slice size)
 	return g.vertices[u+1].firstOut - g.vertices[u].firstOut
 }
 
+// GetInDegree returns in degree.
 func (g *Graph) GetInDegree(u Index) Index {
 	return g.vertices[u+1].firstIn - g.vertices[u].firstIn
 }
@@ -93,6 +100,7 @@ func (g *Graph) NumOutEdges(u Index) (Index, Index) {
 	return firstOut, num
 }
 
+// NumEdges handles num edges.
 // NumInEdges returns the edge offset and number for incoming (reversed) edges of vertex v.
 //
 //go:inline
@@ -105,38 +113,47 @@ func (g *Graph) NumEdges(v Index, out bool) (Index, Index) {
 	return firstIn, num
 }
 
+// GetHead returns head.
+//
 //go:inline
 func (g *Graph) GetHead(e Index) Index {
 	return g.heads[e]
 }
 
+// GetTail returns tail.
+//
 //go:inline
 func (g *Graph) GetTail(e Index) Index {
 	return g.tails[e]
 }
 
+// GetCellNumbers returns cell numbers.
 func (g *Graph) GetCellNumbers() []Pv {
 	return g.cellNumbers
 }
 
+// GetHeadOfInedge returns head of inedge.
 func (g *Graph) GetHeadOfInedge(e Index) Index {
 	tail := g.vertices[g.tails[e]]
 	exitPoint := Index(g.exitPoints[e])
 	return g.heads[tail.firstOut+exitPoint]
 }
 
+// GetTailOfOutedge returns tail of outedge.
 func (g *Graph) GetTailOfOutedge(e Index) Index {
 	head := g.vertices[g.heads[e]]
 	entryPoint := Index(g.entryPoints[e])
 	return g.tails[head.firstIn+Index(entryPoint)]
 }
 
+// GetRevId returns rev id.
 // get incoming edgeId of outgoing edgeId e
 func (g *Graph) GetRevId(e Index) Index {
 	entryPoint := Index(g.entryPoints[e])
 	return g.vertices[g.heads[e]].firstIn + entryPoint
 }
 
+// GetOutId returns out id.
 // get outgoing edge Id of incoming (or reversed) edge Id e
 //
 //go:inline
@@ -145,25 +162,30 @@ func (g *Graph) GetOutId(e Index) Index {
 	return g.vertices[g.tails[e]].firstOut + exitPoint
 }
 
+// GetExitOrder returns exit order.
 // GetExitOrder. return Index of exit point of a out edge (u,v) at vertex u.
 func (g *Graph) GetExitOrder(u, outEdgeId Index) uint8 {
 	exitPoint := outEdgeId - g.vertices[u].firstOut
 	return uint8(exitPoint)
 }
 
+// GetEntryOrder returns entry order.
 // GetEntryOrder. return Index of entry point of a in edge (u,v) at vertex v.
 func (g *Graph) GetEntryOrder(v, inEdgeId Index) uint8 {
 	return uint8(inEdgeId - g.vertices[v].firstIn)
 }
 
+// SetCellNumbers sets cell numbers.
 func (g *Graph) SetCellNumbers(cellNumbers []Pv) {
 	g.cellNumbers = cellNumbers
 }
 
+// SetOverlayMapping sets overlay mapping.
 func (g *Graph) SetOverlayMapping(overlayVertices map[SubVertex]Index) {
 	g.overlayVertices = overlayVertices
 }
 
+// ForOutEdgesOf iterates over out edges of.
 // ForOutEdgesOf. iterates all outgoing edges of vertex u.
 func (g *Graph) ForOutEdgesOf(u Index, handle func(eId, head Index, entryPoint uint8)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
@@ -172,6 +194,7 @@ func (g *Graph) ForOutEdgesOf(u Index, handle func(eId, head Index, entryPoint u
 	}
 }
 
+// ForInEdgesOf iterates over in edges of.
 // ForOutEdgesOf. iterates all incoming (reversed) edges of vertex u.
 func (g *Graph) ForInEdgesOf(u Index, handle func(eId, tail Index, exitPoint uint8)) {
 	for e := g.vertices[u].firstIn; e < g.vertices[u+1].firstIn; e++ {
@@ -180,23 +203,28 @@ func (g *Graph) ForInEdgesOf(u Index, handle func(eId, tail Index, exitPoint uin
 	}
 }
 
+// ForOutEdgesOfWithTurn iterates over out edges of with turn.
+// of is the of value.
 // ForOutEdgesOfWithTurn. iterate outgoing edges of vertex u from i-th incoming edge of u. return turn table id & turn type of its turn, highway type, head vertex, edge id, etc.
-func (g *Graph) ForOutEdgesOfWithTurn(u Index, i uint8, handle func(eId, head Index, exitPoint, entryPoint uint8)) {
+func (g *Graph) ForOutEdgesOfWithTurn(u Index, _ uint8, handle func(eId, head Index, exitPoint, entryPoint uint8)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 		handle(e, g.heads[e], g.GetExitOrder(u, e), g.entryPoints[e])
 	}
 }
 
+// GetNumberOfEdges returns number of edges.
 func (g *Graph) GetNumberOfEdges(u Index) Index {
 	return g.vertices[u+1].firstOut - g.vertices[u].firstOut
 }
 
+// ForOutEdgeIdsOf iterates over out edge ids of.
 func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
 		handle(e)
 	}
 }
 
+// GetEdgesOf returns edges (or reversed edges) of.
 func (g *Graph) GetEdgesOf(u Index, out bool) []Index {
 	if out {
 		return g.heads[g.vertices[u].firstOut:g.vertices[u+1].firstOut]
@@ -204,12 +232,14 @@ func (g *Graph) GetEdgesOf(u Index, out bool) []Index {
 	return g.tails[g.vertices[u].firstIn:g.vertices[u+1].firstIn]
 }
 
+// ForInEdgeIdsOf iterates over in edge ids of.
 func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
 		handle(e)
 	}
 }
 
+// GetOverlayVertex returns overlay vertex.
 // GetOverlayVertex. return overlay vertex id of vertex u that have cut (outgoing/incoming) edge eId.
 func (g *Graph) GetOverlayVertex(u Index, eId Index, out bool) Index {
 	exitEntryOrder := g.entryPoints[eId]
@@ -227,14 +257,17 @@ func (g *Graph) GetOverlayVertex(u Index, eId Index, out bool) Index {
 	return id
 }
 
+// GetCellNumber returns cell number.
 func (g *Graph) GetCellNumber(u Index) Pv {
 	return g.cellNumbers[g.vertices[u].pvPtr]
 }
 
+// GetNumberOfCellsNumbers returns number of cells numbers.
 func (g *Graph) GetNumberOfCellsNumbers() int {
 	return len(g.cellNumbers)
 }
 
+// ForOutEdges iterates over out edges.
 func (g *Graph) ForOutEdges(handle func(exitPoint uint8, head, tail Index, entryPoint uint8, percentage float64, eId Index)) {
 	for eId, v := range g.heads {
 		tail := g.GetTailOfOutedge(Index(eId))
@@ -243,72 +276,89 @@ func (g *Graph) ForOutEdges(handle func(exitPoint uint8, head, tail Index, entry
 	}
 }
 
+// ForVertices iterates over vertices.
 func (g *Graph) ForVertices(handle func(v Vertex, id Index)) {
 	for i, v := range g.vertices[:g.NumberOfVertices()] { // skip dummy vertex di  g.vertices[:len(g.vertices)-1]
 		handle(v, Index(i))
 	}
 }
 
+// SetVertexPvPtr sets vertex pv ptr.
 func (g *Graph) SetVertexPvPtr(id Index, pvPtr Index) {
 	g.vertices[id].pvPtr = pvPtr
 }
 
+// SetFirstOut sets first out.
 func (g *Graph) SetFirstOut(id Index, firstOut Index) {
 	g.vertices[id].SetFirstOut(firstOut)
 }
 
+// SetFirstIn sets first in.
 func (g *Graph) SetFirstIn(id Index, firstIn Index) {
 	g.vertices[id].SetFirstIn(firstIn)
 }
 
+// SetVId sets vid.
 func (g *Graph) SetVId(id Index, vId Index) {
 	g.vertices[id].id = vId
 }
 
+// GetVertices returns vertices.
 func (g *Graph) GetVertices() []Vertex {
 	return g.vertices[:g.NumberOfVertices()]
 }
 
+// GetNumberOfOverlayVertexMapping returns number of overlay vertex mapping.
 func (g *Graph) GetNumberOfOverlayVertexMapping() int {
 	return len(g.overlayVertices)
 }
 
+// GetMaxVerticesInCell returns max vertices in cell.
 func (g *Graph) GetMaxVerticesInCell() Index {
 	return g.maxVerticesInCell
 }
 
+// SetMaxVerticesInCell sets max vertices in cell.
 func (g *Graph) SetMaxVerticesInCell(maxVerticesInCell Index) {
 	g.maxVerticesInCell = maxVerticesInCell
 }
 
+// GetVertex returns vertex.
 func (g *Graph) GetVertex(u Index) Vertex {
 	return g.vertices[u]
 }
 
+// GetVertexCoordinate returns vertex coordinate.
 func (g *Graph) GetVertexCoordinate(u Index) Coordinate {
 	return g.vertices[u].GetCoordinate()
 }
 
+// GetVertexPvPtr returns vertex pv ptr.
 func (g *Graph) GetVertexPvPtr(u Index) Index {
 	return g.vertices[u].pvPtr
 }
 
+// GetVertexFirstOut returns vertex first out.
 func (g *Graph) GetVertexFirstOut(u Index) Index {
 	return g.vertices[u].firstOut
 }
 
+// GetVertexFirstIn returns vertex first in.
 func (g *Graph) GetVertexFirstIn(u Index) Index {
 	return g.vertices[u].firstIn
 }
 
+// SetHead sets head.
 func (g *Graph) SetHead(eId Index, v Index) {
 	g.heads[eId] = v
 }
 
+// SetTail sets tail.
 func (g *Graph) SetTail(eId Index, v Index) {
 	g.tails[eId] = v
 }
 
+// GetVerticeIds returns vertice ids.
 func (g *Graph) GetVerticeIds() []Index {
 	nodeIds := make([]Index, 0, g.NumberOfVertices())
 	for i := 0; i < g.NumberOfVertices(); i++ {
@@ -363,6 +413,7 @@ func (g *Graph) GetVertexCellOffset(u Index) (offset Index, num Index) {
 
 // ---- nodes & edges permutation related ----
 
+// ApplyGraphPermutation applies graph permutation.
 // ApplyGraphPermutation. apply vertices & edges permutation
 // nPerm=permutation slice that maps new vertex id to old vertex id
 // ePerm=permutation slice that maps new edge id to old edge id

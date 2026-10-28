@@ -6,6 +6,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// Dijkstra represents dijkstra algorithm.
 type Dijkstra[W util.Numeric] struct {
 	engine  *CRPRoutingEngine[W]
 	metrics *met.Metric[W]
@@ -16,6 +17,7 @@ type Dijkstra[W util.Numeric] struct {
 	useReversedEdges bool
 }
 
+// NewDijkstra creates and returns dijkstra.
 func NewDijkstra[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 	useReversedEdges bool,
@@ -30,23 +32,18 @@ func NewDijkstra[W util.Numeric](
 	return dj
 }
 
-/*
-single-source shortest paths, from s to all other vertices.
-with no turn costs.
-ini implementasi dijkstra yang biasa anda lihat di internet / competitive programming template.
-
-useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
-*/
+// ShortestPath single-source shortest paths, from s to all other vertices.
+// ini implementasi dijkstra yang biasa anda lihat di internet / competitive programming template.
+// useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 func (us *Dijkstra[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) {
 
-	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
+	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
 
 	djKey := da.NewDijkstraKey(s)
 	us.pq.Insert(s, 0, sVertexData, djKey)
 
 	for !us.pq.IsEmpty() {
-
-		us.graphSearchUni(s)
+		us.graphSearchUni()
 		us.numSettledNodes++
 	}
 
@@ -55,7 +52,7 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) {
 	return sps, spPath
 }
 
-func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
+func (us *Dijkstra[W]) graphSearchUni() {
 
 	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
@@ -66,9 +63,9 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 		v := us.engine.GetV(eId, out)
 		edgeWeight := us.GetWeight(eId, out)
 		// get cost to reach v through u
-		newVCost := us.pq.GetCost(u) + edgeWeight
+		newVCost := us.pq.Cost(u) + edgeWeight
 
-		oldCost := us.pq.GetCost(v)
+		oldCost := us.pq.Cost(v)
 		vLabelled := util.Lt(oldCost, util.Infinity[W]())
 		if util.Lt(newVCost, oldCost) {
 			// newVCost is better, update the v cost
@@ -87,14 +84,16 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 	}
 }
 
+// Preallocate handles preallocate priority queue.
 func (us *Dijkstra[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
 
-	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
+	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ArrayStorageMode)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
 
+// GetWeight returns weight.
 func (us *Dijkstra[W]) GetWeight(eId da.Index, out bool) W {
 	if out {
 		return us.metrics.GetWeight(eId)
@@ -110,7 +109,7 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 	if !us.useReversedEdges {
 
 		for t := da.Index(0); t < da.Index(n); t++ {
-			sp := us.pq.GetCost(t)
+			sp := us.pq.Cost(t)
 
 			if s == t {
 				continue // sp == 0
@@ -138,7 +137,7 @@ func (us *Dijkstra[W]) constructShortestPath(s da.Index) ([]W, [][]da.Index) {
 		//  use reversed edges
 
 		for t := da.Index(0); t < da.Index(n); t++ {
-			sp := us.pq.GetCost(t)
+			sp := us.pq.Cost(t)
 
 			if s == t {
 				continue // sp == 0

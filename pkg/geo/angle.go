@@ -7,11 +7,9 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-/*
-BearingTo. menghitung sudut initial bearing untuk edge (p1,p2).
-https://www.movable-type.co.uk/scripts/latlong.html
-return in degree
-*/
+// BearingTo menghitung sudut initial bearing untuk edge (p1,p2).
+// https://www.movable-type.co.uk/scripts/latlong.html
+// return in degree
 func BearingTo(p1Lat, p1Lon, p2Lat, p2Lon float64) float64 {
 
 	dLon := util.DegreeToRadians(p2Lon - p1Lon)
@@ -27,6 +25,7 @@ func BearingTo(p1Lat, p1Lon, p2Lat, p2Lon float64) float64 {
 	return brng
 }
 
+// ComputeInitialBearing computes initial bearing.
 // https://www.movable-type.co.uk/scripts/latlong.html
 // initial bearing (bearing from a to b with meridian line crossing a).
 // return in radian.
@@ -36,6 +35,7 @@ func ComputeInitialBearing(lat1, lon1, lat2, lon2 float64) float64 {
 	return bearing
 }
 
+// ComputeFinalBearing computes final bearing.
 // final bearing (bearing from a to b with meridian line crossing b)
 func ComputeFinalBearing(lat1, lon1, lat2, lon2 float64) float64 {
 	bearing := BearingTo(lat2, lon2, lat1, lon1)
@@ -44,7 +44,7 @@ func ComputeFinalBearing(lat1, lon1, lat2, lon2 float64) float64 {
 	return bearing
 }
 
-// ComputeRelativeBearing. compute  relative bearing = (current edge initial bearing - prev edge initial bearing) . output in radians.
+// ComputeRelativeBearing compute  relative bearing = (current edge initial bearing - prev edge initial bearing) . output in radians.
 // current edge initial bearing = initialBearing dari titik prev ke titik current (curLat, curLon)
 // prevInitialBearing = prev edge initial bearing dari titik doublePrev ke titik prev.
 // prevInitialBearing in radians.
@@ -57,7 +57,7 @@ func ComputeRelativeBearing(prevLat, prevLon, curLat, curLon, prevInitialBearing
 }
 
 /*
-AngleDifference. compute minimum distance in degree between two angles.
+AngleDifference compute minimum distance in degree between two angles.
 input & output in radian.
 handle case ketika initialBearing-prevInitialBearing > 180° atau  initialBearing-prevInitialBearing < -180°.
 
@@ -161,26 +161,27 @@ func GetTurnDirection(prevLat, prevLon, lat, long, prevInitialBearing float64) d
 	switch {
 	case deltaDegree < 12:
 		// 12°
-		return da.CONTINUE_ON_STREET
+		return da.ContinueOnStreet
 	case deltaDegree < 40:
 		if delta < 0 {
-			return da.TURN_SLIGHT_LEFT
+			return da.TurnSlightLeft
 		}
-		return da.TURN_SLIGHT_RIGHT
+		return da.TurnSlightRight
 	case deltaDegree < 105:
 		if delta < 0 {
-			return da.TURN_LEFT
+			return da.TurnLeft
 		}
-		return da.TURN_RIGHT
+		return da.TurnRight
 	case delta < 0:
-		return da.TURN_SHARP_LEFT
+		return da.TurnSharpLeft
 	default:
-		return da.TURN_SHARP_RIGHT
+		return da.TurnSharpRight
 	}
 }
 
 const (
-	COLLINEAR_EPS = 1e-3
+	// CollinearEps is the collinear eps value.
+	CollinearEps = 1e-3
 )
 
 // cross. returns the cross product of two vectors a and b
@@ -191,9 +192,10 @@ func cross(ax, ay, bx, by float64) float64 {
 // collinear. returns true if point r is on the same line as the line pq
 func collinear(px, py, qx, qy, rx, ry float64) bool {
 	cp := math.Abs(cross(qx-px, qy-py, rx-px, ry-py))
-	return cp < COLLINEAR_EPS
+	return cp < CollinearEps
 }
 
+// IsPolylineCurved reports whether polyline curved.
 // IsPolylineCurved. return false jika semua points diantara endpoint (tail,head) dari coords is on the same line as the line (tail,head)
 func IsPolylineCurved(coords da.Coordinates) bool {
 	if len(coords) == 2 {

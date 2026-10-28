@@ -14,7 +14,7 @@ func NewIdMap() IDMap {
 	}
 }
 
-// GetID returns the ID for the given string, registering it if not present.
+// GetID returns the Id for the given string, registering it if not present.
 func (idMap *IDMap) GetID(str string) uint32 {
 	if id, ok := idMap.strToId[str]; ok {
 		return id
@@ -25,7 +25,7 @@ func (idMap *IDMap) GetID(str string) uint32 {
 	return id
 }
 
-// SetID registers an explicit ID for the given string.
+// SetID registers an explicit Id for the given string.
 func (idMap *IDMap) SetID(id uint32, str string) {
 	idMap.strToId[str] = id
 	idMap.idToStr[id] = str

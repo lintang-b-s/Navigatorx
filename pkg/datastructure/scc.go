@@ -5,6 +5,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// RunKosaraju runs kosaraju algorithm for finding strongly connected components.
 // https://cp-algorithms.com/graph/strongly-connected-components.html
 // inspired from kosaraju code implementation cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch4/traversal/UVa11838.cpp
 func (g *Graph) RunKosaraju() {
@@ -64,8 +65,8 @@ func (g *Graph) RunKosaraju() {
 	sccCondAdj := make([][]Index, len(components))
 	for fromRootId, adjRootIds := range condAdj {
 		sccOfV := sccs[fromRootId]
-		for _, adjRootID := range adjRootIds {
-			sccOfAdjRootId := sccs[adjRootID]
+		for _, adjRootId := range adjRootIds {
+			sccOfAdjRootId := sccs[adjRootId]
 			sccCondAdj[sccOfV] = append(sccCondAdj[sccOfV], sccOfAdjRootId)
 		}
 
@@ -87,7 +88,7 @@ func (g *Graph) buildReachabilityArr(sccCondAdjList [][]Index, topoSorted []Inde
 	// sccCondAdjList adlh condensation graph (directed acyclic graph) hasil kosaraju SCC.
 
 	for v := 0; v < n; v++ {
-		bs := bitset.New(INITIAL_REACHIBILITY_BITSET_SIZE)
+		bs := bitset.New(InitialReachibilityBitsetSize)
 		bs.Set(uint(v))
 		reach[v] = bs
 	}
@@ -139,6 +140,7 @@ func (g *Graph) topoSort(sccCondAdjList [][]Index) []Index {
 	return topoSorted
 }
 
+// Dfs handles dfs.
 func (g *Graph) Dfs(v Index, output *[]Index, visited []bool,
 	reversed bool) {
 	// discovered v
@@ -175,12 +177,13 @@ func (g *Graph) pathExistsCondensationGraph(u, v Index) bool {
 	return uvPathExists
 }
 
+// SccVCanBeReachedBySccU handles scc v can be reached by scc u.
 func (g *Graph) SccVCanBeReachedBySccU(sccu, sccv Index) bool {
 	uvPathExists := g.sccReach[sccv].Test(uint(sccu))
 	return uvPathExists
 }
 
-// dfsCondensationGraph. dfs di condesation graph
+// DfsCondensationGraph handles dfs on condensation graph.
 // O(V_G + E_G), V_G=number of sccs in graph/number of vertices in condensation graph, E_G=number of edges in condensation graph
 func (g *Graph) DfsCondensationGraph(u Index, t Index, discovered []bool, uvPathExists *bool) {
 	if u == t {
@@ -203,7 +206,7 @@ func (g *Graph) DfsCondensationGraph(u Index, t Index, discovered []bool, uvPath
 	}
 }
 
-// PathExists. cek apakah ada path (tanpa costs) dari u ke v .
+// PathExists cek apakah ada path (tanpa costs) dari u ke v .
 // kalau u dan v terdapat dalam scc yang sama, then its strongly connected atau ada path dari u ke v dan sebaliknya
 // kita sudah precompute condensation graph yang merupakan directed acyclic graph (DAG) dengan vertices nya adalah sccs dari graph
 // dan terdapat edge dari scc c1 ke scc c2 jika pada graph terdapat simpul in c1 yang memiliki edge dengan head in c2.
@@ -221,25 +224,32 @@ func (g *Graph) PathExists(u, v Index) bool {
 	return g.pathExistsCondensationGraph(u, v)
 }
 
+// SetSCCs sets sccs.
 func (g *Graph) SetSCCs(sccs []Index) {
 	g.sccs = sccs
 }
 
+// SetSCCCondensationAdj sets scccondensation adj.
 func (g *Graph) SetSCCCondensationAdj(adj [][]Index) {
 	g.sccCondensationAdj = adj
 }
 
+// SetSccReach sets scc reach.
 func (g *Graph) SetSccReach(sccReach []*bitset.BitSet) {
 	g.sccReach = sccReach
 }
 
+// GetSCCOfAVertex returns scc of a vertex u.
 func (g *Graph) GetSCCOfAVertex(u Index) Index {
 	return g.sccs[u]
 }
 
+// GetSCCS returns sccs.
 func (g *Graph) GetSCCS() []Index {
 	return g.sccs
 }
+
+// GetSCCCondensationAdjList returns scccondensation adj list.
 func (g *Graph) GetSCCCondensationAdjList() [][]Index {
 	return g.sccCondensationAdj
 }

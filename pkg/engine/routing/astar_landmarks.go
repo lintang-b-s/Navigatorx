@@ -9,7 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// ALTP2P .
+// ALTP2P ALT (A*, Landmarks, and Triangle Inequality) Algorithm.
 type ALTP2P[W util.Numeric] struct {
 	engine          *CRPRoutingEngine[W]
 	metrics         *metrics.Metric[W]
@@ -20,6 +20,7 @@ type ALTP2P[W util.Numeric] struct {
 	numSettledNodes int
 }
 
+// NewALTP2P creates and returns altp2p.
 func NewALTP2P[W util.Numeric](
 	engine *CRPRoutingEngine[W],
 ) ALTP2P[W] {
@@ -33,10 +34,11 @@ func NewALTP2P[W util.Numeric](
 	return dj
 }
 
+// ShortestPath compute point-to-point shortest path
 func (us *ALTP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 
 	us.activeLandmarks = us.lm.SelectBestQueryLandmarks(s, t)
-	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
+	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
 
 	now := time.Now()
 
@@ -44,7 +46,7 @@ func (us *ALTP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 	us.pq.Insert(s, 0, sVertexData, djKey)
 
 	for !us.pq.IsEmpty() {
-		finish := us.graphSearchUni(s, t)
+		finish := us.graphSearchUni(t)
 		us.numSettledNodes++
 		if finish {
 			break
@@ -59,7 +61,7 @@ func (us *ALTP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 	return sp, spPath
 }
 
-func (us *ALTP2P[W]) graphSearchUni(source, target da.Index) bool {
+func (us *ALTP2P[W]) graphSearchUni(target da.Index) bool {
 
 	queryKey := us.pq.ExtractMin()
 	uItem := queryKey.GetItem()
@@ -74,9 +76,9 @@ func (us *ALTP2P[W]) graphSearchUni(source, target da.Index) bool {
 		vId := head
 		eWeight := us.metrics.GetWeight(eId)
 		// get cost to reach v through u
-		newVCost := us.pq.GetCost(uId) + eWeight
+		newVCost := us.pq.Cost(uId) + eWeight
 
-		ovCost := us.pq.GetCost(vId)
+		ovCost := us.pq.Cost(vId)
 		if util.Ge(newVCost, ovCost) {
 			// newVCost is not better, do nothing
 			return
@@ -102,18 +104,19 @@ func (us *ALTP2P[W]) graphSearchUni(source, target da.Index) bool {
 	return false
 }
 
+// Preallocate handles preallocate priority queue.
 func (us *ALTP2P[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
 
-	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ARRAY_STORAGE)
+	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ArrayStorageMode)
 	us.pq.PreallocateHeap(maxSearchSize)
 }
 
 func (us *ALTP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 	spPath := make([]da.Index, 0)
 
-	sp := us.pq.GetCost(t)
+	sp := us.pq.Cost(t)
 
 	if s == t || sp == util.Infinity[W]() {
 		return sp, spPath
@@ -135,6 +138,7 @@ func (us *ALTP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 	return sp, spPath
 }
 
+// GetStats returns stats.
 func (us *ALTP2P[W]) GetStats(n int) (float64, int, int64) {
 	// efficiency:
 	//    https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/GH05.pdf

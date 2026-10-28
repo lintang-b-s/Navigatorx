@@ -9,15 +9,15 @@ func TestParseTurnRestriction(t *testing.T) {
 		input string
 		want  TurnRestriction
 	}{
-		{"no_left_turn", NO_LEFT_TURN},
-		{"no_right_turn", NO_RIGHT_TURN},
-		{"no_straight_on", NO_STRAIGHT_ON},
-		{"no_u_turn", NO_U_TURN},
-		{"only_left_turn", ONLY_LEFT_TURN},
-		{"only_right_turn", ONLY_RIGHT_TURN},
-		{"only_straight_on", ONLY_STRAIGHT_ON},
-		{"no_entry", NO_ENTRY},
-		{"no_exit", NO_EXIT},
+		{"no_left_turn", NoLeftTurn},
+		{"no_right_turn", NoRightTurn},
+		{"no_straight_on", NoStraightOn},
+		{"no_u_turn", NoUTurn},
+		{"only_left_turn", OnlyLeftTurn},
+		{"only_right_turn", OnlyRightTurn},
+		{"only_straight_on", OnlyStraightOn},
+		{"no_entry", NoEntry},
+		{"no_exit", NoExit},
 		{"invalid", INVALID},
 		{"unknown", NONE},
 		{"", NONE},
@@ -37,14 +37,14 @@ func TestGetBarrierType(t *testing.T) {
 		want  BarrierTypeT
 	}{
 		{"bollard", BOLLARD},
-		{"swing_gate", SWING_GATE},
-		{"jersey_barrier", JERSEY_BARRIER},
-		{"lift_gate", LIFT_GATE},
+		{"swing_gate", SwingGate},
+		{"jersey_barrier", JerseyBarrier},
+		{"lift_gate", LiftGate},
 		{"block", BLOCK},
 		{strGate, GATE},
 		{"removable", REMOVABLE},
-		{"", NO_BARRIER},
-		{"unknown", INVALID_BARRIER},
+		{"", NoBarrier},
+		{"unknown", InvalidBarrier},
 	}
 
 	for _, tc := range testCases {

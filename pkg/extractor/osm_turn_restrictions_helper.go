@@ -12,7 +12,7 @@ import (
 // kumpulan helper functions untuk process via-node turn restrictions & (multi)-via-way turn-restrictions dari OpenStreetMap
 // addTwoWayTurnCost. add turn cost untuk u-turn di two-way osm way (road segment).
 // didaptasi dari https://github.com/michaelwegner/CRP/blob/master/io/OSMParser.cpp
-func addTwoWayTurnCost[W util.Numeric](p *Extractor[W], wayId int64, way osmWay, outEdges [][]da.Index,
+func addTwoWayTurnCost[W util.Numeric](p *Extractor[W], wayId int64, way OsmWay, outEdges [][]da.Index,
 	inEdges [][]da.Index, turnMatrices [][]pkg.TurnType, outDegree []int) {
 	/*
 		misal osm way (twoway):
@@ -31,10 +31,10 @@ func addTwoWayTurnCost[W util.Numeric](p *Extractor[W], wayId int64, way osmWay,
 			u4->u3->u4
 	*/
 	if !way.oneWay {
-		uturnType := pkg.U_TURN
+		uturnType := pkg.UTurn
 		if _, reversible := p.reversibleOsmWay[wayId]; reversible {
 			// If a vehicle travels a oneway=reversible in any direction, routing engines should infer u-turn restriction
-			uturnType = pkg.NO_ENTRY
+			uturnType = pkg.NoEntry
 		}
 
 		for i, via := range way.graphNodes {
@@ -167,9 +167,9 @@ func addTwoWayTurnCost[W util.Numeric](p *Extractor[W], wayId int64, way osmWay,
 
 // handler via-node turn restriction
 // didaptasi dari https://github.com/michaelwegner/CRP/blob/master/io/OSMParser.cpp
-func addViaNodeTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way osmWay, fromNodes []da.Index, restriction restriction, fromResId int, outEdges [][]da.Index,
+func addViaNodeTurnRestriction[W util.Numeric](p *Extractor[W], _ int64, way OsmWay, fromNodes []da.Index, restriction Restriction, _ int, outEdges [][]da.Index,
 	inEdges [][]da.Index, outDegree []int, vertices []da.Vertex, turnMatrices [][]pkg.TurnType, conditionalTurnRestrictions *[]da.ConditionalTurnRestriction,
-	isParallelOutEdge, isParallelInEdge [][]bool) {
+	isParallelOutEdge, _ [][]bool) {
 	/*
 			turn restriction berbentuk: {from-way, via-node, to-way}
 			di kode ini:
@@ -282,7 +282,7 @@ func addViaNodeTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way
 					if !restriction.conditional {
 						switch restriction.turnRestriction {
 						// handle ONLY_LEFT_TURN/ONLY_RIGHT_TURN/ONLY_STRAIGHT_ON
-						case ONLY_LEFT_TURN:
+						case OnlyLeftTurn:
 							/*
 									. = restriction.via node
 
@@ -304,32 +304,32 @@ func addViaNodeTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way
 								viaCoord.GetLon())
 							turn := geo.GetTurnDirection(viaCoord.GetLat(), viaCoord.GetLon(), wCoord.GetLat(),
 								wCoord.GetLon(), prevInitialBearing)
-							if turn == da.TURN_SLIGHT_RIGHT || turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT || turn == da.CONTINUE_ON_STREET {
+							if turn == da.TurnSlightRight || turn == da.TurnRight || turn == da.TurnSharpRight || turn == da.ContinueOnStreet {
 								// dissallow semua turn right...
 								// https://www.openstreetmap.org/relation/19516441#map=18/-7.774471/110.380569
 								// https://www.openstreetmap.org/relation/19514924
-								turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+								turnMatrices[via][rowOffset+da.Index(k)] = pkg.NoEntry
 							}
 
-						case ONLY_RIGHT_TURN:
+						case OnlyRightTurn:
 
 							prevInitialBearing := geo.ComputeInitialBearing(uCoord.GetLat(), uCoord.GetLon(), viaCoord.GetLat(),
 								viaCoord.GetLon())
 							turn := geo.GetTurnDirection(viaCoord.GetLat(), viaCoord.GetLon(), wCoord.GetLat(),
 								wCoord.GetLon(), prevInitialBearing)
-							if turn == da.TURN_SLIGHT_LEFT || turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT || turn == da.CONTINUE_ON_STREET {
+							if turn == da.TurnSlightLeft || turn == da.TurnLeft || turn == da.TurnSharpLeft || turn == da.ContinueOnStreet {
 								// dissallow semua turn left...
 								// https://www.openstreetmap.org/relation/19514925
-								turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+								turnMatrices[via][rowOffset+da.Index(k)] = pkg.NoEntry
 							}
 
-						case ONLY_STRAIGHT_ON:
+						case OnlyStraightOn:
 							prevInitialBearing := geo.ComputeInitialBearing(uCoord.GetLat(), uCoord.GetLon(), viaCoord.GetLat(),
 								viaCoord.GetLon())
 							turn := geo.GetTurnDirection(viaCoord.GetLat(), viaCoord.GetLon(), wCoord.GetLat(),
 								wCoord.GetLon(), prevInitialBearing)
-							if turn == da.TURN_LEFT || turn == da.TURN_SHARP_LEFT ||
-								turn == da.TURN_RIGHT || turn == da.TURN_SHARP_RIGHT {
+							if turn == da.TurnLeft || turn == da.TurnSharpLeft ||
+								turn == da.TurnRight || turn == da.TurnSharpRight {
 								// contoh2: openstreetmap.org/relation/19516443 , (only_straight_on) ini kedetect nya TURN_SLIGHT_LEFT buat ke arah UNY...
 								// padahal continue ..
 								// how to fix?? gak usah include TURN_SLIGHT_LEFT buat NO_ENTRY nya only_straight_on
@@ -338,7 +338,7 @@ func addViaNodeTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way
 
 								// dissallow semua turn right dan turn left...
 								// contoh: http://openstreetmap.org/relation/19474168
-								turnMatrices[via][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+								turnMatrices[via][rowOffset+da.Index(k)] = pkg.NoEntry
 							}
 
 						}
@@ -355,27 +355,27 @@ func addViaNodeTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way
 
 				var turnType pkg.TurnType
 				switch restriction.turnRestriction {
-				case NO_LEFT_TURN:
-					turnType = pkg.NO_ENTRY
+				case NoLeftTurn:
+					turnType = pkg.NoEntry
 
-				case NO_RIGHT_TURN: // contoh: https://www.openstreetmap.org/relation/5710505
-					turnType = pkg.NO_ENTRY
+				case NoRightTurn: // contoh: https://www.openstreetmap.org/relation/5710505
+					turnType = pkg.NoEntry
 
-				case NO_STRAIGHT_ON:
-					turnType = pkg.NO_ENTRY
+				case NoStraightOn:
+					turnType = pkg.NoEntry
 
-				case NO_U_TURN: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
-					turnType = pkg.NO_ENTRY
+				case NoUTurn: // harus NO_ENTRY karena gak boleh u-turn: example: https://www.openstreetmap.org/relation/10732316#map=19/-7.566370/110.775455
+					turnType = pkg.NoEntry
 
-				case NO_ENTRY:
-					turnType = pkg.NO_ENTRY
+				case NoEntry:
+					turnType = pkg.NoEntry
 
-				case ONLY_LEFT_TURN:
-					turnType = pkg.LEFT_TURN
+				case OnlyLeftTurn:
+					turnType = pkg.LeftTurn
 
-				case ONLY_RIGHT_TURN:
-					turnType = pkg.RIGHT_TURN
-				case ONLY_STRAIGHT_ON: // udah kita dissalow semua right & left turn di loc diatas
+				case OnlyRightTurn:
+					turnType = pkg.RightTurn
+				case OnlyStraightOn: // udah kita dissalow semua right & left turn di loc diatas
 					turnType = pkg.NONE
 				default:
 					turnType = pkg.NONE
@@ -402,7 +402,7 @@ type parallelViaKey struct {
 }
 
 // addParallelViaEdges. add parallel via-edges for each via-ways
-func addParallelViaEdges[W util.Numeric](p *Extractor[W], wayId int64, way osmWay, newDataId int, outEdges [][]da.Index, inEdges [][]da.Index,
+func addParallelViaEdges[W util.Numeric](p *Extractor[W], wayId int64, way OsmWay, newDataId int, outEdges [][]da.Index, inEdges [][]da.Index,
 	entryPointsAdjList, exitPointsAdjList [][]uint8, rn *da.RoadNetworkDataContainer,
 	segmentDataIds [][]da.Index, outWeights [][]W, outLengths, inLengths [][]uint32, outDegree, inDegree []int, isParallelOutEdge, isParallelInEdge [][]bool,
 	parallelViaEdges map[parallelViaKey]da.Index,
@@ -533,7 +533,7 @@ func addParallelViaEdges[W util.Numeric](p *Extractor[W], wayId int64, way osmWa
 				}
 
 				viaExitPoint := 0 // index of outgoing via-edge in outgoing edges of tail
-				viaDataId := da.Index(da.INVALID_SEGMENT_ID)
+				viaDataId := da.Index(da.InvalidSegmentId)
 
 				for tailExitPoint, eHead := range outEdges[tail] {
 					cViaDataId := segmentDataIds[tail][tailExitPoint]
@@ -548,7 +548,7 @@ func addParallelViaEdges[W util.Numeric](p *Extractor[W], wayId int64, way osmWa
 					}
 				}
 
-				if viaDataId == da.INVALID_SEGMENT_ID {
+				if viaDataId == da.InvalidSegmentId {
 					continue
 				}
 
@@ -604,8 +604,8 @@ func addParallelViaEdges[W util.Numeric](p *Extractor[W], wayId int64, way osmWa
 
 // addViaWayTurnRestriction.  handler via-way turn restriction (dan multiple via-ways turn restriction)
 // restriction is one via-way (or via-ways) turn restriction from wayId
-func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way osmWay, fromNodes []da.Index, restriction restriction, fromResId int, outEdges [][]da.Index,
-	inEdges [][]da.Index, rn *da.RoadNetworkDataContainer, segmentDataIds [][]da.Index, turnMatrices [][]pkg.TurnType, outDegree, inDegree []int, isParallelOutEdge, isParallelInEdge [][]bool,
+func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way OsmWay, fromNodes []da.Index, restriction Restriction, _ int, outEdges [][]da.Index,
+	inEdges [][]da.Index, rn *da.RoadNetworkDataContainer, segmentDataIds [][]da.Index, turnMatrices [][]pkg.TurnType, outDegree, _ []int, isParallelOutEdge, isParallelInEdge [][]bool,
 	parallelViaEdges map[parallelViaKey]da.Index) {
 	if !IsNotAllowedToTurnType(restriction.turnRestriction) || restriction.conditional {
 		// currently only support via-way turn restriction yang no_* (no_left_turn, no_u_turn, etc.)
@@ -827,7 +827,7 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 							} else {
 								// kasih turn cost INF buat transisi dari  all other inEdges dari tail (selain from-edge) -> tail -> via-edge 2
 
-								turnMatrices[tail][k*da.Index(outDegree[tail])+viaParallelTailExitPoint] = pkg.NO_ENTRY
+								turnMatrices[tail][k*da.Index(outDegree[tail])+viaParallelTailExitPoint] = pkg.NoEntry
 							}
 						}
 					} else {
@@ -837,7 +837,7 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 						for k := da.Index(0); k < da.Index(len(inEdges[tail])); k++ {
 							if k != tailEntryPoint {
 
-								turnMatrices[tail][k*da.Index(outDegree[tail])+viaParallelTailExitPoint] = pkg.NO_ENTRY
+								turnMatrices[tail][k*da.Index(outDegree[tail])+viaParallelTailExitPoint] = pkg.NoEntry
 							}
 						}
 					}
@@ -857,7 +857,7 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 							viaEdgeTailExitPoint = k
 						} else if outEdgeHead == head && !validOutEdge && k != viaParallelTailExitPoint {
 							// kasih turn cost INF buat transisi dari from-edge -> tail -> parallel via-edge (tail, head) lain
-							turnMatrices[tail][rowOffset+k] = pkg.NO_ENTRY
+							turnMatrices[tail][rowOffset+k] = pkg.NoEntry
 						}
 					}
 
@@ -869,7 +869,7 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 					turnMatrices[tail][rowOffset+viaParallelTailExitPoint] = pkg.NONE
 
 					// kasih turn cost INF buat transisi dari from-edge -> tail -> via-edge 1
-					turnMatrices[tail][rowOffset+viaEdgeTailExitPoint] = pkg.NO_ENTRY
+					turnMatrices[tail][rowOffset+viaEdgeTailExitPoint] = pkg.NoEntry
 
 					// such that all route coming from this from-edge routed to parallel via-edge 2, that in the end will not routed to to-edge of this via-way (or via-ways) turn restriction
 
@@ -882,10 +882,10 @@ func addViaWayTurnRestriction[W util.Numeric](p *Extractor[W], wayId int64, way 
 							eDataId := segmentDataIds[head][k]
 							if outEdgeHead == successor && int64(rn.GetOsmWayId(eDataId)) == restriction.to {
 								switch restriction.turnRestriction {
-								case NO_LEFT_TURN, NO_RIGHT_TURN, NO_STRAIGHT_ON, NO_U_TURN, NO_ENTRY:
+								case NoLeftTurn, NoRightTurn, NoStraightOn, NoUTurn, NoEntry:
 									// dari parallel via-edge 2 ke to-edge assign turn cost INF (karena OSM u-turn restriction diatas).. such that route from from-edge -> parallel via-edge 2 -> to-edge forbidden...
 									// give forbidden turn from parallel via-edge 2 -> to-edge
-									turnMatrices[head][rowOffset+da.Index(k)] = pkg.NO_ENTRY
+									turnMatrices[head][rowOffset+da.Index(k)] = pkg.NoEntry
 								default:
 									// dari via-edge 1 ke to-edge assign turn cost 0... such that route from all other edge (except from-edge) -> via-edge 1 -> to-edge can pass through ...
 									turnMatrices[head][rowOffset+da.Index(k)] = pkg.NONE
@@ -910,7 +910,7 @@ func setConditionalRestrictions[W util.Numeric](p *Extractor[W], roadNetwork boo
 	conditionalSpeedLimits := make([]da.ConditionalSpeedLimit, 0)
 	conditionalTrafficModesVal := make([]da.ConditionalTrafficMode, 0)
 	if roadNetwork {
-		graph.ForOutEdges(func(exitPoint uint8, head, tail da.Index, entryPoint uint8, percentage float64, eId da.Index) {
+		graph.ForOutEdges(func(_ uint8, _, _ da.Index, _ uint8, _ float64, eId da.Index) {
 
 			eWayId := rn.GetOsmWayId(eId)
 			reversibleVal := p.conditionalReversibleWayVals[int64(eWayId)]

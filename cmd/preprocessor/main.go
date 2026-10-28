@@ -128,7 +128,6 @@ func main() {
 	}
 
 	prep := prepo.NewPreprocessor(ebg, rn, wf, mlp, logger)
-	prep.SetWriteTiles(true)
 	err = prep.PreProcessing(true)
 	if err != nil {
 		logger.Fatal(err.Error())

@@ -7,6 +7,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// WriteToFile writes the overlay graph to file.
 func (og *OverlayGraph) WriteToFile(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 
@@ -32,7 +33,7 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 				return err
 			}
 		}
-		if err := w.Uint32(og.weightVectorSize); err != nil {
+		if err := w.Uint32(og.shortcutWeightsSize); err != nil {
 			return err
 		}
 		if err := writeIndices(w, og.overlayIdMapping); err != nil {
@@ -72,6 +73,7 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 	})
 }
 
+// ReadOverlayGraph reads overlay graph from file.
 func ReadOverlayGraph(filename string) (*OverlayGraph, error) {
 	file, r, err := util.OpenCompressedFile(filename)
 	if err != nil {

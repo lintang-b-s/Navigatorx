@@ -12,7 +12,7 @@ func TestQueryHeap(t *testing.T) {
 		rd := rand.New(rand.NewSource((time.Now().UnixNano())))
 
 		numInputs := int32(1e5)
-		pq := NewQueryHeap[int32, int32](Index(numInputs), ARRAY_STORAGE)
+		pq := NewQueryHeap[int32, int32](Index(numInputs), ArrayStorageMode)
 		// insert
 		sortedArr := make([]int32, numInputs)
 		for i := 0; i < int(numInputs); i++ {

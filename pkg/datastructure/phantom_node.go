@@ -38,6 +38,7 @@ setiap graph edge di routing engine punya geometry buat representasi bentuk asli
 
 */
 
+// PhantomNode represents phantom node.
 type PhantomNode struct {
 	v                 Index
 	snappedCoordinate Coordinate
@@ -49,6 +50,7 @@ type PhantomNode struct {
 	reverseGeometry   []Coordinate
 }
 
+// NewPhantomNode creates and returns phantom node.
 func NewPhantomNode(v Index,
 	snappedCoordinate Coordinate,
 	forwardCost float64,
@@ -61,50 +63,62 @@ func NewPhantomNode(v Index,
 		v: v, forwardGeometry: forwardGeometry, reverseGeometry: reverseGeometry, forwardDistance: forwardDistance, reverseDistance: reverseDistance}
 }
 
+// NewInvalidPhantomNode creates and returns invalid phantom node.
 func NewInvalidPhantomNode() PhantomNode {
-	return PhantomNode{v: INVALID_VERTEX_ID}
+	return PhantomNode{v: InvalidVertexId}
 }
 
+// IsPhantomNodeInvalid reports whether phantom node invalid.
 func IsPhantomNodeInvalid(pp PhantomNode) bool {
-	return pp.v == INVALID_VERTEX_ID
+	return pp.v == InvalidVertexId
 }
 
+// GetSnappedCoord returns snapped coord.
 func (p *PhantomNode) GetSnappedCoord() Coordinate {
 	return p.snappedCoordinate
 }
 
+// GetForwardCost returns forward cost.
 func (p *PhantomNode) GetForwardCost() float64 {
 	return p.forwardCost
 }
 
+// GetReverseCost returns reverse cost.
 func (p *PhantomNode) GetReverseCost() float64 {
 	return p.reverseCost
 }
 
+// SetReverseCost sets reverse cost.
 func (p *PhantomNode) SetReverseCost(reverseCost float64) {
 	p.reverseCost = reverseCost
 }
 
+// GetForwardDistance returns forward distance.
 func (p *PhantomNode) GetForwardDistance() float64 {
 	return p.forwardDistance
 }
 
+// GetReverseDistance returns reverse distance.
 func (p *PhantomNode) GetReverseDistance() float64 {
 	return p.reverseDistance
 }
 
+// SetReverseDistance sets reverse distance.
 func (p *PhantomNode) SetReverseDistance(reverseDistance float64) {
 	p.reverseDistance = reverseDistance
 }
 
+// GetVId returns graph vertex id.
 func (p *PhantomNode) GetVId() Index {
 	return p.v
 }
 
+// GetForwardGeometry returns forward geometry.
 func (p *PhantomNode) GetForwardGeometry() []Coordinate {
 	return p.forwardGeometry
 }
 
+// GetReverseGeometry returns reverse geometry.
 func (p *PhantomNode) GetReverseGeometry() []Coordinate {
 	return p.reverseGeometry
 }

@@ -20,7 +20,7 @@ func (e *errorResponseWriter) Header() http.Header {
 	return e.ResponseWriter.Header()
 }
 
-func (e *errorResponseWriter) Write(b []byte) (int, error) {
+func (e *errorResponseWriter) Write(_ []byte) (int, error) {
 	return 0, errors.New("write error")
 }
 
@@ -30,7 +30,7 @@ func (e *errorResponseWriter) WriteHeader(statusCode int) {
 
 func TestRoutingAPI_ErrorResponse(t *testing.T) {
 	log := zap.NewNop()
-	api := &routingAPI{log: log}
+	api := &RoutingAPI{log: log}
 
 	t.Run("Internal Server Error", func(t *testing.T) {
 		rr := httptest.NewRecorder()
@@ -86,7 +86,7 @@ func TestRoutingAPI_ErrorResponse(t *testing.T) {
 		assert.Equal(t, "Bearer", rr.Header().Get("WWWW-Authenticate"))
 	})
 
-	t.Run("WriteJSON Error", func(t *testing.T) {
+	t.Run("WriteJSON Error", func(_ *testing.T) {
 		rr := httptest.NewRecorder()
 		req, _ := http.NewRequest("GET", "/", nil)
 		erw := &errorResponseWriter{ResponseWriter: rr}
@@ -96,7 +96,7 @@ func TestRoutingAPI_ErrorResponse(t *testing.T) {
 }
 
 func TestRoutingAPI_GetStatusCode(t *testing.T) {
-	api := &routingAPI{log: zap.NewNop()}
+	api := &RoutingAPI{log: zap.NewNop()}
 	req, _ := http.NewRequest("GET", "/", nil)
 
 	t.Run("Nil Error", func(t *testing.T) {

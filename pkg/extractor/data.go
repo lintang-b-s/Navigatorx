@@ -9,7 +9,8 @@ type node struct {
 	coord da.Coordinate
 }
 
-type restriction struct {
+// Restriction stores the OSM identifiers and conditions for a turn restriction.
+type Restriction struct {
 	id              int64           // id dari relation turn restriction
 	via             int64           // via-node graph node id
 	viaWays         []int64         // via-ways osm id
@@ -20,62 +21,76 @@ type restriction struct {
 	conditional     bool
 }
 
-func (r restriction) GetId() int64 {
+// GetId returns the OSM identifier of the restriction.
+func (r Restriction) GetId() int64 {
 	return r.id
 }
 
-func (r restriction) GetVia() int64 {
+// GetVia returns the via-node identifier of the restriction.
+func (r Restriction) GetVia() int64 {
 	return r.via
 }
 
-func (r restriction) GetViaWays() []int64 {
+// GetViaWays returns the identifiers of the via ways in the restriction.
+func (r Restriction) GetViaWays() []int64 {
 	return r.viaWays
 }
 
-func (r restriction) GetTo() int64 {
+// GetTo returns the identifier of the restriction's destination way.
+func (r Restriction) GetTo() int64 {
 	return r.to
 }
 
-func (r restriction) GetTurnRestriction() TurnRestriction {
+// GetTurnRestriction returns the restriction type.
+func (r Restriction) GetTurnRestriction() TurnRestriction {
 	return r.turnRestriction
 }
 
-func (r restriction) GetTimeRangeVal() string {
+// GetTimeRangeVal returns the conditional time range.
+func (r Restriction) GetTimeRangeVal() string {
 	return r.timeRangeVal
 }
 
-func (r restriction) GetIsWay() bool {
+// GetIsWay reports whether the restriction uses a via way.
+func (r Restriction) GetIsWay() bool {
 	return r.isWay
 }
 
-func (r restriction) IsWay() bool {
+// IsWay reports whether the restriction uses a via way.
+func (r Restriction) IsWay() bool {
 	return r.isWay
 }
 
-func (r restriction) GetConditional() bool {
+// GetConditional reports whether the restriction is conditional.
+func (r Restriction) GetConditional() bool {
 	return r.conditional
 }
 
-func (r restriction) IsConditional() bool {
+// IsConditional reports whether the restriction is conditional.
+func (r Restriction) IsConditional() bool {
 	return r.conditional
 }
 
-type osmWay struct {
+// OsmWay stores an OSM way's node identifiers.
+type OsmWay struct {
 	nodes      []int64    // osm  nodes dari osm way ini
 	graphNodes []da.Index // osm nodes yang jadi graph node dari osm way ini
 	oneWay     bool
 	hwTag      string
 }
 
-func (o osmWay) GetOsmNodes() []int64 {
+// GetOsmNodes returns the node identifiers in the OSM way.
+func (o OsmWay) GetOsmNodes() []int64 {
 	return o.nodes
 }
 
-type nodeWithCoord struct {
+// NodeWithCoord pairs an OSM node identifier with its coordinate.
+type NodeWithCoord struct {
 	tipe  NodeType
 	coord da.Coordinate
 }
 
-func (n nodeWithCoord) GetCoord() da.Coordinate {
+// GetCoord returns the node's coordinate.
+func (n NodeWithCoord) GetCoord() da.Coordinate {
 	return n.coord
 }

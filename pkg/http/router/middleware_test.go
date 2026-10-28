@@ -10,7 +10,7 @@ import (
 )
 
 func TestMiddleware_RealIP(t *testing.T) {
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -120,7 +120,7 @@ func TestMiddleware_Heartbeat(t *testing.T) {
 
 func TestMiddleware_Logger(t *testing.T) {
 	log := zap.NewNop()
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -135,7 +135,7 @@ func TestMiddleware_Logger(t *testing.T) {
 }
 
 func TestMiddleware_EnforceJSONHandler(t *testing.T) {
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -206,7 +206,7 @@ func TestMiddleware_Labels(t *testing.T) {
 }
 
 func TestMiddleware_Limit(t *testing.T) {
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	api := NewAPI(zap.NewNop())
@@ -283,7 +283,7 @@ func TestAPI_RecoverPanic(t *testing.T) {
 	log := zap.NewNop()
 	api := NewAPI(log)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		panic("test panic")
 	})
 

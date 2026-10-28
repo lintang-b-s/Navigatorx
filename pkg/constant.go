@@ -82,10 +82,9 @@ const (
 	MINIBUS
 )
 
-//revive:disable:var-naming
 var (
-	// NUM_CPU is the number of logical CPUs usable by the current process.
-	NUM_CPU = runtime.NumCPU()
+	// NumCPU is the number of logical CPUs usable by the current process.
+	NumCPU = runtime.NumCPU()
 	// ProfileName specifies the routing profile name (e.g. "car").
 	ProfileName = "car"
 	// RegionName specifies the active map region name.
@@ -128,8 +127,6 @@ var (
 		TAXI: {},
 	}
 )
-
-//revive:enable:var-naming
 
 // GetVehicleType returns the VehicleTypeT corresponding to a vehicle string.
 func GetVehicleType(vehicleType string) VehicleTypeT {
@@ -194,35 +191,27 @@ func GetIsVehicle() bool {
 type TurnType uint8
 
 // TurnType constants representing turn directions.
-//
-//revive:disable:var-naming
 const (
 	NONE TurnType = iota // turn cost  = 0
-	LEFT_TURN
-	RIGHT_TURN
-	STRAIGHT_ON
-	U_TURN
-	NO_ENTRY // turn cost = INF_WEIGHT
+	LeftTurn
+	RightTurn
+	StraightOn
+	UTurn
+	NoEntry // turn cost = INF_WEIGHT
 )
-
-//revive:enable:var-naming
 
 // Weight and distance threshold constants.
-//
-//revive:disable:var-naming
 const (
-	INF_WEIGHT        float64 = 1e15
-	INF_WEIGHT_INT    int64   = 1e15
-	DUMMY_EDGE_LENGTH float64 = 1.0
+	InfWeight       float64 = 1e15
+	InfWeightInt    int64   = 1e15
+	DummyEdgeLength float64 = 1.0
 
-	TRAFFIC_LIGHT_ADDITIONAL_WEIGHT_SECOND float64 = 0.0
-	ALTERNATIVE_ROUTE_SIMILARITY_THRESHOLD float64 = 92.0
+	TrafficLightAdditionalWeightSecond  float64 = 0.0
+	AlternativeRouteSimilarityThreshold float64 = 92.0
 
-	INVALID_LAT float64 = 91
-	INVALID_LON float64 = 181
+	InvalidLat float64 = 91
+	InvalidLon float64 = 181
 )
-
-//revive:enable:var-naming
 
 // DEBUG flag enables debug logging and assertions when true.
 const (
@@ -235,41 +224,37 @@ type OsmHighwayType uint8
 // OSM highway type enum for routing: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
 // https://wiki.openstreetmap.org/wiki/Routing
 // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla
-//
-//revive:disable:var-naming
 const (
-	MOTORWAY         OsmHighwayType = 0
-	TRUNK            OsmHighwayType = 1
-	PRIMARY          OsmHighwayType = 2
-	SECONDARY        OsmHighwayType = 3
-	TERTIARY         OsmHighwayType = 4
-	RESIDENTIAL      OsmHighwayType = 5
-	SERVICE          OsmHighwayType = 6
-	UNCLASSIFIED     OsmHighwayType = 7
-	MOTORWAY_LINK    OsmHighwayType = 8
-	TRUNK_LINK       OsmHighwayType = 9
-	PRIMARY_LINK     OsmHighwayType = 10
-	SECONDARY_LINK   OsmHighwayType = 11
-	TERTIARY_LINK    OsmHighwayType = 12
-	LIVING_STREET    OsmHighwayType = 13
-	ROAD             OsmHighwayType = 14
-	TRACK            OsmHighwayType = 15
-	MOTORROAD        OsmHighwayType = 16
-	UNKNOWN          OsmHighwayType = 17
-	RESIDENTIAL_LINK OsmHighwayType = 18
-	PRIVATE          OsmHighwayType = 19
-	FOOTWAY          OsmHighwayType = 20
-	PEDESTRIAN       OsmHighwayType = 21
-	STEPS            OsmHighwayType = 22
-	FERRY            OsmHighwayType = 23
-	CYCLEWAY         OsmHighwayType = 24 // https://wiki.openstreetmap.org/wiki/Tag:highway%3Dcycleway
-	PATH             OsmHighwayType = 25
-	BUS_GUIDEWAY     OsmHighwayType = 26
+	MOTORWAY        OsmHighwayType = 0
+	TRUNK           OsmHighwayType = 1
+	PRIMARY         OsmHighwayType = 2
+	SECONDARY       OsmHighwayType = 3
+	TERTIARY        OsmHighwayType = 4
+	RESIDENTIAL     OsmHighwayType = 5
+	SERVICE         OsmHighwayType = 6
+	UNCLASSIFIED    OsmHighwayType = 7
+	MotorwayLink    OsmHighwayType = 8
+	TrunkLink       OsmHighwayType = 9
+	PrimaryLink     OsmHighwayType = 10
+	SecondaryLink   OsmHighwayType = 11
+	TertiaryLink    OsmHighwayType = 12
+	LivingStreet    OsmHighwayType = 13
+	ROAD            OsmHighwayType = 14
+	TRACK           OsmHighwayType = 15
+	MOTORROAD       OsmHighwayType = 16
+	UNKNOWN         OsmHighwayType = 17
+	ResidentialLink OsmHighwayType = 18
+	PRIVATE         OsmHighwayType = 19
+	FOOTWAY         OsmHighwayType = 20
+	PEDESTRIAN      OsmHighwayType = 21
+	STEPS           OsmHighwayType = 22
+	FERRY           OsmHighwayType = 23
+	CYCLEWAY        OsmHighwayType = 24 // https://wiki.openstreetmap.org/wiki/Tag:highway%3Dcycleway
+	PATH            OsmHighwayType = 25
+	BusGuideway     OsmHighwayType = 26
 
-	INVALID_HIGHWAY OsmHighwayType = 255
+	InvalidHighway OsmHighwayType = 255
 )
-
-//revive:enable:var-naming
 
 // GetHighwayType maps an OSM road type string to an OsmHighwayType.
 // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
@@ -290,21 +275,21 @@ func GetHighwayType(roadType string) OsmHighwayType {
 	case "residential":
 		return RESIDENTIAL
 	case "residential_link":
-		return RESIDENTIAL_LINK
+		return ResidentialLink
 	case "service":
 		return SERVICE
 	case "motorway_link":
-		return MOTORWAY_LINK
+		return MotorwayLink
 	case "trunk_link":
-		return TRUNK_LINK
+		return TrunkLink
 	case "primary_link":
-		return PRIMARY_LINK
+		return PrimaryLink
 	case "secondary_link":
-		return SECONDARY_LINK
+		return SecondaryLink
 	case "tertiary_link":
-		return TERTIARY_LINK
+		return TertiaryLink
 	case "living_street":
-		return LIVING_STREET
+		return LivingStreet
 	case "road":
 		return ROAD
 	case "track":
@@ -345,21 +330,21 @@ func GetHighwayTypeString(highwayType OsmHighwayType) string {
 		return "unclassified"
 	case RESIDENTIAL:
 		return "residential"
-	case RESIDENTIAL_LINK:
+	case ResidentialLink:
 		return "residential_link"
 	case SERVICE:
 		return "service"
-	case MOTORWAY_LINK:
+	case MotorwayLink:
 		return "motorway_link"
-	case TRUNK_LINK:
+	case TrunkLink:
 		return "trunk_link"
-	case PRIMARY_LINK:
+	case PrimaryLink:
 		return "primary_link"
-	case SECONDARY_LINK:
+	case SecondaryLink:
 		return "secondary_link"
-	case TERTIARY_LINK:
+	case TertiaryLink:
 		return "tertiary_link"
-	case LIVING_STREET:
+	case LivingStreet:
 		return "living_street"
 	case ROAD:
 		return "road"
@@ -393,35 +378,27 @@ https://wiki.openstreetmap.org/wiki/Key:turn#Values
 type TurnLaneType uint16
 
 // Turn lane bit flag constants.
-//
-//revive:disable:var-naming
 const (
-	LANE_NO_ENTRY              = 0
-	LANE_NONE     TurnLaneType = 1 << iota // none or ""
-	LANE_STRAIGHT
-	LANE_SHARP_LEFT
-	LANE_LEFT
-	LANE_SLIGHT_LEFT
-	LANE_SLIGHT_RIGHT
-	LANE_RIGHT
-	LANE_SHARP_RIGHT
-	LANE_UTURN
-	LANE_MERGE_TO_LEFT
-	LANE_MERGE_TO_RIGHT
+	LaneNoEntry              = 0
+	LaneNone    TurnLaneType = 1 << iota // none or ""
+	LaneStraight
+	LaneSharpLeft
+	LaneLeft
+	LaneSlightLeft
+	LaneSlightRight
+	LaneRight
+	LaneSharpRight
+	LaneUturn
+	LaneMergeToLeft
+	LaneMergeToRight
 )
 
-//revive:enable:var-naming
-
-// FILE_TYPE represents the operational mode for file processing.
-//
-//revive:disable:var-naming
-type FILE_TYPE int
+// FileType represents the operational mode for file processing.
+type FileType int
 
 // Application mode constants.
 const (
-	ROUTER FILE_TYPE = iota
+	ROUTER FileType = iota
 	EVAL
 	TEST
 )
-
-//revive:enable:var-naming

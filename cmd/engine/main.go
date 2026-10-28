@@ -89,7 +89,7 @@ func main() {
 		logger.Fatal(err.Error())
 	}
 
-	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, s2Index)
+	mapAttributesEngine := mapattributes.NewEngine(graph, rn, logger, met, s2Index)
 	mapAttributesService := usecases.NewMapAttributesService(logger, mapAttributesEngine)
 	serverErr := api.Use(
 		logger, *useRateLimiter, routingService, mapAttributesService, shutdownPeriod*time.Second)

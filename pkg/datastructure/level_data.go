@@ -39,7 +39,7 @@ func (li *LevelData) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 	return 0
 }
 
-// GetQueryLevel returns the highest level s.t. vertex v is not at the same cell as s or t.
+// QueryLevel returns the highest level s.t. vertex v is not at the same cell as s or t.
 //
 // Reference: Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
 // Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,
@@ -54,7 +54,7 @@ func (li *LevelData) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 // (Recall that pv(v) encodes the cell number of v on each level.) This bit indicates the topmost level
 // ls(v) in which they differ. We do the same for pv(t) and pv(v) to determine lt(v).
 // The minimum of ls(v) and lt(v) is lst(v)."
-func (li *LevelData) GetQueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
+func (li *LevelData) QueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
 	lsv := li.GetHighestDifferingLevel(sCellNumber, vCellNumber)
 	ltv := li.GetHighestDifferingLevel(tCellNumber, vCellNumber)
 

@@ -27,6 +27,7 @@ func multiplyAndRound(x float64) int {
 	return round(1e5 * x)
 }
 
+// DeltaEncode handles delta encode of google polyline compression.
 // https://developers.google.com/maps/documentation/utilities/polylinealgorithm
 func DeltaEncode(buf []byte, coords []Coordinate) []byte {
 	prevLat := 0
@@ -99,6 +100,7 @@ func encodedBytesLength(u uint) int {
 	return length
 }
 
+// GooglePoylineFromCoords handles google poyline from coords.
 // https://developers.google.com/maps/documentation/utilities/polylinealgorithm
 // byte slice initialized using its exact capacity to prevent array doubling (https://go.dev/blog/slices-intro )
 func GooglePoylineFromCoords(path Coordinates) string {

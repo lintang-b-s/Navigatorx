@@ -9,6 +9,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// PathUnpackerALT represents path unpacker alt.
 type PathUnpackerALT[W util.Numeric] struct {
 	eng     *CRPRoutingEngine[W]
 	metrics *met.Metric[W]
@@ -58,18 +59,18 @@ func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.Index, sCellNum, tCellN
 
 	for i := 0; i < n; {
 		u := packedPath[i]
-		if !isBitOn(u, UNPACK_OVERLAY_OFFSET) {
+		if !isBitOn(u, UnpackOverlayOffset) {
 			// original vertex (non-overlay vertex)
 			unpackedVertexPath = append(unpackedVertexPath, u)
 			i++
 		} else {
 			// overlay vertex
-			enOv := offBit(u, UNPACK_OVERLAY_OFFSET)
+			enOv := offBit(u, UnpackOverlayOffset)
 			enVertex := pu.eng.overlayGraph.GetVertex(enOv)
 			enCellNum := enVertex.GetCellNumber()
-			queryLevel := pu.eng.overlayGraph.GetQueryLevel(sCellNum, tCellNum, enCellNum)
+			queryLevel := pu.eng.overlayGraph.QueryLevel(sCellNum, tCellNum, enCellNum)
 			v := packedPath[i+1]
-			exOv := offBit(v, UNPACK_OVERLAY_OFFSET)
+			exOv := offBit(v, UnpackOverlayOffset)
 			unpackedVertexPath = pu.unpackInLevelCell(enOv, exOv, queryLevel, unpackedVertexPath)
 			i += 2
 		}
@@ -115,7 +116,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 
 	tVertex := pu.eng.overlayGraph.GetVertex(tOv)
 
-	sVData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
+	sVData := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
 	pq.Insert(sOv, 0, sVData, sOv)
 
 	s := sVertex.GetOrigVId()
@@ -138,8 +139,8 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 			shortcutWeight := pu.eng.metrics.GetShortcutWeight(ewOffset)
 			vVertex := pu.eng.overlayGraph.GetVertex(vOv)
 
-			newVCost := pq.GetCost(uOv) + shortcutWeight
-			oldVCost := pq.GetCost(vOv)
+			newVCost := pq.Cost(uOv) + shortcutWeight
+			oldVCost := pq.Cost(vOv)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
 				// relax shortcut edge
@@ -177,8 +178,8 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 				newVCost += pu.metrics.GetWeight(vVertex.GetCutEdge())
 				wPar := da.NewParentVertex(vOv, true)
 				// relax edge
-				wLabelled := util.Lt(pq.GetCost(wOv), util.Infinity[W]())
-				if util.Lt(newVCost, pq.GetCost(wOv)) {
+				wLabelled := util.Lt(pq.Cost(wOv), util.Infinity[W]())
+				if util.Lt(newVCost, pq.Cost(wOv)) {
 					wOriginalId := wVertex.GetOrigVId()
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 					hw := pu.lm.ComputeTighestLowerBound(wOriginalId, t, activeLandmarks)
@@ -200,7 +201,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 	cOv := tOv
 	for {
 		cOv = pq.Get(cOv).GetParent().GetVertex()
-		if cOv == da.INVALID_VERTEX_ID {
+		if cOv == da.InvalidVertexId {
 			break
 		}
 		overlayPath = append(overlayPath, cOv)
@@ -245,7 +246,7 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 	tOvVertex := pu.eng.overlayGraph.GetVertex(tOv)
 	t := tOvVertex.GetOrigVId()
 
-	sData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
+	sData := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
 	sCellNum := pu.eng.graph.GetCellNumber(s)
 
 	offset, _ := pu.eng.graph.GetVertexCellOffset(s)
@@ -259,7 +260,7 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 		queryKey := pq.ExtractMin()
 		u := queryKey.GetItem()
 		pq.Explore(u)
-		uCost := pq.GetCost(u)
+		uCost := pq.Cost(u)
 
 		if u == t {
 			break
@@ -277,7 +278,7 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 			edgeWeight := pu.metrics.GetWeight(eId)
 			newVCost := uCost + edgeWeight
 			// relax edge
-			oldVCost := pq.GetCost(v)
+			oldVCost := pq.Cost(v)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
@@ -300,7 +301,7 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 	verticesPath = append(verticesPath, t)
 	for {
 		prevVertex := pq.Get(u).GetParent().GetVertex()
-		if prevVertex == da.INVALID_VERTEX_ID {
+		if prevVertex == da.InvalidVertexId {
 			break
 		}
 		verticesPath = append(verticesPath, prevVertex)
@@ -322,16 +323,16 @@ func (pu *PathUnpackerALT[W]) precomputeSize(packedPath []da.Index, sCellNum, tC
 	m := 0
 	for i := 0; i < n; {
 		u := packedPath[i]
-		if !isBitOn(u, UNPACK_OVERLAY_OFFSET) {
+		if !isBitOn(u, UnpackOverlayOffset) {
 			// original vertex (non-overlay vertex)
 			m++
 			i++
 		} else {
 			// overlay vertex
-			enOv := offBit(u, UNPACK_OVERLAY_OFFSET)
+			enOv := offBit(u, UnpackOverlayOffset)
 			enVertex := pu.eng.overlayGraph.GetVertex(enOv)
 			enCellNum := enVertex.GetCellNumber()
-			queryLevel := pu.eng.overlayGraph.GetQueryLevel(sCellNum, tCellNum, enCellNum)
+			queryLevel := pu.eng.overlayGraph.QueryLevel(sCellNum, tCellNum, enCellNum)
 			size := int(queryLevel) * 10
 			m += size
 			i += 2

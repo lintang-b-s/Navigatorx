@@ -147,7 +147,7 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 	met := re.GetMetrics()
 	rn := re.GetRoadNetworkContainer()
 	sidx := spatialindex.NewS2RoadSegmentsIndex(g, rn, zlog)
-	mapAttributesEngine := mapattributes.NewMapAttributesEngine(g, rn, zlog, met, sidx)
+	mapAttributesEngine := mapattributes.NewEngine(g, rn, zlog, met, sidx)
 
 	gpsTraj := nkReadGPSTrajectory(t, gpsDataFilepath)
 	matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(t, N, mapAttributesEngine, gpsTraj)
@@ -194,7 +194,7 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 
 	for _, point := range matchedPoints {
 		mSegId := point.GetSegmentId()
-		if mSegId == da.INVALID_SEGMENT_ID {
+		if mSegId == da.InvalidSegmentId {
 			continue
 		}
 		mOsmWayId := rn.GetOsmWayId(mSegId)
@@ -249,14 +249,13 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 }
 
 func ommRunOnlineMHT(t *testing.T,
-	transitionMatrix *da.SparseMatrix, mapAttributesEngine *mapattributes.MapAttributesEngine[int32],
+	transitionMatrix *da.SparseMatrix, mapAttributesEngine *mapattributes.Engine[int32],
 	gpsTraj []*da.GPSPoint) ([]*da.MatchedGPSPoint, float64) {
 
 	var (
 		candidates     []*ma.Candidate
 		speedMeanK     = ommInitialSpeedMean
 		speedStdK      = ommInitialSpeedStd
-		lastBearing    = 0.0
 		centerS2CellId = s2.SentinelCellID
 	)
 
@@ -266,7 +265,7 @@ func ommRunOnlineMHT(t *testing.T,
 
 	rtree := spatialindex.NewDynamicRtree()
 	dg := da.NewDynamicGraph()
-	onlineMM := online.NewOnlineMapMatchMHTClient(
+	onlineMM := online.NewMapMatchMHTClient(
 		dg,
 		rtree,
 		ommInitialSpeedMean,
@@ -319,14 +318,12 @@ func ommRunOnlineMHT(t *testing.T,
 			candidates,
 			speedMeanK,
 			speedStdK,
-			lastBearing,
 		)
 		totalRuntimeMicros += float64(time.Since(start).Microseconds())
 
 		candidates = currCandidates
 		speedMeanK = nextSpeedMeanK
 		speedStdK = nextSpeedStdK
-		lastBearing = matchedPoint.GetBearing()
 		matchedPoints = append(matchedPoints, matchedPoint)
 		prevGps = gps
 	}
@@ -412,7 +409,7 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 
 	met := re.GetMetrics()
 	sidx := spatialindex.NewS2RoadSegmentsIndex(graph, rn, zlog)
-	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, zlog, met, sidx)
+	mapAttributesEngine := mapattributes.NewEngine(graph, rn, zlog, met, sidx)
 
 	totalRMF := 0.0
 	totalAcc := 0.0
@@ -510,7 +507,7 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 	gpsTraj := ohmmMelbourneGPSTrajectory(points)
 	met := re.GetMetrics()
 	sidx := spatialindex.NewS2RoadSegmentsIndex(graph, rn, logger)
-	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, sidx)
+	mapAttributesEngine := mapattributes.NewEngine(graph, rn, logger, met, sidx)
 
 	matchedPoints, avgRuntimeMicros := ommRunOnlineMHT(t, transitionMatrix, mapAttributesEngine, gpsTraj)
 	if len(matchedPoints) == 0 {
@@ -596,7 +593,7 @@ func TestHanwenhuOnlineMapMatching(t *testing.T) {
 	rn := re.GetRoadNetworkContainer()
 	met := re.GetMetrics()
 	sidx := spatialindex.NewS2RoadSegmentsIndex(graph, rn, logger)
-	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, sidx)
+	mapAttributesEngine := mapattributes.NewEngine(graph, rn, logger, met, sidx)
 
 	trajectoryNames := make([]string, 0, len(gpsTrajectories))
 	for trajName := range gpsTrajectories {

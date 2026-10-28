@@ -14,11 +14,13 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// AlternativeRouteParameters represents alternative route parameters.
 type AlternativeRouteParameters struct {
 	gamma, alpha, epsilon, upperBound float64
 	maxCandidatesToUnpack             int
 }
 
+// NewAlternativeRouteParameters creates and returns alternative route parameters.
 func NewAlternativeRouteParameters(gamma, alpha, epsilon, upperBound float64,
 	maxCandidatesToUnpack int) AlternativeRouteParameters {
 	return AlternativeRouteParameters{
@@ -30,12 +32,14 @@ func NewAlternativeRouteParameters(gamma, alpha, epsilon, upperBound float64,
 	}
 }
 
+// AlternativeRouteSearch represents alternative route search.
 type AlternativeRouteSearch[W util.Numeric] struct {
 	re      *CRPRoutingEngine[W]
 	metrics *met.Metric[W]
 	lm      *landmark.Landmark[W]
 }
 
+// NewAlternativeRouteSearch creates and returns alternative route search.
 func NewAlternativeRouteSearch[W util.Numeric](
 	re *CRPRoutingEngine[W],
 ) *AlternativeRouteSearch[W] {
@@ -96,7 +100,8 @@ DONE :), sekarang sucess ratenya >= 88% untuk solo.osm.pbf dan yogyakarta.osm.pb
 
 */
 
-func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, reroute bool, optCost float64, optPath []da.Index,
+// ComputeAlternativeRoutes computes alternative routes.
+func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, _ bool, optCost float64, optPath []da.Index,
 	crpQuery *CRPQuery[W], param AlternativeRouteParameters) ([]AlternativeRoute, int64) {
 
 	now := time.Now()
@@ -152,8 +157,8 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 		oAlts = append(oAlts, sortedAlt)
 	}
 
-	reps := RELAXED_UBS_EPSILON_START
-	for len(res) == 0 && util.Le(reps, RELAXED_UBS_EPSILON_MAX) {
+	reps := RelaxedUBSEpsilonStart
+	for len(res) == 0 && util.Le(reps, RelaxedUBSEpsilonMax) {
 		// biar success rate alternative routes nya masih >= 88 % wkwkwkw.
 		for _, v := range filteredCandidates {
 			lv := v.lv
@@ -261,6 +266,7 @@ func (ars *AlternativeRouteSearch[W]) differToOtherAlternatives(oAlts [][]da.Ind
 	return minDist >= minAltsDiversity
 }
 
+// AlternativeRouteFilter represents alternative route filter.
 type AlternativeRouteFilter[W util.Numeric] struct {
 	ars                      *AlternativeRouteSearch[W]
 	fpq, bpq                 *da.QueryHeap[da.QueryKey, W]
@@ -272,6 +278,7 @@ type AlternativeRouteFilter[W util.Numeric] struct {
 	unpacker                 *PathUnpackerALT[W]
 }
 
+// NewAlternativeRouteFilter creates and returns alternative route filter.
 func NewAlternativeRouteFilter[W util.Numeric](ars *AlternativeRouteSearch[W],
 	fpq, bpq *da.QueryHeap[da.QueryKey, W],
 	sCellNumber, tCellNumber da.Pv,
@@ -302,8 +309,8 @@ func (arf AlternativeRouteFilter[W]) filterCandidate(v *ViaVertex) bool {
 		worst case of filterCandidate: O(p)
 	*/
 
-	svCost = util.WeightToSeconds(arf.fpq.GetCost(v.GetVId()))
-	vtCost = util.WeightToSeconds(arf.bpq.GetCost(v.GetVId()))
+	svCost = util.WeightToSeconds(arf.fpq.Cost(v.GetVId()))
+	vtCost = util.WeightToSeconds(arf.bpq.Cost(v.GetVId()))
 
 	// stretch
 	lv := svCost + vtCost
@@ -370,7 +377,7 @@ func (arf AlternativeRouteFilter[W]) computeAlternative(v *ViaVertex) Alternativ
 	v.sigmav = sigmav
 	v.path = path
 
-	lv := v.GetCost()
+	lv := v.Cost()
 	// cek T-test
 	T := arf.param.alpha * (lv - sigmav)
 	plv := v.plv
@@ -456,12 +463,12 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(packedPath, s
 	n := len(packedPath)
 	for i := 0; i < n-1; i++ {
 		u := packedPath[i]
-		if isBitOn(u, UNPACK_OVERLAY_OFFSET) {
+		if isBitOn(u, UnpackOverlayOffset) {
 			// shortcut edge
 			// shortcut edges di packed path berpola: (uVertex1, vVertex1), (uVertex1, vVertex2)...
 			v := packedPath[i+1]
-			uOvId := offBit(u, UNPACK_OVERLAY_OFFSET)
-			vOvId := offBit(v, UNPACK_OVERLAY_OFFSET)
+			uOvId := offBit(u, UnpackOverlayOffset)
+			vOvId := offBit(v, UnpackOverlayOffset)
 			uVertex := ars.re.overlayGraph.GetVertex(uOvId)
 			vVertex := ars.re.overlayGraph.GetVertex(vOvId)
 
@@ -471,7 +478,7 @@ func (ars *AlternativeRouteSearch[W]) calculateApproxDistanceShare(packedPath, s
 			okv := isInOpt(vId, sortedOptPath)
 
 			uCellNum := uVertex.GetCellNumber()
-			ql := ars.re.overlayGraph.GetQueryLevel(sCellNumber, tCellNumber, uCellNum)
+			ql := ars.re.overlayGraph.QueryLevel(sCellNumber, tCellNumber, uCellNum)
 
 			shortcutInOpt := oku && okv
 
@@ -554,7 +561,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, s, t da.Index,
 		p := ps.Get(u).GetParent()
 		pvId := p.GetVertex()
 
-		oki := util.Lt(pb.GetCost(pvId), util.Infinity[W]())
+		oki := util.Lt(pb.Cost(pvId), util.Infinity[W]())
 		if !oki {
 			break
 		}
@@ -567,14 +574,14 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, s, t da.Index,
 		}
 		u = pvId
 	}
-	firstPlateauCost := util.WeightToSeconds(ps.GetCost(u))
+	firstPlateauCost := util.WeightToSeconds(ps.Cost(u))
 
 	u = vId
 	for u != t {
 		p := pb.Get(u).GetParent()
 		pvId := p.GetVertex()
 
-		oki := util.Lt(ps.GetCost(pvId), util.Infinity[W]())
+		oki := util.Lt(ps.Cost(pvId), util.Infinity[W]())
 		if !oki {
 			break
 		}
@@ -588,7 +595,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, s, t da.Index,
 		u = pvId
 	}
 
-	lastPlateauCost := util.WeightToSeconds(pb.GetCost(u))
+	lastPlateauCost := util.WeightToSeconds(pb.Cost(u))
 
 	// s-> ---- -> via -> ......-> u -> ..... -> t
 	// pb[u] = dist(u,t)
@@ -603,6 +610,7 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, s, t da.Index,
 	return plateau
 }
 
+// ParameterByRequest handles parameter by request.
 func (ars *AlternativeRouteSearch[W]) ParameterByRequest(s, t da.Index) AlternativeRouteParameters {
 
 	sVertex := ars.re.graph.GetVertex(s)
@@ -669,8 +677,8 @@ func (ars *AlternativeRouteSearch[W]) removeViaVertexCycle(segmentPath []da.Inde
 		}
 	}
 
-	segmentCount := make(map[da.Index]uint8, TRAVERSE_FROM_VIA_VERTEX_COUNT)
-	s := max(mid-TRAVERSE_FROM_VIA_VERTEX_COUNT+1, 0)
+	segmentCount := make(map[da.Index]uint8, TraverseFromViaVertexCount)
+	s := max(mid-TraverseFromViaVertexCount+1, 0)
 	for i := mid; i >= s; i-- {
 		v := segmentPath[i]
 		segmentCount[v]++
@@ -678,7 +686,7 @@ func (ars *AlternativeRouteSearch[W]) removeViaVertexCycle(segmentPath []da.Inde
 
 	enterCycle := false
 	re := da.Index(math.MaxUint32)
-	e := min(mid+TRAVERSE_FROM_VIA_VERTEX_COUNT, n)
+	e := min(mid+TraverseFromViaVertexCount, n)
 	for i := mid + 1; i < e; i++ {
 		v := segmentPath[i]
 		segmentCount[v]++

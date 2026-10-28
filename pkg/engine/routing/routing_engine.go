@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// CRPRoutingEngine represents CRP routing engine.
 type CRPRoutingEngine[W util.Numeric] struct {
 	graph        *da.Graph
 	overlayGraph *da.OverlayGraph
@@ -50,6 +51,7 @@ type CRPRoutingEngine[W util.Numeric] struct {
 	unpackerForAlternativeRoutesWorkers int
 }
 
+// NewCRPRoutingEngine creates and returns CRP routing engine.
 func NewCRPRoutingEngine[W util.Numeric](graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric[W],
 	logger *zap.Logger, puCache *otter.Cache[da.PUCacheKey, []da.Index],
@@ -82,30 +84,36 @@ func NewCRPRoutingEngine[W util.Numeric](graph *da.Graph,
 	return crp
 }
 
+// GetGraph returns road network graph.
 func (crp *CRPRoutingEngine[W]) GetGraph() *da.Graph {
 	return crp.graph
 }
 
+// GetOverlayGraph returns overlay graph.
 func (crp *CRPRoutingEngine[W]) GetOverlayGraph() *da.OverlayGraph {
 	return crp.overlayGraph
 }
 
+// GetMetrics returns metrics.
 func (crp *CRPRoutingEngine[W]) GetMetrics() *met.Metric[W] {
 	crp.mu.RLock()
 	defer crp.mu.RUnlock()
 	return crp.metrics
 }
 
+// GetLandmark returns landmark.
 func (crp *CRPRoutingEngine[W]) GetLandmark() *landmark.Landmark[W] {
 	crp.mu.RLock()
 	defer crp.mu.RUnlock()
 	return crp.lm
 }
 
+// GetRoadNetworkContainer returns road network container.
 func (crp *CRPRoutingEngine[W]) GetRoadNetworkContainer() *da.RoadNetworkDataContainer {
 	return crp.rn
 }
 
+// BuildQueryHeapPool builds query heap pool.
 func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	maxVerticesInCell := crp.graph.GetMaxVerticesInCell()
 	numOverlayVertices := crp.overlayGraph.NumberOfOverlayVertices()
@@ -127,7 +135,7 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	crpMaxSearchSize := da.Index(2*maxVerticesInCell + da.Index(numOverlayVertices))
 	crp.fHeapPool = sync.Pool{
 		New: func() any {
-			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, da.ARRAY_STORAGE)
+			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, da.ArrayStorageMode)
 			qh.SetIsCRPQuery()
 			return qh
 		},
@@ -135,7 +143,7 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 
 	crp.bHeapPool = sync.Pool{
 		New: func() any {
-			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, da.ARRAY_STORAGE)
+			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, da.ArrayStorageMode)
 			qh.SetIsCRPQuery()
 			return qh
 		},
@@ -145,14 +153,14 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	crp.puovHeapPool = sync.Pool{
 		New: func() any {
 
-			return da.NewQueryHeap[da.Index, W](da.Index(numOverlayVertices), da.ARRAY_STORAGE)
+			return da.NewQueryHeap[da.Index, W](da.Index(numOverlayVertices), da.ArrayStorageMode)
 		},
 	}
 
 	crp.puHeapPool = sync.Pool{
 		New: func() any {
 
-			pq := da.NewQueryHeap[da.Index, W](da.Index(maxVerticesInCell), da.ARRAY_STORAGE)
+			pq := da.NewQueryHeap[da.Index, W](da.Index(maxVerticesInCell), da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},
@@ -204,11 +212,13 @@ func (crp *CRPRoutingEngine[W]) validateUpperbound(upperBoundMap map[float64]flo
 	}
 }
 
+// Close handles close caches.
 func (crp *CRPRoutingEngine[W]) Close() {
 	crp.puCache.InvalidateAll()
 	crp.puCache.StopAllGoroutines()
 }
 
+// ShortestPathSearch compute the point-to-point fastest path.
 func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool) {
 	crpQuery := NewCRPALTQuery(crp)
 	if reroute {
@@ -221,7 +231,8 @@ func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, rerout
 	return util.WeightToSeconds(cost), dist, segmentPathCoords, segmentPath, found
 }
 
-func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, startSegId da.Index) ([]float64, []float64, []*da.Coordinates, [][]da.Index, bool) {
+// ShortestPathWithAlternativesSearch finds path with alternatives search.
+func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, _ da.Index) ([]float64, []float64, []*da.Coordinates, [][]da.Index, bool) {
 	crpQuery := NewCRPQuery(crp) // better via-vertices
 	s := sp.GetVId()
 	t := tp.GetVId()
@@ -265,6 +276,7 @@ func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.Pha
 	return routeCosts, routeDists, routeSegmentPathCoords, routePaths, true
 }
 
+// GetSegmentPath returns  full coordinates path of the fastest path.
 func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index) (*da.Coordinates, float64) {
 
 	totalDistance := 0.0
@@ -286,6 +298,7 @@ func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index) (*da.Co
 	return path, totalDistance
 }
 
+// GetV returns head vertex v of edge (u,v) (or reversed edge (u,v)).
 func (crp *CRPRoutingEngine[W]) GetV(eId da.Index, out bool) da.Index {
 	if out {
 		return crp.graph.GetHead(eId)
@@ -293,6 +306,7 @@ func (crp *CRPRoutingEngine[W]) GetV(eId da.Index, out bool) da.Index {
 	return crp.graph.GetTail(eId)
 }
 
+// GetOV returns overlay vertex at specified id.
 func (crp *CRPRoutingEngine[W]) GetOV(ovOffset, wOffset, numExit, i da.Index, out bool) (da.Index, da.Index) {
 	if out {
 		v := crp.overlayGraph.GetCellExitVertex(ovOffset + i)

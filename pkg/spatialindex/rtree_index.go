@@ -29,6 +29,7 @@ func newLeafData(fid, bid da.Index, flag uint8) leafData {
 	return leafData{fid: fid, bid: bid, flag: flag}
 }
 
+// Rtree represents rtree.
 type Rtree struct {
 	tr *rtree.RTreeGN[int32, leafData]
 }
@@ -39,6 +40,7 @@ func spatialRound(value float64) int32 {
 	return int32(math.Round(value * spatialIndexPrecision))
 }
 
+// NewRtree creates and returns rtree.
 // we need to know nearby road segments s & t before run the query
 func NewRtree() *Rtree {
 	var tr rtree.RTreeGN[int32, leafData]
@@ -68,7 +70,7 @@ func newSegmentKey(osmId uint64, tail, head da.Coordinate) segmentKey {
 	return segmentKey{osmId: osmId, tail: tail, head: head}
 }
 
-// Build. build r-tree
+// Build build r-tree
 func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap.Logger) error {
 	logger.Info("Building R-tree spatial index...")
 	n := g.NumberOfVertices()
@@ -78,7 +80,7 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 
 	segmentSet := make(map[segmentKey]segmentVal, n/10) // segmentKey -> road segment (forward direction), mbr
 
-	g.ForVertices(func(v da.Vertex, segId da.Index) {
+	g.ForVertices(func(_ da.Vertex, segId da.Index) {
 		eGeom := rn.GetSegmentGeometry(segId)
 		if len(eGeom) < 2 {
 			return
@@ -108,7 +110,7 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 			return
 		}
 
-		dir := rn.GetStreetDirection(segId)
+		dir := rn.StreetDirection(segId)
 		f, b := dir[0], dir[1]
 
 		if odSeg, ok := segmentSet[segKey]; ok {
@@ -166,6 +168,7 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 	return nil
 }
 
+// ReadRtreeFromFile reads rtree from file.
 func ReadRtreeFromFile(logger *zap.Logger) (*Rtree, error) {
 	logger.Info("building R-tree spatial index from file...")
 
@@ -249,10 +252,10 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 			dx, dy := int64(qxR-midx), int64(qyR-midy)
 			dist := dx*dx + dy*dy
 			fId, bId := rt.getId(data, mode)
-			if fId != da.INVALID_SEGMENT_ID {
+			if fId != da.InvalidSegmentId {
 				cands = append(cands, candidate{id: fId, dist: dist})
 			}
-			if bId != da.INVALID_SEGMENT_ID {
+			if bId != da.InvalidSegmentId {
 				cands = append(cands, candidate{id: bId, dist: dist})
 			}
 			return true
@@ -262,8 +265,8 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 		return cmp.Compare(a.dist, b.dist)
 	})
 
-	if len(cands) > MAX_CANDIDATES {
-		cands = cands[:MAX_CANDIDATES]
+	if len(cands) > MaxCandidates {
+		cands = cands[:MaxCandidates]
 	}
 
 	res := make([]da.Index, len(cands))
@@ -281,27 +284,29 @@ func (rt *Rtree) getFlag(rn *da.RoadNetworkDataContainer, id da.Index, forward, 
 	if rn.IsSegmentFlagBitOn(id, da.FlagJunctionHead) {
 		switch forward {
 		case true:
-			flag |= JUNCTION_FORWARD_HEAD_FLAG
+			flag |= JunctionForwardHeadFlag
 		default:
-			flag |= JUNCTION_BACKWARD_HEAD_FLAG
+			flag |= JunctionBackwardHeadFlag
 		}
 	}
 	if rn.IsSegmentFlagBitOn(id, da.FlagJunctionTail) {
 		switch forward {
 		case true:
-			flag |= JUNCTION_FORWARD_TAIL_FLAG
+			flag |= JunctionForwardTailFlag
 		default:
-			flag |= JUNCTION_BACKWARD_TAIL_FLAG
+			flag |= JunctionBackwardTailFlag
 		}
 	}
 	return flag
 }
 
+// IsJunctionHead reports whether junction head.
 func (rt *Rtree) IsJunctionHead(data leafData) bool {
 	return isForwardJunctionHead(data.flag) ||
 		isBackwardJunctionHead(data.flag)
 }
 
+// IsJunctionTail reports whether junction tail.
 func (rt *Rtree) IsJunctionTail(data leafData) bool {
 	return isForwardJunctionTail(data.flag) ||
 		isBackwardJunctionTail(data.flag)
@@ -312,19 +317,19 @@ func isBitOn(flag uint8, mask uint8) bool {
 }
 
 func isForwardJunctionHead(flag uint8) bool {
-	return isBitOn(flag, JUNCTION_FORWARD_HEAD_FLAG)
+	return isBitOn(flag, JunctionForwardHeadFlag)
 }
 
 func isBackwardJunctionHead(flag uint8) bool {
-	return isBitOn(flag, JUNCTION_BACKWARD_HEAD_FLAG)
+	return isBitOn(flag, JunctionBackwardHeadFlag)
 }
 
 func isForwardJunctionTail(flag uint8) bool {
-	return isBitOn(flag, JUNCTION_FORWARD_TAIL_FLAG)
+	return isBitOn(flag, JunctionForwardTailFlag)
 }
 
 func isBackwardJunctionTail(flag uint8) bool {
-	return isBitOn(flag, JUNCTION_BACKWARD_TAIL_FLAG)
+	return isBitOn(flag, JunctionBackwardTailFlag)
 }
 
 func isBidirectional(flag uint8) bool {
@@ -333,7 +338,7 @@ func isBidirectional(flag uint8) bool {
 
 func (rt *Rtree) getId(data leafData, mode uint8) (da.Index, da.Index) {
 	var (
-		bId, fId = da.INVALID_SEGMENT_ID, da.INVALID_SEGMENT_ID
+		bId, fId = da.InvalidSegmentId, da.InvalidSegmentId
 	)
 	switch mode {
 	case 0:

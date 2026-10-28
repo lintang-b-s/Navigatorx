@@ -77,7 +77,7 @@ func InitConfig() {
 }
 
 // InitProfileConfig initializes configuration settings for a given profile, region, and file type.
-func InitProfileConfig(profileName string, regionName string, fileType pkg.FILE_TYPE) {
+func InitProfileConfig(profileName string, regionName string, fileType pkg.FileType) {
 	workingDir, err := FindProjectWorkingDir()
 	if err != nil {
 		log.Fatal(err)
@@ -97,7 +97,7 @@ func InitProfileConfig(profileName string, regionName string, fileType pkg.FILE_
 }
 
 // InitRegionName initializes region settings with the default car profile.
-func InitRegionName(regionName string, fileType pkg.FILE_TYPE) {
+func InitRegionName(regionName string, fileType pkg.FileType) {
 	pkg.ProfileName = "car"
 	pkg.RegionName = regionName
 	pkg.TIPE = fileType

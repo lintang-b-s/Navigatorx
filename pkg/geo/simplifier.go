@@ -9,9 +9,11 @@ import (
 )
 
 const (
-	DOUGLAS_PEUCKER_THRESHOLDS float64 = 1.0 // meters
+	// DouglasPeuckerThresholds is the douglas peucker thresholds value.
+	DouglasPeuckerThresholds float64 = 1.0 // meters
 )
 
+// RamerDouglasPeucker handles ramer douglas peucker.
 // https://cartography-playground.gitlab.io/playgrounds/douglas-peucker-algorithm/
 // worst case O(n^2), n=len(coords)
 func RamerDouglasPeucker(coords da.Coordinates) (da.Coordinates, []bool) {
@@ -30,7 +32,7 @@ func RamerDouglasPeucker(coords da.Coordinates) (da.Coordinates, []bool) {
 	stack := list.New()
 	stack.PushBack([2]int{0, size - 1})
 
-	threshold := DOUGLAS_PEUCKER_THRESHOLDS
+	threshold := DouglasPeuckerThresholds
 	for stack.Len() > 0 {
 		pair := stack.Remove(stack.Back()).([2]int)
 		left, right := pair[0], pair[1]
@@ -73,6 +75,7 @@ func RamerDouglasPeucker(coords da.Coordinates) (da.Coordinates, []bool) {
 	return simplifiedGeometry, kepts
 }
 
+// IsSameCoordinate reports whether same coordinate.
 func IsSameCoordinate(p, q da.Coordinate) bool {
 	return util.Eq(p.GetLat(), q.GetLat()) && util.Eq(p.GetLon(), q.GetLon())
 }

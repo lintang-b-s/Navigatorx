@@ -3,52 +3,105 @@ package datastructure
 import "math"
 
 const (
-	INVALID_VERTEX_ID        Index = 2e9
-	INVALID_SEGMENT_ID       Index = 2e9 + 1
-	INVALID_PARALLEL_EDGE_ID Index = 2e9 + 3
-	INVALID_ENTRY_POINT      Index = 2e9 + 4
-	INVALID_EXIT_POINT       Index = 2e9 + 5
+	// InvalidVertexId is the invalid vertex id value.
+	InvalidVertexId Index = 2e9
+	// InvalidSegmentId is the invalid segment id value.
+	InvalidSegmentId Index = 2e9 + 1
+	// InvalidParallelEdgeId is the invalid parallel edge id value.
+	InvalidParallelEdgeId Index = 2e9 + 3
 
-	BASE_VERTICES_SIZE                      = 2000
-	OVERLAY_VERTICES_SIZE                   = 32 // 2 ini kecil aja, biar gak consume memory banyak pas load test
-	TOUCHED_VERTICES_SIZE                   = 1024
-	OVERLAY_CELL_SIZE                       = 16
-	INVALID_OSM_WAY_ID               int64  = 1<<34 - 1
-	INITIAL_BIT_VECTOR_SIZE                 = 1000
-	DEFAULT_BIT_SIZE_OSM_WAY_ID             = 34
-	BIT_SIZE_OSM_NODE_ID                    = 34
-	INITIAL_APPROX_SEGMENT_SIZE             = 1000
-	INVALID_STREET_NAME_ID           uint32 = math.MaxUint32
-	INITIAL_REACHIBILITY_BITSET_SIZE        = 10
-	GeohashBits                             = 6 * 5
+	// InvalidEntryPoint is the invalid entry point value.
+	InvalidEntryPoint Index = 2e9 + 4
+
+	// InvalidExitPoint is the invalid exit point value.
+	InvalidExitPoint Index = 2e9 + 5
+
+	// BaseVerticesSize is the base vertices size value.
+	BaseVerticesSize = 2000
+
+	// OverlayVerticesSize is the overlay vertices size value.
+	OverlayVerticesSize = 32 // 2 ini kecil aja, biar gak consume memory banyak pas load test
+
+	// TouchedVerticesSize is the touched vertices size value.
+	TouchedVerticesSize = 1024
+
+	// OverlayCellSize is the overlay cell size value.
+	OverlayCellSize = 16
+
+	// InvalidOSMWayId is the invalid osmway id value.
+	InvalidOSMWayId int64 = 1<<34 - 1
+
+	// InitialBitVectorSize is the initial bit vector size value.
+	InitialBitVectorSize = 1000
+
+	// DefaultBitSizeOSMWayId is the default bit size osmway id value.
+	DefaultBitSizeOSMWayId = 34
+
+	// BitSizeOSMNodeId is the bit size osmnode id value.
+	BitSizeOSMNodeId = 34
+
+	// InitialApproxSegmentSize is the initial approx segment size value.
+	InitialApproxSegmentSize = 1000
+
+	// InvalidStreetNameId is the invalid street name id value.
+	InvalidStreetNameId uint32 = math.MaxUint32
+
+	// InitialReachibilityBitsetSize is the initial reachibility bitset size value.
+	InitialReachibilityBitsetSize = 10
+
+	// GeohashBits is the geohash bits value.
+	GeohashBits = 6 * 5
 )
 
+// IndexStorageType represents index storage type.
 type IndexStorageType int
 
 const (
-	ARRAY_STORAGE IndexStorageType = iota
-	MAP_STORAGE
+	// ArrayStorageMode is the array storage value.
+	// MapStorageMode is the map storage value.
+	ArrayStorageMode IndexStorageType = iota
+	// MapStorageMode is the map storage value.
+	MapStorageMode
 )
 
+// SegmentFlagType represents segment flag type.
 type SegmentFlagType uint8
 
 const (
-	FlagParallel             SegmentFlagType = 1 << iota //  flag yang nandain kalau this road segment adalah parallel via-way yang termasuk dalam via-ways turn restrictions
-	FlagJunctionHead                                     // flag yang nandain kalo head dari road segment adalah junction node
-	FlagJunctionTail                                     // flag yang nandain kalo tail dari road segment adalah junction node
-	FlagContainsTrafficLight                             // flag yang nandain di road segment ini terdapat traffic light/bangjo
-	FlagIsRoundabout                                     // flag yang nandain road segment ini adalah bundaran
-	FlagIsCurved                                         // flag yang nandain road segment ini curved/gak lurus straight line in mercator projected 2d coordinate
-	FlagIsForward                                        // flag yang nandain road segment ini arahnya forward (dari list of nodes data osm way). by default true kalau one-way road.
-	FlagIsBackward                                       // flag yang nandain road segment ini arahnya backward (dari list of nodes data osm way)
+
+	// FlagParallel is the flag parallel value.
+	FlagParallel SegmentFlagType = 1 << iota //  flag yang nandain kalau this road segment adalah parallel via-way yang termasuk dalam via-ways turn restrictions
+	// FlagJunctionHead is the flag junction head value.
+	FlagJunctionHead // flag yang nandain kalo head dari road segment adalah junction node
+
+	// FlagJunctionTail is the flag junction tail value.
+	FlagJunctionTail // flag yang nandain kalo tail dari road segment adalah junction node
+
+	// FlagContainsTrafficLight is the flag contains traffic light value.
+	FlagContainsTrafficLight // flag yang nandain di road segment ini terdapat traffic light/bangjo
+
+	// FlagIsRoundabout is the flag is roundabout value.
+	FlagIsRoundabout // flag yang nandain road segment ini adalah bundaran
+
+	// FlagIsCurved is the flag is curved value.
+	FlagIsCurved // flag yang nandain road segment ini curved/gak lurus straight line in mercator projected 2d coordinate
+
+	// FlagIsForward is the flag is forward value.
+	FlagIsForward // flag yang nandain road segment ini arahnya forward (dari list of nodes data osm way). by default true kalau one-way road.
+
+	// FlagIsBackward is the flag is backward value.
+	FlagIsBackward // flag yang nandain road segment ini arahnya backward (dari list of nodes data osm way)
 )
 
+// NodeFlagType represents node flag type.
 type NodeFlagType uint8
 
 const (
+	// FlagNodeTrafficLight is the flag node traffic light value.
 	FlagNodeTrafficLight NodeFlagType = 1 << iota
 )
 
 const (
-	INVALID_LK_TABLE_ID Index = Index(math.MaxUint32)
+	// InvalidLkTableId is the invalid lk table id value.
+	InvalidLkTableId Index = Index(math.MaxUint32)
 )

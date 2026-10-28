@@ -7,7 +7,7 @@ import (
 
 func (db *DirectionBuilder) handleRoundabout(prevPoint, tail, head da.Coordinate, streetName string, u da.Index) {
 	if !db.prevInRoundabout {
-		sign := da.USE_ROUNDABOUT
+		sign := da.UseRoundabout
 		point := da.NewCoordinate(tail.GetLat(), tail.GetLon())
 		roundaboutInstruction := da.NewRoundaboutInstruction()
 

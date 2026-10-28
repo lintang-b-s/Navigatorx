@@ -16,27 +16,33 @@ type OverlayWeights[W util.Numeric] struct {
 	weights []W
 }
 
-func (ow *OverlayWeights[W]) GetWeight(i Index) W {
-	shortcutWeight := ow.weights[i]
+// GetWeight returns shortcut edge weight.
+func (ow *OverlayWeights[W]) GetWeight(id Index) W {
+	shortcutWeight := ow.weights[id]
 	return shortcutWeight
 }
 
+// GetWeights returns weights.
 func (ow *OverlayWeights[W]) GetWeights() []W {
 	return ow.weights
 }
 
+// SetWeights sets weights.
 func (ow *OverlayWeights[W]) SetWeights(weights []W) {
 	copy(ow.weights, weights)
 }
 
+// GetNumberOfShortcuts returns number of shortcuts.
 func (ow *OverlayWeights[W]) GetNumberOfShortcuts() int {
 	return len(ow.weights)
 }
 
+// SetWeight sets weight.
 func (ow *OverlayWeights[W]) SetWeight(index int, weight W) {
 	ow.weights[index] = weight
 }
 
+// NewOverlayWeights creates and returns overlay weights.
 func NewOverlayWeights[W util.Numeric](weightVectorSize uint32) *OverlayWeights[W] {
 	weights := make([]W, weightVectorSize)
 	for i := range weights {

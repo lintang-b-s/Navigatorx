@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// JSONEncoderPool represents jsonencoder pool.
 type JSONEncoderPool struct {
 	pool sync.Pool
 }
@@ -26,11 +27,12 @@ type encoderWrapper struct {
 	encoder json.Encoder
 }
 
+// NewJSONEncoderPool creates and returns jsonencoder pool.
 func NewJSONEncoderPool() *JSONEncoderPool {
 	return &JSONEncoderPool{
 		pool: sync.Pool{
 			New: func() any {
-				buf := bytes.NewBuffer(make([]byte, 0, JSON_BUF_POOL_SIZE))
+				buf := bytes.NewBuffer(make([]byte, 0, JSONBufPoolSize))
 				return &encoderWrapper{
 					buf:     buf,
 					encoder: json.ConfigDefault.NewEncoder(buf),
@@ -45,7 +47,7 @@ var (
 )
 
 // writeJSON marshals data structure to encoded JSON response.
-func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data any) error {
+func (api *RoutingAPI) writeJSON(w http.ResponseWriter, status int, data any) error {
 	jenc := jencPool.pool.Get().(*encoderWrapper)
 	defer func() {
 		jenc.buf.Reset()
@@ -74,18 +76,20 @@ func (api *routingAPI) writeJSON(w http.ResponseWriter, status int, data any) er
 }
 
 type messageEnvelope struct {
-	Data messageResponse `json:"data"`
+	Data MessageResponse `json:"data"`
 }
 
-type messageResponse struct {
+// MessageResponse contains a message returned by the HTTP API.
+type MessageResponse struct {
 	Message string `json:"message"`
 }
 
-func NewMessageResponse(msg string) messageResponse {
-	return messageResponse{msg}
+// NewMessageResponse creates and returns message response.
+func NewMessageResponse(msg string) MessageResponse {
+	return MessageResponse{msg}
 }
 
-func (api *routingAPI) getStatusCode(w http.ResponseWriter, r *http.Request, err error) {
+func (api *RoutingAPI) getStatusCode(w http.ResponseWriter, r *http.Request, err error) {
 	if err == nil {
 		if err := api.writeJSON(w, http.StatusOK, messageEnvelope{Data: NewMessageResponse("success")}); err != nil {
 			api.ServerErrorResponse(w, r, err)

@@ -10,7 +10,7 @@ import (
 )
 
 /*
-GetAlternativeTurns. get jumlah belokan alternatif yang bisa dilakukan dari tail sekarang & bukan segmentId/prevSegmentId. Misalkan:
+GetAlternativeTurns get jumlah belokan alternatif yang bisa dilakukan dari tail sekarang & bukan segmentId/prevSegmentId. Misalkan:
 
 		 |
 		 |
@@ -63,7 +63,7 @@ func (db *DirectionBuilder) getOtherEdgeContinueDirection(tail da.Coordinate, pr
 			return altSegId, altHead
 		}
 	}
-	return da.INVALID_SEGMENT_ID, da.NewInvalidCoordinate()
+	return da.InvalidSegmentId, da.NewInvalidCoordinate()
 }
 
 /*
@@ -103,7 +103,7 @@ func (db *DirectionBuilder) isStreetMergedSkip(prevSegment, segmentId da.Index, 
 		return false
 	}
 
-	otherSegment := da.INVALID_SEGMENT_ID // outEdge dari tail selain PrevEdge yang mengarah dari tail
+	otherSegment := da.InvalidSegmentId // outEdge dari tail selain PrevEdge yang mengarah dari tail
 
 	prevTail := db.rn.GetSegmentTailCoord(prevSegment)
 
@@ -128,13 +128,13 @@ func (db *DirectionBuilder) isStreetMergedSkip(prevSegment, segmentId da.Index, 
 
 		isOSegmentBidirectional := db.rn.IsStreetBidirectional(oSegmentId)
 
-		if relBearing > RELATIVE_BEARING_U_TURN &&
+		if relBearing > RelativeBearingUTurn &&
 			isSameName(prevSegmentStreetName, oStreetName) && !isOSegmentBidirectional {
 			otherSegment = oSegmentId
 		}
 	})
 
-	if otherSegment == da.INVALID_SEGMENT_ID {
+	if otherSegment == da.InvalidSegmentId {
 		return false
 	}
 
@@ -175,7 +175,7 @@ func (db *DirectionBuilder) isStreetSplitSkip(prevSegment, segmentId da.Index, c
 		return false
 	}
 
-	otherSegment := da.INVALID_SEGMENT_ID // inEdge dari tail selain PrevEdge yang mengarah ke tail
+	otherSegment := da.InvalidSegmentId // inEdge dari tail selain PrevEdge yang mengarah ke tail
 
 	db.graph.ForInEdgesOf(segmentId, func(_, oSegmentId da.Index, _ uint8) {
 		if oSegmentId == prevSegment {
@@ -194,14 +194,14 @@ func (db *DirectionBuilder) isStreetSplitSkip(prevSegment, segmentId da.Index, c
 
 		isOSegmentBidirectional := db.rn.IsStreetBidirectional(oSegmentId)
 
-		if isSameName(currStreetName, oSegmentName) && relBearing > RELATIVE_BEARING_U_TURN &&
+		if isSameName(currStreetName, oSegmentName) && relBearing > RelativeBearingUTurn &&
 			!isOSegmentBidirectional {
 
 			otherSegment = oSegmentId
 		}
 	})
 
-	if otherSegment == da.INVALID_SEGMENT_ID {
+	if otherSegment == da.InvalidSegmentId {
 		return false
 	}
 
@@ -236,7 +236,7 @@ func (db *DirectionBuilder) isStreetMerged(prevSegment, segmentId da.Index, curr
 		return false
 	}
 
-	otherSegment := da.INVALID_SEGMENT_ID // outEdge dari tail selain PrevEdge yang mengarah dari tail
+	otherSegment := da.InvalidSegmentId // outEdge dari tail selain PrevEdge yang mengarah dari tail
 
 	prevTail := db.rn.GetSegmentTailCoord(prevSegment)
 
@@ -257,13 +257,13 @@ func (db *DirectionBuilder) isStreetMerged(prevSegment, segmentId da.Index, curr
 
 		isOSegmentBidirectional := db.rn.IsStreetBidirectional(oSegmentId)
 
-		if oSegmentId != segmentId && relativeBearing < MERGE_RELATIVE_BEARING &&
+		if oSegmentId != segmentId && relativeBearing < MergeRelativeBearing &&
 			isSameName(currStreetName, edgeStreetName) && !isOSegmentBidirectional {
 			otherSegment = oSegmentId
 		}
 	})
 
-	if otherSegment == da.INVALID_SEGMENT_ID {
+	if otherSegment == da.InvalidSegmentId {
 		return false
 	}
 

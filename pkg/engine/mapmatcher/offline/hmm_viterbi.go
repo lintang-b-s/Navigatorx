@@ -15,6 +15,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
+// HMM represents hmm.
 type HMM struct {
 	graph *da.Graph
 	rn    *da.RoadNetworkDataContainer
@@ -35,6 +36,7 @@ func newHMMObservation(observationId int,
 	return hmmObservation{observationId: observationId, gps: gps, candidates: candidates}
 }
 
+// NewHiddenMarkovModelMapMatching creates and returns hidden markov model map matching.
 func NewHiddenMarkovModelMapMatching(graph *da.Graph, re *routing.CRPRoutingEngine[int32],
 	rt *spatialindex.Rtree) *HMM {
 	return &HMM{
@@ -46,7 +48,7 @@ func NewHiddenMarkovModelMapMatching(graph *da.Graph, re *routing.CRPRoutingEngi
 	}
 }
 
-// default gps accuracy radius
+// MapMatch handles HMM map matching with default gps accuracy radius
 func (h *HMM) MapMatch(gpsTraj []*da.GPSPoint) []*da.MatchedGPSPoint {
 	gpsRadiusesM := make([]float64, len(gpsTraj))
 	for i := range gpsRadiusesM {
@@ -56,6 +58,7 @@ func (h *HMM) MapMatch(gpsTraj []*da.GPSPoint) []*da.MatchedGPSPoint {
 	return matchedPoints
 }
 
+// MapMatchWithGPSRadiuses HMM map matching with gpsradiuses.
 /*
 implementation of:
 Newson, P. & Krumm, J., (2009). "Hidden Markov map matching through noise and
@@ -352,7 +355,7 @@ func filterAndSortCandidates(candidates []*ma.Candidate, maxDistanceM float64) [
 
 	n := len(filtered)
 
-	filtered = filtered[:min(n, spatialindex.FILTERED_CANDIDATES_MAP_MATCHING)]
+	filtered = filtered[:min(n, spatialindex.FilteredCandidatesMapMatching)]
 
 	return filtered
 }
@@ -435,7 +438,7 @@ func (h *HMM) calcTransitionProb(param calcTransitionProbParam) transitionWithPr
 	allowUTurn := param.getAllowUTurn()
 
 	route, ok := h.handleSameSourceDestinationSegment(sp, tp)
-	if util.Eq(route.distance, pkg.INF_WEIGHT) {
+	if util.Eq(route.distance, pkg.InfWeight) {
 		return invalidTransition
 	}
 	if !ok {
@@ -502,7 +505,7 @@ func (h *HMM) candidatePhantomGeometries(cand *ma.Candidate) ([]da.Coordinate, [
 
 func (h *HMM) projectedSegmentIndex(projectedCoord da.Coordinate, eGeometry []da.Coordinate) int {
 	lastIndex := 0
-	minDist := pkg.INF_WEIGHT
+	minDist := pkg.InfWeight
 
 	for i := 0; i < len(eGeometry)-1; i++ {
 		projectedPoint := geo.ProjectPointOnSegment(eGeometry[i], eGeometry[i+1], projectedCoord)
@@ -575,8 +578,8 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 	}
 
 	// allowUTurn=true
-	minSegmentDur := pkg.INF_WEIGHT
-	minSegmentDist := pkg.INF_WEIGHT
+	minSegmentDur := pkg.InfWeight
+	minSegmentDist := pkg.InfWeight
 
 	sSegId := sp.GetVId()
 	tSegId := tp.GetVId()
@@ -611,8 +614,8 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 
 		*/
 
-		sameSegmentDur := pkg.INF_WEIGHT
-		sameSegmentDist := pkg.INF_WEIGHT
+		sameSegmentDur := pkg.InfWeight
+		sameSegmentDist := pkg.InfWeight
 
 		eLength := h.met.GetSegmentLength(sSegId)
 

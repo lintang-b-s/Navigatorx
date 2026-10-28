@@ -22,7 +22,8 @@ import (
 	"go.uber.org/zap"
 )
 
-type routingAPI struct {
+// RoutingAPI handles HTTP requests for routing and map-matching operations.
+type RoutingAPI struct {
 	routingService       RoutingService
 	mapAttributesService MapAttributesService
 
@@ -34,7 +35,8 @@ type routingAPI struct {
 	maxRequestBodySize int64
 }
 
-func New(routingService RoutingService, log *zap.Logger, mapAttributesService MapAttributesService) *routingAPI {
+// New creates and returns new routing API.
+func New(routingService RoutingService, log *zap.Logger, mapAttributesService MapAttributesService) *RoutingAPI {
 	validate := validator.New()
 	english := en.New()
 	uni := ut.New(english, english)
@@ -42,9 +44,9 @@ func New(routingService RoutingService, log *zap.Logger, mapAttributesService Ma
 	_ = enTranslations.RegisterDefaultTranslations(validate, trans)
 
 	viper.SetDefault("server.max_request_body_size", int64(1))
-	maxRequestBodySize := viper.GetInt64("server.max_request_body_size") * MB_TO_BYTES
+	maxRequestBodySize := viper.GetInt64("server.max_request_body_size") * MbToBytes
 
-	return &routingAPI{
+	return &RoutingAPI{
 		routingService:       routingService,
 		log:                  log,
 		validate:             validate,
@@ -55,7 +57,8 @@ func New(routingService RoutingService, log *zap.Logger, mapAttributesService Ma
 
 }
 
-func (api *routingAPI) Routes(group *helper.RouteGroup) {
+// Routes registers the routing API endpoints on group.
+func (api *RoutingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
 
 	group.GET("/boundingBox", api.GetBoundingBox)
@@ -65,7 +68,7 @@ func (api *routingAPI) Routes(group *helper.RouteGroup) {
 	group.POST("/mapmatching", api.offlineMapMatching) // offline map-matching
 }
 
-func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (api *RoutingAPI) shortestPath(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	var (
 		request shortestPathRequest
 		err     error
@@ -140,7 +143,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 		}
 	}
 
-	startEdgeId := da.INVALID_SEGMENT_ID
+	startEdgeId := da.InvalidSegmentId
 	rerouteStr := query.Get("reroute")
 	reroute := false
 	if rerouteStr != "" {
@@ -172,7 +175,7 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 			return
 		}
 
-		response := shortestPathEnvelope{Data: NewShortestPathResponse(
+		response := shortestPathEnvelope{Data: newShortestPathResponse(
 			travelTime,
 			dist,
 			pathPolyline,
@@ -199,19 +202,20 @@ func (api *routingAPI) shortestPath(w http.ResponseWriter, r *http.Request, p ht
 	}
 }
 
-func (api *routingAPI) GetBoundingBox(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+// GetBoundingBox writes the bounding box of the loaded road network.
+func (api *RoutingAPI) GetBoundingBox(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	newCtx := r.Context()
 
 	bb := api.routingService.GetBoundingBox(newCtx)
 
-	if err := api.writeJSON(w, http.StatusOK, boundingBoxEnvelope{Data: NewBoundingBox(bb)}); err != nil {
+	if err := api.writeJSON(w, http.StatusOK, boundingBoxEnvelope{Data: newBoundingBox(bb)}); err != nil {
 		api.ServerErrorResponse(w, r, err)
 		return
 	}
 }
 
-func (api *routingAPI) getMapAttributes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (api *RoutingAPI) getMapAttributes(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 	s2CellIdStr := p.ByName("s2CellId")
 	if s2CellIdStr == "" {
 		api.BadRequestResponse(w, r, errors.New("s2CellId is required"))
@@ -242,7 +246,7 @@ func (api *routingAPI) getMapAttributes(w http.ResponseWriter, r *http.Request, 
 	}
 }
 
-func (api *routingAPI) initTransitionMatrix(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (api *RoutingAPI) initTransitionMatrix(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 	r.Header.Del("If-Modified-Since")
 	r.Header.Del("If-None-Match")
 	w.Header().Set("Cache-Control", "no-store, no-cache, must-revalidate")
@@ -251,7 +255,7 @@ func (api *routingAPI) initTransitionMatrix(w http.ResponseWriter, r *http.Reque
 	http.ServeFile(w, r, GetMapMatchingTransitionFile())
 }
 
-func (api *routingAPI) offlineMapMatching(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+func (api *RoutingAPI) offlineMapMatching(w http.ResponseWriter, r *http.Request, _ httprouter.Params) {
 
 	r.Body = http.MaxBytesReader(w, r.Body, api.maxRequestBodySize)
 

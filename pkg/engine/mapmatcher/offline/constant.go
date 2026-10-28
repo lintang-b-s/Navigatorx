@@ -1,6 +1,7 @@
 package offline
 
 const (
+	// MaxSpeedMS is the max speed ms value.
 	MaxSpeedMS                      = 50 // m/s
 	multiplyDistWith                = 2.0
 	sigmaZ                          = 5.0
