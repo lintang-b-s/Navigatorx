@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math"
 	"math/rand"
 	"os"
@@ -453,7 +454,7 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 
 		gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
 		if err := os.WriteFile(fmt.Sprintf(giscupGPSPolyline, tc.id), []byte(gpsTrackPolyline), 0600); err != nil {
-			panic(err)
+			log.Fatal(err.Error())
 		}
 
 		matchedPolyline := ""
@@ -461,7 +462,7 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 			matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
 		}
 		if err := os.WriteFile(fmt.Sprintf(giscupResultPolyline, tc.id), []byte(matchedPolyline), 0600); err != nil {
-			panic(err)
+			log.Fatal(err.Error())
 		}
 		fmt.Printf("wrote matched polyline to %s\n", fmt.Sprintf(giscupResultPolyline, tc.id))
 		fmt.Printf("wrote gps trajectory polyline to %s\n", fmt.Sprintf(giscupGPSPolyline, tc.id))
@@ -538,7 +539,7 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 
 	gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
 	if err := os.WriteFile(melbourneGPSPolyline, []byte(gpsTrackPolyline), 0600); err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 
 	matchedPolyline := ""
@@ -546,7 +547,7 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 		matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
 	}
 	if err := os.WriteFile(melbourneResultPolyline, []byte(matchedPolyline), 0600); err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 	fmt.Printf("wrote matched polyline to %s\n", melbourneResultPolyline)
 	fmt.Printf("wrote gps trajectory polyline to %s\n", melbourneGPSPolyline)

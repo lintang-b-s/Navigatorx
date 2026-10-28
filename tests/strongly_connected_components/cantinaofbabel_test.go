@@ -10,6 +10,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
+	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -131,8 +132,11 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 	}
 
 	es := datastructure.FlattenEdges(adjList)
-
-	op := extractor.NewExtractor[float64]()
+	logger, err := log.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := extractor.NewExtractor[float64](logger)
 	gs := datastructure.NewRoadNetworkDataContainerWithSize(len(es), n)
 	g, _, _, _ := op.BuildGraph(es, gs, uint32(n), false)
 

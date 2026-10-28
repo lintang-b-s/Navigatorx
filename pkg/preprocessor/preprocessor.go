@@ -222,7 +222,7 @@ func (p *Preprocessor[W]) SortByCellNumber() error {
 			k++
 		}
 
-		numVerticesInCell[cell] += 1
+		numVerticesInCell[cell]++
 
 		vCoord := p.graph.GetVertexCoordinate(i)
 		minLat = min(minLat, vCoord.GetLat())

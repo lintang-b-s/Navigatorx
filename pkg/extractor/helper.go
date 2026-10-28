@@ -2,6 +2,7 @@ package extractor
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -309,9 +310,9 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 	// "Mo-Fr 14:00-21:00; Sa-Su,PH 07:00-10:00" or "Mo-Fr 07:00-09:00,16:00-18:00" or etc
 	// ada yang baru lagi awoakow: "dusk-dawn"
 
-	condTimeVals := strings.Split(condTime, ";")
+	condTimeVals := strings.SplitSeq(condTime, ";")
 
-	for _, condTimeVal := range condTimeVals {
+	for condTimeVal := range condTimeVals {
 		var (
 			fromMinsSlice, toMinsSlice []int
 			days                       []time.Weekday
@@ -357,7 +358,7 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 			//  dayString: Mo-Fr
 			dayString := tokens[0]
 
-			for _, group := range strings.Split(dayString, ",") {
+			for group := range strings.SplitSeq(dayString, ",") {
 				group = strings.TrimSpace(group)
 				if parts := strings.Split(group, "-"); len(parts) == 2 {
 					// "Mo-Fr"
@@ -414,13 +415,7 @@ func isConditionalAccessInTimerange(condTime string, currentTime time.Time) (inT
 
 		if len(days) > 0 {
 			currentWeekday := currentTime.Weekday()
-			dayMatch := false
-			for _, d := range days {
-				if d == currentWeekday {
-					dayMatch = true
-					break
-				}
-			}
+			dayMatch := slices.Contains(days, currentWeekday)
 			if !dayMatch {
 				inTimeRange = false
 
@@ -1032,7 +1027,7 @@ func buildTurnLanesData(turnLanesForw, turnLanesBackw []string) (da.TurnLanesDat
 		for i := 0; i < len(turnLanesForw); i++ {
 			// one lane can allow multiple directions: left;through
 			// https://wiki.openstreetmap.org/wiki/Key:turn#Turn_combinations
-			for _, turnVal := range strings.Split(turnLanesForw[i], ";") {
+			for turnVal := range strings.SplitSeq(turnLanesForw[i], ";") {
 				switch turnVal {
 				case strNone, "":
 					turnLaneTypes[i] = append(turnLaneTypes[i], pkg.LANE_NONE)

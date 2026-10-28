@@ -18,7 +18,7 @@ package drivingdirection
 
 // 	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, altSearch, 0.05, true)
 // 	if err != nil {
-// 		panic(err)
+// 		log.Fatal(err.Error())
 // 	}
 // 	testCases := []struct {
 // 		name              string

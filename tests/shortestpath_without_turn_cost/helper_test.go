@@ -1,6 +1,7 @@
 package shortestpath_without_turn_cost
 
 import (
+	"log"
 	"math/rand"
 	"os"
 	"runtime"
@@ -36,10 +37,14 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 	if strings.Contains(strings.ToUpper(t.Name()), "KRL") {
 		da.CoordinatePrecision = 1e3
 	}
+	logger, err := logger.New()
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
 
 	es := da.FlattenEdges(adjList)
 
-	op := extractor.NewExtractor[float64]()
+	op := extractor.NewExtractor[float64](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -54,11 +59,6 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 	g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
-
-	logger, err := logger.New()
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
 
 	ps := make([]int, len(Us))
 
@@ -94,7 +94,7 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 	lm := landmark.NewLandmark[float64]()
 	err = lm.PreprocessALT(1, m.GetCostFunction(), g, logger)
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 
 	re, err := engine.NewEngineDirect(g, rn, og, m, logger, "")

@@ -1,9 +1,11 @@
+// Package main executes the routing engine server CLI.
 package main
 
 import (
 	"flag"
 	"fmt"
 
+	stdLog "log"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -44,7 +46,7 @@ func init() {
 		var q, b int
 		_, err := fmt.Sscanf(*rateLimitParam, "%d,%d", &q, &b)
 		if err != nil {
-			panic(fmt.Sprintf("invalid rate-limit-param format: %s. expected 'qps,burst' (e.g., '6,10')", *rateLimitParam))
+			stdLog.Fatalf("invalid rate-limit-param format: %s. expected 'qps,burst' (e.g., '6,10')", *rateLimitParam)
 		}
 		http_router.SetRateLimit(q, b)
 	}
@@ -56,12 +58,12 @@ func main() {
 
 	logger, err := log.New()
 	if err != nil {
-		panic(err)
+		stdLog.Fatal(err.Error())
 	}
 
 	eng, err := engine.NewEngine[int32](logger)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	re := eng.GetRoutingEngine()
 
@@ -69,7 +71,7 @@ func main() {
 	graph := re.GetGraph()
 	rtree, err := spatialindex.ReadRtreeFromFile(logger)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	api := http.NewServer(logger)
@@ -77,14 +79,14 @@ func main() {
 	leftHandTraffic := viper.GetBool("guidance.left_hand")
 	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, *spIndexRadius, leftHandTraffic)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	met := re.GetMetrics()
 	shutdownPeriod := time.Duration(*gracefulShutdownPeriod)
 	s2Index, err := spatialindex.ReadS2RoadSegmentsIndexFromFile()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	mapAttributesEngine := mapattributes.NewMapAttributesEngine(graph, rn, logger, met, s2Index)

@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// New creates and configures a new zap.Logger based on the provided Configuration.
 func New(cfg config.Configuration) (*zap.Logger, error) {
 
 	logLevel := setLogLevel(cfg.Level)

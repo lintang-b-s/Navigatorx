@@ -4,7 +4,7 @@ package mapattributes
 import (
 	"bytes"
 	"fmt"
-	"sort"
+	"slices"
 
 	s2geo "github.com/golang/geo/s2"
 	"github.com/klauspost/compress/s2"
@@ -56,9 +56,7 @@ func (me *MapAttributesEngine[W]) GetMapAttributes(s2CellId s2geo.CellID, radius
 		segSet[segId] = struct{}{}
 	}
 
-	sort.Slice(segmentIds, func(i, j int) bool {
-		return segmentIds[i] < segmentIds[j]
-	})
+	slices.Sort(segmentIds)
 
 	n := len(segmentIds)
 	outDegs := make([]da.Index, n)

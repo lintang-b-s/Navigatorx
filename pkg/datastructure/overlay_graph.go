@@ -1,6 +1,7 @@
 package datastructure
 
 import (
+	"slices"
 	"sort"
 )
 
@@ -348,7 +349,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 	}
 
 	og.overlayVertices = make([]OverlayVertex, 0, overlayVertexCount)
-	for i := len(overlayVerticesByLevel) - 1; i >= 0; i-- {
+	for i := range slices.Backward(overlayVerticesByLevel) {
 		og.overlayVertices = append(og.overlayVertices, overlayVerticesInLevelFinal[i]...)
 	}
 

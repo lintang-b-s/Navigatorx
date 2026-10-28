@@ -40,21 +40,21 @@ linters:
         - "all"
         - "-ST1003"
         - "-ST1020"
-    revive: # todo: suruh ai agent buat benerin revive linter issues (hilangin settings revive: ini)
+    revive:
+      enable-default-rules: true
       rules:
-        - name: blank-imports
-        - name: context-as-argument
-        - name: indent-error-flow
-        - name: superfluous-else
-        - name: redefines-builtin-id
-        - name: unreachable-code
-        - name: time-naming
-        - name: var-declaration
-        - name: waitgroup-by-value
-        - name: receiver-naming
-        - name: bool-literal-in-expr
-        - name: constant-logical-expr
-        - name: empty-block
+        - name: exported
+          disabled: true
+        - name: unused-parameter
+          disabled: true
+        - name: unexported-return
+          disabled: true
+        - name: var-naming
+          arguments:
+            - ["ID"]
+            - []
+            - - skip-initialism-name-checks: true
+                upper-case-const: true
     gosec:
       excludes:
         - G115

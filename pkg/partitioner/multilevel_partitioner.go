@@ -57,7 +57,7 @@ type MultilevelPartitioner struct {
 
 func NewMultilevelPartitioner(u []int, l, inertialFlowIterations int, nbg *da.Graph, logger *zap.Logger) *MultilevelPartitioner {
 	if len(u) != l {
-		panic(fmt.Errorf("cell levels %d and cell array size %d must be the same", l, len(u)))
+		logger.Fatal(fmt.Sprintf("cell levels %d and cell array size %d must be the same", l, len(u)))
 	}
 
 	return &MultilevelPartitioner{

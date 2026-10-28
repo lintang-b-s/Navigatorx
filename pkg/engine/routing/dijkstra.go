@@ -39,7 +39,7 @@ useReversedEdges = true -> buat cari sssp dari every vertices in graph to s
 */
 func (us *Dijkstra[W]) ShortestPath(s da.Index) ([]W, [][]da.Index) {
 
-	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
+	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
 
 	djKey := da.NewDijkstraKey(s)
 	us.pq.Insert(s, 0, sVertexData, djKey)
@@ -72,13 +72,14 @@ func (us *Dijkstra[W]) graphSearchUni(source da.Index) {
 		vLabelled := util.Lt(oldCost, util.Infinity[W]())
 		if util.Lt(newVCost, oldCost) {
 			// newVCost is better, update the v cost
+			vPar := da.NewParentVertex(u, false)
+
 			if vLabelled {
-				newPar := da.NewParentVertex(u)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(v, newVCost, newVCost, newPar)
+				us.pq.DecreaseKey(v, newVCost, newVCost, vPar)
 			} else if !vLabelled {
 				queryKey := da.NewDijkstraKey(v)
-				vData := da.NewVData(newVCost, da.NewParentVertex(u))
+				vData := da.NewVData(newVCost, vPar)
 				// is key not in the priority queue, insert it
 				us.pq.Insert(v, newVCost, vData, queryKey)
 			}

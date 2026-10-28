@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// New creates and initializes a default zap.Logger instance based on viper configuration.
 func New() (*zap.Logger, error) {
 	viper.SetDefault("LOG_LEVEL", config.InfoLevel)
 	viper.SetDefault("LOG_TIME_FORMAT", time.RFC3339Nano)

@@ -16,18 +16,18 @@ func (ve ParentVertex) GetVertex() Index {
 	return ve.vertex
 }
 
-func (ve *ParentVertex) SetIsOverlayVertex() {
-	ve.flag |= overlayFlag
-}
-
 func (ve ParentVertex) IsOverlayVertex() bool {
 	return ve.flag&overlayFlag != 0
 }
 
-func NewParentVertex(vertex Index) ParentVertex {
-	return ParentVertex{
+func NewParentVertex(vertex Index, overlay bool) ParentVertex {
+	pv := ParentVertex{
 		vertex: vertex,
 	}
+	if overlay {
+		pv.flag |= overlayFlag
+	}
+	return pv
 }
 
 type VertexData[W util.Numeric] struct {

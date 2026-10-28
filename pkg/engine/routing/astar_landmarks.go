@@ -36,7 +36,7 @@ func NewALTP2P[W util.Numeric](
 func (us *ALTP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 
 	us.activeLandmarks = us.lm.SelectBestQueryLandmarks(s, t)
-	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
+	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
 
 	now := time.Now()
 
@@ -85,15 +85,15 @@ func (us *ALTP2P[W]) graphSearchUni(source, target da.Index) bool {
 		vLabelled := util.Lt(ovCost, util.Infinity[W]())
 		hv := us.lm.ComputeTighestLowerBound(vId, target, us.activeLandmarks)
 		priority := newVCost + hv
+		vPar := da.NewParentVertex(uId, false)
 
 		// newVCost is better, update the labelled vertex data
 		if vLabelled {
-			newPar := da.NewParentVertex(uId)
 			// is key already in the priority queue, decrease its key
-			us.pq.DecreaseKey(vId, priority, newVCost, newPar)
+			us.pq.DecreaseKey(vId, priority, newVCost, vPar)
 		} else if !vLabelled {
 			queryKey := da.NewDijkstraKey(vId)
-			vData := da.NewVData(newVCost, da.NewParentVertex(uId))
+			vData := da.NewVData(newVCost, vPar)
 			// is key not in the priority queue, insert it
 			us.pq.Insert(vId, priority, vData, queryKey)
 		}

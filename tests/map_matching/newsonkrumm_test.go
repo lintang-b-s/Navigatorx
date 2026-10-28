@@ -25,7 +25,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
-	"github.com/lintang-b-s/Navigatorx/pkg/logger"
+	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -115,7 +115,7 @@ func nkDownload(filePath, url string, zlog *zap.Logger, t *testing.T, name strin
 
 // https://www.microsoft.com/en-us/research/publication/hidden-markov-map-matching-noise-sparseness/
 func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine[int32], *da.Graph, *zap.Logger, *da.SparseMatrix, map[uint64]float64, error) {
-	zlog, err := logger.New()
+	zlog, err := log.New()
 	if err != nil {
 		return nil, nil, nil, nil, nil, err
 	}
@@ -247,7 +247,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		}
 	}
 
-	op := extractor.NewExtractor[int32]()
+	op := extractor.NewExtractor[int32](zlog)
 	n := len(nodeIdMap)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmID := make(map[da.Index]int64, n)
@@ -259,8 +259,10 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	op.SetNodeToOsmId(nodeToOsmID)
 	nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices := op.BuildGraph(graphEdges, rn, uint32(len(nodeIdMap)), true)
 	rn.BuildNameTable(map[uint32]string{0: ""})
-	ebg, timeFunction, _ := extractor.BuildEdgeBasedGraph(nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
-
+	ebg, timeFunction, _, err := extractor.BuildEdgeBasedGraph(nbg, timeFunction, vertexTurnTablePtr, flattenTurnMatrices, rn)
+	if err != nil {
+		t.Fatal(err)
+	}
 	us := []int{8, 11, 14, 16}
 	ps := make([]int, len(us))
 	for i := range ps {
@@ -324,8 +326,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 	defer cancel()
 	workers.StartWithContext(ctx, computeRoute)
 
-	var N *da.SparseMatrix
-	N = da.NewSparseMatrix(g.NumberOfEdges(), g.NumberOfEdges(), 0, func(a, b uint32) bool { return a == b })
+	N := da.NewSparseMatrix(g.NumberOfEdges(), g.NumberOfEdges(), 0, func(a, b uint32) bool { return a == b })
 
 	wg := sync.WaitGroup{}
 	wg.Add(1)

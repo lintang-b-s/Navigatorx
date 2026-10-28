@@ -115,7 +115,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 
 	tVertex := pu.eng.overlayGraph.GetVertex(tOv)
 
-	sVData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
+	sVData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
 	pq.Insert(sOv, 0, sVData, sOv)
 
 	s := sVertex.GetOrigVId()
@@ -147,7 +147,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 				hv := pu.lm.ComputeTighestLowerBound(v, t, activeLandmarks)
 				priority := newVCost + hv
-				vNewPar := da.NewParentVertex(uOv)
+				vNewPar := da.NewParentVertex(uOv, true)
 				if vOv == tOv {
 					// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 					// if v is the target overlay vertex, insert/decrease its key  pq
@@ -175,7 +175,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 
 				// get out edge that point to w from v
 				newVCost += pu.metrics.GetWeight(vVertex.GetCutEdge())
-				wPar := da.NewParentVertex(vOv)
+				wPar := da.NewParentVertex(vOv, true)
 				// relax edge
 				wLabelled := util.Lt(pq.GetCost(wOv), util.Infinity[W]())
 				if util.Lt(newVCost, pq.GetCost(wOv)) {
@@ -245,7 +245,7 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 	tOvVertex := pu.eng.overlayGraph.GetVertex(tOv)
 	t := tOvVertex.GetOrigVId()
 
-	sData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
+	sData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
 	sCellNum := pu.eng.graph.GetCellNumber(s)
 
 	offset, _ := pu.eng.graph.GetVertexCellOffset(s)
@@ -283,13 +283,13 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 				// ALT (A*, landmarks, and triangle inequality) lowerbound/heuristic function
 				pfv := pu.lm.ComputeTighestLowerBound(v, t, activeLandmarks)
 				priority := newVCost + pfv
-
+				vPar := da.NewParentVertex(u, false)
 				if !vLabelled {
-					vData := da.NewVData(newVCost, da.NewParentVertex(u))
+					vData := da.NewVData(newVCost, vPar)
 					pq.Insert(v, priority, vData, v)
 				} else {
-					newPar := da.NewParentVertex(u)
-					pq.DecreaseKey(v, priority, newVCost, newPar)
+
+					pq.DecreaseKey(v, priority, newVCost, vPar)
 				}
 			}
 		}

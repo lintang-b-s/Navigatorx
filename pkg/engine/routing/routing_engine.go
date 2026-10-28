@@ -176,13 +176,13 @@ func (crp *CRPRoutingEngine[W]) initParameter() {
 		alphaMap, crp.defaultAlpha = util.ToFloat64Map(altConfig["alpha"])
 		epsilonMap, crp.defaultEpsilon = util.ToFloat64Map(altConfig["epsilon"])
 		upperBoundMap, crp.defaultUpperbound = util.ToFloat64Map(altConfig["upper_bound"])
-		validateUpperbound(upperBoundMap, crp.defaultUpperbound)
+		crp.validateUpperbound(upperBoundMap, crp.defaultUpperbound)
 		maxCandidatesToUnpackMap, crp.defaultMaxCandidatesToUnpack = util.ToFloat64IntMap(altConfig["max_candidates_to_unpack"])
 		mp := altConfig["motorway_penalty"]
 		if val, ok := mp.(float64); ok {
 			crp.motorwayPenalty = val
 		} else {
-			panic("motorway_penalty must be float64")
+			crp.logger.Fatal("motorway_penalty must be float64")
 		}
 
 		crp.gammaLookup = newParamLookup(gammaMap, crp.defaultGamma)
@@ -193,13 +193,13 @@ func (crp *CRPRoutingEngine[W]) initParameter() {
 	}
 }
 
-func validateUpperbound(upperBoundMap map[float64]float64, defaultUpperbound float64) {
+func (crp *CRPRoutingEngine[W]) validateUpperbound(upperBoundMap map[float64]float64, defaultUpperbound float64) {
 	if defaultUpperbound > 1.75 {
-		panic("bidirectional search upperbound must less than or equal 1.75")
+		crp.logger.Fatal("bidirectional search upperbound must less than or equal 1.75")
 	}
 	for _, val := range upperBoundMap {
 		if val > 1.75 {
-			panic("bidirectional search upperbound must less than or equal 1.75")
+			crp.logger.Fatal("bidirectional search upperbound must less than or equal 1.75")
 		}
 	}
 }

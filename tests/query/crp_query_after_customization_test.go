@@ -3,6 +3,7 @@ package query
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"testing"
@@ -43,7 +44,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 	routingService.InitBackgroundWorker(ctx)
 
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 	type segmentSpeedData struct {
 		fromOsmId int64
@@ -271,6 +272,7 @@ func TestCRPQueryAfterCustomizationUsingSegmentSpeedsFile(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		time.Sleep(3 * time.Second)
 	}
 	valhallaVisualizerPolylineUrl := func(polyline string) string {
 		return fmt.Sprintf("https://valhalla.github.io/demos/polyline/?unescape=true&polyline6=false#%s", polyline)

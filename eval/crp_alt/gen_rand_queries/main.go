@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	stdLog "log"
 	"math"
 	"math/rand"
 	"os"
@@ -34,12 +35,12 @@ func main() {
 	flag.Parse()
 	logger, err := log.New()
 	if err != nil {
-		panic(err)
+		stdLog.Fatal(err.Error())
 	}
 
 	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	g := re.GetRoutingEngine().GetGraph()
@@ -49,11 +50,11 @@ func main() {
 
 	outPath := "./data/random_queries_1mil_sp_crp_alt.txt"
 	if err := util.EnsureDirExists(outPath); err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	fout, err := os.Create(outPath)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	defer fout.Close()
 

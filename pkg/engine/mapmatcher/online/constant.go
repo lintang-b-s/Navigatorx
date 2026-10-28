@@ -12,9 +12,12 @@ const (
 	beta                     = 10.0
 )
 
+//revive:disable:var-naming
 type TIPE_MHT int
 
 const (
 	MHT_TIPE_ONE = iota
 	MHT_TIPE_TWO
 )
+
+//revive:enable:var-naming

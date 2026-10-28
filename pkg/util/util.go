@@ -3,11 +3,11 @@ package util
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	stdLog "log"
 	"math"
 	"strconv"
-
-	"errors"
 
 	"time"
 )
@@ -50,7 +50,7 @@ func (e *Error) Unwrap() error {
 	return e.orig
 }
 
-func WrapErrorf(orig error, code error, format string, a ...interface{}) error {
+func WrapErrorf(orig error, code error, format string, a ...any) error {
 	return &Error{
 		code: code,
 		orig: orig,
@@ -127,16 +127,16 @@ func ReverseG[T any](arr []T) {
 	}
 }
 
-func AssertPanic(cond bool, msg string) {
+func AssertFatal(cond bool, msg string) {
 	if !cond {
-		panic(msg)
+		stdLog.Fatal(msg)
 	}
 }
 
-func ToFloat64Map(input interface{}) (map[float64]float64, float64) {
+func ToFloat64Map(input any) (map[float64]float64, float64) {
 	result := make(map[float64]float64)
 	defaultVal := 0.0
-	for k, v := range input.(map[string]interface{}) {
+	for k, v := range input.(map[string]any) {
 		if k == "default" {
 			defaultVal = v.(float64)
 			continue
@@ -153,11 +153,11 @@ func ToFloat64Map(input interface{}) (map[float64]float64, float64) {
 	return result, defaultVal
 }
 
-func ToFloat64IntMap(input interface{}) (map[float64]int, int) {
+func ToFloat64IntMap(input any) (map[float64]int, int) {
 	result := make(map[float64]int)
 	defaultVal := 0
 
-	for k, v := range input.(map[string]interface{}) {
+	for k, v := range input.(map[string]any) {
 		if k == "default" {
 			defaultVal = v.(int)
 			continue

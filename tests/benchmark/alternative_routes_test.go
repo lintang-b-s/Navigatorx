@@ -29,6 +29,13 @@ cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
 BenchmarkAlternativeRoutes-12    	   16534	   1033144 ns/op	         1.033 ms/op	     967.9 ops/sec	 26384 B/op	    67 allocs/op
 PASS
 ok  	github.com/lintang-b-s/Navigatorx/tests/benchmark	39.632s
+
+goarch: amd64
+pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
+cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
+BenchmarkAlternativeRoutes-12              30618            558370 ns/op                 0.5584 ms/op         1791 ops/sec         50778 B/op        178 allocs/op
+PASS
+ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       26.070s
 */
 func BenchmarkAlternativeRoutes(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak

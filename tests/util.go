@@ -37,27 +37,27 @@ func init() {
 }
 
 func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *customizer.Customizer[int32]) {
+	logger, err := log.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	outputDir := filepath.Join(workingDir, "data")
 
 	osmfFile := fmt.Sprintf("%s/%s.osm.pbf", outputDir, fileName)
 
 	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	config.InitRegionName(fileName, pkg.TEST)
 
-	logger, err := log.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	op := extractor.NewExtractor[int32]()
-	_, ebg, rn, _, timeFunction, err := op.Extract(osmfFile, logger)
+	op := extractor.NewExtractor[int32](logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(osmfFile)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -88,7 +88,7 @@ func Setup(t *testing.T, fileName string) (*engine.Engine[int32], *zap.Logger, *
 	mlp := da.NewPlainMLP()
 	err = mlp.ReadMlpFile()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
@@ -421,7 +421,7 @@ func dijkstra(adjList [][]da.PairEdge, s da.Index) []float64 {
 	}
 
 	pq := da.NewQueryHeap[da.Index, float64](da.Index(n), da.ARRAY_STORAGE)
-	emptyVertexData := da.NewVData(float64(0), da.NewParentVertex(0))
+	emptyVertexData := da.NewVData(float64(0), da.NewParentVertex(0, false))
 
 	dist[s] = 0
 	pq.Insert(s, 0, emptyVertexData, s)

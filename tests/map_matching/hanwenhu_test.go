@@ -11,7 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -40,13 +39,7 @@ const (
 
 var (
 	hhPartitionSizes = []int{8, 11, 13, 14, 15}
-	hhInitOnce       sync.Once
-	hhInitErr        error
 )
-
-type hhQuery struct {
-	s, t da.Index
-}
 
 func hhDownload(filePath, url string, logger *zap.Logger, name string) error {
 	if _, err := os.Stat(filePath); os.IsNotExist(err) {
@@ -82,12 +75,12 @@ func hhBuildCRPGraph(t *testing.T) (*engine.Engine[int32], *da.Graph, *zap.Logge
 	if err != nil {
 		t.Fatalf("log.New failed: %v", err)
 	}
-	op := extractor.NewExtractor[int32]()
+	op := extractor.NewExtractor[int32](logger)
 	err = hhDownload(hhOsmFile, hhShanghaiOsmDriveFile, logger, "shanghai openstreetmap file")
 	if err != nil {
 		t.Fatalf("download osm failed: %v", err)
 	}
-	_, ebg, rn, _, timeFunction, err := op.Extract(hhOsmFile, logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(hhOsmFile)
 	if err != nil {
 		t.Fatalf("osm parse failed: %v", err)
 	}

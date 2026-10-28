@@ -15,7 +15,11 @@ func (lm *Landmark[W]) WriteLandmark(filename string, n int) error {
 		lw := lm.lw
 		vlw := lm.vlw
 
-		if err := w.Uint8(met.NumericMarker[W]()); err != nil {
+		nm, err := met.NumericMarker[W]()
+		if err != nil {
+			return err
+		}
+		if err := w.Uint8(nm); err != nil {
 			return err
 		}
 		if err := w.Length(len(landmarks)); err != nil {
@@ -48,7 +52,10 @@ func ReadLandmark[W util.Numeric](
 	if err != nil {
 		return nil, err
 	}
-	expectedMarker := met.NumericMarker[W]()
+	expectedMarker, err := met.NumericMarker[W]()
+	if err != nil {
+		return nil, err
+	}
 	if marker != expectedMarker {
 		return nil, fmt.Errorf("landmark numeric representation %d does not match expected %d", marker, expectedMarker)
 	}

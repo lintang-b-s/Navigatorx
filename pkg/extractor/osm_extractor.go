@@ -28,17 +28,17 @@ import (
 
 // Extractor OpenStreetMap road network data parser & build node-based graph, then converting the node-based graph to edge-based graph.
 type Extractor[W util.Numeric] struct {
-	wayNodeMap        map[int64]nodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
-	relationMemberMap map[int64]struct{}
-	barrierNodes      map[int64]bool // osm node Id -> barrier node flag
-	nodeTag           map[int64]map[uint32]uint32
-	tagStringIdMap    util.IDMap
-	nodeIdMap         map[int64]da.Index // osm node Id -> graph nodeId
-	nodeToOsmId       map[da.Index]int64 // graph nodeId -> osm node Id
-	restrictions      map[int64][]restriction
-	maxNodeId         int64
-	ways              map[int64]osmWay // wayId -> osm way
-
+	wayNodeMap                   map[int64]nodeWithCoord // osm nodeId -> tipe dari node (JUNCTION,BETWEEN, END),node coordinate
+	relationMemberMap            map[int64]struct{}
+	barrierNodes                 map[int64]bool // osm node Id -> barrier node flag
+	nodeTag                      map[int64]map[uint32]uint32
+	tagStringIdMap               util.IDMap
+	nodeIdMap                    map[int64]da.Index // osm node Id -> graph nodeId
+	nodeToOsmId                  map[da.Index]int64 // graph nodeId -> osm node Id
+	restrictions                 map[int64][]restriction
+	maxNodeId                    int64
+	ways                         map[int64]osmWay // wayId -> osm way
+	logger                       *zap.Logger
 	osmWayDefaultSpeed           map[int64]float64 // wayId -> default max speed
 	bb                           *da.BoundingBox
 	reversibleOsmWay             map[int64]struct{}
@@ -51,7 +51,7 @@ type Extractor[W util.Numeric] struct {
 	conditionalTrafficModesVal   map[int64]string
 }
 
-func NewExtractor[W util.Numeric]() *Extractor[W] {
+func NewExtractor[W util.Numeric](logger *zap.Logger) *Extractor[W] {
 	p := &Extractor[W]{
 		wayNodeMap:        make(map[int64]nodeWithCoord),
 		relationMemberMap: make(map[int64]struct{}),
@@ -61,12 +61,12 @@ func NewExtractor[W util.Numeric]() *Extractor[W] {
 		nodeIdMap:         make(map[int64]da.Index),
 		nodeToOsmId:       make(map[da.Index]int64),
 
-		osmWayDefaultSpeed: make(map[int64]float64),
-		bb:                 da.NewBoundingBoxEmpty(),
-		currentTime:        time.Now(),
-		highwayWhitelist:   initializeHighwayWhitelist(), // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
-		ways:               make(map[int64]osmWay),
-
+		osmWayDefaultSpeed:           make(map[int64]float64),
+		bb:                           da.NewBoundingBoxEmpty(),
+		currentTime:                  time.Now(),
+		highwayWhitelist:             initializeHighwayWhitelist(), // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
+		ways:                         make(map[int64]osmWay),
+		logger:                       logger,
 		reversibleOsmWay:             make(map[int64]struct{}),
 		conditionalBarrierNodes:      make([]da.ConditionalBarrierNode, 0),
 		conditionalReversibleWayVals: make(map[int64]string),
@@ -88,7 +88,7 @@ func (p *Extractor[W]) initializeMaxSpeed() {
 		case float64:
 			maxspeeds[highwayType] = v
 		default:
-			panic("unsupported type")
+			p.logger.Fatal("unsupported type")
 		}
 	}
 	p.maxspeeds = maxspeeds
@@ -115,7 +115,7 @@ func (p *Extractor[W]) GetTagStringIdMap() util.IDMap {
 	return p.tagStringIdMap
 }
 
-func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *da.Graph, *da.RoadNetworkDataContainer, []uint64, *met.TimeFunction[W], error) {
+func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNetworkDataContainer, []uint64, *met.TimeFunction[W], error) {
 
 	f, err := os.Open(filepath.Clean(mapFile))
 
@@ -129,7 +129,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 
 	stat, err := f.Stat()
 	if err != nil {
-		panic(err)
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to f.Stat(): %s: %w", mapFile, err)
 	}
 
 	totBytes := stat.Size()
@@ -139,7 +139,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 	scannedWays := 0
 	// scan osm ways and relations
 	// store relations and way.nodes
-	logger.Sugar().Infof("parsing openstreetmap .pbf file....")
+	p.logger.Sugar().Infof("parsing openstreetmap .pbf file....")
 	pg := make([]bool, 101)
 
 	for scanner.Scan() {
@@ -337,7 +337,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 	p.ways = make(map[int64]osmWay, scannedWays)
 	streetDirection := make(map[int64][2]bool)
 	countWays := 0
-	logger.Sugar().Infof("processing openstreetmap .pbf file....")
+	p.logger.Sugar().Infof("processing openstreetmap .pbf file....")
 	pg = make([]bool, 101)
 	rn := da.NewRoadNetworkDataContainer(da.DEFAULT_BIT_SIZE_OSM_WAY_ID)
 
@@ -393,7 +393,7 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 		}
 	}
 
-	logger.Sugar().Infof("building road network graph.... ")
+	p.logger.Sugar().Infof("building road network graph.... ")
 
 	for wayId, way := range p.ways {
 		graphNodes := make([]da.Index, 0)
@@ -430,14 +430,17 @@ func (p *Extractor[W]) Extract(mapFile string, logger *zap.Logger) (*da.Graph, *
 		}
 	})
 
-	logger.Sugar().Infof("number of vertices of node-based graph: %v", nbg.NumberOfVertices())
-	logger.Sugar().Infof("number of edges of node-based graph: %v", nbg.NumberOfEdges())
+	p.logger.Sugar().Infof("number of vertices of node-based graph: %v", nbg.NumberOfVertices())
+	p.logger.Sugar().Infof("number of edges of node-based graph: %v", nbg.NumberOfEdges())
 
-	logger.Sugar().Infof("converting node-based graph to edge-based graph...")
+	p.logger.Sugar().Infof("converting node-based graph to edge-based graph...")
 	// edge-based graph
-	ebg, nwf, ebgMapping := BuildEdgeBasedGraph(nbg, wf, vertexTurnTablePtr, turnMatrix, rn)
-	logger.Sugar().Infof("number of vertices of edge-based graph: %v", ebg.NumberOfVertices())
-	logger.Sugar().Infof("number of edges of edge-based graph: %v", ebg.NumberOfEdges())
+	ebg, nwf, ebgMapping, err := BuildEdgeBasedGraph(nbg, wf, vertexTurnTablePtr, turnMatrix, rn)
+	if err != nil {
+		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to BuildEdgeBasedGraph(): %s: %w", mapFile, err)
+	}
+	p.logger.Sugar().Infof("number of vertices of edge-based graph: %v", ebg.NumberOfVertices())
+	p.logger.Sugar().Infof("number of edges of edge-based graph: %v", ebg.NumberOfEdges())
 
 	if err = scanner.Close(); err != nil {
 		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to Close scanner: %s: %w", mapFile, err)

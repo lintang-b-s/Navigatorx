@@ -2,7 +2,7 @@ package datastructure
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -46,7 +46,7 @@ func (og *OverlayGraph) WriteToFile(filename string) error {
 			for key := range cells {
 				keys = append(keys, uint32(key))
 			}
-			sort.Slice(keys, func(i, j int) bool { return keys[i] < keys[j] })
+			slices.Sort(keys)
 			if err := w.Length(len(keys)); err != nil {
 				return err
 			}

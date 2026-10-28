@@ -34,17 +34,17 @@ const (
 )
 
 func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	outputDir := filepath.Join(workingDir, "data")
-	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
-	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
+	}
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		logger.Fatal(err.Error())
 	}
 
 	err = config.ReadConfig(workingDir)
@@ -53,8 +53,8 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 	}
 	config.InitRegionName("snap_test", pkg.TEST)
 
-	op := extractor.NewExtractor[int32]()
-	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	op := extractor.NewExtractor[int32](logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -85,7 +85,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *zap.Logger) {
 	mlp := da.NewPlainMLP()
 	err = mlp.ReadMlpFile()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
@@ -120,11 +120,11 @@ func TestOriginDestinationSnap(t *testing.T) {
 	rtreeb.Build(re.GetGraph(), rn, logger)
 	rtree, err := spatialindex.ReadRtreeFromFile(logger)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.04, true)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	g := re.GetGraph()

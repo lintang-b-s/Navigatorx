@@ -52,7 +52,7 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, Us []i
 
 	es := da.FlattenEdgesG[int64](adjList)
 
-	op := extractor.NewExtractor[int64]()
+	op := extractor.NewExtractor[int64](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {

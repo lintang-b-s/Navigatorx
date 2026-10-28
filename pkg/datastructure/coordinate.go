@@ -2,6 +2,7 @@ package datastructure
 
 import (
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -51,11 +52,11 @@ func IsSameCoordinate(a, b Coordinate) bool {
 func NewCoordinate(lat, lon float64) Coordinate {
 	fixedLat, err := coordinateToFixed(lat, "latitude")
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 	fixedLon, err := coordinateToFixed(lon, "longitude")
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 	return NewFixedCoordinate(fixedLat, fixedLon)
 }

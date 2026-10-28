@@ -9,7 +9,11 @@ import (
 
 func (met *Metric[W]) WriteToFile(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
-		if err := w.Uint8(NumericMarker[W]()); err != nil {
+		nm, err := NumericMarker[W]()
+		if err != nil {
+			return err
+		}
+		if err := w.Uint8(nm); err != nil {
 			return err
 		}
 		weights := met.shortcutWeights
@@ -29,7 +33,10 @@ func ReadFromFile[W util.Numeric](
 	if err != nil {
 		return nil, err
 	}
-	expectedMarker := NumericMarker[W]()
+	expectedMarker, err := NumericMarker[W]()
+	if err != nil {
+		return nil, err
+	}
 	if marker != expectedMarker {
 		return nil, fmt.Errorf("metric numeric representation %d does not match expected %d", marker, expectedMarker)
 	}

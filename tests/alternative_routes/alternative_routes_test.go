@@ -12,7 +12,9 @@ import (
 )
 
 // TestAlternativeRoutes cuma cek apakah stretch, diversity, success rate dari alternative routes diatas threshold
-// https://dl.acm.org/doi/abs/10.1145/2444016.2444019,  https://dl.acm.org/doi/epdf/10.1145/3567421 ,
+//
+//	https://dl.acm.org/doi/epdf/10.1145/3567421 , https://dl.acm.org/doi/abs/10.1145/2444016.2444019
+//
 // go test ./tests/alternative_routes -run  TestAlternativeRoutes  -v -timeout=0  -count=1
 func TestAlternativeRoutes(t *testing.T) {
 	testCases := []struct {
@@ -72,7 +74,7 @@ func TestAlternativeRoutes(t *testing.T) {
 			queries := make([]query, 0, n)
 
 			bitpack := func(i, j da.Index) uint64 {
-				return uint64(i) | (uint64(j) << 30)
+				return uint64(i) | (uint64(j) << 31)
 			}
 
 			rd := rand.New(rand.NewSource(time.Now().UnixNano()))

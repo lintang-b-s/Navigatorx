@@ -5,6 +5,7 @@ import (
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
+	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -18,8 +19,11 @@ func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge) (*da.Graph, *d
 	}
 
 	es := da.FlattenEdges(adjList)
-
-	op := extractor.NewExtractor[float64]()
+	logger, err := logger.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := extractor.NewExtractor[float64](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmID := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {

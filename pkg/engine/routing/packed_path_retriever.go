@@ -11,7 +11,6 @@ func (crp *CRPRoutingEngine[W]) RetrievePackedPath(mid da.ParentVertex, fpq *da.
 	midv := mid.GetVertex()
 	midvv := midv
 	if mid.IsOverlayVertex() {
-		mid.SetIsOverlayVertex()
 		amvId := crp.adjustoffsetOverlay(midv)
 		omvId := onBit(amvId, UNPACK_OVERLAY_OFFSET)
 		midvv = omvId

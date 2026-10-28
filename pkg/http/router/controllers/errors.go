@@ -23,7 +23,7 @@ func (api *routingAPI) logError(r *http.Request, err error) {
 }
 
 // errorResponse method for sending JSON-formatted error messages to the client with a given status code.
-func (api *routingAPI) errorResponse(w http.ResponseWriter, r *http.Request, status int, message interface{},
+func (api *routingAPI) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any,
 ) {
 	env := errorEnvelope{Error: errorBody{
 		Code:    http.StatusText(status),

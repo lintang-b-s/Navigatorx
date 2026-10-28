@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -116,7 +117,7 @@ func main() {
 
 	queries, err := loadQueries("./data/random_queries_1mil_sp_crp_alt_coords.txt")
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 
 	successRate := 0.0
@@ -134,7 +135,7 @@ func main() {
 
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
-			panic(err)
+			log.Fatal(err.Error())
 		}
 
 		req.Header.Set("Content-Type", "application/json")
@@ -144,7 +145,7 @@ func main() {
 
 		resp, err := client.Do(req)
 		if err != nil {
-			panic(err)
+			log.Fatal(err.Error())
 		}
 		defer resp.Body.Close()
 
@@ -152,7 +153,7 @@ func main() {
 
 		err = json.NewDecoder(resp.Body).Decode(&osrmResp)
 		if err != nil {
-			panic(err)
+			log.Fatal(err.Error())
 		}
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)

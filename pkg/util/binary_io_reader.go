@@ -13,6 +13,7 @@ import (
 	"github.com/klauspost/compress/s2"
 )
 
+// BinaryReader wraps a buffered reader for sequential binary deserialization.
 type BinaryReader struct {
 	r *bufio.Reader
 	// reusable buffer
@@ -20,10 +21,12 @@ type BinaryReader struct {
 	bulkBuf []byte
 }
 
+// NewBinaryReader creates a new BinaryReader with default buffer size.
 func NewBinaryReader(r io.Reader) *BinaryReader {
 	return NewBinaryReaderSize(r, BUFIO_SIZE)
 }
 
+// NewBinaryReaderSize creates a new BinaryReader with a custom buffer size.
 func NewBinaryReaderSize(r io.Reader, size int) *BinaryReader {
 	if buffered, ok := r.(*bufio.Reader); ok {
 		return &BinaryReader{r: buffered}
@@ -31,6 +34,7 @@ func NewBinaryReaderSize(r io.Reader, size int) *BinaryReader {
 	return &BinaryReader{r: bufio.NewReaderSize(r, size)}
 }
 
+// GetReader returns the underlying bufio.Reader.
 func (r *BinaryReader) GetReader() *bufio.Reader {
 	return r.r
 }
@@ -40,6 +44,7 @@ func (r *BinaryReader) read(size int) ([]byte, error) {
 	return r.buf[:size], err
 }
 
+// Uint8 reads and returns a single uint8 value.
 func (r *BinaryReader) Uint8() (uint8, error) {
 	value, err := r.read(1)
 	if err != nil {
@@ -48,6 +53,7 @@ func (r *BinaryReader) Uint8() (uint8, error) {
 	return ParseUInt8(value)
 }
 
+// Bool reads and returns a single boolean value.
 func (r *BinaryReader) Bool() (bool, error) {
 	value, err := r.read(1)
 	if err != nil {
@@ -56,6 +62,7 @@ func (r *BinaryReader) Bool() (bool, error) {
 	return ParseBool(value)
 }
 
+// Uint16 reads and returns a little-endian uint16 value.
 func (r *BinaryReader) Uint16() (uint16, error) {
 	value, err := r.read(2)
 	if err != nil {
@@ -64,6 +71,7 @@ func (r *BinaryReader) Uint16() (uint16, error) {
 	return binary.LittleEndian.Uint16(value), nil
 }
 
+// Uint32 reads and returns a little-endian uint32 value.
 func (r *BinaryReader) Uint32() (uint32, error) {
 	value, err := r.read(4)
 	if err != nil {
@@ -72,6 +80,7 @@ func (r *BinaryReader) Uint32() (uint32, error) {
 	return ParseUInt32(value)
 }
 
+// Int32 reads and returns a little-endian int32 value.
 func (r *BinaryReader) Int32() (int32, error) {
 	value, err := r.read(4)
 	if err != nil {
@@ -80,6 +89,7 @@ func (r *BinaryReader) Int32() (int32, error) {
 	return ParseInt32(value)
 }
 
+// Uint64 reads and returns a little-endian uint64 value.
 func (r *BinaryReader) Uint64() (uint64, error) {
 	value, err := r.read(8)
 	if err != nil {
@@ -88,6 +98,7 @@ func (r *BinaryReader) Uint64() (uint64, error) {
 	return ParseUInt64(value)
 }
 
+// Int64 reads and returns a little-endian int64 value.
 func (r *BinaryReader) Int64() (int64, error) {
 	value, err := r.read(8)
 	if err != nil {
@@ -96,6 +107,7 @@ func (r *BinaryReader) Int64() (int64, error) {
 	return ParseInt64(value)
 }
 
+// Float64 reads and returns an 8-byte float64 value.
 func (r *BinaryReader) Float64() (float64, error) {
 	value, err := r.read(8)
 	if err != nil {
@@ -104,12 +116,14 @@ func (r *BinaryReader) Float64() (float64, error) {
 	return ParseFloat64(value)
 }
 
+// ReadBitset reads and deserializes a bitset.
 func (r *BinaryReader) ReadBitset() (*bitset.BitSet, error) {
 	bb := bitset.New(100)
 	_, err := bb.ReadFrom(r.r)
 	return bb, err
 }
 
+// ReadInt32s reads a length-prefixed slice of int32 values.
 func (r *BinaryReader) ReadInt32s() ([]int32, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -129,6 +143,7 @@ func (r *BinaryReader) ReadInt32s() ([]int32, error) {
 	return values, nil
 }
 
+// ReadUint8s reads a length-prefixed slice of uint8 values.
 func (r *BinaryReader) ReadUint8s() ([]uint8, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -148,6 +163,7 @@ func (r *BinaryReader) ReadUint8s() ([]uint8, error) {
 	return values, nil
 }
 
+// ReadUint16s reads a length-prefixed slice of uint16 values.
 func (r *BinaryReader) ReadUint16s() ([]uint16, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -167,6 +183,7 @@ func (r *BinaryReader) ReadUint16s() ([]uint16, error) {
 	return values, nil
 }
 
+// ReadUint32s reads a length-prefixed slice of uint32 values.
 func (r *BinaryReader) ReadUint32s() ([]uint32, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -185,6 +202,7 @@ func (r *BinaryReader) ReadUint32s() ([]uint32, error) {
 	return values, nil
 }
 
+// ReadUint64s reads a length-prefixed slice of uint64 values.
 func (r *BinaryReader) ReadUint64s() ([]uint64, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -203,10 +221,12 @@ func (r *BinaryReader) ReadUint64s() ([]uint64, error) {
 	return values, nil
 }
 
+// ReadUInt64s is an alias for ReadUint64s.
 func (r *BinaryReader) ReadUInt64s() ([]uint64, error) {
 	return r.ReadUint64s()
 }
 
+// ReadInt64s reads a length-prefixed slice of int64 values.
 func (r *BinaryReader) ReadInt64s() ([]int64, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -225,6 +245,7 @@ func (r *BinaryReader) ReadInt64s() ([]int64, error) {
 	return values, nil
 }
 
+// ReadInts reads a length-prefixed slice of int values.
 func (r *BinaryReader) ReadInts() ([]int, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -243,6 +264,7 @@ func (r *BinaryReader) ReadInts() ([]int, error) {
 	return values, nil
 }
 
+// ReadFloat64s reads a length-prefixed slice of float64 values.
 func (r *BinaryReader) ReadFloat64s() ([]float64, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -261,6 +283,7 @@ func (r *BinaryReader) ReadFloat64s() ([]float64, error) {
 	return values, nil
 }
 
+// ReadInt32Pairs reads count pairs of int32 values using a chunked buffer.
 func (r *BinaryReader) ReadInt32Pairs(count int, set func(index int, first, second int32)) error {
 	const itemSize = 8
 	return r.readBulk(count, itemSize, func(chunk []byte, offset int) {
@@ -293,6 +316,7 @@ func (r *BinaryReader) readBulk(count, itemSize int, decode func([]byte, int)) e
 	return nil
 }
 
+// Length reads a 32-bit length prefix.
 func (r *BinaryReader) Length() (uint32, error) {
 	length, err := r.Uint32()
 	if err != nil {
@@ -301,6 +325,7 @@ func (r *BinaryReader) Length() (uint32, error) {
 	return length, nil
 }
 
+// Blob reads a length-prefixed byte slice.
 func (r *BinaryReader) Blob() ([]byte, error) {
 	length, err := r.Length()
 	if err != nil {
@@ -311,6 +336,7 @@ func (r *BinaryReader) Blob() ([]byte, error) {
 	return value, err
 }
 
+// String reads a length-prefixed string.
 func (r *BinaryReader) String() (string, error) {
 	value, err := r.Blob()
 	if err != nil {
@@ -319,6 +345,7 @@ func (r *BinaryReader) String() (string, error) {
 	return string(value), nil
 }
 
+// OpenCompressedFile opens an s2-compressed binary artifact file and returns a BinaryReader.
 func OpenCompressedFile(filename string) (*os.File, *BinaryReader, error) {
 	file, err := os.Open(filepath.Clean(filename))
 	if err != nil {

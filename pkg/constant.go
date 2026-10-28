@@ -14,6 +14,7 @@ const (
 	avgDecelBeforeTurn = -1.6671305 // m/s²  (0.17g avg decceleration phase 1 row 2  https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection)
 )
 
+// CalcResolution calculates the minimum resolution delta between edge lengths.
 func CalcResolution(l, lPrime, minResolution float64) float64 {
 	delta := min(l, lPrime)
 	delta = min(delta, minResolution)
@@ -65,8 +66,10 @@ func CalcTurningCost(turningSpeed, vlimitFrom, vlimitTo float64) float64 {
 	return tc
 }
 
+// VehicleTypeT represents the type of vehicle used for routing.
 type VehicleTypeT uint8
 
+// Vehicle types supported for routing.
 const (
 	BICYCLE VehicleTypeT = iota
 	FOOT
@@ -79,25 +82,35 @@ const (
 	MINIBUS
 )
 
+//revive:disable:var-naming
 var (
-	NUM_CPU     = runtime.NumCPU()
+	// NUM_CPU is the number of logical CPUs usable by the current process.
+	NUM_CPU = runtime.NumCPU()
+	// ProfileName specifies the routing profile name (e.g. "car").
 	ProfileName = "car"
-	RegionName  = ""
-	WorkingDir  = ""
-	TIPE        = ROUTER
+	// RegionName specifies the active map region name.
+	RegionName = ""
+	// WorkingDir specifies the working directory for file storage.
+	WorkingDir = ""
+	// TIPE specifies the execution mode.
+	TIPE = ROUTER
 
-	// supported: bicycle, foot, motorcycle, bus, hgv, goods, taxi, minibus, motorcar
+	// VehicleType indicates the active vehicle type for routing (supported: bicycle, foot, motorcycle, bus, hgv, goods, taxi, minibus, motorcar).
 	VehicleType = MOTORCAR
 
-	// lebih dari roda dua   // see land-based transportation https://wiki.openstreetmap.org/wiki/Key:access
+	// DoubleTrackedVehicleEnabled indicates whether the vehicle is double-tracked (more than two wheels).
+	// see land-based transportation https://wiki.openstreetmap.org/wiki/Key:access
 	DoubleTrackedVehicleEnabled = true
-	MotorizedVehicleEnabled     = true
+	// MotorizedVehicleEnabled indicates whether the vehicle is motorized.
+	MotorizedVehicleEnabled = true
 
-	// vehicle or pedestrians. for oneway interperation for routing: https://wiki.openstreetmap.org/wiki/Key:oneway
+	// IsVehicleEnabled indicates whether the traveler is a vehicle or pedestrian for oneway interpretation.
+	// for oneway interperation for routing: https://wiki.openstreetmap.org/wiki/Key:oneway
 	// see Land-based transportation: https://wiki.openstreetmap.org/wiki/Key:access
-	// vehicle is all type of vehicle (bicycle, motorcar, bus, motorcycle, hgv, goods,taxi, minibus)
+	// vehicle is all type of vehicle (bicycle, motorcar, bus, motorcycle, hgv, goods, taxi, minibus)
 	IsVehicleEnabled = true
 
+	// VehicleTypeTag maps vehicle types to OSM tag strings.
 	VehicleTypeTag = map[VehicleTypeT]string{
 		BICYCLE:    "bicycle",
 		FOOT:       "foot",
@@ -109,12 +122,16 @@ var (
 		TAXI:       "taxi",
 		MINIBUS:    "minibus",
 	}
+	// PublicServiceVehicles identifies public service vehicle types.
 	PublicServiceVehicles = map[VehicleTypeT]struct{}{
 		BUS:  {},
 		TAXI: {},
 	}
 )
 
+//revive:enable:var-naming
+
+// GetVehicleType returns the VehicleTypeT corresponding to a vehicle string.
 func GetVehicleType(vehicleType string) VehicleTypeT {
 	switch vehicleType {
 	case "bicycle":
@@ -140,6 +157,7 @@ func GetVehicleType(vehicleType string) VehicleTypeT {
 	}
 }
 
+// GetIsDoubleTrackedVehicle returns true if the current vehicle is double-tracked.
 func GetIsDoubleTrackedVehicle() bool {
 	switch VehicleType {
 	case MOTORCYCLE, BICYCLE, FOOT:
@@ -150,6 +168,7 @@ func GetIsDoubleTrackedVehicle() bool {
 	}
 }
 
+// GetIsMotorizedVehicle returns true if the current vehicle is motorized.
 func GetIsMotorizedVehicle() bool {
 	switch VehicleType {
 	case BICYCLE, FOOT:
@@ -160,6 +179,7 @@ func GetIsMotorizedVehicle() bool {
 	}
 }
 
+// GetIsVehicle returns true if the current entity is a vehicle (not foot).
 func GetIsVehicle() bool {
 	switch VehicleType {
 	case FOOT:
@@ -173,6 +193,9 @@ func GetIsVehicle() bool {
 // TurnType represents the type of turn at a junction.
 type TurnType uint8
 
+// TurnType constants representing turn directions.
+//
+//revive:disable:var-naming
 const (
 	NONE TurnType = iota // turn cost  = 0
 	LEFT_TURN
@@ -182,6 +205,11 @@ const (
 	NO_ENTRY // turn cost = INF_WEIGHT
 )
 
+//revive:enable:var-naming
+
+// Weight and distance threshold constants.
+//
+//revive:disable:var-naming
 const (
 	INF_WEIGHT        float64 = 1e15
 	INF_WEIGHT_INT    int64   = 1e15
@@ -194,15 +222,21 @@ const (
 	INVALID_LON float64 = 181
 )
 
+//revive:enable:var-naming
+
+// DEBUG flag enables debug logging and assertions when true.
 const (
 	DEBUG = false
 )
 
+// OsmHighwayType represents OpenStreetMap highway tag classifications.
 type OsmHighwayType uint8
 
-// enum buat osm highway buat routing: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
+// OSM highway type enum for routing: https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
 // https://wiki.openstreetmap.org/wiki/Routing
 // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Valhalla
+//
+//revive:disable:var-naming
 const (
 	MOTORWAY         OsmHighwayType = 0
 	TRUNK            OsmHighwayType = 1
@@ -235,6 +269,9 @@ const (
 	INVALID_HIGHWAY OsmHighwayType = 255
 )
 
+//revive:enable:var-naming
+
+// GetHighwayType maps an OSM road type string to an OsmHighwayType.
 // https://wiki.openstreetmap.org/wiki/OSM_tags_for_routing/Telenav
 func GetHighwayType(roadType string) OsmHighwayType {
 	switch roadType {
@@ -291,6 +328,7 @@ func GetHighwayType(roadType string) OsmHighwayType {
 	}
 }
 
+// GetHighwayTypeString returns the string representation of an OsmHighwayType.
 func GetHighwayTypeString(highwayType OsmHighwayType) string {
 	switch highwayType {
 	case MOTORWAY:
@@ -351,10 +389,12 @@ turn lanes constants. menyimpan semua tipe tag turn:lanes values
 https://wiki.openstreetmap.org/wiki/Key:turn#Values
 */
 
+// TurnLaneType represents turn lane bit flags.
 type TurnLaneType uint16
 
-// cuma 11 bit
-
+// Turn lane bit flag constants.
+//
+//revive:disable:var-naming
 const (
 	LANE_NO_ENTRY              = 0
 	LANE_NONE     TurnLaneType = 1 << iota // none or ""
@@ -370,10 +410,18 @@ const (
 	LANE_MERGE_TO_RIGHT
 )
 
+//revive:enable:var-naming
+
+// FILE_TYPE represents the operational mode for file processing.
+//
+//revive:disable:var-naming
 type FILE_TYPE int
 
+// Application mode constants.
 const (
 	ROUTER FILE_TYPE = iota
 	EVAL
 	TEST
 )
+
+//revive:enable:var-naming

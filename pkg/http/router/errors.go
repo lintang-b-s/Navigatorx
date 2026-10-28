@@ -34,7 +34,7 @@ func (api *API) logError(r *http.Request, err error) {
 }
 
 // errorResponse method for sending JSON-formatted error messages to the client with a given status code.
-func (api *API) errorResponse(w http.ResponseWriter, r *http.Request, status int, message interface{},
+func (api *API) errorResponse(w http.ResponseWriter, r *http.Request, status int, message any,
 ) {
 	env := errorEnvelope{Error: errorBody{
 		Code:    http.StatusText(status),

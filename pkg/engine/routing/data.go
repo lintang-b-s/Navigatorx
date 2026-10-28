@@ -48,27 +48,27 @@ func isEmptyAlternativeRoute(ar AlternativeRoute) bool {
 	return ar.viaNode == da.INVALID_VERTEX_ID
 }
 
-func (ar *AlternativeRoute) GetCoords() *da.Coordinates {
+func (ar AlternativeRoute) GetCoords() *da.Coordinates {
 	return ar.path
 }
 
-func (ar *AlternativeRoute) GetPolylinePath() string {
+func (ar AlternativeRoute) GetPolylinePath() string {
 	return ar.polylinePath
 }
 
-func (ar *AlternativeRoute) GetDrivingDirections() []da.DrivingDirection {
+func (ar AlternativeRoute) GetDrivingDirections() []da.DrivingDirection {
 	return ar.drivingDirections
 }
 
-func (ar *AlternativeRoute) GetTravelTime() float64 {
+func (ar AlternativeRoute) GetTravelTime() float64 {
 	return ar.travelTime
 }
 
-func (ar *AlternativeRoute) GetDist() float64 {
+func (ar AlternativeRoute) GetDist() float64 {
 	return ar.dist
 }
 
-func (ar *AlternativeRoute) GetSegmentPath() []da.Index {
+func (ar AlternativeRoute) GetSegmentPath() []da.Index {
 	return ar.segmentPath
 }
 

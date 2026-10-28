@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
+	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/paulmach/osm"
 )
 
@@ -22,7 +23,11 @@ const (
 )
 
 func TestAcceptOsmWay(t *testing.T) {
-	p := NewExtractor[int32]()
+	logger, err := logger.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := NewExtractor[int32](logger)
 	p.highwayWhitelist = map[string]struct{}{
 		"motorway":     {},
 		"trunk":        {},
@@ -80,7 +85,11 @@ func TestAcceptOsmWay(t *testing.T) {
 }
 
 func TestIsBarrierNodeAccessible(t *testing.T) {
-	p := NewExtractor[int32]()
+	logger, err := logger.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	p := NewExtractor[int32](logger)
 	p.currentTime = time.Date(2026, 4, 8, 12, 0, 0, 0, time.Local)
 
 	// Mock pkg.VehicleType

@@ -15,17 +15,17 @@ const (
 )
 
 // NumericMarker identifies the concrete generic number stored in an artifact.
-func NumericMarker[W util.Numeric]() uint8 {
+func NumericMarker[W util.Numeric]() (uint8, error) {
 	var zero W
 	switch any(zero).(type) {
 	case int32:
-		return int32Marker
+		return int32Marker, nil
 	case float64:
-		return float64Marker
+		return float64Marker, nil
 	case int64:
-		return int64Marker
+		return int64Marker, nil
 	default:
-		panic("unsupported routing number")
+		return 0, fmt.Errorf("unsupported routing number")
 	}
 }
 
@@ -39,7 +39,7 @@ func WriteNumerics[W util.Numeric](w *util.BinaryWriter, values []W) error {
 	case []int64:
 		return w.WriteInt64s(typed)
 	default:
-		panic("unsupported routing number slice")
+		return fmt.Errorf("unsupported routing number slice")
 	}
 }
 
@@ -69,7 +69,11 @@ func ReadNumerics[W util.Numeric](r *util.BinaryReader) ([]W, error) {
 func (tf *TimeFunction[W]) WriteToFile(filename string) error {
 	return util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 
-		if err := w.Uint8(NumericMarker[W]()); err != nil {
+		nm, err := NumericMarker[W]()
+		if err != nil {
+			return err
+		}
+		if err := w.Uint8(nm); err != nil {
 			return err
 		}
 		if err := w.Bool(tf.isRoadNetwork); err != nil {
@@ -104,7 +108,10 @@ func ReadCostFunctionFromFile[W util.Numeric](
 	if err != nil {
 		return nil, err
 	}
-	expectedMarker := NumericMarker[W]()
+	expectedMarker, err := NumericMarker[W]()
+	if err != nil {
+		return nil, err
+	}
 	if marker != expectedMarker {
 		return nil, fmt.Errorf(
 			"time-function numeric representation %d does not match expected %d",

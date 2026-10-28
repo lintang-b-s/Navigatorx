@@ -1,3 +1,4 @@
+// Package main executes the CRP customizer CLI.
 package main
 
 import (
@@ -5,13 +6,14 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/bytedance/gopkg/util/gopool"
-	flag "github.com/spf13/pflag"
+	stdLog "log"
 
+	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/customizer"
 	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
+	flag "github.com/spf13/pflag"
 )
 
 var (
@@ -32,7 +34,7 @@ func init() {
 func main() {
 	logger, err := log.New()
 	if err != nil {
-		panic(err)
+		stdLog.Fatal(err.Error())
 	}
 
 	custom := customizer.NewCustomizer[int32](logger)
@@ -41,6 +43,6 @@ func main() {
 
 	_, err = custom.Customize()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 }

@@ -1,11 +1,13 @@
 package datastructure_test
 
 import (
+	stdLog "log"
 	"slices"
 	"testing"
 
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
+	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,7 +21,11 @@ func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge) *da.CellGraph 
 
 	es := da.FlattenEdges(adjList)
 
-	op := extractor.NewExtractor[float64]()
+	logger, err := logger.New()
+	if err != nil {
+		stdLog.Fatal(err)
+	}
+	op := extractor.NewExtractor[float64](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmID := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -188,12 +194,7 @@ func TestPartitionCellGraph_Partition(t *testing.T) {
 			cg := buildCellGraph(t, tc.n, tc.adjList)
 
 			gotSCG, gotTCG := cg.Partition(func(vId da.Index) bool {
-				for _, u := range tc.wantS {
-					if u == vId {
-						return true
-					}
-				}
-				return false
+				return slices.Contains(tc.wantS, vId)
 			})
 
 			gotS := make([]da.Index, 0)

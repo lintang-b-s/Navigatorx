@@ -92,14 +92,11 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		t.Fatalf("could not open test file: %v", err)
 	}
 	defer fOut.Close()
-
 	brOut := bufio.NewReader(fOut)
-
 	line, err = util.ReadLine(brOut)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-
 	var expectedSPLength float64 = 0
 	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
 	if err != nil {
@@ -116,27 +113,20 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 func TestCRPQuerySimpleGraphMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/simple_graph"
-
 	files, err := os.ReadDir(dirPath)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-
 	for _, entry := range files {
-
 		name := entry.Name()
 		if !strings.HasSuffix(name, ".in") {
 			continue
 		}
-
 		baseName := strings.TrimSuffix(name, ".in")
-
 		testPath := filepath.Join(dirPath, baseName)
-
 		t.Logf("solving test case: %v", baseName)
 		t.Run("Multilevel-ALT without turn cost/"+dirPath+"/"+baseName, func(t *testing.T) {
 			solveSimpleGraph(t, testPath)
-
 			runtime.GC()
 			debug.FreeOSMemory()
 		})

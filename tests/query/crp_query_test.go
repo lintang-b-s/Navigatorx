@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -187,8 +188,11 @@ func TestCRPQuerySimple(t *testing.T) {
 			adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
 		}
 		es := da.FlattenEdges(adjList)
-
-		op := extractor.NewExtractor[float64]()
+		logger, err := log.New()
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		op := extractor.NewExtractor[float64](logger)
 		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
@@ -203,11 +207,6 @@ func TestCRPQuerySimple(t *testing.T) {
 		g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
-
-		logger, err := log.New()
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
 
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
@@ -323,31 +322,31 @@ func init() {
 }
 
 func setup(t *testing.T, osmFileInput string) (*engine.Engine[int32], *extractor.Extractor[int32], *zap.Logger) {
+	logger, err := log.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	outputDir := filepath.Join(workingDir, "data")
 	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	mapName := strings.Split(osmFileInput, "/")[2]
 	mapName = strings.Split(mapName, ".")[0]
 	config.InitRegionName(fmt.Sprintf("query_test_%s", mapName), pkg.TEST)
 
-	logger, err := log.New()
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	err = config.ReadConfig(workingDir)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
-	op := extractor.NewExtractor[int32]()
-	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFileInput), logger)
+	op := extractor.NewExtractor[int32](logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFileInput))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -378,7 +377,7 @@ func setup(t *testing.T, osmFileInput string) (*engine.Engine[int32], *extractor
 	mlp := da.NewPlainMLP()
 	err = mlp.ReadMlpFile()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	prep := preprocesser.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
@@ -683,11 +682,11 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 		rtreeb.Build(re.GetGraph(), rn, logger)
 		rtree, err := spatialindex.ReadRtreeFromFile(logger)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 		routingService, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.05, true)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		fromTurnRestrictions := op.GetTurnRestrictions()
@@ -719,11 +718,8 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 				if tr.IsWay() {
 					viaways := tr.GetViaWays()
 					vnodes := ways[viaways[len(viaways)-1]].GetOsmNodes()
-					for _, vn := range vnodes {
-						if vn == tn {
-							tn = tnodes[0]
-							break
-						}
+					if slices.Contains(vnodes, tn) {
+						tn = tnodes[0]
 					}
 				}
 

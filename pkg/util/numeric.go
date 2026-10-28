@@ -13,6 +13,7 @@ type Numeric interface {
 	~int32 | ~float64 | ~int64
 }
 
+// Weight scaling and infinity constants.
 const (
 	CentiScale                = 100
 	INF_WEIGHT_FIXED  int32   = 600_000_000 // 600 million centi seconds ~ 69 hari.
@@ -21,10 +22,13 @@ const (
 	TurnCostForbidden uint16  = math.MaxUint16
 )
 
+//revive:disable:var-naming
 var (
 	USE_INT32 = false // biar gak interface boxing wkwkwk. biar tetep cepet routing (int32) nya, meski tipe weight nya generic.
 	USE_INT64 = false
 )
+
+//revive:enable:var-naming
 
 func Infinity[T Numeric]() T {
 	switch USE_INT32 {

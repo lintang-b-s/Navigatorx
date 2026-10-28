@@ -24,25 +24,27 @@ func init() {
 	config.InitRegionName("partitioner_test", pkg.TEST)
 }
 
-func setup() (*da.Graph, *partitioner.MultilevelPartitioner, []uint64) {
+func setup(t *testing.T) (*da.Graph, *partitioner.MultilevelPartitioner, []uint64) {
+	t.Helper()
+	logger, err := log.New()
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	outputDir := filepath.Join(workingDir, "data")
 	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
-	}
-	logger, err := log.New()
-	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
-	op := extractor.NewExtractor[int32]()
+	op := extractor.NewExtractor[int32](logger)
 
-	_, ebg, _, ebgMapping, _, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFile), logger)
+	_, ebg, _, ebgMapping, _, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFile))
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	pss := strings.Split("8,10,11,12,14", ",")
@@ -50,7 +52,7 @@ func setup() (*da.Graph, *partitioner.MultilevelPartitioner, []uint64) {
 	for i := 0; i < len(ps); i++ {
 		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 		ps[i] = 1 << pow // 2^pow
 	}
@@ -76,7 +78,7 @@ const (
 // karena bakal timeout kalau pakai run test vscode
 // this graph partitioning with minimized cut edges is np-hard, so we only check if each vertex lies inside one cell & union all cell vertices are the graph vertices .
 func TestInertialFlowMLP(t *testing.T) {
-	ebg, mp, _ := setup()
+	ebg, mp, _ := setup(t)
 	mp.RunMultilevelPartitioning()
 	us := mp.MLPSizes()
 	n := ebg.NumberOfVertices()

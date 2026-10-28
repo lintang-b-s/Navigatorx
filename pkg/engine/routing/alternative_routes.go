@@ -313,10 +313,13 @@ func (arf AlternativeRouteFilter[W]) filterCandidate(v *ViaVertex) bool {
 		return false
 	}
 
-	mid := da.NewParentVertex(v.GetVId())
+	var mid da.ParentVertex
 	if v.IsOverlay() {
-		mid.SetIsOverlayVertex()
+		mid = da.NewParentVertex(v.GetVId(), true)
+	} else {
+		mid = da.NewParentVertex(v.GetVId(), false)
 	}
+
 	packedPath := arf.ars.re.RetrievePackedPath(mid, arf.fpq, arf.bpq, arf.sCellNumber, arf.s, arf.t)
 
 	approxDistanceShare := arf.ars.calculateApproxDistanceShare(packedPath, arf.sortedOptPath,

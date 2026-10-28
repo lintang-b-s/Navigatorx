@@ -8,6 +8,8 @@ import (
 	"testing"
 	"time"
 
+	stdLog "log"
+
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	"github.com/lintang-b-s/Navigatorx/pkg/config"
 	"github.com/lintang-b-s/Navigatorx/pkg/engine/routing"
@@ -37,29 +39,29 @@ type query struct {
 }
 
 func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
+	logger, err := log.New()
+	if err != nil {
+		stdLog.Fatal(err.Error())
+	}
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	outputDir := filepath.Join(workingDir, "data")
 	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
-	}
-	logger, err := log.New()
-	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	err = config.ReadConfig(workingDir)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	config.InitRegionName("benchmark_test", pkg.TEST)
 
-	op := extractor.NewExtractor[int32]()
-	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	op := extractor.NewExtractor[int32](logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile))
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	pss := strings.Split(*partitionSizes, ",")
@@ -67,7 +69,7 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 	for i := 0; i < len(ps); i++ {
 		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 		ps[i] = 1 << pow // 2^pow
 	}
@@ -82,19 +84,19 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 	mp.RunMultilevelPartitioning()
 	err = mp.SaveToFile()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	mlp := da.NewPlainMLP()
 	err = mlp.ReadMlpFile()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
@@ -103,12 +105,12 @@ func setup() (*engine.Engine[int32], []query, *da.Graph, *zap.Logger) {
 
 	_, err = custom.Customize()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	g := re.GetRoutingEngine().GetGraph()
@@ -162,31 +164,8 @@ cd tests/benchmark && go test -bench BenchmarkCRPALTQuery -benchmem -cpuprofile 
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
-BenchmarkCRPALTQuery-12            22334            780683 ns/op                 0.7806 ms/op         1281 ops/sec         56813 B/op        318 allocs/op
-p2p query runtime match dengan hasil eksperimen ref [1], sekitar 1 ms
-
-BenchmarkCRPALTQuery-12            31110            600694 ns/op                 0.6007 ms/op         1665 ops/sec         26263 B/op         85 allocs/op
-
-todo: reduce memory space alloc / op lagi, now 56K B/op (DONE?)
-ngaruh ke load test
-
-2026-06-12T21:38:24.902345991+07:00     info    starting benchmark.....
-goos: linux
-goarch: amd64
-pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
-cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
-BenchmarkCRPALTQuery-12            42294            392012 ns/op                 0.3920 ms/op         2551 ops/sec          9405 B/op         54 allocs/op
-
-todo2: optimize sampai p95 latency computeRoute ngalahin osrm  (DONE)
-
-2026-06-17T16:11:22.794297704+07:00     info    starting benchmark.....
-goos: linux
-goarch: amd64
-pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
-cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
-BenchmarkCRPALTQuery-12            46819            374541 ns/op                 0.3745 ms/op         2670 ops/sec          7412 B/op         13 allocs/op
+BenchmarkCRPALTQuery-12            99224            160123 ns/op                 0.1601 ms/op         6245 ops/sec          1914 B/op          8 allocs/op
 PASS
-ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       35.488s
 */
 func BenchmarkCRPALTQuery(b *testing.B) {
 	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak

@@ -15,7 +15,7 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/engine"
 	"github.com/lintang-b-s/Navigatorx/pkg/extractor"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
-	"github.com/lintang-b-s/Navigatorx/pkg/logger"
+	log "github.com/lintang-b-s/Navigatorx/pkg/logger"
 	"github.com/lintang-b-s/Navigatorx/pkg/partitioner"
 	preprocesser "github.com/lintang-b-s/Navigatorx/pkg/preprocessor"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -28,14 +28,16 @@ func TestMain(m *testing.M) {
 
 func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, Us []int, pgDirected bool) (*engine.Engine[float64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[float64]) {
-
 	config.InitRegionName(problemName, pkg.TEST)
-
 	da.CoordinatePrecision = 1e3
-
 	es := da.FlattenEdges(adjList)
 
-	op := extractor.NewExtractor[float64]()
+	logger, err := log.New()
+	if err != nil {
+		t.Fatalf("err: %v", err)
+	}
+
+	op := extractor.NewExtractor[float64](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -50,11 +52,6 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 	g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 	t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
-
-	logger, err := logger.New()
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
 
 	ps := make([]int, len(Us))
 
@@ -90,7 +87,7 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 	lm := landmark.NewLandmark[float64]()
 	err = lm.PreprocessALT(1, m.GetCostFunction(), g, logger)
 	if err != nil {
-		panic(err)
+		t.Fatal(err.Error())
 	}
 
 	root := config.ProfilesRoot()

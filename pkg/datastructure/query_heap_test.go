@@ -19,7 +19,7 @@ func TestQueryHeap(t *testing.T) {
 			rdNum := rd.Int31n(numInputs)
 			rdRank := rdNum
 			sortedArr[i] = rdRank
-			pq.Insert(Index(rdNum), int32(rdRank), NewVData(rdRank, NewParentVertex(0)), rdNum)
+			pq.Insert(Index(rdNum), int32(rdRank), NewVData(rdRank, NewParentVertex(0, false)), rdNum)
 		}
 
 		slices.Sort(sortedArr)
@@ -39,7 +39,7 @@ func TestQueryHeap(t *testing.T) {
 		for i := int32(0); i < numInputs; i++ {
 			rdRank := rd.Int31n(numInputs) + smallest
 			ranks[i] = rdRank
-			pq.Insert(Index(i), rdRank, NewVData(rdRank, NewParentVertex(0)), i)
+			pq.Insert(Index(i), rdRank, NewVData(rdRank, NewParentVertex(0, false)), i)
 		}
 
 		// decrease-key
@@ -47,7 +47,7 @@ func TestQueryHeap(t *testing.T) {
 		for i := int32(0); i < numInputs; i++ {
 			oRank := ranks[i]
 			nRank := rd.Int31n(oRank)
-			pq.DecreaseKey(Index(i), nRank, nRank, NewParentVertex(0))
+			pq.DecreaseKey(Index(i), nRank, nRank, NewParentVertex(0, false))
 			sortedArr[i] = nRank
 		}
 

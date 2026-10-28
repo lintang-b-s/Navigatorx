@@ -35,7 +35,7 @@ ini implementasi dijkstra point-to-point shortest path (p2psp)
 */
 func (us *DijkstraP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 
-	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID))
+	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.INVALID_VERTEX_ID, false))
 
 	now := time.Now()
 
@@ -80,13 +80,14 @@ func (us *DijkstraP2P[W]) graphSearchUni(source, target da.Index) bool {
 		if util.Lt(newVCost, ovCost) {
 			vLabelled := util.Lt(ovCost, util.Infinity[W]())
 			// newVCost is better, update the v cost
+			vPar := da.NewParentVertex(uId, false)
+
 			if vLabelled {
-				newPar := da.NewParentVertex(uId)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vId, newVCost, newVCost, newPar)
+				us.pq.DecreaseKey(vId, newVCost, newVCost, vPar)
 			} else if !vLabelled {
 				queryKey := da.NewDijkstraKey(vId)
-				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
+				vData := da.NewVData(newVCost, vPar)
 				// is key not in the priority queue, insert it
 				us.pq.Insert(vId, newVCost, vData, queryKey)
 			}

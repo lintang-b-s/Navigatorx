@@ -5,6 +5,7 @@ import (
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+	"github.com/lintang-b-s/Navigatorx/pkg/logger"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"github.com/stretchr/testify/assert"
@@ -20,8 +21,11 @@ func buildGraphHelper(t *testing.T, n int, adjList [][]da.PairEdge) (*da.Graph, 
 	}
 
 	es := da.FlattenEdges(adjList)
-
-	op := NewExtractor[float64]()
+	logger, err := logger.New()
+	if err != nil {
+		t.Fatal(err)
+	}
+	op := NewExtractor[float64](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmID := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -294,7 +298,10 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 				}
 			}
 
-			ebg, ebgWf, ebgMapping := BuildEdgeBasedGraph(g, wf, vTurnTableIDs, turnMatrix, rn)
+			ebg, ebgWf, ebgMapping, err := BuildEdgeBasedGraph(g, wf, vTurnTableIDs, turnMatrix, rn)
+			if err != nil {
+				t.Fatal(err)
+			}
 			require.NotNil(t, ebg)
 			require.NotNil(t, ebgWf)
 			require.NotNil(t, ebgMapping)

@@ -5,6 +5,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	stdLog "log"
 	"math"
 	"os"
 	"path/filepath"
@@ -84,25 +85,25 @@ func main() {
 		line    string
 		f, fOut *os.File
 	)
+	logger, err := log.New()
+	if err != nil {
+		stdLog.Fatal(err.Error())
+	}
 
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	outputDir := filepath.Join(workingDir, "data")
 	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
-	}
-	logger, err := log.New()
-	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	flag.Parse()
 
 	err = config.ReadConfig(workingDir)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	config.InitRegionName(*problemName, pkg.EVAL)
 
@@ -113,7 +114,7 @@ func main() {
 
 	f, err = os.OpenFile(inputCoordPath, os.O_RDONLY, 0600)
 	if err != nil {
-		panic(fmt.Errorf("could not open test file: %v", inputCoordPath))
+		logger.Fatal(fmt.Sprintf("could not open test file: %v", inputCoordPath))
 	}
 	defer f.Close()
 
@@ -123,26 +124,26 @@ func main() {
 	for i := 0; i < 4; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 	}
 
 	line, err = util.ReadLine(br)
 	if err != nil {
-		panic(fmt.Errorf("err: %w", err))
+		logger.Fatal(fmt.Sprintf("err: %w", err))
 	}
 
 	ff := util.Fields(line)
 	n, err := util.ParseTextInt(ff[4]) // number of vertices
 	if err != nil {
-		panic(fmt.Errorf("err: %w", err))
+		logger.Fatal(fmt.Sprintf("err: %w", err))
 	}
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 	}
 
@@ -152,20 +153,20 @@ func main() {
 	for v := 0; v < n; v++ { // vertex id 0 dummy vertex.. id vertex dari file dimacs mulai dari 1
 		line, err = util.ReadLine(br)
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		ff := util.Fields(line)
 		id, err := util.ParseTextInt(ff[1])
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		x, err := util.ParseTextInt(ff[2])
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		y, err := util.ParseTextInt(ff[3])
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		// di navigatorx versi v0.1.2, weight dari setiap edges pakai tipe generic util.Numeric
 		// dan untuk koordinat dari setiap node, kita pakai int32 (lat * 10^7, lon * 10^7) untuk input openstreetmap, buat save space kaya osrm.
@@ -176,7 +177,7 @@ func main() {
 
 	fInputEdges, err := os.OpenFile(inputEdgesPath, os.O_RDONLY, 0600)
 	if err != nil {
-		panic(fmt.Errorf("could not open test file: %v", inputEdgesPath))
+		logger.Fatal(fmt.Sprintf("could not open test file: %v", inputEdgesPath))
 	}
 	defer fInputEdges.Close()
 
@@ -186,26 +187,26 @@ func main() {
 	for i := 0; i < 4; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 	}
 
 	line, err = util.ReadLine(br)
 	if err != nil {
-		panic(fmt.Errorf("err: %w", err))
+		logger.Fatal(fmt.Sprintf("err: %w", err))
 	}
 
 	ff = util.Fields(line)
 	m, err := util.ParseTextInt(ff[3]) // number of edges
 	if err != nil {
-		panic(fmt.Errorf("err: %w", err))
+		logger.Fatal(fmt.Sprintf("err: %w", err))
 	}
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 	}
 
@@ -215,20 +216,20 @@ func main() {
 	for i := 0; i < m; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		ff := util.Fields(line)
 		u, err := util.ParseTextInt(ff[1])
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		v, err := util.ParseTextInt(ff[2])
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		weight, err := util.ParseTextInt(ff[3])
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		if weight < minWeight {
 			minWeight = weight
@@ -243,7 +244,7 @@ func main() {
 	// read sssp queries
 	fInputQueries, err := os.OpenFile(inputQueriesPath, os.O_RDONLY, 0600)
 	if err != nil {
-		panic(fmt.Errorf("could not open test file: %v", inputQueriesPath))
+		logger.Fatal(fmt.Sprintf("could not open test file: %v", inputQueriesPath))
 	}
 	defer fInputQueries.Close()
 
@@ -253,26 +254,26 @@ func main() {
 	for i := 0; i < 5; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 	}
 
 	line, err = util.ReadLine(br)
 	if err != nil {
-		panic(fmt.Errorf("err: %w", err))
+		logger.Fatal(fmt.Sprintf("err: %w", err))
 	}
 
 	ff = util.Fields(line)
 	q, err := util.ParseTextInt(ff[4]) // number of edges
 	if err != nil {
-		panic(fmt.Errorf("err: %w", err))
+		logger.Fatal(fmt.Sprintf("err: %w", err))
 	}
 
 	// read comments gak penting lagi
 	for i := 0; i < 2; i++ {
 		_, err = util.ReadLine(br)
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 	}
 
@@ -280,12 +281,12 @@ func main() {
 	for i := 0; i < q; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		ff := util.Fields(line)
 		s, err := util.ParseTextInt(ff[1])
 		if err != nil {
-			panic(fmt.Errorf("err: %w", err))
+			logger.Fatal(fmt.Sprintf("err: %w", err))
 		}
 		sources = append(sources, da.Index(s))
 	}
@@ -300,7 +301,7 @@ func main() {
 
 	parsedPartitionSizes, err := parsePartitionSizes(*partitionSizes)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	re, _, oldToNewVIdMap, _ := crpalt.BuildCRP(nodeCoords, adjList, n+1, parsedPartitionSizes, *problemName)
@@ -351,11 +352,11 @@ func main() {
 
 	//	// write to ss correctness output file. see: https://web.archive.org/web/20260516142336/http://www.diag.uniroma1.it/challenge9/format.shtml#ss.chk
 	if err := util.EnsureDirExists(outputPath); err != nil {
-		panic(fmt.Errorf("err: %w", err))
+		logger.Fatal(fmt.Sprintf("err: %w", err))
 	}
 	fOut, err = os.Create(outputPath)
 	if err != nil {
-		panic(fmt.Errorf("err: %w", err))
+		logger.Fatal(fmt.Sprintf("err: %w", err))
 	}
 	defer fOut.Close()
 
@@ -386,7 +387,7 @@ func main() {
 	}
 
 	if err = w.Flush(); err != nil {
-		panic(fmt.Errorf("dimacs 9th shortestpath multilevel-alt correctness test: failed to flush bufio writer: %v", err))
+		logger.Fatal(fmt.Sprintf("dimacs 9th shortestpath multilevel-alt correctness test: failed to flush bufio writer: %v", err))
 	}
 
 	logger.Sugar().Infof("done")

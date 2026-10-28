@@ -3,6 +3,7 @@ package customizer
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"sync"
 
@@ -188,7 +189,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 		numberOfLandmarks := viper.GetInt("landmarks")
 		err = lm.PreprocessALT(numberOfLandmarks, wf, c.graph, c.logger)
 		if err != nil {
-			panic(err)
+			log.Fatal(err.Error())
 		}
 	})
 
@@ -199,7 +200,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 	wg.Wait()
 	err = lm.WriteLandmark(c.landmarkFile, c.graph.NumberOfVertices())
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 
 	m.SetLastSegmentSpeedFiles(lastSegmentSpeedFiles)
@@ -401,7 +402,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 				pq.InitLevelOneCellQuery(offset)
 
 				overlayCost := make(map[da.Index]W, da.OVERLAY_CELL_SIZE)
-				noPar := da.NewParentVertex(da.INVALID_VERTEX_ID)
+				noPar := da.NewParentVertex(da.INVALID_VERTEX_ID, false)
 				sVertexData := da.NewVData(W(0), noPar)
 				pq.Insert(s, 0, sVertexData, da.NewDijkstraKey(s))
 
@@ -574,7 +575,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 				}
 
 				sOv := c.overlayGraph.GetCellEntry(cell, i)
-				noPar := da.NewParentVertex(da.INVALID_VERTEX_ID)
+				noPar := da.NewParentVertex(da.INVALID_VERTEX_ID, false)
 				sVertexData := da.NewVData(W(0), noPar)
 
 				pq.Insert(sOv, 0, sVertexData, sOv)

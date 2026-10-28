@@ -51,8 +51,8 @@ func NewSparseMatrix(m, n int, zero uint32, eq func(a, b uint32) bool) *SparseMa
 }
 
 func (sm *SparseMatrix) Set(val uint32, row, col int) {
-	row += 1 // 1-based
-	col += 1
+	row++ // 1-based
+	col++
 	uCol := uint32(col)
 
 	pos := sm.rows[row-1] - 1
@@ -78,8 +78,8 @@ func (sm *SparseMatrix) Set(val uint32, row, col int) {
 }
 
 func (sm *SparseMatrix) Get(row, col int) uint32 {
-	row += 1 // 1-based
-	col += 1
+	row++ // 1-based
+	col++
 	uCol := uint32(col)
 
 	var currCol uint32
@@ -110,7 +110,7 @@ func (sm *SparseMatrix) insert(index, row, col int, val uint32) {
 	}
 
 	for i := row; i <= sm.m; i++ {
-		sm.rows[i] += 1
+		sm.rows[i]++
 	}
 }
 
@@ -119,7 +119,7 @@ func (sm *SparseMatrix) remove(index, row int) {
 	sm.cols = append(sm.cols[:index], sm.cols[index+1:]...)
 
 	for i := row; i < sm.m; i++ {
-		sm.rows[i] -= 1
+		sm.rows[i]--
 	}
 }
 

@@ -22,22 +22,22 @@ func init() {
 }
 
 func setup(t *testing.T, osmFileTest string) (*da.Graph, *da.RoadNetworkDataContainer, *extractor.Extractor[int32]) {
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	outputDir := filepath.Join(workingDir, "data")
-	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
-	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
 	}
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		logger.Fatal(err.Error())
+	}
 
-	osmExtractor := extractor.NewExtractor[int32]()
+	osmExtractor := extractor.NewExtractor[int32](logger)
 
-	_, ebg, rn, _, _, err := osmExtractor.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
+	_, ebg, rn, _, _, err := osmExtractor.Extract(filepath.Join(pkg.WorkingDir, osmFileTest))
 	if err != nil {
 		t.Fatal(err)
 	}

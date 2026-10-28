@@ -3,6 +3,7 @@ package partitioner
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"os"
 	"path/filepath"
@@ -86,9 +87,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 	newOverlayVerticesByLevel := make([]map[da.Pv][]da.Vertex, mp.l)
 	for l := 0; l < mp.l; l++ {
 		newOverlayVerticesByLevel[l] = make(map[da.Pv][]da.Vertex)
-		for cellId, verts := range overlayVerticesByLevel[l] {
-			newOverlayVerticesByLevel[l][cellId] = verts
-		}
+		maps.Copy(newOverlayVerticesByLevel[l], overlayVerticesByLevel[l])
 		// karena overlay/boundary vertices di upper level juga merupakan overlay/boundary vertices di level bawahnya
 		for uppperLevel := l + 1; uppperLevel < mp.l; uppperLevel++ {
 			for cellId, verts := range overlayVerticesByLevel[uppperLevel] {
@@ -97,7 +96,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 		}
 	}
 
-	dir := strings.Split(filename, ".mlp")[0]
+	dir, _, _ := strings.Cut(filename, ".mlp")
 
 	for l := 0; l < mp.l; l++ {
 		cellVertices := make(map[da.Pv][]da.Vertex, 0)
@@ -171,7 +170,7 @@ func (mp *MultilevelPartitioner) WriteMLPVisualizationInLevel() error {
 
 	}
 
-	dir := strings.Split(filename, ".mlp")[0]
+	dir, _, _ := strings.Cut(filename, ".mlp")
 
 	for l := 0; l < mp.l; l++ {
 		cells := make([]cellVis, 0)

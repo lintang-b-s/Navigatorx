@@ -5,9 +5,10 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	stdLog "log"
 	"math/rand"
 	"os"
-	"sort"
+	"slices"
 	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -32,21 +33,21 @@ func main() {
 	flag.Parse()
 	logger, err := log.New()
 	if err != nil {
-		panic(err)
+		stdLog.Fatal(err.Error())
 	}
 
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	err = config.ReadConfig(workingDir)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	type spParam struct {
@@ -61,14 +62,14 @@ func main() {
 
 	fq, err := os.Open("./data/random_queries_1mil_sp_crp_alt.txt")
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	defer fq.Close()
 
 	br := bufio.NewReader(fq)
 	line, err := util.ReadLine(br)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	hf := util.Fields(line)
 	hours := make([]int, len(hf))
@@ -83,11 +84,11 @@ func main() {
 		ff := util.Fields(line)
 		s, err2 := da.ParseTextIndex(ff[0])
 		if err2 != nil {
-			panic(err2)
+			logger.Fatal(err2.Error())
 		}
 		t, err2 := da.ParseTextIndex(ff[1])
 		if err2 != nil {
-			panic(err2)
+			logger.Fatal(err2.Error())
 		}
 		queries = append(queries, newSPParam(n, s, t))
 		n++
@@ -153,9 +154,7 @@ func main() {
 		calcsSP(i, q, true)
 	}
 
-	sort.Slice(travelTimes, func(i, j int) bool {
-		return travelTimes[i] < travelTimes[j]
-	})
+	slices.Sort(travelTimes)
 	avgCost := 0.0
 	minCost := float64(travelTimes[0])
 	maxCost := float64(0)
@@ -189,9 +188,7 @@ func main() {
 		calcsSP(i, q, false)
 	}
 
-	sort.Slice(travelTimes, func(i, j int) bool {
-		return travelTimes[i] < travelTimes[j]
-	})
+	slices.Sort(travelTimes)
 	avgCost = 0.0
 	minCost = float64(travelTimes[0])
 	maxCost = 0
@@ -363,9 +360,7 @@ func main() {
 		calcsSPALT(i, q)
 	}
 
-	sort.Slice(travelTimes, func(i, j int) bool {
-		return travelTimes[i] < travelTimes[j]
-	})
+	slices.Sort(travelTimes)
 	avgCost = 0.0
 	minCost = float64(travelTimes[0])
 	maxCost = 0
@@ -425,9 +420,7 @@ func main() {
 		calcsSPDijsktra(i, q)
 	}
 
-	sort.Slice(travelTimes, func(i, j int) bool {
-		return travelTimes[i] < travelTimes[j]
-	})
+	slices.Sort(travelTimes)
 	avgCost = 0.0
 	minCost = float64(travelTimes[0])
 	maxCost = 0

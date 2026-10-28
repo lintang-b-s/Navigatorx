@@ -1,3 +1,4 @@
+// Package main executes the CRP preprocessor CLI.
 package main
 
 import (
@@ -5,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 
+	stdLog "log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -51,15 +53,15 @@ func main() {
 
 	logger, err := log.New()
 	if err != nil {
-		panic(err)
+		stdLog.Fatal(err.Error())
 	}
 
 	now := time.Now()
-	op := extractor.NewExtractor[int32]()
+	op := extractor.NewExtractor[int32](logger)
 
-	nbg, ebg, rn, ebgMapping, wf, err := op.Extract(*osmFile, logger)
+	nbg, ebg, rn, ebgMapping, wf, err := op.Extract(*osmFile)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	pss := strings.Split(*partitionSizes, ",")
@@ -67,7 +69,7 @@ func main() {
 	for i := 0; i < len(ps); i++ {
 		pow, err := util.ParseTextInt(pss[i])
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 		ps[i] = 1 << pow // 2^pow
 	}
@@ -94,10 +96,10 @@ func main() {
 	mp.RunMultilevelPartitioning()
 	if *visualizationFile {
 		if err := mp.WriteOverlayVerticesInLevel(); err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 		if err := mp.WriteMLPVisualizationInLevel(); err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 	}
 
@@ -105,7 +107,7 @@ func main() {
 		mp.MapToEdgeBasedGraph(ebg, ebgMapping)
 	}
 	if err := mp.SaveToFile(); err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	duration := time.Since(now)
@@ -114,14 +116,14 @@ func main() {
 	mlp := da.NewPlainMLP()
 	err = mlp.ReadMlpFile()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	transitionMHTFile := fmt.Sprintf("./data/profiles/%s/%s_transition_matrix.ntm", profileName, *regionName)
 	if _, err := os.Stat(transitionMHTFile); err == nil {
 		logger.Info("removing old transition matrix file", zap.String("filename", transitionMHTFile))
 		if err := os.Remove(transitionMHTFile); err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 	}
 
@@ -129,19 +131,19 @@ func main() {
 	prep.SetWriteTiles(true)
 	err = prep.PreProcessing(true)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	sidx := spatialindex.NewS2RoadSegmentsIndex(ebg, rn, logger)
 	logger.Sugar().Infof("writing s2 cells road segment spatial index....")
 	err = sidx.WriteToFile()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	logger.Sugar().Infof("s2 cells road segment spatial index written....")
 
 	rtree := spatialindex.NewRtree()
 	err = rtree.Build(ebg, rn, logger)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 }

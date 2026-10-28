@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	stdLog "log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -40,11 +41,11 @@ func init() {
 	flag.Parse()
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		stdLog.Fatal(err.Error())
 	}
 	err = config.ReadConfig(workingDir)
 	if err != nil {
-		panic(err)
+		stdLog.Fatal(err.Error())
 	}
 	vehicleType := viper.GetString("vehicle_type")
 	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
@@ -72,51 +73,51 @@ todo: pindahin hasil eksperimen di repo baru + bandingin juga dg graphopper , va
 ....
 */
 func main() {
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	outputDir := filepath.Join(workingDir, "data")
-	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
-	}
 
 	logger, err := log.New()
 	if err != nil {
-		panic(err)
+		stdLog.Fatal(err.Error())
+	}
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		logger.Fatal(err.Error())
 	}
 
 	err = config.ReadConfig(workingDir)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 
 	if _, err := os.Stat(osmfFile); os.IsNotExist(err) {
 		if err := util.EnsureDirExists(osmfFile); err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 		output, err := os.Create(osmfFile)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		logger.Sugar().Infof("downloading osm file......")
 		response, err := http.Get(url)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		_, err = io.Copy(output, response.Body)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		if err = output.Close(); err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		if err = response.Body.Close(); err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		logger.Sugar().Infof("download complete")
@@ -129,10 +130,10 @@ func main() {
 	}
 
 	if doPreprocessCustomize {
-		op := extractor.NewExtractor[int32]()
-		_, ebg, rn, _, timeFunction, err := op.Extract(osmfFile, logger)
+		op := extractor.NewExtractor[int32](logger)
+		_, ebg, rn, _, timeFunction, err := op.Extract(osmfFile)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		pss := strings.Split(*partitionSizes, ",")
@@ -140,7 +141,7 @@ func main() {
 		for i := 0; i < len(ps); i++ {
 			pow, err := util.ParseTextInt(pss[i])
 			if err != nil {
-				panic(err)
+				logger.Fatal(err.Error())
 			}
 			ps[i] = 1 << pow // 2^pow
 		}
@@ -155,19 +156,19 @@ func main() {
 		mp.RunMultilevelPartitioning()
 		err = mp.SaveToFile()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		mlp := da.NewPlainMLP()
 		err = mlp.ReadMlpFile()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 		err = prep.PreProcessing(true)
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 
 		logger.Sugar().Infof("Preprocessing completed successfully.")
@@ -176,13 +177,13 @@ func main() {
 
 		_, err = custom.Customize()
 		if err != nil {
-			panic(err)
+			logger.Fatal(err.Error())
 		}
 	}
 
 	eng, err := engine.NewEngine[int32](logger)
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	re := eng.GetRoutingEngine()
 	g := re.GetGraph()

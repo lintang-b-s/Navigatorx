@@ -10,8 +10,10 @@ import (
 	"github.com/spf13/viper"
 )
 
+// TimeoutMessage is the JSON response body returned when a request context deadline is exceeded.
 const TimeoutMessage = `{"error":"context deadline exceeded"}`
 
+// New creates and configures a new http.Server with timeout handling and protocol settings.
 func New(ctx context.Context, h http.Handler, config Config) *http.Server {
 	handler := http.TimeoutHandler(h, config.Timeout, fmt.Sprintf(`{"error": %q}`, TimeoutMessage))
 

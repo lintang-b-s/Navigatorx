@@ -21,12 +21,15 @@ const (
 	CellInOutChanSize                        = 50
 )
 
+//revive:disable:var-naming
 var (
 	// 	https://goperf.dev/01-common-patterns/worker-pool/#worker-count-and-cpu-cores
 	INERTIAL_FLOW_WORKERS = max(pkg.NUM_CPU/4, 1)
 	BISECTION_WORKERS     = max(pkg.NUM_CPU/6, 1)
 	LEVEL_WORKERS         = max(pkg.NUM_CPU/6, 1)
 )
+
+//revive:enable:var-naming
 
 type PartitionQuality string
 

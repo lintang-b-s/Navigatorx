@@ -17,6 +17,7 @@ type QueryHeap[T comparable, W util.Numeric] struct {
 	explored          *ExploredBitsetStorage
 	verticesIndexType IndexStorageType
 	d                 Index // d-ary heap
+	shift             Index
 
 	// CRP Query Offsetting Context
 	isCRPQuery          bool
@@ -29,6 +30,11 @@ type QueryHeap[T comparable, W util.Numeric] struct {
 	overlayOffset       Index // 2 * maxVerticesInCell
 	numVertices         Index // graph.NumberOfVertices()
 }
+
+const (
+	defaultDAryHeap = 4
+	defaultShift    = 4 >> 1
+)
 
 func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorageType) *QueryHeap[T, W] {
 
@@ -45,7 +51,8 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorag
 			verticesIndex:     NewArrayStorage(baseSize),
 			verticesIndexType: tipe,
 			explored:          explored,
-			d:                 4,
+			d:                 defaultDAryHeap,
+			shift:             defaultShift,
 		}
 	case MAP_STORAGE:
 		explored := NewExploredBitsetStorage(approxMaxSearchSize)
@@ -56,7 +63,8 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorag
 			verticesIndex:     NewMapStorage(approxMaxSearchSize),
 			verticesIndexType: tipe,
 			explored:          explored,
-			d:                 4,
+			d:                 defaultDAryHeap,
+			shift:             defaultShift,
 		}
 	default:
 		explored := NewExploredBitsetStorage(approxMaxSearchSize)
@@ -67,7 +75,8 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorag
 			verticesIndex:     NewArrayStorage(approxMaxSearchSize),
 			verticesIndexType: tipe,
 			explored:          explored,
-			d:                 4,
+			d:                 defaultDAryHeap,
+			shift:             defaultShift,
 		}
 	}
 }
@@ -76,8 +85,7 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorag
 //
 //go:inline
 func (qh *QueryHeap[T, W]) parent(index Index) Index {
-	shift := qh.d >> 1
-	return (index - 1) >> shift
+	return (index - 1) >> qh.shift
 }
 
 //go:inline
@@ -131,10 +139,9 @@ func (qh *QueryHeap[T, W]) isEmpty() bool {
 //go:inline
 func (qh *QueryHeap[T, W]) heapifyDown(index Index) {
 
-	shift := qh.d >> 1
 	n := qh.Size()
 	for {
-		leftMostChild := (index << shift) + 1
+		leftMostChild := (index << qh.shift) + 1
 		if leftMostChild >= n { // this node (index) dont have any children nodes
 			break
 		}
@@ -384,15 +391,15 @@ type QueryKey struct {
 	overlay    bool // is node a boundary/overlay vertex
 }
 
-func (qk *QueryKey) GetNode() Index {
+func (qk QueryKey) GetNode() Index {
 	return qk.node
 }
 
-func (qk *QueryKey) IsOverlay() bool {
+func (qk QueryKey) IsOverlay() bool {
 	return qk.overlay
 }
 
-func (qk *QueryKey) GetQueryLevel() int {
+func (qk QueryKey) GetQueryLevel() int {
 	return int(qk.queryLevel)
 }
 
@@ -406,16 +413,12 @@ type PriorityQueueNode[T comparable, W util.Numeric] struct {
 	vertexIndex Index
 }
 
-func (p *PriorityQueueNode[T, W]) GetItem() T {
+func (p PriorityQueueNode[T, W]) GetItem() T {
 	return p.item
 }
 
-func (p *PriorityQueueNode[T, W]) GetRank() W {
+func (p PriorityQueueNode[T, W]) GetRank() W {
 	return p.rank
-}
-
-func (p *PriorityQueueNode[T, W]) SetRank(rank W) {
-	p.rank = rank
 }
 
 func NewPriorityQueueNode[T comparable, W util.Numeric](rank W, item T, vIndex Index) PriorityQueueNode[T, W] {

@@ -1,6 +1,7 @@
 package extractor
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -8,7 +9,6 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
-
 	"github.com/spf13/viper"
 )
 
@@ -24,7 +24,7 @@ weightFunction: weight (duration/travel time) of each edges of node-based graph
 only for road network OpenStreetMap input file.
 */
 func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
-	vTurnTableIds []da.Index, turnMatrix []pkg.TurnType, rn *da.RoadNetworkDataContainer) (*da.Graph, *met.TimeFunction[W], []uint64) {
+	vTurnTableIds []da.Index, turnMatrix []pkg.TurnType, rn *da.RoadNetworkDataContainer) (*da.Graph, *met.TimeFunction[W], []uint64, error) {
 
 	ebgvNum := da.Index(g.NumberOfEdges())
 	ebgVertices := make([]da.Vertex, ebgvNum+1)
@@ -44,7 +44,10 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 		eSpeedLimit[eId] = speedFromWeight(sLength, weight)
 	})
 
-	turnTable := makeTurnTable(turnMatrix, wf, g, rn, eSpeedLimit, vTurnTableIds)
+	turnTable, err := makeTurnTable(turnMatrix, wf, g, rn, eSpeedLimit, vTurnTableIds)
+	if err != nil {
+		return nil, nil, make([]uint64, 0), fmt.Errorf("BuildEdgeBasedGraph: failed to makeTurnTable() %w", err)
+	}
 	ebgWeights := make([]W, 0, ebgvNum)
 	turnCosts := make([]uint16, 0, ebgvNum)
 	ebgeId := da.Index(0)
@@ -166,7 +169,7 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	rn.AppendSegmentData(-1, 1, 1, 0, pkg.INVALID_HIGHWAY, pkg.INVALID_HIGHWAY, 0, da.NewEmptyTurnLanesData())
 	rn.SetSegmentBit(ebgvNum, 0, false)
 
-	return ebg, ebgWf, ebgMapping
+	return ebg, ebgWf, ebgMapping, nil
 }
 
 // makeTurnTable builds turn costs using edge speeds converted to meters per second.
@@ -175,21 +178,24 @@ func makeTurnTable[W util.Numeric](
 	turnMatrix []pkg.TurnType, wf *met.TimeFunction[W],
 	g *da.Graph, rn *da.RoadNetworkDataContainer, eSpeedLimit []uint32,
 	vTurnTableIds []da.Index,
-) []uint16 {
+) ([]uint16, error) {
 	mapTurnCosts := viper.GetStringMap("turncosts")
 	turnTypesCost := make([]float64, 6)
 	for turnTypeStr, cost := range mapTurnCosts {
 		if turnTypeStr == "traffic_light" || turnTypeStr == "max_turn_cost_based_on_angle_between_edges" {
 			continue
 		}
-		turnType := getTurnTableId(turnTypeStr)
+		turnType, err := getTurnTableId(turnTypeStr)
+		if err != nil {
+			return make([]uint16, 0), fmt.Errorf("makeTurnTable: failed to get getTurnTableId(%s)", turnTypeStr)
+		}
 		switch v := cost.(type) {
 		case int:
 			turnTypesCost[turnType] = float64(v)
 		case float64:
 			turnTypesCost[turnType] = float64(v)
 		default:
-			panic("unsupported type")
+			return make([]uint16, 0), fmt.Errorf("unsupported turnType: %v", v)
 		}
 	}
 
@@ -260,7 +266,7 @@ func makeTurnTable[W util.Numeric](
 	for i, seconds := range turnTableSeconds {
 		turnTable[i] = util.TurnCostCentiSeconds(seconds, math.IsInf(seconds, 1))
 	}
-	return turnTable
+	return turnTable, nil
 }
 
 func GetPrevPoint(segmentId da.Index, tailCoord da.Coordinate, atLeastDist float64, rn *da.RoadNetworkDataContainer) da.Coordinate {
@@ -305,7 +311,7 @@ func GetHeadPoint(eId da.Index, tailCoord da.Coordinate, atLeastDist float64, rn
 	return v
 }
 
-func getTurnTableId(turnTypeStr string) pkg.TurnType {
+func getTurnTableId(turnTypeStr string) (pkg.TurnType, error) {
 	var turnType pkg.TurnType
 	switch turnTypeStr {
 	case "left_turn":
@@ -321,9 +327,9 @@ func getTurnTableId(turnTypeStr string) pkg.TurnType {
 	case strNone:
 		turnType = pkg.NONE
 	default:
-		panic("unsupported turn type")
+		return pkg.NONE, fmt.Errorf("unsupported turn type: %v", turnTypeStr)
 	}
-	return turnType
+	return turnType, nil
 }
 
 type ebgEdge struct {

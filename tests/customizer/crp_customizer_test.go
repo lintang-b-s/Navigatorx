@@ -252,8 +252,11 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
 		}
 		es := da.FlattenEdges(adjList)
-
-		op := extractor.NewExtractor[float64]()
+		logger, err := log.New()
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		op := extractor.NewExtractor[float64](logger)
 		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
@@ -268,11 +271,6 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
-
-		logger, err := log.New()
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
 
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
@@ -462,17 +460,17 @@ func TestCRPCustomizerSimple(t *testing.T) {
 }
 
 func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
-	workingDir, err := config.FindProjectWorkingDir()
-	if err != nil {
-		panic(err)
-	}
-	outputDir := filepath.Join(workingDir, "data")
-	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
-	}
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
+	}
+	workingDir, err := config.FindProjectWorkingDir()
+	if err != nil {
+		logger.Fatal(err.Error())
+	}
+	outputDir := filepath.Join(workingDir, "data")
+	if err := util.EnsureDirExists(outputDir); err != nil {
+		logger.Fatal(err.Error())
 	}
 
 	err = config.ReadConfig(workingDir)
@@ -481,9 +479,9 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 	}
 	config.InitRegionName("customizer_test", pkg.TEST)
 
-	op := extractor.NewExtractor[int32]()
+	op := extractor.NewExtractor[int32](logger)
 
-	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile), logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -514,7 +512,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 	mlp := da.NewPlainMLP()
 	err = mlp.ReadMlpFile()
 	if err != nil {
-		panic(err)
+		logger.Fatal(err.Error())
 	}
 	prep := preprocessor.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(true)

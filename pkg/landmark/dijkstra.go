@@ -54,7 +54,7 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
 	}
 	defer done()
 
-	noPar := da.NewParentVertex(da.INVALID_VERTEX_ID)
+	noPar := da.NewParentVertex(da.INVALID_VERTEX_ID, false)
 
 	djKey := da.NewDijkstraKey(s)
 	us.pq.Insert(s, 0, da.NewVData(W(0),
@@ -89,13 +89,14 @@ func (us *Dijkstra[W]) graphSearchUni() {
 		vLabelled := util.Lt(ovCost, util.Infinity[W]())
 		if util.Lt(newVCost, ovCost) {
 			// newVCost is better, update the vertex v cost in pq
+			vPar := da.NewParentVertex(uId, false)
+
 			if vLabelled {
-				newPar := da.NewParentVertex(uId)
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(v, newVCost, newVCost, newPar)
+				us.pq.DecreaseKey(v, newVCost, newVCost, vPar)
 			} else {
 				queryKey := da.NewDijkstraKey(v)
-				vData := da.NewVData(newVCost, da.NewParentVertex(uId))
+				vData := da.NewVData(newVCost, vPar)
 				// is key not in the priority queue, insert it
 				us.pq.Insert(v, newVCost, vData, queryKey)
 			}

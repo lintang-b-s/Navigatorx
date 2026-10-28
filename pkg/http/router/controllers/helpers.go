@@ -29,7 +29,7 @@ type encoderWrapper struct {
 func NewJSONEncoderPool() *JSONEncoderPool {
 	return &JSONEncoderPool{
 		pool: sync.Pool{
-			New: func() interface{} {
+			New: func() any {
 				buf := bytes.NewBuffer(make([]byte, 0, JSON_BUF_POOL_SIZE))
 				return &encoderWrapper{
 					buf:     buf,
@@ -100,8 +100,7 @@ func (api *routingAPI) getStatusCode(w http.ResponseWriter, r *http.Request, err
 		api.errorResponse(w, r, http.StatusRequestTimeout, "request timed out")
 		return
 	}
-	var ierr *util.Error
-	if !errors.As(err, &ierr) {
+	if ierr, ok := errors.AsType[*util.Error](err); !ok {
 		api.ServerErrorResponse(w, r, err)
 	} else {
 		switch ierr.Code() {
@@ -174,7 +173,7 @@ func parseGPSRadiuses(query url.Values, pointsCount int) ([]float64, error) {
 }
 
 func getRawQueryValue(rawQuery, key string) (string, bool, error) {
-	for _, part := range strings.Split(rawQuery, "&") {
+	for part := range strings.SplitSeq(rawQuery, "&") {
 		if part == "" {
 			continue
 		}

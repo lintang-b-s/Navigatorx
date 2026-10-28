@@ -3,6 +3,7 @@ package preprocessor
 import (
 	"bufio"
 	"flag"
+	"log"
 	"math"
 	"path/filepath"
 	"strings"
@@ -99,7 +100,11 @@ func TestPreprocessorSimple(t *testing.T) {
 		}
 		es := da.FlattenEdges(adjList)
 
-		op := extractor.NewExtractor[float64]()
+		logger, err := custlog.New()
+		if err != nil {
+			t.Fatalf("err: %v", err)
+		}
+		op := extractor.NewExtractor[float64](logger)
 		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
@@ -114,11 +119,6 @@ func TestPreprocessorSimple(t *testing.T) {
 		g, timeFunction, _, _ := op.BuildGraph(es, rn, uint32(n), false)
 
 		t.Logf("number of vertices: %v, number of edges: %v", uint32(n), len(es))
-
-		logger, err := custlog.New()
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
 
 		mp := partitioner.NewMultilevelPartitioner(
 			[]int{4, 8},
@@ -779,9 +779,7 @@ func TestPreprocessorSimple(t *testing.T) {
 				childrens := make([]da.Index, 0)
 				g.Dfs(u, &childrens, visited, false)
 
-				for _, v := range childrens {
-					fReach[u] = append(fReach[u], v)
-				}
+				fReach[u] = append(fReach[u], childrens...)
 			}
 
 			reach := make([]*bitset.BitSet, n) // vertex v -> bitset dari all other vertices that can reach vertex v
@@ -816,11 +814,11 @@ func TestPreprocessorSimple(t *testing.T) {
 func init() {
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 	err = config.ReadConfig(workingDir)
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 	vehicleType := viper.GetString("vehicle_type")
 	pkg.VehicleType = pkg.GetVehicleType(vehicleType)
@@ -833,20 +831,20 @@ func init() {
 func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.RoadNetworkDataContainer) {
 	workingDir, err := config.FindProjectWorkingDir()
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 	outputDir := filepath.Join(workingDir, "data")
 	if err := util.EnsureDirExists(outputDir); err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 	logger, err := custlog.New()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	op := extractor.NewExtractor[int32]()
+	op := extractor.NewExtractor[int32](logger)
 
-	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFileTest), logger)
+	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(pkg.WorkingDir, osmFileTest))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -877,7 +875,7 @@ func setup(t *testing.T, osmFileTest string) (*prep.Preprocessor[int32], *da.Roa
 	mlp := da.NewPlainMLP()
 	err = mlp.ReadMlpFile()
 	if err != nil {
-		panic(err)
+		log.Fatal(err.Error())
 	}
 	prepr := prep.NewPreprocessor(ebg, rn, timeFunction, mlp, logger)
 	err = prepr.PreProcessing(true)
