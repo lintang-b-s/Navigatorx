@@ -141,10 +141,8 @@ func (rt *Rtree) Build(g *da.Graph, rn *da.RoadNetworkDataContainer, logger *zap
 	}
 
 	rt.tr.Bulk(mins, maxs, items)
-
 	root := config.ProfilesRoot()
 	filename := fmt.Sprintf("%s/%s/%s.nrt", root, pkg.ProfileName, pkg.RegionName)
-
 	err := util.WriteCompressedFile(filename, func(w *util.BinaryWriter) error {
 		writeItems := func(w io.Writer, items []leafData) error {
 			var buf [maxEntries * leafBytesSizes]byte

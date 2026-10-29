@@ -127,6 +127,7 @@ func (api *API) Run(
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
 			RealIP, api.Heartbeat(healthEndpoint), Logger(log), Labels, gziphandler.GzipHandler)
 	}
+
 	mainMwChain := alice.New(mwChain...).Then(router)
 
 	srv := http_server.New(ctx, mainMwChain, config)

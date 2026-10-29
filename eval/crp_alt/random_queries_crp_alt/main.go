@@ -150,6 +150,7 @@ func main() {
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 
+	logger.Sugar().Infof("benchmarking query phase combination of Customizable Route Planing (CRP) + ALT (A* Search, landmarks, and triangle inequality) Algorithm...")
 	rdStartId := rd.Intn(len(queries) - 10000)
 	for i, q := range queries[rdStartId : rdStartId+10000] {
 		calcsSP(i, q, true)
@@ -183,6 +184,8 @@ func main() {
 	puRuntime = 0.0
 	totExploredVertices = 0
 	travelTimes = travelTimes[:0]
+
+	logger.Sugar().Infof("benchmarking query phase of Customizable Route Planing (CRP) ..")
 
 	rdStartId = rd.Intn(len(queries) - 10000)
 	for i, q := range queries[rdStartId : rdStartId+10000] {
@@ -356,6 +359,7 @@ func main() {
 		return nil
 	}
 
+	logger.Sugar().Infof("benchmarking ALT (A* Search, Landmarks, and Triangle Inequality) Algorithm ..")
 	rdStartId = rd.Intn(len(queries) - 10000)
 	for i, q := range queries[rdStartId : rdStartId+10000] {
 		calcsSPALT(i, q)
@@ -416,6 +420,7 @@ func main() {
 		return nil
 	}
 
+	logger.Sugar().Infof("benchmarking Dijkstra Algorithm for Point-to-point Shortest path..")
 	rdStartId = rd.Intn(len(queries) - 10000)
 	for i, q := range queries[rdStartId : rdStartId+10000] {
 		calcsSPDijsktra(i, q)
