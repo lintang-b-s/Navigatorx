@@ -8,7 +8,9 @@ import (
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
-// Metric represents the edge and shortcut metrics for a graph.
+// todo: mending slices di TimeFunction dan OverlayWeights digabung Metric aja buat ngurangin function calls pas p2p shortest path query
+
+// Metric represents the edge and shortcut edge weights for a graph.
 type Metric[W util.Numeric] struct {
 	shortcutWeights                             *da.OverlayWeights[W]
 	costFunction                                *TimeFunction[W]
@@ -100,7 +102,6 @@ func (met *Metric[W]) GetFilePath() string {
 
 // SetLastSegmentSpeedFiles sets the file paths of the last segment speed files.
 func (met *Metric[W]) SetLastSegmentSpeedFiles(filepaths []string) {
-
 	met.lastSegmentSpeedFiles = filepaths
 }
 

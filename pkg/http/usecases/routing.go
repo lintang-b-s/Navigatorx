@@ -165,23 +165,23 @@ func (rs *RoutingService) Close() {
 func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64, dist float64) (float64, float64) {
 
 	if !rs.isSameSourceDestinationSegment(sp, tp) {
-		spgeom := sp.GetForwardGeometry()
-		path.Prepend(append([]da.Coordinate{sp.GetSnappedCoord()}, spgeom...))
+		spgeom := sp.ForwardGeometry()
+		path.Prepend(append([]da.Coordinate{sp.SnappedCoord()}, spgeom...))
 	} else {
-		path.Prepend([]da.Coordinate{sp.GetSnappedCoord()})
+		path.Prepend([]da.Coordinate{sp.SnappedCoord()})
 	}
-	travelTime -= sp.GetForwardCost() // by default pakai edge-based graph, hasil router added duration/travelTime dari road segment s
-	dist += sp.GetForwardDistance()   // kita gak tambahin distance dari projected s ke head dari road segment s di GetSegmentPath()
+	travelTime -= sp.ForwardCost() // by default pakai edge-based graph, hasil router added duration/travelTime dari road segment s
+	dist += sp.ForwardDistance()   // kita gak tambahin distance dari projected s ke head dari road segment s di GetSegmentPath()
 
 	if !rs.isSameSourceDestinationSegment(sp, tp) {
-		path.Append(tp.GetReverseGeometry())
-		path.AppendCoordinate(tp.GetSnappedCoord())
+		path.Append(tp.ReverseGeometry())
+		path.AppendCoordinate(tp.SnappedCoord())
 	} else {
-		path.AppendCoordinate(tp.GetSnappedCoord())
+		path.AppendCoordinate(tp.SnappedCoord())
 	}
 
-	travelTime += tp.GetReverseCost() // by default pakai edge-based graph, hasil router gak add duration/travelTime dari road segment t
-	dist += tp.GetReverseDistance()   // kita gak tambahin distance dari projected t ke head dari road segment t di GetSegmentPath()
+	travelTime += tp.ReverseCost() // by default pakai edge-based graph, hasil router gak add duration/travelTime dari road segment t
+	dist += tp.ReverseDistance()   // kita gak tambahin distance dari projected t ke head dari road segment t di GetSegmentPath()
 
 	return travelTime, dist
 }

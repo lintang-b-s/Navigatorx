@@ -73,18 +73,18 @@ func IsPhantomNodeInvalid(pp PhantomNode) bool {
 	return pp.v == InvalidVertexId
 }
 
-// GetSnappedCoord returns snapped coord.
-func (p *PhantomNode) GetSnappedCoord() Coordinate {
+// SnappedCoord returns snapped coord.
+func (p *PhantomNode) SnappedCoord() Coordinate {
 	return p.snappedCoordinate
 }
 
-// GetForwardCost returns forward cost.
-func (p *PhantomNode) GetForwardCost() float64 {
+// ForwardCost returns forward cost.
+func (p *PhantomNode) ForwardCost() float64 {
 	return p.forwardCost
 }
 
-// GetReverseCost returns reverse cost.
-func (p *PhantomNode) GetReverseCost() float64 {
+// ReverseCost returns reverse cost.
+func (p *PhantomNode) ReverseCost() float64 {
 	return p.reverseCost
 }
 
@@ -93,13 +93,13 @@ func (p *PhantomNode) SetReverseCost(reverseCost float64) {
 	p.reverseCost = reverseCost
 }
 
-// GetForwardDistance returns forward distance.
-func (p *PhantomNode) GetForwardDistance() float64 {
+// ForwardDistance returns forward distance.
+func (p *PhantomNode) ForwardDistance() float64 {
 	return p.forwardDistance
 }
 
-// GetReverseDistance returns reverse distance.
-func (p *PhantomNode) GetReverseDistance() float64 {
+// ReverseDistance returns reverse distance.
+func (p *PhantomNode) ReverseDistance() float64 {
 	return p.reverseDistance
 }
 
@@ -113,12 +113,12 @@ func (p *PhantomNode) GetVId() Index {
 	return p.v
 }
 
-// GetForwardGeometry returns forward geometry.
-func (p *PhantomNode) GetForwardGeometry() []Coordinate {
+// ForwardGeometry returns forward geometry.
+func (p *PhantomNode) ForwardGeometry() []Coordinate {
 	return p.forwardGeometry
 }
 
-// GetReverseGeometry returns reverse geometry.
-func (p *PhantomNode) GetReverseGeometry() []Coordinate {
+// ReverseGeometry returns reverse geometry.
+func (p *PhantomNode) ReverseGeometry() []Coordinate {
 	return p.reverseGeometry
 }

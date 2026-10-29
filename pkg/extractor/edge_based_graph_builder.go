@@ -31,6 +31,7 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	speedFromWeight := func(length uint32, weight W) uint32 {
 		return uint32(math.Round(float64(length) / float64(weight)))
 	}
+	progress := util.NewProgress(5, outputEvery)
 
 	eSpeedLimit := make([]uint32, ebgvNum)
 	wf.ForWeights(func(eId da.Index, weight W, _ uint32) {
@@ -40,6 +41,8 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 		sLength := wf.GetSegmentLength(eId)
 		eSpeedLimit[eId] = speedFromWeight(sLength, weight)
 	})
+
+	progress.Add(1)
 
 	turnTable, err := makeTurnTable(turnMatrix, wf, g, rn, eSpeedLimit, vTurnTableIds)
 	if err != nil {
@@ -80,6 +83,8 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 		})
 	})
 
+	progress.Add(1)
+
 	// build the edge-based graph (ebg) compressed sparse row (csr) representation https://ocw.mit.edu/courses/6-172-performance-engineering-of-software-systems-fall-2018/f58df934e205b870e473c2af3fe5e6f7_MIT6_172F18_lec22.pdf
 	// build the ebgVertices[w].firstOut, ebgVertices[w].firstIn, ebgHeads, ebgTails like in counting sort
 	// we need to store the edges (u,v) in ebgHeads sorted by tail vertex u. and store the reversed edges (v,u) in ebgTails sorted by head vertex v.
@@ -108,6 +113,8 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 		ebgVertices[v].AddFirstOut(ebgVertices[v-1].GetFirstOut())
 		ebgVertices[v].AddFirstIn(ebgVertices[v-1].GetFirstIn())
 	}
+
+	progress.Add(1)
 
 	// dummy last edge-based graph ebg vertex
 	ebgVertices[ebgvNum] = da.NewVertex(0, 0, ebgvNum)
@@ -141,6 +148,8 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 		sortedTurnCosts[outEdgeId] = turnCosts[i]
 	}
 
+	progress.Add(1)
+
 	for i := 0; i < int(m); i++ {
 		e := ebgEdgeList[i]
 		off := eIds[i]
@@ -165,6 +174,9 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 	// dummy last ebg vertex annotation
 	rn.AppendSegmentData(-1, 1, 1, 0, pkg.InvalidHighway, pkg.InvalidHighway, 0, da.NewEmptyTurnLanesData())
 	rn.SetSegmentBit(ebgvNum, 0, false)
+
+	progress.Add(1)
+	progress.Finish()
 
 	return ebg, ebgWf, ebgMapping, nil
 }

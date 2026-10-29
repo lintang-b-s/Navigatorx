@@ -202,7 +202,7 @@ func (rb *RecursiveBisection) buildMLPCellGraph(mlpCellVIds []da.Index) *da.Cell
 	return cg
 }
 
-// GetFinalPartition returns final partition.
-func (rb *RecursiveBisection) GetFinalPartition() []int {
+// GetPartition returns graph partition.
+func (rb *RecursiveBisection) GetPartition() []int {
 	return rb.partition
 }

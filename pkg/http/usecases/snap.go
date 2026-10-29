@@ -48,11 +48,11 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 		sp = da.NewInvalidPhantomNode()
 		tp = da.NewInvalidPhantomNode()
 	)
-	removedPrevPairSet := hashset.NewUint64WithSize(candidatePairCapacity)
+	removedPairSet := hashset.NewUint64WithSize(candidatePairCapacity)
 	for util.Le(searchRad, MaxSearchRadius) {
 		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 
-		sp, tp = rs.snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPrevPairSet, reroute, startSegmentId)
+		sp, tp = rs.snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPairSet, reroute, startSegmentId)
 		if !rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 			// break loop early if found connected origin and destination
 			break
@@ -80,7 +80,7 @@ let c=max number of road segments/edges returned by rtree spatial index
 avg case: O(logM + c^2)
 */
 func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
-	removedPrevPairSet hashset.Uint64Set, reroute bool, startSegmentId da.Index) (da.PhantomNode, da.PhantomNode) {
+	removedPairSet hashset.Uint64Set, reroute bool, startSegmentId da.Index) (da.PhantomNode, da.PhantomNode) {
 	var (
 		pLat, pLon float64
 		origCands  []da.Index
@@ -112,9 +112,7 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	}
 
 	// origDestination
-
 	// let c=max number of road segments/edges returned by rtree spatial index
-
 	minDist := pkg.InfWeight
 	minEndpointDist := pkg.InfWeight
 	bestPair := newOriginDestination(da.InvalidSegmentId, da.InvalidSegmentId,
@@ -126,24 +124,18 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	// worst case of this loop: O(c^2)
 	for i, o := range origCands {
 		for j, d := range dstCands {
-
-			if rs.isPairAlreadyEvaluated(o, d, removedPrevPairSet) {
+			if rs.isPairAlreadyEvaluated(o, d, removedPairSet) {
 				continue
 			}
-
 			// kita set (o,d) evaluated=true mau ada path atau gak ada path dari o ke d.
-			rs.evaluate(o, d, removedPrevPairSet)
-
+			rs.evaluate(o, d, removedPairSet)
 			// O(1)
 			if !rs.engine.PathExists(o, d) {
 				continue
 			}
-
 			odSnapDist := origSnaps[i].dist + dstSnaps[j].dist
-
 			oSegLength := rs.metrics.GetSegmentLength(o)
 			odEndDist := (oSegLength - origSnaps[i].tailDist) + dstSnaps[j].tailDist
-
 			if util.Lt(odSnapDist, minDist) {
 				minDist = odSnapDist
 				minEndpointDist = odEndDist
@@ -167,22 +159,16 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	if bestPair.s == da.InvalidSegmentId && bestPair.t == da.InvalidSegmentId {
 		return da.NewInvalidPhantomNode(), da.NewInvalidPhantomNode()
 	}
-
 	sfCost := rs.metrics.GetDurationFromLength(bestPair.s, oLength)
-
 	sp := da.NewPhantomNode(bestPair.s, bestPair.spCoord, sfCost, 0, oLength, 0, oCoords,
 		make([]da.Coordinate, 0))
-
 	trCost := rs.metrics.GetDurationFromLength(bestPair.t, dLength)
-
 	tp := da.NewPhantomNode(bestPair.t, bestPair.dpCoord, 0.0, trCost, 0, dLength, make([]da.Coordinate, 0),
 		dRevCoords)
-
 	// handle case when bestPair.s == bestPair.t
 	if rs.isSameSourceDestinationSegment(sp, tp) {
 		sp, tp = rs.handleSameSourceDestinationSegment(sp, tp)
 	}
-
 	return sp, tp
 }
 
@@ -191,9 +177,9 @@ func (rs *RoutingService) isSameSourceDestinationSegment(sp, tp da.PhantomNode) 
 }
 
 func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) (da.PhantomNode, da.PhantomNode) {
-	var newSourceForwardGeom []da.Coordinate
+	var nsGeom []da.Coordinate
 
-	spForwardGeom := sp.GetForwardGeometry()
+	sGeom := sp.ForwardGeometry()
 	/*
 		case 1:
 		misal segment jalan yang source dan destination ke snap:
@@ -213,50 +199,49 @@ func (rs *RoutingService) handleSameSourceDestinationSegment(sp, tp da.PhantomNo
 	*/
 
 	edgeId := sp.GetVId()
-	spProjectedCoord := sp.GetSnappedCoord()
-	lastIndexForward, _, _, _, _ := rs.project(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(), edgeId, true)
-	tpProjectedCoord := tp.GetSnappedCoord()
-	lastIndexBackward, _, _, _, _ := rs.project(tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon(), edgeId, true)
+	spProjectedCoord := sp.SnappedCoord()
+	lastIdForward, _, _, _, _ := rs.project(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(), edgeId, true)
+	tpProjectedCoord := tp.SnappedCoord()
+	lastIdBackward, _, _, _, _ := rs.project(tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon(), edgeId, true)
 
 	newSPLength := 0.0
 
 	tp.SetReverseCost(0)
 	tp.SetReverseDistance(0)
 
-	if lastIndexForward != lastIndexBackward {
+	if lastIdForward != lastIdBackward {
 		// case 2
-		newSourceForwardGeom = spForwardGeom[:lastIndexBackward+1]
+		nsGeom = sGeom[:lastIdBackward+1]
 
-		for i := 0; i < len(newSourceForwardGeom)-1; i++ {
-			curCo := newSourceForwardGeom[i]
-			nextCo := newSourceForwardGeom[i+1]
+		for i := 0; i < len(nsGeom)-1; i++ {
+			curCo := nsGeom[i]
+			nextCo := nsGeom[i+1]
 			newSPLength += geo.CalculateGreatCircleDistance(curCo.GetLat(), curCo.GetLon(),
 				nextCo.GetLat(), nextCo.GetLon())
 		}
 
-		// dist (sp, newSourceForwardGeom[0])
-		fCoord := newSourceForwardGeom[0]
+		// dist (sp, nsGeom[0])
+		fCoord := nsGeom[0]
 		newSPLength += geo.CalculateGreatCircleDistance(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(),
 			fCoord.GetLat(), fCoord.GetLon())
 
-		// dist (newSourceForwardGeom[len(newSourceForwardGeom)-1], tp)
-		lastCoord := newSourceForwardGeom[len(newSourceForwardGeom)-1]
+		// dist (nsGeom[len(nsGeom)-1], tp)
+		lastCoord := nsGeom[len(nsGeom)-1]
 		newSPLength += geo.CalculateGreatCircleDistance(lastCoord.GetLat(), lastCoord.GetLon(),
 			tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
 
 		newSPCost := rs.metrics.GetDurationFromLength(sp.GetVId(), newSPLength)
-		newSP := da.NewPhantomNode(sp.GetVId(), sp.GetSnappedCoord(), newSPCost, 0,
-			newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
-
+		newSP := da.NewPhantomNode(sp.GetVId(), sp.SnappedCoord(), newSPCost, 0,
+			newSPLength, 0.0, nsGeom, make([]da.Coordinate, 0))
 		return newSP, tp
 	}
 
-	// case 1 tinggal return empty newSourceForwardGeom, geometry dist & traveltime (sCoord, tCoord) dihandle di sini
+	// case 1 tinggal return empty nsGeom, geometry dist & traveltime (sCoord, tCoord) dihandle di sini
 	newSPLength += geo.CalculateGreatCircleDistance(spProjectedCoord.GetLat(), spProjectedCoord.GetLon(),
 		tpProjectedCoord.GetLat(), tpProjectedCoord.GetLon())
 	newSPCost := rs.metrics.GetDurationFromLength(sp.GetVId(), newSPLength)
-	newSP := da.NewPhantomNode(sp.GetVId(), sp.GetSnappedCoord(), newSPCost, 0,
-		newSPLength, 0.0, newSourceForwardGeom, make([]da.Coordinate, 0))
+	newSP := da.NewPhantomNode(sp.GetVId(), sp.SnappedCoord(), newSPCost, 0,
+		newSPLength, 0.0, nsGeom, make([]da.Coordinate, 0))
 
 	return newSP, tp
 }
@@ -277,7 +262,7 @@ func newOriginDestination(s, t da.Index, spCoord, dpCoord da.Coordinate) originD
 
 func (rs *RoutingService) projectCoordinateToSegment(lat, lon float64, id da.Index, origin bool) (float64, float64, float64, float64, []da.Coordinate) {
 
-	lastIndex, eGeometry, pPoint, minDist, tailDist := rs.project(lat, lon, id, origin)
+	lastId, eGeom, pPoint, minDist, tailDist := rs.project(lat, lon, id, origin)
 
 	/*
 		misal untuk origin: out edge (u,v) paling dekat dengan origin
@@ -305,21 +290,21 @@ func (rs *RoutingService) projectCoordinateToSegment(lat, lon float64, id da.Ind
 		karena osm way yang two-way edge geometry untuk arah forward dan backward sama di openstreetmap.
 	*/
 
-	var nextSegGeometry []da.Coordinate
+	var nextSegGeom []da.Coordinate
 	if !origin {
-		nextSegGeometry = eGeometry[:lastIndex+1]
+		nextSegGeom = eGeom[:lastId+1]
 	} else {
-		nextSegGeometry = eGeometry[lastIndex+1:]
+		nextSegGeom = eGeom[lastId+1:]
 	}
 
-	return pPoint.GetLat(), pPoint.GetLon(), minDist, tailDist, nextSegGeometry
+	return pPoint.GetLat(), pPoint.GetLon(), minDist, tailDist, nextSegGeom
 }
 
 func (rs *RoutingService) project(lat, lon float64, id da.Index, _ bool) (da.Index, []da.Coordinate, da.Coordinate, float64, float64) {
 
-	segGeometry := rs.rn.GetSegmentGeometry(id)
-	lastIndex, pPoint, minDist, stailDist := geo.ProjectPointOnSegmentGeometry(segGeometry, lat, lon)
-	return lastIndex, segGeometry, pPoint, minDist, stailDist
+	segGeom := rs.rn.GetSegmentGeometry(id)
+	lastId, pPoint, minDist, stailDist := geo.ProjectPointOnSegmentGeometry(segGeom, lat, lon)
+	return lastId, segGeom, pPoint, minDist, stailDist
 }
 
 func (rs *RoutingService) notFoundOriginDestinationWithinRadius(sp, tp da.PhantomNode) bool {
@@ -330,13 +315,13 @@ func (rs *RoutingService) notFoundOriginDestinationWithinRadius(sp, tp da.Phanto
 }
 
 // isPairAlreadyEvaluated. check (orig,dest) pair evaluated==true. avg case O(1) hashtable
-func (rs *RoutingService) isPairAlreadyEvaluated(orig, dest da.Index, removedPrevPairSet hashset.Uint64Set) bool {
+func (rs *RoutingService) isPairAlreadyEvaluated(orig, dest da.Index, removedPairSet hashset.Uint64Set) bool {
 	pairKey := util.Bitpack(uint32(orig), uint32(dest))
-	return removedPrevPairSet.Contains(pairKey)
+	return removedPairSet.Contains(pairKey)
 }
 
 // evaluate. set (orig,dest) pair evaluated=true. avg case O(1) hashtable
-func (rs *RoutingService) evaluate(orig, dest da.Index, removedPrevPairSet hashset.Uint64Set) {
+func (rs *RoutingService) evaluate(orig, dest da.Index, removedPairSet hashset.Uint64Set) {
 	pairKey := util.Bitpack(uint32(orig), uint32(dest))
-	removedPrevPairSet.Add(pairKey)
+	removedPairSet.Add(pairKey)
 }

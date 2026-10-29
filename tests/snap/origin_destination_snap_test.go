@@ -250,8 +250,8 @@ func TestOriginDestinationSnap(t *testing.T) {
 			sp, tp := routingService.SnapOrigDestQueryToNearbyRoadSegments(q.orig.GetLat(), q.orig.GetLon(),
 				q.dest.GetLat(), q.dest.GetLon(), false, da.InvalidSegmentId)
 
-			snappedOrig := sp.GetSnappedCoord()
-			snappedDst := tp.GetSnappedCoord()
+			snappedOrig := sp.SnappedCoord()
+			snappedDst := tp.SnappedCoord()
 
 			distToOrig := geo.CalculateGreatCircleDistance(q.orig.GetLat(), q.orig.GetLon(), snappedOrig.GetLat(), snappedOrig.GetLon())
 			distToDest := geo.CalculateGreatCircleDistance(q.dest.GetLat(), q.dest.GetLon(), snappedDst.GetLat(), snappedDst.GetLon())

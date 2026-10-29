@@ -191,17 +191,13 @@ func (bs *CRPALTQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool
 	if util.Ge(bs.shortestCost, util.Infinity[W]()) {
 		return util.Infinity[W](), EmptyIndexSet, false
 	}
-
 	packedPath := bs.engine.RetrievePackedPath(bs.mid,
-		bs.fpq, bs.bpq, bs.sCellNumber, s, t)
-
+		bs.fpq, bs.bpq)
 	dur := time.Since(now).Milliseconds()
 	bs.runtime = dur
-
 	unpacker := newPathUnpackerALT(bs.engine, bs.metrics, bs.lm)
 	vPath := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.pathUnpackingRuntime = unpacker.runtime
-
 	return bs.shortestCost, vPath, true
 }
 
@@ -214,12 +210,10 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 	offset, eNum := bs.engine.graph.NumEdges(u, forw)
 	for eId := offset; eId < offset+eNum; eId++ {
 		v := bs.engine.GetV(eId, forw)
-
 		// get query level of v l_st(v)
 		vQueryLevel := bs.engine.overlayGraph.QueryLevel(bs.sCellNumber, bs.tCellNumber,
 			bs.engine.graph.GetCellNumber(v))
 		eWeight := bs.GetWeight(eId, forw)
-
 		// get cost to reach v through u
 		newVCost := uCost + eWeight
 		if vQueryLevel == 0 {
@@ -233,7 +227,6 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 				priority := newVCost + hv
 				// newVCost is better, update the vertex v cost in priority queue
 				vPar := da.NewParentVertex(u, false)
-
 				if vLabelled {
 					// is key already in the priority queue, decrease its key
 					pq.DecreaseKey(v, priority, newVCost, vPar)
@@ -245,7 +238,6 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 					pq.Insert(v, priority, vData, queryKey)
 				}
 			}
-
 			bs.meet(v, pq, rpq, false)
 		} else {
 			// v is in another cell on higher level
@@ -261,14 +253,12 @@ func (bs *CRPALTQuery[W]) graphSearch(uKey da.QueryKey, s, t da.Index, forw bool
 				if !vLabelled {
 					vData := da.NewVData(newVCost,
 						vOvPar)
-
 					queryKey := da.NewQKey(vOv, vQueryLevel, true)
 					pq.Insert(vOv, priority, vData, queryKey)
 				} else {
 					pq.DecreaseKey(vOv, priority, newVCost, vOvPar)
 				}
 			}
-
 			bs.meet(vOv, pq, rpq, true)
 		}
 	}
@@ -330,16 +320,13 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 
 			if wQueryLevel == 0 {
 				// w is in the same cell as s or t
-
 				oldWCost := pq.Cost(w)
 				wLabelled := util.Lt(oldWCost, util.Infinity[W]())
 				if util.Lt(newWCost, oldWCost) {
 					// ALT (A* Search, landmarks, and triangle inequality) lowerbound/heuristic function
 					hw := bs.engine.lm.ComputeTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
 					priority := newWCost + hw
-
 					wPar := da.NewParentVertex(vOv, true)
-
 					if wLabelled {
 						pq.DecreaseKey(w, priority, newWCost, wPar)
 					} else {
@@ -348,7 +335,6 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 						pq.Insert(w, priority, vData, queryKey)
 					}
 				}
-
 				bs.meet(w, pq, rpq, false)
 			} else {
 				// w is in another cell on higher level
@@ -361,7 +347,6 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 					// ALT (A* Search, landmarks, and triangle inequality) lowerbound/heuristic function
 					hw := bs.engine.lm.ComputeTighestConsistentLowerBound(w, s, t, bs.activeLandmarks, bs.pirt, forw)
 					priority := newWCost + hw
-
 					wOvPar := da.NewParentVertex(vOv, true)
 					if !wLabelled {
 						vData := da.NewVData(newWCost, wOvPar)
@@ -371,11 +356,9 @@ func (bs *CRPALTQuery[W]) overlayGraphSearch(uKey da.QueryKey, s, t da.Index, fo
 						pq.DecreaseKey(wOv, priority, newWCost, wOvPar)
 					}
 				}
-
 				bs.meet(wOv, pq, rpq, true)
 			}
 		}
-
 		bs.meet(vOv, pq, rpq, true)
 	}
 }

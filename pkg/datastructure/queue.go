@@ -6,7 +6,7 @@ import "slices"
 // or https://github.com/gophercon/2026-talks/blob/main/SimonLaw-ThreeSimpleDataStructuresBuiltOnSlices/README.md
 
 // Queue represents preallocated circular queue data structure
-// the maximum size of the queue must be known in advance
+// the maximum size of the circular queue must be known in advance
 type Queue[T comparable] struct {
 	s    []T
 	beg  int

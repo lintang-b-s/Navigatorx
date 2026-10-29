@@ -265,9 +265,8 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 		return cmp.Compare(a.dist, b.dist)
 	})
 
-	if len(cands) > MaxCandidates {
-		cands = cands[:MaxCandidates]
-	}
+	maxc := min(len(cands), MaxCandidates)
+	cands = cands[:maxc]
 
 	res := make([]da.Index, len(cands))
 	for i, c := range cands {

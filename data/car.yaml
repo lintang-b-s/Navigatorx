@@ -81,7 +81,6 @@ alternatives:
     default: 4
   motorway_penalty: 1.4 # if an alternative route candidate uses the same motorway road as the fastest route, apply a penalty equal to 1.4 times the weight of that motorway road to the alternative route.
 
-
 server:
   api_timeout: 5s
   read_timeout: 60s
@@ -97,8 +96,6 @@ enable_pprof: false
 
 guidance:
   left_hand: true # https://en.wikipedia.org/wiki/Left-_and_right-hand_traffic  , example: Indonesia is left-hand traffic
-
-railway: true # deploy ke railway https://railway.com/deploy/go--q5VPer
 
 cache:
   path_unpacking_size: 256 # 256 mb CRP path unpacking cache size

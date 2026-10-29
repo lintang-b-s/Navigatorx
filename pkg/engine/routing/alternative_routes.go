@@ -327,7 +327,7 @@ func (arf AlternativeRouteFilter[W]) filterCandidate(v *ViaVertex) bool {
 		mid = da.NewParentVertex(v.GetVId(), false)
 	}
 
-	packedPath := arf.ars.re.RetrievePackedPath(mid, arf.fpq, arf.bpq, arf.sCellNumber, arf.s, arf.t)
+	packedPath := arf.ars.re.RetrievePackedPath(mid, arf.fpq, arf.bpq)
 
 	approxDistanceShare := arf.ars.calculateApproxDistanceShare(packedPath, arf.sortedOptPath,
 		arf.sCellNumber, arf.tCellNumber) // O(p*log(m)), m=len(optPath)

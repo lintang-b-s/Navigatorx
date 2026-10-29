@@ -168,15 +168,12 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 	}
 
 	packedPath := bs.engine.RetrievePackedPath(bs.mid,
-		bs.fpq, bs.bpq, bs.sCellNumber, s, t)
-
+		bs.fpq, bs.bpq)
 	dur := time.Since(now).Milliseconds()
 	bs.runtime = dur
-
 	unpacker := newPathUnpackerALT(bs.engine, bs.metrics, bs.lm)
 	vPath := unpacker.unpackPath(packedPath, bs.sCellNumber, bs.tCellNumber)
 	bs.pathUnpackingRuntime = unpacker.runtime
-
 	return bs.shortestCost, vPath, true
 }
 

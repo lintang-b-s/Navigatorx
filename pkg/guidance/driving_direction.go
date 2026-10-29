@@ -199,7 +199,7 @@ func (db *DirectionBuilder) finalInstruction(segmentId da.Index, tp da.PhantomNo
 
 	tail := db.rn.GetSegmentTailCoord(segmentId)
 
-	head := tp.GetSnappedCoord()
+	head := tp.SnappedCoord()
 
 	turnBearing := geo.ComputeFinalBearing(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
 	ann := db.annotation()
@@ -213,7 +213,7 @@ func (db *DirectionBuilder) finalInstruction(segmentId da.Index, tp da.PhantomNo
 func (db *DirectionBuilder) initialInstruction(segmentId da.Index, sp da.PhantomNode, streetName string) {
 	// start point dari shortetest path & bukan bundaran (roundabout) & bukan reroute
 	sign := da.START
-	tailCoord := sp.GetSnappedCoord()
+	tailCoord := sp.SnappedCoord()
 	point := da.NewCoordinate(
 		tailCoord.GetLat(), tailCoord.GetLon(),
 	)

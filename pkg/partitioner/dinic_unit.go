@@ -40,10 +40,8 @@ func NewDinicUnitMaxFlow(n int, g *da.CellGraph) *DinicUnitMaxFlow {
 	return dc
 }
 
-func (dmf *DinicUnitMaxFlow) resetCurrentEdges() {
-	for i := 0; i < len(dmf.last); i++ {
-		dmf.last[i] = 0
-	}
+func (dmf *DinicUnitMaxFlow) resetEdgesPointer() {
+	clear(dmf.last)
 }
 
 func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
@@ -57,7 +55,6 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 		if dmf.level[ss] == InvalidLevel {
 			// directly bfs from multi-sources instead of super-source
 			dmf.level[ss] = 0
-			// queue = append(queue, ss)
 			queue.Push(ss)
 		}
 	}
@@ -70,6 +67,7 @@ func (dmf *DinicUnitMaxFlow) bfsLevelGraph() bool {
 			// we dont need to traverse artificial edge (u,t), where t is the super-sink
 			// because artificial edge (u,t) have INF capacity,
 			// if we reach one of the sink nodes, then the super-sink is reachable bcs of that INF capacity...
+			// we stop when the queue is empty. in the end, the level graph is built correctly.
 			reachedSink = true
 			continue
 		}
@@ -156,7 +154,7 @@ func (dmf *DinicUnitMaxFlow) ComputeMaxflowMinCut() *MinCut {
 		// ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.pdf
 		// for unit capacity graph (see Theorem 3.3 ref1):
 		// dinic algorithm terminates in O(min{sqrt(m), n^(2/3)}) iterations
-		dmf.resetCurrentEdges()
+		dmf.resetEdgesPointer()
 		blockingFlowVal := dmf.blockingFlow() // O(m) Lemma 4.2 ref1
 		maxFlow += blockingFlowVal
 	}
@@ -219,13 +217,13 @@ func (dmf *DinicUnitMaxFlow) edge(u, i da.Index) (da.Index, da.Index, da.Index, 
 	oDeg := dmf.g.OutDegree(u)
 	if i < oDeg {
 		// edge (u,v)
-		// return v and its edge id
+		// return v, its edge id, and a dummy value.
 		v, e, eRev := dmf.g.OutEdge(u, i)
 		return v, e, eRev, false
 	}
 
 	// reversed edge (u, v)
-	// return v and its edge (v, u) id
+	// return v, its reversed edge (u,v) id, and edge (v, u) id
 	v, e, eRev := dmf.g.InEdge(u, i-oDeg)
 	return v, e, eRev, true
 }

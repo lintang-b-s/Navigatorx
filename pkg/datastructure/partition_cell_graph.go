@@ -40,7 +40,7 @@ func NewCellGraph(g *Graph, cellvIds []Index, vIds []Index, gv []Index, begin, e
 		gv[gvId] = Index(v)
 	}
 	cg := &CellGraph{vIds: vIds, g: g, begin: begin, end: end, gv: gv}
-	cg.buildFlowGraph(cellvIds)
+	cg.buildNetworkFlowGraph(cellvIds)
 	return cg
 }
 
@@ -159,16 +159,16 @@ func (c *CellGraph) insideCell(v, vv, cellLen Index) bool {
 
 // antiParallelExists is exists anti-parallel edge (v, u).
 func antiParallelExists(u Index, vHeads []Index) bool {
-	// this buildFlowGraph() function only called on input road network graph, which has avg degree~2.5 (see USA DIMACS https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml)
+	// this buildNetworkFlowGraph() function only called on input road network graph, which has avg degree~2.5 (see USA DIMACS https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml)
 	// so this slices.Contains() is O(1)
 	return slices.Contains(vHeads, u)
 }
 
-// buildFlowGraph build directed network flow graph (with its reversed edges for the residual graph) from the road network graph that contained in this recursive bisection cell.
+// buildNetworkFlowGraph build directed network flow graph (with its reversed edges for the residual graph) from the road network graph that contained in this recursive bisection cell.
 // handle anti-parallel edge (u,v) (with u < v and there exists to edge (v, u)) of road network graph by adding new vertex v'
 // , and replace edge (u,v) by pair of edges (u, v') and (v', v)..
 // read CLRS 3rd ed. section 26.1 figure 26.2
-func (c *CellGraph) buildFlowGraph(us []Index) {
+func (c *CellGraph) buildNetworkFlowGraph(us []Index) {
 
 	n := Index(len(us))
 	m := Index(0)
@@ -179,10 +179,10 @@ func (c *CellGraph) buildFlowGraph(us []Index) {
 	// O(m), m=number of edges of vertices us
 	for k, uu := range us {
 		u := Index(k)
-		uHeads := c.headsOf(uu)
+		vs := c.headsOf(uu)
 		off := Index(len(c.heads))
 		nOff := off
-		for _, vv := range uHeads {
+		for _, vv := range vs {
 			v := c.gv[vv]
 
 			// ensure the edge (u,v) inside current recursive bisection cell
@@ -195,7 +195,7 @@ func (c *CellGraph) buildFlowGraph(us []Index) {
 			if nOff > off {
 				exists := slices.Contains(c.heads[off:nOff], v)
 				if exists {
-					// this buildFlowGraph() function only called on input road network graph, which has avg degree~2.5 (see USA DIMACS https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml)
+					// this buildNetworkFlowGraph() function only called on input road network graph, which has avg degree~2.5 (see USA DIMACS https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml)
 					// so this slices.Contains() is O(1)
 					continue
 				}
@@ -240,6 +240,7 @@ func (c *CellGraph) buildFlowGraph(us []Index) {
 	for _, v := range c.heads {
 		c.firstIn[v]++
 	}
+
 	// prefix sum the frequency
 	for i := Index(0); i < nPrime; i++ {
 		c.firstIn[i+1] += c.firstIn[i]
@@ -249,12 +250,12 @@ func (c *CellGraph) buildFlowGraph(us []Index) {
 	c.eRevs = make([]Index, m)
 	// place the reversed edges using the prefix sum result
 	for u := Index(0); u < nPrime; u++ {
-		for j := c.firstOut[u]; j < c.firstOut[u+1]; j++ {
-			v := c.heads[j]
+		for e := c.firstOut[u]; e < c.firstOut[u+1]; e++ {
+			v := c.heads[e]
 			c.firstIn[v]--
 			eRev := c.firstIn[v]
 			c.tails[eRev] = u
-			c.eRevs[eRev] = j
+			c.eRevs[eRev] = e
 		}
 	}
 }

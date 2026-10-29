@@ -26,7 +26,6 @@ type DinicMaxFlow[W FlowNumber] struct {
 }
 
 // NewDinicMaxFlow create new DinicMaxFlow instance.
-// cg is Recursive Bisection Cell Graph.
 // adapted from dinic code implementation cp4 by steven halim: https://github.com/stevenhalim/cpbook-code/blob/master/ch8/maxflow.cpp
 // currently, only tested for directed network graph.
 func NewDinicMaxFlow[W FlowNumber](n int, multiSources, multiSinks bool) *DinicMaxFlow[W] {
@@ -125,7 +124,7 @@ func (dmf *DinicMaxFlow[W]) dfsAugmentPath(u da.Index, s, t da.Index, f int64) i
 	// note that this dfs only visit vertices that lie on shortest path from s to t in the level graph  (levels/spdist of each vertices in the shortest path from s to t secara berurutan +1 )
 	// & only traverse admissible edges (edge (u,v) l(v)=l(u)+1) with residual capacity > 0 in the level graph
 	// level of t or shortest path distance from s to t using unit distance is at most n-1 or in O(n)
-	// let k=number of pointer dmf.last advances in this dfs execution, n=number of vertices in this partition graph
+	// let k=number of pointer dmf.last advances in this dfs execution, n=number of vertices in this graph
 	// time complexity of dfsAugmentPath() is O(k+n)
 
 	if u == t || f == 0 { // termination
@@ -185,7 +184,7 @@ ref1: https://kyng.inf.ethz.ch/courses/AGAO20/lectures/lecture11_maxflow-contd.p
 
 time complexity:
 general capacity graph:
-see lemma 4.1 ref1, O(n^2 * m), n,m=number of vertices & edges dari da.PartitionGraph
+see lemma 4.1 ref1, O(n^2 * m), n,m=number of vertices & edges dari graph
 
 for unit capacity graph:
 see lemma 4.2 ref1, dinic unit capacity graph worst case: O(min{m * sqrt(m), m * n^(2/3)})

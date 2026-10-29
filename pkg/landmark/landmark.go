@@ -341,7 +341,7 @@ func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 	return bestLandmarks
 }
 
-// ComputeTighestConsistentLowerBound computes tighest consistent lower bound.
+// ComputeTighestConsistentLowerBound computes heuristic function for bidirectional ALT (A* Seach, Landmarks, and Triangle Inequality) Algorithm.
 /*
 [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [2] https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortest%20path%20algorithms.pdf

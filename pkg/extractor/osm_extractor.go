@@ -145,17 +145,16 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 	// scan osm ways and relations
 	// store relations and way.nodes
 	p.logger.Sugar().Infof("parsing openstreetmap .pbf file....")
-	pg := make([]bool, 101)
+
+	progress := util.NewProgress(int(totBytes), outputEvery)
+	var previousScannedBytes int64
 
 	for scanner.Scan() {
 		o := scanner.Object()
 
 		scanned := scanner.FullyScannedBytes()
-		progress := int(float64(scanned) / float64(totBytes) * 100)
-		if progress%outputEvery == 0 && !pg[progress] {
-			pg[progress] = true
-			fmt.Printf("%v%%....", int(progress))
-		}
+		progress.Add(int(scanned - previousScannedBytes))
+		previousScannedBytes = scanned
 
 		tipe := o.ObjectID().Type()
 		switch tipe {
@@ -175,7 +174,6 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 				for i, node := range way.Nodes {
 					if _, ok := p.wayNodeMap[int64(node.ID)]; !ok {
 						if i == 0 || i == len(way.Nodes)-1 {
-
 							p.wayNodeMap[int64(node.ID)] = NodeWithCoord{EndNode, da.NewCoordinate(node.Lat, node.Lon)}
 						} else {
 							p.wayNodeMap[int64(node.ID)] = NodeWithCoord{BetweenNode, da.NewCoordinate(node.Lat, node.Lon)}
@@ -271,7 +269,7 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 			}
 		}
 	}
-	fmt.Printf("100%% \n")
+	progress.Finish()
 
 	err = scanner.Close()
 	if err != nil {
@@ -284,6 +282,9 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 	}
 
 	scanner = osmpbf.New(context.Background(), f, 0)
+	p.logger.Sugar().Infof("processing openstreetmap nodes....")
+	numOsmNodes := len(p.wayNodeMap)
+	progress = util.NewProgress(numOsmNodes, outputEvery)
 
 	// scan osm nodes
 	for scanner.Scan() {
@@ -294,16 +295,14 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 		}
 
 		node := o.(*osm.Node)
-
 		p.maxNodeId = max(p.maxNodeId, int64(node.ID))
-
 		_, isUsedNode := p.wayNodeMap[int64(node.ID)]
 		if !isUsedNode {
 			continue
 		}
+		progress.Add(1)
 		oldNode := p.wayNodeMap[int64(node.ID)]
 		p.wayNodeMap[int64(node.ID)] = NodeWithCoord{tipe: oldNode.tipe, coord: da.NewCoordinate(node.Lat, node.Lon)}
-
 		isBarrierAccessible, err := p.isBarrierNodeAccessible(node)
 		if err != nil {
 			return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: isBarrierNodeAccessible() failed to parse conditional accees node barrier: %s: %w", mapFile, err)
@@ -326,6 +325,7 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 		}
 	}
 
+	progress.Finish()
 	err = scanner.Close()
 	if err != nil {
 		return nil, nil, nil, make([]uint64, 0), nil, fmt.Errorf("osmExtractor.Extract: failed to close scanner: %s: %w", mapFile, err)
@@ -341,11 +341,10 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 	edges := make([]da.Edge[W], 0)
 	p.ways = make(map[int64]OsmWay, scannedWays)
 	streetDirection := make(map[int64][2]bool)
-	countWays := 0
-	p.logger.Sugar().Infof("processing openstreetmap .pbf file....")
-	pg = make([]bool, 101)
-	rn := da.NewRoadNetworkDataContainer(da.DefaultBitSizeOSMWayId)
+	p.logger.Sugar().Infof("creating edges from openstreetmap ways....")
 
+	rn := da.NewRoadNetworkDataContainer(da.DefaultBitSizeOSMWayId)
+	progress = util.NewProgress(scannedWays, outputEvery)
 	for scanner.Scan() {
 		o := scanner.Object()
 
@@ -361,19 +360,8 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 				continue
 			}
 
-			progress := int((float64(countWays) + 1) / float64(scannedWays) * 100)
-			if progress%outputEvery == 0 && !pg[progress] {
-				pg[progress] = true
-				if progress == 100 {
-					fmt.Printf("100%%\n")
-				} else {
-					fmt.Printf("%v%%....", int(progress))
-				}
-			}
-
-			countWays++
+			progress.Add(1)
 			tempMap := make(map[string]string)
-
 			hwTag, err := p.processWay(way, rn, streetDirection, &edges, tempMap)
 			if err != nil {
 				continue
@@ -397,6 +385,8 @@ func (p *Extractor[W]) Extract(mapFile string) (*da.Graph, *da.Graph, *da.RoadNe
 			}
 		}
 	}
+
+	progress.Finish()
 
 	p.logger.Sugar().Infof("building road network graph.... ")
 

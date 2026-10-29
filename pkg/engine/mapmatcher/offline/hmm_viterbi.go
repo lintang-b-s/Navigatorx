@@ -527,7 +527,7 @@ func (h *HMM) handleSameSourceDestinationSegment(sp, tp da.PhantomNode) (transit
 		return transitionRoute{}, false
 	}
 
-	distance := tp.GetReverseDistance() - sp.GetReverseDistance()
+	distance := tp.ReverseDistance() - sp.ReverseDistance()
 
 	if util.Lt(distance, -sigmaZ) {
 		// backward movement
@@ -560,14 +560,14 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 		return transitionRoute{}, false
 	}
 
-	path := make([]da.Coordinate, 0, len(sp.GetForwardGeometry())+len(tp.GetReverseGeometry())+2)
-	path = appendRoutePath(path, []da.Coordinate{sp.GetSnappedCoord()})
-	path = appendRoutePath(path, sp.GetForwardGeometry())
-	path = appendRoutePath(path, tp.GetReverseGeometry())
-	path = appendRoutePath(path, []da.Coordinate{tp.GetSnappedCoord()})
+	path := make([]da.Coordinate, 0, len(sp.ForwardGeometry())+len(tp.ReverseGeometry())+2)
+	path = appendRoutePath(path, []da.Coordinate{sp.SnappedCoord()})
+	path = appendRoutePath(path, sp.ForwardGeometry())
+	path = appendRoutePath(path, tp.ReverseGeometry())
+	path = appendRoutePath(path, []da.Coordinate{tp.SnappedCoord()})
 
-	nextSegmentDur := sp.GetForwardDistance() + tp.GetReverseDistance()
-	nextSegmentDist := sp.GetForwardDistance() + tp.GetReverseDistance()
+	nextSegmentDur := sp.ForwardDistance() + tp.ReverseDistance()
+	nextSegmentDist := sp.ForwardDistance() + tp.ReverseDistance()
 
 	if !allowUTurn {
 		return transitionRoute{
@@ -619,11 +619,11 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 
 		eLength := h.met.GetSegmentLength(sSegId)
 
-		sameSegmentRevDist := eLength - sp.GetReverseDistance() - tp.GetReverseDistance()
+		sameSegmentRevDist := eLength - sp.ReverseDistance() - tp.ReverseDistance()
 		if util.Gt(sameSegmentRevDist, 0) {
 			sameSegmentDist = sameSegmentRevDist
 			eDuration := h.met.GetDurationSeconds(sSegId)
-			sameSegmentDur = eDuration - sp.GetReverseCost() - tp.GetReverseCost()
+			sameSegmentDur = eDuration - sp.ReverseCost() - tp.ReverseCost()
 		}
 
 		minSegmentDist = min(sameSegmentDist, nextSegmentDist)
@@ -640,8 +640,8 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float64, addPath bool) (transitionRoute, bool) {
 
 	longerDist := MaxSpeedMS * deltaTimeSeconds
-	spCoord := sp.GetSnappedCoord()
-	tpCoord := tp.GetSnappedCoord()
+	spCoord := sp.SnappedCoord()
+	tpCoord := tp.SnappedCoord()
 
 	dist := util.KilometerToMeter(geo.CalculateGreatCircleDistance(spCoord.GetLat(), spCoord.GetLon(), tpCoord.GetLat(), tpCoord.GetLon()))
 	longerDist += dist
@@ -659,7 +659,7 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 	travelTime := util.WeightToSeconds(weight)
 
 	if !addPath {
-		routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
+		routeDistance := sp.ForwardDistance() + tp.ReverseDistance()
 		for _, segmentId := range segmentPath {
 			routeDistance += h.met.GetSegmentLength(segmentId)
 		}
@@ -667,17 +667,17 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 		return transitionRoute{distance: routeDistance, travelTime: travelTime}, true
 	}
 
-	routeDistance := sp.GetForwardDistance() + tp.GetReverseDistance()
+	routeDistance := sp.ForwardDistance() + tp.ReverseDistance()
 
 	finalPath, totalDistance := h.re.GetSegmentPath(segmentPath)
 	routeDistance += totalDistance
 
-	path := make([]da.Coordinate, 0, len(sp.GetForwardGeometry())+len(*finalPath)+len(tp.GetReverseGeometry())+2)
-	path = appendRoutePath(path, []da.Coordinate{sp.GetSnappedCoord()})
-	path = appendRoutePath(path, sp.GetForwardGeometry())
+	path := make([]da.Coordinate, 0, len(sp.ForwardGeometry())+len(*finalPath)+len(tp.ReverseGeometry())+2)
+	path = appendRoutePath(path, []da.Coordinate{sp.SnappedCoord()})
+	path = appendRoutePath(path, sp.ForwardGeometry())
 	path = appendRoutePath(path, *finalPath)
-	path = appendRoutePath(path, tp.GetReverseGeometry())
-	path = appendRoutePath(path, []da.Coordinate{tp.GetSnappedCoord()})
+	path = appendRoutePath(path, tp.ReverseGeometry())
+	path = appendRoutePath(path, []da.Coordinate{tp.SnappedCoord()})
 
 	return transitionRoute{distance: routeDistance, travelTime: travelTime, path: path}, true
 }

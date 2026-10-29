@@ -7,7 +7,7 @@ import (
 
 // RetrievePackedPath retrieves packed path.
 func (crp *CRPRoutingEngine[W]) RetrievePackedPath(mid da.ParentVertex, fpq *da.QueryHeap[da.QueryKey, W],
-	bpq *da.QueryHeap[da.QueryKey, W], sCellNum da.Pv, s, t da.Index) []da.Index {
+	bpq *da.QueryHeap[da.QueryKey, W]) []da.Index {
 
 	midv := mid.GetVertex()
 	midvv := midv
@@ -20,10 +20,10 @@ func (crp *CRPRoutingEngine[W]) RetrievePackedPath(mid da.ParentVertex, fpq *da.
 	c := crp.precomputeSize(midv, fpq, bpq) + 1
 	packedPath := make([]da.Index, 0, c) // list of vertices/overlay vertices di s-mid-t packed path
 
-	crp.RetrieveForwardPackedPath(midv, fpq, sCellNum, s, &packedPath)
+	crp.RetrieveForwardPackedPath(midv, fpq, &packedPath)
 	util.ReverseG(packedPath)
 	packedPath = append(packedPath, midvv)
-	crp.RetrieveBackwardPackedPath(midv, bpq, sCellNum, t, &packedPath)
+	crp.RetrieveBackwardPackedPath(midv, bpq, &packedPath)
 	return packedPath
 }
 
@@ -37,7 +37,7 @@ func (crp *CRPRoutingEngine[W]) RetrievePackedPath(mid da.ParentVertex, fpq *da.
 // kita gak simpan base edges yang menyusun shortcut edge secara eksplisit, kita hanya simpan bobot nya
 // sehingga untuk unpacking shortcut edges ada tahapan di CRP bernama Path Unpacking (path_unpacker_alt.go)
 func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(midv da.Index, fpq *da.QueryHeap[da.QueryKey, W],
-	_ da.Pv, _ da.Index, packedPath *[]da.Index) {
+	packedPath *[]da.Index) {
 
 	mvData := fpq.Get(midv)
 	vPar := mvData.GetParent()
@@ -60,7 +60,7 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(midv da.Index, fpq *da
 
 // RetrieveBackwardPackedPath untuk retrieve (packed) shortest path hasil CRP query dari mid ke t.
 func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(midv da.Index, bpq *da.QueryHeap[da.QueryKey, W],
-	_ da.Pv, _ da.Index, packedPath *[]da.Index) {
+	packedPath *[]da.Index) {
 
 	mvData := bpq.Get(midv)
 	vPar := mvData.GetParent()

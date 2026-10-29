@@ -117,14 +117,7 @@ func (api *API) Run(
 	navigatorRoutes.Routes(group)
 
 	var mwChain []alice.Constructor
-
-	railway := viper.GetBool("railway")
-	var healthEndpoint string
-	if railway { // https://railway.com/deploy/go--q5VPer
-		healthEndpoint = "/v1/healthcheck"
-	} else {
-		healthEndpoint = "healthz"
-	}
+	const healthEndpoint = "healthz"
 
 	if useRateLimit {
 		// useRateLimit = true ->  dideploy pakai nginx reverse proxy (udah ada gzip nya).
@@ -174,7 +167,6 @@ func (api *API) Run(
 	case err := <-serverErr:
 		log.Info("HTTP server stopped", zap.Error(err))
 		isShuttingDown.Store(true)
-
 		return err
 	case <-ctx.Done():
 		log.Info("Context canceled, shutting down server")

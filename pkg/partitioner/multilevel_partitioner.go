@@ -41,12 +41,12 @@ import (
 // better di preprocessor cli kasih flag/opsi buat kualitas partisi
 
 // todo3: reduce peak htop RES lagi dari partitioner..
-// dennis luxen inertial flow implementation only peak memory 11.02 GB pakai instan DIMACS USA: https://github.com/DennisOSRM/toolbox-rs/pull/542 dan https://dennisosrm.github.io/toolbox-rs/
-//
+// dennis luxen inertial flow implementation peak memory 11.02 GB pakai instan DIMACS USA: https://github.com/DennisOSRM/toolbox-rs/pull/542 dan https://dennisosrm.github.io/toolbox-rs/
+// sekarang peak memory ini masih lebih dari 16 GB pakai DIMACS USA wkwk...
 
 // MultilevelPartitioner represents multilevel partitioner.
 type MultilevelPartitioner struct {
-	u []int //  cell size for  each cell levels. from biggest to smallest.
+	u []int //  cell size for  each cell levels.
 	// best parameter for customizable route planning by delling et al:
 	// [2^8, 2^11, 2^14, 2^17, 2^20]
 	l                      int            // max level of overlay graph
@@ -87,6 +87,10 @@ func (mp *MultilevelPartitioner) MLPSizes() []int {
 	return mp.u
 }
 
+const (
+	progressPercentShow = 4
+)
+
 /*
 RunMultilevelPartitioning Partitioning phase of Customizable Route Planning (CRP) By Delling et al. read section 5.1 Metric-Independent Preprocessing (Partitioning) :  https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 
@@ -111,7 +115,7 @@ for each level l, time complexity recursiveBisection.Partition() in each cell is
 func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	// start from highest level
 	vIds := mp.graph.GetVerticeIds()
-	progress := util.NewProgress(mp.graph.NumberOfVertices())
+	progress := util.NewProgress(mp.graph.NumberOfVertices(), progressPercentShow)
 	mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", mp.l, mp.u[mp.l-1])
 	fmt.Printf("Level %d progress: 0%%...", mp.l)
 	n := len(vIds)
@@ -128,8 +132,8 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 		rb.Partition(vIds)
 		cutEdgesCount = rb.cutEdgesCount
 
-		fp := rb.GetFinalPartition()
-		cp := mp.groupEachPartition(fp)
+		fp := rb.GetPartition()
+		cp := mp.groupEachCell(fp)
 		mp.cellVertices[mp.l-1] = append(mp.cellVertices[mp.l-1], cp...)
 	} else {
 		mp.cellVertices[mp.l-1] = [][]da.Index{vIds}
@@ -141,7 +145,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	lock := &sync.Mutex{}
 	// partition each cell in previous level
 	for level := mp.l - 2; level >= 0; level-- {
-		progress = util.NewProgress(mp.graph.NumberOfVertices())
+		progress = util.NewProgress(mp.graph.NumberOfVertices(), progressPercentShow)
 		mp.logger.Sugar().Infof("partitioning level %d with max cell size %d", level+1, mp.u[level])
 		fmt.Printf("Level %d progress: 0%%...", level+1)
 		cutEdgesCount = 0
@@ -154,8 +158,8 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 					mp.inertialFlowIterations, true)
 				rb.progress = progress
 				rb.Partition(cellvIds)
-				fp := rb.GetFinalPartition()
-				partitions := mp.groupEachPartition(fp)
+				fp := rb.GetPartition()
+				partitions := mp.groupEachCell(fp)
 				lock.Lock()
 				*cutEdgesCount += rb.cutEdgesCount
 				lock.Unlock()
@@ -189,7 +193,7 @@ func (mp *MultilevelPartitioner) RunMultilevelPartitioning() {
 	}
 }
 
-func (mp *MultilevelPartitioner) groupEachPartition(partition []int) [][]da.Index {
+func (mp *MultilevelPartitioner) groupEachCell(partition []int) [][]da.Index {
 	cellSet := make(map[int]struct{})
 	for _, cellId := range partition {
 		cellSet[cellId] = struct{}{}
@@ -326,7 +330,6 @@ func (mp *MultilevelPartitioner) MapToEdgeBasedGraph(ebg *da.Graph, ebgMapping [
 					}
 				}
 			}
-
 		}
 	}
 
