@@ -52,9 +52,8 @@ var (
 type PartitionQuality string
 
 const (
-
-	// BEST is the best value.
+	// BEST is the best partition quality.
 	BEST = "best"
-	// FAST is the fast value.
+	// FAST is the fast partition quality.
 	FAST = "fast"
 )
