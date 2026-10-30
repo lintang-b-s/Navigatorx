@@ -44,7 +44,7 @@ function init(args)
             count = count + 1
             -- OSRM expects coordinates in {lon},{lat};{lon},{lat} order
             queries[count] = string.format(
-                "/route/v1/driving/%s,%s;%s,%s?overview=false&alternatives=false&steps=true",
+                "/route/v1/driving/%s,%s;%s,%s?overview=false&alternatives=false&steps=true&annotations=false",
                 srcLon, srcLat, destLon, destLat
             )
             if max_queries > 0 and count >= max_queries then
