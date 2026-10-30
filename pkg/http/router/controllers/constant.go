@@ -9,7 +9,7 @@ import (
 
 const (
 	// JSONBufPoolSize is the jsonbuf pool size value.
-	JSONBufPoolSize = 32 << 10
+	JSONBufPoolSize = 1 << 14
 	// MbToBytes is the mb to bytes value.
 	MbToBytes = 1000000
 )

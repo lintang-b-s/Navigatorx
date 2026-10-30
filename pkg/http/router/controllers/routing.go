@@ -60,9 +60,7 @@ func New(routingService RoutingService, log *zap.Logger, mapAttributesService Ma
 // Routes registers the routing API endpoints on group.
 func (api *RoutingAPI) Routes(group *helper.RouteGroup) {
 	group.GET("/computeRoutes", api.shortestPath)
-
 	group.GET("/boundingBox", api.GetBoundingBox)
-
 	group.GET("/mapAttributes/:s2CellId", api.getMapAttributes)
 	group.GET("/init-transition-matrix", api.initTransitionMatrix)
 	group.POST("/mapmatching", api.offlineMapMatching) // offline map-matching

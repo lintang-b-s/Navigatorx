@@ -49,10 +49,10 @@ var (
 // writeJSON marshals data structure to encoded JSON response.
 func (api *RoutingAPI) writeJSON(w http.ResponseWriter, status int, data any) error {
 	jenc := jencPool.pool.Get().(*encoderWrapper)
-	defer func() {
+	defer func(jenc *encoderWrapper) {
 		jenc.buf.Reset()
 		jencPool.pool.Put(jenc)
-	}()
+	}(jenc)
 
 	if err := jenc.encoder.Encode(data); err != nil {
 		return err
@@ -62,12 +62,11 @@ func (api *RoutingAPI) writeJSON(w http.ResponseWriter, status int, data any) er
 	if len(b) > 0 && b[len(b)-1] == '\n' {
 		b = b[:len(b)-1]
 	}
-	result := make([]byte, len(b))
-	copy(result, b)
 
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Length", strconv.Itoa(len(b)))
 	w.WriteHeader(status)
-	if _, err := w.Write(result); err != nil {
+	if _, err := w.Write(b); err != nil {
 		api.log.Error("failed to write JSON response", zap.Error(err))
 		return err
 	}

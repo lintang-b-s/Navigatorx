@@ -14,6 +14,12 @@ end
 
 -- Per-thread initialization
 function init(args)
+    -- Per-thread Content-Length tracking globals
+    cl_sum = 0
+    cl_count = 0
+    cl_min = -1
+    cl_max = 0
+
     -- Determine file path from argument, env variable, or default relative paths
     local coords_file = (args and args[1]) 
         or os.getenv("COORDS_FILE") 
@@ -67,8 +73,50 @@ function request()
     return wrk.format("GET", queries[idx])
 end
 
--- Called once at the end of the test
+-- Called for every HTTP response
+function response(status, headers, body)
+    -- Check both standard and lowercase header keys, fallback to #body
+    local cl_header = headers["Content-Length"] or headers["content-length"]
+    local len = tonumber(cl_header) or #body
+
+    cl_sum = cl_sum + len
+    cl_count = cl_count + 1
+    if cl_min == -1 or len < cl_min then
+        cl_min = len
+    end
+    if len > cl_max then
+        cl_max = len
+    end
+end
+
+
+
 function done(summary, latency, requests)
+    -- Aggregate Content-Length stats across all worker threads
+    local total_cl_bytes = 0
+    local total_cl_count = 0
+    local global_cl_min = -1
+    local global_cl_max = 0
+
+    for _, thread in ipairs(threads) do
+        local t_sum = tonumber(thread:get("cl_sum")) or 0
+        local t_count = tonumber(thread:get("cl_count")) or 0
+        local t_min = tonumber(thread:get("cl_min")) or -1
+        local t_max = tonumber(thread:get("cl_max")) or 0
+
+        total_cl_bytes = total_cl_bytes + t_sum
+        total_cl_count = total_cl_count + t_count
+        if t_min ~= -1 and (global_cl_min == -1 or t_min < global_cl_min) then
+            global_cl_min = t_min
+        end
+        if t_max > global_cl_max then
+            global_cl_max = t_max
+        end
+    end
+
+    local avg_cl = total_cl_count > 0 and (total_cl_bytes / total_cl_count) or 0
+    if global_cl_min == -1 then global_cl_min = 0 end
+
     io.write("\n==========================================\n")
     io.write("       Navigatorx Load Test Summary       \n")
     io.write("==========================================\n")
@@ -76,6 +124,11 @@ function done(summary, latency, requests)
     io.write(string.format("Total Requests:   %d\n", summary.requests))
     io.write(string.format("Total Bytes:      %.2f MB\n", summary.bytes / (1024 * 1024)))
     io.write(string.format("Avg Requests/sec: %.2f\n", (summary.requests / (summary.duration / 1000000))))
+    io.write("------------------------------------------\n")
+    io.write("Content-Length (Payload Size):\n")
+    io.write(string.format("  Avg:            %8.2f bytes (%.2f KB)\n", avg_cl, avg_cl / 1024))
+    io.write(string.format("  Min:            %8d bytes\n", global_cl_min))
+    io.write(string.format("  Max:            %8d bytes (%.2f KB)\n", global_cl_max, global_cl_max / 1024))
     io.write("------------------------------------------\n")
     io.write("Latency Percentiles:\n")
     io.write(string.format("  Avg:            %8.2f ms\n", latency.mean / 1000))

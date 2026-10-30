@@ -63,7 +63,8 @@ func (api *API) Run(
 	shutdownPeriod time.Duration,
 ) error {
 	isShuttingDown.Store(false)
-	ctx, cleanup := NewContext(routingService.GetRoutingEngine(), routingService)
+	rn := routingService.GetRoutingEngine()
+	ctx, cleanup := NewContext(rn, routingService)
 	defer func() {
 		cleanup()
 		ctxWithTimeout, cancel := context.WithTimeout(context.Background(), 2*time.Second)
