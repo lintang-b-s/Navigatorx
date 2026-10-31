@@ -581,8 +581,6 @@ func (og *OverlayGraph) GetShortcutWeightId(entryVertexId, exitVertexId Index, q
 }
 
 // NumOfOutShortcuts returns number of outgoing shortcut edges from boundary/overlay vertex u.
-//
-//go:inline
 func (og *OverlayGraph) NumOfOutShortcuts(u Index, level int) (Index, Index, Index) {
 	entryPoint := og.overlayVertices[u].GetEntryExitPoint(level)
 	cell := og.GetCell(og.overlayVertices[u].cellNumber, level)
@@ -593,8 +591,6 @@ func (og *OverlayGraph) NumOfOutShortcuts(u Index, level int) (Index, Index, Ind
 }
 
 // NumOfShortcuts returns number of outgoing or incoming (reversed) shortcut edges from boundary/overlay vertex u depended on out boolean value.
-//
-//go:inline
 func (og *OverlayGraph) NumOfShortcuts(u Index, level int, out bool) (Index, Index, Index, Index) {
 	cell := og.GetCell(og.overlayVertices[u].cellNumber, level)
 	numExit := cell.numExitPoints
@@ -612,15 +608,11 @@ func (og *OverlayGraph) NumOfShortcuts(u Index, level int, out bool) (Index, Ind
 }
 
 // GetCellExitVertex returns the exit boundary/overlay vertex Id for an outgoing shortcut edge at index i.
-//
-//go:inline
 func (og *OverlayGraph) GetCellExitVertex(i Index) Index {
 	return og.overlayIdMapping[i]
 }
 
 // GetCellEntryVertex returns the entry boundary/overlay vertex Id for an incoming shortcut edge at index i.
-//
-//go:inline
 func (og *OverlayGraph) GetCellEntryVertex(i Index) Index {
 	return og.overlayIdMapping[i]
 }

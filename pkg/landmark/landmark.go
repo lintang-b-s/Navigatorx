@@ -252,7 +252,6 @@ func (lm *Landmark[W]) matrix(r, c da.Index, lw bool) [][]W {
 }
 
 /*
-
 ComputeTighestLowerBound computes ALT heuristic h(u) or compute tighest lower bound of shortest path distance d(u,t).
 [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [2] Bast, H. et al. (2016) “Route Planning in Transportation Networks,” in L.
@@ -268,7 +267,6 @@ fungsi potential/heuristik  h(u) meiliki sifat konsisten/feasible [3], dan admis
 
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
-//go:inline
 func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) W {
 	// O(k), k = number of active landmarks
 	tighestLowerBound := -util.Infinity[W]()
@@ -283,8 +281,6 @@ func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks [
 }
 
 // ComputeLowerBound compute max(dist(l,t)-dist(l,u), dist(u,l)-dist(t,l))
-//
-//go:inline
 func (lm *Landmark[W]) ComputeLowerBound(lid, u, t da.Index) W {
 	uToLandmark := lm.vlw[u*lm.k+lid]
 	tToLandmark := lm.vlw[t*lm.k+lid]
@@ -354,7 +350,6 @@ kita disini pakai beta=h_f(s)
 h_f(u) adalah consistent lower bound dari sp cost dari u ke t
 h_r(u) adalah consistent lower bound dari sp cost dari s ke u
 */
-//go:inline
 func (lm *Landmark[W]) ComputeTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index, pirt W, forw bool) W {
 	pifu := lm.ComputeTighestLowerBound(u, t, activeLandmarks) // consistent lower bound dari dist(u,t)
 	piru := lm.ComputeTighestLowerBound(s, u, activeLandmarks) // consistent lower bound dari dist(s,u)

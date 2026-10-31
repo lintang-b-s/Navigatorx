@@ -43,16 +43,12 @@ func NewArrayStorage(size Index) *ArrayStorage {
 
 // Get returns the heap index associated with the given vertex id.
 // If the vertex is not in the heap, it returns [math.MaxUint32].
-//
-//go:inline
 func (s *ArrayStorage) Get(id Index) Index {
 	return s.base[id]
 }
 
 // Set assigns the heap index info to the given vertex id.
 // If the vertex was previously unset, its id is appended to the touched list.
-//
-//go:inline
 func (s *ArrayStorage) Set(id Index, info Index) {
 	if s.base[id] == math.MaxUint32 {
 		s.touched = append(s.touched, id)
@@ -61,8 +57,6 @@ func (s *ArrayStorage) Set(id Index, info Index) {
 }
 
 // Clear resets all modified entries back to [math.MaxUint32] and empties the touched list.
-//
-//go:inline
 func (s *ArrayStorage) Clear() {
 	for _, id := range s.touched {
 		s.base[id] = math.MaxUint32
@@ -86,8 +80,6 @@ func NewMapStorage() *MapStorage {
 
 // Get returns the heap index associated with the given vertex id.
 // If the vertex does not exist in the map, it returns [math.MaxUint32].
-//
-//go:inline
 func (s *MapStorage) Get(id Index) Index {
 	// https://go.dev/blog/swisstable
 	// go1.24 use swiss table for its hash table (open addressing)
@@ -101,15 +93,11 @@ func (s *MapStorage) Get(id Index) Index {
 }
 
 // Set maps the given vertex id to its heap index vertexIndex.
-//
-//go:inline
 func (s *MapStorage) Set(id Index, vertexIndex Index) {
 	s.overlay[id] = vertexIndex
 }
 
 // Clear removes all entries from the map.
-//
-//go:inline
 func (s *MapStorage) Clear() {
 	// https://go101.org/optimizations/6-map.html
 	for key := range s.overlay {

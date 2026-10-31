@@ -92,18 +92,13 @@ func (g *Graph) GetInDegree(u Index) Index {
 }
 
 // NumOutEdges returns the edge offset and number for outgoing edges of vertex u.
-//
-//go:inline
 func (g *Graph) NumOutEdges(u Index) (Index, Index) {
 	firstOut := g.vertices[u].firstOut
 	num := g.vertices[u+1].firstOut - firstOut
 	return firstOut, num
 }
 
-// NumEdges handles num edges.
-// NumInEdges returns the edge offset and number for incoming (reversed) edges of vertex v.
-//
-//go:inline
+// NumEdges returns the edge offset and edges (or reversed edges) count of vertex v.
 func (g *Graph) NumEdges(v Index, out bool) (Index, Index) {
 	if out {
 		return g.NumOutEdges(v)
@@ -114,15 +109,11 @@ func (g *Graph) NumEdges(v Index, out bool) (Index, Index) {
 }
 
 // GetHead returns head.
-//
-//go:inline
 func (g *Graph) GetHead(e Index) Index {
 	return g.heads[e]
 }
 
 // GetTail returns tail.
-//
-//go:inline
 func (g *Graph) GetTail(e Index) Index {
 	return g.tails[e]
 }
@@ -155,8 +146,6 @@ func (g *Graph) GetRevId(e Index) Index {
 
 // GetOutId returns out id.
 // get outgoing edge Id of incoming (or reversed) edge Id e
-//
-//go:inline
 func (g *Graph) GetOutId(e Index) Index {
 	exitPoint := Index(g.exitPoints[e])
 	return g.vertices[g.tails[e]].firstOut + exitPoint
