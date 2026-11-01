@@ -133,9 +133,11 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	// crp query heap pool
 
 	crpMaxSearchSize := da.Index(2*maxVerticesInCell + da.Index(numOverlayVertices))
+
+	approxMaxExploredSize := da.CRPMaxExploredSize
 	crp.fHeapPool = sync.Pool{
 		New: func() any {
-			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, da.ArrayStorageMode)
+			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, approxMaxExploredSize, da.ArrayStorageMode)
 			qh.SetIsCRPQuery()
 			return qh
 		},
@@ -143,7 +145,7 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 
 	crp.bHeapPool = sync.Pool{
 		New: func() any {
-			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, da.ArrayStorageMode)
+			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, approxMaxExploredSize, da.ArrayStorageMode)
 			qh.SetIsCRPQuery()
 			return qh
 		},
@@ -153,14 +155,14 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	crp.puovHeapPool = sync.Pool{
 		New: func() any {
 
-			return da.NewQueryHeap[da.Index, W](da.Index(numOverlayVertices), da.ArrayStorageMode)
+			return da.NewQueryHeap[da.Index, W](da.Index(numOverlayVertices), approxMaxExploredSize, da.ArrayStorageMode)
 		},
 	}
 
 	crp.puHeapPool = sync.Pool{
 		New: func() any {
 
-			pq := da.NewQueryHeap[da.Index, W](da.Index(maxVerticesInCell), da.ArrayStorageMode)
+			pq := da.NewQueryHeap[da.Index, W](da.Index(maxVerticesInCell), approxMaxExploredSize, da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},

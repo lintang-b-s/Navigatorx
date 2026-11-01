@@ -7,6 +7,8 @@ import (
 	"strings"
 
 	stdLog "log"
+	// "net/http"
+	// _ "net/http/pprof"
 
 	"github.com/bytedance/gopkg/util/gopool"
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -32,6 +34,7 @@ func init() {
 }
 
 func main() {
+
 	logger, err := log.New()
 	if err != nil {
 		stdLog.Fatal(err.Error())

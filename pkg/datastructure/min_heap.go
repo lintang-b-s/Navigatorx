@@ -38,14 +38,13 @@ const (
 )
 
 // NewQueryHeap creates and returns query heap.
-func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorageType) *QueryHeap[T, W] {
+func NewQueryHeap[T comparable, W util.Numeric](baseSize, approxMaxExploredSize Index, tipe IndexStorageType) *QueryHeap[T, W] {
 
-	approxMaxSearchSize := Index(BaseVerticesSize)
-	minHeap := make([]PriorityQueueNode[T, W], 0, approxMaxSearchSize)
-	verticesData := make([]VertexData[W], 0, approxMaxSearchSize)
+	minHeap := make([]PriorityQueueNode[T, W], 0, approxMaxExploredSize)
+	verticesData := make([]VertexData[W], 0, approxMaxExploredSize)
 	switch tipe {
 	case ArrayStorageMode:
-		explored := NewExploredBitsetStorage(approxMaxSearchSize)
+		explored := NewExploredBitsetStorage(approxMaxExploredSize)
 
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
@@ -57,7 +56,7 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorag
 			shift:             defaultShift,
 		}
 	case MapStorageMode:
-		explored := NewExploredBitsetStorage(approxMaxSearchSize)
+		explored := NewExploredBitsetStorage(approxMaxExploredSize)
 
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
@@ -69,12 +68,12 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize Index, tipe IndexStorag
 			shift:             defaultShift,
 		}
 	default:
-		explored := NewExploredBitsetStorage(approxMaxSearchSize)
+		explored := NewExploredBitsetStorage(approxMaxExploredSize)
 
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
 			verticesData:      verticesData,
-			verticesIndex:     NewArrayStorage(approxMaxSearchSize),
+			verticesIndex:     NewArrayStorage(approxMaxExploredSize),
 			verticesIndexType: tipe,
 			explored:          explored,
 			d:                 defaultDAryHeap,

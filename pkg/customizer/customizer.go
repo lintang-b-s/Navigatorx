@@ -175,7 +175,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			pq := da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.ArrayStorageMode)
+			pq := da.NewQueryHeap[da.QueryKey, W](maxVerticesIncell, maxVerticesIncell, da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},
@@ -183,7 +183,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	c.upperLevelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](da.Index(da.OverlayVerticesSize), da.MapStorageMode)
+			return da.NewQueryHeap[da.Index, W](da.OverlayVerticesSize, da.OverlayVerticesSize, da.MapStorageMode)
 		},
 	}
 
@@ -200,18 +200,23 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 	})
 
 	c.Build(wf)
-	c.logger.Sugar().Infof("Writing metrics data...")
 	m = met.NewMetric(c.timefunctionFilePath, c.ow, c.metricOutputFilePath)
 
 	wg.Wait()
+
+	c.logger.Sugar().Infof("Writing precomputed landmarks data...")
+
 	err = lm.WriteLandmark(c.landmarkFile, c.graph.NumberOfVertices())
 	if err != nil {
 		log.Fatal(err.Error())
 	}
+	c.logger.Sugar().Infof("Done writing precomputed landmarks data...")
 
 	m.SetLastSegmentSpeedFiles(lastSegmentSpeedFiles)
 	m.SetLastTurnPenaltyFiles(lastTurnPenaltiesFiles)
 	// ini write metrics harus terakhir karena bakal di update background worker
+
+	c.logger.Sugar().Infof("Writing metrics data...")
 	err = m.WriteToFile(c.metricOutputFilePath)
 	if err != nil {
 		return nil, fmt.Errorf("Customize: failed to write metric output to %s: %w", c.metricOutputFilePath, err)
@@ -220,6 +225,8 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 	if err != nil {
 		return nil, fmt.Errorf("Customize: failed to write updated time function output to %s: %w", c.timefunctionFilePath, err)
 	}
+
+	c.logger.Sugar().Infof("Done writing metrics data...")
 
 	c.logger.Sugar().Infof("Customization step completed successfully.")
 
@@ -240,7 +247,7 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			pq := da.NewQueryHeap[da.QueryKey, W](da.Index(maxVerticesIncell), da.ArrayStorageMode)
+			pq := da.NewQueryHeap[da.QueryKey, W](maxVerticesIncell, maxVerticesIncell, da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},
@@ -248,7 +255,7 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	c.upperLevelHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](da.Index(da.OverlayVerticesSize), da.MapStorageMode)
+			return da.NewQueryHeap[da.Index, W](da.OverlayVerticesSize, da.OverlayVerticesSize, da.MapStorageMode)
 		},
 	}
 
@@ -307,11 +314,12 @@ func newCustomizerCell(cell da.Cell, cellNumber da.Pv) customizerCell {
 }
 
 // Build Customization Phase of Customizable Route Planning (CRP) by delling et al. read section 5.2 Customization: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
-// let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary vertices, and shortcuts within any cell
-// let c_1, c_l be the number of cells in level 1 and the number of cells in level l.
-// worst case buildLowestLevel: O( c_1 * n_op * (m_p* log(m_p)) )
-// worst case buildLevel in level l:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
-// worst case crp customization: O(  c_1 * n_op * (m_p* log(m_p)) + c_l * n_op * (n_op + \hat{m_p}) * log(n_op)  )
+// let n_op, n_{op}', \hat{m_p} denotes the maximum number of entry boundary/overlay vertices, boundary/overlay vertices in all subcells, and shortcut edges & cut edges  within any level-l cell
+// let n_1, m_1, n_{op1} denote the maximum number of nodes, edges, entry boundary/overlay vertices within any level-1 cell
+// let c_1, c_l be the number of cells in level 1 and the maximum number of cells in any level l (2<=l<=L).
+// worst case buildLowestLevel: O( c_1 * n_{op1} * (m_1 + n_1)* log(n_1))
+// worst case buildLevel in level l:   O( c_l * n_op * ( n_{op}' + \hat{m_p})* log(n_{op}') )
+// worst case crp customization: O(  c_1 * n_{op1} * (m_1 + n_1)* log(n_1) + L * c_l * n_op * ( n_{op}' + \hat{m_p})* log(n_{op}')  )
 func (c *Customizer[W]) Build(wf *met.TimeFunction[W]) {
 	c.buildLowestLevel(wf)
 
@@ -371,16 +379,13 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 
 		dijkstra := func(entries <-chan da.Index) {
 			/*
-				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary/overlay vertices, and shortcuts within any cell
-				let n,m,k denote the number vertices,edges, and number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), respectively.
+				let n_1, m_1, n_{op1} denote the maximum number of nodes, edges, entry boundary/overlay vertices within any level-1 cell
 
-
-				pq contains at most all edges in a cell level 1
+				pq contains at most all vertices in a cell level 1
 				extractMin at most n_p
 				decreaseKey and insert at most m_p
-				we do dijkstra for all entries in the cell, num of entries is at most n_op
-				worst case: O( n_op * ((m_p + n_p)* log(n_p)) )
-
+				we do dijkstra for all entries in the cell, num of entries is at most n_{op1}
+				worst case: O( n_{op1} * ((m_1 + n_1)* log(n_1)) )
 			*/
 			for i := range entries {
 				sOvId := c.overlayGraph.GetCellEntry(cell, i)
@@ -531,10 +536,10 @@ the explanation below taken from Delling et al. (2015) ref [1]:
 working on the original graph, we can work on the subgraph of Hi−1 (the overlay level immediately below)
 corresponding to subcells of C." (Delling et al. (2015))
 */
-func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
+func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 
 	levelData := c.overlayGraph.GetLevelData()
-	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(level)
+	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(l)
 
 	cellCliqueOutChan := make(chan []cellCustomizationRes[W], cellCliqueOutChanSize)
 
@@ -550,16 +555,14 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 
 		dijkstra := func(entries <-chan da.Index) {
 			/*
-				let n_p,m_p, n_op,and \hat{m_p} denote the maximum number of nodes, edges, boundary/overlay vertices, and shortcuts within any cell
-				let n,m,k denote the number vertices,edges, and number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), respectively.
+				let n_op, n_{op}', \hat{m_p} denotes the maximum number of entry boundary/overlay vertices, boundary/overlay vertices in all subcells, and shortcut edges & cut edges   within any level-l cell
 
-
-				pq contains at most all overlay vertices in all subcells of this cell in level-1
-				extractMin at most n_op
+				pq contains at most all overlay vertices in all subcells of this level-l cell
+				extractMin at most n_{op}'
 				decreaseKey and insert at most \hat{m_p}
 
-				we do dijkstra for all entries in the cell, num of entries is at most n_op
-				worst case: O( n_op * (n_op + \hat{m_p})* log(n_op) )
+				we do dijkstra for all entries in the level-l cell, num of entries is at most  n_op
+				worst case: O( n_op * ( n_{op}' + \hat{m_p})* log( n_{op}') )
 			*/
 			for i := range entries {
 
@@ -580,7 +583,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 					uOv := pqNode.GetItem()
 					uCost := pqNode.GetRank()
 
-					c.overlayGraph.ForOutNeighborsOf(uOv, level-1, func(vOv da.Index, wOffset da.Index) {
+					c.overlayGraph.ForOutNeighborsOf(uOv, l-1, func(vOv da.Index, wOffset da.Index) {
 						// iterate all shortcut edges (u, \cdot)
 						shortcutWeight := c.ow.GetWeight(wOffset)
 						newVCost := uCost + shortcutWeight
@@ -601,7 +604,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 							// cut edge (vVertex, wVertex)
 							cutEdgeId := vVertex.GetCutEdge()
 
-							wCellNumber := levelData.GetCellNumberOnLevel(wVertex.GetCellNumber(), uint8(level))
+							wCellNumber := levelData.GetCellNumberOnLevel(wVertex.GetCellNumber(), uint8(l))
 							if wCellNumber == cellNumber {
 								cutEdgeWeight := wf.GetWeight(cutEdgeId)
 								newWCost := newVCost + cutEdgeWeight
@@ -691,11 +694,11 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], level int) {
 	}
 
 	// let c_l be the number of cells in level l
-	// worst case buildLevel:  O( c_l * n_op * (n_op + \hat{m_p})* log(n_op) )
+	// worst case buildLevel:  O( c_l * n_op * ( n_{op}' + \hat{m_p})* log( n_{op}'))
 
 	wg.Wait()
 	close(cellCliqueOutChan)
-	c.logger.Sugar().Infof("number of shortcut edges overlay graph level %v: %v ", level, numberOfShortcuts)
+	c.logger.Sugar().Infof("number of shortcut edges overlay graph level %v: %v ", l, numberOfShortcuts)
 }
 
 // SetGraph sets graph.
