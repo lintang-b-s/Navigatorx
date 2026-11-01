@@ -18,8 +18,8 @@ import (
 
 // Landmark represents ALT landmark precomputed distances.
 type Landmark[W util.Numeric] struct {
-	lw        []W
-	vlw       []W
+	lw        []W // shortest path costs from landmarks to vertices
+	vlw       []W // shortest path costs from vertices to landmarks
 	landmarks []da.Index
 	n         da.Index
 	k         da.Index
@@ -38,11 +38,11 @@ func NewLandmark[W util.Numeric]() *Landmark[W] {
 
 // todo: pas run ./bin/customizer --region=jateng_jabar peak memory ~7.4GB, coba cek pprof heap && optimize...
 
-// SelectLandmarksTwo selects landmark vertices for the ALT (A*, Landmarks, and Triangle Inequality) Algorithm.
+// SelectLandmarks selects landmark vertices for the ALT (A*, Landmarks, and Triangle Inequality) Algorithm.
 // [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 // this is an implementation of planar landmark selection described in section 7 paper [1] versi 2
 // O(V*logV)
-func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
+func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph) []da.Vertex {
 
 	landmarks := make([]da.Vertex, 0, k)
 	ivs := graph.GetVertices()
@@ -74,17 +74,28 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 		}
 	}
 
-	vsCopy := make([]da.Vertex, n)
-	copy(vsCopy, ivs)
+	type cv struct {
+		v       da.Vertex
+		bearing float64
+	}
+
+	cvs := make([]cv, len(ivs))
+
+	for i, v := range ivs {
+		b := geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
+		cvs[i] = cv{v, b}
+	}
 
 	// mirip algoritma graham explore buat bikin convex hull
 	// graham scan: sort Points by their polar angles around a p0 (bottomost point or rightmost & bottomost point if tie)
 	// ini: sort Points by their initial bearing angles around a p0 (center point/coordinate)
 	// karena geographic coordinate, sort by initial bearing angle (sudut clockwise antara garis yang menghubungkan titik pivot ke other point dan garis meridian)
 
-	slices.SortFunc(vsCopy, func(a, b da.Vertex) int {
-		ab := geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), a.GetLat(), a.GetLon())
-		bb := geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), b.GetLat(), b.GetLon())
+	// todo: ini kaya bisa dioptimize pakai randomized-select atau other order statistics algorithm
+
+	slices.SortFunc(cvs, func(a, b cv) int {
+		ab := a.bearing
+		bb := b.bearing
 		return cmp.Compare(ab, bb)
 	})
 
@@ -92,14 +103,15 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 
 	for i := 0; i < k; i++ {
 		// O(V)
-		pie := vsCopy[i*pieSize : (i+1)*pieSize]
+		pie := cvs[i*pieSize : (i+1)*pieSize]
 		if i == k-1 {
-			pie = vsCopy[i*pieSize:]
+			pie = cvs[i*pieSize:]
 		}
 
 		terjauhId := 0
 		maxDist := math.Inf(-1)
-		for j, v := range pie {
+		for j, vv := range pie {
+			v := vv.v
 			midToVDist := geo.CalculateGreatCircleDistance(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
 
 			if midToVDist > maxDist {
@@ -109,28 +121,19 @@ func (lm *Landmark[W]) SelectLandmarksTwo(k int, graph *da.Graph) []da.Vertex {
 		}
 
 		farthestV := pie[terjauhId]
-		landmarks = append(landmarks, farthestV)
+		landmarks = append(landmarks, farthestV.v)
 	}
 
 	return landmarks
 }
 
 type queryParam struct {
-	il  int
-	sid da.Index
+	i da.Index
+	s da.Index
 }
 
-func newQueryparam(il int, sid da.Index) queryParam {
-	return queryParam{il, sid}
-}
-
-type queryRet[W util.Numeric] struct {
-	il  int
-	sps []W
-}
-
-func newQueryRet[W util.Numeric](il int, sps []W) queryRet[W] {
-	return queryRet[W]{il, sps}
+func newQueryparam(i, s da.Index) queryParam {
+	return queryParam{i, s}
 }
 
 // PreprocessALT computes ALT (A*, Landmarks, and Triangle Inequality ) Preprocessing Algorithm
@@ -148,11 +151,11 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 		return nil
 	}
 
-	logger.Sugar().Infof("computing landmarks.... number of landmarks: %v", k)
-	lw := make([]W, da.Index(k)*n)
-	landmarks := make([]da.Index, k)
-	vlw := make([]W, n*da.Index(k))
-	landmarksVertices := lm.SelectLandmarksTwo(k, graph)
+	logger.Sugar().Infof("number of landmarks: %v, selecting best landmarks....", k)
+	lm.lw = make([]W, da.Index(k)*n)
+	lm.landmarks = make([]da.Index, k)
+	lm.vlw = make([]W, n*da.Index(k))
+	landmarksVertices := lm.SelectLandmarks(k, graph)
 	lm.k = da.Index(k)
 	lm.n = n
 
@@ -160,84 +163,72 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 
 	heapPool := sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ArrayStorageMode)
+			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.Index(maxSearchSize), da.ArrayStorageMode)
 		},
 	}
 
 	dijkstraInChan := make(chan queryParam, landmarkChanSize)
 	dijkstraRevInChan := make(chan queryParam, landmarkChanSize)
 
-	dijkstraOutChan := make(chan queryRet[W], landmarkChanSize)
-	dijkstraRevOutChan := make(chan queryRet[W], landmarkChanSize)
+	wg := &sync.WaitGroup{}
+	mu := &sync.Mutex{}
 
-	wg := sync.WaitGroup{}
-
-	calcDijkstra := func() {
+	calcDijkstra := func(dijkstraInChan chan queryParam, graph *da.Graph, heapPool *sync.Pool, cf *met.TimeFunction[W], lw []W, mu *sync.Mutex) {
 		for qp := range dijkstraInChan {
-			sid := qp.sid
-			il := qp.il
+			s := qp.s
+			i := qp.i
 
 			crpQuery := NewDijkstra(graph, cf, false) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
-			sps := crpQuery.ShortestPath(sid, &heapPool)
-			dijkstraOutChan <- newQueryRet(il, sps)
+			pq := heapPool.Get().(*da.QueryHeap[da.QueryKey, W])
+
+			crpQuery.ShortestPath(s, pq)
+			mu.Lock()
+			crpQuery.constructShortestPath(s, lw[i*n:(i+1)*n])
+			pq.Clear()
+			heapPool.Put(pq)
+			mu.Unlock()
+			wg.Done()
 		}
 	}
 
-	calcDijkstraRev := func() {
+	calcDijkstraRev := func(dijkstraRevInChan chan queryParam, graph *da.Graph, heapPool *sync.Pool, cf *met.TimeFunction[W], vlw []W, mu *sync.Mutex) {
 		for qp := range dijkstraRevInChan {
-			sid := qp.sid
-			il := qp.il
-			crpQuery := NewDijkstra(graph, cf, true) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
+			s := qp.s
+			i := qp.i
 
-			sps := crpQuery.ShortestPath(sid, &heapPool)
-			dijkstraRevOutChan <- newQueryRet(il, sps)
+			crpQuery := NewDijkstra(graph, cf, true) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
+			pq := heapPool.Get().(*da.QueryHeap[da.QueryKey, W])
+
+			crpQuery.ShortestPath(s, pq)
+			mu.Lock()
+			crpQuery.constructShortestPath(s, vlw[i*n:(i+1)*n])
+			pq.Clear()
+			heapPool.Put(pq)
+			mu.Unlock()
+			wg.Done()
 		}
 	}
 
-	go func() {
-		for res := range dijkstraRevOutChan {
-			il := res.il
-			sps := res.sps
-			for v := 0; v < int(n); v++ {
-				vlw[v*k+il] = sps[v]
-			}
-			wg.Done()
-		}
-	}()
-
-	go func() {
-		for res := range dijkstraOutChan {
-			il := res.il
-			sps := res.sps
-			copy(lw[il*int(n):(il+1)*int(n)], sps)
-			wg.Done()
-		}
-	}()
+	logger.Sugar().Infof("computing landmarks distances....")
 
 	for i := 0; i < WORKERS; i++ {
-		go calcDijkstra()
-		go calcDijkstraRev()
+		go calcDijkstra(dijkstraInChan, graph, &heapPool, cf, lm.lw, mu)
+		go calcDijkstraRev(dijkstraRevInChan, graph, &heapPool, cf, lm.vlw, mu)
 	}
 
-	for i := 0; i < k; i++ {
+	for i := da.Index(0); i < da.Index(k); i++ {
 		landmark := landmarksVertices[i]
-		sid := landmark.GetId()
-		landmarks[i] = sid
+		s := landmark.GetId()
+		lm.landmarks[i] = s
 		wg.Add(2)
-		dijkstraInChan <- newQueryparam(i, sid)
-		dijkstraRevInChan <- newQueryparam(i, sid)
+		dijkstraInChan <- newQueryparam(i, s)
+		dijkstraRevInChan <- newQueryparam(i, s)
 	}
 
 	close(dijkstraInChan)
 	close(dijkstraRevInChan)
 
 	wg.Wait()
-	close(dijkstraOutChan)
-	close(dijkstraRevOutChan)
-
-	lm.landmarks = landmarks
-	lm.lw = lw
-	lm.vlw = vlw
 
 	logger.Info("done computing landmarks....")
 	return nil
@@ -251,7 +242,7 @@ func (lm *Landmark[W]) matrix(r, c da.Index, lw bool) [][]W {
 			if lw {
 				w[i][j] = lm.lw[i*lm.n+j]
 			} else {
-				w[i][j] = lm.vlw[i*lm.k+j]
+				w[i][j] = lm.vlw[j*lm.n+i]
 			}
 		}
 	}
@@ -259,7 +250,7 @@ func (lm *Landmark[W]) matrix(r, c da.Index, lw bool) [][]W {
 }
 
 /*
-ComputeTighestLowerBound computes ALT heuristic h(u) or compute tighest lower bound of shortest path distance d(u,t).
+ComputeTighestLowerBound computes ALT heuristic h(u)  (tighest lower bound of shortest path distance d(u,t))
 [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 [2] Bast, H. et al. (2016) “Route Planning in Transportation Networks,” in L.
 Kliemann and P. Sanders (eds.) Algorithm Engineering: Selected Results and
@@ -288,12 +279,12 @@ func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks [
 }
 
 // ComputeLowerBound compute max(dist(l,t)-dist(l,u), dist(u,l)-dist(t,l))
-func (lm *Landmark[W]) ComputeLowerBound(lid, u, t da.Index) W {
-	uToLandmark := lm.vlw[u*lm.k+lid]
-	tToLandmark := lm.vlw[t*lm.k+lid]
+func (lm *Landmark[W]) ComputeLowerBound(l, u, t da.Index) W {
+	uToLandmark := lm.vlw[l*lm.n+u]
+	tToLandmark := lm.vlw[l*lm.n+t]
 
-	landmarkToT := lm.lw[lid*lm.n+t]
-	landmarkToU := lm.lw[lid*lm.n+u]
+	landmarkToT := lm.lw[l*lm.n+t]
+	landmarkToU := lm.lw[l*lm.n+u]
 
 	lbOne := uToLandmark - tToLandmark
 	lbTwo := landmarkToT - landmarkToU

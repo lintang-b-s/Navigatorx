@@ -1,8 +1,6 @@
 package landmark
 
 import (
-	"sync"
-
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
@@ -33,6 +31,13 @@ func NewDijkstra[W util.Numeric](graph *da.Graph, cf *met.TimeFunction[W], useRe
 	return dj
 }
 
+// todo: ini kayake bisa dioptimize pakai radix-heap kalau inputnya osm.pbf karena kita pakai int32 buat weightnya routing engine, weight (duration) in centiseconds .
+// pas di cek pprof profile dari cmd/customizer, ini sama SelectLandmarks() yang bikin lama
+// baca O(m + n log C) dijkstra radix heap Ravindra K. Ahuja, Kurt Mehlhorn, James Orlin, and Robert E. Tarjan. Faster algorithms for the shortest path problem. J. ACM 37, 2 (April 1990), 213-223.
+// referensi implementasi radix-heap https://github.com/iwiwi/radix-heap/tree/master dan benchmark dijkstra radix heap di dimacs road network graph data: https://github.com/iwiwi/radix-heap/tree/master/example
+// di benchmark nya repo takuya akiba diatas dijkstra radix heap di road network dimacs sedikit lebih cepet
+// mungkin di iterasi edges (sekalian weightnya) of vertex u nya bisa pakai https://pkg.go.dev/iter ? harus dibenchmark mana yang lebih cepet
+
 /*
 ShortestPath run dijkstara single source shortest path algorithm.
 useReversedGraph = true -> buat cari sssp dari every vertices in graph to s
@@ -44,17 +49,9 @@ tination vertex t from each vertex v. By reversing the direction of each edge in
 the graph, we can reduce this problem to a single-source problem..
 
 buat precalculated landmark sp distances (untuk potential/heuristic ALT (A*, landmarks, and triangle inequality) algorithm)
-kita gak perlu pakai turn costs karena kalau misal pake turn costs di fase query Customizable Route Planning (CRP), potential/heuristic nya masih underestimate true sp dist dan masih memenuhi sifat konsisten/feasible...
 */
-func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
-	us.pq = heapPool.Get().(*da.QueryHeap[da.QueryKey, W])
-	us.pq.Clear()
-
-	done := func() {
-		heapPool.Put(us.pq)
-	}
-	defer done()
-
+func (us *Dijkstra[W]) ShortestPath(s da.Index, pq *da.QueryHeap[da.QueryKey, W]) {
+	us.pq = pq
 	noPar := da.NewParentVertex(da.InvalidSegmentId, false)
 
 	djKey := da.NewDijkstraKey(s)
@@ -66,9 +63,6 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
 		us.graphSearchUni()
 		us.numSettledNodes++
 	}
-
-	sps := us.constructShortestPath(s)
-	return sps
 }
 
 func (us *Dijkstra[W]) graphSearchUni() {
@@ -106,7 +100,6 @@ func (us *Dijkstra[W]) graphSearchUni() {
 
 // GetV returns the adjacent vertex Id and edge Id for the given offset and index.
 func (us *Dijkstra[W]) GetV(eId da.Index, out bool) da.Index {
-
 	if out {
 		return us.graph.GetHead(eId)
 	}
@@ -122,15 +115,13 @@ func (us *Dijkstra[W]) GetWeight(eId da.Index, out bool) W {
 	return us.cf.GetWeight(reId)
 }
 
-func (us *Dijkstra[W]) constructShortestPath(s da.Index) []W {
+func (us *Dijkstra[W]) constructShortestPath(s da.Index, costs []W) {
 	n := us.graph.NumberOfVertices()
-	sps := make([]W, n)
 	for t := da.Index(0); t < da.Index(n); t++ {
 		sp := us.pq.Cost(t)
 		if s == t {
 			continue // sp == 0
 		}
-		sps[t] = sp
+		costs[t] = sp
 	}
-	return sps
 }

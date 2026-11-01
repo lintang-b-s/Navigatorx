@@ -98,7 +98,7 @@ func SolveRideHailing(t *testing.T, fname string) {
 		for v := 1; v <= n; v++ {
 			djdist[v] = math.MaxInt64
 		}
-		pq := da.NewQueryHeap[da.Index, float64](da.Index(n+1), da.ArrayStorageMode)
+		pq := da.NewQueryHeap[da.Index, float64](da.Index(n+1), da.Index(n+1), da.ArrayStorageMode)
 
 		djdist[s] = 0
 		noPar := da.NewParentVertex(da.InvalidVertexId, false)

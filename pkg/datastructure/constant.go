@@ -16,8 +16,8 @@ const (
 	// InvalidExitPoint is the invalid exit point value.
 	InvalidExitPoint Index = 2e9 + 5
 
-	// BaseVerticesSize is the base vertices size value.
-	BaseVerticesSize = 2000
+	// CRPMaxExploredSize is the approximation of maximum number of explored vertices in CRP p2p shortest path query.
+	CRPMaxExploredSize Index = 2000
 
 	// OverlayVerticesSize is the overlay vertices size value.
 	OverlayVerticesSize = 32 // 2 ini kecil aja, biar gak consume memory banyak pas load test
