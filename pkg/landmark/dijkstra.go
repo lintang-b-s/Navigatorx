@@ -37,6 +37,8 @@ func NewDijkstra[W util.Numeric](graph *da.Graph, cf *met.TimeFunction[W], useRe
 // referensi implementasi radix-heap https://github.com/iwiwi/radix-heap/tree/master dan benchmark dijkstra radix heap di dimacs road network graph data: https://github.com/iwiwi/radix-heap/tree/master/example
 // di benchmark nya repo takuya akiba diatas dijkstra radix heap di road network dimacs sedikit lebih cepet
 // mungkin di iterasi edges (sekalian weightnya) of vertex u nya bisa pakai https://pkg.go.dev/iter ? harus dibenchmark mana yang lebih cepet
+// di table 3 https://sidsen.azurewebsites.net//papers/heaps-alenex14.pdf  gak bandingin sama radix heap sama sekali
+// radix heap is faster than 4-ary heap confirmed by this latest experiment https://github.com/RagnarGrootKoerkamp/quickheap
 
 /*
 ShortestPath run dijkstara single source shortest path algorithm.
