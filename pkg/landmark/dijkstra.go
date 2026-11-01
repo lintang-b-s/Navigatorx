@@ -47,13 +47,6 @@ buat precalculated landmark sp distances (untuk potential/heuristic ALT (A*, lan
 kita gak perlu pakai turn costs karena kalau misal pake turn costs di fase query Customizable Route Planning (CRP), potential/heuristic nya masih underestimate true sp dist dan masih memenuhi sifat konsisten/feasible...
 */
 func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool) []W {
-	sps := make([]W, us.graph.NumberOfVertices())
-	us.ShortestPathInto(s, heapPool, sps, 1)
-	return sps
-}
-
-// ShortestPathInto writes shortest path costs into dst with the given stride.
-func (us *Dijkstra[W]) ShortestPathInto(s da.Index, heapPool *sync.Pool, dst []W, stride int) {
 	us.pq = heapPool.Get().(*da.QueryHeap[da.QueryKey, W])
 	us.pq.Clear()
 
@@ -62,7 +55,7 @@ func (us *Dijkstra[W]) ShortestPathInto(s da.Index, heapPool *sync.Pool, dst []W
 	}
 	defer done()
 
-	noPar := da.NewParentVertex(da.InvalidVertexId, false)
+	noPar := da.NewParentVertex(da.InvalidSegmentId, false)
 
 	djKey := da.NewDijkstraKey(s)
 	us.pq.Insert(s, 0, da.NewVData(W(0),
@@ -74,7 +67,8 @@ func (us *Dijkstra[W]) ShortestPathInto(s da.Index, heapPool *sync.Pool, dst []W
 		us.numSettledNodes++
 	}
 
-	us.constructShortestPath(s, dst, stride)
+	sps := us.constructShortestPath(s)
+	return sps
 }
 
 func (us *Dijkstra[W]) graphSearchUni() {
@@ -128,15 +122,15 @@ func (us *Dijkstra[W]) GetWeight(eId da.Index, out bool) W {
 	return us.cf.GetWeight(reId)
 }
 
-func (us *Dijkstra[W]) constructShortestPath(s da.Index, sps []W, stride int) {
+func (us *Dijkstra[W]) constructShortestPath(s da.Index) []W {
 	n := us.graph.NumberOfVertices()
+	sps := make([]W, n)
 	for t := da.Index(0); t < da.Index(n); t++ {
 		sp := us.pq.Cost(t)
-
 		if s == t {
-			sps[int(t)*stride] = 0
-			continue
+			continue // sp == 0
 		}
-		sps[int(t)*stride] = sp
+		sps[t] = sp
 	}
+	return sps
 }

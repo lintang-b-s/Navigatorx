@@ -21,7 +21,7 @@ import (
 )
 
 // BuildCRP builds a CRP engine for DIMACS 9th implementation challenge correctness test.
-func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, us []int, name string) (*engine.Engine[int64], *da.Graph,
+func BuildCRP[W util.Numeric](nodeCoords []da.Coordinate, adjList [][]da.PairEdge[W], n int, us []int, name string) (*engine.Engine[int64], *da.Graph,
 	[]da.Index, map[da.Index]da.Index) {
 	logger, err := logger.New()
 	if err != nil {
@@ -38,7 +38,7 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, us []i
 	var (
 		// config
 		metricsFile = fmt.Sprintf("%s/%s/%s_metrics.nmt", config.ProfilesRoot(), pkg.ProfileName, pkg.RegionName)
-		prep        *preprocesser.Preprocessor[int64]
+		prep        *preprocesser.Preprocessor[W]
 	)
 
 	if err := util.EnsureDirExists(outputDir); err != nil {
@@ -50,9 +50,9 @@ func BuildCRP(nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, us []i
 		doPreprocessCustomize = true
 	}
 
-	es := da.FlattenEdgesG[int64](adjList)
+	es := da.FlattenEdgesG[W](adjList)
 
-	op := extractor.NewExtractor[int64](logger)
+	op := extractor.NewExtractor[W](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {

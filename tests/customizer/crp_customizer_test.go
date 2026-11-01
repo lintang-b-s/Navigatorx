@@ -42,6 +42,7 @@ var (
 // go tool cover -func=cust_coverage.out
 // go tool cover -html=cust_coverage.out
 func TestCRPCustomizerSimple(t *testing.T) {
+	util.ActivateMode[int64]()
 
 	// https://visualgo.net/en/sssp
 
@@ -52,7 +53,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 	testCases := []struct {
 		name         string
 		filepath     string
-		want         [][]map[uint64]float64 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
+		want         [][]map[uint64]int64 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
 		cellVertices [][][]da.Index
 
 		apspFilePath    string // all pairs shortest paths filepath.
@@ -89,11 +90,11 @@ func TestCRPCustomizerSimple(t *testing.T) {
 					},
 				},
 			},
-			want: [][]map[uint64]float64{
+			want: [][]map[uint64]int64{
 				{
 					{
 						bitpack(1, 1): 0,
-						bitpack(1, 0): util.Infinity[float64](),
+						bitpack(1, 0): util.Infinity[int64](),
 					},
 					{
 						bitpack(3, 3): 0.0,
@@ -101,7 +102,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 					},
 					{},
 					{
-						bitpack(6, 2): util.Infinity[float64](),
+						bitpack(6, 2): util.Infinity[int64](),
 						bitpack(6, 6): 0,
 						bitpack(2, 2): 0,
 						bitpack(2, 6): 21,
@@ -111,15 +112,15 @@ func TestCRPCustomizerSimple(t *testing.T) {
 					{
 						bitpack(3, 3): 0.0,
 						bitpack(3, 4): 20.0,
-						bitpack(3, 0): util.Infinity[float64](),
+						bitpack(3, 0): util.Infinity[int64](),
 						bitpack(3, 1): 29,
 					},
 					{
 						bitpack(2, 2): 0.0,
-						bitpack(5, 2): util.Infinity[float64](), // gak ada path dari 5 ke 2 only pakai edges in cell 2 level 1. edges \in cell C, iff head and tail dari edge \in C.
-						bitpack(6, 2): util.Infinity[float64](),
-						bitpack(7, 2): util.Infinity[float64](),
-						bitpack(8, 2): util.Infinity[float64](),
+						bitpack(5, 2): util.Infinity[int64](), // gak ada path dari 5 ke 2 only pakai edges in cell 2 level 1. edges \in cell C, iff head and tail dari edge \in C.
+						bitpack(6, 2): util.Infinity[int64](),
+						bitpack(7, 2): util.Infinity[int64](),
+						bitpack(8, 2): util.Infinity[int64](),
 					},
 				},
 			},
@@ -156,7 +157,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 					},
 				},
 			},
-			want: [][]map[uint64]float64{
+			want: [][]map[uint64]int64{
 				{
 					{
 						bitpack(1, 1): 0,
@@ -168,7 +169,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 						bitpack(0, 0): 0,
 						bitpack(3, 3): 0,
 						bitpack(0, 3): 6,
-						bitpack(3, 0): util.Infinity[float64](),
+						bitpack(3, 0): util.Infinity[int64](),
 					},
 					{},
 				},
@@ -177,9 +178,9 @@ func TestCRPCustomizerSimple(t *testing.T) {
 						bitpack(1, 2): 2,
 					},
 					{
-						bitpack(4, 0): util.Infinity[float64](),
+						bitpack(4, 0): util.Infinity[int64](),
 						bitpack(0, 0): 0,
-						bitpack(3, 0): util.Infinity[float64](),
+						bitpack(3, 0): util.Infinity[int64](),
 					},
 				},
 			},
@@ -188,7 +189,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		},
 	}
 
-	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*engine.Engine[float64], *landmark.Landmark[float64], map[da.Index]da.Index, error) {
+	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*engine.Engine[int64], *landmark.Landmark[int64], map[da.Index]da.Index, error) {
 		var (
 			err  error
 			line string
@@ -220,12 +221,11 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		}
 
 		var nodeCoords []da.Coordinate
-
 		for i := 0; i < n; i++ {
 			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
 		}
 
-		adjList := make([][]da.PairEdge, n)
+		adjList := make([][]da.PairEdge[int64], n)
 		for i := 0; i < m; i++ {
 			line, err = util.ReadLine(br)
 			if err != nil {
@@ -244,14 +244,14 @@ func TestCRPCustomizerSimple(t *testing.T) {
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
+			adjList[u] = append(adjList[u], da.NewPairEdge(v, int64(w)))
 		}
-		es := da.FlattenEdges(adjList)
+		es := da.FlattenEdgesG[int64](adjList)
 		logger, err := log.New()
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		op := extractor.NewExtractor[float64](logger)
+		op := extractor.NewExtractor[int64](logger)
 		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
@@ -292,7 +292,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		lm := landmark.NewLandmark[float64]()
+		lm := landmark.NewLandmark[int64]()
 		err = lm.PreprocessALT(min(16, n), mt.GetCostFunction(), g, logger)
 		if err != nil {
 			t.Fatal(err)
@@ -340,9 +340,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 						shortcutId := da.Index(cell.GetShortcutWeightId(i, j))
 						got := m.GetShortcutWeight(shortcutId)
-
 						query := bitpack(enOriVId, exOriVId)
-
 						expectedSw := tc.want[0][cellIdInLevel][query]
 						if !util.Eq(got, expectedSw) {
 							t.Errorf("expected shortcut weight: %v, got: %v", expectedSw, got)
@@ -403,7 +401,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 
 			brOut := bufio.NewReader(fOut)
 
-			apsp := make(map[uint64]float64, n*n) // all pairs shortest path. bitpack(source,target) -> shortest st-path cost
+			apsp := make(map[uint64]int64, n*n) // all pairs shortest path. bitpack(source,target) -> shortest st-path cost
 			for {
 				line, err := util.ReadLine(brOut)
 				if errors.Is(err, io.EOF) {
@@ -419,12 +417,12 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				stcost, err := util.ParseTextFloat64(stcosts)
+				stcost, err := util.ParseTextInt64(stcosts)
 				if err != nil {
 					t.Fatal(err)
 				}
-				if stcost >= pkg.InfWeight {
-					stcost = util.Infinity[float64]()
+				if stcost >= util.Infinity[int64]() {
+					stcost = util.Infinity[int64]()
 				}
 
 				apsp[bitpack(da.Index(source), da.Index(target))] = stcost
@@ -439,12 +437,12 @@ func TestCRPCustomizerSimple(t *testing.T) {
 					gotLwDist := lw[i][v]
 					expectedLwDist := apsp[bitpack(oldLandmarkId, da.Index(oldV))]
 					if !util.Eq(gotLwDist, expectedLwDist) {
-						t.Errorf("expected shortest path cost from landmarkId %v to vertex %v: %v, got: %v", landmarkId, v, gotLwDist, expectedLwDist)
+						t.Errorf("expected shortest path cost from landmarkId %v to vertex %v: %v, got: %v", landmarkId, v, expectedLwDist, gotLwDist)
 					}
 					gotVlwDist := vlw[v][i]
 					expectedVlwDist := apsp[bitpack(da.Index(oldV), oldLandmarkId)]
 					if !util.Eq(gotVlwDist, expectedVlwDist) {
-						t.Errorf("expected shortest path cost from vertex %v to landmarkId %v: %v, got: %v", v, landmarkId, gotVlwDist, expectedVlwDist)
+						t.Errorf("expected shortest path cost from vertex %v to landmarkId %v: %v, got: %v", v, landmarkId, expectedVlwDist, gotVlwDist)
 					}
 
 				}
@@ -453,7 +451,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 	}
 }
 
-func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
+func setup(t *testing.T) (*engine.Engine[int64], *landmark.Landmark[int64]) {
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
@@ -473,7 +471,7 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 	}
 	config.InitRegionName("customizer_test", pkg.TEST)
 
-	op := extractor.NewExtractor[int32](logger)
+	op := extractor.NewExtractor[int64](logger)
 
 	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile))
 	if err != nil {
@@ -516,20 +514,20 @@ func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int32](logger)
+	custom := customizer.NewCustomizer[int64](logger)
 
 	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine[int32](logger)
+	re, err := engine.NewEngine[int64](logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	landmarkPath := fmt.Sprintf("%s/%s/%s_landmark.nlm", config.ProfilesRoot(), pkg.ProfileName, pkg.RegionName)
-	lm, err := landmark.ReadLandmark[int32](landmarkPath)
+	lm, err := landmark.ReadLandmark[int64](landmarkPath)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -79,7 +79,7 @@ func solve(t *testing.T, filepath string) {
 		}
 	}
 
-	adjList := make([][]da.PairEdge, h*w*4+2)
+	adjList := make([][]da.PairEdge[float64], h*w*4+2)
 
 	cellToNId := func(i, j, nid int) int {
 		return i*w + j + 3*(w*i+j) + nid
@@ -98,15 +98,15 @@ func solve(t *testing.T, filepath string) {
 
 				// cur tower = tower kotak
 				// buat edge ke 4 node dari x, atas kanan kiri bawah persegi
-				adjList[i0] = append(adjList[i0], da.NewPairEdge(i1, 10))
-				adjList[i1] = append(adjList[i1], da.NewPairEdge(i2, 10))
-				adjList[i2] = append(adjList[i2], da.NewPairEdge(i3, 10))
-				adjList[i3] = append(adjList[i3], da.NewPairEdge(i0, 10))
+				adjList[i0] = append(adjList[i0], da.NewPairEdge(i1, float64(10)))
+				adjList[i1] = append(adjList[i1], da.NewPairEdge(i2, float64(10)))
+				adjList[i2] = append(adjList[i2], da.NewPairEdge(i3, float64(10)))
+				adjList[i3] = append(adjList[i3], da.NewPairEdge(i0, float64(10)))
 
-				adjList[i1] = append(adjList[i1], da.NewPairEdge(i0, 10))
-				adjList[i2] = append(adjList[i2], da.NewPairEdge(i1, 10))
-				adjList[i3] = append(adjList[i3], da.NewPairEdge(i2, 10))
-				adjList[i0] = append(adjList[i0], da.NewPairEdge(i3, 10))
+				adjList[i1] = append(adjList[i1], da.NewPairEdge(i0, float64(10)))
+				adjList[i2] = append(adjList[i2], da.NewPairEdge(i1, float64(10)))
+				adjList[i3] = append(adjList[i3], da.NewPairEdge(i2, float64(10)))
+				adjList[i0] = append(adjList[i0], da.NewPairEdge(i3, float64(10)))
 
 				if j+1 < w {
 
@@ -115,9 +115,9 @@ func solve(t *testing.T, filepath string) {
 					j13 := cellToNId(i, j+1, 3)
 
 					// buat edge ke tower kanan
-					adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
-					adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
-					adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
+					adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, float64(10)))
+					adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, float64(0)))
+					adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, float64(10)))
 				}
 
 				if i+1 < h {
@@ -126,9 +126,9 @@ func solve(t *testing.T, filepath string) {
 					i13 := cellToNId(i+1, j, 3)
 
 					// buat edge ke tower bawah
-					adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
-					adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
-					adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
+					adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, float64(0)))
+					adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, float64(10)))
+					adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, float64(10)))
 				}
 			} else {
 
@@ -155,9 +155,9 @@ func solve(t *testing.T, filepath string) {
 					j13 := cellToNId(i, j+1, 3)
 
 					// buat edge ke tower kanan
-					adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, 10))
-					adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, 0))
-					adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, 10))
+					adjList[i0] = append(adjList[i0], da.NewPairEdge(j10, float64(10)))
+					adjList[i1] = append(adjList[i1], da.NewPairEdge(j13, float64(0)))
+					adjList[i2] = append(adjList[i2], da.NewPairEdge(j12, float64(10)))
 				}
 
 				if i+1 < h {
@@ -165,9 +165,9 @@ func solve(t *testing.T, filepath string) {
 					i11 := cellToNId(i+1, j, 1)
 					i13 := cellToNId(i+1, j, 3)
 					// buat edge ke tower bawah
-					adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, 0))
-					adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, 10))
-					adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, 10))
+					adjList[i2] = append(adjList[i2], da.NewPairEdge(i10, float64(0)))
+					adjList[i3] = append(adjList[i3], da.NewPairEdge(i13, float64(10)))
+					adjList[i1] = append(adjList[i1], da.NewPairEdge(i11, float64(10)))
 				}
 			}
 		}
@@ -228,7 +228,7 @@ func solve(t *testing.T, filepath string) {
 	}
 
 	var expectedSPLength float64
-	if _, err = fmt.Sscanf(line, "%f", &expectedSPLength); err != nil {
+	if _, err = fmt.Sscanf(line, "%v", &expectedSPLength); err != nil {
 		t.Fatalf("err parsing expected length: %v", err)
 	}
 

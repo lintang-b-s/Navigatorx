@@ -89,7 +89,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		places[i] = place{fl * 5, x, y}
 	}
 
-	adjList := make([][]da.PairEdge, N)
+	adjList := make([][]da.PairEdge[float64], N)
 
 	type pairDist struct {
 		abDist, baDist float64

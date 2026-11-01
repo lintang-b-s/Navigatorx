@@ -52,7 +52,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(i), float64(i)))
 	}
 
-	adjList := make([][]da.PairEdge, n)
+	adjList := make([][]da.PairEdge[int32], n)
 	for i := 0; i < m; i++ {
 		line, err = util.ReadLine(br)
 		if err != nil {
@@ -71,7 +71,7 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
+		adjList[u] = append(adjList[u], da.NewPairEdge(v, int32(w)))
 	}
 
 	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "simple_graph", nodeCoords, adjList, n, []int{1, 2}, true)
@@ -100,8 +100,8 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	var expectedSPLength float64
-	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
+	var expectedSPLength int32
+	_, err = fmt.Sscanf(line, "%v", &expectedSPLength)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

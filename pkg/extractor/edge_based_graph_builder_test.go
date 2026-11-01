@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func buildGraphHelper(t *testing.T, n int, adjList [][]da.PairEdge) (*da.Graph, *met.TimeFunction[float64], *da.RoadNetworkDataContainer) {
+func buildGraphHelper[W util.Numeric](t *testing.T, n int, adjList [][]da.PairEdge[W]) (*da.Graph, *met.TimeFunction[W], *da.RoadNetworkDataContainer) {
 	t.Helper()
 
 	nodeCoords := make([]da.Coordinate, n)
@@ -20,12 +20,12 @@ func buildGraphHelper(t *testing.T, n int, adjList [][]da.PairEdge) (*da.Graph, 
 		nodeCoords[i] = da.NewCoordinate(float64(i), float64(i))
 	}
 
-	es := da.FlattenEdges(adjList)
+	es := da.FlattenEdgesG[W](adjList)
 	logger, err := logger.New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	op := NewExtractor[float64](logger)
+	op := NewExtractor[W](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmID := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -141,22 +141,22 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 		v5 = 5
 	)
 
-	fig31AdjList := [][]da.PairEdge{
+	fig31AdjList := [][]da.PairEdge[int32]{
 		v1: {
-			da.NewPairEdge(v2, 1.0),
-			da.NewPairEdge(v3, 1.0),
-			da.NewPairEdge(v4, 1.0),
-			da.NewPairEdge(v5, 1.0),
+			da.NewPairEdge[int32](v2, 1),
+			da.NewPairEdge[int32](v3, 1),
+			da.NewPairEdge[int32](v4, 1),
+			da.NewPairEdge[int32](v5, 1),
 		},
 		v2: {
-			da.NewPairEdge(v1, 1.0),
+			da.NewPairEdge[int32](v1, 1),
 		},
 	}
 
 	tests := []struct {
 		name              string
 		numNodes          int
-		adjList           [][]da.PairEdge
+		adjList           [][]da.PairEdge[int32]
 		restrictions      []turnRestriction
 		forbidAllTurns    bool
 		wantNumVertices   int        // edge-based graph vertices
@@ -167,7 +167,7 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 		wantCoords        []coord
 		wantHeads         []da.Index              // heads vertex v of each edge-based graph edges (u,v).
 		wantTails         []da.Index              // tail vertex u of each edge-based graph  reversed edges (v,u)
-		wantWeights       []float64               // weights of each edge-based graph edges.
+		wantWeights       []int32                 // weights of each edge-based graph edges.
 		wantOutEdges      map[da.Index][]da.Index // edge-based graph edges
 		forbiddenOutEdges map[da.Index][]da.Index // turn restrictions or removed edge-based graph edges.
 		wantOutTails      []da.Index              // tails vertex u of each edge-based graph edges (u,v).
@@ -201,9 +201,9 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 				{lat: float64(v1+v5) / 2.0, lon: float64(v1+v5) / 2.0},
 				{lat: float64(v2+v1) / 2.0, lon: float64(v2+v1) / 2.0},
 			},
-			wantHeads:   []da.Index{4, 0, 1, 2},        // heads vertex v of each edge-based graph edges (u,v). the ebg edges are: (1,2)->(2,1), (2,1)->(1,2), (2,1)->(1,3), (2,1)->(1,4).
-			wantTails:   []da.Index{4, 4, 4, 0},        // tail vertex u of each edge-based graph  reversed edges (v,u). the ebg reversed edges are: (1,2)->(2,1), (1,3)->(2,1), (1,4)->(2,1), (2,1)->(1,2).
-			wantWeights: []float64{1.0, 1.0, 1.0, 1.0}, // weights of each edge-based graph edges.
+			wantHeads:   []da.Index{4, 0, 1, 2}, // heads vertex v of each edge-based graph edges (u,v). the ebg edges are: (1,2)->(2,1), (2,1)->(1,2), (2,1)->(1,3), (2,1)->(1,4).
+			wantTails:   []da.Index{4, 4, 4, 0}, // tail vertex u of each edge-based graph  reversed edges (v,u). the ebg reversed edges are: (1,2)->(2,1), (1,3)->(2,1), (1,4)->(2,1), (2,1)->(1,2).
+			wantWeights: []int32{1, 1, 1, 1},    // weights of each edge-based graph edges.
 			wantOutEdges: map[da.Index][]da.Index{
 				4: {0, 1, 2}, // ebg edges (2,1)->(1,2), (2,1)->(1,3), (2,1)->(1,4)
 				0: {4},       // ebg edge  (1,2)->(2,1)
@@ -243,7 +243,7 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 			},
 			wantHeads:   []da.Index{4, 0, 1, 2, 3},
 			wantTails:   []da.Index{4, 4, 4, 4, 0},
-			wantWeights: []float64{1.0, 1.0, 1.0, 1.0, 1.0},
+			wantWeights: []int32{1, 1, 1, 1, 1},
 			wantOutEdges: map[da.Index][]da.Index{
 				0: {4},
 				4: {0, 1, 2, 3},

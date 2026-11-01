@@ -31,18 +31,18 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, us []int, _ bool) (*engine.Engine[float64], *da.Graph,
-	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[float64]) {
+func buildCRP[W util.Numeric](t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]da.PairEdge[W], n int, us []int, _ bool) (*engine.Engine[W], *da.Graph,
+	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[W]) {
 	config.InitRegionName(problemName, pkg.TEST)
 	da.CoordinatePrecision = 1e3
-	es := da.FlattenEdges(adjList)
+	es := da.FlattenEdgesG(adjList)
 
 	logger, err := log.New()
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
 
-	op := extractor.NewExtractor[float64](logger)
+	op := extractor.NewExtractor[W](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -89,7 +89,7 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	lm := landmark.NewLandmark[float64]()
+	lm := landmark.NewLandmark[W]()
 	err = lm.PreprocessALT(1, m.GetCostFunction(), g, logger)
 	if err != nil {
 		t.Fatal(err.Error())

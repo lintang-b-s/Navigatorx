@@ -181,7 +181,7 @@ func solveGreece(t *testing.T, filepath string) {
 		placeStay[i] = place{v, stayTime}
 	}
 
-	adjList := make([][]da.PairEdge, n)
+	adjList := make([][]da.PairEdge[int64], n)
 
 	for i := 0; i < m; i++ {
 		var (
@@ -206,11 +206,14 @@ func solveGreece(t *testing.T, filepath string) {
 			t.Fatalf("err: %v", err)
 		}
 
-		adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
-		adjList[v] = append(adjList[v], da.NewPairEdge(u, float64(w)))
+		adjList[u] = append(adjList[u], da.NewPairEdge(v, int64(w)))
+		adjList[v] = append(adjList[v], da.NewPairEdge(u, int64(w)))
 	}
 
-	nodeCoords := tests.AssignNodeCoordinates(adjList)
+	nodeCoords := make([]da.Coordinate, len(adjList))
+	for v := 0; v < len(adjList); v++ {
+		nodeCoords[v] = da.NewCoordinate(float64(v), float64(v))
+	}
 
 	us := []int{4, 6}
 	density := tests.Density(n, m, false)
@@ -304,7 +307,6 @@ func solveGreece(t *testing.T, filepath string) {
 
 	if ans != expected {
 		t.Fatalf("FAIL: expected answer: %v, got: %v", expected, ans)
-
 	}
 
 	t.Logf("solved a journey to greece test case: %v", filepath)

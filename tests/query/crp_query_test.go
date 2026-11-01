@@ -129,7 +129,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		},
 	}
 
-	buildGraph := func(filepath string) (*routing.CRPRoutingEngine[float64], *landmark.Landmark[float64], map[da.Index]da.Index, error) {
+	buildGraph := func(filepath string) (*routing.CRPRoutingEngine[int64], *landmark.Landmark[int64], map[da.Index]da.Index, error) {
 		var (
 			err  error
 			line string
@@ -166,7 +166,7 @@ func TestCRPQuerySimple(t *testing.T) {
 			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
 		}
 
-		adjList := make([][]da.PairEdge, n)
+		adjList := make([][]da.PairEdge[int64], n)
 		for i := 0; i < m; i++ {
 			line, err = util.ReadLine(br)
 			if err != nil {
@@ -185,14 +185,14 @@ func TestCRPQuerySimple(t *testing.T) {
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
+			adjList[u] = append(adjList[u], da.NewPairEdge(v, int64(w)))
 		}
-		es := da.FlattenEdges(adjList)
+		es := da.FlattenEdgesG[int64](adjList)
 		logger, err := log.New()
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		op := extractor.NewExtractor[float64](logger)
+		op := extractor.NewExtractor[int64](logger)
 		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
@@ -234,7 +234,7 @@ func TestCRPQuerySimple(t *testing.T) {
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		lm := landmark.NewLandmark[float64]()
+		lm := landmark.NewLandmark[int64]()
 		err = lm.PreprocessALT(min(16, n), mt.GetCostFunction(), g, logger)
 		if err != nil {
 			t.Fatal(err)
@@ -269,7 +269,7 @@ func TestCRPQuerySimple(t *testing.T) {
 
 			brOut := bufio.NewReader(fOut)
 
-			apsp := make(map[uint64]float64, n*n) // all pairs shortest path. bitpack(source,target) -> shortest st-path cost
+			apsp := make(map[uint64]int64, n*n) // all pairs shortest path. bitpack(source,target) -> shortest st-path cost
 			for {
 				line, err := util.ReadLine(brOut)
 				if errors.Is(err, io.EOF) {
@@ -285,7 +285,7 @@ func TestCRPQuerySimple(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
-				stcost, err := util.ParseTextFloat64(stcosts)
+				stcost, err := util.ParseTextInt64(stcosts)
 				if err != nil {
 					t.Fatal(err)
 				}

@@ -76,7 +76,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		}
 	}
 
-	adjList := make([][]da.PairEdge, r*c)
+	adjList := make([][]da.PairEdge[int64], r*c)
 
 	cellToNId := func(i, j int) int {
 		return i*c + j
@@ -104,28 +104,28 @@ func SolveShowroom(t *testing.T, filepath string) {
 				weight := getWeight(i, j+1)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					da.NewPairEdge(cellToNId(i, j+1), float64(weight)))
+					da.NewPairEdge(cellToNId(i, j+1), int64(weight)))
 			}
 
 			if i+1 < r {
 				weight := getWeight(i+1, j)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					da.NewPairEdge(cellToNId(i+1, j), float64(weight)))
+					da.NewPairEdge(cellToNId(i+1, j), int64(weight)))
 			}
 
 			if j-1 >= 0 {
 				weight := getWeight(i, j-1)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					da.NewPairEdge(cellToNId(i, j-1), float64(weight)))
+					da.NewPairEdge(cellToNId(i, j-1), int64(weight)))
 			}
 
 			if i-1 >= 0 {
 				weight := getWeight(i-1, j)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					da.NewPairEdge(cellToNId(i-1, j), float64(weight)))
+					da.NewPairEdge(cellToNId(i-1, j), int64(weight)))
 			}
 
 			if j == c-1 && grid[i][j] == "D" {
@@ -170,14 +170,14 @@ func SolveShowroom(t *testing.T, filepath string) {
 		}
 	}
 
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "showroom", nodeCoords, adjList, r*c, []int{7, 8, 14, 17}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP[int64](t, "showroom", nodeCoords, adjList, r*c, []int{7, 8, 14, 17}, true)
 
 	tnId := cellToNId(tx, ty)
 	tid := oldToNewVIdMap[da.Index(tnId)]
 
 	t.Log("calculating shortest paths...\n")
 
-	minDist := pkg.InfWeight
+	minDist := util.Infinity[int64]()
 
 	lock := sync.Mutex{}
 	calcSp := func(p pair) any {
@@ -224,8 +224,8 @@ func SolveShowroom(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	var expectedSPLength float64
-	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
+	var expectedSPLength int64
+	_, err = fmt.Sscanf(line, "%v", &expectedSPLength)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
@@ -246,22 +246,17 @@ func TestShowroomMLD(t *testing.T) {
 
 	for _, dir := range testDirs {
 		fullDir := filepath.Join(dirPath, dir)
-
 		files, err := os.ReadDir(fullDir)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-
 		for _, entry := range files {
-
 			name := entry.Name()
-
 			if !strings.HasSuffix(name, ".in") {
 				continue
 			}
 
 			baseName := strings.TrimSuffix(name, ".in")
-
 			testPath := filepath.Join(fullDir, baseName)
 
 			t.Logf("solving test case: %v", baseName)

@@ -124,12 +124,13 @@ func newQueryparam(il int, sid da.Index) queryParam {
 	return queryParam{il, sid}
 }
 
-func (qp *queryParam) getIndex() int {
-	return qp.il
+type queryRet[W util.Numeric] struct {
+	il  int
+	sps []W
 }
 
-func (qp *queryParam) getSid() da.Index {
-	return qp.sid
+func newQueryRet[W util.Numeric](il int, sps []W) queryRet[W] {
+	return queryRet[W]{il, sps}
 }
 
 // PreprocessALT computes ALT (A*, Landmarks, and Triangle Inequality ) Preprocessing Algorithm
@@ -159,7 +160,6 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 
 	heapPool := sync.Pool{
 		New: func() any {
-
 			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.ArrayStorageMode)
 		},
 	}
@@ -167,42 +167,49 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 	dijkstraInChan := make(chan queryParam, landmarkChanSize)
 	dijkstraRevInChan := make(chan queryParam, landmarkChanSize)
 
-	dijkstraOutChan := make(chan struct{}, landmarkChanSize)
-	dijkstraRevOutChan := make(chan struct{}, landmarkChanSize)
+	dijkstraOutChan := make(chan queryRet[W], landmarkChanSize)
+	dijkstraRevOutChan := make(chan queryRet[W], landmarkChanSize)
 
 	wg := sync.WaitGroup{}
 
 	calcDijkstra := func() {
 		for qp := range dijkstraInChan {
-			sid := qp.getSid()
-			il := qp.getIndex()
+			sid := qp.sid
+			il := qp.il
 
 			crpQuery := NewDijkstra(graph, cf, false) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
-			sps := lw[il*int(n) : (il+1)*int(n)]
-			crpQuery.ShortestPathInto(sid, &heapPool, sps, 1)
-			dijkstraOutChan <- struct{}{}
+			sps := crpQuery.ShortestPath(sid, &heapPool)
+			dijkstraOutChan <- newQueryRet(il, sps)
 		}
 	}
 
 	calcDijkstraRev := func() {
 		for qp := range dijkstraRevInChan {
-			sid := qp.getSid()
-			il := qp.getIndex()
+			sid := qp.sid
+			il := qp.il
 			crpQuery := NewDijkstra(graph, cf, true) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
-			sps := vlw[il:]
-			crpQuery.ShortestPathInto(sid, &heapPool, sps, int(k))
-			dijkstraRevOutChan <- struct{}{}
+
+			sps := crpQuery.ShortestPath(sid, &heapPool)
+			dijkstraRevOutChan <- newQueryRet(il, sps)
 		}
 	}
 
 	go func() {
-		for range dijkstraRevOutChan {
+		for res := range dijkstraRevOutChan {
+			il := res.il
+			sps := res.sps
+			for v := 0; v < int(n); v++ {
+				vlw[v*k+il] = sps[v]
+			}
 			wg.Done()
 		}
 	}()
 
 	go func() {
-		for range dijkstraOutChan {
+		for res := range dijkstraOutChan {
+			il := res.il
+			sps := res.sps
+			copy(lw[il*int(n):(il+1)*int(n)], sps)
 			wg.Done()
 		}
 	}()

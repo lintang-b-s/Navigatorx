@@ -76,7 +76,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 		}
 	}
 
-	adjList := make([][]da.PairEdge, r*c)
+	adjList := make([][]da.PairEdge[int64], r*c)
 
 	cellToNId := func(i, j int) int {
 		return i*c + j
@@ -104,28 +104,28 @@ func SolveShowroom(t *testing.T, filepath string) {
 				weight := getWeight(i, j+1)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					da.NewPairEdge(cellToNId(i, j+1), float64(weight)))
+					da.NewPairEdge(cellToNId(i, j+1), int64(weight)))
 			}
 
 			if i+1 < r {
 				weight := getWeight(i+1, j)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					da.NewPairEdge(cellToNId(i+1, j), float64(weight)))
+					da.NewPairEdge(cellToNId(i+1, j), int64(weight)))
 			}
 
 			if j-1 >= 0 {
 				weight := getWeight(i, j-1)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					da.NewPairEdge(cellToNId(i, j-1), float64(weight)))
+					da.NewPairEdge(cellToNId(i, j-1), int64(weight)))
 			}
 
 			if i-1 >= 0 {
 				weight := getWeight(i-1, j)
 
 				adjList[cellToNId(i, j)] = append(adjList[cellToNId(i, j)],
-					da.NewPairEdge(cellToNId(i-1, j), float64(weight)))
+					da.NewPairEdge(cellToNId(i-1, j), int64(weight)))
 			}
 
 			if j == c-1 && grid[i][j] == "D" {
@@ -177,7 +177,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 	t.Log("calculating shortest paths...\n")
 
-	minDist := pkg.InfWeight
+	minDist := util.Infinity[int64]()
 
 	lock := sync.Mutex{}
 	calcSp := func(p pair) any {
@@ -224,8 +224,8 @@ func SolveShowroom(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	var expectedSPLength float64
-	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
+	var expectedSPLength int64
+	_, err = fmt.Sscanf(line, "%v", &expectedSPLength)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

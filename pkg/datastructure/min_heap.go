@@ -188,7 +188,6 @@ func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newRank, vCost W, newPar Parent
 	qh.verticesData[vIndex].parent = newPar
 	qh.verticesData[vIndex].cost = vCost
 	qh.heap[heapNodeId].rank = newRank
-
 	qh.heapifyUp(heapNodeId)
 }
 

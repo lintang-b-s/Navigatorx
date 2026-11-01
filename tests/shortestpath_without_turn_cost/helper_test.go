@@ -33,8 +33,8 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
-func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]da.PairEdge, n int, us []int, _ bool) (*engine.Engine[float64], *da.Graph,
-	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[float64]) {
+func buildCRP[W util.Numeric](t *testing.T, problemName string, nodeCoords []da.Coordinate, adjList [][]da.PairEdge[W], n int, us []int, _ bool) (*engine.Engine[W], *da.Graph,
+	[]da.Index, map[da.Index]da.Index, *landmark.Landmark[W]) {
 
 	config.InitRegionName(problemName, pkg.TEST)
 
@@ -47,9 +47,9 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 		t.Fatalf("err: %v", err)
 	}
 
-	es := da.FlattenEdges(adjList)
+	es := da.FlattenEdgesG[W](adjList)
 
-	op := extractor.NewExtractor[float64](logger)
+	op := extractor.NewExtractor[W](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmId := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -81,7 +81,7 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 
 	mlp := mp.BuildMLP()
 
-	prep := preprocesser.NewPreprocessor(g, rn, timeFunction, mlp, logger)
+	prep := preprocesser.NewPreprocessor[W](g, rn, timeFunction, mlp, logger)
 	err = prep.PreProcessing(false)
 	if err != nil {
 		t.Fatalf("err: %v", err)
@@ -89,14 +89,14 @@ func buildCRP(t *testing.T, problemName string, nodeCoords []da.Coordinate, adjL
 	util.UseInt32 = false
 
 	og := prep.GetOverlayGraph()
-	cust := customizer.NewCustomizerDirect(
+	cust := customizer.NewCustomizerDirect[W](
 		g, og, prep.GetTimeFunction(), logger,
 	)
 	m, err := cust.CustomizeDirect()
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
-	lm := landmark.NewLandmark[float64]()
+	lm := landmark.NewLandmark[W]()
 	err = lm.PreprocessALT(1, m.GetCostFunction(), g, logger)
 	if err != nil {
 		log.Fatal(err.Error())

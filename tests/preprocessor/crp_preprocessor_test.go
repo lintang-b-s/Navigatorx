@@ -39,8 +39,8 @@ const (
 // go tool cover -func=prep_coverage.out
 // go tool cover -html=prep_coverage.out
 func TestPreprocessorSimple(t *testing.T) {
-
-	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*prep.Preprocessor[float64], error) {
+	util.ActivateMode[int64]()
+	buildGraph := func(filepath string, cellVertices [][][]da.Index) (*prep.Preprocessor[int64], error) {
 		var (
 			err  error
 			line string
@@ -77,7 +77,7 @@ func TestPreprocessorSimple(t *testing.T) {
 			nodeCoords = append(nodeCoords, da.NewCoordinate(float64(i), float64(i)))
 		}
 
-		adjList := make([][]da.PairEdge, n)
+		adjList := make([][]da.PairEdge[int64], n)
 		for i := 0; i < m; i++ {
 			line, err = util.ReadLine(br)
 			if err != nil {
@@ -96,15 +96,15 @@ func TestPreprocessorSimple(t *testing.T) {
 			if err != nil {
 				t.Fatalf("err: %v", err)
 			}
-			adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
+			adjList[u] = append(adjList[u], da.NewPairEdge(v, int64(w)))
 		}
-		es := da.FlattenEdges(adjList)
+		es := da.FlattenEdgesG[int64](adjList)
 
 		logger, err := custlog.New()
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-		op := extractor.NewExtractor[float64](logger)
+		op := extractor.NewExtractor[int64](logger)
 		acceptedNodeMap := make(map[int64]da.Coordinate, n)
 		nodeToOsmId := make(map[da.Index]int64, n)
 		for i := 0; i < n; i++ {
@@ -146,12 +146,12 @@ func TestPreprocessorSimple(t *testing.T) {
 	testCases := []struct {
 		name               string
 		filepath           string
-		want               [][]map[uint64]float64 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
-		cellVertices       [][][]da.Index         // level -> cellId -> vertices
-		entryVertices      [][][]da.Index         //  level  -> cellId -> entry vertices
-		exitVertices       [][][]da.Index         //  level  -> cellId -> exit vertices
-		sccs               [][]da.Index           // sccId -> vId
-		sccCondensationAdj [][]da.Index           // condensation connection of scc of u -> scc of v
+		want               [][]map[uint64]int64 // level -> cellId -> bitpack(source,target) -> st-shortcutWeight
+		cellVertices       [][][]da.Index       // level -> cellId -> vertices
+		entryVertices      [][][]da.Index       //  level  -> cellId -> entry vertices
+		exitVertices       [][][]da.Index       //  level  -> cellId -> exit vertices
+		sccs               [][]da.Index         // sccId -> vId
+		sccCondensationAdj [][]da.Index         // condensation connection of scc of u -> scc of v
 
 		numOfLevelOneCells    int
 		minNumShortcuts       int
@@ -237,11 +237,11 @@ func TestPreprocessorSimple(t *testing.T) {
 					},
 				},
 			},
-			want: [][]map[uint64]float64{
+			want: [][]map[uint64]int64{
 				{
 					{
 						bitpack(1, 1): 0,
-						bitpack(1, 0): util.Infinity[float64](),
+						bitpack(1, 0): util.Infinity[int64](),
 					},
 					{
 						bitpack(3, 3): 0.0,
@@ -249,7 +249,7 @@ func TestPreprocessorSimple(t *testing.T) {
 					},
 					{},
 					{
-						bitpack(6, 2): util.Infinity[float64](),
+						bitpack(6, 2): util.Infinity[int64](),
 						bitpack(6, 6): 0,
 						bitpack(2, 2): 0,
 						bitpack(2, 6): 21,
@@ -259,15 +259,15 @@ func TestPreprocessorSimple(t *testing.T) {
 					{
 						bitpack(3, 3): 0.0,
 						bitpack(3, 4): 20.0,
-						bitpack(3, 0): util.Infinity[float64](),
+						bitpack(3, 0): util.Infinity[int64](),
 						bitpack(3, 1): 29,
 					},
 					{
 						bitpack(2, 2): 0.0,
-						bitpack(5, 2): util.Infinity[float64](), // gak ada path dari 5 ke 2 only pakai edges in cell 2 level 1. edges \in cell C, iff head and tail dari edge \in C.
-						bitpack(6, 2): util.Infinity[float64](),
-						bitpack(7, 2): util.Infinity[float64](),
-						bitpack(8, 2): util.Infinity[float64](),
+						bitpack(5, 2): util.Infinity[int64](), // gak ada path dari 5 ke 2 only pakai edges in cell 2 level 1. edges \in cell C, iff head and tail dari edge \in C.
+						bitpack(6, 2): util.Infinity[int64](),
+						bitpack(7, 2): util.Infinity[int64](),
+						bitpack(8, 2): util.Infinity[int64](),
 					},
 				},
 			},
@@ -392,7 +392,7 @@ func TestPreprocessorSimple(t *testing.T) {
 					},
 				},
 			},
-			want: [][]map[uint64]float64{
+			want: [][]map[uint64]int64{
 				{
 					{
 						bitpack(1, 1): 0,
@@ -404,7 +404,7 @@ func TestPreprocessorSimple(t *testing.T) {
 						bitpack(0, 0): 0,
 						bitpack(3, 3): 0,
 						bitpack(0, 3): 6,
-						bitpack(3, 0): util.Infinity[float64](),
+						bitpack(3, 0): util.Infinity[int64](),
 					},
 					{},
 				},
@@ -413,9 +413,9 @@ func TestPreprocessorSimple(t *testing.T) {
 						bitpack(1, 2): 2,
 					},
 					{
-						bitpack(4, 0): util.Infinity[float64](),
+						bitpack(4, 0): util.Infinity[int64](),
 						bitpack(0, 0): 0,
-						bitpack(3, 0): util.Infinity[float64](),
+						bitpack(3, 0): util.Infinity[int64](),
 					},
 				},
 			},

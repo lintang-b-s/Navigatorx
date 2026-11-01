@@ -58,7 +58,7 @@ func SolveRideHailing(t *testing.T, fname string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	adjList := make([][]da.PairEdge, n+1)
+	adjList := make([][]da.PairEdge[int64], n+1)
 
 	for i := 0; i < m; i++ {
 		var (
@@ -86,7 +86,7 @@ func SolveRideHailing(t *testing.T, fname string) {
 			t.Fatalf("err: %v", err)
 		}
 
-		adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(w)))
+		adjList[u] = append(adjList[u], da.NewPairEdge(v, int64(w)))
 	}
 
 	bitpack := func(u, v int) int {

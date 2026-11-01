@@ -91,8 +91,8 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 
 	n := len(starwars)
 	var (
-		adjList  = make([][]datastructure.PairEdge, n)
-		adjListT = make([][]datastructure.PairEdge, n)
+		adjList  = make([][]datastructure.PairEdge[int32], n)
+		adjListT = make([][]datastructure.PairEdge[int32], n)
 	)
 
 	bitpack := func(i, j int) int {
@@ -114,29 +114,29 @@ func SolveCantinaOfBabel(t *testing.T, filepath string) {
 			}
 
 			if swi.bahasak.bahasaSpeak == swj.bahasak.bahasaSpeak {
-				adjList[i] = append(adjList[i], datastructure.NewPairEdge(j, 1))
-				adjList[j] = append(adjList[j], datastructure.NewPairEdge(i, 1))
+				adjList[i] = append(adjList[i], datastructure.NewPairEdge[int32](j, 1))
+				adjList[j] = append(adjList[j], datastructure.NewPairEdge[int32](i, 1))
 
 				edgesSet[bitpack(i, j)] = struct{}{}
 				edgesSet[bitpack(j, i)] = struct{}{}
 
-				adjListT[j] = append(adjListT[j], datastructure.NewPairEdge(i, 1))
-				adjListT[i] = append(adjListT[i], datastructure.NewPairEdge(j, 1))
+				adjListT[j] = append(adjListT[j], datastructure.NewPairEdge[int32](i, 1))
+				adjListT[i] = append(adjListT[i], datastructure.NewPairEdge[int32](j, 1))
 			} else if _, ok := swj.bahasak.bahasaUnderstand[swi.bahasak.bahasaSpeak]; ok {
 				edgesSet[bitpack(i, j)] = struct{}{}
 
-				adjList[i] = append(adjList[i], datastructure.NewPairEdge(j, 1))
-				adjListT[j] = append(adjListT[j], datastructure.NewPairEdge(i, 1))
+				adjList[i] = append(adjList[i], datastructure.NewPairEdge[int32](j, 1))
+				adjListT[j] = append(adjListT[j], datastructure.NewPairEdge[int32](i, 1))
 			}
 		}
 	}
 
-	es := datastructure.FlattenEdges(adjList)
+	es := datastructure.FlattenEdgesG[int32](adjList)
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	op := extractor.NewExtractor[float64](logger)
+	op := extractor.NewExtractor[int32](logger)
 	gs := datastructure.NewRoadNetworkDataContainerWithSize(len(es), n)
 	g, _, _, _ := op.BuildGraph(es, gs, uint32(n), false)
 

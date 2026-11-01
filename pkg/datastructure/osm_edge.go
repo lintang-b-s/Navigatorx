@@ -1,8 +1,6 @@
 package datastructure
 
 import (
-	"math"
-
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -82,23 +80,18 @@ func NewEdge[W util.Numeric](
 }
 
 // PairEdge represents pair edge.
-type PairEdge struct {
+type PairEdge[W util.Numeric] struct {
 	To     int
-	Weight float64
+	Weight W
 }
 
 // NewPairEdge creates and returns pair edge.
-func NewPairEdge(to int, weight float64) PairEdge {
-	return PairEdge{To: to, Weight: weight}
-}
-
-// FlattenEdges handles flatten edges.
-func FlattenEdges(es [][]PairEdge) []Edge[float64] {
-	return FlattenEdgesG[float64](es)
+func NewPairEdge[W util.Numeric](to int, weight W) PairEdge[W] {
+	return PairEdge[W]{To: to, Weight: weight}
 }
 
 // FlattenEdgesG handles flatten edges with generic weight type.
-func FlattenEdgesG[W util.Numeric](es [][]PairEdge) []Edge[W] {
+func FlattenEdgesG[W util.Numeric](es [][]PairEdge[W]) []Edge[W] {
 	totalEdges := 0
 	for _, edges := range es {
 		totalEdges += len(edges)
@@ -106,7 +99,7 @@ func FlattenEdgesG[W util.Numeric](es [][]PairEdge) []Edge[W] {
 	flatten := make([]Edge[W], 0, totalEdges)
 	for from, edges := range es {
 		for _, e := range edges {
-			length := uint32(math.Round(e.Weight * 100))
+			length := uint32(e.Weight * 100)
 			flatten = append(flatten, NewEdge[W](uint32(from), uint32(e.To), W(e.Weight), length))
 		}
 	}

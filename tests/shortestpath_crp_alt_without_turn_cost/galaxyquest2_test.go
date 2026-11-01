@@ -175,7 +175,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		galaxy = append(galaxy, planet{x, y, z})
 	}
 
-	adjList := make([][]da.PairEdge, n)
+	adjList := make([][]da.PairEdge[float64], n)
 
 	eucDist := func(a, b planet) float64 {
 		xx := float64(a.x - b.x)
@@ -298,7 +298,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 			}
 
 			var expectedAns float64
-			if _, err = fmt.Sscanf(line, "%f", &expectedAns); err != nil {
+			if _, err = fmt.Sscanf(line, "%v", &expectedAns); err != nil {
 				t.Fatalf("err parsing expected answer: %v", err)
 			}
 			if !util.Eq(ans, expectedAns) {

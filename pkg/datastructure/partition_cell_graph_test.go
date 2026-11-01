@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge) *da.CellGraph {
+func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge[int32]) *da.CellGraph {
 	t.Helper()
 
 	nodeCoords := make([]da.Coordinate, n)
@@ -19,13 +19,13 @@ func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge) *da.CellGraph 
 		nodeCoords[i] = da.NewCoordinateWithoutScaling(float64(i), float64(i))
 	}
 
-	es := da.FlattenEdges(adjList)
+	es := da.FlattenEdgesG[int32](adjList)
 
 	logger, err := logger.New()
 	if err != nil {
 		stdLog.Fatal(err)
 	}
-	op := extractor.NewExtractor[float64](logger)
+	op := extractor.NewExtractor[int32](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmID := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -84,7 +84,7 @@ func TestPartitionCellGraph_No_AntiParallel_Edge(t *testing.T) {
 	testCases := []struct {
 		name                         string
 		n                            int
-		adjList                      [][]da.PairEdge
+		adjList                      [][]da.PairEdge[int32]
 		sources                      []int
 		sinks                        []int
 		wantAntiParallelEdgesRemoved []tEdge
@@ -93,12 +93,12 @@ func TestPartitionCellGraph_No_AntiParallel_Edge(t *testing.T) {
 		{
 			name: "Figure_26_2_CLRS_3rd_ed", // want no anti-parallel edge (v1,v2) and (v2,v1)
 			n:    6,
-			adjList: [][]da.PairEdge{
-				ss: {da.NewPairEdge(v1, 1), da.NewPairEdge(v2, 1)},
-				v1: {da.NewPairEdge(v2, 1), da.NewPairEdge(v3, 1)},
-				v2: {da.NewPairEdge(v1, 1), da.NewPairEdge(v4, 1)},
-				v3: {da.NewPairEdge(v2, 1), da.NewPairEdge(tt, 1)},
-				v4: {da.NewPairEdge(v3, 1), da.NewPairEdge(tt, 1)},
+			adjList: [][]da.PairEdge[int32]{
+				ss: {da.NewPairEdge[int32](v1, 1), da.NewPairEdge[int32](v2, 1)},
+				v1: {da.NewPairEdge[int32](v2, 1), da.NewPairEdge[int32](v3, 1)},
+				v2: {da.NewPairEdge[int32](v1, 1), da.NewPairEdge[int32](v4, 1)},
+				v3: {da.NewPairEdge[int32](v2, 1), da.NewPairEdge[int32](tt, 1)},
+				v4: {da.NewPairEdge[int32](v3, 1), da.NewPairEdge[int32](tt, 1)},
 			},
 			sources:                      []int{ss},
 			sinks:                        []int{tt},
@@ -169,19 +169,19 @@ func TestPartitionCellGraph_Partition(t *testing.T) {
 	testCases := []struct {
 		name               string
 		n                  int
-		adjList            [][]da.PairEdge
+		adjList            [][]da.PairEdge[int32]
 		wantS, wantT       []da.Index
 		wantExistsCutEdges bool
 	}{
 		{
 			name: "Figure_26_2_CLRS_3rd_ed", // want no anti-parallel edge (v1,v2) and (v2,v1)
 			n:    6,
-			adjList: [][]da.PairEdge{
-				ss: {da.NewPairEdge(v1, 1), da.NewPairEdge(v2, 1)},
-				v1: {da.NewPairEdge(v2, 1), da.NewPairEdge(v3, 1)},
-				v2: {da.NewPairEdge(v1, 1), da.NewPairEdge(v4, 1)},
-				v3: {da.NewPairEdge(v2, 1), da.NewPairEdge(tt, 1)},
-				v4: {da.NewPairEdge(v3, 1), da.NewPairEdge(tt, 1)},
+			adjList: [][]da.PairEdge[int32]{
+				ss: {da.NewPairEdge[int32](v1, 1), da.NewPairEdge[int32](v2, 1)},
+				v1: {da.NewPairEdge[int32](v2, 1), da.NewPairEdge[int32](v3, 1)},
+				v2: {da.NewPairEdge[int32](v1, 1), da.NewPairEdge[int32](v4, 1)},
+				v3: {da.NewPairEdge[int32](v2, 1), da.NewPairEdge[int32](tt, 1)},
+				v4: {da.NewPairEdge[int32](v3, 1), da.NewPairEdge[int32](tt, 1)},
 			},
 			wantS:              []da.Index{da.Index(ss), da.Index(v1), da.Index(v2)},
 			wantT:              []da.Index{da.Index(v3), da.Index(v4), da.Index(tt)},

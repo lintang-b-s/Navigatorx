@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge) (*da.Graph, *da.CellGraph) {
+func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge[int32]) (*da.Graph, *da.CellGraph) {
 	t.Helper()
 
 	nodeCoords := make([]da.Coordinate, n)
@@ -18,12 +18,12 @@ func buildCellGraph(t *testing.T, n int, adjList [][]da.PairEdge) (*da.Graph, *d
 		nodeCoords[i] = da.NewCoordinateWithoutScaling(float64(i), float64(i))
 	}
 
-	es := da.FlattenEdges(adjList)
+	es := da.FlattenEdgesG[int32](adjList)
 	logger, err := logger.New()
 	if err != nil {
 		t.Fatal(err)
 	}
-	op := extractor.NewExtractor[float64](logger)
+	op := extractor.NewExtractor[int32](logger)
 	acceptedNodeMap := make(map[int64]da.Coordinate, n)
 	nodeToOsmID := make(map[da.Index]int64, n)
 	for i := 0; i < n; i++ {
@@ -77,7 +77,7 @@ func TestDinicUnitMaxFlow(t *testing.T) {
 		name                  string
 		numVertices           int
 		wantNumEdges          int
-		adjList               [][]da.PairEdge
+		adjList               [][]da.PairEdge[int32]
 		sources               []da.Index
 		sinks                 []da.Index
 		wantMaxFlow           int
@@ -91,16 +91,16 @@ func TestDinicUnitMaxFlow(t *testing.T) {
 			name:         "Figure26_3_CLRS_3ed", //  https://www.cl.cam.ac.uk/teaching/1415/Algorithms/flowcut.pdf or CLRS 3ed (all non-artificial edge capacities are set to unit capacity 1)
 			numVertices:  nFigure26_3,
 			wantNumEdges: 14,
-			adjList: [][]da.PairEdge{
-				s1: {da.NewPairEdge(int(v1), 1.0)},
-				s2: {da.NewPairEdge(int(v1), 1.0), da.NewPairEdge(int(v2), 1.0)},
-				s3: {da.NewPairEdge(int(v2), 1.0), da.NewPairEdge(int(v3), 1.0)},
-				s4: {da.NewPairEdge(int(v3), 1.0), da.NewPairEdge(int(v4), 1.0)},
-				s5: {da.NewPairEdge(int(v4), 1.0)},
-				v1: {da.NewPairEdge(int(t1), 1.0)},
-				v2: {da.NewPairEdge(int(t1), 1.0), da.NewPairEdge(int(t2), 1.0)},
-				v3: {da.NewPairEdge(int(t2), 1.0), da.NewPairEdge(int(t3), 1.0)},
-				v4: {da.NewPairEdge(int(t3), 1.0)},
+			adjList: [][]da.PairEdge[int32]{
+				s1: {da.NewPairEdge[int32](int(v1), 1.0)},
+				s2: {da.NewPairEdge[int32](int(v1), 1.0), da.NewPairEdge[int32](int(v2), 1.0)},
+				s3: {da.NewPairEdge[int32](int(v2), 1.0), da.NewPairEdge[int32](int(v3), 1.0)},
+				s4: {da.NewPairEdge[int32](int(v3), 1.0), da.NewPairEdge[int32](int(v4), 1.0)},
+				s5: {da.NewPairEdge[int32](int(v4), 1.0)},
+				v1: {da.NewPairEdge[int32](int(t1), 1.0)},
+				v2: {da.NewPairEdge[int32](int(t1), 1.0), da.NewPairEdge[int32](int(t2), 1.0)},
+				v3: {da.NewPairEdge[int32](int(t2), 1.0), da.NewPairEdge[int32](int(t3), 1.0)},
+				v4: {da.NewPairEdge[int32](int(t3), 1.0)},
 			},
 			sources:               []da.Index{s1, s2, s3, s4, s5},
 			sinks:                 []da.Index{t1, t2, t3},

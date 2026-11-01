@@ -255,7 +255,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		rutes[i] = newRute(int(a), int(b), c, d)
 	}
 
-	adjList := make([][]da.PairEdge, 2*N)
+	adjList := make([][]da.PairEdge[int64], 2*N)
 
 	stA := make([]int64, N)
 	st := NewSegmentTree(stA, true)
@@ -280,16 +280,16 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		b := rt.b - 1 + N
 
 		// edges sistem ekspress
-		adjList[a] = append(adjList[a], da.NewPairEdge(b, float64(rt.d)))
-		adjList[b] = append(adjList[b], da.NewPairEdge(a, float64(rt.d)))
+		adjList[a] = append(adjList[a], da.NewPairEdge(b, int64(rt.d)))
+		adjList[b] = append(adjList[b], da.NewPairEdge(a, int64(rt.d)))
 		e += 2
 	}
 
 	for v := 0; v < N; v++ {
 		// edge non-transit vertex ke transit vertex
-		adjList[v] = append(adjList[v], da.NewPairEdge(v+N, float64(T)))
+		adjList[v] = append(adjList[v], da.NewPairEdge(v+N, int64(T)))
 		// edge vertex ke non-transit vertex
-		adjList[v+N] = append(adjList[v+N], da.NewPairEdge(v, 0))
+		adjList[v+N] = append(adjList[v+N], da.NewPairEdge(v, int64(0)))
 		e += 2
 	}
 
@@ -297,8 +297,8 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		// O(N * log N)
 		// angkot
 		// stasiun non-transit ke next stasiun non-transit
-		adjList[v] = append(adjList[v], da.NewPairEdge(v+1, float64(K)))
-		adjList[v+1] = append(adjList[v+1], da.NewPairEdge(v, float64(K)))
+		adjList[v] = append(adjList[v], da.NewPairEdge(v+1, int64(K)))
+		adjList[v+1] = append(adjList[v+1], da.NewPairEdge(v, int64(K)))
 
 		e += 2
 
@@ -308,8 +308,8 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		}
 
 		// commuter edges
-		adjList[v+N] = append(adjList[v+N], da.NewPairEdge(v+1+N, float64(rmqv)))
-		adjList[v+1+N] = append(adjList[v+1+N], da.NewPairEdge(v+N, float64(rmqv)))
+		adjList[v+N] = append(adjList[v+N], da.NewPairEdge(v+1+N, int64(rmqv)))
+		adjList[v+1+N] = append(adjList[v+1+N], da.NewPairEdge(v+N, int64(rmqv)))
 
 		e += 2
 	}
@@ -330,7 +330,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 	if (2.0*float64(e))/math.Pow(float64(N)*2.0, 2) >= 0.00005 {
 		u1, u2, u3, u4 = 22, 23, 24, 25 // gak bikin partisi
 	} // jumlah shortcuts nya kebanyakan aowkwowk > 100jt kalau test case nya dense
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "osn2024_krl", nodeCoords, adjList, N*2, []int{u1, u2, u3, u4}, true)
+	re, _, oldToNewVIdMap, _, _ := buildCRP[int64](t, "osn2024_krl", nodeCoords, adjList, N*2, []int{u1, u2, u3, u4}, true)
 
 	t.Logf("calculating shortest path from P: %v, to: Q: %v\n", P+1, Q+1)
 
@@ -346,7 +346,7 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 
 	spLengthTransit, _, _ := crpQuery2.ShortestPathSearch(sid, tidTransit)
 
-	var ans float64
+	var ans int64
 	if util.Lt(spLength, spLengthTransit) {
 		ans = spLength
 	} else {
@@ -368,8 +368,8 @@ func SolveOSN2024KRL(t *testing.T, filepath string) {
 		t.Fatalf("err: %v", err)
 	}
 
-	var expectedSPLength float64
-	_, err = fmt.Sscanf(line, "%f", &expectedSPLength)
+	var expectedSPLength int64
+	_, err = fmt.Sscanf(line, "%v", &expectedSPLength)
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}

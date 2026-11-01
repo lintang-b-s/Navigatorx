@@ -214,7 +214,7 @@ func main() {
 		}
 	}
 
-	adjList := make([][]da.PairEdge, n)
+	adjList := make([][]da.PairEdge[int64], n)
 	minWeight := math.MaxInt64
 	maxWeight := math.MinInt64
 	for i := 0; i < m; i++ {
@@ -244,7 +244,7 @@ func main() {
 			maxWeight = weight
 		}
 
-		adjList[u] = append(adjList[u], da.NewPairEdge(v, float64(weight)))
+		adjList[u] = append(adjList[u], da.NewPairEdge(v, int64(weight)))
 	}
 
 	type queryRes struct {
