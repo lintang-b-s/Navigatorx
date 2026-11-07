@@ -1,6 +1,8 @@
 package datastructure
 
 import (
+	"iter"
+	"slices"
 	"sort"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
@@ -28,8 +30,8 @@ type RoadNetworkDataContainer struct {
 	// diset saat osmparser
 	segmentTurnLanesData    []TurnLanesData // segmentTurnLanesData[i] is the turnLanesData for road segment/edge with id=i
 	segmentOsmWayId         *PackedSlice    // map dari segment id ke osm way id dari edge
-	segmentStartPointsIndex []Index
-	segmentEndPointsIndex   []Index
+	segmentStartPointsIndex []uint64
+	segmentEndPointsIndex   []uint64
 	streetName              []uint32
 	roadClass               []pkg.OsmHighwayType
 	roadClassLink           []pkg.OsmHighwayType
@@ -49,8 +51,8 @@ func NewRoadNetworkDataContainer(osmwayBitSize uint8) *RoadNetworkDataContainer 
 		osmNodeIds:              NewPackedSlice(BitSizeOSMNodeId, InitialApproxSegmentSize),
 		segmentOsmWayId:         NewPackedSlice(osmwayBitSize, InitialApproxSegmentSize), // ini 41 bit aja, buat eval map matching dataset newson 41 bit setiap eId
 		osmwayBitSize:           osmwayBitSize,
-		segmentStartPointsIndex: make([]Index, 0),
-		segmentEndPointsIndex:   make([]Index, 0),
+		segmentStartPointsIndex: make([]uint64, 0),
+		segmentEndPointsIndex:   make([]uint64, 0),
 		streetName:              make([]uint32, 0),
 		roadClass:               make([]pkg.OsmHighwayType, 0),
 		roadClassLink:           make([]pkg.OsmHighwayType, 0),
@@ -64,9 +66,9 @@ func NewRoadNetworkDataContainerWithSize(numberOfEdges int, _ int) *RoadNetworkD
 	return &RoadNetworkDataContainer{
 		osmNodePoints:           make([]Coordinate, 1),
 		segmentOsmWayId:         NewPackedSlice(DefaultBitSizeOSMWayId, uint64(numberOfEdges)),
-		segmentStartPointsIndex: make([]Index, 0),
+		segmentStartPointsIndex: make([]uint64, 0),
 		osmNodeIds:              NewPackedSlice(BitSizeOSMNodeId, InitialApproxSegmentSize),
-		segmentEndPointsIndex:   make([]Index, 0),
+		segmentEndPointsIndex:   make([]uint64, 0),
 		streetName:              make([]uint32, 0),
 		osmwayBitSize:           DefaultBitSizeOSMWayId,
 		roadClass:               make([]pkg.OsmHighwayType, 0),
@@ -149,9 +151,9 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometryLength(id Index) Index {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
 	if sIndex < eIndex {
-		return eIndex - sIndex
+		return Index(eIndex - sIndex)
 	}
-	return sIndex - eIndex
+	return Index(sIndex - eIndex)
 }
 
 // GetSegmentGeometry returns segment geometry.
@@ -175,18 +177,90 @@ func (rn *RoadNetworkDataContainer) GetSegmentGeometry(id Index) []Coordinate {
 	return edgePoints
 }
 
-// AppendSegmentGeometry appends segment geometry.
-func (rn *RoadNetworkDataContainer) AppendSegmentGeometry(id Index, coords *Coordinates) {
+// ForSegmentGeometry iterates over road segment geometry.
+func (rn *RoadNetworkDataContainer) ForSegmentGeometry(id Index) iter.Seq[Coordinate] {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
-
 	if sIndex < eIndex {
-		coords.Append(rn.osmNodePoints[sIndex:eIndex])
-		return
+		return slices.Values(rn.osmNodePoints[sIndex:eIndex])
 	}
 
+	return func(yield func(Coordinate) bool) {
+		for i := int(sIndex - 1); i >= int(eIndex); i-- {
+			if !yield(rn.osmNodePoints[i]) {
+				return
+			}
+		}
+	}
+}
+
+// yieldSegmentGeometry pushes all coordinates of segment id to yield.
+func (rn *RoadNetworkDataContainer) yieldSegmentGeometry(id Index, yield func(Coordinate) bool) bool {
+	sIndex := rn.segmentStartPointsIndex[id]
+	eIndex := rn.segmentEndPointsIndex[id]
+	if sIndex < eIndex {
+		for _, c := range rn.osmNodePoints[sIndex:eIndex] {
+			if !yield(c) {
+				return false
+			}
+		}
+		return true
+	}
 	for i := int(sIndex - 1); i >= int(eIndex); i-- {
-		coords.AppendCoordinate(rn.osmNodePoints[i])
+		if !yield(rn.osmNodePoints[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// YieldFullRouteCoordinates streams the full route's coordinates (phantom node geometry prefix, middle segments,
+// and phantom node geometry suffix).
+func (rn *RoadNetworkDataContainer) YieldFullRouteCoordinates(
+	segmentIdPath []Index,
+	sp, tp PhantomNode,
+	sameSegment bool,
+	yield func(Coordinate) bool,
+) {
+
+	if !yield(sp.SnappedCoord()) {
+		return
+	}
+	if !sameSegment {
+		for _, c := range sp.ForwardGeometry() {
+			if !yield(c) {
+				return
+			}
+		}
+	}
+
+	n := len(segmentIdPath)
+	for i := 1; i < n-1; i++ {
+		if !rn.yieldSegmentGeometry(segmentIdPath[i], yield) {
+			return
+		}
+	}
+
+	if !sameSegment {
+		for _, c := range tp.ReverseGeometry() {
+			if !yield(c) {
+				return
+			}
+		}
+	}
+	_ = yield(tp.SnappedCoord())
+}
+
+// YieldRouteCoordinates streams the full route's coordinates (list of road segments geometry).
+func (rn *RoadNetworkDataContainer) YieldRouteCoordinates(
+	segmentIdPath []Index,
+	yield func(Coordinate) bool,
+) {
+	n := len(segmentIdPath)
+	for i := 1; i < n-1; i++ {
+		if !rn.yieldSegmentGeometry(segmentIdPath[i], yield) {
+			return
+		}
 	}
 }
 
@@ -239,7 +313,7 @@ func (rn *RoadNetworkDataContainer) GetSegmentHeadCoord(id Index) Coordinate {
 }
 
 // GetSegmentGeometryEndpoints returns segment geometry endpoints.
-func (rn *RoadNetworkDataContainer) GetSegmentGeometryEndpoints(id Index) (Index, Index) {
+func (rn *RoadNetworkDataContainer) GetSegmentGeometryEndpoints(id Index) (uint64, uint64) {
 	sIndex := rn.segmentStartPointsIndex[id]
 	eIndex := rn.segmentEndPointsIndex[id]
 	return sIndex, eIndex
@@ -256,7 +330,7 @@ func (rn *RoadNetworkDataContainer) AppendOsmNodePoints(edgePoints []Coordinate,
 // AppendSegmentData append road segment data
 func (rn *RoadNetworkDataContainer) AppendSegmentData(osmWayId int64,
 	startPointsIndex, // edge geometry start index di rn.osmNodePoints
-	endPointsIndex Index,
+	endPointsIndex uint64,
 	streetName uint32,
 	roadClass, roadClassLink pkg.OsmHighwayType,
 	lanes uint8, tld TurnLanesData) {
@@ -271,8 +345,8 @@ func (rn *RoadNetworkDataContainer) AppendSegmentData(osmWayId int64,
 }
 
 // GetOsmNodePointsCount returns osm node points count.
-func (rn *RoadNetworkDataContainer) GetOsmNodePointsCount() int {
-	return len(rn.osmNodePoints)
+func (rn *RoadNetworkDataContainer) GetOsmNodePointsCount() uint64 {
+	return uint64(len(rn.osmNodePoints))
 }
 
 // BuildNameTable builds name table.

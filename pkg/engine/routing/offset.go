@@ -17,8 +17,11 @@ func onBit(u da.Index, i int) da.Index {
 }
 
 func (crp *CRPRoutingEngine[W]) offsetOverlay(v da.Index) da.Index {
-
 	return v + da.Index(crp.numberOfVertices)
+}
+
+func (crp *CRPRoutingEngine[W]) isOverlay(v da.Index) bool {
+	return v >= da.Index(crp.numberOfVertices)
 }
 
 func (crp *CRPRoutingEngine[W]) adjustoffsetOverlay(v da.Index) da.Index {

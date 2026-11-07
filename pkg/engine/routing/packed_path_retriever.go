@@ -6,24 +6,33 @@ import (
 )
 
 // RetrievePackedPath retrieves packed path.
-func (crp *CRPRoutingEngine[W]) RetrievePackedPath(mid da.ParentVertex, fpq *da.QueryHeap[da.QueryKey, W],
+func (crp *CRPRoutingEngine[W]) RetrievePackedPath(mid da.Index, fpq *da.QueryHeap[da.QueryKey, W],
 	bpq *da.QueryHeap[da.QueryKey, W]) []da.Index {
 
-	midv := mid.GetVertex()
-	midvv := midv
-	if mid.IsOverlayVertex() {
-		amvId := crp.adjustoffsetOverlay(midv)
+	midvv := mid
+	if crp.isOverlay(mid) {
+		amvId := crp.adjustoffsetOverlay(mid)
 		omvId := onBit(amvId, UnpackOverlayOffset)
 		midvv = omvId
 	}
 
-	c := crp.precomputeSize(midv, fpq, bpq) + 1
+	c := crp.precomputeSize(mid, fpq, bpq) + 1
 	packedPath := make([]da.Index, 0, c) // list of vertices/overlay vertices di s-mid-t packed path
 
-	crp.RetrieveForwardPackedPath(midv, fpq, &packedPath)
+	crp.RetrieveForwardPackedPath(mid, fpq, &packedPath)
 	util.ReverseG(packedPath)
 	packedPath = append(packedPath, midvv)
-	crp.RetrieveBackwardPackedPath(midv, bpq, &packedPath)
+	crp.RetrieveBackwardPackedPath(mid, bpq, &packedPath)
+	return packedPath
+}
+
+// RetrievePackedPathUni retrieves packed path.
+func (crp *CRPRoutingEngine[W]) RetrievePackedPathUni(t da.Index, pq *da.QueryHeap[da.QueryKey, W]) []da.Index {
+	c := crp.precomputeSizeUni(t, pq) + 1
+	packedPath := make([]da.Index, 0, c) // list of vertices/overlay vertices di s-mid-t packed path
+	packedPath = append(packedPath, t)
+	crp.RetrieveForwardPackedPath(t, pq, &packedPath)
+	util.ReverseG(packedPath)
 	return packedPath
 }
 
@@ -41,19 +50,15 @@ func (crp *CRPRoutingEngine[W]) RetrieveForwardPackedPath(midv da.Index, fpq *da
 
 	mvData := fpq.Get(midv)
 	vPar := mvData.GetParent()
-	for {
-		parv := vPar.GetVertex()
-		if parv == da.InvalidVertexId {
-			break
-		}
-		pv := parv
-		if vPar.IsOverlayVertex() {
-			aparv := crp.adjustoffsetOverlay(parv)
+	for vPar != da.InvalidVertexId {
+		pv := vPar
+		if crp.isOverlay(pv) {
+			aparv := crp.adjustoffsetOverlay(vPar)
 			offpv := onBit(aparv, UnpackOverlayOffset)
 			pv = offpv
 		}
 		*packedPath = append(*packedPath, pv)
-		vData := fpq.Get(parv)
+		vData := fpq.Get(vPar)
 		vPar = vData.GetParent()
 	}
 }
@@ -64,21 +69,30 @@ func (crp *CRPRoutingEngine[W]) RetrieveBackwardPackedPath(midv da.Index, bpq *d
 
 	mvData := bpq.Get(midv)
 	vPar := mvData.GetParent()
-	for {
-		parv := vPar.GetVertex()
-		if parv == da.InvalidVertexId {
-			break
-		}
-		pv := parv
-		if vPar.IsOverlayVertex() {
-			aparv := crp.adjustoffsetOverlay(parv)
+	for vPar != da.InvalidVertexId {
+		pv := vPar
+		if crp.isOverlay(pv) {
+			aparv := crp.adjustoffsetOverlay(vPar)
 			offpv := onBit(aparv, UnpackOverlayOffset)
 			pv = offpv
 		}
 		*packedPath = append(*packedPath, pv)
-		vData := bpq.Get(parv)
+		vData := bpq.Get(vPar)
 		vPar = vData.GetParent()
 	}
+}
+
+func (crp *CRPRoutingEngine[W]) precomputeSizeUni(t da.Index, pq *da.QueryHeap[da.QueryKey, W]) int {
+	c := 0
+	mvData := pq.Get(t)
+	vPar := mvData.GetParent()
+	for vPar != da.InvalidVertexId {
+		vData := pq.Get(vPar)
+		vPar = vData.GetParent()
+		c++
+	}
+
+	return c
 }
 
 func (crp *CRPRoutingEngine[W]) precomputeSize(midv da.Index, fpq, bpq *da.QueryHeap[da.QueryKey, W]) int {
@@ -86,7 +100,7 @@ func (crp *CRPRoutingEngine[W]) precomputeSize(midv da.Index, fpq, bpq *da.Query
 	mvData := fpq.Get(midv)
 	vPar := mvData.GetParent()
 	for {
-		parv := vPar.GetVertex()
+		parv := vPar
 		if parv == da.InvalidVertexId {
 			break
 		}
@@ -98,7 +112,7 @@ func (crp *CRPRoutingEngine[W]) precomputeSize(midv da.Index, fpq, bpq *da.Query
 	mvData = bpq.Get(midv)
 	vPar = mvData.GetParent()
 	for {
-		parv := vPar.GetVertex()
+		parv := vPar
 		if parv == da.InvalidVertexId {
 			break
 		}

@@ -11,13 +11,13 @@ import (
 
 // RoutingService represents routing service.
 type RoutingService interface {
-	ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) (float64, float64, string, []da.DrivingDirection, bool, error)
-	AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startSegId da.Index, useAnnotation bool, useSteps bool) ([]float64, []float64, []string, [][]da.DrivingDirection, error)
+	ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) (float64, float64, string, []da.RouteStep, bool, error)
+	AlternativeRouteSearch(ctx context.Context, qOrigLat, qOrigLon, qDstLat, qDstLon float64, k int, reroute bool, startSegId da.Index, useAnnotation bool, useSteps bool) ([]float64, []float64, []string, [][]da.RouteStep, error)
 	GetRoutingEngine() RoutingEngine
 	Close()
 	InitBackgroundWorker(ctx context.Context)
 	GetBoundingBox(ctx context.Context) da.BoundingBox
-	OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate, error)
+	OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, string, error)
 }
 
 // RoutingEngine represents routing engine.
@@ -26,8 +26,8 @@ type RoutingEngine interface {
 	PathExists(u, v da.Index) bool
 	GetMetrics() *met.Metric[int32]
 	InitBackgroundWorker(ctx context.Context)
-	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool)
-	ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, startSegId da.Index) ([]float64, []float64, []*da.Coordinates, [][]da.Index, bool)
+	ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, string, []da.Index, bool)
+	ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, startSegId da.Index) ([]float64, []float64, []string, [][]da.Index, bool)
 	Close()
 }
 

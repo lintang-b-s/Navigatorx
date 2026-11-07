@@ -763,7 +763,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 
 			rn.AppendSegmentData(
 				id,
-				da.Index(startPointsIndex), da.Index(endPointsIndex),
+				startPointsIndex, endPointsIndex,
 				p.tagStringIdMap.GetID(tempMap[StreetName]),
 				pkg.GetHighwayType(tempMap[RoadClass]),
 				pkg.GetHighwayType(tempMap[RoadClassLink]),
@@ -798,7 +798,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 
 			rn.AppendSegmentData(
 				id,
-				da.Index(startPointsIndex), da.Index(endPointsIndex),
+				startPointsIndex, endPointsIndex,
 				p.tagStringIdMap.GetID(tempMap[StreetName]),
 				pkg.GetHighwayType(tempMap[RoadClass]),
 				pkg.GetHighwayType(tempMap[RoadClassLink]),
@@ -842,7 +842,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 		e.SetOsmWayId(id)
 		rn.AppendSegmentData(
 			id,
-			da.Index(startPointsIndex), da.Index(endPointsIndex),
+			startPointsIndex, endPointsIndex,
 			p.tagStringIdMap.GetID(tempMap[StreetName]),
 			pkg.GetHighwayType(tempMap[RoadClass]),
 			pkg.GetHighwayType(tempMap[RoadClassLink]),
@@ -867,7 +867,7 @@ func (p *Extractor[W]) addEdge(segment []node, tempMap map[string]string, speed 
 		e.SetOsmWayId(id)
 		rn.AppendSegmentData(
 			id,
-			da.Index(endPointsIndex), da.Index(startPointsIndex),
+			endPointsIndex, startPointsIndex,
 			p.tagStringIdMap.GetID(tempMap[StreetName]),
 			pkg.GetHighwayType(tempMap[RoadClass]),
 			pkg.GetHighwayType(tempMap[RoadClassLink]),

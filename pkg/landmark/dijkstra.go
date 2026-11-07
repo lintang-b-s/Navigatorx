@@ -11,19 +11,19 @@ type Dijkstra[W util.Numeric] struct {
 	graph *da.Graph
 	cf    *met.TimeFunction[W]
 
-	pq *da.QueryHeap[da.QueryKey, W]
-
+	inf             W
 	useReverseGraph bool
 
-	numSettledNodes int
+	numExploredNodes int
 }
 
 // NewDijkstra creates and returns dijkstra.
 func NewDijkstra[W util.Numeric](graph *da.Graph, cf *met.TimeFunction[W], useReverseGraph bool) *Dijkstra[W] {
 	dj := &Dijkstra[W]{
-		graph:           graph,
-		useReverseGraph: useReverseGraph,
-		numSettledNodes: 0,
+		graph:            graph,
+		useReverseGraph:  useReverseGraph,
+		numExploredNodes: 0,
+		inf:              util.Infinity[W](),
 
 		cf: cf,
 	}
@@ -52,78 +52,47 @@ the graph, we can reduce this problem to a single-source problem..
 
 buat precalculated landmark sp distances (untuk potential/heuristic ALT (A*, landmarks, and triangle inequality) algorithm)
 */
-func (us *Dijkstra[W]) ShortestPath(s da.Index, pq *da.QueryHeap[da.QueryKey, W]) {
-	us.pq = pq
-	noPar := da.NewParentVertex(da.InvalidSegmentId, false)
-
-	djKey := da.NewDijkstraKey(s)
-	us.pq.Insert(s, 0, da.NewVData(W(0),
-		noPar), djKey)
-
-	for !us.pq.IsEmpty() {
-		// search on graph level 1
-		us.graphSearchUni()
-		us.numSettledNodes++
-	}
-}
-
-func (us *Dijkstra[W]) graphSearchUni() {
-	queryKey := us.pq.ExtractMin()
-	uItem := queryKey.GetItem()
-	uId := uItem.GetNode()
-
+func (us *Dijkstra[W]) ShortestPath(s da.Index, pq *da.QueryHeap[da.Index, W], dist []W) {
 	out := !us.useReverseGraph
-	offset, eNum := us.graph.NumEdges(uId, out)
-	for eId := offset; eId < offset+eNum; eId++ {
-		v := us.GetV(eId, out)
-		eWeight := us.GetWeight(eId, out)
+	noPar := da.InvalidSegmentId
+	vData := da.NewVData[da.Index, W](0, s, noPar)
+	dist[s] = 0
+	pq.Insert(s, 0, vData)
+	for !pq.IsEmpty() {
+		u, uCost := pq.ExtractMin()
 
-		// get cost to reach v through u
-		newVCost := us.pq.Cost(uId) + eWeight
-
-		ovCost := us.pq.Cost(v)
-		vLabelled := util.Lt(ovCost, util.Infinity[W]())
-		if util.Lt(newVCost, ovCost) {
-			// newVCost is better, update the vertex v cost in pq
-			vPar := da.NewParentVertex(uId, false)
-
-			if vLabelled {
-				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(v, newVCost, newVCost, vPar)
-			} else {
-				queryKey := da.NewDijkstraKey(v)
-				vData := da.NewVData(newVCost, vPar)
-				// is key not in the priority queue, insert it
-				us.pq.Insert(v, newVCost, vData, queryKey)
+		offset, eNum := us.graph.NumEdges(u, out)
+		for eId := offset; eId < offset+eNum; eId++ {
+			// get cost to reach v through u
+			v, eWeight := us.getV(eId, out)
+			newVCost := uCost + eWeight
+			ovCost := dist[v]
+			if util.Lt(newVCost, ovCost) {
+				vData := da.NewVData[da.Index, W](newVCost, v, noPar)
+				vLabelled := util.Lt(ovCost, us.inf)
+				if vLabelled {
+					pq.DecreaseKey(v, newVCost, newVCost, noPar)
+				} else {
+					pq.Insert(v, newVCost, vData)
+				}
+				dist[v] = newVCost
 			}
 		}
+		us.numExploredNodes++
 	}
 }
 
-// GetV returns the adjacent vertex Id and edge Id for the given offset and index.
-func (us *Dijkstra[W]) GetV(eId da.Index, out bool) da.Index {
+func (us *Dijkstra[W]) getV(eId da.Index, out bool) (da.Index, W) {
+	var v da.Index
+	var weight W
+
 	if out {
-		return us.graph.GetHead(eId)
+		v = us.graph.GetHead(eId)
+		weight = us.cf.Weight(eId)
+	} else {
+		v = us.graph.GetTail(eId)
+		reId := us.graph.GetOutId(eId)
+		weight = us.cf.Weight(reId)
 	}
-	return us.graph.GetTail(eId)
-}
-
-// GetWeight returns the edge weight according to search direction.
-func (us *Dijkstra[W]) GetWeight(eId da.Index, out bool) W {
-	if out {
-		return us.cf.GetWeight(eId)
-	}
-	reId := us.graph.GetOutId(eId)
-	return us.cf.GetWeight(reId)
-}
-
-func (us *Dijkstra[W]) constructShortestPath(s da.Index, costs []W) {
-	n := us.graph.NumberOfVertices()
-	for t := da.Index(0); t < da.Index(n); t++ {
-		sp := us.pq.Cost(t)
-		if s == t {
-			continue // sp == 0
-		}
-		costs[t] = sp
-	}
+	return v, weight
 }

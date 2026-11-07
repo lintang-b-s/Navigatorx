@@ -6,27 +6,25 @@ import (
 )
 
 const (
-	pathUnpackEntrySize    = 24 + 9 + 4*4
-	initialPuCacheCapacity = 400_000
+	pathUnpackEntrySize    = 24 + 8 + 4*4
+	initialPuCacheCapacity = 700_000
 )
 
 const (
 	defaultPathUnpackCacheMaxBytes = 1 << 28 // 256 MB default
+	defaultMaxSize                 = defaultPathUnpackCacheMaxBytes / pathUnpackEntrySize
 )
 
-// PUCacheKey represents pucache key.
-type PUCacheKey struct {
-	source, target Index
-	level          uint8
-}
-
 // NewPUCacheKey creates and returns pucache key.
-func NewPUCacheKey(source, target Index, level uint8) PUCacheKey {
-	return PUCacheKey{source: source, target: target, level: level}
+func NewPUCacheKey(source, target Index, level uint8) uint64 {
+	// bit packed [level, target, source] pos=[61-64, 31-60, 1-30]
+	// i assume max number boundary/overlay vertices 2^30 - 1... (around 1 billion)
+	k := uint64(source) | (uint64(target) << 30) | (uint64(level) << 60)
+	return k
 }
 
 // NewPuCache creates and returns pu cache.
-func NewPuCache() *otter.Cache[PUCacheKey, []Index] {
+func NewPuCache() *otter.Cache[uint64, []Index] {
 	maxBytes := defaultPathUnpackCacheMaxBytes
 	if viper.IsSet("cache.path_unpacking_size") {
 		sizeMB := viper.GetInt("cache.path_unpacking_size")
@@ -36,7 +34,7 @@ func NewPuCache() *otter.Cache[PUCacheKey, []Index] {
 	initialCap := initialPuCacheCapacity
 
 	// customizable route planning in road networks section 7.2 (path retrieval)
-	puCache := otter.Must(&otter.Options[PUCacheKey, []Index]{
+	puCache := otter.Must(&otter.Options[uint64, []Index]{
 		MaximumSize:     maxSize,
 		InitialCapacity: initialCap,
 	})
@@ -44,7 +42,7 @@ func NewPuCache() *otter.Cache[PUCacheKey, []Index] {
 }
 
 const (
-	turnSignCacheMaxBytes        uint64 = 1 << 24
+	turnSignCacheMaxBytes        uint64 = 1 << 25
 	turnSignEntryBytes           uint64 = 16
 	turnSigncacheMaximumSize            = int(turnSignCacheMaxBytes / turnSignEntryBytes)
 	initialTurnSignCacheCapacity        = 10_000

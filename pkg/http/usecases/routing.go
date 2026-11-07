@@ -57,34 +57,30 @@ func (rs *RoutingService) ShortestPath(
 	startSegId da.Index,
 	useAnnotation bool,
 	useSteps bool,
-) (float64, float64, string, []da.DrivingDirection, bool, error) {
+) (float64, float64, string, []da.RouteStep, bool, error) {
 	var (
 		travelTime, dist  float64
-		pathCoords        *da.Coordinates
+		pathPolyline      string
 		segmentPath       []da.Index
 		found             bool
-		drivingDirections []da.DrivingDirection
+		drivingDirections []da.RouteStep
 	)
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startSegId)
 
 	if rs.notFoundOriginDestinationWithinRadius(sp, tp) {
-		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
+		return 0, 0, "", []da.RouteStep{}, false, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
 			"no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 
 	if !rs.isSameSourceDestinationSegment(sp, tp) {
-		travelTime, dist, pathCoords, segmentPath, found = rs.engine.ShortestPathSearch(sp, tp, reroute)
+		travelTime, dist, pathPolyline, segmentPath, found = rs.engine.ShortestPathSearch(sp, tp, reroute)
 	}
 
 	if !found {
-		return 0, 0, "", []da.DrivingDirection{}, false, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
+		return 0, 0, "", []da.RouteStep{}, false, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
 			"no route found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
-
-	travelTime, dist = rs.AppendPhantomNodesToPath(pathCoords, sp, tp, travelTime, dist)
-
-	pathPolyline := da.GooglePoylineFromCoords(*pathCoords)
 
 	if useSteps {
 		directionBuilder := guidance.NewDirectionBuilder(
@@ -109,7 +105,7 @@ func (rs *RoutingService) AlternativeRouteSearch(
 	startSegId da.Index,
 	useAnnotation bool,
 	useSteps bool,
-) ([]float64, []float64, []string, [][]da.DrivingDirection, error) {
+) ([]float64, []float64, []string, [][]da.RouteStep, error) {
 
 	sp, tp := rs.SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigLon, qDstLat, qDstLon, reroute, startSegId)
 
@@ -118,27 +114,19 @@ func (rs *RoutingService) AlternativeRouteSearch(
 			"no nearby road segments found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 
-	routeCosts, routeDists, routeSegmentPathCoords, routePaths, found := rs.engine.ShortestPathWithAlternativesSearch(sp, tp, k, reroute, startSegId)
+	routeCosts, routeDists, routePolylines, routePaths, found := rs.engine.ShortestPathWithAlternativesSearch(sp, tp, k, reroute, startSegId)
 	if !found {
 		return routing.EmptyCost, routing.EmptyCost, routing.EmptyPolylines, routing.EmptyDrivingDirections, util.WrapErrorf(ErrPathNotFound, util.ErrBadParamInput,
 			"no route found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 	n := len(routeCosts)
-	routePolylines := make([]string, n)
-	routeDrivingDirections := make([][]da.DrivingDirection, n)
+	// routePolylines := make([]string, n)
+	routeDrivingDirections := make([][]da.RouteStep, n)
 	for i := 0; i < n; i++ {
-		var drivingDirections []da.DrivingDirection
-
-		rPathCoords := routeSegmentPathCoords[i]
-		rCost := routeCosts[i]
-		rDist := routeDists[i]
+		var drivingDirections []da.RouteStep
 		rPath := routePaths[i]
-		newCost, dist := rs.AppendPhantomNodesToPath(rPathCoords, sp, tp, rCost, rDist)
-		routeCosts[i] = newCost // in seconds
-		routeDists[i] = dist
+		// newCost, dist := rs.AppendPhantomNodesToPath(rPathCoords, sp, tp, rCost, rDist)
 
-		pathPolyline := da.GooglePoylineFromCoords(*rPathCoords)
-		routePolylines[i] = pathPolyline
 		if useSteps {
 			directionBuilder := guidance.NewDirectionBuilder(
 				rs.engine.GetGraph(), rs.rn, rs.engine.GetMetrics(), rs.lefthandDriving,
@@ -159,31 +147,6 @@ func (rs *RoutingService) AlternativeRouteSearch(
 func (rs *RoutingService) Close() {
 	rs.turnSignCache.InvalidateAll()
 	rs.turnSignCache.StopAllGoroutines()
-}
-
-// AppendPhantomNodesToPath appends phantom nodes to path.
-func (rs *RoutingService) AppendPhantomNodesToPath(path *da.Coordinates, sp, tp da.PhantomNode, travelTime float64, dist float64) (float64, float64) {
-
-	if !rs.isSameSourceDestinationSegment(sp, tp) {
-		spgeom := sp.ForwardGeometry()
-		path.Prepend(append([]da.Coordinate{sp.SnappedCoord()}, spgeom...))
-	} else {
-		path.Prepend([]da.Coordinate{sp.SnappedCoord()})
-	}
-	travelTime -= sp.ForwardCost() // by default pakai edge-based graph, hasil router added duration/travelTime dari road segment s
-	dist += sp.ForwardDistance()   // kita gak tambahin distance dari projected s ke head dari road segment s di GetSegmentPath()
-
-	if !rs.isSameSourceDestinationSegment(sp, tp) {
-		path.Append(tp.ReverseGeometry())
-		path.AppendCoordinate(tp.SnappedCoord())
-	} else {
-		path.AppendCoordinate(tp.SnappedCoord())
-	}
-
-	travelTime += tp.ReverseCost() // by default pakai edge-based graph, hasil router gak add duration/travelTime dari road segment t
-	dist += tp.ReverseDistance()   // kita gak tambahin distance dari projected t ke head dari road segment t di GetSegmentPath()
-
-	return travelTime, dist
 }
 
 // GetRoutingEngine returns routing engine.
@@ -211,26 +174,24 @@ func (rs *RoutingService) InitBackgroundWorker(ctx context.Context) {
 }
 
 // OfflineMapMatch handles offline map matching.
-func (rs *RoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate, error) {
+func (rs *RoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, string, error) {
 	if util.IsTimeout(ctx) {
-		return nil, nil, ctx.Err()
+		return nil, "", ctx.Err()
 	}
 
 	rt, ok := rs.spatialIndex.(*spatialindex.Rtree)
 	if !ok {
-		return nil, nil, fmt.Errorf("spatial index is not of type *spatialindex.Rtree")
+		return nil, "", fmt.Errorf("spatial index is not of type *spatialindex.Rtree")
 	}
 
 	re, ok := rs.engine.(*routing.CRPRoutingEngine[int32])
 	if !ok {
-		return nil, nil, fmt.Errorf("routing engine is not of type *routing.CRPRoutingEngine")
+		return nil, "", fmt.Errorf("routing engine is not of type *routing.CRPRoutingEngine")
 	}
 
 	hmm := offline.NewHiddenMarkovModelMapMatching(rs.graph, re, rt)
-	var matchedPoints []*da.MatchedGPSPoint
-	var routePath []da.FloatCoordinate
 
-	matchedPoints, routePath = hmm.MapMatchWithGPSRadiuses(gpsTraj, gpsRadiusesM)
+	matchedPoints, routePath := hmm.MapMatchWithGPSRadiuses(gpsTraj, gpsRadiusesM)
 
 	return matchedPoints, routePath, nil
 }

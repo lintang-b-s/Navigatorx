@@ -11,18 +11,12 @@ import (
 // OverlayVertex represents an overlay vertex information.
 // Each overlay vertex corresponds to either an entry point or an exit point of a cell in some level.
 type OverlayVertex struct {
+	cellNumber            Pv      // cell number of this overlay vertex. cellNumber = 64 bit uint with rightmost contain level 0 cellNumber, and to the left contain higher level cellNumber
 	vId                   Index   // original vertex id
 	neighborOverlayVertex Index   // overlay vertex id that on another cell and incident to cutEdge. can be a head if this overlay vertex is an exit point, or can be a tail if this overlay vertex is an entry point.
-	cellNumber            Pv      // cell number of this overlay vertex. cellNumber = 64 bit uint with rightmost contain level 0 cellNumber, and to the left contain higher level cellNumber
 	cutEdge               Index   // original index to outEdge(this overlay vertex is an exit point)/inEdge(this overlay vertex is an entry point) that incident to this overlay vertex
 	entryExitPoint        []Index // stores for each level l on which this vertex is an overlay vertex (entry/exit point index in its cell on level l). index = level-l
 	// entryExitPoint used in overlaygraph.overlayIdMapping. to get the overlay vertex id in overlayGraph.overlayIdMapping, use key = cell.overlayIdOffset + entryExitPoint + (if exit point then + cell.numEntryPoints)
-}
-
-// GetEntryExitPoint returns entry exit point of a boundary/overlay vertex at level-l.
-// level-l is 1-based indexing
-func (ov OverlayVertex) GetEntryExitPoint(l int) Index {
-	return ov.entryExitPoint[l-1]
 }
 
 // GetEntryPointSize returns entry point size.
@@ -138,6 +132,21 @@ func (og *OverlayGraph) build(graph *Graph, numberOfLevels uint8) {
 	og.buildCells(numberOfLevels, exitFlagArray)
 }
 
+// GetVertex returns boundary/overlay vertex u.
+func (og *OverlayGraph) GetVertex(u Index) OverlayVertex {
+	return og.overlayVertices[u]
+}
+
+// GetVertexData returns boundary/overlay vertex u data.
+func (og *OverlayGraph) GetVertexData(u Index) (Index, Pv) {
+	return og.overlayVertices[u].vId, og.overlayVertices[u].cellNumber
+}
+
+// GetVertexNeighbor returns graph vertex id, cut edge (u,v) v vertex, cut edge (u,v), and cell number of overlay vertex u
+func (og *OverlayGraph) GetVertexNeighbor(u Index) (Index, Index) {
+	return og.overlayVertices[u].neighborOverlayVertex, og.overlayVertices[u].cutEdge
+}
+
 // GetLevelData returns level data.
 func (og *OverlayGraph) GetLevelData() *LevelData {
 	return og.levelData
@@ -192,7 +201,7 @@ func (og *OverlayGraph) GetNumOfOverlayVerticesOfCell(cellNumber Pv, level uint8
 	return cell.numOfOverlayVertices
 }
 
-// QueryLevel get query level of vertex v.
+// QueryLevel get query level (1-indexed) of vertex v.
 // highest level s.t. vertex v is not at the same cell as s or t
 func (og *OverlayGraph) QueryLevel(sCellNumber, tCellNumber, vCellNumber Pv) uint8 {
 	return og.levelData.QueryLevel(sCellNumber, tCellNumber, vCellNumber)
@@ -213,11 +222,6 @@ func (og *OverlayGraph) GetOverlayIdMapping() []Index {
 	return og.overlayIdMapping
 }
 
-// GetVertex returns boundary/overlay vertex u.
-func (og *OverlayGraph) GetVertex(u Index) OverlayVertex {
-	return og.overlayVertices[u]
-}
-
 // GetCellEntry returns cell entry vertex by its entryPoint index.
 func (og *OverlayGraph) GetCellEntry(cell Cell, entryPointIndex Index) Index {
 	return og.overlayIdMapping[cell.overlayIdOffset+entryPointIndex]
@@ -233,6 +237,13 @@ func (og *OverlayGraph) GetCell(cellNumber Pv, l int) Cell {
 	cn := og.levelData.GetCellNumberOnLevel(cellNumber, uint8(l))
 	cell := og.cellMapping[l-1][cn]
 	return cell
+}
+
+// GetCellData returns cell number of entry vertices, number of exit vertices, cell offset, and overlay vertex id offset.
+func (og *OverlayGraph) GetCellData(cellNumber Pv, l int) (Index, Index, Index, Index) {
+	cn := og.levelData.GetCellNumberOnLevel(cellNumber, uint8(l))
+	cell := og.cellMapping[l-1][cn]
+	return cell.numEntryPoints, cell.numExitPoints, cell.cellOffset, cell.overlayIdOffset
 }
 
 // buildOverlayVertices implements building overlay graph described in section 5.1 Metric-Independent Preprocessing - Overlay Topology: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
@@ -542,10 +553,24 @@ func (og *OverlayGraph) buildCells(numberOfLevels uint8, exitFlagsArray []bool) 
 	og.shortcutWeightsSize = uint32(shorcutsWeightSize) // size of  one-dimensional weight array W.
 }
 
-// ForOutNeighborsOf iterates over all outgoing-shotcut-edges of u
-func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Index, wOffset Index)) {
+// GetShortcutWeightId returns shortcut weight id.
+func (og *OverlayGraph) GetShortcutWeightId(entryVertexId, exitVertexId Index, queryLevel int) Index {
+	entryVertex := og.GetVertex(entryVertexId)
+	exitVertex := og.GetVertex(exitVertexId)
 
-	entryPoint := og.overlayVertices[u].GetEntryExitPoint(level)
+	entryPoint := entryVertex.entryExitPoint[queryLevel-1]
+	exitPoint := exitVertex.entryExitPoint[queryLevel-1]
+
+	cell := og.GetCell(entryVertex.GetCellNumber(), queryLevel)
+	weightOffset := cell.GetCellOffset() + entryPoint*cell.GetNumExitPoints()
+
+	return weightOffset + exitPoint
+}
+
+// ForOutNeighborsOf iterates over all outgoing-shotcut-edges of u
+func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Index, seId Index)) {
+
+	entryPoint := og.overlayVertices[u].entryExitPoint[level-1]
 	cell := og.GetCell(og.overlayVertices[u].GetCellNumber(), level)
 	weightOffset := cell.GetCellOffset() + entryPoint*cell.GetNumExitPoints()
 	overlayIdOffset := cell.GetOverlayIdOffset() + cell.GetNumEntryPoints()
@@ -555,55 +580,28 @@ func (og *OverlayGraph) ForOutNeighborsOf(u Index, level int, handle func(v Inde
 	}
 }
 
-// ForInNeighborsOf iterates over all incoming-shortcut-edges of v
-func (og *OverlayGraph) ForInNeighborsOf(v Index, level int, handle func(v Index, wOffset Index)) {
-	exitPoint := og.overlayVertices[v].GetEntryExitPoint(level)
-	cell := og.GetCell(og.overlayVertices[v].GetCellNumber(), level)
-	weightOffset := cell.GetCellOffset() + exitPoint
-	overlayIdOffset := cell.GetOverlayIdOffset()
-	for i := Index(0); i < Index(cell.GetNumEntryPoints()); i++ {
-		handle(og.overlayIdMapping[overlayIdOffset+i], weightOffset+i*cell.GetNumExitPoints())
-	}
-}
-
-// GetShortcutWeightId returns shortcut weight id.
-func (og *OverlayGraph) GetShortcutWeightId(entryVertexId, exitVertexId Index, queryLevel int) Index {
-	entryVertex := og.GetVertex(entryVertexId)
-	exitVertex := og.GetVertex(exitVertexId)
-
-	entryPoint := entryVertex.GetEntryExitPoint(queryLevel)
-	exitPoint := exitVertex.GetEntryExitPoint(queryLevel)
-
-	cell := og.GetCell(entryVertex.GetCellNumber(), queryLevel)
-	weightOffset := cell.GetCellOffset() + entryPoint*cell.GetNumExitPoints()
-
-	return weightOffset + exitPoint
-}
-
 // NumOfOutShortcuts returns number of outgoing shortcut edges from boundary/overlay vertex u.
 func (og *OverlayGraph) NumOfOutShortcuts(u Index, level int) (Index, Index, Index) {
-	entryPoint := og.overlayVertices[u].GetEntryExitPoint(level)
+	entryPoint := og.overlayVertices[u].entryExitPoint[level-1]
 	cell := og.GetCell(og.overlayVertices[u].cellNumber, level)
 	weightOffset := cell.cellOffset + entryPoint*cell.numExitPoints
 	overlayIdOffset := cell.overlayIdOffset + cell.numEntryPoints
-	num := Index(cell.GetNumExitPoints())
-	return overlayIdOffset, weightOffset, num
+	eNum := Index(cell.GetNumExitPoints())
+	return overlayIdOffset, weightOffset, eNum
 }
 
 // NumOfShortcuts returns number of outgoing or incoming (reversed) shortcut edges from boundary/overlay vertex u depended on out boolean value.
 func (og *OverlayGraph) NumOfShortcuts(u Index, level int, out bool) (Index, Index, Index, Index) {
-	cell := og.GetCell(og.overlayVertices[u].cellNumber, level)
-	numExit := cell.numExitPoints
-	numEntry := cell.numEntryPoints
+	// cell := og.GetCell(og.overlayVertices[u].cellNumber, level)
+	numEntry, numExit, cellOffset, overlayIdOffset := og.GetCellData(og.overlayVertices[u].cellNumber, level)
 	if out {
-		entryPoint := og.overlayVertices[u].GetEntryExitPoint(level)
-		weightOffset := cell.cellOffset + entryPoint*cell.numExitPoints
-		overlayIdOffset := cell.overlayIdOffset + cell.numEntryPoints
+		entryPoint := og.overlayVertices[u].entryExitPoint[level-1]
+		weightOffset := cellOffset + entryPoint*numExit
+		overlayIdOffset := overlayIdOffset + numEntry
 		return overlayIdOffset, weightOffset, numExit, 1
 	}
-	exitPoint := og.overlayVertices[u].GetEntryExitPoint(level)
-	weightOffset := cell.cellOffset + exitPoint
-	overlayIdOffset := cell.overlayIdOffset
+	exitPoint := og.overlayVertices[u].entryExitPoint[level-1]
+	weightOffset := cellOffset + exitPoint
 	return overlayIdOffset, weightOffset, numEntry, numExit
 }
 

@@ -2,6 +2,7 @@
 package offline
 
 import (
+	"iter"
 	"math"
 	"sort"
 
@@ -67,18 +68,18 @@ on Advances in Geographic Information Systems (GIS ‘09), pp.336–343.
 
 evaluation/tests suite di: tests/mapmatching/ (cari yang ada nama Offline di test funtions nya)
 */
-func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate) {
+func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, string) {
 
 	if len(gpsTraj) == 0 {
-		return []*da.MatchedGPSPoint{}, []da.FloatCoordinate{}
+		return []*da.MatchedGPSPoint{}, ""
 	}
 	if len(gpsRadiusesM) != len(gpsTraj) {
-		return []*da.MatchedGPSPoint{}, []da.FloatCoordinate{}
+		return []*da.MatchedGPSPoint{}, ""
 	}
 
 	candidates, numberOfStates := h.projectAllGpsWithRadiuses(gpsTraj, gpsRadiusesM)
 	if numberOfStates == 0 {
-		return []*da.MatchedGPSPoint{}, []da.FloatCoordinate{}
+		return []*da.MatchedGPSPoint{}, ""
 	}
 
 	allowUTurns := h.buildAllowUturnSlice(gpsTraj)
@@ -237,7 +238,7 @@ func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 	var (
 		prevMatchedCand  *ma.Candidate
 		prevGps          *da.GPSPoint
-		matchedRoutePath da.Coordinates
+		matchedRoutePath string
 	)
 
 	for i, p := range path {
@@ -271,14 +272,13 @@ func (h *HMM) MapMatchWithGPSRadiuses(gpsTraj []*da.GPSPoint, gpsRadiusesM []flo
 			}
 
 			path := route.path
-			matchedRoutePath = appendRoutePath(matchedRoutePath, path)
+			matchedRoutePath += path
 			prevMatchedCand = s
 			prevGps = gps
 		}
 	}
 
-	fp := matchedRoutePath.ToFloatCoordinates()
-	return mapMatchingResult, fp
+	return mapMatchingResult, matchedRoutePath
 }
 
 // buildAllowUturnSlice. allowUTurns slice. allowUTurns[i] true jika gpsTraj[i] kemungkinan jadi titik u-turn
@@ -464,7 +464,7 @@ func (h *HMM) calcTransitionProb(param calcTransitionProbParam) transitionWithPr
 type transitionRoute struct {
 	distance   float64
 	travelTime float64
-	path       da.Coordinates
+	path       string
 }
 
 func (h *HMM) newPhantomNodeFromCandidate(cand *ma.Candidate) da.PhantomNode {
@@ -549,6 +549,32 @@ func (h *HMM) isReversedEdge(e1, e2 da.Index) bool {
 	return e1Tail == e2Head && e1Head == e2Tail
 }
 
+func forPhantomNodesCoordinates(sp, tp da.PhantomNode) iter.Seq[da.Coordinate] {
+	return func(yield func(da.Coordinate) bool) {
+		c := sp.SnappedCoord()
+		if !yield(c) {
+			return
+		}
+
+		for _, c = range sp.ForwardGeometry() {
+			if !yield(c) {
+				return
+			}
+		}
+
+		for _, c = range tp.ReverseGeometry() {
+			if !yield(c) {
+				return
+			}
+		}
+
+		c = tp.SnappedCoord()
+		if !yield(c) {
+			return
+		}
+	}
+}
+
 func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode, allowUTurn bool) (transitionRoute, bool) {
 	next := false
 	h.graph.ForOutEdgesOf(sp.GetVId(), func(_ da.Index, head da.Index, _ uint8) {
@@ -560,11 +586,8 @@ func (h *HMM) handleDestinationSegmentNextToSourceSegment(sp, tp da.PhantomNode,
 		return transitionRoute{}, false
 	}
 
-	path := make([]da.Coordinate, 0, len(sp.ForwardGeometry())+len(tp.ReverseGeometry())+2)
-	path = appendRoutePath(path, []da.Coordinate{sp.SnappedCoord()})
-	path = appendRoutePath(path, sp.ForwardGeometry())
-	path = appendRoutePath(path, tp.ReverseGeometry())
-	path = appendRoutePath(path, []da.Coordinate{tp.SnappedCoord()})
+	n := sp.ForwardGeometrySize() + tp.ReverseGeometrySize() + 2
+	path := da.GooglePolylineFromCoords(forPhantomNodesCoordinates(sp, tp), n)
 
 	nextSegmentDur := sp.ForwardDistance() + tp.ReverseDistance()
 	nextSegmentDist := sp.ForwardDistance() + tp.ReverseDistance()
@@ -669,26 +692,10 @@ func (h *HMM) shortestPathDistance(sp, tp da.PhantomNode, deltaTimeSeconds float
 
 	routeDistance := sp.ForwardDistance() + tp.ReverseDistance()
 
-	finalPath, totalDistance := h.re.GetSegmentPath(segmentPath)
+	path, totalDistance, travelTime := h.re.GetSegmentPath(segmentPath, sp, tp, travelTime)
 	routeDistance += totalDistance
 
-	path := make([]da.Coordinate, 0, len(sp.ForwardGeometry())+len(*finalPath)+len(tp.ReverseGeometry())+2)
-	path = appendRoutePath(path, []da.Coordinate{sp.SnappedCoord()})
-	path = appendRoutePath(path, sp.ForwardGeometry())
-	path = appendRoutePath(path, *finalPath)
-	path = appendRoutePath(path, tp.ReverseGeometry())
-	path = appendRoutePath(path, []da.Coordinate{tp.SnappedCoord()})
-
 	return transitionRoute{distance: routeDistance, travelTime: travelTime, path: path}, true
-}
-
-func appendRoutePath(path da.Coordinates, segment da.Coordinates) da.Coordinates {
-	for _, coord := range segment {
-		if len(path) == 0 || !da.IsSameCoordinate(path[len(path)-1], coord) {
-			path = append(path, coord)
-		}
-	}
-	return path
 }
 
 func (h *HMM) projectAllCandidates(gps *da.GPSPoint, candidates []*ma.Candidate) {

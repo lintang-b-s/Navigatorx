@@ -2,6 +2,7 @@
 package routing
 
 import (
+	"iter"
 	"log"
 	"runtime"
 	"sync"
@@ -23,10 +24,13 @@ type CRPRoutingEngine[W util.Numeric] struct {
 	metrics      *met.Metric[W]
 	lm           *landmark.Landmark[W]
 	logger       *zap.Logger
-	puCache      *otter.Cache[da.PUCacheKey, []da.Index]
+	puCache      *otter.Cache[uint64, []da.Index]
 
-	fHeapPool  sync.Pool
-	bHeapPool  sync.Pool
+	fHeapPool sync.Pool
+	bHeapPool sync.Pool
+
+	uniHeapPool sync.Pool
+
 	puHeapPool sync.Pool
 
 	puovHeapPool sync.Pool
@@ -54,7 +58,7 @@ type CRPRoutingEngine[W util.Numeric] struct {
 // NewCRPRoutingEngine creates and returns CRP routing engine.
 func NewCRPRoutingEngine[W util.Numeric](graph *da.Graph,
 	overlayGraph *da.OverlayGraph, metrics *met.Metric[W],
-	logger *zap.Logger, puCache *otter.Cache[da.PUCacheKey, []da.Index],
+	logger *zap.Logger, puCache *otter.Cache[uint64, []da.Index],
 	landmarkFile string, rn *da.RoadNetworkDataContainer,
 ) *CRPRoutingEngine[W] {
 	var err error
@@ -151,23 +155,28 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 		},
 	}
 
+	crp.uniHeapPool = sync.Pool{
+		New: func() any {
+			qh := da.NewQueryHeap[da.QueryKey, W](crpMaxSearchSize, approxMaxExploredSize, da.ArrayStorageUniMode)
+			qh.SetIsCRPQuery()
+			return qh
+		},
+	}
+
 	// path unpacking heap pool
 	crp.puovHeapPool = sync.Pool{
 		New: func() any {
-
 			return da.NewQueryHeap[da.Index, W](da.Index(numOverlayVertices), approxMaxExploredSize, da.ArrayStorageMode)
 		},
 	}
 
 	crp.puHeapPool = sync.Pool{
 		New: func() any {
-
 			pq := da.NewQueryHeap[da.Index, W](da.Index(maxVerticesInCell), approxMaxExploredSize, da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},
 	}
-
 }
 
 func (crp *CRPRoutingEngine[W]) initParameter() {
@@ -221,20 +230,20 @@ func (crp *CRPRoutingEngine[W]) Close() {
 }
 
 // ShortestPathSearch compute the point-to-point fastest path.
-func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool) {
-	crpQuery := NewCRPALTQuery(crp)
+func (crp *CRPRoutingEngine[W]) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, string, []da.Index, bool) {
+	crpQuery := NewCRPUniALTQuery(crp)
 	if reroute {
 		crpQuery.SetReroute()
 	}
 	s := sp.GetVId()
 	t := tp.GetVId()
 	cost, segmentPath, found := crpQuery.ShortestPathSearch(s, t)
-	segmentPathCoords, dist := crp.GetSegmentPath(segmentPath)
-	return util.WeightToSeconds(cost), dist, segmentPathCoords, segmentPath, found
+	routePolyline, totalDist, totalCost := crp.GetSegmentPath(segmentPath, sp, tp, float64(cost))
+	return util.WeightToSeconds(totalCost), totalDist, routePolyline, segmentPath, found
 }
 
 // ShortestPathWithAlternativesSearch finds path with alternatives search.
-func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, _ da.Index) ([]float64, []float64, []*da.Coordinates, [][]da.Index, bool) {
+func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, _ da.Index) ([]float64, []float64, []string, [][]da.Index, bool) {
 	crpQuery := NewCRPQuery(crp) // better via-vertices
 	s := sp.GetVId()
 	t := tp.GetVId()
@@ -251,53 +260,75 @@ func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.Pha
 	if !found {
 		return EmptyCost, EmptyCost, EmptyCoordsRoutes, EmptyIndexSetRoutes, false
 	}
-	optSegmentPathCoords, optDist := crp.GetSegmentPath(optPath)
 
-	optCost := util.WeightToSeconds(cost)
+	optRoutePolyline, optDist, optCost := crp.GetSegmentPath(optPath, sp, tp, float64(cost))
+	optCost = util.WeightToSeconds(optCost)
 	alts, _ := ars.ComputeAlternativeRoutes(s, t, k, reroute, optCost, optPath, crpQuery, param)
 
 	n := len(alts) + 1
 	var (
-		routeCosts             = make([]float64, n)
-		routeDists             = make([]float64, n)
-		routeSegmentPathCoords = make([]*da.Coordinates, n)
-		routePaths             = make([][]da.Index, n)
+		routeCosts     = make([]float64, n)
+		routeDists     = make([]float64, n)
+		routePolylines = make([]string, n)
+		routePaths     = make([][]da.Index, n)
 	)
 	routeCosts[0] = optCost
 	routeDists[0] = optDist
-	routeSegmentPathCoords[0] = optSegmentPathCoords
+	routePolylines[0] = optRoutePolyline
 	routePaths[0] = optPath
 
 	for i, alt := range alts {
 		j := i + 1
-		routeCosts[j] = alt.GetTravelTime()
-		routeDists[j] = alt.GetDist()
-		routeSegmentPathCoords[j] = alt.GetCoords()
+		altPolyline, altDist, altCost := crp.GetSegmentPath(alt.GetSegmentPath(), sp, tp, alt.GetTravelTime())
+		routeCosts[j] = altCost
+		routeDists[j] = altDist
+		routePolylines[j] = altPolyline
 		routePaths[j] = alt.GetSegmentPath()
 	}
-	return routeCosts, routeDists, routeSegmentPathCoords, routePaths, true
+	return routeCosts, routeDists, routePolylines, routePaths, true
 }
 
 // GetSegmentPath returns  full coordinates path of the fastest path.
-func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index) (*da.Coordinates, float64) {
+func (crp *CRPRoutingEngine[W]) GetSegmentPath(segmentIdPath []da.Index, sp, tp da.PhantomNode, cost float64) (string, float64, float64) {
 
-	totalDistance := 0.0
+	dist := 0.0
 	n := len(segmentIdPath)
-	size := da.Index(0)
-	for i := 1; i < n-1; i++ { // skip road segments s & t. (kita append path nya di AppendPhantomNode)
-		segId := segmentIdPath[i]
-		size += crp.rn.GetSegmentGeometryLength(segId)
-	}
-	path := da.NewCoordinatesWithCap(int(size))
 
+	cCount := 0
 	met := crp.GetMetrics()
 	for i := 1; i < n-1; i++ { // skip road segments s & t. (kita append path nya di AppendPhantomNode)
 		segId := segmentIdPath[i]
-		crp.rn.AppendSegmentGeometry(segId, path)
-		totalDistance += met.GetSegmentLength(segId)
+		dist += met.GetSegmentLength(segId)
+		cCount += int(crp.rn.GetSegmentGeometryLength(segId))
 	}
+	cCount = cCount + sp.ForwardGeometrySize() + tp.ReverseGeometrySize() + 2
 
-	return path, totalDistance
+	totalCost, totalDistance := crp.appendPhantomNodesToPath(sp, tp, cost, dist)
+	routeCoords := crp.forPathCoordinates(segmentIdPath, sp, tp)
+	routePolyline := da.GooglePolylineFromCoords(routeCoords, cCount)
+	return routePolyline, totalDistance, totalCost
+}
+
+func (crp *CRPRoutingEngine[W]) forPathCoordinates(segmentIdPath []da.Index, sp, tp da.PhantomNode) iter.Seq[da.Coordinate] {
+	sameSegment := isSameSourceDestinationSegment(sp, tp)
+	return func(yield func(da.Coordinate) bool) {
+		crp.rn.YieldFullRouteCoordinates(segmentIdPath, sp, tp, sameSegment, yield)
+	}
+}
+
+func (crp *CRPRoutingEngine[W]) appendPhantomNodesToPath(sp, tp da.PhantomNode, cost float64, dist float64) (float64, float64) {
+
+	cost -= sp.ForwardCost()     // by default pakai edge-based graph, hasil router added duration/cost dari road segment s
+	dist += sp.ForwardDistance() // kita gak tambahin distance dari projected s ke head dari road segment s di GetSegmentPath()
+
+	cost += tp.ReverseCost()     // by default pakai edge-based graph, hasil router gak add duration/cost dari road segment t
+	dist += tp.ReverseDistance() // kita gak tambahin distance dari projected t ke head dari road segment t di GetSegmentPath()
+
+	return cost, dist
+}
+
+func isSameSourceDestinationSegment(sp, tp da.PhantomNode) bool {
+	return sp.GetVId() == tp.GetVId()
 }
 
 // GetV returns head vertex v of edge (u,v) (or reversed edge (u,v)).
@@ -308,7 +339,7 @@ func (crp *CRPRoutingEngine[W]) GetV(eId da.Index, out bool) da.Index {
 	return crp.graph.GetTail(eId)
 }
 
-// GetOV returns overlay vertex at specified id.
+// GetOV returns boundary/overlay vertex at specified id.
 func (crp *CRPRoutingEngine[W]) GetOV(ovOffset, wOffset, numExit, i da.Index, out bool) (da.Index, da.Index) {
 	if out {
 		v := crp.overlayGraph.GetCellExitVertex(ovOffset + i)

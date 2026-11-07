@@ -15,8 +15,8 @@ func TestDTOS(t *testing.T) {
 	t.Run("NewDrivingDirection", func(t *testing.T) {
 		ins := da.Instruction{}
 		ins.SetSuggestAlternatives(true)
-		ann := da.NewAnnotation([]float64{}, []float64{}, da.Coordinates{}, []da.Index{})
-		d := da.NewDrivingDirection(ins, "turn left", 60.0, 100.0, []da.Index{1}, 90.0, ann)
+		ann := da.NewAnnotation([]float64{}, []float64{}, "", []uint32{})
+		d := da.NewRouteStep(ins, "turn left", 60.0, 100.0, []da.Index{1}, 90.0, ann)
 
 		dd := NewDrivingDirection(d, true)
 		assert.Equal(t, "turn left", dd.Instruction)
@@ -28,13 +28,13 @@ func TestDTOS(t *testing.T) {
 
 	t.Run("NewAlternativeRoutesResponse", func(t *testing.T) {
 		ins := da.Instruction{}
-		ann := da.NewAnnotation([]float64{}, []float64{}, da.Coordinates{}, []da.Index{})
+		ann := da.NewAnnotation([]float64{}, []float64{}, "", []uint32{})
 		routeCosts := []float64{120.0}
 		routeDists := []float64{2000.0}
 		routePolylines := []string{testPolyline}
-		routeDrivingDirections := [][]da.DrivingDirection{
+		routeDrivingDirections := [][]da.RouteStep{
 			{
-				da.NewDrivingDirection(ins, "continue", 30.0, 50.0, []da.Index{1}, 0.0, ann),
+				da.NewRouteStep(ins, "continue", 30.0, 50.0, []da.Index{1}, 0.0, ann),
 			},
 		}
 

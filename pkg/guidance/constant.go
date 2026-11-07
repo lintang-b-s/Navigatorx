@@ -1,5 +1,7 @@
 package guidance
 
+import da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
+
 const (
 	// RelativeBearingUTurn is the relative bearing uturn value.
 	RelativeBearingUTurn float64 = 100.0
@@ -20,4 +22,6 @@ const (
 
 	// UTurnRelativeBearingMax is the uturn relative bearing max value.
 	UTurnRelativeBearingMax float64 = 185
+
+	ignoreTurnSignCacheVal = uint64(da.IGNORE) | uint64(da.InvalidStreetNameId)<<8
 )

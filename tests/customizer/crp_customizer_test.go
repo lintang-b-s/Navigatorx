@@ -47,7 +47,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 	// https://visualgo.net/en/sssp
 
 	bitpack := func(i, j da.Index) uint64 {
-		return uint64(i) | (uint64(j) << 30)
+		return uint64(i) | (uint64(j) << 32)
 	}
 
 	testCases := []struct {
@@ -444,7 +444,6 @@ func TestCRPCustomizerSimple(t *testing.T) {
 					if !util.Eq(gotVlwDist, expectedVlwDist) {
 						t.Errorf("expected shortest path cost from vertex %v to landmarkId %v: %v, got: %v", v, landmarkId, expectedVlwDist, gotVlwDist)
 					}
-
 				}
 			}
 		})

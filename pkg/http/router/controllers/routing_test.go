@@ -118,7 +118,7 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.InvalidSegmentId, false, true).
-			Return(100.0, 1000.0, "polyline", []da.DrivingDirection{}, true, nil)
+			Return(100.0, 1000.0, "polyline", []da.RouteStep{}, true, nil)
 
 		api.shortestPath(rr, req, nil)
 
@@ -133,7 +133,7 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, true, da.Index(1), false, true).
-			Return(100.0, 1000.0, "polyline", []da.DrivingDirection{}, true, nil)
+			Return(100.0, 1000.0, "polyline", []da.RouteStep{}, true, nil)
 
 		api.shortestPath(rr, req, nil)
 
@@ -147,7 +147,7 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.InvalidSegmentId, false, true).
-			Return(0.0, 0.0, "", []da.DrivingDirection{}, false, errors.New("internal error"))
+			Return(0.0, 0.0, "", []da.RouteStep{}, false, errors.New("internal error"))
 
 		api.shortestPath(rr, req, nil)
 
@@ -161,7 +161,7 @@ func TestRoutingAPI_ShortestPath(t *testing.T) {
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.InvalidSegmentId, false, true).
-			Return(0.0, 0.0, "", []da.DrivingDirection{}, false, nil)
+			Return(0.0, 0.0, "", []da.RouteStep{}, false, nil)
 
 		api.shortestPath(rr, req, nil)
 
@@ -181,7 +181,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 		rr := httptest.NewRecorder()
 
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.InvalidSegmentId, false, true).
-			Return([]float64{100.0}, []float64{1000.0}, []string{testPolyline}, [][]da.DrivingDirection{{}}, nil)
+			Return([]float64{100.0}, []float64{1000.0}, []string{testPolyline}, [][]da.RouteStep{{}}, nil)
 
 		api.shortestPath(rr, req, nil)
 
@@ -195,7 +195,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, true, da.Index(1), false, true).
-			Return([]float64{100.0}, []float64{1000.0}, []string{"polyline"}, [][]da.DrivingDirection{{}}, nil)
+			Return([]float64{100.0}, []float64{1000.0}, []string{"polyline"}, [][]da.RouteStep{{}}, nil)
 
 		api.shortestPath(rr, req, nil)
 
@@ -289,7 +289,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.InvalidSegmentId, false, true).
-			Return([]float64{}, []float64{}, []string{}, [][]da.DrivingDirection{}, errors.New("internal error"))
+			Return([]float64{}, []float64{}, []string{}, [][]da.RouteStep{}, errors.New("internal error"))
 
 		api.shortestPath(rr, req, nil)
 
@@ -302,7 +302,7 @@ func TestRoutingAPI_AlternativeRoutes(t *testing.T) {
 
 		mockRS.ExpectedCalls = nil
 		mockRS.On("AlternativeRouteSearch", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, 3, false, da.InvalidSegmentId, false, true).
-			Return([]float64{}, []float64{}, []string{}, [][]da.DrivingDirection{}, nil)
+			Return([]float64{}, []float64{}, []string{}, [][]da.RouteStep{}, nil)
 
 		api.shortestPath(rr, req, nil)
 
@@ -354,7 +354,7 @@ func TestRoutingAPI_Routes(t *testing.T) {
 	req, _ := http.NewRequest("GET", fmt.Sprintf("/api/computeRoutes?origin_lat=%f&origin_lon=%f&destination_lat=%f&destination_lon=%f", yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon), nil)
 
 	mockRS.On("ShortestPath", req.Context(), yogyakartaOriginLat, yogyakartaOriginLon, yogyakartaDestLat, yogyakartaDestLon, false, da.InvalidSegmentId, false, true).
-		Return(100.0, 1000.0, "polyline", []da.DrivingDirection{}, true, nil)
+		Return(100.0, 1000.0, "polyline", []da.RouteStep{}, true, nil)
 
 	router.ServeHTTP(w, req)
 	assert.Equal(t, http.StatusOK, w.Code)
@@ -521,7 +521,7 @@ func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
 			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
 				return reflect.DeepEqual(gpsRadiusesM, []float64{50, 60})
 			}),
-		).Return([]*da.MatchedGPSPoint{}, []da.FloatCoordinate{}, nil).Once()
+		).Return([]*da.MatchedGPSPoint{}, "route_path", nil).Once()
 
 		api.offlineMapMatching(rr, req, nil)
 
@@ -541,7 +541,7 @@ func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
 			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
 				return reflect.DeepEqual(gpsRadiusesM, []float64{70, 70})
 			}),
-		).Return([]*da.MatchedGPSPoint{}, []da.FloatCoordinate{}, nil).Once()
+		).Return([]*da.MatchedGPSPoint{}, "route_path", nil).Once()
 
 		api.offlineMapMatching(rr, req, nil)
 
@@ -561,7 +561,7 @@ func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
 			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
 				return reflect.DeepEqual(gpsRadiusesM, []float64{5, 5})
 			}),
-		).Return([]*da.MatchedGPSPoint{}, []da.FloatCoordinate{}, nil).Once()
+		).Return([]*da.MatchedGPSPoint{}, "route_path", nil).Once()
 
 		api.offlineMapMatching(rr, req, nil)
 
@@ -581,7 +581,7 @@ func TestRoutingAPI_OfflineMapMatching(t *testing.T) {
 			mock.MatchedBy(func(gpsRadiusesM []float64) bool {
 				return reflect.DeepEqual(gpsRadiusesM, []float64{70, 70})
 			}),
-		).Return([]*da.MatchedGPSPoint{}, []da.FloatCoordinate{}, nil).Once()
+		).Return([]*da.MatchedGPSPoint{}, "route_path", nil).Once()
 
 		api.offlineMapMatching(rr, req, nil)
 

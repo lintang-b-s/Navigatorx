@@ -177,15 +177,14 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 	t.Log("calculating shortest paths...\n")
 
+	// CRP+Bidirectional ALT
 	minDist := util.Infinity[int64]()
-
 	lock := sync.Mutex{}
 	calcSp := func(p pair) any {
 		snId := cellToNId(p.first, p.second)
 		sid := oldToNewVIdMap[da.Index(snId)]
 
 		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
-
 		spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
 
 		lock.Lock()
@@ -210,7 +209,42 @@ func SolveShowroom(t *testing.T, filepath string) {
 	workers.Wait()
 	cancel()
 
+	// CRP+ALT
+
+	// CRP+Bidirectional ALT
+	minDistUni := util.Infinity[int64]()
+	lock = sync.Mutex{}
+	calcSpUni := func(p pair) any {
+		snId := cellToNId(p.first, p.second)
+		sid := oldToNewVIdMap[da.Index(snId)]
+
+		crpQueryUni := routing.NewCRPUniALTQuery(re.GetRoutingEngine())
+		spLengthUni, _, _ := crpQueryUni.ShortestPathSearch(sid, tid)
+
+		lock.Lock()
+		defer lock.Unlock()
+		minDistUni = min(minDistUni, spLengthUni)
+		return nil
+	}
+
+	workers = concurrent.NewWorkerPool[pair, any](50, 25_000)
+	ctx, cancel = context.WithCancel(context.Background())
+	workers.StartWithContext(ctx, calcSpUni)
+	go func() {
+		for range workers.CollectResults() {
+		}
+	}()
+
+	for _, p := range pintuUjungs {
+		workers.AddJob(p)
+	}
+
+	workers.Close()
+	workers.Wait()
+	cancel()
+
 	ans := minDist
+	ansUni := minDistUni
 	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600) //nolint:gosec // test file inclusion
 	if err != nil {
 		t.Fatalf("could not open test file: %v", err)
@@ -229,7 +263,14 @@ func SolveShowroom(t *testing.T, filepath string) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+
+	// assert CRP+Bidirectional ALT
 	if !util.Eq(ans, expectedSPLength) {
+		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, ans)
+	}
+
+	// assert CRP+ALT
+	if !util.Eq(ansUni, expectedSPLength) {
 		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, ans)
 	}
 
@@ -238,7 +279,7 @@ func SolveShowroom(t *testing.T, filepath string) {
 
 // please run the test using command: "go test ./tests/shortestpath_crp_alt_without_turn_cost  -run TestShowroomMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
-// selesai dalam 150s
+// selesai dalam ~90s
 func TestShowroomMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/ukiepc2016_showroom/"

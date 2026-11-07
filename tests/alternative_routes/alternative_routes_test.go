@@ -74,7 +74,7 @@ func TestAlternativeRoutes(t *testing.T) {
 			queries := make([]query, 0, n)
 
 			bitpack := func(i, j da.Index) uint64 {
-				return uint64(i) | (uint64(j) << 31)
+				return uint64(i) | (uint64(j) << 32)
 			}
 
 			rd := rand.New(rand.NewSource(time.Now().UnixNano()))

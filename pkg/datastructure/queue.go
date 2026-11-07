@@ -10,7 +10,7 @@ import "slices"
 type Queue[T comparable] struct {
 	s    []T
 	beg  int
-	end  int
+	n    int
 	zero T
 }
 
@@ -27,31 +27,31 @@ func (q *Queue[T]) at(i int) int {
 
 // Push push item to the queue. return false if the circular queue is full.
 func (q *Queue[T]) Push(x T) bool {
-	if q.end == len(q.s) {
+	if q.n == len(q.s) {
 		return false
 	}
-	q.s[q.at(q.end)] = x
-	q.end++
+	q.s[q.at(q.n)] = x
+	q.n++
 	return true
 }
 
 // Pop pop item from the queue. follows First in, First Out. return false is the circular queue is empty.
 func (q *Queue[T]) Pop() (x T, ok bool) {
-	if q.end == 0 {
+	if q.n == 0 {
 		return q.zero, false
 	}
 	x, q.s[q.beg] = q.s[q.beg], q.zero
 	q.beg = q.at(1)
-	q.end--
+	q.n--
 	return x, true
 }
 
 // Values return remaining items in queue.
 func (q *Queue[T]) Values() (xs []T) {
-	if q.end == 0 {
+	if q.n == 0 {
 		return make([]T, 0)
 	}
-	b, e := q.beg, q.at(q.end)
+	b, e := q.beg, q.at(q.n)
 	if b < e {
 		return q.s[b:e]
 	}
@@ -61,15 +61,15 @@ func (q *Queue[T]) Values() (xs []T) {
 
 // IsEmpty returns true if queue is empty.
 func (q *Queue[T]) IsEmpty() bool {
-	return q.end == 0
+	return q.n == 0
 }
 
 // Reset reset the circular queue.
 func (q *Queue[T]) Reset() {
-	if q.end == 0 {
+	if q.n == 0 {
 		return
 	}
 	clear(q.s)
 	q.beg = 0
-	q.end = 0
+	q.n = 0
 }

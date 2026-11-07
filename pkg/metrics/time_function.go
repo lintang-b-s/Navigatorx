@@ -51,16 +51,16 @@ func (tf *TimeFunction[W]) SetTurnCosts(turnCosts []uint16) {
 	tf.turnCosts = turnCosts
 }
 
+// Weight returns edge weight of edge eId.
+func (tf *TimeFunction[W]) Weight(eId da.Index) W {
+	return tf.weights[eId]
+}
+
 // ForWeights iterates over all weights and applies the given handler function.
 func (tf *TimeFunction[W]) ForWeights(handle func(eId da.Index, weight W, length uint32)) {
 	for eId, w := range tf.weights {
 		handle(da.Index(eId), w, tf.segmentLengths[eId])
 	}
-}
-
-// GetWeight returns the weight of the given edge ID.
-func (tf *TimeFunction[W]) GetWeight(eId da.Index) W {
-	return tf.weights[eId]
 }
 
 // Update updates segment durations and turn costs and returns an updated TimeFunction.
@@ -100,14 +100,6 @@ func (tf *TimeFunction[W]) weightFromSpeed(speed uint32, length uint32) W {
 // GetSegmentLength returns road segment lengths in centimeters.
 func (tf *TimeFunction[W]) GetSegmentLength(segId da.Index) uint32 {
 	return tf.segmentLengths[segId]
-}
-
-// GetSegmentSpeed return road segment speed in meter/second
-func (tf *TimeFunction[W]) GetSegmentSpeed(segId da.Index) float64 {
-	dur := float64(tf.segmentDurations[segId])
-	length := float64(tf.segmentLengths[segId])
-	speed := length / dur
-	return speed
 }
 
 // Getweights returns the edge weights slice.

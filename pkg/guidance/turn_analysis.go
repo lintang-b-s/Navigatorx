@@ -28,16 +28,17 @@ ada 4 belokan yang bisa dilakukan dari tail.
 func (db *DirectionBuilder) GetAlternativeTurns(prevSegmentId, segmentId da.Index) (int, []da.Index) {
 	db.alternativeTurns = db.alternativeTurns[:0]
 
-	db.graph.ForOutEdgesOf(prevSegmentId, func(_ da.Index, nSegmentId da.Index, _ uint8) {
-
+	off, eNum := db.graph.NumEdges(prevSegmentId, true)
+	for e := off; e < off+eNum; e++ {
+		nSegmentId := db.graph.GetHead(e)
 		if db.rn.IsParallelVia(nSegmentId) {
-			return
+			continue
 		}
 
 		if nSegmentId != segmentId {
 			db.alternativeTurns = append(db.alternativeTurns, nSegmentId)
 		}
-	})
+	}
 
 	return len(db.alternativeTurns), db.alternativeTurns
 }
@@ -110,7 +111,9 @@ func (db *DirectionBuilder) isStreetMergedSkip(prevSegment, segmentId da.Index, 
 	prevInitBearing := geo.ComputeInitialBearing(prevTail.GetLat(), prevTail.GetLon(), tail.GetLat(),
 		tail.GetLon())
 
-	db.graph.ForOutEdgesOf(prevSegment, func(_, oSegmentId da.Index, _ uint8) {
+	off, eNum := db.graph.NumEdges(prevSegment, true)
+	for e := off; e < off+eNum; e++ {
+		oSegmentId := db.graph.GetHead(e)
 		// todo: ini pas udah ganti ke edge-based graph ada masalah di sini https://www.openstreetmap.org/relation/19206133
 		// harus e di intersection simpang empat purwosari, isStreetMergedSkip=true kalau segmentId di jalan Brigadir jenderal slamet riyadi
 		// tapi karena edge-based graph skip via-node u-turn restriction di relation diatas, kita gak bisa detect otherSegment
@@ -118,7 +121,7 @@ func (db *DirectionBuilder) isStreetMergedSkip(prevSegment, segmentId da.Index, 
 		// kayake ini emang getTurnSign() harus precompute di fase preprocessing, sebelum build edge-based graph??...
 		// kaya osrm ProcessGuidanceTurns di: https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/extractor.cpp ??
 		if oSegmentId == segmentId || oSegmentId == prevSegment {
-			return
+			continue
 		}
 		oStreetName := db.rn.GetStreetName(oSegmentId)
 		oHead := db.GetHeadPoint(oSegmentId, tail, 10)
@@ -132,7 +135,7 @@ func (db *DirectionBuilder) isStreetMergedSkip(prevSegment, segmentId da.Index, 
 			isSameName(prevSegmentStreetName, oStreetName) && !isOSegmentBidirectional {
 			otherSegment = oSegmentId
 		}
-	})
+	}
 
 	if otherSegment == da.InvalidSegmentId {
 		return false
@@ -176,10 +179,11 @@ func (db *DirectionBuilder) isStreetSplitSkip(prevSegment, segmentId da.Index, c
 	}
 
 	otherSegment := da.InvalidSegmentId // inEdge dari tail selain PrevEdge yang mengarah ke tail
-
-	db.graph.ForInEdgesOf(segmentId, func(_, oSegmentId da.Index, _ uint8) {
+	off, eRevNum := db.graph.NumEdges(segmentId, false)
+	for e := off; e < off+eRevNum; e++ {
+		oSegmentId := db.graph.GetTail(e)
 		if oSegmentId == prevSegment {
-			return
+			continue
 		}
 
 		oSegmentName := db.rn.GetStreetName(oSegmentId)
@@ -199,7 +203,7 @@ func (db *DirectionBuilder) isStreetSplitSkip(prevSegment, segmentId da.Index, c
 
 			otherSegment = oSegmentId
 		}
-	})
+	}
 
 	if otherSegment == da.InvalidSegmentId {
 		return false
@@ -243,9 +247,11 @@ func (db *DirectionBuilder) isStreetMerged(prevSegment, segmentId da.Index, curr
 	prevInitBearing := geo.ComputeInitialBearing(prevTail.GetLat(), prevTail.GetLon(), tail.GetLat(),
 		tail.GetLon())
 
-	db.graph.ForInEdgesOf(segmentId, func(_, oSegmentId da.Index, _ uint8) {
+	off, eRevNum := db.graph.NumEdges(segmentId, false)
+	for e := off; e < off+eRevNum; e++ {
+		oSegmentId := db.graph.GetTail(e)
 		if oSegmentId == prevSegment {
-			return
+			continue
 		}
 		edgeStreetName := db.rn.GetStreetName(oSegmentId)
 
@@ -261,7 +267,7 @@ func (db *DirectionBuilder) isStreetMerged(prevSegment, segmentId da.Index, curr
 			isSameName(currStreetName, edgeStreetName) && !isOSegmentBidirectional {
 			otherSegment = oSegmentId
 		}
-	})
+	}
 
 	if otherSegment == da.InvalidSegmentId {
 		return false

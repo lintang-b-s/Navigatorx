@@ -1,7 +1,7 @@
 package datastructure
 
 /*
-PackedSlice. untuk store slice of unsigned integers dengan ukuran 33-63 bit efficiently (dari sisi space).
+PackedSlice. untuk store slice of unsigned integers dengan ukuran 33-51 bit efficiently (dari sisi space).
 misal buat simpan osmNodeId dari setiap graph node:
 Untuk osm node: https://wiki.openstreetmap.org/wiki/Stats 2025 ada sekitar 10 billion osm nodeids, jadi 34 bit dengan max value unsigned integer 34bit: 2^34-1 = 17179869183 biar aman untuk beberapa tahun kedepan
 
@@ -29,21 +29,6 @@ and third 64bit value is 0000000000000000000000000000000000000000000000000000000
 
 For information record in 1110111100110011101110001001100111001110100001100000100001101100,
 00 is from 1432114613, 001110011101000011000001000011011 is from 1939964443, 11101111001100111011100010011 is from 2112255763.
-
-
-
-
-untuk 64bit 1110111100110011101110001001100111001110100001100000100001101100:
-
-values yang diinsert: {1597322404, 1432114613, 1939964443, 2112255763}
-
-1432114613 adalah item kedua (atau index ke 1)
-upperNumOfBits[1]=3 (jumlah bit 1432114613 di 1110111100110011101110001001100111001110100001100000100001101100 )
-lowerOffset[1]=33 (index dari first bit 1432114613 di 1010101010111000101010110110101001011111001101010011010010100100)
-
-
-
-
 */
 
 // PackedSlice represents packed slice.
@@ -62,138 +47,24 @@ func NewPackedSlice(numberOfBits uint8, numberOfItems uint64) *PackedSlice {
 	return ps
 }
 
-/*
-untuk ps.Append(val): val adalah value yang ingin diinsert ke PackedSlice
-misal:
-numberOfBits = 33
-
-contoh kasus pertama, kita ingin insert 1432114613 ke PackedSlice:
-first 64 bit value (sebelum isi 1432114613):
-0000000000000000000000000000000001011111001101010011010010100100
-
-untuk kasus diatas, second 64 bit value (sebelum isi 1432114613):
-0000000000000000000000000000000000000000000000000000000000000000
-
-kita tau lastIndex=0, karena first 64 bit val masih ada yang kosong
-
-misal kita mau isi 1432114613 / 001010101010111000101010110110101:
-lastIndex=0
-
-1. get ps.data[lastIndex]
-2. hitung jumlah bit tersisa di ps.data[lastIndex] dengan cara:
-63 - ps.upperNumOfBits[lastIndex]+1
-misal di kasus pertama:
-
-ps.upperNumOfBits[lastIndex]=33 (karena 33 bit dari value 1597322404 diisi di first 64bit)
-jumlah bit tersisa=63-33+1=31 bits left
-
-kasus kedua: second 64bit setelah 1432114613 diisi: 0000000000000000000000000000000000000000000000000000000000000000
-jumlah bit tersisa:
-63-2+1=62 (karena 2 bit dari 1432114613 diisi di second 64bit)
-
-3. isi bit dari value yang ingin diinsert di lower 64bit dan upper 64bit:
-misal:
-untuk kasus pertama:
-ada 31 bits left di first 64bit, ya kita isi 31 bit dari 1432114613 di 31 bits left dari first 64bit
-dan 2 bits sisanya di second 64 bit
-
-update ps.upperNumOfBits dan ps.lowerOffset dan lastIndex
-
-untuk kasus kedua: kita ingin insert 1939964443:
-ada 62 bit tersisa di second 64bit, jadi ya tinggal isi 33 bit dari 1939964443 ke second 64 bit
-update ps.upperNumOfBits dan ps.lowerOffset dan lastIndex
-
-udah gitu doang.
-kayaknya ada yang miss?
-
-
-untuk ps.Get(index): index adalah index dari value yang sudah pernah diinsert ke PackedSlice
-contohnya: karena kita mau map dari graph nodeId -> osm nodeId
-index nya dalah graph nodeId, val nya adalah osm nodeId
-
-kita bisa ps.lowerOffset[graphNodeId] untuk mendapatkan offset dari first bit osmNodeId dari graphNodeId di suatu lower 64bit
-masalahnya diindex ps.data manakah lower 64bit value tsb?
-
-misal untuk kasus pertama:
-kita get index 1 (atau kita pengen dapetin value 1432114613):
-kita tau 1432114613 disimpan dengan cara:
-31 bit dari 1432114613 di first 64bit dan 2 last bit dari 1432114613 di second 64 bit.
-
-patternnya untuk numberOfBits=33:
-first 64bit: 33 bit 1st val + 31 bit 2th val.
-second 64bit: 2 bit 2th val + 33 bit 3th val + 29 bit dari 4th val
-third 64bit: 4 bit dari 4th val + 33 bit dari 5th val + 27 bit dari 6th val
-
-dari item ke dua (dengan 33 bit) ke first 64bit (index ke 0 dari ps.data) atau its lower 64bit:
-ps.Get(index): indexnya 0-based indexing,
-
-buat dapetin lower 64bit atau ps.getLowerIndex(index):
-floor((index*ps.numberOfBits)/64)
-index: 0 = floor(0*33/64)=0   (1st val)
-index: 1 = floor(1*33/64)=0   (2th val)
-index: 2 = floor(2*33/64)=1
-index: 3 = floor(3*33/64)=1
-index: 4 = floor(4*33/64)=2  (5th val)
-index: 5 = floor(5*33/64)=2
-
-gitu gan
-
-buat get value dari index (sama kaya yang dijelasin https://github.com/Telenav/open-source-spec/blob/master/osrm/doc/packed_vector.md):
-contoh pertama (case ps.getLowerIndex(index) != ps.getUpperIndex(index)):
-misal 31 bit dari value 1432114613 ada di first 64bit:
-(1010101010111000101010110110101001011111001101010011010010100100 & 1111111111111111111111111111111000000000000000000000000000000000) >> 33
-
-atau
-index = index dari value 1432114613
-karena ps.getLowerIndex(index) != ps.getUpperIndex(index)
-lowerBitMask =  (^0) <<  ps.lowerOffset[index]
-(ps.data[ps.getLowerIndex(index)] & lowerBitMask ) >> ps.lowerOffset[index]
-
-untuk dapetin last 2 bit dari 1432114613 di second 64bit:
-(1010101010111000101010110110101001011111001101010011010010100100 & 0000000000000000000000000000000000000000000000000000000000000011) << 31
-kenapa 31? karena numberOfBits=33, dan kita mau ambil last 2 bit dari 33 bit tsb.
-
-atau
-(ps.data[ps.getUpperIndex(index)] & upperMask) << (ps.numberOfBits - ps.upperNumOfBits[index])
-
-
-upperMask = (uint64(1) << ps.upperNumOfBits[index] )-1
-misal ps.upperNumOfBits[index] = 2:
-(1<<2)-1
-upperMask = 100 - 001 = 011
-
-
-contoh kedua (case ps.getLowerIndex(index) == ps.getUpperIndex(index)):
-untuk dapetin lower bits dari value 1939964443 (yaitu 001110011101000011000001000011011) di 1110111100110011101110001001100111001110100001100000100001101100:
-index = index dari vaue 1939964443
-karena ps.getLowerIndex(index) == ps.getUpperIndex(index)
-lowerBitMask = ((^0) << ps.lowerOffset[index]) & ^((^0) <<  (ps.lowerOffset[index] + ps.upperNumOfBits[index]) )
-
-
-udah gitu doang. kayaknya gak ada yang miss?
-
-logic untuk ps.getUpperIndex(index):
-if  (ps.lowerOffset[index] + ps.numberOfBits) > 64 then:
-return ps.getLowerIndex(index)+1
-else:
-return ps.getLowerIndex(index)
-*/
-
-// getLowerIndex. get dataIndex of lower 64bit for index
+// getLowerIndex get dataIndex of lower 64bit for index
 func (ps *PackedSlice) getLowerIndex(index uint64) uint64 {
 	return (index * uint64(ps.numberOfBits)) / 64
 }
 
+// getLowerOffset get offset (starting bit) of lower 64bit for index
 func (ps *PackedSlice) getLowerOffset(index uint64) uint8 {
 	return uint8(index*uint64(ps.numberOfBits)) % 64
 }
 
-// getUpperIndex. get dataIndex of upper 64bit for index
+// getUpperIndex get dataIndex of upper 64bit for index
 func (ps *PackedSlice) getUpperIndex(index uint64) uint64 {
 	lowerOffset := ps.getLowerOffset(index)
 	if lowerOffset+ps.numberOfBits > 64 {
+		// upper 64bit for index is in the new 64bit
 		return ps.getLowerIndex(index) + 1
 	}
+	// upper 64bit for index is same as lower 64bit
 	return ps.getLowerIndex(index)
 }
 
@@ -211,11 +82,15 @@ func (ps *PackedSlice) Append(val uint64) {
 		// kalau upper 64bit dan lower 64bit dari val sama
 		ps.data[lowerIndex] |= (val << lowerOffset)
 	} else {
+		// kalau upper 64bit dan lower 64bit dari val b3eq
 		bitsInLower := 64 - lowerOffset
 		lowerBitMask := (uint64(1) << bitsInLower) - 1
+		// lower bits value
 		lowerBitsVal := val & lowerBitMask
+		// place the lower bits value starting at its lower offset position
 		ps.data[lowerIndex] |= (lowerBitsVal << lowerOffset)
 
+		// get upper bits value and place it in next 64 bit ps.data
 		upperBitsVal := val >> bitsInLower
 		if uint64(len(ps.data)) <= lowerIndex+1 {
 			ps.data = append(ps.data, upperBitsVal)
@@ -240,12 +115,13 @@ func (ps *PackedSlice) Get(index uint64) uint64 {
 
 	// upper 64bit dan lower 64bit dari index adalah beda
 	bitsInLower := 64 - lowerOffset
+	// lower bits bitmask that starting at lowerOffset in ps.data[lowerIndex]
 	lowerBitMask := (^uint64(0)) << uint64(lowerOffset)
-	lower := (ps.data[lowerIndex] & lowerBitMask) >> lowerOffset
+	lowerBitsVal := (ps.data[lowerIndex] & lowerBitMask) >> lowerOffset
 
 	upperNumOfBits := ps.numberOfBits - bitsInLower
 	upperMask := (uint64(1) << upperNumOfBits) - 1
-	upper := (ps.data[lowerIndex+1] & upperMask) << bitsInLower
+	upperBitsVal := (ps.data[lowerIndex+1] & upperMask) << bitsInLower
 
-	return upper | lower
+	return upperBitsVal | lowerBitsVal
 }

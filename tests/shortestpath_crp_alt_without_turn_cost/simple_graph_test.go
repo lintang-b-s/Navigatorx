@@ -76,14 +76,18 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 
 	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "simple_graph", nodeCoords, adjList, n, []int{1, 2}, true)
 
-	crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
-
 	sid := oldToNewVIdMap[da.Index(0)]
 	tid := oldToNewVIdMap[da.Index(n-1)]
 
 	t.Logf("calculating shortest path...  \n")
 
+	// CRP+Bidirectional ALT
+	crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 	spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
+
+	// CRP+ALT
+	crpQueryUni := routing.NewCRPUniALTQuery(re.GetRoutingEngine())
+	spLengthUni, _, _ := crpQueryUni.ShortestPathSearch(sid, tid)
 
 	// assert expected output dari test cases soal
 
@@ -102,7 +106,13 @@ func solveSimpleGraph(t *testing.T, filepath string) {
 	if err != nil {
 		t.Fatalf("err: %v", err)
 	}
+	// assert CRP+Bidirectional ALT
 	if !util.Eq(spLength, expectedSPLength) {
+		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, spLength)
+	}
+
+	// assert CRP+ALT
+	if !util.Eq(spLengthUni, expectedSPLength) {
 		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, spLength)
 	}
 

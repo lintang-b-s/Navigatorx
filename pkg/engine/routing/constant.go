@@ -51,7 +51,7 @@ var (
 	EmptyCost = []float64{}
 
 	// EmptyCoordsRoutes is the empty coords routes value.
-	EmptyCoordsRoutes = []*da.Coordinates{da.NewCoordinatesWithCap(0)}
+	EmptyCoordsRoutes = []string{}
 
 	// EmptyIndexSetRoutes is the empty index set routes value.
 	EmptyIndexSetRoutes = [][]da.Index{}
@@ -60,5 +60,5 @@ var (
 	EmptyPolylines = []string{}
 
 	// EmptyDrivingDirections is the empty driving directions value.
-	EmptyDrivingDirections = [][]da.DrivingDirection{}
+	EmptyDrivingDirections = [][]da.RouteStep{}
 )

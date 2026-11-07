@@ -12,7 +12,7 @@ import (
 type DijkstraP2P[W util.Numeric] struct {
 	engine          *CRPRoutingEngine[W]
 	metrics         *met.Metric[W]
-	pq              *da.QueryHeap[da.QueryKey, W]
+	pq              *da.QueryHeap[da.Index, W]
 	runtime         int64
 	numSettledNodes int
 }
@@ -34,15 +34,11 @@ func NewDijkstraP2P[W util.Numeric](
 // ini implementasi dijkstra point-to-point shortest path (p2psp)
 func (us *DijkstraP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 
-	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
-
+	sVertexData := da.NewVData(W(0), s, da.InvalidVertexId)
 	now := time.Now()
-
-	djKey := da.NewDijkstraKey(s)
-	us.pq.Insert(s, 0, sVertexData, djKey)
+	us.pq.Insert(s, 0, sVertexData)
 
 	for !us.pq.IsEmpty() {
-
 		finish := us.graphSearchUni(t)
 		us.numSettledNodes++
 		if finish {
@@ -58,37 +54,34 @@ func (us *DijkstraP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 	return sp, spPath
 }
 
-func (us *DijkstraP2P[W]) graphSearchUni(target da.Index) bool {
+func (us *DijkstraP2P[W]) graphSearchUni(t da.Index) bool {
 
-	queryKey := us.pq.ExtractMin()
-	uItem := queryKey.GetItem()
-	uId := uItem.GetNode()
-	if uId == target {
+	u, uCost := us.pq.ExtractMin()
+
+	if u == t {
 		return true
 	}
 
 	// traverse outEdges of u
-	us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
+	us.engine.graph.ForOutEdgeIdsOf(u, func(eId da.Index) {
 		head := us.engine.graph.GetHead(eId)
-		vId := head
+		v := head
 		eWeight := us.metrics.GetWeight(eId)
 		// get cost to reach v through u
-		newVCost := us.pq.Cost(uId) + eWeight
+		newVCost := uCost + eWeight
 
-		ovCost := us.pq.Cost(vId)
+		ovCost := us.pq.Cost(v)
 		if util.Lt(newVCost, ovCost) {
 			vLabelled := util.Lt(ovCost, util.Infinity[W]())
 			// newVCost is better, update the v cost
-			vPar := da.NewParentVertex(uId, false)
 
 			if vLabelled {
 				// is key already in the priority queue, decrease its key
-				us.pq.DecreaseKey(vId, newVCost, newVCost, vPar)
+				us.pq.DecreaseKey(v, newVCost, newVCost, u)
 			} else if !vLabelled {
-				queryKey := da.NewDijkstraKey(vId)
-				vData := da.NewVData(newVCost, vPar)
+				vData := da.NewVData(newVCost, v, u)
 				// is key not in the priority queue, insert it
-				us.pq.Insert(vId, newVCost, vData, queryKey)
+				us.pq.Insert(v, newVCost, vData)
 			}
 		}
 	})
@@ -101,8 +94,7 @@ func (us *DijkstraP2P[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
 
-	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.Index(maxSearchSize), da.ArrayStorageMode)
-	us.pq.PreallocateHeap(maxSearchSize)
+	us.pq = da.NewQueryHeap[da.Index, W](da.Index(maxSearchSize), da.Index(maxSearchSize), da.ArrayStorageMode)
 }
 
 func (us *DijkstraP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
@@ -117,12 +109,10 @@ func (us *DijkstraP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 	vData := us.pq.Get(t)
 	spPath = append(spPath, t)
 
-	for vData.GetParent().GetVertex() != s {
-		parent := vData.GetParent()
-
-		spPath = append(spPath, parent.GetVertex())
-
-		vData = us.pq.Get(parent.GetVertex())
+	for vData.GetParent() != s {
+		par := vData.GetParent()
+		spPath = append(spPath, par)
+		vData = us.pq.Get(par)
 	}
 	spPath = append(spPath, s)
 

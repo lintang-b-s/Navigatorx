@@ -194,7 +194,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 
 	if !da.IsTurnSlight(sign) {
 		if !leavingPrevStreet || streetMergedSkip || streetSplitSkip || (alternativeTurnsCount == 0 && curved) {
-			db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
+			db.turnSignCache.SetIfAbsent(key, ignoreTurnSignCacheVal)
 			return da.IGNORE
 		}
 
@@ -254,17 +254,17 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 
 		if alternativeTurnsCount >= 1 {
 			if streetMergedSkip {
-				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
+				db.turnSignCache.Set(key, ignoreTurnSignCacheVal)
 				return da.IGNORE
 			}
-			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
+			db.turnSignCache.SetIfAbsent(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
 		}
 	}
 
 	if (sign == da.TurnSlightLeft || sign == da.TurnSlightRight) && (streetMergedSkip || streetSplitSkip) {
 
-		db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
+		db.turnSignCache.Set(key, ignoreTurnSignCacheVal)
 		return da.IGNORE
 	}
 
@@ -288,7 +288,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 		if util.Lt(relBearingDeg, ContinueALTCurrentRelativeBearing) && util.Gt(altTurnRelBearingDeg, ContinueALTTurnRelativeBearing) {
 			// bearing difference antara prevEdge dan currentEdge < 7° (CONTINUE Direction), Edge ocSegment > 8.6 (TURN SLIGHT or more direction).
 			if db.nextStreetName == da.InvalidStreetNameId || !leavingPrevStreet {
-				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
+				db.turnSignCache.Set(key, ignoreTurnSignCacheVal)
 				return da.IGNORE
 			}
 
@@ -318,7 +318,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 				// contoh dari tail: https://www.openstreetmap.org/node/11294649720
 				// dari tail osm node diatas ada 2 edge ke head: https://www.openstreetmap.org/node/11294649718
 				// dan edge satunya ke head: https://www.openstreetmap.org/node/11294649719  (dari jalan curved/uturn ke kanan)
-				db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
+				db.turnSignCache.Set(key, ignoreTurnSignCacheVal)
 				return da.IGNORE
 			}
 
@@ -364,7 +364,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 		return da.ContinueOnStreet
 	}
 
-	db.turnSignCache.Set(key, makeCacheVal(da.IGNORE, da.InvalidStreetNameId))
+	db.turnSignCache.SetIfAbsent(key, ignoreTurnSignCacheVal)
 	return da.IGNORE
 }
 
@@ -398,9 +398,6 @@ func (db *DirectionBuilder) updateState(segmentId da.Index, isInRoundabout bool)
 
 	if db.useAnnotation {
 		db.segmentIds = append(db.segmentIds, segmentId)
-		segGeometry := db.rn.GetSegmentGeometry(segmentId)
-		l := max(0, len(segGeometry)-1)
-		db.geometry = append(db.geometry, segGeometry[:l]...)
 	}
 
 	db.nextStreetName = db.rn.GetStreetNameId(segmentId)

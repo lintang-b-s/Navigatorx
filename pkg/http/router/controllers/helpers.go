@@ -1,7 +1,6 @@
 package controllers
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -9,41 +8,9 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
-	"sync"
-
-	json "github.com/bytedance/sonic"
 
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 	"go.uber.org/zap"
-)
-
-// JSONEncoderPool represents jsonencoder pool.
-type JSONEncoderPool struct {
-	pool sync.Pool
-}
-
-type encoderWrapper struct {
-	buf     *bytes.Buffer
-	encoder json.Encoder
-}
-
-// NewJSONEncoderPool creates and returns jsonencoder pool.
-func NewJSONEncoderPool() *JSONEncoderPool {
-	return &JSONEncoderPool{
-		pool: sync.Pool{
-			New: func() any {
-				buf := bytes.NewBuffer(make([]byte, 0, JSONBufPoolSize))
-				return &encoderWrapper{
-					buf:     buf,
-					encoder: json.ConfigDefault.NewEncoder(buf),
-				}
-			},
-		},
-	}
-}
-
-var (
-	jencPool = NewJSONEncoderPool()
 )
 
 // writeJSON marshals data structure to encoded JSON response.

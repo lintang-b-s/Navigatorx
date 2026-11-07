@@ -53,7 +53,7 @@ func TestCRPQuerySimple(t *testing.T) {
 	// https://visualgo.net/en/sssp
 
 	bitpack := func(i, j da.Index) uint64 {
-		return uint64(i) | (uint64(j) << 30)
+		return uint64(i) | (uint64(j) << 32)
 	}
 
 	testCases := []struct {
@@ -460,10 +460,10 @@ func TestCRPQueryStressTest(t *testing.T) {
 
 		lock.Lock()
 
+		ip := da.NewInvalidPhantomNode()
 		expectedSpPaths[s] = make([]string, numberOfVertices)
 		for target := 0; target < numberOfVertices; target++ {
-			expectedpathCoords, _ := re.GetSegmentPath(spPath[target])
-			expectedPolyline := da.GooglePoylineFromCoords(*expectedpathCoords)
+			expectedPolyline, _, _ := re.GetSegmentPath(spPath[target], ip, ip, 0)
 			expectedSpPaths[s][target] = expectedPolyline
 		}
 		expectedSPCosts[i] = sps
@@ -537,7 +537,7 @@ func TestCRPQueryStressTest(t *testing.T) {
 		expectedSp := expectedSPCosts[i][target] // in nanoseconds
 		// expectedPolyline := expectedSpPaths[s][target]
 
-		// gotPolyline := da.GooglePoylineFromCoords(*pathCoords)
+		// gotPolyline := da.GooglePolylineFromCoords(*pathCoords)
 
 		counterexample := false
 		expectedFound := util.Lt(expectedSp, util.Infinity[int32]())
@@ -763,8 +763,7 @@ func TestCRPQueryTurnRestriction(t *testing.T) {
 				crpQuery := routing.NewCRPALTQuery(re)
 
 				_, path, _ := crpQuery.ShortestPathSearch(sp.GetVId(), tp.GetVId())
-				segmentPathCoords, _ := re.GetSegmentPath(path)
-				spPolyline := da.GooglePoylineFromCoords(*segmentPathCoords)
+				spPolyline, _, _ := re.GetSegmentPath(path, sp, tp, 0)
 				t.Logf("fastest route polyline for osm turn restriction https://www.openstreetmap.org/relation/%v: %s", tc.turnRestriction.id, valhallaVisualizerPolylineURL(spPolyline))
 
 				if subPath, correct := isCorrect(path, tc.turnRestriction, rn); !correct {

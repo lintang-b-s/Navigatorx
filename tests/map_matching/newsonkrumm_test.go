@@ -227,7 +227,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		startPointsIndex := rn.GetOsmNodePointsCount()
 		rn.AppendOsmNodePoints(e.geometry, make([]uint64, len(e.geometry)))
 		endPointsIndex := rn.GetOsmNodePointsCount()
-		rn.AppendSegmentData(int64(e.eId), da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
+		rn.AppendSegmentData(int64(e.eId), startPointsIndex, endPointsIndex, 0, 0, 0, 1, da.NewEmptyTurnLanesData())
 		eId := len(graphEdges)
 		rn.SetSegmentFlag(da.Index(eId), 0)
 
@@ -236,7 +236,7 @@ func nkBuildRoadNetworkCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 		)
 		graphEdges = append(graphEdges, graphEdge)
 		if e.twoWay {
-			rn.AppendSegmentData(int64(e.eId)*2, da.Index(endPointsIndex), da.Index(startPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
+			rn.AppendSegmentData(int64(e.eId)*2, endPointsIndex, startPointsIndex, 0, 0, 0, 1, da.NewEmptyTurnLanesData())
 			reverseEdge := da.NewEdge[int32](
 				e.toId, e.fromId, int32(util.RoundCentiseconds(travelTimeWeight)), util.RoundCentimeters(distanceInMeter),
 			)

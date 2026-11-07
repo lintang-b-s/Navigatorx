@@ -17,10 +17,10 @@ type shortestPathRequest struct {
 }
 
 type shortestPathResponse struct {
-	Cost              float64            `json:"travel_time"`
-	Path              string             `json:"path"`
-	Dist              float64            `json:"distance"`
-	DrivingDirections []DrivingDirection `json:"driving_directions"`
+	Cost              float64     `json:"travel_time"`
+	Path              string      `json:"path"`
+	Dist              float64     `json:"distance"`
+	DrivingDirections []RouteStep `json:"driving_directions"`
 }
 
 type shortestPathEnvelope struct {
@@ -48,20 +48,19 @@ type boundingBoxResponse struct {
 }
 
 type annotation struct {
-	Duration       []float64  `json:"duration"`
-	Distance       []float64  `json:"distance"`
-	Geometry       string     `json:"geometry"`
-	SegmentIds     []da.Index `json:"segment_ids"`
-	EdgeGeomOffset []da.Index `json:"segment_geometry_offset"`
+	Duration   []float64  `json:"duration"`
+	Distance   []float64  `json:"distance"`
+	Geometry   string     `json:"geometry"`
+	SegmentIds []da.Index `json:"segment_ids"`
 }
 
 // newAnnotation creates and returns annotation.
-func newAnnotation(duration, distance []float64, geometry string, edgeGeomOffset, segmentIds []da.Index) annotation {
-	return annotation{Duration: duration, Distance: distance, Geometry: geometry, EdgeGeomOffset: edgeGeomOffset, SegmentIds: segmentIds}
+func newAnnotation(duration, distance []float64, geometry string, segmentIds []da.Index) annotation {
+	return annotation{Duration: duration, Distance: distance, Geometry: geometry, SegmentIds: segmentIds}
 }
 
-// DrivingDirection describes one instruction along a route.
-type DrivingDirection struct {
+// RouteStep describes one instruction along a route.
+type RouteStep struct {
 	Instruction         string             `json:"instruction"`
 	Annotation          annotation         `json:"annotation,omitzero"`
 	Point               da.FloatCoordinate `json:"turn_point"`
@@ -75,23 +74,23 @@ type DrivingDirection struct {
 
 // newAnnotationDTO creates and returns annotation dto.
 func newAnnotationDTO(ann da.Annotation, segmentIds []da.Index) annotation {
+
 	return newAnnotation(
-		ann.GetDuration(),
-		ann.GetDistance(),
-		da.GooglePoylineFromCoords(ann.GetGeometry()),
-		ann.GetEdgeGeomOffset(),
+		ann.Duration(),
+		ann.Distance(),
+		ann.Geometry(),
 		segmentIds,
 	)
 }
 
 // NewDrivingDirection creates and returns driving direction.
-func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) DrivingDirection {
+func NewDrivingDirection(d da.RouteStep, useAnnotation bool) RouteStep {
 
 	ann := annotation{}
 	if useAnnotation {
-		ann = newAnnotationDTO(d.GetAnnotation(), d.GetSegmentsIds())
+		ann = newAnnotationDTO(d.Annotation(), d.GetSegmentsIds())
 	}
-	return DrivingDirection{
+	return RouteStep{
 		Instruction:         d.GetInstruction(),
 		Point:               d.GetPoint().ToFloatCoordinate(),
 		StreetName:          d.GetStreetName(),
@@ -105,8 +104,8 @@ func NewDrivingDirection(d da.DrivingDirection, useAnnotation bool) DrivingDirec
 }
 
 // NewDrivingDirections converts driving directions to the response DTO.
-func NewDrivingDirections(d []da.DrivingDirection, useAnnotation bool) []DrivingDirection {
-	drivingDirections := make([]DrivingDirection, len(d))
+func NewDrivingDirections(d []da.RouteStep, useAnnotation bool) []RouteStep {
+	drivingDirections := make([]RouteStep, len(d))
 	if useAnnotation {
 		for i, dir := range d {
 			drivingDirections[i] = NewDrivingDirection(dir, true)
@@ -121,7 +120,7 @@ func NewDrivingDirections(d []da.DrivingDirection, useAnnotation bool) []Driving
 
 // newShortestPathResponse creates and returns shortest path response.
 // travelTime in seconds we need to convert it in minutes
-func newShortestPathResponse(travelTime, dist float64, path string, drivingDirections []DrivingDirection) shortestPathResponse {
+func newShortestPathResponse(travelTime, dist float64, path string, drivingDirections []RouteStep) shortestPathResponse {
 	return shortestPathResponse{
 		Cost:              util.SecondsToMinutes(travelTime), // in
 		Path:              path,
@@ -131,7 +130,7 @@ func newShortestPathResponse(travelTime, dist float64, path string, drivingDirec
 }
 
 // NewAlternativeRoutesResponse creates and returns alternative routes response.
-func NewAlternativeRoutesResponse(routeCosts []float64, routeDists []float64, routePolylines []string, routeDrivingDirections [][]da.DrivingDirection, useAnnotation bool) AlternativeRoutesResponse {
+func NewAlternativeRoutesResponse(routeCosts []float64, routeDists []float64, routePolylines []string, routeDrivingDirections [][]da.RouteStep, useAnnotation bool) AlternativeRoutesResponse {
 	altRes := AlternativeRoutesResponse{Routes: make([]shortestPathResponse, len(routeCosts))}
 	for i := range routeCosts {
 		altRes.Routes[i] = newShortestPathResponse(
@@ -279,12 +278,12 @@ type offlineMapMatchingEnvelope struct {
 
 // OfflineMapMatchingResponse contains matched points and the route path.
 type OfflineMapMatchingResponse struct {
-	MatchedPoints []*MatchedGPSPoint   `json:"matched_points"`
-	RoutePath     []da.FloatCoordinate `json:"route_path"`
+	MatchedPoints []*MatchedGPSPoint `json:"matched_points"`
+	RoutePath     string             `json:"route_path"`
 }
 
 // NewOfflineMapMatchingResponse creates and returns offline map matching response.
-func NewOfflineMapMatchingResponse(matchedPoints []*da.MatchedGPSPoint, routePath []da.FloatCoordinate) *OfflineMapMatchingResponse {
+func NewOfflineMapMatchingResponse(matchedPoints []*da.MatchedGPSPoint, routePath string) *OfflineMapMatchingResponse {
 	points := make([]*MatchedGPSPoint, len(matchedPoints))
 	for i, mp := range matchedPoints {
 		mgps := mp.GetGpsPoint()

@@ -187,14 +187,24 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		sid := oldToNewVIdMap[da.Index(a)]
 		tid := oldToNewVIdMap[da.Index(b)]
 
+		// CRP + Bidirectional ALT
 		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
-
 		_, spPath, _ := crpQuery.ShortestPathSearch(sid, tid)
 		path := make([]int, 0)
 
 		for _, newV := range spPath {
 			v := newToOldVidMap[newV]
 			path = append(path, int(v))
+		}
+
+		// CRP + ALT
+		crpQueryUni := routing.NewCRPUniALTQuery(re.GetRoutingEngine())
+		_, spPathUni, _ := crpQueryUni.ShortestPathSearch(sid, tid)
+		pathUni := make([]int, 0)
+
+		for _, newV := range spPathUni {
+			v := newToOldVidMap[newV]
+			pathUni = append(pathUni, int(v))
 		}
 
 		// assert expected output dari test cases soal
@@ -213,6 +223,7 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 				t.Fatalf("err: %v", err)
 			}
 		}
+		// assert CRP+Bidirectional ALT
 		if len(expectedPath) != len(path) {
 			t.Fatalf("FAIL: Expected shortest number of vertices in shortest path : %v, got: %v", len(expectedPath), len(path))
 		}
@@ -220,6 +231,17 @@ func solveShoppingMalls(t *testing.T, filepath string) {
 		for j := 0; j < len(expectedPath); j++ {
 			if expectedPath[j] != path[j] {
 				t.Fatalf("FAIL: Expected vertex in sp: %v, got: %v", expectedPath[j], path[j])
+			}
+		}
+
+		// assert CRP+ALT
+		if len(expectedPath) != len(pathUni) {
+			t.Fatalf("FAIL: Expected shortest number of vertices in shortest path : %v, got: %v", len(expectedPath), len(path))
+		}
+
+		for j := 0; j < len(expectedPath); j++ {
+			if expectedPath[j] != pathUni[j] {
+				t.Fatalf("FAIL: Expected vertex in sp: %v, got: %v", expectedPath[j], pathUni[j])
 			}
 		}
 	}

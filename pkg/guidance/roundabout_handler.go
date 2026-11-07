@@ -30,11 +30,13 @@ func (db *DirectionBuilder) handleRoundabout(prevPoint, tail, head da.Coordinate
 		db.reset()
 	}
 
-	db.graph.ForOutEdgesOf(u, func(_, v da.Index, _ uint8) {
-
+	off, eNum := db.graph.NumEdges(u, true)
+	for e := off; e < off+eNum; e++ {
+		v := db.graph.GetHead(e)
 		eIsRoundabout := db.rn.IsRoundabout(v)
 		if !eIsRoundabout {
 			db.instructions[db.prevInstruction].IncrementExitNumber()
 		}
-	})
+	}
+
 }

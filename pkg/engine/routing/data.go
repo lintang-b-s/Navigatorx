@@ -9,28 +9,23 @@ import (
 
 // AlternativeRoute represents alternative route.
 type AlternativeRoute struct {
-	path              *da.Coordinates
-	segmentPath       []da.Index
-	objectiveValue    float64
-	drivingDirections []da.DrivingDirection
-	polylinePath      string
+	segmentPath    []da.Index
+	objectiveValue float64
 
-	travelTime  float64
-	dist        float64
+	travelTime float64
+
 	distSharing float64
 	viaNode     da.Index
 	viaVertex   *ViaVertex
 }
 
 // NewAlternativeRoute creates and returns alternative route.
-func NewAlternativeRoute(objectiveValue, dist, travelTime, distSharing float64,
-	viaNode da.Index, path *da.Coordinates, segmentPath []da.Index,
+func NewAlternativeRoute(objectiveValue, travelTime, distSharing float64,
+	viaNode da.Index, segmentPath []da.Index,
 	viaVertex *ViaVertex) AlternativeRoute {
 	return AlternativeRoute{
 		objectiveValue: objectiveValue,
 		viaNode:        viaNode,
-		path:           path,
-		dist:           dist,
 		travelTime:     travelTime,
 		viaVertex:      viaVertex,
 		distSharing:    distSharing,
@@ -51,29 +46,9 @@ func isEmptyAlternativeRoute(ar AlternativeRoute) bool {
 	return ar.viaNode == da.InvalidVertexId
 }
 
-// GetCoords returns coords.
-func (ar AlternativeRoute) GetCoords() *da.Coordinates {
-	return ar.path
-}
-
-// GetPolylinePath returns polyline path.
-func (ar AlternativeRoute) GetPolylinePath() string {
-	return ar.polylinePath
-}
-
-// GetDrivingDirections returns driving directions.
-func (ar AlternativeRoute) GetDrivingDirections() []da.DrivingDirection {
-	return ar.drivingDirections
-}
-
 // GetTravelTime returns travel time.
 func (ar AlternativeRoute) GetTravelTime() float64 {
 	return ar.travelTime
-}
-
-// GetDist returns dist.
-func (ar AlternativeRoute) GetDist() float64 {
-	return ar.dist
 }
 
 // GetSegmentPath returns segment path.

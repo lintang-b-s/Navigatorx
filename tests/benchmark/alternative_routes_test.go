@@ -38,13 +38,14 @@ PASS
 ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       26.070s
 */
 func BenchmarkAlternativeRoutes(b *testing.B) {
-	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
 
-	eng, queries, _, _ := setup()
-	start := time.Now()
+	eng, queries, _, _ := setup(b, osmFile)
 	re := eng.GetRoutingEngine()
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := len(queries)
+
+	start := time.Now()
+
 	for b.Loop() {
 		i := rd.Intn(n)
 		q := queries[i]

@@ -26,7 +26,7 @@ import (
 
 // https://web.archive.org/web/20261008070953/http://www.diag.uniroma1.it//challenge9/download.shtml
 var (
-	partitionSizes     = flag.String("us", "8,12,14,18,20", "Multilevel Partition Cells Sizes")
+	partitionSizes     = flag.String("us", "8,12,14,16,20", "Multilevel Partition Cells Sizes")
 	inputCoordFilePath = flag.String("input_nodes", "./data/USA-road-d.E.co", "path ke file .co dimacs 9th shortest path challenge")
 	inputEdgesFilePath = flag.String("input_edges", "./data/USA-road-t.E.gr", "path ke file .gr dimacs 9th shortest path challenge")
 	problemName        = flag.String("problem_name", "DIMACS_9_P2P_E", "problem name")
@@ -38,7 +38,7 @@ var (
 //
 // di table 10: https://www.microsoft.com/en-us/research/wp-content/uploads/2013/01/crp_web_130724.pdf
 // DIMACS TIGER US (dengan jumlah vertices ~7x lebih banyak dari DIMACS Eastern USA) cuma 1.6 ms/op
-// di table 4: http://dagstuhl.sunsite.rwth-aachen.de/volltexte/2020/13145/pdf/OASIcs-ATMOS-2020-9.pdf
+// di table 4: http://drops.dagstuhl.de/storage/01oasics/oasics-vol085-atmos2020/OASIcs.ATMOS.2020.9/OASIcs.ATMOS.2020.9.pdf
 // CRP with edge-based graph (sama kaya project ini) cuma 0.31 ms/op  pake istan Eropa (jumlah vertices 5x lebih banyak dari DIMACS Estern USA)..
 // query phase kombinasi CRP+ALT (sama kaya multilevel_astar_landmarks.go) di table 2: https://arxiv.org/pdf/1411.0257
 // cuma 0.9 ms/op di DIMACS USA..
@@ -273,7 +273,7 @@ func main() {
 	queries := make([]crpalt.QueryParam, 0, nq)
 
 	bitpack := func(i, j da.Index) uint64 {
-		return uint64(i) | (uint64(j) << 30)
+		return uint64(i) | (uint64(j) << 32)
 	}
 
 	i := 0
@@ -300,7 +300,7 @@ func main() {
 		s := query.GetSource()
 		t := query.GetTarget()
 
-		crpQuery := routing.NewCRPALTQuery(re)
+		crpQuery := routing.NewCRPUniALTQuery(re)
 		sp, _, _ := crpQuery.ShortestPathSearch(s, t)
 		if (id+1)%progress == 0 {
 			logger.Sugar().Infof("done query id: %v/%v", id+1, nq)

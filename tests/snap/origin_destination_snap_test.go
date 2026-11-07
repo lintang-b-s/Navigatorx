@@ -203,7 +203,6 @@ func TestOriginDestinationSnap(t *testing.T) {
 			wantOrigin:            jalanPandegaMarta,
 			wantDestination:       "Jalan Sains",
 		},
-
 		{
 			name:                  "Kebab Morgan Jl. Pandega Marta https://www.openstreetmap.org/way/132780420  -> jalan Lempuyangan https://www.openstreetmap.org/way/301793294",
 			queryOriginCoord:      da.NewCoordinate(-7.755813, 110.376565),

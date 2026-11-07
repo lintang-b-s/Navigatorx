@@ -140,7 +140,7 @@ func TestPreprocessorSimple(t *testing.T) {
 	// example graph -> weighted -> big
 
 	bitpack := func(i, j da.Index) uint64 {
-		return uint64(i) | (uint64(j) << 30)
+		return uint64(i) | (uint64(j) << 32)
 	}
 
 	testCases := []struct {

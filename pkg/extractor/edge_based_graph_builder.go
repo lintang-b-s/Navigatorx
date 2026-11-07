@@ -65,7 +65,7 @@ func BuildEdgeBasedGraph[W util.Numeric](g *da.Graph, wf *met.TimeFunction[W],
 			g.ForOutEdgesOfWithTurn(v, i, func(veId, _ da.Index, j, _ uint8) {
 				turnTableId := vTurnTableIds[v] + da.Index(i)*g.GetOutDegree(v) + da.Index(j)
 				tc := turnTable[turnTableId] // turn costs
-				eWeight := wf.GetWeight(ueId) + W(tc)
+				eWeight := wf.Weight(ueId) + W(tc)
 
 				if tc == util.TurnCostForbidden {
 					return

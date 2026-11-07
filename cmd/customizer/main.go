@@ -35,6 +35,10 @@ func init() {
 
 func main() {
 
+	// go func() { // pprof
+	// 	stdLog.Println(http.ListenAndServe("localhost:6060", nil))
+	// }()
+
 	logger, err := log.New()
 	if err != nil {
 		stdLog.Fatal(err.Error())

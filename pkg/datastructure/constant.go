@@ -58,10 +58,11 @@ type IndexStorageType int
 
 const (
 	// ArrayStorageMode is the array storage value.
-	// MapStorageMode is the map storage value.
 	ArrayStorageMode IndexStorageType = iota
 	// MapStorageMode is the map storage value.
 	MapStorageMode
+	// ArrayStorageUniMode is the array storage value for unidirectional ALT.
+	ArrayStorageUniMode
 )
 
 // SegmentFlagType represents segment flag type.
