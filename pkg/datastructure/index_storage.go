@@ -14,7 +14,7 @@ import (
 	"github.com/bits-and-blooms/bitset"
 )
 
-// ArrayStorage stores heap indices for vertices using a array and touched tracking.
+// ArrayCRPStorage stores heap indices for vertices using a array and touched vertices tracking.
 // Unset positions are marked with [math.MaxUint32]. Touched indices are recorded in a touched list,
 // enabling fast O(|touched|) resets between queries instead of O(|V|).
 //
@@ -23,21 +23,65 @@ import (
 //	"Finally, we keep track of all vertices touched by one quick, allowing for a quick initialization of the next one."
 //
 // remark: i think the word "quick" in this paper sentence is typo, the correct one is "query".
-type ArrayStorage struct {
+// should be used when the average number of vertices explored in the query less than the number of vertices of the graph (or cell).
+// allowing fast reset for further reuse via sync.Pool
+type ArrayCRPStorage struct {
 	base    []Index
 	touched []Index
 }
 
+// NewArrayCRPStorage creates and initializes an [ArrayCRPStorage] with the given size.
+// All entries are initialized to [math.MaxUint32] to indicate an unset state.
+func NewArrayCRPStorage(size Index) *ArrayCRPStorage {
+	base := make([]Index, size)
+	for i := Index(0); i < size; i++ {
+		base[i] = math.MaxUint32
+	}
+	return &ArrayCRPStorage{
+		base:    base,
+		touched: make([]Index, 0, TouchedVerticesSize),
+	}
+}
+
+// Get returns the heap index associated with the given vertex id.
+// If the vertex is not in the heap, it returns [math.MaxUint32].
+func (s *ArrayCRPStorage) Get(id Index) Index {
+	return s.base[id]
+}
+
+// Set assigns the heap index info to the given vertex id.
+// If the vertex was previously unset, its id is appended to the touched list.
+func (s *ArrayCRPStorage) Set(id Index, info Index) {
+	if s.base[id] == math.MaxUint32 {
+		s.touched = append(s.touched, id)
+	}
+	s.base[id] = info
+}
+
+// Clear resets all modified entries back to [math.MaxUint32] and empties the touched list.
+func (s *ArrayCRPStorage) Clear() {
+	for _, id := range s.touched {
+		s.base[id] = math.MaxUint32
+	}
+	s.touched = s.touched[:0]
+}
+
+// ArrayStorage  stores heap indices for vertices using a array.
+type ArrayStorage struct {
+	base []Index
+}
+
 // NewArrayStorage creates and initializes an [ArrayStorage] with the given size.
 // All entries are initialized to [math.MaxUint32] to indicate an unset state.
+// should be used when the average number of vertices explored almost equal to the number of vertices in the graph (or cell).
+// such as in Dijkstra Single Source Shortest Path (SSSP).
 func NewArrayStorage(size Index) *ArrayStorage {
 	base := make([]Index, size)
 	for i := Index(0); i < size; i++ {
 		base[i] = math.MaxUint32
 	}
 	return &ArrayStorage{
-		base:    base,
-		touched: make([]Index, 0, TouchedVerticesSize),
+		base: base,
 	}
 }
 
@@ -48,20 +92,15 @@ func (s *ArrayStorage) Get(id Index) Index {
 }
 
 // Set assigns the heap index info to the given vertex id.
-// If the vertex was previously unset, its id is appended to the touched list.
 func (s *ArrayStorage) Set(id Index, info Index) {
-	if s.base[id] == math.MaxUint32 {
-		s.touched = append(s.touched, id)
-	}
 	s.base[id] = info
 }
 
-// Clear resets all modified entries back to [math.MaxUint32] and empties the touched list.
+// Clear resets all modified entries back to [math.MaxUint32].
 func (s *ArrayStorage) Clear() {
-	for _, id := range s.touched {
+	for id := range s.base {
 		s.base[id] = math.MaxUint32
 	}
-	s.touched = s.touched[:0]
 }
 
 // MapStorage stores heap indices for overlay/boundary vertices using a hash map.

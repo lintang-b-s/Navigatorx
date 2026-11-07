@@ -24,6 +24,10 @@ todo4: add test expected outputnya pake driving direction google map (dengan rut
 // misal jumlah intersections 5juta, ada 31.25 juta pair (e1, e2) di every intersections, cuma simpan additional ~281.5mb di memory, not bad. tapi bisa speedup GetDrivingDirections().
 // kaya osrm ProcessGuidanceTurns di: https://github.com/Project-OSRM/osrm-backend/blob/master/src/extractor/extractor.cpp ??
 // lihat komen di dalam isStreetMergedSkip() karena ada masalah kalau turn sign di setiap intersection gak diprecompute...
+// di speedscope hasil pprof cpu profile ini https://drive.google.com/file/d/19K4EQ-83JMfNdqRWhsIG5oE3u6b_lQJg/view?usp=sharing (dari BenchmarkShortestPathService pakai jateng_jabar.osm.pbf), buka di https://www.speedscope.app/
+// function/stacktrace dengan jumlah samples tertinggi di pprof cpu profile nya di getTurnSign() dan GetHeadPoint() dengan total cumulative samples sekitar 15.3%... getTurnSign() dominates runtime dari GetDrivingDirections()
+// berarti kalau kita precompute every possible getTurnSign() di setiap intersection, BenchmarkShortestPathService bisa bakal jauh lebih cepet..
+
 func (db *DirectionBuilder) getTurnSign(segmentId da.Index, name string) da.TurnType {
 
 	key := util.Bitpack(uint32(db.prevSegmentId), uint32(segmentId))
@@ -220,7 +224,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 						nHead.GetLat(), nHead.GetLon(), currInitialBearing)
 
 					if db.isSameConsecutiveTurn(sign, nextSign) {
-						db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
+						db.turnSignCache.SetIfAbsent(key, makeCacheVal(sign, db.nextStreetName))
 						return sign
 					}
 				}
@@ -237,7 +241,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 		}
 
 		// sign is not CONTINUE/TURN_SLIGHT_* & street name berubah dari prev edge ke curr edge & not split/merged street -> output sign
-		db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
+		db.turnSignCache.SetIfAbsent(key, makeCacheVal(sign, db.nextStreetName))
 		return sign
 	} else if leavingPrevStreet && (sign == da.TurnSlightLeft || sign == da.TurnSlightRight) && !streetMergedSkip && !streetSplitSkip {
 		//  sign TURN_SLIGHT_*  & leavingPrevStreet &  not split/merged street -> output sign
@@ -248,13 +252,13 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 
 		if db.isStreetMerged(prevSegmentId, segmentId, currStreetName, prevStreetName, isSameName) {
 			sign = da.MergeOnto
-			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
+			db.turnSignCache.SetIfAbsent(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
 		}
 
 		if alternativeTurnsCount >= 1 {
 			if streetMergedSkip {
-				db.turnSignCache.Set(key, ignoreTurnSignCacheVal)
+				db.turnSignCache.SetIfAbsent(key, ignoreTurnSignCacheVal)
 				return da.IGNORE
 			}
 			db.turnSignCache.SetIfAbsent(key, makeCacheVal(sign, db.nextStreetName))
@@ -264,7 +268,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 
 	if (sign == da.TurnSlightLeft || sign == da.TurnSlightRight) && (streetMergedSkip || streetSplitSkip) {
 
-		db.turnSignCache.Set(key, ignoreTurnSignCacheVal)
+		db.turnSignCache.SetIfAbsent(key, ignoreTurnSignCacheVal)
 		return da.IGNORE
 	}
 
@@ -288,11 +292,11 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 		if util.Lt(relBearingDeg, ContinueALTCurrentRelativeBearing) && util.Gt(altTurnRelBearingDeg, ContinueALTTurnRelativeBearing) {
 			// bearing difference antara prevEdge dan currentEdge < 7° (CONTINUE Direction), Edge ocSegment > 8.6 (TURN SLIGHT or more direction).
 			if db.nextStreetName == da.InvalidStreetNameId || !leavingPrevStreet {
-				db.turnSignCache.Set(key, ignoreTurnSignCacheVal)
+				db.turnSignCache.SetIfAbsent(key, ignoreTurnSignCacheVal)
 				return da.IGNORE
 			}
 
-			db.turnSignCache.Set(key, makeCacheVal(da.ContinueOnStreet, db.nextStreetName))
+			db.turnSignCache.SetIfAbsent(key, makeCacheVal(da.ContinueOnStreet, db.nextStreetName))
 			return da.ContinueOnStreet
 		}
 
@@ -318,7 +322,7 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 				// contoh dari tail: https://www.openstreetmap.org/node/11294649720
 				// dari tail osm node diatas ada 2 edge ke head: https://www.openstreetmap.org/node/11294649718
 				// dan edge satunya ke head: https://www.openstreetmap.org/node/11294649719  (dari jalan curved/uturn ke kanan)
-				db.turnSignCache.Set(key, ignoreTurnSignCacheVal)
+				db.turnSignCache.SetIfAbsent(key, ignoreTurnSignCacheVal)
 				return da.IGNORE
 			}
 
@@ -335,12 +339,12 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 			if relBearing > altTurnRelBearing {
 
 				if !db.useLookForward { // only set cache kalo gak pake lookForward, ribet buat correctness nya wkwk
-					db.turnSignCache.Set(key, makeCacheVal(da.KeepRight, db.nextStreetName))
+					db.turnSignCache.SetIfAbsent(key, makeCacheVal(da.KeepRight, db.nextStreetName))
 				}
 				return da.KeepRight
 			}
 			if !db.useLookForward {
-				db.turnSignCache.Set(key, makeCacheVal(da.KeepLeft, db.nextStreetName))
+				db.turnSignCache.SetIfAbsent(key, makeCacheVal(da.KeepLeft, db.nextStreetName))
 			}
 			return da.KeepLeft
 		}
@@ -356,11 +360,11 @@ func (db *DirectionBuilder) handlePrimaryRoadTurn(prevSegmentId, segmentId da.In
 	if leavingPrevStreet && currStreetName != "" && prevStreetName != "" {
 		if db.isStreetMerged(prevSegmentId, segmentId, currStreetName, prevStreetName, isSameName) {
 			sign = da.MergeOnto
-			db.turnSignCache.Set(key, makeCacheVal(sign, db.nextStreetName))
+			db.turnSignCache.SetIfAbsent(key, makeCacheVal(sign, db.nextStreetName))
 			return sign
 		}
 
-		db.turnSignCache.Set(key, makeCacheVal(da.ContinueOnStreet, currStreetNameId))
+		db.turnSignCache.SetIfAbsent(key, makeCacheVal(da.ContinueOnStreet, currStreetNameId))
 		return da.ContinueOnStreet
 	}
 

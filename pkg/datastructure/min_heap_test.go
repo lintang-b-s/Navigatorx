@@ -108,7 +108,7 @@ func TestQueryHeapSimple(t *testing.T) {
 
 /*
 BenchmarkMinHeap
-go test -run=^$ -bench=^BenchmarkMinHeap$  -benchtime=15s  -benchmem
+go test -run=^$ -bench=^BenchmarkMinHeap$  -benchtime=15s  -benchmem -cpuprofile minheap.cpu -memprofile minheap.mem
 ---- optimized optHeapifyUp() and optHeapifyDown(): -----
 Running tool: /usr/bin/go test -test.fullpath=true -benchmem -run=^$ -bench ^BenchmarkMinHeap$ github.com/lintang-b-s/Navigatorx/pkg/datastructure
 

@@ -76,3 +76,5 @@ tests/shortestpath/data/tests/shortestpath/gcpc2015_a_journey_to_greece
 *.nsidx
 cadangan/
 *.nrt
+scripts/bench-on.sh
+scripts/bench-off.sh

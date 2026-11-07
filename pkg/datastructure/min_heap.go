@@ -43,33 +43,39 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize, approxMaxExploredSize 
 	verticesData := make([]VertexData[T, W], 0, approxMaxExploredSize)
 	inf := util.Infinity[W]()
 	switch tipe {
-	case ArrayStorageMode:
+	case ArrayCRPStorageMode:
 		explored := NewExploredBitsetStorage(approxMaxExploredSize)
 
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
 			verticesData:      verticesData,
-			verticesIndex:     NewArrayStorage(baseSize),
+			verticesIndex:     NewArrayCRPStorage(baseSize),
 			verticesIndexType: tipe,
 			explored:          explored,
-
-			inf: inf,
+			inf:               inf,
 		}
 	case MapStorageMode:
 		explored := NewExploredBitsetStorage(approxMaxExploredSize)
-
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
 			verticesData:      verticesData,
 			verticesIndex:     NewMapStorage(),
 			verticesIndexType: tipe,
 			explored:          explored,
-
-			inf: inf,
+			inf:               inf,
 		}
 	case ArrayStorageUniMode:
 		explored := NewExploredBitsetStorage(0)
-
+		return &QueryHeap[T, W]{
+			heap:              minHeap,
+			verticesData:      verticesData,
+			verticesIndex:     NewArrayCRPStorage(baseSize),
+			verticesIndexType: tipe,
+			explored:          explored,
+			inf:               inf,
+		}
+	case ArrayStorageMode:
+		explored := NewExploredBitsetStorage(approxMaxExploredSize)
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
 			verticesData:      verticesData,
@@ -80,15 +86,13 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize, approxMaxExploredSize 
 		}
 	default:
 		explored := NewExploredBitsetStorage(approxMaxExploredSize)
-
 		return &QueryHeap[T, W]{
 			heap:              minHeap,
 			verticesData:      verticesData,
-			verticesIndex:     NewArrayStorage(approxMaxExploredSize),
+			verticesIndex:     NewArrayCRPStorage(approxMaxExploredSize),
 			verticesIndexType: tipe,
 			explored:          explored,
-
-			inf: inf,
+			inf:               inf,
 		}
 	}
 }

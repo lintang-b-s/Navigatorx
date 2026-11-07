@@ -57,11 +57,14 @@ const (
 type IndexStorageType int
 
 const (
-	// ArrayStorageMode is the array storage value.
-	ArrayStorageMode IndexStorageType = iota
+	// ArrayCRPStorageMode is the array CRP storage value.
+	// tailored to a Customizable Route Planning query (or its variants) that tends to explored far fewer vertices than the total number of vertices in the graph.
+	ArrayCRPStorageMode IndexStorageType = iota
+	// ArrayStorageMode is array storage value.
+	ArrayStorageMode
 	// MapStorageMode is the map storage value.
 	MapStorageMode
-	// ArrayStorageUniMode is the array storage value for unidirectional ALT.
+	// ArrayStorageUniMode is the array storage value for Combination of CRP and unidirectional ALT.
 	ArrayStorageUniMode
 )
 

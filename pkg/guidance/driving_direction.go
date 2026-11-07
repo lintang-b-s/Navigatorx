@@ -16,8 +16,8 @@ import (
 type DirectionBuilder struct {
 	turnSignCache *otter.Cache[uint64, uint64] // cache untuk turn sign dari (prevEdgeId, currEdgeId) untuk di jalan Nasional, Jalan provinsi, dan Jalan kabupaten. Uses uint64 value to avoid the per-call byte-slice allocation of the previous []byte encoding
 
-	instructions     []da.Instruction
-	prevInstruction  int // -1 if no previous instruction
+	instructions     []da.Instruction // todo: reuuse slice of Instruction pakai sync.Pool
+	prevInstruction  int              // -1 if no previous instruction
 	turnDescriptions []string
 	routeSteps       []da.RouteStep
 

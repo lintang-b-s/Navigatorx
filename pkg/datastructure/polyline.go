@@ -17,8 +17,8 @@ func zigzagEncoding(x int32) uint32 {
 
 // Break the binary value out into 5-bit chunks (starting from the right hand side):
 // Place the 5-bit chunks into reverse order:
-// OR each value with 0x20 if another bit chunk follows:
-// Add 63 to each value, such that it become ascii characters.
+// OR each value with 0x20 if another bit chunk follows.
+// Add 63 to each value, such that it become printable ascii characters (63-126).
 func breakToChunkAndDoOrOp(buf []byte, u uint32) []byte {
 	// Break the binary value out into 5-bit chunks (starting from the right hand side):
 	for u >= 32 {
