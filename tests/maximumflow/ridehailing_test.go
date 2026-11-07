@@ -104,13 +104,10 @@ func SolveRideHailing(t *testing.T, fname string) {
 		djdist[s] = 0
 		noPar := da.InvalidVertexId
 		sVertexData := da.NewVData[da.Index, int64](int64(0), da.Index(s), noPar)
-
 		pq.Insert(da.Index(s), 0, sVertexData)
 
 		for !pq.IsEmpty() {
-
 			u, uDist := pq.ExtractMin()
-
 			for _, vv := range adjList[u] {
 				v := vv.To
 				vDist := int64(vv.Weight)
@@ -118,8 +115,7 @@ func SolveRideHailing(t *testing.T, fname string) {
 				if !ok || uDist+vDist < djdist[v] {
 					djdist[v] = uDist + vDist
 					if !ok {
-						vVertexData := da.NewVData(int64(0), da.Index(v), noPar)
-
+						vVertexData := da.NewVData(djdist[v], da.Index(v), noPar)
 						pq.Insert(da.Index(v), int64(djdist[v]), vVertexData)
 					} else {
 						pq.DecreaseKey(da.Index(v), int64(djdist[v]), int64(djdist[v]),
