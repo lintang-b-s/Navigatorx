@@ -222,31 +222,41 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		nodeCoords = append(nodeCoords, da.NewCoordinateWithoutScaling(float64(planet.x+planet.z), float64(planet.y+planet.z)))
 	}
 
-	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "galaxyquest2", nodeCoords, adjList, n, []int{4, 5, 6}, true)
+	eng, _, oldToNewVIdMap, _, _ := buildCRP(t, "galaxyquest2", nodeCoords, adjList, n, []int{4, 5, 6}, true)
 	s := 0
 	sid := oldToNewVIdMap[da.Index(s)]
 
-	dist := make(map[int]float64)
+	dist := make([]float64, n)    // for CRP + Bidirectional ALT (A* Search, landmarks, and Triangle inequality) Algorithm
+	distUni := make([]float64, n) // for CRP + ALT (A* Search, landmarks, and Triangle inequality) Algorithm
 	dist[s] = 0
-
-	t.Logf("calculating shortest paths from planet 1 to other planets.....\n")
+	distUni[s] = 0
 
 	tIds := make([]da.Index, 0, n)
 
-	newtidToOldtid := make(map[da.Index]int)
+	newtidToOldtid := make([]int, n)
 	for v := 1; v < n; v++ {
-
 		tid := oldToNewVIdMap[da.Index(v)]
 		tIds = append(tIds, tid)
 		newtidToOldtid[tid] = v
 	}
 
-	for _, tid := range tIds {
-		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
+	t.Logf("calculating shortest paths from planet 1 to other planets (CRP+Bidirectional ALT).....\n")
 
+	re := eng.GetRoutingEngine()
+
+	for _, tid := range tIds {
+		crpQuery := routing.NewCRPALTQuery(re) // CRP + bidirectional ALT
 		sp, _, _ := crpQuery.ShortestPathSearch(sid, tid)
 		target := newtidToOldtid[tid]
 		dist[target] = sp
+	}
+
+	t.Logf("calculating shortest paths from planet 1 to other planets (CRP+ALT).....\n")
+	for _, tid := range tIds {
+		crpQueryUni := routing.NewCRPUniALTQuery(re) // CRP + ALT
+		spUni, _, _ := crpQueryUni.ShortestPathSearch(sid, tid)
+		target := newtidToOldtid[tid]
+		distUni[target] = spUni
 	}
 
 	fOut, err = os.OpenFile(filepath+".ans", os.O_RDONLY, 0600)
@@ -277,9 +287,12 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
+		// CRP+bidirectional ALT
 		fuel := getFuel(dist[target], uint32(time))
-		if fuel == -1 {
-			ans := "impossible"
+		// CRP+ALT
+		fuelUni := getFuel(distUni[target], uint32(time))
+		if fuel == -1 && fuelUni == -1 {
+			ans := "impossible" //nolint:goconst
 
 			line, err = util.ReadLine(brOut)
 			if err != nil {
@@ -291,6 +304,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 			}
 		} else {
 			ans := fuel
+			ansUni := fuelUni
 
 			line, err = util.ReadLine(brOut)
 			if err != nil {
@@ -301,7 +315,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 			if _, err = fmt.Sscanf(line, "%v", &expectedAns); err != nil {
 				t.Fatalf("err parsing expected answer: %v", err)
 			}
-			if !util.Eq(ans, expectedAns) {
+			if !util.Eq(ans, expectedAns) || !util.Eq(ansUni, expectedAns) {
 				t.Fatalf("FAIL: Expected fuel: %v, got: %v", expectedAns, ans)
 			}
 		}
@@ -312,6 +326,7 @@ func solveGalaxyQuest(t *testing.T, filepath string) {
 
 // please run the test using command: "go test ./tests/shortestpath_crp_alt_without_turn_cost -run TestCRPQueryGalaxyQuestMALT  -v -timeout=0  -count=1"
 // karena bakal timeout kalau pakai run test vscode
+// test completed in ~80s
 func TestCRPQueryGalaxyQuestMALT(t *testing.T) {
 
 	dirPath := "../shortestpath/data/tests/shortestpath/icpc_nwerc2023_galaxyquest/"

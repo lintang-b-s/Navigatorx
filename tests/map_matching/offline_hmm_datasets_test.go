@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"math"
 	"os"
 	"path/filepath"
@@ -343,7 +344,7 @@ func ohmmBuildGraphFromGisCupFiles(t *testing.T, paths ohmmGisCupRoadNetworkPath
 		startPointsIndex := rn.GetOsmNodePointsCount()
 		rn.AppendOsmNodePoints(geometry.coords, make([]uint64, len(geometry.coords)))
 		endPointsIndex := rn.GetOsmNodePointsCount()
-		rn.AppendSegmentData(int64(SegmentID), da.Index(startPointsIndex), da.Index(endPointsIndex), 0, geometry.roadType, 0, 1, da.NewEmptyTurnLanesData())
+		rn.AppendSegmentData(int64(SegmentID), startPointsIndex, endPointsIndex, 0, geometry.roadType, 0, 1, da.NewEmptyTurnLanesData())
 		rn.SetSegmentFlag(da.Index(segId), 0)
 
 		graphSegment := da.NewEdge[int32](
@@ -818,7 +819,7 @@ func ohmmBuildMelbourneCRPGraph(t *testing.T, workingDir string) (*engine.Engine
 			da.NewCoordinate(st.endLat, st.endLon),
 		}, make([]uint64, 2))
 		endPointsIndex := rn.GetOsmNodePointsCount()
-		rn.AppendSegmentData(e.id, da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
+		rn.AppendSegmentData(e.id, startPointsIndex, endPointsIndex, 0, 0, 0, 1, da.NewEmptyTurnLanesData())
 		graphSegment := da.NewEdge[int32](
 			uint32(e.startID), uint32(e.endID),
 			int32(e.distance), util.RoundCentimeters(e.distance))
@@ -1020,7 +1021,7 @@ func ohmmWritePolyline(t *testing.T, filePath string, matchedPoints []*da.Matche
 	}
 	polyline := ""
 	if len(matchedCoords) > 0 {
-		polyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
+		polyline = da.GooglePolylineFromCoords(forCoord(matchedCoords), len(matchedCoords))
 	}
 	if err := os.WriteFile(filePath, []byte(polyline), 0600); err != nil {
 		t.Fatalf("write polyline failed: %v", err)
@@ -1360,6 +1361,16 @@ func TestHanwenHuOfflineHMMMapMatching(t *testing.T) {
 	}
 }
 
+func forCoord(coords []da.Coordinate) iter.Seq[da.Coordinate] {
+	return func(yield func(da.Coordinate) bool) {
+		for _, c := range coords {
+			if !yield(c) {
+				return
+			}
+		}
+	}
+}
+
 // go test ./tests/map_matching -run TestNewsonKrummOfflineHMMMapMatching -v -timeout=0 -count=1
 func TestNewsonKrummOfflineHMMMapMatching(t *testing.T) {
 	workingDir, err := config.FindProjectWorkingDir()
@@ -1421,7 +1432,7 @@ func TestNewsonKrummOfflineHMMMapMatching(t *testing.T) {
 		if err := util.EnsureDirExists(offlinePolylinePath); err != nil {
 			t.Fatalf("create polyline output directory failed: %v", err)
 		}
-		polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
+		polyline := da.GooglePolylineFromCoords(forCoord(matchedCoords), len(matchedCoords))
 		if err := os.WriteFile(offlinePolylinePath, []byte(polyline), 0600); err != nil {
 			t.Fatalf("write offline polyline file failed: %v", err)
 		}

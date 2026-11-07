@@ -97,10 +97,10 @@ func writeRoadNetworkDataContainer(w *util.BinaryWriter, rn *RoadNetworkDataCont
 		return err
 	}
 	for i := 0; i < metadataCount; i++ {
-		if err := w.Uint32(uint32(rn.segmentStartPointsIndex[i])); err != nil {
+		if err := w.Uint64(rn.segmentStartPointsIndex[i]); err != nil {
 			return err
 		}
-		if err := w.Uint32(uint32(rn.segmentEndPointsIndex[i])); err != nil {
+		if err := w.Uint64(rn.segmentEndPointsIndex[i]); err != nil {
 			return err
 		}
 		if err := w.Uint32(rn.streetName[i]); err != nil {
@@ -250,23 +250,23 @@ func readRoadNetworkDataContainer(r *util.BinaryReader) (*RoadNetworkDataContain
 		osmNodeIds:              osmNodeIds,
 		segmentOsmWayId:         osmWayIds,
 		osmwayBitSize:           bitSize,
-		segmentStartPointsIndex: make([]Index, metadataCount),
-		segmentEndPointsIndex:   make([]Index, metadataCount),
+		segmentStartPointsIndex: make([]uint64, metadataCount),
+		segmentEndPointsIndex:   make([]uint64, metadataCount),
 		streetName:              make([]uint32, metadataCount),
 		roadClass:               make([]pkg.OsmHighwayType, metadataCount),
 		roadClassLink:           make([]pkg.OsmHighwayType, metadataCount),
 		lanes:                   make([]uint8, metadataCount),
 	}
 	for i := 0; i < int(metadataCount); i++ {
-		start, err := r.Uint32()
+		start, err := r.Uint64()
 		if err != nil {
 			return nil, err
 		}
-		end, err := r.Uint32()
+		end, err := r.Uint64()
 		if err != nil {
 			return nil, err
 		}
-		rn.segmentStartPointsIndex[i], rn.segmentEndPointsIndex[i] = Index(start), Index(end)
+		rn.segmentStartPointsIndex[i], rn.segmentEndPointsIndex[i] = start, end
 		rn.streetName[i], err = r.Uint32()
 		if err != nil {
 			return nil, err

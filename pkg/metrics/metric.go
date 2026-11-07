@@ -53,43 +53,39 @@ func (met *Metric[W]) GetCostFunction() *TimeFunction[W] {
 // GetWeight gets weight dari outEdge dengan id eId
 // eId adalah id/index dari outEdge yang ingin didapat weightnya
 func (met *Metric[W]) GetWeight(eId da.Index) W {
-	cf := met.costFunction
-	return cf.GetWeight(eId)
+	return met.costFunction.weights[eId]
 }
 
 // GetDurationFromLength get duration of a road segment at specified length
 func (met *Metric[W]) GetDurationFromLength(segId da.Index, length float64) float64 {
-	cf := met.costFunction
-	r := float64(length) / float64(cf.segmentLengths[segId])
-	return float64(cf.segmentDurations[segId]) * r
+	r := float64(length) / float64(met.costFunction.segmentLengths[segId])
+	return float64(met.costFunction.segmentDurations[segId]) * r
 }
 
 // GetDurationSeconds get duration of a road segment in seconds
 func (met *Metric[W]) GetDurationSeconds(segId da.Index) float64 {
-	cf := met.costFunction
-	dur := W(cf.segmentDurations[segId])
+	dur := W(met.costFunction.segmentDurations[segId])
 	return util.WeightToSeconds(dur)
 }
 
 // GetSegmentLength get road segment length
 func (met *Metric[W]) GetSegmentLength(segId da.Index) float64 {
-	cf := met.costFunction
-	l := cf.GetSegmentLength(segId)
+
+	l := met.costFunction.segmentLengths[segId]
 	return util.DistanceToMeters(l)
 }
 
 // GetSegmentSpeed get road segment speed
 func (met *Metric[W]) GetSegmentSpeed(segId da.Index) float64 {
-	cf := met.costFunction
-	if util.Ge(int32(cf.segmentDurations[segId]), util.InfWeightFixed) {
+
+	if util.Ge(int32(met.costFunction.segmentDurations[segId]), util.InfWeightFixed) {
 		return 0
 	}
-	return float64(cf.segmentLengths[segId]) / float64(cf.segmentDurations[segId])
+	return float64(met.costFunction.segmentLengths[segId]) / float64(met.costFunction.segmentDurations[segId])
 }
 
 // GetShortcutWeight get shortcut edge weight
 func (met *Metric[W]) GetShortcutWeight(offset da.Index) W {
-
 	return met.shortcutWeights.GetWeight(offset)
 }
 

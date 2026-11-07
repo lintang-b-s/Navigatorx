@@ -39,7 +39,7 @@ func (li *LevelData) GetHighestDifferingLevel(c1, c2 Pv) uint8 {
 	return 0
 }
 
-// QueryLevel returns the highest level s.t. vertex v is not at the same cell as s or t.
+// QueryLevel returns the highest level (1-indexed) s.t. vertex v is not at the same cell as s or t.
 //
 // Reference: Delling, D., Goldberg, A. V., Pajor, T., dan Werneck, R. F. (2015). Customizable
 // Route Planning in Road Networks. Transportation Science, No. 2, Volume 51,

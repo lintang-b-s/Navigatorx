@@ -16,7 +16,7 @@ type SubVertex struct {
 // Pv is a type representing a cell number.
 type Pv uint64
 
-// Graph represents the main Customizable Route Planning (CRP) compact graph.
+// Graph represents the main Customizable Route Planning (CRP) graph.
 // uses adjacency arrays / Compressed Sparse Row (CSR). https://ocw.mit.edu/courses/6-172-performance-engineering-of-software-systems-fall-2018/f58df934e205b870e473c2af3fe5e6f7_MIT6_172F18_lec22.pdf
 // CSR graph nya C++ Boost library: https://www.boost.org/doc/libs/1_61_0/libs/graph/doc/compressed_sparse_row.html
 // kode ini terinspirasi dari implementasi CRP yang dibuat oleh Michael Wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/Graph.h
@@ -201,11 +201,6 @@ func (g *Graph) ForOutEdgesOfWithTurn(u Index, _ uint8, handle func(eId, head In
 	}
 }
 
-// GetNumberOfEdges returns number of edges.
-func (g *Graph) GetNumberOfEdges(u Index) Index {
-	return g.vertices[u+1].firstOut - g.vertices[u].firstOut
-}
-
 // ForOutEdgeIdsOf iterates over out edge ids of.
 func (g *Graph) ForOutEdgeIdsOf(u Index, handle func(eId Index)) {
 	for e := g.vertices[u].firstOut; e < g.vertices[u+1].firstOut; e++ {
@@ -226,6 +221,19 @@ func (g *Graph) ForInEdgeIdsOf(v Index, handle func(id Index)) {
 	for e := g.vertices[v].firstIn; e < g.vertices[v+1].firstIn; e++ {
 		handle(e)
 	}
+}
+
+// GetExitOverlayVertex returns exit boundary/overlay vertex given graph vertex u that have cut edge eId
+func (g *Graph) GetExitOverlayVertex(u Index, eId Index) Index {
+	exitEntryOrder := g.entryPoints[eId]
+	exit := false
+	subV := SubVertex{
+		vId:            u,
+		exitEntryOrder: exitEntryOrder,
+		exit:           exit,
+	}
+	id := g.overlayVertices[subV]
+	return id
 }
 
 // GetOverlayVertex returns overlay vertex.

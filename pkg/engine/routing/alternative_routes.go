@@ -179,7 +179,7 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 			distSharing := sigmav / arf.optCost
 			fv := 2*lv + sigmav - plv
 
-			alternativeRoute := NewAlternativeRoute(fv, 0, lv, distSharing, v.GetVId(), EmptyCoords,
+			alternativeRoute := NewAlternativeRoute(fv, lv, distSharing, v.GetVId(),
 				v.path, v)
 			alt := alternativeRoute.segmentPath
 			sortedAlt := make([]da.Index, len(alt))
@@ -203,10 +203,7 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 	res = res[:maxAltSize]
 	for i := 0; i < maxAltSize; i++ {
 		segmentPath := ars.removeViaVertexCycle(res[i].segmentPath, res[i].viaVertex)
-		finalPath, totalDistance := ars.re.GetSegmentPath(segmentPath)
-		res[i].path = finalPath
 		res[i].segmentPath = segmentPath
-		res[i].dist = totalDistance
 	}
 
 	// worst case of ComputeAlternativeRoutes: worst case crp query + worst case computeAlternative for all via vertices
@@ -320,12 +317,7 @@ func (arf AlternativeRouteFilter[W]) filterCandidate(v *ViaVertex) bool {
 		return false
 	}
 
-	var mid da.ParentVertex
-	if v.IsOverlay() {
-		mid = da.NewParentVertex(v.GetVId(), true)
-	} else {
-		mid = da.NewParentVertex(v.GetVId(), false)
-	}
+	var mid = v.GetVId()
 
 	packedPath := arf.ars.re.RetrievePackedPath(mid, arf.fpq, arf.bpq)
 
@@ -403,7 +395,7 @@ func (arf AlternativeRouteFilter[W]) computeAlternative(v *ViaVertex) Alternativ
 	fv := 2*lv + sigmav - plv
 	altSegmentPath := v.path
 	distSharing := sigmav / arf.optCost
-	return NewAlternativeRoute(fv, 0, lv, distSharing, v.GetVId(), EmptyCoords,
+	return NewAlternativeRoute(fv, lv, distSharing, v.GetVId(),
 		altSegmentPath, v)
 }
 
@@ -558,41 +550,39 @@ func (ars *AlternativeRouteSearch[W]) calculatePlateau(vId, s, t da.Index,
 
 	u := vId
 	for u != s {
-		p := ps.Get(u).GetParent()
-		pvId := p.GetVertex()
+		par := ps.Get(u).GetParent()
 
-		oki := util.Lt(pb.Cost(pvId), util.Infinity[W]())
+		oki := util.Lt(pb.Cost(par), util.Infinity[W]())
 		if !oki {
 			break
 		}
-		if explored := pb.IsExplored(pvId); !explored {
+		if explored := pb.IsExplored(par); !explored {
 			break
 		}
 
-		if !ps.IsExplored(pvId) { // syarat parent(u) ada di shortest path tree forward search
+		if !ps.IsExplored(par) { // syarat parent(u) ada di shortest path tree forward search
 			break
 		}
-		u = pvId
+		u = par
 	}
 	firstPlateauCost := util.WeightToSeconds(ps.Cost(u))
 
 	u = vId
 	for u != t {
-		p := pb.Get(u).GetParent()
-		pvId := p.GetVertex()
+		par := pb.Get(u).GetParent()
 
-		oki := util.Lt(ps.Cost(pvId), util.Infinity[W]())
+		oki := util.Lt(ps.Cost(par), util.Infinity[W]())
 		if !oki {
 			break
 		}
-		if explored := ps.IsExplored(pvId); !explored {
+		if explored := ps.IsExplored(par); !explored {
 			break
 		}
 
-		if !pb.IsExplored(pvId) {
+		if !pb.IsExplored(par) {
 			break
 		}
-		u = pvId
+		u = par
 	}
 
 	lastPlateauCost := util.WeightToSeconds(pb.Cost(u))

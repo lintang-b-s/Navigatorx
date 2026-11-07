@@ -7,6 +7,8 @@ run:
 
 linters:
   exclusions:
+    paths:
+      - (^|/)coba/
     rules:
       - path: (^|/)tests/
         linters: [gosec]

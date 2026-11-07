@@ -82,59 +82,46 @@ func IsTurnSlight(tt TurnType) bool {
 
 // Annotation represents annotation.
 type Annotation struct {
-	duration       []float64
-	distance       []float64
-	geometry       Coordinates
-	edgeGeomOffset []Index
+	duration              []float64
+	distance              []float64
+	geometry              string   // geometry of a all road segments inside a single route step
+	segmentGeometryOffset []uint32 // offset (starting point) of each road segment geometry in this single route step
 }
 
 // NewAnnotation creates and returns annotation.
-func NewAnnotation(duration, distance []float64, geometry Coordinates, edgeGeomOffset []Index) Annotation {
-	durationCopy := make([]float64, len(duration))
-	copy(durationCopy, duration)
-
-	distanceCopy := make([]float64, len(distance))
-	copy(distanceCopy, distance)
-
-	geometryCopy := make(Coordinates, len(geometry))
-	copy(geometryCopy, geometry)
-
-	edgeGeomOffsetCopy := make([]Index, len(edgeGeomOffset))
-	copy(edgeGeomOffsetCopy, edgeGeomOffset)
-
+func NewAnnotation(duration, distance []float64, geometry string, segmentGeometryOffset []uint32) Annotation {
 	return Annotation{
-		duration:       durationCopy,
-		distance:       distanceCopy,
-		geometry:       geometryCopy,
-		edgeGeomOffset: edgeGeomOffsetCopy,
+		duration:              duration,
+		distance:              distance,
+		geometry:              geometry,
+		segmentGeometryOffset: segmentGeometryOffset,
 	}
 }
 
-// GetDuration returns duration.
-func (ann *Annotation) GetDuration() []float64 {
+// Duration returns duration.
+func (ann *Annotation) Duration() []float64 {
 	return ann.duration
 }
 
-// GetDistance returns distance.
-func (ann *Annotation) GetDistance() []float64 {
+// Distance returns distance.
+func (ann *Annotation) Distance() []float64 {
 	return ann.distance
 }
 
-// GetGeometry returns geometry.
-func (ann *Annotation) GetGeometry() Coordinates {
+// Geometry returns geometry.
+func (ann *Annotation) Geometry() string {
 	return ann.geometry
 }
 
-// GetEdgeGeomOffset returns edge geom offset.
-func (ann *Annotation) GetEdgeGeomOffset() []Index {
-	return ann.edgeGeomOffset
+// SegmentGeometryOffset returns segment geometry offset.
+func (ann *Annotation) SegmentGeometryOffset() []uint32 {
+	return ann.segmentGeometryOffset
 }
 
 // Instruction represents instruction.
 type Instruction struct {
-	annotation Annotation
-	segmentIds []Index
-
+	annotation          Annotation
+	segmentIds          []Index
 	roundabout          RoundaboutInstruction
 	heading             float64
 	hasHeading          bool
@@ -190,8 +177,8 @@ func NewInstructionWithRoundabout(sign TurnType, name string, p Coordinate, isRo
 	return ins
 }
 
-// GetStreetName returns street name.
-func (ins *Instruction) GetStreetName() string {
+// StreetName returns street name.
+func (ins *Instruction) StreetName() string {
 	return ins.streetname
 }
 
@@ -200,8 +187,8 @@ func (ins *Instruction) SetSuggestAlternatives(suggestAlternatives bool) {
 	ins.suggestAlternatives = suggestAlternatives
 }
 
-// GetSuggestAlternatives returns suggest alternatives.
-func (ins *Instruction) GetSuggestAlternatives() bool {
+// SuggestAlternatives returns suggest alternatives.
+func (ins *Instruction) SuggestAlternatives() bool {
 	return ins.suggestAlternatives
 }
 
@@ -221,33 +208,33 @@ func (ins *Instruction) SetStreetName(streetName string) {
 	ins.streetname = streetName
 }
 
-// GetTurnSign returns turn sign.
-func (ins *Instruction) GetTurnSign() TurnType {
+// TurnSign returns turn sign.
+func (ins *Instruction) TurnSign() TurnType {
 	return ins.turnSign
 }
 
-// GetSegmentIds returns segment ids.
-func (ins *Instruction) GetSegmentIds() []Index {
+// SegmentIds returns segment ids.
+func (ins *Instruction) SegmentIds() []Index {
 	return ins.segmentIds
 }
 
-// GetPoint returns point.
-func (ins *Instruction) GetPoint() Coordinate {
+// Point returns point.
+func (ins *Instruction) Point() Coordinate {
 	return ins.point
 }
 
-// GetCumulativeDistance returns cumulative distance.
-func (ins *Instruction) GetCumulativeDistance() float64 {
+// CumulativeDistance returns cumulative distance.
+func (ins *Instruction) CumulativeDistance() float64 {
 	return ins.cumulativeDistance
 }
 
-// GetCumulativeCost returns cumulative cost.
-func (ins *Instruction) GetCumulativeCost() float64 {
+// CumulativeCost returns cumulative cost.
+func (ins *Instruction) CumulativeCost() float64 {
 	return ins.cumulativeCost
 }
 
-// GetAnnotation returns annotation.
-func (ins *Instruction) GetAnnotation() Annotation {
+// Annotation returns annotation.
+func (ins *Instruction) Annotation() Annotation {
 	return ins.annotation
 }
 
@@ -279,14 +266,23 @@ func (ins *Instruction) GetTurnBearing() float64 {
 	return ins.turnBearing
 }
 
+var headCompassLookup = [8]string{
+	"Head north", "Head northeast", "Head east", "Head southeast",
+	"Head south", "Head southwest", "Head west", "Head northwest",
+}
+
+func compassDirection(bearing float64) string {
+
+	idx := int((bearing+22.5)/45) % 8
+	return headCompassLookup[idx]
+}
+
 // GetTurnDescription returns turn description.
 func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 
-	streetName := ins.GetStreetName()
+	streetName := ins.streetname
 	streetName = strings.ReplaceAll(streetName, "\x00", "")
-
-	sign := ins.GetTurnSign()
-
+	sign := ins.turnSign
 	switch sign {
 	case ContinueOnStreet:
 		if isEmpty(streetName) {
@@ -304,7 +300,7 @@ func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 			if streetName != "" {
 				return "Head " + compassDir + " toward " + streetName
 			}
-			return "Head " + compassDir
+			return compassDirection(headingAngle)
 		}
 		return "Head toward " + streetName
 	case FINISH:
@@ -320,9 +316,9 @@ func (ins *Instruction) GetTurnDescription(clockwise bool) string {
 	}
 	switch dir {
 	case "Keep left":
-		return dir + " to continue on " + streetName
+		return "Keep left to continue on " + streetName
 	case "Keep right":
-		return dir + " continue on " + streetName
+		return "Keep right continue on " + streetName
 	}
 	return dir + " onto " + streetName
 }
@@ -396,8 +392,8 @@ func (ins *Instruction) SetExited() {
 	ins.roundabout.exited = true
 }
 
-// DrivingDirection represents driving direction.
-type DrivingDirection struct {
+// RouteStep represents a single driving direction route step .
+type RouteStep struct {
 	instruction         string
 	segmentIds          []Index
 	annotation          Annotation
@@ -410,10 +406,10 @@ type DrivingDirection struct {
 	suggestAlternatives bool
 }
 
-// NewDrivingDirection creates and returns driving direction.
-func NewDrivingDirection(ins Instruction, description string, prevCost, prevDist float64,
-	segmentIds []Index, turnBearing float64, ann Annotation) DrivingDirection {
-	return DrivingDirection{
+// NewRouteStep creates and returns driving direction route step.
+func NewRouteStep(ins Instruction, description string, prevCost, prevDist float64,
+	segmentIds []Index, turnBearing float64, ann Annotation) RouteStep {
+	return RouteStep{
 		instruction:         description,
 		point:               ins.point,
 		streetName:          ins.streetname,
@@ -428,52 +424,52 @@ func NewDrivingDirection(ins Instruction, description string, prevCost, prevDist
 }
 
 // GetInstruction returns instruction.
-func (d *DrivingDirection) GetInstruction() string {
+func (d *RouteStep) GetInstruction() string {
 
 	return d.instruction
 }
 
 // GetPoint returns point.
-func (d *DrivingDirection) GetPoint() Coordinate {
+func (d *RouteStep) GetPoint() Coordinate {
 	return d.point
 }
 
 // GetStreetName returns street name.
-func (d *DrivingDirection) GetStreetName() string {
+func (d *RouteStep) GetStreetName() string {
 	return d.streetName
 }
 
 // GetCost returns cost.
-func (d *DrivingDirection) GetCost() float64 {
+func (d *RouteStep) GetCost() float64 {
 	return d.travelTime
 }
 
 // GetDistance returns distance.
-func (d *DrivingDirection) GetDistance() float64 {
+func (d *RouteStep) GetDistance() float64 {
 	return d.distance
 }
 
 // GetSegmentsIds returns segments ids.
-func (d *DrivingDirection) GetSegmentsIds() []Index {
+func (d *RouteStep) GetSegmentsIds() []Index {
 	return d.segmentIds
 }
 
 // GetTurnBearing returns turn bearing.
-func (d *DrivingDirection) GetTurnBearing() float64 {
+func (d *RouteStep) GetTurnBearing() float64 {
 	return d.turnBearing
 }
 
 // GetTurnTableId returns turn table id.
-func (d *DrivingDirection) GetTurnTableId() string {
+func (d *RouteStep) GetTurnTableId() string {
 	return d.turnType
 }
 
 // GetSuggestAlternatives returns suggest alternatives.
-func (d *DrivingDirection) GetSuggestAlternatives() bool {
+func (d *RouteStep) GetSuggestAlternatives() bool {
 	return d.suggestAlternatives
 }
 
-// GetAnnotation returns annotation.
-func (d *DrivingDirection) GetAnnotation() Annotation {
+// Annotation returns annotation.
+func (d *RouteStep) Annotation() Annotation {
 	return d.annotation
 }

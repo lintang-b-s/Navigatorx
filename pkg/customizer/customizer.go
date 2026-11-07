@@ -132,7 +132,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 		return nil, fmt.Errorf("Customize: failed to read preprocessing time function from %s: %w", c.prepWeightFunctionFilePath, err)
 	}
 
-	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
+	c.logger.Sugar().Infof("Building shortcut edges for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights[W](c.overlayGraph.ShortcutWeightsSize())
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 	var m *met.Metric[W]
@@ -175,7 +175,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			pq := da.NewQueryHeap[da.QueryKey, W](maxVerticesIncell, maxVerticesIncell, da.ArrayStorageMode)
+			pq := da.NewQueryHeap[da.Index, W](maxVerticesIncell, maxVerticesIncell, da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},
@@ -237,7 +237,7 @@ func (c *Customizer[W]) Customize() (*met.Metric[W], error) {
 // just for shortest path test
 func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
-	c.logger.Sugar().Infof("Building cliques for each cell for each overlay graph level...")
+	c.logger.Sugar().Infof("Building shortcut edges for each cell for each overlay graph level...")
 	c.ow = da.NewOverlayWeights[W](c.overlayGraph.ShortcutWeightsSize())
 	c.logger.Info(fmt.Sprintf("number of shortcuts: %v", c.ow.GetNumberOfShortcuts()))
 
@@ -247,7 +247,7 @@ func (c *Customizer[W]) CustomizeDirect() (*met.Metric[W], error) {
 
 	c.levelOneHeapPool = sync.Pool{
 		New: func() any {
-			pq := da.NewQueryHeap[da.QueryKey, W](maxVerticesIncell, maxVerticesIncell, da.ArrayStorageMode)
+			pq := da.NewQueryHeap[da.Index, W](maxVerticesIncell, maxVerticesIncell, da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},
@@ -392,7 +392,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 				overlayVertex := c.overlayGraph.GetVertex(sOvId)
 				s := overlayVertex.GetOrigVId()
 
-				pq := c.levelOneHeapPool.Get().(*da.QueryHeap[da.QueryKey, W])
+				pq := c.levelOneHeapPool.Get().(*da.QueryHeap[da.Index, W])
 				pq.Clear()
 				done := func() {
 					c.levelOneHeapPool.Put(pq)
@@ -402,20 +402,17 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 				pq.InitLevelOneCellQuery(offset)
 
 				overlayCost := make(map[da.Index]W, da.OverlayCellSize)
-				noPar := da.NewParentVertex(da.InvalidVertexId, false)
-				sVertexData := da.NewVData(W(0), noPar)
-				pq.Insert(s, 0, sVertexData, da.NewDijkstraKey(s))
+				noPar := da.InvalidVertexId
+				sVertexData := da.NewVData(W(0), s, noPar)
+				pq.Insert(s, 0, sVertexData)
 
 				for !pq.IsEmpty() {
-					pqNode := pq.ExtractMin()
-					uKey := pqNode.GetItem()
-					uId := uKey.GetNode()
-					uCost := pqNode.GetRank()
+					u, uCost := pq.ExtractMin()
 
-					c.graph.ForOutEdgesOf(uId, func(eId, head da.Index, _ uint8) {
+					c.graph.ForOutEdgesOf(u, func(eId, head da.Index, _ uint8) {
 						// traverse all out edges
 						v := head
-						eCost := wf.GetWeight(eId)
+						eCost := wf.Weight(eId)
 						newVCost := uCost + eCost
 						if util.Ge(newVCost, util.Infinity[W]()) {
 							return
@@ -430,8 +427,8 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 								if vLabelled {
 									pq.DecreaseKey(v, newVCost, newVCost, noPar)
 								} else {
-									vVertexData := da.NewVData(newVCost, noPar)
-									pq.Insert(v, newVCost, vVertexData, da.NewDijkstraKey(v))
+									vVertexData := da.NewVData(newVCost, v, noPar)
+									pq.Insert(v, newVCost, vVertexData)
 								}
 							}
 						} else {
@@ -439,7 +436,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 							// save this shortcut cost
 							// v is in another cell
 							reId := c.graph.GetRevId(eId)
-							exOv := c.graph.GetOverlayVertex(uId, reId, false) // boundary/overlay vertex id of exit boundary/overlay vertex c_1(s).
+							exOv := c.graph.GetOverlayVertex(u, reId, false) // boundary/overlay vertex id of exit boundary/overlay vertex c_1(s).
 							_, ok := overlayCost[exOv]
 							if !ok || (ok && util.Lt(uCost, overlayCost[exOv])) {
 								overlayCost[exOv] = uCost
@@ -573,19 +570,18 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 				}
 
 				sOv := c.overlayGraph.GetCellEntry(cell, i)
-				noPar := da.NewParentVertex(da.InvalidVertexId, false)
-				sVertexData := da.NewVData(W(0), noPar)
+				noPar := da.InvalidVertexId
+				sVertexData := da.NewVData(W(0), sOv, noPar)
 
-				pq.Insert(sOv, 0, sVertexData, sOv)
+				pq.Insert(sOv, 0, sVertexData)
 
 				for !pq.IsEmpty() {
-					pqNode := pq.ExtractMin()
-					uOv := pqNode.GetItem()
-					uCost := pqNode.GetRank()
+					uOv, uCost := pq.ExtractMin()
 
-					c.overlayGraph.ForOutNeighborsOf(uOv, l-1, func(vOv da.Index, wOffset da.Index) {
+					c.overlayGraph.ForOutNeighborsOf(uOv, l-1, func(vOv da.Index, seId da.Index) {
 						// iterate all shortcut edges (u, \cdot)
-						shortcutWeight := c.ow.GetWeight(wOffset)
+
+						shortcutWeight := c.ow.GetWeight(seId)
 						newVCost := uCost + shortcutWeight
 						if util.Ge(newVCost, util.Infinity[W]()) {
 							return
@@ -594,8 +590,8 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 						oldVCost := pq.Cost(vOv)
 						vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 						if !vLabelled || (vLabelled && util.Lt(newVCost, oldVCost)) {
-							vvData := da.NewVData(newVCost, noPar)
-							pq.Set(vOv, vvData, vOv)
+							vvData := da.NewVData(newVCost, vOv, noPar)
+							pq.Set(vOv, vvData)
 
 							// visit neighbor of exit overlay vertex vOv
 							vVertex := c.overlayGraph.GetVertex(vOv)
@@ -606,7 +602,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 
 							wCellNumber := levelData.GetCellNumberOnLevel(wVertex.GetCellNumber(), uint8(l))
 							if wCellNumber == cellNumber {
-								cutEdgeWeight := wf.GetWeight(cutEdgeId)
+								cutEdgeWeight := wf.Weight(cutEdgeId)
 								newWCost := newVCost + cutEdgeWeight
 								if util.Ge(newWCost, util.Infinity[W]()) {
 									return
@@ -616,8 +612,8 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 								wLabelled := util.Lt(oldWCost, util.Infinity[W]())
 								if !wLabelled || (wLabelled && util.Lt(newWCost, oldWCost)) {
 									if !wLabelled {
-										nvData := da.NewVData(newWCost, noPar)
-										pq.Insert(wOv, newWCost, nvData, wOv)
+										nvData := da.NewVData(newWCost, wOv, noPar)
+										pq.Insert(wOv, newWCost, nvData)
 									} else {
 										pq.DecreaseKey(wOv, newWCost,
 											newWCost, noPar)

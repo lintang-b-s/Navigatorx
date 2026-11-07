@@ -231,34 +231,58 @@ func solveGreece(t *testing.T, filepath string) {
 
 	sid := oldToNewVIdMap[da.Index(source)]
 
-	var dist [maxN][maxN]int64
+	var dist [maxN][maxN]int64    // sp distance for CRP+Bidirectional ALT (A* Search, Landmarks, and Triangle Inequality)
+	var distUni [maxN][maxN]int64 // sp distance for CRP+Bidirectional ALT (A* Search, Landmarks, and Triangle Inequality)
+
 	totalStayTime := int64(0)
 	for i := 0; i < p; i++ {
 		place := placeStay[i]
 
 		vid := oldToNewVIdMap[da.Index(place.v)]
+		// CRP+Bidirectional ALT
 		crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 		spLength, _, _ := crpQuery.ShortestPathSearch(sid, vid)
 		dist[0][i+1] = int64(spLength)
 
+		// CRP+ALT
+		crpQueryUni := routing.NewCRPUniALTQuery(re.GetRoutingEngine())
+		spLengthUni, _, _ := crpQueryUni.ShortestPathSearch(sid, vid)
+		distUni[0][i+1] = int64(spLengthUni)
+
 		for j := 0; j < p; j++ {
 			wplace := placeStay[j]
-			crpQuery = routing.NewCRPALTQuery(re.GetRoutingEngine())
 			wid := oldToNewVIdMap[da.Index(wplace.v)]
-			spLength, _, _ = crpQuery.ShortestPathSearch(vid, wid)
 
+			// CRP+Bidirectional ALT
+			crpQuery = routing.NewCRPALTQuery(re.GetRoutingEngine())
+			spLength, _, _ = crpQuery.ShortestPathSearch(vid, wid)
 			//nolint:gosec // G602: bounds bounded by p <= maxN - 1
 			dist[i+1][j+1] = int64(spLength)
+
+			// CRP+ALT
+			crpQueryUni = routing.NewCRPUniALTQuery(re.GetRoutingEngine())
+			spLengthUni, _, _ = crpQueryUni.ShortestPathSearch(vid, wid)
+			//nolint:gosec // G602: bounds bounded by p <= maxN - 1
+			distUni[i+1][j+1] = int64(spLengthUni)
+
 		}
 
+		// CRP+Bidirectional ALT
 		crpQuery = routing.NewCRPALTQuery(re.GetRoutingEngine())
 		spLength, _, _ = crpQuery.ShortestPathSearch(vid, sid)
 		//nolint:gosec // G602: bounds bounded by p <= maxN - 1
 		dist[i+1][0] = int64(spLength)
 
+		// CRP+ALT
+		crpQueryUni = routing.NewCRPUniALTQuery(re.GetRoutingEngine())
+		spLengthUni, _, _ = crpQueryUni.ShortestPathSearch(vid, sid)
+		//nolint:gosec // G602: bounds bounded by p <= maxN - 1
+		distUni[i+1][0] = int64(spLengthUni)
+
 		totalStayTime += int64(place.stayTime)
 	}
 
+	// CRP+Bidirectional ALT,  TSP DP code
 	var dp [maxN][1 << (maxN - 1)]int64
 	for i := 0; i < maxN; i++ {
 		for j := 0; j < 1<<(maxN-1); j++ {
@@ -286,7 +310,37 @@ func solveGreece(t *testing.T, filepath string) {
 	case withTaxi <= int64(g):
 		ans = "possible with taxi"
 	default:
-		ans = "impossible"
+		ans = "impossible" //nolint:goconst
+	}
+
+	// CRP + ALT,  TSP DP code
+	// reuse dp array
+	for i := 0; i < maxN; i++ {
+		for j := 0; j < 1<<(maxN-1); j++ {
+			dp[i][j] = -1
+		}
+	}
+
+	withoutTaxiUni := dpTSP(0, (1<<p)-1, &dp, distUni) + totalStayTime
+
+	for i := 0; i < maxN; i++ {
+		for j := 0; j < 1<<(maxN-1); j++ {
+			for k := 0; k < 2; k++ {
+				dpWithTaxi[i][j][k] = -1
+			}
+		}
+	}
+
+	withTaxiUni := dpTSPWithTaxi(0, (1<<p)-1, &dpWithTaxi, distUni, 0, int64(taxiTime)) + totalStayTime
+
+	ansUni := ""
+	switch {
+	case withoutTaxiUni <= int64(g):
+		ansUni = "possible without taxi"
+	case withTaxiUni <= int64(g):
+		ansUni = "possible with taxi"
+	default:
+		ansUni = "impossible" //nolint:goconst
 	}
 
 	// assert expected output dari test cases soal
@@ -306,6 +360,10 @@ func solveGreece(t *testing.T, filepath string) {
 	expected := line
 
 	if ans != expected {
+		t.Fatalf("FAIL: expected answer: %v, got: %v", expected, ans)
+	}
+
+	if ansUni != expected {
 		t.Fatalf("FAIL: expected answer: %v, got: %v", expected, ans)
 	}
 

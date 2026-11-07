@@ -230,7 +230,7 @@ func TestNewsonKrummOnlineMapMatching(t *testing.T) {
 	t.Logf("avg runtime per gps point: %v microseconds/gps point", avgRuntimeMicros)
 	t.Logf("total matched points: %v/%v", len(matchedPoints), len(gpsTraj))
 
-	polyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
+	polyline := da.GooglePolylineFromCoords(forCoord(matchedCoords), len(matchedCoords))
 	polyPath := filepath.Join(workingDir, "./data/eval/mapmatching/newsonkrumm/polyline.txt")
 	if err := util.EnsureDirExists(polyPath); err != nil {
 		t.Fatalf("ensure polyline dir failed: %v", err)
@@ -449,14 +449,14 @@ func TestGisCupOnlineMHTMapMatching(t *testing.T) {
 			t.Fatalf("create polyline directory failed: %v", err)
 		}
 
-		gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
+		gpsTrackPolyline := da.GooglePolylineFromCoords(forCoord(gpsCoords), len(gpsCoords))
 		if err := os.WriteFile(fmt.Sprintf(giscupGPSPolyline, tc.id), []byte(gpsTrackPolyline), 0600); err != nil {
 			log.Fatal(err.Error())
 		}
 
 		matchedPolyline := ""
 		if len(matchedCoords) > 0 {
-			matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
+			matchedPolyline = da.GooglePolylineFromCoords(forCoord(matchedCoords), len(matchedCoords))
 		}
 		if err := os.WriteFile(fmt.Sprintf(giscupResultPolyline, tc.id), []byte(matchedPolyline), 0600); err != nil {
 			log.Fatal(err.Error())
@@ -534,14 +534,14 @@ func TestHengfengLiOnlineMHTMapMatching(t *testing.T) {
 		t.Fatalf("create polyline directory failed: %v", err)
 	}
 
-	gpsTrackPolyline := da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(gpsCoords))
+	gpsTrackPolyline := da.GooglePolylineFromCoords(forCoord(gpsCoords), len(gpsCoords))
 	if err := os.WriteFile(melbourneGPSPolyline, []byte(gpsTrackPolyline), 0600); err != nil {
 		log.Fatal(err.Error())
 	}
 
 	matchedPolyline := ""
 	if len(matchedCoords) > 0 {
-		matchedPolyline = da.GooglePoylineFromCoords(*da.NewCoordinatesWithInitialValues(matchedCoords))
+		matchedPolyline = da.GooglePolylineFromCoords(forCoord(matchedCoords), len(matchedCoords))
 	}
 	if err := os.WriteFile(melbourneResultPolyline, []byte(matchedPolyline), 0600); err != nil {
 		log.Fatal(err.Error())

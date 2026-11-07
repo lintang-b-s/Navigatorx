@@ -29,6 +29,7 @@ func SolveRideHailing(t *testing.T, fname string) {
 		line    string
 		f, fOut *os.File
 	)
+	util.ActivateMode[int64]()
 
 	f, err = os.OpenFile(filepath.Clean(fname)+".in", os.O_RDONLY, 0600)
 	if err != nil {
@@ -98,22 +99,15 @@ func SolveRideHailing(t *testing.T, fname string) {
 		for v := 1; v <= n; v++ {
 			djdist[v] = math.MaxInt64
 		}
-		pq := da.NewQueryHeap[da.Index, float64](da.Index(n+1), da.Index(n+1), da.ArrayStorageMode)
+		pq := da.NewQueryHeap[da.Index, int64](da.Index(n+1), da.Index(n+1), da.ArrayStorageMode)
 
 		djdist[s] = 0
-		noPar := da.NewParentVertex(da.InvalidVertexId, false)
-
-		sVertexData := da.NewVData(float64(0), noPar)
-
-		pq.Insert(da.Index(s), 0, sVertexData, da.Index(s))
+		noPar := da.InvalidVertexId
+		sVertexData := da.NewVData[da.Index, int64](int64(0), da.Index(s), noPar)
+		pq.Insert(da.Index(s), 0, sVertexData)
 
 		for !pq.IsEmpty() {
-
-			queryKey := pq.ExtractMin()
-
-			u := queryKey.GetItem()
-			uDist := int64(queryKey.GetRank())
-
+			u, uDist := pq.ExtractMin()
 			for _, vv := range adjList[u] {
 				v := vv.To
 				vDist := int64(vv.Weight)
@@ -121,11 +115,10 @@ func SolveRideHailing(t *testing.T, fname string) {
 				if !ok || uDist+vDist < djdist[v] {
 					djdist[v] = uDist + vDist
 					if !ok {
-						vVertexData := da.NewVData(float64(0), noPar)
-
-						pq.Insert(da.Index(v), float64(djdist[v]), vVertexData, da.Index(v))
+						vVertexData := da.NewVData(djdist[v], da.Index(v), noPar)
+						pq.Insert(da.Index(v), int64(djdist[v]), vVertexData)
 					} else {
-						pq.DecreaseKey(da.Index(v), float64(djdist[v]), float64(djdist[v]),
+						pq.DecreaseKey(da.Index(v), int64(djdist[v]), int64(djdist[v]),
 							noPar)
 					}
 				}

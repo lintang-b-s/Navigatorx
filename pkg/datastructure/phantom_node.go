@@ -122,3 +122,13 @@ func (p *PhantomNode) ForwardGeometry() []Coordinate {
 func (p *PhantomNode) ReverseGeometry() []Coordinate {
 	return p.reverseGeometry
 }
+
+// ForwardGeometrySize returns forward geometry size.
+func (p *PhantomNode) ForwardGeometrySize() int {
+	return len(p.forwardGeometry)
+}
+
+// ReverseGeometrySize returns reverse geometry size.
+func (p *PhantomNode) ReverseGeometrySize() int {
+	return len(p.reverseGeometry)
+}

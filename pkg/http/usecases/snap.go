@@ -16,8 +16,7 @@ type candidateSnap struct {
 }
 
 /*
-SnapOrigDestQueryToNearbyRoadSegments handles snap orig and destination query coordinates to nearby road segments.
-serta terdapat path dari head dari road segment origin ke tail dari road segment destination hasil snap.
+SnapOrigDestQueryToNearbyRoadSegments snaps origin and destination query coordinates to nearby road segments.
 
 see: https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 

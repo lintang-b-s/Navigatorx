@@ -1,6 +1,8 @@
 package guidance
 
 import (
+	"iter"
+
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 )
@@ -9,9 +11,7 @@ import (
 type Graph interface {
 	GetVertex(u da.Index) da.Vertex
 	GetVertexCoordinate(u da.Index) da.Coordinate
-	ForOutEdgeIdsOf(u da.Index, handle func(eId da.Index))
-	ForOutEdgesOf(u da.Index, handle func(eId, head da.Index, entryPoint uint8))
-	ForInEdgesOf(v da.Index, handle func(eId, tail da.Index, exitPoint uint8))
+	NumEdges(u da.Index, out bool) (da.Index, da.Index)
 	GetHead(e da.Index) da.Index
 	GetTail(e da.Index) da.Index
 	GetOutId(e da.Index) da.Index
@@ -34,6 +34,8 @@ type RoadNetworkDataContainer interface {
 	GetSegmentTailCoord(id da.Index) da.Coordinate
 	GetSegmentHeadCoord(id da.Index) da.Coordinate
 	GetSegmentGeometryPoint(id da.Index, point int) da.Coordinate
+	ForSegmentGeometry(id da.Index) iter.Seq[da.Coordinate]
+	YieldRouteCoordinates(segmentIdPath []da.Index, yield func(da.Coordinate) bool)
 	GetSegmentGeometryLength(id da.Index) da.Index
 	GetTailHeadOsmNodeId(id da.Index) (uint64, uint64)
 	IsParallelVia(id da.Index) bool

@@ -66,8 +66,9 @@ func (me *Engine[W]) GetMapAttributes(s2CellId s2geo.CellID, radius float64) ([]
 	for i, segId := range segmentIds {
 		speed := me.met.GetSegmentSpeed(segId)
 		length := me.met.GetSegmentLength(segId)
-		geom := me.rn.GetSegmentGeometry(segId)
-		polyline := da.GooglePoylineFromCoords(geom)
+		geom := me.rn.ForSegmentGeometry(segId)
+		nGeom := me.rn.GetSegmentGeometryLength(segId)
+		polyline := da.GooglePolylineFromCoords(geom, int(nGeom))
 		err = bw.Uint32(uint32(segId))
 		if err != nil {
 			return make([]byte, 0), fmt.Errorf("Engine.GetMapAttributes: failed to write uint32: %w", err)

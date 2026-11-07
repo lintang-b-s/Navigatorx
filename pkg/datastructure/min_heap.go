@@ -11,14 +11,13 @@ import (
 
 // QueryHeap represents query heap.
 type QueryHeap[T comparable, W util.Numeric] struct {
-	heap         []PriorityQueueNode[T, W] // implicit 4-ary min-heap
-	verticesData []VertexData[W]           // contains cost, parent, heapNodeId (index dari heapNode di 4-ary minheap array) for all vertices inserted into the min-heap.
+	verticesData []VertexData[T, W]     // contains cost, parent, heapNodeId (index dari heapNode di 4-ary minheap array) for all vertices inserted into the min-heap.
+	heap         []PriorityQueueNode[W] // implicit 4-ary min-heap
 
 	verticesIndex     IndexStorage // map from nodeId/overlayVertexId to index in verticesData
 	explored          *ExploredBitsetStorage
 	verticesIndexType IndexStorageType
-	d                 Index // d-ary heap
-	shift             Index
+	inf               W
 
 	// CRP Query Offsetting Context
 	isCRPQuery          bool
@@ -40,8 +39,9 @@ const (
 // NewQueryHeap creates and returns query heap.
 func NewQueryHeap[T comparable, W util.Numeric](baseSize, approxMaxExploredSize Index, tipe IndexStorageType) *QueryHeap[T, W] {
 
-	minHeap := make([]PriorityQueueNode[T, W], 0, approxMaxExploredSize)
-	verticesData := make([]VertexData[W], 0, approxMaxExploredSize)
+	minHeap := make([]PriorityQueueNode[W], 0, approxMaxExploredSize)
+	verticesData := make([]VertexData[T, W], 0, approxMaxExploredSize)
+	inf := util.Infinity[W]()
 	switch tipe {
 	case ArrayStorageMode:
 		explored := NewExploredBitsetStorage(approxMaxExploredSize)
@@ -52,8 +52,8 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize, approxMaxExploredSize 
 			verticesIndex:     NewArrayStorage(baseSize),
 			verticesIndexType: tipe,
 			explored:          explored,
-			d:                 defaultDAryHeap,
-			shift:             defaultShift,
+
+			inf: inf,
 		}
 	case MapStorageMode:
 		explored := NewExploredBitsetStorage(approxMaxExploredSize)
@@ -64,8 +64,19 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize, approxMaxExploredSize 
 			verticesIndex:     NewMapStorage(),
 			verticesIndexType: tipe,
 			explored:          explored,
-			d:                 defaultDAryHeap,
-			shift:             defaultShift,
+
+			inf: inf,
+		}
+	case ArrayStorageUniMode:
+		explored := NewExploredBitsetStorage(0)
+
+		return &QueryHeap[T, W]{
+			heap:              minHeap,
+			verticesData:      verticesData,
+			verticesIndex:     NewArrayStorage(baseSize),
+			verticesIndexType: tipe,
+			explored:          explored,
+			inf:               inf,
 		}
 	default:
 		explored := NewExploredBitsetStorage(approxMaxExploredSize)
@@ -76,16 +87,15 @@ func NewQueryHeap[T comparable, W util.Numeric](baseSize, approxMaxExploredSize 
 			verticesIndex:     NewArrayStorage(approxMaxExploredSize),
 			verticesIndexType: tipe,
 			explored:          explored,
-			d:                 defaultDAryHeap,
-			shift:             defaultShift,
+
+			inf: inf,
 		}
 	}
 }
 
 // parent get index dari parent
-
-func (qh *QueryHeap[T, W]) parent(index Index) Index {
-	return (index - 1) >> qh.shift
+func parent(index Index) Index {
+	return (index - 1) >> defaultShift
 }
 
 func (qh *QueryHeap[T, W]) swap(i, j Index) {
@@ -94,51 +104,31 @@ func (qh *QueryHeap[T, W]) swap(i, j Index) {
 	qh.verticesData[qh.heap[j].vertexIndex].heapNodeId = j
 }
 
-// heapifyUp mempertahankan min-heap property. check apakah parent dari node index lebih besar kalau iya swap parent dengan node index, then recursive ke parent.  O(logN) complete 2/4-ary tree height.
-func (qh *QueryHeap[T, W]) heapifyUp(index Index) {
-	for index != 0 {
-		parentIndex := qh.parent(index)
-		if util.Lt(qh.heap[index].rank, qh.heap[parentIndex].rank) {
-			qh.swap(index, parentIndex)
-			index = parentIndex
-		} else {
-			break
-		}
-	}
-}
+// heapifyUp mempertahankan min-heap property. check apakah parent dari node index lebih besar kalau iya swap parent dengan node index, then recursive ke parent.  O(logN) complete 2-ary (or 4-ary) tree height.
+// func (qh *QueryHeap[T, W]) heapifyUp(index Index) {
 
-// Insert insert node to priority queue
-// node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
-func (qh *QueryHeap[T, W]) Insert(id Index, priority W, vData VertexData[W], queryKey T) {
-	mid := qh.mapId(id)
+// 	for index != 0 {
+// 		parentIndex := parent(index)
+// 		if util.Lt(qh.heap[index].rank, qh.heap[parentIndex].rank) {
+// 			qh.swap(index, parentIndex)
+// 			index = parentIndex
+// 		} else {
+// 			break
+// 		}
+// 	}
+// }
 
-	newVIndex := Index(len(qh.verticesData))
-	heapNodeId := Index(qh.Size())
-	vData.heapNodeId = heapNodeId
-	qh.verticesData = append(qh.verticesData, vData)
-	qh.verticesIndex.Set(mid, newVIndex)
-
-	node := NewPriorityQueueNode[T, W](priority,
-		queryKey, newVIndex)
-	qh.heap = append(qh.heap, node)
-	qh.heapifyUp(heapNodeId)
-}
-
-// isEmpty check apakah heap kosong
-func (qh *QueryHeap[T, W]) isEmpty() bool {
-	return len(qh.heap) == 0
-}
-
-// heapifyDown mempertahankan min-heap property. check apakah nilai salah satu children dari node index lebih kecil kalau iya swap, then recursive ke children yang kecil tadi.  O(logN) complete 2/4-ary tree height.
+// heapifyDown mempertahankan min-heap property. check apakah nilai salah satu children dari node index lebih kecil kalau iya swap, then recursive ke children yang kecil tadi.  O(logN) complete 2-ary (or 4-ary) tree height.
 func (qh *QueryHeap[T, W]) heapifyDown(index Index) {
 
 	n := qh.Size()
 	for {
-		leftMostChild := (index << qh.shift) + 1
+		leftMostChild := (index << defaultShift) + 1
 		if leftMostChild >= n { // this node (index) dont have any children nodes
 			break
 		}
-		sentinel := leftMostChild + qh.d
+
+		sentinel := leftMostChild + defaultDAryHeap
 		sentinel = min(sentinel, n)
 
 		smallest := leftMostChild
@@ -157,46 +147,107 @@ func (qh *QueryHeap[T, W]) heapifyDown(index Index) {
 	}
 }
 
-// ExtractMin remove and extract heapNode dari heap dengan lowest rank
-func (qh *QueryHeap[T, W]) ExtractMin() PriorityQueueNode[T, W] {
-	if qh.isEmpty() {
-		return PriorityQueueNode[T, W]{}
+// optHeapifyUp maintains min-heap property. optimized version of heapifyUp().
+// place the bubble node (or current node) to the right position by checking if parent node bigger than current node,
+// if yes, then place the parent node to current node (bubble down the parent), and recurse to parent node,
+// repeat this process until parent node is smaller than or equal to this current node,
+// then in the end, we place the bubble node to the current node index.
+// O(logN) complete 2-ary (or 4-ary) tree height.
+// inspired by pater sanders binary heap  optimized implementation in section A.1.2: https://dl.acm.org/doi/epdf/10.1145/351827.384249
+// https://web.archive.org/web/20050119031404/http://www.mpi-sb.mpg.de/~sanders/programs/spq/heap4.h
+func (qh *QueryHeap[T, W]) optHeapifyUp(index Index) {
+	if index == 0 {
+		return
 	}
-	root := qh.heap[0]
-	lastId := qh.Size() - 1
 
+	heap := qh.heap
+	vData := qh.verticesData
+	bubble := heap[index]
+	pred := parent(index)
+	for index > 0 {
+		par := heap[pred]
+		if util.Le(par.rank, bubble.rank) {
+			break
+		}
+		// if parent.rank > bubble.rank
+		heap[index] = par
+		vData[par.vertexIndex].heapNodeId = index
+
+		index = pred
+		pred = parent(pred)
+	}
+
+	heap[index] = bubble
+	vData[heap[index].vertexIndex].heapNodeId = index
+}
+
+// IsEmpty check apakah heap kosong
+func (qh *QueryHeap[T, W]) IsEmpty() bool {
+	return len(qh.heap) == 0
+}
+
+// Insert insert node to priority queue
+// node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
+func (qh *QueryHeap[T, W]) Insert(id Index, rank W, vData VertexData[T, W]) {
+	id = qh.mapId(id)
+
+	newVIndex := Index(len(qh.verticesData))
+	heapNodeId := Index(qh.Size())
+	vData.heapNodeId = heapNodeId
+	qh.verticesData = append(qh.verticesData, vData)
+	qh.verticesIndex.Set(id, newVIndex)
+
+	node := NewPriorityQueueNode[W](rank,
+		newVIndex)
+	qh.heap = append(qh.heap, node)
+	qh.optHeapifyUp(heapNodeId)
+}
+
+// ExtractMin remove and extract heapNode dari heap dengan lowest rank
+func (qh *QueryHeap[T, W]) ExtractMin() (T, W) {
+	if qh.IsEmpty() {
+		var zero T
+		return zero, W(0)
+	}
+
+	rootvIndex := qh.heap[0].vertexIndex
+	lastId := qh.Size() - 1
 	if lastId > 0 {
-		qh.swap(0, lastId)
+		lastNode := qh.heap[lastId]
+		qh.heap[0] = lastNode
+		qh.verticesData[lastNode.vertexIndex].heapNodeId = 0
 		qh.heap = qh.heap[:lastId]
 		qh.heapifyDown(0)
 	} else {
 		qh.heap = qh.heap[:0]
 	}
 
-	return root
+	rootItem := qh.verticesData[rootvIndex].item
+	rootCost := qh.verticesData[rootvIndex].cost
+	return rootItem, rootCost
 }
 
 // DecreaseKey decreaseKey() operation dari min heap. decrease rank dari node ke newRank
 // node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 // newRank adlh rank dari vertex di 4-ary min heap, kalau ALT rank dari pq beda sama estimated sp cost/vCost
 // vCost adalah estimate sp cost dari vertex
-func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newRank, vCost W, newPar ParentVertex) {
-	mid := qh.mapId(id)
-	vIndex := qh.verticesIndex.Get(mid)
+func (qh *QueryHeap[T, W]) DecreaseKey(id Index, newRank, vCost W, newPar Index) {
+	id = qh.mapId(id)
+	vIndex := qh.verticesIndex.Get(id)
 	heapNodeId := qh.verticesData[vIndex].heapNodeId
 	qh.verticesData[vIndex].parent = newPar
 	qh.verticesData[vIndex].cost = vCost
 	qh.heap[heapNodeId].rank = newRank
-	qh.heapifyUp(heapNodeId)
+	qh.optHeapifyUp(heapNodeId)
 }
 
 // Cost Get est sp cost dari node
 // node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) Cost(id Index) W {
-	mid := qh.mapId(id)
-	vIndex := qh.verticesIndex.Get(mid)
+	id = qh.mapId(id)
+	vIndex := qh.verticesIndex.Get(id)
 	if vIndex == math.MaxUint32 {
-		return util.Infinity[W]()
+		return qh.inf
 	}
 	return qh.verticesData[vIndex].cost
 }
@@ -213,17 +264,10 @@ func (qh *QueryHeap[T, W]) Clear() {
 
 // Get get VertexData dari node
 // node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
-func (qh *QueryHeap[T, W]) Get(id Index) VertexData[W] {
-	mid := qh.mapId(id)
-	vIndex := qh.verticesIndex.Get(mid)
+func (qh *QueryHeap[T, W]) Get(id Index) VertexData[T, W] {
+	id = qh.mapId(id)
+	vIndex := qh.verticesIndex.Get(id)
 	return qh.verticesData[vIndex]
-}
-
-// PreallocateHeap handles preallocate heap.
-func (qh *QueryHeap[T, W]) PreallocateHeap(maxSearchSize int) {
-	if cap(qh.heap) < maxSearchSize {
-		qh.heap = make([]PriorityQueueNode[T, W], 0, maxSearchSize)
-	}
 }
 
 // Size return heap size
@@ -234,7 +278,7 @@ func (qh *QueryHeap[T, W]) Size() Index {
 // MinRank returns rank of top heapNode.
 func (qh *QueryHeap[T, W]) MinRank() W {
 	if len(qh.heap) == 0 {
-		return util.Infinity[W]()
+		return qh.inf
 	}
 	return qh.heap[0].rank
 }
@@ -242,20 +286,19 @@ func (qh *QueryHeap[T, W]) MinRank() W {
 // Explore mark node as explored
 // node/id bisa berupa nodeId/overlayVertexId dari graph & overlay graph
 func (qh *QueryHeap[T, W]) Explore(id Index) {
-	mid := qh.mapId(id)
-	vIndex := qh.verticesIndex.Get(mid)
+	id = qh.mapId(id)
+	vIndex := qh.verticesIndex.Get(id)
 	qh.explored.Set(vIndex)
 }
 
 // Set sets set vertex data of node id.
-func (qh *QueryHeap[T, W]) Set(id Index, vData VertexData[W], _ T) {
-	mid := qh.mapId(id)
-	vIndex := qh.verticesIndex.Get(mid)
+func (qh *QueryHeap[T, W]) Set(id Index, vData VertexData[T, W]) {
+	id = qh.mapId(id)
+	vIndex := qh.verticesIndex.Get(id)
 	if vIndex == math.MaxUint32 {
-
 		newVIndex := Index(len(qh.verticesData))
 		qh.verticesData = append(qh.verticesData, vData)
-		qh.verticesIndex.Set(mid, newVIndex)
+		qh.verticesIndex.Set(id, newVIndex)
 		return
 	}
 
@@ -263,29 +306,14 @@ func (qh *QueryHeap[T, W]) Set(id Index, vData VertexData[W], _ T) {
 	qh.verticesData[vIndex].cost = vData.cost
 }
 
-// IsEmpty reports whether empty.
-func (qh *QueryHeap[T, W]) IsEmpty() bool {
-	return len(qh.heap) == 0
-}
-
-// IsExplored reports whether explored.
+// IsExplored reports whether a vertex (with identifier id) explored.
 func (qh *QueryHeap[T, W]) IsExplored(id Index) bool {
-	mid := qh.mapId(id)
-	vIndex := qh.verticesIndex.Get(mid)
+	id = qh.mapId(id)
+	vIndex := qh.verticesIndex.Get(id)
 	if vIndex == math.MaxUint32 { // belum ke label & ke explored
 		return false
 	}
 	return qh.explored.Test(vIndex)
-}
-
-// IsLabelled reports whether labelled.
-func (qh *QueryHeap[T, W]) IsLabelled(id Index) bool {
-	mid := qh.mapId(id)
-	vIndex := qh.verticesIndex.Get(mid)
-	if vIndex == math.MaxUint32 { // belum ke label & ke explored
-		return false
-	}
-	return true
 }
 
 /*
@@ -298,7 +326,6 @@ this explanation taken from ref1 :
 "A second optimization uses the fact that the maximum heap size can be computed in advance.
 Any search will scan at most all overlay vertices and the vertices in the cells of s and t on the lowest level. This allows us to preallocate all necessary data structures.
 To index the heap, we use local identifiers (for vertices in the source and target cells, with different offsets), and overlay identifiers otherwise." (Delling et al. (2015))
-
 
 another CRP implementation that implement this optimization: https://github.com/michaelwegner/CRP/blob/master/algorithm/CRPQuery.cpp
 search: "vId -= forwardSOffset;".
@@ -360,16 +387,10 @@ func (qh *QueryHeap[T, W]) InitLevelOneCellQuery(sOffset Index) {
 
 // --- PQ Node type related ---
 
-// NewDijkstraKey creates and returns dijkstra key.
-func NewDijkstraKey(node Index) QueryKey {
-	return QueryKey{node: node}
-}
-
 // QueryKey represents query key.
 type QueryKey struct {
-	node       Index // vertexId or boundary/overlay vertexId
-	queryLevel uint8
-	overlay    bool // is node a boundary/overlay vertex
+	node Index // vertexId or boundary/overlay vertexId
+	flag uint8 // query level [0, 7] and overlay boolean.
 }
 
 // GetNode returns node.
@@ -379,37 +400,57 @@ func (qk QueryKey) GetNode() Index {
 
 // IsOverlay reports whether overlay.
 func (qk QueryKey) IsOverlay() bool {
-	return qk.overlay
+	return qk.flag&overlayFlag != 0
 }
 
 // QueryLevel returns query level.
 func (qk QueryKey) QueryLevel() int {
-	return int(qk.queryLevel)
+	return int(qk.flag & ^(overlayFlag))
 }
 
 // NewQKey creates and returns qkey.
 func NewQKey(node Index, queryLevel uint8, overlay bool) QueryKey {
-	return QueryKey{node: node, queryLevel: queryLevel, overlay: overlay}
+	if !overlay {
+		return QueryKey{node: node, flag: queryLevel}
+	}
+	flag := queryLevel | overlayFlag
+	return QueryKey{node: node, flag: flag}
 }
 
 // PriorityQueueNode represents priority queue node.
-type PriorityQueueNode[T comparable, W util.Numeric] struct {
-	item        T
+type PriorityQueueNode[W util.Numeric] struct {
 	rank        W
 	vertexIndex Index
 }
 
-// GetItem returns item.
-func (p PriorityQueueNode[T, W]) GetItem() T {
-	return p.item
-}
-
-// GetRank returns rank.
-func (p PriorityQueueNode[T, W]) GetRank() W {
-	return p.rank
-}
-
 // NewPriorityQueueNode creates and returns priority queue node.
-func NewPriorityQueueNode[T comparable, W util.Numeric](rank W, item T, vIndex Index) PriorityQueueNode[T, W] {
-	return PriorityQueueNode[T, W]{rank: rank, item: item, vertexIndex: vIndex}
+func NewPriorityQueueNode[T comparable, W util.Numeric](rank W, vIndex Index) PriorityQueueNode[W] {
+	return PriorityQueueNode[W]{rank: rank, vertexIndex: vIndex}
+}
+
+const (
+	overlayFlag uint8 = 1 << 3
+)
+
+// VertexData represents vertex data.
+type VertexData[T comparable, W util.Numeric] struct {
+	item       T
+	parent     Index
+	cost       W
+	heapNodeId Index // 4 byte
+}
+
+// NewVData creates and returns vertex data.
+func NewVData[T comparable, W util.Numeric](cost W, item T, parent Index) VertexData[T, W] {
+	return VertexData[T, W]{
+		cost:       cost,
+		parent:     parent,
+		item:       item,
+		heapNodeId: 0,
+	}
+}
+
+// GetParent returns parent.
+func (vi VertexData[T, W]) GetParent() Index {
+	return vi.parent
 }

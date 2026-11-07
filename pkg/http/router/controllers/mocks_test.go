@@ -14,16 +14,16 @@ type MockRoutingService struct {
 	mock.Mock
 }
 
-func (m *MockRoutingService) ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) (float64, float64, string, []da.DrivingDirection, bool, error) {
+func (m *MockRoutingService) ShortestPath(ctx context.Context, origLat, origLon, dstLat, dstLon float64, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) (float64, float64, string, []da.RouteStep, bool, error) {
 	args := m.Called(ctx, origLat, origLon, dstLat, dstLon, reroute, startEdgeId, useAnnotation, useSteps)
-	var r3 []da.DrivingDirection
+	var r3 []da.RouteStep
 	if args.Get(3) != nil {
-		r3 = args.Get(3).([]da.DrivingDirection)
+		r3 = args.Get(3).([]da.RouteStep)
 	}
 	return args.Get(0).(float64), args.Get(1).(float64), args.String(2), r3, args.Bool(4), args.Error(5)
 }
 
-func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) ([]float64, []float64, []string, [][]da.DrivingDirection, error) {
+func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, origLat, origLon, dstLat, dstLon float64, k int, reroute bool, startEdgeId da.Index, useAnnotation, useSteps bool) ([]float64, []float64, []string, [][]da.RouteStep, error) {
 	args := m.Called(ctx, origLat, origLon, dstLat, dstLon, k, reroute, startEdgeId, useAnnotation, useSteps)
 	var r0 []float64
 	if args.Get(0) != nil {
@@ -37,9 +37,9 @@ func (m *MockRoutingService) AlternativeRouteSearch(ctx context.Context, origLat
 	if args.Get(2) != nil {
 		r2 = args.Get(2).([]string)
 	}
-	var r3 [][]da.DrivingDirection
+	var r3 [][]da.RouteStep
 	if args.Get(3) != nil {
-		r3 = args.Get(3).([][]da.DrivingDirection)
+		r3 = args.Get(3).([][]da.RouteStep)
 	}
 	return r0, r1, r2, r3, args.Error(4)
 }
@@ -62,17 +62,13 @@ func (m *MockRoutingService) GetBoundingBox(ctx context.Context) da.BoundingBox 
 	return args.Get(0).(da.BoundingBox)
 }
 
-func (m *MockRoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, []da.FloatCoordinate, error) {
+func (m *MockRoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, string, error) {
 	args := m.Called(ctx, gpsTraj, gpsRadiusesM)
 	var r0 []*da.MatchedGPSPoint
 	if args.Get(0) != nil {
 		r0 = args.Get(0).([]*da.MatchedGPSPoint)
 	}
-	var r1 []da.FloatCoordinate
-	if args.Get(1) != nil {
-		r1 = args.Get(1).([]da.FloatCoordinate)
-	}
-	return r0, r1, args.Error(2)
+	return r0, args.String(1), args.Error(2)
 }
 
 type MockMapMatcherService struct {
@@ -141,20 +137,16 @@ func (m *MockRoutingEngine) InitBackgroundWorker(ctx context.Context) {
 	m.Called(ctx)
 }
 
-func (m *MockRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, *da.Coordinates, []da.Index, bool) {
+func (m *MockRoutingEngine) ShortestPathSearch(sp, tp da.PhantomNode, reroute bool) (float64, float64, string, []da.Index, bool) {
 	args := m.Called(sp, tp, reroute)
-	var r2 *da.Coordinates
-	if args.Get(2) != nil {
-		r2 = args.Get(2).(*da.Coordinates)
-	}
 	var r3 []da.Index
 	if args.Get(3) != nil {
 		r3 = args.Get(3).([]da.Index)
 	}
-	return args.Get(0).(float64), args.Get(1).(float64), r2, r3, args.Bool(4)
+	return args.Get(0).(float64), args.Get(1).(float64), args.String(2), r3, args.Bool(4)
 }
 
-func (m *MockRoutingEngine) ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, startSegId da.Index) ([]float64, []float64, []*da.Coordinates, [][]da.Index, bool) {
+func (m *MockRoutingEngine) ShortestPathWithAlternativesSearch(sp, tp da.PhantomNode, k int, reroute bool, startSegId da.Index) ([]float64, []float64, []string, [][]da.Index, bool) {
 	args := m.Called(sp, tp, k, reroute, startSegId)
 	var r0 []float64
 	if args.Get(0) != nil {
@@ -164,9 +156,9 @@ func (m *MockRoutingEngine) ShortestPathWithAlternativesSearch(sp, tp da.Phantom
 	if args.Get(1) != nil {
 		r1 = args.Get(1).([]float64)
 	}
-	var r2 []*da.Coordinates
+	var r2 []string
 	if args.Get(2) != nil {
-		r2 = args.Get(2).([]*da.Coordinates)
+		r2 = args.Get(2).([]string)
 	}
 	var r3 [][]da.Index
 	if args.Get(3) != nil {

@@ -16,14 +16,13 @@ import (
 type DirectionBuilder struct {
 	turnSignCache *otter.Cache[uint64, uint64] // cache untuk turn sign dari (prevEdgeId, currEdgeId) untuk di jalan Nasional, Jalan provinsi, dan Jalan kabupaten. Uses uint64 value to avoid the per-call byte-slice allocation of the previous []byte encoding
 
-	instructions      []da.Instruction
-	prevInstruction   int // -1 if no previous instruction
-	turnDescriptions  []string
-	drivingDirections []da.DrivingDirection
+	instructions     []da.Instruction
+	prevInstruction  int // -1 if no previous instruction
+	turnDescriptions []string
+	routeSteps       []da.RouteStep
 
 	segmentIds           []da.Index
 	path                 []da.Index
-	geometry             da.Coordinates
 	alternativeTurns     []da.Index
 	doublePrevStreetName string
 
@@ -62,24 +61,22 @@ func NewDirectionBuilder(graph Graph, rn RoadNetworkDataContainer, metrics Metri
 	clockwise := lefthand
 
 	db := &DirectionBuilder{
-		metrics:             metrics,
-		graph:               graph,
-		rn:                  rn,
-		prevSegmentId:       da.InvalidSegmentId,
-		nextStreetName:      da.InvalidStreetNameId,
-		doublePrevSegmentId: da.InvalidSegmentId,
-
+		metrics:                  metrics,
+		graph:                    graph,
+		rn:                       rn,
+		prevSegmentId:            da.InvalidSegmentId,
+		nextStreetName:           da.InvalidStreetNameId,
+		doublePrevSegmentId:      da.InvalidSegmentId,
 		prevInRoundabout:         false,
 		doublePrevInitialBearing: 0,
 		clockwise:                clockwise,
 		lefthand:                 lefthand,
 		turnDescriptions:         make([]string, 0, 16),
-		drivingDirections:        make([]da.DrivingDirection, 0, 16),
+		routeSteps:               make([]da.RouteStep, 0, 16),
 		instructions:             make([]da.Instruction, 0, 16),
 		prevInstruction:          -1,
 		segmentIds:               make([]da.Index, 0, 16),
-		geometry:                 da.Coordinates{},
-		alternativeTurns:         make([]da.Index, 0),
+		alternativeTurns:         make([]da.Index, 0, 6),
 		lastPathId:               0,
 		turnSignCache:            turnSignCache,
 		prevSign:                 da.IGNORE,
@@ -91,7 +88,6 @@ func NewDirectionBuilder(graph Graph, rn RoadNetworkDataContainer, metrics Metri
 // reset releases annotation-owned slices and otherwise reuses builder capacity.
 func (db *DirectionBuilder) reset() {
 	db.segmentIds = db.segmentIds[:0]
-	db.geometry = db.geometry[:0]
 }
 
 // SetReroute sets reroute to true.
@@ -106,27 +102,26 @@ func (db *DirectionBuilder) GetDrivingDirections(
 	segments []da.Index,
 	sp, tp da.PhantomNode,
 	useAnnotation bool,
-) []da.DrivingDirection {
+) []da.RouteStep {
 	db.useAnnotation = useAnnotation
 
 	if len(segments) == 0 {
 		return nil
 	}
 
+	db.path = make([]da.Index, len(segments)+1)
 	if !db.reroute {
-		db.path = append(db.path, sp.GetVId())
+		db.path[0] = sp.GetVId()
 	} else if db.reroute {
-		db.path = append(db.path, db.startSegId)
+		db.path[0] = db.startSegId
 	}
 
-	db.path = append(db.path, segments...)
+	copy(db.path[1:1+len(segments)], segments)
 
 	m := len(db.path)
-
 	db.lastPathId = 1
 	for db.lastPathId < m {
 		segmentId := db.path[db.lastPathId]
-
 		db.buildInstruction(segmentId, sp)
 		db.lastPathId++
 		db.useLookForward = false
@@ -134,30 +129,28 @@ func (db *DirectionBuilder) GetDrivingDirections(
 	}
 
 	db.finalInstruction(tp.GetVId(), tp)
-
-	db.turnDescriptions = db.turnDescriptions[:0]
-
+	db.turnDescriptions = make([]string, 0, len(db.instructions))
 	for i := range db.instructions {
 		desc := db.instructions[i].GetTurnDescription(db.clockwise)
 		db.turnDescriptions = append(db.turnDescriptions, desc)
 	}
 
-	db.drivingDirections = db.drivingDirections[:0]
+	db.routeSteps = make([]da.RouteStep, 0, len(db.instructions))
 
+	var (
+		currStepCost, currStepDistance float64
+	)
 	for i := range db.instructions {
-		var (
-			currStepCost, currStepDistance float64
-		)
 		if i > 0 {
-			currStepCost = db.instructions[i].GetCumulativeCost() - db.instructions[i-1].GetCumulativeCost()
-			currStepDistance = db.instructions[i].GetCumulativeDistance() - db.instructions[i-1].GetCumulativeDistance()
+			currStepCost = db.instructions[i].CumulativeCost() - db.instructions[i-1].CumulativeCost()
+			currStepDistance = db.instructions[i].CumulativeDistance() - db.instructions[i-1].CumulativeDistance()
 		}
 
-		db.drivingDirections = append(db.drivingDirections, da.NewDrivingDirection(db.instructions[i], db.turnDescriptions[i],
-			currStepCost, currStepDistance, db.instructions[i].GetSegmentIds(), db.instructions[i].GetTurnBearing(), db.instructions[i].GetAnnotation()))
+		db.routeSteps = append(db.routeSteps, da.NewRouteStep(db.instructions[i], db.turnDescriptions[i],
+			currStepCost, currStepDistance, db.instructions[i].SegmentIds(), db.instructions[i].GetTurnBearing(), db.instructions[i].Annotation()))
 	}
 
-	return db.drivingDirections
+	return db.routeSteps
 }
 
 func (db *DirectionBuilder) buildInstruction(segmentId da.Index, sp da.PhantomNode) {
@@ -267,5 +260,5 @@ func (db *DirectionBuilder) annotation() da.Annotation {
 	if !db.useAnnotation {
 		return da.Annotation{}
 	}
-	return db.buildSimplifiedAnnotation(db.segmentIds, db.geometry)
+	return db.buildSimplifiedAnnotation(db.segmentIds)
 }

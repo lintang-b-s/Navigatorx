@@ -203,14 +203,18 @@ func solve(t *testing.T, filepath string) {
 
 	re, _, oldToNewVIdMap, _, _ := buildCRP(t, "delftdistance", nodeCoords, adjList, n, []int{7, 11}, true)
 
-	crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
-
 	sid := oldToNewVIdMap[da.Index(source)]
 	tid := oldToNewVIdMap[da.Index(target)]
 
 	t.Logf("calculating shortest path...  \n")
 
+	// CRP+Bidirectional ALT
+	crpQuery := routing.NewCRPALTQuery(re.GetRoutingEngine())
 	spLength, _, _ := crpQuery.ShortestPathSearch(sid, tid)
+
+	// CRP + ALT
+	crpQueryUni := routing.NewCRPUniALTQuery(re.GetRoutingEngine())
+	spLengthUni, _, _ := crpQueryUni.ShortestPathSearch(sid, tid)
 
 	// assert expected output dari test cases soal
 
@@ -236,6 +240,10 @@ func solve(t *testing.T, filepath string) {
 		t.Fatalf("FAIL: Expected shortest path length: %v, got: %v", expectedSPLength, spLength)
 	}
 
+	if !util.Eq(spLengthUni, expectedSPLength) {
+		t.Fatalf("FAIL: (ALT Algorithm) Expected shortest path length: %v, got: %v", expectedSPLength, spLengthUni)
+	}
+
 	t.Logf("solved test case: %v", filepath)
 }
 
@@ -249,24 +257,17 @@ func TestCRPQueryDelftDistanceMALT(t *testing.T) {
 
 	for _, dir := range testDirs {
 		fullDir := filepath.Join(dirPath, dir)
-
 		files, err := os.ReadDir(fullDir)
 		if err != nil {
 			t.Fatalf("err: %v", err)
 		}
-
 		for _, entry := range files {
-
 			name := entry.Name()
-
 			if !strings.HasSuffix(name, ".in") {
 				continue
 			}
-
 			baseName := strings.TrimSuffix(name, ".in")
-
 			testPath := filepath.Join(fullDir, baseName)
-
 			t.Logf("solving test case: %v", baseName)
 			t.Run("Multilevel-ALT without turn cost/"+dir+"/"+baseName, func(t *testing.T) {
 				solve(t, testPath)

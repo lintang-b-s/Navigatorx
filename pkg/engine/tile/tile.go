@@ -45,7 +45,7 @@ package tile
 // 		seg := segment{speed: speed, duration: uint32(duration), length: length,
 // 			name: name, rnId: segId}
 // 		segmentGeometries = append(segmentGeometries, geometry)
-// 		seg.geometry = da.GooglePoylineFromCoords(geom)
+// 		seg.geometry = da.GooglePolylineFromCoords(geom)
 // 		segments = append(segments, seg)
 // 	}
 

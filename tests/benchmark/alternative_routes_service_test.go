@@ -26,10 +26,8 @@ PASS
 ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       32.671s
 */
 func BenchmarkAlternativeRoutesService(b *testing.B) {
-	// defer goleak.VerifyNone(b) // cuma cache ristretto yang leak
 
-	eng, queries, g, logger := setup()
-	start := time.Now()
+	eng, queries, g, logger := setup(b, osmFile)
 	re := eng.GetRoutingEngine()
 	rn := re.GetRoadNetworkContainer()
 	rtree := spatialindex.NewRtree()
@@ -44,6 +42,7 @@ func BenchmarkAlternativeRoutesService(b *testing.B) {
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := len(queries)
+	start := time.Now()
 	for b.Loop() {
 		i := rd.Intn(n)
 		q := queries[i]

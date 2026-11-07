@@ -15,7 +15,7 @@ type CRPQuery[W util.Numeric] struct {
 	metrics              *met.Metric[W]
 	lm                   *landmark.Landmark[W]
 	shortestCost         W
-	mid                  da.ParentVertex
+	mid                  da.Index
 	fpq                  *da.QueryHeap[da.QueryKey, W]
 	bpq                  *da.QueryHeap[da.QueryKey, W]
 	sCellNumber          da.Pv
@@ -39,7 +39,7 @@ func NewCRPQuery[W util.Numeric](
 ) *CRPQuery[W] {
 	crpQuery := &CRPQuery[W]{
 		engine:               engine,
-		mid:                  da.NewParentVertex(0, false),
+		mid:                  0,
 		viaVertices:          make([]*ViaVertex, 0, 5),
 		numExploredVertices:  0,
 		runtime:              0,
@@ -120,12 +120,14 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 	bs.fpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
 	bs.bpq.InitCRPQuery(sOffset, sSize, tOffset, tSize, maxV, nv)
 
-	svd := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
-	tvd := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
-	sQueryKey := da.NewQKey(s, 0, false)
-	tQueryKey := da.NewQKey(t, 0, false)
-	bs.fpq.Insert(s, 0, svd, sQueryKey)
-	bs.bpq.Insert(t, 0, tvd, tQueryKey)
+	sQk := da.NewQKey(s, 0, false)
+	tQk := da.NewQKey(t, 0, false)
+
+	svd := da.NewVData(W(0), sQk, da.InvalidVertexId)
+	tvd := da.NewVData(W(0), tQk, da.InvalidVertexId)
+
+	bs.fpq.Insert(s, 0, svd)
+	bs.bpq.Insert(t, 0, tvd)
 
 	for bs.fpq.Size() > 0 && bs.bpq.Size() > 0 {
 		minForward := bs.fpq.MinRank()
@@ -135,29 +137,30 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 			break
 		}
 
-		queryKey := bs.fpq.ExtractMin()
-		uItem := queryKey.GetItem()
-
-		if !uItem.IsOverlay() {
-			bs.fpq.Explore(uItem.GetNode())
-			bs.graphSearch(uItem, true, bs.fpq, bs.bpq)
-			bs.addViaVertex(uItem, true, false)
+		// forward search
+		uk, uCost := bs.fpq.ExtractMin()
+		u := uk.GetNode()
+		if !uk.IsOverlay() {
+			bs.fpq.Explore(u)
+			bs.graphSearch(uk, uCost, true, bs.fpq, bs.bpq)
+			bs.addViaVertex(uk, true, false)
 		} else {
-			bs.fpq.Explore(uItem.GetNode())
-			bs.overlayGraphSearch(uItem, true, bs.fpq, bs.bpq)
-			bs.addViaVertex(uItem, true, true)
+			bs.fpq.Explore(u)
+			bs.overlayGraphSearch(uk, uCost, true, bs.fpq, bs.bpq)
+			bs.addViaVertex(uk, true, true)
 		}
 
-		queryKey = bs.bpq.ExtractMin()
-		uItem = queryKey.GetItem()
-		if !uItem.IsOverlay() {
-			bs.bpq.Explore(uItem.GetNode())
-			bs.graphSearch(uItem, false, bs.bpq, bs.fpq)
-			bs.addViaVertex(uItem, false, false)
+		// backward search
+		uk, uCost = bs.bpq.ExtractMin()
+		u = uk.GetNode()
+		if !uk.IsOverlay() {
+			bs.bpq.Explore(u)
+			bs.graphSearch(uk, uCost, false, bs.bpq, bs.fpq)
+			bs.addViaVertex(uk, false, false)
 		} else {
-			bs.bpq.Explore(uItem.GetNode())
-			bs.overlayGraphSearch(uItem, false, bs.bpq, bs.fpq)
-			bs.addViaVertex(uItem, false, true)
+			bs.bpq.Explore(u)
+			bs.overlayGraphSearch(uk, uCost, false, bs.bpq, bs.fpq)
+			bs.addViaVertex(uk, false, true)
 		}
 
 		bs.numExploredVertices += 2
@@ -180,10 +183,9 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 /*
 graphSearch. forward search & backward search dari bidirectional Dijkstra in sel c1(s) atau c1(t).
 */
-func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
+func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, uCost W, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 
 	u := uKey.GetNode()
-	uCost := pq.Cost(u)
 
 	offset, eNum := bs.engine.graph.NumEdges(u, forw)
 	for eId := offset; eId < offset+eNum; eId++ {
@@ -206,21 +208,18 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, forw bool, pq, rpq *da.Quer
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
 				// newVCost is better, update the vertex v cost in priority queue
-				vPar := da.NewParentVertex(u, false)
-
 				if vLabelled {
 					// is key already in the priority queue, decrease its key
-					pq.DecreaseKey(v, newVCost, newVCost, vPar)
+					pq.DecreaseKey(v, newVCost, newVCost, u)
 				} else if !vLabelled {
-					vData := da.NewVData(newVCost,
-						vPar)
-					queryKey := da.NewQKey(v, 0, false)
+					wQk := da.NewQKey(v, 0, false)
+					vData := da.NewVData(newVCost, wQk, u)
 					// is key not in the priority queue, insert it
-					pq.Insert(v, newVCost, vData, queryKey)
+					pq.Insert(v, newVCost, vData)
 				}
 			}
 
-			bs.meet(v, pq, rpq, false)
+			bs.meet(v, pq, rpq)
 		} else {
 			// v is in another cell on higher level
 			// but the item in priority queue is (v, l_st(v)), because we need to traverse & relax shortcut edges in overlay graph (see overlayGraphSearch method)
@@ -229,18 +228,16 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, forw bool, pq, rpq *da.Quer
 			oldVCost := pq.Cost(vOv)
 			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
 			if util.Lt(newVCost, oldVCost) {
-				vOvPar := da.NewParentVertex(u, false)
 				if !vLabelled {
-					vData := da.NewVData(newVCost,
-						vOvPar)
-					queryKey := da.NewQKey(vOv, vQueryLevel, true)
-					pq.Insert(vOv, newVCost, vData, queryKey)
+					wQk := da.NewQKey(vOv, vQueryLevel, true)
+					vData := da.NewVData(newVCost, wQk, u)
+					pq.Insert(vOv, newVCost, vData)
 				} else {
-					pq.DecreaseKey(vOv, newVCost, newVCost, vOvPar)
+					pq.DecreaseKey(vOv, newVCost, newVCost, u)
 				}
 			}
 
-			bs.meet(vOv, pq, rpq, true)
+			bs.meet(vOv, pq, rpq)
 		}
 	}
 }
@@ -265,13 +262,12 @@ the explanation below taken from Delling et al. (2015) ref [1]:
 outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
 the arc (u, v) immediately and process v."
 */
-func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
+func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, uCost W, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 	// search on overlay graph
 
 	uOv := uKey.GetNode() // overlay vertex id
 	uQueryLevel := int(uKey.QueryLevel())
 	u := bs.engine.adjustoffsetOverlay(uOv)
-	uCost := pq.Cost(uOv)
 
 	ovOffset, wOffset, eNum, numExit := bs.engine.overlayGraph.NumOfShortcuts(u, uQueryLevel, forw)
 
@@ -283,9 +279,9 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, forw bool, pq, rpq *
 		// relax edge
 		oldVCost := pq.Cost(vOv)
 		if util.Lt(newVCost, oldVCost) {
-			vPar := da.NewParentVertex(uOv, true)
-			pq.Set(vOv, da.NewVData(newVCost,
-				vPar), da.NewQKey(vOv, uint8(uQueryLevel), true))
+			vQk := da.NewQKey(vOv, uint8(uQueryLevel), true)
+			vData := da.NewVData(newVCost, vQk, uOv)
+			pq.Set(vOv, vData)
 			pq.Explore(vOv)
 
 			// traverse cut edge (v,w), immediately process w
@@ -305,17 +301,15 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, forw bool, pq, rpq *
 				oldWCost := pq.Cost(w)
 				wLabelled := util.Lt(oldWCost, util.Infinity[W]())
 				if util.Lt(newWCost, oldWCost) {
-					wPar := da.NewParentVertex(vOv, true)
-
 					if wLabelled {
-						pq.DecreaseKey(w, newWCost, newWCost, wPar)
+						pq.DecreaseKey(w, newWCost, newWCost, vOv)
 					} else {
-						vData := da.NewVData(newWCost, wPar)
-						queryKey := da.NewQKey(w, 0, false)
-						pq.Insert(w, newWCost, vData, queryKey)
+						wQk := da.NewQKey(w, 0, false)
+						wData := da.NewVData(newWCost, wQk, vOv)
+						pq.Insert(w, newWCost, wData)
 					}
 				}
-				bs.meet(w, pq, rpq, false)
+				bs.meet(w, pq, rpq)
 			} else {
 				// w is in another cell on higher level
 				// update new travelTime to reach overlay vertex w
@@ -324,35 +318,28 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, forw bool, pq, rpq *
 				oldwOvCost := pq.Cost(wOv)
 				wLabelled := util.Lt(oldwOvCost, util.Infinity[W]())
 				if util.Lt(newWCost, oldwOvCost) {
-					wOvPar := da.NewParentVertex(vOv, true)
-
 					if !wLabelled {
-						vData := da.NewVData(newWCost, wOvPar)
-						queryKey := da.NewQKey(wOv, wQueryLevel, true)
-						pq.Insert(wOv, newWCost, vData, queryKey)
+						wQk := da.NewQKey(wOv, wQueryLevel, true)
+						wData := da.NewVData(newWCost, wQk, vOv)
+						pq.Insert(wOv, newWCost, wData)
 					} else {
-						pq.DecreaseKey(wOv, newWCost, newWCost, wOvPar)
+						pq.DecreaseKey(wOv, newWCost, newWCost, vOv)
 					}
 				}
-				bs.meet(wOv, pq, rpq, true)
+				bs.meet(wOv, pq, rpq)
 			}
 		}
-		bs.meet(vOv, pq, rpq, true)
+		bs.meet(vOv, pq, rpq)
 	}
 }
 
-func (bs *CRPQuery[W]) meet(v da.Index, pq, rpq *da.QueryHeap[da.QueryKey, W], overlay bool) {
+func (bs *CRPQuery[W]) meet(v da.Index, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 	if rpq.IsExplored(v) {
 		// if vertex v explored by other search, check whether we can improve the shortestCost estimate
 		newEstSPCost := pq.Cost(v) + rpq.Cost(v)
 		if util.Lt(newEstSPCost, bs.shortestCost) {
 			bs.shortestCost = newEstSPCost
-			var mid da.ParentVertex
-			if overlay {
-				mid = da.NewParentVertex(v, true)
-			} else {
-				mid = da.NewParentVertex(v, false)
-			}
+			mid := v
 			bs.mid = mid
 		}
 	}

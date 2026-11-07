@@ -44,7 +44,7 @@ func buildGraphHelper[W util.Numeric](t *testing.T, n int, adjList [][]da.PairEd
 			nodeCoords[e.GetTo()],
 		}, make([]uint64, 2))
 		endPointsIndex := rn.GetOsmNodePointsCount()
-		rn.AppendSegmentData(int64(i), da.Index(startPointsIndex), da.Index(endPointsIndex), 0, 0, 0, 1, da.NewEmptyTurnLanesData())
+		rn.AppendSegmentData(int64(i), startPointsIndex, endPointsIndex, 0, 0, 0, 1, da.NewEmptyTurnLanesData())
 		rn.SetSegmentFlag(da.Index(i), 0)
 	}
 
@@ -405,7 +405,7 @@ func TestBuildEdgeBasedGraph(t *testing.T) {
 				assert.InDeltaSlice(t, tc.wantWeights, ebgWf.Getweights(), util.EPS)
 			}
 			for eID := 0; eID < ebg.NumberOfEdges(); eID++ {
-				assert.InDelta(t, tc.wantWeights[eID], ebgWf.GetWeight(da.Index(eID)), util.EPS, "edge %d weight", eID)
+				assert.InDelta(t, tc.wantWeights[eID], ebgWf.Weight(da.Index(eID)), util.EPS, "edge %d weight", eID)
 			}
 
 		})

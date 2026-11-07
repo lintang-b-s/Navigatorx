@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/NYTimes/gziphandler"
 	"github.com/julienschmidt/httprouter"
 	"github.com/justinas/alice"
+	"github.com/klauspost/compress/gzhttp"
 	"github.com/lintang-b-s/Navigatorx/pkg/http/router/controllers"
 	router_helper "github.com/lintang-b-s/Navigatorx/pkg/http/router/routerhelper"
 	http_server "github.com/lintang-b-s/Navigatorx/pkg/http/server"
@@ -120,13 +120,17 @@ func (api *API) Run(
 	var mwChain []alice.Constructor
 	const healthEndpoint = "healthz"
 
+	gz := func(h http.Handler) http.Handler {
+		return gzhttp.GzipHandler(h)
+	}
+
 	if useRateLimit {
 		// useRateLimit = true ->  dideploy pakai nginx reverse proxy (udah ada gzip nya).
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
 			RealIP, api.Heartbeat(healthEndpoint), Logger(log), Labels, api.Limit)
 	} else {
 		mwChain = append(mwChain, corsHandler.Handler, EnforceJSONHandler, api.recoverPanic,
-			RealIP, api.Heartbeat(healthEndpoint), Logger(log), Labels, gziphandler.GzipHandler)
+			RealIP, api.Heartbeat(healthEndpoint), Logger(log), Labels, gz) // todo: ganti ke https://github.com/klauspost/compress/tree/master/gzhttp
 	}
 
 	mainMwChain := alice.New(mwChain...).Then(router)

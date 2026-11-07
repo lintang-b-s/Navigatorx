@@ -66,7 +66,7 @@ func main() {
 	qset := make(map[uint64]struct{})
 
 	bitpack := func(i, j int) uint64 {
-		return uint64(i) | (uint64(j) << 30)
+		return uint64(i) | (uint64(j) << 32)
 	}
 
 	i := 0

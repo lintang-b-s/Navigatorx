@@ -23,6 +23,7 @@ type Landmark[W util.Numeric] struct {
 	landmarks []da.Index
 	n         da.Index
 	k         da.Index
+	inf       W
 }
 
 // NewLandmark creates and returns ALT landmark precomputed distances.
@@ -32,6 +33,7 @@ func NewLandmark[W util.Numeric]() *Landmark[W] {
 	lm.vlw = []W{}
 	landmarks := make([]da.Index, 0)
 	lm.landmarks = landmarks
+	lm.inf = util.Infinity[W]()
 
 	return lm
 }
@@ -41,8 +43,8 @@ func NewLandmark[W util.Numeric]() *Landmark[W] {
 // SelectLandmarks selects landmark vertices for the ALT (A*, Landmarks, and Triangle Inequality) Algorithm.
 // [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 // this is an implementation of planar landmark selection described in section 7 paper [1] versi 2
-// O(V*logV)
-func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph) []da.Vertex {
+// O(V*logK) expected time.
+func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph, cf *met.TimeFunction[W]) []da.Vertex {
 
 	landmarks := make([]da.Vertex, 0, k)
 	ivs := graph.GetVertices()
@@ -60,7 +62,7 @@ func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph) []da.Vertex {
 
 	centerLat := (maxLat + minLat) / 2.0
 	centerLon := (maxLon + minLon) / 2.0
-	n := graph.NumberOfVertices()
+	n := da.Index(graph.NumberOfVertices())
 
 	midLandmark := da.NewEmptyVertex()
 	minMidDist := math.MaxFloat64
@@ -77,13 +79,33 @@ func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph) []da.Vertex {
 	type cv struct {
 		v       da.Vertex
 		bearing float64
+		dist    W
 	}
 
 	cvs := make([]cv, len(ivs))
 
+	mvId := midLandmark.GetId()
+	pq := da.NewQueryHeap[da.Index, W](n, n, da.ArrayStorageMode)
+	cost := make([]W, n)
+	inf := lm.inf // duration/travel time
+	for v := range n {
+		cost[v] = inf
+	}
+	dijk := NewDijkstra(graph, cf, false)
+	dijk.ShortestPath(mvId, pq, cost)
+
+	const speed float64 = 55.5556 // 200 km/h
 	for i, v := range ivs {
 		b := geo.BearingTo(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
-		cvs[i] = cv{v, b}
+		vId := v.GetId()
+		var d W
+		if cost[vId] == inf {
+			dgc := geo.CalculateGreatCircleDistance(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
+			d = W(util.KilometerToMeter(dgc))
+		} else {
+			d = W(float64(cost[vId]) * speed)
+		}
+		cvs[i] = cv{v, b, d}
 	}
 
 	// mirip algoritma graham explore buat bikin convex hull
@@ -91,15 +113,10 @@ func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph) []da.Vertex {
 	// ini: sort Points by their initial bearing angles around a p0 (center point/coordinate)
 	// karena geographic coordinate, sort by initial bearing angle (sudut clockwise antara garis yang menghubungkan titik pivot ke other point dan garis meridian)
 
-	// todo: ini kaya bisa dioptimize pakai randomized-select atau other order statistics algorithm
-
+	pieSize := int(n / da.Index(k))
 	slices.SortFunc(cvs, func(a, b cv) int {
-		ab := a.bearing
-		bb := b.bearing
-		return cmp.Compare(ab, bb)
+		return cmp.Compare(a.bearing, b.bearing)
 	})
-
-	pieSize := n / k
 
 	for i := 0; i < k; i++ {
 		// O(V)
@@ -109,11 +126,9 @@ func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph) []da.Vertex {
 		}
 
 		terjauhId := 0
-		maxDist := math.Inf(-1)
+		maxDist := -lm.inf
 		for j, vv := range pie {
-			v := vv.v
-			midToVDist := geo.CalculateGreatCircleDistance(midLandmark.GetLat(), midLandmark.GetLon(), v.GetLat(), v.GetLon())
-
+			midToVDist := vv.dist
 			if midToVDist > maxDist {
 				maxDist = midToVDist
 				terjauhId = j
@@ -148,6 +163,7 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 	n := da.Index(graph.NumberOfVertices())
 
 	if n < da.Index(k) {
+		lm.k = 0
 		return nil
 	}
 
@@ -155,56 +171,53 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 	lm.lw = make([]W, da.Index(k)*n)
 	lm.landmarks = make([]da.Index, k)
 	lm.vlw = make([]W, n*da.Index(k))
-	landmarksVertices := lm.SelectLandmarks(k, graph)
+	landmarksVertices := lm.SelectLandmarks(k, graph, cf)
 	lm.k = da.Index(k)
 	lm.n = n
 
-	maxSearchSize := graph.NumberOfVertices()
-
 	heapPool := sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.Index(maxSearchSize), da.ArrayStorageMode)
+			return da.NewQueryHeap[da.Index, W](n, n, da.ArrayStorageMode)
 		},
+	}
+
+	inf := util.Infinity[W]()
+	for l := da.Index(0); l < da.Index(k); l++ {
+		for v := da.Index(0); v < n; v++ {
+			lm.lw[l*n+v] = inf
+			lm.vlw[l*n+v] = inf
+		}
 	}
 
 	dijkstraInChan := make(chan queryParam, landmarkChanSize)
 	dijkstraRevInChan := make(chan queryParam, landmarkChanSize)
 
 	wg := &sync.WaitGroup{}
-	mu := &sync.Mutex{}
 
-	calcDijkstra := func(dijkstraInChan chan queryParam, graph *da.Graph, heapPool *sync.Pool, cf *met.TimeFunction[W], lw []W, mu *sync.Mutex) {
+	calcDijkstra := func(dijkstraInChan chan queryParam, graph *da.Graph, heapPool *sync.Pool, cf *met.TimeFunction[W], lw []W) {
 		for qp := range dijkstraInChan {
 			s := qp.s
 			i := qp.i
 
-			crpQuery := NewDijkstra(graph, cf, false) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
-			pq := heapPool.Get().(*da.QueryHeap[da.QueryKey, W])
-
-			crpQuery.ShortestPath(s, pq)
-			mu.Lock()
-			crpQuery.constructShortestPath(s, lw[i*n:(i+1)*n])
+			dijk := NewDijkstra(graph, cf, false) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
+			pq := heapPool.Get().(*da.QueryHeap[da.Index, W])
+			dijk.ShortestPath(s, pq, lw[i*n:(i+1)*n])
 			pq.Clear()
 			heapPool.Put(pq)
-			mu.Unlock()
 			wg.Done()
 		}
 	}
 
-	calcDijkstraRev := func(dijkstraRevInChan chan queryParam, graph *da.Graph, heapPool *sync.Pool, cf *met.TimeFunction[W], vlw []W, mu *sync.Mutex) {
+	calcDijkstraRev := func(dijkstraRevInChan chan queryParam, graph *da.Graph, heapPool *sync.Pool, cf *met.TimeFunction[W], vlw []W) {
 		for qp := range dijkstraRevInChan {
 			s := qp.s
 			i := qp.i
 
-			crpQuery := NewDijkstra(graph, cf, true) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
-			pq := heapPool.Get().(*da.QueryHeap[da.QueryKey, W])
-
-			crpQuery.ShortestPath(s, pq)
-			mu.Lock()
-			crpQuery.constructShortestPath(s, vlw[i*n:(i+1)*n])
+			dijk := NewDijkstra(graph, cf, true) // O((m+n)logn). at most n items in pq , decrease/insert key operation at most m times, extractMin operation at most n times
+			pq := heapPool.Get().(*da.QueryHeap[da.Index, W])
+			dijk.ShortestPath(s, pq, vlw[i*n:(i+1)*n])
 			pq.Clear()
 			heapPool.Put(pq)
-			mu.Unlock()
 			wg.Done()
 		}
 	}
@@ -212,8 +225,8 @@ func (lm *Landmark[W]) PreprocessALT(k int, cf *met.TimeFunction[W], graph *da.G
 	logger.Sugar().Infof("computing landmarks distances....")
 
 	for i := 0; i < WORKERS; i++ {
-		go calcDijkstra(dijkstraInChan, graph, &heapPool, cf, lm.lw, mu)
-		go calcDijkstraRev(dijkstraRevInChan, graph, &heapPool, cf, lm.vlw, mu)
+		go calcDijkstra(dijkstraInChan, graph, &heapPool, cf, lm.lw)
+		go calcDijkstraRev(dijkstraRevInChan, graph, &heapPool, cf, lm.vlw)
 	}
 
 	for i := da.Index(0); i < da.Index(k); i++ {
@@ -265,13 +278,16 @@ fungsi potential/heuristik  h(u) meiliki sifat konsisten/feasible [3], dan admis
 
 activeLandmarks berisi list index dari active query landmark (list index dari lm.landmarks)
 */
-func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks []da.Index) W {
+func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks [2]da.Index) W {
+	if lm.k == 0 {
+		return 0
+	}
 	// O(k), k = number of active landmarks
-	tighestLowerBound := -util.Infinity[W]()
+	tighestLowerBound := -lm.inf
 
-	for i := 0; i < len(activeLandmarks); i++ {
-		lid := activeLandmarks[i]
-		lb := lm.ComputeLowerBound(lid, u, t)
+	for i := 0; i < activeLandmarkSize; i++ {
+		l := activeLandmarks[i]
+		lb := lm.ComputeLowerBound(l, u, t)
 		tighestLowerBound = max(tighestLowerBound, lb)
 	}
 
@@ -281,10 +297,10 @@ func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks [
 // ComputeLowerBound compute max(dist(l,t)-dist(l,u), dist(u,l)-dist(t,l))
 func (lm *Landmark[W]) ComputeLowerBound(l, u, t da.Index) W {
 	uToLandmark := lm.vlw[l*lm.n+u]
-	tToLandmark := lm.vlw[l*lm.n+t]
-
-	landmarkToT := lm.lw[l*lm.n+t]
 	landmarkToU := lm.lw[l*lm.n+u]
+
+	tToLandmark := lm.vlw[l*lm.n+t]
+	landmarkToT := lm.lw[l*lm.n+t]
 
 	lbOne := uToLandmark - tToLandmark
 	lbTwo := landmarkToT - landmarkToU
@@ -312,14 +328,15 @@ https://www.cs.princeton.edu/courses/archive/spr06/cos423/Handouts/EPP%20shortes
 Use only an active subset:  (page 22)
 – prefer landmarks that give the best lower bound on dist(s, t).
 */
-func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
+func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) [2]da.Index {
 
-	bestLandmarks := make([]da.Index, 0, activeLandmarkSize)
+	bestLandmarks := [2]da.Index{}
 
 	lowerBounds := make([]activeLandmark[W], len(lm.landmarks))
 	for i := 0; i < len(lm.landmarks); i++ {
-		lb := lm.ComputeLowerBound(da.Index(i), s, t)
-		lowerBounds[i] = newActiveLandmark(da.Index(i), lb)
+		l := da.Index(i)
+		lb := lm.ComputeLowerBound(l, s, t)
+		lowerBounds[i] = newActiveLandmark(l, lb)
 	}
 
 	// O(k* logk), k = number of landmarks
@@ -328,8 +345,8 @@ func (lm *Landmark[W]) SelectBestQueryLandmarks(s, t da.Index) []da.Index {
 	})
 
 	lbs := lowerBounds[:min(len(lowerBounds), activeLandmarkSize)]
-	for _, v := range lbs {
-		bestLandmarks = append(bestLandmarks, v.i)
+	for i, v := range lbs {
+		bestLandmarks[i] = v.i
 	}
 
 	return bestLandmarks
@@ -348,7 +365,7 @@ kita disini pakai beta=h_f(s)
 h_f(u) adalah consistent lower bound dari sp cost dari u ke t
 h_r(u) adalah consistent lower bound dari sp cost dari s ke u
 */
-func (lm *Landmark[W]) ComputeTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks []da.Index, pirt W, forw bool) W {
+func (lm *Landmark[W]) ComputeTighestConsistentLowerBound(u, s, t da.Index, activeLandmarks [2]da.Index, pirt W, forw bool) W {
 	pifu := lm.ComputeTighestLowerBound(u, t, activeLandmarks) // consistent lower bound dari dist(u,t)
 	piru := lm.ComputeTighestLowerBound(s, u, activeLandmarks) // consistent lower bound dari dist(s,u)
 

@@ -14,8 +14,8 @@ type ALTP2P[W util.Numeric] struct {
 	engine          *CRPRoutingEngine[W]
 	metrics         *metrics.Metric[W]
 	lm              *landmark.Landmark[W]
-	pq              *da.QueryHeap[da.QueryKey, W]
-	activeLandmarks []da.Index
+	pq              *da.QueryHeap[da.Index, W]
+	activeLandmarks [2]da.Index
 	runtime         int64
 	numSettledNodes int
 }
@@ -36,14 +36,11 @@ func NewALTP2P[W util.Numeric](
 
 // ShortestPath compute point-to-point shortest path
 func (us *ALTP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
-
-	us.activeLandmarks = us.lm.SelectBestQueryLandmarks(s, t)
-	sVertexData := da.NewVData(W(0), da.NewParentVertex(da.InvalidVertexId, false))
-
 	now := time.Now()
 
-	djKey := da.NewDijkstraKey(s)
-	us.pq.Insert(s, 0, sVertexData, djKey)
+	us.activeLandmarks = us.lm.SelectBestQueryLandmarks(s, t)
+	sVertexData := da.NewVData(W(0), s, da.InvalidVertexId)
+	us.pq.Insert(s, 0, sVertexData)
 
 	for !us.pq.IsEmpty() {
 		finish := us.graphSearchUni(t)
@@ -63,41 +60,35 @@ func (us *ALTP2P[W]) ShortestPath(s, t da.Index) (W, []da.Index) {
 
 func (us *ALTP2P[W]) graphSearchUni(target da.Index) bool {
 
-	queryKey := us.pq.ExtractMin()
-	uItem := queryKey.GetItem()
-	uId := uItem.GetNode()
-	if uId == target {
+	u, uCost := us.pq.ExtractMin()
+	if u == target {
 		return true
 	}
 
 	// traverse outEdges of u
-	us.engine.graph.ForOutEdgeIdsOf(uId, func(eId da.Index) {
+	us.engine.graph.ForOutEdgeIdsOf(u, func(eId da.Index) {
 		head := us.engine.graph.GetHead(eId)
-		vId := head
+		v := head
 		eWeight := us.metrics.GetWeight(eId)
 		// get cost to reach v through u
-		newVCost := us.pq.Cost(uId) + eWeight
+		newVCost := uCost + eWeight
 
-		ovCost := us.pq.Cost(vId)
+		ovCost := us.pq.Cost(v)
 		if util.Ge(newVCost, ovCost) {
 			// newVCost is not better, do nothing
 			return
 		}
-
 		vLabelled := util.Lt(ovCost, util.Infinity[W]())
-		hv := us.lm.ComputeTighestLowerBound(vId, target, us.activeLandmarks)
+		hv := us.lm.ComputeTighestLowerBound(v, target, us.activeLandmarks)
 		priority := newVCost + hv
-		vPar := da.NewParentVertex(uId, false)
-
 		// newVCost is better, update the labelled vertex data
 		if vLabelled {
 			// is key already in the priority queue, decrease its key
-			us.pq.DecreaseKey(vId, priority, newVCost, vPar)
+			us.pq.DecreaseKey(v, priority, newVCost, u)
 		} else if !vLabelled {
-			queryKey := da.NewDijkstraKey(vId)
-			vData := da.NewVData(newVCost, vPar)
+			vData := da.NewVData(newVCost, v, u)
 			// is key not in the priority queue, insert it
-			us.pq.Insert(vId, priority, vData, queryKey)
+			us.pq.Insert(v, priority, vData)
 		}
 	})
 
@@ -109,8 +100,7 @@ func (us *ALTP2P[W]) Preallocate() {
 	numberOfVerties := us.engine.graph.NumberOfVertices()
 	maxSearchSize := numberOfVerties
 
-	us.pq = da.NewQueryHeap[da.QueryKey, W](da.Index(maxSearchSize), da.Index(maxSearchSize), da.ArrayStorageMode)
-	us.pq.PreallocateHeap(maxSearchSize)
+	us.pq = da.NewQueryHeap[da.Index, W](da.Index(maxSearchSize), da.Index(maxSearchSize), da.ArrayStorageMode)
 }
 
 func (us *ALTP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
@@ -125,12 +115,10 @@ func (us *ALTP2P[W]) constructShortestPath(s, t da.Index) (W, []da.Index) {
 	vData := us.pq.Get(t)
 	spPath = append(spPath, t)
 
-	for vData.GetParent().GetVertex() != s {
-		parent := vData.GetParent()
-
-		spPath = append(spPath, parent.GetVertex())
-
-		vData = us.pq.Get(parent.GetVertex())
+	for vData.GetParent() != s {
+		par := vData.GetParent()
+		spPath = append(spPath, par)
+		vData = us.pq.Get(par)
 	}
 	spPath = append(spPath, s)
 
