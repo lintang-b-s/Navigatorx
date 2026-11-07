@@ -150,7 +150,7 @@ func (qh *QueryHeap[T, W]) heapifyDown(index Index) {
 // optHeapifyUp maintains min-heap property. optimized version of heapifyUp().
 // place the bubble node (or current node) to the right position by checking if parent node bigger than current node,
 // if yes, then place the parent node to current node (bubble down the parent), and recurse to parent node,
-// repeat this process until parent node is smaller than or equal to this current node,
+// repeat this process until parent node is smaller than or equal to this current node (or stop when the current node is root node),
 // then in the end, we place the bubble node to the current node index.
 // O(logN) complete 2-ary (or 4-ary) tree height.
 // inspired by pater sanders binary heap  optimized implementation in section A.1.2: https://dl.acm.org/doi/epdf/10.1145/351827.384249

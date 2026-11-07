@@ -49,7 +49,7 @@ go build -o ./bin/customizer ./cmd/customizer
 
 ### Query Engine
 
-The point-to-point fastest path query, similiar to the one in ref ([[5]](#ref5)), running Bidirectional ALT (A\* Search, Landmarks, and Triangle Inequality) ([[3]](#ref3)) on the graph consisting of the union of overlay Graph, _C_s_ , and _C_t_ . (Here _C_v_ denotes the subgraph of G induced by the vertices in the cell containing v.), resulting from the preprocessing and customization phases of the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) technique.
+The point-to-point fastest path query, similiar to the one in ref ([[5]](#ref5)), running ALT (A\* Search, Landmarks, and Triangle Inequality) Algorithm ([[3]](#ref3)) on the graph consisting of the union of overlay Graph, $c(s)$ , and $c(t)$. (Here $c(v)$ denotes the subgraph of G induced by the vertices in the level-1 cell containing vertex v.), resulting from the preprocessing and customization phases of the Customizable Route Planning (CRP) ([[1]](#ref1), [[6]](#ref6)) technique.
 
 ```
 go build -o ./bin/engine -pgo=./bin/default.pgo  ./cmd/engine
