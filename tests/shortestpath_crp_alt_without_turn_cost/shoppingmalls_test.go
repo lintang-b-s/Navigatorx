@@ -14,7 +14,7 @@ import (
 )
 
 /*
-problem source: https://icpcarchive.github.io/Europe%20Contests/Southwestern%20Europe%20Regional%20Contest%20(SWERC)/2013%20Southwestern%20Europe%20Regional%20Contest/problems.pdf
+problem source: https://icpcarchive.github.io/Europe/Southwestern-Europe/The-2013-Southwestern-Europe-Regional-Contest/problems/C-Shopping-Malls.html
 no test cases excluded
 
 test data: https://archive.algo.is/icpc/swerc/2013/

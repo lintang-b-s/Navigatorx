@@ -27,8 +27,7 @@ https://drive.google.com/file/d/1ulMqGc3n89_jfIfiOAAedAhYfL4lo9Pj/view?usp=shari
 
 
 solution sketch:
-ref: https://icpcarchive.github.io/Europe%20Contests/Northwestern%20Europe%20Regional%20Contest%20(NWERC)/2023%20Northwestern%20Europe%20Regional%20Contest/solution.pdf
-
+ref: https://icpcarchive.github.io/Europe/Northwestern-Europe/The-2023-ICPC-Northwestern-Europe-Regional-Contest/tutorials_en.pdf
 let:
 x_i = time for traverse the segment-i using acceleration/decceleration
 d_i = segment-i length

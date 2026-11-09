@@ -14,7 +14,7 @@ import (
 )
 
 /*
-taken from: https://icpcarchive.github.io/North%20America%20Contests/North%20Central%20Regional%20Contest/2020%20North%20Central%20Regional%20Contest/problems.pdf
+taken from: https://icpcarchive.github.io/North-America/North-Central-NA/North-Central-NA-2020/problems/B-Ride-Hailing.html
 problem B Ride-Hailing
 
 test data: https://catsofwywop.com/icpc/data/ncna/2020/

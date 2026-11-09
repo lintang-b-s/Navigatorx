@@ -13,7 +13,7 @@ import (
 )
 
 /*
-taken from: https://icpcarchive.github.io/Europe%20Subcontests/German%20Collegiate%20Programming%20Contest%20(GCPC)/2013%20German%20Collegiate%20Programming%20Contest/problems.pdf
+taken from: https://icpcarchive.github.io/Europe/Northwestern-Europe/German-Collegiate-Programming-Contest/The-2013-German-Collegiate-Programming-Contest/problems/H-The-King-of-the-North.html
 problem H: The King of the North
 
 test data: https://archive.algo.is/icpc/nwerc/gcpc/2013/
