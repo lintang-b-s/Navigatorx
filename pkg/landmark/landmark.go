@@ -43,7 +43,7 @@ func NewLandmark[W util.Numeric]() *Landmark[W] {
 // SelectLandmarks selects landmark vertices for the ALT (A*, Landmarks, and Triangle Inequality) Algorithm.
 // [1] Goldberg, A.V. and Harrelson, lm. (2005) ‘Computing the shortest path: A* search meets graph theory’, in Proceedings of the Sixteenth Annual ACM-SIAM Symposium on Discrete Algorithms. USA: Society for Industrial and Applied Mathematics (SODA ’05), pp. 156–165.
 // this is an implementation of planar landmark selection described in section 7 paper [1]
-// expected runtime O(nk). n=number of vertices, k=number of landmarks
+// O((n+m)logn). n,m=number of vertices, number of edges
 func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph, cf *met.TimeFunction[W], heapPool *sync.Pool) []da.Vertex {
 
 	landmarks := make([]da.Vertex, 0, k)
@@ -68,7 +68,7 @@ func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph, cf *met.TimeFunct
 	midLandmark := da.NewEmptyVertex()
 	minMidDist := math.MaxFloat64
 	for _, v := range ivs {
-		// O(V)
+		// O(n)
 		dist := geo.CalculateGreatCircleDistance(v.GetLat(), v.GetLon(),
 			centerLat, centerLon)
 		if dist < minMidDist {
@@ -92,7 +92,7 @@ func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph, cf *met.TimeFunct
 		cost[v] = inf
 	}
 	dijk := NewDijkstra(graph, cf, false)
-	dijk.ShortestPath(midv, heapPool, cost)
+	dijk.ShortestPath(midv, heapPool, cost) // O((n+m)logn)
 
 	const speed float64 = 55.5556 // 200 km/h
 	for i, v := range ivs {
