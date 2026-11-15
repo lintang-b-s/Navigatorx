@@ -76,7 +76,7 @@ func (mp *MultilevelPartitioner) WriteOverlayVerticesInLevel() error {
 
 			uPv := mlp.GetCellNumber(u)
 			vPv := mlp.GetCellNumber(v)
-			overlayLevel := levelData.GetHighestDifferingLevel(uPv, vPv)
+			overlayLevel := levelData.HighestDifferingLevel(uPv, vPv)
 
 			if overlayLevel > 0 {
 				overlayVerticesByLevel[overlayLevel-1][uPv] = append(overlayVerticesByLevel[overlayLevel-1][uPv], uVertex)

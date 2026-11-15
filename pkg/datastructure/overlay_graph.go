@@ -273,7 +273,7 @@ func (og *OverlayGraph) buildOverlayVertices(g *Graph, numberOfLevels uint8) []b
 			v := g.GetHead(e)
 			startPv := g.GetCellNumber(u.GetId())
 			targetPv := g.GetCellNumber(v)
-			overlayLevel := og.levelData.GetHighestDifferingLevel(startPv, targetPv) // check if edge is a boundary edge in any level, return the highest level in which the edge is a boundary edge
+			overlayLevel := og.levelData.HighestDifferingLevel(startPv, targetPv) // check if edge is a boundary edge in any level, return the highest level in which the edge is a boundary edge
 
 			if overlayLevel > 0 {
 

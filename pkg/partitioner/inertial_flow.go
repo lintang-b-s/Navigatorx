@@ -6,8 +6,6 @@ import (
 	"sort"
 	"sync"
 
-	"math/rand/v2"
-
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
@@ -166,7 +164,7 @@ func (inf *InertialFlow) selectFirstLastKthVertices(l []float64, ratio float64) 
 		// expected runtime O(n)
 
 		// inspiration: https://daniel-j-h.github.io/post/selection-algorithms-for-partitioning/
-		q := randomizedSelect(vertEmbeds, 0, n-1, kth, func(left, right int) bool {
+		q := util.RandomizedSelect(vertEmbeds, 0, n-1, kth, func(left, right int) bool {
 			return util.Le(vertEmbeds[left].val, vertEmbeds[right].val)
 		}) // q is the index of the kth-smallest element in the vertEmbeds
 
@@ -175,9 +173,9 @@ func (inf *InertialFlow) selectFirstLastKthVertices(l []float64, ratio float64) 
 		}
 
 		// sampai sini kita mendapatkan semua elements didalam arr[q+1, n-1] lebih dari arr[q]
-		// kita bisa randomizedSelect arr[q+1, n-1] untuk mendapatkan last k sinks
+		// kita bisa RandomizedSelect arr[q+1, n-1] untuk mendapatkan last k sinks
 		lastKth := min(kth, n-kth)
-		randomizedSelect(vertEmbeds, q+1, n-1, lastKth, func(left, right int) bool {
+		util.RandomizedSelect(vertEmbeds, q+1, n-1, lastKth, func(left, right int) bool {
 			return util.Gt(vertEmbeds[left].val, vertEmbeds[right].val)
 		})
 
@@ -201,44 +199,6 @@ func (inf *InertialFlow) selectFirstLastKthVertices(l []float64, ratio float64) 
 
 func dot(x1, y1, x2, y2 float64) float64 {
 	return x1*x2 + y1*y2
-}
-
-// randomizedSelect. return the i-th smallest element (or largest depends on comp) of the array arr[p...r]
-// & partition the arr such that all elements (arr[p,..q]) left of i-th smallest element  are smaller (or largest depends on comp) than  the pivot element arr[q] & all elements (arr[q+1,...,r]) in the right of i-th smallest element
-// expected runtime O(n), n=len(arr). worst case O(n^2)
-// read chapter 9.2 CLRS (introduction to algorithm by Cormen, et al. 3rd edition) for the time complexity analysis
-// or https://ocw.mit.edu/courses/6-046j-design-and-analysis-of-algorithms-spring-2012/cc13d40706471ea882c39f315861ce64_MIT6_046JS12_lec08.pdf
-func randomizedSelect[T comparable](arr []T, p, r, i int, comp func(left, right int) bool) int {
-	if p == r {
-		return p
-	}
-
-	q := randomizedPartition(arr, p, r, comp)
-	k := q - p + 1 // size of arr[p,...,q] (include pivot element arr[q])
-	if i == k {
-		return q
-	} else if i < k {
-		return randomizedSelect(arr, p, q-1, i, comp)
-	}
-	return randomizedSelect(arr, q+1, r, i-k, comp) // i-k th smallest/largest element di arr[q+1,...,r] karena di next recursion kita operate di arr[q+1,...,r]
-}
-
-// randomizedPartition random pivot selection & partition function of randomized quicksort
-func randomizedPartition[T comparable](arr []T, p, r int, comp func(left, right int) bool) int {
-	i := p - 1
-
-	pivotId := p + rand.IntN(r-p+1)
-	arr[pivotId], arr[r] = arr[r], arr[pivotId]
-	for j := p; j < r; j++ {
-		if comp(j, r) {
-			i++
-			arr[i], arr[j] = arr[j], arr[i]
-		}
-	}
-
-	arr[i+1], arr[r] = arr[r], arr[i+1]
-
-	return i + 1
 }
 
 func (dmf *DinicUnitMaxFlow) createArtificialSourceSink(sourceNodes, sinkNodes []da.Index) {
