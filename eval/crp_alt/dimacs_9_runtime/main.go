@@ -45,6 +45,7 @@ var (
 // mungkin Eastern USA bisa lebih cepet dari 1.69 ms/op , implementasi CRP query di multilevel_dijkstra.go dan multilevel_astar_landmarks.go bisa dioptimize lagi...
 // atau mungkin karena mereka implement di C++ dan PC untuk eksperimen nya lebih bagus?
 // NEW RESULT setelah update SelectBestQueryLandmarks() di landmark.go: 1.0568 ms/op
+// setelah pakai CRP+ALT instead of CRP+Bidirectional ALT: 0.6ms/op
 // DONE :)
 const (
 	progress = 100
@@ -81,6 +82,9 @@ func parsePartitionSizes(raw string) ([]int, error) {
 https://web.archive.org/web/20260516142336/http://www.diag.uniroma1.it/challenge9/format.shtml#ss.chk
 */
 
+// download map the map data first
+// go build -o ./bin/dimacs_eval  eval/crp_alt/dimacs_9_runtime/main.go
+// ./bin/dimacs_eval --input_nodes=./data/USA-road-d.E.co --input_edges=./data/USA-road-t.E.gr --problem_name=DIMACS_9_P2P_E
 func main() {
 	var (
 		err  error

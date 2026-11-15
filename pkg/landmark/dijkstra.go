@@ -37,6 +37,7 @@ func NewDijkstra[W util.Numeric](graph *da.Graph, cf *met.TimeFunction[W], useRe
 // mungkin di iterasi edges (sekalian weightnya) of vertex u nya bisa pakai https://pkg.go.dev/iter ? harus dibenchmark mana yang lebih cepet
 // di table 3 https://sidsen.azurewebsites.net//papers/heaps-alenex14.pdf  gak bandingin sama radix heap sama sekali
 // radix heap is faster than 4-ary heap confirmed by this latest experiment https://github.com/RagnarGrootKoerkamp/quickheap
+// DONE :) sekarang customization phase pakai jateng_jabar.osm.pbf cuma ~15s, sebelumnya ~23s
 
 /*
 ShortestPath run dijkstara single source shortest path algorithm.

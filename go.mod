@@ -9,25 +9,25 @@ require (
 	github.com/go-playground/locales v0.14.2
 	github.com/go-playground/universal-translator v0.18.2
 	github.com/go-playground/validator/v10 v10.30.6
-	github.com/golang/geo v0.0.0-20261029132150-f51d36688936
+	github.com/golang/geo v0.0.0-20261106073233-5e8d6967632a
 	github.com/google/go-units v0.0.0-20260810185604-a8468a8bd708
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
-	github.com/klauspost/compress v1.20.3
+	github.com/klauspost/compress v1.20.4
 	github.com/lintang-b-s/radixheap v0.0.2-0.20261113025527-9d985ff9f79d
 	github.com/lintang-b-s/rtree v0.0.0-20261020113159-bb4f38b48bdd
 	github.com/maypok86/otter/v2 v2.4.0
 	github.com/paulmach/osm v0.9.0
 	github.com/rs/cors v1.11.1
-	github.com/spf13/pflag v1.0.10
+	github.com/spf13/pflag v1.1.0
 	github.com/spf13/viper v1.21.0
 	github.com/stretchr/testify v1.12.1
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/twpayne/go-polyline v1.1.2
 	go.uber.org/zap v1.28.0
 	golang.org/x/mobile v0.0.0-20261011034528-197770444867
-	golang.org/x/mod v0.42.0
-	golang.org/x/sync v0.24.0
+	golang.org/x/mod v0.43.0
+	golang.org/x/sync v0.25.0
 	golang.org/x/time v0.16.0
 )
 
@@ -219,7 +219,7 @@ require (
 	github.com/spf13/cobra v1.10.2 // indirect
 	github.com/ssgreg/nlreturn/v2 v2.2.1 // indirect
 	github.com/stbenjam/no-sprintf-host-port v0.3.1 // indirect
-	github.com/stretchr/objx v0.5.3 // indirect
+	github.com/stretchr/objx v0.8.0 // indirect
 	github.com/subosito/gotenv v1.6.0 // indirect
 	github.com/swaggo/files v1.0.1 // indirect
 	github.com/swaggo/swag v1.16.6 // indirect
@@ -244,16 +244,16 @@ require (
 	go-simpler.org/sloglint v0.12.0 // indirect
 	go.augendre.info/arangolint v0.4.0 // indirect
 	go.augendre.info/fatcontext v0.10.1 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.9.3 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.10.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
-	golang.org/x/arch v0.32.0 // indirect
-	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/arch v0.33.0 // indirect
+	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
 	golang.org/x/net v0.62.0 // indirect
-	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.43.0 // indirect
+	golang.org/x/sys v0.50.0 // indirect
+	golang.org/x/text v0.44.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
