@@ -421,6 +421,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+
 				if stcost >= util.Infinity[int64]() {
 					stcost = util.Infinity[int64]()
 				}
@@ -450,7 +451,7 @@ func TestCRPCustomizerSimple(t *testing.T) {
 	}
 }
 
-func setup(t *testing.T) (*engine.Engine[int64], *landmark.Landmark[int64]) {
+func setup(t *testing.T) (*engine.Engine[int32], *landmark.Landmark[int32]) {
 	logger, err := log.New()
 	if err != nil {
 		t.Fatal(err)
@@ -470,7 +471,7 @@ func setup(t *testing.T) (*engine.Engine[int64], *landmark.Landmark[int64]) {
 	}
 	config.InitRegionName("customizer_test", pkg.TEST)
 
-	op := extractor.NewExtractor[int64](logger)
+	op := extractor.NewExtractor[int32](logger)
 
 	_, ebg, rn, _, timeFunction, err := op.Extract(filepath.Join(workingDir, osmFile))
 	if err != nil {
@@ -513,20 +514,20 @@ func setup(t *testing.T) (*engine.Engine[int64], *landmark.Landmark[int64]) {
 
 	logger.Sugar().Infof("Preprocessing completed successfully.")
 
-	custom := customizer.NewCustomizer[int64](logger)
+	custom := customizer.NewCustomizer[int32](logger)
 
 	_, err = custom.Customize()
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	re, err := engine.NewEngine[int64](logger)
+	re, err := engine.NewEngine[int32](logger)
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	landmarkPath := fmt.Sprintf("%s/%s/%s_landmark.nlm", config.ProfilesRoot(), pkg.ProfileName, pkg.RegionName)
-	lm, err := landmark.ReadLandmark[int64](landmarkPath)
+	lm, err := landmark.ReadLandmark[int32](landmarkPath)
 	if err != nil {
 		t.Fatal(err)
 	}
