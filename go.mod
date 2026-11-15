@@ -1,6 +1,6 @@
 module github.com/lintang-b-s/Navigatorx
 
-go 1.27.1
+go 1.27.3
 
 require (
 	github.com/bits-and-blooms/bitset v1.29.0
@@ -14,6 +14,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
 	github.com/klauspost/compress v1.20.3
+	github.com/lintang-b-s/radixheap v0.0.2-0.20261113025527-9d985ff9f79d
 	github.com/lintang-b-s/rtree v0.0.0-20261020113159-bb4f38b48bdd
 	github.com/maypok86/otter/v2 v2.4.0
 	github.com/paulmach/osm v0.9.0

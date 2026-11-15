@@ -350,8 +350,8 @@ func (arf AlternativeRouteFilter[W]) computeAlternative(v *ViaVertex) Alternativ
 	/*
 		let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcut edges (and cut edges) within any cell
 		let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
-		lowest level cell path unpacking: O((n_p + m_p)*log(n_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most n_p, decrease-key and insert at most O(m_p) operations, extract-min at-most O(n_p) operations
-		cell level > 1 path unpacking: O((n_op + \hat{m_p})*log(n_op)), decrease-key and insert at most O(\hat{m_p}) operations, extract-min is at most O(n_op) operations
+		lowest level cell path unpacking: O((n_p + m_p)*log(n_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most n_p, decrease-key at most O(m_p) operations, extract-min and insert at most O(n_p) operations
+		cell level > 1 path unpacking: O((n_op + \hat{m_p})*log(n_op)), decrease-key at most O(\hat{m_p}) operations, extract-min and insert is at most O(n_op) operations
 		let pu=time complexity of path unpacking (path_unpacker.go)
 		let p = number of road segments in (s,via,t) alternative route candidate path
 		m=len(sortedOptPath)

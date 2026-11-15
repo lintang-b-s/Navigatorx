@@ -97,7 +97,7 @@ func buildCRP[W util.Numeric](t *testing.T, problemName string, nodeCoords []da.
 		t.Fatalf("err: %v", err)
 	}
 	lm := landmark.NewLandmark[W]()
-	err = lm.PreprocessALT(1, m.GetCostFunction(), g, logger)
+	err = lm.PreprocessALT(6, m.GetCostFunction(), g, logger)
 	if err != nil {
 		log.Fatal(err.Error())
 	}

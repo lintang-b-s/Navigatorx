@@ -382,8 +382,8 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 				let n_1, m_1, n_{op1} denote the maximum number of nodes, edges, entry boundary/overlay vertices within any level-1 cell
 
 				pq contains at most all vertices in a cell level 1
-				extractMin at most n_p
-				decreaseKey and insert at most m_p
+				extractMin and insert at most n_p
+				decreaseKey at most m_p
 				we do dijkstra for all entries in the cell, num of entries is at most n_{op1}
 				worst case: O( n_{op1} * ((m_1 + n_1)* log(n_1)) )
 			*/
@@ -555,8 +555,8 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 				let n_op, n_{op}', \hat{m_p} denotes the maximum number of entry boundary/overlay vertices, boundary/overlay vertices in all subcells, and shortcut edges & cut edges   within any level-l cell
 
 				pq contains at most all overlay vertices in all subcells of this level-l cell
-				extractMin at most n_{op}'
-				decreaseKey and insert at most \hat{m_p}
+				extractMin and insert at most n_{op}'
+				decreaseKey at most \hat{m_p}
 
 				we do dijkstra for all entries in the level-l cell, num of entries is at most  n_op
 				worst case: O( n_op * ( n_{op}' + \hat{m_p})* log( n_{op}') )

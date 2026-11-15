@@ -1,31 +1,29 @@
 package landmark
 
 import (
+	"sync"
+
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
+	"github.com/lintang-b-s/radixheap"
 )
 
 // Dijkstra represents dijkstra algorithm.
 type Dijkstra[W util.Numeric] struct {
-	graph *da.Graph
-	cf    *met.TimeFunction[W]
-
+	graph           *da.Graph
+	cf              *met.TimeFunction[W]
 	inf             W
 	useReverseGraph bool
-
-	numExploredNodes int
 }
 
 // NewDijkstra creates and returns dijkstra.
 func NewDijkstra[W util.Numeric](graph *da.Graph, cf *met.TimeFunction[W], useReverseGraph bool) *Dijkstra[W] {
 	dj := &Dijkstra[W]{
-		graph:            graph,
-		useReverseGraph:  useReverseGraph,
-		numExploredNodes: 0,
-		inf:              util.Infinity[W](),
-
-		cf: cf,
+		graph:           graph,
+		useReverseGraph: useReverseGraph,
+		inf:             util.Infinity[W](),
+		cf:              cf,
 	}
 
 	return dj
@@ -52,7 +50,24 @@ the graph, we can reduce this problem to a single-source problem..
 
 buat precalculated landmark sp distances (untuk potential/heuristic ALT (A*, landmarks, and triangle inequality) algorithm)
 */
-func (us *Dijkstra[W]) ShortestPath(s da.Index, pq *da.QueryHeap[da.Index, W], dist []W) {
+func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool, dist []W) {
+	switch any(W(0)).(type) {
+	case int32:
+		pq := heapPool.Get().(*radixheap.RadixHeap[uint32, da.Index])
+		us.shortestPathRadixHeap(s, pq, dist)
+		pq.Clear()
+		heapPool.Put(pq)
+	default:
+		pq := heapPool.Get().(*da.QueryHeap[da.Index, W])
+		us.shortestPathFourAryHeap(s, pq, dist)
+		pq.Clear()
+		heapPool.Put(pq)
+	}
+
+}
+
+// shortestPathFourAryHeap dijkstra single source shortest path algorithm with decreaseKey() + 4-ary heap.
+func (us *Dijkstra[W]) shortestPathFourAryHeap(s da.Index, pq *da.QueryHeap[da.Index, W], dist []W) {
 	out := !us.useReverseGraph
 	noPar := da.InvalidSegmentId
 	vData := da.NewVData[da.Index, W](0, s, noPar)
@@ -68,7 +83,7 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, pq *da.QueryHeap[da.Index, W], d
 			newVCost := uCost + eWeight
 			ovCost := dist[v]
 			if util.Lt(newVCost, ovCost) {
-				vData := da.NewVData[da.Index, W](newVCost, v, noPar)
+				vData := da.NewVData(newVCost, v, noPar)
 				vLabelled := util.Lt(ovCost, us.inf)
 				if vLabelled {
 					pq.DecreaseKey(v, newVCost, newVCost, noPar)
@@ -78,14 +93,38 @@ func (us *Dijkstra[W]) ShortestPath(s da.Index, pq *da.QueryHeap[da.Index, W], d
 				dist[v] = newVCost
 			}
 		}
-		us.numExploredNodes++
+	}
+}
+
+// shortestPathRadixHeap dijkstra single source shortest path algorithm with lazy deletion + radixheap.
+// only for OpenStreetMap road network input. because the edge weight are nonnegative integers (unsigned integers keys is mandatory for radixheap).
+// much faster than the 4-ary heap + decrease-key implementation above.
+func (us *Dijkstra[W]) shortestPathRadixHeap(s da.Index, pq *radixheap.RadixHeap[uint32, da.Index], dist []W) {
+	out := !us.useReverseGraph
+	dist[s] = 0
+	pq.Insert(0, s)
+	for !pq.Empty() {
+		uCost, u := pq.ExtractMin()
+		if uCost > uint32(dist[u]) {
+			continue
+		}
+		offset, eNum := us.graph.NumEdges(u, out)
+		for eId := offset; eId < offset+eNum; eId++ {
+			// get cost to reach v through u
+			v, eWeight := us.getV(eId, out)
+			newVCost := uCost + uint32(eWeight)
+			ovCost := uint32(dist[v])
+			if newVCost < ovCost {
+				pq.Insert(newVCost, v)
+				dist[v] = W(newVCost)
+			}
+		}
 	}
 }
 
 func (us *Dijkstra[W]) getV(eId da.Index, out bool) (da.Index, W) {
 	var v da.Index
 	var weight W
-
 	if out {
 		v = us.graph.GetHead(eId)
 		weight = us.cf.Weight(eId)
