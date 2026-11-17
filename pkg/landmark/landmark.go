@@ -286,6 +286,11 @@ func (lm *Landmark[W]) ComputeTighestLowerBound(u, t da.Index, activeLandmarks [
 	}
 	l := activeLandmarks[0]
 	lbOne := lm.ComputeLowerBound(l, u, t)
+
+	if lm.k == 1 {
+		return lbOne
+	}
+
 	l = activeLandmarks[1]
 	lbTwo := lm.ComputeLowerBound(l, u, t)
 
