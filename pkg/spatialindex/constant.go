@@ -2,7 +2,7 @@ package spatialindex
 
 const (
 	// MaxCandidates is the max candidates value.
-	MaxCandidates = 35
+	MaxCandidates = 32
 	// MaxCandidatesMapMatching is the max candidates map matching value.
 	MaxCandidatesMapMatching = 70
 	// FilteredCandidatesMapMatching is the filtered candidates map matching value.

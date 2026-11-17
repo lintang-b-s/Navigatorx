@@ -18,7 +18,7 @@ const (
 // NewPUCacheKey creates and returns pucache key.
 func NewPUCacheKey(source, target Index, level uint8) uint64 {
 	// bit packed [level, target, source] pos=[61-64, 31-60, 1-30]
-	// i assume max number boundary/overlay vertices 2^30 - 1... (around 1 billion)
+	// i assume max id boundary/overlay vertices 2^30 - 1... (around 1 billion)
 	k := uint64(source) | (uint64(target) << 30) | (uint64(level) << 60)
 	return k
 }

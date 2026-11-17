@@ -1,6 +1,9 @@
 package datastructure
 
-import "math"
+import (
+	"math"
+	"sync"
+)
 
 const (
 	// InvalidVertexId is the invalid vertex id value.
@@ -108,4 +111,93 @@ const (
 const (
 	// InvalidLkTableId is the invalid lk table id value.
 	InvalidLkTableId Index = Index(math.MaxUint32)
+	indexesPoolLen         = 11
 )
+
+var (
+	// inspired by http/2 sync.pool example in: https://github.com/golang/go/blob/7e394a2/src/net/http/h2_bundle.go#L998-L1043
+	indexSizeClasses = [indexesPoolLen]int{
+		1 << 5,
+		1 << 6,
+		1 << 7,
+		1 << 8,
+		1 << 9,
+		1 << 10,
+		1 << 11,
+		1 << 12,
+		1 << 13,
+		1 << 14,
+		1 << 15,
+	}
+
+	indexesPools [indexesPoolLen]sync.Pool = [indexesPoolLen]sync.Pool{
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<5)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<6)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<7)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<8)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<9)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<10)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<11)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<12)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<13)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<14)
+			return s
+		}},
+		{New: func() interface{} {
+			s := make([]Index, 0, 1<<15)
+			return s
+		}},
+	}
+)
+
+// GetIndexes get slice of index from the pool
+func GetIndexes(capacity int) []Index {
+	for i := range indexesPoolLen {
+		if capacity <= indexSizeClasses[i] {
+			s := indexesPools[i].Get().([]Index)
+			s = s[:0]
+			return s
+		}
+	}
+	s := make([]Index, 0, capacity)
+	return s
+}
+
+// PutIndexes put slice of index to the pool
+func PutIndexes(s []Index) {
+	c := cap(s)
+	for i := range indexesPoolLen {
+		if c == indexSizeClasses[i] {
+			indexesPools[i].Put(s) // nolint:staticcheck
+			return
+		}
+	}
+}

@@ -47,76 +47,66 @@ func ProjectPointOnSegment(pointA da.Coordinate, pointB da.Coordinate,
 	return da.NewCoordinate(projLat, projLon)
 }
 
+// ProjectPointOnSegmentDirect handles project point on segment.
+func ProjectPointOnSegmentDirect(ax, ay, bx, by,
+	qx, qy float64) (float64, float64) {
+
+	abx, aby := bx-ax, by-ay
+	aqx, aqy := qx-ax, qy-ay
+
+	numerator := abx*aqx + aby*aqy
+	denominator := abx*abx + aby*aby
+
+	var t float64
+	if util.Eq(denominator, 0) {
+		t = 0
+	} else {
+		t = numerator / denominator
+	}
+
+	t = max(0, min(1, t))
+
+	projx, projy := ax+t*abx, ay+t*aby
+	return projx, projy
+}
+
 // ProjectPointOnSegmentGeometry handles project point on segment geometry.
 func ProjectPointOnSegmentGeometry(segGeometry []da.Coordinate, lat, lon float64) (da.Index, da.Coordinate, float64, float64) {
 	minDist := pkg.InfWeight
-	var pPoint da.Coordinate //  best projected point
+	var bestpx, bestpy float64 //  best projected point
 	n := len(segGeometry)
 
 	stailDist := pkg.InfWeight //  dist dari tail  vertex dari this road segment id ke titik proyeksi (lat,lon) to this road segment
 	cumDist := 0.0
-
+	qx, qy := CalcLonToX(lon), CalcLatToY(lat)
 	lastIndex := 0
 	for i := 0; i < n-1; i++ {
 		tail := segGeometry[i]
 		head := segGeometry[i+1]
-		projectedPoint := ProjectPointOnSegment(
-			tail,
-			head,
-			da.Coordinate(da.NewCoordinate(lat, lon)),
+		tailx, taily := CalcLonToX(tail.GetLon()), CalcLatToY(tail.GetLat())
+		headx, heady := CalcLonToX(head.GetLon()), CalcLatToY(head.GetLat())
+
+		px, py := ProjectPointOnSegmentDirect(
+			tailx, taily,
+			headx, heady,
+			qx, qy,
 		)
 
-		plat, plon := projectedPoint.GetLat(), projectedPoint.GetLon()
-		dist := CalculateEuclideanDistMercatorProj(plat, plon,
-			lat, lon) // dist dari (lat,lon) ke titik proyeksi
+		dist := CalculateEuclideanDist(px, py,
+			qx, qy) // dist dari (lat,lon) ke titik proyeksi
 
 		if util.Lt(dist, minDist) {
 			minDist = dist
-			pPoint = projectedPoint
+			bestpx, bestpy = px, py
 			lastIndex = i
-			cumDist += CalculateEuclideanDistMercatorProj(tail.GetLat(), tail.GetLon(),
-				plat, plon) // dist dari (lat,lon) ke titik proyeksi
+			cumDist += CalculateEuclideanDist(tailx, taily,
+				px, py) // dist dari tail (lat,lon) ke titik proyeksi
 			stailDist = cumDist
 		}
 
-		cumDist += CalculateEuclideanDistMercatorProj(tail.GetLat(), tail.GetLon(), head.GetLat(), head.GetLon())
+		cumDist += CalculateEuclideanDist(tailx, taily, headx, heady)
 	}
+
+	pPoint := da.NewCoordinate(CalcYToLat(bestpy), CalcXToLon(bestpx))
 	return da.Index(lastIndex), pPoint, minDist, stailDist
-
 }
-
-// func Project2DPointOnSegment(geom []da.Coordinate, qx, qy float64) (float64, float64, float64) {
-
-// 	px, py := 0.0, 0.0
-// 	minDist := math.MaxFloat64
-// 	for i := 0; i < len(geom)-1; i++ {
-// 		a := geom[i]
-// 		b := geom[i+1]
-// 		ax, ay := CalcLonToX(a.GetLon()), CalcLatToY(a.GetLat())
-// 		bx, by := CalcLonToX(b.GetLon()), CalcLatToY(b.GetLat())
-// 		abx, aby := bx-ax, by-ay
-// 		aqx, aqy := qx-ax, qy-ay
-
-// 		numerator := abx*aqx + aby*aqy
-// 		denominator := abx*abx + aby*aby
-
-// 		var t float64
-// 		if util.Eq(denominator, 0) {
-// 			t = 0
-// 		} else {
-// 			t = numerator / denominator
-// 		}
-// 		t = max(0, min(1, t))
-// 		projx, projy := ax+t*abx, ay+t*aby
-
-// 		dx, dy := (qx - projx), (qy - projy)
-// 		dist := dx*dx + dy*dy
-
-// 		if util.Lt(dist, minDist) {
-// 			minDist = dist
-// 			px, py = projx, projy
-// 		}
-// 	}
-
-// 	return px, py, minDist
-// }

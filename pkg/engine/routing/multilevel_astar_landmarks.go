@@ -269,14 +269,14 @@ the explanation below taken from Delling et al. (2015) ref [1]:
 "Otherwise, we use the overlay graph at level lst(u), which does not have turns.
 In either case, the neighbors v of u are added to the priority queue with the appropriate distance labels.
 Note that a level transition occurs when u and v have different query levels; in particular,
-for transitions from or to level 0, we must translate between the two vertex identifiers for v"
+for transitions from or to level 0, we must translate between the two vertex identifiers for v" (Delling et al. (2015))
 
 and applying optimization from Delling et al. (2015) below:
 
 the explanation below taken from Delling et al. (2015) ref [1]:
 "We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
 outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
-the arc (u, v) immediately and process v."
+the arc (u, v) immediately and process v." (Delling et al. (2015))
 */
 func (bs *CRPALTQuery[W]) overlayGraphSearch(uOv da.Index, uQueryLevel int, uCost W, s, t da.Index, out bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 	// search on overlay graph

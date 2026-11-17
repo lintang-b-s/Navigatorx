@@ -153,3 +153,13 @@ func ActivateMode[W Numeric]() {
 		UseInt32 = true
 	}
 }
+
+// DivRound do round(a/b) with a and b int32.
+// adapted from https://blog.pkh.me/p/36-figuring-out-round%2C-floor-and-ceil-with-integer-division.html
+func DivRound(a, b int32) int32 {
+	if (a ^ b) < 0 {
+		// a/b negative
+		return (a - b/2) / b
+	}
+	return (a + b/2) / b
+}

@@ -136,7 +136,7 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 
 	// crp query heap pool
 
-	crpMaxSearchSize := da.Index(2*maxVerticesInCell + da.Index(numOverlayVertices))
+	crpMaxSearchSize := 2*maxVerticesInCell + numOverlayVertices
 
 	approxMaxExploredSize := da.CRPMaxExploredSize
 	crp.fHeapPool = sync.Pool{
@@ -166,13 +166,13 @@ func (crp *CRPRoutingEngine[W]) BuildQueryHeapPool() {
 	// path unpacking heap pool
 	crp.puovHeapPool = sync.Pool{
 		New: func() any {
-			return da.NewQueryHeap[da.Index, W](da.Index(numOverlayVertices), approxMaxExploredSize, da.ArrayCRPStorageMode)
+			return da.NewQueryHeap[da.Index, W](numOverlayVertices, approxMaxExploredSize, da.ArrayCRPStorageMode)
 		},
 	}
 
 	crp.puHeapPool = sync.Pool{
 		New: func() any {
-			pq := da.NewQueryHeap[da.Index, W](da.Index(maxVerticesInCell), approxMaxExploredSize, da.ArrayStorageMode)
+			pq := da.NewQueryHeap[da.Index, W](maxVerticesInCell, maxVerticesInCell, da.ArrayStorageMode)
 			pq.SetLevelOneCellQuery()
 			return pq
 		},
@@ -263,7 +263,7 @@ func (crp *CRPRoutingEngine[W]) ShortestPathWithAlternativesSearch(sp, tp da.Pha
 
 	optRoutePolyline, optDist, optCost := crp.GetSegmentPath(optPath, sp, tp, float64(cost))
 	optCost = util.WeightToSeconds(optCost)
-	alts, _ := ars.ComputeAlternativeRoutes(s, t, k, reroute, optCost, optPath, crpQuery, param)
+	alts := ars.ComputeAlternativeRoutes(s, t, k, reroute, optCost, optPath, crpQuery, param)
 
 	n := len(alts) + 1
 	var (

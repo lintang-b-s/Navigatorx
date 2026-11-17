@@ -213,8 +213,8 @@ func (og *OverlayGraph) ShortcutWeightsSize() uint32 {
 }
 
 // NumberOfOverlayVertices handles number of overlay vertices.
-func (og *OverlayGraph) NumberOfOverlayVertices() int {
-	return len(og.overlayVertices)
+func (og *OverlayGraph) NumberOfOverlayVertices() Index {
+	return Index(len(og.overlayVertices))
 }
 
 // GetOverlayIdMapping returns overlay id mapping.

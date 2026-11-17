@@ -234,7 +234,7 @@ func (rt *Rtree) SearchWithinRadius(qLat, qLon, radius float64, mode uint8) []da
 	lowerY, lowerX := spatialRound(qy-radius), spatialRound(qx-radius)
 	upperY, upperX := spatialRound(qy+radius), spatialRound(qx+radius)
 
-	cands := make([]candidate, 0, 16)
+	cands := make([]candidate, 0, MaxCandidates)
 
 	rt.tr.Search([2]int32{lowerX, lowerY}, [2]int32{upperX, upperY},
 		func(minPt, maxPt [2]int32, data leafData) bool {

@@ -119,6 +119,8 @@ func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph, cf *met.TimeFunct
 
 		if i < k {
 			// use fast k-th order statistics algorithm, RandomizedSelect with expected runtime O(n).
+			// after this RandomizedSelect(), because of the partitioning & random pivot selection of randomized quicksort,
+			// all vertices cvs[start:nth] bearings will be less or equal than the vertex cvs[nth] bearing
 			util.RandomizedSelect(cvs, start, n-1, kth, func(left, right int) bool {
 				return cvs[left].bearing < cvs[right].bearing
 			}) // expected runtime O(n)
@@ -126,17 +128,17 @@ func (lm *Landmark[W]) SelectLandmarks(k int, graph *da.Graph, cf *met.TimeFunct
 
 		// For each sector, pick a vertex farthest away from the center (vertex mid).
 		pie := cvs[start:nth]
-		terjauhId := 0
+		farthestId := 0
 		maxDist := -lm.inf
 		for j, vv := range pie { // O(n/k)
 			midToVDist := vv.dist
 			if midToVDist > maxDist {
 				maxDist = midToVDist
-				terjauhId = j
+				farthestId = j
 			}
 		}
 
-		farthestV := pie[terjauhId]
+		farthestV := pie[farthestId]
 		landmarks = append(landmarks, farthestV.v)
 	}
 

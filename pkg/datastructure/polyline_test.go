@@ -71,7 +71,7 @@ func TestGooglePolyline(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			_, _, _, _, expectedCap := capacity(forCoord(tc.coords), len(*tc.coords))
+			deltaLats, deltaLons, expectedCap := capacity(forCoord(tc.coords), len(*tc.coords))
 			got := GooglePolylineFromCoords(forCoord(tc.coords), len(*tc.coords))
 			if got != tc.expectedPolyline {
 				t.Errorf("expected %v, got %v", tc.expectedPolyline, got)
@@ -85,6 +85,8 @@ func TestGooglePolyline(t *testing.T) {
 			if got != tc.expectedPolyline {
 				t.Errorf("expected %v, got %v", tc.expectedPolyline, got)
 			}
+			putCoords(deltaLats)
+			putCoords(deltaLons)
 		})
 	}
 
@@ -97,7 +99,7 @@ func TestGooglePolyline(t *testing.T) {
 			coords.Append([]Coordinate{RandomCoordinate(bb, rd)})
 		}
 
-		_, _, _, _, expectedCap := capacity(forCoord(coords), len(*coords))
+		_, _, expectedCap := capacity(forCoord(coords), len(*coords))
 		got := GooglePolylineFromCoords(forCoord(coords), len(*coords))
 
 		gotBytes := []byte(got)
@@ -115,7 +117,7 @@ func RandomCoordinate(bb *BoundingBox, rd *rand.Rand) Coordinate {
 	return NewCoordinate(lat, lon)
 }
 
-// cd pkg/datastructure && go test -run=^$ -bench=^BenchmarkPolylineEncode$ -benchmem -cpuprofile polyline.cpu -memprofile polyline.mem -benchtime=15s -o polyline.test
+// cd pkg/datastructure && go test -run=^$ -bench=^BenchmarkPolylineEncode$ -benchmem -cpuprofile polyline_cpu.prof -memprofile polyline_mem.prof -benchtime=15s -o polyline.test
 // BenchmarkPolylineEncode benchmark
 func BenchmarkPolylineEncode(b *testing.B) {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))

@@ -115,18 +115,12 @@ func NewInvalidCoordinate() Coordinate {
 
 // LatE5 converts 1e7 fixed-point int32 latitude to 1e5 int with rounding.
 func (c Coordinate) LatE5() int32 {
-	if c.lat >= 0 {
-		return (c.lat + 50) / CoordinatePrecisionToE5
-	}
-	return (c.lat - 50) / CoordinatePrecisionToE5
+	return util.DivRound(c.lat, CoordinatePrecisionToE5)
 }
 
 // LonE5 converts 1e7 fixed-point int32 longitude to 1e5 int32 with rounding.
 func (c Coordinate) LonE5() int32 {
-	if c.lon >= 0 {
-		return (c.lon + 50) / CoordinatePrecisionToE5
-	}
-	return (c.lon - 50) / CoordinatePrecisionToE5
+	return util.DivRound(c.lon, CoordinatePrecisionToE5)
 }
 
 // Coordinates represents coordinates.

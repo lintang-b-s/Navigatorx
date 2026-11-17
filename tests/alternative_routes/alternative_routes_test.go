@@ -111,6 +111,7 @@ func TestAlternativeRoutes(t *testing.T) {
 				source := queries[i].s
 				target := queries[i].t
 
+				now := time.Now()
 				crpQuery := routing.NewCRPQuery(re) // better via-vertices
 				ars := routing.NewAlternativeRouteSearch(re)
 				param := ars.ParameterByRequest(source, target)
@@ -121,12 +122,13 @@ func TestAlternativeRoutes(t *testing.T) {
 					continue
 				}
 				optCost := util.WeightToSeconds(cost)
-				alts, dur := ars.ComputeAlternativeRoutes(source, target, 4, false, optCost, optPath, crpQuery, param)
+				alts := ars.ComputeAlternativeRoutes(source, target, 4, false, optCost, optPath, crpQuery, param)
 				crpQuery.ForAlternatives(false)
 				crpQuery.Done()
 				if (i+1)%100 == 0 {
 					t.Logf("processed %d queries\n", i+1)
 				}
+				dur := time.Since(now).Milliseconds()
 				runtime += float64(dur)
 
 				if len(alts) == 0 {
@@ -175,7 +177,6 @@ func TestAlternativeRoutes(t *testing.T) {
 			if util.Gt(runtime, tc.maxRuntime) {
 				t.Errorf("want maximum runtime: %v, got: %v", tc.maxRuntime, runtime)
 			}
-
 		})
 	}
 }

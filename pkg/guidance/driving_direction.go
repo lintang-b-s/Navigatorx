@@ -19,7 +19,6 @@ type DirectionBuilder struct {
 	instructions     []da.Instruction // todo: reuuse slice of Instruction pakai sync.Pool
 	prevInstruction  int              // -1 if no previous instruction
 	turnDescriptions []string
-	routeSteps       []da.RouteStep
 
 	segmentIds           []da.Index
 	path                 []da.Index
@@ -71,15 +70,15 @@ func NewDirectionBuilder(graph Graph, rn RoadNetworkDataContainer, metrics Metri
 		doublePrevInitialBearing: 0,
 		clockwise:                clockwise,
 		lefthand:                 lefthand,
-		turnDescriptions:         make([]string, 0, 16),
-		routeSteps:               make([]da.RouteStep, 0, 16),
-		instructions:             make([]da.Instruction, 0, 16),
-		prevInstruction:          -1,
-		segmentIds:               make([]da.Index, 0, 16),
-		alternativeTurns:         make([]da.Index, 0, 6),
-		lastPathId:               0,
-		turnSignCache:            turnSignCache,
-		prevSign:                 da.IGNORE,
+		turnDescriptions:         make([]string, 0),
+		instructions:             make([]da.Instruction, 0),
+
+		prevInstruction:  -1,
+		segmentIds:       make([]da.Index, 0, 16),
+		alternativeTurns: make([]da.Index, 0, 6),
+		lastPathId:       0,
+		turnSignCache:    turnSignCache,
+		prevSign:         da.IGNORE,
 	}
 
 	return db
@@ -119,6 +118,7 @@ func (db *DirectionBuilder) GetDrivingDirections(
 	copy(db.path[1:1+len(segments)], segments)
 
 	m := len(db.path)
+	db.instructions = getInstructions(m)
 	db.lastPathId = 1
 	for db.lastPathId < m {
 		segmentId := db.path[db.lastPathId]
@@ -129,14 +129,14 @@ func (db *DirectionBuilder) GetDrivingDirections(
 	}
 
 	db.finalInstruction(tp.GetVId(), tp)
-	db.turnDescriptions = make([]string, 0, len(db.instructions))
+	insCount := len(db.instructions)
+	db.turnDescriptions = make([]string, 0, insCount)
 	for i := range db.instructions {
 		desc := db.instructions[i].GetTurnDescription(db.clockwise)
 		db.turnDescriptions = append(db.turnDescriptions, desc)
 	}
 
-	db.routeSteps = make([]da.RouteStep, 0, len(db.instructions))
-
+	routeSteps := getRouteSteps(insCount)
 	var (
 		currStepCost, currStepDistance float64
 	)
@@ -146,11 +146,11 @@ func (db *DirectionBuilder) GetDrivingDirections(
 			currStepDistance = db.instructions[i].CumulativeDistance() - db.instructions[i-1].CumulativeDistance()
 		}
 
-		db.routeSteps = append(db.routeSteps, da.NewRouteStep(db.instructions[i], db.turnDescriptions[i],
+		routeSteps = append(routeSteps, da.NewRouteStep(db.instructions[i], db.turnDescriptions[i],
 			currStepCost, currStepDistance, db.instructions[i].SegmentIds(), db.instructions[i].GetTurnBearing(), db.instructions[i].Annotation()))
 	}
-
-	return db.routeSteps
+	putInstructions(db.instructions)
+	return routeSteps
 }
 
 func (db *DirectionBuilder) buildInstruction(segmentId da.Index, sp da.PhantomNode) {

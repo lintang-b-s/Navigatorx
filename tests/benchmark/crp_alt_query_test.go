@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"runtime"
+	"runtime/pprof"
 	"strings"
 	"testing"
 	"time"
@@ -175,14 +177,9 @@ func setup(b *testing.B, osmMap string) (*engine.Engine[int32], []query, *da.Gra
 }
 
 /*
-cd tests/benchmark && go test -bench BenchmarkCRPALTQuery -benchmem -cpuprofile prof.cpu -memprofile prof.mem -benchtime=15s -o sp.test
-go tool pprof -focus='ShortestPathSearch' sp.test prof.cpu
-
-go test  ./tests/benchmark   -bench BenchmarkCRPALTQuery -benchmem -cpuprofile prof.cpu -memprofile prof.mem -benchtime=15s -o sp.test
+go test  ./tests/benchmark  -bench ^BenchmarkCRPALTQuery$ -benchmem -benchtime=15s
 
 perf stat -e cache-references,cache-misses  ./sp.test -test.run='^$' -test.bench=BenchmarkCRPALTQuery -test.benchtime=15s
-
-// valgrind --tool=cachegrind --branch-sim=yes  ./sp.test  -test.run='^$' -test.bench=BenchmarkCRPALTQuery -test.benchtime=15s
 
 [1] Delling, D. et al. (2013) ‘Customizable Route Planning in Road Networks’. Available at: https://www.microsoft.com/en-us/research/publication/customizable-route-planning-in-road-networks/.
 
@@ -208,29 +205,53 @@ PASS
 ok      github.com/lintang-b-s/Navigatorx/tests/benchmark       16.113s
 */
 func BenchmarkCRPALTQuery(b *testing.B) {
-
 	eng, queries, _, _ := setup(b, osmFile)
 	re := eng.GetRoutingEngine()
 
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := len(queries)
 
-	start := time.Now()
-	b.ResetTimer()
+	// Create the profile output file before resetting timer
+	f, err := os.Create("cpu.prof")
+	if err != nil {
+		b.Fatal("could not create CPU profile: ", err)
+	}
+	defer f.Close() // nolint:gosec
 
+	// Start CPU profiling right before the loop
+	if err := pprof.StartCPUProfile(f); err != nil {
+		b.Fatal("could not start CPU profile: ", err)
+	}
+
+	start := time.Now()
 	for b.Loop() {
 		i := rd.Intn(n)
 		q := queries[i]
 		s := q.s
 		t := q.t
 		crpQuery := routing.NewCRPUniALTQuery(re)
-		crpQuery.ShortestPathSearch(s, t)
+		_, vPath, _ := crpQuery.ShortestPathSearch(s, t)
+		da.PutIndexes(vPath)
 	}
-
 	now := time.Since(start)
 	msPerOp := float64(now.Milliseconds()) / float64(b.N)
 	throughput := float64(b.N) / b.Elapsed().Seconds()
 
+	// Stop CPU profiling immediately after the loop finishes
+	pprof.StopCPUProfile()
+	fMem, err := os.Create("mem.prof")
+	if err != nil {
+		stdLog.Fatal("could not create memory profile: ", err)
+	}
+	defer fMem.Close() // nolint:gosec
+
+	runtime.GC() // get up-to-date statistics
+	// Lookup("allocs") creates a profile similar to go test -memprofile.
+	// Alternatively, use Lookup("heap") for a profile
+	// that has inuse_space as the default index.
+	if err := pprof.Lookup("allocs").WriteTo(fMem, 0); err != nil {
+		stdLog.Fatal("could not write memory profile: ", err)
+	}
 	b.ReportMetric(msPerOp, "ms/op")
 	b.ReportMetric(throughput, "ops/sec")
 }

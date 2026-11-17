@@ -50,11 +50,9 @@ func encodedBytesLength(u uint32) int {
 }
 
 // capacity precomputes capacity of the buffer containing polyline string and precomputes delta & zigzag encoded (lat,lon) values..
-func capacity(coords iter.Seq[Coordinate], n int) (*[]uint32, *[]uint32, []uint32, []uint32, int) {
-	deltaLatsPtr := getCoords(n)
-	deltaLonsPtr := getCoords(n)
-	deltaLats := (*deltaLatsPtr)[:n]
-	deltaLons := (*deltaLonsPtr)[:n]
+func capacity(coords iter.Seq[Coordinate], n int) ([]uint32, []uint32, int) {
+	deltaLats := getCoords(n)
+	deltaLons := getCoords(n)
 
 	total := 0
 	prevLat, prevLon := int32(0), int32(0)
@@ -74,7 +72,7 @@ func capacity(coords iter.Seq[Coordinate], n int) (*[]uint32, *[]uint32, []uint3
 		prevLon = exLon
 		i++
 	}
-	return deltaLatsPtr, deltaLonsPtr, deltaLats, deltaLons, total
+	return deltaLats, deltaLons, total
 }
 
 // deltaEncode computes delta encoding of google polyline compression.
@@ -94,11 +92,11 @@ func deltaEncode(buf []byte, deltaLats []uint32, deltaLons []uint32) []byte {
 
 // GooglePolylineFromCoords compress route path coordinates using google polyline compression algorithm.
 func GooglePolylineFromCoords(path iter.Seq[Coordinate], n int) string {
-	deltaLatsPtr, deltaLonsPtr, deltaLats, deltaLons, pcap := capacity(path, n)
+	deltaLats, deltaLons, pcap := capacity(path, n)
 	buf := make([]byte, 0, pcap) // precomputes the exact size of the buffer, so we get zero allocation slice append() function  in deltaEncode
 	buf = deltaEncode(buf, deltaLats, deltaLons)
-	putCoords(deltaLatsPtr)
-	putCoords(deltaLonsPtr)
+	putCoords(deltaLats)
+	putCoords(deltaLons)
 	return bytesToString(buf)
 }
 
@@ -107,7 +105,7 @@ const (
 )
 
 var (
-	// inspired by http/2 sync.pool example in: https://wundergraph.com/blog/golang-sync-pool#3.-complexity-trade-offs
+	// inspired by http/2 sync.pool example in: https://github.com/golang/go/blob/7e394a2/src/net/http/h2_bundle.go#L998-L1043
 	coordsSizeClasses = [9]int{
 		1 << 7,
 		1 << 8,
@@ -123,58 +121,61 @@ var (
 	coordPools [9]sync.Pool = [9]sync.Pool{
 		{New: func() interface{} {
 			s := make([]uint32, 1<<7)
-			return &s
+			return s
 		}},
 		{New: func() interface{} {
 			s := make([]uint32, 1<<8)
-			return &s
+			return s
 		}},
 		{New: func() interface{} {
 			s := make([]uint32, 1<<9)
-			return &s
+			return s
 		}},
 		{New: func() interface{} {
 			s := make([]uint32, 1<<10)
-			return &s
+			return s
 		}},
 		{New: func() interface{} {
 			s := make([]uint32, 1<<11)
-			return &s
+			return s
 		}},
 		{New: func() interface{} {
 			s := make([]uint32, 1<<12)
-			return &s
+			return s
 		}},
 		{New: func() interface{} {
 			s := make([]uint32, 1<<13)
-			return &s
+			return s
 		}},
 		{New: func() interface{} {
 			s := make([]uint32, 1<<14)
-			return &s
+			return s
 		}},
 		{New: func() interface{} {
 			s := make([]uint32, 1<<15)
-			return &s
+			return s
 		}},
 	}
 )
 
-func getCoords(size int) *[]uint32 {
+func getCoords(size int) []uint32 {
 	for i := range 9 {
-		if size <= coordsSizeClasses[i] {
-			return coordPools[i].Get().(*[]uint32)
+		cCap := coordsSizeClasses[i]
+		if size <= cCap {
+			s := coordPools[i].Get().([]uint32)
+			s = s[:size]
+			return s
 		}
 	}
 	s := make([]uint32, size)
-	return &s
+	return s
 }
 
-func putCoords(sp *[]uint32) {
-	c := cap(*sp)
+func putCoords(sp []uint32) {
+	c := cap(sp)
 	for i := range 9 {
 		if c == coordsSizeClasses[i] {
-			coordPools[i].Put(sp)
+			coordPools[i].Put(sp) // nolint:staticcheck
 			return
 		}
 	}

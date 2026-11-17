@@ -82,6 +82,8 @@ func (rs *RoutingService) ShortestPath(
 			"no route found from %f,%f to %f,%f", qOrigLat, qOrigLon, qDstLat, qDstLon)
 	}
 
+	defer da.PutIndexes(segmentPath)
+
 	if useSteps {
 		directionBuilder := guidance.NewDirectionBuilder(
 			rs.engine.GetGraph(), rs.rn, rs.engine.GetMetrics(), rs.lefthandDriving,
@@ -138,6 +140,7 @@ func (rs *RoutingService) AlternativeRouteSearch(
 			drivingDirections = directionBuilder.GetDrivingDirections(rPath, sp, tp, useAnnotation)
 		}
 
+		da.PutIndexes(rPath)
 		routeDrivingDirections[i] = drivingDirections
 	}
 	return routeCosts, routeDists, routePolylines, routeDrivingDirections, nil
@@ -194,4 +197,9 @@ func (rs *RoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPS
 	matchedPoints, routePath := hmm.MapMatchWithGPSRadiuses(gpsTraj, gpsRadiusesM)
 
 	return matchedPoints, routePath, nil
+}
+
+// Done put the unsued routeSteps to sync.Pool
+func (rs *RoutingService) Done(routeSteps []da.RouteStep) {
+	guidance.PutRouteSteps(routeSteps)
 }

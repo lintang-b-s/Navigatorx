@@ -46,7 +46,7 @@ di non-parametric filter kita gak assuming distribusi dari posterior.
 baca https://porabook.com/book/localization-filtering/ dan https://porabook.com/book/approximate-filters/ untuk penjelasan bayes filter.
 
 This explanation is taken from ref[1]:
-In the MHT, the probability density function
+"In the MHT, the probability density function
 is divided into the probability of each candidate. When using
 the MHT, the prediction and filtering calculations simplify
 because they are performed by calculating each candidate. The
@@ -66,7 +66,7 @@ because its calculation cost is an order of magnitude lower
 and it does not cause degeneracy. In the MHT, the number
 of candidates becomes large during prediction; therefore,
 we remove candidates that have a probability below a threshold
-value L_u after filtering.
+value L_u after filtering." (Taguchi et al. (2019))
 
 */
 

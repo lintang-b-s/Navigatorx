@@ -243,6 +243,7 @@ func main() {
 		s := queries[i].s
 		t := queries[i].t
 
+		now := time.Now()
 		crpQuery := routing.NewCRPQuery(re) // better via-vertices
 		ars := routing.NewAlternativeRouteSearch(re)
 		param := ars.ParameterByRequest(s, t)
@@ -253,12 +254,13 @@ func main() {
 			continue
 		}
 		optCost := util.WeightToSeconds(cost)
-		alts, dur := ars.ComputeAlternativeRoutes(s, t, 4, false, optCost, optPath, crpQuery, param)
+		alts := ars.ComputeAlternativeRoutes(s, t, 4, false, optCost, optPath, crpQuery, param)
 		crpQuery.ForAlternatives(false)
 		crpQuery.Done()
 		if (i+1)%100 == 0 {
 			fmt.Printf("processed %d queries\n", i+1)
 		}
+		dur := time.Since(now).Milliseconds()
 		runtime += float64(dur)
 
 		if len(alts) == 0 {

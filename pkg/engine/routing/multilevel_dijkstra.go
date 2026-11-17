@@ -20,13 +20,14 @@ type CRPQuery[W util.Numeric] struct {
 	bpq                  *da.QueryHeap[da.QueryKey, W]
 	sCellNumber          da.Pv
 	tCellNumber          da.Pv
-	viaVertices          []*ViaVertex
+	viaVertices          []da.Index
 	numExploredVertices  int
 	runtime              int64
 	pathUnpackingRuntime int64
 	ub                   float64
 
 	maxSearchRad W
+	inf          W
 	mapmatching  bool
 
 	forAlternatives bool
@@ -40,12 +41,13 @@ func NewCRPQuery[W util.Numeric](
 	crpQuery := &CRPQuery[W]{
 		engine:               engine,
 		mid:                  0,
-		viaVertices:          make([]*ViaVertex, 0, 5),
+		viaVertices:          make([]da.Index, 0, 16),
 		numExploredVertices:  0,
 		runtime:              0,
 		pathUnpackingRuntime: 0,
 		ub:                   1.0,
 		maxSearchRad:         2 * util.Infinity[W](),
+		inf:                  util.Infinity[W](),
 	}
 	crpQuery.metrics = engine.GetMetrics()
 	crpQuery.lm = engine.GetLandmark()
@@ -143,11 +145,11 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 		if !uk.IsOverlay() {
 			bs.fpq.Explore(u)
 			bs.graphSearch(uk, uCost, true, bs.fpq, bs.bpq)
-			bs.addViaVertex(uk, true, false)
+			bs.addViaVertex(u, bs.bpq)
 		} else {
 			bs.fpq.Explore(u)
 			bs.overlayGraphSearch(uk, uCost, true, bs.fpq, bs.bpq)
-			bs.addViaVertex(uk, true, true)
+			bs.addViaVertex(u, bs.bpq)
 		}
 
 		// backward search
@@ -156,18 +158,18 @@ func (bs *CRPQuery[W]) ShortestPathSearch(s, t da.Index) (W, []da.Index, bool) {
 		if !uk.IsOverlay() {
 			bs.bpq.Explore(u)
 			bs.graphSearch(uk, uCost, false, bs.bpq, bs.fpq)
-			bs.addViaVertex(uk, false, false)
+			bs.addViaVertex(u, bs.fpq)
 		} else {
 			bs.bpq.Explore(u)
 			bs.overlayGraphSearch(uk, uCost, false, bs.bpq, bs.fpq)
-			bs.addViaVertex(uk, false, true)
+			bs.addViaVertex(u, bs.fpq)
 		}
 
 		bs.numExploredVertices += 2
 	}
 
-	if util.Ge(bs.shortestCost, util.Infinity[W]()) {
-		return util.Infinity[W](), EmptyIndexSet, false
+	if util.Ge(bs.shortestCost, bs.inf) {
+		return bs.inf, EmptyIndexSet, false
 	}
 
 	packedPath := bs.engine.RetrievePackedPath(bs.mid,
@@ -205,7 +207,7 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, uCost W, forw bool, pq, rpq
 			// then, we just do edge relaxation as usual in dijkstra
 			// relax edge
 			oldVCost := pq.Cost(v)
-			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
+			vLabelled := util.Lt(oldVCost, bs.inf)
 			if util.Lt(newVCost, oldVCost) {
 				// newVCost is better, update the vertex v cost in priority queue
 				if vLabelled {
@@ -226,7 +228,7 @@ func (bs *CRPQuery[W]) graphSearch(uKey da.QueryKey, uCost W, forw bool, pq, rpq
 			vOv := bs.engine.graph.GetOverlayVertex(v, eId, forw)
 			vOv = bs.engine.offsetOverlay(vOv)
 			oldVCost := pq.Cost(vOv)
-			vLabelled := util.Lt(oldVCost, util.Infinity[W]())
+			vLabelled := util.Lt(oldVCost, bs.inf)
 			if util.Lt(newVCost, oldVCost) {
 				if !vLabelled {
 					wQk := da.NewQKey(vOv, vQueryLevel, true)
@@ -253,14 +255,14 @@ the explanation below taken from Delling et al. (2015) ref [1]:
 "Otherwise, we use the overlay graph at level lst(u), which does not have turns.
 In either case, the neighbors v of u are added to the priority queue with the appropriate distance labels.
 Note that a level transition occurs when u and v have different query levels; in particular,
-for transitions from or to level 0, we must translate between the two vertex identifiers for v"
+for transitions from or to level 0, we must translate between the two vertex identifiers for v" (Delling et al. (2015))
 
 and applying optimization from Delling et al. (2015) below:
 
 the explanation below taken from Delling et al. (2015) ref [1]:
 "We apply several optimizations. First, by construction, each exit vertex u in the overlay has a single
 outgoing arc (u, v). Therefore, during the search we do not add u to the priority queue; instead, we traverse
-the arc (u, v) immediately and process v."
+the arc (u, v) immediately and process v." (Delling et al. (2015))
 */
 func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, uCost W, forw bool, pq, rpq *da.QueryHeap[da.QueryKey, W]) {
 	// search on overlay graph
@@ -285,21 +287,18 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, uCost W, forw bool, 
 			pq.Explore(vOv)
 
 			// traverse cut edge (v,w), immediately process w
-			vVertex := bs.engine.overlayGraph.GetVertex(v)
-			vCutEdgeId := vVertex.GetCutEdge()
-			eWeight := bs.GetWeight(vCutEdgeId, forw)
-			wOv := vVertex.GetNeighborOverlayVertex()
-			wVertex := bs.engine.overlayGraph.GetVertex(wOv)
+			wOv, vCutEdge := bs.engine.overlayGraph.GetVertexNeighbor(v)
+			eWeight := bs.GetWeight(vCutEdge, forw)
+			w, wCellNumber := bs.engine.overlayGraph.GetVertexData(wOv)
 			wQueryLevel := bs.engine.overlayGraph.QueryLevel(bs.sCellNumber, bs.tCellNumber,
-				wVertex.GetCellNumber())
-			w := wVertex.GetOrigVId()
+				wCellNumber)
 			newWCost := newVCost + eWeight
 
 			if wQueryLevel == 0 {
 				// w is in the same cell as s or t
 
 				oldWCost := pq.Cost(w)
-				wLabelled := util.Lt(oldWCost, util.Infinity[W]())
+				wLabelled := util.Lt(oldWCost, bs.inf)
 				if util.Lt(newWCost, oldWCost) {
 					if wLabelled {
 						pq.DecreaseKey(w, newWCost, newWCost, vOv)
@@ -316,7 +315,7 @@ func (bs *CRPQuery[W]) overlayGraphSearch(uKey da.QueryKey, uCost W, forw bool, 
 				// insert item overlay vertex w and its query level to forwardP
 				wOv = bs.engine.offsetOverlay(wOv)
 				oldwOvCost := pq.Cost(wOv)
-				wLabelled := util.Lt(oldwOvCost, util.Infinity[W]())
+				wLabelled := util.Lt(oldwOvCost, bs.inf)
 				if util.Lt(newWCost, oldwOvCost) {
 					if !wLabelled {
 						wQk := da.NewQKey(wOv, wQueryLevel, true)
@@ -380,16 +379,9 @@ func (bs *CRPQuery[W]) GetStats(n int) (float64, int, int64, int64) {
 	return efficiency, bs.numExploredVertices, bs.runtime, bs.pathUnpackingRuntime
 }
 
-func (bs *CRPQuery[W]) addViaVertex(uqk da.QueryKey, forward bool, overlay bool) {
-	u := uqk.GetNode()
-	if forward {
-		if bs.bpq.IsExplored(u) {
-			bs.viaVertices = append(bs.viaVertices, NewViaVertex(u, overlay))
-		}
-	} else {
-		if bs.fpq.IsExplored(u) {
-			bs.viaVertices = append(bs.viaVertices, NewViaVertex(u, overlay))
-		}
+func (bs *CRPQuery[W]) addViaVertex(u da.Index, rpq *da.QueryHeap[da.QueryKey, W]) {
+	if rpq.IsExplored(u) {
+		bs.viaVertices = append(bs.viaVertices, u)
 	}
 }
 
