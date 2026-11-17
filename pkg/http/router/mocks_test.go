@@ -72,6 +72,8 @@ func (m *MockRoutingService) OfflineMapMatch(ctx context.Context, gpsTraj []*da.
 	return r0, args.String(1), args.Error(2)
 }
 
+func (m *MockRoutingService) Done(_ []da.RouteStep) {}
+
 type MockMapMatcherService struct {
 	mock.Mock
 }

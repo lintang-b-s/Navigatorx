@@ -155,6 +155,7 @@ func main() {
 			travelTimes = append(travelTimes, spcost)
 		}
 
+		da.PutIndexes(spPath)
 		if (i+1)%1000 == 0 {
 			logger.Sugar().Infof("done query %v", i+1)
 		}

@@ -3,6 +3,9 @@ package benchmark
 import (
 	"context"
 	"math/rand"
+	"os"
+	"runtime"
+	"runtime/pprof"
 	"testing"
 	"time"
 
@@ -11,9 +14,9 @@ import (
 )
 
 /*
-cd tests/benchmark && go test -bench BenchmarkShortestPathService -benchmem -cpuprofile prof_sp_service.cpu -memprofile prof_sp_service.mem -benchtime=15s -o sp_service.test
+go test ./tests/benchmark  -bench ^BenchmarkShortestPathService$ -benchmem -benchtime=15s
 
-go test ./tests/benchmark  -bench BenchmarkShortestPathService -benchmem -cpuprofile prof_sp_service.cpu -memprofile prof_sp_service.mem -benchtime=15s -o sp_service.test
+go tool pprof -alloc_space -focus="RoutingService.*ShortestPath" ./tests/benchmark/sp_service_mem.prof
 
 pkg: github.com/lintang-b-s/Navigatorx/tests/benchmark
 cpu: AMD Ryzen 5 7540U w/ Radeon(TM) 740M Graphics
@@ -57,68 +60,49 @@ func BenchmarkShortestPathService(b *testing.B) {
 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
 	n := len(queries)
 	b.ResetTimer()
-	start := time.Now()
 
+	// Create the profile output file before resetting timer
+	f, err := os.Create("sp_service_cpu.prof")
+	if err != nil {
+		b.Fatal("could not create CPU profile: ", err)
+	}
+	defer f.Close() // nolint:gosec
+
+	// Start CPU profiling right before the loop
+	if err := pprof.StartCPUProfile(f); err != nil {
+		b.Fatal("could not start CPU profile: ", err)
+	}
+	start := time.Now()
 	for b.Loop() {
 		i := rd.Intn(n)
 		q := queries[i]
-
 		s := q.s
 		t := q.t
-
 		sCoord := g.GetVertexCoordinate(s)
 		tCoord := g.GetVertexCoordinate(t)
-
-		_, _, _, _, _, _ = rs.ShortestPath(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(), false, 0, false, true)
+		_, _, _, drivingDirections, _, _ := rs.ShortestPath(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(), false, 0, false, true)
+		rs.Done(drivingDirections)
 	}
-
 	now := time.Since(start)
 	msPerOp := float64(now.Milliseconds()) / float64(b.N)
 	throughput := float64(b.N) / b.Elapsed().Seconds()
 
+	// Stop CPU profiling immediately after the loop finishes
+	pprof.StopCPUProfile()
+	fMem, err := os.Create("sp_service_mem.prof")
+	if err != nil {
+		b.Fatal("could not create memory profile: ", err) // Use t.Fatal if in a Test function
+	}
+	defer fMem.Close() // nolint:gosec
+
+	runtime.GC() // get up-to-date statistics
+	// Lookup("allocs") creates a profile similar to go test -memprofile.
+	// Alternatively, use Lookup("heap") for a profile
+	// that has inuse_space as the default index.
+	if err := pprof.Lookup("allocs").WriteTo(fMem, 0); err != nil {
+		b.Fatal("could not write memory profile: ", err)
+	}
+
 	b.ReportMetric(msPerOp, "ms/op")
 	b.ReportMetric(throughput, "ops/sec")
 }
-
-// // go test ./tests/benchmark  -bench BenchmarkShortestPathServiceParallel -benchmem -cpuprofile prof_sp_service_parallel.cpu -memprofile prof_sp_service_parallel.mem -benchtime=15s -o sp_service_parallel.test
-
-// func BenchmarkShortestPathServiceParallel(b *testing.B) {
-
-// 	eng, queries, g, logger := setup(b, osmFile)
-
-// 	re := eng.GetRoutingEngine()
-// 	rn := re.GetRoadNetworkContainer()
-// 	rtreeb := spatialindex.NewRtree()
-// 	if err := rtreeb.Build(re.GetGraph(), rn, logger); err != nil {
-// 		b.Fatal(err)
-// 	}
-
-// 	rtree, err := spatialindex.ReadRtreeFromFile(logger)
-// 	if err != nil {
-// 		b.Fatal(err)
-// 	}
-
-// 	rs, err := usecases.NewRoutingService(logger, re, rn, rtree, 0.05, true)
-// 	if err != nil {
-// 		b.Fatal(err)
-// 	}
-
-// 	rd := rand.New(rand.NewSource(time.Now().UnixNano()))
-// 	n := len(queries)
-// 	b.ResetTimer()
-
-// 	b.RunParallel(func(p *testing.PB) {
-// 		for p.Next() {
-// 			i := rd.Intn(n)
-// 			q := queries[i]
-
-// 			s := q.s
-// 			t := q.t
-
-// 			sCoord := g.GetVertexCoordinate(s)
-// 			tCoord := g.GetVertexCoordinate(t)
-
-// 			_, _, _, _, _, _ = rs.ShortestPath(context.Background(), sCoord.GetLat(), sCoord.GetLon(), tCoord.GetLat(), tCoord.GetLon(), false, 0, false, false)
-// 		}
-// 	})
-// }

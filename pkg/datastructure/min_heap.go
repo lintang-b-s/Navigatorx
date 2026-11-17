@@ -164,25 +164,23 @@ func (qh *QueryHeap[T, W]) optHeapifyUp(index Index) {
 		return
 	}
 
-	heap := qh.heap
-	vData := qh.verticesData
-	bubble := heap[index]
+	bubble := qh.heap[index]
 	pred := parent(index)
 	for index > 0 {
-		par := heap[pred]
+		par := qh.heap[pred]
 		if util.Le(par.rank, bubble.rank) {
 			break
 		}
 		// if parent.rank > bubble.rank
-		heap[index] = par
-		vData[par.vertexIndex].heapNodeId = index
+		qh.heap[index] = par
+		qh.verticesData[par.vertexIndex].heapNodeId = index
 
 		index = pred
 		pred = parent(pred)
 	}
 
-	heap[index] = bubble
-	vData[heap[index].vertexIndex].heapNodeId = index
+	qh.heap[index] = bubble
+	qh.verticesData[qh.heap[index].vertexIndex].heapNodeId = index
 }
 
 // IsEmpty check apakah heap kosong

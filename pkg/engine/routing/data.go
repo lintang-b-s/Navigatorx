@@ -71,34 +71,19 @@ func NewViaVertex(v da.Index, overlay bool) *ViaVertex {
 	return &ViaVertex{v: v, overlay: overlay}
 }
 
-// GetVId get vertex id
-func (v *ViaVertex) GetVId() da.Index {
-	return v.v
-}
-
 // IsOverlay is boundary/overlay vertex
 func (v *ViaVertex) IsOverlay() bool {
 	return v.overlay
 }
 
-// GetPlateau get plateau value
-func (v *ViaVertex) GetPlateau() float64 {
+// Plateau get plateau value
+func (v *ViaVertex) Plateau() float64 {
 	return v.plv
 }
 
-// Cost get cost of this alternative route s-via-t
-func (v *ViaVertex) Cost() float64 {
-	return v.lv
-}
-
-// GetApproxSharedDist returns approx shared dist.
-func (v *ViaVertex) GetApproxSharedDist() float64 {
-	return v.approxSharedDist
-}
-
 // GetApproxObjectiveValue returns approx objective value.
-func (v *ViaVertex) GetApproxObjectiveValue() float64 {
-	return 2*v.Cost() + v.GetApproxSharedDist() - v.GetPlateau()
+func (v *ViaVertex) approxObjectiveValue() float64 {
+	return 2*v.lv + v.approxSharedDist - v.Plateau()
 }
 
 // ParamInterval represents param interval.

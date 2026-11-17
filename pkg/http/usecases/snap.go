@@ -1,10 +1,11 @@
 package usecases
 
 import (
-	"github.com/bytedance/gopkg/collection/hashset"
+	"github.com/bits-and-blooms/bitset"
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/geo"
+	"github.com/lintang-b-s/Navigatorx/pkg/spatialindex"
 	"github.com/lintang-b-s/Navigatorx/pkg/util"
 )
 
@@ -14,6 +15,10 @@ type candidateSnap struct {
 	tailDist   float64
 	nextCoords []da.Coordinate
 }
+
+const (
+	pairSize = spatialindex.MaxCandidates * spatialindex.MaxCandidates
+)
 
 /*
 SnapOrigDestQueryToNearbyRoadSegments snaps origin and destination query coordinates to nearby road segments.
@@ -47,11 +52,12 @@ func (rs *RoutingService) SnapOrigDestQueryToNearbyRoadSegments(qOrigLat, qOrigL
 		sp = da.NewInvalidPhantomNode()
 		tp = da.NewInvalidPhantomNode()
 	)
-	removedPairSet := hashset.NewUint64WithSize(candidatePairCapacity)
+
+	evaluatedPairs := bitset.New(pairSize)
 	for util.Le(searchRad, MaxSearchRadius) {
 		// https://blog.mapbox.com/robust-navigation-with-smart-nearest-neighbor-search-dbc1f6218be8
 
-		sp, tp = rs.snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, removedPairSet, reroute, startSegmentId)
+		sp, tp = rs.snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad, reroute, startSegmentId, evaluatedPairs)
 		if !rs.notFoundOriginDestinationWithinRadius(sp, tp) {
 			// break loop early if found connected origin and destination
 			break
@@ -79,7 +85,7 @@ let c=max number of road segments/edges returned by rtree spatial index
 avg case: O(logM + c^2)
 */
 func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOrigLon, qDstLat, qDstLon, searchRad float64,
-	removedPairSet hashset.Uint64Set, reroute bool, startSegmentId da.Index) (da.PhantomNode, da.PhantomNode) {
+	reroute bool, startSegmentId da.Index, evaluatedPairs *bitset.BitSet) (da.PhantomNode, da.PhantomNode) {
 	var (
 		pLat, pLon float64
 		origCands  []da.Index
@@ -123,11 +129,13 @@ func (rs *RoutingService) snapOrigDestToNearbyRoadSegmentsByradius(qOrigLat, qOr
 	// worst case of this loop: O(c^2)
 	for i, o := range origCands {
 		for j, d := range dstCands {
-			if rs.isPairAlreadyEvaluated(o, d, removedPairSet) {
+
+			if rs.isPairAlreadyEvaluated(i, j, evaluatedPairs) {
 				continue
 			}
 			// kita set (o,d) evaluated=true mau ada path atau gak ada path dari o ke d.
-			rs.evaluate(o, d, removedPairSet)
+			rs.evaluate(i, j, evaluatedPairs)
+
 			// O(1)
 			if !rs.engine.PathExists(o, d) {
 				continue
@@ -313,14 +321,14 @@ func (rs *RoutingService) notFoundOriginDestinationWithinRadius(sp, tp da.Phanto
 	return false
 }
 
-// isPairAlreadyEvaluated. check (orig,dest) pair evaluated==true. avg case O(1) hashtable
-func (rs *RoutingService) isPairAlreadyEvaluated(orig, dest da.Index, removedPairSet hashset.Uint64Set) bool {
-	pairKey := util.Bitpack(uint32(orig), uint32(dest))
-	return removedPairSet.Contains(pairKey)
+// isPairAlreadyEvaluated. check (orig,dest) pair evaluated==true. O(1)
+func (rs *RoutingService) isPairAlreadyEvaluated(orig, dest int, evaluatedPairs *bitset.BitSet) bool {
+	pairKey := orig | (dest << 5)
+	return evaluatedPairs.Test(uint(pairKey))
 }
 
-// evaluate. set (orig,dest) pair evaluated=true. avg case O(1) hashtable
-func (rs *RoutingService) evaluate(orig, dest da.Index, removedPairSet hashset.Uint64Set) {
-	pairKey := util.Bitpack(uint32(orig), uint32(dest))
-	removedPairSet.Add(pairKey)
+// evaluate. set (orig,dest) pair evaluated=true. O(1)
+func (rs *RoutingService) evaluate(orig, dest int, evaluatedPairs *bitset.BitSet) {
+	pairKey := orig | (dest << 5)
+	evaluatedPairs.Set(uint(pairKey))
 }

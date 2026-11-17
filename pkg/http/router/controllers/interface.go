@@ -18,6 +18,7 @@ type RoutingService interface {
 	InitBackgroundWorker(ctx context.Context)
 	GetBoundingBox(ctx context.Context) da.BoundingBox
 	OfflineMapMatch(ctx context.Context, gpsTraj []*da.GPSPoint, gpsRadiusesM []float64) ([]*da.MatchedGPSPoint, string, error)
+	Done(routeSteps []da.RouteStep)
 }
 
 // RoutingEngine represents routing engine.

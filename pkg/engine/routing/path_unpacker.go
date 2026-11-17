@@ -1,6 +1,8 @@
 package routing
 
 import (
+	"slices"
+
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
 	"github.com/lintang-b-s/Navigatorx/pkg/landmark"
 	met "github.com/lintang-b-s/Navigatorx/pkg/metrics"
@@ -48,26 +50,27 @@ let n,m,k,n_o denote the number vertices of the original graph,edges of the orig
 lowest level cell path unpacking: O((n_p + m_p)*log(n_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most n_p, decrease-key most O(m_p) operations, extract-min and insert at at-most O(n_p) operations
 cell level > 1 path unpacking: O((n_op + \hat{m_p})*log(n_op)), decrease-key most O(\hat{m_p}) operations, extract-min and insert at is at most O(n_op) operations.
 */
+
 func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.Index, sCellNum, tCellNum da.Pv) []da.Index {
 
 	n := len(packedPath)
-	m := len(packedPath)
-	unpackedVertexPath := make([]da.Index, 0, m) // unpacked vertex path
-
+	m := pu.preallocate(packedPath, n, sCellNum, tCellNum)
+	unpackedVertexPath := da.GetIndexes(m)
 	for i := 0; i < n; {
 		u := packedPath[i]
 		if !isBitOn(u, UnpackOverlayOffset) {
-			// original vertex (non-overlay vertex)
+			// original vertex (non-boundary/overlay vertex)
 			unpackedVertexPath = append(unpackedVertexPath, u)
+			m++
 			i++
 		} else {
-			// overlay vertex
+			// boundary/overlay vertex
 			enOv := offBit(u, UnpackOverlayOffset)
 			_, enCellNum := pu.eng.overlayGraph.GetVertexData(enOv)
 			queryLevel := pu.eng.overlayGraph.QueryLevel(sCellNum, tCellNum, enCellNum)
 			v := packedPath[i+1]
 			exOv := offBit(v, UnpackOverlayOffset)
-			pu.unpackInLevelCell(enOv, exOv, queryLevel, &unpackedVertexPath)
+			pu.unpackInLevelCell(enOv, exOv, queryLevel, &unpackedVertexPath, &m, false)
 			i += 2
 		}
 	}
@@ -75,17 +78,17 @@ func (pu *PathUnpackerALT[W]) unpackPath(packedPath []da.Index, sCellNum, tCellN
 	return unpackedVertexPath
 }
 
-// todo: cari cara buat bikin unpackInLevelCell() jadi gak rekursif
-
 func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 	tOv da.Index,
 	level uint8,
 	verticesPath *[]da.Index,
+	m *int,
+	preallocate bool,
 ) {
 
 	if level == 1 {
 		pu.unpackInLowestLevelCell(
-			sOv, tOv, verticesPath)
+			sOv, tOv, verticesPath, m, preallocate)
 		return
 	}
 
@@ -98,7 +101,7 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 			unpacking significantly"  (Delling et al. (2015))
 		*/
 		for i := 0; i < len(overlayPath); i += 2 { // len(overlayPath) is always even
-			pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, verticesPath)
+			pu.unpackInLevelCell(overlayPath[i], overlayPath[i+1], level-1, verticesPath, m, preallocate)
 		}
 		return
 	}
@@ -204,13 +207,13 @@ func (pu *PathUnpackerALT[W]) unpackInLevelCell(sOv da.Index,
 	for i := 0; i < len(overlayPath); i += 2 {
 		curV := overlayPath[i]
 		nextV := overlayPath[i+1]
-		pu.unpackInLevelCell(curV, nextV, level-1, verticesPath)
+		pu.unpackInLevelCell(curV, nextV, level-1, verticesPath, m, preallocate)
 	}
 
 }
 
 func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
-	sOv, tOv da.Index, verticesPath *[]da.Index) {
+	sOv, tOv da.Index, verticesPath *[]da.Index, m *int, preallocate bool) {
 
 	if segmentIds, ok := pu.eng.puCache.GetIfPresent(da.NewPUCacheKey(sOv, tOv, 1)); ok {
 		// fetch from cache
@@ -221,6 +224,11 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 			will show, with a standard least-recently used (LRU) update policy, even a small cache can accelerate path
 			unpacking significantly"  (Delling et al. (2015))
 		*/
+		if preallocate {
+			(*m) += len(segmentIds)
+			return
+		}
+
 		(*verticesPath) = append((*verticesPath), segmentIds...)
 		return
 	}
@@ -233,16 +241,15 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 	sData := da.NewVData(W(0), s, da.InvalidVertexId)
 	sCellNum := pu.eng.graph.GetCellNumber(s)
 
+	n := 0
 	offset, _ := pu.eng.graph.GetVertexCellOffset(s)
 	pq.InitLevelOneCellQuery(offset)
-
 	pq.Insert(s, 0, sData)
-
 	activeLandmarks := pu.lm.SelectBestQueryLandmarks(s, t)
 
 	for pq.Size() > 0 {
 		u, uCost := pq.ExtractMin()
-
+		n++
 		if u == t {
 			break
 		}
@@ -275,24 +282,66 @@ func (pu *PathUnpackerALT[W]) unpackInLowestLevelCell(
 		}
 	}
 
-	startLen := len(*verticesPath)
-	u := t
-	(*verticesPath) = append((*verticesPath), t)
-	for {
-		prevVertex := pq.Get(u).GetParent()
-		if prevVertex == da.InvalidVertexId {
-			break
+	if !preallocate {
+		startLen := len(*verticesPath)
+		u := t
+		(*verticesPath) = append((*verticesPath), t)
+		for {
+			prev := pq.Get(u).GetParent()
+			if prev == da.InvalidVertexId {
+				break
+			}
+			(*verticesPath) = append((*verticesPath), prev)
+			u = prev
 		}
-		(*verticesPath) = append((*verticesPath), prevVertex)
-		u = prevVertex
+
+		endLen := len(*verticesPath)
+		subPath := (*verticesPath)[startLen:endLen:endLen]
+		util.ReverseG(subPath)
+		cachedSubPath := slices.Clone(subPath)
+		pu.eng.puCache.SetIfAbsent(da.NewPUCacheKey(sOv, tOv, 1), cachedSubPath)
+	} else {
+		// preallocate==true
+		// just increment the unpacked vertex size (m) and cache the unpacked subpath.
+		(*m)++
+		u := t
+		subPath := make([]da.Index, 0, n)
+		subPath = append(subPath, t)
+		for {
+			prev := pq.Get(u).GetParent()
+			if prev == da.InvalidVertexId {
+				break
+			}
+			(*m)++
+			subPath = append(subPath, prev)
+			u = prev
+		}
+		util.ReverseG(subPath)
+		pu.eng.puCache.SetIfAbsent(da.NewPUCacheKey(sOv, tOv, 1), subPath)
 	}
-
-	endLen := len(*verticesPath)
-	subPath := (*verticesPath)[startLen:endLen:endLen]
-	util.ReverseG(subPath)
-	pu.eng.puCache.SetIfAbsent(da.NewPUCacheKey(sOv, tOv, 1), subPath)
-
 	pq.Clear()
 	pu.eng.puHeapPool.Put(pq)
+}
 
+func (pu *PathUnpackerALT[W]) preallocate(packedPath []da.Index, n int, sCellNum, tCellNum da.Pv) int {
+	m := 0
+	for i := 0; i < n; {
+		u := packedPath[i]
+		if !isBitOn(u, UnpackOverlayOffset) {
+			// original vertex (non-boundary/overlay vertex)
+			m++
+			i++
+		} else {
+			// boundary/overlay vertex
+			enOv := offBit(u, UnpackOverlayOffset)
+			_, enCellNum := pu.eng.overlayGraph.GetVertexData(enOv)
+			queryLevel := pu.eng.overlayGraph.QueryLevel(sCellNum, tCellNum, enCellNum)
+			v := packedPath[i+1]
+			exOv := offBit(v, UnpackOverlayOffset)
+			pu.unpackInLevelCell(enOv, exOv, queryLevel, nil, &m, true)
+			i += 2
+		}
+	}
+
+	return m
 }

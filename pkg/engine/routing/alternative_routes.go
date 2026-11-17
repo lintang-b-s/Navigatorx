@@ -4,7 +4,6 @@ import (
 	"cmp"
 	"math"
 	"slices"
-	"time"
 
 	"github.com/lintang-b-s/Navigatorx/pkg"
 	da "github.com/lintang-b-s/Navigatorx/pkg/datastructure"
@@ -102,17 +101,15 @@ DONE :), sekarang sucess ratenya >= 88% untuk solo.osm.pbf dan yogyakarta.osm.pb
 
 // ComputeAlternativeRoutes computes alternative routes.
 func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k int, _ bool, optCost float64, optPath []da.Index,
-	crpQuery *CRPQuery[W], param AlternativeRouteParameters) ([]AlternativeRoute, int64) {
+	crpQuery *CRPQuery[W], param AlternativeRouteParameters) []AlternativeRoute {
 
-	now := time.Now()
+	fpq := crpQuery.fpq
+	bpq := crpQuery.bpq
+	sCellNumber := crpQuery.sCellNumber
+	tCellNumber := crpQuery.tCellNumber
+	viaVerticesIds := crpQuery.viaVertices
 
-	fpq := crpQuery.GetForwardPQ()
-	bpq := crpQuery.GetBackwardPQ()
-	sCellNumber := crpQuery.GetSCellNumber()
-	tCellNumber := crpQuery.GetTCellNumber()
-	viaVertices := crpQuery.viaVertices
-
-	viaVertices = filterByUniqueId(viaVertices)
+	viaVertices := ars.filterByUniqueId(viaVerticesIds, fpq, bpq)
 	sortedOptPath := buildSortedOptPath(optPath)
 	unpacker := newPathUnpackerALT(ars.re, ars.metrics, ars.lm)
 	arf := NewAlternativeRouteFilter(ars, fpq, bpq,
@@ -126,8 +123,8 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 	}
 
 	slices.SortFunc(filteredCandidates, func(a, b *ViaVertex) int {
-		return cmp.Compare(a.GetApproxObjectiveValue(),
-			b.GetApproxObjectiveValue())
+		return cmp.Compare(a.approxObjectiveValue(),
+			b.approxObjectiveValue())
 	})
 
 	c := min(param.maxCandidatesToUnpack, len(filteredCandidates))
@@ -179,7 +176,7 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 			distSharing := sigmav / arf.optCost
 			fv := 2*lv + sigmav - plv
 
-			alternativeRoute := NewAlternativeRoute(fv, lv, distSharing, v.GetVId(),
+			alternativeRoute := NewAlternativeRoute(fv, lv, distSharing, v.v,
 				v.path, v)
 			alt := alternativeRoute.segmentPath
 			sortedAlt := make([]da.Index, len(alt))
@@ -215,9 +212,8 @@ func (ars *AlternativeRouteSearch[W]) ComputeAlternativeRoutes(s, t da.Index, k 
 	// O(c*(p*log(m) + pu))
 	// dominated by path unpacking runtime
 	// we only unpack small numbers of alternative route candidates, determined by parameter in car.yaml
-	runtime := time.Since(now).Milliseconds()
 
-	return res, runtime
+	return res
 }
 func intersection(oAlt, alt []da.Index) int {
 	n := 0
@@ -292,9 +288,6 @@ func NewAlternativeRouteFilter[W util.Numeric](ars *AlternativeRouteSearch[W],
 }
 
 func (arf AlternativeRouteFilter[W]) filterCandidate(v *ViaVertex) bool {
-	var (
-		svCost, vtCost float64
-	)
 
 	/*
 		let p = number of edges & shortcut edges in s-via-t path
@@ -306,18 +299,14 @@ func (arf AlternativeRouteFilter[W]) filterCandidate(v *ViaVertex) bool {
 		worst case of filterCandidate: O(p)
 	*/
 
-	svCost = util.WeightToSeconds(arf.fpq.Cost(v.GetVId()))
-	vtCost = util.WeightToSeconds(arf.bpq.Cost(v.GetVId()))
-
-	// stretch
-	lv := svCost + vtCost
+	lv := v.lv
 
 	if util.Ge(lv, (1+arf.param.epsilon)*arf.optCost) {
 		// dari lemma 4.3 ref[1], kita cukup cek stretch dari via path P_v dan cek sudah pass T-test atau tidak, untuk cek P_v PASS UBS criteria
 		return false
 	}
 
-	var mid = v.GetVId()
+	var mid = v.v
 
 	packedPath := arf.ars.re.RetrievePackedPath(mid, arf.fpq, arf.bpq)
 
@@ -329,7 +318,7 @@ func (arf AlternativeRouteFilter[W]) filterCandidate(v *ViaVertex) bool {
 		return false
 	}
 
-	plv := arf.ars.calculatePlateau(v.GetVId(), arf.s, arf.t,
+	plv := arf.ars.calculatePlateau(v.v, arf.s, arf.t,
 		arf.fpq, arf.bpq, lv) // O(p)
 	v.plv = plv // harus dicalculate disini karena setelah ini kita sort alternative route candidates by GetApproxObjectiveValue()
 
@@ -350,8 +339,8 @@ func (arf AlternativeRouteFilter[W]) computeAlternative(v *ViaVertex) Alternativ
 	/*
 		let n_p,m_p,n_op,and \hat{m_p} denote the maximum number of nodes, edges, overlay vertices (include overlay vertices in its all direct subcells/subcells in level-1), and shortcut edges (and cut edges) within any cell
 		let n,m,k,n_o denote the number vertices of the original graph,edges of the original graph, number of cells in level 1 (excluded cell dari s dan cell dari t di level 1), and number of overlay vertices respectively.
-		lowest level cell path unpacking: O((n_p + m_p)*log(n_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most n_p, decrease-key at most O(m_p) operations, extract-min and insert at most O(n_p) operations
-		cell level > 1 path unpacking: O((n_op + \hat{m_p})*log(n_op)), decrease-key at most O(\hat{m_p}) operations, extract-min and insert is at most O(n_op) operations
+		lowest level cell path unpacking: O((n_p + m_p)*log(n_p)), in unpackInLowestLevelCell(), priority queue (4-ary heap) contains at most n_p, decrease-key  most O(m_p) operations, extract-min and insert at-most O(n_p) operations
+		cell level > 1 path unpacking: O((n_op + \hat{m_p})*log(n_op)), decrease-key  most O(\hat{m_p}) operations, extract-min and insert is at most O(n_op) operations
 		let pu=time complexity of path unpacking (path_unpacker.go)
 		let p = number of road segments in (s,via,t) alternative route candidate path
 		m=len(sortedOptPath)
@@ -369,7 +358,7 @@ func (arf AlternativeRouteFilter[W]) computeAlternative(v *ViaVertex) Alternativ
 	v.sigmav = sigmav
 	v.path = path
 
-	lv := v.Cost()
+	lv := v.lv
 	// cek T-test
 	T := arf.param.alpha * (lv - sigmav)
 	plv := v.plv
@@ -395,7 +384,7 @@ func (arf AlternativeRouteFilter[W]) computeAlternative(v *ViaVertex) Alternativ
 	fv := 2*lv + sigmav - plv
 	altSegmentPath := v.path
 	distSharing := sigmav / arf.optCost
-	return NewAlternativeRoute(fv, lv, distSharing, v.GetVId(),
+	return NewAlternativeRoute(fv, lv, distSharing, v.v,
 		altSegmentPath, v)
 }
 
@@ -410,13 +399,30 @@ func buildSortedOptPath(optPath []da.Index) []da.Index {
 }
 
 // filterByUniqueId removes duplicate via vertices by their vertex id in-place.
-func filterByUniqueId(vias []*ViaVertex) []*ViaVertex {
-	slices.SortFunc(vias, func(a, b *ViaVertex) int {
-		return cmp.Compare(a.GetVId(), b.GetVId())
+func (ars AlternativeRouteSearch[W]) filterByUniqueId(vias []da.Index, fpq, bpq *da.QueryHeap[da.QueryKey, W]) []*ViaVertex {
+	slices.Sort(vias)
+	compacted := slices.CompactFunc(vias, func(a, b da.Index) bool {
+		return a == b
 	})
-	return slices.CompactFunc(vias, func(a, b *ViaVertex) bool {
-		return a.GetVId() == b.GetVId()
-	})
+	viaVertices := make([]*ViaVertex, len(compacted))
+	for i, v := range compacted {
+		svCost := util.WeightToSeconds(fpq.Cost(v))
+		vtCost := util.WeightToSeconds(bpq.Cost(v))
+
+		// stretch
+		lv := svCost + vtCost
+		if ars.re.isOverlay(v) {
+			via := NewViaVertex(v, true)
+			via.lv = lv
+			viaVertices[i] = via
+		} else {
+			via := NewViaVertex(v, false)
+			via.lv = lv
+			viaVertices[i] = via
+		}
+	}
+
+	return viaVertices
 }
 
 // calculateDistanceShare. calculate sharing amount (edge weights) dari unpacked path dari alternative route P_v dan optimal/shortest route Opt
@@ -796,7 +802,7 @@ func (ars *AlternativeRouteSearch[W]) GetLocalOptimality(candidates []Alternativ
 	locOpt := 0.0
 
 	for i := 0; i < len(candidates); i++ {
-		locOpt += (candidates[i].viaVertex.GetPlateau() / optimalCost) * 100
+		locOpt += (candidates[i].viaVertex.Plateau() / optimalCost) * 100
 	}
 	locOpt /= float64(len(candidates))
 

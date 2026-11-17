@@ -163,6 +163,7 @@ func (api *RoutingAPI) shortestPath(w http.ResponseWriter, r *http.Request, _ ht
 	if !withAlternatives {
 		travelTime, dist, pathPolyline, drivingDirections, ok, err := api.routingService.ShortestPath(newCtx, request.OriginLat, request.OriginLon,
 			request.DestinationLat, request.DestinationLon, reroute, startEdgeId, useAnnotation, useSteps)
+		defer api.routingService.Done(drivingDirections)
 
 		if err != nil {
 			api.getStatusCode(w, r, err)
@@ -187,6 +188,12 @@ func (api *RoutingAPI) shortestPath(w http.ResponseWriter, r *http.Request, _ ht
 	} else {
 		routeCosts, routeDists, routePolylines, routeDrivingDirections, err := api.routingService.AlternativeRouteSearch(newCtx, request.OriginLat, request.OriginLon,
 			request.DestinationLat, request.DestinationLon, int(k), reroute, startEdgeId, useAnnotation, useSteps)
+		defer func() {
+			for _, d := range routeDrivingDirections {
+				api.routingService.Done(d)
+			}
+		}()
+
 		if err != nil {
 			api.getStatusCode(w, r, err)
 			return

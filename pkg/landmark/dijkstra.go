@@ -14,6 +14,7 @@ type Dijkstra[W util.Numeric] struct {
 	graph           *da.Graph
 	cf              *met.TimeFunction[W]
 	inf             W
+	roadNetwork     bool
 	useReverseGraph bool
 }
 
@@ -24,6 +25,7 @@ func NewDijkstra[W util.Numeric](graph *da.Graph, cf *met.TimeFunction[W], useRe
 		useReverseGraph: useReverseGraph,
 		inf:             util.Infinity[W](),
 		cf:              cf,
+		roadNetwork:     graph.IsRoadNetworkGraph(),
 	}
 
 	return dj
@@ -45,26 +47,24 @@ useReversedGraph = true -> buat cari sssp dari every vertices in graph to s
 
 Cormen, T.H. et al. (2022) Introduction to Algorithms. 4th ed. Cambridge, MA, USA:
 MIT Press (CLRS).:
-Single-destination shortest-paths problem: Find a shortest path to a given des-
+"Single-destination shortest-paths problem: Find a shortest path to a given des-
 tination vertex t from each vertex v. By reversing the direction of each edge in
-the graph, we can reduce this problem to a single-source problem..
+the graph, we can reduce this problem to a single-source problem." (Cormen et al. (2022))
 
 buat precalculated landmark sp distances (untuk potential/heuristic ALT (A*, landmarks, and triangle inequality) algorithm)
 */
 func (us *Dijkstra[W]) ShortestPath(s da.Index, heapPool *sync.Pool, dist []W) {
-	switch any(W(0)).(type) {
-	case int32:
+	if us.roadNetwork {
 		pq := heapPool.Get().(*radixheap.RadixHeap[uint32, da.Index])
 		us.shortestPathRadixHeap(s, pq, dist)
 		pq.Clear()
 		heapPool.Put(pq)
-	default:
+	} else {
 		pq := heapPool.Get().(*da.QueryHeap[da.Index, W])
 		us.shortestPathFourAryHeap(s, pq, dist)
 		pq.Clear()
 		heapPool.Put(pq)
 	}
-
 }
 
 // shortestPathFourAryHeap dijkstra single source shortest path algorithm with decreaseKey() + 4-ary heap.
@@ -81,17 +81,17 @@ func (us *Dijkstra[W]) shortestPathFourAryHeap(s da.Index, pq *da.QueryHeap[da.I
 		for eId := offset; eId < offset+eNum; eId++ {
 			// get cost to reach v through u
 			v, eWeight := us.getV(eId, out)
-			newVCost := uCost + eWeight
+			nvCost := uCost + eWeight
 			ovCost := dist[v]
-			if util.Lt(newVCost, ovCost) {
-				vData := da.NewVData(newVCost, v, noPar)
+			if util.Lt(nvCost, ovCost) {
+				vData := da.NewVData(nvCost, v, noPar)
 				vLabelled := util.Lt(ovCost, us.inf)
 				if vLabelled {
-					pq.DecreaseKey(v, newVCost, newVCost, noPar)
+					pq.DecreaseKey(v, nvCost, nvCost, noPar)
 				} else {
-					pq.Insert(v, newVCost, vData)
+					pq.Insert(v, nvCost, vData)
 				}
-				dist[v] = newVCost
+				dist[v] = nvCost
 			}
 		}
 	}
@@ -113,11 +113,11 @@ func (us *Dijkstra[W]) shortestPathRadixHeap(s da.Index, pq *radixheap.RadixHeap
 		for eId := offset; eId < offset+eNum; eId++ {
 			// get cost to reach v through u
 			v, eWeight := us.getV(eId, out)
-			newVCost := uCost + uint32(eWeight)
+			nvCost := uCost + uint32(eWeight)
 			ovCost := uint32(dist[v])
-			if newVCost < ovCost {
-				pq.Insert(newVCost, v)
-				dist[v] = W(newVCost)
+			if nvCost < ovCost {
+				pq.Insert(nvCost, v)
+				dist[v] = W(nvCost)
 			}
 		}
 	}

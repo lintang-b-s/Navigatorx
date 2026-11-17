@@ -67,14 +67,14 @@ func (s *ArrayCRPStorage) Clear() {
 }
 
 // ArrayStorage  stores heap indices for vertices using a array.
+// should be used when the average number of vertices explored almost equal to the number of vertices in the graph (or cell).
+// such as in Dijkstra Single Source Shortest Path (SSSP).
 type ArrayStorage struct {
 	base []Index
 }
 
 // NewArrayStorage creates and initializes an [ArrayStorage] with the given size.
 // All entries are initialized to [math.MaxUint32] to indicate an unset state.
-// should be used when the average number of vertices explored almost equal to the number of vertices in the graph (or cell).
-// such as in Dijkstra Single Source Shortest Path (SSSP).
 func NewArrayStorage(size Index) *ArrayStorage {
 	base := make([]Index, size)
 	for i := Index(0); i < size; i++ {

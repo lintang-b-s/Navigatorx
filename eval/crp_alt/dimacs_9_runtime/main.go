@@ -305,11 +305,11 @@ func main() {
 		t := query.GetTarget()
 
 		crpQuery := routing.NewCRPUniALTQuery(re)
-		sp, _, _ := crpQuery.ShortestPathSearch(s, t)
+		sp, vPath, _ := crpQuery.ShortestPathSearch(s, t)
 		if (id+1)%progress == 0 {
 			logger.Sugar().Infof("done query id: %v/%v", id+1, nq)
 		}
-
+		da.PutIndexes(vPath)
 		return newQueryRes(sp)
 	}
 
