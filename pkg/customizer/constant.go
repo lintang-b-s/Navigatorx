@@ -14,7 +14,7 @@ var (
 
 const (
 	// CellEntriesChanSize is the cell entries chan size value.
-	CellEntriesChanSize   = 1024
-	dijkstraResChanSize   = 1024
-	cellCliqueOutChanSize = 512
+	CellEntriesChanSize      = 1024
+	dijkstraResChanSize      = 1024
+	cellShortcutsOutChanSize = 512
 )

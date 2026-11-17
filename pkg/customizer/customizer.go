@@ -344,7 +344,7 @@ func newCellCustomizationResult[W util.Numeric](cost W, index int) cellCustomiza
 // (acknowledgment) inspired by crp customization code implementation by michael wegner: https://github.com/michaelwegner/CRP/blob/master/datastructures/OverlayWeights.cpp
 
 /*
-// buildLowestLevel. build clique of each cell in the lowest level (level 1)
+// buildLowestLeve computes shortcut edges weights of each cell in the lowest level (level 1)
 // using Dijkstra algorithm (restricted to cell C) from each entry point of the cell to all exit points of the cell
 // and store the result in ow.weights
 // restricted to cell C: menggunakan only vertices dan edges yang terletak pada cell C.
@@ -365,11 +365,11 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 
 	cellMapInLevelOne := c.overlayGraph.GetAllCellsInLevel(1)
 
-	cellCliqueOutChan := make(chan []cellCustomizationRes[W], cellCliqueOutChanSize)
+	cellShortcutsOutChan := make(chan []cellCustomizationRes[W], cellShortcutsOutChanSize)
 
 	wg := sync.WaitGroup{}
 
-	buildCellClique := func(job customizerCell) {
+	computeCellShortcutsWeights := func(job customizerCell) {
 
 		cell := job.cell
 		cellNumber := job.cellNumber
@@ -377,7 +377,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
 		dijkstraResChan := make(chan cellCustomizationRes[W], dijkstraResChanSize)
 
-		dijkstra := func(entries <-chan da.Index) {
+		dijkstraCell := func(entries <-chan da.Index) {
 			/*
 				let n_1, m_1, n_{op1} denote the maximum number of nodes, edges, entry boundary/overlay vertices within any level-1 cell
 
@@ -463,7 +463,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 
 		entries := make(chan da.Index, CellEntriesChanSize)
 		for worker := 1; worker <= CellWorker; worker++ {
-			go dijkstra(entries)
+			go dijkstraCell(entries)
 		}
 
 		cellWeights := make([]cellCustomizationRes[W], cell.GetNumEntryPoints()*cell.GetNumExitPoints())
@@ -488,11 +488,11 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 		wg.Wait()
 		close(dijkstraResChan)
 
-		cellCliqueOutChan <- cellWeights
+		cellShortcutsOutChan <- cellWeights
 	}
 
 	go func() {
-		for cellWeights := range cellCliqueOutChan {
+		for cellWeights := range cellShortcutsOutChan {
 			for _, w := range cellWeights {
 				c.ow.SetWeight(w.index, w.cost)
 			}
@@ -504,20 +504,20 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 	for cellNumber, cell := range cellMapInLevelOne {
 		wg.Add(1)
 		numberOfShortcuts += cell.GetNumEntryPoints() * cell.GetNumExitPoints()
-		gopool.CtxGo(context.Background(), func() { buildCellClique(newCustomizerCell(cell, da.Pv(cellNumber))) })
+		gopool.CtxGo(context.Background(), func() { computeCellShortcutsWeights(newCustomizerCell(cell, da.Pv(cellNumber))) })
 	}
 
 	// let c_1 be the number of cells in level 1
 	// worst case buildLowestLevel: O( c_1 * n_op * ((m_p + n_p)* log(n_p)))
 
 	wg.Wait()
-	close(cellCliqueOutChan)
+	close(cellShortcutsOutChan)
 	c.logger.Sugar().Infof("number of shortcut edges overlay graph level %v: %v ", 1, numberOfShortcuts)
 
 }
 
 /*
-// buildLevel. build clique of each cell in the level (level > 1)
+// buildLevel  computes shortcut edges weights of each cell in the level (level > 1)
 // using Dijkstra algorithm (menggunakan shortcut edges & cut edges pada subcells of the level-i cell) from each entry boundary/overlay vertices of the cell to all exit boundary/overlay vertices of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
@@ -538,11 +538,11 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 	levelData := c.overlayGraph.GetLevelData()
 	cellMapInLevel := c.overlayGraph.GetAllCellsInLevel(l)
 
-	cellCliqueOutChan := make(chan []cellCustomizationRes[W], cellCliqueOutChanSize)
+	cellShortcutsOutChan := make(chan []cellCustomizationRes[W], cellShortcutsOutChanSize)
 
 	wg := sync.WaitGroup{}
 
-	buildCellClique := func(job customizerCell) {
+	computeCellShortcutsWeights := func(job customizerCell) {
 
 		cell := job.cell
 		cellNumber := job.cellNumber
@@ -550,7 +550,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 		cellWeightSize := cell.GetNumEntryPoints() * cell.GetNumExitPoints()
 		dijkstraResChan := make(chan cellCustomizationRes[W], dijkstraResChanSize)
 
-		dijkstra := func(entries <-chan da.Index) {
+		dijkstraCell := func(entries <-chan da.Index) {
 			/*
 				let n_op, n_{op}', \hat{m_p} denotes the maximum number of entry boundary/overlay vertices, boundary/overlay vertices in all subcells, and shortcut edges & cut edges   within any level-l cell
 
@@ -643,7 +643,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 
 		entries := make(chan da.Index, CellEntriesChanSize)
 		for worker := 1; worker <= CellWorker; worker++ {
-			go dijkstra(entries)
+			go dijkstraCell(entries)
 		}
 
 		cellWeights := make([]cellCustomizationRes[W], cell.GetNumEntryPoints()*cell.GetNumExitPoints())
@@ -668,11 +668,11 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 		wg.Wait()
 		close(dijkstraResChan)
 
-		cellCliqueOutChan <- cellWeights
+		cellShortcutsOutChan <- cellWeights
 	}
 
 	go func() {
-		for cellWeights := range cellCliqueOutChan {
+		for cellWeights := range cellShortcutsOutChan {
 			for _, w := range cellWeights {
 				c.ow.SetWeight(w.index, w.cost)
 			}
@@ -685,7 +685,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 		wg.Add(1)
 		numberOfShortcuts += cell.GetNumEntryPoints() * cell.GetNumExitPoints()
 		gopool.CtxGo(context.Background(), func() {
-			buildCellClique(newCustomizerCell(cell, da.Pv(pv)))
+			computeCellShortcutsWeights(newCustomizerCell(cell, da.Pv(pv)))
 		})
 	}
 
@@ -693,7 +693,7 @@ func (c *Customizer[W]) buildLevel(wf *met.TimeFunction[W], l int) {
 	// worst case buildLevel:  O( c_l * n_op * ( n_{op}' + \hat{m_p})* log( n_{op}'))
 
 	wg.Wait()
-	close(cellCliqueOutChan)
+	close(cellShortcutsOutChan)
 	c.logger.Sugar().Infof("number of shortcut edges overlay graph level %v: %v ", l, numberOfShortcuts)
 }
 
