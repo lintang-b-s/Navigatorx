@@ -3,7 +3,7 @@ module github.com/lintang-b-s/Navigatorx
 go 1.27.3
 
 require (
-	github.com/bits-and-blooms/bitset v1.29.0
+	github.com/bits-and-blooms/bitset v1.30.0
 	github.com/bytedance/gopkg v0.1.4
 	github.com/bytedance/sonic v1.15.5
 	github.com/go-playground/locales v0.14.2
@@ -14,7 +14,7 @@ require (
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/justinas/alice v1.2.0
 	github.com/klauspost/compress v1.20.4
-	github.com/lintang-b-s/radixheap v0.0.2-0.20261113025527-9d985ff9f79d
+	github.com/lintang-b-s/radixheap v0.0.2-0.20261120053952-7f47880915eb
 	github.com/lintang-b-s/rtree v0.0.0-20261020113159-bb4f38b48bdd
 	github.com/maypok86/otter/v2 v2.4.0
 	github.com/paulmach/osm v0.9.0
@@ -25,7 +25,7 @@ require (
 	github.com/swaggo/http-swagger v1.3.4
 	github.com/twpayne/go-polyline v1.1.2
 	go.uber.org/zap v1.28.0
-	golang.org/x/mobile v0.0.0-20261011034528-197770444867
+	golang.org/x/mobile v0.0.0-20261117202452-47699113848a
 	golang.org/x/mod v0.43.0
 	golang.org/x/sync v0.25.0
 	golang.org/x/time v0.16.0
@@ -103,7 +103,7 @@ require (
 	github.com/gabriel-vasile/mimetype v1.4.16 // indirect
 	github.com/ghostiam/protogetter v1.0.1 // indirect
 	github.com/go-critic/go-critic v0.15.0 // indirect
-	github.com/go-openapi/jsonpointer v1.0.2 // indirect
+	github.com/go-openapi/jsonpointer v1.0.3 // indirect
 	github.com/go-openapi/jsonreference v1.0.3 // indirect
 	github.com/go-openapi/spec v1.0.1 // indirect
 	github.com/go-openapi/swag/conv v0.29.2 // indirect
@@ -244,17 +244,17 @@ require (
 	go-simpler.org/sloglint v0.12.0 // indirect
 	go.augendre.info/arangolint v0.4.0 // indirect
 	go.augendre.info/fatcontext v0.10.1 // indirect
-	go.mongodb.org/mongo-driver/v2 v2.10.0 // indirect
+	go.mongodb.org/mongo-driver/v2 v2.10.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.6 // indirect
 	golang.org/x/arch v0.33.0 // indirect
 	golang.org/x/crypto v0.59.0 // indirect
 	golang.org/x/exp v0.0.0-20260908205506-85c1c2202aba // indirect
 	golang.org/x/exp/typeparams v0.0.0-20260811152304-ee035b5b010f // indirect
-	golang.org/x/net v0.62.0 // indirect
+	golang.org/x/net v0.63.0 // indirect
 	golang.org/x/sys v0.50.0 // indirect
 	golang.org/x/text v0.44.0 // indirect
-	golang.org/x/tools v0.52.0 // indirect
+	golang.org/x/tools v0.53.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

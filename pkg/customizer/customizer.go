@@ -517,7 +517,7 @@ func (c *Customizer[W]) buildLowestLevel(wf *met.TimeFunction[W]) {
 }
 
 /*
-// buildLevel  computes shortcut edges weights of each cell in the level (level > 1)
+// buildLevel computes shortcut edges weights of each cell in the level (level > 1)
 // using Dijkstra algorithm (menggunakan shortcut edges & cut edges pada subcells of the level-i cell) from each entry boundary/overlay vertices of the cell to all exit boundary/overlay vertices of the cell
 // and store the result in ow.weights
 // this function is parallelized using goroutines worker pool
